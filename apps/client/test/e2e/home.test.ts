@@ -1,12 +1,11 @@
 import { catalogs } from '@study/localization';
-
-import { expect, testE2e } from './harness/index.ts';
+import { test } from '@study/testing';
 
 const copy = catalogs.english;
 
-testE2e(
+test.stable(
   'Home navigation reaches Projects',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/home');
     await expect(page).toHaveURL(/\/notes$/);
     await page.getByRole('combobox', { name: copy.ChooseProject }).click();

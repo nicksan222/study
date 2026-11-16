@@ -1,3 +1,4 @@
+import { defaultAgentRules } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exposes schema-checked settings capabilities and their agent-facing usage          │
@@ -11,12 +12,8 @@
  * │ tool execution.                                                                          │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { defaultAgentRules } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -26,10 +23,10 @@ import { subjectTools } from './subjects.ts';
 
 const environment = { language: 'en', searchSources: () => Effect.succeed([]) };
 
-testStable(
+test.stable(
   'settings patches preserve unrelated preferences and reject values outside canonical bounds',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     try {
@@ -62,7 +59,9 @@ testStable(
             Schema.is(settingsTools.update_general_settings.input)({ appearance: 'dark' })
           ).toBe(false);
           expect(
-            Schema.is(settingsTools.update_custom_instructions.input)({ replies: 'a'.repeat(8001) })
+            Schema.is(settingsTools.update_custom_instructions.input)({
+              replies: 'a'.repeat(8001)
+            })
           ).toBe(false);
         }).pipe(Effect.provideService(Database, { store: context }))
       );
@@ -73,10 +72,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'subject creation reuses exact names and branded IDs round-trip through JSON tool schemas',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     try {

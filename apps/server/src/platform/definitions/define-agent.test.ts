@@ -1,3 +1,4 @@
+import { assistantToolNameSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks that defineAgent retains its input schema and rejects invalid agent         │
@@ -11,95 +12,110 @@
  * │ application or database fixture is involved.                                             │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { assistantToolNameSchema } from '@study/contracts';
 import type { AssistantToolName } from '@study/contracts';
 import { noteIdSchema } from '@study/contracts';
 import { AgentRule } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { assert, expect, expectTypeOf } from 'vite-plus/test';
 
 import { assistantAgent } from '#server/features/notes/agents/assistant';
 import { noteAssistantAgent } from '#server/features/notes/agents/note-assistant';
 import { defineAgent, defineTool } from '#server/platform/definitions/define-agent';
 
-testStable('defineAgent preserves schemas and rejects invalid identifiers', () => {
-  const input = Schema.Struct({ prompt: Schema.String });
-  const definition = defineAgent({
-    id: 'reply',
-    customRules: [AgentRule.Replies],
-    input,
-    output: Schema.String,
-    model: 'tiny',
-    instructions: 'Reply',
-    prompt: ({ prompt }) => prompt
-  });
+test.stable(
+  'defineAgent preserves schemas and rejects invalid identifiers',
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  assert.strictEqual(definition.input, input);
-  assert.throws(() => defineAgent({ ...definition, id: '' }), RangeError);
-});
+    const input = Schema.Struct({ prompt: Schema.String });
+    const definition = defineAgent({
+      id: 'reply',
+      customRules: [AgentRule.Replies],
+      input,
+      output: Schema.String,
+      model: 'tiny',
+      instructions: 'Reply',
+      prompt: ({ prompt }) => prompt
+    });
 
-testStable('agent declarations require a nonempty selection of known user rules', () => {
-  const valid = {
-    id: 'test',
-    input: Schema.String,
-    output: Schema.String,
-    model: 'tiny' as const,
-    instructions: 'Test',
-    prompt: (input: string) => input
-  };
+    assert.strictEqual(definition.input, input);
+    assert.throws(() => defineAgent({ ...definition, id: '' }), RangeError);
+  }
+);
 
-  // @ts-expect-error every declaration must select user rules
-  defineAgent(valid);
-  // @ts-expect-error empty selections cannot silently bypass user preferences
-  defineAgent({ ...valid, customRules: [] });
-  // @ts-expect-error raw strings cannot stand in for typed rule selections
-  defineAgent({ ...valid, customRules: ['replies'] });
+test.stable(
+  'agent declarations require a nonempty selection of known user rules',
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  assert.deepEqual(
-    defineAgent({ ...valid, customRules: [AgentRule.Quizzes, AgentRule.Titles] }).customRules,
-    [AgentRule.Quizzes, AgentRule.Titles]
-  );
-});
+    const valid = {
+      id: 'test',
+      input: Schema.String,
+      output: Schema.String,
+      model: 'tiny' as const,
+      instructions: 'Test',
+      prompt: (input: string) => input
+    };
 
-testStable('tool declarations require a wiki and bind execution to canonical schemas', () => {
-  const valid = {
-    description: 'Read a count',
-    input: Schema.Struct({ count: Schema.Int }),
-    output: Schema.Int,
-    mutates: false,
-    execute: ({ count }: { count: number }) => Effect.succeed(count)
-  };
-  const wiki = {
-    when: 'Read a count',
-    examples: ['Read my count'] as const,
-    limits: 'Only counts'
-  };
+    // @ts-expect-error every declaration must select user rules
+    defineAgent(valid);
+    // @ts-expect-error empty selections cannot silently bypass user preferences
+    defineAgent({ ...valid, customRules: [] });
+    // @ts-expect-error raw strings cannot stand in for typed rule selections
+    defineAgent({ ...valid, customRules: ['replies'] });
 
-  // @ts-expect-error tools cannot omit their capability guide
-  defineTool(valid);
-  // @ts-expect-error examples must contain at least one usage example
-  defineTool({ ...valid, wiki: { ...wiki, examples: [] } });
-  // @ts-expect-error execution results must match the output schema
-  defineTool({ ...valid, wiki, execute: () => Effect.succeed('wrong') });
-  // @ts-expect-error decoded inputs cannot become arbitrary string arguments
-  defineTool({ ...valid, wiki, execute: (_input: string) => Effect.succeed(1) });
-  // @ts-expect-error provider tools require object-shaped inputs
-  defineTool({ ...valid, wiki, input: Schema.String });
+    assert.deepEqual(
+      defineAgent({ ...valid, customRules: [AgentRule.Quizzes, AgentRule.Titles] }).customRules,
+      [AgentRule.Quizzes, AgentRule.Titles]
+    );
+  }
+);
 
-  const tool = defineTool({ ...valid, wiki });
+test.stable(
+  'tool declarations require a wiki and bind execution to canonical schemas',
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  assert.strictEqual(tool.input, valid.input);
-});
+    const valid = {
+      description: 'Read a count',
+      input: Schema.Struct({ count: Schema.Int }),
+      output: Schema.Int,
+      mutates: false,
+      execute: ({ count }: { count: number }) => Effect.succeed(count)
+    };
+    const wiki = {
+      when: 'Read a count',
+      examples: ['Read my count'] as const,
+      limits: 'Only counts'
+    };
 
-testStable('Assistant tool names and localized capability catalog stay exhaustive', () => {
-  const scoped = noteAssistantAgent(noteIdSchema.make(1n));
+    // @ts-expect-error tools cannot omit their capability guide
+    defineTool(valid);
+    // @ts-expect-error examples must contain at least one usage example
+    defineTool({ ...valid, wiki: { ...wiki, examples: [] } });
+    // @ts-expect-error execution results must match the output schema
+    defineTool({ ...valid, wiki, execute: () => Effect.succeed('wrong') });
+    // @ts-expect-error decoded inputs cannot become arbitrary string arguments
+    defineTool({ ...valid, wiki, execute: (_input: string) => Effect.succeed(1) });
+    // @ts-expect-error provider tools require object-shaped inputs
+    defineTool({ ...valid, wiki, input: Schema.String });
 
-  expectTypeOf<
-    keyof typeof assistantAgent.tools | keyof typeof scoped.tools
-  >().toEqualTypeOf<AssistantToolName>();
-  expect(Object.keys({ ...assistantAgent.tools, ...scoped.tools }).sort()).toEqual(
-    [...assistantToolNameSchema.literals].sort()
-  );
-});
+    const tool = defineTool({ ...valid, wiki });
+
+    assert.strictEqual(tool.input, valid.input);
+  }
+);
+
+test.stable(
+  'Assistant tool names and localized capability catalog stay exhaustive',
+  ({ expectTypeOf, expect }) => {
+    const scoped = noteAssistantAgent(noteIdSchema.make(1n));
+
+    expectTypeOf<
+      keyof typeof assistantAgent.tools | keyof typeof scoped.tools
+    >().toEqualTypeOf<AssistantToolName>();
+    expect(Object.keys({ ...assistantAgent.tools, ...scoped.tools }).sort()).toEqual(
+      [...assistantToolNameSchema.literals].sort()
+    );
+  }
+);

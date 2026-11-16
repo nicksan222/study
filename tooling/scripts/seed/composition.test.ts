@@ -1,7 +1,5 @@
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { code, paragraph, textSource } from './builders/content.ts';
 import {
@@ -44,10 +42,11 @@ function createSmallCourse(seed: SeedHarness) {
   });
 }
 
-testStable('creator sequences reuse library fixtures across any number of notes', async () => {
-  const location = await createTestDatabase();
+test.stable(
+  'creator sequences reuse library fixtures across any number of notes',
+  async ({ databases, expect }) => {
+    const location = await databases();
 
-  try {
     const summary = await seedDatabase(location.path, [createSmallCourse]);
 
     expect(summary).toEqual({ projects: 1, notes: 2, sources: 1, pages: 1, materials: 1 });
@@ -65,58 +64,54 @@ testStable('creator sequences reuse library fixtures across any number of notes'
     } finally {
       db.close();
     }
-  } finally {
-    await location.cleanup();
   }
-});
+);
 
-testStable(
+test.stable(
   'cross-project fixture references abort the candidate and preserve the existing database',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect }) => {
+    const location = await databases();
     const db = await location.open();
     const before = db.contentIdentity();
 
     db.close();
 
+    await expect(
+      seedDatabase(location.path, [
+        (seed) => {
+          const first = createProject(seed, { name: 'First', color: 'blue', examInDays: 21 });
+          const second = createProject(seed, {
+            name: 'Second',
+            color: 'green',
+            examInDays: 28
+          });
+          const source = createSource(first, textSource('private.txt', 'A project-owned source.'));
+
+          createNote(second, {
+            title: 'Wrong project',
+            exchanges: [],
+            daysAgo: 1,
+            sources: [source]
+          });
+        }
+      ])
+    ).rejects.toThrow(RangeError);
+
+    const retained = await location.open();
+
     try {
-      await expect(
-        seedDatabase(location.path, [
-          (seed) => {
-            const first = createProject(seed, { name: 'First', color: 'blue', examInDays: 21 });
-            const second = createProject(seed, { name: 'Second', color: 'green', examInDays: 28 });
-            const source = createSource(
-              first,
-              textSource('private.txt', 'A project-owned source.')
-            );
-
-            createNote(second, {
-              title: 'Wrong project',
-              exchanges: [],
-              daysAgo: 1,
-              sources: [source]
-            });
-          }
-        ])
-      ).rejects.toThrow(RangeError);
-
-      const retained = await location.open();
-
-      try {
-        expect(retained.contentIdentity()).toBe(before);
-      } finally {
-        retained.close();
-      }
+      expect(retained.contentIdentity()).toBe(before);
     } finally {
-      await location.cleanup();
+      retained.close();
     }
   }
 );
 
-testStable('notes can mix multiple turns and omit unrelated fixture kinds', async () => {
-  const location = await createTestDatabase();
+test.stable(
+  'notes can mix multiple turns and omit unrelated fixture kinds',
+  async ({ databases, expect }) => {
+    const location = await databases();
 
-  try {
     await seedDatabase(location.path, [
       (seed) => {
         const project = createProject(seed, {
@@ -144,7 +139,5 @@ testStable('notes can mix multiple turns and omit unrelated fixture kinds', asyn
     } finally {
       db.close();
     }
-  } finally {
-    await location.cleanup();
   }
-});
+);

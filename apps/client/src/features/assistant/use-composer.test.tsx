@@ -1,7 +1,4 @@
-import { testStable } from '@study/testing/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { useAssistantComposer } from './use-composer';
 
@@ -16,9 +13,9 @@ function Composer({ send }: { send: () => boolean }) {
   );
 }
 
-testStable(
+test.stable(
   'focuses the shared chat input only after an accepted send and respects composition and multiline input',
-  async () => {
+  async ({ vi, userEvent, render, screen, fireEvent, expect }) => {
     const send = vi.fn(() => true);
     const user = userEvent.setup();
 

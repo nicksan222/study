@@ -10,31 +10,31 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Deferred, Effect, Fiber } from 'effect';
-import { expect } from 'vite-plus/test';
-
-import { pollUntil } from './poll.ts';
 
 const options = { attempts: 3, interval: 0, message: 'observation did not settle' };
 
-testStable('polling stops on the first ready observation and returns it', async () => {
-  for (const target of [1, 3]) {
-    let reads = 0;
-    const result = await Effect.runPromise(
-      pollUntil(
-        Effect.sync(() => ++reads),
-        (value) => value === target,
-        options
-      )
-    );
+test.stable(
+  'polling stops on the first ready observation and returns it',
+  async ({ pollUntil, expect }) => {
+    for (const target of [1, 3]) {
+      let reads = 0;
+      const result = await Effect.runPromise(
+        pollUntil(
+          Effect.sync(() => ++reads),
+          (value) => value === target,
+          options
+        )
+      );
 
-    expect(result).toBe(target);
-    expect(reads).toBe(target);
+      expect(result).toBe(target);
+      expect(reads).toBe(target);
+    }
   }
-});
+);
 
-testStable('polling exhausts its exact observation budget', async () => {
+test.stable('polling exhausts its exact observation budget', async ({ expect, pollUntil }) => {
   let reads = 0;
   let last = 0;
 
@@ -55,26 +55,29 @@ testStable('polling exhausts its exact observation budget', async () => {
   expect(last).toBe(3);
 });
 
-testStable('polling propagates typed failures without retrying them', async () => {
-  let reads = 0;
-  const failure = { reason: 'read failed' };
-  const result = await Effect.runPromise(
-    pollUntil(
-      Effect.suspend(() => {
-        reads++;
+test.stable(
+  'polling propagates typed failures without retrying them',
+  async ({ pollUntil, expect }) => {
+    let reads = 0;
+    const failure = { reason: 'read failed' };
+    const result = await Effect.runPromise(
+      pollUntil(
+        Effect.suspend(() => {
+          reads++;
 
-        return Effect.fail(failure);
-      }),
-      () => false,
-      options
-    ).pipe(Effect.result)
-  );
+          return Effect.fail(failure);
+        }),
+        () => false,
+        options
+      ).pipe(Effect.result)
+    );
 
-  expect(result).toMatchObject({ failure });
-  expect(reads).toBe(1);
-});
+    expect(result).toMatchObject({ failure });
+    expect(reads).toBe(1);
+  }
+);
 
-testStable('interrupting polling stops further observations', async () => {
+test.stable('interrupting polling stops further observations', async ({ pollUntil, expect }) => {
   let reads = 0;
 
   await Effect.runPromise(

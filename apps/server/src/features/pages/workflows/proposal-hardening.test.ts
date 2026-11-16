@@ -1,3 +1,4 @@
+import type { PageVersionId } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Hardens exact target prompts and in-flight proposal publication fences.            │
@@ -11,18 +12,15 @@
  * │ fixture.                                                                                 │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { PageVersionId } from '@study/contracts';
 import type { runSelectionContextSchema } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import type { Block } from '@study/contracts';
 import { blockContentSchema } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Deferred, Effect, Exit, Fiber, Schema } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
-import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
@@ -54,7 +52,9 @@ const document = (blocks: Block[]) => ({
 const json = (value: unknown) =>
   JSON.stringify(value, (_, item: unknown) => (typeof item === 'bigint' ? String(item) : item));
 
-function providerPrompt(body: string) {
+function providerPrompt({ assert: assertions }: Pick<test.Context, 'assert'>, body: string) {
+  const assert: test.Assert = assertions;
+
   const request = JSON.parse(body);
 
   const user = request.input.find((item: { role?: string }) => item.role === 'user');
@@ -113,10 +113,13 @@ function capturedBlockIds(capture: CapturedContext, selectedId: Block['id']) {
 }
 
 function assertProviderCapture(
+  { expect, assert: assertions }: Pick<test.Context, 'expect' | 'assert'>,
   { captured, instructions }: ReturnType<typeof providerPrompt>,
   capture: CapturedContext,
   input: CapturedContext['inputs'][number] | undefined
 ) {
+  const assert: test.Assert = assertions;
+
   expect(instructions).toMatch(/propose a revision of that exact target Page only/);
 
   assert.ok(captured.instruction === 'Clarify');
@@ -154,16 +157,21 @@ function assertProviderCapture(
     );
 }
 
-function assertGeneratedIdentity(value: {
-  versionId: PageVersionId;
-  requestId: string;
-  capture: CapturedContext;
-  input: CapturedContext['inputs'][number] | undefined;
-  retained: readonly Block[];
-  selectedId: Block['id'];
-  codeId: Block['id'];
-  remintCode: boolean;
-}) {
+function assertGeneratedIdentity(
+  { assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>,
+  value: {
+    versionId: PageVersionId;
+    requestId: string;
+    capture: CapturedContext;
+    input: CapturedContext['inputs'][number] | undefined;
+    retained: readonly Block[];
+    selectedId: Block['id'];
+    codeId: Block['id'];
+    remintCode: boolean;
+  }
+) {
+  const assert: test.Assert = assertions;
+
   return Effect.gen(function* () {
     const materials = yield* Pages;
 
@@ -205,11 +213,13 @@ function assertGeneratedIdentity(value: {
   });
 }
 
-testStable(
+test.stable(
   'A-target, B-target and no-target requests discriminate exact rich captures and preserve only target IDs',
   { timeout: 20000 },
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
       const setup = await Effect.runPromise(
@@ -407,11 +417,11 @@ testStable(
           `discrimination-${index}`
         );
 
-        const { captured, instructions } = providerPrompt(f.bodies[bodyIndex]!);
+        const { captured, instructions } = providerPrompt({ assert }, f.bodies[bodyIndex]!);
 
         prompts.push(captured);
 
-        assertProviderCapture({ captured, instructions }, item.capture, input);
+        assertProviderCapture({ expect, assert }, { captured, instructions }, item.capture, input);
 
         for (const body of f.bodies.slice(bodyIndex)) {
           assert.ok(body.includes('HIDDEN BEFORE'));
@@ -422,16 +432,19 @@ testStable(
         }
 
         await Effect.runPromise(
-          assertGeneratedIdentity({
-            versionId: result,
-            requestId: item.request.id,
-            capture: item.capture,
-            input,
-            retained,
-            selectedId: setup.selected.id,
-            codeId: setup.code.id,
-            remintCode: item.target === setup.a
-          }).pipe(Effect.provide(f.domain()))
+          assertGeneratedIdentity(
+            { assert, expect },
+            {
+              versionId: result,
+              requestId: item.request.id,
+              capture: item.capture,
+              input,
+              retained,
+              selectedId: setup.selected.id,
+              codeId: setup.code.id,
+              remintCode: item.target === setup.a
+            }
+          ).pipe(Effect.provide(f.domain()))
         );
       }
 
@@ -447,11 +460,13 @@ testStable(
 );
 
 for (const barrier of ['cancel', 'delete'] as const) {
-  testStable(
+  test.stable(
     `target proposal ${barrier} during the native output Activity fences all late publication`,
     { timeout: 15000 },
-    async () => {
-      const f = await pageTransformFixture();
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
+      const f = await pageTransformFixture(databases);
 
       try {
         const setup = await Effect.runPromise(

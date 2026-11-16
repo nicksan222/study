@@ -1,6 +1,4 @@
-import { testStable } from '@study/testing/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { FlashcardReviewView } from './flashcard-review-view';
 import { PracticePresentationProvider } from './practice-presentation';
@@ -16,9 +14,9 @@ const presentation: PracticePresentation = {
   percentage: (value) => `${value * 100}%`
 };
 
-testStable(
+test.stable(
   'the shared card reveals, rates, blocks pending shortcuts and restarts completion',
-  () => {
+  ({ vi, render, expect, screen, fireEvent }) => {
     const reveal = vi.fn();
     const rate = vi.fn();
     const restart = vi.fn();
@@ -55,76 +53,82 @@ testStable(
   }
 );
 
-testStable('the shared results navigate stored answers and preserve pending grading', () => {
-  render(
-    <PracticePresentationProvider value={presentation}>
-      <QuizResultsView
-        attempt={{
-          scoring: { complete: false, score: null },
-          questions: [
-            {
-              id: 1n,
-              kind: 'open',
-              prompt: 'First',
-              answer: { type: 'open', answer: 'Learner' },
-              referenceAnswer: 'Reference',
-              explanation: 'Why',
-              feedback: null,
-              score: null
-            },
-            {
-              id: 2n,
-              kind: 'fill_blank',
-              prompt: 'Second',
-              answer: null,
-              referenceAnswer: 'Word',
-              explanation: 'Why again',
-              feedback: null,
-              score: null
-            }
-          ]
-        }}
-      />
-    </PracticePresentationProvider>
-  );
-  expect(screen.getByText('PracticeScorePending')).toBeVisible();
-  expect(screen.getByText('Learner')).toBeVisible();
-  expect(screen.getByRole('button', { name: 'QuizPrevious' })).toBeDisabled();
-  fireEvent.click(screen.getByRole('button', { name: 'PracticeNextQuestion' }));
-  expect(screen.getByText('Second')).toBeVisible();
-  expect(screen.getByRole('button', { name: 'PracticeNextQuestion' })).toBeDisabled();
-});
+test.stable(
+  'the shared results navigate stored answers and preserve pending grading',
+  ({ render, expect, screen, fireEvent }) => {
+    render(
+      <PracticePresentationProvider value={presentation}>
+        <QuizResultsView
+          attempt={{
+            scoring: { complete: false, score: null },
+            questions: [
+              {
+                id: 1n,
+                kind: 'open',
+                prompt: 'First',
+                answer: { type: 'open', answer: 'Learner' },
+                referenceAnswer: 'Reference',
+                explanation: 'Why',
+                feedback: null,
+                score: null
+              },
+              {
+                id: 2n,
+                kind: 'fill_blank',
+                prompt: 'Second',
+                answer: null,
+                referenceAnswer: 'Word',
+                explanation: 'Why again',
+                feedback: null,
+                score: null
+              }
+            ]
+          }}
+        />
+      </PracticePresentationProvider>
+    );
+    expect(screen.getByText('PracticeScorePending')).toBeVisible();
+    expect(screen.getByText('Learner')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'QuizPrevious' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'PracticeNextQuestion' }));
+    expect(screen.getByText('Second')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'PracticeNextQuestion' })).toBeDisabled();
+  }
+);
 
-testStable('separate result views preserve their selected answer for the same question', () => {
-  const attempt: PracticeResultsModel = {
-    scoring: { complete: true, score: 1 },
-    questions: [
-      {
-        id: 1n,
-        kind: 'single_choice',
-        prompt: 'Question',
-        choices: [
-          { id: 1n, text: 'Selected', isCorrect: true },
-          { id: 2n, text: 'Alternative', isCorrect: false }
-        ],
-        answer: { type: 'choice', choiceIds: [1n] },
-        explanation: 'Explanation',
-        feedback: null,
-        score: 1
-      }
-    ]
-  };
+test.stable(
+  'separate result views preserve their selected answer for the same question',
+  ({ render, screen, expect }) => {
+    const attempt: PracticeResultsModel = {
+      scoring: { complete: true, score: 1 },
+      questions: [
+        {
+          id: 1n,
+          kind: 'single_choice',
+          prompt: 'Question',
+          choices: [
+            { id: 1n, text: 'Selected', isCorrect: true },
+            { id: 2n, text: 'Alternative', isCorrect: false }
+          ],
+          answer: { type: 'choice', choiceIds: [1n] },
+          explanation: 'Explanation',
+          feedback: null,
+          score: 1
+        }
+      ]
+    };
 
-  render(
-    <PracticePresentationProvider value={presentation}>
-      <QuizResultsView attempt={attempt} />
-      <QuizResultsView attempt={attempt} />
-    </PracticePresentationProvider>
-  );
-  const selected = screen.getAllByRole('radio', { name: /Selected/ });
+    render(
+      <PracticePresentationProvider value={presentation}>
+        <QuizResultsView attempt={attempt} />
+        <QuizResultsView attempt={attempt} />
+      </PracticePresentationProvider>
+    );
+    const selected = screen.getAllByRole('radio', { name: /Selected/ });
 
-  expect(selected).toHaveLength(2);
-  expect(selected[0]).not.toHaveAttribute('name', selected[1]!.getAttribute('name'));
+    expect(selected).toHaveLength(2);
+    expect(selected[0]).not.toHaveAttribute('name', selected[1]!.getAttribute('name'));
 
-  for (const answer of selected) expect(answer).toBeChecked();
-});
+    for (const answer of selected) expect(answer).toBeChecked();
+  }
+);

@@ -1,3 +1,4 @@
+import { contentSnapshotIdSchema, pageVersionIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises authored Page annotations behavior through real persistence              │
@@ -11,19 +12,14 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { contentSnapshotIdSchema, pageVersionIdSchema } from '@study/contracts';
 import { annotationSchema } from '@study/contracts';
 import { PagesRpc } from '@study/contracts';
 import { correctBlockText, createBlock } from '@study/contracts';
 import { sql, eq } from '@study/db';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Pages } from '#server/features/pages/index';
 import { PagesRpcLive } from '#server/features/pages/rpc/index';
@@ -46,10 +42,12 @@ const meta = {
 const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: ['strong'] }] });
 
-testStable(
+test.stable(
   'standalone authored annotation CRUD preserves exact rich Unicode history, conflicts, outbox atomicity and reopen',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     let context = new ServerContext(await location.open());
     const handlers = () =>
       PagesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(

@@ -1,23 +1,30 @@
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import type * as UiModule from '@study/ui';
-import { toastManager } from '@study/ui';
-import { render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { expect, vi } from 'vite-plus/test';
 
-import { ThemeEditor } from './theme-editor';
+import type * as __StudyMockType0 from '#client/pages/settings/theme-editor.tsx';
+
 import type { AppearanceModel } from './use-page';
 
-vi.mock('@study/ui', async (load) => {
-  const actual = await load<typeof UiModule>();
+let ThemeEditor: typeof __StudyMockType0.ThemeEditor;
 
-  return { ...actual, toastManager: { ...actual.toastManager, add: vi.fn() } };
+let toastManager: typeof UiModule.toastManager;
+
+test.beforeEach(async ({ mock }) => {
+  mock('@study/ui', async (load) => {
+    const actual = await load<typeof UiModule>();
+
+    return { ...actual, toastManager: { ...actual.toastManager, add: mock.fn() } };
+  });
+  toastManager = (await import('@study/ui')).toastManager;
+  const __studyMockModule0 = await import('./theme-editor');
+
+  ThemeEditor = __studyMockModule0.ThemeEditor;
 });
 
-testStable(
+test.stable(
   'requires the deletion phrase before deleting the selected theme and announcing success',
-  async () => {
+  async ({ vi, render, screen, within, userEvent, expect, waitFor }) => {
     const remove = vi.fn().mockResolvedValue(undefined);
     const close = vi.fn();
     const model: AppearanceModel = {

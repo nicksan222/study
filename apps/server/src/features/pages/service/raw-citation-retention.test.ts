@@ -1,3 +1,4 @@
+import { sql } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Retained raw citations protect exact authored bodies after private capture         │
@@ -10,12 +11,8 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sql } from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
@@ -26,10 +23,12 @@ import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';
 
 for (const mode of ['history', 'delete'] as const)
-  testStable(
+  test.stable(
     `raw exact authored citation blocks ${mode} after private capture retirement until its raw message is deleted`,
-    async () => {
-      const f = await pageTransformFixture();
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
+      const f = await pageTransformFixture(databases);
 
       try {
         const saved = await Effect.runPromise(

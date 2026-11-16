@@ -22,6 +22,7 @@
   "exclude": [
     "../../packages/ui",
     "../../packages/testing/src/bun.ts",
-    "../../apps/server/test/process-recovery.bun.test.ts"
+    "../../apps/server/test/process-recovery.bun.test.ts",
+    "../../packages/db/test/**"
   ]
 }

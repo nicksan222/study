@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
-testStable(
+test.stable(
   'every registered native adapter command is granted to the production main window',
-  async () => {
+  async ({ assert, expect }) => {
     const source = await Bun.file(new URL('../src/lib.rs', import.meta.url)).text();
     const registered = source
       .match(/generate_handler!\[([\s\S]*?)\]/)[1]

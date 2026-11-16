@@ -1,3 +1,4 @@
+import { NotesRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises durable bounded request discovery after restart and retirement.          │
@@ -11,13 +12,9 @@
  * │ by the feature implementation.                                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { NotesRpc } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { NotesRpcLive } from '#server/features/notes/rpc/index';
@@ -27,10 +24,12 @@ import { deletionDocument } from '#testing/material-deletion';
 import { cleanup } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
-testStable(
+test.stable(
   'note generation RPC discovers bounded exact requests across reopen, cancellation and note retirement',
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const fixture = await pageTransformFixture(databases);
 
     try {
       const setup = await Effect.runPromise(
@@ -163,7 +162,7 @@ testStable(
           yield* chats.deleteNote(setup.note.id);
         }).pipe(Effect.provide(fixture.domain()))
       );
-      await cleanup(fixture, setup.note.id);
+      await cleanup(fixture, setup.note.id, assert);
       await fixture.reopen();
       await Effect.runPromise(
         Effect.gen(function* () {

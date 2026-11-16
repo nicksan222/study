@@ -1,14 +1,16 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintFiles } from '../test/utils.ts';
 
 const store = "import * as api from '#server/platform/definitions/define-store';";
 
-testStable(
+test.stable(
   'RPC exports require canonical imported factories including aliases and nested paths',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const results = await lintFiles(
+      { assert },
       {
         'src/features/a/rpc/index.ts':
           "import {defineRpc as create} from '#server/platform/definitions/define-rpc'; const alias = create; export const layer = alias(group, handlers);",
@@ -27,10 +29,15 @@ testStable(
   }
 );
 
-testStable('workflow exports require canonical definitions and registrations', async () => {
-  const results = await lintFiles(
-    {
-      'src/features/a/workflows/index.ts': `
+test.stable(
+  'workflow exports require canonical definitions and registrations',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const results = await lintFiles(
+      { assert },
+      {
+        'src/features/a/workflows/index.ts': `
         import { defineWorkflow } from '#server/platform/definitions/define-workflow';
         import * as api from '#server/platform/definitions/define-workflow-handler';
         const alias = api;
@@ -38,21 +45,24 @@ testStable('workflow exports require canonical definitions and registrations', a
         export const execute = () => effect;
         export const registration = alias.defineWorkflowHandler(workflow, { execute, triggers: [] });
         `,
-      'src/features/b/workflows/nested.ts':
-        'export const custom = { definition: workflow, layer, triggers: [] };',
-      'src/features/c/workflows/index.ts':
-        'const defineWorkflowHandler = () => ({}); export const registration = defineWorkflowHandler(workflow, {});',
-      'src/features/d/workflows/index.ts': "export { oldTrigger } from './other';"
-    },
-    'module-factories'
-  );
+        'src/features/b/workflows/nested.ts':
+          'export const custom = { definition: workflow, layer, triggers: [] };',
+        'src/features/c/workflows/index.ts':
+          'const defineWorkflowHandler = () => ({}); export const registration = defineWorkflowHandler(workflow, {});',
+        'src/features/d/workflows/index.ts': "export { oldTrigger } from './other';"
+      },
+      'module-factories'
+    );
 
-  assert.strictEqual(results.length, 3, JSON.stringify(results));
-});
+    assert.strictEqual(results.length, 3, JSON.stringify(results));
+  }
+);
 
-testStable(
+test.stable(
   'store operations require the correct canonical branded descriptor constructor',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const files: Record<string, string> = {};
 
     for (const [name, query, mutation] of [
@@ -64,14 +74,17 @@ testStable(
       files[`src/features/${name}/store/index.ts`] =
         `${store} const {storeQuery:q,storeMutation:m} = api; const fake = x => x; api.defineStore({entity:{singular:'item',plural:'items'},make:()=>({queries:{item:${query}},mutations:{save:${mutation}}})});`;
 
-    assert.strictEqual((await lintFiles(files, 'operation-conventions')).length, 4);
+    assert.strictEqual((await lintFiles({ assert }, files, 'operation-conventions')).length, 4);
   }
 );
 
-testStable(
+test.stable(
   'services reject raw Database and obsolete imported store bindings without property bans',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const results = await lintFiles(
+      { assert },
       {
         'src/features/a/service/nested.ts':
           "import {Database as DB} from '#server/platform/database/database'; export const effect = DB;",
@@ -92,8 +105,11 @@ testStable(
   }
 );
 
-testStable('transaction aliases reject asynchronous callbacks', async () => {
+test.stable('transaction aliases reject asynchronous callbacks', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const results = await lintFiles(
+    { assert },
     {
       'src/features/a/service/index.ts': `${store} const {transaction: run} = api; run(async tx => tx.store(Store));`,
       'src/features/b/service/index.ts': `${store} const ns = api; const run = ns.publicationTransaction; run(tx => fetch('url'));`,
@@ -106,42 +122,57 @@ testStable('transaction aliases reject asynchronous callbacks', async () => {
   assert.strictEqual(results.length, 1);
 });
 
-testStable('publication transaction aliases cannot perform I/O', async () => {
-  const results = await lintFiles(
-    {
-      'src/features/a/service/index.ts': `${store} const {transaction: run} = api; run(async tx => tx.store(Store));`,
-      'src/features/b/service/index.ts': `${store} const ns = api; const run = ns.publicationTransaction; run(tx => fetch('url'));`,
-      'src/features/c/service/index.ts':
-        'function transaction(fn) { return fn(); } transaction(async () => fetch("url"));'
-    },
-    'transaction-no-io'
-  );
+test.stable(
+  'publication transaction aliases cannot perform I/O',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  assert.strictEqual(results.length, 1);
-});
+    const results = await lintFiles(
+      { assert },
+      {
+        'src/features/a/service/index.ts': `${store} const {transaction: run} = api; run(async tx => tx.store(Store));`,
+        'src/features/b/service/index.ts': `${store} const ns = api; const run = ns.publicationTransaction; run(tx => fetch('url'));`,
+        'src/features/c/service/index.ts':
+          'function transaction(fn) { return fn(); } transaction(async () => fetch("url"));'
+      },
+      'transaction-no-io'
+    );
 
-testStable('native feature conversion stays behind canonical factories', async () => {
-  const results = await lintFiles(
-    {
-      'src/features/a/rpc/index.ts':
-        "import {AuthRpc as group} from '@study/contracts'; const alias = group; const {toLayer: run} = alias; run(handlers);",
-      'src/features/b/workflows/index.ts':
-        "import {defineWorkflow as create} from '#server/platform/definitions/define-workflow'; const workflow = create({}); const alias = workflow; alias.toLayer(execute);",
-      'src/features/c/workflows/index.ts':
-        "import * as jobs from '#server/features/c/workflows/job'; jobs.jobWorkflow.toLayer(execute);",
-      'src/features/d/rpc/index.ts': 'const group = {toLayer(){}}; group.toLayer(handlers);'
-    },
-    'workflow-boundary'
-  );
+    assert.strictEqual(results.length, 1);
+  }
+);
 
-  assert.strictEqual(results.length, 3, JSON.stringify(results));
-});
+test.stable(
+  'native feature conversion stays behind canonical factories',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-testStable(
+    const results = await lintFiles(
+      { assert },
+      {
+        'src/features/a/rpc/index.ts':
+          "import {AuthRpc as group} from '@study/contracts'; const alias = group; const {toLayer: run} = alias; run(handlers);",
+        'src/features/b/workflows/index.ts':
+          "import {defineWorkflow as create} from '#server/platform/definitions/define-workflow'; const workflow = create({}); const alias = workflow; alias.toLayer(execute);",
+        'src/features/c/workflows/index.ts':
+          "import * as jobs from '#server/features/c/workflows/job'; jobs.jobWorkflow.toLayer(execute);",
+        'src/features/d/rpc/index.ts': 'const group = {toLayer(){}}; group.toLayer(handlers);'
+      },
+      'workflow-boundary'
+    );
+
+    assert.strictEqual(results.length, 3, JSON.stringify(results));
+  }
+);
+
+test.stable(
   'backend useStore is not a React hook and frontend hook rules stay enforced',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const results = (
       await lintFiles(
+        { assert },
         {
           'apps/server/src/platform/example.ts':
             "import {useStore} from '#server/platform/definitions/define-store'; function makeService() { return useStore(Store); }",
@@ -158,10 +189,13 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'canonical bindings resist fake modules, type imports, cyclic aliases and nested namespace destructuring',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const results = await lintFiles(
+      { assert },
       {
         'src/features/relative/rpc/index.ts':
           "import { defineRpc as create } from '../../../platform/definitions/define-rpc.ts'; export default (create)(group, handlers);",
@@ -190,10 +224,13 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'Database namespace reads and default store imports retain precise boundaries',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const results = await lintFiles(
+      { assert },
       {
         'src/features/a/service/nested.ts':
           "import * as api from '#server/platform/database/database'; const ns = api; const {Database: DB} = ns; const effect = DB;",
@@ -213,10 +250,13 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'local native conversion aliases cannot bypass factories while shadowed imports stay unrelated',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const results = await lintFiles(
+      { assert },
       {
         'src/features/a/workflows/nested.ts':
           "import {defineWorkflow} from '#server/platform/definitions/define-workflow'; const workflow = defineWorkflow({}); const {toLayer: run} = workflow; run(execute);",
@@ -234,10 +274,13 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'unregistered workflow factories cannot publish an alternate registration API',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const results = await lintFiles(
+      { assert },
       {
         'src/features/a/workflows/index.ts':
           'export const alternateRegistration = () => ({definition: workflow, layer, triggers: []});',
@@ -257,21 +300,30 @@ testStable(
   }
 );
 
-testStable('spreading query descriptors cannot bypass required literal roles', async () => {
-  const results = await lintFiles(
-    {
-      'src/features/a/store/index.ts': `${store} const operations = { item: {role:'required'} }; const queries = {...operations}; api.defineStore({entity:{singular:'item',plural:'items'},make:()=>({queries,mutations:{}})});`
-    },
-    'operation-conventions'
-  );
+test.stable(
+  'spreading query descriptors cannot bypass required literal roles',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  assert.strictEqual(results.length, 1);
-});
-
-testStable(
-  'nested store destructuring enforces obsolete bindings without trusting shadows or type imports',
-  async () => {
     const results = await lintFiles(
+      { assert },
+      {
+        'src/features/a/store/index.ts': `${store} const operations = { item: {role:'required'} }; const queries = {...operations}; api.defineStore({entity:{singular:'item',plural:'items'},make:()=>({queries,mutations:{}})});`
+      },
+      'operation-conventions'
+    );
+
+    assert.strictEqual(results.length, 1);
+  }
+);
+
+test.stable(
+  'nested store destructuring enforces obsolete bindings without trusting shadows or type imports',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const results = await lintFiles(
+      { assert },
       {
         'src/features/a/service/nested.ts':
           "import * as stores from '#server/features/a/store'; const {AStore:{make,key,layer}}=stores; make(); key; layer;",
@@ -290,10 +342,13 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'const aliases preserve local destructured native conversion provenance and cycle protection',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const results = await lintFiles(
+      { assert },
       {
         'src/features/a/workflows/nested.ts':
           "import {defineWorkflow} from '#server/platform/definitions/define-workflow'; const workflow = defineWorkflow({}); const {toLayer:run}=workflow; const alias=run; const again=alias; again(execute);",

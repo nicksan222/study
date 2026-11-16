@@ -1,21 +1,39 @@
 import { StudyError } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
-import { expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import type * as __MockType0 from '../document-editing/test-support';
+import type * as __MockType1 from './retirement.queries';
 
-import { authoredPage } from '../document-editing/test-support';
-import { usePageRetirement } from './retirement.queries';
+let authoredPage: typeof __MockType0.authoredPage;
 
-const navigate = vi.fn();
+let usePageRetirement: typeof __MockType1.usePageRetirement;
 
-vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }));
+let navigate: ReturnType<typeof createMockState>['navigate'];
+
+function createMockState(mock: test.Mock) {
+  return {
+    navigate: mock.fn()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  navigate = __mockState.navigate;
+
+  mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }));
+  const __mockModule0 = await import('../document-editing/test-support');
+
+  authoredPage = __mockModule0.authoredPage;
+  const __mockModule1 = await import('./retirement.queries');
+
+  usePageRetirement = __mockModule1.usePageRetirement;
+});
 
 for (const uncertain of [false, true])
-  testStable(
+  test.stable(
     `retirement ${uncertain ? 'keeps unknown outcome explicit without replay' : 'completes only after the canonical mutation receipt'}`,
-    async () => {
+    async ({ vi, rpcHandlersTransport, renderHook, act, waitFor, expect }) => {
       const page = authoredPage(10n, 'Private body', 101n);
       const preview = {
         pageId: page.id,

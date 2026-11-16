@@ -15,12 +15,11 @@ import { BunCrypto } from '@effect/platform-bun';
 import { SqliteClient } from '@effect/sql-sqlite-bun';
 import { failureSchema, StudyError } from '@study/contracts';
 import { contentInputSchema } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import type { createTestDatabase } from '@study/db/testing';
+import { test } from '@study/testing';
 import { Effect, Schema, Layer, ManagedRuntime, Option, Schedule } from 'effect';
 import { ClusterWorkflowEngine, SingleRunner } from 'effect/cluster';
 import { Workflow, WorkflowEngine, DurableDeferred } from 'effect/workflow';
-import { assert } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -61,10 +60,11 @@ type ProcessingServices = Effect.Services<
 >;
 
 async function run<A, E>(
+  databases: (folder?: string) => Promise<Awaited<ReturnType<typeof createTestDatabase>>>,
   execute: Effect.Effect<A, E, ProcessingServices>,
   schema: Schema.Codec<A, unknown>
 ) {
-  const location = await createTestDatabase();
+  const location = await databases();
   const context = new ServerContext(await location.open());
   const workflow = Workflow.make('DocumentRunnerTest', {
     payload: {},
@@ -95,56 +95,62 @@ async function run<A, E>(
     );
   } finally {
     context.close();
-    await location.cleanup();
   }
 }
 
-testStable('maps all pieces and reduces in deterministic bounded levels', async () => {
-  const events: string[] = [];
-  let preflights = 0;
-  const execute = processSourcePassages({
-    name: 'test',
-    referenceSchema,
-    mappedSchema: Schema.String,
-    plan: makePlan(),
-    limits,
-    preflight: Effect.sync(() => {
-      preflights++;
-    }),
-    map: (piece) =>
-      Effect.sync(() => {
-        events.push(`map:${piece.index}`);
+test.stable(
+  'maps all pieces and reduces in deterministic bounded levels',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-        return piece.passages.map((p) => p.text).join('');
+    const events: string[] = [];
+    let preflights = 0;
+    const execute = processSourcePassages({
+      name: 'test',
+      referenceSchema,
+      mappedSchema: Schema.String,
+      plan: makePlan(),
+      limits,
+      preflight: Effect.sync(() => {
+        preflights++;
       }),
-    reduce: (values, context: ReductionContext) =>
-      Effect.sync(() => {
-        events.push(`reduce:${context.level}:${context.index}`);
+      map: (piece) =>
+        Effect.sync(() => {
+          events.push(`map:${piece.index}`);
 
-        return values.join('');
-      })
-  }).pipe(Effect.map((r) => r.value));
+          return piece.passages.map((p) => p.text).join('');
+        }),
+      reduce: (values, context: ReductionContext) =>
+        Effect.sync(() => {
+          events.push(`reduce:${context.level}:${context.index}`);
 
-  assert.equal(await run(execute, Schema.String), 'abcde');
-  assert.deepEqual(events, [
-    'map:0',
-    'map:1',
-    'map:2',
-    'map:3',
-    'map:4',
-    'reduce:0:0',
-    'reduce:0:1',
-    'reduce:0:2',
-    'reduce:1:0',
-    'reduce:1:1',
-    'reduce:2:0'
-  ]);
-  assert.equal(preflights, 25);
-});
+          return values.join('');
+        })
+    }).pipe(Effect.map((r) => r.value));
 
-testStable(
+    assert.equal(await run(databases, execute, Schema.String), 'abcde');
+    assert.deepEqual(events, [
+      'map:0',
+      'map:1',
+      'map:2',
+      'map:3',
+      'map:4',
+      'reduce:0:0',
+      'reduce:0:1',
+      'reduce:0:2',
+      'reduce:1:0',
+      'reduce:1:1',
+      'reduce:2:0'
+    ]);
+    assert.equal(preflights, 25);
+  }
+);
+
+test.stable(
   'rejects oversized serialized output and cancellation before further units',
-  async () => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     let mapped = 0;
     const execute = processSourcePassages({
       name: 'test',
@@ -165,7 +171,7 @@ testStable(
       Effect.map((e) => e.kind)
     );
 
-    assert.equal(await run(execute, Schema.String), 'not_enough');
+    assert.equal(await run(databases, execute, Schema.String), 'not_enough');
     assert.equal(mapped, 1);
     mapped = 0;
     const cancelled = processSourcePassages({
@@ -189,15 +195,17 @@ testStable(
       Effect.map((e) => e.kind)
     );
 
-    assert.equal(await run(cancelled, Schema.String), 'cancelled');
+    assert.equal(await run(databases, cancelled, Schema.String), 'cancelled');
     assert.equal(mapped, 1);
   }
 );
 
-testStable(
+test.stable(
   'official SQLite restart and outer retry preserve child maps and completed outer replies',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const workflow = Workflow.make('SourcePassageGroupsRestartProofV1', {
       payload: { id: Schema.String },
@@ -340,14 +348,15 @@ testStable(
     } finally {
       await first.dispose();
       context.close();
-      await location.cleanup();
     }
   }
 );
 
-testStable(
+test.stable(
   'singleton reductions can compact inputs before a later level combines them',
-  async () => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const groups: { level: number; count: number }[] = [];
     const execute = processSourcePassages({
       name: 'compact-singletons',
@@ -365,7 +374,7 @@ testStable(
         })
     }).pipe(Effect.map((result) => result.value));
 
-    assert.equal(await run(execute, Schema.String), 'xx');
+    assert.equal(await run(databases, execute, Schema.String), 'xx');
     assert.deepEqual(groups, [
       { level: 0, count: 1 },
       { level: 0, count: 1 },
@@ -374,82 +383,102 @@ testStable(
   }
 );
 
-testStable('rejects reduction input overflow and finite-depth exhaustion', async () => {
-  let reductions = 0;
-  const execute = (budget: typeof limits) =>
-    processSourcePassages({
+test.stable(
+  'rejects reduction input overflow and finite-depth exhaustion',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    let reductions = 0;
+    const execute = (budget: typeof limits) =>
+      processSourcePassages({
+        name: 'test',
+        referenceSchema,
+        mappedSchema: Schema.String,
+        plan: makePlan(),
+        limits: budget,
+        preflight: Effect.void,
+        map: () => Effect.succeed('x'),
+        reduce: () =>
+          Effect.sync(() => {
+            reductions++;
+
+            return 'x';
+          })
+      }).pipe(
+        Effect.flip,
+        Effect.map((error) => error.kind)
+      );
+
+    assert.equal(
+      await run(databases, execute({ ...limits, maxReductionBytes: 1 }), Schema.String),
+      'not_enough'
+    );
+    assert.equal(reductions, 0);
+    assert.equal(
+      await run(databases, execute({ ...limits, maxLevels: 1 }), Schema.String),
+      'not_enough'
+    );
+    assert.equal(reductions, 3);
+    reductions = 0;
+    assert.equal(
+      await run(databases, execute({ ...limits, maxFanout: 1 }), Schema.String),
+      'invalid_input'
+    );
+    assert.equal(reductions, 0);
+  }
+);
+
+test.stable(
+  'checks authority again before returning a completed single piece',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    let finished = false;
+    const onePiece = planSourcePassages({
+      documents: [{ key: 'one', name: 'Exact', reference: 'v1', document: document(['one']) }],
+      referenceSchema,
+      limits: {
+        maxPieceChars: 100,
+        maxPassageChars: 100,
+        maxPieceBytes: 1000,
+        maxPlanChars: 100,
+        maxPlanBytes: 10000,
+        maxPieces: 10
+      },
+      selection: { mode: 'complete' }
+    });
+    const execute = processSourcePassages({
       name: 'test',
       referenceSchema,
       mappedSchema: Schema.String,
-      plan: makePlan(),
-      limits: budget,
-      preflight: Effect.void,
-      map: () => Effect.succeed('x'),
-      reduce: () =>
+      plan: onePiece,
+      limits,
+      preflight: Effect.suspend(() =>
+        finished
+          ? Effect.fail(new StudyError('cancelled', 'Current authority revoked'))
+          : Effect.void
+      ),
+      map: () =>
         Effect.sync(() => {
-          reductions++;
+          finished = true;
 
-          return 'x';
-        })
+          return 'done';
+        }),
+      reduce: () => Effect.die(new Error('A single piece must bypass reduction'))
     }).pipe(
       Effect.flip,
       Effect.map((error) => error.kind)
     );
 
-  assert.equal(
-    await run(execute({ ...limits, maxReductionBytes: 1 }), Schema.String),
-    'not_enough'
-  );
-  assert.equal(reductions, 0);
-  assert.equal(await run(execute({ ...limits, maxLevels: 1 }), Schema.String), 'not_enough');
-  assert.equal(reductions, 3);
-  reductions = 0;
-  assert.equal(await run(execute({ ...limits, maxFanout: 1 }), Schema.String), 'invalid_input');
-  assert.equal(reductions, 0);
-});
+    assert.equal(await run(databases, execute, Schema.String), 'cancelled');
+  }
+);
 
-testStable('checks authority again before returning a completed single piece', async () => {
-  let finished = false;
-  const onePiece = planSourcePassages({
-    documents: [{ key: 'one', name: 'Exact', reference: 'v1', document: document(['one']) }],
-    referenceSchema,
-    limits: {
-      maxPieceChars: 100,
-      maxPassageChars: 100,
-      maxPieceBytes: 1000,
-      maxPlanChars: 100,
-      maxPlanBytes: 10000,
-      maxPieces: 10
-    },
-    selection: { mode: 'complete' }
-  });
-  const execute = processSourcePassages({
-    name: 'test',
-    referenceSchema,
-    mappedSchema: Schema.String,
-    plan: onePiece,
-    limits,
-    preflight: Effect.suspend(() =>
-      finished ? Effect.fail(new StudyError('cancelled', 'Current authority revoked')) : Effect.void
-    ),
-    map: () =>
-      Effect.sync(() => {
-        finished = true;
-
-        return 'done';
-      }),
-    reduce: () => Effect.die(new Error('A single piece must bypass reduction'))
-  }).pipe(
-    Effect.flip,
-    Effect.map((error) => error.kind)
-  );
-
-  assert.equal(await run(execute, Schema.String), 'cancelled');
-});
-
-testStable(
+test.stable(
   'persists feature bigint reference and mapped schemas through native Activities',
-  async () => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const exact = Schema.decodeUnknownSync(contentInputSchema)({
       kind: 'source',
       sourceId: 1n,
@@ -489,6 +518,7 @@ testStable(
 
     assert.deepEqual(
       await run(
+        databases,
         execute,
         Schema.Struct({ value: contentInputSchema, reference: contentInputSchema })
       ),

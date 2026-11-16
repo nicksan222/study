@@ -1,7 +1,5 @@
-import { createAiMock } from '@study/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Fiber, Schema } from 'effect';
-import { expect } from 'vite-plus/test';
 
 const agent = {
   id: 'counter',
@@ -13,49 +11,55 @@ const agent = {
 const tool = { input: Schema.Struct({ id: Schema.Int }), output: Schema.String };
 
 const resolveModel = (
-  mock: ReturnType<typeof createAiMock>,
+  mock: ReturnType<test.Context['createAiMock']>,
   definition: typeof agent,
   input = { text: 'one' }
 ) => Effect.runPromise(mock.runtime.model('tiny', { definition, input }));
 
-testStable('agent definitions infer and validate exact one-shot inputs and outputs', async () => {
-  const mock = createAiMock();
-  const output = { count: 1 };
-  const expected = mock.next(agent, { input: { text: 'one' }, output });
+test.stable(
+  'agent definitions infer and validate exact one-shot inputs and outputs',
+  async ({ createAiMock, expect }) => {
+    const mock = createAiMock();
+    const output = { count: 1 };
+    const expected = mock.next(agent, { input: { text: 'one' }, output });
 
-  output.count = 99;
-  const model = await resolveModel(mock, agent);
+    output.count = 99;
+    const model = await resolveModel(mock, agent);
 
-  expect(() => mock.verify()).toThrow('AI mock verification failed');
-  const result = await model.doGenerate({ prompt: [] });
+    expect(() => mock.verify()).toThrow('AI mock verification failed');
+    const result = await model.doGenerate({ prompt: [] });
 
-  expect(result.content).toEqual([{ type: 'text', text: '{"count":1}' }]);
-  expect((await expected.called).input.text).toBe('one');
-  mock.verify();
-  expect((await model.doGenerate({ prompt: [] })).content).toEqual(result.content);
-  await expect(resolveModel(mock, agent)).rejects.toThrow('unplanned');
-  expect(() => mock.verify()).toThrow('AI mock verification failed');
-});
+    expect(result.content).toEqual([{ type: 'text', text: '{"count":1}' }]);
+    expect((await expected.called).input.text).toBe('one');
+    mock.verify();
+    expect((await model.doGenerate({ prompt: [] })).content).toEqual(result.content);
+    await expect(resolveModel(mock, agent)).rejects.toThrow('unplanned');
+    expect(() => mock.verify()).toThrow('AI mock verification failed');
+  }
+);
 
-testStable('schema violations are rejected before registering an expectation', () => {
-  const mock = createAiMock();
+test.stable(
+  'schema violations are rejected before registering an expectation',
+  ({ createAiMock, expect }) => {
+    const mock = createAiMock();
 
-  expect(() => mock.next(agent, { input: { text: 3 } as never, output: { count: 1 } })).toThrow();
-  expect(() =>
-    mock.next(agent, { input: { text: 'one' }, output: { count: '1' } as never })
-  ).toThrow();
-  expect(() =>
-    mock.next(agent, { input: { text: 'one', extra: true } as never, output: { count: 1 } })
-  ).toThrow();
-  expect(() =>
-    mock.next(agent, { input: { text: 'one' }, output: { count: 1, extra: true } as never })
-  ).toThrow();
-  mock.verify();
-});
+    expect(() => mock.next(agent, { input: { text: 3 } as never, output: { count: 1 } })).toThrow();
+    expect(() =>
+      mock.next(agent, { input: { text: 'one' }, output: { count: '1' } as never })
+    ).toThrow();
+    expect(() =>
+      mock.next(agent, { input: { text: 'one', extra: true } as never, output: { count: 1 } })
+    ).toThrow();
+    expect(() =>
+      mock.next(agent, { input: { text: 'one' }, output: { count: 1, extra: true } as never })
+    ).toThrow();
+    mock.verify();
+  }
+);
 
-testStable(
+test.stable(
   'input mismatch cannot consume a later expectation or disappear from verification',
-  async () => {
+  async ({ createAiMock, expect }) => {
     const mock = createAiMock();
 
     mock.next(agent, { input: { text: 'first' }, output: { count: 1 } });
@@ -72,9 +76,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'concurrent calls consume separate plans and each held call has its own gate',
-  async () => {
+  async ({ createAiMock, expect }) => {
     const mock = createAiMock();
     const first = mock.next(agent, { input: { text: 'one' }, output: { count: 1 }, hold: true });
     const second = mock.next(agent, { input: { text: 'two' }, output: { count: 2 }, hold: true });
@@ -94,9 +98,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'cancelled provider calls settle their expectation without returning a success',
-  async () => {
+  async ({ createAiMock, expect }) => {
     const mock = createAiMock();
     const expected = mock.next(agent, { input: { text: 'one' }, output: { count: 1 }, hold: true });
     const model = await resolveModel(mock, agent);
@@ -114,44 +118,47 @@ testStable(
   }
 );
 
-testStable('tool mocks return decoded schema values and never invoke an actual tool', async () => {
-  const mock = createAiMock();
-  const bigintTool = {
-    input: Schema.BigIntFromString,
-    output: Schema.Struct({ id: Schema.BigIntFromString })
-  };
-  let actualCalls = 0;
+test.stable(
+  'tool mocks return decoded schema values and never invoke an actual tool',
+  async ({ createAiMock, expect }) => {
+    const mock = createAiMock();
+    const bigintTool = {
+      input: Schema.BigIntFromString,
+      output: Schema.Struct({ id: Schema.BigIntFromString })
+    };
+    let actualCalls = 0;
 
-  mock.next(bigintTool, { input: 1n, output: { id: 2n } });
-  const result = await Effect.runPromise(
-    mock.runtime.executeTool({ definition: bigintTool, input: 1n }, () => {
-      actualCalls++;
-
-      return Effect.succeed({ id: 99n });
-    })
-  );
-
-  expect(result).toEqual({ id: 2n });
-  expect(actualCalls).toBe(0);
-  mock.verify();
-  const unexpected = await Effect.runPromise(
-    Effect.flip(
-      mock.runtime.executeTool({ definition: tool, input: { id: 1 } }, () => {
+    mock.next(bigintTool, { input: 1n, output: { id: 2n } });
+    const result = await Effect.runPromise(
+      mock.runtime.executeTool({ definition: bigintTool, input: 1n }, () => {
         actualCalls++;
 
-        return Effect.succeed('must not run');
+        return Effect.succeed({ id: 99n });
       })
-    )
-  );
+    );
 
-  expect(unexpected).toBeInstanceOf(Error);
-  expect(actualCalls).toBe(0);
-  expect(() => mock.verify()).toThrow();
-});
+    expect(result).toEqual({ id: 2n });
+    expect(actualCalls).toBe(0);
+    mock.verify();
+    const unexpected = await Effect.runPromise(
+      Effect.flip(
+        mock.runtime.executeTool({ definition: tool, input: { id: 1 } }, () => {
+          actualCalls++;
 
-testStable(
+          return Effect.succeed('must not run');
+        })
+      )
+    );
+
+    expect(unexpected).toBeInstanceOf(Error);
+    expect(actualCalls).toBe(0);
+    expect(() => mock.verify()).toThrow();
+  }
+);
+
+test.stable(
   'Effect interruption cancels a held tool expectation without executing its thunk',
-  async () => {
+  async ({ createAiMock, expect }) => {
     const mock = createAiMock();
     const held = mock.next(tool, { input: { id: 1 }, output: 'done', hold: true });
     let actual = false;
@@ -173,9 +180,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'same agent id with distinct contracts stays isolated while prompt clones keep identity',
-  async () => {
+  async ({ createAiMock, expect }) => {
     const mock = createAiMock();
     const other = {
       ...agent,
@@ -198,9 +205,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'bigint agent outputs cross the JSON codec boundary and stream through model events',
-  async () => {
+  async ({ createAiMock, expect }) => {
     const mock = createAiMock();
     const definition = { ...agent, output: Schema.Struct({ count: Schema.BigIntFromString }) };
 
@@ -223,9 +230,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'one explicit failure preserves the supplied error and later success needs a new plan',
-  async () => {
+  async ({ createAiMock, expect }) => {
     const mock = createAiMock();
     const failure = new Error('controlled');
 
@@ -247,7 +254,7 @@ testStable(
   }
 );
 
-testStable('using scopes verify unused expectations automatically', () => {
+test.stable('using scopes verify unused expectations automatically', ({ expect, createAiMock }) => {
   expect(() => {
     using mock = createAiMock();
 

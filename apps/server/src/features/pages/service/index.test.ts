@@ -1,3 +1,4 @@
+import { pageVersionIdSchema, sourceIdSchema, versionIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises authored Page index behavior through real persistence boundaries.        │
@@ -10,18 +11,14 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { pageVersionIdSchema, sourceIdSchema, versionIdSchema } from '@study/contracts';
 import { PagesRpc } from '@study/contracts';
 import type { PageVersion } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import type { Db } from '@study/db';
+import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Pages } from '#server/features/pages/index';
 import { PagesRpcLive } from '#server/features/pages/rpc/index';
@@ -60,8 +57,10 @@ const creation = (createKey: string, text = 'Original') => ({
   citations: []
 });
 
-async function fixture() {
-  const location = await createTestDatabase();
+type Databases = () => Promise<{ open(): Promise<Db>; cleanup(): Promise<void>; path: string }>;
+
+async function fixture(databases: Databases) {
+  const location = await databases();
   const context = new ServerContext(await location.open());
   const services = Pages.layer.pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -78,10 +77,12 @@ async function fixture() {
   };
 }
 
-testStable(
+test.stable(
   'native Pages RPC retains conflict alternatives and exact idempotent receipts across reopen',
-  async () => {
-    const f = await fixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await fixture(databases);
     const input = creation('native-create');
 
     try {
@@ -219,10 +220,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'editing ownership, transactional rollback and independent note membership are enforced',
-  async () => {
-    const f = await fixture();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await fixture(databases);
 
     try {
       f.context.db.exec(
@@ -298,10 +301,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'source copies and message provenance pin exact inputs without giving notes ownership',
-  async () => {
-    const f = await fixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await fixture(databases);
 
     try {
       const sourceId = Schema.decodeUnknownSync(sourceIdSchema)(7n),
@@ -390,10 +395,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'history and deletion require an exact preview, protect dependents, and retire bodies with backup integrity',
-  async () => {
-    const f = await fixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await fixture(databases);
 
     try {
       await Effect.runPromise(
@@ -469,10 +476,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'AI publication participant keeps one request intent and retains concurrent proposals',
-  async () => {
-    const f = await fixture();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await fixture(databases);
 
     try {
       await Effect.runPromise(
@@ -533,10 +542,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'exact citations, Unicode annotation history, image pins and inherited retired message identities are validated',
-  async () => {
-    const f = await fixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await fixture(databases);
 
     try {
       f.context.db
@@ -731,10 +742,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'independent generated publication owns the first authored version and replays one typed request',
-  async () => {
-    const f = await fixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await fixture(databases);
 
     try {
       await Effect.runPromise(
@@ -799,10 +812,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'authored metadata and target proposals retain independent histories and exact replay',
-  async () => {
-    const f = await fixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await fixture(databases);
 
     try {
       await Effect.runPromise(
@@ -943,10 +958,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'history pagination follows logical numbers when exact version IDs have a different order',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     try {

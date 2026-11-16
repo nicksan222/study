@@ -1,3 +1,4 @@
+import type { pageTransformOutputSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Supplies shared note deletion fixtures and complete logical persistence marker     │
@@ -11,16 +12,15 @@
  * │ guards.                                                                                  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { pageTransformOutputSchema } from '@study/contracts';
 import type { PageVersionId, NoteId } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
+import type { test } from '@study/testing';
+import { pollUntil } from '@study/testing/effect';
 import { Effect, Schema } from 'effect';
 import { Workflow } from 'effect/workflow';
 import { WorkflowEngine } from 'effect/workflow';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import {
@@ -32,10 +32,11 @@ import { decodeEvent } from '#server/platform/workflows/events';
 import { workflowStore } from '#server/platform/workflows/store';
 import { workflowDefinitions } from '#server/runtime/workflows';
 import type { pageTransformFixture } from '#testing/page-transform';
-import { pollUntil } from '#testing/poll';
 import { withTestAdmission, refreshTestExecution } from '#testing/workflow-admission';
 
 type DeletionFixture = Awaited<ReturnType<typeof pageTransformFixture>>;
+
+type TestAssertion = Pick<test.Context, 'assert'>['assert'];
 
 const meta = {
   extractor: null,
@@ -54,6 +55,7 @@ const paragraph = (text: string) =>
 
 export function setup(
   fixture: DeletionFixture,
+  assert: TestAssertion,
   marker: string,
   target = false,
   additionalInputVersionId?: PageVersionId
@@ -146,7 +148,7 @@ export function setup(
   );
 }
 
-export function deletionEvent(fixture: DeletionFixture, id: NoteId) {
+export function deletionEvent(fixture: DeletionFixture, id: NoteId, assert: TestAssertion) {
   const row = fixture.context.db.orm
     .select()
     .from(s.workflowEvents)
@@ -165,8 +167,8 @@ export function deletionEvent(fixture: DeletionFixture, id: NoteId) {
   return event;
 }
 
-export function cleanup(fixture: DeletionFixture, id: NoteId) {
-  const event = deletionEvent(fixture, id);
+export function cleanup(fixture: DeletionFixture, id: NoteId, assert: TestAssertion) {
+  const event = deletionEvent(fixture, id, assert);
 
   return Effect.runPromise(
     Effect.scoped(
@@ -192,6 +194,7 @@ export function cleanup(fixture: DeletionFixture, id: NoteId) {
 
 export function assertScrubbed(
   fixture: DeletionFixture,
+  assert: TestAssertion,
   marker: string,
   retainAuthoredMetadata = true
 ) {
@@ -234,7 +237,11 @@ export function assertScrubbed(
 }
 
 /** Keep exact historic annotations on independently published versions through cleanup. */
-export function annotateLibrary(fixture: DeletionFixture, ids: readonly PageVersionId[]) {
+export function annotateLibrary(
+  fixture: DeletionFixture,
+  ids: readonly PageVersionId[],
+  assert: TestAssertion
+) {
   return Effect.runPromise(
     Effect.gen(function* () {
       const pages = yield* Pages;

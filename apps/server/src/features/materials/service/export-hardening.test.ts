@@ -1,3 +1,4 @@
+import { materialVersionIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks retained export barriers, exact byte budgets and conservative import        │
@@ -11,8 +12,6 @@
  * │ All fixtures own cleanup and never invoke external providers or background workflows.    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { materialVersionIdSchema } from '@study/contracts';
 import { contentInputSchema } from '@study/contracts';
 import { materialAidExportSchema, MAX_EXPORT_BYTES } from '@study/contracts';
 import { MaterialsRpc } from '@study/contracts';
@@ -22,12 +21,10 @@ import { PagesRpc } from '@study/contracts';
 import { SourcesRpc } from '@study/contracts';
 import { eq, and } from '@study/db';
 import { material_flashcard_entries } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import type { Db } from '@study/db';
+import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { makeCitations } from '#server/features/materials/store/citations';
@@ -46,8 +43,10 @@ import { materialRpcHandlers } from '#testing/material-rpc';
 
 import { serializeMaterialVersion } from './export-serializer.ts';
 
-async function fixture() {
-  const location = await createTestDatabase();
+type Databases = () => Promise<{ open(): Promise<Db>; cleanup(): Promise<void> }>;
+
+async function fixture(databases: Databases) {
+  const location = await databases();
   const context = new ServerContext(await location.open());
   const database = Layer.succeed(Database, { store: context });
   const services = Layer.mergeAll(Materials.layer, Sources.layer, Pages.layer).pipe(
@@ -70,10 +69,12 @@ async function fixture() {
 }
 
 for (const retirement of ['deletion', 'prune'] as const) {
-  testStable(
+  test.stable(
     `exact authored export and ancestor ${retirement} honor retained descendant pins`,
-    async () => {
-      const f = await fixture();
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
+      const f = await fixture(databases);
 
       try {
         await Effect.runPromise(
@@ -165,10 +166,12 @@ for (const retirement of ['deletion', 'prune'] as const) {
   );
 }
 
-testStable(
+test.stable(
   'native aid JSON decodes complete canonical versions and exact citations for every aid kind',
-  async () => {
-    const f = await fixture();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await fixture(databases);
 
     try {
       await Effect.runPromise(
@@ -309,10 +312,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'native CSV preserves quoted multiline text and neutralizes formula prefixes without altering ordinary text',
-  async () => {
-    const f = await fixture();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await fixture(databases);
 
     try {
       await Effect.runPromise(
@@ -380,10 +385,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'citation snapshot accepts its exact UTF-8 budget without expanding retained evidence bodies',
-  async () => {
-    const f = await fixture();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await fixture(databases);
 
     try {
       await Effect.runPromise(
@@ -496,10 +503,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'native capability reports local routes and keeps vision and absent-provider support conservative',
-  async () => {
-    const f = await fixture();
+  async ({ databases, expect }) => {
+    const f = await fixture(databases);
 
     try {
       await Effect.runPromise(
@@ -577,9 +584,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'JSON export budget matches UTF-8 at the public limit across controls, surrogates and cumulative values',
-  () => {
+  ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const values = [
       '\u0000\b\t\n\f\r\u001f"\\',
       '\udc00',

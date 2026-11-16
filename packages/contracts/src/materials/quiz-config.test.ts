@@ -1,6 +1,5 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import {
   materialGenerationInputSchema,
@@ -8,9 +7,11 @@ import {
   titledFlashcardsGenerationOutputSchema
 } from './schemas.ts';
 
-testStable(
+test.stable(
   'quiz generation settings are bounded, quiz-only and separate from slot specifications',
-  () => {
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const decode = Schema.decodeUnknownSync(materialGenerationInputSchema);
     const quizConfig = {
       questionCount: 5,
@@ -45,9 +46,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'automatic titles retain explicit request titles and require bounded generated output titles',
-  () => {
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const decode = Schema.decodeUnknownSync(materialGenerationInputSchema);
     const request = {
       projectId: 1n,

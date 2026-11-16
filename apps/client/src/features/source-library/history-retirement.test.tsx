@@ -1,10 +1,7 @@
 import { StudyError } from '@study/contracts';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { act, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { authoredPage } from '../document-editing/test-support';
 import {
@@ -16,8 +13,8 @@ import {
 
 const t = catalogs.english;
 
-function historyFixture() {
-  const rpc = materialRpc();
+function historyFixture({ vi }: Pick<test.Context, 'vi'>) {
+  const rpc = materialRpc({ vi });
   const old = authoredPage(41n, 'Old source body', 1101n).version!;
   const current = authoredPage(41n, 'Current source body', 1201n).version!;
   const candidate = {
@@ -53,7 +50,15 @@ function historyFixture() {
   return { rpc, old, current, preview };
 }
 
-async function review(user: ReturnType<typeof userEvent.setup>) {
+async function review(
+  {
+    screen,
+    within,
+    waitFor,
+    expect
+  }: Pick<test.Context, 'screen' | 'within' | 'waitFor' | 'expect'>,
+  user: ReturnType<test.Context['userEvent']['setup']>
+) {
   await user.click(await screen.findByRole('button', { name: t.SourceHistoryPrune }));
   const dialog = await screen.findByRole('alertdialog');
   const name = within(dialog).getByRole('textbox', { name: t.SourceDeleteName });
@@ -64,18 +69,22 @@ async function review(user: ReturnType<typeof userEvent.setup>) {
   return dialog;
 }
 
-testStable(
+test.stable(
   'removes only reviewed source bodies and returns historical reading to current while preserving independent authored copies',
-  async () => {
-    const { rpc, preview } = historyFixture();
+  async ({ userEvent, expect, screen, within, waitFor, render, rpcHandlersTransport, vi }) => {
+    const { rpc, preview } = historyFixture({ vi });
 
     rpc['sources.retireHistory'].mockReturnValue(Effect.succeed(preview));
-    mountLibraryRoute('/sources/7?sourceRevision=1&sourceSnapshot=1101', rpc);
+    mountLibraryRoute(
+      { render, rpcHandlersTransport, vi },
+      '/sources/7?sourceRevision=1&sourceSnapshot=1101',
+      rpc
+    );
 
     const user = userEvent.setup();
 
     expect(await screen.findByText('Old source body')).toBeVisible();
-    const dialog = await review(user);
+    const dialog = await review({ screen, within, waitFor, expect }, user);
 
     expect(within(dialog).getByText(t.SourceHistoryHelp)).toBeVisible();
     await user.click(within(dialog).getByRole('button', { name: t.SourceHistoryConfirm }));
@@ -88,25 +97,29 @@ testStable(
     });
   }
 );
-testStable(
+test.stable(
   'retains uncertain reviewed intent across remount and reconciles only when all reviewed identities are absent',
-  async () => {
-    const { rpc, preview } = historyFixture();
+  async ({ userEvent, within, expect, act, screen, waitFor, render, rpcHandlersTransport, vi }) => {
+    const { rpc, preview } = historyFixture({ vi });
 
     rpc['sources.retireHistory'].mockReturnValue(
       Effect.fail(new StudyError('transient', 'Lost response'))
     );
-    const { router } = mountLibraryRoute('/sources/7?sourceRevision=1&sourceSnapshot=1101', rpc);
+    const { router } = mountLibraryRoute(
+      { render, rpcHandlersTransport, vi },
+      '/sources/7?sourceRevision=1&sourceSnapshot=1101',
+      rpc
+    );
     const user = userEvent.setup();
-    const dialog = await review(user);
+    const dialog = await review({ screen, within, waitFor, expect }, user);
 
     await user.click(within(dialog).getByRole('button', { name: t.SourceHistoryConfirm }));
     expect(await within(dialog).findByText(t.SourceHistoryFailed)).toBeVisible();
     await user.click(within(dialog).getByRole('button', { name: t.Cancel }));
     await act(() => router.navigate({ to: '/notes' }));
-    await locationIs(router, '/notes');
+    await locationIs({ waitFor }, router, '/notes');
     await act(() => router.navigate({ to: '/sources/$sourceId', params: { sourceId: '7' } }));
-    await locationIs(router, '/sources/7');
+    await locationIs({ waitFor }, router, '/sources/7');
     await user.click(await screen.findByRole('button', { name: t.SourceHistoryPrune }));
     const reopened = await screen.findByRole('alertdialog');
 
@@ -122,21 +135,28 @@ testStable(
     expect(rpc['sources.retireHistory']).toHaveBeenCalledTimes(1);
   }
 );
-testStable('shows exact evidence blockers and cannot authorize their removal', async () => {
-  const { rpc, old, preview } = historyFixture();
+test.stable(
+  'shows exact evidence blockers and cannot authorize their removal',
+  async ({ userEvent, screen, expect, within, render, rpcHandlersTransport, vi }) => {
+    const { rpc, old, preview } = historyFixture({ vi });
 
-  rpc['sources.previewHistory'].mockReturnValue(
-    Effect.succeed({ ...preview, blockedSnapshotIds: [old.snapshotId] })
-  );
-  mountLibraryRoute('/sources/7?sourceRevision=1&sourceSnapshot=1101', rpc);
-  const user = userEvent.setup();
+    rpc['sources.previewHistory'].mockReturnValue(
+      Effect.succeed({ ...preview, blockedSnapshotIds: [old.snapshotId] })
+    );
+    mountLibraryRoute(
+      { render, rpcHandlersTransport, vi },
+      '/sources/7?sourceRevision=1&sourceSnapshot=1101',
+      rpc
+    );
+    const user = userEvent.setup();
 
-  await user.click(await screen.findByRole('button', { name: t.SourceHistoryPrune }));
-  const dialog = await screen.findByRole('alertdialog');
+    await user.click(await screen.findByRole('button', { name: t.SourceHistoryPrune }));
+    const dialog = await screen.findByRole('alertdialog');
 
-  expect(await within(dialog).findByText(t.SourceHistoryPinned)).toBeVisible();
-  expect(within(dialog).getByRole('button', { name: t.SourceHistoryConfirm })).toBeDisabled();
-  await user.click(within(dialog).getByRole('button', { name: t.Cancel }));
-  expect(screen.getByText('Old source body')).toBeVisible();
-  expect(rpc['sources.retireHistory']).not.toHaveBeenCalled();
-});
+    expect(await within(dialog).findByText(t.SourceHistoryPinned)).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: t.SourceHistoryConfirm })).toBeDisabled();
+    await user.click(within(dialog).getByRole('button', { name: t.Cancel }));
+    expect(screen.getByText('Old source body')).toBeVisible();
+    expect(rpc['sources.retireHistory']).not.toHaveBeenCalled();
+  }
+);

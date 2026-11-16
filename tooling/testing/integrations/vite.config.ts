@@ -17,6 +17,7 @@ export default defineConfig({
   root: Bun.fileURLToPath(new URL('../../../', import.meta.url)),
   test: {
     name: 'integrations',
+    setupFiles: ['packages/testing/src/setup.ts'],
     reporters: [
       'verbose',
       ['junit', { outputFile: 'tooling/test-results/vitest/integrations.xml' }]
@@ -24,7 +25,7 @@ export default defineConfig({
     include: ['tooling/testing/integrations/providers/**/*.integration.test.ts'],
     pool: 'forks',
     maxWorkers: testPolicy.workers[process.env.CI ? 'ci' : 'local'],
-    testTimeout: 60000,
-    hookTimeout: 30000
+    testTimeout: testPolicy.tests.integration,
+    hookTimeout: testPolicy.hookTimeout
   }
 });

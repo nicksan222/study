@@ -1,11 +1,10 @@
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { vaultFiles } from './files';
 
-testStable(
+test.stable(
   'strips only the selected root and excludes private vault configuration before reading',
-  async () => {
+  async ({ expect }) => {
     const note = new File(['# Cells'], 'Cells.md');
     const privateFile = new File(['private'], 'app.json');
 

@@ -1,3 +1,4 @@
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Covers canonical App path ownership across acquisition, shutdown and process loss. │
@@ -10,19 +11,14 @@
  * │ All paths are temporary; external SQLite writers do not participate in App ownership.    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { StudyError } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { spawnTestProcess } from '@study/testing/vitest';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, FileSystem, Path } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { acquireDatabaseOwnership } from '#server/platform/database/ownership';
-import { App } from '#server/runtime/index';
+import type { App } from '#server/runtime/index';
 import { acceptance, backupFixture, createPage } from '#testing/managed-backups';
 import { inTestPhase } from '#testing/progress';
 
@@ -30,7 +26,10 @@ const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFile
 
 const paths = await Effect.runPromise(Effect.provide(Path.Path, BunPath.layer));
 
-async function childOwner(path: string) {
+async function childOwner(
+  { spawnTestProcess }: Pick<test.Context, 'spawnTestProcess'>,
+  path: string
+) {
   let received!: (message: unknown) => void;
   const messagePromise = new Promise<unknown>((resolve) => {
     received = resolve;
@@ -59,9 +58,11 @@ async function childOwner(path: string) {
   return { child, exited, message };
 }
 
-testStable(
+test.stable(
   'same-path startup rejects before touching an active backup scratch or restore journal',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const f = await backupFixture();
 
     try {
@@ -75,7 +76,7 @@ testStable(
 
       await Bun.write(scratch, 'active snapshot');
       await Bun.write(journal, 'active journal');
-      await expect(App.open({ path: f.location.path })).rejects.toSatisfy(
+      await expect(f.location.openApp({ path: f.location.path })).rejects.toSatisfy(
         (error: unknown) => error instanceof StudyError && error.kind === 'transient'
       );
       assert.ok((await Bun.file(scratch).text()) === 'active snapshot');
@@ -86,9 +87,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'canonical relative and symlink aliases share ownership and hardlinks are rejected',
-  async () => {
+  async ({ expect }) => {
     const f = await backupFixture();
 
     try {
@@ -113,61 +114,66 @@ testStable(
   }
 );
 
-testStable('distinct paths and in-memory instances have independent path leases', async () => {
-  const location = await createTestDatabase();
+test.stable(
+  'distinct paths and in-memory instances have independent path leases',
+  async ({ createServerFixture, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  const leases: Awaited<ReturnType<typeof acquireDatabaseOwnership>>[] = [];
+    await using location = await createServerFixture();
 
-  try {
-    for (const path of [location.path, location.path + '.other', ':memory:', ':memory:'])
-      leases.push(await acquireDatabaseOwnership(path));
+    const leases: Awaited<ReturnType<typeof acquireDatabaseOwnership>>[] = [];
 
-    assert.strictEqual(leases.length, 4);
-  } finally {
-    await Promise.all(leases.map((lease) => lease.release()));
-    await location.cleanup();
+    try {
+      for (const path of [location.path, location.path + '.other', ':memory:', ':memory:'])
+        leases.push(await acquireDatabaseOwnership(path));
+
+      assert.strictEqual(leases.length, 4);
+    } finally {
+      await Promise.all(leases.map((lease) => lease.release()));
+      await location.close();
+    }
   }
-});
+);
 
-testStable(
+test.stable(
   'failed activation releases ownership so the same canonical target can retry',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ createServerFixture, expect }) => {
+    await using location = await createServerFixture();
 
     try {
       const root = location.path + '.backups';
 
       await Effect.runPromise(fs.makeDirectory(root));
       await Bun.write(paths.join(root, 'restore.json'), '{');
-      await expect(App.open({ path: location.path })).rejects.toSatisfy(() => true);
+      await expect(location.openApp({ path: location.path })).rejects.toSatisfy(() => true);
       await Effect.runPromise(fs.remove(paths.join(root, 'restore.json')));
 
-      const app = await App.open({ path: location.path });
+      const app = await location.openApp({ path: location.path });
 
       await app.close();
 
-      const reopened = await App.open({ path: location.path });
+      const reopened = await location.openApp({ path: location.path });
 
       await reopened.close();
     } finally {
-      await location.cleanup();
+      await location.close();
     }
   }
 );
 
 for (const termination of ['close', 'SIGKILL'] as const)
-  testStable(
+  test.stable(
     `supported private/development App overlap rejects and ${termination} releases ownership`,
     { timeout: 15000 },
-    async () => {
-      const location = await createTestDatabase();
+    async ({ createServerFixture, expect, spawnTestProcess }) => {
+      await using location = await createServerFixture();
 
-      const owner = await childOwner(location.path);
+      const owner = await childOwner({ spawnTestProcess }, location.path);
 
       try {
         expect(owner.message).toStrictEqual({ state: 'owned' });
 
-        const contender = await childOwner(location.path);
+        const contender = await childOwner({ spawnTestProcess }, location.path);
 
         try {
           expect(contender.message).toStrictEqual({ state: 'rejected', kind: 'transient' });
@@ -181,63 +187,68 @@ for (const termination of ['close', 'SIGKILL'] as const)
 
         await owner.exited;
 
-        const app = await App.open({ path: location.path });
+        const app = await location.openApp({ path: location.path });
 
         await app.close();
       } finally {
         owner.child.kill('SIGKILL');
         await owner.exited;
-        await location.cleanup();
+        await location.close();
       }
     }
   );
 
-testStable('an unrelated TCP listener does not block Linux database ownership', async () => {
-  const location = await createTestDatabase();
+test.stable(
+  'an unrelated TCP listener does not block Linux database ownership',
+  async ({ createServerFixture, expect }) => {
+    await using location = await createServerFixture();
 
-  const canonical = paths.join(
-    await Effect.runPromise(fs.realPath(location.dir)),
-    paths.basename(location.path)
-  );
+    const canonical = paths.join(
+      await Effect.runPromise(fs.realPath(location.dir)),
+      paths.basename(location.path)
+    );
 
-  // Reserve first, then find a legacy hash preimage so setup cannot race another listener.
-  const listener = Bun.listen({ hostname: '127.0.0.1', port: 0, socket: { data() {} } });
-  let path = canonical;
+    // Reserve first, then find a legacy hash preimage so setup cannot race another listener.
+    const listener = Bun.listen({ hostname: '127.0.0.1', port: 0, socket: { data() {} } });
+    let path = canonical;
 
-  for (let candidate = 0; ; candidate++) {
-    path = `${canonical}.${candidate}`;
-    const identity = process.platform === 'win32' ? path.toLowerCase() : path;
-    const hash = new Bun.CryptoHasher('sha256').update(identity).digest('hex');
-    const port = 1024 + (Number.parseInt(hash.slice(0, 8), 16) % 64512);
+    for (let candidate = 0; ; candidate++) {
+      path = `${canonical}.${candidate}`;
+      const identity = process.platform === 'win32' ? path.toLowerCase() : path;
+      const hash = new Bun.CryptoHasher('sha256').update(identity).digest('hex');
+      const port = 1024 + (Number.parseInt(hash.slice(0, 8), 16) % 64512);
 
-    if (port === listener.port) break;
-  }
+      if (port === listener.port) break;
+    }
 
-  try {
-    if (process.platform === 'linux') {
-      const app = await App.open({ path });
+    try {
+      if (process.platform === 'linux') {
+        const app = await location.openApp({ path });
 
-      try {
-        await expect(acquireDatabaseOwnership(path)).rejects.toSatisfy(
+        try {
+          await expect(acquireDatabaseOwnership(path)).rejects.toSatisfy(
+            (error: unknown) => error instanceof StudyError && error.kind === 'transient'
+          );
+        } finally {
+          await app.close();
+        }
+      } else {
+        await expect(location.openApp({ path })).rejects.toSatisfy(
           (error: unknown) => error instanceof StudyError && error.kind === 'transient'
         );
-      } finally {
-        await app.close();
       }
-    } else {
-      await expect(App.open({ path })).rejects.toSatisfy(
-        (error: unknown) => error instanceof StudyError && error.kind === 'transient'
-      );
+    } finally {
+      listener.stop();
+      await location.close();
     }
-  } finally {
-    listener.stop();
-    await location.cleanup();
   }
-});
+);
 
-testStable(
+test.stable(
   'a second supported App cannot acquire a target while its restart owner is active',
-  async () => {
+  async ({ expect, assert: assertions, spawnTestProcess }) => {
+    const assert: test.Assert = assertions;
+
     const f = await backupFixture();
 
     try {
@@ -254,9 +265,9 @@ testStable(
       await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)));
       await f.suspend();
 
-      const opening = App.open({ path: f.location.path });
+      const opening = f.location.openApp({ path: f.location.path });
 
-      const contender = await childOwner(f.location.path);
+      const contender = await childOwner({ spawnTestProcess }, f.location.path);
 
       const restored = await opening;
 
@@ -274,35 +285,35 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'failed ordinary database acquisition releases its lease and auth owner for retry',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ createServerFixture, expect }) => {
+    await using location = await createServerFixture();
 
     try {
       await Bun.write(location.path, 'not a SQLite database');
-      await expect(App.open({ path: location.path })).rejects.toSatisfy(() => true);
+      await expect(location.openApp({ path: location.path })).rejects.toSatisfy(() => true);
       await Effect.runPromise(fs.remove(location.path));
 
-      const app = await App.open({ path: location.path });
+      const app = await location.openApp({ path: location.path });
 
       await app.close();
     } finally {
-      await location.cleanup();
+      await location.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'a competing process cannot remove the real scratch of an in-progress backup',
   // Real App startup and owned backup cleanup use the runner's integration deadline.
   // IPC state and exact scratch bytes establish ownership, not subprocess startup speed.
-  async (t) => {
+  async ({ task: _task, expect, spawnTestProcess }) => {
     const { ManagedBackups } = await import('#server/platform/database/backups');
 
     const { backupPolicy } = await import('#server/runtime/backups');
 
-    const f = await backupFixture(t);
+    const f = await backupFixture();
 
     let entered!: () => void;
 
@@ -325,10 +336,10 @@ testStable(
       }
     });
 
-    const creating = inTestPhase(t, 'backup-create', () => owner.create());
+    const creating = inTestPhase(undefined, 'backup-create', () => owner.create());
 
     try {
-      await inTestPhase(t, 'backup-prepared', () =>
+      await inTestPhase(undefined, 'backup-prepared', () =>
         Promise.race([
           prepared,
           creating.then((): never => {
@@ -341,11 +352,13 @@ testStable(
 
       const bytes = new Uint8Array(await Bun.file(scratch).arrayBuffer());
 
-      const contender = await inTestPhase(t, 'contender-start', () => childOwner(f.location.path));
+      const contender = await inTestPhase(undefined, 'contender-start', () =>
+        childOwner({ spawnTestProcess }, f.location.path)
+      );
 
       try {
         expect(contender.message).toStrictEqual({ state: 'rejected', kind: 'transient' });
-        await inTestPhase(t, 'contender-exit', () => contender.exited);
+        await inTestPhase(undefined, 'contender-exit', () => contender.exited);
         expect(new Uint8Array(await Bun.file(scratch).arrayBuffer())).toStrictEqual(bytes);
       } finally {
         contender.child.kill('SIGKILL');
@@ -363,29 +376,31 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'future official migration history blocks startup without changing data or retaining ownership',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ createServerFixture, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    await using location = await createServerFixture();
     let app: App | undefined;
 
     try {
-      app = await App.open({ path: await location.prepare() });
+      app = await location.openApp({ path: location.path });
       await app.close();
       app = undefined;
-      const db = await location.open();
+      const db = await location.openDb();
 
       db.orm.run(
         sql`INSERT INTO cluster_migrations (migration_id,name,created_at) VALUES (999999,'future-protocol',CURRENT_TIMESTAMP)`
       );
       db.close();
-      await expect(App.open({ path: location.path })).rejects.toSatisfy(
+      await expect(location.openApp({ path: location.path })).rejects.toSatisfy(
         (error: unknown) => error instanceof StudyError && error.kind === 'unsupported'
       );
       const owner = await acquireDatabaseOwnership(location.path);
 
       await owner.release();
-      const retained = await location.open();
+      const retained = await location.openDb(location.path);
 
       assert.equal(
         retained.orm.all(sql`SELECT name FROM cluster_migrations WHERE migration_id=999999`)[0]
@@ -394,10 +409,10 @@ testStable(
       );
       retained.orm.run(sql`DELETE FROM cluster_migrations WHERE migration_id=999999`);
       retained.close();
-      app = await App.open({ path: location.path });
+      app = await location.openApp({ path: location.path });
     } finally {
       await app?.close();
-      await location.cleanup();
+      await location.close();
     }
   }
 );

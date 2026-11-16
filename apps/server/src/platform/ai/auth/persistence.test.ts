@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks schema validation and JSON encoding for privately stored ChatGPT account    │
@@ -12,15 +13,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
-
 import { decodeAccount, encodeAccount } from '#server/platform/ai/auth/persistence';
 
-testStable('stored account round trips and rejects malformed credentials', () => {
-  const account = { subject: 'subject', clientId: 'client', refreshToken: null, sharing: true };
+test.stable(
+  'stored account round trips and rejects malformed credentials',
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  expect(decodeAccount(encodeAccount(account))).toStrictEqual(account);
-  assert.throws(() => decodeAccount({ ...account, refreshToken: 42 }));
-});
+    const account = { subject: 'subject', clientId: 'client', refreshToken: null, sharing: true };
+
+    expect(decodeAccount(encodeAccount(account))).toStrictEqual(account);
+    assert.throws(() => decodeAccount({ ...account, refreshToken: 42 }));
+  }
+);

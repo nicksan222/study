@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Recovers a pending reply after abrupt termination of the real Bun server.          │
@@ -9,24 +10,22 @@
  * │ Uses the production server entry, native RPC and an isolated SQLite database.            │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { spawnTestProcess } from '@study/testing/vitest';
-import { testStable, waitFor } from '@study/testing/vitest';
+import type { createTestDatabase } from '@study/db/testing';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 
-testStable(
+test.stable(
   'a pending reply survives abrupt Bun server process death without duplicates',
-  async () => {
-    const location = await createTestDatabase();
-    const children: ReturnType<typeof spawnTestProcess<'pipe', 'pipe', 'pipe'>>[] = [];
+  async ({ databases, expect, spawnTestProcess, waitFor, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-    async function start() {
+    const location = await databases();
+    const children: ReturnType<test.Context['spawnTestProcess']>[] = [];
+
+    async function start({ spawnTestProcess }: Pick<test.Context, 'spawnTestProcess'>) {
       const env: Record<string, string | undefined> = {
         ...process.env,
         STUDY_DATABASE: location.path
@@ -78,7 +77,7 @@ testStable(
     }
 
     try {
-      const first = await start();
+      const first = await start({ spawnTestProcess });
       const saved = await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
@@ -97,11 +96,11 @@ testStable(
         )
       );
 
-      await waitForReply(location);
+      await waitForReply({ waitFor, assert }, location);
 
       first.child.kill('SIGKILL');
       expect(await first.child.exited).not.toBe(0);
-      const second = await start();
+      const second = await start({ spawnTestProcess });
 
       await Effect.runPromise(
         Effect.scoped(
@@ -134,7 +133,12 @@ testStable(
   }
 );
 
-async function waitForReply(location: Awaited<ReturnType<typeof createTestDatabase>>) {
+async function waitForReply(
+  { waitFor, assert: assertions }: Pick<test.Context, 'waitFor' | 'assert'>,
+  location: Awaited<ReturnType<typeof createTestDatabase>>
+) {
+  const assert: test.Assert = assertions;
+
   const database = await location.open();
 
   try {

@@ -1,3 +1,4 @@
+import { StudyError } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies transactional publication authorization and scoped guard lifetime.        │
@@ -9,15 +10,11 @@
  * │ Uses real SQLite domain records and native workflow identities.                          │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyError } from '@study/contracts';
 import { eq } from '@study/db';
 import { workflow_executions, workflow_retired_executions } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
 import { Workflow, WorkflowEngine } from 'effect/workflow';
-import { expect } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { PublicationGuard, withPublicationGuard } from '#server/platform/workflows/publication';
@@ -27,10 +24,10 @@ const definition = Workflow.make('publication-test', {
   idempotencyKey: ({ id }) => id
 });
 
-testStable(
+test.stable(
   'publication fences cancellation, supersession, retirement and escaped guards',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     context.db.orm

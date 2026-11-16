@@ -1,3 +1,4 @@
+import { MaterialsRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises learning deletion behavior through real persistence boundaries.          │
@@ -10,16 +11,13 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { MaterialsRpc } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
+import { test } from '@study/testing';
 /** Genuine learning deletion uses exact output ownership; Pages and Sources retain their independent lifetimes. */
-import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema, Exit } from 'effect';
 import { RpcTest } from 'effect/rpc';
 import { Activity, DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';
-import { assert, expect } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
@@ -47,10 +45,12 @@ const content = (text: string) => ({
   cards: [{ front: text, back: 'Answer' }]
 });
 
-testStable(
+test.stable(
   'native RPC deletes only its exact learning output, preserving shared authored evidence, raw captures and independent outputs',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
       const saved = await Effect.runPromise(
@@ -141,7 +141,7 @@ testStable(
       );
 
       await f.reopen();
-      await cleanupMaterial(f, saved.root.id);
+      await cleanupMaterial(f, saved.root.id, assert);
       await f.reopen();
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -169,8 +169,8 @@ testStable(
           ).toStrictEqual([saved.kept.id]);
         }).pipe(Effect.provide(f.domain()))
       );
-      assertScrubbed(f, 'ORIGINAL_DELETE_ONLY');
-      assertScrubbed(f, 'PRIVATE_DESCRIPTION_DELETE_ONLY');
+      assertScrubbed(f, assert, 'ORIGINAL_DELETE_ONLY');
+      assertScrubbed(f, assert, 'PRIVATE_DESCRIPTION_DELETE_ONLY');
       expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
@@ -178,10 +178,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'learning deletion preview rejects substituted identity, new versions and newly attached notes without persisting a barrier',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
       await Effect.runPromise(
@@ -222,10 +224,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'learning deletion barrier and outbox roll back together on event persistence failure',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
       const root = await Effect.runPromise(
@@ -261,10 +265,12 @@ testStable(
 );
 
 for (const doubleFailure of [false, true])
-  testStable(
+  test.stable(
     `failed cleanup retries after restart and fences stale completion (failure settlement blocked=${doubleFailure})`,
-    async () => {
-      const f = await pageTransformFixture();
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
+      const f = await pageTransformFixture(databases);
 
       try {
         const root = await Effect.runPromise(
@@ -288,7 +294,7 @@ for (const doubleFailure of [false, true])
             )
           );
 
-        await cleanupMaterial(f, root.id).catch(() => undefined);
+        await cleanupMaterial(f, root.id, assert).catch(() => undefined);
 
         const failed = await Effect.runPromise(
           Effect.flatMap(Materials, (m) => m.deletion({ materialId: root.id })).pipe(
@@ -333,11 +339,11 @@ for (const doubleFailure of [false, true])
           }).pipe(Effect.provide(f.domain()))
         );
 
-        assert.strictEqual(materialDeletionEvent(f, root.id).attempt, 2);
+        assert.strictEqual(materialDeletionEvent(f, root.id, assert).attempt, 2);
 
-        await cleanupMaterial(f, root.id);
+        await cleanupMaterial(f, root.id, assert);
 
-        assertScrubbed(f, 'RETRY_CLEANUP_MARKER');
+        assertScrubbed(f, assert, 'RETRY_CLEANUP_MARKER');
 
         await Effect.runPromise(
           Effect.gen(function* () {
@@ -356,13 +362,15 @@ for (const doubleFailure of [false, true])
     }
   );
 
-testStable(
+test.stable(
   'native retirement rejects late checkpoints and deferred delivery while unrelated execution survives',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
-      const saved = await learningGeneration(f);
+      const saved = await learningGeneration(f, assert);
 
       queueLearningGeneration(f);
       const versionId = await f.execute(f.event(saved.request.id), 'original-generation');
@@ -460,7 +468,7 @@ testStable(
               token: p.token
             });
 
-            const deletion = materialDeletionEvent(f, output.material_id);
+            const deletion = materialDeletionEvent(f, output.material_id, assert);
 
             yield* engine.execute(materialDeletionWorkflow, {
               executionId: 'material-native-cleanup',
@@ -495,7 +503,7 @@ testStable(
 
             yield* awaitNativeStatus(f, 'keep-material-run', 'completed');
 
-            assertScrubbed(f, 'PRIVATE_NATIVE_CHECKPOINT_DELETE');
+            assertScrubbed(f, assert, 'PRIVATE_NATIVE_CHECKPOINT_DELETE');
           }).pipe(Effect.provide(f.services()))
         )
       );

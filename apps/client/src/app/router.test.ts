@@ -1,25 +1,21 @@
-import { configureRpcTransport } from '@study/contracts/react';
-import { beforeEach } from 'vite-plus/test';
+import { test } from '@study/testing';
 
-import { pageTestTransport } from '#client/test/render-page.tsx';
-beforeEach(() => {
-  configureRpcTransport(pageTestTransport().transport);
+test.beforeEach(({ rpc }) => {
+  rpc.givenWorkspace();
 });
-import { testStable } from '@study/testing/vitest';
 import { createMemoryHistory, redirect } from '@tanstack/react-router';
-import { afterEach, expect, vi } from 'vite-plus/test';
 import type {} from 'vite-plus/test/jsdom';
 
 import { createAppRouter } from './router';
 
 const originalUrl = window.location.href;
 
-afterEach(() => {
+test.afterEach(({ vi }) => {
   vi.unstubAllGlobals();
   jsdom.reconfigure({ url: originalUrl });
 });
 
-testStable.each([
+test.stable.for([
   { url: 'tauri://localhost', origin: 'tauri://localhost', calculationOrigin: 'http://localhost' },
   { url: 'tauri://localhost', origin: 'null', calculationOrigin: 'http://localhost' },
   {
@@ -39,7 +35,7 @@ testStable.each([
   }
 ])(
   'loads startup redirects with internal paths at $url with origin $origin',
-  async ({ url, origin, calculationOrigin }) => {
+  async ({ url, origin, calculationOrigin }, { vi, expect }) => {
     jsdom.reconfigure({ url: `${url}/` });
     vi.stubGlobal('origin', origin);
 
@@ -59,59 +55,62 @@ testStable.each([
   }
 );
 
-testStable('preserves project identity, navigation history, and external URL safety', async () => {
-  vi.stubGlobal('origin', 'tauri://localhost');
+test.stable(
+  'preserves project identity, navigation history, and external URL safety',
+  async ({ vi, expect }) => {
+    vi.stubGlobal('origin', 'tauri://localhost');
 
-  const history = createMemoryHistory({ initialEntries: ['/home?project=9007199254740993'] });
-  const router = createAppRouter(history);
-  const unsubscribe = history.subscribe(() => void router.load());
+    const history = createMemoryHistory({ initialEntries: ['/home?project=9007199254740993'] });
+    const router = createAppRouter(history);
+    const unsubscribe = history.subscribe(() => void router.load());
 
-  try {
-    expect(history.location.href).toBe('/projects/9007199254740993/home');
-    await router.load();
-    expect(router.state.location.publicHref).toBe('/projects/9007199254740993/notes');
-    expect(router.state.location.search.project).toBe('9007199254740993');
-    const link = router.buildLocation({
-      to: '/projects',
-      search: { project: '9007199254740993' }
-    });
-
-    expect(link.publicHref).toBe('/projects/9007199254740993');
-    expect(link.external).toBe(false);
-    expect(router.protocolAllowlist.has('tauri:')).toBe(false);
-    expect(router.protocolAllowlist.has('javascript:')).toBe(false);
-    expect(() => router.resolveRedirect(redirect({ href: 'javascript:alert(1)' }))).toThrow();
-    expect(() =>
-      router.resolveRedirect(redirect({ href: 'tauri://localhost/projects' }))
-    ).toThrow();
-    await router.navigate({ to: '/notes', search: { project: '2' } });
-    expect(history.location.href).toBe('/projects/2/notes');
-    history.back();
-    await vi.waitFor(() => {
+    try {
+      expect(history.location.href).toBe('/projects/9007199254740993/home');
+      await router.load();
       expect(router.state.location.publicHref).toBe('/projects/9007199254740993/notes');
-      expect(router.state.status).toBe('idle');
-      expect(router.state.matches.every((match) => match.status === 'success')).toBe(true);
-    });
-    history.forward();
-    await vi.waitFor(() => {
-      expect(router.state.location.publicHref).toBe('/projects/2/notes');
-      expect(router.state.status).toBe('idle');
-      expect(router.state.matches.every((match) => match.status === 'success')).toBe(true);
-    });
-  } finally {
-    unsubscribe();
-    router.history.destroy();
-  }
-});
+      expect(router.state.location.search.project).toBe('9007199254740993');
+      const link = router.buildLocation({
+        to: '/projects',
+        search: { project: '9007199254740993' }
+      });
 
-testStable.each([
+      expect(link.publicHref).toBe('/projects/9007199254740993');
+      expect(link.external).toBe(false);
+      expect(router.protocolAllowlist.has('tauri:')).toBe(false);
+      expect(router.protocolAllowlist.has('javascript:')).toBe(false);
+      expect(() => router.resolveRedirect(redirect({ href: 'javascript:alert(1)' }))).toThrow();
+      expect(() =>
+        router.resolveRedirect(redirect({ href: 'tauri://localhost/projects' }))
+      ).toThrow();
+      await router.navigate({ to: '/notes', search: { project: '2' } });
+      expect(history.location.href).toBe('/projects/2/notes');
+      history.back();
+      await vi.waitFor(() => {
+        expect(router.state.location.publicHref).toBe('/projects/9007199254740993/notes');
+        expect(router.state.status).toBe('idle');
+        expect(router.state.matches.every((match) => match.status === 'success')).toBe(true);
+      });
+      history.forward();
+      await vi.waitFor(() => {
+        expect(router.state.location.publicHref).toBe('/projects/2/notes');
+        expect(router.state.status).toBe('idle');
+        expect(router.state.matches.every((match) => match.status === 'success')).toBe(true);
+      });
+    } finally {
+      unsubscribe();
+      router.history.destroy();
+    }
+  }
+);
+
+test.stable.for([
   { zoom: '', reduced: false, enabled: false },
   { zoom: '100%', reduced: false, enabled: true },
   { zoom: '125%', reduced: false, enabled: false },
   { zoom: '100%', reduced: true, enabled: false }
 ])(
   'uses navigation snapshots=$enabled at zoom=$zoom, reduced motion=$reduced',
-  async ({ zoom, reduced, enabled }) => {
+  async ({ zoom, reduced, enabled }, { vi, expect }) => {
     const originalZoom = document.documentElement.style.zoom;
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
     const nativeTransition = vi.fn((update: () => Promise<void>) => ({

@@ -1,15 +1,16 @@
 import { quizAttemptInProgressSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { afterEach, expect, vi } from 'vite-plus/test';
 
 import type { AiReadiness } from '#client/lib/ai-readiness.ts';
-import { LanguageProvider } from '#client/lib/i18n.tsx';
+import type * as __MockType0 from '#client/lib/i18n.tsx';
 
-import { QuizQuestion } from './quiz-question';
+import type * as __MockType1 from './quiz-question';
+
+let LanguageProvider: typeof __MockType0.LanguageProvider;
+
+let QuizQuestion: typeof __MockType1.QuizQuestion;
 
 const attempt = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
   id: 1n,
@@ -32,49 +33,79 @@ const attempt = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
   ]
 });
 
-testStable('requires an answer and preserves multiple selections when submitting', async () => {
-  const submit = vi.fn();
-  const user = userEvent.setup();
+function createMockState() {
+  return {
+    readiness: (() => ({ value: 'ready' as AiReadiness }))()
+  };
+}
 
-  render(<QuizQuestion question={attempt.questions[0]!} pending={false} submit={submit} last />);
-  expect(screen.getByRole('button', { name: catalogs.english.SubmitAnswer })).toBeDisabled();
-  await user.click(screen.getByRole('checkbox', { name: /Two/ }));
-  await user.click(screen.getByRole('checkbox', { name: /Three/ }));
-  await user.click(screen.getByRole('button', { name: catalogs.english.SubmitAnswer }));
-  expect(submit).toHaveBeenCalledWith({ type: 'choice', choiceIds: [5n, 6n] });
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState();
+
+  readiness = __mockState.readiness;
+
+  mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => readiness.value }));
+  mock('#client/lib/ai-readiness-notice.tsx', () => ({ AiReadinessNotice: () => null }));
+  const __mockModule0 = await import('#client/lib/i18n.tsx');
+
+  LanguageProvider = __mockModule0.LanguageProvider;
+  const __mockModule1 = await import('./quiz-question');
+
+  QuizQuestion = __mockModule1.QuizQuestion;
 });
 
-testStable('selects answers by number and submits from the keyboard', async () => {
-  const submit = vi.fn();
-  const user = userEvent.setup();
+test.stable(
+  'requires an answer and preserves multiple selections when submitting',
+  async ({ vi, userEvent, render, expect, screen }) => {
+    const submit = vi.fn();
+    const user = userEvent.setup();
 
-  render(<QuizQuestion question={attempt.questions[0]!} pending={false} submit={submit} last />);
-  await user.keyboard('12{Enter}');
-  expect(submit).toHaveBeenCalledWith({ type: 'choice', choiceIds: [5n, 6n] });
-});
+    render(<QuizQuestion question={attempt.questions[0]!} pending={false} submit={submit} last />);
+    expect(screen.getByRole('button', { name: catalogs.english.SubmitAnswer })).toBeDisabled();
+    await user.click(screen.getByRole('checkbox', { name: /Two/ }));
+    await user.click(screen.getByRole('checkbox', { name: /Three/ }));
+    await user.click(screen.getByRole('button', { name: catalogs.english.SubmitAnswer }));
+    expect(submit).toHaveBeenCalledWith({ type: 'choice', choiceIds: [5n, 6n] });
+  }
+);
 
-testStable('keeps open answers editable and submits trimmed text', async () => {
-  const submit = vi.fn();
-  const question = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
-    ...attempt,
-    questions: [
-      { id: 4n, position: 0n, kind: 'open', prompt: 'Explain prime numbers.', answer: null }
-    ]
-  }).questions[0]!;
-  const user = userEvent.setup();
+test.stable(
+  'selects answers by number and submits from the keyboard',
+  async ({ vi, userEvent, render, expect }) => {
+    const submit = vi.fn();
+    const user = userEvent.setup();
 
-  render(<QuizQuestion question={question} pending={false} submit={submit} last />);
-  await user.type(
-    screen.getByRole('textbox', { name: catalogs.english.YourAnswer }),
-    '  Exactly two divisors.  '
-  );
-  await user.keyboard('{Control>}{Enter}{/Control}');
-  expect(submit).toHaveBeenCalledWith({ type: 'open', answer: 'Exactly two divisors.' });
-});
+    render(<QuizQuestion question={attempt.questions[0]!} pending={false} submit={submit} last />);
+    await user.keyboard('12{Enter}');
+    expect(submit).toHaveBeenCalledWith({ type: 'choice', choiceIds: [5n, 6n] });
+  }
+);
 
-testStable(
+test.stable(
+  'keeps open answers editable and submits trimmed text',
+  async ({ vi, userEvent, render, screen, expect }) => {
+    const submit = vi.fn();
+    const question = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
+      ...attempt,
+      questions: [
+        { id: 4n, position: 0n, kind: 'open', prompt: 'Explain prime numbers.', answer: null }
+      ]
+    }).questions[0]!;
+    const user = userEvent.setup();
+
+    render(<QuizQuestion question={question} pending={false} submit={submit} last />);
+    await user.type(
+      screen.getByRole('textbox', { name: catalogs.english.YourAnswer }),
+      '  Exactly two divisors.  '
+    );
+    await user.keyboard('{Control>}{Enter}{/Control}');
+    expect(submit).toHaveBeenCalledWith({ type: 'open', answer: 'Exactly two divisors.' });
+  }
+);
+
+test.stable(
   'blank answers restore saved text and submit with Enter without leaking the answer',
-  async () => {
+  async ({ vi, userEvent, render, screen, expect }) => {
     const submit = vi.fn();
     const question = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
       ...attempt,
@@ -101,33 +132,36 @@ testStable(
   }
 );
 
-testStable('confirming an IME composition does not submit a blank answer', () => {
-  const submit = vi.fn();
-  const question = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
-    ...attempt,
-    questions: [
-      {
-        id: 4n,
-        position: 0n,
-        kind: 'fill_blank',
-        prompt: 'The word is ____.',
-        answer: { type: 'open', answer: '日本語' }
-      }
-    ]
-  }).questions[0]!;
+test.stable(
+  'confirming an IME composition does not submit a blank answer',
+  ({ vi, render, screen, expect, fireEvent }) => {
+    const submit = vi.fn();
+    const question = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
+      ...attempt,
+      questions: [
+        {
+          id: 4n,
+          position: 0n,
+          kind: 'fill_blank',
+          prompt: 'The word is ____.',
+          answer: { type: 'open', answer: '日本語' }
+        }
+      ]
+    }).questions[0]!;
 
-  render(<QuizQuestion question={question} pending={false} submit={submit} last />);
-  const input = screen.getByRole('textbox', { name: catalogs.english.YourAnswer });
+    render(<QuizQuestion question={question} pending={false} submit={submit} last />);
+    const input = screen.getByRole('textbox', { name: catalogs.english.YourAnswer });
 
-  expect(fireEvent.keyDown(input, { key: 'Enter', isComposing: true })).toBe(true);
-  expect(submit).not.toHaveBeenCalled();
-  fireEvent.keyDown(input, { key: 'Enter', isComposing: false });
-  expect(submit).toHaveBeenCalledExactlyOnceWith({ type: 'open', answer: '日本語' });
-});
+    expect(fireEvent.keyDown(input, { key: 'Enter', isComposing: true })).toBe(true);
+    expect(submit).not.toHaveBeenCalled();
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: false });
+    expect(submit).toHaveBeenCalledExactlyOnceWith({ type: 'open', answer: '日本語' });
+  }
+);
 
-testStable(
+test.stable(
   'matching restores associations and supports keyboard selection without submitting from a select',
-  async () => {
+  async ({ vi, userEvent, render, screen, expect }) => {
     const submit = vi.fn();
     const termA = '11111111-1111-4111-8111-111111111111';
     const termB = '22222222-2222-4222-8222-222222222222';
@@ -184,64 +218,70 @@ testStable(
     });
   }
 );
-testStable('true or false restores a single radio response and uses localized labels', async () => {
-  const submit = vi.fn();
-  const question = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
-    ...attempt,
-    questions: [
-      {
-        id: 4n,
-        position: 0n,
-        kind: 'true_false',
-        prompt: 'ATP carries energy.',
-        answer: { type: 'choice', choiceIds: [6n] },
-        choices: [
-          { id: 5n, position: 0n, text: 'true' },
-          { id: 6n, position: 1n, text: 'false' }
-        ]
-      }
-    ]
-  }).questions[0]!;
-  const user = userEvent.setup();
+test.stable(
+  'true or false restores a single radio response and uses localized labels',
+  async ({ vi, userEvent, render, expect, screen }) => {
+    const submit = vi.fn();
+    const question = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
+      ...attempt,
+      questions: [
+        {
+          id: 4n,
+          position: 0n,
+          kind: 'true_false',
+          prompt: 'ATP carries energy.',
+          answer: { type: 'choice', choiceIds: [6n] },
+          choices: [
+            { id: 5n, position: 0n, text: 'true' },
+            { id: 6n, position: 1n, text: 'false' }
+          ]
+        }
+      ]
+    }).questions[0]!;
+    const user = userEvent.setup();
 
-  render(<QuizQuestion question={question} pending={false} submit={submit} last />);
-  expect(screen.getByRole('radio', { name: /False/ })).toBeChecked();
-  await user.click(screen.getByRole('radio', { name: /True/ }));
-  expect(screen.getByRole('radio', { name: /False/ })).not.toBeChecked();
-  await user.click(screen.getByRole('button', { name: catalogs.english.SubmitAnswer }));
-  expect(submit).toHaveBeenCalledExactlyOnceWith({ type: 'choice', choiceIds: [5n] });
-});
+    render(<QuizQuestion question={question} pending={false} submit={submit} last />);
+    expect(screen.getByRole('radio', { name: /False/ })).toBeChecked();
+    await user.click(screen.getByRole('radio', { name: /True/ }));
+    expect(screen.getByRole('radio', { name: /False/ })).not.toBeChecked();
+    await user.click(screen.getByRole('button', { name: catalogs.english.SubmitAnswer }));
+    expect(submit).toHaveBeenCalledExactlyOnceWith({ type: 'choice', choiceIds: [5n] });
+  }
+);
 
-testStable('Italian true or false controls localize canonical truth tokens', () => {
-  const question = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
-    ...attempt,
-    questions: [
-      {
-        id: 4n,
-        position: 0n,
-        kind: 'true_false',
-        prompt: 'ATP trasporta energia.',
-        answer: null,
-        choices: [
-          { id: 5n, position: 0n, text: 'true' },
-          { id: 6n, position: 1n, text: 'false' }
-        ]
-      }
-    ]
-  }).questions[0]!;
+test.stable(
+  'Italian true or false controls localize canonical truth tokens',
+  ({ render, expect, screen }) => {
+    const question = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
+      ...attempt,
+      questions: [
+        {
+          id: 4n,
+          position: 0n,
+          kind: 'true_false',
+          prompt: 'ATP trasporta energia.',
+          answer: null,
+          choices: [
+            { id: 5n, position: 0n, text: 'true' },
+            { id: 6n, position: 1n, text: 'false' }
+          ]
+        }
+      ]
+    }).questions[0]!;
 
-  render(
-    <LanguageProvider locale="italian">
-      <QuizQuestion question={question} pending={false} submit={() => {}} last />
-    </LanguageProvider>
-  );
-  expect(screen.getByRole('radio', { name: /Vero/ })).toBeInTheDocument();
-  expect(screen.getByRole('radio', { name: /Falso/ })).toBeInTheDocument();
-});
+    render(
+      <LanguageProvider locale="italian">
+        <QuizQuestion question={question} pending={false} submit={() => {}} last />
+      </LanguageProvider>
+    );
+    expect(screen.getByRole('radio', { name: /Vero/ })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /Falso/ })).toBeInTheDocument();
+  }
+);
 
-testStable(
+test.stable(
   'ordering restores saved permutations and moves steps with keyboard buttons',
-  async () => {
+  async ({ vi, userEvent, render, expect, screen }) => {
     const submit = vi.fn();
     const question = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
       ...attempt,
@@ -278,39 +318,43 @@ testStable(
   }
 );
 
-const readiness = vi.hoisted(() => ({ value: 'ready' as AiReadiness }));
+let readiness: ReturnType<typeof createMockState>['readiness'];
 
-vi.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => readiness.value }));
-vi.mock('#client/lib/ai-readiness-notice.tsx', () => ({ AiReadinessNotice: () => null }));
-afterEach(() => {
+test.afterEach(() => {
   readiness.value = 'ready';
 });
 
-testStable('preserves typed answers but blocks AI grading until setup is ready', async () => {
-  readiness.value = 'setup';
-  const submit = vi.fn();
-  const question = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
-    ...attempt,
-    questions: [{ id: 4n, position: 0n, kind: 'open', prompt: 'Explain cells.', answer: null }]
-  }).questions[0]!;
-  const user = userEvent.setup();
+test.stable(
+  'preserves typed answers but blocks AI grading until setup is ready',
+  async ({ vi, userEvent, render, screen, expect }) => {
+    readiness.value = 'setup';
+    const submit = vi.fn();
+    const question = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
+      ...attempt,
+      questions: [{ id: 4n, position: 0n, kind: 'open', prompt: 'Explain cells.', answer: null }]
+    }).questions[0]!;
+    const user = userEvent.setup();
 
-  render(<QuizQuestion question={question} pending={false} submit={submit} last />);
-  const answer = screen.getByRole('textbox', { name: catalogs.english.YourAnswer });
+    render(<QuizQuestion question={question} pending={false} submit={submit} last />);
+    const answer = screen.getByRole('textbox', { name: catalogs.english.YourAnswer });
 
-  await user.type(answer, 'Cells are basic units of life.');
-  expect(answer).toBeEnabled();
-  expect(screen.getByRole('button', { name: catalogs.english.SubmitAnswer })).toBeDisabled();
-  await user.keyboard('{Control>}{Enter}{/Control}');
-  expect(submit).not.toHaveBeenCalled();
-});
+    await user.type(answer, 'Cells are basic units of life.');
+    expect(answer).toBeEnabled();
+    expect(screen.getByRole('button', { name: catalogs.english.SubmitAnswer })).toBeDisabled();
+    await user.keyboard('{Control>}{Enter}{/Control}');
+    expect(submit).not.toHaveBeenCalled();
+  }
+);
 
-testStable('keeps deterministic answers usable without provider setup', async () => {
-  readiness.value = 'setup';
-  const submit = vi.fn();
-  const user = userEvent.setup();
+test.stable(
+  'keeps deterministic answers usable without provider setup',
+  async ({ vi, userEvent, render, expect }) => {
+    readiness.value = 'setup';
+    const submit = vi.fn();
+    const user = userEvent.setup();
 
-  render(<QuizQuestion question={attempt.questions[0]!} pending={false} submit={submit} last />);
-  await user.keyboard('12{Enter}');
-  expect(submit).toHaveBeenCalledWith({ type: 'choice', choiceIds: [5n, 6n] });
-});
+    render(<QuizQuestion question={attempt.questions[0]!} pending={false} submit={submit} last />);
+    await user.keyboard('12{Enter}');
+    expect(submit).toHaveBeenCalledWith({ type: 'choice', choiceIds: [5n, 6n] });
+  }
+);

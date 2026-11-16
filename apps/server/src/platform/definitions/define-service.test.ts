@@ -1,3 +1,4 @@
+import { StudyError } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies defineService preserves operation types and typed failures while          │
@@ -13,18 +14,16 @@
  * │ application or database fixture is involved.                                             │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyError } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Cause, Context, Effect, Exit, Fiber, Layer } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { defineService } from '#server/platform/definitions/define-service';
 
 class Greeting extends Context.Service<Greeting, string>()('test/Greeting') {}
 
-testStable('service acquires dependencies and runs operations', async () => {
+test.stable('service acquires dependencies and runs operations', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const service = defineService(
     'test/Greeter',
     Effect.gen(function* () {
@@ -50,25 +49,32 @@ testStable('service acquires dependencies and runs operations', async () => {
   assert.ok((await result) === 'Hello, Ada');
 });
 
-testStable('service preserves typed failure identity and fields', async () => {
-  const failure = { _tag: 'Conflict' as const, revision: 42 };
-  const service = defineService(
-    'test/Failure',
-    Effect.succeed({ fail: () => Effect.fail(failure) })
-  );
-  const result = await Effect.runPromise(
-    Effect.gen(function* () {
-      const instance = yield* service;
+test.stable(
+  'service preserves typed failure identity and fields',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-      return yield* Effect.flip(instance.fail());
-    }).pipe(Effect.provide(service.layer))
-  );
+    const failure = { _tag: 'Conflict' as const, revision: 42 };
+    const service = defineService(
+      'test/Failure',
+      Effect.succeed({ fail: () => Effect.fail(failure) })
+    );
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const instance = yield* service;
 
-  assert.strictEqual(result, failure);
-  expect(result).toStrictEqual({ _tag: 'Conflict', revision: 42 });
-});
+        return yield* Effect.flip(instance.fail());
+      }).pipe(Effect.provide(service.layer))
+    );
 
-testStable('service preserves a StudyError and its cause', async () => {
+    assert.strictEqual(result, failure);
+    expect(result).toStrictEqual({ _tag: 'Conflict', revision: 42 });
+  }
+);
+
+test.stable('service preserves a StudyError and its cause', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const cause = new Error('underlying');
   const failure = new StudyError('transient', 'unavailable', { cause, retryAfterMs: 123 });
   const service = defineService(
@@ -86,27 +92,32 @@ testStable('service preserves a StudyError and its cause', async () => {
   assert.strictEqual(result.retryAfterMs, 123);
 });
 
-testStable('service suspends and normalizes synchronous construction throws', async () => {
-  const cause = new Error('private');
-  const service = defineService(
-    'test/Throw',
-    Effect.succeed({
-      fail: (): Effect.Effect<void> => {
-        throw cause;
-      }
-    })
-  );
-  const result = await Effect.runPromise(
-    Effect.gen(function* () {
-      const instance = yield* service;
+test.stable(
+  'service suspends and normalizes synchronous construction throws',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-      return yield* Effect.flip(instance.fail());
-    }).pipe(Effect.provide(service.layer))
-  );
+    const cause = new Error('private');
+    const service = defineService(
+      'test/Throw',
+      Effect.succeed({
+        fail: (): Effect.Effect<void> => {
+          throw cause;
+        }
+      })
+    );
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const instance = yield* service;
 
-  assert.strictEqual(result.cause, cause);
-  assert.ok(result instanceof StudyError);
-});
+        return yield* Effect.flip(instance.fail());
+      }).pipe(Effect.provide(service.layer))
+    );
+
+    assert.strictEqual(result.cause, cause);
+    assert.ok(result instanceof StudyError);
+  }
+);
 
 function serviceTypeAssertions() {
   const service = defineService(
@@ -127,7 +138,9 @@ function serviceTypeAssertions() {
 
 void serviceTypeAssertions;
 
-testStable('service operations remain lazy and cancellable', async () => {
+test.stable('service operations remain lazy and cancellable', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   let started = 0;
   let constructed = 0;
   let cancelled = 0;
@@ -224,21 +237,26 @@ function errorAndLayerTypeAssertions() {
 
 void errorAndLayerTypeAssertions;
 
-testStable('service methods retain their individual capability requirements', async () => {
-  const guarded = defineService(
-    'test/Guarded',
-    Effect.succeed({ publish: () => Effect.map(Publication, (owner) => `published:${owner}`) })
-  );
-  const action = Effect.flatMap(guarded, (service) => service.publish()).pipe(
-    Effect.provide(guarded.layer)
-  );
-  const typed: Effect.Effect<string, StudyError, Publication> = action;
+test.stable(
+  'service methods retain their individual capability requirements',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  assert.ok(
-    (await Effect.runPromise(typed.pipe(Effect.provideService(Publication, 'current')))) ===
-      'published:current'
-  );
-});
+    const guarded = defineService(
+      'test/Guarded',
+      Effect.succeed({ publish: () => Effect.map(Publication, (owner) => `published:${owner}`) })
+    );
+    const action = Effect.flatMap(guarded, (service) => service.publish()).pipe(
+      Effect.provide(guarded.layer)
+    );
+    const typed: Effect.Effect<string, StudyError, Publication> = action;
+
+    assert.ok(
+      (await Effect.runPromise(typed.pipe(Effect.provideService(Publication, 'current')))) ===
+        'published:current'
+    );
+  }
+);
 
 function publicationTypeAssertions() {
   const guarded = defineService(
@@ -257,9 +275,11 @@ function publicationTypeAssertions() {
 
 void publicationTypeAssertions;
 
-testStable(
+test.stable(
   'service harness accepts lazy generator factories and preserves dependency and failure types',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     let acquisitions = 0;
     const failure = new StudyError('invalid_input', 'rejected');
     const service = defineService('test/Generator', function* () {

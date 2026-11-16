@@ -1,16 +1,16 @@
 import { BunFileSystem } from '@effect/platform-bun';
-import { spawnTestProcess } from '@study/testing/vitest';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { eq, sql } from 'drizzle-orm';
 import { Effect, FileSystem } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { Db } from '../src/index.ts';
 import type { DbTransaction } from '../src/index.ts';
 import { material_generation_scopes, projects } from '../src/schema.ts';
-import { createTestDatabase } from '../src/testing.ts';
 
-async function fixture(run: (path: string) => void | Promise<void>) {
+async function fixture(
+  { createTestDatabase }: Pick<test.Context, 'createTestDatabase'>,
+  run: (path: string) => void | Promise<void>
+) {
   const location = await createTestDatabase();
 
   try {
@@ -36,7 +36,12 @@ function values(db: Db) {
     .map((row) => row.value);
 }
 
-async function privateConnection(path: string) {
+async function privateConnection(
+  { assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>,
+  path: string
+) {
+  const assert: test.Assert = assertions;
+
   const db = await Db.open(path);
 
   try {
@@ -74,7 +79,12 @@ async function privateConnection(path: string) {
   }
 }
 
-async function nestedCommits(path: string) {
+async function nestedCommits(
+  { assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>,
+  path: string
+) {
+  const assert: test.Assert = assertions;
+
   const db = await Db.open(path);
 
   try {
@@ -116,7 +126,12 @@ async function nestedCommits(path: string) {
   }
 }
 
-async function caughtNestedFailure(path: string) {
+async function caughtNestedFailure(
+  { assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>,
+  path: string
+) {
+  const assert: test.Assert = assertions;
+
   const db = await Db.open(path);
 
   try {
@@ -140,7 +155,12 @@ async function caughtNestedFailure(path: string) {
   }
 }
 
-async function rejectedAsyncCallbacks(path: string) {
+async function rejectedAsyncCallbacks(
+  { assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>,
+  path: string
+) {
+  const assert: test.Assert = assertions;
+
   const db = await Db.open(path);
 
   try {
@@ -175,11 +195,21 @@ async function rejectedAsyncCallbacks(path: string) {
   }
 }
 
-function assertExpiredCommit(db: DbTransaction) {
+function assertExpiredCommit(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  db: DbTransaction
+) {
+  const assert: test.Assert = assertions;
+
   assert.throws(() => insert(db, 'late commit write'), /transaction scope has ended/);
 }
 
-function assertExpiredScope(db: DbTransaction) {
+function assertExpiredScope(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  db: DbTransaction
+) {
+  const assert: test.Assert = assertions;
+
   assert.throws(() => insert(db, 'late write'), /transaction scope has ended/);
   assert.throws(() => db.transaction(() => {}), /transaction scope has ended/);
   assert.throws(
@@ -188,65 +218,86 @@ function assertExpiredScope(db: DbTransaction) {
   );
 }
 
-testStable(
+test.stable(
   'opens a private WAL connection with foreign keys and a busy timeout, and persists across reopen',
-  () => fixture(privateConnection)
+  ({ createTestDatabase, assert, expect }) =>
+    fixture({ createTestDatabase }, (path) => privateConnection({ assert, expect }, path))
 );
 
-testStable('opens an in-memory database and closes the underlying connection', async () => {
-  const db = await Db.open(':memory:');
+test.stable(
+  'opens an in-memory database and closes the underlying connection',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  assert.strictEqual(db.orm.get(sql.raw('PRAGMA foreign_keys'))?.foreign_keys, 1n);
-  db.close();
-  assert.throws(() => db.exec('SELECT 1'), /closed/);
-});
+    const db = await Db.open(':memory:');
 
-testStable('existing database preflight initializes SQLite in a fresh process', () =>
-  fixture(async (path) => {
-    const db = await Db.open(path);
-
-    try {
-      db.orm
-        .insert(projects)
-        .values({ name: 'Retained project', created_at: 1n, updated_at: 1n })
-        .run();
-    } finally {
-      db.close();
-    }
-
-    const child = spawnTestProcess(
-      [
-        process.execPath,
-        Bun.fileURLToPath(new URL('./fixtures/validate-first.ts', import.meta.url)),
-        path
-      ],
-      { stdout: 'pipe', stderr: 'pipe' }
-    );
-    const [status, stdout, stderr] = await Promise.all([
-      child.exited,
-      new Response(child.stdout).text(),
-      new Response(child.stderr).text()
-    ]);
-
-    assert.strictEqual(status, 0, stderr);
-    expect(JSON.parse(stdout)).toStrictEqual([{ name: 'Retained project' }]);
-  })
+    assert.strictEqual(db.orm.get(sql.raw('PRAGMA foreign_keys'))?.foreign_keys, 1n);
+    db.close();
+    assert.throws(() => db.exec('SELECT 1'), /closed/);
+  }
 );
 
-testStable('nested commits return callback values and roll back with the outer transaction', () =>
-  fixture(nestedCommits)
+test.stable(
+  'existing database preflight initializes SQLite in a fresh process',
+  ({ spawnTestProcess, assert: assertions, expect, createTestDatabase }: test.Context) => {
+    const assert: test.Assert = assertions;
+
+    return fixture({ createTestDatabase }, async (path) => {
+      const db = await Db.open(path);
+
+      try {
+        db.orm
+          .insert(projects)
+          .values({ name: 'Retained project', created_at: 1n, updated_at: 1n })
+          .run();
+      } finally {
+        db.close();
+      }
+
+      const child = spawnTestProcess(
+        [
+          process.execPath,
+          Bun.fileURLToPath(new URL('./fixtures/validate-first.ts', import.meta.url)),
+          path
+        ],
+        { stdout: 'pipe', stderr: 'pipe' }
+      );
+      const [status, stdout, stderr] = await Promise.all([
+        child.exited,
+        new Response(child.stdout).text(),
+        new Response(child.stderr).text()
+      ]);
+
+      assert.strictEqual(status, 0, stderr);
+      expect(JSON.parse(stdout)).toStrictEqual([{ name: 'Retained project' }]);
+    });
+  }
 );
 
-testStable('a caught nested failure rolls back its savepoint and preserves outer writes', () =>
-  fixture(caughtNestedFailure)
+test.stable(
+  'nested commits return callback values and roll back with the outer transaction',
+  ({ createTestDatabase, assert, expect }) =>
+    fixture({ createTestDatabase }, (path) => nestedCommits({ assert, expect }, path))
 );
 
-testStable(
+test.stable(
+  'a caught nested failure rolls back its savepoint and preserves outer writes',
+  ({ createTestDatabase, assert, expect }) =>
+    fixture({ createTestDatabase }, (path) => caughtNestedFailure({ assert, expect }, path))
+);
+
+test.stable(
   'rejects native async callbacks before invocation and rolls back thenable callbacks',
-  () => fixture(rejectedAsyncCallbacks)
+  ({ createTestDatabase, assert, expect }) =>
+    fixture({ createTestDatabase }, (path) => rejectedAsyncCallbacks({ assert, expect }, path))
 );
 
-async function expiredAsyncScopes() {
+async function expiredAsyncScopes({
+  assert: assertions,
+  expect
+}: Pick<test.Context, 'assert' | 'expect'>) {
+  const assert: test.Assert = assertions;
+
   const db = await Db.open(':memory:');
 
   try {
@@ -257,7 +308,7 @@ async function expiredAsyncScopes() {
       () =>
         db.transaction((tx) => {
           insert(tx, 'rolled back');
-          continuation = Promise.resolve().then(() => assertExpiredScope(tx));
+          continuation = Promise.resolve().then(() => assertExpiredScope({ assert }, tx));
 
           return continuation;
         }),
@@ -266,7 +317,7 @@ async function expiredAsyncScopes() {
     await continuation;
     expect(values(db)).toStrictEqual([]);
     db.transaction((tx) => {
-      continuation = Promise.resolve().then(() => assertExpiredCommit(tx));
+      continuation = Promise.resolve().then(() => assertExpiredCommit({ assert }, tx));
       insert(tx, 'committed');
     });
     await continuation;
@@ -276,15 +327,17 @@ async function expiredAsyncScopes() {
   }
 }
 
-testStable(
+test.stable(
   'expired async scopes cannot use orm, raw SQL, or start transactions',
   expiredAsyncScopes
 );
 
-testStable(
+test.stable(
   'boolean columns retain true and false alongside bigint integers across transactions and reopen',
-  () =>
-    fixture(async (path) => {
+  ({ assert: assertions, expect, createTestDatabase }: test.Context) => {
+    const assert: test.Assert = assertions;
+
+    return fixture({ createTestDatabase }, async (path) => {
       const db = await Db.open(path);
 
       try {
@@ -337,139 +390,170 @@ testStable(
       } finally {
         reopened.close();
       }
-    })
-);
-
-testStable('transaction capabilities expire after commit', () =>
-  fixture(async (path) => {
-    const db = await Db.open(path);
-
-    try {
-      initialize(db);
-      let escaped: { orm: typeof db.orm } | undefined;
-      let escapedOrm: typeof db.orm | undefined;
-      let escapedRun: (() => unknown) | undefined;
-
-      db.transaction((tx) => {
-        escaped = tx;
-        escapedOrm = tx.orm;
-        const run = tx.orm.run;
-
-        escapedRun = () => run(sql`INSERT INTO transaction_test VALUES ('late method')`);
-        tx.orm.run(sql`INSERT INTO transaction_test VALUES ('scoped')`);
-      });
-      assert.throws(
-        () => escaped!.orm.run(sql`INSERT INTO transaction_test VALUES ('late')`),
-        /transaction scope has ended/
-      );
-      assert.throws(
-        () => escapedOrm!.run(sql`INSERT INTO transaction_test VALUES ('late')`),
-        /transaction scope has ended/
-      );
-      assert.throws(() => escapedRun!(), /transaction scope has ended/);
-      expect(values(db)).toStrictEqual(['scoped']);
-    } finally {
-      db.close();
-    }
-  })
-);
-
-testStable('SQLite cannot load extensions from SQL after vector setup', async () => {
-  const db = await Db.open(':memory:');
-
-  try {
-    assert.throws(() => db.orm.get(sql`SELECT load_extension('untrusted')`));
-  } finally {
-    db.close();
+    });
   }
-});
-
-testStable('root access cannot replace a transaction capability', () =>
-  fixture(async (path) => {
-    const db = await Db.open(path);
-
-    try {
-      initialize(db);
-      const root = db.orm;
-      const writeRoot = () => root.run(sql`INSERT INTO transaction_test VALUES ('root')`);
-
-      db.transaction((tx) => {
-        assert.throws(writeRoot, /transaction capability/);
-        tx.orm.run(sql`INSERT INTO transaction_test VALUES ('scoped')`);
-      });
-      expect(values(db)).toStrictEqual(['scoped']);
-    } finally {
-      db.close();
-    }
-  })
 );
 
-testStable('ORM-level transactions cannot bypass database capabilities', async () => {
-  const db = await Db.open(':memory:');
-  let invoked = false;
-  const bypass = (orm: Db['orm']) =>
-    Reflect.apply(Reflect.get(orm, 'transaction'), orm, [
-      () => {
-        invoked = true;
+test.stable(
+  'transaction capabilities expire after commit',
+  ({ assert: assertions, expect, createTestDatabase }: test.Context) => {
+    const assert: test.Assert = assertions;
+
+    return fixture({ createTestDatabase }, async (path) => {
+      const db = await Db.open(path);
+
+      try {
+        initialize(db);
+        let escaped: { orm: typeof db.orm } | undefined;
+        let escapedOrm: typeof db.orm | undefined;
+        let escapedRun: (() => unknown) | undefined;
+
+        db.transaction((tx) => {
+          escaped = tx;
+          escapedOrm = tx.orm;
+          const run = tx.orm.run;
+
+          escapedRun = () => run(sql`INSERT INTO transaction_test VALUES ('late method')`);
+          tx.orm.run(sql`INSERT INTO transaction_test VALUES ('scoped')`);
+        });
+        assert.throws(
+          () => escaped!.orm.run(sql`INSERT INTO transaction_test VALUES ('late')`),
+          /transaction scope has ended/
+        );
+        assert.throws(
+          () => escapedOrm!.run(sql`INSERT INTO transaction_test VALUES ('late')`),
+          /transaction scope has ended/
+        );
+        assert.throws(() => escapedRun!(), /transaction scope has ended/);
+        expect(values(db)).toStrictEqual(['scoped']);
+      } finally {
+        db.close();
       }
-    ]);
-
-  try {
-    assert.throws(() => bypass(db.orm), /transaction capability/);
-    db.transaction((tx) => {
-      assert.throws(() => bypass(tx.orm), /transaction capability/);
     });
-    assert.strictEqual(invoked, false);
-  } finally {
-    db.close();
   }
-});
+);
 
-testStable('CTE APIs and builders expire with their transaction capability', async () => {
-  const db = await Db.open(':memory:');
-  let lateWrite!: () => unknown;
-  let lateQuery!: () => unknown;
+test.stable(
+  'SQLite cannot load extensions from SQL after vector setup',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    db.transaction((tx) => {
-      const scoped = tx.orm.with();
-      const query = scoped
-        .insert(projects)
-        .values({ name: 'late query', created_at: 1n, updated_at: 1n });
+    const db = await Db.open(':memory:');
 
-      lateWrite = () =>
-        scoped
+    try {
+      assert.throws(() => db.orm.get(sql`SELECT load_extension('untrusted')`));
+    } finally {
+      db.close();
+    }
+  }
+);
+
+test.stable(
+  'root access cannot replace a transaction capability',
+  ({ assert: assertions, expect, createTestDatabase }: test.Context) => {
+    const assert: test.Assert = assertions;
+
+    return fixture({ createTestDatabase }, async (path) => {
+      const db = await Db.open(path);
+
+      try {
+        initialize(db);
+        const root = db.orm;
+        const writeRoot = () => root.run(sql`INSERT INTO transaction_test VALUES ('root')`);
+
+        db.transaction((tx) => {
+          assert.throws(writeRoot, /transaction capability/);
+          tx.orm.run(sql`INSERT INTO transaction_test VALUES ('scoped')`);
+        });
+        expect(values(db)).toStrictEqual(['scoped']);
+      } finally {
+        db.close();
+      }
+    });
+  }
+);
+
+test.stable(
+  'ORM-level transactions cannot bypass database capabilities',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const db = await Db.open(':memory:');
+    let invoked = false;
+    const bypass = (orm: Db['orm']) =>
+      Reflect.apply(Reflect.get(orm, 'transaction'), orm, [
+        () => {
+          invoked = true;
+        }
+      ]);
+
+    try {
+      assert.throws(() => bypass(db.orm), /transaction capability/);
+      db.transaction((tx) => {
+        assert.throws(() => bypass(tx.orm), /transaction capability/);
+      });
+      assert.strictEqual(invoked, false);
+    } finally {
+      db.close();
+    }
+  }
+);
+
+test.stable(
+  'CTE APIs and builders expire with their transaction capability',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const db = await Db.open(':memory:');
+    let lateWrite!: () => unknown;
+    let lateQuery!: () => unknown;
+
+    try {
+      db.transaction((tx) => {
+        const scoped = tx.orm.with();
+        const query = scoped
           .insert(projects)
-          .values({ name: 'late write', created_at: 1n, updated_at: 1n })
-          .run();
-      lateQuery = () => query.run();
-      scoped.insert(projects).values({ name: 'scoped', created_at: 1n, updated_at: 1n }).run();
-    });
-    assert.throws(lateWrite, /transaction scope has ended/);
-    assert.throws(lateQuery, /transaction scope has ended/);
-    expect(db.orm.select({ name: projects.name }).from(projects).all()).toStrictEqual([
-      { name: 'scoped' }
-    ]);
-  } finally {
-    db.close();
+          .values({ name: 'late query', created_at: 1n, updated_at: 1n });
+
+        lateWrite = () =>
+          scoped
+            .insert(projects)
+            .values({ name: 'late write', created_at: 1n, updated_at: 1n })
+            .run();
+        lateQuery = () => query.run();
+        scoped.insert(projects).values({ name: 'scoped', created_at: 1n, updated_at: 1n }).run();
+      });
+      assert.throws(lateWrite, /transaction scope has ended/);
+      assert.throws(lateQuery, /transaction scope has ended/);
+      expect(db.orm.select({ name: projects.name }).from(projects).all()).toStrictEqual([
+        { name: 'scoped' }
+      ]);
+    } finally {
+      db.close();
+    }
   }
-});
+);
 
-testStable('captured root CTE APIs cannot execute inside a transaction', async () => {
-  const db = await Db.open(':memory:');
+test.stable(
+  'captured root CTE APIs cannot execute inside a transaction',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    const outside = db.orm.with();
+    const db = await Db.open(':memory:');
 
-    db.transaction(() => {
-      assert.throws(
-        () =>
-          outside.insert(projects).values({ name: 'root', created_at: 1n, updated_at: 1n }).run(),
-        /transaction capability/
-      );
-    });
-    expect(db.orm.select({ name: projects.name }).from(projects).all()).toStrictEqual([]);
-  } finally {
-    db.close();
+    try {
+      const outside = db.orm.with();
+
+      db.transaction(() => {
+        assert.throws(
+          () =>
+            outside.insert(projects).values({ name: 'root', created_at: 1n, updated_at: 1n }).run(),
+          /transaction capability/
+        );
+      });
+      expect(db.orm.select({ name: projects.name }).from(projects).all()).toStrictEqual([]);
+    } finally {
+      db.close();
+    }
   }
-});
+);

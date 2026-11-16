@@ -8,11 +8,12 @@
     "./schema-builder": "./src/schema-builder.ts"
   },
   "scripts": {
-    "check:generated": "bun --bun vp test run --config ../../vite.config.ts --project server packages/db/test/schema.test.ts -t \"Drizzle generation\"",
+    "check:generated": "bun --bun vp test run --config ../../vite.config.ts --project database packages/db/test/schema.test.ts -t \"Drizzle generation\"",
     "check:schema": "bun --bun drizzle-kit check",
-    "test": "bun --bun vp test run --config ../../vite.config.ts --project server packages/db",
+    "test": "bun --bun vp test run --config ../../vite.config.ts --project database packages/db",
     "gen": "bun --bun drizzle-kit generate",
-    "gen:check": "bun --bun vp test run --config ../../vite.config.ts --project server packages/db/test/schema.test.ts -t \"Drizzle generation\""
+    "gen:check": "bun --bun vp test run --config ../../vite.config.ts --project database packages/db/test/schema.test.ts -t \"Drizzle generation\"",
+    "typecheck": "bun --bun tsc --noEmit -p ../../tooling/typescript/database-tests.json"
   },
   "dependencies": {
     "@effect/platform-bun": "4.0.7",

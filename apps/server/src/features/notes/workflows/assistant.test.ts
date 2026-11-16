@@ -1,3 +1,4 @@
+import type { MessageId, NoteId, VersionId } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises persisted Assistant notes through the native workflow and                │
@@ -10,16 +11,12 @@
  * │ Uses real SQLite and a local provider peer without accessing external accounts.          │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { MessageId, NoteId, VersionId } from '@study/contracts';
 import { NoteMode } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
-import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { settingsTools } from '#server/features/notes/tools/settings';
@@ -68,10 +65,12 @@ function scriptedCall(
   ][step];
 }
 
-testStable(
+test.stable(
   'Assistant uses durable capability-guided replies, retains history across reopen and stays out of notebooks',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     let context = new ServerContext(await location.open());
     const bodies: string[] = [];
     const agents: string[] = [];
@@ -148,11 +147,14 @@ testStable(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
     const execute = async (
+      { expect, assert: assertions }: Pick<test.Context, 'expect' | 'assert'>,
       text: string,
       key: string,
       retryMessageId?: MessageId,
       chatId?: NoteId
     ) => {
+      const assert: test.Assert = assertions;
+
       const asked = await Effect.runPromise(
         Effect.gen(function* () {
           const c = yield* Notes;
@@ -236,9 +238,9 @@ testStable(
         }).pipe(Effect.provide(domain()))
       );
 
-      const firstReply = await execute('Explain gravity.', 'assistant-first');
+      const firstReply = await execute({ expect, assert }, 'Explain gravity.', 'assistant-first');
 
-      await execute('What did I ask?', 'assistant-second');
+      await execute({ expect, assert }, 'What did I ask?', 'assistant-second');
       expect(new Set(agents)).toStrictEqual(new Set(['assistant']));
 
       for (const body of bodies) {
@@ -291,7 +293,7 @@ testStable(
           );
         }).pipe(Effect.provideService(Database, { store: context }))
       );
-      await execute('unused', 'assistant-retried', firstReply.messageId);
+      await execute({ expect, assert }, 'unused', 'assistant-retried', firstReply.messageId);
       expect(context.db.orm.select().from(s.assistant_tool_receipts).all()).toHaveLength(4);
       expect(bodies.at(-1)).toContain('Updated biology');
       await Effect.runPromise(
@@ -309,7 +311,11 @@ testStable(
             yield* c.postMessage({ noteId: note.id, text, requestReply: false });
         }).pipe(Effect.provide(domain()))
       );
-      const compactedReply = await execute('Continue after compaction.', 'assistant-compacted');
+      const compactedReply = await execute(
+        { expect, assert },
+        'Continue after compaction.',
+        'assistant-compacted'
+      );
 
       expect(agents).toContain('assistant-compaction');
       expect(bodies.some((body) => body.includes('a'.repeat(90000)))).toBe(true);
@@ -333,10 +339,15 @@ testStable(
             yield* c.postMessage({ noteId: note.id, text, requestReply: false });
         }).pipe(Effect.provide(domain()))
       );
-      await execute('A later question.', 'assistant-later-compaction');
+      await execute({ expect, assert }, 'A later question.', 'assistant-later-compaction');
       const compactedRuns = agents.filter((id) => id === 'assistant-compaction').length;
 
-      await execute('unused', 'assistant-retrospective', compactedReply.messageId);
+      await execute(
+        { expect, assert },
+        'unused',
+        'assistant-retrospective',
+        compactedReply.messageId
+      );
       expect(agents.filter((id) => id === 'assistant-compaction')).toHaveLength(compactedRuns);
       context.close();
       context = new ServerContext(await location.open());
@@ -350,7 +361,7 @@ testStable(
       );
       failTool = true;
       await expect(
-        execute('Read the missing subject.', 'assistant-missing-subject')
+        execute({ expect, assert }, 'Read the missing subject.', 'assistant-missing-subject')
       ).rejects.toBeDefined();
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -383,6 +394,7 @@ testStable(
 
       scopedEdit = { messageId: scoped.note.id, versionId: scoped.note.activeVersionId! };
       await execute(
+        { expect, assert },
         'Read my note and improve the note.',
         'note-assistant-edit',
         undefined,
@@ -429,10 +441,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'Assistant can send a new turn after a cancelled reply without an unfinished shell',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const domain = Layer.mergeAll(Notes.layer, Sources.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -484,95 +498,103 @@ testStable(
   }
 );
 
-testStable('Assistant bounds model context while retaining older persisted messages', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const domain = Layer.mergeAll(Notes.layer, Sources.layer, Pages.layer).pipe(
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
+test.stable(
+  'Assistant bounds model context while retaining older persisted messages',
+  async ({ databases, expect }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const domain = Layer.mergeAll(Notes.layer, Sources.layer, Pages.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const c = yield* Notes;
-        const note = yield* c.assistantNote();
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const c = yield* Notes;
+          const note = yield* c.assistantNote();
 
-        for (const text of ['a', 'b', 'c'])
-          yield* c.postMessage({
-            noteId: note.id,
-            text: text.repeat(90000),
-            requestReply: false
+          for (const text of ['a', 'b', 'c'])
+            yield* c.postMessage({
+              noteId: note.id,
+              text: text.repeat(90000),
+              requestReply: false
+            });
+
+          const reply = yield* c.assistantAsk({
+            text: 'What are we discussing?',
+            intentKey: 'bounded-history'
           });
+          const snapshot = yield* c.replySnapshot({ requestId: reply.requestId });
 
-        const reply = yield* c.assistantAsk({
-          text: 'What are we discussing?',
-          intentKey: 'bounded-history'
-        });
-        const snapshot = yield* c.replySnapshot({ requestId: reply.requestId });
-
-        expect(
-          snapshot.messages.reduce((size, message) => size + message.text.length, 0)
-        ).toBeLessThanOrEqual(200000);
-        expect(snapshot.messages.at(-1)?.text).toBe('What are we discussing?');
-        expect((yield* c.thread({ noteId: note.id, limit: 30 })).items).toHaveLength(5);
-      }).pipe(Effect.provide(domain))
-    );
-  } finally {
-    context.close();
-    await location.cleanup();
+          expect(
+            snapshot.messages.reduce((size, message) => size + message.text.length, 0)
+          ).toBeLessThanOrEqual(200000);
+          expect(snapshot.messages.at(-1)?.text).toBe('What are we discussing?');
+          expect((yield* c.thread({ noteId: note.id, limit: 30 })).items).toHaveLength(5);
+        }).pipe(Effect.provide(domain))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
-testStable('Assistant chats retain separate histories and replay new-chat intents', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const domain = Notes.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
-
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const c = yield* Notes;
-        const first = yield* c.assistantNote();
-        const second = yield* c.newAssistantNote({ key: 'new-chat' });
-
-        expect(second.id).not.toBe(first.id);
-        expect(yield* c.newAssistantNote({ key: 'new-chat' })).toStrictEqual(second);
-        expect((yield* c.assistantNote()).id).toBe(second.id);
-        yield* c.assistantAsk({
-          noteId: first.id,
-          text: 'First chat only',
-          intentKey: 'first-only'
-        });
-        yield* c.assistantAsk({
-          noteId: second.id,
-          text: 'Second chat only',
-          intentKey: 'second-only'
-        });
-        expect((yield* c.thread({ noteId: first.id, limit: 30 })).items[0]?.versions[0]?.text).toBe(
-          'First chat only'
-        );
-        expect(
-          (yield* c.thread({ noteId: second.id, limit: 30 })).items[0]?.versions[0]?.text
-        ).toBe('Second chat only');
-        const page = yield* c.assistantChats({ limit: 1 });
-
-        expect(page.items[0]?.id).toBe(second.id);
-        expect((yield* c.assistantChats({ limit: 1, before: page.next! })).items[0]?.id).toBe(
-          first.id
-        );
-        expect((yield* c.notes({ limit: 100 })).items).toHaveLength(0);
-      }).pipe(Effect.provide(domain))
+test.stable(
+  'Assistant chats retain separate histories and replay new-chat intents',
+  async ({ databases, expect }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const domain = Notes.layer.pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
-  } finally {
-    context.close();
-    await location.cleanup();
-  }
-});
 
-testStable(
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const c = yield* Notes;
+          const first = yield* c.assistantNote();
+          const second = yield* c.newAssistantNote({ key: 'new-chat' });
+
+          expect(second.id).not.toBe(first.id);
+          expect(yield* c.newAssistantNote({ key: 'new-chat' })).toStrictEqual(second);
+          expect((yield* c.assistantNote()).id).toBe(second.id);
+          yield* c.assistantAsk({
+            noteId: first.id,
+            text: 'First chat only',
+            intentKey: 'first-only'
+          });
+          yield* c.assistantAsk({
+            noteId: second.id,
+            text: 'Second chat only',
+            intentKey: 'second-only'
+          });
+          expect(
+            (yield* c.thread({ noteId: first.id, limit: 30 })).items[0]?.versions[0]?.text
+          ).toBe('First chat only');
+          expect(
+            (yield* c.thread({ noteId: second.id, limit: 30 })).items[0]?.versions[0]?.text
+          ).toBe('Second chat only');
+          const page = yield* c.assistantChats({ limit: 1 });
+
+          expect(page.items[0]?.id).toBe(second.id);
+          expect((yield* c.assistantChats({ limit: 1, before: page.next! })).items[0]?.id).toBe(
+            first.id
+          );
+          expect((yield* c.notes({ limit: 100 })).items).toHaveLength(0);
+        }).pipe(Effect.provide(domain))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
+  }
+);
+
+test.stable(
   'Assistant retries an unfinished first reply while retaining its message identity',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     try {

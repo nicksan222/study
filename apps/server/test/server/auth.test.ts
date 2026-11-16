@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises ChatGPT authentication over real server RPC, including loopback PKCE     │
@@ -14,24 +15,23 @@
  * │ resources; fixture cleanup closes owned resources.                                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
 import { Appearance, Language, LlmProvider } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable, withinTestDeadline } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Fiber } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
-import { App, serve } from '#server/runtime/index';
 
-function failureKind(error: unknown) {
+function failureKind({ assert: assertions }: Pick<test.Context, 'assert'>, error: unknown) {
+  const assert: test.Assert = assertions;
+
   assert.ok(error && typeof error === 'object' && 'kind' in error);
 
   return error.kind;
 }
 
-function callback(address: string) {
+function callback({ assert: assertions }: Pick<test.Context, 'assert'>, address: string) {
+  const assert: test.Assert = assertions;
+
   const authorization = new URL(address);
   const url = new URL(authorization.searchParams.get('redirect_uri')!);
 
@@ -41,7 +41,7 @@ function callback(address: string) {
   return url;
 }
 
-async function listenerClosed(url: URL) {
+async function listenerClosed({ expect }: Pick<test.Context, 'expect'>, url: URL) {
   await expect(
     Bun.connect({
       hostname: url.hostname,
@@ -53,130 +53,108 @@ async function listenerClosed(url: URL) {
   );
 }
 
-async function waitForSocketEvent(event: Promise<void>) {
+async function waitForSocketEvent(
+  { withinTestDeadline }: Pick<test.Context, 'withinTestDeadline'>,
+  event: Promise<void>
+) {
   await withinTestDeadline(event);
 }
 
-async function fixture() {
-  const location = await createTestDatabase();
-  let app = await App.open({ path: location.path });
-  let server = await serve(app);
-
-  return {
-    get url() {
-      return server.url;
-    },
-    async reopen() {
-      await server.close();
-      await app.close();
-      app = await App.open({ path: location.path });
-      server = await serve(app);
-    },
-    async close() {
-      await server.close();
-      await app.close();
-      await location.cleanup();
-    }
-  };
-}
-
-testStable(
+test.stable(
   'ChatGPT sign-in opens a real loopback callback with PKCE and can be cancelled',
-  async () => {
-    const f = await fixture();
+  async ({ rpc, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
     try {
-      await Effect.runPromise(
-        Effect.scoped(
-          Effect.gen(function* () {
-            const client = yield* makeStudyClient(StudyRpc, { baseUrl: f.url });
-            const attempt = yield* client['auth.startSignIn']({});
-            const url = new URL(attempt.url);
-
-            assert.ok(url.origin === 'https://auth.openai.com');
-            assert.ok(url.pathname === '/api/accounts/authorize');
-            assert.ok(attempt.attemptId);
-            assert.ok(url.searchParams.get('code_challenge_method') === 'S256');
-
-            for (const key of ['state', 'nonce', 'code_challenge'])
-              expect(url.searchParams.get(key)!).toMatch(/^[A-Za-z0-9_-]{43}$/);
-
-            const redirect = callback(attempt.url);
-            const response = yield* Effect.promise(() => fetch(new URL('/unknown', redirect)));
-
-            assert.strictEqual(response.status, 404);
-            yield* Effect.promise(() => response.arrayBuffer());
-            assert.strictEqual(yield* client['auth.publicAccount']({}), undefined);
-            assert.strictEqual(
-              yield* client['auth.cancelSignIn']({ attemptId: attempt.attemptId }),
-              true
-            );
-            yield* Effect.promise(() => listenerClosed(redirect));
-            expect(yield* client['auth.status']({})).toStrictEqual({
-              signedIn: false,
-              email: null,
-              sharing: false
-            });
-          })
-        )
-      );
-    } finally {
-      await f.close();
-    }
-  }
-);
-
-testStable(
-  'duplicate finish rejects while the admitted sign-in still awaits its callback',
-  async () => {
-    const f = await fixture();
-
-    try {
-      await Effect.runPromise(
-        Effect.scoped(
-          Effect.gen(function* () {
-            const client = yield* makeStudyClient(StudyRpc, { baseUrl: f.url });
-            const attempt = yield* client['auth.startSignIn']({});
-            const first = yield* Effect.forkChild(
-              Effect.flip(client['auth.finishSignIn']({ attemptId: attempt.attemptId }))
-            );
-
-            yield* Effect.sleep('100 millis');
-            assert.ok(
-              failureKind(
-                yield* Effect.flip(client['auth.finishSignIn']({ attemptId: attempt.attemptId }))
-              ) === 'invalid_input'
-            );
-            const redirect = callback(attempt.url);
-            const alive = yield* Effect.promise(() => fetch(new URL('/unknown', redirect)));
-
-            assert.strictEqual(alive.status, 404);
-            yield* Effect.promise(() => alive.arrayBuffer());
-            redirect.searchParams.set('error', 'access_denied');
-            const response = yield* Effect.promise(() => fetch(redirect));
-
-            assert.strictEqual(response.status, 400);
-            yield* Effect.promise(() => response.text());
-            assert.ok(yield* Fiber.join(first));
-            yield* Effect.promise(() => listenerClosed(redirect));
-            assert.strictEqual(yield* client['auth.publicAccount']({}), undefined);
-          })
-        )
-      );
-    } finally {
-      await f.close();
-    }
-  }
-);
-
-testStable('cancel rejects a pending finish and cannot leave credentials behind', async () => {
-  const f = await fixture();
-
-  try {
-    await Effect.runPromise(
-      Effect.scoped(
+      await rpc.runPromise(
         Effect.gen(function* () {
-          const client = yield* makeStudyClient(StudyRpc, { baseUrl: f.url });
+          const client = rpc.client;
+          const attempt = yield* client['auth.startSignIn']({});
+          const url = new URL(attempt.url);
+
+          assert.ok(url.origin === 'https://auth.openai.com');
+          assert.ok(url.pathname === '/api/accounts/authorize');
+          assert.ok(attempt.attemptId);
+          assert.ok(url.searchParams.get('code_challenge_method') === 'S256');
+
+          for (const key of ['state', 'nonce', 'code_challenge'])
+            expect(url.searchParams.get(key)!).toMatch(/^[A-Za-z0-9_-]{43}$/);
+
+          const redirect = callback({ assert }, attempt.url);
+          const response = yield* Effect.promise(() => fetch(new URL('/unknown', redirect)));
+
+          assert.strictEqual(response.status, 404);
+          yield* Effect.promise(() => response.arrayBuffer());
+          assert.strictEqual(yield* client['auth.publicAccount']({}), undefined);
+          assert.strictEqual(
+            yield* client['auth.cancelSignIn']({ attemptId: attempt.attemptId }),
+            true
+          );
+          yield* Effect.promise(() => listenerClosed({ expect }, redirect));
+          expect(yield* client['auth.status']({})).toStrictEqual({
+            signedIn: false,
+            email: null,
+            sharing: false
+          });
+        })
+      );
+    } finally {
+      await rpc.close();
+    }
+  }
+);
+
+test.stable(
+  'duplicate finish rejects while the admitted sign-in still awaits its callback',
+  async ({ rpc, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    try {
+      await rpc.runPromise(
+        Effect.gen(function* () {
+          const client = rpc.client;
+          const attempt = yield* client['auth.startSignIn']({});
+          const first = yield* Effect.forkChild(
+            Effect.flip(client['auth.finishSignIn']({ attemptId: attempt.attemptId }))
+          );
+
+          yield* Effect.sleep('100 millis');
+          assert.ok(
+            failureKind(
+              { assert },
+              yield* Effect.flip(client['auth.finishSignIn']({ attemptId: attempt.attemptId }))
+            ) === 'invalid_input'
+          );
+          const redirect = callback({ assert }, attempt.url);
+          const alive = yield* Effect.promise(() => fetch(new URL('/unknown', redirect)));
+
+          assert.strictEqual(alive.status, 404);
+          yield* Effect.promise(() => alive.arrayBuffer());
+          redirect.searchParams.set('error', 'access_denied');
+          const response = yield* Effect.promise(() => fetch(redirect));
+
+          assert.strictEqual(response.status, 400);
+          yield* Effect.promise(() => response.text());
+          assert.ok(yield* Fiber.join(first));
+          yield* Effect.promise(() => listenerClosed({ expect }, redirect));
+          assert.strictEqual(yield* client['auth.publicAccount']({}), undefined);
+        })
+      );
+    } finally {
+      await rpc.close();
+    }
+  }
+);
+
+test.stable(
+  'cancel rejects a pending finish and cannot leave credentials behind',
+  async ({ rpc, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    try {
+      await rpc.runPromise(
+        Effect.gen(function* () {
+          const client = rpc.client;
           const attempt = yield* client['auth.startSignIn']({});
           const pending = yield* Effect.forkChild(
             Effect.flip(client['auth.finishSignIn']({ attemptId: attempt.attemptId }))
@@ -187,38 +165,39 @@ testStable('cancel rejects a pending finish and cannot leave credentials behind'
             yield* client['auth.cancelSignIn']({ attemptId: attempt.attemptId }),
             true
           );
-          assert.ok(failureKind(yield* Fiber.join(pending)) === 'cancelled');
+          assert.ok(failureKind({ assert }, yield* Fiber.join(pending)) === 'cancelled');
           assert.strictEqual(
             yield* client['auth.cancelSignIn']({ attemptId: attempt.attemptId }),
             false
           );
-          yield* Effect.promise(() => listenerClosed(callback(attempt.url)));
+          yield* Effect.promise(() =>
+            listenerClosed({ expect }, callback({ assert }, attempt.url))
+          );
         })
-      )
-    );
-    await f.reopen();
-    await Effect.runPromise(
-      Effect.scoped(
+      );
+      await rpc.reopen();
+      await rpc.runPromise(
         Effect.gen(function* () {
-          const client = yield* makeStudyClient(StudyRpc, { baseUrl: f.url });
+          const client = rpc.client;
 
           assert.strictEqual(yield* client['auth.publicAccount']({}), undefined);
         })
-      )
-    );
-  } finally {
-    await f.close();
+      );
+    } finally {
+      await rpc.close();
+    }
   }
-});
+);
 
-testStable('interrupting an HTTP finish closes its callback listener', async () => {
-  const f = await fixture();
+test.stable(
+  'interrupting an HTTP finish closes its callback listener',
+  async ({ rpc, assert: assertions, withinTestDeadline, expect }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    await Effect.runPromise(
-      Effect.scoped(
+    try {
+      await rpc.runPromise(
         Effect.gen(function* () {
-          const client = yield* makeStudyClient(StudyRpc, { baseUrl: f.url });
+          const client = rpc.client;
           const attempt = yield* client['auth.startSignIn']({});
           const pending = yield* Effect.forkChild(
             client['auth.finishSignIn']({ attemptId: attempt.attemptId })
@@ -227,10 +206,11 @@ testStable('interrupting an HTTP finish closes its callback listener', async () 
           yield* Effect.sleep('100 millis');
           assert.ok(
             failureKind(
+              { assert },
               yield* Effect.flip(client['auth.finishSignIn']({ attemptId: attempt.attemptId }))
             ) === 'invalid_input'
           );
-          const redirect = callback(attempt.url);
+          const redirect = callback({ assert }, attempt.url);
           let onAccepted!: () => void;
           const accepted = new Promise<void>((resolve) => {
             onAccepted = resolve;
@@ -258,38 +238,40 @@ testStable('interrupting an HTTP finish closes its callback listener', async () 
           );
 
           // A response proves this same keep-alive connection was accepted before cancellation.
-          yield* Effect.promise(() => waitForSocketEvent(accepted));
+          yield* Effect.promise(() => waitForSocketEvent({ withinTestDeadline }, accepted));
           socket.write('GET /auth/callback HTTP/1.1\r\nHost: 127.0.0.1\r\n');
           yield* Fiber.interrupt(pending);
-          yield* Effect.promise(() => waitForSocketEvent(closed));
+          yield* Effect.promise(() => waitForSocketEvent({ withinTestDeadline }, closed));
           socket.end();
-          yield* Effect.promise(() => listenerClosed(redirect));
+          yield* Effect.promise(() => listenerClosed({ expect }, redirect));
           assert.strictEqual(yield* client['auth.publicAccount']({}), undefined);
         })
-      )
-    );
-    await f.reopen();
-  } finally {
-    await f.close();
+      );
+      await rpc.reopen();
+    } finally {
+      await rpc.close();
+    }
   }
-});
+);
 
-testStable('stale attempt IDs cannot finish or cancel a replacement sign-in', async () => {
-  const f = await fixture();
+test.stable(
+  'stale attempt IDs cannot finish or cancel a replacement sign-in',
+  async ({ rpc, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    await Effect.runPromise(
-      Effect.scoped(
+    try {
+      await rpc.runPromise(
         Effect.gen(function* () {
-          const client = yield* makeStudyClient(StudyRpc, { baseUrl: f.url });
+          const client = rpc.client;
           const old = yield* client['auth.startSignIn']({});
           const current = yield* client['auth.startSignIn']({ reconsent: true });
 
           assert.notStrictEqual(current.attemptId, old.attemptId);
           assert.ok(new URL(current.url).searchParams.get('force_reconsent') === 'true');
-          yield* Effect.promise(() => listenerClosed(callback(old.url)));
+          yield* Effect.promise(() => listenerClosed({ expect }, callback({ assert }, old.url)));
           assert.ok(
             failureKind(
+              { assert },
               yield* Effect.flip(client['auth.finishSignIn']({ attemptId: old.attemptId }))
             ) === 'invalid_input'
           );
@@ -298,7 +280,7 @@ testStable('stale attempt IDs cannot finish or cancel a replacement sign-in', as
             false
           );
           const alive = yield* Effect.promise(() =>
-            fetch(new URL('/unknown', callback(current.url)))
+            fetch(new URL('/unknown', callback({ assert }, current.url)))
           );
 
           assert.strictEqual(alive.status, 404);
@@ -307,29 +289,32 @@ testStable('stale attempt IDs cannot finish or cancel a replacement sign-in', as
             yield* client['auth.cancelSignIn']({ attemptId: current.attemptId }),
             true
           );
-          yield* Effect.promise(() => listenerClosed(callback(current.url)));
+          yield* Effect.promise(() =>
+            listenerClosed({ expect }, callback({ assert }, current.url))
+          );
           assert.strictEqual(yield* client['auth.publicAccount']({}), undefined);
         })
-      )
-    );
-  } finally {
-    await f.close();
+      );
+    } finally {
+      await rpc.close();
+    }
   }
-});
+);
 
-testStable('a mismatched callback state rejects sign-in without saving an account', async () => {
-  const f = await fixture();
+test.stable(
+  'a mismatched callback state rejects sign-in without saving an account',
+  async ({ rpc, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    await Effect.runPromise(
-      Effect.scoped(
+    try {
+      await rpc.runPromise(
         Effect.gen(function* () {
-          const client = yield* makeStudyClient(StudyRpc, { baseUrl: f.url });
+          const client = rpc.client;
           const attempt = yield* client['auth.startSignIn']({});
           const pending = yield* Effect.forkChild(
             Effect.flip(client['auth.finishSignIn']({ attemptId: attempt.attemptId }))
           );
-          const redirect = callback(attempt.url);
+          const redirect = callback({ assert }, attempt.url);
 
           redirect.searchParams.set('state', 'incorrect-state');
           const response = yield* Effect.promise(() => fetch(redirect));
@@ -337,145 +322,165 @@ testStable('a mismatched callback state rejects sign-in without saving an accoun
           assert.strictEqual(response.status, 400);
           yield* Effect.promise(() => response.text());
           assert.ok(yield* Fiber.join(pending));
-          yield* Effect.promise(() => listenerClosed(redirect));
+          yield* Effect.promise(() => listenerClosed({ expect }, redirect));
         })
-      )
-    );
-    await f.reopen();
-    await Effect.runPromise(
-      Effect.scoped(
+      );
+      await rpc.reopen();
+      await rpc.runPromise(
         Effect.gen(function* () {
-          const client = yield* makeStudyClient(StudyRpc, { baseUrl: f.url });
+          const client = rpc.client;
 
           assert.strictEqual(yield* client['auth.publicAccount']({}), undefined);
         })
-      )
-    );
-  } finally {
-    await f.close();
-  }
-});
-
-testStable(
-  'sign-out cancels admission and preserves default and saved preferences across reopen',
-  async () => {
-    const f = await fixture();
-
-    try {
-      await Effect.runPromise(
-        Effect.scoped(
-          Effect.gen(function* () {
-            let client = yield* makeStudyClient(StudyRpc, { baseUrl: f.url });
-
-            expect(yield* client['auth.status']({})).toStrictEqual({
-              signedIn: false,
-              email: null,
-              sharing: false
-            });
-            const defaults = yield* client['settings.appSettings']({});
-
-            expect(defaults).toStrictEqual({
-              language: Language.ENGLISH,
-              appearance: Appearance.DARK,
-              zoomPercent: 100,
-              onboarded: false
-            });
-            const llm = yield* client['settings.llmSettings']({});
-
-            for (const tier of [llm.tiny, llm.medium, llm.smart]) {
-              assert.strictEqual(tier?.provider, LlmProvider.CHAT_GPT);
-              assert.strictEqual(tier?.model, undefined);
-            }
-
-            assert.strictEqual((yield* client['settings.reviewSettings']({})).newCardsPerDay, 20);
-            assert.ok((yield* client['settings.materialSettings']({})).sift === true);
-            yield* client['auth.signOut']({});
-            yield* Effect.promise(() => f.reopen());
-            client = yield* makeStudyClient(StudyRpc, { baseUrl: f.url });
-            expect(yield* client['settings.appSettings']({})).toStrictEqual(defaults);
-            expect(yield* client['settings.llmSettings']({})).toStrictEqual(llm);
-            assert.strictEqual((yield* client['settings.reviewSettings']({})).newCardsPerDay, 20);
-            assert.ok((yield* client['settings.materialSettings']({})).sift === true);
-            const saved = {
-              language: Language.ITALIAN,
-              appearance: Appearance.LIGHT,
-              zoomPercent: 125,
-              onboarded: true
-            };
-
-            yield* client['settings.saveAppSettings'](saved);
-            yield* client['settings.saveReviewSettings']({ newCardsPerDay: 35 });
-            yield* client['settings.saveMaterialSettings']({ sift: false });
-            const project = yield* client['projects.createProject']({ name: 'Physics' });
-            const attempt = yield* client['auth.startSignIn']({});
-            const pending = yield* Effect.forkChild(
-              Effect.flip(client['auth.finishSignIn']({ attemptId: attempt.attemptId }))
-            );
-
-            yield* Effect.sleep('100 millis');
-            yield* client['auth.signOut']({});
-            assert.ok(failureKind(yield* Fiber.join(pending)) === 'cancelled');
-            yield* Effect.promise(() => listenerClosed(callback(attempt.url)));
-            yield* Effect.promise(() => f.reopen());
-            client = yield* makeStudyClient(StudyRpc, { baseUrl: f.url });
-            assert.strictEqual(yield* client['auth.publicAccount']({}), undefined);
-            assert.strictEqual(
-              (yield* client['projects.projects']({ limit: 20 })).items[0]?.id,
-              project.id
-            );
-            expect(yield* client['settings.appSettings']({})).toStrictEqual(saved);
-            assert.strictEqual((yield* client['settings.reviewSettings']({})).newCardsPerDay, 35);
-            assert.ok((yield* client['settings.materialSettings']({})).sift === false);
-          })
-        )
       );
     } finally {
-      await f.close();
+      await rpc.close();
     }
   }
 );
 
-testStable('application shutdown closes an unfinished sign-in callback', async () => {
-  const f = await fixture();
-  let redirect: URL | undefined;
+test.stable(
+  'sign-out cancels admission and preserves default and saved preferences across reopen',
+  async ({ rpc, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    redirect = await Effect.runPromise(
-      Effect.scoped(
+    try {
+      const { defaults, llm } = await rpc.runPromise(
         Effect.gen(function* () {
-          const client = yield* makeStudyClient(StudyRpc, { baseUrl: f.url });
-          const attempt = yield* client['auth.startSignIn']({});
+          const client = rpc.client;
 
-          return callback(attempt.url);
+          expect(yield* client['auth.status']({})).toStrictEqual({
+            signedIn: false,
+            email: null,
+            sharing: false
+          });
+          const defaults = yield* client['settings.appSettings']({});
+
+          expect(defaults).toStrictEqual({
+            language: Language.ENGLISH,
+            appearance: Appearance.DARK,
+            zoomPercent: 100,
+            onboarded: false
+          });
+          const llm = yield* client['settings.llmSettings']({});
+
+          for (const tier of [llm.tiny, llm.medium, llm.smart]) {
+            assert.strictEqual(tier?.provider, LlmProvider.CHAT_GPT);
+            assert.strictEqual(tier?.model, undefined);
+          }
+
+          assert.strictEqual((yield* client['settings.reviewSettings']({})).newCardsPerDay, 20);
+          assert.ok((yield* client['settings.materialSettings']({})).sift === true);
+          yield* client['auth.signOut']({});
+
+          return { defaults, llm };
         })
-      )
-    );
-  } finally {
-    await f.close();
+      );
+
+      await rpc.reopen();
+
+      const { project, saved } = await rpc.runPromise(
+        Effect.gen(function* () {
+          const client = rpc.client;
+
+          expect(yield* client['settings.appSettings']({})).toStrictEqual(defaults);
+          expect(yield* client['settings.llmSettings']({})).toStrictEqual(llm);
+          assert.strictEqual((yield* client['settings.reviewSettings']({})).newCardsPerDay, 20);
+          assert.ok((yield* client['settings.materialSettings']({})).sift === true);
+          const saved = {
+            language: Language.ITALIAN,
+            appearance: Appearance.LIGHT,
+            zoomPercent: 125,
+            onboarded: true
+          };
+
+          yield* client['settings.saveAppSettings'](saved);
+          yield* client['settings.saveReviewSettings']({ newCardsPerDay: 35 });
+          yield* client['settings.saveMaterialSettings']({ sift: false });
+          const project = yield* client['projects.createProject']({ name: 'Physics' });
+          const attempt = yield* client['auth.startSignIn']({});
+          const pending = yield* Effect.forkChild(
+            Effect.flip(client['auth.finishSignIn']({ attemptId: attempt.attemptId }))
+          );
+
+          yield* Effect.sleep('100 millis');
+          yield* client['auth.signOut']({});
+          assert.ok(failureKind({ assert }, yield* Fiber.join(pending)) === 'cancelled');
+          yield* Effect.promise(() =>
+            listenerClosed({ expect }, callback({ assert }, attempt.url))
+          );
+
+          return { project, saved };
+        })
+      );
+
+      await rpc.reopen();
+
+      await rpc.runPromise(
+        Effect.gen(function* () {
+          const client = rpc.client;
+
+          assert.strictEqual(yield* client['auth.publicAccount']({}), undefined);
+          assert.strictEqual(
+            (yield* client['projects.projects']({ limit: 20 })).items[0]?.id,
+            project.id
+          );
+          expect(yield* client['settings.appSettings']({})).toStrictEqual(saved);
+          assert.strictEqual((yield* client['settings.reviewSettings']({})).newCardsPerDay, 35);
+          assert.ok((yield* client['settings.materialSettings']({})).sift === false);
+        })
+      );
+    } finally {
+      await rpc.close();
+    }
   }
+);
 
-  await listenerClosed(redirect);
-});
+test.stable(
+  'application shutdown closes an unfinished sign-in callback',
+  async ({ rpc, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-testStable('ChatGPT host identity is valid, distinct, and survives server restart', async () => {
-  const first = await fixture();
-  let hostId: string | null = null;
-  const start = (baseUrl: string) =>
-    Effect.runPromise(
-      Effect.scoped(
+    let redirect: URL | undefined;
+
+    try {
+      redirect = await rpc.runPromise(
         Effect.gen(function* () {
-          const client = yield* makeStudyClient(StudyRpc, { baseUrl });
+          const client = rpc.client;
           const attempt = yield* client['auth.startSignIn']({});
-          const hostId = new URL(attempt.url).searchParams.get('ext_agent_host_id');
 
-          yield* client['auth.cancelSignIn']({ attemptId: attempt.attemptId });
-
-          return hostId;
+          return callback({ assert }, attempt.url);
         })
-      )
-    );
+      );
+    } finally {
+      await rpc.app.close();
+      await rpc.close();
+    }
 
-  try {
+    await listenerClosed({ expect }, redirect);
+  }
+);
+
+test.stable(
+  'ChatGPT host identity is valid, distinct, and survives server restart',
+  async ({ endpoints, expect }) => {
+    const first = await endpoints();
+    let hostId: string | null = null;
+    const start = (baseUrl: string) =>
+      Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const client = yield* makeStudyClient(StudyRpc, { baseUrl });
+            const attempt = yield* client['auth.startSignIn']({});
+            const hostId = new URL(attempt.url).searchParams.get('ext_agent_host_id');
+
+            yield* client['auth.cancelSignIn']({ attemptId: attempt.attemptId });
+
+            return hostId;
+          })
+        )
+      );
+
     hostId = await start(first.url);
     expect(hostId).toMatch(
       /^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
@@ -483,15 +488,9 @@ testStable('ChatGPT host identity is valid, distinct, and survives server restar
     expect(await start(first.url)).toBe(hostId);
     await first.reopen();
     expect(await start(first.url)).toBe(hostId);
-  } finally {
     await first.close();
-  }
+    const second = await endpoints();
 
-  const second = await fixture();
-
-  try {
     expect(await start(second.url)).not.toBe(hostId);
-  } finally {
-    await second.close();
   }
-});
+);

@@ -6,18 +6,16 @@ import {
 } from '@study/contracts';
 import type { BlockContent, documentSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { render, screen } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { expect, vi } from 'vite-plus/test';
 
-import { LanguageProvider } from '#client/lib/i18n.tsx';
+import type * as __MockType0 from '#client/lib/i18n.tsx';
 
-import { DocumentReader } from '../document-presentation';
+import type * as __MockType1 from '../document-presentation';
 
-vi.mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
-  useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, readerFontSize: 22 })
-}));
+let LanguageProvider: typeof __MockType0.LanguageProvider;
+
+let DocumentReader: typeof __MockType1.DocumentReader;
 
 const text = (value: string) => [{ type: 'text' as const, text: value, marks: [] }];
 
@@ -44,9 +42,21 @@ function document(contents: BlockContent[]): typeof documentSchema.Type {
   };
 }
 
-testStable(
+test.beforeEach(async ({ mock }) => {
+  mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
+    useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, readerFontSize: 22 })
+  }));
+  const __mockModule0 = await import('#client/lib/i18n.tsx');
+
+  LanguageProvider = __mockModule0.LanguageProvider;
+  const __mockModule1 = await import('../document-presentation');
+
+  DocumentReader = __mockModule1.DocumentReader;
+});
+
+test.stable(
   'preserves heading, inline marks, table paragraphs, code, list nesting and stable block anchors',
-  () => {
+  ({ render, expect, screen }) => {
     const { container } = render(
       <DocumentReader
         document={document([
@@ -103,9 +113,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'discloses omissions and unavailable exact image revisions in both languages without requesting current bytes',
-  () => {
+  ({ render, expect, screen }) => {
     const image: BlockContent = {
       type: 'image',
       sourceId: Schema.decodeUnknownSync(sourceIdSchema)(1n),
@@ -131,40 +141,43 @@ testStable(
   }
 );
 
-testStable('keeps parent continuations after intervening nested list content', () => {
-  const { container } = render(
-    <DocumentReader
-      document={document([
-        {
-          type: 'list_item',
-          items: [
-            { depth: 0, ordered: false, start: 1, inlines: text('Before') },
-            { depth: 1, ordered: true, start: 4, inlines: text('Child') },
-            {
-              depth: 0,
-              ordered: false,
-              start: 1,
-              continuation: true,
-              inlines: text('After')
-            },
-            {
-              depth: 1,
-              ordered: false,
-              start: 1,
-              inlines: text('Later child')
-            }
-          ]
-        }
-      ])}
-    />
-  );
-  const item = container.querySelector('.material-prose section > ul > li');
+test.stable(
+  'keeps parent continuations after intervening nested list content',
+  ({ render, expect }) => {
+    const { container } = render(
+      <DocumentReader
+        document={document([
+          {
+            type: 'list_item',
+            items: [
+              { depth: 0, ordered: false, start: 1, inlines: text('Before') },
+              { depth: 1, ordered: true, start: 4, inlines: text('Child') },
+              {
+                depth: 0,
+                ordered: false,
+                start: 1,
+                continuation: true,
+                inlines: text('After')
+              },
+              {
+                depth: 1,
+                ordered: false,
+                start: 1,
+                inlines: text('Later child')
+              }
+            ]
+          }
+        ])}
+      />
+    );
+    const item = container.querySelector('.material-prose section > ul > li');
 
-  expect(Array.from(item?.children ?? []).map((child) => child.textContent)).toEqual([
-    'Before',
-    'Child',
-    'After',
-    'Later child'
-  ]);
-  expect(item?.querySelector('ol')).toHaveAttribute('start', '4');
-});
+    expect(Array.from(item?.children ?? []).map((child) => child.textContent)).toEqual([
+      'Before',
+      'Child',
+      'After',
+      'Later child'
+    ]);
+    expect(item?.querySelector('ol')).toHaveAttribute('start', '4');
+  }
+);

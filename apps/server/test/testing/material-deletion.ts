@@ -1,3 +1,4 @@
+import type { MaterialId } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Real native deletion execution helpers; all callers own fixture lifetime.          │
@@ -11,14 +12,12 @@
  * │ transactions.                                                                            │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { MaterialId } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { eq } from '@study/db';
 import * as s from '@study/db';
+import type { test } from '@study/testing';
 import { Effect } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import {
@@ -30,6 +29,8 @@ import type { pageTransformFixture } from '#testing/page-transform';
 import { refreshTestExecution } from '#testing/workflow-admission';
 
 export type MaterialDeletionFixture = Awaited<ReturnType<typeof pageTransformFixture>>;
+
+type TestAssertion = Pick<test.Context, 'assert'>['assert'];
 
 export function acceptMaterialDeletion(fixture: MaterialDeletionFixture, materialId: MaterialId) {
   return Effect.runPromise(
@@ -43,7 +44,11 @@ export function acceptMaterialDeletion(fixture: MaterialDeletionFixture, materia
   );
 }
 
-export function materialDeletionEvent(fixture: MaterialDeletionFixture, materialId: MaterialId) {
+export function materialDeletionEvent(
+  fixture: MaterialDeletionFixture,
+  materialId: MaterialId,
+  assert: TestAssertion
+) {
   const events = fixture.context.db.orm
     .select()
     .from(s.workflowEvents)
@@ -60,8 +65,12 @@ export function materialDeletionEvent(fixture: MaterialDeletionFixture, material
   return event;
 }
 
-export function cleanupMaterial(fixture: MaterialDeletionFixture, materialId: MaterialId) {
-  const event = materialDeletionEvent(fixture, materialId);
+export function cleanupMaterial(
+  fixture: MaterialDeletionFixture,
+  materialId: MaterialId,
+  assert: TestAssertion
+) {
+  const event = materialDeletionEvent(fixture, materialId, assert);
 
   return Effect.runPromise(
     Effect.scoped(

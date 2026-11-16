@@ -1,3 +1,4 @@
+import { createBlock } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies note tool isolation and versioned edits against real SQLite.              │
@@ -10,12 +11,8 @@
  * │ requests.                                                                                │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { createBlock } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Option } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { NoteDeletionCorrelationStore } from '#server/features/notes/store/deletion';
@@ -49,10 +46,12 @@ const body = (text: string) => ({
   }
 });
 
-testStable(
+test.stable(
   'note tools enforce scope for every note, document and source and preserve edit versions',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     try {
@@ -205,10 +204,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'deleting a notebook retires scoped chat correlations before cascading its private messages',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     try {

@@ -1,12 +1,16 @@
-import { testStable } from '@study/testing/vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport } from '#client/test/rpc.tsx';
+import { test } from '@study/testing';
 
 import { aiReadiness, useAiReadiness } from './ai-readiness';
 
-const settings = vi.hoisted(() => ({ load: vi.fn() }));
+function createMocks(mock: test.Mock) {
+  return { load: mock.fn() };
+}
+
+let settings: ReturnType<typeof createMocks>;
+
+test.beforeEach(({ mock }) => {
+  settings = createMocks(mock);
+});
 
 const data = {
   status: { signedIn: false, email: null, sharing: false },
@@ -26,8 +30,8 @@ const data = {
   }
 };
 
-describe('AI readiness', () => {
-  testStable('checks the configured provider for each tier', () => {
+test.describe('AI readiness', () => {
+  test.stable('checks the configured provider for each tier', ({ expect }) => {
     expect(aiReadiness(data, 'tiny')).toBe(false);
     expect(aiReadiness(data, 'medium')).toBe(true);
     expect(aiReadiness({ ...data, status: { ...data.status, signedIn: true } }, 'smart')).toBe(
@@ -43,9 +47,9 @@ describe('AI readiness', () => {
   });
 });
 
-testStable(
+test.stable(
   'readiness distinguishes loading and failure and refreshes after configuration changes',
-  async () => {
+  async ({ rpcTestTransport, renderHook, expect, act, waitFor }) => {
     let finish: (value: typeof data) => void = () => {};
 
     settings.load.mockReturnValue(

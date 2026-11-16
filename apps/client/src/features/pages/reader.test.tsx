@@ -1,53 +1,69 @@
 import { pageVersionIdSchema } from '@study/contracts';
 import type { Page } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import type { ReactNode } from 'react';
-import { afterEach, expect, vi } from 'vite-plus/test';
 
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import type * as __MockType0 from '../document-editing/test-support';
+import type * as __MockType1 from './reader';
 
-import { authoredPage } from '../document-editing/test-support';
-import { AuthoredPageReader } from './reader';
+let authoredPage: typeof __MockType0.authoredPage;
 
-vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
-  useWorkspacePreferences: () => ({ autosaveIntervalSeconds: 3600 })
-}));
-vi.mock('../note-workspace/canonical-document-editor', () => ({
-  CanonicalDocumentEditor: ({
-    document,
-    disabled,
-    toolbarEnd,
-    snapshotId
-  }: {
-    document: { blocks: { text: string }[] };
-    disabled?: boolean;
-    toolbarEnd: ReactNode;
-    snapshotId: bigint;
-  }) => (
-    <section aria-label="editor" data-snapshot={String(snapshotId)}>
-      {toolbarEnd}
-      <textarea
-        aria-label="content"
-        readOnly={disabled}
-        value={document.blocks[0]?.text ?? ''}
-        onChange={() => undefined}
-      />
-    </section>
-  )
-}));
-vi.mock('../note-workspace/note-page-metadata', () => ({
-  PageMetadata: () => null
-}));
+let AuthoredPageReader: typeof __MockType1.AuthoredPageReader;
 
-afterEach(() => {
+test.beforeEach(async ({ mock }) => {
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
+    useWorkspacePreferences: () => ({ autosaveIntervalSeconds: 3600 })
+  }));
+  mock('#client/features/note-workspace/canonical-document-editor', () => ({
+    CanonicalDocumentEditor: ({
+      document,
+      disabled,
+      toolbarEnd,
+      snapshotId
+    }: {
+      document: { blocks: { text: string }[] };
+      disabled?: boolean;
+      toolbarEnd: ReactNode;
+      snapshotId: bigint;
+    }) => (
+      <section aria-label="editor" data-snapshot={String(snapshotId)}>
+        {toolbarEnd}
+        <textarea
+          aria-label="content"
+          readOnly={disabled}
+          value={document.blocks[0]?.text ?? ''}
+          onChange={() => undefined}
+        />
+      </section>
+    )
+  }));
+  mock('#client/features/note-workspace/note-page-metadata', () => ({
+    PageMetadata: () => null
+  }));
+  const __mockModule0 = await import('../document-editing/test-support');
+
+  authoredPage = __mockModule0.authoredPage;
+  const __mockModule1 = await import('./reader');
+
+  AuthoredPageReader = __mockModule1.AuthoredPageReader;
+});
+
+test.afterEach(({ cleanup, vi }) => {
   cleanup();
 
   vi.clearAllMocks();
 });
 
-function mount(initialVersion?: string, refreshedPage?: Promise<void>) {
+function mount(
+  {
+    vi,
+    rpcHandlersTransport,
+    render
+  }: Pick<test.Context, 'vi' | 'rpcHandlersTransport' | 'render'>,
+  initialVersion?: string,
+  refreshedPage?: Promise<void>
+) {
   const current = authoredPage(2n, 'Current text', 30n);
   const old = authoredPage(2n, 'Old text', 20n).version!;
   let value: Page = current;
@@ -68,7 +84,10 @@ function mount(initialVersion?: string, refreshedPage?: Promise<void>) {
 
       return value;
     }),
-    'pages.versions': vi.fn(async () => ({ items: [current.version!, old], nextCursor: null })),
+    'pages.versions': vi.fn(async () => ({
+      items: [current.version!, old],
+      nextCursor: null
+    })),
     'pages.version': vi.fn(async ({ id }: { id: bigint }) =>
       id === old.id ? old : current.version!
     ),
@@ -86,10 +105,10 @@ function mount(initialVersion?: string, refreshedPage?: Promise<void>) {
   return { rpc, current, old, view, harness };
 }
 
-testStable(
+test.stable(
   'version arrows replace content in the same editor and keep old content read-only',
-  async () => {
-    mount();
+  async ({ screen, waitFor, expect, fireEvent, vi, rpcHandlersTransport, render }) => {
+    mount({ vi, rpcHandlersTransport, render });
     await screen.findByRole('region', { name: 'editor' });
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'NotePreviousVersion' })).toBeEnabled()
@@ -113,11 +132,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'an old-version deep link uses the editor and can make that content current',
-  async () => {
+  async ({ screen, fireEvent, waitFor, expect, vi, rpcHandlersTransport, render }) => {
     const refreshed = Promise.withResolvers<void>();
-    const { rpc, old } = mount('20', refreshed.promise);
+    const { rpc, old } = mount({ vi, rpcHandlersTransport, render }, '20', refreshed.promise);
 
     await screen.findByDisplayValue('Old text');
     fireEvent.click(screen.getByRole('button', { name: 'PageMakeCurrent' }));
@@ -141,15 +160,18 @@ testStable(
   }
 );
 
-testStable('updates the selected version when the deep link changes in place', async () => {
-  const { current, view, harness } = mount('20');
+test.stable(
+  'updates the selected version when the deep link changes in place',
+  async ({ screen, expect, vi, rpcHandlersTransport, render }) => {
+    const { current, view, harness } = mount({ vi, rpcHandlersTransport, render }, '20');
 
-  await screen.findByDisplayValue('Old text');
-  view.rerender(
-    <harness.wrapper>
-      <AuthoredPageReader id={current.id} initialVersion="30" />
-    </harness.wrapper>
-  );
-  await screen.findByDisplayValue('Current text');
-  expect(screen.getByRole('textbox', { name: 'content' })).not.toHaveAttribute('readonly');
-});
+    await screen.findByDisplayValue('Old text');
+    view.rerender(
+      <harness.wrapper>
+        <AuthoredPageReader id={current.id} initialVersion="30" />
+      </harness.wrapper>
+    );
+    await screen.findByDisplayValue('Current text');
+    expect(screen.getByRole('textbox', { name: 'content' })).not.toHaveAttribute('readonly');
+  }
+);

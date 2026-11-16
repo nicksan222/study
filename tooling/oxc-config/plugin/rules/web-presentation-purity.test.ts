@@ -1,13 +1,17 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('views cannot fetch, run page hooks or own application state', async () => {
-  const diagnostics = await lintRule(
-    'web-presentation-purity',
-    {
-      'apps/client/src/pages/home/page.view.tsx': `
+test.stable(
+  'views cannot fetch, run page hooks or own application state',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule(
+      { assert },
+      'web-presentation-purity',
+      {
+        'apps/client/src/pages/home/page.view.tsx': `
         import { useNavigate } from '@tanstack/react-router';
         import { Effect } from 'effect';
         import { useState as state } from 'react';
@@ -15,20 +19,24 @@ testStable('views cannot fetch, run page hooks or own application state', async 
         import { load } from './page.logic';
         import { usePage } from './use-page';
       `,
-      'apps/client/src/pages/home/page.logic.ts': `import { useState } from 'react'; import { Button } from '@study/ui'; import { Link } from '@tanstack/react-router';`,
-      'apps/client/src/pages/home/other.logic.tsx': `export const element = <div />;`
-    },
-    true
-  );
+        'apps/client/src/pages/home/page.logic.ts': `import { useState } from 'react'; import { Button } from '@study/ui'; import { Link } from '@tanstack/react-router';`,
+        'apps/client/src/pages/home/other.logic.tsx': `export const element = <div />;`
+      },
+      true
+    );
 
-  assert.strictEqual(diagnostics.length, 9, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 9, JSON.stringify(diagnostics));
+  }
+);
 
-testStable(
+test.stable(
   'views accept presentation hooks, declarative links and type-only contracts',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     expect(
       await lintRule(
+        { assert },
         'web-presentation-purity',
         {
           'apps/client/src/pages/home/page.view.tsx': `
@@ -47,10 +55,13 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'presentation cannot access browser globals or hide DOM mutations behind aliases',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'web-presentation-purity',
       {
         'apps/client/src/pages/home/page.view.tsx': `
@@ -71,32 +82,44 @@ testStable(
   }
 );
 
-testStable('presentation permits shadowed names and prop callbacks', async () => {
-  expect(
-    await lintRule(
-      'web-presentation-purity',
-      {
-        'apps/client/src/pages/home/page.view.tsx': `
+test.stable(
+  'presentation permits shadowed names and prop callbacks',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lintRule(
+        { assert },
+        'web-presentation-purity',
+        {
+          'apps/client/src/pages/home/page.view.tsx': `
       export function PageView({ document, onClick }) {
         return <button onClick={onClick}>{document.title}</button>;
       }
     `
+        },
+        true
+      )
+    ).toStrictEqual([]);
+  }
+);
+
+test.stable(
+  'extension-correct localization aliases remain presentation-safe',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule(
+      { assert },
+      'web-presentation-purity',
+      {
+        'apps/client/src/pages/home/page.view.tsx': "import {useI18n} from '#client/lib/i18n.tsx';",
+        'apps/client/src/pages/settings/page.view.tsx':
+          "import {useSettings} from '#client/lib/use-settings.ts';"
       },
       true
-    )
-  ).toStrictEqual([]);
-});
+    );
 
-testStable('extension-correct localization aliases remain presentation-safe', async () => {
-  const diagnostics = await lintRule(
-    'web-presentation-purity',
-    {
-      'apps/client/src/pages/home/page.view.tsx': "import {useI18n} from '#client/lib/i18n.tsx';",
-      'apps/client/src/pages/settings/page.view.tsx':
-        "import {useSettings} from '#client/lib/use-settings.ts';"
-    },
-    true
-  );
-
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  }
+);

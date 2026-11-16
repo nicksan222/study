@@ -1,3 +1,4 @@
+import { sourceIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises authored Page rich document behavior through real persistence            │
@@ -11,20 +12,15 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sourceIdSchema } from '@study/contracts';
 import { MaterialsRpc } from '@study/contracts';
 import { NotesRpc } from '@study/contracts';
 import { PagesRpc } from '@study/contracts';
 import { createBlock, validBlockTextRange } from '@study/contracts';
 import { documentSchema } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { Notes } from '#server/features/notes/index';
@@ -41,10 +37,12 @@ import { materialRpcHandlers } from '#testing/material-rpc';
 
 const text = (value: string) => [{ type: 'text' as const, text: value, marks: [] }];
 
-testStable(
+test.stable(
   'rich authored pages round-trip native RPC and reopen with independent identities, exact assets and Unicode ranges',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     let context = new ServerContext(await location.open());
     const services = () =>
       Layer.mergeAll(

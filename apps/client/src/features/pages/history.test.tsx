@@ -1,10 +1,7 @@
 import { StudyError } from '@study/contracts';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { act, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { authoredPage } from '../document-editing/test-support';
 import {
@@ -16,10 +13,10 @@ import {
 
 const t = catalogs.english;
 
-testStable(
+test.stable(
   'opens an exact authored history version and explicitly returns to its independent current head',
-  async () => {
-    const rpc = materialRpc();
+  async ({ userEvent, within, screen, expect, act, waitFor, vi, render, rpcHandlersTransport }) => {
+    const rpc = materialRpc({ vi });
     const current = authoredPage(41n, 'Current authored body', 103n);
     const old = authoredPage(41n, 'Historical authored body', 91n).version!;
 
@@ -32,7 +29,7 @@ testStable(
     rpc['pages.version'].mockImplementation(({ id }) =>
       Effect.succeed(id === old.id ? old : current.version!)
     );
-    mountLibraryRoute('/pages/41', rpc);
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/pages/41', rpc);
     const main = within(await screen.findByRole('main'));
 
     expect(await main.findByText('Current authored body')).toBeVisible();
@@ -55,10 +52,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'selects distinct source extractions within one original revision without following the latest extraction',
-  async () => {
-    const rpc = materialRpc();
+  async ({ within, screen, userEvent, expect, waitFor, vi, render, rpcHandlersTransport }) => {
+    const rpc = materialRpc({ vi });
     const sourceId = importedSource.id;
     const oldest = authoredPage(41n, 'First extraction', 1001n).version!;
     const corrected = authoredPage(41n, 'Corrected extraction', 1002n).version!;
@@ -90,7 +87,7 @@ testStable(
         document: input.snapshotId === oldest.snapshotId ? oldest.document : corrected.document
       })
     );
-    mountLibraryRoute('/sources/7', rpc);
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/sources/7', rpc);
     const main = within(await screen.findByRole('main'));
     const user = userEvent.setup();
 
@@ -128,10 +125,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'follows same-owner exact URL changes, current selection and browser history without falling back from missing versions',
-  async () => {
-    const rpc = materialRpc();
+  async ({ screen, expect, act, vi, render, rpcHandlersTransport }) => {
+    const rpc = materialRpc({ vi });
     const current = authoredPage(41n, 'URL current body', 103n);
     const a = authoredPage(41n, 'URL exact A', 91n).version!;
     const b = authoredPage(41n, 'URL exact B', 92n).version!;
@@ -146,10 +143,14 @@ testStable(
             ? Effect.succeed(current.version!)
             : Effect.fail(new StudyError('not_found', 'Retired'))
     );
-    const view = mountLibraryRoute('/pages/41?pageVersion=91', rpc);
+    const view = mountLibraryRoute(
+      { render, rpcHandlersTransport, vi },
+      '/pages/41?pageVersion=91',
+      rpc
+    );
 
     await screen.findByText('URL exact A');
-    const go = async (pageVersion?: string) =>
+    const go = async ({ act }: Pick<test.Context, 'act'>, pageVersion?: string) =>
       act(async () => {
         await view.router.navigate({
           to: '/pages/$pageId',
@@ -158,7 +159,7 @@ testStable(
         });
       });
 
-    await go('92');
+    await go({ act }, '92');
     expect(await screen.findByText('URL exact B')).toBeVisible();
     await act(async () => {
       view.history.back();
@@ -168,11 +169,11 @@ testStable(
       view.history.forward();
     });
     expect(await screen.findByText('URL exact B')).toBeVisible();
-    await go();
+    await go({ act });
     expect(await screen.findByText('URL current body')).toBeVisible();
-    await go('91');
+    await go({ act }, '91');
     expect(await screen.findByText('URL exact A')).toBeVisible();
-    await go('999');
+    await go({ act }, '999');
     expect(await screen.findByText(t.NoteReadUnavailable)).toBeVisible();
     expect(screen.queryByText('URL current body')).toBeNull();
     expect(screen.queryByText('URL exact A')).toBeNull();

@@ -1,3 +1,4 @@
+import { StudyError } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks provider registration, public metadata and SDK model construction without   │
@@ -10,11 +11,8 @@
  * │ Tests use production provider factories; no external provider calls are required here.   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyError } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { jsonSchema, Output, streamText } from 'ai';
-import { expect } from 'vite-plus/test';
 
 import { webSearchTool } from '#server/platform/ai/web-search-tool';
 
@@ -22,9 +20,9 @@ import { createApiKeyModel } from './api-key-model.ts';
 import { apiKeyProviders, getApiKeyProvider } from './registry.ts';
 import { adaptProviderTool } from './tools.ts';
 
-testStable(
+test.stable(
   'compatible providers stream schema-validated JSON without requiring strict JSON Schema',
-  async () => {
+  async ({ expect }) => {
     let body: { response_format?: unknown; messages: unknown[]; tools: unknown[] } | undefined;
     const server = Bun.serve({
       hostname: '127.0.0.1',
@@ -93,24 +91,27 @@ testStable(
   }
 );
 
-testStable('Gemini 2 keeps function tools without mixing incompatible grounding tools', () => {
-  const legacy = getApiKeyProvider('google').createModel({
-    apiKey: 'test-key',
-    modelId: 'gemini-2.5-flash'
-  });
-  const current = getApiKeyProvider('google').createModel({
-    apiKey: 'test-key',
-    modelId: 'gemini-3.6-flash'
-  });
+test.stable(
+  'Gemini 2 keeps function tools without mixing incompatible grounding tools',
+  ({ expect }) => {
+    const legacy = getApiKeyProvider('google').createModel({
+      apiKey: 'test-key',
+      modelId: 'gemini-2.5-flash'
+    });
+    const current = getApiKeyProvider('google').createModel({
+      apiKey: 'test-key',
+      modelId: 'gemini-3.6-flash'
+    });
 
-  expect(adaptProviderTool(legacy, webSearchTool)).toBeDefined();
-  expect(adaptProviderTool(legacy, webSearchTool, true)).toBeUndefined();
-  expect(adaptProviderTool(current, webSearchTool, true)).toBeDefined();
-});
+    expect(adaptProviderTool(legacy, webSearchTool)).toBeDefined();
+    expect(adaptProviderTool(legacy, webSearchTool, true)).toBeUndefined();
+    expect(adaptProviderTool(current, webSearchTool, true)).toBeDefined();
+  }
+);
 
-testStable(
+test.stable(
   'queued models resolve replacement keys on each call and reject removed keys before transport',
-  async () => {
+  async ({ expect }) => {
     let key: string | undefined = 'first-key';
     const seen: string[] = [];
     const model = createApiKeyModel(
@@ -137,7 +138,7 @@ testStable(
   }
 );
 
-testStable('API-key models use bounded HTTP bodies and reject redirects', async () => {
+test.stable('API-key models use bounded HTTP bodies and reject redirects', async ({ expect }) => {
   let redirect: RequestRedirect | undefined;
   const model = createApiKeyModel(
     getApiKeyProvider('deepseek'),

@@ -1,6 +1,5 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { AtomRegistry } from 'effect/reactivity';
-import { expect } from 'vite-plus/test';
 
 import {
   openStartDraft,
@@ -12,28 +11,31 @@ import {
   startFiles
 } from './start-drafts.queries';
 
-testStable('reuses one draft per subject and retains independent unassigned content', () => {
-  const cache = AtomRegistry.make();
+test.stable(
+  'reuses one draft per subject and retains independent unassigned content',
+  ({ expect }) => {
+    const cache = AtomRegistry.make();
 
-  openStartDraft(cache, '1');
-  cache.set(startDraft(startDraftKey('1')), 'Math notes');
-  openStartDraft(cache, '2');
-  cache.set(startDraft(startDraftKey('2')), 'History notes');
-  openStartDraft(cache);
-  openStartDraft(cache, '1');
-  expect(cache.get(startDrafts)).toEqual(['unassigned', '2', '1']);
-  expect(cache.get(startDraft(startDraftKey('1')))).toBe('Math notes');
-  expect(cache.get(startDraft(startDraftKey('2')))).toBe('History notes');
-  dismissStartDraft(cache, '1');
-  expect(cache.get(startDraft(startDraftKey('1')))).toBe('');
-  expect(cache.get(startDraft(startDraftKey('2')))).toBe('History notes');
-  expect(cache.get(startDrafts)).toEqual(['unassigned', '2']);
-  cache.dispose();
-});
+    openStartDraft(cache, '1');
+    cache.set(startDraft(startDraftKey('1')), 'Math notes');
+    openStartDraft(cache, '2');
+    cache.set(startDraft(startDraftKey('2')), 'History notes');
+    openStartDraft(cache);
+    openStartDraft(cache, '1');
+    expect(cache.get(startDrafts)).toEqual(['unassigned', '2', '1']);
+    expect(cache.get(startDraft(startDraftKey('1')))).toBe('Math notes');
+    expect(cache.get(startDraft(startDraftKey('2')))).toBe('History notes');
+    dismissStartDraft(cache, '1');
+    expect(cache.get(startDraft(startDraftKey('1')))).toBe('');
+    expect(cache.get(startDraft(startDraftKey('2')))).toBe('History notes');
+    expect(cache.get(startDrafts)).toEqual(['unassigned', '2']);
+    cache.dispose();
+  }
+);
 
-testStable(
+test.stable(
   'confirmation clears only submitted text and file occurrences, preserving newer work',
-  () => {
+  ({ expect }) => {
     const cache = AtomRegistry.make();
     const submitted = new File(['notes'], 'notes.txt');
     const later = new File(['new'], 'new.txt');

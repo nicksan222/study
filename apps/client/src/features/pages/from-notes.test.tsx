@@ -1,38 +1,50 @@
 import { projectIdSchema, noteIdSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { cleanup, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { afterEach, expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
-import { rpcTestTransport } from '#client/test/rpc.tsx';
+import type * as __MockType0 from './from-notes';
 
-import { PagesFromNotes } from './from-notes';
+let PagesFromNotes: typeof __MockType0.PagesFromNotes;
 
-const api = vi.hoisted(() => ({ notes: vi.fn() }));
+let api: ReturnType<typeof createMockState>['api'];
 
-vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('../note-workspace', () => ({
-  NotePageDialog: ({
-    id,
-    notes,
-    open
-  }: {
-    id: bigint;
-    notes: { title: string }[];
-    open: boolean;
-  }) =>
-    open ? (
-      <section aria-label="Shared transform" data-note={String(id)}>
-        {notes.map((note) => note.title).join(', ')}
-      </section>
-    ) : null
-}));
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({ notes: mock.fn() }))()
+  };
+}
 
-afterEach(cleanup);
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
 
-testStable(
+  api = __mockState.api;
+
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  mock('#client/features/note-workspace', () => ({
+    NotePageDialog: ({
+      id,
+      notes,
+      open
+    }: {
+      id: bigint;
+      notes: { title: string }[];
+      open: boolean;
+    }) =>
+      open ? (
+        <section aria-label="Shared transform" data-note={String(id)}>
+          {notes.map((note) => note.title).join(', ')}
+        </section>
+      ) : null
+  }));
+  const __mockModule0 = await import('./from-notes');
+
+  PagesFromNotes = __mockModule0.PagesFromNotes;
+});
+
+test.afterEach(({ cleanup }) => cleanup());
+
+test.stable(
   'selects only scoped notes and hands multiple selections to the existing transform dialog',
-  async () => {
+  async ({ rpcTestTransport, userEvent, render, screen, expect }) => {
     const projectId = projectIdSchema.make(2n);
     const note = (id: bigint, title: string, project = projectId) => ({
       id: noteIdSchema.make(id),

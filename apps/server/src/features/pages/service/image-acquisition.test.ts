@@ -1,3 +1,4 @@
+import { sourceIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Source deletion and authored image acquisition use exact original byte revisions   │
@@ -11,15 +12,11 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sourceIdSchema } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
@@ -29,10 +26,12 @@ import { pageTransformFixture } from '#testing/page-transform';
 const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 
 for (const owner of ['none', 'draft', 'published'] as const)
-  testStable(
+  test.stable(
     `image source deletion respects ${owner} authored ownership and rejects every acquisition after final release`,
-    async () => {
-      const f = await pageTransformFixture();
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
+      const f = await pageTransformFixture(databases);
 
       try {
         const saved = await Effect.runPromise(
@@ -174,10 +173,12 @@ for (const owner of ['none', 'draft', 'published'] as const)
     }
   );
 
-testStable(
+test.stable(
   'image saves validate the submitted exact image revision and retained editing identity before any write',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
       const saved = await Effect.runPromise(

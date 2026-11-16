@@ -1,3 +1,4 @@
+import { pageTransformOutputSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies provider schemas preserve canonical rich document validation.             │
@@ -10,24 +11,25 @@
  * │ Uses canonical Effect schemas without performing provider network requests.              │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { pageTransformOutputSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { standardSchema } from '#server/platform/ai/schema';
 
-testStable(
+test.stable(
   'page output uses closed, required object fields without changing nullable content',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const adapter = standardSchema(pageTransformOutputSchema);
     const document = adapter['~standard'].jsonSchema.input({ target: 'draft-07' });
     let objects = 0;
 
-    function inspect(value: unknown) {
+    function inspect({ assert: assertions }: Pick<test.Context, 'assert'>, value: unknown) {
+      const assert: test.Assert = assertions;
+
       if (Array.isArray(value)) {
-        value.forEach(inspect);
+        value.forEach((arg0) => inspect({ assert }, arg0));
       } else if (value !== null && typeof value === 'object') {
         if ('type' in value && value.type === 'object' && 'properties' in value) {
           objects++;
@@ -37,11 +39,11 @@ testStable(
           assert.deepEqual(value.required, Object.keys(value.properties));
         }
 
-        Object.values(value).forEach(inspect);
+        Object.values(value).forEach((arg0) => inspect({ assert }, arg0));
       }
     }
 
-    inspect(document);
+    inspect({ assert }, document);
     assert.ok(objects > 10);
     const output = {
       blocks: [
@@ -59,20 +61,30 @@ testStable(
   }
 );
 
-testStable('encoded optional placeholders and genuine nullable values remain valid', async () => {
-  const domain = Schema.Struct({
-    optional: Schema.optional(Schema.String),
-    nullable: Schema.NullOr(Schema.String)
-  });
-  const codec = Schema.toCodecJson(domain);
-  const adapter = standardSchema(Schema.toEncoded(codec));
-  const value = { optional: null, nullable: null };
+test.stable(
+  'encoded optional placeholders and genuine nullable values remain valid',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  assert.deepEqual(await adapter['~standard'].validate(value), { value });
-  assert.deepEqual(Schema.decodeUnknownSync(codec)(value), { optional: undefined, nullable: null });
-});
+    const domain = Schema.Struct({
+      optional: Schema.optional(Schema.String),
+      nullable: Schema.NullOr(Schema.String)
+    });
+    const codec = Schema.toCodecJson(domain);
+    const adapter = standardSchema(Schema.toEncoded(codec));
+    const value = { optional: null, nullable: null };
 
-testStable('dictionary value schemas retain their meaning', () => {
+    assert.deepEqual(await adapter['~standard'].validate(value), { value });
+    assert.deepEqual(Schema.decodeUnknownSync(codec)(value), {
+      optional: undefined,
+      nullable: null
+    });
+  }
+);
+
+test.stable('dictionary value schemas retain their meaning', ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const dictionary = Schema.Record(Schema.String, Schema.String);
   const adapter = standardSchema(dictionary);
   const document = adapter['~standard'].jsonSchema.input({ target: 'draft-07' });

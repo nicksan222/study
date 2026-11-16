@@ -1,19 +1,16 @@
-import { BunFileSystem } from '@effect/platform-bun';
-import { Effect, FileSystem } from 'effect';
-import { onTestFinished } from 'vite-plus/test';
+import type { test } from '@study/testing';
+import { temporaryDirectory } from '@study/testing/resources';
 
-const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
+/** Harness contract fixtures remain temporary even when they deliberately fail cleanup. */
+export async function temporaryArtifacts({
+  onTestFinished
+}: Pick<test.Context, 'onTestFinished'>): Promise<string> {
+  const directory = await temporaryDirectory({
+    directory: Bun.fileURLToPath(new URL('../../../../../target/test-fixtures', import.meta.url)),
+    prefix: 'e2e-'
+  });
 
-/** Harness contract fixtures are temporary, even when they deliberately exercise failed cleanup. */
-export async function temporaryArtifacts(): Promise<string> {
-  const parent = Bun.fileURLToPath(new URL('../../../../../target/test-fixtures', import.meta.url));
+  onTestFinished(() => directory[Symbol.asyncDispose]());
 
-  await Effect.runPromise(fs.makeDirectory(parent, { recursive: true }));
-  const directory = await Effect.runPromise(
-    fs.makeTempDirectory({ directory: parent, prefix: 'e2e-' })
-  );
-
-  onTestFinished(() => Effect.runPromise(fs.remove(directory, { recursive: true, force: true })));
-
-  return directory;
+  return directory.path;
 }

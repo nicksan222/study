@@ -1,10 +1,11 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { sql } from 'drizzle-orm';
-import { assert, expect } from 'vite-plus/test';
 
-import { createTestDatabase } from '../src/testing.ts';
+import type { Db } from '../src/index.ts';
 
-type TestDb = Awaited<ReturnType<Awaited<ReturnType<typeof createTestDatabase>>['open']>>;
+type TestDb = Db;
+
+type Databases = (migrationsFolder?: string) => Promise<{ open(): Promise<Db> }>;
 
 function source(db: TestDb, kind: 'audio' | 'video' | 'image' | 'link' = 'audio') {
   const mime = {
@@ -29,17 +30,16 @@ function source(db: TestDb, kind: 'audio' | 'video' | 'image' | 'link' = 'audio'
  INSERT INTO material_flashcard_versions(version_id,material_id) SELECT id,material_id FROM material_versions v WHERE id IN (1) AND NOT EXISTS(SELECT 1 FROM material_flashcard_versions f WHERE f.version_id=v.id); INSERT INTO material_card_identities(id,material_id) SELECT DISTINCT material_id,material_id FROM material_versions v WHERE id IN (1) AND NOT EXISTS(SELECT 1 FROM material_card_identities c WHERE c.id=v.material_id); INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'flowchart LR; A-->B','Answer' FROM material_versions WHERE id=1;`);
 }
 
-async function fixture(run: (db: TestDb) => void) {
-  const location = await createTestDatabase();
+async function fixture(
+  { expect }: Pick<test.Context, 'expect'>,
+  databases: Databases,
+  run: (db: TestDb) => void
+) {
+  const location = await databases();
   const db = await location.open();
 
-  try {
-    run(db);
-    expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
-  } finally {
-    db.close();
-    await location.cleanup();
-  }
+  run(db);
+  expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
 }
 
 function pin(db: TestDb, revision = 1, snapshotId = 1) {
@@ -48,10 +48,12 @@ function pin(db: TestDb, revision = 1, snapshotId = 1) {
   );
 }
 
-testStable(
+test.stable(
   'learning consumes an immutable exact source extraction rather than a source-backed Material',
-  async () =>
-    await fixture((db) => {
+  async ({ databases, assert: assertions, expect }: test.Context) => {
+    const assert: test.Assert = assertions;
+
+    return await fixture({ expect }, databases, (db) => {
       source(db);
 
       for (const [revision, snapshot] of [
@@ -73,13 +75,14 @@ testStable(
         assert.throws(() => db.exec(statement));
 
       assert.strictEqual(db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 1n);
-    })
+    });
+  }
 );
 
-testStable(
+test.stable(
   'publishing a learning draft after source replacement keeps its captured old extraction',
-  async () =>
-    await fixture((db) => {
+  async ({ databases, expect }) =>
+    await fixture({ expect }, databases, (db) => {
       source(db);
       pin(db);
       db.exec(`INSERT INTO source_snapshots(source_id,revision,bytes,kind,mime) VALUES(1,2,X'020304','text','text/plain');
@@ -98,10 +101,12 @@ testStable(
     })
 );
 
-testStable(
+test.stable(
   'exact source ownership rejects another source paired with the original snapshot',
-  async () =>
-    await fixture((db) => {
+  async ({ databases, assert: assertions, expect }: test.Context) => {
+    const assert: test.Assert = assertions;
+
+    return await fixture({ expect }, databases, (db) => {
       source(db);
       db.exec(`INSERT INTO sources(id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES(2,'attachment','text','text/plain','Other',1,zeroblob(32),1);
  INSERT INTO source_snapshots(source_id,revision,bytes,kind,mime) VALUES(2,1,X'02','text','text/plain');`);
@@ -119,14 +124,17 @@ testStable(
       assert.throws(() =>
         db.exec('UPDATE material_evidence_inputs SET source_id=2 WHERE version_id=1')
       );
-    })
+    });
+  }
 );
 
 for (const kind of ['audio', 'video', 'image', 'link'] as const)
-  testStable(
+  test.stable(
     `retained ${kind} source revisions seal exact format, URI and bytes independently of replacement`,
-    async () =>
-      await fixture((db) => {
+    async ({ databases, assert: assertions, expect }: test.Context) => {
+      const assert: test.Assert = assertions;
+
+      return await fixture({ expect }, databases, (db) => {
         source(db, kind);
         const original = db.orm.get(
           sql`SELECT * FROM source_snapshots WHERE source_id=1 AND revision=1`
@@ -161,5 +169,6 @@ for (const kind of ['audio', 'video', 'image', 'link'] as const)
           db.orm.get(sql`SELECT mime FROM source_snapshots WHERE revision=2`)?.mime,
           'text/plain'
         );
-      })
+      });
+    }
   );

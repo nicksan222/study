@@ -1,31 +1,29 @@
 import { StudyError } from '@study/contracts';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { expect, vi } from 'vite-plus/test';
-
-import { renderInRouter } from '#client/test/render-in-router.tsx';
+import { test } from '@study/testing';
 
 import { LibraryListView } from './library-list.view';
 
-testStable('renders loading and empty states from props', async () => {
-  renderInRouter(
-    <LibraryListView
-      state={{ status: 'pending' }}
-      subjects={[]}
-      blocked={false}
-      query=""
-      search={{}}
-      reload={() => {}}
-    />
-  );
-  expect(await screen.findByRole('status')).toHaveTextContent(catalogs.english.LoadingStudy);
-});
+test.stable(
+  'renders loading and empty states from props',
+  async ({ renderInRouter, expect, screen }) => {
+    renderInRouter(
+      <LibraryListView
+        state={{ status: 'pending' }}
+        subjects={[]}
+        blocked={false}
+        query=""
+        search={{}}
+        reload={() => {}}
+      />
+    );
+    expect(await screen.findByRole('status')).toHaveTextContent(catalogs.english.LoadingStudy);
+  }
+);
 
-testStable(
+test.stable(
   'retries a failed load through its callback without executing transport work',
-  async () => {
+  async ({ vi, userEvent, renderInRouter, screen, expect }) => {
     const reload = vi.fn();
     const user = userEvent.setup();
 
@@ -44,9 +42,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'replaces its loading announcement with the empty practice list after a completed load',
-  () => {
+  ({ render, expect, screen }) => {
     const props = {
       subjects: [],
       blocked: false,

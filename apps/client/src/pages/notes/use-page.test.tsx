@@ -1,32 +1,34 @@
 import { noteIdSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { renderHook } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { expect, vi } from 'vite-plus/test';
 
-import { rpcTestTransport } from '#client/test/rpc.tsx';
+import type * as NotePageModule from './use-page.ts';
 
-import { usePage } from './use-page';
+let usePage: typeof NotePageModule.usePage;
 
-const route = vi.hoisted(() => ({ noteId: undefined as bigint | undefined }));
+let noteId: bigint | undefined;
 
-vi.mock('@tanstack/react-router', () => ({
-  useParams: () => route,
-  useSearch: () => ({}),
-  useNavigate: () => vi.fn()
-}));
+test.beforeEach(async ({ mock }) => {
+  noteId = undefined;
+  mock('@tanstack/react-router', () => ({
+    useParams: () => ({ noteId }),
+    useSearch: () => ({}),
+    useNavigate: () => mock.fn()
+  }));
+  ({ usePage } = await import('./use-page.ts'));
+});
 
-testStable(
+test.stable(
   'preserves validated identity beyond JavaScript number precision and clears it on index',
-  () => {
+  ({ rpcTestTransport, renderHook, expect }) => {
     const id = Schema.decodeUnknownSync(noteIdSchema)(9007199254740993n);
 
-    route.noteId = id;
+    noteId = id;
     const fixture = rpcTestTransport(async () => new Promise(() => {}));
     const { result, rerender, unmount } = renderHook(usePage, { wrapper: fixture.wrapper });
 
     expect(result.current.id).toBe(id);
-    route.noteId = undefined;
+    noteId = undefined;
     rerender();
     expect(result.current.id).toBeUndefined();
     unmount();

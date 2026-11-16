@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises an HTTP note reply with a source still downloading. It verifies          │
@@ -13,24 +14,21 @@
  * │ with real SQLite and application resources; fixture cleanup closes owned resources.      │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
 import { sql } from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { Notes } from '#server/features/notes/index';
 import { serve } from '#server/runtime/index';
-import { pollUntil } from '#testing/poll';
-import { createStudyTest } from '#testing/server-test';
 
-testStable(
+test.stable(
   'HTTP attachment replies wake through registered source subscriptions before waiting for authentication',
   { timeout: 15000 },
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture, assert: assertions, pollUntil }) => {
+    const assert: test.Assert = assertions;
+
+    const fixture = serverFixture;
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
       release = resolve;
@@ -55,7 +53,12 @@ testStable(
     const evidenceUrl = new URL('/evidence.txt', peer.url).href;
     const server = fixture.manage(await serve(fixture.app));
 
-    function* verifyAttachmentReadinessWake() {
+    function* verifyAttachmentReadinessWake({
+      pollUntil,
+      assert: assertions
+    }: Pick<test.Context, 'pollUntil' | 'assert'>) {
+      const assert: test.Assert = assertions;
+
       const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
       const project = yield* client['projects.createProject']({ name: 'Readiness' });
       const source = yield* client['sources.addLink']({
@@ -132,6 +135,8 @@ testStable(
       );
     }
 
-    await Effect.runPromise(Effect.scoped(Effect.gen(verifyAttachmentReadinessWake)));
+    await Effect.runPromise(
+      Effect.scoped(Effect.gen(() => verifyAttachmentReadinessWake({ pollUntil, assert })))
+    );
   }
 );

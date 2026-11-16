@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks source decoder behavior for text and PDF inputs, including document block   │
@@ -12,17 +13,14 @@
  * │ format tests.                                                                            │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { testStable } from '@study/testing/vitest';
 import fc from 'fast-check';
-import { assert, expect } from 'vite-plus/test';
 
 import { decodePdf } from '#server/features/sources/decoders/pdf';
 import { decodeText } from '#server/features/sources/decoders/text';
 
 const bytes = (value: string) => new TextEncoder().encode(value);
 
-testStable('text decoding preserves UTF-8 byte anchors and markdown fences', () => {
+test.stable('text decoding preserves UTF-8 byte anchors and markdown fences', ({ expect }) => {
   const result = decodeText({
     bytes: bytes('# Caffè\n\n```ts\nline\n\nmore\n```\n'),
     kind: 'text',
@@ -42,16 +40,20 @@ testStable('text decoding preserves UTF-8 byte anchors and markdown fences', () 
   ).toThrow(expect.objectContaining({ kind: 'invalid_input' }));
 });
 
-testStable('PDF decoding validates and counts pages', async () => {
+test.stable('PDF decoding validates and counts pages', async ({ assert: assertions, expect }) => {
+  const assert: test.Assert = assertions;
+
   const fixture = await Bun.file(new URL('./fixtures/two-pages.pdf', import.meta.url)).bytes();
 
   assert.strictEqual(await decodePdf(fixture), 2);
   await expect(decodePdf(bytes('not a PDF'))).rejects.toMatchObject({ kind: 'invalid_input' });
 });
 
-testStable(
+test.stable(
   'vision transcription preserves page anchors and rejects incomplete or reordered pages',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { visionDocument } = await import('#server/features/sources/decoders/vision');
     const pages = [
       { page: 1, blocks: [{ kind: 'heading' as const, text: 'First' }] },
@@ -78,7 +80,7 @@ testStable(
   }
 );
 
-testStable('HTML extracts visible content and preserves URL fragments', async () => {
+test.stable('HTML extracts visible content and preserves URL fragments', async ({ expect }) => {
   const { decodeHtml } = await import('#server/features/sources/decoders/html');
   const document = decodeHtml({
     bytes: bytes(
@@ -109,9 +111,11 @@ testStable('HTML extracts visible content and preserves URL fragments', async ()
   ).toStrictEqual({ type: 'paragraph', index: 1 });
 });
 
-testStable(
+test.stable(
   'Office decoders preserve structures and reject malformed or oversized archives',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { decodeOffice } = await import('#server/features/sources/decoders/office');
     const fixture = (name: string) =>
       Bun.file(new URL(`./fixtures/${name}`, import.meta.url)).bytes();
@@ -169,9 +173,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'deterministic rich decoders retain nested lists, cell boundaries, language, links and supported marks',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const { decodeHtml } = await import('#server/features/sources/decoders/html');
     const { canonicalText, documentSchema } = await import('@study/contracts');
     const { Schema } = await import('effect');
@@ -217,9 +223,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'Markdown retains nested lists, cell boundaries, code language and inline formatting',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const { canonicalText, documentSchema } = await import('@study/contracts');
     const { Schema } = await import('effect');
     const markdown = decodeText({
@@ -253,41 +261,48 @@ testStable(
   }
 );
 
-testStable('Office retains extracted marks and cells and reports nested-table loss', async () => {
-  const { decodeOffice } = await import('#server/features/sources/decoders/office');
-  const word = await decodeOffice({
-    kind: 'document',
-    bytes: await Bun.file(new URL('./fixtures/sample.docx', import.meta.url)).bytes()
-  });
+test.stable(
+  'Office retains extracted marks and cells and reports nested-table loss',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  expect(
-    word.blocks[0]!.content.type === 'heading' && word.blocks[0]!.content.inlines[0]
-  ).toStrictEqual({ type: 'text', text: 'Heading', marks: ['strong'] });
-  expect(
-    word.blocks[1]!.content.type === 'paragraph' && word.blocks[1]!.content.inlines[0]
-  ).toStrictEqual({ type: 'text', text: 'First paragraph', marks: ['emphasis'] });
-  const table = await decodeOffice({
-    kind: 'document',
-    bytes: await Bun.file(new URL('./fixtures/table.docx', import.meta.url)).bytes()
-  });
+    const { decodeOffice } = await import('#server/features/sources/decoders/office');
+    const word = await decodeOffice({
+      kind: 'document',
+      bytes: await Bun.file(new URL('./fixtures/sample.docx', import.meta.url)).bytes()
+    });
 
-  expect(
-    table.blocks[1]!.content.type === 'table' &&
-      table.blocks[1]!.content.rows[0]!.cells.map(
-        (cell) => cell.paragraphs[0]![0]!.type === 'text' && cell.paragraphs[0]![0]!.text
-      )
-  ).toStrictEqual(['Left', 'Right']);
-  const nested = await decodeOffice({
-    kind: 'document',
-    bytes: await Bun.file(new URL('./fixtures/nested-tables.docx', import.meta.url)).bytes()
-  });
+    expect(
+      word.blocks[0]!.content.type === 'heading' && word.blocks[0]!.content.inlines[0]
+    ).toStrictEqual({ type: 'text', text: 'Heading', marks: ['strong'] });
+    expect(
+      word.blocks[1]!.content.type === 'paragraph' && word.blocks[1]!.content.inlines[0]
+    ).toStrictEqual({ type: 'text', text: 'First paragraph', marks: ['emphasis'] });
+    const table = await decodeOffice({
+      kind: 'document',
+      bytes: await Bun.file(new URL('./fixtures/table.docx', import.meta.url)).bytes()
+    });
 
-  assert.ok(nested.meta.omissions.includes('nested_table'));
-});
+    expect(
+      table.blocks[1]!.content.type === 'table' &&
+        table.blocks[1]!.content.rows[0]!.cells.map(
+          (cell) => cell.paragraphs[0]![0]!.type === 'text' && cell.paragraphs[0]![0]!.text
+        )
+    ).toStrictEqual(['Left', 'Right']);
+    const nested = await decodeOffice({
+      kind: 'document',
+      bytes: await Bun.file(new URL('./fixtures/nested-tables.docx', import.meta.url)).bytes()
+    });
 
-testStable(
+    assert.ok(nested.meta.omissions.includes('nested_table'));
+  }
+);
+
+test.stable(
   'source anchor validation rejects nonfinite, fractional, reversed and nonpositive locations centrally',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { anchorSchema } = await import('@study/contracts');
     const { Schema } = await import('effect');
 
@@ -304,39 +319,46 @@ testStable(
   }
 );
 
-testStable('HTML preserves empty list ancestors without inventing continuations', async () => {
-  const { decodeHtml } = await import('#server/features/sources/decoders/html');
-  const { documentSchema } = await import('@study/contracts');
-  const { Schema } = await import('effect');
+test.stable(
+  'HTML preserves empty list ancestors without inventing continuations',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  for (const [source, depths, continuations] of [
-    ['<ul><li><ul><li>Child</li></ul></li></ul>', [0, 1], [false, false]],
-    [
-      '<ul><li><ul><li><ol><li>Child</li></ol></li></ul></li></ul>',
-      [0, 1, 2],
-      [false, false, false]
-    ],
-    [
-      '<ul><li><ul><li>Child</li></ul>After<ul><li>Second</li></ul></li></ul>',
-      [0, 1, 0, 1],
-      [false, false, true, false]
-    ]
-  ] as const) {
-    const result = decodeHtml({ bytes: bytes('<main>' + source + '</main>') });
+    const { decodeHtml } = await import('#server/features/sources/decoders/html');
+    const { documentSchema } = await import('@study/contracts');
+    const { Schema } = await import('effect');
 
-    assert.ok(Schema.is(documentSchema)(result) === true);
-    const content = result.blocks[0]!.content;
+    for (const [source, depths, continuations] of [
+      ['<ul><li><ul><li>Child</li></ul></li></ul>', [0, 1], [false, false]],
+      [
+        '<ul><li><ul><li><ol><li>Child</li></ol></li></ul></li></ul>',
+        [0, 1, 2],
+        [false, false, false]
+      ],
+      [
+        '<ul><li><ul><li>Child</li></ul>After<ul><li>Second</li></ul></li></ul>',
+        [0, 1, 0, 1],
+        [false, false, true, false]
+      ]
+    ] as const) {
+      const result = decodeHtml({ bytes: bytes('<main>' + source + '</main>') });
 
-    assert.ok(content.type === 'list_item');
-    expect(content.items.map((item) => item.depth)).toStrictEqual(depths);
-    expect(content.items.map((item) => item.continuation)).toStrictEqual(continuations);
-    assert.strictEqual(content.items[0]!.inlines.length, 0);
+      assert.ok(Schema.is(documentSchema)(result) === true);
+      const content = result.blocks[0]!.content;
+
+      assert.ok(content.type === 'list_item');
+      expect(content.items.map((item) => item.depth)).toStrictEqual(depths);
+      expect(content.items.map((item) => item.continuation)).toStrictEqual(continuations);
+      assert.strictEqual(content.items[0]!.inlines.length, 0);
+    }
   }
-});
+);
 
-testStable(
+test.stable(
   'HTML table cells retain paragraphs, empty paragraphs and surrounding inline text',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const { decodeHtml } = await import('#server/features/sources/decoders/html');
     const { canonicalText, documentSchema } = await import('@study/contracts');
     const { Schema } = await import('effect');
@@ -361,43 +383,50 @@ testStable(
   }
 );
 
-testStable('HTML groups loose phrasing without breaking words or losing inline marks', async () => {
-  const { decodeHtml } = await import('#server/features/sources/decoders/html');
+test.stable(
+  'HTML groups loose phrasing without breaking words or losing inline marks',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  for (const tag of ['main', 'article', 'section', 'div']) {
-    const result = decodeHtml({
-      bytes: bytes(
-        `<${tag} id="flow">inter<strong>national</strong> <a href="https://example.test">link</a><p>Next</p>end<em>ing</em></${tag}>`
-      ),
-      url: 'https://example.test/page'
-    });
+    const { decodeHtml } = await import('#server/features/sources/decoders/html');
 
-    expect(result.blocks.map((block) => block.text)).toStrictEqual([
-      'international link',
-      'Next',
-      'ending'
-    ]);
-    assert.ok(result.blocks[0]!.content.type === 'paragraph');
+    for (const tag of ['main', 'article', 'section', 'div']) {
+      const result = decodeHtml({
+        bytes: bytes(
+          `<${tag} id="flow">inter<strong>national</strong> <a href="https://example.test">link</a><p>Next</p>end<em>ing</em></${tag}>`
+        ),
+        url: 'https://example.test/page'
+      });
 
-    if (result.blocks[0]!.content.type === 'paragraph')
-      expect(result.blocks[0]!.content.inlines).toStrictEqual([
-        { type: 'text', text: 'inter', marks: [] },
-        { type: 'text', text: 'national', marks: ['strong'] },
-        { type: 'text', text: ' ', marks: [] },
-        { type: 'link', href: 'https://example.test/', text: 'link' }
+      expect(result.blocks.map((block) => block.text)).toStrictEqual([
+        'international link',
+        'Next',
+        'ending'
       ]);
+      assert.ok(result.blocks[0]!.content.type === 'paragraph');
 
-    expect(result.blocks[0]!.anchor).toStrictEqual({
-      type: 'url',
-      url: 'https://example.test/page',
-      fragment: 'flow'
-    });
+      if (result.blocks[0]!.content.type === 'paragraph')
+        expect(result.blocks[0]!.content.inlines).toStrictEqual([
+          { type: 'text', text: 'inter', marks: [] },
+          { type: 'text', text: 'national', marks: ['strong'] },
+          { type: 'text', text: ' ', marks: [] },
+          { type: 'link', href: 'https://example.test/', text: 'link' }
+        ]);
+
+      expect(result.blocks[0]!.anchor).toStrictEqual({
+        type: 'url',
+        url: 'https://example.test/page',
+        fragment: 'flow'
+      });
+    }
   }
-});
+);
 
-testStable(
+test.stable(
   'HTML list wrappers preserve descendants, paragraph boundaries and continuations',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const { decodeHtml } = await import('#server/features/sources/decoders/html');
     const { documentSchema } = await import('@study/contracts');
     const { Schema } = await import('effect');
@@ -436,9 +465,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'HTML structural and unknown wrappers retain nested flow without splitting phrasing',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { decodeHtml } = await import('#server/features/sources/decoders/html');
     const { documentSchema } = await import('@study/contracts');
     const { Schema } = await import('effect');
@@ -486,39 +517,44 @@ testStable(
   }
 );
 
-testStable('generated Unicode paragraphs retain exact UTF-8 source anchor slices', () => {
-  const paragraph = fc
-    .string({ unit: 'grapheme', maxLength: 30 })
-    .map((value) => `P:${value.replace(/[\r\n]/g, ' ')}:Q`);
+test.stable(
+  'generated Unicode paragraphs retain exact UTF-8 source anchor slices',
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  fc.assert(
-    fc.property(
-      fc.array(paragraph, { minLength: 1, maxLength: 5 }),
-      fc.boolean(),
-      fc.boolean(),
-      (paragraphs, bom, newline) => {
-        const input = new TextEncoder().encode(
-          `${bom ? '\uFEFF' : ''}${paragraphs.join('\n\n')}${newline ? '\n' : ''}`
-        );
-        const document = decodeText({ bytes: input, kind: 'text', mime: 'text/plain' });
-        let previousEnd = bom ? 3 : 0;
+    const paragraph = fc
+      .string({ unit: 'grapheme', maxLength: 30 })
+      .map((value) => `P:${value.replace(/[\r\n]/g, ' ')}:Q`);
 
-        expect(document.blocks).toHaveLength(paragraphs.length);
-
-        for (const [index, block] of document.blocks.entries()) {
-          assert.ok(block.anchor.type === 'text');
-          expect(block.anchor.start).toBeGreaterThanOrEqual(previousEnd);
-          expect(block.anchor.end).toBeLessThanOrEqual(input.length);
-          const raw = paragraphs[index]! + (index < paragraphs.length - 1 || newline ? '\n' : '');
-
-          expect(new TextDecoder().decode(input.slice(block.anchor.start, block.anchor.end))).toBe(
-            raw
+    fc.assert(
+      fc.property(
+        fc.array(paragraph, { minLength: 1, maxLength: 5 }),
+        fc.boolean(),
+        fc.boolean(),
+        (paragraphs, bom, newline) => {
+          const input = new TextEncoder().encode(
+            `${bom ? '\uFEFF' : ''}${paragraphs.join('\n\n')}${newline ? '\n' : ''}`
           );
-          expect(block.text).toBe(paragraphs[index]);
-          previousEnd = block.anchor.end;
+          const document = decodeText({ bytes: input, kind: 'text', mime: 'text/plain' });
+          let previousEnd = bom ? 3 : 0;
+
+          expect(document.blocks).toHaveLength(paragraphs.length);
+
+          for (const [index, block] of document.blocks.entries()) {
+            assert.ok(block.anchor.type === 'text');
+            expect(block.anchor.start).toBeGreaterThanOrEqual(previousEnd);
+            expect(block.anchor.end).toBeLessThanOrEqual(input.length);
+            const raw = paragraphs[index]! + (index < paragraphs.length - 1 || newline ? '\n' : '');
+
+            expect(
+              new TextDecoder().decode(input.slice(block.anchor.start, block.anchor.end))
+            ).toBe(raw);
+            expect(block.text).toBe(paragraphs[index]);
+            previousEnd = block.anchor.end;
+          }
         }
-      }
-    ),
-    { numRuns: 100 }
-  );
-});
+      ),
+      { numRuns: 100 }
+    );
+  }
+);

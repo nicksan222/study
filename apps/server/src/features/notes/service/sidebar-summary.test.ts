@@ -1,3 +1,4 @@
+import { plainBlock } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Covers note and message pagination, immutable versions, attachment ownership       │
@@ -13,15 +14,10 @@
  * │ by the feature implementation.                                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { plainBlock } from '@study/contracts';
 import { eq } from '@study/db';
 import { workflow_executions } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/service/index';
 import { Pages } from '#server/features/pages/index';
@@ -43,10 +39,12 @@ const meta = {
   omissions: []
 };
 
-testStable(
+test.stable(
   'sidebar summaries count distinct attached generated documents and report durable work',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Notes.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))

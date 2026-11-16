@@ -1,20 +1,16 @@
 import { BunFileSystem } from '@effect/platform-bun';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, FileSystem } from 'effect';
-import { expect } from 'vite-plus/test';
 
-import { Db, sql } from '../src/index.ts';
+import { sql } from '../src/index.ts';
 import { workflow_agent_progress } from '../src/schema.ts';
-import { createTestDatabase } from '../src/testing.ts';
 
-testStable(
+test.stable(
   'upgrading existing agent previews defaults their phase without losing progress',
-  async () => {
+  async ({ databases, temporaryDirectory, expect }) => {
     const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
-    const folder = await Effect.runPromise(
-      fs.makeTempDirectory({ prefix: 'study-progress-upgrade-' })
-    );
-    const older = folder + '/drizzle';
+    const folder = await temporaryDirectory({ prefix: 'study-progress-upgrade-' });
+    const older = `${folder.path}/drizzle`;
 
     await Effect.runPromise(
       fs.copy(Bun.fileURLToPath(new URL('../drizzle', import.meta.url)), older)
@@ -25,7 +21,7 @@ testStable(
         await Effect.runPromise(fs.remove(older + '/' + entry, { recursive: true }));
     }
 
-    const location = await createTestDatabase(older);
+    const location = await databases(older);
     let db = await location.open();
 
     try {
@@ -33,10 +29,8 @@ testStable(
       VALUES('run','test',1,'{}','running',1,1);
       INSERT INTO workflow_agent_progress(run_id,execution_id,activity_name,attempt,agent_id,mode,status,text,revision,updated_at)
       VALUES('agent','run','reply',1,'reply','text','running','Retained preview',2,1);`);
-      const path = db.path;
-
       db.close();
-      db = await Db.open(path);
+      db = await location.open({ migrations: 'current' });
       expect(db.orm.select().from(workflow_agent_progress).get()).toMatchObject({
         run_id: 'agent',
         phase: 'generating',
@@ -48,8 +42,6 @@ testStable(
       expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toEqual([]);
     } finally {
       db.close();
-      await location.cleanup();
-      await Effect.runPromise(fs.remove(folder, { recursive: true }));
     }
   }
 );

@@ -4,7 +4,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./react": "./src/react.ts"
+    "./react": "./src/react.ts",
+    "./testing": "./src/testing.ts",
+    "./react/testing": "./src/react-testing.ts"
   },
   "scripts": {
     "test": "bun --bun vp test run --config ../../vite.config.ts --project server packages/contracts"

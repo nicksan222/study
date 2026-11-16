@@ -1,3 +1,4 @@
+import { sql } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies atomic manual merges preserve independent notebook content and originals. │
@@ -10,12 +11,8 @@
  * │ Note stores retain private persistence behind typed transaction participants.            │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
@@ -28,10 +25,10 @@ import { deletionDocument } from '#testing/material-deletion';
 
 import { Notes } from './index.ts';
 
-testStable(
+test.stable(
   'merges independent message histories, archives originals, and queues the title atomically',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(Notes.layer, Settings.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -91,71 +88,75 @@ testStable(
   }
 );
 
-testStable('failed merges roll back copies and archiving, and reject changed intents', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const layer = Layer.mergeAll(Notes.layer, Settings.layer).pipe(
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
-
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const c = yield* Notes;
-        const first = yield* c.createNote({ title: 'First' });
-        const second = yield* c.createNote({ title: 'Second' });
-
-        yield* c.postMessage({ noteId: first.id, text: 'Stable', requestReply: false });
-        const pending = yield* c.postMessage({
-          noteId: second.id,
-          text: 'Question',
-          requestReply: true
-        });
-
-        expect(
-          (yield* Effect.flip(
-            c.mergeNotes({ noteIds: [first.id, second.id], intentKey: 'failed' })
-          )).kind
-        ).toBe('invalid_input');
-        expect((yield* c.notes({ limit: 100 })).items).toHaveLength(2);
-        expect((yield* c.note(first.id)).archivedAt).toBeNull();
-        expect((yield* c.note(second.id)).archivedAt).toBeNull();
-        expect(
-          (yield* Effect.flip(
-            c.mergeNotes({ noteIds: [first.id, first.id], intentKey: 'duplicate' })
-          )).kind
-        ).toBe('invalid_input');
-        yield* c.deleteMessage(pending.id);
-        const merged = yield* c.mergeNotes({
-          noteIds: [second.id, first.id],
-          intentKey: 'retry'
-        });
-
-        expect(
-          (yield* c.mergeNotes({ noteIds: [first.id, second.id], intentKey: 'retry' })).id
-        ).toBe(merged.id);
-        const third = yield* c.createNote({ title: 'Third' });
-
-        expect(
-          (yield* Effect.flip(c.mergeNotes({ noteIds: [first.id, third.id], intentKey: 'retry' })))
-            .kind
-        ).toBe('invalid_input');
-        expect(
-          (yield* Effect.flip(c.mergeNotes({ noteIds: [first.id, third.id], intentKey: 'new' })))
-            .kind
-        ).toBe('invalid_input');
-      }).pipe(Effect.provide(layer))
+test.stable(
+  'failed merges roll back copies and archiving, and reject changed intents',
+  async ({ databases, expect }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const layer = Layer.mergeAll(Notes.layer, Settings.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
-  } finally {
-    context.close();
-    await location.cleanup();
-  }
-});
 
-testStable(
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const c = yield* Notes;
+          const first = yield* c.createNote({ title: 'First' });
+          const second = yield* c.createNote({ title: 'Second' });
+
+          yield* c.postMessage({ noteId: first.id, text: 'Stable', requestReply: false });
+          const pending = yield* c.postMessage({
+            noteId: second.id,
+            text: 'Question',
+            requestReply: true
+          });
+
+          expect(
+            (yield* Effect.flip(
+              c.mergeNotes({ noteIds: [first.id, second.id], intentKey: 'failed' })
+            )).kind
+          ).toBe('invalid_input');
+          expect((yield* c.notes({ limit: 100 })).items).toHaveLength(2);
+          expect((yield* c.note(first.id)).archivedAt).toBeNull();
+          expect((yield* c.note(second.id)).archivedAt).toBeNull();
+          expect(
+            (yield* Effect.flip(
+              c.mergeNotes({ noteIds: [first.id, first.id], intentKey: 'duplicate' })
+            )).kind
+          ).toBe('invalid_input');
+          yield* c.deleteMessage(pending.id);
+          const merged = yield* c.mergeNotes({
+            noteIds: [second.id, first.id],
+            intentKey: 'retry'
+          });
+
+          expect(
+            (yield* c.mergeNotes({ noteIds: [first.id, second.id], intentKey: 'retry' })).id
+          ).toBe(merged.id);
+          const third = yield* c.createNote({ title: 'Third' });
+
+          expect(
+            (yield* Effect.flip(
+              c.mergeNotes({ noteIds: [first.id, third.id], intentKey: 'retry' })
+            )).kind
+          ).toBe('invalid_input');
+          expect(
+            (yield* Effect.flip(c.mergeNotes({ noteIds: [first.id, third.id], intentKey: 'new' })))
+              .kind
+          ).toBe('invalid_input');
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
+  }
+);
+
+test.stable(
   'copies attachment memberships once, keeps active links, and preserves attachments-only notes',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(
       Notes.layer,
@@ -264,10 +265,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'merges histories larger than the title context window without losing messages',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(Notes.layer, Settings.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))

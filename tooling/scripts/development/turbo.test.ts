@@ -1,8 +1,5 @@
-import { spawnTestProcess } from '@study/testing/vitest';
-import { temporaryDirectory } from '@study/testing/vitest';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { $ } from 'bun';
-import { assert, onTestFinished } from 'vite-plus/test';
 
 const root = Bun.fileURLToPath(new URL('../../../', import.meta.url));
 
@@ -26,7 +23,12 @@ type Workflow = {
   jobs: Record<string, { steps?: { run?: string; with?: { runCmd?: string } }[] }>;
 };
 
-async function fixture() {
+async function fixture({
+  temporaryDirectory,
+  spawnTestProcess,
+  assert: assertions
+}: Pick<test.Context, 'temporaryDirectory' | 'spawnTestProcess' | 'assert'>) {
+  const assert: test.Assert = assertions;
   const temporary = await temporaryDirectory();
   const path = temporary.path;
   const directories: string[] = [];
@@ -144,60 +146,67 @@ async function fixture() {
   };
 }
 
-testStable('CI gate groups cover the full check, including the packaged runtime', async () => {
-  await using repo = await fixture();
-  const commands = (plan: Plan) =>
-    plan.tasks
-      .filter((task) => task.command && task.command !== '<NONEXISTENT>')
-      .map((task) => task.taskId)
-      .sort();
-  const full = commands(await repo.plan('check'));
-  const workflow = Bun.YAML.parse(
-    await Bun.file(`${root}.github/workflows/ci.yml`).text()
-  ) as Workflow;
-  const groups: Plan[] = [];
+test.stable(
+  'CI gate groups cover the full check, including the packaged runtime',
+  async ({ assert: assertions, temporaryDirectory, spawnTestProcess }) => {
+    const assert: test.Assert = assertions;
 
-  for (const job of Object.values(workflow.jobs)) {
-    for (const step of job.steps ?? []) {
-      const script = /^bun run (\S+)(?: .*)?$/.exec(step.run ?? step.with?.runCmd ?? '')?.[1];
+    await using repo = await fixture({ temporaryDirectory, spawnTestProcess, assert });
+    const commands = (plan: Plan) =>
+      plan.tasks
+        .filter((task) => task.command && task.command !== '<NONEXISTENT>')
+        .map((task) => task.taskId)
+        .sort();
+    const full = commands(await repo.plan('check'));
+    const workflow = Bun.YAML.parse(
+      await Bun.file(`${root}.github/workflows/ci.yml`).text()
+    ) as Workflow;
+    const groups: Plan[] = [];
 
-      if (!script) continue;
+    for (const job of Object.values(workflow.jobs)) {
+      for (const step of job.steps ?? []) {
+        const script = /^bun run (\S+)(?: .*)?$/.exec(step.run ?? step.with?.runCmd ?? '')?.[1];
 
-      // Comparison forwards CLI flags to Playwright; inspect its identical build graph.
-      const result = await repo.script(
-        script === 'web:e2e:compare' ? 'web:e2e' : script,
-        '--dry=json'
-      );
+        if (!script) continue;
 
-      assert.equal(result.code, 0, result.stderr);
-      groups.push(JSON.parse(result.stdout));
+        // Comparison forwards CLI flags to Playwright; inspect its identical build graph.
+        const result = await repo.script(
+          script === 'web:e2e:compare' ? 'web:e2e' : script,
+          '--dry=json'
+        );
+
+        assert.equal(result.code, 0, result.stderr);
+        groups.push(JSON.parse(result.stdout));
+      }
     }
+
+    const selected = [...new Set(groups.flatMap(commands))].sort();
+
+    assert.include(full, '//#runtime:smoke');
+    assert.include(full, '//#desktop:runtime');
+    assert.deepEqual(selected, full);
+    const javascript = commands(await repo.plan('check:javascript'));
+    const server = commands(await repo.plan('check:server'));
+    const database = commands(await repo.plan('check:database'));
+    const native = commands(await repo.plan('check:native'));
+
+    assert.include(javascript, '@study/server#typecheck');
+    assert.include(javascript, '@study/client#build');
+    assert.deepEqual(database, ['@study/db#test']);
+    assert.notInclude(server, '@study/db#test');
+    assert.notInclude(native, '//#lint:repo');
+    assert.notInclude(native, '//#check:landing');
+    assert.notInclude(server, '@study/server#typecheck');
+    assert.isEmpty(javascript.filter((task) => task.endsWith('#test') && server.includes(task)));
   }
+);
 
-  const selected = [...new Set(groups.flatMap(commands))].sort();
-
-  assert.include(full, '//#runtime:smoke');
-  assert.include(full, '//#desktop:runtime');
-  assert.deepEqual(selected, full);
-  const javascript = commands(await repo.plan('check:javascript'));
-  const server = commands(await repo.plan('check:server'));
-  const database = commands(await repo.plan('check:database'));
-  const native = commands(await repo.plan('check:native'));
-
-  assert.include(javascript, '@study/server#typecheck');
-  assert.include(javascript, '@study/client#build');
-  assert.deepEqual(database, ['@study/db#test']);
-  assert.notInclude(server, '@study/db#test');
-  assert.notInclude(native, '//#lint:repo');
-  assert.notInclude(native, '//#check:landing');
-  assert.notInclude(server, '@study/server#typecheck');
-  assert.isEmpty(javascript.filter((task) => task.endsWith('#test') && server.includes(task)));
-});
-
-testStable(
+test.stable(
   'browser comparison keeps its build prerequisite and forwards runner options',
-  async () => {
-    await using repo = await fixture();
+  async ({ assert: assertions, temporaryDirectory, spawnTestProcess }) => {
+    const assert: test.Assert = assertions;
+
+    await using repo = await fixture({ temporaryDirectory, spawnTestProcess, assert });
     const file = Bun.file(`${repo.path}/apps/client/package.json`);
     const pkg = await file.json();
 
@@ -211,70 +220,85 @@ testStable(
   }
 );
 
-testStable('a failed runtime preparation prevents its smoke test from running', async () => {
-  await using repo = await fixture();
-  const file = Bun.file(`${repo.path}/package.json`);
-  const pkg = await file.json();
+test.stable(
+  'a failed runtime preparation prevents its smoke test from running',
+  async ({ assert: assertions, temporaryDirectory, spawnTestProcess }) => {
+    const assert: test.Assert = assertions;
 
-  pkg.scripts['desktop:runtime'] = 'bun -e "process.exit(23)"';
-  pkg.scripts['runtime:smoke'] = "bun -e \"await Bun.write('smoke-ran', 'unexpected')\"";
-  await Bun.write(file, JSON.stringify(pkg));
-  const result = await repo.script('ci:native');
-
-  assert.notEqual(result.code, 0);
-  assert.isFalse(await Bun.file(`${repo.path}/smoke-ran`).exists());
-});
-
-testStable('failed formatting leaves independent native gates runnable', async () => {
-  await using repo = await fixture();
-  const nativeFile = Bun.file(`${repo.path}/apps/desktop/package.json`);
-  const nativePkg = await nativeFile.json();
-
-  nativePkg.scripts['fmt:check'] = 'bun -e "process.exit(23)"';
-
-  for (const task of ['lint', 'deny', 'test', 'docs'])
-    nativePkg.scripts[task] = `bun -e "await Bun.write('gate-${task}', 'ran')"`;
-
-  await Bun.write(nativeFile, JSON.stringify(nativePkg));
-  const result = await repo.script('ci:native');
-
-  assert.notEqual(result.code, 0);
-
-  for (const task of ['lint', 'deny', 'test', 'docs'])
-    assert.equal(await Bun.file(`${repo.path}/apps/desktop/gate-${task}`).text(), 'ran');
-});
-
-testStable('CI overlaps the client build with independent tooling tests', async () => {
-  await using repo = await fixture();
-
-  for (const [directory, task, own, other] of [
-    ['apps/client', 'build', 'build-started', 'tests-started'],
-    ['tooling', 'test', 'tests-started', 'build-started']
-  ]) {
-    const file = Bun.file(`${repo.path}/${directory}/package.json`);
+    await using repo = await fixture({ temporaryDirectory, spawnTestProcess, assert });
+    const file = Bun.file(`${repo.path}/package.json`);
     const pkg = await file.json();
 
-    pkg.scripts[task!] = 'bun overlap.ts';
+    pkg.scripts['desktop:runtime'] = 'bun -e "process.exit(23)"';
+    pkg.scripts['runtime:smoke'] = "bun -e \"await Bun.write('smoke-ran', 'unexpected')\"";
     await Bun.write(file, JSON.stringify(pkg));
-    await Bun.write(
-      `${repo.path}/${directory}/overlap.ts`,
-      `await Bun.write('${repo.path}/${own}', 'started');
+    const result = await repo.script('ci:native');
+
+    assert.notEqual(result.code, 0);
+    assert.isFalse(await Bun.file(`${repo.path}/smoke-ran`).exists());
+  }
+);
+
+test.stable(
+  'failed formatting leaves independent native gates runnable',
+  async ({ assert: assertions, temporaryDirectory, spawnTestProcess }) => {
+    const assert: test.Assert = assertions;
+
+    await using repo = await fixture({ temporaryDirectory, spawnTestProcess, assert });
+    const nativeFile = Bun.file(`${repo.path}/apps/desktop/package.json`);
+    const nativePkg = await nativeFile.json();
+
+    nativePkg.scripts['fmt:check'] = 'bun -e "process.exit(23)"';
+
+    for (const task of ['lint', 'deny', 'test', 'docs'])
+      nativePkg.scripts[task] = `bun -e "await Bun.write('gate-${task}', 'ran')"`;
+
+    await Bun.write(nativeFile, JSON.stringify(nativePkg));
+    const result = await repo.script('ci:native');
+
+    assert.notEqual(result.code, 0);
+
+    for (const task of ['lint', 'deny', 'test', 'docs'])
+      assert.equal(await Bun.file(`${repo.path}/apps/desktop/gate-${task}`).text(), 'ran');
+  }
+);
+
+test.stable(
+  'CI overlaps the client build with independent tooling tests',
+  async ({ assert: assertions, temporaryDirectory, spawnTestProcess }) => {
+    const assert: test.Assert = assertions;
+
+    await using repo = await fixture({ temporaryDirectory, spawnTestProcess, assert });
+
+    for (const [directory, task, own, other] of [
+      ['apps/client', 'build', 'build-started', 'tests-started'],
+      ['tooling', 'test', 'tests-started', 'build-started']
+    ]) {
+      const file = Bun.file(`${repo.path}/${directory}/package.json`);
+      const pkg = await file.json();
+
+      pkg.scripts[task!] = 'bun overlap.ts';
+      await Bun.write(file, JSON.stringify(pkg));
+      await Bun.write(
+        `${repo.path}/${directory}/overlap.ts`,
+        `await Bun.write('${repo.path}/${own}', 'started');
        const deadline = Date.now() + 5000;
        while (!(await Bun.file('${repo.path}/${other}').exists())) {
          if (Date.now() > deadline) process.exit(23);
          await Bun.sleep(10);
        }`
-    );
+      );
+    }
+
+    const result = await repo.script('ci:javascript');
+
+    assert.equal(result.code, 0, result.stdout + result.stderr);
+    assert.isTrue(await Bun.file(`${repo.path}/build-started`).exists());
+    assert.isTrue(await Bun.file(`${repo.path}/tests-started`).exists());
   }
+);
 
-  const result = await repo.script('ci:javascript');
-
-  assert.equal(result.code, 0, result.stdout + result.stderr);
-  assert.isTrue(await Bun.file(`${repo.path}/build-started`).exists());
-  assert.isTrue(await Bun.file(`${repo.path}/tests-started`).exists());
-});
-
-testStable.each([
+test.stable.for([
   {
     script: 'gen:check',
     required: ['//#gen:theme:check', '@study/db#gen:check'],
@@ -297,8 +321,13 @@ testStable.each([
   }
 ])(
   '$script selects its verification scope through Turbo',
-  async ({ script, required, excluded }) => {
-    await using repo = await fixture();
+  async (
+    { script, required, excluded },
+    { assert: assertions, temporaryDirectory, spawnTestProcess }
+  ) => {
+    const assert: test.Assert = assertions;
+
+    await using repo = await fixture({ temporaryDirectory, spawnTestProcess, assert });
     const result = await repo.script(script, '--dry=json');
 
     assert.equal(result.code, 0, result.stderr);
@@ -310,10 +339,12 @@ testStable.each([
   }
 );
 
-testStable(
+test.stable(
   'Turbo selects dirty, untracked, staged and renamed packages plus their consumers',
-  async () => {
-    await using repo = await fixture();
+  async ({ assert: assertions, temporaryDirectory, spawnTestProcess }) => {
+    const assert: test.Assert = assertions;
+
+    await using repo = await fixture({ temporaryDirectory, spawnTestProcess, assert });
 
     assert.isEmpty((await repo.plan('check', '--affected')).tasks);
     await Bun.write(`${repo.path}/packages/ui/src/input.ts`, 'changed');
@@ -342,10 +373,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'shared configuration selects every package and invalid SCM bases fail visibly',
-  async () => {
-    await using repo = await fixture();
+  async ({ assert: assertions, temporaryDirectory, spawnTestProcess }) => {
+    const assert: test.Assert = assertions;
+
+    await using repo = await fixture({ temporaryDirectory, spawnTestProcess, assert });
 
     await Bun.write(`${repo.path}/tooling/typescript/server.json`, '{"changed": true}');
     const ids = (await repo.plan('check', '--affected')).tasks.map((task) => task.taskId);
@@ -367,10 +400,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'Turbo restores build outputs from cache and invalidates changed dependency inputs',
-  async () => {
-    await using repo = await fixture();
+  async ({ assert: assertions, temporaryDirectory, spawnTestProcess }) => {
+    const assert: test.Assert = assertions;
+
+    await using repo = await fixture({ temporaryDirectory, spawnTestProcess, assert });
     const args = ['build', '--filter=@study/client', '--concurrency=1'];
     const before = await repo.plan(...args);
 
@@ -401,61 +436,73 @@ testStable(
   }
 );
 
-testStable('shared test setup and native permissions affect the owning tasks', async () => {
-  await using repo = await fixture();
-  const hash = (plan: Plan, id: string) => plan.tasks.find((task) => task.taskId === id)?.hash;
-  const before = await repo.plan('test');
+test.stable(
+  'shared test setup and native permissions affect the owning tasks',
+  async ({ assert: assertions, temporaryDirectory, spawnTestProcess }) => {
+    const assert: test.Assert = assertions;
 
-  await Bun.write(`${repo.path}/tooling/test-results/integrations/setup.log`, 'diagnostics');
-  const reports = await repo.plan('test');
+    await using repo = await fixture({ temporaryDirectory, spawnTestProcess, assert });
+    const hash = (plan: Plan, id: string) => plan.tasks.find((task) => task.taskId === id)?.hash;
+    const before = await repo.plan('test');
 
-  assert.equal(hash(reports, '@study/ui#test'), hash(before, '@study/ui#test'));
-  await Bun.write(`${repo.path}/packages/testing/src/config.ts`, 'shared budget changed');
-  const policy = await repo.plan('test');
+    await Bun.write(`${repo.path}/tooling/test-results/integrations/setup.log`, 'diagnostics');
+    const reports = await repo.plan('test');
 
-  for (const id of ['@study/ui#test', '@study/client#test', '@study/testing#test'])
-    assert.notEqual(hash(policy, id), hash(before, id));
+    assert.equal(hash(reports, '@study/ui#test'), hash(before, '@study/ui#test'));
+    await Bun.write(`${repo.path}/packages/testing/src/config.ts`, 'shared budget changed');
+    const policy = await repo.plan('test');
 
-  await Bun.write(`${repo.path}/apps/client/src/test/setup.ts`, 'changed');
-  let after = await repo.plan('test');
+    for (const id of ['@study/ui#test', '@study/client#test', '@study/testing#test'])
+      assert.notEqual(hash(policy, id), hash(before, id));
 
-  assert.notEqual(hash(after, '@study/ui#test'), hash(before, '@study/ui#test'));
-  await Bun.write(`${repo.path}/apps/server/test/testing/preload.ts`, 'changed');
-  after = await repo.plan('test');
-  assert.notEqual(hash(after, '@study/contracts#test'), hash(before, '@study/contracts#test'));
-  await Bun.write(`${repo.path}/apps/desktop/src-tauri/permissions/example.toml`, 'changed');
-  const ids = (await repo.plan('test', '--affected')).tasks.map((task) => task.taskId);
+    await Bun.write(`${repo.path}/apps/client/src/test/setup.ts`, 'changed');
+    let after = await repo.plan('test');
 
-  assert.include(ids, '@study/tooling#test');
-});
+    assert.notEqual(hash(after, '@study/ui#test'), hash(before, '@study/ui#test'));
+    await Bun.write(`${repo.path}/apps/server/test/testing/fixture.ts`, 'changed');
+    after = await repo.plan('test');
+    assert.notEqual(hash(after, '@study/contracts#test'), hash(before, '@study/contracts#test'));
+    await Bun.write(`${repo.path}/apps/desktop/src-tauri/permissions/example.toml`, 'changed');
+    const ids = (await repo.plan('test', '--affected')).tasks.map((task) => task.taskId);
 
-testStable('deterministic unit tests are reusable while server tests always execute', async () => {
-  await using repo = await fixture();
-  const args = ['test', '--filter=@study/contracts', '--concurrency=1'];
+    assert.include(ids, '@study/tooling#test');
+  }
+);
 
-  assert.equal((await repo.run(args)).code, 0);
-  let plan = await repo.plan(...args);
+test.stable(
+  'deterministic unit tests are reusable while server tests always execute',
+  async ({ assert: assertions, temporaryDirectory, spawnTestProcess }) => {
+    const assert: test.Assert = assertions;
 
-  assert.equal(
-    plan.tasks.find((task) => task.taskId === '@study/contracts#test')?.cache.status,
-    'HIT'
-  );
-  await Bun.write(`${repo.path}/apps/server/test/testing/preload.ts`, 'changed setup');
-  plan = await repo.plan(...args);
-  assert.equal(
-    plan.tasks.find((task) => task.taskId === '@study/contracts#test')?.cache.status,
-    'MISS'
-  );
-});
+    await using repo = await fixture({ temporaryDirectory, spawnTestProcess, assert });
+    const args = ['test', '--filter=@study/contracts', '--concurrency=1'];
 
-testStable.each([
+    assert.equal((await repo.run(args)).code, 0);
+    let plan = await repo.plan(...args);
+
+    assert.equal(
+      plan.tasks.find((task) => task.taskId === '@study/contracts#test')?.cache.status,
+      'HIT'
+    );
+    await Bun.write(`${repo.path}/apps/server/test/testing/fixture.ts`, 'changed setup');
+    plan = await repo.plan(...args);
+    assert.equal(
+      plan.tasks.find((task) => task.taskId === '@study/contracts#test')?.cache.status,
+      'MISS'
+    );
+  }
+);
+
+test.stable.for([
   'SIGINT',
   'SIGTERM',
   ...(process.platform === 'win32' ? [] : ['SIGHUP' as const, 'SIGQUIT' as const])
 ] as const)(
   'a signal sent only to the task wrapper stops its native process group: %s',
-  async (signal) => {
-    await using repo = await fixture();
+  async (signal, { spawnTestProcess, onTestFinished, assert: assertions, temporaryDirectory }) => {
+    const assert: test.Assert = assertions;
+
+    await using repo = await fixture({ temporaryDirectory, spawnTestProcess, assert });
     const pkg = await Bun.file(`${repo.path}/apps/client/package.json`).json();
 
     pkg.scripts.hold = 'bun hold.ts';

@@ -1,19 +1,16 @@
-import { defaultAppearancePreferences, defaultWorkspacePreferences } from '@study/contracts';
-import { configureRpcTransport } from '@study/contracts/react';
-import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
-import { render } from '@testing-library/react';
+import {
+  defaultAppearancePreferences,
+  defaultWorkspacePreferences,
+  noteIdSchema
+} from '@study/contracts';
+import type { RpcFixtureValues } from '@study/contracts/react/testing';
+import { Option } from 'effect';
 
-import { Providers } from '../app/providers';
-import { createAppRouter } from '../app/router';
 import type { Locale } from '../lib/i18n';
-import { rpcTestTransport } from './rpc';
 
 /** Empty, bounded product snapshots for route presentation tests. Individual journeys supply their own fixtures. */
-export function pageTestTransport(
-  locale: Locale = 'english',
-  overrides: Record<string, unknown> = {}
-) {
-  const snapshots: Record<string, unknown> = {
+export function pageTestValues(locale: Locale = 'english'): RpcFixtureValues {
+  const snapshots: RpcFixtureValues = {
     'system.health': { protocolVersion: 1, workersRunning: true, testMode: false },
 
     'settings.appSettings': {
@@ -30,6 +27,21 @@ export function pageTestTransport(
     'settings.sidebarSettings': { settledPageThreshold: 1 },
 
     'notes.noteSummaries': { items: [] },
+    'notes.count': 0n,
+    'pages.count': 0n,
+    'materials.count': 0n,
+    'projects.findProject': Option.none(),
+    'projects.projects': { items: [], next: null },
+    'notes.notes': { items: [], next: null },
+    'notes.assistantChats': { items: [], next: null },
+    'workflows.executions': { items: [], next: null },
+    'workflows.agentProgress': [],
+    'notes.thread': { items: [], next: null },
+    'pages.pages': { items: [], nextCursor: null },
+    'sources.sources': { items: [], next: null },
+    'materials.activeMaterialGenerations': [],
+    'materials.materials': { items: [], nextCursor: null },
+    'themes.themes': { items: [], next: null },
 
     'themes.selectedTheme': null,
 
@@ -44,7 +56,7 @@ export function pageTestTransport(
     },
 
     'notes.assistantNote': {
-      id: 91n,
+      id: noteIdSchema.make(91n),
       projectIds: [],
       title: 'Assistant',
       titleSource: 'user',
@@ -61,28 +73,5 @@ export function pageTestTransport(
     }
   };
 
-  const values = { ...snapshots, ...overrides };
-
-  return rpcTestTransport(async (tag) =>
-    Object.hasOwn(values, tag) ? values[tag] : { items: [], next: null, nextCursor: null }
-  );
-}
-
-export function renderPage(
-  path: string,
-  locale: Locale = 'english',
-  fixture = pageTestTransport(locale)
-) {
-  configureRpcTransport(fixture.transport);
-  const router = createAppRouter(createMemoryHistory({ initialEntries: [path] }));
-
-  return {
-    ...render(
-      <Providers locale={locale} transport={fixture.transport}>
-        <RouterProvider router={router} />
-      </Providers>
-    ),
-    router,
-    notify: fixture.notify
-  };
+  return snapshots;
 }

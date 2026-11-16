@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises HTTP practice generation across normal, invalid-model, archived-request, │
@@ -14,13 +15,9 @@
  * │ cleanup closes owned resources.                                                          │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { AuthStore } from '#server/features/auth/store/index';
@@ -29,8 +26,6 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
 import { serve } from '#server/runtime/index';
-import { pollUntil } from '#testing/poll';
-import { createStudyTest } from '#testing/server-test';
 
 const isReady = (slot: { status: string }) => slot.status === 'ready';
 
@@ -45,11 +40,13 @@ for (const mode of [
   'archived-before-request',
   'transient-exhausted'
 ] as const)
-  testStable(
+  test.stable(
     `HTTP practice ${mode} recovers, replenishes and stops without further provider work`,
     { timeout: 20000 },
-    async (t) => {
-      const resources = createStudyTest(t, { app: false });
+    async ({ resources: resourcesFixture, assert: assertions, expect, pollUntil }) => {
+      const assert: test.Assert = assertions;
+
+      const resources = resourcesFixture;
       let generations = 0;
       let failedCalls = 0;
       let healthyStarts = 0;
@@ -236,9 +233,14 @@ for (const mode of [
             if (mode === 'archived-before-request')
               yield* client['pages.archive']({ id: document.id, archived: false });
 
-            yield* recoverFailedPractice();
+            yield* recoverFailedPractice({ assert, pollUntil });
 
-            function* recoverFailedPractice() {
+            function* recoverFailedPractice({
+              assert: assertions,
+              pollUntil
+            }: Pick<test.Context, 'assert' | 'pollUntil'>) {
+              const assert: test.Assert = assertions;
+
               if (mode !== 'normal') {
                 mark('recovery');
                 transient = false;
@@ -339,9 +341,9 @@ for (const mode of [
 
             yield* client['system.stopWorkers']({});
             yield* client['system.startWorkers']({});
-            yield* assertRefillDrained();
+            yield* assertRefillDrained({ pollUntil });
 
-            function* assertRefillDrained() {
+            function* assertRefillDrained({ pollUntil }: Pick<test.Context, 'pollUntil'>) {
               const refillSlot = refill.slots.find((slot) => slot.kind === 'open')!;
 
               yield* pollUntil(

@@ -170,6 +170,18 @@ function isPublic(name: string, subpath: string): boolean {
   return patterns.length > 0 && hasTarget(patterns[0]![1]) === true;
 }
 
+function testingConsumer(owner: Owner, filename: string): boolean {
+  if (owner === '@study/tooling') return true;
+
+  if (filename.endsWith('/apps/client/playwright.config.ts')) return true;
+
+  if (filename.endsWith('/apps/client/vite.config.ts')) return true;
+
+  if (owner === '@study/db' && filename.endsWith('/packages/db/src/testing.ts')) return true;
+
+  return /\.(?:test|spec)\.[^/]+$|\/(?:test|tests|__tests__|testing)\//.test(filename);
+}
+
 export default defineRule({
   meta: { type: 'problem' },
   create(context) {
@@ -179,8 +191,8 @@ export default defineRule({
 
     const owner: Owner = currentOwner;
     const filename = context.filename.replaceAll('\\', '/');
-    const runtimeHarness = ['index.ts', 'stack.ts', 'creation-response.test.ts'].some((file) =>
-      filename.endsWith(`/apps/client/test/e2e/harness/${file}`)
+    const runtimeHarness = ['index.ts', 'testing.ts', 'stack.ts', 'creation-response.test.ts'].some(
+      (file) => filename.endsWith(`/apps/client/test/e2e/harness/${file}`)
     );
 
     type ReportNode = NonNullable<Parameters<typeof context.report>[0]['node']>;
@@ -196,13 +208,7 @@ export default defineRule({
       )
         return false;
 
-      if (name === '@study/testing')
-        return (
-          owner !== '@study/tooling' &&
-          !/\.(?:test|spec)\.[^/]+$|\/(?:test|tests|__tests__|testing)\//.test(
-            context.filename.replaceAll('\\', '/')
-          )
-        );
+      if (name === '@study/testing') return !testingConsumer(owner, filename);
 
       return name !== owner && !allowed[owner].includes(name as Owner);
     }

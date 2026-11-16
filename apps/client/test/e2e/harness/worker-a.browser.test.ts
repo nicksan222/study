@@ -1,15 +1,14 @@
 import { catalogs } from '@study/localization';
-
-import { expect, testHarness } from './index.ts';
+import { test } from '@study/testing';
 
 // Keep consecutive fixtures in one worker to verify cleanup between tests.
-testHarness.describe.configure({ mode: 'default' });
+test.stable.describe.configure({ mode: 'default' });
 
 const copy = catalogs.english;
 
-testHarness(
+test.stable(
   'one application fixture can save private browser and SQLite state',
-  async ({ page }) => {
+  async ({ page, expect }) => {
     await page.goto('/notes');
     await page.evaluate(() => localStorage.setItem('sentinel', 'private'));
     await page.context().addCookies([{ name: 'sentinel', value: 'private', url: page.url() }]);
@@ -19,9 +18,9 @@ testHarness(
   }
 );
 
-testHarness(
+test.stable(
   'the next application fixture has fresh browser storage and SQLite rows',
-  async ({ page }) => {
+  async ({ page, expect }) => {
     await page.goto('/notes');
     await expect(page.getByRole('textbox', { name: copy.NoteCompose })).toBeVisible();
     expect(await page.evaluate(() => localStorage.getItem('sentinel'))).toBeNull();

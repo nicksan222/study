@@ -1,6 +1,5 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import type { Locator, Page } from 'playwright';
-import { expect } from 'vite-plus/test';
 
 import { safeName } from './identity.ts';
 import { updateAllowed, requireScreenshots } from './screenshots.ts';
@@ -11,7 +10,7 @@ const snapshotPolicy = {
   project: { ignoreSnapshots: false }
 };
 
-testStable('screenshot paths and scoped baseline updates fail closed', () => {
+test.stable('screenshot paths and scoped baseline updates fail closed', ({ expect }) => {
   for (const name of ['../escape', '/absolute', '', 'a/b', 'x'.repeat(81)])
     expect(() => safeName(name)).toThrow();
 
@@ -34,70 +33,73 @@ testStable('screenshot paths and scoped baseline updates fail closed', () => {
   expect(() => requireScreenshots(1)).not.toThrow();
 });
 
-testStable('expired readiness stages cannot resume screenshot browser work', async () => {
-  const { screenshotAssertions } = await import('./screenshots.ts');
+test.stable(
+  'expired readiness stages cannot resume screenshot browser work',
+  async ({ expect, onTestFinished }) => {
+    const { screenshotAssertions } = await import('./screenshots.ts');
 
-  for (const stage of ['ready', 'fonts', 'images', 'center', 'render']) {
-    const delayed = Promise.withResolvers<void>();
-    const reached = Promise.withResolvers<void>();
-    const calls: string[] = [];
-    const pause = async (name: string) => {
-      calls.push(name);
+    for (const stage of ['ready', 'fonts', 'images', 'center', 'render']) {
+      const delayed = Promise.withResolvers<void>();
+      const reached = Promise.withResolvers<void>();
+      const calls: string[] = [];
+      const pause = async (name: string) => {
+        calls.push(name);
 
-      if (name === stage) {
-        reached.resolve();
-        await delayed.promise;
-      }
-    };
-    const page = {
-      evaluate: () => pause('fonts'),
-      locator: () => ({ evaluate: () => pause('images'), count: async () => 0 }),
-      screenshot: async (options: { path?: string }) => {
-        if (options.path) calls.push('diagnostic');
-        else await pause('render');
-
-        return Buffer.from([]);
-      }
-    };
-    const screenshots = screenshotAssertions(
-      page as unknown as Page,
-      'late',
-      await temporaryArtifacts(),
-      'contract',
-      snapshotPolicy
-    );
-    const pending = screenshots.expectScreenshot(stage, {
-      target: 'viewport',
-      ready: () => pause('ready'),
-      center:
-        stage === 'center'
-          ? ({ evaluate: () => pause('center') } as unknown as Locator)
-          : undefined,
-      scrollToEnd: {
-        evaluate: async () => {
-          calls.push('scroll-end');
+        if (name === stage) {
+          reached.resolve();
+          await delayed.promise;
         }
-      } as unknown as Locator,
-      timeoutMs: 30
-    });
+      };
+      const page = {
+        evaluate: () => pause('fonts'),
+        locator: () => ({ evaluate: () => pause('images'), count: async () => 0 }),
+        screenshot: async (options: { path?: string }) => {
+          if (options.path) calls.push('diagnostic');
+          else await pause('render');
 
-    await reached.promise;
-    await expect(pending).rejects.toThrow('timed out');
-    expect(screenshots.captureMs).toBeGreaterThan(0);
-    const atDeadline = [...calls];
+          return Buffer.from([]);
+        }
+      };
+      const screenshots = screenshotAssertions(
+        page as unknown as Page,
+        'late',
+        await temporaryArtifacts({ onTestFinished }),
+        'contract',
+        snapshotPolicy
+      );
+      const pending = screenshots.expectScreenshot(stage, {
+        target: 'viewport',
+        ready: () => pause('ready'),
+        center:
+          stage === 'center'
+            ? ({ evaluate: () => pause('center') } as unknown as Locator)
+            : undefined,
+        scrollToEnd: {
+          evaluate: async () => {
+            calls.push('scroll-end');
+          }
+        } as unknown as Locator,
+        timeoutMs: 30
+      });
 
-    delayed.resolve();
+      await reached.promise;
+      await expect(pending).rejects.toThrow('timed out');
+      expect(screenshots.captureMs).toBeGreaterThan(0);
+      const atDeadline = [...calls];
 
-    // Drain the finite harness continuation after the delayed promise resolves.
-    for (let turn = 0; turn < 20; turn++) await Promise.resolve();
+      delayed.resolve();
 
-    expect(calls).toEqual(atDeadline);
+      // Drain the finite harness continuation after the delayed promise resolves.
+      for (let turn = 0; turn < 20; turn++) await Promise.resolve();
+
+      expect(calls).toEqual(atDeadline);
+    }
   }
-});
+);
 
-testStable(
+test.stable(
   'canonical capture blurs only the passive focused entry after readiness unless preserved',
-  async () => {
+  async ({ expect, onTestFinished }) => {
     const { screenshotAssertions } = await import('./screenshots.ts');
 
     for (const focus of [undefined, 'preserve'] as const) {
@@ -127,7 +129,7 @@ testStable(
         const screenshots = screenshotAssertions(
           page as unknown as Page,
           'focus',
-          await temporaryArtifacts(),
+          await temporaryArtifacts({ onTestFinished }),
           'contract',
           snapshotPolicy
         );
@@ -150,9 +152,9 @@ testStable(
   }
 );
 
-testStable.each(['all', 'changed'] as const)(
+test.stable.for(['all', 'changed'] as const)(
   'comparison rejects a native UI policy changed after fixture creation: %s',
-  async (mode) => {
+  async (mode, { expect, onTestFinished }) => {
     const { screenshotAssertions } = await import('./screenshots.ts');
     const policy: Parameters<typeof screenshotAssertions>[4] = {
       config: { updateSnapshots: 'none' },
@@ -171,7 +173,7 @@ testStable.each(['all', 'changed'] as const)(
     const screenshots = screenshotAssertions(
       page as unknown as Page,
       'ui-policy',
-      await temporaryArtifacts(),
+      await temporaryArtifacts({ onTestFinished }),
       'contract',
       policy
     );

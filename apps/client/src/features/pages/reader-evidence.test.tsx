@@ -1,24 +1,31 @@
 import { assessmentViewSchema, exactInputSchema } from '@study/contracts';
+import type { StudyClient } from '@study/contracts/react/testing';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { expect, vi } from 'vite-plus/test';
 
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
-import type { StudyClient } from '#client/test/rpc.tsx';
+import type * as __MockType0 from '../document-editing/test-support';
+import type * as __MockType1 from './reader-evidence';
 
-import { authoredPage } from '../document-editing/test-support';
-import { EvidenceDetails } from './reader-evidence';
+let authoredPage: typeof __MockType0.authoredPage;
 
-vi.mock('../source-library/input-link', () => ({
-  CapturedInputLink: ({ name }: { name: string }) => <span>{name}</span>
-}));
+let EvidenceDetails: typeof __MockType1.EvidenceDetails;
 
-testStable.each([false, true])(
+test.beforeEach(async ({ mock }) => {
+  mock('#client/features/source-library/input-link', () => ({
+    CapturedInputLink: ({ name }: { name: string }) => <span>{name}</span>
+  }));
+  const __mockModule0 = await import('../document-editing/test-support');
+
+  authoredPage = __mockModule0.authoredPage;
+  const __mockModule1 = await import('./reader-evidence');
+
+  EvidenceDetails = __mockModule1.EvidenceDetails;
+});
+
+test.stable.for([false, true])(
   'shows unavailable message evidence with citations: %s',
-  async (cited) => {
+  async (cited, { rpcHandlersTransport, render, userEvent, screen, expect }) => {
     const document = authoredPage(41n, 'An answer', 101n);
     const input = Schema.decodeUnknownSync(exactInputSchema)({ kind: 'message', versionId: 7n });
     const version = {
@@ -59,13 +66,16 @@ testStable.each([false, true])(
   }
 );
 
-testStable.each([
+test.stable.for([
   ['assessed', 'contradicts', catalogs.english.PageContradicts, catalogs.english.PageUserAssessed],
   ['stale', 'uncertain', catalogs.english.PageUncertain, catalogs.english.PageStale],
   ['unavailable', 'supports', catalogs.english.PageSupports, catalogs.english.ReaderUnavailable]
 ] as const)(
   'shows the actual %s judgment %s and note independently of evidence availability',
-  async (state, judgment, label, status) => {
+  async (
+    [state, judgment, label, status],
+    { vi, rpcHandlersTransport, render, userEvent, screen, expect }
+  ) => {
     const document = authoredPage(41n, 'A disputed claim', 101n);
     const base = document.version!;
     const input = { kind: 'page' as const, versionId: base.id };

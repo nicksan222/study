@@ -1,3 +1,4 @@
+import { sql } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises OAuth completion and refresh races, ensuring public-safe account         │
@@ -13,14 +14,11 @@
  * │ by the feature implementation.                                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sql } from '@study/db';
 import { preferences } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import type { Db } from '@study/db';
+import { test } from '@study/testing';
 import type { Context } from 'effect';
 import { Effect, Fiber, Layer } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { Auth } from '#server/features/auth/index';
 import { AuthManager } from '#server/platform/ai/auth/index';
@@ -29,7 +27,9 @@ import { ChatGptSession } from '#server/platform/ai/auth/service';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 
-async function peer() {
+async function peer({ assert: assertions }: Pick<test.Context, 'assert'>) {
+  const assert: test.Assert = assertions;
+
   let nonce = '';
   let issuer = '';
   let refreshStarted!: () => void;
@@ -133,7 +133,11 @@ async function peer() {
   };
 }
 
+type Databases = () => Promise<{ open(): Promise<Db>; cleanup(): Promise<void> }>;
+
 async function withAuth(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  databases: Databases,
   run: (
     layer: Layer.Layer<Database | Context.Service.Identifier<typeof Auth>, unknown, never>,
     context: ServerContext,
@@ -141,8 +145,10 @@ async function withAuth(
     manager: AuthManager
   ) => Promise<void>
 ) {
-  const oauth = await peer();
-  const location = await createTestDatabase();
+  const assert: test.Assert = assertions;
+
+  const oauth = await peer({ assert });
+  const location = await databases();
   const context = new ServerContext(await location.open());
   const manager = new AuthManager({ issuer: oauth.issuer, saveRefresh: async () => {} });
   const layer = Auth.layer.pipe(
@@ -164,11 +170,18 @@ async function withAuth(
   }
 }
 
-testStable(
+test.stable(
   'successful OAuth finish persists only a public-safe account and changes generation on repeated sign-in',
-  async () => {
-    await withAuth(async (layer, context, oauth) => {
-      function* verifyRepeatedSignIn() {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    await withAuth({ assert }, databases, async (layer, context, oauth) => {
+      function* verifyRepeatedSignIn({
+        assert: assertions,
+        expect
+      }: Pick<test.Context, 'assert' | 'expect'>) {
+        const assert: test.Assert = assertions;
+
         const auth = yield* Auth;
         const initial = yield* auth.credentialGeneration();
         const attempt = yield* auth.startSignIn({});
@@ -209,72 +222,85 @@ testStable(
       }
 
       await Effect.runPromise(
-        Effect.scoped(Effect.gen(verifyRepeatedSignIn).pipe(Effect.provide(layer)))
+        Effect.scoped(
+          Effect.gen(() => verifyRepeatedSignIn({ assert, expect })).pipe(Effect.provide(layer))
+        )
       );
     });
   }
 );
 
-testStable('failed OAuth persistence restores the previous account and session', async () => {
-  await withAuth(async (layer, context, oauth, manager) => {
-    const previous = {
-      subject: 'old',
-      clientId: 'client',
-      refreshToken: 'old-secret',
-      sharing: true
-    };
+test.stable(
+  'failed OAuth persistence restores the previous account and session',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-    context.db.orm
-      .insert(preferences)
-      .values({ scope: 'private.chatgpt', key: 'account', value: JSON.stringify(previous) })
-      .run();
+    await withAuth({ assert }, databases, async (layer, context, oauth, manager) => {
+      const previous = {
+        subject: 'old',
+        clientId: 'client',
+        refreshToken: 'old-secret',
+        sharing: true
+      };
 
-    function* verifyAccountRestoration() {
-      const auth = yield* Auth;
+      context.db.orm
+        .insert(preferences)
+        .values({ scope: 'private.chatgpt', key: 'account', value: JSON.stringify(previous) })
+        .run();
 
-      context.db.orm.run(
-        sql`CREATE TRIGGER reject_auth_save BEFORE UPDATE ON preferences WHEN OLD.scope = 'private.chatgpt' AND OLD.key = 'account' BEGIN SELECT RAISE(ABORT, 'rejected'); END`
+      function* verifyAccountRestoration({ assert: assertions }: Pick<test.Context, 'assert'>) {
+        const assert: test.Assert = assertions;
+
+        const auth = yield* Auth;
+
+        context.db.orm.run(
+          sql`CREATE TRIGGER reject_auth_save BEFORE UPDATE ON preferences WHEN OLD.scope = 'private.chatgpt' AND OLD.key = 'account' BEGIN SELECT RAISE(ABORT, 'rejected'); END`
+        );
+        const attempt = yield* auth.startSignIn({});
+        const pending = yield* Effect.forkChild(
+          Effect.flip(auth.finishSignIn({ attemptId: attempt.attemptId }))
+        );
+        const response = yield* Effect.promise(() => fetch(oauth.callback(attempt.url)));
+
+        yield* Effect.promise(() => response.text());
+        assert.ok(yield* Fiber.join(pending));
+        assert.ok((yield* auth.publicAccount())?.subject === 'old');
+        assert.ok(
+          JSON.parse(
+            context.db.orm
+              .select()
+              .from(preferences)
+              .all()
+              .find((row) => row.key === 'account')!.value
+          ).refreshToken === 'old-secret'
+        );
+        // A restored session attempts refresh rather than reporting a signed-out session.
+        const failure = yield* Effect.flip(
+          Effect.tryPromise({ try: () => manager.token(), catch: (error) => error })
+        );
+
+        assert.ok(failure instanceof Error);
+        assert.notStrictEqual(failure.message, 'ChatGPT is not signed in');
+      }
+
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(() => verifyAccountRestoration({ assert })).pipe(Effect.provide(layer))
+        )
       );
-      const attempt = yield* auth.startSignIn({});
-      const pending = yield* Effect.forkChild(
-        Effect.flip(auth.finishSignIn({ attemptId: attempt.attemptId }))
-      );
-      const response = yield* Effect.promise(() => fetch(oauth.callback(attempt.url)));
+    });
+  }
+);
 
-      yield* Effect.promise(() => response.text());
-      assert.ok(yield* Fiber.join(pending));
-      assert.ok((yield* auth.publicAccount())?.subject === 'old');
-      assert.ok(
-        JSON.parse(
-          context.db.orm
-            .select()
-            .from(preferences)
-            .all()
-            .find((row) => row.key === 'account')!.value
-        ).refreshToken === 'old-secret'
-      );
-      // A restored session attempts refresh rather than reporting a signed-out session.
-      const failure = yield* Effect.flip(
-        Effect.tryPromise({ try: () => manager.token(), catch: (error) => error })
-      );
-
-      assert.ok(failure instanceof Error);
-      assert.notStrictEqual(failure.message, 'ChatGPT is not signed in');
-    }
-
-    await Effect.runPromise(
-      Effect.scoped(Effect.gen(verifyAccountRestoration).pipe(Effect.provide(layer)))
-    );
-  });
-});
-
-testStable(
+test.stable(
   'refresh rotation settling during OAuth finish survives the sign-in commit',
-  async () => {
-    const oauth = await peer();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const oauth = await peer({ assert });
 
     oauth.startRotation();
-    const location = await createTestDatabase();
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const previous = {
       subject: 'person',
@@ -363,13 +389,15 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'interrupting finish aborts the token HTTP request and closes the listener',
-  async () => {
-    await withAuth(async (layer, _context, oauth) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    await withAuth({ assert }, databases, async (layer, _context, oauth) => {
       oauth.blockToken();
 
-      function* verifySignInInterruption() {
+      function* verifySignInInterruption({ expect }: Pick<test.Context, 'expect'>) {
         const auth = yield* Auth;
         const attempt = yield* auth.startSignIn({});
         const callback = oauth.callback(attempt.url);
@@ -386,7 +414,9 @@ testStable(
       }
 
       await Effect.runPromise(
-        Effect.scoped(Effect.gen(verifySignInInterruption).pipe(Effect.provide(layer)))
+        Effect.scoped(
+          Effect.gen(() => verifySignInInterruption({ expect })).pipe(Effect.provide(layer))
+        )
       );
     });
   }

@@ -1,17 +1,21 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('library and practice routes declare loading and search dependencies', async () => {
-  const diagnostics = await lintRule(
-    'web-router-loaders',
-    {
-      'apps/client/src/routes/MediaList.tsx': `
+test.stable(
+  'library and practice routes declare loading and search dependencies',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule(
+      { assert },
+      'web-router-loaders',
+      {
+        'apps/client/src/routes/MediaList.tsx': `
         import { createFileRoute as route } from '@tanstack/react-router';
         export const Route = route('/MediaList')({ staticData: { section: 'library' }, component: Page });
       `,
-      'apps/client/src/routes/Practice.tsx': `
+        'apps/client/src/routes/Practice.tsx': `
         import { createFileRoute } from '@tanstack/react-router';
         export const Route = createFileRoute('/Practice')({
           staticData: { section: 'practice' },
@@ -19,19 +23,25 @@ testStable('library and practice routes declare loading and search dependencies'
           component: Page
         });
       `
-    },
-    true
-  );
+      },
+      true
+    );
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  }
+);
 
-testStable('allows loaded routes, redirects, and pages without data requirements', async () => {
-  expect(
-    await lintRule(
-      'web-router-loaders',
-      {
-        'apps/client/src/routes/MediaList.tsx': `
+test.stable(
+  'allows loaded routes, redirects, and pages without data requirements',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lintRule(
+        { assert },
+        'web-router-loaders',
+        {
+          'apps/client/src/routes/MediaList.tsx': `
         import { createFileRoute } from '@tanstack/react-router';
         export const Route = createFileRoute('/MediaList')({
           staticData: { section: 'library' },
@@ -40,26 +50,32 @@ testStable('allows loaded routes, redirects, and pages without data requirements
           component: Page
         });
       `,
-        'apps/client/src/routes/index.tsx': `import { createFileRoute } from '@tanstack/react-router'; export const Route = createFileRoute('/')({ beforeLoad: redirect });`,
-        'apps/client/src/routes/Help.tsx': `import { createFileRoute } from '@tanstack/react-router'; export const Route = createFileRoute('/Help')({ component: Page });`
-      },
-      true
-    )
-  ).toStrictEqual([]);
-});
+          'apps/client/src/routes/index.tsx': `import { createFileRoute } from '@tanstack/react-router'; export const Route = createFileRoute('/')({ beforeLoad: redirect });`,
+          'apps/client/src/routes/Help.tsx': `import { createFileRoute } from '@tanstack/react-router'; export const Route = createFileRoute('/Help')({ component: Page });`
+        },
+        true
+      )
+    ).toStrictEqual([]);
+  }
+);
 
-testStable('canonical Material browse and read routes retain loader requirements', async () => {
-  const diagnostics = await lintRule(
-    'web-router-loaders',
-    {
-      'apps/client/src/routes/library.tsx': `
+test.stable(
+  'canonical Material browse and read routes retain loader requirements',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule(
+      { assert },
+      'web-router-loaders',
+      {
+        'apps/client/src/routes/library.tsx': `
         import { createFileRoute } from '@tanstack/react-router';
         export const Route = createFileRoute('/library')({
           staticData: { section: 'library' },
           component: LibraryPage
         });
       `,
-      'apps/client/src/routes/materials.$materialId.tsx': `
+        'apps/client/src/routes/materials.$materialId.tsx': `
         import { createFileRoute } from '@tanstack/react-router';
         export const Route = createFileRoute('/materials/$materialId')({
           staticData: { section: 'library' },
@@ -68,16 +84,17 @@ testStable('canonical Material browse and read routes retain loader requirements
           component: ReaderPage
         });
       `
-    },
-    true
-  );
+      },
+      true
+    );
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-  expect(
-    await lintRule(
-      'web-router-loaders',
-      {
-        'apps/client/src/routes/library.tsx': `
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    expect(
+      await lintRule(
+        { assert },
+        'web-router-loaders',
+        {
+          'apps/client/src/routes/library.tsx': `
         import { createFileRoute } from '@tanstack/react-router';
         export const Route = createFileRoute('/library')({
           staticData: { section: 'library' },
@@ -86,7 +103,7 @@ testStable('canonical Material browse and read routes retain loader requirements
           component: LibraryPage
         });
       `,
-        'apps/client/src/routes/materials.$materialId.tsx': `
+          'apps/client/src/routes/materials.$materialId.tsx': `
         import { createFileRoute } from '@tanstack/react-router';
         export const Route = createFileRoute('/materials/$materialId')({
           staticData: { section: 'library' },
@@ -96,8 +113,9 @@ testStable('canonical Material browse and read routes retain loader requirements
           component: ReaderPage
         });
       `
-      },
-      true
-    )
-  ).toStrictEqual([]);
-});
+        },
+        true
+      )
+    ).toStrictEqual([]);
+  }
+);

@@ -1,6 +1,5 @@
 import { catalogs } from '@study/localization';
-
-import { expect, testE2e } from './harness/index.ts';
+import { test } from '@study/testing';
 
 const copy = catalogs.english;
 
@@ -25,9 +24,9 @@ const original = [
   'Ultima riga: finché c’è luce, il giardino cresce. 🌍 家族 👨‍👩‍👧‍👦 نهاية الملاحظات.'
 ].join('\n\n');
 
-testE2e(
+test.stable(
   'Bilingual notes preserve Unicode edits search and locale changes',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     expect(page.viewportSize()).toEqual({ width: 2560, height: 1440 });
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });

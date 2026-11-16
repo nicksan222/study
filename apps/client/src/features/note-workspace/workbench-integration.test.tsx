@@ -5,39 +5,34 @@ import {
   createSchema as createManualPageSchema,
   detailSchema as materialDetailSchema
 } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { WorkspaceCard } from '@study/ui';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Schema } from 'effect';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import type * as __MockType0 from '../assistant';
+import type * as __MockType1 from '../document-editing/test-support';
+import type * as __MockType2 from '../source-library/source-panel';
+import type * as __MockType3 from './note-layout-controls';
+import type * as __MockType4 from './note-page-panel';
+import type * as __MockType5 from './workbench';
 
-import { AssistantProvider } from '../assistant';
-import { authoredPage as material } from '../document-editing/test-support';
-import { SourcePanel } from '../source-library/source-panel';
-import { NoteLayoutControls } from './note-layout-controls';
-import { NotePagePanel } from './note-page-panel';
-import { NoteWorkbench } from './workbench';
+let AssistantProvider: typeof __MockType0.AssistantProvider;
 
-const rpc = vi.hoisted(() => ({
-  create: vi.fn(),
-  copy: vi.fn(),
-  material: vi.fn(),
-  materials: vi.fn(),
-  thread: vi.fn(),
-  post: vi.fn(),
-  assistant: vi.fn(),
-  ask: vi.fn()
-}));
+let material: typeof __MockType1.authoredPage;
 
-vi.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: string) => key, date: String, locale: 'english' })
-}));
+let SourcePanel: typeof __MockType2.SourcePanel;
 
-function testFixture() {
+let NoteLayoutControls: typeof __MockType3.NoteLayoutControls;
+
+let NotePagePanel: typeof __MockType4.NotePagePanel;
+
+let NoteWorkbench: typeof __MockType5.NoteWorkbench;
+
+let rpc: ReturnType<typeof createMockState>['rpc'];
+
+function testFixture({ rpcHandlersTransport }: Pick<test.Context, 'rpcHandlersTransport'>) {
   return rpcHandlersTransport({
     'pages.create': rpc.create,
     'pages.copySource': rpc.copy,
@@ -89,14 +84,15 @@ function testFixture() {
   });
 }
 
-vi.mock('./composer', () => ({ Composer: () => null }));
-
 const noteId = noteIdSchema.make(12n);
 
 let created: ReturnType<typeof material> | undefined;
 
-function mount(children: ReactNode) {
-  const Provider = testFixture().wrapper;
+function mount(
+  { render, rpcHandlersTransport }: Pick<test.Context, 'render' | 'rpcHandlersTransport'>,
+  children: ReactNode
+) {
+  const Provider = testFixture({ rpcHandlersTransport }).wrapper;
 
   return render(
     <Provider>
@@ -107,7 +103,51 @@ function mount(children: ReactNode) {
   );
 }
 
-beforeEach(() => {
+function createMockState(mock: test.Mock) {
+  return {
+    rpc: (() => ({
+      create: mock.fn(),
+      copy: mock.fn(),
+      material: mock.fn(),
+      materials: mock.fn(),
+      thread: mock.fn(),
+      post: mock.fn(),
+      assistant: mock.fn(),
+      ask: mock.fn()
+    }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  rpc = __mockState.rpc;
+
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({ t: (key: string) => key, date: String, locale: 'english' })
+  }));
+  mock('#client/features/note-workspace/composer', () => ({ Composer: () => null }));
+  const __mockModule0 = await import('../assistant');
+
+  AssistantProvider = __mockModule0.AssistantProvider;
+  const __mockModule1 = await import('../document-editing/test-support');
+
+  material = __mockModule1.authoredPage;
+  const __mockModule2 = await import('../source-library/source-panel');
+
+  SourcePanel = __mockModule2.SourcePanel;
+  const __mockModule3 = await import('./note-layout-controls');
+
+  NoteLayoutControls = __mockModule3.NoteLayoutControls;
+  const __mockModule4 = await import('./note-page-panel');
+
+  NotePagePanel = __mockModule4.NotePagePanel;
+  const __mockModule5 = await import('./workbench');
+
+  NoteWorkbench = __mockModule5.NoteWorkbench;
+});
+
+test.beforeEach(({ vi }) => {
   vi.resetAllMocks();
   created = undefined;
   rpc.assistant.mockImplementation(async ({ noteId }: { noteId: bigint }) => ({
@@ -149,14 +189,17 @@ beforeEach(() => {
     return created;
   });
 });
-afterEach(() => {
+test.afterEach(({ cleanup }) => {
   cleanup();
 });
 
-testStable(
+test.stable(
   'New page persists an empty attachment, adds its card, and opens its editable tab',
-  async () => {
-    mount(<NoteWorkbench id={noteId} onDelete={() => undefined} />);
+  async ({ fireEvent, screen, waitFor, expect, within, render, rpcHandlersTransport }) => {
+    mount(
+      { render, rpcHandlersTransport },
+      <NoteWorkbench id={noteId} onDelete={() => undefined} />
+    );
     fireEvent.click(screen.getByRole('button', { name: 'NoteNewPage' }));
     await waitFor(() => expect(rpc.create).toHaveBeenCalledTimes(1));
     const input = rpc.create.mock.calls[0]![0];
@@ -197,10 +240,10 @@ function ImportedPanel() {
   );
 }
 
-testStable(
+test.stable(
   'Edit a copy pins the exact source revision and opens its independent authored page',
-  async () => {
-    mount(<ImportedPanel />);
+  async ({ expect, screen, fireEvent, waitFor, render, rpcHandlersTransport }) => {
+    mount({ render, rpcHandlersTransport }, <ImportedPanel />);
     expect(await screen.findByText('Current extraction 41', { selector: 'p' })).toBeVisible();
     expect(screen.queryByRole('textbox', { name: 'NotePageEditor' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'PageEditCopy' }));
@@ -224,10 +267,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'keeps vertical note actions in the default card and changes editor docking without creating another document',
-  async () => {
+  async ({ screen, expect, waitFor, within, fireEvent, render, rpcHandlersTransport }) => {
     const view = mount(
+      { render, rpcHandlersTransport },
       <>
         <NoteLayoutControls id={noteId} />
         <NoteWorkbench id={noteId} onDelete={() => undefined} />
@@ -274,10 +318,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'opens the scoped assistant beside pages and preserves its unsent draft after closing the tab',
-  async () => {
+  async ({ fireEvent, screen, expect, waitFor, render, rpcHandlersTransport }) => {
     mount(
+      { render, rpcHandlersTransport },
       <>
         <NoteLayoutControls id={noteId} />
         <NoteWorkbench id={noteId} onDelete={() => {}} />

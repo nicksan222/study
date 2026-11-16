@@ -1,3 +1,4 @@
+import type { ContentInput } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exact raw reply pins and private native checkpoints follow independent             │
@@ -10,14 +11,11 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { ContentInput } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
 import { Activity, DurableDeferred, WorkflowEngine } from 'effect/workflow';
-import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import {
@@ -38,7 +36,13 @@ import { withTestAdmission } from '#testing/workflow-admission';
 
 type Fixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
-function replyEvent(f: Fixture, requestId: string) {
+function replyEvent(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  f: Fixture,
+  requestId: string
+) {
+  const assert: test.Assert = assertions;
+
   const event = f.context.db.orm
     .select()
     .from(s.workflowEvents)
@@ -54,10 +58,12 @@ function replyEvent(f: Fixture, requestId: string) {
 
 for (const kind of ['document', 'source'] as const)
   for (const second of [false, true])
-    testStable(
+    test.stable(
       `${kind} exact reply ${second ? (kind === 'document' ? 'rewrite' : 'generated checkpoint') : 'pending capture'} protects history until explicit raw note cleanup`,
-      async () => {
-        const f = await pageTransformFixture();
+      async ({ databases, assert: assertions, expect }) => {
+        const assert: test.Assert = assertions;
+
+        const f = await pageTransformFixture(databases);
 
         try {
           const evidence =
@@ -92,7 +98,7 @@ for (const kind of ['document', 'source'] as const)
                       })
                     ).pipe(Effect.provide(f.domain()))
                   );
-                  const body = await processSource(f);
+                  const body = await processSource(f, assert);
 
                   return Effect.runPromise(
                     Effect.flatMap(Sources, (sources) =>
@@ -214,8 +220,8 @@ for (const kind of ['document', 'source'] as const)
               };
             }).pipe(Effect.provide(f.domain()))
           );
-          const event = replyEvent(f, saved.pending.requestId);
-          const otherEvent = replyEvent(f, saved.unrelated.requestId);
+          const event = replyEvent({ assert }, f, saved.pending.requestId);
+          const otherEvent = replyEvent({ assert }, f, saved.unrelated.requestId);
           const checkpoint = kind === 'source' && second;
 
           if (checkpoint) {
@@ -288,7 +294,7 @@ for (const kind of ['document', 'source'] as const)
                 })
               ).pipe(Effect.provide(f.domain()))
             );
-            await processSource(f);
+            await processSource(f, assert);
             await Effect.runPromise(
               Effect.gen(function* () {
                 const sources = yield* Sources;
@@ -379,10 +385,10 @@ for (const kind of ['document', 'source'] as const)
                   f.context,
                   noteDeletionWorkflow,
                   'raw-input-cleanup',
-                  { event: deletionEvent(f, saved.note.id) },
+                  { event: deletionEvent(f, saved.note.id, assert) },
                   engine.execute(noteDeletionWorkflow, {
                     executionId: 'raw-input-cleanup',
-                    payload: { event: deletionEvent(f, saved.note.id) }
+                    payload: { event: deletionEvent(f, saved.note.id, assert) }
                   })
                 );
 
@@ -446,10 +452,10 @@ for (const kind of ['document', 'source'] as const)
               }
             }).pipe(Effect.provide(f.domain()))
           );
-          assertScrubbed(f, 'RAW_PRIVATE_QUESTION');
-          assertScrubbed(f, 'PRIVATE_UNFINISHED_REPLY');
-          assertScrubbed(f, 'PRIVATE_SUSPENDED_REPLY');
-          assertScrubbed(f, 'PRIVATE_REPLY_CHECKPOINT');
+          assertScrubbed(f, assert, 'RAW_PRIVATE_QUESTION');
+          assertScrubbed(f, assert, 'PRIVATE_UNFINISHED_REPLY');
+          assertScrubbed(f, assert, 'PRIVATE_SUSPENDED_REPLY');
+          assertScrubbed(f, assert, 'PRIVATE_REPLY_CHECKPOINT');
           const calls = f.bodies.length;
 
           await expect(

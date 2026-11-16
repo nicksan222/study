@@ -1,15 +1,18 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message = 'Read native clocks only in platform/time; consume testable time elsewhere.';
 
-testStable(
+test.stable(
   'recognizes native clocks and aliases while permitting parsing, owner, tests and shadowing',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     assertDiagnostics(
+      { assert, expect },
       'native-clock',
-      await lintRule('native-clock', {
+      await lintRule({ assert }, 'native-clock', {
         'src/features/a/service.ts': String.raw`const D = Date;
 const now = D.now;
 now();
@@ -32,11 +35,16 @@ function f(Date: any, performance: any) {
     );
   }
 );
-testStable('recognizes node clock imports and destructured clock methods', async () => {
-  assertDiagnostics(
-    'native-clock',
-    await lintRule('native-clock', {
-      'src/platform/worker.ts': String.raw`import { performance as perf } from "node:perf_hooks";
+test.stable(
+  'recognizes node clock imports and destructured clock methods',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    assertDiagnostics(
+      { assert, expect },
+      'native-clock',
+      await lintRule({ assert }, 'native-clock', {
+        'src/platform/worker.ts': String.raw`import { performance as perf } from "node:perf_hooks";
 import * as process from "node:process";
 const { now } = Date;
 now();
@@ -45,21 +53,25 @@ process.hrtime.bigint();
 function f(perf: any) {
   perf.now();
 }`
-    }),
-    [
-      ['src/platform/worker.ts', message],
-      ['src/platform/worker.ts', message],
-      ['src/platform/worker.ts', message]
-    ]
-  );
-});
+      }),
+      [
+        ['src/platform/worker.ts', message],
+        ['src/platform/worker.ts', message],
+        ['src/platform/worker.ts', message]
+      ]
+    );
+  }
+);
 
-testStable(
+test.stable(
   'Date function calls read the clock even with arguments, while shadows remain legal',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     assertDiagnostics(
+      { assert, expect },
       'native-clock',
-      await lintRule('native-clock', {
+      await lintRule({ assert }, 'native-clock', {
         'src/features/a/service.ts': `
         Date();
         const current = Date;
@@ -79,13 +91,19 @@ testStable(
   }
 );
 
-testStable('managed artifact timestamps use the injected native clock', async () => {
-  assertDiagnostics(
-    'native-clock',
-    await lintRule('native-clock', {
-      'src/platform/database/backups.ts':
-        'const current = Date.now; current(); clock.currentTimeMillisUnsafe();'
-    }),
-    [['src/platform/database/backups.ts', message]]
-  );
-});
+test.stable(
+  'managed artifact timestamps use the injected native clock',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    assertDiagnostics(
+      { assert, expect },
+      'native-clock',
+      await lintRule({ assert }, 'native-clock', {
+        'src/platform/database/backups.ts':
+          'const current = Date.now; current(); clock.currentTimeMillisUnsafe();'
+      }),
+      [['src/platform/database/backups.ts', message]]
+    );
+  }
+);

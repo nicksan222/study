@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises mixed-source extraction through real HTTP RPC and SQLite.                │
@@ -10,24 +11,21 @@
  * │ Uses production application workers and RPC; automatic fixtures own cleanup.             │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { serve } from '#server/runtime/index';
-import { pollUntil } from '#testing/poll';
-import { createStudyTest } from '#testing/server-test';
 
 const isSourceIngestion = (item: { workflow: string }) => item.workflow === 'source-ingestion/v1';
 
-testStable(
+test.stable(
   'failed extraction leaves same-note sibling sources and original bytes usable over HTTP',
   { timeout: 15000 },
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture, pollUntil, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const fixture = serverFixture;
 
     const server = fixture.manage(await serve(fixture.app));
 

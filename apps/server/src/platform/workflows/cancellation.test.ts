@@ -1,3 +1,4 @@
+import { workflow_executions, workflow_retired_executions } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Reconciles durable cancellation against official persisted execution state.        │
@@ -9,10 +10,7 @@
  * │ This serializes admission; official Effect services own execution and recovery.          │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { workflow_executions, workflow_retired_executions } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, ManagedRuntime, Schema, Option, Context, Scope, Exit } from 'effect';
 import {
   ClusterSchema,
@@ -23,7 +21,6 @@ import {
   Sharding
 } from 'effect/cluster';
 import { DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';
-import { expect } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { reconcileCancellation } from '#server/platform/workflows/cancellation';
@@ -37,10 +34,10 @@ const workflow = Workflow.make('cancel-recovery-test', {
 });
 
 for (const accepted of [false, true, 'completed'] as const)
-  testStable(
+  test.stable(
     `cancel intent survives restart with accepted=${accepted} and retirement clears official messages`,
-    async () => {
-      const location = await createTestDatabase();
+    async ({ databases, expect }) => {
+      const location = await databases();
       const context = new ServerContext(await location.open());
       let runtime = ManagedRuntime.make(workflowEngineLayer(context));
       const id = 'cancel-recovery';

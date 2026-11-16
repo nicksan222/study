@@ -88,7 +88,6 @@
     "ci:database": "TURBO_TELEMETRY_DISABLED=1 bun tooling/scripts/development/turbo.ts run check:database --concurrency=2 --continue=dependencies-successful"
   },
   "devDependencies": {
-    "@axe-core/playwright": "4.14.0",
     "@study/testing": "*",
     "@study/tooling": "*",
     "@stylistic/eslint-plugin": "5.10.0",

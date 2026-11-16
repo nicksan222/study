@@ -1,16 +1,12 @@
-import { testStable } from '@study/testing/vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
-import { expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport } from '#client/test/rpc.tsx';
+import { test } from '@study/testing';
 
 import { useAppSettingsPatch } from './app-settings';
 
 const saved = { language: 2 as const, appearance: 3 as const, zoomPercent: 125, onboarded: true };
 
-testStable(
+test.stable(
   'partial appearance and language edits preserve freshly committed unrelated preferences',
-  async () => {
+  async ({ vi, rpcTestTransport, renderHook, act, expect }) => {
     const read = vi.fn().mockResolvedValue(saved);
     const write = vi.fn().mockResolvedValue({});
     const fixture = rpcTestTransport(async (tag, input) =>
@@ -30,18 +26,21 @@ testStable(
   }
 );
 
-testStable('a failed freshness read never submits a guessed preference snapshot', async () => {
-  const write = vi.fn();
-  const fixture = rpcTestTransport(async (tag, input) => {
-    if (tag === 'settings.appSettings') throw new Error('Offline');
+test.stable(
+  'a failed freshness read never submits a guessed preference snapshot',
+  async ({ vi, rpcTestTransport, renderHook, act, expect, waitFor }) => {
+    const write = vi.fn();
+    const fixture = rpcTestTransport(async (tag, input) => {
+      if (tag === 'settings.appSettings') throw new Error('Offline');
 
-    return write(input);
-  });
-  const hook = renderHook(useAppSettingsPatch, { wrapper: fixture.wrapper });
+      return write(input);
+    });
+    const hook = renderHook(useAppSettingsPatch, { wrapper: fixture.wrapper });
 
-  await act(async () => {
-    await expect(hook.result.current.mutateAsync({ zoomPercent: 150 })).rejects.toBeDefined();
-  });
-  await waitFor(() => expect(hook.result.current.isError).toBe(true));
-  expect(write).not.toHaveBeenCalled();
-});
+    await act(async () => {
+      await expect(hook.result.current.mutateAsync({ zoomPercent: 150 })).rejects.toBeDefined();
+    });
+    await waitFor(() => expect(hook.result.current.isError).toBe(true));
+    expect(write).not.toHaveBeenCalled();
+  }
+);

@@ -1,3 +1,4 @@
+import type { pageTransformOutputSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Supplies a controlled provider peer for native Document transformation tests.      │
@@ -10,14 +11,13 @@
  * │ Tests control remote responses while production Activities, codecs and guards execute.   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { pageTransformOutputSchema } from '@study/contracts';
 import type { pageGenerationRequestedSchema } from '@study/contracts';
 import type { materialGenerationRequestedSchema } from '@study/contracts';
 import type { materialFlashcardsContentInputSchema } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
+import type { createTestDatabase } from '@study/db/testing';
+import { createTestResources } from '@study/testing/resources';
 import { Effect, Layer } from 'effect';
 import type { MessageStorage, Sharding } from 'effect/cluster';
 import { WorkflowEngine } from 'effect/workflow';
@@ -102,20 +102,20 @@ function responseEvents(reply: Exclude<Reply, { kind: 'transient' }>, ordinal: n
   ];
 }
 
-export async function pageTransformFixture() {
-  const cleanups: (() => void | Promise<void>)[] = [];
+export async function pageTransformFixture(
+  databases: (migrationsFolder?: string) => ReturnType<typeof createTestDatabase>
+) {
+  const resources = createTestResources();
   let closing: Promise<void> | undefined;
 
   function close() {
-    closing ??= disposeFixture(cleanups);
+    closing ??= resources.close();
 
     return closing;
   }
 
   try {
-    const location = await createTestDatabase();
-
-    cleanups.push(async () => await location.cleanup());
+    const location = await databases();
     const openContext = async () => {
       const db = await location.open();
 
@@ -136,7 +136,7 @@ export async function pageTransformFixture() {
       context.close();
     };
 
-    cleanups.push(closeContext);
+    resources.defer(closeContext);
     const bodies: string[] = [];
     const replies: Reply[] = [];
     let beforeResponse: (() => Promise<void>) | undefined;
@@ -168,11 +168,11 @@ export async function pageTransformFixture() {
       }
     });
 
-    cleanups.push(() => peer.stop(true));
+    resources.defer(() => peer.stop(true));
     const base = `http://127.0.0.1:${peer.port}`;
     const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
-    cleanups.push(() => auth.dispose());
+    resources.defer(() => auth.dispose());
     await auth.replace(
       { subject: 'fixture', clientId: 'fixture', sharing: true, refreshToken: 'fixture' },
       { accessToken: 'fixture', expiresIn: 3600 }
@@ -329,19 +329,4 @@ export async function pageTransformFixture() {
 
     throw error;
   }
-}
-
-/** Release every acquired resource even when another disposer fails. */
-async function disposeFixture(cleanups: (() => void | Promise<void>)[]) {
-  const errors: unknown[] = [];
-
-  for (const cleanup of cleanups.reverse()) {
-    try {
-      await cleanup();
-    } catch (error) {
-      errors.push(error);
-    }
-  }
-
-  if (errors.length) throw new AggregateError(errors, 'Document fixture cleanup failed');
 }

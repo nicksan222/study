@@ -1,16 +1,12 @@
 import { noteIdSchema, messageIdSchema, versionIdSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import type * as __MockType0 from './pending-message-work';
 
-import { PendingMessageWork } from './pending-message-work';
+let PendingMessageWork: typeof __MockType0.PendingMessageWork;
 
-const api = vi.hoisted(() => ({ provenance: vi.fn(), executions: vi.fn(), cancel: vi.fn() }));
-
-vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+let api: ReturnType<typeof createMockState>['api'];
 
 const target = {
   noteId: Schema.decodeUnknownSync(noteIdSchema)(1n),
@@ -31,9 +27,30 @@ const execution = {
   updatedAtMs: 1n
 };
 
-let fixture: ReturnType<typeof rpcHandlersTransport>;
+let fixture: ReturnType<test.Context['rpcHandlersTransport']>;
 
-beforeEach(() => {
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({
+      provenance: mock.fn(),
+      executions: mock.fn(),
+      cancel: mock.fn()
+    }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  const __mockModule0 = await import('./pending-message-work');
+
+  PendingMessageWork = __mockModule0.PendingMessageWork;
+});
+
+test.beforeEach(({ vi, rpcHandlersTransport }) => {
   vi.resetAllMocks();
   fixture = rpcHandlersTransport({
     'notes.replyVersion': api.provenance,
@@ -43,43 +60,46 @@ beforeEach(() => {
   api.provenance.mockResolvedValue({ state: 'available', requestId: 'exact-request' });
   api.executions.mockResolvedValue({ items: [execution], next: null });
 });
-afterEach(() => {
+test.afterEach(({ cleanup }) => {
   cleanup();
 });
 
-function mount() {
+function mount({ render }: Pick<test.Context, 'render'>) {
   render(<PendingMessageWork {...target} />, { wrapper: fixture.wrapper });
 }
 
-testStable('cancels the exact pending version and waits for committed stopping state', async () => {
-  api.cancel.mockImplementation(async () => {
-    api.executions.mockResolvedValue({
-      items: [{ ...execution, status: 'cancelling', canCancel: false }],
-      next: null
+test.stable(
+  'cancels the exact pending version and waits for committed stopping state',
+  async ({ screen, expect, fireEvent, waitFor, render }) => {
+    api.cancel.mockImplementation(async () => {
+      api.executions.mockResolvedValue({
+        items: [{ ...execution, status: 'cancelling', canCancel: false }],
+        next: null
+      });
+
+      return { ...execution, status: 'cancelling', canCancel: false };
     });
+    mount({ render });
+    const button = await screen.findByRole('button', { name: 'NoteCancel' });
 
-    return { ...execution, status: 'cancelling', canCancel: false };
-  });
-  mount();
-  const button = await screen.findByRole('button', { name: 'NoteCancel' });
+    expect(screen.getByRole('status')).toHaveTextContent('NoteThinking');
+    expect(document.querySelector('[data-slot="loading-placeholder"]')).toBeNull();
 
-  expect(screen.getByRole('status')).toHaveTextContent('NoteThinking');
-  expect(document.querySelector('[data-slot="loading-placeholder"]')).toBeNull();
+    fireEvent.click(button);
+    await waitFor(() =>
+      expect(api.cancel).toHaveBeenCalledExactlyOnceWith({ id: 'exact-run', mode: 'safe' })
+    );
+    await waitFor(() => expect(button).toBeDisabled());
+    expect(api.provenance).toHaveBeenCalledWith(target);
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('NoteWorkStopping'));
+  }
+);
 
-  fireEvent.click(button);
-  await waitFor(() =>
-    expect(api.cancel).toHaveBeenCalledExactlyOnceWith({ id: 'exact-run', mode: 'safe' })
-  );
-  await waitFor(() => expect(button).toBeDisabled());
-  expect(api.provenance).toHaveBeenCalledWith(target);
-  await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('NoteWorkStopping'));
-});
-
-testStable(
+test.stable(
   'keeps an ambiguous cancellation disabled until an explicit status refresh',
-  async () => {
+  async ({ fireEvent, screen, expect, waitFor, render }) => {
     api.cancel.mockRejectedValue(new Error('Offline'));
-    mount();
+    mount({ render });
     fireEvent.click(await screen.findByRole('button', { name: 'NoteCancel' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('NoteWorkStopError');
     expect(screen.getByRole('button', { name: 'NoteCancel' })).toBeDisabled();

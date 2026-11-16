@@ -1,3 +1,4 @@
+import { NotesRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises note combined context behavior through real persistence                  │
@@ -11,15 +12,11 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { NotesRpc } from '@study/contracts';
 import { sql } from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
 import { Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { NotesRpcLive } from '#server/features/notes/rpc/index';
@@ -28,10 +25,12 @@ import { testLiveQueries } from '#testing/live-queries';
 import { deletionDocument } from '#testing/material-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
-testStable(
+test.stable(
   'combined capture pins selected notes and shared sources, replays exactly and retires on source-note deletion',
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const fixture = await pageTransformFixture(databases);
 
     try {
       await Effect.runPromise(

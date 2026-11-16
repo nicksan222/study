@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies captured question specifications enforce the requested question count and │
@@ -13,9 +14,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
-
 import { assertQuestionSpec } from './question-spec.ts';
 
 const open = { kind: 'open' as const, prompt: 'Q', explanation: 'E', referenceAnswer: 'A' };
@@ -30,20 +28,25 @@ const choice = {
   ]
 };
 
-testStable('a captured question specification enforces count and selected kind', () => {
-  expect(() =>
-    assertQuestionSpec({ count: 1, kind: 'open' }, { kind: 'quiz', questions: [open] })
-  ).not.toThrow();
-  expect(() =>
-    assertQuestionSpec({ count: 1, kind: 'choice' }, { kind: 'quiz', questions: [choice] })
-  ).not.toThrow();
-  assert.throws(() =>
-    assertQuestionSpec({ count: 1, kind: 'open' }, { kind: 'quiz', questions: [choice] })
-  );
-  assert.throws(() =>
-    assertQuestionSpec({ count: 1, kind: 'choice' }, { kind: 'quiz', questions: [open] })
-  );
-  assert.throws(() =>
-    assertQuestionSpec({ count: 1, kind: 'open' }, { kind: 'quiz', questions: [open, open] })
-  );
-});
+test.stable(
+  'a captured question specification enforces count and selected kind',
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(() =>
+      assertQuestionSpec({ count: 1, kind: 'open' }, { kind: 'quiz', questions: [open] })
+    ).not.toThrow();
+    expect(() =>
+      assertQuestionSpec({ count: 1, kind: 'choice' }, { kind: 'quiz', questions: [choice] })
+    ).not.toThrow();
+    assert.throws(() =>
+      assertQuestionSpec({ count: 1, kind: 'open' }, { kind: 'quiz', questions: [choice] })
+    );
+    assert.throws(() =>
+      assertQuestionSpec({ count: 1, kind: 'choice' }, { kind: 'quiz', questions: [open] })
+    );
+    assert.throws(() =>
+      assertQuestionSpec({ count: 1, kind: 'open' }, { kind: 'quiz', questions: [open, open] })
+    );
+  }
+);

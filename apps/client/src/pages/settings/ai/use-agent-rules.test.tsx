@@ -1,23 +1,27 @@
 import { AgentRule, defaultAgentRules } from '@study/contracts';
 import type { AgentRules } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
-import { expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport as settingsTransport } from '#client/test/rpc.tsx';
+import { test } from '@study/testing';
 
 import { useAgentRules } from './use-agent-rules';
 
-const api = vi.hoisted(() => ({
-  read: vi.fn<() => Promise<AgentRules>>(),
-  save: vi.fn<(rules: AgentRules) => Promise<object>>()
-}));
+function createApi(mock: test.Mock) {
+  return {
+    read: mock.fn<() => Promise<AgentRules>>(),
+    save: mock.fn<(rules: AgentRules) => Promise<object>>()
+  };
+}
 
-testStable(
+let api: ReturnType<typeof createApi>;
+
+test.beforeEach(({ mock }) => {
+  api = createApi(mock);
+});
+
+test.stable(
   'retains local drafts while incorporating refreshed preferences from another window',
-  async () => {
+  async ({ rpcTestTransport, renderHook, waitFor, expect, act }) => {
     api.read.mockResolvedValue(defaultAgentRules);
-    const fixture = settingsTransport(async (tag) => {
+    const fixture = rpcTestTransport(async (tag) => {
       if (tag === 'settings.agentRules') return api.read();
 
       throw new Error(tag);

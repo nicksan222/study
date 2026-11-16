@@ -1,5 +1,4 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import {
   dependencyIdentity,
@@ -24,42 +23,54 @@ const valid = {
   }
 };
 
-testStable('the lockfile cannot split Effect schema identity or Drizzle instances', () => {
-  const packages = {
-    effect: ['effect@4.0.7'],
-    'drizzle-orm': ['drizzle-orm@1.0.0-rc.5']
-  };
+test.stable(
+  'the lockfile cannot split Effect schema identity or Drizzle instances',
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  expect(dependencyIdentity(packages, '4.0.7')).toStrictEqual([]);
-  assert.strictEqual(
-    dependencyIdentity(
-      {
-        ...packages,
-        'apps/server/effect': ['effect@4.1.0'],
-        'packages/db/drizzle-orm': ['drizzle-orm@1.0.0-rc.5']
-      },
-      '4.0.7'
-    ).length,
-    3
-  );
-});
+    const packages = {
+      effect: ['effect@4.0.7'],
+      'drizzle-orm': ['drizzle-orm@1.0.0-rc.5']
+    };
 
-testStable('workspace ownership rejects misplaced AI providers and Drizzle dependencies', () => {
-  expect(workspaceArchitecture(valid)).toStrictEqual([]);
-  const issues = workspaceArchitecture({
-    ...valid,
-    'apps/client': {
-      name: '@study/client',
-      optionalDependencies: { '@ai-sdk/openai': '3.0.132', 'drizzle-orm': '1' }
-    }
-  });
+    expect(dependencyIdentity(packages, '4.0.7')).toStrictEqual([]);
+    assert.strictEqual(
+      dependencyIdentity(
+        {
+          ...packages,
+          'apps/server/effect': ['effect@4.1.0'],
+          'packages/db/drizzle-orm': ['drizzle-orm@1.0.0-rc.5']
+        },
+        '4.0.7'
+      ).length,
+      3
+    );
+  }
+);
 
-  assert.strictEqual(issues.length, 2, issues.join('\n'));
-});
+test.stable(
+  'workspace ownership rejects misplaced AI providers and Drizzle dependencies',
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-testStable(
+    expect(workspaceArchitecture(valid)).toStrictEqual([]);
+    const issues = workspaceArchitecture({
+      ...valid,
+      'apps/client': {
+        name: '@study/client',
+        optionalDependencies: { '@ai-sdk/openai': '3.0.132', 'drizzle-orm': '1' }
+      }
+    });
+
+    assert.strictEqual(issues.length, 2, issues.join('\n'));
+  }
+);
+
+test.stable(
   'shared AI mocks may implement the provider protocol without owning real providers',
-  () => {
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     expect(
       workspaceArchitecture({
         ...valid,
@@ -83,9 +94,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'contracts expose browser-safe explicit entrypoints and cannot gain implementation dependencies',
-  () => {
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const issues = workspaceArchitecture({
       ...valid,
       'packages/contracts': {
@@ -104,9 +117,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'Effect consumers share an exact v4 version and AI dependencies stay in the server',
-  () => {
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const issues = workspaceArchitecture({
       ...valid,
       'apps/client': { dependencies: { effect: '^4.0.7', ai: '6' } },
@@ -117,7 +132,7 @@ testStable(
   }
 );
 
-testStable('optional contract React bindings use official Effect state', () => {
+test.stable('optional contract React bindings use official Effect state', ({ expect }) => {
   expect(
     workspaceArchitecture({
       ...valid,
@@ -130,24 +145,27 @@ testStable('optional contract React bindings use official Effect state', () => {
   ).toEqual([]);
 });
 
-testStable('package manifests expose root APIs and only explicit approved facets', () => {
-  const issues = workspaceArchitecture({
-    ...valid,
-    'packages/ui': {
-      name: '@study/ui',
-      exports: { './*': './src/components/*.tsx', './private': './src/private.ts' }
-    },
-    'packages/testing': {
-      name: '@study/testing',
-      exports: { './vitest': './src/vitest.ts', './process': './src/process.ts' }
-    },
-    'apps/server': {
-      ...valid['apps/server'],
-      exports: { '.': './src/index.ts', './client': './src/client/index.ts' }
-    }
-  });
+test.stable(
+  'package manifests expose root APIs and only explicit approved facets',
+  ({ expect }) => {
+    const issues = workspaceArchitecture({
+      ...valid,
+      'packages/ui': {
+        name: '@study/ui',
+        exports: { './*': './src/components/*.tsx', './private': './src/private.ts' }
+      },
+      'packages/testing': {
+        name: '@study/testing',
+        exports: { './vitest': './src/vitest.ts', './process': './src/process.ts' }
+      },
+      'apps/server': {
+        ...valid['apps/server'],
+        exports: { '.': './src/index.ts', './client': './src/client/index.ts' }
+      }
+    });
 
-  expect(issues.some((issue) => issue.includes('packages/ui'))).toBe(true);
-  expect(issues.some((issue) => issue.includes('packages/testing'))).toBe(true);
-  expect(issues.some((issue) => issue.includes('apps/server'))).toBe(true);
-});
+    expect(issues.some((issue) => issue.includes('packages/ui'))).toBe(true);
+    expect(issues.some((issue) => issue.includes('packages/testing'))).toBe(true);
+    expect(issues.some((issue) => issue.includes('apps/server'))).toBe(true);
+  }
+);

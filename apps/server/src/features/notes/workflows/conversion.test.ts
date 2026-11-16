@@ -1,3 +1,4 @@
+import { sourceProcessingRequestedSchema, noteGenerationRequestedSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Tests durable text conversion and exact PDF attachment extraction reuse.           │
@@ -10,17 +11,12 @@
  * │ Tests use real SQLite and workflow services with a controlled model transport.           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sourceProcessingRequestedSchema, noteGenerationRequestedSchema } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { workflowEvents } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { createAiMock } from '@study/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
-import { afterEach, beforeEach, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Settings } from '#server/features/settings/index';
@@ -41,14 +37,13 @@ import { withTestAdmission } from '#testing/workflow-admission';
 
 import { noteReplyHandler, noteReplyWorkflow } from './index.ts';
 
-let location: Awaited<ReturnType<typeof createTestDatabase>>;
-
 let context: ServerContext;
 
 let auth: AuthManager;
 
-beforeEach(async () => {
-  location = await createTestDatabase();
+test.beforeEach(async ({ databases }) => {
+  const location = await databases();
+
   context = new ServerContext(await location.open());
   auth = new AuthManager({ issuer: 'http://test.invalid', saveRefresh: async () => {} });
 
@@ -58,13 +53,12 @@ beforeEach(async () => {
   );
 });
 
-afterEach(async () => {
+test.afterEach(async () => {
   await auth.dispose();
   context.close();
-  await location.cleanup();
 });
 
-function workflowServices(model: AgentsConfig['model']) {
+function workflowServices({ expect }: Pick<test.Context, 'expect'>, model: AgentsConfig['model']) {
   const domain = Layer.mergeAll(Notes.layer, Sources.layer, Settings.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -86,9 +80,9 @@ function workflowServices(model: AgentsConfig['model']) {
   );
 }
 
-testStable(
+test.stable(
   'conversion executes on the small tier, captures only its target and checkpoints publication',
-  async () => {
+  async ({ createAiMock, expect }) => {
     using mock = createAiMock();
     const conversion = mock.next(textConversionAgent, {
       input: { text: 'A complete\nparagraph.' },
@@ -286,7 +280,7 @@ testStable(
           );
         }).pipe(
           Effect.provide(
-            workflowServices((tier, call) =>
+            workflowServices({ expect }, (tier, call) =>
               mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError))
             )
           )
@@ -296,9 +290,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'exhausted automatic conversions unblock replies and retry their captured input',
-  async () => {
+  async ({ expect }) => {
     let calls = 0;
     let available = false;
     const model = createChatGptModel({
@@ -417,7 +411,7 @@ testStable(
             status: 'complete',
             text: 'Saved text.'
           });
-        }).pipe(Effect.provide(workflowServices(() => Effect.succeed(model))))
+        }).pipe(Effect.provide(workflowServices({ expect }, () => Effect.succeed(model))))
       )
     );
   }

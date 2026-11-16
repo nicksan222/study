@@ -1,3 +1,4 @@
+import { NoteMode } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies exact named notebook reuse against real SQLite.                           │
@@ -9,14 +10,10 @@
  * │ Uses production stores and transactions with an isolated database.                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { NoteMode } from '@study/contracts';
 import { eq } from '@study/db';
 import { notes, projects, project_notes } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Option } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { NoteStore } from '#server/features/notes/store/index';
 import { ServerContext } from '#server/platform/database/context';
@@ -25,10 +22,12 @@ import { transaction } from '#server/platform/definitions/define-store';
 
 import { ensureNote } from './ensure-note.ts';
 
-testStable(
+test.stable(
   'named notebook lookup uses exact titles, active notebooks, earliest IDs and collection scope',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const run = <A, E>(effect: Effect.Effect<A, E, Database>) =>
       Effect.runPromise(effect.pipe(Effect.provideService(Database, { store: context })));

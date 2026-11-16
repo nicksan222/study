@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises the scoped Study RPC client against a real application and HTTP server.  │
@@ -13,22 +14,18 @@
  * │ resources; fixture cleanup closes owned resources.                                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Option } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
-import { App, serve } from '#server/runtime/index';
+import { serve } from '#server/runtime/index';
 
-testStable(
+test.stable(
   'scoped native client exchanges projects, settings, bytes and typed errors over HTTP',
-  async () => {
-    const database = await createTestDatabase();
-    const app = await App.open({ path: database.path });
+  async ({ resources: database, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const app = await database.openApp({ path: database.path });
     const server = await serve(app);
     let discoveries = 0;
 
@@ -93,7 +90,7 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      await database.cleanup();
+      await database.close();
     }
   }
 );

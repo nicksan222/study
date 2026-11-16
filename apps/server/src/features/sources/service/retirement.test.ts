@@ -1,3 +1,4 @@
+import { createBlock, plainBlock } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises source retirement behavior through real persistence boundaries.          │
@@ -10,14 +11,9 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { createBlock, plainBlock } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
@@ -31,10 +27,12 @@ import { withTestPublication } from '#testing/publication';
 
 import { Sources } from './index.ts';
 
-testStable(
+test.stable(
   'source deletion scrubs native captures before interrupting a retired provider execution',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const cancelled: string[] = [];
     const layer = Sources.layer.pipe(
@@ -110,10 +108,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'raw reply captures pin pending and ready source revisions until their note is deleted',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Sources.layer, Notes.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -216,10 +216,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'source preview protects external authored images while allowing deletion of its own canonical image extraction',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Sources.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))

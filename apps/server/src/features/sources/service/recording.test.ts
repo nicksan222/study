@@ -1,3 +1,4 @@
+import type { ProjectId, NoteId } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks recording-to-source publication and its workflow activity behavior using    │
@@ -13,16 +14,11 @@
  * │ fixtures stay local to these tests.                                                      │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { ProjectId, NoteId } from '@study/contracts';
 import { sql } from '@study/db';
 import { workflow_executions } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Cause, Effect, Exit, Layer, Schema } from 'effect';
 import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -51,10 +47,12 @@ function wav() {
   return bytes;
 }
 
-testStable(
+test.stable(
   'recording imports are fenced, atomic, and replayed only for identical inputs',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Sources.layer.pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -69,7 +67,9 @@ testStable(
         sql`INSERT INTO notes (id,title,title_source,created_at,updated_at) VALUES (1,'one','user',1,1)`
       );
 
-      function* verifyRecordingImports() {
+      function* verifyRecordingImports({ assert: assertions }: Pick<test.Context, 'assert'>) {
+        const assert: test.Assert = assertions;
+
         const sources = yield* Sources;
         const input = {
           requestId: 'recording-1',
@@ -85,7 +85,12 @@ testStable(
         });
         const engine = yield* WorkflowEngine.WorkflowEngine;
 
-        function runWorkflow() {
+        function runWorkflow({
+          expect,
+          assert: assertions
+        }: Pick<test.Context, 'expect' | 'assert'>) {
+          const assert: test.Assert = assertions;
+
           return Activity.make({
             name: 'import',
             execute: withPublicationGuard(
@@ -189,7 +194,7 @@ testStable(
             updated_at: 1n
           })
           .run();
-        yield* engine.register(workflow, runWorkflow);
+        yield* engine.register(workflow, () => runWorkflow({ expect, assert }));
         const result = yield* Effect.exit(
           engine.execute(workflow, {
             executionId: 'recording-import-test',
@@ -202,7 +207,7 @@ testStable(
 
       await Effect.runPromise(
         Effect.scoped(
-          Effect.gen(verifyRecordingImports).pipe(
+          Effect.gen(() => verifyRecordingImports({ assert })).pipe(
             Effect.provide(layer),
             Effect.provide(workflowEngineLayer(context))
           )

@@ -1,3 +1,4 @@
+import { failureSchema, StudyError } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies native activity harness replay, lazy dependencies and typed failures.     │
@@ -9,13 +10,9 @@
  * │ Uses the real in-memory Effect Workflow engine without application resources.            │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { failureSchema, StudyError } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Context, Effect, Schema } from 'effect';
 import { Workflow, WorkflowEngine } from 'effect/workflow';
-import { assert } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -31,9 +28,11 @@ import { admitTestExecution } from '#testing/workflow-admission';
 
 class Input extends Context.Service<Input, string>()('test/ActivityInput') {}
 
-testStable(
+test.stable(
   'activity harness keeps native replay identity and lazy generator requirements',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     let calls = 0;
     const activity = defineActivity({
       name: 'read-value',
@@ -75,9 +74,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'activity harness preserves the canonical failure kind on the native error channel',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const failure = new StudyError('invalid_input', 'rejected');
     const activity = defineActivity({
       name: 'reject',
@@ -109,10 +110,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'publication activities capture real domain authorization inside execution',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     let writes = 0;
     const workflow = Workflow.make('publication-harness', {
@@ -161,10 +164,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'resumable checkpoint keeps terminal failures and honors a zero retry budget',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     let calls = 0;
     const workflow = Workflow.make('resumable-harness', {

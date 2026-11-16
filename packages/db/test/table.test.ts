@@ -1,29 +1,35 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { integer, text, blob, primaryKey } from '../src/schema-builder.ts';
 import * as schema from '../src/schema.ts';
 import { collectSchemaRegistry, defineTable } from '../src/table.ts';
 
-testStable('schema registry discovers every declared table and all searchable entities', () => {
-  const registry = collectSchemaRegistry(schema);
+test.stable(
+  'schema registry discovers every declared table and all searchable entities',
+  ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  assert.strictEqual(registry.tables.length, Object.keys(schema).length);
-  expect(registry.entities.map(({ metadata }) => metadata.kind).sort()).toStrictEqual([
-    'material',
-    'message',
-    'note',
-    'page',
-    'passage',
-    'project',
-    'question',
-    'source'
-  ]);
-});
+    const registry = collectSchemaRegistry(schema);
 
-testStable(
+    assert.strictEqual(registry.tables.length, Object.keys(schema).length);
+    expect(registry.entities.map(({ metadata }) => metadata.kind).sort()).toStrictEqual([
+      'material',
+      'message',
+      'note',
+      'page',
+      'passage',
+      'project',
+      'question',
+      'source'
+    ]);
+  }
+);
+
+test.stable(
   'new entities and contributors are discovered without a separate registration list',
-  () => {
+  ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const notes = defineTable({
       role: 'entity',
       projection: 'columns',
@@ -45,9 +51,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'registry rejects missing policies, duplicate entity identities and orphan contributors',
-  () => {
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const first = defineTable({
       role: 'entity',
       projection: 'feature',
@@ -99,98 +107,111 @@ testStable(
   }
 );
 
-testStable('automatic entity declarations require explicit scope and visibility policies', () => {
-  const base = {
-    role: 'entity',
-    kind: 'note',
-    description: 'Saved notes',
-    projection: 'columns',
-    textColumns: ['body'],
-    scope: { type: 'global' },
-    visibility: 'all'
-  };
-  const columns = () => ({
-    id: integer().primaryKey(),
-    body: text().notNull(),
-    project_id: integer(),
-    archived_at: integer(),
-    deleted_at: integer(),
-    status: text()
-  });
-  const declare = (metadata: unknown) =>
-    Reflect.apply(defineTable, undefined, [metadata])('policy_notes', columns());
+test.stable(
+  'automatic entity declarations require explicit scope and visibility policies',
+  ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  for (const override of [
-    { projection: undefined },
-    { scope: undefined },
-    { visibility: undefined },
-    { textColumns: [] },
-    { scope: { type: 'project', column: 'missing' } },
-    { scope: { type: 'project', column: 'body' } },
-    { visibility: {} },
-    { visibility: { archivedColumn: undefined } },
-    { visibility: { archivedColumn: 'missing' } },
-    { visibility: { archivedColumn: 'body' } },
-    { visibility: { deletedColumn: 'missing' } },
-    { visibility: { publishedColumn: 'status' } },
-    { visibility: { publishedValue: 'published' } },
-    { visibility: { publishedColumn: 'project_id', publishedValue: 'published' } }
-  ])
-    assert.throws(() => declare({ ...base, ...override }), TypeError);
+    const base = {
+      role: 'entity',
+      kind: 'note',
+      description: 'Saved notes',
+      projection: 'columns',
+      textColumns: ['body'],
+      scope: { type: 'global' },
+      visibility: 'all'
+    };
+    const columns = () => ({
+      id: integer().primaryKey(),
+      body: text().notNull(),
+      project_id: integer(),
+      archived_at: integer(),
+      deleted_at: integer(),
+      status: text()
+    });
+    const declare = (metadata: unknown) =>
+      Reflect.apply(defineTable, undefined, [metadata])('policy_notes', columns());
 
-  const notes = declare({
-    ...base,
-    scope: { type: 'project', column: 'project_id' },
-    visibility: {
-      archivedColumn: 'archived_at',
-      deletedColumn: 'deleted_at',
-      publishedColumn: 'status',
-      publishedValue: 'published'
-    }
-  });
-  const registry = collectSchemaRegistry({ notes });
+    for (const override of [
+      { projection: undefined },
+      { scope: undefined },
+      { visibility: undefined },
+      { textColumns: [] },
+      { scope: { type: 'project', column: 'missing' } },
+      { scope: { type: 'project', column: 'body' } },
+      { visibility: {} },
+      { visibility: { archivedColumn: undefined } },
+      { visibility: { archivedColumn: 'missing' } },
+      { visibility: { archivedColumn: 'body' } },
+      { visibility: { deletedColumn: 'missing' } },
+      { visibility: { publishedColumn: 'status' } },
+      { visibility: { publishedValue: 'published' } },
+      { visibility: { publishedColumn: 'project_id', publishedValue: 'published' } }
+    ])
+      assert.throws(() => declare({ ...base, ...override }), TypeError);
 
-  expect(registry.entities[0]?.metadata).toMatchObject({
-    projection: 'columns',
-    scope: { type: 'project', column: 'project_id' },
-    visibility: { publishedColumn: 'status', publishedValue: 'published' }
-  });
-});
+    const notes = declare({
+      ...base,
+      scope: { type: 'project', column: 'project_id' },
+      visibility: {
+        archivedColumn: 'archived_at',
+        deletedColumn: 'deleted_at',
+        publishedColumn: 'status',
+        publishedValue: 'published'
+      }
+    });
+    const registry = collectSchemaRegistry({ notes });
 
-testStable('automatic entity identity must be a single text or integer primary key', () => {
-  const policy = {
-    role: 'entity',
-    projection: 'columns',
-    kind: 'note',
-    description: 'Saved notes',
-    textColumns: ['body'],
-    scope: { type: 'global' },
-    visibility: 'all'
-  } as const;
-  const define = defineTable(policy);
+    expect(registry.entities[0]?.metadata).toMatchObject({
+      projection: 'columns',
+      scope: { type: 'project', column: 'project_id' },
+      visibility: { publishedColumn: 'status', publishedValue: 'published' }
+    });
+  }
+);
 
-  assert.throws(() => define('ordinary_id', { id: integer().notNull(), body: text() }), TypeError);
-  assert.throws(
-    () =>
-      define(
-        'composite_id',
-        { id: integer().notNull(), tenant: integer().notNull(), body: text() },
-        (table) => [primaryKey({ columns: [table.id, table.tenant] })]
-      ),
-    TypeError
-  );
-  assert.throws(() => define('blob_id', { id: blob().primaryKey(), body: text() }), TypeError);
+test.stable(
+  'automatic entity identity must be a single text or integer primary key',
+  ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  const inline = define('inline_id', { id: integer().primaryKey(), body: text() });
-  const tableKey = define('table_id', { id: text().notNull(), body: text() }, (table) => [
-    primaryKey({ columns: [table.id] })
-  ]);
-  const customKey = defineTable({ ...policy, idColumn: 'slug' })('custom_id', {
-    slug: text({ enum: ['one', 'two'] }).primaryKey(),
-    body: text()
-  });
+    const policy = {
+      role: 'entity',
+      projection: 'columns',
+      kind: 'note',
+      description: 'Saved notes',
+      textColumns: ['body'],
+      scope: { type: 'global' },
+      visibility: 'all'
+    } as const;
+    const define = defineTable(policy);
 
-  expect(collectSchemaRegistry({ inline }).entities[0]?.table).toBe(inline);
-  expect(collectSchemaRegistry({ tableKey }).entities[0]?.table).toBe(tableKey);
-  expect(collectSchemaRegistry({ customKey }).entities[0]?.table).toBe(customKey);
-});
+    assert.throws(
+      () => define('ordinary_id', { id: integer().notNull(), body: text() }),
+      TypeError
+    );
+    assert.throws(
+      () =>
+        define(
+          'composite_id',
+          { id: integer().notNull(), tenant: integer().notNull(), body: text() },
+          (table) => [primaryKey({ columns: [table.id, table.tenant] })]
+        ),
+      TypeError
+    );
+    assert.throws(() => define('blob_id', { id: blob().primaryKey(), body: text() }), TypeError);
+
+    const inline = define('inline_id', { id: integer().primaryKey(), body: text() });
+    const tableKey = define('table_id', { id: text().notNull(), body: text() }, (table) => [
+      primaryKey({ columns: [table.id] })
+    ]);
+    const customKey = defineTable({ ...policy, idColumn: 'slug' })('custom_id', {
+      slug: text({ enum: ['one', 'two'] }).primaryKey(),
+      body: text()
+    });
+
+    expect(collectSchemaRegistry({ inline }).entities[0]?.table).toBe(inline);
+    expect(collectSchemaRegistry({ tableKey }).entities[0]?.table).toBe(tableKey);
+    expect(collectSchemaRegistry({ customKey }).entities[0]?.table).toBe(customKey);
+  }
+);

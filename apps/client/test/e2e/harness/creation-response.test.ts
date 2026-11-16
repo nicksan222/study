@@ -1,12 +1,9 @@
 import { projectIdSchema, StudyRpc } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
 import { makeStudyClient } from '@study/server/client';
-import { App, serve } from '@study/server/runtime';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { studyRpcProxy } from '@study/tooling/development/rpc-proxy';
 import { Effect, Exit, Schema } from 'effect';
 import { createServer } from 'vite-plus';
-import { assert, expect, onTestFinished } from 'vite-plus/test';
 
 import { CreationFrames, creationResponse } from './creation-response.ts';
 
@@ -28,9 +25,11 @@ const note = {
 const success = (requestId: string | number = '42') =>
   bytes({ _tag: 'Exit', requestId, exit: { _tag: 'Success', value: note } });
 
-testStable(
+test.stable(
   'creation proof requires the exact operation and request id, never reads or uploads',
-  () => {
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     for (const tag of [
       'notes.notes',
       'sources.upload',
@@ -66,9 +65,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'every byte split, including UTF-8 and the final newline, preserves complete Exit framing',
-  () => {
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const encoded = success();
     const encodedRequest = request('notes.createUntitledNote');
 
@@ -83,80 +84,90 @@ testStable(
   }
 );
 
-testStable('unarmed teardown rejects waiters and repeated arming is forbidden', async () => {
-  const fault = creationResponse();
-  const loss = fault.arm();
+test.stable(
+  'unarmed teardown rejects waiters and repeated arming is forbidden',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  assert.throws(() => fault.arm());
-  await fault.close();
-  await expect(loss.held).rejects.toBeDefined();
-  await fault.close();
-});
+    const fault = creationResponse();
+    const loss = fault.arm();
 
-testStable('owner teardown terminates a creation response that arrives later', async () => {
-  const entered = Promise.withResolvers<void>();
-  const respond = Promise.withResolvers<void>();
-  const upstream = Bun.serve({
-    hostname: '127.0.0.1',
-    port: 0,
-    async fetch(incoming) {
-      await incoming.arrayBuffer();
-      entered.resolve();
-      await respond.promise;
+    assert.throws(() => fault.arm());
+    await fault.close();
+    await expect(loss.held).rejects.toBeDefined();
+    await fault.close();
+  }
+);
 
-      return new Response(success(), { headers: { 'content-type': 'application/ndjson' } });
-    }
-  });
-  const fault = creationResponse();
-  const loss = fault.arm();
-  const web = await createServer({
-    configFile: false,
-    server: {
-      host: '127.0.0.1',
+test.stable(
+  'owner teardown terminates a creation response that arrives later',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const entered = Promise.withResolvers<void>();
+    const respond = Promise.withResolvers<void>();
+    const upstream = Bun.serve({
+      hostname: '127.0.0.1',
       port: 0,
-      hmr: false,
-      proxy: { '/rpc': fault.proxy({ target: upstream.url.href }) }
-    },
-    optimizeDeps: { noDiscovery: true }
-  });
+      async fetch(incoming) {
+        await incoming.arrayBuffer();
+        entered.resolve();
+        await respond.promise;
 
-  try {
-    await web.listen();
-    const address = web.httpServer?.address();
-
-    assert.ok(address && typeof address !== 'string');
-    const signal = AbortSignal.timeout(5000);
-    const pending = fetch(`http://127.0.0.1:${address.port}/rpc`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/ndjson' },
-      body: new ReadableStream({
-        start(controller) {
-          controller.enqueue(request('notes.createUntitledNote'));
-          controller.close();
-        }
-      }),
-      signal
+        return new Response(success(), { headers: { 'content-type': 'application/ndjson' } });
+      }
+    });
+    const fault = creationResponse();
+    const loss = fault.arm();
+    const web = await createServer({
+      configFile: false,
+      server: {
+        host: '127.0.0.1',
+        port: 0,
+        hmr: false,
+        proxy: { '/rpc': fault.proxy({ target: upstream.url.href }) }
+      },
+      optimizeDeps: { noDiscovery: true }
     });
 
-    await entered.promise;
-    await fault.close();
-    await expect(loss.held).rejects.toThrow('Creation response owner closed before commit');
-    respond.resolve();
-    const body = await pending.then((response) => response.text()).catch(() => null);
+    try {
+      await web.listen();
+      const address = web.httpServer?.address();
 
-    assert.ok(body === null || body === '', 'closed exchange must not deliver its receipt');
-    assert.strictEqual(
-      signal.aborted,
-      false,
-      'owner teardown must close before the safety timeout'
-    );
-  } finally {
-    respond.resolve();
-    await fault.close();
-    await web.close();
-    await upstream.stop(true);
+      assert.ok(address && typeof address !== 'string');
+      const signal = AbortSignal.timeout(5000);
+      const pending = fetch(`http://127.0.0.1:${address.port}/rpc`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/ndjson' },
+        body: new ReadableStream({
+          start(controller) {
+            controller.enqueue(request('notes.createUntitledNote'));
+            controller.close();
+          }
+        }),
+        signal
+      });
+
+      await entered.promise;
+      await fault.close();
+      await expect(loss.held).rejects.toThrow('Creation response owner closed before commit');
+      respond.resolve();
+      const body = await pending.then((response) => response.text()).catch(() => null);
+
+      assert.ok(body === null || body === '', 'closed exchange must not deliver its receipt');
+      assert.strictEqual(
+        signal.aborted,
+        false,
+        'owner teardown must close before the safety timeout'
+      );
+    } finally {
+      respond.resolve();
+      await fault.close();
+      await web.close();
+      await upstream.stop(true);
+    }
   }
-});
+);
 
 for (const cleanup of [
   'explicit drop',
@@ -164,24 +175,26 @@ for (const cleanup of [
   'owner disposal',
   'failed Exit'
 ] as const) {
-  testStable(
+  test.stable(
     `real committed creation loses only its receipt and drains on ${cleanup}`,
-    async () => {
+    async ({
+      createTestResources,
+      onTestFinished,
+      createServerFixture,
+      assert: assertions,
+      expect
+    }) => {
+      const assert: test.Assert = assertions;
+
       let pending: Promise<Exit.Exit<unknown, unknown>> | undefined;
       let failed = false;
       const run = (async () => {
-        await using resources = new AsyncDisposableStack();
+        await using resources = createTestResources();
 
-        onTestFinished(() => resources.disposeAsync());
-        const database = await createTestDatabase();
+        onTestFinished(() => resources.close());
+        const fixture = await resources.acquire(createServerFixture);
+        const { server } = await fixture.openRpc();
 
-        resources.defer(() => database.cleanup());
-        const app = await App.open({ path: await database.prepare() });
-
-        resources.defer(() => app.close());
-        const server = await serve(app);
-
-        resources.defer(() => server.close());
         const fault = creationResponse();
         const proxy = studyRpcProxy(server.url);
 
@@ -275,7 +288,7 @@ for (const cleanup of [
         );
 
         if (cleanup === 'owner disposal') {
-          await resources.disposeAsync();
+          await resources.close();
 
           return;
         }

@@ -1,5 +1,4 @@
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintFiles } from '../test/utils.ts';
 
@@ -19,11 +18,16 @@ function fixture(overrides: Record<string, string> = {}): Record<string, string>
   };
 }
 
-testStable(
+test.stable(
   'integration providers require tests and an installation in the shared image',
-  async () => {
-    expect(await lintFiles(fixture(), 'integration-test-environment', true)).toHaveLength(0);
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lintFiles({ assert }, fixture(), 'integration-test-environment', true)
+    ).toHaveLength(0);
     const diagnostics = await lintFiles(
+      { assert },
       fixture({
         'packages/integrations/src/providers/next/index.ts': 'export const provider = {};',
         [`${directory}/Dockerfile`]: 'FROM node AS integrations\n'
@@ -41,25 +45,34 @@ testStable(
   }
 );
 
-testStable('provider tests cannot create a separate Docker runtime', async () => {
-  const diagnostics = await lintFiles(
-    fixture({
-      [`${directory}/providers/obsidian/import.integration.test.ts`]:
-        "Bun.spawn(['docker', 'run', 'other']);",
-      [`${directory}/environment.ts`]: "Bun.spawn(['docker', 'run', 'shared']);"
-    }),
-    'integration-test-environment',
-    true
-  );
+test.stable(
+  'provider tests cannot create a separate Docker runtime',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  expect(diagnostics).toHaveLength(1);
-  expect(diagnostics[0]?.message).toContain('Only testing/integrations/environment.ts');
-});
-
-testStable(
-  'integration fixtures reject invalid installation paths and private Dockerfiles',
-  async () => {
     const diagnostics = await lintFiles(
+      { assert },
+      fixture({
+        [`${directory}/providers/obsidian/import.integration.test.ts`]:
+          "Bun.spawn(['docker', 'run', 'other']);",
+        [`${directory}/environment.ts`]: "Bun.spawn(['docker', 'run', 'shared']);"
+      }),
+      'integration-test-environment',
+      true
+    );
+
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0]?.message).toContain('Only testing/integrations/environment.ts');
+  }
+);
+
+test.stable(
+  'integration fixtures reject invalid installation paths and private Dockerfiles',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintFiles(
+      { assert },
       fixture({
         [`${directory}/providers.json`]: JSON.stringify({
           obsidian: { executable: '/usr/bin/obsidian' }
@@ -80,61 +93,84 @@ testStable(
   }
 );
 
-testStable.each([
+test.stable.for([
   "const docker = (_args: string[]) => {}; docker(['build', '--file', 'private/Dockerfile']);",
   "Bun.spawn(['docker', 'build', '--file', 'private/Dockerfile', '.']);",
   "Bun.spawn({cmd: ['docker', 'build', '--file', 'private/Dockerfile', '.']});"
-])('the shared container builder cannot drift to a different Dockerfile: %s', async (source) => {
-  const diagnostics = await lintFiles(
-    fixture({
-      [`${directory}/environment.ts`]: source
-    }),
-    'integration-test-environment',
-    true
-  );
+])(
+  'the shared container builder cannot drift to a different Dockerfile: %s',
+  async (source, { expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  expect(diagnostics).toHaveLength(1);
-  expect(diagnostics[0]?.message).toContain('tooling/testing/integrations/Dockerfile');
-});
+    const diagnostics = await lintFiles(
+      { assert },
+      fixture({
+        [`${directory}/environment.ts`]: source
+      }),
+      'integration-test-environment',
+      true
+    );
 
-testStable('every provider must have discoverable integration tests', async () => {
-  const files = fixture();
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0]?.message).toContain('tooling/testing/integrations/Dockerfile');
+  }
+);
 
-  delete files[`${directory}/providers/obsidian/import.integration.test.ts`];
-  const diagnostics = await lintFiles(files, 'integration-test-environment', true);
+test.stable(
+  'every provider must have discoverable integration tests',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  expect(diagnostics.map((item) => item.message)).toContain(
-    'Provider obsidian needs ordinary *.integration.test.ts files.'
-  );
-});
+    const files = fixture();
 
-testStable.each([
+    delete files[`${directory}/providers/obsidian/import.integration.test.ts`];
+    const diagnostics = await lintFiles({ assert }, files, 'integration-test-environment', true);
+
+    expect(diagnostics.map((item) => item.message)).toContain(
+      'Provider obsidian needs ordinary *.integration.test.ts files.'
+    );
+  }
+);
+
+test.stable.for([
   "Bun.spawn({ cmd: ['docker', 'run', 'other'] });",
   "const command = ['docker', 'run', 'other']; Bun.spawn(command);",
   'Bun.$`docker run other`;'
-])('provider tests cannot bypass shared setup with %s', async (source) => {
-  const diagnostics = await lintFiles(
-    fixture({
-      [`${directory}/providers/obsidian/import.integration.test.ts`]: source
-    }),
-    'integration-test-environment',
-    true
-  );
+])(
+  'provider tests cannot bypass shared setup with %s',
+  async (source, { expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  expect(diagnostics.map((item) => item.message)).toContain(
-    'Only testing/integrations/environment.ts may launch Docker; use the shared integration environment.'
-  );
-});
+    const diagnostics = await lintFiles(
+      { assert },
+      fixture({
+        [`${directory}/providers/obsidian/import.integration.test.ts`]: source
+      }),
+      'integration-test-environment',
+      true
+    );
 
-testStable('Docker command data and ordinary templates are not process launches', async () => {
-  const diagnostics = await lintFiles(
-    fixture({
-      [`${directory}/providers/obsidian/import.integration.test.ts`]:
-        "expect(['docker', 'run', 'other']); String.raw`docker run other`;"
-    }),
-    'integration-test-environment',
-    true
-  );
+    expect(diagnostics.map((item) => item.message)).toContain(
+      'Only testing/integrations/environment.ts may launch Docker; use the shared integration environment.'
+    );
+  }
+);
 
-  expect(diagnostics).toHaveLength(0);
-});
+test.stable(
+  'Docker command data and ordinary templates are not process launches',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintFiles(
+      { assert },
+      fixture({
+        [`${directory}/providers/obsidian/import.integration.test.ts`]:
+          "expect(['docker', 'run', 'other']); String.raw`docker run other`;"
+      }),
+      'integration-test-environment',
+      true
+    );
+
+    expect(diagnostics).toHaveLength(0);
+  }
+);

@@ -1,13 +1,13 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
-import { createTestDatabase } from '../src/testing.ts';
+test.stable(
+  'practice keeps bounded immutable slots and durable control epochs',
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-testStable('practice keeps bounded immutable slots and durable control epochs', async () => {
-  const location = await createTestDatabase();
-  const db = await location.open();
+    const location = await databases();
+    const db = await location.open();
 
-  try {
     db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'One',1,1);
       INSERT INTO pages(id,title,created_at,updated_at) VALUES(1,'Input',1,1);
       INSERT INTO content_snapshots(id,extractor_version,meta,created_at) VALUES(1,1,'{"extractor":null,"extractorVersion":1,"provider":null,"durationMs":null,"pageCount":null,"refiners":[],"waitingFor":[],"corrected":false}',1);
@@ -56,8 +56,5 @@ testStable('practice keeps bounded immutable slots and durable control epochs', 
     );
     db.exec('DELETE FROM projects WHERE id=1');
     expect(db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
-  } finally {
-    db.close();
-    await location.cleanup();
   }
-});
+);

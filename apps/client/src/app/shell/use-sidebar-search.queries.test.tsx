@@ -1,25 +1,26 @@
 import { projectIdSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, cleanup, renderHook } from '@testing-library/react';
+import { test } from '@study/testing';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { useSidebarSearch } from './use-sidebar-search.queries';
 
-const api = vi.hoisted(() => ({ search: vi.fn() }));
+function createMocks(mock: test.Mock) {
+  return { search: mock.fn() };
+}
+
+let api: ReturnType<typeof createMocks>;
 
 const project = projectIdSchema.make(2n);
 
-let cache: ReturnType<typeof rpcTestTransport>;
+let cache: ReturnType<test.Context['rpcTestTransport']>;
 
-beforeEach(() => {
+test.beforeEach(({ mock, vi, rpcTestTransport }) => {
+  api = createMocks(mock);
   vi.useFakeTimers();
-  api.search.mockReset().mockResolvedValue({ hits: [] });
+  api.search.mockResolvedValue({ hits: [] });
   cache = rpcTestTransport(async (_tag, input) => api.search(input));
 });
-afterEach(() => {
+test.afterEach(({ cleanup, vi }) => {
   cleanup();
   vi.useRealTimers();
 });
@@ -28,9 +29,9 @@ function wrapper({ children }: { children: ReactNode }) {
   return <cache.wrapper>{children}</cache.wrapper>;
 }
 
-testStable(
+test.stable(
   'debounces the latest query and keeps server search scoped to the selected subject',
-  async () => {
+  async ({ renderHook, act, vi, expect }) => {
     const view = renderHook(
       ({ query }) =>
         useSidebarSearch({ query, project, global: false, canSearch: true, content: 'workspace' }),
@@ -58,29 +59,32 @@ testStable(
   }
 );
 
-testStable('cancels a pending debounce when its owner unmounts', async () => {
-  const view = renderHook(
-    () =>
-      useSidebarSearch({
-        query: 'notes',
-        project,
-        global: false,
-        canSearch: true,
-        content: 'workspace'
-      }),
-    { wrapper }
-  );
+test.stable(
+  'cancels a pending debounce when its owner unmounts',
+  async ({ renderHook, act, vi, expect }) => {
+    const view = renderHook(
+      () =>
+        useSidebarSearch({
+          query: 'notes',
+          project,
+          global: false,
+          canSearch: true,
+          content: 'workspace'
+        }),
+      { wrapper }
+    );
 
-  view.unmount();
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(250);
-  });
-  expect(api.search).not.toHaveBeenCalled();
-});
+    view.unmount();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250);
+    });
+    expect(api.search).not.toHaveBeenCalled();
+  }
+);
 
-testStable(
+test.stable(
   'leaves document filtering local and removes subject restrictions from global search',
-  async () => {
+  async ({ renderHook, act, vi, expect }) => {
     const view = renderHook(
       ({ content }) =>
         useSidebarSearch({ query: 'notes', project, global: true, canSearch: true, content }),

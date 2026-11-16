@@ -1,3 +1,4 @@
+import { StudyError, failureSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Tests the native RPC handler builder across scoped construction, streaming and     │
@@ -13,10 +14,8 @@
  * │ or database fixture is involved.                                                         │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyError, failureSchema } from '@study/contracts';
 import { dependency, endpointGroup, liveQuery } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import {
   Cause,
   Context,
@@ -30,8 +29,6 @@ import {
   Stream
 } from 'effect';
 import { Rpc, RpcGroup, RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import type { LiveQueries } from '#server/platform/database/live-queries';
 import { defineRpc } from '#server/platform/definitions/define-rpc';
@@ -48,33 +45,38 @@ const Streams = RpcGroup.make(
   Rpc.make('test.stream', { success: Schema.String, error: failureSchema, stream: true })
 );
 
-testStable('maps StudyError through native RPC without losing retryAfterMs', async () => {
-  const layer = defineRpc(
-    Group,
-    Effect.succeed({
-      'test.read': () => Effect.fail(new StudyError('rate_limited', 'slow', { retryAfterMs: 42 }))
-    })
-  );
-  const result = await Effect.runPromise(
-    Effect.scoped(
-      Effect.gen(function* () {
-        const client = yield* RpcTest.makeClient(Group, { flatten: true });
+test.stable(
+  'maps StudyError through native RPC without losing retryAfterMs',
+  async ({ expect }) => {
+    const layer = defineRpc(
+      Group,
+      Effect.succeed({
+        'test.read': () => Effect.fail(new StudyError('rate_limited', 'slow', { retryAfterMs: 42 }))
+      })
+    );
+    const result = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const client = yield* RpcTest.makeClient(Group, { flatten: true });
 
-        return yield* client('test.read', { name: 'Ada' }).pipe(Effect.flip);
-      }).pipe(Effect.provide(layer))
-    )
-  );
+          return yield* client('test.read', { name: 'Ada' }).pipe(Effect.flip);
+        }).pipe(Effect.provide(layer))
+      )
+    );
 
-  expect(result).toStrictEqual({ kind: 'rate_limited', message: 'slow', retryAfterMs: 42 });
-});
+    expect(result).toStrictEqual({ kind: 'rate_limited', message: 'slow', retryAfterMs: 42 });
+  }
+);
 
 class Initialization extends Context.Service<Initialization, string>()('test/RpcInitialization') {}
 
 class Operation extends Context.Service<Operation, string>()('test/RpcOperation') {}
 
-testStable(
+test.stable(
   'handler creation is lazy and scoped, and operations retain their dependencies',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     let acquisitions = 0;
     let releases = 0;
     const release = Effect.sync(() => {
@@ -127,7 +129,7 @@ testStable(
 );
 
 for (const wrapped of [false, true])
-  testStable(`stream StudyError mapping, effect wrapped: ${wrapped}`, async () => {
+  test.stable(`stream StudyError mapping, effect wrapped: ${wrapped}`, async ({ expect }) => {
     const error = new StudyError('transient', 'retry', { retryAfterMs: 17 });
     const stream = Stream.concat(Stream.succeed('first'), Stream.fail(error));
     const layer = wrapped
@@ -146,7 +148,7 @@ for (const wrapped of [false, true])
     expect(result).toStrictEqual({ kind: 'transient', message: 'retry', retryAfterMs: 17 });
   });
 
-testStable('native dequeue handlers retain streaming failures', async () => {
+test.stable('native dequeue handlers retain streaming failures', async ({ expect }) => {
   const layer = defineRpc(
     Streams,
     Effect.succeed({
@@ -177,7 +179,9 @@ testStable('native dequeue handlers retain streaming failures', async () => {
   expect(result).toStrictEqual({ kind: 'transient', message: 'queue failed', retryAfterMs: 9 });
 });
 
-testStable('stream cancellation releases the handler resource', async () => {
+test.stable('stream cancellation releases the handler resource', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   let released = 0;
   const release = Effect.sync(() => {
     released++;
@@ -217,50 +221,55 @@ testStable('stream cancellation releases the handler resource', async () => {
   assert.strictEqual(released, 1);
 });
 
-testStable('preserves unrelated typed errors, initialization failures and defects', async () => {
-  const Other = RpcGroup.make(
-    Rpc.make('other', {
-      success: Schema.String,
-      error: Schema.Struct({ _tag: Schema.Literal('Other') })
-    })
-  );
-  const other = { _tag: 'Other' as const };
-  const layer = defineRpc(Other, Effect.succeed({ other: () => Effect.fail(other) }));
-  const result = await Effect.runPromise(
-    Effect.gen(function* () {
-      const handler = yield* Other.accessHandler('other');
+test.stable(
+  'preserves unrelated typed errors, initialization failures and defects',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-      return yield* handler(undefined, {} as Parameters<typeof handler>[1]).pipe(Effect.flip);
-    }).pipe(Effect.provide(layer))
-  );
+    const Other = RpcGroup.make(
+      Rpc.make('other', {
+        success: Schema.String,
+        error: Schema.Struct({ _tag: Schema.Literal('Other') })
+      })
+    );
+    const other = { _tag: 'Other' as const };
+    const layer = defineRpc(Other, Effect.succeed({ other: () => Effect.fail(other) }));
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const handler = yield* Other.accessHandler('other');
 
-  assert.strictEqual(result, other);
-  const initialization = new StudyError('config', 'initialization');
-  const failed = defineRpc(
-    Group,
-    Effect.fail(initialization) as Effect.Effect<
-      { 'test.read': () => Effect.Effect<string> },
-      StudyError
-    >
-  );
+        return yield* handler(undefined, {} as Parameters<typeof handler>[1]).pipe(Effect.flip);
+      }).pipe(Effect.provide(layer))
+    );
 
-  assert.strictEqual(
-    await Effect.runPromise(Layer.build(failed).pipe(Effect.scoped, Effect.flip)),
-    initialization
-  );
-  const defect = new Error('defect');
-  const broken = defineRpc(Group, Effect.succeed({ 'test.read': () => Effect.die(defect) }));
-  const exit = await Effect.runPromise(
-    Effect.gen(function* () {
-      const handler = yield* Group.accessHandler('test.read');
+    assert.strictEqual(result, other);
+    const initialization = new StudyError('config', 'initialization');
+    const failed = defineRpc(
+      Group,
+      Effect.fail(initialization) as Effect.Effect<
+        { 'test.read': () => Effect.Effect<string> },
+        StudyError
+      >
+    );
 
-      return yield* Effect.exit(handler({ name: 'Ada' }, {} as Parameters<typeof handler>[1]));
-    }).pipe(Effect.provide(broken))
-  );
+    assert.strictEqual(
+      await Effect.runPromise(Layer.build(failed).pipe(Effect.scoped, Effect.flip)),
+      initialization
+    );
+    const defect = new Error('defect');
+    const broken = defineRpc(Group, Effect.succeed({ 'test.read': () => Effect.die(defect) }));
+    const exit = await Effect.runPromise(
+      Effect.gen(function* () {
+        const handler = yield* Group.accessHandler('test.read');
 
-  assert.ok(Exit.isFailure(exit));
-  assert.ok(Cause.hasDies(exit.cause));
-});
+        return yield* Effect.exit(handler({ name: 'Ada' }, {} as Parameters<typeof handler>[1]));
+      }).pipe(Effect.provide(broken))
+    );
+
+    assert.ok(Exit.isFailure(exit));
+    assert.ok(Cause.hasDies(exit.cause));
+  }
+);
 
 function typeAssertions() {
   // @ts-expect-error missing handler
@@ -339,38 +348,43 @@ function typeAssertions() {
 
 void typeAssertions;
 
-testStable('RPC harness acquires named dependencies lazily in declaration order', async () => {
-  const acquired: string[] = [];
-  const layer = defineRpc(
-    Group,
-    {
-      greeting: Effect.sync(() => {
-        acquired.push('greeting');
+test.stable(
+  'RPC harness acquires named dependencies lazily in declaration order',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-        return 'Hello';
-      }),
-      punctuation: Effect.sync(() => {
-        acquired.push('punctuation');
+    const acquired: string[] = [];
+    const layer = defineRpc(
+      Group,
+      {
+        greeting: Effect.sync(() => {
+          acquired.push('greeting');
 
-        return '!';
+          return 'Hello';
+        }),
+        punctuation: Effect.sync(() => {
+          acquired.push('punctuation');
+
+          return '!';
+        })
+      },
+      ({ greeting, punctuation }) => ({
+        'test.read': ({ name }) => Effect.succeed(`${greeting}, ${name}${punctuation}`)
       })
-    },
-    ({ greeting, punctuation }) => ({
-      'test.read': ({ name }) => Effect.succeed(`${greeting}, ${name}${punctuation}`)
-    })
-  );
+    );
 
-  assert.deepStrictEqual(acquired, []);
-  const result = await Effect.runPromise(
-    Effect.scoped(
-      Effect.gen(function* () {
-        const client = yield* RpcTest.makeClient(Group, { flatten: true });
+    assert.deepStrictEqual(acquired, []);
+    const result = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const client = yield* RpcTest.makeClient(Group, { flatten: true });
 
-        return yield* client('test.read', { name: 'Ada' });
-      }).pipe(Effect.provide(layer))
-    )
-  );
+          return yield* client('test.read', { name: 'Ada' });
+        }).pipe(Effect.provide(layer))
+      )
+    );
 
-  assert.strictEqual(result, 'Hello, Ada!');
-  assert.deepStrictEqual(acquired, ['greeting', 'punctuation']);
-});
+    assert.strictEqual(result, 'Hello, Ada!');
+    assert.deepStrictEqual(acquired, ['greeting', 'punctuation']);
+  }
+);

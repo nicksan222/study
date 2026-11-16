@@ -12,9 +12,8 @@
 
 import { pageTransformContextSchema, transformSnapshotSchema } from '@study/contracts';
 import { createBlock } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { pageTransformPrompt } from './page-transform-prompt.ts';
 
@@ -83,27 +82,34 @@ function fixture(text = 'Exact 😀 target') {
   return { request, context };
 }
 
-function oversized(run: () => unknown) {
+function oversized({ expect }: Pick<test.Context, 'expect'>, run: () => unknown) {
   expect(run).toThrowError(expect.objectContaining({ kind: 'not_enough' }));
 }
 
-testStable('Page prompts preserve exact rich editable targets and captured Unicode', () => {
-  const { request, context } = fixture();
-  const result = pageTransformPrompt(request, context);
+test.stable(
+  'Page prompts preserve exact rich editable targets and captured Unicode',
+  ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  assert.strictEqual(result.editTarget, context.inputs[0]);
-  const captured = JSON.parse(result.prompt);
+    const { request, context } = fixture();
+    const result = pageTransformPrompt(request, context);
 
-  expect(captured.editTarget.document).toStrictEqual(context.inputs[0]!.document);
-  expect(captured.inputs[0].excerpts).toStrictEqual(context.inputs[0]!.excerpts);
-  assert.strictEqual(captured.inputs[0].role, 'editable_target');
-  assert.strictEqual(captured.editTarget.input.versionId, '1');
-  assert.ok(result.prompt.includes('😀'));
-});
+    assert.strictEqual(result.editTarget, context.inputs[0]);
+    const captured = JSON.parse(result.prompt);
 
-testStable(
+    expect(captured.editTarget.document).toStrictEqual(context.inputs[0]!.document);
+    expect(captured.inputs[0].excerpts).toStrictEqual(context.inputs[0]!.excerpts);
+    assert.strictEqual(captured.inputs[0].role, 'editable_target');
+    assert.strictEqual(captured.editTarget.input.versionId, '1');
+    assert.ok(result.prompt.includes('😀'));
+  }
+);
+
+test.stable(
   'Page prompt admission accounts for all serialized input bytes without changing the target',
-  () => {
+  ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const { request, context } = fixture();
     const before = context.inputs[0]!.document;
 
@@ -115,33 +121,40 @@ testStable(
       },
       fixture('x'.repeat(140000)).context
     ]) {
-      oversized(() => pageTransformPrompt(request, oversizedContext));
+      oversized({ expect }, () => pageTransformPrompt(request, oversizedContext));
     }
 
     assert.strictEqual(context.inputs[0]!.document, before);
   }
 );
 
-testStable('Page transforms still require the exact whole-document editable target', () => {
-  const { request, context } = fixture();
+test.stable(
+  'Page transforms still require the exact whole-document editable target',
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  expect(() => pageTransformPrompt(request, { ...context, inputs: [] })).toThrowError(
-    expect.objectContaining({ kind: 'invalid_input' })
-  );
-  assert.throws(() =>
-    pageTransformPrompt(request, {
-      ...context,
-      inputs: context.inputs.map((input) => ({
-        ...input,
-        scope: { kind: 'blocks' as const, blockIds: [input.excerpts[0]!.blockId] }
-      }))
-    })
-  );
-});
+    const { request, context } = fixture();
 
-testStable(
+    expect(() => pageTransformPrompt(request, { ...context, inputs: [] })).toThrowError(
+      expect.objectContaining({ kind: 'invalid_input' })
+    );
+    assert.throws(() =>
+      pageTransformPrompt(request, {
+        ...context,
+        inputs: context.inputs.map((input) => ({
+          ...input,
+          scope: { kind: 'blocks' as const, blockIds: [input.excerpts[0]!.blockId] }
+        }))
+      })
+    );
+  }
+);
+
+test.stable(
   'Page prompts include only captured support excerpts with their exact identities',
-  () => {
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { request, context } = fixture();
     const support = Schema.decodeUnknownSync(pageTransformContextSchema)({
       ...context,

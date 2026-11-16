@@ -1,3 +1,4 @@
+import { sql } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Authored generation receipts retain metadata independently of raw notes and        │
@@ -10,12 +11,9 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sql } from '@study/db';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
@@ -24,10 +22,12 @@ import { assertScrubbed, cleanup, validPageTransformOutput } from '#testing/note
 import { pageTransformFixture } from '#testing/page-transform';
 
 for (const mode of ['history', 'delete'] as const)
-  testStable(
+  test.stable(
     `generated authored ${mode} preserves receipt identities and scrubs instructions on entity deletion`,
-    async () => {
-      const f = await pageTransformFixture();
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
+      const f = await pageTransformFixture(databases);
 
       try {
         const saved = await Effect.runPromise(
@@ -168,9 +168,9 @@ for (const mode of ['history', 'delete'] as const)
 
             assert.ok((yield* Effect.flip(docs.version({ id: output.id }))).kind === 'not_found');
             // Retirement must scrub native output while the independent raw note still exists.
-            assertScrubbed(f, 'INTENTIONAL_AUTHORED_BODY', false);
+            assertScrubbed(f, assert, 'INTENTIONAL_AUTHORED_BODY', false);
             assert.ok(f.context.db.orm.get(sql`SELECT 1 FROM notes WHERE id=${saved.note.id}`));
-            assertScrubbed(f, 'INTENTIONAL_AUTHORED_BODY', false);
+            assertScrubbed(f, assert, 'INTENTIONAL_AUTHORED_BODY', false);
             // Raw note pins and any current authored version keep original evidence alive.
             assert.ok(
               (yield* docs.previewDeletion({ id: saved.input.id })).blockedVersionIds.includes(
@@ -185,7 +185,7 @@ for (const mode of ['history', 'delete'] as const)
 
         await f.reopen();
         assert.ok(f.context.db.orm.get(sql`SELECT 1 FROM notes WHERE id=${saved.note.id}`));
-        assertScrubbed(f, 'INTENTIONAL_AUTHORED_BODY', false);
+        assertScrubbed(f, assert, 'INTENTIONAL_AUTHORED_BODY', false);
         assert.ok(
           f.context.db.orm.get(
             sql`SELECT payload FROM workflow_executions WHERE execution_id='independent-native'`
@@ -222,7 +222,7 @@ for (const mode of ['history', 'delete'] as const)
             yield* docs.delete({ pageId: saved.input.id, token: released.token });
           }).pipe(Effect.provide(f.services()))
         );
-        await cleanup(f, saved.note.id);
+        await cleanup(f, saved.note.id, assert);
         await f.reopen();
         await Effect.runPromise(
           Effect.gen(function* () {

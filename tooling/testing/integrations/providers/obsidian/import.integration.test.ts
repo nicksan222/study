@@ -10,13 +10,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { obsidianVault } from './fixture.ts';
 
-testStable('Obsidian imports vault notes', { timeout: 60000 }, async () => {
+test.stable('Obsidian imports vault notes', { timeout: 60000 }, async ({ expect }) => {
   await Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
@@ -50,7 +49,7 @@ testStable('Obsidian imports vault notes', { timeout: 60000 }, async () => {
   );
 });
 
-testStable('Obsidian preserves links and attachments', { timeout: 60000 }, async () => {
+test.stable('Obsidian preserves links and attachments', { timeout: 60000 }, async ({ expect }) => {
   await Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
@@ -105,7 +104,7 @@ testStable('Obsidian preserves links and attachments', { timeout: 60000 }, async
   );
 });
 
-testStable('Obsidian respects excluded notes', { timeout: 60000 }, async () => {
+test.stable('Obsidian respects excluded notes', { timeout: 60000 }, async ({ expect }) => {
   await Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
@@ -128,26 +127,30 @@ testStable('Obsidian respects excluded notes', { timeout: 60000 }, async () => {
   );
 });
 
-testStable('Reimporting an Obsidian vault avoids duplicates', { timeout: 60000 }, async () => {
-  await Effect.runPromise(
-    Effect.scoped(
-      Effect.gen(function* () {
-        const vault = yield* obsidianVault('reimport');
+test.stable(
+  'Reimporting an Obsidian vault avoids duplicates',
+  { timeout: 60000 },
+  async ({ expect }) => {
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const vault = yield* obsidianVault('reimport');
 
-        const first = yield* vault.import(['Excluded.md']);
+          const first = yield* vault.import(['Excluded.md']);
 
-        expect(first.status).toBe('completed');
-        const second = yield* vault.import(['Excluded.md']);
+          expect(first.status).toBe('completed');
+          const second = yield* vault.import(['Excluded.md']);
 
-        expect(second.status).toBe('completed');
-        expect(second.items.map((item) => item.status)).toEqual([
-          'unchanged',
-          'unchanged',
-          'excluded'
-        ]);
-        expect((yield* vault.client['notes.notes']({ limit: 100 })).items.length).toBe(2);
-      })
-    ),
-    { signal: AbortSignal.timeout(45000) }
-  );
-});
+          expect(second.status).toBe('completed');
+          expect(second.items.map((item) => item.status)).toEqual([
+            'unchanged',
+            'unchanged',
+            'excluded'
+          ]);
+          expect((yield* vault.client['notes.notes']({ limit: 100 })).items.length).toBe(2);
+        })
+      ),
+      { signal: AbortSignal.timeout(45000) }
+    );
+  }
+);

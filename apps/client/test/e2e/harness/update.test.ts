@@ -1,13 +1,11 @@
-import { spawnTestProcess } from '@study/testing/vitest';
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { temporaryArtifacts } from './temporary.ts';
 
-testStable(
+test.stable(
   'updates find the selected client capture even when invoked from another directory',
-  async () => {
-    const root = await temporaryArtifacts();
+  async ({ spawnTestProcess, expect, onTestFinished }) => {
+    const root = await temporaryArtifacts({ onTestFinished });
     const harness = `${root}/apps/client/test/e2e/harness`;
 
     for (const file of ['update.ts', 'identity.ts'])
@@ -39,9 +37,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'updater accepts shared safe names and rejects unsafe or unscoped selections',
-  async () => {
+  async ({ spawnTestProcess, expect }) => {
     for (const scope of [
       '2-notes-survive-reload/editing_state',
       '2',

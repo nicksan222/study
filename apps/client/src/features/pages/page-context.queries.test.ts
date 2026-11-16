@@ -1,13 +1,12 @@
 import { noteIdSchema, pageIdSchema, pageVersionIdSchema } from '@study/contracts';
 import { configureRpcTransport } from '@study/contracts/react';
-import { testStable } from '@study/testing/vitest';
-import { expect, beforeEach, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import type * as __MockType0 from './page-context.queries';
 
-import { attachPageToNote } from './page-context.queries';
+let attachPageToNote: typeof __MockType0.attachPageToNote;
 
-const api = vi.hoisted(() => ({ attach: vi.fn(), selection: vi.fn(), update: vi.fn() }));
+let api: ReturnType<typeof createMockState>['api'];
 
 const input = {
   pageId: pageIdSchema.make(4n),
@@ -20,7 +19,27 @@ const target = {
   scope: { kind: 'document' }
 };
 
-beforeEach(() => {
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({
+      attach: mock.fn(),
+      selection: mock.fn(),
+      update: mock.fn()
+    }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  const __mockModule0 = await import('./page-context.queries');
+
+  attachPageToNote = __mockModule0.attachPageToNote;
+});
+
+test.beforeEach(({ vi, rpcHandlersTransport }) => {
   vi.resetAllMocks();
   api.attach.mockResolvedValue(undefined);
   api.update.mockResolvedValue({ revision: 13n, targets: [] });
@@ -33,9 +52,9 @@ beforeEach(() => {
   configureRpcTransport(harness.transport);
 });
 
-testStable(
+test.stable(
   'adds the exact document version using the current selection revision while preserving other context',
-  async () => {
+  async ({ expect }) => {
     const existing = {
       input: { kind: 'page', versionId: pageVersionIdSchema.make(7n) },
       scope: { kind: 'document' }
@@ -55,13 +74,16 @@ testStable(
   }
 );
 
-testStable('does not duplicate already selected document context when retried', async () => {
-  api.selection.mockResolvedValue({ revision: 13n, targets: [target] });
-  await attachPageToNote(input);
-  expect(api.update).not.toHaveBeenCalled();
-});
+test.stable(
+  'does not duplicate already selected document context when retried',
+  async ({ expect }) => {
+    api.selection.mockResolvedValue({ revision: 13n, targets: [target] });
+    await attachPageToNote(input);
+    expect(api.update).not.toHaveBeenCalled();
+  }
+);
 
-testStable('does not continue after attachment fails', async () => {
+test.stable('does not continue after attachment fails', async ({ expect }) => {
   api.attach.mockRejectedValue(new Error('Unavailable'));
   await expect(attachPageToNote(input)).rejects.toMatchObject({ message: 'Unavailable' });
   expect(api.selection).not.toHaveBeenCalled();

@@ -1,3 +1,4 @@
+import type { messageVersionSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks reply workflow checkpointing and rejects stale note context or              │
@@ -12,21 +13,17 @@
  * │ replace production activities.                                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { messageVersionSchema } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
 import { defaultWorkspacePreferences } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { blockIdSchema } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
 import { Effect, Layer } from 'effect';
 import type { Context } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
-import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/service/index';
 import { Pages } from '#server/features/pages/index';
@@ -44,10 +41,12 @@ import { withTestAdmission } from '#testing/workflow-admission';
 
 import { noteReplyHandler, noteReplyWorkflow } from './index.ts';
 
-testStable(
+test.stable(
   'reply checkpoints plain output and fences stale context and fabricated citations',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     let context = new ServerContext(await location.open());
     let calls = 0;
     let output = 'A plain answer';
@@ -183,7 +182,12 @@ testStable(
       );
       const post = () =>
         run(Effect.flatMap(Notes, (c) => c.postMessage({ noteId: note.id, text: 'Question' })));
-      const request = async (detail?: 'brief' | 'balanced' | 'detailed') => {
+      const request = async (
+        { assert: assertions }: Pick<test.Context, 'assert'>,
+        detail?: 'brief' | 'balanced' | 'detailed'
+      ) => {
+        const assert: test.Assert = assertions;
+
         await run(
           Effect.flatMap(Notes, (c) => c.requestReply({ noteId: note.id, preferences: { detail } }))
         );
@@ -191,7 +195,7 @@ testStable(
           context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
         );
 
-        assertEventType(event, 'NoteGenerationRequested', 'wrong event');
+        assertEventType({ assert }, event, 'NoteGenerationRequested', 'wrong event');
 
         return event;
       };
@@ -227,12 +231,12 @@ testStable(
         ).pipe(Effect.provide(Settings.layer), Effect.provideService(Database, { store: context }))
       );
       const first = await post();
-      const stale = await request();
+      const stale = await request({ assert });
 
       await run(Effect.flatMap(Notes, (c) => c.deleteMessage(stale.messageId)));
       await expect(execute(stale, 'stale')).rejects.toSatisfy(() => true);
       assert.strictEqual(calls, 0);
-      const resolverRace = await request();
+      const resolverRace = await request({ assert });
 
       duringModelResolution = async () => {
         await run(Effect.flatMap(Notes, (c) => c.deleteMessage(resolverRace.messageId)));
@@ -243,7 +247,7 @@ testStable(
         0,
         'stale context must not reach the provider after model resolution'
       );
-      const languageRace = await request();
+      const languageRace = await request({ assert });
 
       duringLanguageResolution = async () => {
         await run(Effect.flatMap(Notes, (c) => c.deleteMessage(languageRace.messageId)));
@@ -254,7 +258,7 @@ testStable(
         0,
         'stale context must not reach the provider after language resolution'
       );
-      const current = await request('brief');
+      const current = await request({ assert }, 'brief');
 
       await expect(execute({ ...current, messageId: first.id }, 'wrong-target')).rejects.toSatisfy(
         () => true
@@ -282,7 +286,7 @@ testStable(
         context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
       );
 
-      assertEventType(reanswerEvent, 'NoteGenerationRequested', 'wrong event');
+      assertEventType({ assert }, reanswerEvent, 'NoteGenerationRequested', 'wrong event');
 
       output = 'Another answer';
       await execute(reanswerEvent, 'reanswer');
@@ -290,7 +294,7 @@ testStable(
 
       assert.strictEqual(reanswer.messageId, current.messageId);
       assert.strictEqual(answered.versions.length, 2);
-      assert.ok(latestVersion(answered.versions).text === 'Another answer');
+      assert.ok(latestVersion({ assert }, answered.versions).text === 'Another answer');
       const rewrite = await run(
         Effect.flatMap(Notes, (c) =>
           c.rewriteMessage({
@@ -304,7 +308,7 @@ testStable(
         context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
       );
 
-      assertEventType(rewriteEvent, 'NoteGenerationRequested', 'wrong event');
+      assertEventType({ assert }, rewriteEvent, 'NoteGenerationRequested', 'wrong event');
 
       output = 'Rewritten answer';
       const beforeRewrite = calls;
@@ -318,8 +322,8 @@ testStable(
       const rewritten = await run(Effect.flatMap(Notes, (c) => c.message(current.messageId)));
 
       assert.strictEqual(rewrite.messageId, current.messageId);
-      assert.ok(latestVersion(rewritten.versions).origin === 'instruction');
-      assert.ok(latestVersion(rewritten.versions).instruction === 'Use bullet points');
+      assert.ok(latestVersion({ assert }, rewritten.versions).origin === 'instruction');
+      assert.ok(latestVersion({ assert }, rewritten.versions).instruction === 'Use bullet points');
       expect(bodies.at(-1)!).toMatch(/Another answer/);
       assert.strictEqual(bodies.at(-1)!.match(/Use bullet points/g)?.length, 1);
       expect(bodies.at(-1)!).not.toMatch(/Preferences: \{\}/);
@@ -331,14 +335,14 @@ testStable(
         context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
       );
 
-      assertEventType(userEvent, 'NoteGenerationRequested', 'wrong event');
+      assertEventType({ assert }, userEvent, 'NoteGenerationRequested', 'wrong event');
 
       output = 'Short question';
       await execute(userEvent, 'rewrite-user');
       expect(bodies.at(-1)!).not.toMatch(/Preferences: \{\}/);
       const userResult = await run(Effect.flatMap(Notes, (c) => c.message(first.id)));
 
-      assert.ok(latestVersion(userResult.versions).origin === 'summarize');
+      assert.ok(latestVersion({ assert }, userResult.versions).origin === 'summarize');
       assert.strictEqual(userResult.activeVersionId, userRewrite.versionId);
       const oldRequest = await run(
         Effect.flatMap(Notes, (c) =>
@@ -349,7 +353,7 @@ testStable(
         context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
       );
 
-      assertEventType(oldEvent, 'NoteGenerationRequested', 'wrong event');
+      assertEventType({ assert }, oldEvent, 'NoteGenerationRequested', 'wrong event');
 
       const newer = await run(
         Effect.flatMap(Notes, (c) =>
@@ -370,7 +374,7 @@ testStable(
         context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
       );
 
-      assertEventType(newerEvent, 'NoteGenerationRequested', 'wrong event');
+      assertEventType({ assert }, newerEvent, 'NoteGenerationRequested', 'wrong event');
 
       await run(
         Effect.flatMap(Notes, (c) =>
@@ -381,14 +385,14 @@ testStable(
       assert.strictEqual(calls, callsBeforeOld);
       output = 'A plain answer';
       await post();
-      const racing = await request();
+      const racing = await request({ assert });
 
       duringCall = async () => {
         await run(Effect.flatMap(Notes, (c) => c.deleteMessage(racing.messageId)));
       };
       await expect(execute(racing, 'race')).rejects.toSatisfy(() => true);
       output = 'Fake [1]';
-      const fake = await request();
+      const fake = await request({ assert });
 
       await expect(execute(fake, 'fake')).rejects.toSatisfy(() => true);
       expect(bodies.at(-1)!).toMatch(/Manual edit/);
@@ -402,7 +406,7 @@ testStable(
           .find((v) => v.id === fake.versionId)?.status,
         undefined
       );
-      const retryAfterInvalidOutput = await request();
+      const retryAfterInvalidOutput = await request({ assert });
 
       assert.notStrictEqual(retryAfterInvalidOutput.requestId, fake.requestId);
       const groundedNote = await run(
@@ -492,7 +496,7 @@ testStable(
         context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
       );
 
-      assertEventType(grounded, 'NoteGenerationRequested', 'wrong event');
+      assertEventType({ assert }, grounded, 'NoteGenerationRequested', 'wrong event');
 
       const replacement = context.db.orm
         .insert(s.content_snapshots)
@@ -539,7 +543,7 @@ testStable(
         context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
       );
 
-      assertEventType(toolRace, 'NoteGenerationRequested', 'wrong event');
+      assertEventType({ assert }, toolRace, 'NoteGenerationRequested', 'wrong event');
 
       const callsBeforeToolRace = calls;
 
@@ -564,7 +568,7 @@ testStable(
         context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
       );
 
-      assertEventType(cancelled, 'NoteGenerationRequested', 'wrong event');
+      assertEventType({ assert }, cancelled, 'NoteGenerationRequested', 'wrong event');
 
       output = 'Cancelled answer';
       duringCall = async () => {
@@ -698,7 +702,7 @@ testStable(
           )!.payload
       );
 
-      assertEventType(selectedEvent, 'NoteGenerationRequested', 'wrong selected event');
+      assertEventType({ assert }, selectedEvent, 'NoteGenerationRequested', 'wrong selected event');
       toolCall = true;
       output = 'Exact answer [1]';
       await execute(selectedEvent, 'selected-range');
@@ -723,7 +727,7 @@ testStable(
       );
 
       expect(selectedEdit.citations).toStrictEqual(selectedAnswer.citations);
-      await assertLongHistoryPreservesEarlyMessages();
+      await assertLongHistoryPreservesEarlyMessages({ assert });
 
       const marked = await run(
         Effect.gen(function* () {
@@ -753,7 +757,12 @@ testStable(
             event.requestId === marked.question?.answerRequestId
         );
 
-      assertEventType(questionEvent, 'NoteGenerationRequested', 'missing in-place answer event');
+      assertEventType(
+        { assert },
+        questionEvent,
+        'NoteGenerationRequested',
+        'missing in-place answer event'
+      );
       output = 'Ice is less dense than water.';
       const callsBeforeQuestion = calls;
 
@@ -764,11 +773,15 @@ testStable(
 
       expect(answeredQuestion.activeVersionId).toBe(questionEvent.versionId);
       expect(answeredQuestion.versions).toHaveLength(2);
-      expect(latestVersion(answeredQuestion.versions).text).toBe(
+      expect(latestVersion({ assert }, answeredQuestion.versions).text).toBe(
         '**Question**\n\nWhy does ice float?\n\n**Answer**\n\nIce is less dense than water.'
       );
 
-      async function assertLongHistoryPreservesEarlyMessages() {
+      async function assertLongHistoryPreservesEarlyMessages({
+        assert: assertions
+      }: Pick<test.Context, 'assert'>) {
+        const assert: test.Assert = assertions;
+
         const longNote = await run(
           Effect.flatMap(Notes, (c) => c.createNote({ project: project.id, title: 'Long' }))
         );
@@ -803,14 +816,22 @@ testStable(
 );
 
 function assertEventType<T extends ReturnType<typeof decodeEvent>['type']>(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
   event: ReturnType<typeof decodeEvent> | undefined,
   type: T,
   message: string
 ): asserts event is Extract<ReturnType<typeof decodeEvent>, { type: T }> {
+  const assert: test.Assert = assertions;
+
   assert.ok(event && event.type === type, message);
 }
 
-function latestVersion(versions: readonly (typeof messageVersionSchema.Type)[]) {
+function latestVersion(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  versions: readonly (typeof messageVersionSchema.Type)[]
+) {
+  const assert: test.Assert = assertions;
+
   const version = versions.at(-1);
 
   assert.ok(version, 'expected a retained message version');

@@ -1,55 +1,71 @@
-import { configureRpcTransport } from '@study/contracts/react';
+import { StudyError, noteIdSchema, projectIdSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { beforeEach, expect, vi } from 'vite-plus/test';
-
-import { pageTestTransport } from '#client/test/render-page.tsx';
+import { test } from '@study/testing';
 
 import { App } from '../app/app';
 
 const pages = ['Notes', 'Projects', 'Flashcards', 'Practice'] as const;
 
-beforeEach(() => {
+test.beforeEach(() => {
   history.replaceState(null, '', '/');
 });
 
-testStable.each(pages)('renders the %s route without network access', async (page) => {
-  history.replaceState(null, '', `/${page.toLowerCase()}`);
-  const fetch = vi.spyOn(globalThis, 'fetch');
+test.stable.for(pages)(
+  'renders the %s route without network access',
+  async (page, { rpc, vi, render, expect, screen }) => {
+    history.replaceState(null, '', `/${page.toLowerCase()}`);
+    const fetch = vi.spyOn(globalThis, 'fetch');
 
-  const fixture = pageTestTransport();
+    rpc.givenWorkspace();
 
-  configureRpcTransport(fixture.transport);
-  render(<App transport={fixture.transport} />);
-  const title = catalogs.english[page];
+    render(<App transport={rpc.transport} />);
+    const title = catalogs.english[page];
 
-  if (page === 'Practice' || page === 'Flashcards') {
-    expect(await screen.findByRole('main')).toHaveTextContent(/^$/);
-    expect(
-      screen.getByRole('button', { name: catalogs.english.PracticeGenerate })
-    ).toBeInTheDocument();
-  } else {
-    expect(await screen.findByRole('heading', { name: title, level: 1 })).toBeInTheDocument();
-    expect(screen.getByRole('main')).toHaveTextContent(
-      page === 'Notes' ? catalogs.english.NoteStartHelp : catalogs.english.AppName
-    );
+    if (page === 'Practice' || page === 'Flashcards') {
+      expect(await screen.findByRole('main')).toHaveTextContent(/^$/);
+      expect(
+        screen.getByRole('button', { name: catalogs.english.PracticeGenerate })
+      ).toBeInTheDocument();
+    } else {
+      expect(await screen.findByRole('heading', { name: title, level: 1 })).toBeInTheDocument();
+      expect(screen.getByRole('main')).toHaveTextContent(
+        page === 'Notes' ? catalogs.english.NoteStartHelp : catalogs.english.AppName
+      );
+    }
+
+    expect(fetch).not.toHaveBeenCalled();
   }
+);
 
-  expect(fetch).not.toHaveBeenCalled();
-});
-
-testStable(
+test.stable(
   'opens settings over the current page and restores focus without changing the URL',
-  async () => {
+  async ({ rpc, userEvent, render, expect, screen, waitFor }) => {
     const user = userEvent.setup();
 
     history.replaceState(null, '', '/projects/1/notes/42');
-    const fixture = pageTestTransport();
+    rpc.givenWorkspace();
+    rpc.given({
+      'notes.noteWork': { items: [], next: null },
+      'notes.noteSelection': { revision: 0n, targets: [] },
+      'notes.noteGenerations': { items: [], next: null },
+      'notes.archivedItems': [],
+      'notes.note': {
+        id: noteIdSchema.make(42n),
+        title: 'Existing note',
+        titleSource: 'user',
+        projectIds: [projectIdSchema.make(1n)],
+        archivedAt: null,
+        createdAt: 1n,
+        updatedAt: 1n
+      }
+    });
+    rpc.handle({
+      'notes.noteDeletion': () => {
+        throw new StudyError('not_found', 'No deletion operation');
+      }
+    });
 
-    configureRpcTransport(fixture.transport);
-    render(<App transport={fixture.transport} />);
+    render(<App transport={rpc.transport} />);
     expect(
       await screen.findByRole('button', { name: catalogs.english.ToggleSidebar })
     ).toHaveAttribute('aria-expanded', 'true');
@@ -67,40 +83,44 @@ testStable(
   }
 );
 
-testStable('opens the appearance popup from its direct settings route', async () => {
-  history.replaceState(null, '', '/settings');
-  const fixture = pageTestTransport();
+test.stable(
+  'opens the appearance popup from its direct settings route',
+  async ({ rpc, render, expect, screen }) => {
+    history.replaceState(null, '', '/settings');
+    rpc.givenWorkspace();
 
-  configureRpcTransport(fixture.transport);
-  render(<App transport={fixture.transport} />);
-  expect(
-    await screen.findByRole('dialog', { name: catalogs.english.Settings })
-  ).toBeInTheDocument();
-});
+    render(<App transport={rpc.transport} />);
+    expect(
+      await screen.findByRole('dialog', { name: catalogs.english.Settings })
+    ).toBeInTheDocument();
+  }
+);
 
-testStable('keeps Settings reachable while the sidebar is collapsed', async () => {
-  const user = userEvent.setup();
+test.stable(
+  'keeps Settings reachable while the sidebar is collapsed',
+  async ({ rpc, userEvent, render, screen, expect, waitFor }) => {
+    const user = userEvent.setup();
 
-  history.replaceState(null, '', '/projects');
-  const fixture = pageTestTransport();
+    history.replaceState(null, '', '/projects');
+    rpc.givenWorkspace();
 
-  configureRpcTransport(fixture.transport);
-  render(<App transport={fixture.transport} />);
-  await screen.findByRole('heading', { name: catalogs.english.Projects });
+    render(<App transport={rpc.transport} />);
+    await screen.findByRole('heading', { name: catalogs.english.Projects });
 
-  const toggle = screen.getByRole('button', { name: catalogs.english.ToggleSidebar });
+    const toggle = screen.getByRole('button', { name: catalogs.english.ToggleSidebar });
 
-  expect(toggle).toHaveAttribute('aria-expanded', 'true');
-  await user.click(toggle);
-  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
 
-  await user.click(screen.getByRole('button', { name: catalogs.english.Settings }));
-  expect(
-    await screen.findByRole('heading', { name: catalogs.english.Settings })
-  ).toBeInTheDocument();
-  await user.keyboard('{Escape}');
-  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: catalogs.english.Settings }));
+    expect(
+      await screen.findByRole('heading', { name: catalogs.english.Settings })
+    ).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
-  await user.click(toggle);
-  expect(toggle).toHaveAttribute('aria-expanded', 'true');
-});
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  }
+);

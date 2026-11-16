@@ -1,3 +1,4 @@
+import { MaterialsRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Covers SQLite invariants for material versions, links, citations, and membership;  │
@@ -13,16 +14,11 @@
  * │ by the feature implementation.                                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { MaterialsRpc } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { notes, workflowEvents } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Option, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
@@ -37,10 +33,12 @@ const content = {
   cards: [{ front: 'A', back: 'B' }]
 };
 
-testStable(
+test.stable(
   'materials versions, links, citations and note membership preserve SQLite invariants',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const services = Layer.mergeAll(
       Projects.layer,
@@ -221,46 +219,54 @@ testStable(
   }
 );
 
-testStable('native materials RPC uses the service and maps canonical failures', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const services = Layer.mergeAll(Projects.layer, Sources.layer, Materials.layer, Pages.layer).pipe(
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
-  const handlers = materialRpcHandlers.pipe(Layer.provide(services));
+test.stable(
+  'native materials RPC uses the service and maps canonical failures',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const projects = yield* Projects;
-        const project = yield* projects.createProject({ name: 'RPC' });
-        const client = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
-        const material = yield* client('materials.create', {
-          projectId: project.id,
-          title: 'Native',
-          content
-        });
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const services = Layer.mergeAll(
+      Projects.layer,
+      Sources.layer,
+      Materials.layer,
+      Pages.layer
+    ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
+    const handlers = materialRpcHandlers.pipe(Layer.provide(services));
 
-        assert.ok((yield* client('materials.material', { id: material.id })).title === 'Native');
-        const failure = yield* Effect.flip(
-          client('materials.replaceDraft', { id: material.version.id, content })
-        );
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const projects = yield* Projects;
+          const project = yield* projects.createProject({ name: 'RPC' });
+          const client = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
+          const material = yield* client('materials.create', {
+            projectId: project.id,
+            title: 'Native',
+            content
+          });
 
-        assert.ok(failure.kind === 'invalid_input');
-        const exportFailure = yield* Effect.flip(
-          client('materials.exportMaterialVersion', {
-            id: Schema.decodeUnknownSync(
-              (yield* Effect.promise(() => import('@study/contracts'))).materialVersionIdSchema
-            )(999999n),
-            format: 'aid_json'
-          })
-        );
+          assert.ok((yield* client('materials.material', { id: material.id })).title === 'Native');
+          const failure = yield* Effect.flip(
+            client('materials.replaceDraft', { id: material.version.id, content })
+          );
 
-        assert.ok(exportFailure.kind === 'not_found');
-      }).pipe(Effect.provide(services), Effect.provide(handlers), Effect.scoped)
-    );
-  } finally {
-    context.close();
-    await location.cleanup();
+          assert.ok(failure.kind === 'invalid_input');
+          const exportFailure = yield* Effect.flip(
+            client('materials.exportMaterialVersion', {
+              id: Schema.decodeUnknownSync(
+                (yield* Effect.promise(() => import('@study/contracts'))).materialVersionIdSchema
+              )(999999n),
+              format: 'aid_json'
+            })
+          );
+
+          assert.ok(exportFailure.kind === 'not_found');
+        }).pipe(Effect.provide(services), Effect.provide(handlers), Effect.scoped)
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);

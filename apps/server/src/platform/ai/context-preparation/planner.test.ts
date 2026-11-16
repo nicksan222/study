@@ -13,9 +13,8 @@
 
 import { contentInputSchema } from '@study/contracts';
 import type { Document } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { planSourcePassages, splitTextRanges, sourcePassagePlanSchema } from './index.ts';
 import type { SourcePlanLimits, SourceInput, SourceSelection } from './index.ts';
@@ -43,9 +42,11 @@ function plan(input: Document, options?: Partial<typeof limits>) {
   });
 }
 
-testStable(
+test.stable(
   'reconstructs more than 100k characters, 200 blocks and oversized Unicode blocks exactly',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const input = document([
       ...Array.from({ length: 240 }, (_, i) => `${i} evidence\n`),
       '🌏a'.repeat(60000)
@@ -73,9 +74,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'rejects whole-plan exhaustion and invalid limits with canonical typed failures',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     assert.equal(
       (await Effect.runPromise(Effect.flip(plan(document(['abc']), { maxPlanChars: 2 })))).kind,
       'not_enough'
@@ -87,9 +90,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'keeps explicit selected scope and rejects invalid or overlapping selections',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const input = document(['alpha 🌏 omega']);
     const block = input.blocks[0]!;
     const selected = (
@@ -119,9 +124,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'bounds encoded bigint content references and preserves exact message references',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const contentReference = Schema.decodeUnknownSync(contentInputSchema)({
       kind: 'source',
       sourceId: 1n,
@@ -162,103 +169,133 @@ testStable(
   }
 );
 
-testStable('counts metadata for empty blocks and rejects duplicate document keys', async () => {
-  const input = document(Array.from({ length: 3000 }, () => ''));
-  const failure = await Effect.runPromise(
-    Effect.flip(plan(input, { maxPieceBytes: 1000, maxPieces: 2 }))
-  );
+test.stable(
+  'counts metadata for empty blocks and rejects duplicate document keys',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  assert.equal(failure.kind, 'not_enough');
-  const duplicate: SourceInput<{ version: string }> = {
-    key: 'one',
-    name: 'Original',
-    reference: { version: 'exact' },
-    document: document(['x'])
-  };
-  const duplicated = planSourcePassages({
-    documents: [duplicate, duplicate],
-    referenceSchema,
-    limits,
-    selection: { mode: 'complete' }
-  });
+    const input = document(Array.from({ length: 3000 }, () => ''));
+    const failure = await Effect.runPromise(
+      Effect.flip(plan(input, { maxPieceBytes: 1000, maxPieces: 2 }))
+    );
 
-  assert.equal((await Effect.runPromise(Effect.flip(duplicated))).kind, 'invalid_input');
-});
-
-testStable('bounds canonical Unicode ranges with no omitted characters', () => {
-  const text = 'a🌏z🌏';
-  const ranges = splitTextRanges(text, 2);
-
-  assert.deepEqual(ranges, [
-    { start: 0, end: 1 },
-    { start: 1, end: 3 },
-    { start: 3, end: 4 },
-    { start: 4, end: 6 }
-  ]);
-  assert.equal(ranges.map((range) => text.slice(range.start, range.end)).join(''), text);
-  assert.deepEqual(splitTextRanges('', 2), [{ start: 0, end: 0 }]);
-});
-
-testStable('accepts feature reference codecs whose encoded and decoded shapes differ', async () => {
-  const transformedReferenceSchema = Schema.Struct({ revision: Schema.NumberFromString });
-  const result = await Effect.runPromise(
-    planSourcePassages({
-      documents: [
-        { key: 'one', name: 'Original', reference: { revision: 42 }, document: document(['exact']) }
-      ],
-      referenceSchema: transformedReferenceSchema,
+    assert.equal(failure.kind, 'not_enough');
+    const duplicate: SourceInput<{ version: string }> = {
+      key: 'one',
+      name: 'Original',
+      reference: { version: 'exact' },
+      document: document(['x'])
+    };
+    const duplicated = planSourcePassages({
+      documents: [duplicate, duplicate],
+      referenceSchema,
       limits,
       selection: { mode: 'complete' }
-    })
-  );
+    });
 
-  assert.deepEqual(result.pieces[0]!.passages[0]!.reference, { revision: 42 });
-});
+    assert.equal((await Effect.runPromise(Effect.flip(duplicated))).kind, 'invalid_input');
+  }
+);
 
-testStable('validates persisted plan markers and encoded metadata bounds', async () => {
-  const original = await Effect.runPromise(plan(document(['original'])));
-  const schema = sourcePassagePlanSchema(referenceSchema);
-  const codec = Schema.toCodecJson(schema);
+test.stable(
+  'bounds canonical Unicode ranges with no omitted characters',
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  assert.deepEqual(Schema.decodeUnknownSync(codec)(Schema.encodeSync(codec)(original)), original);
-  const piece = original.pieces[0]!;
-  const passage = piece.passages[0]!;
+    const text = 'a🌏z🌏';
+    const ranges = splitTextRanges(text, 2);
 
-  assert.throws(() =>
-    Schema.decodeUnknownSync(schema)({
-      ...original,
-      pieces: [{ ...piece, passages: [{ ...passage, marker: 42 }] }]
-    })
-  );
-  assert.throws(() =>
-    Schema.decodeUnknownSync(schema)({
-      ...original,
-      limits: { ...original.limits, maxPieceBytes: 1 }
-    })
-  );
-});
+    assert.deepEqual(ranges, [
+      { start: 0, end: 1 },
+      { start: 1, end: 3 },
+      { start: 3, end: 4 },
+      { start: 4, end: 6 }
+    ]);
+    assert.equal(ranges.map((range) => text.slice(range.start, range.end)).join(''), text);
+    assert.deepEqual(splitTextRanges('', 2), [{ start: 0, end: 0 }]);
+  }
+);
 
-testStable('byte-budget search finds fitting prefixes after a surrogate pair', async () => {
-  const input = document(['🌏abc']);
-  const original = await Effect.runPromise(plan(input, { maxPieceChars: 5, maxPassageChars: 5 }));
-  const piece = original.pieces[0]!;
-  const passage = piece.passages[0]!;
-  const budget = new TextEncoder().encode(
-    JSON.stringify({
-      ...piece,
-      passages: [{ ...passage, text: '🌏', end: 2 }]
-    })
-  ).byteLength;
-  const result = await Effect.runPromise(
-    plan(input, {
-      maxPieceChars: 5,
-      maxPassageChars: 5,
-      maxPieceBytes: budget
-    })
-  );
+test.stable(
+  'accepts feature reference codecs whose encoded and decoded shapes differ',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  assert.deepEqual(
-    result.pieces.flatMap((part) => part.passages.map((span) => span.text)),
-    ['🌏', 'abc']
-  );
-});
+    const transformedReferenceSchema = Schema.Struct({ revision: Schema.NumberFromString });
+    const result = await Effect.runPromise(
+      planSourcePassages({
+        documents: [
+          {
+            key: 'one',
+            name: 'Original',
+            reference: { revision: 42 },
+            document: document(['exact'])
+          }
+        ],
+        referenceSchema: transformedReferenceSchema,
+        limits,
+        selection: { mode: 'complete' }
+      })
+    );
+
+    assert.deepEqual(result.pieces[0]!.passages[0]!.reference, { revision: 42 });
+  }
+);
+
+test.stable(
+  'validates persisted plan markers and encoded metadata bounds',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const original = await Effect.runPromise(plan(document(['original'])));
+    const schema = sourcePassagePlanSchema(referenceSchema);
+    const codec = Schema.toCodecJson(schema);
+
+    assert.deepEqual(Schema.decodeUnknownSync(codec)(Schema.encodeSync(codec)(original)), original);
+    const piece = original.pieces[0]!;
+    const passage = piece.passages[0]!;
+
+    assert.throws(() =>
+      Schema.decodeUnknownSync(schema)({
+        ...original,
+        pieces: [{ ...piece, passages: [{ ...passage, marker: 42 }] }]
+      })
+    );
+    assert.throws(() =>
+      Schema.decodeUnknownSync(schema)({
+        ...original,
+        limits: { ...original.limits, maxPieceBytes: 1 }
+      })
+    );
+  }
+);
+
+test.stable(
+  'byte-budget search finds fitting prefixes after a surrogate pair',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const input = document(['🌏abc']);
+    const original = await Effect.runPromise(plan(input, { maxPieceChars: 5, maxPassageChars: 5 }));
+    const piece = original.pieces[0]!;
+    const passage = piece.passages[0]!;
+    const budget = new TextEncoder().encode(
+      JSON.stringify({
+        ...piece,
+        passages: [{ ...passage, text: '🌏', end: 2 }]
+      })
+    ).byteLength;
+    const result = await Effect.runPromise(
+      plan(input, {
+        maxPieceChars: 5,
+        maxPassageChars: 5,
+        maxPieceBytes: budget
+      })
+    );
+
+    assert.deepEqual(
+      result.pieces.flatMap((part) => part.passages.map((span) => span.text)),
+      ['🌏', 'abc']
+    );
+  }
+);

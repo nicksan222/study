@@ -1,3 +1,4 @@
+import type { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Builds exact authored evidence and controlled native learning generation fixtures. │
@@ -9,9 +10,7 @@
  * │ Test callers own isolated SQLite lifetimes and explicitly control provider responses.    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
 import { Effect } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
@@ -21,7 +20,9 @@ import type { pageTransformFixture } from '#testing/page-transform';
 
 type Fixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
-export function learningGeneration(f: Fixture) {
+type TestAssertion = Pick<test.Context, 'assert'>['assert'];
+
+export function learningGeneration(f: Fixture, assert: TestAssertion) {
   return Effect.runPromise(
     Effect.gen(function* () {
       const docs = yield* Pages;

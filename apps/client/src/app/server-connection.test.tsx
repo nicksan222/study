@@ -1,13 +1,10 @@
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { expect, vi } from 'vite-plus/test';
 
 import { useNativeAction } from '#client/lib/effect/native.ts';
 import { LanguageProvider } from '#client/lib/i18n.tsx';
-import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { ServerConnection } from './server-connection';
 
@@ -30,9 +27,9 @@ function Draft({ save }: { save: () => Promise<void> }) {
   );
 }
 
-testStable.each(['english', 'italian'] as const)(
+test.stable.for(['english', 'italian'] as const)(
   'live outage recovery in %s preserves drafts and portals without replaying writes',
-  async (locale) => {
+  async (locale, { vi, rpcTestTransport, render, waitFor, expect, screen, fireEvent, act }) => {
     const health = vi.fn().mockResolvedValue(healthy);
     const save = vi.fn().mockRejectedValue(new Error('Offline'));
     const fixture = rpcTestTransport(async () => health());

@@ -1,3 +1,4 @@
+import { sql } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Source history retires extraction bodies independently from original bytes and     │
@@ -11,12 +12,9 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sql } from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
-import { assert, expect } from 'vite-plus/test';
 
 import { Sources } from '#server/features/sources/index';
 import {
@@ -29,10 +27,12 @@ import { assertScrubbed } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 import { admitTestExecution } from '#testing/workflow-admission';
 
-testStable(
+test.stable(
   'unchanged original bytes survive obsolete extraction pruning while current and in-flight correction roots remain usable',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
       const bytes = new TextEncoder().encode('Original source evidence');
@@ -41,7 +41,7 @@ testStable(
           sources.createSource({ name: 'corrections.txt', bytes, projectId: null })
         ).pipe(Effect.provide(f.domain()))
       );
-      const first = await processSource(f);
+      const first = await processSource(f, assert);
       const corrected: Awaited<ReturnType<typeof processSource>>[] = [];
 
       for (const after of ['First corrected evidence', 'Current corrected evidence']) {
@@ -68,7 +68,7 @@ testStable(
             );
           }).pipe(Effect.provide(f.services()))
         );
-        corrected.push(await processSource(f, true));
+        corrected.push(await processSource(f, assert, true));
       }
 
       const correctionEvents = f.context.db.orm
@@ -134,7 +134,7 @@ testStable(
             )?.n,
             0n
           );
-          assertScrubbed(f, 'First corrected evidence', false);
+          assertScrubbed(f, assert, 'First corrected evidence', false);
           const currentEvent = correctionEvents.at(-1)!;
 
           assert.strictEqual(
@@ -225,7 +225,7 @@ testStable(
         ).rejects.toMatchObject({ kind: 'not_found' });
       }
 
-      const pending = await processSource(f, true);
+      const pending = await processSource(f, assert, true);
 
       assert.notStrictEqual(pending.documentId, current);
       await Effect.runPromise(
@@ -249,7 +249,7 @@ testStable(
           const preview = yield* sources.previewHistory(scope);
 
           yield* sources.retireHistory({ ...scope, token: preview.token });
-          assertScrubbed(f, 'Current corrected evidence', false);
+          assertScrubbed(f, assert, 'Current corrected evidence', false);
           assert.ok(
             (yield* sources.currentExtraction({ id: source.id }))?.document.blocks[0]?.text ===
               'Pending correction completes'

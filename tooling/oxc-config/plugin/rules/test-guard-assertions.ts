@@ -9,14 +9,13 @@
  * │                                                                                          │
  * │ Allowed:                                                                                 │
  * │   // example.test.ts                                                                     │
- * │   import { testStable } from '@study/testing/vitest';                                    │
- * │   import { expect } from 'vite-plus/test';                                               │
- * │   testStable('has a value', () => { expect(value).toBeDefined(); });                     │
+ * │   import { test } from '@study/testing';                                                 │
+ * │   test.stable('has a value', ({ expect }) => { expect(value).toBeDefined(); });          │
  * │                                                                                          │
  * │ Rejected:                                                                                │
  * │   // example.test.ts                                                                     │
- * │   import { testStable } from '@study/testing/vitest';                                    │
- * │   testStable('has a value', () => { if (!value) return; });                              │
+ * │   import { test } from '@study/testing';                                                 │
+ * │   test.stable('has a value', () => { if (!value) return; });                             │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -24,7 +23,7 @@ import { defineRule } from 'vite-plus/lint/plugins';
 
 import { binding, constantDeclarator, enterNode, memberName } from '../lexical-bindings.ts';
 
-const runners = /^(?:vitest|vite-plus\/test|bun:test|@study\/testing\/vitest)$/;
+const runners = /^(?:vitest|vite-plus\/test|bun:test|@study\/testing(?:\/vitest)?)$/;
 
 const tests = new Set([
   'test',
@@ -32,7 +31,11 @@ const tests = new Set([
   'testStable',
   'testRegression',
   'testMigration',
-  'testCharacterization'
+  'testCharacterization',
+  'test.stable',
+  'test.regression',
+  'test.migration',
+  'test.characterization'
 ]);
 
 const modifiers = new Set(['each', 'for', 'concurrent', 'sequential', 'only', 'skip', 'todo']);
@@ -50,6 +53,8 @@ export default defineRule({
       if (definition.type === 'ImportNamespaceSpecifier') return '*';
 
       const name = definition.imported?.name ?? definition.imported?.value;
+
+      if (definition.parent.source.value === '@study/testing' && name === 'test') return 'test';
 
       return tests.has(name) ? name : undefined;
     }
@@ -70,6 +75,12 @@ export default defineRule({
 
       if (base === '*') return tests.has(name) ? name : undefined;
 
+      if (
+        base === 'test' &&
+        ['stable', 'regression', 'migration', 'characterization'].includes(name)
+      )
+        return `test.${name}`;
+
       return modifiers.has(name) ? base : undefined;
     }
 
@@ -87,6 +98,8 @@ export default defineRule({
     }
 
     function directTest(node: any): boolean {
+      if (context.filename.replaceAll('\\', '/').includes('/apps/client/test/e2e/')) return false;
+
       let current = node.parent;
 
       while (current && !functions.has(current.type)) current = current.parent;

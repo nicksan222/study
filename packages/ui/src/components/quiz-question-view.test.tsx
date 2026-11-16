@@ -1,13 +1,11 @@
-import { testStable } from '@study/testing/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { PracticePresentationProvider } from './practice-presentation';
 import { QuizQuestionView } from './quiz-question-view';
 
-testStable(
+test.stable(
   'the shared multiple choice editor retains selections and submits a complete response',
-  () => {
+  ({ vi, render, expect, screen, fireEvent }) => {
     const submit = vi.fn();
 
     render(

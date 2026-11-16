@@ -1,3 +1,4 @@
+import { defaultAgentRules } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies durable suggestions against real persistence and native RPC.              │
@@ -11,18 +12,11 @@
  * │ called.                                                                                  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
-import { defaultAgentRules } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { createAiMock } from '@study/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import type { Context } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
-import { makeStudyClient } from '#server/client/index';
 import { titleAgent } from '#server/features/notes/agents/title';
 import { Notes } from '#server/features/notes/service/index';
 import { suggestTransformField } from '#server/features/notes/service/transform-suggestion';
@@ -35,17 +29,17 @@ import { normalizeError } from '#server/platform/errors/classify-error';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { dispatchPending } from '#server/platform/workflows/triggers';
-import { App, serve } from '#server/runtime/index';
 import { deletionDocument } from '#testing/material-deletion';
 import { withTestPublication } from '#testing/publication';
 
 import { transformSuggestionRegistration } from './transform-suggestion.ts';
 
-testStable(
+test.stable(
   'transform suggestions use saved combined context, tiny models, checkpoint results and reject changed evidence',
-  async () => {
-    const location = await createTestDatabase();
-    const context = new ServerContext(await location.open());
+  async ({ resources: location, createAiMock, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const context = new ServerContext(await location.openDb());
     let calls = 0;
     const tiers: string[] = [];
     using mock = createAiMock();
@@ -53,8 +47,10 @@ testStable(
       Layer.mergeAll(Notes.layer, Settings.layer, Pages.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
-    const services = () =>
-      Layer.mergeAll(
+    const services = ({ assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>) => {
+      const assert: test.Assert = assertions;
+
+      return Layer.mergeAll(
         domain(),
         Layer.succeed(Database, { store: context }),
         Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
@@ -79,6 +75,7 @@ testStable(
         }),
         workflowEngineLayer(context)
       );
+    };
     const run = <A, E>(
       effect: Effect.Effect<
         A,
@@ -120,12 +117,15 @@ testStable(
         )
       );
       const execute = (
+        { assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>,
         field: 'title' | 'instruction',
         intentKey: string,
         noteId = first.id,
         additionalNoteIds = [second.id]
-      ) =>
-        Effect.runPromise(
+      ) => {
+        const assert: test.Assert = assertions;
+
+        return Effect.runPromise(
           Effect.scoped(
             Effect.gen(function* () {
               return yield* suggestTransformField({
@@ -137,14 +137,19 @@ testStable(
               });
             }).pipe(
               Effect.provide(
-                transformSuggestionRegistration.layer.pipe(Layer.provideMerge(services()))
+                transformSuggestionRegistration.layer.pipe(
+                  Layer.provideMerge(services({ assert, expect }))
+                )
               )
             )
           )
         );
+      };
       const empty = await run(Effect.flatMap(Notes, (c) => c.createNote({ title: 'Empty' })));
 
-      await expect(execute('title', 'empty', empty.id, [])).rejects.toMatchObject({
+      await expect(
+        execute({ assert, expect }, 'title', 'empty', empty.id, [])
+      ).rejects.toMatchObject({
         kind: 'invalid_input'
       });
       const input = (text = 'Mitosis produces two daughter cells.') => ({
@@ -162,7 +167,7 @@ testStable(
 
       mock.next(titleAgent, { input: input(), output: 'Cell Biology' });
       assert.strictEqual(calls, 0);
-      assert.strictEqual(await execute('title', 'title-one'), 'Cell Biology');
+      assert.strictEqual(await execute({ assert, expect }, 'title', 'title-one'), 'Cell Biology');
       assert.strictEqual(
         await Effect.runPromise(
           dispatchPending(context, transformSuggestionRegistration.triggers, Date.now()).pipe(
@@ -171,7 +176,7 @@ testStable(
         ),
         1
       );
-      assert.strictEqual(await execute('title', 'title-one'), 'Cell Biology');
+      assert.strictEqual(await execute({ assert, expect }, 'title', 'title-one'), 'Cell Biology');
       assert.strictEqual(calls, 1);
       assert.deepEqual(tiers, ['tiny']);
       assert.strictEqual(
@@ -181,10 +186,13 @@ testStable(
       const output = 'Explain how cells divide and compare their structures.';
 
       mock.next(titleAgent, { input: input(), output });
-      assert.strictEqual(await execute('instruction', 'instruction-one'), output);
+      assert.strictEqual(
+        await execute({ assert, expect }, 'instruction', 'instruction-one'),
+        output
+      );
       assert.strictEqual(calls, 2);
       const stalePlan = mock.next(titleAgent, { input: input(), output, hold: true });
-      const staleExecution = execute('title', 'stale');
+      const staleExecution = execute({ assert, expect }, 'title', 'stale');
       const staleResult = staleExecution.catch((error: unknown) => error);
 
       await stalePlan.called;
@@ -199,7 +207,9 @@ testStable(
         input: input('The saved material changed.'),
         output: '🌱'.repeat(101)
       });
-      await expect(execute('title', 'too-long')).rejects.toMatchObject({ kind: 'transient' });
+      await expect(execute({ assert, expect }, 'title', 'too-long')).rejects.toMatchObject({
+        kind: 'transient'
+      });
       const owned = context.db.orm.all<{ execution_id: string }>(sql`
         SELECT execution_id FROM workflow_executions WHERE workflow_tag = 'transform-suggestion/v1'
           AND json_extract(payload, '$.event.noteId') = ${String(first.id)}
@@ -227,47 +237,35 @@ testStable(
       }
     } finally {
       context.close();
-      await location.cleanup();
     }
   }
 );
 
-testStable(
+test.stable(
   'live suggestion RPC uses the worker engine and returns sign-in errors without hanging',
-  async () => {
-    const location = await createTestDatabase();
-    const app = await App.open({ path: location.path });
-    const server = await serve(app);
+  async ({ rpc, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-    try {
-      await Effect.runPromise(
-        Effect.scoped(
-          Effect.gen(function* () {
-            const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
-            const note = yield* client['notes.createNote']({ title: 'Biology' });
+    const note = await rpc.runPromise(rpc.client['notes.createNote']({ title: 'Biology' }));
 
-            yield* client['notes.postMessage']({
-              noteId: note.id,
-              text: 'Cells divide.'
-            });
-            const error = yield* Effect.flip(
-              client['notes.suggestTransformField']({
-                noteId: note.id,
-                intentKey: crypto.randomUUID(),
-                field: 'title',
-                language: 'english'
-              })
-            );
+    await rpc.runPromise(
+      rpc.client['notes.postMessage']({
+        noteId: note.id,
+        text: 'Cells divide.'
+      })
+    );
+    const error = await rpc.runPromise(
+      Effect.flip(
+        rpc.client['notes.suggestTransformField']({
+          noteId: note.id,
+          intentKey: crypto.randomUUID(),
+          field: 'title',
+          language: 'english'
+        })
+      )
+    );
 
-            assert.ok('kind' in error);
-            assert.strictEqual(error.kind, 'auth');
-          })
-        )
-      );
-    } finally {
-      await server.close();
-      await app.close();
-      await location.cleanup();
-    }
+    assert.ok('kind' in error);
+    assert.strictEqual(error.kind, 'auth');
   }
 );

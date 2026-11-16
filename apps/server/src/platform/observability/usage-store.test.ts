@@ -1,3 +1,4 @@
+import { agentRunIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies durable usage accounting against a real temporary SQLite database.        │
@@ -9,12 +10,8 @@
  * │ Tests own their SQLite connection and remove only isolated temporary data.               │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { agentRunIdSchema } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -22,10 +19,10 @@ import { transaction, useStore } from '#server/platform/definitions/define-store
 
 import { UsageStore } from './usage-store.ts';
 
-testStable(
+test.stable(
   'usage persists across reopen, deduplicates calls and filters by provider and time',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect }) => {
+    const location = await databases();
     let context = new ServerContext(await location.open());
     const now = context.clock.currentTimeMillisUnsafe();
     const record = {

@@ -1,25 +1,27 @@
 import { workspacePreferencesSchema, defaultWorkspacePreferences } from '@study/contracts';
 import type { WorkspacePreferences } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { beforeEach, expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import {
   useWorkspacePreferences,
   useWorkspacePreferenceControls
 } from './workspace-preferences.queries';
 
-const api = vi.hoisted(() => ({
-  read: vi.fn<() => Promise<WorkspacePreferences>>(),
-  save: vi.fn<(value: WorkspacePreferences) => Promise<WorkspacePreferences>>()
-}));
+function createApi(mock: test.Mock) {
+  return {
+    read: mock.fn<() => Promise<WorkspacePreferences>>(),
+    save: mock.fn<(value: WorkspacePreferences) => Promise<WorkspacePreferences>>()
+  };
+}
 
-beforeEach(() => vi.clearAllMocks());
+let api: ReturnType<typeof createApi>;
 
-function wrapper() {
+test.beforeEach(({ mock }) => {
+  api = createApi(mock);
+});
+
+function wrapper({ rpcTestTransport }: Pick<test.Context, 'rpcTestTransport'>) {
   let saved: WorkspacePreferences | undefined;
 
   return rpcTestTransport(async (tag, input) => {
@@ -38,17 +40,22 @@ function wrapper() {
   }).wrapper;
 }
 
-testStable('uses canonical defaults when preferences cannot be loaded', async () => {
-  api.read.mockRejectedValue(new Error('Disconnected'));
-  const view = renderHook(() => useWorkspacePreferences(), { wrapper: wrapper() });
+test.stable(
+  'uses canonical defaults when preferences cannot be loaded',
+  async ({ renderHook, waitFor, expect, rpcTestTransport }) => {
+    api.read.mockRejectedValue(new Error('Disconnected'));
+    const view = renderHook(() => useWorkspacePreferences(), {
+      wrapper: wrapper({ rpcTestTransport })
+    });
 
-  await waitFor(() => expect(api.read).toHaveBeenCalled());
-  expect(view.result.current).toEqual(defaultWorkspacePreferences);
-});
+    await waitFor(() => expect(api.read).toHaveBeenCalled());
+    expect(view.result.current).toEqual(defaultWorkspacePreferences);
+  }
+);
 
-testStable(
+test.stable(
   'reads fresh preferences before a partial save and preserves another window’s changes',
-  async () => {
+  async ({ renderHook, waitFor, expect, act, rpcTestTransport }) => {
     const fresh = {
       ...defaultWorkspacePreferences,
       readerFontSize: 22,
@@ -61,7 +68,9 @@ testStable(
 
       return value;
     });
-    const view = renderHook(() => useWorkspacePreferenceControls(), { wrapper: wrapper() });
+    const view = renderHook(() => useWorkspacePreferenceControls(), {
+      wrapper: wrapper({ rpcTestTransport })
+    });
 
     await waitFor(() => expect(view.result.current.query.isSuccess).toBe(true));
     await act(async () => {

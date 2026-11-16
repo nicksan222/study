@@ -1,3 +1,4 @@
+import type { MaterialId, ContentSnapshotId } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Drives exact history pruning and source projection through native Workflows.       │
@@ -9,15 +10,13 @@
  * │ Fixtures own SQLite lifetime; production services and native guards own all mutations.   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { MaterialId, ContentSnapshotId } from '@study/contracts';
 import { MaterialsRpc } from '@study/contracts';
 import { eq } from '@study/db';
 import * as s from '@study/db';
+import type { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
 import { WorkflowEngine } from 'effect/workflow';
-import { assert } from 'vite-plus/test';
 
 import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
 import {
@@ -35,7 +34,9 @@ import { testLiveQueries } from '#testing/live-queries';
 import type { MaterialDeletionFixture } from '#testing/material-deletion';
 import { admitTestExecution, refreshTestExecution } from '#testing/workflow-admission';
 
-function historyEvent(f: MaterialDeletionFixture, operationId: string) {
+type TestAssertion = Pick<test.Context, 'assert'>['assert'];
+
+function historyEvent(f: MaterialDeletionFixture, operationId: string, assert: TestAssertion) {
   const event = f.context.db.orm
     .select()
     .from(s.workflowEvents)
@@ -51,8 +52,12 @@ function historyEvent(f: MaterialDeletionFixture, operationId: string) {
   return event;
 }
 
-export function cleanupHistory(f: MaterialDeletionFixture, operationId: string) {
-  const event = historyEvent(f, operationId);
+export function cleanupHistory(
+  f: MaterialDeletionFixture,
+  operationId: string,
+  assert: TestAssertion
+) {
+  const event = historyEvent(f, operationId, assert);
 
   return Effect.runPromise(
     Effect.scoped(
@@ -109,7 +114,11 @@ export function acceptHistory(
   );
 }
 
-export function processSource(f: MaterialDeletionFixture, correction = false) {
+export function processSource(
+  f: MaterialDeletionFixture,
+  assert: TestAssertion,
+  correction = false
+) {
   const row = f.context.db.orm
     .select()
     .from(s.workflowEvents)

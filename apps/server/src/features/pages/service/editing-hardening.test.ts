@@ -1,3 +1,4 @@
+import { createBlock } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Hardens retained autosave assets and exact editing ancestry in migrated SQLite.    │
@@ -11,15 +12,11 @@
  * │ disabled.                                                                                │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { createBlock } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import type { Db } from '@study/db';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
@@ -43,8 +40,10 @@ const meta = {
   omissions: []
 };
 
-async function fixture() {
-  const location = await createTestDatabase();
+type Databases = () => Promise<{ open(): Promise<Db>; cleanup(): Promise<void>; path: string }>;
+
+async function fixture(databases: Databases) {
+  const location = await databases();
   let context = new ServerContext(await location.open());
 
   return {
@@ -66,10 +65,12 @@ async function fixture() {
   };
 }
 
-testStable(
+test.stable(
   'an image exclusive to a losing autosave retains its association and exact snapshot after reopen',
-  async () => {
-    const f = await fixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await fixture(databases);
     const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 
     try {
@@ -175,10 +176,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'authored restoration keeps its exact source revision after replacement without following the mutable source head',
-  async () => {
-    const f = await fixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await fixture(databases);
 
     try {
       await Effect.runPromise(

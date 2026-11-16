@@ -1,3 +1,4 @@
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises managed backup privacy, integrity, native transport and controlled       │
@@ -10,16 +11,13 @@
  * │ All fixtures use isolated SQLite locations and native services without real user data.   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { StudyRpc } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { backupIdSchema, restoreTokenSchema } from '@study/contracts';
 import { Db, eq, sql } from '@study/db';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, FileSystem, Path, Schema } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { Auth } from '#server/features/auth/index';
@@ -45,9 +43,11 @@ const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFile
 
 const path = await Effect.runPromise(Effect.provide(Path.Path, BunPath.layer));
 
-testStable(
+test.stable(
   'native RPC creates, inspects and exports a backup without changing live content',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const f = await backupFixture();
 
     const server = await serve(f.app);
@@ -85,9 +85,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'backup compaction removes private auth markers from all exported bytes; restore requires fresh sign-in',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const f = await backupFixture();
 
     try {
@@ -161,9 +163,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'Materials, Pages, managed BLOBs, collections, notes and annotations roundtrip on startup',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await backupFixture();
 
     try {
@@ -337,9 +341,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'corrupt checksum, unsupported schema, missing original BLOB and malformed canonical Document never touch live data',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const f = await backupFixture();
 
     try {
@@ -402,9 +408,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'acceptance is exact and idempotent; stale target/token and overlapping backup work are rejected',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const f = await backupFixture();
 
     try {
@@ -462,9 +470,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'later deletion barriers block old backup acceptance; fresh-machine import retains existing tombstones',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await backupFixture();
 
     let fresh: Awaited<ReturnType<typeof backupFixture>> | undefined;
@@ -513,9 +523,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'unfinished cleanup rejects backup creation and is preserved for its owning retry',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const f = await backupFixture();
 
     try {
@@ -541,9 +553,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'staged corruption reports activation failure, preserves old target and permits an explicit retry',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const f = await backupFixture();
 
     try {
@@ -586,14 +600,16 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'crash after replacement reconciles to new state before workers start; captured durable intent remains available',
   { timeout: 60000 },
-  async (t) => {
-    const f = await backupFixture(t);
+  async ({ task: _task, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await backupFixture();
 
     try {
-      const source = await inTestPhase(t, 'source-create', () =>
+      const source = await inTestPhase(undefined, 'source-create', () =>
         f.app.nativeRuntime.runPromise(
           Effect.flatMap(Sources, (sources) =>
             sources.createSource({
@@ -616,28 +632,28 @@ testStable(
         sql`INSERT INTO workflow_configuration_waits(execution_id,deferred_name,observed_revision) VALUES('captured','config','old-revision')`
       );
 
-      const api = await inTestPhase(t, 'system-service', () => f.api());
+      const api = await inTestPhase(undefined, 'system-service', () => f.api());
 
-      const backup = await inTestPhase(t, 'backup-create', () =>
+      const backup = await inTestPhase(undefined, 'backup-create', () =>
         f.app.nativeRuntime.runPromise(api.createBackup())
       );
 
       // Live captured work remains owned and unchanged by backup preparation.
       assert.ok(db.select().from(s.workflow_executions).get()!.status === 'suspended');
 
-      const preview = await inTestPhase(t, 'restore-preview', () =>
+      const preview = await inTestPhase(undefined, 'restore-preview', () =>
         f.app.nativeRuntime.runPromise(api.previewRestore({ id: backup.id }))
       );
 
-      await inTestPhase(t, 'restore-accept', () =>
+      await inTestPhase(undefined, 'restore-accept', () =>
         f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)))
       );
-      await inTestPhase(t, 'app-close-before-replacement', () => f.app.close());
+      await inTestPhase(undefined, 'app-close-before-replacement', () => f.app.close());
       // Simulate process loss after atomic rename, before journal settlement.
 
       const old = await Db.openSnapshot(f.location.path);
 
-      await inTestPhase(t, 'previous-snapshot', () =>
+      await inTestPhase(undefined, 'previous-snapshot', () =>
         old.snapshot(f.location.path + '.backups/previous.sqlite')
       );
       console.debug('study-test-phase:replacement-sync:start');
@@ -647,15 +663,15 @@ testStable(
         fs.rename(f.location.path + '.backups/restore.sqlite', f.location.path)
       );
       console.debug('study-test-phase:replacement-sync:complete');
-      await inTestPhase(t, 'reopen-after-replacement', () => f.reopen());
+      await inTestPhase(undefined, 'reopen-after-replacement', () => f.reopen());
 
       const restored = f.app.store.db.orm;
 
       assert.strictEqual(restored.select().from(s.workflow_executions).get()!.status, 'suspended');
       assert.strictEqual(restored.select().from(s.workflow_configuration_waits).all().length, 1);
       assert.strictEqual(restored.select().from(s.workflow_retired_executions).all().length, 0);
-      await inTestPhase(t, 'workers-start', () => f.app.workers.start());
-      await inTestPhase(t, 'workers-stop', () => f.app.workers.stop());
+      await inTestPhase(undefined, 'workers-start', () => f.app.workers.start());
+      await inTestPhase(undefined, 'workers-stop', () => f.app.workers.stop());
       expect(f.requests).toStrictEqual([]);
       assert.ok(
         restored
@@ -670,20 +686,22 @@ testStable(
       );
       assert.ok(
         (
-          await inTestPhase(t, 'restore-status', async () =>
+          await inTestPhase(undefined, 'restore-status', async () =>
             f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())
           )
         ).state === 'applied'
       );
     } finally {
-      await inTestPhase(t, 'test-finally', () => f.close());
+      await inTestPhase(undefined, 'test-finally', () => f.close());
     }
   }
 );
 
-testStable(
+test.stable(
   'artifact deletion is bounded to an opaque managed identity and never removes live or external files',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const f = await backupFixture();
 
     try {
@@ -708,9 +726,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'restored databases receive a durable revision generation before RPC acquisition',
-  async () => {
+  async ({ expect }) => {
     const fixture = await backupFixture();
 
     try {

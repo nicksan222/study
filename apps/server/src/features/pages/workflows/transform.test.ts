@@ -1,3 +1,4 @@
+import { createBlock } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises Page generation with native activities and a controlled provider.        │
@@ -9,12 +10,9 @@
  * │ The local provider peer tests transport contracts rather than factual model accuracy.    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { createBlock } from '@study/contracts';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
@@ -36,10 +34,12 @@ const meta = {
 const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] });
 
-testStable(
+test.stable(
   'native transform consumes immutable excerpts and policy, validates output, replays and fences note deletion',
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const fixture = await pageTransformFixture(databases);
     const bodies = fixture.bodies;
     const domain = fixture.domain;
     const output = {
@@ -228,7 +228,7 @@ testStable(
           assert.ok(reportTargets.length);
           const savedBlocks = saved.document.blocks;
 
-          assertReportTargets(savedBlocks, reportTargets);
+          assertReportTargets({ assert }, savedBlocks, reportTargets);
           assert.ok(saved.creator === 'agent');
           expect(saved.inputs).toStrictEqual([
             { kind: 'page', versionId: setup.original.version!.id },
@@ -293,7 +293,13 @@ testStable(
   }
 );
 
-function assertReportTargets(blocks: readonly { id: string }[], targets: readonly string[]) {
+function assertReportTargets(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  blocks: readonly { id: string }[],
+  targets: readonly string[]
+) {
+  const assert: test.Assert = assertions;
+
   const ids = new Set(blocks.map((block) => block.id));
 
   assert.ok(targets.every((id) => ids.has(id)));

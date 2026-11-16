@@ -1,3 +1,4 @@
+import { projectIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Project and note memberships never own an authored document's lifetime.            │
@@ -10,15 +11,11 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { projectIdSchema } from '@study/contracts';
 import { PagesRpc } from '@study/contracts';
 import { sql } from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { PagesRpcLive } from '#server/features/pages/rpc/index';
@@ -28,10 +25,12 @@ import { deletionDocument } from '#testing/material-deletion';
 import { cleanup } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
-testStable(
+test.stable(
   'native authored project links are idempotent and project/note deletion preserves independent versions',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
       const saved = await Effect.runPromise(
@@ -92,7 +91,7 @@ testStable(
         )
       );
 
-      await cleanup(f, saved.noteId);
+      await cleanup(f, saved.noteId, assert);
       await f.reopen();
       await Effect.runPromise(
         Effect.scoped(

@@ -1,3 +1,4 @@
+import { projectIdSchema, materialIdSchema, noteIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies library identities survive collection and note organization changes.      │
@@ -10,20 +11,15 @@
  * │ Uses migrated temporary databases and public feature services without provider access.   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { projectIdSchema, materialIdSchema, noteIdSchema } from '@study/contracts';
 import { MaterialsRpc } from '@study/contracts';
 import type { MaterialContentInput } from '@study/contracts';
 import { NotesRpc } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { sql } from '@study/db';
 import { workflowEvents } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { NotesRpcLive } from '#server/features/notes/rpc/index';
@@ -57,7 +53,13 @@ const authored = () => ({
   }
 });
 
-function createAuthored(projectId: typeof projectIdSchema.Type, title: string) {
+function createAuthored(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  projectId: typeof projectIdSchema.Type,
+  title: string
+) {
+  const assert: test.Assert = assertions;
+
   return Effect.flatMap(Pages, (docs) =>
     docs.create({
       createKey: crypto.randomUUID(),
@@ -76,10 +78,12 @@ function createAuthored(projectId: typeof projectIdSchema.Type, title: string) {
   );
 }
 
-testStable(
+test.stable(
   'native RPC creates an uncollected material shared by quick notes and preserves it after note deletion',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     let context = new ServerContext(await location.open());
     const handlers = () =>
       Layer.mergeAll(materialRpcHandlers, NotesRpcLive.pipe(Layer.provide(testLiveQueries))).pipe(
@@ -152,10 +156,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'flat collections organize shared materials and notes without owning source bytes or lineage',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     let context = new ServerContext(await location.open());
     const services = () =>
       Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer, Sources.layer, Notes.layer).pipe(
@@ -182,7 +188,7 @@ testStable(
             title: 'Independent learning diagram',
             content
           });
-          const evidence = yield* createAuthored(a.id, 'Exact authored input');
+          const evidence = yield* createAuthored({ assert }, a.id, 'Exact authored input');
           const material = yield* materials.create({
             title: 'Shared',
             content,
@@ -203,14 +209,18 @@ testStable(
           );
           yield* projects.removeMaterial({ projectId: a.id, materialId: material.id });
           expect(
-            (yield* materials.materials({ projectId: a.id, archived: false, limit: 10 })).items.map(
-              (m) => m.id
-            )
+            (yield* materials.materials({
+              projectId: a.id,
+              archived: false,
+              limit: 10
+            })).items.map((m) => m.id)
           ).toStrictEqual([original.id]);
           expect(
-            (yield* materials.materials({ projectId: b.id, archived: false, limit: 10 })).items.map(
-              (m) => m.id
-            )
+            (yield* materials.materials({
+              projectId: b.id,
+              archived: false,
+              limit: 10
+            })).items.map((m) => m.id)
           ).toStrictEqual([material.id]);
           const outboxBefore = context.db.orm.select().from(workflowEvents).all().length;
           const missingProject = Schema.decodeUnknownSync(projectIdSchema)(999n);
@@ -275,10 +285,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'generation scope stays exact across shared membership removal, reopen and last collection deletion',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     let context = new ServerContext(await location.open());
     const services = () =>
       Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer, Notes.layer).pipe(
@@ -295,8 +307,8 @@ testStable(
           const notes = yield* Notes;
           const a = yield* projects.createProject({ name: 'Requested' });
           const b = yield* projects.createProject({ name: 'Other membership' });
-          const input = yield* createAuthored(a.id, 'Captured');
-          const unrelated = yield* createAuthored(a.id, 'Unselected');
+          const input = yield* createAuthored({ assert }, a.id, 'Captured');
+          const unrelated = yield* createAuthored({ assert }, a.id, 'Unselected');
           const note = yield* notes.createNote({ title: 'Selection is not scope' });
 
           yield* docs.attachProject({ projectId: b.id, pageId: input.id });

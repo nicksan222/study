@@ -1,27 +1,31 @@
 import { integrationImportIdSchema } from '@study/contracts';
 import type { integrationImportSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
-import { expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport as settingsTransport } from '#client/test/rpc.tsx';
 
 import { IntegrationsSettings } from './index';
 import { useIntegrations } from './use-integrations';
 
-const api = vi.hoisted(() => ({
-  imports: vi.fn(),
-  providers: vi.fn(),
-  projects: vi.fn(),
-  start: vi.fn(),
-  cancel: vi.fn(),
-  preview: vi.fn()
-}));
+function createApi(mock: test.Mock) {
+  return {
+    imports: mock.fn(),
+    providers: mock.fn(),
+    projects: mock.fn(),
+    start: mock.fn(),
+    cancel: mock.fn(),
+    preview: mock.fn()
+  };
+}
 
-function fixture() {
-  return settingsTransport(async (tag, input) => {
+let api: ReturnType<typeof createApi>;
+
+test.beforeEach(({ mock }) => {
+  api = createApi(mock);
+});
+
+function fixture({ rpcTestTransport }: Pick<test.Context, 'rpcTestTransport'>) {
+  return rpcTestTransport(async (tag, input) => {
     if (tag === 'integrations.imports') return api.imports();
 
     if (tag === 'integrations.providers') return api.providers();
@@ -55,16 +59,16 @@ function previewState(): typeof integrationImportSchema.Type {
   };
 }
 
-testStable(
+test.stable(
   'retains the reviewed import identity and exclusions when a start response is lost',
-  async () => {
+  async ({ renderHook, waitFor, expect, act, rpcTestTransport }) => {
     const state = previewState();
 
     api.imports.mockResolvedValue([state]);
     api.providers.mockResolvedValue([{ id: 'obsidian', capabilities: ['import'] }]);
     api.projects.mockResolvedValue({ items: [], next: null });
     api.start.mockRejectedValue(new Error('Response lost'));
-    const client = fixture();
+    const client = fixture({ rpcTestTransport });
     const { result, unmount } = renderHook(useIntegrations, {
       wrapper: ({ children }: { children: ReactNode }) => (
         <client.wrapper>{children}</client.wrapper>
@@ -93,18 +97,18 @@ testStable(
   }
 );
 
-testStable.each([
+test.stable.for([
   { attempt: 0, resumable: false },
   { attempt: 1, resumable: true }
 ])(
   'only offers resume for a confirmed cancelled import, attempt $attempt',
-  async ({ attempt, resumable }) => {
+  async ({ attempt, resumable }, { render, fireEvent, screen, expect, rpcTestTransport }) => {
     const state = { ...previewState(), status: 'cancelled' as const, attempt };
 
     api.imports.mockResolvedValue([state]);
     api.providers.mockResolvedValue([{ id: 'obsidian', capabilities: ['import'] }]);
     api.projects.mockResolvedValue({ items: [], next: null });
-    const client = fixture();
+    const client = fixture({ rpcTestTransport });
     const view = render(
       <client.wrapper>
         <IntegrationsSettings />

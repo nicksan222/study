@@ -1,3 +1,4 @@
+import { createBlock } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Independent authored source pins keep exact original bytes until explicit source   │
@@ -10,14 +11,10 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { createBlock } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
@@ -26,13 +23,15 @@ import { pageTransformFixture } from '#testing/page-transform';
 import { recordingSource } from '#testing/recording-source';
 
 for (const kind of ['file', 'image', 'recording'] as const)
-  testStable(
+  test.stable(
     `independent ${kind} pins preserve exact exports until final source removal without affecting equal-hash bytes or raw PCM`,
-    async () => {
-      const f = await pageTransformFixture();
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
+      const f = await pageTransformFixture(databases);
 
       try {
-        const recordingId = kind === 'recording' ? await recordingSource(f) : null;
+        const recordingId = kind === 'recording' ? await recordingSource(f, assert) : null;
         const saved = await Effect.runPromise(
           Effect.gen(function* () {
             const sources = yield* Sources;

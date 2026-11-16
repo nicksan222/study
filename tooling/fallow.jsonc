@@ -58,7 +58,16 @@
     "zones": [
       {
         "name": "tests",
-        "patterns": ["**/*.test.*", "**/test/**", "**/tests/**", "packages/testing/**"]
+        // Public fixture facets are test code; Oxlint prohibits production imports.
+        "patterns": [
+          "**/*.test.*",
+          "**/test/**",
+          "**/tests/**",
+          "packages/testing/**",
+          "packages/db/src/testing.ts",
+          "packages/contracts/src/testing.ts",
+          "packages/contracts/src/react-testing.ts"
+        ]
       },
       {
         "name": "contracts",

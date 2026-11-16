@@ -1,3 +1,4 @@
+import { historyPolicySchema, historyVersionIdsSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises bounded history pruning through migrated SQLite and native RPC.          │
@@ -10,15 +11,12 @@
  * │ Public services and native Workflows retain production ownership and publication guards. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { historyPolicySchema, historyVersionIdsSchema } from '@study/contracts';
 import { MaterialsRpc } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { assert, expect } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
@@ -31,26 +29,33 @@ import { cleanup as cleanupNote } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';
 
-testStable('retention policy and explicit candidate scope have positive finite bounds', () => {
-  const policy = Schema.decodeUnknownSync(historyPolicySchema);
+test.stable(
+  'retention policy and explicit candidate scope have positive finite bounds',
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  expect(policy({ keepLatest: 1 })).toStrictEqual({ keepLatest: 1 });
+    const policy = Schema.decodeUnknownSync(historyPolicySchema);
 
-  expect(policy({ keepLatest: 1000 })).toStrictEqual({ keepLatest: 1000 });
+    expect(policy({ keepLatest: 1 })).toStrictEqual({ keepLatest: 1 });
 
-  for (const keepLatest of [0, -1, 1001, 1.5]) assert.throws(() => policy({ keepLatest }));
+    expect(policy({ keepLatest: 1000 })).toStrictEqual({ keepLatest: 1000 });
 
-  const ids = Schema.decodeUnknownSync(historyVersionIdsSchema);
+    for (const keepLatest of [0, -1, 1001, 1.5]) assert.throws(() => policy({ keepLatest }));
 
-  assert.throws(() => ids([1n, 1n]));
+    const ids = Schema.decodeUnknownSync(historyVersionIdsSchema);
 
-  assert.throws(() => ids(Array.from({ length: 101 }, (_, i) => BigInt(i + 1))));
-});
+    assert.throws(() => ids([1n, 1n]));
 
-testStable(
+    assert.throws(() => ids(Array.from({ length: 101 }, (_, i) => BigInt(i + 1))));
+  }
+);
+
+test.stable(
   'native RPC prunes exact learning history while preserving its current version and an independent output',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
       const saved = await Effect.runPromise(
@@ -122,7 +127,7 @@ testStable(
         }).pipe(Effect.provide(f.domain()), Effect.scoped)
       );
 
-      await cleanup(f, saved.input.operationId);
+      await cleanup(f, saved.input.operationId, assert);
 
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -183,10 +188,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'preview invalidates on new content, scope cannot expand, drafts are protected and no-op is explicit',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
       const input = await Effect.runPromise(
@@ -277,7 +284,7 @@ testStable(
         }).pipe(Effect.provide(f.domain()))
       );
 
-      await cleanup(f, input.operationId);
+      await cleanup(f, input.operationId, assert);
 
       assert.ok(
         (
@@ -294,10 +301,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'cleanup failure remains visible, retry advances exactly once and stale settlement cannot complete a newer attempt',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
       const saved = await Effect.runPromise(
@@ -375,7 +384,7 @@ testStable(
 
       await expect(acceptMaterialDeletion(f, saved.root.id)).rejects.toSatisfy(() => true);
 
-      await cleanup(f, saved.accepted.operationId);
+      await cleanup(f, saved.accepted.operationId, assert);
 
       await acceptMaterialDeletion(f, saved.root.id);
     } finally {
@@ -384,10 +393,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'authored exact captures block body retirement until raw note cleanup, while fresh work uses the independent current head',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
       const saved = await Effect.runPromise(
@@ -467,7 +478,7 @@ testStable(
         }).pipe(Effect.provide(f.domain()))
       );
 
-      await cleanupNote(f, saved.noteId);
+      await cleanupNote(f, saved.noteId, assert);
       await f.reopen();
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -531,10 +542,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'history candidate batches are deterministic oldest-first and bounded to one hundred identities',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
       const saved = await Effect.runPromise(
@@ -583,7 +596,7 @@ testStable(
         }).pipe(Effect.provide(f.domain()))
       );
 
-      await cleanup(f, 'bounded-batch');
+      await cleanup(f, 'bounded-batch', assert);
 
       await Effect.runPromise(
         Effect.gen(function* () {

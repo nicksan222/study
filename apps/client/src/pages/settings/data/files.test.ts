@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { downloadBackup, encodeBackupFile, MAX_ARTIFACT_BYTES } from './files';
 
-function artifact(bytes: Uint8Array, size = bytes.length) {
+function artifact({ vi }: Pick<test.Context, 'vi'>, bytes: Uint8Array, size = bytes.length) {
   const file = new File([Uint8Array.from(bytes).buffer], 'fixture.studybackup');
   const arrayBuffer = vi.fn(async () => Uint8Array.from(bytes).buffer);
 
@@ -13,42 +12,45 @@ function artifact(bytes: Uint8Array, size = bytes.length) {
   return { file, arrayBuffer };
 }
 
-beforeEach(() => {
+test.beforeEach(({ vi }) => {
   vi.stubGlobal('URL', { createObjectURL: vi.fn(), revokeObjectURL: vi.fn() });
 });
-afterEach(() => {
+test.afterEach(({ vi }) => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   vi.useRealTimers();
 });
 
-testStable('bounds file size before reading and rejects a different encoding', async () => {
-  const oversized = artifact(new Uint8Array(), MAX_ARTIFACT_BYTES + 1);
+test.stable(
+  'bounds file size before reading and rejects a different encoding',
+  async ({ expect, vi }) => {
+    const oversized = artifact({ vi }, new Uint8Array(), MAX_ARTIFACT_BYTES + 1);
 
-  await expect(encodeBackupFile(oversized.file)).rejects.toThrow();
-  expect(oversized.arrayBuffer).not.toHaveBeenCalled();
-  const empty = artifact(new Uint8Array());
+    await expect(encodeBackupFile(oversized.file)).rejects.toThrow();
+    expect(oversized.arrayBuffer).not.toHaveBeenCalled();
+    const empty = artifact({ vi }, new Uint8Array());
 
-  await expect(encodeBackupFile(empty.file)).rejects.toThrow();
-  expect(empty.arrayBuffer).not.toHaveBeenCalled();
-  const wrongFormat = artifact(new TextEncoder().encode('not a Study artifact'));
+    await expect(encodeBackupFile(empty.file)).rejects.toThrow();
+    expect(empty.arrayBuffer).not.toHaveBeenCalled();
+    const wrongFormat = artifact({ vi }, new TextEncoder().encode('not a Study artifact'));
 
-  await expect(encodeBackupFile(wrongFormat.file)).rejects.toThrow();
-});
+    await expect(encodeBackupFile(wrongFormat.file)).rejects.toThrow();
+  }
+);
 
-testStable(
+test.stable(
   'transports the binary artifact as base64 without converting it to JSON or text',
-  async () => {
+  async ({ expect, vi }) => {
     const bytes = new Uint8Array([...new TextEncoder().encode('STUDYBK1\n'), 0, 255, 128, 3]);
-    const encoded = await encodeBackupFile(artifact(bytes).file);
+    const encoded = await encodeBackupFile(artifact({ vi }, bytes).file);
 
     expect(Uint8Array.from(atob(encoded), (char) => char.charCodeAt(0))).toEqual(bytes);
   }
 );
 
-testStable(
+test.stable(
   'downloads exact binary bytes with an explicit filename and delayed Blob cleanup',
-  async () => {
+  async ({ vi, expect }) => {
     vi.useFakeTimers();
     const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:backup');
     const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
@@ -86,7 +88,7 @@ testStable(
   }
 );
 
-testStable('cleans up even when download dispatch fails', () => {
+test.stable('cleans up even when download dispatch fails', ({ vi, expect }) => {
   vi.useFakeTimers();
   vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:backup');
   const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
@@ -100,28 +102,28 @@ testStable('cleans up even when download dispatch fails', () => {
   expect(document.querySelector('a[download]')).toBeNull();
 });
 
-testStable.each([1, -1])(
+test.stable.for([1, -1])(
   'rejects file byte-count mismatch (%s) after reading',
-  async (difference) => {
+  async (difference, { expect, vi }) => {
     const bytes = new TextEncoder().encode('STUDYBK1\nexample');
-    const value = artifact(bytes, bytes.length + difference);
+    const value = artifact({ vi }, bytes, bytes.length + difference);
 
     await expect(encodeBackupFile(value.file)).rejects.toThrow();
     expect(value.arrayBuffer).toHaveBeenCalledOnce();
   }
 );
 
-testStable(
+test.stable(
   'allows the exact declared size boundary to be read but still validates actual length',
-  async () => {
-    const value = artifact(new TextEncoder().encode('STUDYBK1\n'), MAX_ARTIFACT_BYTES);
+  async ({ expect, vi }) => {
+    const value = artifact({ vi }, new TextEncoder().encode('STUDYBK1\n'), MAX_ARTIFACT_BYTES);
 
     await expect(encodeBackupFile(value.file)).rejects.toThrow();
     expect(value.arrayBuffer).toHaveBeenCalledOnce();
   }
 );
 
-testStable('preserves bytes across base64 conversion chunk boundaries', async () => {
+test.stable('preserves bytes across base64 conversion chunk boundaries', async ({ expect, vi }) => {
   const bytes = new Uint8Array(16403);
 
   bytes.set(new TextEncoder().encode('STUDYBK1\n'));
@@ -129,23 +131,29 @@ testStable('preserves bytes across base64 conversion chunk boundaries', async ()
   bytes[8192] = 128;
   bytes[16384] = 254;
   bytes[16402] = 1;
-  const encoded = await encodeBackupFile(artifact(bytes).file);
+  const encoded = await encodeBackupFile(artifact({ vi }, bytes).file);
 
   expect(Uint8Array.from(atob(encoded), (char) => char.charCodeAt(0))).toEqual(bytes);
 });
 
-testStable('rejects oversized encoded downloads before decoding or allocating a Blob URL', () => {
-  const decode = vi.spyOn(globalThis, 'atob');
+test.stable(
+  'rejects oversized encoded downloads before decoding or allocating a Blob URL',
+  ({ vi, expect }) => {
+    const decode = vi.spyOn(globalThis, 'atob');
 
-  expect(() =>
-    downloadBackup('A'.repeat(Math.ceil(MAX_ARTIFACT_BYTES / 3) * 4 + 4), 'snapshot')
-  ).toThrow();
-  expect(decode).not.toHaveBeenCalled();
-  expect(URL.createObjectURL).not.toHaveBeenCalled();
-});
+    expect(() =>
+      downloadBackup('A'.repeat(Math.ceil(MAX_ARTIFACT_BYTES / 3) * 4 + 4), 'snapshot')
+    ).toThrow();
+    expect(decode).not.toHaveBeenCalled();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  }
+);
 
-testStable('rejects invalid base64 without creating a Blob URL or download anchor', () => {
-  expect(() => downloadBackup('%%%invalid', 'snapshot')).toThrow();
-  expect(URL.createObjectURL).not.toHaveBeenCalled();
-  expect(document.querySelector('a[download]')).toBeNull();
-});
+test.stable(
+  'rejects invalid base64 without creating a Blob URL or download anchor',
+  ({ expect }) => {
+    expect(() => downloadBackup('%%%invalid', 'snapshot')).toThrow();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+    expect(document.querySelector('a[download]')).toBeNull();
+  }
+);

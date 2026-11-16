@@ -1,11 +1,10 @@
-import { testStable } from '@study/testing/vitest';
-import { screen } from '@testing-library/react';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
-import { renderPage } from '#client/test/render-page.tsx';
-
-testStable('leaves the practice workspace empty for selection from the sidebar', async () => {
-  renderPage('/flashcards');
-  expect(await screen.findByRole('main')).toHaveTextContent(/^$/);
-  expect(screen.getByRole('complementary', { name: 'Study navigation' })).toBeInTheDocument();
-});
+test.stable(
+  'leaves the practice workspace empty for selection from the sidebar',
+  async ({ page, expect, screen }) => {
+    await page.open('/flashcards');
+    expect(await screen.findByRole('main')).toHaveTextContent(/^$/);
+    expect(screen.getByRole('complementary', { name: 'Study navigation' })).toBeInTheDocument();
+  }
+);

@@ -4,28 +4,56 @@ import {
   historyPreviewSchema,
   historyPruneSchema
 } from '@study/contracts';
+import type { StudyClient } from '@study/contracts/react/testing';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import type * as ToastModule from '@study/ui';
-import { toastManager } from '@study/ui';
-import { act, render, screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+
+let toastManager: typeof __MockType0.toastManager;
+
+import type * as __MockType0 from '@study/ui';
 import { Effect, Schema } from 'effect';
-import { beforeEach, expect, vi } from 'vite-plus/test';
 
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
-import type { StudyClient } from '#client/test/rpc.tsx';
+import type * as __MockType1 from './identity';
+import type * as __MockType2 from './material-lifecycle';
+import type * as __MockType3 from './test/support';
 
-import { materialId, versionId } from './identity';
-import { MaterialLifecycle } from './material-lifecycle';
-import { locationIs, materialRpc, mountLibraryRoute } from './test/support';
+let materialId: typeof __MockType1.materialId;
 
-vi.mock('@study/ui', async (load) => {
-  const actual = await load<typeof ToastModule>();
+let versionId: typeof __MockType1.versionId;
 
-  return { ...actual, toastManager: { ...actual.toastManager, add: vi.fn() } };
+let MaterialLifecycle: typeof __MockType2.MaterialLifecycle;
+
+let locationIs: typeof __MockType3.locationIs;
+
+let materialRpc: typeof __MockType3.materialRpc;
+
+let mountLibraryRoute: typeof __MockType3.mountLibraryRoute;
+
+test.beforeEach(async ({ mock }) => {
+  mock('@study/ui', async (load) => {
+    const actual = await load<typeof ToastModule>();
+
+    return { ...actual, toastManager: { ...actual.toastManager, add: mock.fn() } };
+  });
+  const __mockModule0 = await import('@study/ui');
+
+  toastManager = __mockModule0.toastManager;
+  const __mockModule1 = await import('./identity');
+
+  materialId = __mockModule1.materialId;
+  versionId = __mockModule1.versionId;
+  const __mockModule2 = await import('./material-lifecycle');
+
+  MaterialLifecycle = __mockModule2.MaterialLifecycle;
+  const __mockModule3 = await import('./test/support');
+
+  locationIs = __mockModule3.locationIs;
+  materialRpc = __mockModule3.materialRpc;
+  mountLibraryRoute = __mockModule3.mountLibraryRoute;
 });
-beforeEach(() => vi.mocked(toastManager.add).mockClear());
+
+test.beforeEach(({ vi }) => vi.mocked(toastManager.add).mockClear());
 
 function prunePreview() {
   return Schema.decodeUnknownSync(historyPreviewSchema)({
@@ -46,10 +74,10 @@ function prunePreview() {
   });
 }
 
-testStable(
+test.stable(
   'recovers failed durable deletion on a fresh reader whose content is already fenced',
-  async () => {
-    const rpc = materialRpc();
+  async ({ userEvent, screen, within, expect, vi, render, rpcHandlersTransport, waitFor }) => {
+    const rpc = materialRpc({ vi });
     const operation = Schema.decodeUnknownSync(materialDeletionSchema)({
       materialId: 41n,
       operationId: 'delete-41',
@@ -72,9 +100,13 @@ testStable(
         return pending;
       })
     );
-    const { router } = mountLibraryRoute('/materials/41', rpc);
+    const { router } = mountLibraryRoute(
+      { render, rpcHandlersTransport, vi },
+      '/materials/41',
+      rpc
+    );
 
-    await locationIs(router, '/materials/41');
+    await locationIs({ waitFor }, router, '/materials/41');
     const user = userEvent.setup();
     const recovery = await screen.findByRole('region', { name: catalogs.english.PageDelete });
 
@@ -97,9 +129,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'replays a lost prune acceptance after remount, retains its receipt, and starts a fresh next batch',
-  async () => {
+  async ({ vi, rpcHandlersTransport, userEvent, screen, within, expect, act, render }) => {
     const preview = prunePreview();
     const rpc = {
       'materials.previewHistoryPrune': vi
@@ -128,13 +160,13 @@ testStable(
     );
 
     const harness = rpcHandlersTransport(rpc);
-    const mount = () =>
+    const mount = ({ render }: Pick<test.Context, 'render'>) =>
       render(
         <harness.wrapper>
           <MaterialLifecycle id={materialId('41')} />
         </harness.wrapper>
       );
-    const view = mount();
+    const view = mount({ render });
     const user = userEvent.setup();
 
     await user.click(screen.getByRole('button', { name: catalogs.english.PagePrune }));
@@ -216,9 +248,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'keeps a failed prune receipt in review and never announces it as queued or successful',
-  async () => {
+  async ({ vi, rpcHandlersTransport, render, userEvent, screen, within, expect }) => {
     const preview = prunePreview();
     const failed = Schema.decodeUnknownSync(historyPruneSchema)({
       operationId: 'failed-prune',

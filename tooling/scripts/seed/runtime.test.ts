@@ -1,21 +1,19 @@
 import { StudyRpc } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
 import { makeStudyClient } from '@study/server/client';
-import { App, serve } from '@study/server/runtime';
-import { testStable } from '@study/testing/vitest';
+import { serve } from '@study/server/runtime';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { seedDatabase } from './seed.ts';
 
-testStable(
+test.stable(
   'seeded coursework opens through the real application RPC without workers or external requests',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, resources, expect }) => {
+    const location = await databases();
 
     await seedDatabase(location.path);
 
-    const app = await App.open({
+    const app = await resources.openApp({
       path: location.path,
       fetch: async () => {
         throw new Error('Seeding must stay offline');
@@ -81,8 +79,6 @@ testStable(
       );
     } finally {
       await server.close();
-      await app.close();
-      await location.cleanup();
     }
   }
 );

@@ -1,3 +1,4 @@
+import { StudyError } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises image authorization and cancellation through real transform Activities.  │
@@ -9,16 +10,13 @@
  * │ A controlled transport supplies output; native services and migrated SQLite own state.   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyError } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import type { Block } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Deferred, Effect, Exit, Fiber } from 'effect';
 import { Activity, WorkflowEngine } from 'effect/workflow';
-import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
@@ -60,7 +58,9 @@ const notes = [
   { kind: 'limit' as const, explanation: 'Captured evidence only', blockOrdinals: [0] }
 ];
 
-function capture(blocks: Block[]) {
+function capture({ assert: assertions }: Pick<test.Context, 'assert'>, blocks: Block[]) {
+  const assert: test.Assert = assertions;
+
   return Effect.gen(function* () {
     const materials = yield* Pages;
     const chats = yield* Notes;
@@ -101,10 +101,12 @@ function capture(blocks: Block[]) {
   });
 }
 
-testStable(
+test.stable(
   'actual provider JSON images persist as canonical bigint assets and survive reopen/replay',
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const fixture = await pageTransformFixture(databases);
 
     try {
       const setup = await Effect.runPromise(
@@ -121,7 +123,11 @@ testStable(
             alt: 'alpha image'
           });
 
-          return { ...(yield* capture([paragraph('alpha selected'), block])), image, block };
+          return {
+            ...(yield* capture({ assert }, [paragraph('alpha selected'), block])),
+            image,
+            block
+          };
         }).pipe(Effect.provide(fixture.domain()))
       );
       const event = fixture.authoredEvent(setup.request.id);
@@ -203,12 +209,14 @@ testStable(
 );
 
 for (const mode of ['fake-id', 'fake-revision', 'alt-range'] as const) {
-  testStable(
+  test.stable(
     mode === 'alt-range'
       ? 'stored alt-text range still captures the whole document image'
       : `provider JSON ${mode} cannot publish unauthorized images`,
-    async () => {
-      const fixture = await pageTransformFixture();
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
+      const fixture = await pageTransformFixture(databases);
 
       try {
         const setup = await Effect.runPromise(
@@ -224,7 +232,7 @@ for (const mode of ['fake-id', 'fake-revision', 'alt-range'] as const) {
               revision: 1,
               alt: 'alpha image'
             });
-            const initial = yield* capture([block]);
+            const initial = yield* capture({ assert }, [block]);
             const chats = yield* Notes;
 
             if (mode !== 'alt-range') return { ...initial, image };
@@ -341,15 +349,17 @@ for (const mode of ['fake-id', 'fake-revision', 'alt-range'] as const) {
   );
 }
 
-testStable(
+test.stable(
   'transient provider retry keeps the exact original capture after current input and selection change',
   { timeout: 15000 },
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const fixture = await pageTransformFixture(databases);
 
     try {
       const setup = await Effect.runPromise(
-        capture([paragraph('alpha captured')]).pipe(Effect.provide(fixture.domain()))
+        capture({ assert }, [paragraph('alpha captured')]).pipe(Effect.provide(fixture.domain()))
       );
 
       fixture.beforeResponse(() =>
@@ -469,15 +479,17 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'native cancellation before provider response fences publication and never resumes or retries',
   { timeout: 15000 },
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const fixture = await pageTransformFixture(databases);
 
     try {
       const setup = await Effect.runPromise(
-        capture([paragraph('alpha selected')]).pipe(Effect.provide(fixture.domain()))
+        capture({ assert }, [paragraph('alpha selected')]).pipe(Effect.provide(fixture.domain()))
       );
       const event = fixture.authoredEvent(setup.request.id);
 
@@ -571,15 +583,17 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'committed publication wins actual native pending and unsafe cancellation before terminal checkpoint',
   { timeout: 15000 },
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases, assert: assertions, pollUntil }) => {
+    const assert: test.Assert = assertions;
+
+    const fixture = await pageTransformFixture(databases);
 
     try {
       const setup = await Effect.runPromise(
-        capture([paragraph('alpha selected')]).pipe(Effect.provide(fixture.domain()))
+        capture({ assert }, [paragraph('alpha selected')]).pipe(Effect.provide(fixture.domain()))
       );
       const event = fixture.authoredEvent(setup.request.id);
 
@@ -636,10 +650,17 @@ testStable(
             yield* Deferred.succeed(finish, undefined);
             yield* Fiber.join(cancellation);
 
-            while (
-              workflowStore(fixture.context).execution('publication-wins')?.status !== 'cancelled'
-            )
-              yield* Effect.sleep('10 millis');
+            yield* pollUntil(
+              Effect.sync(
+                () => workflowStore(fixture.context).execution('publication-wins')?.status
+              ),
+              (status) => status === 'cancelled',
+              {
+                attempts: 500,
+                interval: '10 millis',
+                message: 'Publication-wins execution did not become cancelled'
+              }
+            );
 
             assert.ok(
               workflowStore(fixture.context).execution('publication-wins')?.status === 'cancelled'
@@ -671,17 +692,19 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'provider markers preserve distinct whole-block evidence after note deletion',
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const fixture = await pageTransformFixture(databases);
 
     try {
       const setup = await Effect.runPromise(
         Effect.gen(function* () {
           const block = paragraph('😀 echo :: echo');
           const duplicate = paragraph('echo');
-          const initial = yield* capture([block, duplicate]);
+          const initial = yield* capture({ assert }, [block, duplicate]);
           const input = initial.snapshot.inputs[0]!;
           const chats = yield* Notes;
           const range = {
@@ -765,68 +788,38 @@ testStable(
   }
 );
 
-testStable('provider report ordinals cannot reference an unavailable output block', async () => {
-  const fixture = await pageTransformFixture();
+test.stable(
+  'provider report ordinals cannot reference an unavailable output block',
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    const setup = await Effect.runPromise(
-      capture([paragraph('alpha selected')]).pipe(Effect.provide(fixture.domain()))
-    );
-
-    fixture.replies.push(
-      { kind: 'sources', query: 'alpha' },
-      {
-        kind: 'output',
-        output: {
-          blocks: [providerParagraph('alpha [1]')],
-          notes: [
-            {
-              kind: 'correction_proposal',
-              explanation: 'Proposed change [1]',
-              blockOrdinals: [99]
-            }
-          ]
-        }
-      }
-    );
-    await expect(
-      fixture.executeAuthored(fixture.authoredEvent(setup.request.id), 'bad-report-reference')
-    ).rejects.toSatisfy(() => true);
-    assert.strictEqual(fixture.bodies.length, 2);
-    assert.strictEqual(fixture.context.db.orm.select().from(s.pages).all().length, 1);
-    assert.ok(
-      fixture.context.db.orm
-        .select()
-        .from(s.page_transform_requests)
-        .where(eq(s.page_transform_requests.id, setup.request.id))
-        .get()?.result_version_id === null
-    );
-  } finally {
-    await fixture.close();
-  }
-});
-
-for (const barrier of ['cancel', 'note-delete'] as const) {
-  testStable(`native ${barrier} preflight prevents provider dispatch`, async () => {
-    const fixture = await pageTransformFixture();
+    const fixture = await pageTransformFixture(databases);
 
     try {
       const setup = await Effect.runPromise(
-        capture([paragraph('alpha selected')]).pipe(Effect.provide(fixture.domain()))
+        capture({ assert }, [paragraph('alpha selected')]).pipe(Effect.provide(fixture.domain()))
       );
-      const event = fixture.authoredEvent(setup.request.id);
 
-      await Effect.runPromise(
-        Effect.gen(function* () {
-          if (barrier === 'cancel')
-            yield* (yield* Pages).cancelTransform({ requestId: setup.request.id });
-          else yield* (yield* Notes).deleteNote(setup.note.id);
-        }).pipe(Effect.provide(fixture.domain()))
+      fixture.replies.push(
+        { kind: 'sources', query: 'alpha' },
+        {
+          kind: 'output',
+          output: {
+            blocks: [providerParagraph('alpha [1]')],
+            notes: [
+              {
+                kind: 'correction_proposal',
+                explanation: 'Proposed change [1]',
+                blockOrdinals: [99]
+              }
+            ]
+          }
+        }
       );
-      await expect(fixture.executeAuthored(event, `preflight-${barrier}`)).rejects.toSatisfy(
-        () => true
-      );
-      assert.strictEqual(fixture.bodies.length, 0);
+      await expect(
+        fixture.executeAuthored(fixture.authoredEvent(setup.request.id), 'bad-report-reference')
+      ).rejects.toSatisfy(() => true);
+      assert.strictEqual(fixture.bodies.length, 2);
       assert.strictEqual(fixture.context.db.orm.select().from(s.pages).all().length, 1);
       assert.ok(
         fixture.context.db.orm
@@ -838,7 +831,47 @@ for (const barrier of ['cancel', 'note-delete'] as const) {
     } finally {
       await fixture.close();
     }
-  });
+  }
+);
+
+for (const barrier of ['cancel', 'note-delete'] as const) {
+  test.stable(
+    `native ${barrier} preflight prevents provider dispatch`,
+    async ({ databases, expect, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+
+      const fixture = await pageTransformFixture(databases);
+
+      try {
+        const setup = await Effect.runPromise(
+          capture({ assert }, [paragraph('alpha selected')]).pipe(Effect.provide(fixture.domain()))
+        );
+        const event = fixture.authoredEvent(setup.request.id);
+
+        await Effect.runPromise(
+          Effect.gen(function* () {
+            if (barrier === 'cancel')
+              yield* (yield* Pages).cancelTransform({ requestId: setup.request.id });
+            else yield* (yield* Notes).deleteNote(setup.note.id);
+          }).pipe(Effect.provide(fixture.domain()))
+        );
+        await expect(fixture.executeAuthored(event, `preflight-${barrier}`)).rejects.toSatisfy(
+          () => true
+        );
+        assert.strictEqual(fixture.bodies.length, 0);
+        assert.strictEqual(fixture.context.db.orm.select().from(s.pages).all().length, 1);
+        assert.ok(
+          fixture.context.db.orm
+            .select()
+            .from(s.page_transform_requests)
+            .where(eq(s.page_transform_requests.id, setup.request.id))
+            .get()?.result_version_id === null
+        );
+      } finally {
+        await fixture.close();
+      }
+    }
+  );
 }
 
 /** Hold the real handler after publication while the native checkpoint is still pending. */
@@ -853,14 +886,18 @@ function holdAfterPublication(published: Deferred.Deferred<void>, finish: Deferr
 }
 
 for (const size of [90_000]) {
-  testStable(
+  test.stable(
     `oversized captured Page input (${size}) fails with typed admission error before dispatch`,
-    async () => {
-      const fixture = await pageTransformFixture();
+    async ({ databases, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+
+      const fixture = await pageTransformFixture(databases);
 
       try {
         const setup = await Effect.runPromise(
-          capture([paragraph('\u0000'.repeat(size))]).pipe(Effect.provide(fixture.domain()))
+          capture({ assert }, [paragraph('\u0000'.repeat(size))]).pipe(
+            Effect.provide(fixture.domain())
+          )
         );
         const event = fixture.authoredEvent(setup.request.id);
         const executionId = `oversized-${size}`;

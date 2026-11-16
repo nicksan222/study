@@ -1,3 +1,4 @@
+import { PagesRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises authored Page reader behavior through real persistence boundaries.       │
@@ -10,17 +11,13 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { PagesRpc } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { SourcesRpc } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import type { Db } from '@study/db';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Pages } from '#server/features/pages/index';
 import { PagesRpcLive } from '#server/features/pages/rpc/index';
@@ -45,8 +42,10 @@ const body = (blocks: ReturnType<typeof createBlock>[]) => ({
   }
 });
 
-async function fixture() {
-  const location = await createTestDatabase();
+type Databases = () => Promise<{ open(): Promise<Db>; cleanup(): Promise<void>; path: string }>;
+
+async function fixture(databases: Databases) {
+  const location = await databases();
   let context = new ServerContext(await location.open());
 
   return {
@@ -72,10 +71,12 @@ async function fixture() {
   };
 }
 
-testStable(
+test.stable(
   'exact authored readers and source-owned image revisions retain independent identities across reopen',
-  async () => {
-    const f = await fixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await fixture(databases);
 
     try {
       const saved = await Effect.runPromise(
@@ -176,10 +177,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'authored history retirement removes its exact reader body while an independent version retains image bytes',
-  async () => {
-    const f = await fixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await fixture(databases);
 
     try {
       const saved = await Effect.runPromise(

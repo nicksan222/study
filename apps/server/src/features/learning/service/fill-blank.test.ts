@@ -1,3 +1,4 @@
+import { defaultQuizSettings } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies fill-in-the-blank practice persistence and durable grading behavior.      │
@@ -10,14 +11,10 @@
  * │ Uses feature services and real database records without model execution.                 │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { defaultQuizSettings } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
@@ -28,10 +25,12 @@ import { decodeEvent } from '#server/platform/workflows/events';
 
 import { Learning } from './index.ts';
 
-testStable(
+test.stable(
   'blank practice persists, hides answers, filters kinds and settles a grade after completion',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const domain = Learning.layer.pipe(
       Layer.provideMerge(Settings.layer),

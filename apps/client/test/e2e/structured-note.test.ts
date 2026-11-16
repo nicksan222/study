@@ -1,7 +1,6 @@
 import { catalogs } from '@study/localization';
+import { test } from '@study/testing';
 import type { Locator } from 'playwright';
-
-import { expect, testE2e } from './harness/index.ts';
 
 const copy = catalogs.english;
 
@@ -28,9 +27,9 @@ const original = [
   '## Conclusion\nEND-OF-LECTURE: retain every observation and its original order.'
 ].join('\n\n');
 
-testE2e(
+test.stable(
   'Structured lecture notes preserve edits and readable layout',
-  async ({ page, expectScreenshot }) => {
+  async ({ page, expectScreenshot, expect }) => {
     await page.goto('/notes');
     expect(page.viewportSize()).toEqual({ width: 2560, height: 1440 });
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
@@ -45,7 +44,7 @@ testE2e(
     const scrollHost = page.locator('[data-notebook-scroll-host]');
 
     // Plain notes have one text node: geometry tracks its position; captures show the visible lines.
-    const fullyVisible = async (target: Locator) => {
+    const fullyVisible = async ({ expect }: Pick<test.Context, 'expect'>, target: Locator) => {
       await expect(target).toBeInViewport({ ratio: 1 });
       await expect
         .poll(async () => {
@@ -66,7 +65,7 @@ testE2e(
 
     await expect(body).toHaveText(original);
     await label.scrollIntoViewIfNeeded();
-    await fullyVisible(label);
+    await fullyVisible({ expect }, label);
     await expect(body).toHaveCSS('overflow-wrap', 'anywhere');
     await expect
       .poll(async () => {
@@ -86,7 +85,7 @@ testE2e(
 
     await expect.poll(async () => (await body.boundingBox())!.y).toBeLessThan(top!.y);
     await expect(label).not.toBeInViewport();
-    await fullyVisible(composer);
+    await fullyVisible({ expect }, composer);
     await composer.focus();
     await expectScreenshot('wide-content', {
       target: 'viewport',
@@ -104,8 +103,8 @@ testE2e(
         return !!text && !!floating && text.y + text.height <= floating.y;
       })
       .toBe(true);
-    await fullyVisible(composer);
-    await fullyVisible(page.getByRole('button', { name: copy.NoteSaveNote }));
+    await fullyVisible({ expect }, composer);
+    await fullyVisible({ expect }, page.getByRole('button', { name: copy.NoteSaveNote }));
     await composer.focus();
     await expectScreenshot('code-bottom', {
       target: 'viewport',
@@ -122,7 +121,7 @@ testE2e(
       const edit = page.getByRole('button', { name: copy.NoteEditNote });
 
       await edit.scrollIntoViewIfNeeded();
-      await fullyVisible(edit);
+      await fullyVisible({ expect }, edit);
       await edit.click();
       const dialog = page.getByRole('dialog', { name: copy.NoteEditNote });
       const editor = dialog.getByRole('textbox', { name: copy.NoteEditNote });
@@ -151,11 +150,11 @@ testE2e(
       }
 
       await expect(editor.locator(':scope:focus-visible')).toHaveCount(1);
-      await fullyVisible(dialog);
-      await fullyVisible(editor);
+      await fullyVisible({ expect }, dialog);
+      await fullyVisible({ expect }, editor);
       await editor.press('Tab');
       await expect(save).toBeFocused();
-      await fullyVisible(save);
+      await fullyVisible({ expect }, save);
       await expect(save.locator(':scope:focus-visible')).toHaveCount(1);
       await save.press('Enter');
       await expect(dialog).toBeHidden();
@@ -194,8 +193,8 @@ testE2e(
 
     await expect(editor).toHaveJSProperty('selectionStart', content.indexOf('record(25,'));
     await expect(editor).toBeFocused();
-    await fullyVisible(editor);
-    await fullyVisible(dialog.getByRole('button', { name: copy.NoteSaveNote }));
+    await fullyVisible({ expect }, editor);
+    await fullyVisible({ expect }, dialog.getByRole('button', { name: copy.NoteSaveNote }));
     await expectScreenshot('edited-reopened', {
       target: dialog,
       ready: () => expect(editor).toHaveValue(content)

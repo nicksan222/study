@@ -1,3 +1,4 @@
+import { PagesRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises native note transformation requests and atomic derivative                │
@@ -10,17 +11,13 @@
  * │ Tests use migrated SQLite and native publication ownership without remote providers.     │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { PagesRpc } from '@study/contracts';
 import type { transformPublicationSchema } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
@@ -47,10 +44,12 @@ const meta = {
 const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] });
 
-testStable(
+test.stable(
   'quick-note RPC captures exact note pages and publishes one independent derivative atomically',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const domain = Layer.mergeAll(Pages.layer, Notes.layer, Settings.layer, Projects.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -313,10 +312,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'cancelled and deleted note captures reject retries and late publication without saved output',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const domain = Layer.mergeAll(Pages.layer, Notes.layer, Settings.layer, Projects.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))

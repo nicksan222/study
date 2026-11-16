@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises reply and rewrite retirement through public requests and fresh restore.  │
@@ -10,13 +11,9 @@
  * │ Real temporary SQLite and HTTP RPC; no model request or direct feature-state mutation.   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { Notes } from '#server/features/notes/index';
@@ -25,9 +22,11 @@ import { acceptance, backupFixture } from '#testing/managed-backups';
 import { admitTestExecution } from '#testing/workflow-admission';
 
 for (const operation of ['answer', 'rewrite', 'ask'] as const)
-  testStable(
+  test.stable(
     `restored pending ${operation} preserves its pending shell, history and admitted intent`,
-    async () => {
+    async ({ assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
       const source = await backupFixture();
 
       let target: Awaited<ReturnType<typeof backupFixture>> | undefined;
@@ -157,179 +156,189 @@ for (const operation of ['answer', 'rewrite', 'ask'] as const)
     }
   );
 
-testStable('an unused retained capture preserves its authority after restore', async () => {
-  const source = await backupFixture();
+test.stable(
+  'an unused retained capture preserves its authority after restore',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  let target: Awaited<ReturnType<typeof backupFixture>> | undefined;
+    const source = await backupFixture();
 
-  try {
-    const c = await source.app.nativeRuntime.runPromise(Notes);
+    let target: Awaited<ReturnType<typeof backupFixture>> | undefined;
 
-    const note = await source.app.nativeRuntime.runPromise(c.createUntitledNote({}));
+    try {
+      const c = await source.app.nativeRuntime.runPromise(Notes);
 
-    await source.app.nativeRuntime.runPromise(
-      c.postMessage({ noteId: note.id, text: 'Retained capture' })
-    );
+      const note = await source.app.nativeRuntime.runPromise(c.createUntitledNote({}));
 
-    const capture = await source.app.nativeRuntime.runPromise(
-      c.captureNoteContext({
-        noteId: note.id,
-        intentKey: 'unused',
-        instruction: '',
-        preferences: {}
-      })
-    );
+      await source.app.nativeRuntime.runPromise(
+        c.postMessage({ noteId: note.id, text: 'Retained capture' })
+      );
+
+      const capture = await source.app.nativeRuntime.runPromise(
+        c.captureNoteContext({
+          noteId: note.id,
+          intentKey: 'unused',
+          instruction: '',
+          preferences: {}
+        })
+      );
+
+      const { exportSnapshot, restoreSnapshot } = await import('#testing/managed-backups');
+
+      const bytes = await exportSnapshot(source.app.store.db);
+
+      await source.suspend();
+      target = await restoreSnapshot(bytes);
+
+      const restored = await target.app.nativeRuntime.runPromise(Notes);
+
+      expect(
+        await target.app.nativeRuntime.runPromise(
+          restored.inspectNoteContext({ requestId: capture.requestId })
+        )
+      ).toStrictEqual(capture);
+
+      const request = await target.app.nativeRuntime.runPromise(
+        restored.requestPageTransform({
+          contextRequestId: capture.requestId,
+          title: 'Resume',
+          operations: ['clarity']
+        })
+      );
+
+      assert.strictEqual(request.cancelled, false);
+      assert.strictEqual(
+        target.app.store.db.orm.select().from(s.material_generation_requests).all().length,
+        0
+      );
+    } finally {
+      await target?.close();
+      await source.close();
+    }
+  }
+);
+
+test.stable(
+  'a completed native answer and pending rewrite both survive restore',
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const { pageTransformFixture } = await import('#testing/page-transform');
 
     const { exportSnapshot, restoreSnapshot } = await import('#testing/managed-backups');
 
-    const bytes = await exportSnapshot(source.app.store.db);
+    const { noteReplyWorkflow, noteReplyHandler } =
+      await import('#server/features/notes/workflows/index');
 
-    await source.suspend();
-    target = await restoreSnapshot(bytes);
+    const { decodeEvent } = await import('#server/platform/workflows/events');
 
-    const restored = await target.app.nativeRuntime.runPromise(Notes);
+    const { WorkflowEngine } = await import('effect/workflow');
 
-    expect(
-      await target.app.nativeRuntime.runPromise(
-        restored.inspectNoteContext({ requestId: capture.requestId })
-      )
-    ).toStrictEqual(capture);
+    const source = await pageTransformFixture(databases);
 
-    const request = await target.app.nativeRuntime.runPromise(
-      restored.requestPageTransform({
-        contextRequestId: capture.requestId,
-        title: 'Resume',
-        operations: ['clarity']
-      })
-    );
+    let target: Awaited<ReturnType<typeof restoreSnapshot>> | undefined;
 
-    assert.strictEqual(request.cancelled, false);
-    assert.strictEqual(
-      target.app.store.db.orm.select().from(s.material_generation_requests).all().length,
-      0
-    );
-  } finally {
-    await target?.close();
-    await source.close();
-  }
-});
+    try {
+      const requested = await Effect.runPromise(
+        Effect.gen(function* () {
+          const c = yield* Notes;
 
-testStable('a completed native answer and pending rewrite both survive restore', async () => {
-  const { pageTransformFixture } = await import('#testing/page-transform');
+          const note = yield* c.createUntitledNote({});
 
-  const { exportSnapshot, restoreSnapshot } = await import('#testing/managed-backups');
+          const request = yield* c.ask({
+            noteId: note.id,
+            text: 'A completed native answer',
+            expectedSelectionRevision: 0n,
+            intentKey: 'completed-answer'
+          });
 
-  const { noteReplyWorkflow, noteReplyHandler } =
-    await import('#server/features/notes/workflows/index');
-
-  const { decodeEvent } = await import('#server/platform/workflows/events');
-
-  const { WorkflowEngine } = await import('effect/workflow');
-
-  const source = await pageTransformFixture();
-
-  let target: Awaited<ReturnType<typeof restoreSnapshot>> | undefined;
-
-  try {
-    const requested = await Effect.runPromise(
-      Effect.gen(function* () {
-        const c = yield* Notes;
-
-        const note = yield* c.createUntitledNote({});
-
-        const request = yield* c.ask({
-          noteId: note.id,
-          text: 'A completed native answer',
-          expectedSelectionRevision: 0n,
-          intentKey: 'completed-answer'
-        });
-
-        return { note, request };
-      }).pipe(Effect.provide(source.domain()))
-    );
-
-    const event = source.context.db.orm
-      .select()
-      .from(s.workflowEvents)
-      .all()
-      .map((row) => decodeEvent(row.payload))
-      .find(
-        (event) =>
-          event.type === 'NoteGenerationRequested' &&
-          event.requestId === requested.request.requestId
+          return { note, request };
+        }).pipe(Effect.provide(source.domain()))
       );
 
-    assert.ok(event?.type === 'NoteGenerationRequested');
-
-    source.replies.push({ kind: 'output', output: 'Exact native answer' });
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const engine = yield* WorkflowEngine.WorkflowEngine;
-
-          admitTestExecution(source.context, noteReplyWorkflow, 'completed-answer', { event });
-          yield* engine.register(noteReplyWorkflow, noteReplyHandler);
-          yield* engine.execute(noteReplyWorkflow, {
-            executionId: 'completed-answer',
-            payload: { event }
-          });
-        }).pipe(Effect.provide(source.services()))
-      )
-    );
-
-    const before = await Effect.runPromise(
-      Effect.flatMap(Notes, (c) => c.message(requested.request.messageId)).pipe(
-        Effect.provide(source.domain())
-      )
-    );
-
-    const snapshot = await Effect.runPromise(
-      Effect.flatMap(Notes, (c) =>
-        c.inspectReplySnapshot({ requestId: requested.request.requestId })
-      ).pipe(Effect.provide(source.domain()))
-    );
-
-    const rewrite = await Effect.runPromise(
-      Effect.flatMap(Notes, (c) =>
-        c.rewriteMessage({ messageId: requested.request.messageId, origin: 'improve' })
-      ).pipe(Effect.provide(source.domain()))
-    );
-
-    const bytes = await exportSnapshot(source.context.db);
-
-    await source.close();
-    target = await restoreSnapshot(bytes);
-
-    const app = target.app;
-
-    const c = await app.nativeRuntime.runPromise(Notes);
-
-    expect(
-      await app.nativeRuntime.runPromise(c.message(requested.request.messageId))
-    ).toMatchObject({
-      activeVersionId: rewrite.versionId,
-      versions: expect.arrayContaining(before.versions)
-    });
-    expect(
-      await app.nativeRuntime.runPromise(
-        c.inspectReplySnapshot({ requestId: requested.request.requestId })
-      )
-    ).toStrictEqual(snapshot);
-    assert.ok(
-      app.store.db.orm
+      const event = source.context.db.orm
         .select()
-        .from(s.message_versions)
+        .from(s.workflowEvents)
         .all()
-        .some((version) => version.id === rewrite.versionId)
-    );
-    expect(
-      await app.nativeRuntime.runPromise(c.message(requested.request.messageId))
-    ).toMatchObject({
-      activeVersionId: rewrite.versionId,
-      versions: expect.arrayContaining(before.versions)
-    });
-  } finally {
-    await target?.close();
-    await source.close();
+        .map((row) => decodeEvent(row.payload))
+        .find(
+          (event) =>
+            event.type === 'NoteGenerationRequested' &&
+            event.requestId === requested.request.requestId
+        );
+
+      assert.ok(event?.type === 'NoteGenerationRequested');
+
+      source.replies.push({ kind: 'output', output: 'Exact native answer' });
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const engine = yield* WorkflowEngine.WorkflowEngine;
+
+            admitTestExecution(source.context, noteReplyWorkflow, 'completed-answer', { event });
+            yield* engine.register(noteReplyWorkflow, noteReplyHandler);
+            yield* engine.execute(noteReplyWorkflow, {
+              executionId: 'completed-answer',
+              payload: { event }
+            });
+          }).pipe(Effect.provide(source.services()))
+        )
+      );
+
+      const before = await Effect.runPromise(
+        Effect.flatMap(Notes, (c) => c.message(requested.request.messageId)).pipe(
+          Effect.provide(source.domain())
+        )
+      );
+
+      const snapshot = await Effect.runPromise(
+        Effect.flatMap(Notes, (c) =>
+          c.inspectReplySnapshot({ requestId: requested.request.requestId })
+        ).pipe(Effect.provide(source.domain()))
+      );
+
+      const rewrite = await Effect.runPromise(
+        Effect.flatMap(Notes, (c) =>
+          c.rewriteMessage({ messageId: requested.request.messageId, origin: 'improve' })
+        ).pipe(Effect.provide(source.domain()))
+      );
+
+      const bytes = await exportSnapshot(source.context.db);
+
+      await source.close();
+      target = await restoreSnapshot(bytes);
+
+      const app = target.app;
+
+      const c = await app.nativeRuntime.runPromise(Notes);
+
+      expect(
+        await app.nativeRuntime.runPromise(c.message(requested.request.messageId))
+      ).toMatchObject({
+        activeVersionId: rewrite.versionId,
+        versions: expect.arrayContaining(before.versions)
+      });
+      expect(
+        await app.nativeRuntime.runPromise(
+          c.inspectReplySnapshot({ requestId: requested.request.requestId })
+        )
+      ).toStrictEqual(snapshot);
+      assert.ok(
+        app.store.db.orm
+          .select()
+          .from(s.message_versions)
+          .all()
+          .some((version) => version.id === rewrite.versionId)
+      );
+      expect(
+        await app.nativeRuntime.runPromise(c.message(requested.request.messageId))
+      ).toMatchObject({
+        activeVersionId: rewrite.versionId,
+        versions: expect.arrayContaining(before.versions)
+      });
+    } finally {
+      await target?.close();
+      await source.close();
+    }
   }
-});
+);

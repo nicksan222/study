@@ -1,3 +1,4 @@
+import { PagesRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises guarded Page editing through native RPC and SQLite.                      │
@@ -9,17 +10,13 @@
  * │ Uses real native handlers and SQLite; no remote provider is contacted.                   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { PagesRpc } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { sql, eq } from '@study/db';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import type { Context } from 'effect';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { assert, expect } from 'vite-plus/test';
 
 import { Pages } from '#server/features/pages/index';
 import { PagesRpcLive } from '#server/features/pages/rpc/index';
@@ -43,10 +40,12 @@ const meta = {
   omissions: []
 };
 
-testStable(
+test.stable(
   'native saves race on one expected revision, retain both rich alternatives and replay after reopen',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
 
     let context = new ServerContext(await location.open());
 
@@ -265,8 +264,8 @@ testStable(
   }
 );
 
-testStable('retires only one selected authored note version', async () => {
-  const location = await createTestDatabase();
+test.stable('retires only one selected authored note version', async ({ databases, expect }) => {
+  const location = await databases();
   const context = new ServerContext(await location.open());
   const layer = Pages.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 

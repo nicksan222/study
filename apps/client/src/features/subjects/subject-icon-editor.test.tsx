@@ -1,18 +1,32 @@
 import { projectSchema, automaticProjectIcon } from '@study/contracts';
 import type { ProjectIcon } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { afterEach, expect, vi } from 'vite-plus/test';
 
-import { rpcTestTransport } from '#client/test/rpc.tsx';
+import type * as __MockType0 from './subject-icon-editor';
 
-import { SubjectIconEditor } from './subject-icon-editor';
+let SubjectIconEditor: typeof __MockType0.SubjectIconEditor;
 
-const save = vi.hoisted(() => vi.fn());
+let save: ReturnType<typeof createMockState>['save'];
 
-vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-afterEach(() => save.mockReset());
+function createMockState(mock: test.Mock) {
+  return {
+    save: (() => mock.fn())()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  save = __mockState.save;
+
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  const __mockModule0 = await import('./subject-icon-editor');
+
+  SubjectIconEditor = __mockModule0.SubjectIconEditor;
+});
+
+test.afterEach(() => save.mockReset());
 
 const project = Schema.decodeUnknownSync(projectSchema)({
   id: 91n,
@@ -23,7 +37,10 @@ const project = Schema.decodeUnknownSync(projectSchema)({
   updatedAt: 1n
 });
 
-function mount(icon: ProjectIcon = automaticProjectIcon) {
+function mount(
+  { rpcTestTransport, render }: Pick<test.Context, 'rpcTestTransport' | 'render'>,
+  icon: ProjectIcon = automaticProjectIcon
+) {
   const transport = rpcTestTransport(async (tag, input) => {
     if (tag !== 'projects.setIcon') throw new Error(`Unexpected ${tag}`);
 
@@ -35,11 +52,11 @@ function mount(icon: ProjectIcon = automaticProjectIcon) {
   });
 }
 
-testStable(
+test.stable(
   'saves a valid custom monogram with exact subject identity, closing the reviewed dialog',
-  async () => {
+  async ({ fireEvent, screen, expect, waitFor, rpcTestTransport, render }) => {
     save.mockImplementation(async (input) => ({ ...project, icon: input.icon }));
-    mount();
+    mount({ rpcTestTransport, render });
 
     fireEvent.click(screen.getByRole('button', { name: 'SubjectIconChange' }));
     expect(screen.getByText('CB')).toBeVisible();
@@ -60,36 +77,42 @@ testStable(
   }
 );
 
-testStable('restores automatic mode without storing the derived initials', async () => {
-  save.mockResolvedValue(project);
-  mount({ kind: 'monogram', value: 'BIO', color: 'neutral' });
-  fireEvent.click(screen.getByRole('button', { name: 'SubjectIconChange' }));
-  fireEvent.click(screen.getByRole('button', { name: 'SubjectIconAutomatic' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-  await waitFor(() =>
-    expect(save).toHaveBeenCalledExactlyOnceWith({ id: project.id, icon: automaticProjectIcon })
-  );
-});
+test.stable(
+  'restores automatic mode without storing the derived initials',
+  async ({ fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
+    save.mockResolvedValue(project);
+    mount({ rpcTestTransport, render }, { kind: 'monogram', value: 'BIO', color: 'neutral' });
+    fireEvent.click(screen.getByRole('button', { name: 'SubjectIconChange' }));
+    fireEvent.click(screen.getByRole('button', { name: 'SubjectIconAutomatic' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledExactlyOnceWith({ id: project.id, icon: automaticProjectIcon })
+    );
+  }
+);
 
-testStable('retains custom letters on save failure and allows explicit retry', async () => {
-  save.mockRejectedValue(new Error('offline'));
-  mount();
-  fireEvent.click(screen.getByRole('button', { name: 'SubjectIconChange' }));
-  fireEvent.click(screen.getByRole('button', { name: 'SubjectIconCustom' }));
-  fireEvent.change(screen.getByRole('textbox', { name: 'SubjectIconLetters' }), {
-    target: { value: 'BIO' }
-  });
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-  expect(await screen.findByText('SubjectIconSaveFailed')).toBeVisible();
-  expect(screen.getByRole('textbox', { name: 'SubjectIconLetters' })).toHaveValue('BIO');
-  expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
-});
+test.stable(
+  'retains custom letters on save failure and allows explicit retry',
+  async ({ fireEvent, screen, expect, rpcTestTransport, render }) => {
+    save.mockRejectedValue(new Error('offline'));
+    mount({ rpcTestTransport, render });
+    fireEvent.click(screen.getByRole('button', { name: 'SubjectIconChange' }));
+    fireEvent.click(screen.getByRole('button', { name: 'SubjectIconCustom' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'SubjectIconLetters' }), {
+      target: { value: 'BIO' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('SubjectIconSaveFailed')).toBeVisible();
+    expect(screen.getByRole('textbox', { name: 'SubjectIconLetters' })).toHaveValue('BIO');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+  }
+);
 
-testStable(
+test.stable(
   'saves a searched symbol with its selected color and survives reopening the editor',
-  async () => {
+  async ({ fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     save.mockImplementation(async (input) => ({ ...project, icon: input.icon }));
-    const view = mount();
+    const view = mount({ rpcTestTransport, render });
 
     fireEvent.click(screen.getByRole('button', { name: 'SubjectIconChange' }));
     fireEvent.click(screen.getByRole('button', { name: 'SubjectIconSymbols' }));
@@ -103,7 +126,7 @@ testStable(
 
     await waitFor(() => expect(save).toHaveBeenCalledExactlyOnceWith({ id: project.id, icon }));
     view.rerender(<SubjectIconEditor project={{ ...project, icon }} />);
-    fireEvent.click(screen.getByRole('button', { name: 'SubjectIconChange' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'SubjectIconChange' }));
     expect(screen.getByRole('radio', { name: 'SubjectSymbolAtom' })).toHaveAttribute(
       'aria-checked',
       'true'
@@ -115,35 +138,41 @@ testStable(
   }
 );
 
-testStable('saves a selected emoji as a typed icon rather than a monogram', async () => {
-  save.mockImplementation(async (input) => ({ ...project, icon: input.icon }));
-  mount();
-  fireEvent.click(screen.getByRole('button', { name: 'SubjectIconChange' }));
-  fireEvent.click(screen.getByRole('button', { name: 'SubjectIconEmojis' }));
-  fireEvent.click(screen.getByRole('radio', { name: 'SubjectIconEmojiLabel 📚' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-  await waitFor(() =>
-    expect(save).toHaveBeenCalledExactlyOnceWith({
-      id: project.id,
-      icon: { kind: 'emoji', value: '📚', color: 'neutral' }
-    })
-  );
-});
+test.stable(
+  'saves a selected emoji as a typed icon rather than a monogram',
+  async ({ fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
+    save.mockImplementation(async (input) => ({ ...project, icon: input.icon }));
+    mount({ rpcTestTransport, render });
+    fireEvent.click(screen.getByRole('button', { name: 'SubjectIconChange' }));
+    fireEvent.click(screen.getByRole('button', { name: 'SubjectIconEmojis' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'SubjectIconEmojiLabel 📚' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledExactlyOnceWith({
+        id: project.id,
+        icon: { kind: 'emoji', value: '📚', color: 'neutral' }
+      })
+    );
+  }
+);
 
-testStable('retains unsaved icon choices across repeated mode clicks and switching modes', () => {
-  mount();
-  fireEvent.click(screen.getByRole('button', { name: 'SubjectIconChange' }));
-  fireEvent.click(screen.getByRole('button', { name: 'SubjectIconSymbols' }));
-  fireEvent.click(screen.getByRole('radio', { name: 'SubjectSymbolAtom' }));
-  fireEvent.click(screen.getByRole('button', { name: 'SubjectIconSymbols' }));
-  expect(screen.getByRole('radio', { name: 'SubjectSymbolAtom' })).toHaveAttribute(
-    'aria-checked',
-    'true'
-  );
-  fireEvent.click(screen.getByRole('button', { name: 'SubjectIconEmojis' }));
-  fireEvent.click(screen.getByRole('button', { name: 'SubjectIconSymbols' }));
-  expect(screen.getByRole('radio', { name: 'SubjectSymbolAtom' })).toHaveAttribute(
-    'aria-checked',
-    'true'
-  );
-});
+test.stable(
+  'retains unsaved icon choices across repeated mode clicks and switching modes',
+  ({ fireEvent, screen, expect, rpcTestTransport, render }) => {
+    mount({ rpcTestTransport, render });
+    fireEvent.click(screen.getByRole('button', { name: 'SubjectIconChange' }));
+    fireEvent.click(screen.getByRole('button', { name: 'SubjectIconSymbols' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'SubjectSymbolAtom' }));
+    fireEvent.click(screen.getByRole('button', { name: 'SubjectIconSymbols' }));
+    expect(screen.getByRole('radio', { name: 'SubjectSymbolAtom' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'SubjectIconEmojis' }));
+    fireEvent.click(screen.getByRole('button', { name: 'SubjectIconSymbols' }));
+    expect(screen.getByRole('radio', { name: 'SubjectSymbolAtom' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+  }
+);

@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks durable configuration fingerprints change when same-account credentials are │
@@ -15,11 +16,7 @@
  * │ cleanup closes owned resources.                                                          │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { Auth } from '#server/features/auth/index';
 import { AuthStore } from '#server/features/auth/store/index';
@@ -29,13 +26,13 @@ import { encodeAccount } from '#server/platform/ai/auth/index';
 import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
-import { App } from '#server/runtime/index';
 
-testStable(
+test.stable(
   'same-account credential replacement changes the durable nonsecret fingerprint',
-  async () => {
-    const location = await createTestDatabase();
-    let app = await App.open({ path: location.path });
+  async ({ resources: location, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    let app = await location.openApp({ path: location.path });
     let savedRevision = '';
 
     try {
@@ -68,7 +65,7 @@ testStable(
         })
       );
       await app.close();
-      app = await App.open({ path: location.path });
+      app = await location.openApp({ path: location.path });
       assert.strictEqual(
         await app.nativeRuntime.runPromise(
           Effect.flatMap(WorkflowConfiguration, (configuration) => configuration.revision)
@@ -77,16 +74,17 @@ testStable(
       );
     } finally {
       await app.close();
-      await location.cleanup();
+      await location.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'shared agent instructions resolve the current application language per operation',
-  async () => {
-    const location = await createTestDatabase();
-    const app = await App.open({ path: location.path });
+  async ({ resources: location, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const app = await location.openApp({ path: location.path });
 
     try {
       await app.nativeRuntime.runPromise(
@@ -105,7 +103,7 @@ testStable(
       );
     } finally {
       await app.close();
-      await location.cleanup();
+      await location.close();
     }
   }
 );

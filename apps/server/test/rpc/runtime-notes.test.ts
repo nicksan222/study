@@ -1,3 +1,4 @@
+import { materialSearchInputSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Requests reply and title generation over native RPC while signed out and verifies  │
@@ -13,291 +14,233 @@
  * │ resources; fixture cleanup closes owned resources.                                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
-import { materialSearchInputSchema } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
-import { makeStudyClient } from '#server/client/index';
-import { App, serve } from '#server/runtime/index';
-import { pollUntil } from '#testing/poll';
-
-testStable(
+test.stable(
   'a reply requested over RPC reaches the durable sign-in wait',
   { timeout: 10000 },
-  async () => {
-    const location = await createTestDatabase();
-    const app = await App.open({ path: location.path });
-    const server = await serve(app);
+  async ({ rpc, pollUntil, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-    await app.workers.start();
+    await rpc.app.workers.start();
+    await rpc.runPromise(
+      Effect.gen(function* () {
+        const client = rpc.client;
+        const project = yield* client['projects.createProject']({ name: 'Note' });
+        const note = yield* client['notes.createNote']({
+          project: project.id,
+          title: 'Chat'
+        });
 
-    try {
-      await Effect.runPromise(
-        Effect.scoped(
-          Effect.gen(function* () {
-            const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
-            const project = yield* client['projects.createProject']({ name: 'Note' });
-            const note = yield* client['notes.createNote']({
-              project: project.id,
-              title: 'Chat'
-            });
+        yield* client['notes.postMessage']({
+          noteId: note.id,
+          text: 'Explain ATP'
+        });
+        const request = yield* client['notes.requestReply']({ noteId: note.id });
 
-            yield* client['notes.postMessage']({
-              noteId: note.id,
-              text: 'Explain ATP'
-            });
-            const request = yield* client['notes.requestReply']({ noteId: note.id });
-
-            yield* pollUntil(
-              Effect.sync(() => {
-                const rows = app.store.db.orm.all(
-                  sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id=w.execution_id WHERE e.workflow_tag='conversation-reply/v1'`
-                );
-
-                return rows.length === 1;
-              }),
-              (value) => value,
-              {
-                attempts: 100,
-                interval: '50 millis',
-                message: 'reply must wait durably for account setup'
-              }
-            );
-            const untitled = yield* client['notes.createUntitledNote']({
-              project: project.id
-            });
-
-            yield* client['notes.postMessage']({
-              noteId: untitled.id,
-              text: 'Study photosynthesis'
-            });
-            yield* client['notes.requestTitle']({ noteId: untitled.id });
-            yield* pollUntil(
-              Effect.sync(
-                () =>
-                  app.store.db.orm.all(
-                    sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id=w.execution_id WHERE e.workflow_tag='conversation-title/v1'`
-                  ).length === 1
-              ),
-              (value) => value,
-              {
-                attempts: 100,
-                interval: '50 millis',
-                message: 'title request must enter durable configuration wait'
-              }
+        yield* pollUntil(
+          Effect.sync(() => {
+            const rows = rpc.app.store.db.orm.all(
+              sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id=w.execution_id WHERE e.workflow_tag='conversation-reply/v1'`
             );
 
-            const message = yield* client['notes.message']({ id: request.messageId });
-
-            assert.ok(
-              message.versions.find((version) => version.id === request.versionId)?.status ===
-                'pending'
-            );
-            assert.strictEqual(
-              (yield* client['notes.thread']({ noteId: note.id, limit: 10 })).items.length,
-              2
-            );
-          })
-        )
-      );
-    } finally {
-      await server.close();
-      await app.close();
-      await location.cleanup();
-    }
-  }
-);
-
-testStable(
-  'atomic Ask returns its note and exact request over native HTTP RPC after process reopen',
-  async () => {
-    const location = await createTestDatabase();
-    let app = await App.open({ path: location.path });
-    let server = await serve(app);
-
-    try {
-      const saved = await Effect.runPromise(
-        Effect.scoped(
-          Effect.gen(function* () {
-            const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
-            const note = yield* client['notes.createNote']({ title: 'Atomic Ask' });
-            const input = {
-              noteId: note.id,
-              intentKey: 'native-ask',
-              expectedSelectionRevision: 0n,
-              text: 'Exact note'
-            };
-            const result = yield* client['notes.ask'](input);
-
-            assert.strictEqual(
-              (yield* client['notes.message']({ id: result.userMessageId })).activeVersionId,
-              result.userVersionId
-            );
-            expect(yield* client['notes.ask'](input)).toStrictEqual(result);
-
-            return { input, result };
-          })
-        )
-      );
-
-      await server.close();
-      await app.close();
-      app = await App.open({ path: location.path });
-      server = await serve(app);
-      await Effect.runPromise(
-        Effect.scoped(
-          Effect.gen(function* () {
-            const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
-
-            expect(yield* client['notes.ask'](saved.input)).toStrictEqual(saved.result);
-            expect(
-              yield* client['notes.replyVersion']({
-                noteId: saved.input.noteId,
-                messageId: saved.result.messageId,
-                versionId: saved.result.versionId
-              })
-            ).toStrictEqual({ state: 'available', requestId: saved.result.requestId });
-            assert.strictEqual(
-              (yield* client['notes.thread']({
-                noteId: saved.input.noteId,
-                limit: 10
-              })).items.length,
-              2
-            );
-          })
-        )
-      );
-    } finally {
-      await server.close();
-      await app.close();
-      await location.cleanup();
-    }
-  }
-);
-
-testStable(
-  'native Material search binds bounded canonical targets without mixing catalog kinds',
-  async () => {
-    const location = await createTestDatabase();
-    const app = await App.open({ path: location.path });
-    const server = await serve(app);
-
-    try {
-      await Effect.runPromise(
-        Effect.scoped(
-          Effect.gen(function* () {
-            const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
-            const project = yield* client['projects.createProject']({ name: 'NativeSearchToken' });
-            const material = yield* client['materials.create']({
-              title: 'NativeSearchToken',
-              content: { kind: 'flashcards', cards: [{ front: 'Question', back: 'Answer' }] },
-              publish: true
-            });
-            const found = yield* client['system.materialSearch'](
-              Schema.decodeUnknownSync(materialSearchInputSchema)({
-                query: '  NativeSearchToken  ',
-                limit: 1
-              })
-            );
-
-            assert.strictEqual(found.hits.length, 1);
-            assert.ok(found.hits[0]?.kind === 'material');
-            expect(found.hits[0]?.target).toStrictEqual({
-              type: 'material',
-              materialId: material.id,
-              versionId: material.version.id,
-              materialKind: 'flashcards'
-            });
-            expect(
-              yield* client['system.materialSearch']({
-                query: 'NativeSearchToken',
-                limit: 1,
-                project: project.id
-              })
-            ).toStrictEqual({ hits: [] });
-          })
-        )
-      );
-    } finally {
-      await server.close();
-      await app.close();
-      await location.cleanup();
-    }
-  }
-);
-
-testStable('plain note edits survive closing and reopening native HTTP RPC', async () => {
-  const location = await createTestDatabase();
-  let app = await App.open({ path: location.path });
-  let server = await serve(app);
-  const text =
-    'River garden field notebook\n\nFirst observation corrected.\n\nMiddle observation corrected.\n\nLast observation corrected.';
-
-  try {
-    const saved = await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
-          const note = yield* client['notes.createNote']({ title: 'River garden field notebook' });
-          let message = yield* client['notes.postMessage']({
-            noteId: note.id,
-            text: 'Original observation',
-            requestReply: false
-          });
-
-          for (const content of [
-            'First observation corrected.',
-            'First observation corrected.\n\nMiddle observation corrected.',
-            text
-          ]) {
-            message = yield* client['notes.editMessage']({
-              messageId: message.id,
-              expectedActiveVersionId: message.activeVersionId ?? undefined,
-              text: content
-            });
+            return rows.length === 1;
+          }),
+          (value) => value,
+          {
+            attempts: 100,
+            interval: '50 millis',
+            message: 'reply must wait durably for account setup'
           }
+        );
+        const untitled = yield* client['notes.createUntitledNote']({
+          project: project.id
+        });
 
-          return { note, message };
-        })
-      )
+        yield* client['notes.postMessage']({
+          noteId: untitled.id,
+          text: 'Study photosynthesis'
+        });
+        yield* client['notes.requestTitle']({ noteId: untitled.id });
+        yield* pollUntil(
+          Effect.sync(
+            () =>
+              rpc.app.store.db.orm.all(
+                sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id=w.execution_id WHERE e.workflow_tag='conversation-title/v1'`
+              ).length === 1
+          ),
+          (value) => value,
+          {
+            attempts: 100,
+            interval: '50 millis',
+            message: 'title request must enter durable configuration wait'
+          }
+        );
+
+        const message = yield* client['notes.message']({ id: request.messageId });
+
+        assert.ok(
+          message.versions.find((version) => version.id === request.versionId)?.status === 'pending'
+        );
+        assert.strictEqual(
+          (yield* client['notes.thread']({ noteId: note.id, limit: 10 })).items.length,
+          2
+        );
+      })
     );
-
-    await server.close();
-    await app.close();
-    app = await App.open({ path: location.path });
-    server = await serve(app);
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
-          const thread = yield* client['notes.thread']({ noteId: saved.note.id, limit: 100 });
-
-          assert.strictEqual(thread.items.length, 1);
-          const message = thread.items[0]!;
-
-          assert.strictEqual(message.id, saved.message.id);
-          assert.strictEqual(message.role, 'user');
-          assert.strictEqual(message.activeVersionId, saved.message.activeVersionId);
-          assert.strictEqual(
-            message.versions.find((version) => version.id === message.activeVersionId)?.text,
-            text
-          );
-          const notes = yield* client['notes.notes']({ limit: 100 });
-
-          assert.strictEqual(notes.items.length, 1);
-          assert.strictEqual(notes.items[0]?.id, saved.note.id);
-        })
-      )
-    );
-  } finally {
-    await server.close();
-    await app.close();
-    await location.cleanup();
   }
-});
+);
+
+test.stable(
+  'atomic Ask returns its note and exact request over native HTTP RPC after process reopen',
+  async ({ rpc, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const saved = await rpc.runPromise(
+      Effect.gen(function* () {
+        const client = rpc.client;
+        const note = yield* client['notes.createNote']({ title: 'Atomic Ask' });
+        const input = {
+          noteId: note.id,
+          intentKey: 'native-ask',
+          expectedSelectionRevision: 0n,
+          text: 'Exact note'
+        };
+        const result = yield* client['notes.ask'](input);
+
+        assert.strictEqual(
+          (yield* client['notes.message']({ id: result.userMessageId })).activeVersionId,
+          result.userVersionId
+        );
+        expect(yield* client['notes.ask'](input)).toStrictEqual(result);
+
+        return { input, result };
+      })
+    );
+
+    await rpc.reopen();
+    await rpc.runPromise(
+      Effect.gen(function* () {
+        const client = rpc.client;
+
+        expect(yield* client['notes.ask'](saved.input)).toStrictEqual(saved.result);
+        expect(
+          yield* client['notes.replyVersion']({
+            noteId: saved.input.noteId,
+            messageId: saved.result.messageId,
+            versionId: saved.result.versionId
+          })
+        ).toStrictEqual({ state: 'available', requestId: saved.result.requestId });
+        assert.strictEqual(
+          (yield* client['notes.thread']({
+            noteId: saved.input.noteId,
+            limit: 10
+          })).items.length,
+          2
+        );
+      })
+    );
+  }
+);
+
+test.stable(
+  'native Material search binds bounded canonical targets without mixing catalog kinds',
+  async ({ rpc, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    await rpc.runPromise(
+      Effect.gen(function* () {
+        const client = rpc.client;
+        const project = yield* client['projects.createProject']({ name: 'NativeSearchToken' });
+        const material = yield* client['materials.create']({
+          title: 'NativeSearchToken',
+          content: { kind: 'flashcards', cards: [{ front: 'Question', back: 'Answer' }] },
+          publish: true
+        });
+        const found = yield* client['system.materialSearch'](
+          Schema.decodeUnknownSync(materialSearchInputSchema)({
+            query: '  NativeSearchToken  ',
+            limit: 1
+          })
+        );
+
+        assert.strictEqual(found.hits.length, 1);
+        assert.ok(found.hits[0]?.kind === 'material');
+        expect(found.hits[0]?.target).toStrictEqual({
+          type: 'material',
+          materialId: material.id,
+          versionId: material.version.id,
+          materialKind: 'flashcards'
+        });
+        expect(
+          yield* client['system.materialSearch']({
+            query: 'NativeSearchToken',
+            limit: 1,
+            project: project.id
+          })
+        ).toStrictEqual({ hits: [] });
+      })
+    );
+  }
+);
+
+test.stable(
+  'plain note edits survive closing and reopening native HTTP RPC',
+  async ({ rpc, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const text =
+      'River garden field notebook\n\nFirst observation corrected.\n\nMiddle observation corrected.\n\nLast observation corrected.';
+
+    const saved = await rpc.runPromise(
+      Effect.gen(function* () {
+        const client = rpc.client;
+        const note = yield* client['notes.createNote']({ title: 'River garden field notebook' });
+        let message = yield* client['notes.postMessage']({
+          noteId: note.id,
+          text: 'Original observation',
+          requestReply: false
+        });
+
+        for (const content of [
+          'First observation corrected.',
+          'First observation corrected.\n\nMiddle observation corrected.',
+          text
+        ]) {
+          message = yield* client['notes.editMessage']({
+            messageId: message.id,
+            expectedActiveVersionId: message.activeVersionId ?? undefined,
+            text: content
+          });
+        }
+
+        return { note, message };
+      })
+    );
+
+    await rpc.reopen();
+    await rpc.runPromise(
+      Effect.gen(function* () {
+        const client = rpc.client;
+        const thread = yield* client['notes.thread']({ noteId: saved.note.id, limit: 100 });
+
+        assert.strictEqual(thread.items.length, 1);
+        const message = thread.items[0]!;
+
+        assert.strictEqual(message.id, saved.message.id);
+        assert.strictEqual(message.role, 'user');
+        assert.strictEqual(message.activeVersionId, saved.message.activeVersionId);
+        assert.strictEqual(
+          message.versions.find((version) => version.id === message.activeVersionId)?.text,
+          text
+        );
+        const notes = yield* client['notes.notes']({ limit: 100 });
+
+        assert.strictEqual(notes.items.length, 1);
+        assert.strictEqual(notes.items[0]?.id, saved.note.id);
+      })
+    );
+  }
+);

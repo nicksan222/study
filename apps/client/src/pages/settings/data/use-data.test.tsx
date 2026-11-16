@@ -1,49 +1,67 @@
 import { RegistryContext } from '@effect/atom-react';
 import { backupIdSchema, restoreTokenSchema } from '@study/contracts';
 import type { BackupManifest, RestorePreview, restoreStatusSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 import type { ReactNode } from 'react';
-import { beforeEach, expect, vi } from 'vite-plus/test';
+
+import type * as __StudyMockType0 from '#client/pages/settings/data/files.ts';
+import type * as __StudyMockType1 from '#client/pages/settings/data/use-data.ts';
 
 import type * as MockModule0 from './files';
-import { downloadBackup } from './files';
-import { dataOwner, useDataSettings } from './use-data';
 
-vi.mock('./files', async (load) => ({
-  ...(await load<typeof MockModule0>()),
-  downloadBackup: vi.fn()
-}));
+function createRpc(mock: test.Mock) {
+  return {
+    list: mock.fn(),
+    status: mock.fn(),
+    create: mock.fn(),
+    import: mock.fn(),
+    delete: mock.fn(),
+    preview: mock.fn(),
+    accept: mock.fn(),
+    discard: mock.fn(),
+    read: mock.fn()
+  };
+}
 
-const rpc = vi.hoisted(() => ({
-  list: vi.fn(),
-  status: vi.fn(),
-  create: vi.fn(),
-  import: vi.fn(),
-  delete: vi.fn(),
-  preview: vi.fn(),
-  accept: vi.fn(),
-  discard: vi.fn(),
-  read: vi.fn()
-}));
+let rpc: ReturnType<typeof createRpc>;
 
-vi.mock('@study/contracts/react', () => ({
-  rpc: {
-    system: {
-      listBackups: { read: rpc.list },
-      restoreStatus: { read: rpc.status },
-      createBackup: { call: rpc.create },
-      importBackup: { call: rpc.import },
-      deleteBackup: { call: rpc.delete },
-      previewRestore: { call: rpc.preview },
-      acceptRestore: { call: rpc.accept },
-      discardRestoreRecovery: { call: rpc.discard },
-      readBackup: { read: rpc.read }
+let downloadBackup: typeof __StudyMockType0.downloadBackup;
+
+let dataOwner: typeof __StudyMockType1.dataOwner;
+
+let useDataSettings: typeof __StudyMockType1.useDataSettings;
+
+test.beforeEach(async ({ mock }) => {
+  rpc = createRpc(mock);
+  mock('#client/pages/settings/data/files.ts', async (load) => ({
+    ...(await load<typeof MockModule0>()),
+    downloadBackup: mock.fn()
+  }));
+  mock('@study/contracts/react', () => ({
+    rpc: {
+      system: {
+        listBackups: { read: rpc.list },
+        restoreStatus: { read: rpc.status },
+        createBackup: { call: rpc.create },
+        importBackup: { call: rpc.import },
+        deleteBackup: { call: rpc.delete },
+        previewRestore: { call: rpc.preview },
+        acceptRestore: { call: rpc.accept },
+        discardRestoreRecovery: { call: rpc.discard },
+        readBackup: { read: rpc.read }
+      }
     }
-  }
-}));
+  }));
+  const __studyMockModule0 = await import('./files');
+
+  downloadBackup = __studyMockModule0.downloadBackup;
+  const __studyMockModule1 = await import('./use-data');
+
+  dataOwner = __studyMockModule1.dataOwner;
+  useDataSettings = __studyMockModule1.useDataSettings;
+});
 
 const id = Schema.decodeUnknownSync(backupIdSchema)('11111111-1111-4111-8111-111111111111');
 
@@ -102,7 +120,7 @@ function client() {
   return AtomRegistry.make();
 }
 
-beforeEach(() => {
+test.beforeEach(({ vi }) => {
   Object.values(rpc).forEach((mock) => mock.mockReset());
   vi.mocked(downloadBackup).mockReset();
   rpc.list.mockResolvedValue([backup]);
@@ -111,9 +129,9 @@ beforeEach(() => {
   rpc.preview.mockResolvedValue(preview);
 });
 
-testStable(
+test.stable(
   'exposes read failure separately, and reconciles canonical discovery on reopen',
-  async () => {
+  async ({ expect }) => {
     const owner = dataOwner(client());
 
     rpc.list.mockRejectedValueOnce(new Error('offline'));
@@ -129,43 +147,46 @@ testStable(
   }
 );
 
-testStable('synchronously excludes duplicate actions across section remounts', async () => {
-  const shared = client();
-  let finish!: (value: BackupManifest) => void;
+test.stable(
+  'synchronously excludes duplicate actions across section remounts',
+  async ({ renderHook, waitFor, expect, act }) => {
+    const shared = client();
+    let finish!: (value: BackupManifest) => void;
 
-  rpc.create.mockImplementation(
-    () =>
-      new Promise((resolve) => {
-        finish = resolve;
-      })
-  );
-  const wrapper = ({ children }: { children: ReactNode }) => (
-    <RegistryContext.Provider value={shared}>{children}</RegistryContext.Provider>
-  );
-  const first = renderHook(useDataSettings, { wrapper });
+    rpc.create.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        })
+    );
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <RegistryContext.Provider value={shared}>{children}</RegistryContext.Provider>
+    );
+    const first = renderHook(useDataSettings, { wrapper });
 
-  await waitFor(() => expect(first.result.current.state.loaded).toBe(true));
-  act(() => {
-    void first.result.current.owner.create();
-    void first.result.current.owner.create();
-  });
-  first.unmount();
-  const second = renderHook(useDataSettings, { wrapper });
+    await waitFor(() => expect(first.result.current.state.loaded).toBe(true));
+    act(() => {
+      void first.result.current.owner.create();
+      void first.result.current.owner.create();
+    });
+    first.unmount();
+    const second = renderHook(useDataSettings, { wrapper });
 
-  expect(second.result.current.state.busy).toBe(true);
-  act(() => {
-    void second.result.current.owner.create();
-  });
-  await waitFor(() => expect(rpc.create).toHaveBeenCalledTimes(1));
-  await act(async () => {
-    finish(backup);
-  });
-  await waitFor(() => expect(second.result.current.state.receipt).toEqual(backup));
-});
+    expect(second.result.current.state.busy).toBe(true);
+    act(() => {
+      void second.result.current.owner.create();
+    });
+    await waitFor(() => expect(rpc.create).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      finish(backup);
+    });
+    await waitFor(() => expect(second.result.current.state.receipt).toEqual(backup));
+  }
+);
 
-testStable(
+test.stable(
   'retains ambiguous submitted identity, does not retry, and requires explicit reviewed reconciliation',
-  async () => {
+  async ({ expect }) => {
     const owner = dataOwner(client());
 
     await owner.refresh();
@@ -180,9 +201,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'retains a known receipt if subsequent discovery fails without calling it uncertain',
-  async () => {
+  async ({ expect }) => {
     const owner = dataOwner(client());
 
     await owner.refresh();
@@ -194,9 +215,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'rejects changed and blocked previews and submits only the exact reviewed acceptance',
-  async () => {
+  async ({ expect }) => {
     const owner = dataOwner(client());
 
     await owner.refresh();
@@ -235,9 +256,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'blocks acceptance with a retained recovery copy and invalidates previews after reconciliation',
-  async () => {
+  async ({ expect }) => {
     const owner = dataOwner(client());
 
     rpc.status.mockResolvedValue({ ...idle, recoveryCopy: true });
@@ -250,7 +271,7 @@ testStable(
   }
 );
 
-testStable('does not treat failed downloads as uncertain mutations', async () => {
+test.stable('does not treat failed downloads as uncertain mutations', async ({ expect }) => {
   const shared = client();
   const owner = dataOwner(shared);
 
@@ -261,30 +282,33 @@ testStable('does not treat failed downloads as uncertain mutations', async () =>
   expect(owner.state.uncertain).toBeUndefined();
 });
 
-testStable('enforces managed capacity without counting external downloads', async () => {
-  const owner = dataOwner(client());
+test.stable(
+  'enforces managed capacity without counting external downloads',
+  async ({ vi, expect }) => {
+    const owner = dataOwner(client());
 
-  rpc.list.mockResolvedValue(
-    Array.from({ length: 8 }, (_, index) => ({
-      ...backup,
-      id: Schema.decodeUnknownSync(backupIdSchema)(`11111111-1111-4111-8111-11111111111${index}`)
-    }))
-  );
-  await owner.refresh();
-  await owner.create();
-  const file = new File(['STUDYBK1\nexample'], 'backup.studybackup');
-  const arrayBuffer = vi.fn();
+    rpc.list.mockResolvedValue(
+      Array.from({ length: 8 }, (_, index) => ({
+        ...backup,
+        id: Schema.decodeUnknownSync(backupIdSchema)(`11111111-1111-4111-8111-11111111111${index}`)
+      }))
+    );
+    await owner.refresh();
+    await owner.create();
+    const file = new File(['STUDYBK1\nexample'], 'backup.studybackup');
+    const arrayBuffer = vi.fn();
 
-  Object.defineProperty(file, 'arrayBuffer', { value: arrayBuffer });
-  await owner.importFile(file);
-  expect(rpc.create).not.toHaveBeenCalled();
-  expect(rpc.import).not.toHaveBeenCalled();
-  expect(arrayBuffer).not.toHaveBeenCalled();
-});
+    Object.defineProperty(file, 'arrayBuffer', { value: arrayBuffer });
+    await owner.importFile(file);
+    expect(rpc.create).not.toHaveBeenCalled();
+    expect(rpc.import).not.toHaveBeenCalled();
+    expect(arrayBuffer).not.toHaveBeenCalled();
+  }
+);
 
-testStable(
+test.stable(
   'retains an ambiguous import separately from file validation and never resubmits it on reopen',
-  async () => {
+  async ({ expect }) => {
     const shared = client();
     const owner = dataOwner(shared);
 
@@ -307,9 +331,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'discovers canonical restart-required status even when the managed list cannot load',
-  async () => {
+  async ({ expect }) => {
     const owner = dataOwner(client());
 
     rpc.status.mockResolvedValue({ state: 'restart-required', backupId: id, recoveryCopy: false });
@@ -322,9 +346,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'downloads a known snapshot after list failure without unlocking list-dependent writes',
-  async () => {
+  async ({ expect }) => {
     const owner = dataOwner(client());
 
     await owner.refresh();
@@ -344,9 +368,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'allows explicit recovery discard with fresh status even when no list has ever loaded',
-  async () => {
+  async ({ expect }) => {
     const owner = dataOwner(client());
 
     rpc.status.mockResolvedValue({ state: 'activation-failed', backupId: id, recoveryCopy: true });
@@ -361,9 +385,9 @@ testStable(
   }
 );
 
-testStable.each(['restart-required', 'failed-status-read'])(
+test.stable.for(['restart-required', 'failed-status-read'])(
   'keeps recovery discard locked for %s despite retained recovery information',
-  async (mode) => {
+  async (mode, { expect }) => {
     const owner = dataOwner(client());
 
     rpc.status.mockResolvedValue({ state: 'activation-failed', backupId: id, recoveryCopy: true });
@@ -380,9 +404,9 @@ testStable.each(['restart-required', 'failed-status-read'])(
   }
 );
 
-testStable(
+test.stable(
   'requires explicit acknowledgment after an uncertain discard and successful independent status discovery',
-  async () => {
+  async ({ expect }) => {
     const owner = dataOwner(client());
 
     rpc.status.mockResolvedValue({ state: 'activation-failed', backupId: id, recoveryCopy: true });
@@ -403,9 +427,9 @@ testStable(
   }
 );
 
-testStable.each(['delete', 'discard'] as const)(
+test.stable.for(['delete', 'discard'] as const)(
   'does not acknowledge uncertain %s after a later failed discovery',
-  async (kind) => {
+  async (kind, { expect }) => {
     const owner = dataOwner(client());
 
     rpc.status.mockResolvedValue({ state: 'activation-failed', backupId: id, recoveryCopy: true });
@@ -428,9 +452,9 @@ testStable.each(['delete', 'discard'] as const)(
   }
 );
 
-testStable(
+test.stable(
   'does not reconcile an uncertain delete using status alone when list discovery fails',
-  async () => {
+  async ({ expect }) => {
     const owner = dataOwner(client());
 
     await owner.refresh();
@@ -448,9 +472,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'keeps the shared owner locked during file reads and late import completion after remount',
-  async () => {
+  async ({ renderHook, waitFor, expect, act }) => {
     const shared = client();
     const wrapper = ({ children }: { children: ReactNode }) => (
       <RegistryContext.Provider value={shared}>{children}</RegistryContext.Provider>
@@ -511,9 +535,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'serializes exact-ID download against discovery without retaining byte payloads in owner state',
-  async () => {
+  async ({ expect, waitFor }) => {
     const shared = client();
     const owner = dataOwner(shared);
 

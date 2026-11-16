@@ -1,25 +1,18 @@
 import { chatMessageSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import type * as Router from '@tanstack/react-router';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
-import { useAiReadiness } from '#client/lib/ai-readiness.ts';
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import type * as __MockType0 from '#client/lib/ai-readiness.ts';
 
-import { FailedMessageConversion } from './failed-conversion';
+import type * as __MockType1 from './failed-conversion';
 
-vi.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: vi.fn(() => 'ready') }));
-vi.mock('@tanstack/react-router', async (load) => ({
-  ...(await load<typeof Router>()),
-  Link: ({ to, children }: { to: string; children?: ReactNode }) => <a href={to}>{children}</a>
-}));
+let useAiReadiness: typeof __MockType0.useAiReadiness;
 
-const api = vi.hoisted(() => ({ snapshot: vi.fn(), convert: vi.fn(), discard: vi.fn() }));
+let FailedMessageConversion: typeof __MockType1.FailedMessageConversion;
 
-vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+let api: ReturnType<typeof createMockState>['api'];
 
 const message = Schema.decodeUnknownSync(chatMessageSchema)({
   id: 2n,
@@ -59,13 +52,42 @@ const message = Schema.decodeUnknownSync(chatMessageSchema)({
   ]
 });
 
-let fixture: ReturnType<typeof rpcHandlersTransport>;
+let fixture: ReturnType<test.Context['rpcHandlersTransport']>;
 
 function Provider({ children }: { children: ReactNode }) {
   return <fixture.wrapper>{children}</fixture.wrapper>;
 }
 
-beforeEach(() => {
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({
+      snapshot: mock.fn(),
+      convert: mock.fn(),
+      discard: mock.fn()
+    }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: mock.fn(() => 'ready') }));
+  mock('@tanstack/react-router', async (load) => ({
+    ...(await load<typeof Router>()),
+    Link: ({ to, children }: { to: string; children?: ReactNode }) => <a href={to}>{children}</a>
+  }));
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  const __mockModule0 = await import('#client/lib/ai-readiness.ts');
+
+  useAiReadiness = __mockModule0.useAiReadiness;
+  const __mockModule1 = await import('./failed-conversion');
+
+  FailedMessageConversion = __mockModule1.FailedMessageConversion;
+});
+
+test.beforeEach(({ vi, rpcHandlersTransport }) => {
   vi.resetAllMocks();
   vi.mocked(useAiReadiness).mockReturnValue('ready');
   fixture = rpcHandlersTransport({
@@ -94,13 +116,13 @@ beforeEach(() => {
   });
   api.discard.mockResolvedValue(message);
 });
-afterEach(() => {
+test.afterEach(({ cleanup }) => {
   cleanup();
 });
 
-testStable.each(['retry', 'discard'] as const)(
+test.stable.for(['retry', 'discard'] as const)(
   'exposes %s for a failed conversion without changing its original input',
-  async (action) => {
+  async (action, { render, expect, screen, waitFor, fireEvent }) => {
     render(
       <Provider>
         <FailedMessageConversion message={message} version={message.versions[1]} />
@@ -125,46 +147,52 @@ testStable.each(['retry', 'discard'] as const)(
   }
 );
 
-testStable('keeps recovery retries blocked while another version has active work', async () => {
-  const busy = Schema.decodeUnknownSync(chatMessageSchema)({
-    ...message,
-    versions: [
-      ...message.versions,
-      {
-        id: 5n,
-        number: 3n,
-        origin: 'improve',
-        status: 'pending',
-        text: '',
-        basedOn: 3n,
-        instruction: null,
-        createdAt: 3n
-      }
-    ]
-  });
+test.stable(
+  'keeps recovery retries blocked while another version has active work',
+  async ({ render, waitFor, expect, screen }) => {
+    const busy = Schema.decodeUnknownSync(chatMessageSchema)({
+      ...message,
+      versions: [
+        ...message.versions,
+        {
+          id: 5n,
+          number: 3n,
+          origin: 'improve',
+          status: 'pending',
+          text: '',
+          basedOn: 3n,
+          instruction: null,
+          createdAt: 3n
+        }
+      ]
+    });
 
-  render(
-    <Provider>
-      <FailedMessageConversion message={busy} version={busy.versions[1]} />
-    </Provider>
-  );
-  await waitFor(() => expect(api.snapshot).toHaveBeenCalled());
-  expect(screen.getByRole('button', { name: 'Retry' })).toBeDisabled();
-  expect(screen.getByRole('button', { name: 'NoteDiscardConversion' })).toBeEnabled();
-});
+    render(
+      <Provider>
+        <FailedMessageConversion message={busy} version={busy.versions[1]} />
+      </Provider>
+    );
+    await waitFor(() => expect(api.snapshot).toHaveBeenCalled());
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'NoteDiscardConversion' })).toBeEnabled();
+  }
+);
 
-testStable('blocks AI conversion recovery without setup while preserving discard', async () => {
-  vi.mocked(useAiReadiness).mockReturnValue('setup');
-  render(
-    <Provider>
-      <FailedMessageConversion message={message} version={message.versions[1]} />
-    </Provider>
-  );
-  await waitFor(() => expect(api.snapshot).toHaveBeenCalled());
-  expect(screen.getByRole('button', { name: 'Retry' })).toBeDisabled();
-  expect(screen.getByText('AiReadinessSetup')).toBeVisible();
-  fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-  expect(api.convert).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole('button', { name: 'NoteDiscardConversion' }));
-  await waitFor(() => expect(api.discard).toHaveBeenCalledWith({ messageId: 2n, versionId: 4n }));
-});
+test.stable(
+  'blocks AI conversion recovery without setup while preserving discard',
+  async ({ vi, render, waitFor, expect, screen, fireEvent }) => {
+    vi.mocked(useAiReadiness).mockReturnValue('setup');
+    render(
+      <Provider>
+        <FailedMessageConversion message={message} version={message.versions[1]} />
+      </Provider>
+    );
+    await waitFor(() => expect(api.snapshot).toHaveBeenCalled());
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeDisabled();
+    expect(screen.getByText('AiReadinessSetup')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(api.convert).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'NoteDiscardConversion' }));
+    await waitFor(() => expect(api.discard).toHaveBeenCalledWith({ messageId: 2n, versionId: 4n }));
+  }
+);

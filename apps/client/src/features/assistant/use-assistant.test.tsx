@@ -1,21 +1,31 @@
 import { askResultSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { expect, vi } from 'vite-plus/test';
 
-import { api, message, mountAssistant } from '#client/test/assistant.tsx';
+import type { AssistantHarness } from '#client/test/assistant.tsx';
 
-const readiness = vi.hoisted(() => ({ state: 'ready' }));
+const readiness = { state: 'ready' };
 
-vi.mock('#client/lib/ai-readiness-notice.tsx', () => ({ AiReadinessNotice: () => null }));
-vi.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => readiness.state }));
+let api: AssistantHarness['api'];
 
-testStable(
+let message: AssistantHarness['message'];
+
+let mountAssistant: AssistantHarness['mountAssistant'];
+
+test.beforeEach(({ assistant, mock }) => {
+  readiness.state = 'ready';
+  mock('#client/lib/ai-readiness-notice.tsx', () => ({ AiReadinessNotice: () => null }));
+  mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => readiness.state }));
+  api = assistant.api;
+  message = assistant.message;
+  mountAssistant = assistant.mountAssistant;
+});
+
+test.stable(
   'reuses the same intent after an uncertain send failure and preserves the draft',
-  async () => {
+  async ({ screen, waitFor, expect, fireEvent }) => {
     api.ask.mockRejectedValueOnce(new Error('Connection lost'));
-    mountAssistant();
+    await mountAssistant();
     const input = await screen.findByRole('textbox', { name: 'Message' });
 
     await waitFor(() => expect(input).toBeEnabled());
@@ -34,11 +44,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'editing the next draft cannot detach an in-flight send or allow a second send',
-  async () => {
+  async ({ screen, waitFor, expect, fireEvent }) => {
     api.ask.mockImplementation(() => new Promise(() => {}));
-    mountAssistant();
+    await mountAssistant();
     const input = await screen.findByRole('textbox', { name: 'Message' });
 
     await waitFor(() => expect(input).toBeEnabled());
@@ -53,26 +63,29 @@ testStable(
   }
 );
 
-testStable('renders saved user and Assistant messages separately with safe Markdown', async () => {
-  api.thread.mockResolvedValue({
-    items: [
-      message('user', 'Explain gravity.', 1n),
-      message('assistant', '**Gravity** attracts mass.', 2n)
-    ],
-    next: null
-  });
-  mountAssistant();
-  const user = await screen.findByRole('article', { name: 'You' });
-  const assistant = await screen.findByRole('article', { name: 'Assistant' });
+test.stable(
+  'renders saved user and Assistant messages separately with safe Markdown',
+  async ({ screen, expect }) => {
+    api.thread.mockResolvedValue({
+      items: [
+        message('user', 'Explain gravity.', 1n),
+        message('assistant', '**Gravity** attracts mass.', 2n)
+      ],
+      next: null
+    });
+    await mountAssistant();
+    const user = await screen.findByRole('article', { name: 'You' });
+    const assistant = await screen.findByRole('article', { name: 'Assistant' });
 
-  expect(user).toHaveAttribute('data-role', 'user');
-  expect(assistant).toHaveAttribute('data-role', 'assistant');
-  expect(assistant.querySelector('strong')).toHaveTextContent('Gravity');
-});
+    expect(user).toHaveAttribute('data-role', 'user');
+    expect(assistant).toHaveAttribute('data-role', 'assistant');
+    expect(assistant.querySelector('strong')).toHaveTextContent('Gravity');
+  }
+);
 
-testStable(
+test.stable(
   'creates a separate chat and restores the earlier chat draft from the history card',
-  async () => {
+  async ({ screen, waitFor, expect, fireEvent }) => {
     api.chats.mockResolvedValue({
       items: [
         {
@@ -87,7 +100,7 @@ testStable(
       ],
       next: null
     });
-    mountAssistant();
+    await mountAssistant();
     const input = await screen.findByRole('textbox', { name: 'Message' });
 
     await waitFor(() => expect(input).toBeEnabled());
@@ -113,41 +126,47 @@ testStable(
   }
 );
 
-testStable('shows an estimated context ring that includes the unsent draft', async () => {
-  mountAssistant();
-  const meter = await screen.findByRole('meter');
+test.stable(
+  'shows an estimated context ring that includes the unsent draft',
+  async ({ screen, expect, fireEvent }) => {
+    await mountAssistant();
+    const meter = await screen.findByRole('meter');
 
-  expect(meter).toHaveAttribute('aria-valuenow', '16');
-  fireEvent.change(screen.getByRole('textbox', { name: 'Message' }), {
-    target: { value: 'a'.repeat(4000) }
-  });
-  expect(meter).toHaveAttribute('aria-valuenow', '18');
-  expect(meter).toHaveAccessibleName(/Auto compact is on/);
-});
-
-testStable('an idle chat does not keep polling its history and context', async () => {
-  mountAssistant();
-  await screen.findByRole('meter');
-  await waitFor(() => expect(api.thread).toHaveBeenCalled());
-  const threadCalls = api.thread.mock.calls.length;
-  const contextCalls = api.context.mock.calls.length;
-
-  vi.useFakeTimers();
-
-  try {
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(3500);
+    expect(meter).toHaveAttribute('aria-valuenow', '16');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Message' }), {
+      target: { value: 'a'.repeat(4000) }
     });
-    expect(api.thread).toHaveBeenCalledTimes(threadCalls);
-    expect(api.context).toHaveBeenCalledTimes(contextCalls);
-  } finally {
-    vi.useRealTimers();
+    expect(meter).toHaveAttribute('aria-valuenow', '18');
+    expect(meter).toHaveAccessibleName(/Auto compact is on/);
   }
-});
+);
 
-testStable(
+test.stable(
+  'an idle chat does not keep polling its history and context',
+  async ({ screen, waitFor, expect, vi, act }) => {
+    await mountAssistant();
+    await screen.findByRole('meter');
+    await waitFor(() => expect(api.thread).toHaveBeenCalled());
+    const threadCalls = api.thread.mock.calls.length;
+    const contextCalls = api.context.mock.calls.length;
+
+    vi.useFakeTimers();
+
+    try {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3500);
+      });
+      expect(api.thread).toHaveBeenCalledTimes(threadCalls);
+      expect(api.context).toHaveBeenCalledTimes(contextCalls);
+    } finally {
+      vi.useRealTimers();
+    }
+  }
+);
+
+test.stable(
   'a delayed send only clears its original chat draft after creating another chat',
-  async () => {
+  async ({ screen, waitFor, expect, fireEvent, act }) => {
     let finish!: (value: Awaited<ReturnType<typeof api.ask>>) => void;
 
     api.ask.mockImplementation(
@@ -156,7 +175,7 @@ testStable(
           finish = resolve;
         })
     );
-    mountAssistant();
+    await mountAssistant();
     const input = await screen.findByRole('textbox', { name: 'Message' });
 
     await waitFor(() => expect(input).toBeEnabled());
@@ -184,28 +203,31 @@ testStable(
   }
 );
 
-testStable('blocks new sends while setup is needed and keeps the draft editable', async () => {
-  readiness.state = 'setup';
+test.stable(
+  'blocks new sends while setup is needed and keeps the draft editable',
+  async ({ screen, waitFor, expect, fireEvent }) => {
+    readiness.state = 'setup';
 
-  try {
-    mountAssistant();
-    const input = await screen.findByRole('textbox', { name: 'Message' });
+    try {
+      await mountAssistant();
+      const input = await screen.findByRole('textbox', { name: 'Message' });
 
-    await waitFor(() => expect(input).toBeEnabled());
-    fireEvent.change(input, { target: { value: 'Keep this draft' } });
-    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
-    fireEvent.keyDown(input, { key: 'Enter' });
-    expect(api.ask).not.toHaveBeenCalled();
-    expect(input).toHaveValue('Keep this draft');
-  } finally {
-    readiness.state = 'ready';
+      await waitFor(() => expect(input).toBeEnabled());
+      fireEvent.change(input, { target: { value: 'Keep this draft' } });
+      expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(api.ask).not.toHaveBeenCalled();
+      expect(input).toHaveValue('Keep this draft');
+    } finally {
+      readiness.state = 'ready';
+    }
   }
-});
+);
 
-testStable(
+test.stable(
   'server snapshots refresh committed content while the local question draft survives',
-  async () => {
-    const { notify } = mountAssistant();
+  async ({ screen, waitFor, expect, fireEvent, act }) => {
+    const { notify } = await mountAssistant();
     const input = await screen.findByRole('textbox', { name: 'Message' });
 
     await waitFor(() => expect(input).toBeEnabled());

@@ -5,31 +5,12 @@ import {
   noteSchema
 } from '@study/contracts';
 import type { ChatMessage } from '@study/contracts';
+import { rpcTestTransport } from '@study/contracts/react/testing';
+import type { test } from '@study/testing';
 import { render } from '@testing-library/react';
 import { Schema } from 'effect';
-import { beforeEach, vi } from 'vite-plus/test';
 
-import { AssistantProvider } from '#client/features/assistant/note.tsx';
-import { Page } from '#client/pages/assistant/page.tsx';
-import { rpcTestTransport } from '#client/test/rpc.tsx';
-
-const api = vi.hoisted(() => ({
-  note: vi.fn(),
-  chats: vi.fn(),
-  context: vi.fn(),
-  newChat: vi.fn(),
-  thread: vi.fn(),
-  ask: vi.fn<
-    (input: typeof assistantAskInputSchema.Type) => Promise<typeof askResultSchema.Type>
-  >(),
-  provenance: vi.fn(),
-  progress: vi.fn(),
-  executions: vi.fn(),
-  reanswer: vi.fn(),
-  cancel: vi.fn()
-}));
-
-export function message(
+function message(
   role: 'user' | 'assistant',
   text: string,
   id: bigint,
@@ -63,8 +44,22 @@ export function message(
   });
 }
 
-beforeEach(() => {
-  vi.clearAllMocks();
+export function createAssistantHarness(mock: test.Mock) {
+  const api = {
+    note: mock.fn(),
+    chats: mock.fn(),
+    context: mock.fn(),
+    newChat: mock.fn(),
+    thread: mock.fn(),
+    ask: mock.fn<
+      (input: typeof assistantAskInputSchema.Type) => Promise<typeof askResultSchema.Type>
+    >(),
+    provenance: mock.fn(),
+    progress: mock.fn(),
+    executions: mock.fn(),
+    reanswer: mock.fn(),
+    cancel: mock.fn()
+  };
   let messages: ChatMessage[] = [];
 
   api.note.mockImplementation(async (input) =>
@@ -112,43 +107,60 @@ beforeEach(() => {
       userVersionId: 1n
     });
   });
-});
+  const views = new Set<ReturnType<typeof render>>();
 
-export function mountAssistant() {
-  const handlers: Record<string, (input: unknown) => Promise<unknown>> = {
-    'notes.assistantNote': api.note,
-    'notes.assistantChats': api.chats,
-    'notes.assistantContext': api.context,
-    'notes.newAssistantNote': api.newChat,
-    'notes.thread': api.thread,
-    'notes.assistantAsk': (input) =>
-      api.ask(Schema.decodeUnknownSync(assistantAskInputSchema)(input)),
-    'notes.replyVersion': api.provenance,
-    'workflows.agentProgress': api.progress,
-    'notes.reanswer': api.reanswer,
-    'workflows.executions': api.executions,
-    'workflows.cancelExecution': api.cancel,
-    'auth.status': async () => ({ signedIn: false, email: null, sharing: false }),
-    'projects.projects': async () => ({ items: [], next: null }),
-    'notes.notes': async () => ({ items: [], next: null })
-  };
-  const fixture = rpcTestTransport(async (tag, input) => {
-    const handler = handlers[tag];
+  async function mountAssistant() {
+    const [{ AssistantProvider }, { Page }] = await Promise.all([
+      import('#client/features/assistant/note.tsx'),
+      import('#client/pages/assistant/page.tsx')
+    ]);
+    const handlers: Record<string, (input: unknown) => Promise<unknown>> = {
+      'notes.assistantNote': api.note,
+      'notes.assistantChats': api.chats,
+      'notes.assistantContext': api.context,
+      'notes.newAssistantNote': api.newChat,
+      'notes.thread': api.thread,
+      'notes.assistantAsk': (input) =>
+        api.ask(Schema.decodeUnknownSync(assistantAskInputSchema)(input)),
+      'notes.replyVersion': api.provenance,
+      'workflows.agentProgress': api.progress,
+      'notes.reanswer': api.reanswer,
+      'workflows.executions': api.executions,
+      'workflows.cancelExecution': api.cancel,
+      'auth.status': async () => ({ signedIn: false, email: null, sharing: false }),
+      'projects.projects': async () => ({ items: [], next: null }),
+      'notes.notes': async () => ({ items: [], next: null })
+    };
+    const fixture = rpcTestTransport(async (tag, input) => {
+      const handler = handlers[tag];
 
-    if (!handler) throw new Error(`Unexpected endpoint ${tag}`);
+      if (!handler) throw new Error(`Unexpected endpoint ${tag}`);
 
-    return handler(input);
-  });
+      return handler(input);
+    });
 
-  return {
-    ...render(
+    const view = render(
       <AssistantProvider>
         <Page />
       </AssistantProvider>,
       { wrapper: fixture.wrapper }
-    ),
-    notify: fixture.notify
+    );
+
+    views.add(view);
+
+    return { ...view, notify: fixture.notify };
+  }
+
+  return {
+    api,
+    message,
+    mountAssistant,
+    close() {
+      for (const view of views) view.unmount();
+
+      views.clear();
+    }
   };
 }
 
-export { api };
+export type AssistantHarness = ReturnType<typeof createAssistantHarness>;

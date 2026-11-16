@@ -1,6 +1,5 @@
 import { catalogs } from '@study/localization';
-
-import { expect, testE2e } from './harness/index.ts';
+import { test } from '@study/testing';
 
 const copy = catalogs.english;
 
@@ -17,9 +16,9 @@ const original = [
 
 const updated = `${original}\n\nFOLLOW-UP OBSERVATION: the afternoon river gauge rose by two centimetres; compare this changed reading with the retained morning observations before opening the garden tomorrow.`;
 
-testE2e(
+test.stable(
   'Recover a committed creation after losing its receipt',
-  async ({ page, expectScreenshot, loseCreationResponse }) => {
+  async ({ page, expectScreenshot, loseCreationResponse, expect }) => {
     await page.goto('/notes');
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
     const save = page.getByRole('button', { name: copy.NoteSaveNote });

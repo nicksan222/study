@@ -1,3 +1,4 @@
+import type { LanguageModelV3, LanguageModelV3Usage } from '@ai-sdk/provider';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies provider independent usage normalization and model middleware behavior.   │
@@ -9,12 +10,9 @@
  * │ Tests use deterministic model strategies and never contact external providers.           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { LanguageModelV3, LanguageModelV3Usage } from '@ai-sdk/provider';
 import { agentRunIdSchema } from '@study/contracts';
 import type { UsageRecord } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { normalizeUsage, withUsageTracking } from './usage.ts';
 
@@ -27,7 +25,7 @@ const usage = (
   outputTokens: { total: output, text: undefined, reasoning: 3 }
 });
 
-testStable('cached input and reasoning remain subsets of the reported totals', () => {
+test.stable('cached input and reasoning remain subsets of the reported totals', ({ expect }) => {
   expect(normalizeUsage(usage(100, 80, 10))).toEqual({
     input: 100,
     cacheRead: 80,
@@ -38,21 +36,24 @@ testStable('cached input and reasoning remain subsets of the reported totals', (
   });
 });
 
-testStable('unknown and inconsistent counts are marked incomplete without inventing tokens', () => {
-  expect(normalizeUsage(usage(undefined, undefined, undefined)).incomplete).toBe(true);
-  expect(normalizeUsage(usage(10, 20, -1))).toEqual({
-    input: 10,
-    cacheRead: 0,
-    cacheWrite: 0,
-    output: 0,
-    reasoning: 0,
-    incomplete: true
-  });
-});
+test.stable(
+  'unknown and inconsistent counts are marked incomplete without inventing tokens',
+  ({ expect }) => {
+    expect(normalizeUsage(usage(undefined, undefined, undefined)).incomplete).toBe(true);
+    expect(normalizeUsage(usage(10, 20, -1))).toEqual({
+      input: 10,
+      cacheRead: 0,
+      cacheWrite: 0,
+      output: 0,
+      reasoning: 0,
+      incomplete: true
+    });
+  }
+);
 
-testStable(
+test.stable(
   'provider strategies inherit per-call tracking for streaming and generation',
-  async () => {
+  async ({ expect }) => {
     const records: UsageRecord[] = [];
     const counts = usage(100, 80, 10);
     const model: LanguageModelV3 = {

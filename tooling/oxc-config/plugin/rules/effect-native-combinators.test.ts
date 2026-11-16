@@ -1,21 +1,26 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message = 'Use Effect.flatten instead of an identity flatMap callback.';
 
-testStable('prefers native flatten for pure identity callbacks', async () => {
-  assertDiagnostics(
-    'effect-native-combinators',
-    await lintRule('effect-native-combinators', {
-      'src/bad.ts': String.raw`import { Effect as E } from "effect";
+test.stable(
+  'prefers native flatten for pure identity callbacks',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    assertDiagnostics(
+      { assert, expect },
+      'effect-native-combinators',
+      await lintRule({ assert }, 'effect-native-combinators', {
+        'src/bad.ts': String.raw`import { Effect as E } from "effect";
 E.flatMap((x) => x);
 E.flatMap(task, function (x) {
   return x;
 });
 const identity = (x) => x;
 E.flatMap(identity);`,
-      'src/good.ts': String.raw`import { Effect as E } from "effect";
+        'src/good.ts': String.raw`import { Effect as E } from "effect";
 E.flatten(task);
 E.flatMap((x) => transform(x));
 E.flatMap((x) => {
@@ -27,37 +32,49 @@ E.flatMap((x = fallback()) => x);
 function f(E: any) {
   E.flatMap((x) => x);
 }`
-    }),
-    [
-      ['src/bad.ts', message],
-      ['src/bad.ts', message],
-      ['src/bad.ts', message]
-    ]
-  );
-});
+      }),
+      [
+        ['src/bad.ts', message],
+        ['src/bad.ts', message],
+        ['src/bad.ts', message]
+      ]
+    );
+  }
+);
 
-testStable('keeps callback shadowing and return bindings distinct', async () => {
-  assertDiagnostics(
-    'effect-native-combinators',
-    await lintRule('effect-native-combinators', {
-      'src/good.ts': String.raw`import { flatMap } from "effect/Effect";
+test.stable(
+  'keeps callback shadowing and return bindings distinct',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    assertDiagnostics(
+      { assert, expect },
+      'effect-native-combinators',
+      await lintRule({ assert }, 'effect-native-combinators', {
+        'src/good.ts': String.raw`import { flatMap } from "effect/Effect";
 const outside = task;
 flatMap((x) => outside);
 flatMap(function x(value) {
   return x;
 });`
-    }),
-    []
-  );
-});
+      }),
+      []
+    );
+  }
+);
 
-testStable('uses asVoid for pure output discard without removing callback work', async () => {
-  const discard = 'Use Effect.asVoid instead of a no-op output mapping.';
+test.stable(
+  'uses asVoid for pure output discard without removing callback work',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  assertDiagnostics(
-    'effect-native-combinators',
-    await lintRule('effect-native-combinators', {
-      'src/bad.ts': String.raw`import { Effect as E } from "effect";
+    const discard = 'Use Effect.asVoid instead of a no-op output mapping.';
+
+    assertDiagnostics(
+      { assert, expect },
+      'effect-native-combinators',
+      await lintRule({ assert }, 'effect-native-combinators', {
+        'src/bad.ts': String.raw`import { Effect as E } from "effect";
 E.map(task, () => undefined);
 E.map(() => {});
 E.map(function (value) {
@@ -65,7 +82,7 @@ E.map(function (value) {
 });
 E.as(undefined);
 E.as(task, undefined);`,
-      'src/good.ts': String.raw`import { Effect as E } from "effect";
+        'src/good.ts': String.raw`import { Effect as E } from "effect";
 E.asVoid(task);
 E.map((value) => {
   log(value);
@@ -78,7 +95,8 @@ function f(undefined: number) {
   E.map(() => undefined);
   E.as(undefined);
 }`
-    }),
-    Array.from({ length: 5 }, (): [string, string] => ['src/bad.ts', discard])
-  );
-});
+      }),
+      Array.from({ length: 5 }, (): [string, string] => ['src/bad.ts', discard])
+    );
+  }
+);

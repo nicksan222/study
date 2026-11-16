@@ -1,3 +1,4 @@
+import { defaultAgentRules } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies title workflow checkpointing and rejects stale context or notes           │
@@ -12,17 +13,12 @@
  * │ replace production activities.                                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { defaultAgentRules } from '@study/contracts';
 import { defaultWorkspacePreferences } from '@study/contracts';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { createAiMock } from '@study/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import type { Context } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
-import { assert, expect } from 'vite-plus/test';
 
 import { titleAgent } from '#server/features/notes/agents/title';
 import { Notes } from '#server/features/notes/service/index';
@@ -39,203 +35,215 @@ import { withTestAdmission } from '#testing/workflow-admission';
 
 import { noteTitleHandler, noteTitleWorkflow } from './title.ts';
 
-testStable('title workflow checkpoints and fences stale and renamed notes', async () => {
-  const location = await createTestDatabase();
-  let context = new ServerContext(await location.open());
-  let calls = 0;
-  using mock = createAiMock();
-  const domain = () =>
-    Layer.merge(Notes.layer, Settings.layer).pipe(
-      Layer.provideMerge(Layer.succeed(Database, { store: context }))
-    );
-  const services = () =>
-    Layer.mergeAll(
-      domain(),
-      Layer.succeed(Database, { store: context }),
-      Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
-      agentsLayer({
-        model: (tier, call) => {
-          calls++;
+test.stable(
+  'title workflow checkpoints and fences stale and renamed notes',
+  async ({ databases, createAiMock, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-          return mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError));
-        },
-        language: Effect.succeed('en'),
-        rules: Effect.succeed(defaultAgentRules),
-        searchSources: () => Effect.succeed([])
-      }),
-      workflowEngineLayer(context)
-    );
-  const run = <A, E>(
-    effect: Effect.Effect<
-      A,
-      E,
-      | Database
-      | Context.Service.Identifier<typeof Notes>
-      | Context.Service.Identifier<typeof Settings>
-    >
-  ) => Effect.runPromise(effect.pipe(Effect.provide(domain())));
-
-  try {
-    const project = context.db.orm
-      .insert(s.projects)
-      .values({ name: 'P', created_at: 1n, updated_at: 1n })
-      .returning()
-      .get();
-    const make = async () => {
-      const note = await run(
-        Effect.flatMap(Notes, (c) => c.createUntitledNote({ project: project.id }))
+    const location = await databases();
+    let context = new ServerContext(await location.open());
+    let calls = 0;
+    using mock = createAiMock();
+    const domain = () =>
+      Layer.merge(Notes.layer, Settings.layer).pipe(
+        Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
-      const message = await run(
-        Effect.flatMap(Notes, (c) => c.postMessage({ noteId: note.id, text: 'Study cells' }))
+    const services = () =>
+      Layer.mergeAll(
+        domain(),
+        Layer.succeed(Database, { store: context }),
+        Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
+        agentsLayer({
+          model: (tier, call) => {
+            calls++;
+
+            return mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError));
+          },
+          language: Effect.succeed('en'),
+          rules: Effect.succeed(defaultAgentRules),
+          searchSources: () => Effect.succeed([])
+        }),
+        workflowEngineLayer(context)
+      );
+    const run = <A, E>(
+      effect: Effect.Effect<
+        A,
+        E,
+        | Database
+        | Context.Service.Identifier<typeof Notes>
+        | Context.Service.Identifier<typeof Settings>
+      >
+    ) => Effect.runPromise(effect.pipe(Effect.provide(domain())));
+
+    try {
+      const project = context.db.orm
+        .insert(s.projects)
+        .values({ name: 'P', created_at: 1n, updated_at: 1n })
+        .returning()
+        .get();
+      const make = async () => {
+        const note = await run(
+          Effect.flatMap(Notes, (c) => c.createUntitledNote({ project: project.id }))
+        );
+        const message = await run(
+          Effect.flatMap(Notes, (c) => c.postMessage({ noteId: note.id, text: 'Study cells' }))
+        );
+
+        return { note, message };
+      };
+      const request = async (
+        { assert: assertions }: Pick<test.Context, 'assert'>,
+        noteId: Awaited<ReturnType<typeof make>>['note']['id']
+      ) => {
+        const assert: test.Assert = assertions;
+
+        await run(Effect.flatMap(Notes, (c) => c.requestTitle({ noteId })));
+        const event = decodeEvent(
+          context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
+        );
+
+        assert.ok(!(event.type !== 'NoteTitleRequested'), 'wrong event');
+
+        return event;
+      };
+      const execute = (event: Awaited<ReturnType<typeof request>>, id: string) =>
+        Effect.runPromise(
+          Effect.scoped(
+            Effect.gen(function* () {
+              const engine = yield* WorkflowEngine.WorkflowEngine;
+
+              yield* engine.register(noteTitleWorkflow, noteTitleHandler);
+
+              return yield* withTestAdmission(
+                context,
+                noteTitleWorkflow,
+                id,
+                { event },
+                engine.execute(noteTitleWorkflow, {
+                  executionId: id,
+                  payload: { event }
+                })
+              );
+            }).pipe(Effect.provide(services()))
+          )
+        );
+      const plan = (event: Awaited<ReturnType<typeof request>>, output: string, hold = false) =>
+        mock.next(titleAgent, {
+          input: {
+            prompt: JSON.stringify({
+              title: event.title,
+              messages: event.messages.map(({ role, text }) => ({ role, text }))
+            })
+          },
+          output,
+          hold
+        });
+      const first = await make();
+      const stale = await request({ assert }, first.note.id);
+
+      await run(
+        Effect.flatMap(Notes, (c) => c.editMessage({ messageId: first.message.id, text: 'Plants' }))
+      );
+      await expect(execute(stale, 'stale-title')).rejects.toSatisfy(() => true);
+      assert.strictEqual(calls, 0);
+      const old = await request({ assert }, first.note.id);
+      const current = await request({ assert }, first.note.id);
+
+      await expect(execute(old, 'old-title')).rejects.toSatisfy(() => true);
+      assert.strictEqual(calls, 0);
+      const currentPlan = plan(current, 'Cell Biology');
+
+      await execute(current, 'replay-title');
+      assert.strictEqual(calls, 1);
+      context.close();
+      context = new ServerContext(await location.open());
+      await execute(current, 'replay-title');
+      assert.strictEqual(calls, 1);
+      assert.ok(
+        (await run(Effect.flatMap(Notes, (c) => c.note(first.note.id)))).title === 'Cell Biology'
+      );
+      await execute(current, 'replay-title');
+      assert.strictEqual(calls, 1, 'a committed title must replay without a new model call');
+      expect((await currentPlan.called).input.prompt).toContain('Plants');
+      const renamed = await make();
+      const renamedRequest = await request({ assert }, renamed.note.id);
+
+      await run(
+        Effect.flatMap(Notes, (c) => c.renameNote({ id: renamed.note.id, title: 'Personal' }))
+      );
+      await expect(execute(renamedRequest, 'renamed-title')).rejects.toSatisfy(() => true);
+      assert.strictEqual(calls, 1);
+      const race = await make();
+      const racing = await request({ assert }, race.note.id);
+
+      const racingPlan = plan(racing, 'Cell Biology', true);
+      const raceExecution = execute(racing, 'race-title');
+      const raceResult = raceExecution.then(
+        () => false,
+        () => true
       );
 
-      return { note, message };
-    };
-    const request = async (noteId: Awaited<ReturnType<typeof make>>['note']['id']) => {
-      await run(Effect.flatMap(Notes, (c) => c.requestTitle({ noteId })));
-      const event = decodeEvent(
+      await racingPlan.called;
+      await run(Effect.flatMap(Notes, (c) => c.renameNote({ id: race.note.id, title: 'Mine' })));
+      racingPlan.release();
+      expect(await raceResult).toBe(true);
+      assert.ok((await run(Effect.flatMap(Notes, (c) => c.note(race.note.id)))).title === 'Mine');
+      const invalid = await make();
+
+      const invalidRequest = await request({ assert }, invalid.note.id);
+
+      plan(invalidRequest, 'x'.repeat(201));
+      await expect(execute(invalidRequest, 'invalid-title')).rejects.toSatisfy(() => true);
+      assert.ok(
+        (await run(Effect.flatMap(Notes, (c) => c.note(invalid.note.id)))).titleSource ===
+          'provisional'
+      );
+      const retryRequest = await request({ assert }, invalid.note.id);
+
+      plan(retryRequest, 'Valid retry');
+      await execute(retryRequest, 'retry-title');
+      assert.ok(
+        (await run(Effect.flatMap(Notes, (c) => c.note(invalid.note.id)))).title === 'Valid retry'
+      );
+      const mergeFirst = await make();
+      const mergeSecond = await make();
+      const merged = await run(
+        Effect.flatMap(Notes, (c) =>
+          c.mergeNotes({
+            noteIds: [mergeFirst.note.id, mergeSecond.note.id],
+            intentKey: 'title-merge'
+          })
+        )
+      );
+      const mergeEvent = decodeEvent(
         context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
       );
 
-      assert.ok(!(event.type !== 'NoteTitleRequested'), 'wrong event');
-
-      return event;
-    };
-    const execute = (event: Awaited<ReturnType<typeof request>>, id: string) =>
-      Effect.runPromise(
-        Effect.scoped(
-          Effect.gen(function* () {
-            const engine = yield* WorkflowEngine.WorkflowEngine;
-
-            yield* engine.register(noteTitleWorkflow, noteTitleHandler);
-
-            return yield* withTestAdmission(
-              context,
-              noteTitleWorkflow,
-              id,
-              { event },
-              engine.execute(noteTitleWorkflow, {
-                executionId: id,
-                payload: { event }
-              })
-            );
-          }).pipe(Effect.provide(services()))
-        )
+      assert.ok(
+        mergeEvent.type === 'NoteTitleRequested',
+        'merge must queue the existing title workflow'
       );
-    const plan = (event: Awaited<ReturnType<typeof request>>, output: string, hold = false) =>
-      mock.next(titleAgent, {
-        input: {
-          prompt: JSON.stringify({
-            title: event.title,
-            messages: event.messages.map(({ role, text }) => ({ role, text }))
-          })
-        },
-        output,
-        hold
-      });
-    const first = await make();
-    const stale = await request(first.note.id);
-
-    await run(
-      Effect.flatMap(Notes, (c) => c.editMessage({ messageId: first.message.id, text: 'Plants' }))
-    );
-    await expect(execute(stale, 'stale-title')).rejects.toSatisfy(() => true);
-    assert.strictEqual(calls, 0);
-    const old = await request(first.note.id);
-    const current = await request(first.note.id);
-
-    await expect(execute(old, 'old-title')).rejects.toSatisfy(() => true);
-    assert.strictEqual(calls, 0);
-    const currentPlan = plan(current, 'Cell Biology');
-
-    await execute(current, 'replay-title');
-    assert.strictEqual(calls, 1);
-    context.close();
-    context = new ServerContext(await location.open());
-    await execute(current, 'replay-title');
-    assert.strictEqual(calls, 1);
-    assert.ok(
-      (await run(Effect.flatMap(Notes, (c) => c.note(first.note.id)))).title === 'Cell Biology'
-    );
-    await execute(current, 'replay-title');
-    assert.strictEqual(calls, 1, 'a committed title must replay without a new model call');
-    expect((await currentPlan.called).input.prompt).toContain('Plants');
-    const renamed = await make();
-    const renamedRequest = await request(renamed.note.id);
-
-    await run(
-      Effect.flatMap(Notes, (c) => c.renameNote({ id: renamed.note.id, title: 'Personal' }))
-    );
-    await expect(execute(renamedRequest, 'renamed-title')).rejects.toSatisfy(() => true);
-    assert.strictEqual(calls, 1);
-    const race = await make();
-    const racing = await request(race.note.id);
-
-    const racingPlan = plan(racing, 'Cell Biology', true);
-    const raceExecution = execute(racing, 'race-title');
-    const raceResult = raceExecution.then(
-      () => false,
-      () => true
-    );
-
-    await racingPlan.called;
-    await run(Effect.flatMap(Notes, (c) => c.renameNote({ id: race.note.id, title: 'Mine' })));
-    racingPlan.release();
-    expect(await raceResult).toBe(true);
-    assert.ok((await run(Effect.flatMap(Notes, (c) => c.note(race.note.id)))).title === 'Mine');
-    const invalid = await make();
-
-    const invalidRequest = await request(invalid.note.id);
-
-    plan(invalidRequest, 'x'.repeat(201));
-    await expect(execute(invalidRequest, 'invalid-title')).rejects.toSatisfy(() => true);
-    assert.ok(
-      (await run(Effect.flatMap(Notes, (c) => c.note(invalid.note.id)))).titleSource ===
-        'provisional'
-    );
-    const retryRequest = await request(invalid.note.id);
-
-    plan(retryRequest, 'Valid retry');
-    await execute(retryRequest, 'retry-title');
-    assert.ok(
-      (await run(Effect.flatMap(Notes, (c) => c.note(invalid.note.id)))).title === 'Valid retry'
-    );
-    const mergeFirst = await make();
-    const mergeSecond = await make();
-    const merged = await run(
-      Effect.flatMap(Notes, (c) =>
-        c.mergeNotes({
-          noteIds: [mergeFirst.note.id, mergeSecond.note.id],
-          intentKey: 'title-merge'
-        })
-      )
-    );
-    const mergeEvent = decodeEvent(
-      context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
-    );
-
-    assert.ok(
-      mergeEvent.type === 'NoteTitleRequested',
-      'merge must queue the existing title workflow'
-    );
-    plan(mergeEvent, 'Combined Biology');
-    await execute(mergeEvent, 'merged-title');
-    expect((await run(Effect.flatMap(Notes, (c) => c.note(merged.id)))).title).toBe(
-      'Combined Biology'
-    );
-    expect(
-      (await run(Effect.flatMap(Notes, (c) => c.note(mergeFirst.note.id)))).archivedAt
-    ).not.toBeNull();
-  } finally {
-    context.close();
-    await location.cleanup();
+      plan(mergeEvent, 'Combined Biology');
+      await execute(mergeEvent, 'merged-title');
+      expect((await run(Effect.flatMap(Notes, (c) => c.note(merged.id)))).title).toBe(
+        'Combined Biology'
+      );
+      expect(
+        (await run(Effect.flatMap(Notes, (c) => c.note(mergeFirst.note.id)))).archivedAt
+      ).not.toBeNull();
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
-testStable(
+test.stable(
   'explicit title requests replace existing titles and fence subsequent manual edits',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Notes.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
@@ -281,10 +289,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'automatic note titles are opt-in, durable, replay-safe and respect user titles',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Notes.layer, Settings.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -340,10 +350,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'automatic titles and replies commit together while title snapshots skip pending assistants',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Notes.layer, Settings.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -399,10 +411,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'reply publication refreshes automatic titles durably and idempotently without replacing user titles',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Notes.layer, Settings.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))

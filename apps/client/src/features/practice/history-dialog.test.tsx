@@ -6,19 +6,16 @@ import {
   defaultQuizSettings
 } from '@study/contracts';
 import type { quizAttemptSchema } from '@study/contracts';
+import type { StudyClient } from '@study/contracts/react/testing';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { expect, vi } from 'vite-plus/test';
 
 import {
   learningVersion,
   materialRpc,
   mountLibraryRoute
 } from '#client/features/material-library/test/support.tsx';
-import type { StudyClient } from '#client/test/rpc.tsx';
 
 const en = catalogs.english;
 
@@ -90,8 +87,16 @@ function summary(attempt: typeof quizAttemptSchema.Type) {
   };
 }
 
-function mount(empty = false, italian = false) {
-  const rpc = materialRpc();
+function mount(
+  {
+    vi,
+    render,
+    rpcHandlersTransport
+  }: Pick<test.Context, 'vi' | 'render' | 'rpcHandlersTransport'>,
+  empty = false,
+  italian = false
+) {
+  const rpc = materialRpc({ vi });
 
   if (italian)
     rpc['settings.appSettings'].mockReturnValue(
@@ -138,10 +143,17 @@ function mount(empty = false, italian = false) {
     'learning.finishQuiz': vi.fn<StudyClient['learning.finishQuiz']>()
   };
 
-  return { ...mountLibraryRoute('/practice/41', transport), rpc: transport };
+  return {
+    ...mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41', transport),
+    rpc: transport
+  };
 }
 
-async function openHistory(user: ReturnType<typeof userEvent.setup>, italian = false) {
+async function openHistory(
+  { screen }: Pick<test.Context, 'screen'>,
+  user: ReturnType<test.Context['userEvent']['setup']>,
+  italian = false
+) {
   const copy = italian ? catalogs.italian : en;
 
   await user.click(await screen.findByRole('button', { name: copy.PracticeActions }));
@@ -150,12 +162,12 @@ async function openHistory(user: ReturnType<typeof userEvent.setup>, italian = f
   return screen.findByRole('dialog', { name: copy.PracticeAttempts });
 }
 
-testStable(
+test.stable(
   'automatically previews saved answers and resumes the same attempt without creating or changing one',
-  async () => {
-    const { rpc, router } = mount();
+  async ({ userEvent, expect, within, waitFor, vi, screen, render, rpcHandlersTransport }) => {
+    const { rpc, router } = mount({ vi, render, rpcHandlersTransport });
     const user = userEvent.setup();
-    const dialog = await openHistory(user);
+    const dialog = await openHistory({ screen }, user);
 
     expect(await within(dialog).findByText(en.PracticeResumeHelp)).toBeInTheDocument();
     expect(within(dialog).getByRole('radio', { name: /Two/ })).toBeChecked();
@@ -181,12 +193,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'searches statuses and automatically renders completed attempts with the existing results view',
-  async () => {
-    const { rpc } = mount();
+  async ({ userEvent, within, expect, vi, screen, render, rpcHandlersTransport }) => {
+    const { rpc } = mount({ vi, render, rpcHandlersTransport });
     const user = userEvent.setup();
-    const dialog = await openHistory(user);
+    const dialog = await openHistory({ screen }, user);
 
     await within(dialog).findByText(en.PracticeResumeHelp);
     await user.type(
@@ -216,12 +228,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'shows the shared empty state when no attempts exist without requesting an attempt',
-  async () => {
-    const { rpc } = mount(true);
+  async ({ userEvent, expect, within, vi, screen, render, rpcHandlersTransport }) => {
+    const { rpc } = mount({ vi, render, rpcHandlersTransport }, true);
     const user = userEvent.setup();
-    const dialog = await openHistory(user);
+    const dialog = await openHistory({ screen }, user);
 
     expect(await within(dialog).findByRole('status')).toHaveTextContent(en.PracticeNoAttempts);
     expect(within(dialog).queryByRole('link', { name: en.PracticeResume })).toBeNull();
@@ -229,58 +241,64 @@ testStable(
   }
 );
 
-testStable('saved true or false history uses localized radio controls', async () => {
-  const { rpc } = mount();
+test.stable(
+  'saved true or false history uses localized radio controls',
+  async ({ userEvent, expect, within, vi, screen, render, rpcHandlersTransport }) => {
+    const { rpc } = mount({ vi, render, rpcHandlersTransport });
 
-  rpc['learning.attempt'].mockReturnValue(
-    Effect.succeed(
-      Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
-        ...initial,
-        questions: [
-          {
-            ...choice,
-            kind: 'true_false',
-            prompt: 'ATP carries energy.',
-            choices: [
-              { id: 5n, position: 0n, text: 'true' },
-              { id: 6n, position: 1n, text: 'false' }
-            ]
-          }
-        ]
-      })
-    )
-  );
-  const dialog = await openHistory(userEvent.setup());
+    rpc['learning.attempt'].mockReturnValue(
+      Effect.succeed(
+        Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
+          ...initial,
+          questions: [
+            {
+              ...choice,
+              kind: 'true_false',
+              prompt: 'ATP carries energy.',
+              choices: [
+                { id: 5n, position: 0n, text: 'true' },
+                { id: 6n, position: 1n, text: 'false' }
+              ]
+            }
+          ]
+        })
+      )
+    );
+    const dialog = await openHistory({ screen }, userEvent.setup());
 
-  expect(await within(dialog).findByRole('radio', { name: /True/ })).toBeChecked();
-  expect(within(dialog).getByRole('radio', { name: /False/ })).toBeDisabled();
-  expect(within(dialog).queryByRole('checkbox')).toBeNull();
-});
+    expect(await within(dialog).findByRole('radio', { name: /True/ })).toBeChecked();
+    expect(within(dialog).getByRole('radio', { name: /False/ })).toBeDisabled();
+    expect(within(dialog).queryByRole('checkbox')).toBeNull();
+  }
+);
 
-testStable('saved true or false history uses Italian radio controls', async () => {
-  const { rpc } = mount(false, true);
+test.stable(
+  'saved true or false history uses Italian radio controls',
+  async ({ userEvent, expect, within, vi, screen, render, rpcHandlersTransport }) => {
+    const { rpc } = mount({ vi, render, rpcHandlersTransport }, false, true);
 
-  rpc['learning.attempt'].mockReturnValue(
-    Effect.succeed(
-      Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
-        ...initial,
-        questions: [
-          {
-            ...choice,
-            kind: 'true_false',
-            prompt: 'ATP carries energy.',
-            choices: [
-              { id: 5n, position: 0n, text: 'true' },
-              { id: 6n, position: 1n, text: 'false' }
-            ]
-          }
-        ]
-      })
-    )
-  );
-  const dialog = await openHistory(userEvent.setup(), true);
+    rpc['learning.attempt'].mockReturnValue(
+      Effect.succeed(
+        Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
+          ...initial,
+          questions: [
+            {
+              ...choice,
+              kind: 'true_false',
+              prompt: 'ATP carries energy.',
+              choices: [
+                { id: 5n, position: 0n, text: 'true' },
+                { id: 6n, position: 1n, text: 'false' }
+              ]
+            }
+          ]
+        })
+      )
+    );
+    const dialog = await openHistory({ screen }, userEvent.setup(), true);
 
-  expect(await within(dialog).findByRole('radio', { name: /Vero/ })).toBeChecked();
-  expect(within(dialog).getByRole('radio', { name: /Falso/ })).toBeDisabled();
-  expect(within(dialog).queryByRole('checkbox')).toBeNull();
-});
+    expect(await within(dialog).findByRole('radio', { name: /Vero/ })).toBeChecked();
+    expect(within(dialog).getByRole('radio', { name: /Falso/ })).toBeDisabled();
+    expect(within(dialog).queryByRole('checkbox')).toBeNull();
+  }
+);

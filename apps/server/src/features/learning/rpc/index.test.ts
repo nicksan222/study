@@ -1,3 +1,4 @@
+import type { QuizAttemptId } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises typed missing-attempt failures and the practice RPC lifecycle for        │
@@ -12,15 +13,11 @@
  * │ handlers retain ownership of request behavior.                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { QuizAttemptId } from '@study/contracts';
 import { LearningRpc } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Option } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { assert } from 'vite-plus/test';
 
 import { Learning } from '#server/features/learning/service/index';
 import { Materials } from '#server/features/materials/index';
@@ -32,114 +29,126 @@ import { testLiveQueries } from '#testing/live-queries';
 
 import { LearningRpcLive } from './index.ts';
 
-testStable('native learning RPC maps missing attempts to typed failures', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const handlers = LearningRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
-    Layer.provide(
-      Learning.layer.pipe(
-        Layer.provideMerge(Settings.layer),
-        Layer.provideMerge(Materials.layer),
-        Layer.provideMerge(Pages.layer)
-      )
-    ),
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
+test.stable(
+  'native learning RPC maps missing attempts to typed failures',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const client = yield* RpcTest.makeClient(LearningRpc, { flatten: true });
-          const attemptId = 999n as QuizAttemptId;
-
-          assert.ok(
-            (yield* Effect.flip(client('learning.attempt', { attemptId }))).kind === 'not_found'
-          );
-          assert.ok(Option.isNone(yield* client('learning.findAttempt', { attemptId })));
-        }).pipe(Effect.provide(handlers))
-      )
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const handlers = LearningRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
+      Layer.provide(
+        Learning.layer.pipe(
+          Layer.provideMerge(Settings.layer),
+          Layer.provideMerge(Materials.layer),
+          Layer.provideMerge(Pages.layer)
+        )
+      ),
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
-  } finally {
-    context.close();
-    await location.cleanup();
+
+    try {
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const client = yield* RpcTest.makeClient(LearningRpc, { flatten: true });
+            const attemptId = 999n as QuizAttemptId;
+
+            assert.ok(
+              (yield* Effect.flip(client('learning.attempt', { attemptId }))).kind === 'not_found'
+            );
+            assert.ok(Option.isNone(yield* client('learning.findAttempt', { attemptId })));
+          }).pipe(Effect.provide(handlers))
+        )
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
-testStable('native practice RPC starts, reads, and stops project practice', async () => {
-  const s = await import('@study/db');
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const db = Layer.succeed(Database, { store: context });
-  const services = Learning.layer.pipe(
-    Layer.provideMerge(Settings.layer),
-    Layer.provideMerge(Materials.layer),
-    Layer.provideMerge(Pages.layer),
-    Layer.provideMerge(db)
-  );
-  const handlers = LearningRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
-    Layer.provide(services)
-  );
+test.stable(
+  'native practice RPC starts, reads, and stops project practice',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    const project = context.db.orm
-      .insert(s.projects)
-      .values({ name: 'Practice RPC', created_at: 1n, updated_at: 1n })
-      .returning()
-      .get();
+    const s = await import('@study/db');
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const db = Layer.succeed(Database, { store: context });
+    const services = Learning.layer.pipe(
+      Layer.provideMerge(Settings.layer),
+      Layer.provideMerge(Materials.layer),
+      Layer.provideMerge(Pages.layer),
+      Layer.provideMerge(db)
+    );
+    const handlers = LearningRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
+      Layer.provide(services)
+    );
 
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          yield* Materials;
-          const doc = yield* (yield* Pages).create({
-            createKey: crypto.randomUUID(),
-            inputs: [],
-            citations: [],
-            projectId: project.id,
-            title: 'Document',
-            document: {
-              blocks: [plainBlock('paragraph', 'Source', { type: 'authored' })],
-              meta: {
-                extractor: null,
-                extractorVersion: 1,
-                provider: null,
-                durationMs: null,
-                pageCount: null,
-                refiners: [],
-                waitingFor: [],
-                corrected: false,
-                omissions: []
+    try {
+      const project = context.db.orm
+        .insert(s.projects)
+        .values({ name: 'Practice RPC', created_at: 1n, updated_at: 1n })
+        .returning()
+        .get();
+
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            yield* Materials;
+            const doc = yield* (yield* Pages).create({
+              createKey: crypto.randomUUID(),
+              inputs: [],
+              citations: [],
+              projectId: project.id,
+              title: 'Document',
+              document: {
+                blocks: [plainBlock('paragraph', 'Source', { type: 'authored' })],
+                meta: {
+                  extractor: null,
+                  extractorVersion: 1,
+                  provider: null,
+                  durationMs: null,
+                  pageCount: null,
+                  refiners: [],
+                  waitingFor: [],
+                  corrected: false,
+                  omissions: []
+                }
               }
-            }
-          });
-          const client = yield* RpcTest.makeClient(LearningRpc, { flatten: true });
-          const started = yield* client('learning.startPractice', {
-            projectId: project.id,
-            inputs: [{ kind: 'page', versionId: doc.version!.id }]
-          });
+            });
+            const client = yield* RpcTest.makeClient(LearningRpc, { flatten: true });
+            const started = yield* client('learning.startPractice', {
+              projectId: project.id,
+              inputs: [{ kind: 'page', versionId: doc.version!.id }]
+            });
 
-          assert.strictEqual(started.slots.length, 2);
-          assert.strictEqual(
-            (yield* client('learning.practice', { projectId: project.id })).epoch,
-            started.epoch
-          );
-          assert.ok(
-            (yield* client('learning.stopPractice', { projectId: project.id })).enabled === false
-          );
-        }).pipe(Effect.provide(handlers), Effect.provide(services))
-      )
-    );
-  } finally {
-    context.close();
-    await location.cleanup();
+            assert.strictEqual(started.slots.length, 2);
+            assert.strictEqual(
+              (yield* client('learning.practice', { projectId: project.id })).epoch,
+              started.epoch
+            );
+            assert.ok(
+              (yield* client('learning.stopPractice', { projectId: project.id })).enabled === false
+            );
+          }).pipe(Effect.provide(handlers), Effect.provide(services))
+        )
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
-testStable(
+test.stable(
   'native ordering RPC keeps answers private and restores the committed sequence',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const services = Learning.layer.pipe(
       Layer.provideMerge(Settings.layer),

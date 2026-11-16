@@ -1,15 +1,15 @@
 import { maxAgentRuleLength } from '@study/contracts';
 import { catalogs } from '@study/localization';
+import { test } from '@study/testing';
 import type { Locator, Page } from 'playwright';
 
-import { expect, testE2e } from './harness/index.ts';
 import type { ExpectScreenshot } from './harness/screenshots.ts';
 
 const copy = catalogs.english;
 
-testE2e(
+test.stable(
   'Closing Settings preserves the underlying route',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });
@@ -33,9 +33,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'Settings search recovers from no matches and follows the persisted language',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     const italian = catalogs.italian;
 
     await page.setViewportSize({ width: 1280, height: 900 });
@@ -110,9 +110,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'Writing settings validate every number and apply capture and page preferences',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
     const draft = 'An unsent field observation survives opening and closing settings.';
@@ -348,9 +348,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'Sidebar settings apply display preferences and validate settlement limits',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     await page
       .getByRole('textbox', { name: copy.NoteCompose })
@@ -519,9 +519,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'Reading settings reject invalid font sizes and persist every export format',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });
@@ -619,9 +619,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'Automation settings persist detail conversion and automatic behavior',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });
@@ -718,9 +718,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'Flashcards settings validate daily limits and persist review preferences',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });
@@ -806,9 +806,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'Performance settings validate and persist independent concurrency limits',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });
@@ -915,9 +915,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'Custom instructions validate save and reset every task draft',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });
@@ -984,6 +984,7 @@ testE2e(
     for (const [index, title] of tasks.entries()) {
       await task.click();
       await page.getByRole('option', { name: title, exact: true }).click();
+      await expect(task).toHaveText(title);
       const editor = dialog.getByRole('textbox', { name: title, exact: true });
 
       await editor.fill(
@@ -1019,6 +1020,7 @@ testE2e(
     for (const [index, title] of tasks.entries()) {
       await task.click();
       await page.getByRole('option', { name: title, exact: true }).click();
+      await expect(task).toHaveText(title);
       const editor = dialog.getByRole('textbox', { name: title, exact: true });
 
       await expect(editor).toHaveValue(
@@ -1060,6 +1062,7 @@ testE2e(
     for (const [index, title] of tasks.entries()) {
       await task.click();
       await page.getByRole('option', { name: title, exact: true }).click();
+      await expect(task).toHaveText(title);
       const editor = dialog.getByRole('textbox', { name: title, exact: true });
 
       await expect(editor).toHaveValue('');
@@ -1073,9 +1076,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'Quiz settings persist every generation and shuffle option',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });
@@ -1207,9 +1210,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'Fill blank settings persist independent generation preferences',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });
@@ -1331,9 +1334,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'Ordering settings customize generation independently and survive reload',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });
@@ -1455,9 +1458,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'Matching settings customize generation independently and survive reload',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });
@@ -1579,9 +1582,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'True or false settings customize generation independently and survive reload',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });
@@ -1703,9 +1706,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'General settings persist both languages and dismiss a replayed welcome',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });
@@ -1778,9 +1781,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'Account settings expose sign in and keep provider credential drafts local',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });
@@ -1852,9 +1855,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'Models settings retain all tier selections while signed out',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });
@@ -1898,9 +1901,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'Usage settings filter and refresh real empty usage history',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });
@@ -1958,9 +1961,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'Analytics settings explain that diagnostic controls require the desktop',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });
@@ -1990,9 +1993,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'Updates settings explain browser limitations without offering native actions',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });
@@ -2016,9 +2019,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'Integrations settings preview, cancel and import a real vault with warnings',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });
@@ -2154,9 +2157,9 @@ const reviewTheme = {
   dark: {}
 };
 
-testE2e(
+test.stable(
   'Appearance settings capture schemes sliders and the custom theme lifecycle',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });
@@ -2470,9 +2473,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'Project settings validate names edit identities and guard deletion',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });
@@ -2660,7 +2663,7 @@ testE2e(
   }
 );
 
-async function openProjectIconSettings(page: Page) {
+async function openProjectIconSettings({ expect }: Pick<test.Context, 'expect'>, page: Page) {
   await page.goto('/notes');
   await page.getByRole('combobox', { name: copy.ChooseProject }).click();
   await page
@@ -2695,6 +2698,7 @@ async function openProjectIconSettings(page: Page) {
 }
 
 async function captureProjectIconChoices(
+  { expect }: Pick<test.Context, 'expect'>,
   icon: Locator,
   group: Locator,
   prefix: string,
@@ -2718,10 +2722,10 @@ async function captureProjectIconChoices(
   await choices.nth(1).click();
 }
 
-testE2e(
+test.stable(
   'Project settings search select and persist every symbol',
-  async ({ page, expectScreenshot }) => {
-    const { dialog, icon, saveIcon } = await openProjectIconSettings(page);
+  async ({ page, expectScreenshot, expect }) => {
+    const { dialog, icon, saveIcon } = await openProjectIconSettings({ expect }, page);
 
     await icon.getByRole('button', { name: copy.SubjectIconSymbols, exact: true }).click();
     const symbolSearch = icon.getByRole('textbox', { name: copy.SubjectIconSearch, exact: true });
@@ -2735,7 +2739,7 @@ testE2e(
     await symbolSearch.fill('');
     const symbols = icon.getByRole('radiogroup', { name: copy.SubjectIconSymbols, exact: true });
 
-    await captureProjectIconChoices(icon, symbols, 'project-symbol', expectScreenshot);
+    await captureProjectIconChoices({ expect }, icon, symbols, 'project-symbol', expectScreenshot);
     await expectScreenshot('project-symbol-selected', {
       target: icon,
       ready: () => expect(symbols.getByRole('radio').nth(1)).toBeChecked()
@@ -2751,22 +2755,22 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'Project settings select every emoji and color and persist the identity',
-  async ({ page, expectScreenshot }) => {
-    const { dialog, navigation, icon, saveIcon } = await openProjectIconSettings(page);
+  async ({ page, expectScreenshot, expect }) => {
+    const { dialog, navigation, icon, saveIcon } = await openProjectIconSettings({ expect }, page);
 
     await icon.getByRole('button', { name: copy.SubjectIconEmojis, exact: true }).click();
     const emojis = icon.getByRole('radiogroup', { name: copy.SubjectIconEmojis, exact: true });
 
-    await captureProjectIconChoices(icon, emojis, 'project-emoji', expectScreenshot);
+    await captureProjectIconChoices({ expect }, icon, emojis, 'project-emoji', expectScreenshot);
     await expectScreenshot('project-emoji-selected', {
       target: icon,
       ready: () => expect(emojis.getByRole('radio').nth(1)).toBeChecked()
     });
     const colors = icon.getByRole('radiogroup', { name: copy.SubjectIconColor, exact: true });
 
-    await captureProjectIconChoices(icon, colors, 'project-color', expectScreenshot);
+    await captureProjectIconChoices({ expect }, icon, colors, 'project-color', expectScreenshot);
     await expectScreenshot('project-color-selected', {
       target: icon,
       ready: () => expect(colors.getByRole('radio').nth(1)).toBeChecked()
@@ -2799,9 +2803,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'Data settings recover invalid imports and guard backup deletion and restore',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });

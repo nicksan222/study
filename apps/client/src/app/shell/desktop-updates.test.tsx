@@ -1,43 +1,53 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { toastManager } from '@study/ui';
-import { act, render, waitFor } from '@testing-library/react';
-import { beforeEach, expect, vi } from 'vite-plus/test';
 
-import { DesktopUpdates } from './desktop-updates';
+import type * as __StudyMockType0 from '#client/app/shell/desktop-updates.tsx';
 
-const native = vi.hoisted(() => ({ enabled: true, invoke: vi.fn() }));
+function createNative(mock: test.Mock) {
+  return { enabled: true, invoke: mock.fn() };
+}
 
-vi.mock('#client/lib/host.ts', () => ({
-  hostCapabilities: () => ({ updates: native.enabled, diagnostics: native.enabled }),
-  desktopUpdateStatus: () => native.invoke('desktop_update_status'),
-  checkDesktopUpdate: () => native.invoke('check_for_update'),
-  installDesktopUpdate: (expectedVersion: string) =>
-    native.invoke('install_update', { expectedVersion })
-}));
-vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+let native: ReturnType<typeof createNative>;
 
-beforeEach(() => {
+let DesktopUpdates: typeof __StudyMockType0.DesktopUpdates;
+
+test.beforeEach(async ({ mock }) => {
+  native = createNative(mock);
+  mock('#client/lib/host.ts', () => ({
+    hostCapabilities: () => ({ updates: native.enabled, diagnostics: native.enabled }),
+    desktopUpdateStatus: () => native.invoke('desktop_update_status'),
+    checkDesktopUpdate: () => native.invoke('check_for_update'),
+    installDesktopUpdate: (expectedVersion: string) =>
+      native.invoke('install_update', { expectedVersion })
+  }));
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  const __studyMockModule0 = await import('./desktop-updates');
+
+  DesktopUpdates = __studyMockModule0.DesktopUpdates;
+});
+
+test.beforeEach(({ vi }) => {
   native.enabled = true;
   native.invoke.mockReset();
   vi.spyOn(toastManager, 'add').mockReturnValue('update-toast');
   vi.spyOn(toastManager, 'close').mockImplementation(() => {});
 });
 
-function mount() {
+function mount({ render }: Pick<test.Context, 'render'>) {
   return render(<DesktopUpdates />);
 }
 
-testStable('does not call desktop commands in the browser', () => {
+test.stable('does not call desktop commands in the browser', ({ expect, render }) => {
   native.enabled = false;
-  mount();
+  mount({ render });
   expect(native.invoke).not.toHaveBeenCalled();
 });
 
-testStable(
+test.stable(
   'waits for consent before installing and offers retry after a failed install',
-  async () => {
+  async ({ waitFor, expect, vi, act, render }) => {
     native.invoke.mockResolvedValueOnce('0.1.42').mockRejectedValueOnce(new Error('offline'));
-    mount();
+    mount({ render });
     await waitFor(() =>
       expect(toastManager.add).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -73,15 +83,18 @@ testStable(
   }
 );
 
-testStable('keeps unavailable updates and offline checks quiet', async () => {
-  native.invoke.mockResolvedValueOnce(null);
-  const view = mount();
+test.stable(
+  'keeps unavailable updates and offline checks quiet',
+  async ({ waitFor, expect, render }) => {
+    native.invoke.mockResolvedValueOnce(null);
+    const view = mount({ render });
 
-  await waitFor(() => expect(native.invoke).toHaveBeenCalledExactlyOnceWith('check_for_update'));
-  expect(toastManager.add).not.toHaveBeenCalled();
-  view.unmount();
-  native.invoke.mockRejectedValueOnce(new Error('offline'));
-  mount();
-  await waitFor(() => expect(native.invoke).toHaveBeenCalledTimes(2));
-  expect(toastManager.add).not.toHaveBeenCalled();
-});
+    await waitFor(() => expect(native.invoke).toHaveBeenCalledExactlyOnceWith('check_for_update'));
+    expect(toastManager.add).not.toHaveBeenCalled();
+    view.unmount();
+    native.invoke.mockRejectedValueOnce(new Error('offline'));
+    mount({ render });
+    await waitFor(() => expect(native.invoke).toHaveBeenCalledTimes(2));
+    expect(toastManager.add).not.toHaveBeenCalled();
+  }
+);

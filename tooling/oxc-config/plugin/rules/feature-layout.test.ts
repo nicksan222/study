@@ -1,13 +1,16 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('requires canonical feature role folders and bound resource APIs', async () => {
-  const diagnostics = await lintRule('feature-layout', {
-    'src/features/a/old.store.ts': 'export const x = 1;',
-    'src/features/a/service/nested/other.workflow.ts': 'export const x = 1;',
-    'src/features/a/store/index.ts': `
+test.stable(
+  'requires canonical feature role folders and bound resource APIs',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'feature-layout', {
+      'src/features/a/old.store.ts': 'export const x = 1;',
+      'src/features/a/service/nested/other.workflow.ts': 'export const x = 1;',
+      'src/features/a/store/index.ts': `
         import type { Db } from '@study/db';
 
         import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
@@ -17,46 +20,61 @@ testStable('requires canonical feature role folders and bound resource APIs', as
           return db;
         }
       `,
-    'src/features/b/store/read.ts': `
+      'src/features/b/store/read.ts': `
         import type { StoreResources } from '#server/platform/definitions/define-store';
         export function makeReads({ db }: StoreResources) {
           return { read: (clock: string) => clock };
         }
       `,
-    'src/features/b/service/index.ts': 'export const x = 1;'
-  });
+      'src/features/b/service/index.ts': 'export const x = 1;'
+    });
 
-  assert.strictEqual(diagnostics.length, 5, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 5, JSON.stringify(diagnostics));
+  }
+);
 
-testStable('keeps feature entry exports on the public service boundary', async () => {
-  const diagnostics = await lintRule('server-layer-boundary', {
-    'src/features/a/index.ts': `export type { Item } from './store/index.ts'; export { A } from './service/index.ts';`,
-    'src/features/b/service/index.ts': `import { Store } from '../store/index.ts';`,
-    'src/features/c/rpc/index.ts': `import { Store } from '../store/index.ts';`
-  });
+test.stable(
+  'keeps feature entry exports on the public service boundary',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-});
+    const diagnostics = await lintRule({ assert }, 'server-layer-boundary', {
+      'src/features/a/index.ts': `export type { Item } from './store/index.ts'; export { A } from './service/index.ts';`,
+      'src/features/b/service/index.ts': `import { Store } from '../store/index.ts';`,
+      'src/features/c/rpc/index.ts': `import { Store } from '../store/index.ts';`
+    });
 
-testStable('rejects public aliases and nested entrypoint loopholes', async () => {
-  const diagnostics = await lintRule('feature-layout', {
-    'src/features/a/index.ts': `import type { Hidden } from './service/index.ts'; export type Alias = Hidden;`,
-    'src/features/b/store/nested/index.ts': `export const Store = 1;`,
-    'src/features/c/store/index.ts': `
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  }
+);
+
+test.stable(
+  'rejects public aliases and nested entrypoint loopholes',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'feature-layout', {
+      'src/features/a/index.ts': `import type { Hidden } from './service/index.ts'; export type Alias = Hidden;`,
+      'src/features/b/store/nested/index.ts': `export const Store = 1;`,
+      'src/features/c/store/index.ts': `
         import { defineStore, storeMutation } from '#server/platform/definitions/define-store';
         defineStore({
           make: () => ({ queries: {}, mutations: { save: storeMutation({ run(db, input) {} }) } })
         });
       `
-  });
+    });
 
-  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+  }
+);
 
-testStable('detects aliased resource types without confusing domain fields', async () => {
-  const diagnostics = await lintRule('feature-layout', {
-    'src/features/a/store/read.ts': `
+test.stable(
+  'detects aliased resource types without confusing domain fields',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'feature-layout', {
+      'src/features/a/store/read.ts': `
         import type { Db as Database } from '@study/db';
         import type { Clock as Time } from 'effect';
 
@@ -66,13 +84,16 @@ testStable('detects aliased resource types without confusing domain fields', asy
         function makeReads(resources: Resources) {}
         function domain(db: string, clock: number) {}
       `
-  });
+    });
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  }
+);
 
-testStable('requires make to return bound descriptor groups', async () => {
-  const diagnostics = await lintRule('feature-layout', {
+test.stable('requires make to return bound descriptor groups', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
+  const diagnostics = await lintRule({ assert }, 'feature-layout', {
     'src/features/a/store/index.ts': `import { defineStore } from '#server/platform/definitions/define-store'; defineStore({make: () => ({})});`,
     'src/features/b/store/index.ts': `import { defineStore } from '#server/platform/definitions/define-store'; defineStore({make: () => ({queries: {}, mutations: {}})});`
   });
@@ -80,7 +101,9 @@ testStable('requires make to return bound descriptor groups', async () => {
   assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable('bound aliases preserve each persistence boundary', async () => {
+test.stable('bound aliases preserve each persistence boundary', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const prefix = `import { defineStore, storeMutation } from '#server/platform/definitions/define-store'; import { notes, workflow_executions } from '@study/db'; defineStore({make: resources => { const {db} = resources; const alias = db; return {queries: {}, mutations: {save: storeMutation({run(input) { `;
   const suffix = ` }})}}; }});`;
   const cases: [string, string][] = [
@@ -95,7 +118,7 @@ testStable('bound aliases preserve each persistence boundary', async () => {
   ];
 
   for (const [rule, operation] of cases) {
-    const diagnostics = await lintRule(rule, {
+    const diagnostics = await lintRule({ assert }, rule, {
       'src/features/projects/store/index.ts': prefix + operation + suffix
     });
 
@@ -104,10 +127,12 @@ testStable('bound aliases preserve each persistence boundary', async () => {
   }
 });
 
-testStable(
+test.stable(
   'resolves resource aliases and namespace types while restricting construction to stores',
-  async () => {
-    const diagnostics = await lintRule('feature-layout', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'feature-layout', {
       'src/features/a/store/read.ts': `
         import type * as Storage from '@study/db';
         import type * as E from 'effect';
@@ -130,37 +155,49 @@ testStable(
   }
 );
 
-testStable('respects shadowed namespace type bindings and cyclic aliases', async () => {
-  const diagnostics = await lintRule('feature-layout', {
-    'src/features/a/store/read.ts': `import type * as Storage from '@study/db'; type A = B; type B = A; function read<Storage>(db: Storage, other: A) {} function real(db: Storage.Db) {}`
-  });
+test.stable(
+  'respects shadowed namespace type bindings and cyclic aliases',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-});
+    const diagnostics = await lintRule({ assert }, 'feature-layout', {
+      'src/features/a/store/read.ts': `import type * as Storage from '@study/db'; type A = B; type B = A; function read<Storage>(db: Storage, other: A) {} function real(db: Storage.Db) {}`
+    });
 
-testStable('current ServerContext aliases retain resource and persistence ownership', async () => {
-  for (const declaration of [
-    "import type { ServerContext as Context } from '#server/platform/database/context'; type Alias = Context;",
-    "import type * as Database from '../../../platform/database/context'; type Alias = Database.ServerContext;"
-  ]) {
-    for (const [rule, body] of [
-      ['feature-layout', ''],
-      ['synchronous-transactions', 'ctx.transaction(async () => 1);'],
-      ['feature-persistence-boundary', 'ctx.db.orm.update(notes).set({}).where(predicate).run();']
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  }
+);
+
+test.stable(
+  'current ServerContext aliases retain resource and persistence ownership',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    for (const declaration of [
+      "import type { ServerContext as Context } from '#server/platform/database/context'; type Alias = Context;",
+      "import type * as Database from '../../../platform/database/context'; type Alias = Database.ServerContext;"
     ]) {
-      const diagnostics = await lintRule(rule, {
-        'src/features/projects/store/read.ts': `${declaration} import { notes } from '@study/db'; function read(ctx: Alias) { ${body} }`
-      });
+      for (const [rule, body] of [
+        ['feature-layout', ''],
+        ['synchronous-transactions', 'ctx.transaction(async () => 1);'],
+        ['feature-persistence-boundary', 'ctx.db.orm.update(notes).set({}).where(predicate).run();']
+      ]) {
+        const diagnostics = await lintRule({ assert }, rule, {
+          'src/features/projects/store/read.ts': `${declaration} import { notes } from '@study/db'; function read(ctx: Alias) { ${body} }`
+        });
 
-      assert.strictEqual(diagnostics.length, 1, `${rule}: ${JSON.stringify(diagnostics)}`);
+        assert.strictEqual(diagnostics.length, 1, `${rule}: ${JSON.stringify(diagnostics)}`);
+      }
     }
   }
-});
+);
 
-testStable(
+test.stable(
   'allows an optional typed bound canonical reader after the one resource parameter',
-  async () => {
-    const diagnostics = await lintRule('feature-layout', {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'feature-layout', {
       'src/features/materials/store/citations.ts': `
       import type { StoreResources } from '#server/platform/definitions/define-store';
       import { makeReads } from './reads';
@@ -172,10 +209,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'rejects required dependencies, untyped optional arguments and extra resource parameters',
-  async () => {
-    const diagnostics = await lintRule('feature-layout', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'feature-layout', {
       'src/features/materials/store/citations.ts': `
       import type { StoreResources } from '#server/platform/definitions/define-store';
       import type { Db } from '@study/db';

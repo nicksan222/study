@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks ownership preflight for both API key model generation and streaming         │
@@ -11,15 +12,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
-
 import { getApiKeyProvider } from './registry.ts';
 import { withRequestCheck } from './request-check.ts';
 
-testStable(
+test.stable(
   'preflight blocks API-key model requests before the transport sees credentials',
-  async () => {
+  async ({ expect }) => {
     let requests = 0;
     const model = getApiKeyProvider('deepseek').createModel({
       apiKey: 'test-secret',

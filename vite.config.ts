@@ -19,22 +19,34 @@ export default defineConfig({
       {
         test: {
           name: 'server',
+          setupFiles: ['apps/server/test/testing/setup.ts'],
           environment: 'node',
           include: [
             'apps/server/**/*.test.ts',
             'packages/*/test/**/*.test.ts',
             'packages/*/src/**/*.test.ts'
           ],
-          exclude: ['packages/testing/**', 'packages/ui/**'],
-          setupFiles: ['./apps/server/test/testing/preload.ts'],
+          exclude: ['packages/testing/**', 'packages/ui/**', 'packages/db/**'],
           pool: 'forks',
-          testTimeout: 180000,
-          hookTimeout: 30000
+          testTimeout: testPolicy.tests.server,
+          hookTimeout: testPolicy.hookTimeout
+        }
+      },
+      {
+        test: {
+          name: 'database',
+          setupFiles: ['packages/db/test/setup.ts'],
+          environment: 'node',
+          include: ['packages/db/**/*.test.ts'],
+          pool: 'forks',
+          testTimeout: testPolicy.tests.server,
+          hookTimeout: testPolicy.hookTimeout
         }
       },
       {
         test: {
           name: 'tooling',
+          setupFiles: ['apps/server/test/testing/setup.ts'],
           exclude: [
             '**/*.browser.test.ts',
             '**/test-results/**',
@@ -49,7 +61,7 @@ export default defineConfig({
             'apps/desktop/src-tauri/tests/**/*.test.mjs'
           ],
           pool: 'forks',
-          testTimeout: 30000
+          testTimeout: testPolicy.tests.unit
         }
       }
     ]

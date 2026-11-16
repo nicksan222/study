@@ -1,6 +1,5 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Context, Result, Schema } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { failureSchema } from '../src/errors.ts';
 import { sourceIdSchema } from '../src/ids.ts';
@@ -15,27 +14,30 @@ import {
 
 const schemas = { payload: { id: sourceIdSchema }, success: Schema.String, error: failureSchema };
 
-testStable('query and mutation constructors preserve native schemas and required policies', () => {
-  const read = liveQuery('test.read', schemas, {
-    dependencies: [dependency.sources],
-    refresh: 'database'
-  });
-  const write = mutation('test.write', schemas, { changes: [dependency.sources] });
-  const group = endpointGroup({ read, write });
+test.stable(
+  'query and mutation constructors preserve native schemas and required policies',
+  ({ expect }) => {
+    const read = liveQuery('test.read', schemas, {
+      dependencies: [dependency.sources],
+      refresh: 'database'
+    });
+    const write = mutation('test.write', schemas, { changes: [dependency.sources] });
+    const group = endpointGroup({ read, write });
 
-  expect([...group.requests.keys()]).toEqual(['test.read', 'test.read.live', 'test.write']);
-  expect(Context.get(read.rpc.annotations, EndpointPolicy)).toEqual({
-    kind: 'query',
-    dependencies: ['sources'],
-    refresh: 'database'
-  });
-  expect(Context.get(write.rpc.annotations, EndpointPolicy)).toEqual({
-    kind: 'mutation',
-    changes: ['sources']
-  });
-  expect(read.successSchema).toBe(Schema.String);
-  expect(write.rpc.errorSchema).toBe(failureSchema);
-});
+    expect([...group.requests.keys()]).toEqual(['test.read', 'test.read.live', 'test.write']);
+    expect(Context.get(read.rpc.annotations, EndpointPolicy)).toEqual({
+      kind: 'query',
+      dependencies: ['sources'],
+      refresh: 'database'
+    });
+    expect(Context.get(write.rpc.annotations, EndpointPolicy)).toEqual({
+      kind: 'mutation',
+      changes: ['sources']
+    });
+    expect(read.successSchema).toBe(Schema.String);
+    expect(write.rpc.errorSchema).toBe(failureSchema);
+  }
+);
 
 // This function is typechecked without executing intentionally invalid declarations.
 function invalidDeclarations() {
@@ -54,24 +56,27 @@ function invalidDeclarations() {
   mutation('empty', schemas, { changes: [] });
 }
 
-testStable('live queries derive a separate native stream without changing one-shot schemas', () => {
-  const read = liveQuery('test.read', schemas, {
-    dependencies: [dependency.sources],
-    refresh: 'database'
-  });
+test.stable(
+  'live queries derive a separate native stream without changing one-shot schemas',
+  ({ expect }) => {
+    const read = liveQuery('test.read', schemas, {
+      dependencies: [dependency.sources],
+      refresh: 'database'
+    });
 
-  expect(read.rpc._tag).toBe('test.read');
-  expect(read.liveRpc._tag).toBe('test.read.live');
-  expect(read.rpc.successSchema).toBe(Schema.String);
-  expect(read.rpc.payloadSchema.fields.id).toBe(sourceIdSchema);
-  expect(Context.get(read.liveRpc.annotations, EndpointPolicy)).toEqual(
-    Context.get(read.rpc.annotations, EndpointPolicy)
-  );
-});
+    expect(read.rpc._tag).toBe('test.read');
+    expect(read.liveRpc._tag).toBe('test.read.live');
+    expect(read.rpc.successSchema).toBe(Schema.String);
+    expect(read.rpc.payloadSchema.fields.id).toBe(sourceIdSchema);
+    expect(Context.get(read.liveRpc.annotations, EndpointPolicy)).toEqual(
+      Context.get(read.rpc.annotations, EndpointPolicy)
+    );
+  }
+);
 
-testStable(
+test.stable(
   'live frames preserve typed domain failures and distinguish transport heartbeats',
-  () => {
+  ({ expect }) => {
     const schema = liveFrameSchema(Schema.BigInt, failureSchema);
     const codec = Schema.fromJsonString(Schema.toCodecJson(schema));
     const frames = [

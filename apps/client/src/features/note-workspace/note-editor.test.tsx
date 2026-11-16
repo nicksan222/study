@@ -1,7 +1,5 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { RichNoteContent, RichNoteEditor } from '@study/ui';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { expect, vi } from 'vite-plus/test';
 
 const labels = {
   formatting: 'Format',
@@ -22,9 +20,9 @@ const labels = {
   redo: 'Redo'
 };
 
-testStable(
+test.stable(
   'renders saved Markdown as a document with headings, lists, emphasis and safe links',
-  () => {
+  ({ render, expect, screen }) => {
     render(
       <RichNoteContent
         value={'# Notes\n\n- **Important**\n- Another idea\n\n[Unsafe](javascript:alert(1))'}
@@ -39,9 +37,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'serializes formatting into Markdown and accepts external updates without echoing them',
-  async () => {
+  async ({ vi, render, fireEvent, screen, waitFor, expect }) => {
     const onChange = vi.fn();
     const props = {
       value: 'A thought',
@@ -69,16 +67,25 @@ testStable(
   }
 );
 
-testStable('applies writing preferences to the editable document without changing its text', () => {
-  const onChange = vi.fn();
-  const props = { value: 'A thought', label: 'Page', placeholder: 'Write here', labels, onChange };
-  const view = render(<RichNoteEditor {...props} spellcheck={false} fontSize={22} />);
-  const editor = screen.getByRole('textbox', { name: 'Page' });
+test.stable(
+  'applies writing preferences to the editable document without changing its text',
+  ({ vi, render, screen, expect }) => {
+    const onChange = vi.fn();
+    const props = {
+      value: 'A thought',
+      label: 'Page',
+      placeholder: 'Write here',
+      labels,
+      onChange
+    };
+    const view = render(<RichNoteEditor {...props} spellcheck={false} fontSize={22} />);
+    const editor = screen.getByRole('textbox', { name: 'Page' });
 
-  expect(editor).toHaveAttribute('spellcheck', 'false');
-  expect(editor).toHaveStyle({ fontSize: '22px' });
-  view.rerender(<RichNoteEditor {...props} spellcheck fontSize={16} />);
-  expect(editor).toHaveAttribute('spellcheck', 'true');
-  expect(editor).toHaveStyle({ fontSize: '16px' });
-  expect(onChange).not.toHaveBeenCalled();
-});
+    expect(editor).toHaveAttribute('spellcheck', 'false');
+    expect(editor).toHaveStyle({ fontSize: '22px' });
+    view.rerender(<RichNoteEditor {...props} spellcheck fontSize={16} />);
+    expect(editor).toHaveAttribute('spellcheck', 'true');
+    expect(editor).toHaveStyle({ fontSize: '16px' });
+    expect(onChange).not.toHaveBeenCalled();
+  }
+);

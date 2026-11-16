@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies ID-based pagination performs lookahead only for full pages and returns no │
@@ -12,17 +13,13 @@
  * │ or database fixture is involved.                                                         │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { pageById } from '#server/platform/definitions/page-by-id';
 
-testStable(
+test.stable(
   'ID pages only probe full pages and never expose a cursor for the final page',
-  async () => {
+  async ({ expect }) => {
     const calls: { limit: number; before?: number }[] = [];
     const query = (input: { limit: number; before?: number }) =>
       Effect.sync(() => {
@@ -59,7 +56,9 @@ testStable(
   }
 );
 
-testStable('ID pages preserve lookahead failures', async () => {
+test.stable('ID pages preserve lookahead failures', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const failure = { kind: 'transient' };
   const result = pageById(
     ({ before }: { limit: number; before?: number }) =>

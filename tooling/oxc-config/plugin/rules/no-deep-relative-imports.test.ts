@@ -1,12 +1,13 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable(
+test.stable(
   'rejects relative imports that ascend two or more directories across module edge forms',
-  async () => {
-    const diagnostics = await lintRule('no-deep-relative-imports', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'no-deep-relative-imports', {
       'src/a.ts': `import '../x';
 import '../../x';
 export * from './../../../x';
@@ -27,14 +28,19 @@ require('../../x');`
   }
 );
 
-testStable('allows shallow and non-import strings and respects shadowed require', async () => {
-  const diagnostics = await lintRule('no-deep-relative-imports', {
-    'src/a.ts': `import './x';
+test.stable(
+  'allows shallow and non-import strings and respects shadowed require',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'no-deep-relative-imports', {
+      'src/a.ts': `import './x';
  import '../x';
  const text = '../../x';
  function f(require: (s: string) => void) { require('../../x');
  }`
-  });
+    });
 
-  expect(diagnostics).toStrictEqual([]);
-});
+    expect(diagnostics).toStrictEqual([]);
+  }
+);

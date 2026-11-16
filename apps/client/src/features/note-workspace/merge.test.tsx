@@ -1,22 +1,36 @@
 import { noteSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { afterEach, expect, vi } from 'vite-plus/test';
 
-import { rpcTestTransport } from '#client/test/rpc.tsx';
+import type * as __MockType0 from './merge';
 
-import { NoteMergeDialog } from './merge';
+let NoteMergeDialog: typeof __MockType0.NoteMergeDialog;
 
-const api = vi.hoisted(() => ({ merge: vi.fn(), navigate: vi.fn() }));
+let api: ReturnType<typeof createMockState>['api'];
 
-vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('@tanstack/react-router', () => ({ useNavigate: () => api.navigate }));
-afterEach(cleanup);
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({ merge: mock.fn(), navigate: mock.fn() }))()
+  };
+}
 
-testStable(
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  mock('@tanstack/react-router', () => ({ useNavigate: () => api.navigate }));
+  const __mockModule0 = await import('./merge');
+
+  NoteMergeDialog = __mockModule0.NoteMergeDialog;
+});
+
+test.afterEach(({ cleanup }) => cleanup());
+
+test.stable(
   'retries the reviewed note set with the same merge identity and opens the committed result',
-  async () => {
+  async ({ rpcTestTransport, vi, render, fireEvent, screen, expect, waitFor, cleanup }) => {
     const note = Schema.decodeUnknownSync(noteSchema)({
       id: 3n,
       title: 'Combined',

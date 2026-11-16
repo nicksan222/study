@@ -1,3 +1,4 @@
+import { createBlock } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises native runtime runtime backup retention behavior through real            │
@@ -11,15 +12,11 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { createBlock } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
+import { test } from '@study/testing';
 /** Roundtrips final-domain body retirement, exact source pins and private note cleanup. */
-import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
@@ -31,10 +28,12 @@ import { setup, cleanup as cleanupNote, assertScrubbed } from '#testing/note-del
 import { pageTransformFixture } from '#testing/page-transform';
 
 for (const kind of ['file', 'image'] as const)
-  testStable(
+  test.stable(
     `authored retirement preserves independent ${kind} source pins and revoked exports after restore`,
-    async () => {
-      const source = await pageTransformFixture();
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
+      const source = await pageTransformFixture(databases);
       let target: Awaited<ReturnType<typeof restoreSnapshot>> | undefined;
 
       try {
@@ -53,7 +52,7 @@ for (const kind of ['file', 'image'] as const)
         );
         // Text ingestion exercises the real native extraction owner. Images are authored roots of
         // original bytes; they need no artificial extraction or fake source Material.
-        const extracted = kind === 'file' ? await processSource(source) : null;
+        const extracted = kind === 'file' ? await processSource(source, assert) : null;
         const saved = await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Pages;
@@ -155,10 +154,12 @@ for (const kind of ['file', 'image'] as const)
     }
   );
 
-testStable(
+test.stable(
   'authored history retirement protects exact dependents before restoring unavailable bodies and independent current history',
-  async () => {
-    const source = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const source = await pageTransformFixture(databases);
     let target: Awaited<ReturnType<typeof restoreSnapshot>> | undefined;
 
     try {
@@ -217,7 +218,7 @@ testStable(
         }).pipe(Effect.provide(source.domain()))
       );
 
-      assertScrubbed(source, 'PRIVATE_PRUNED_BODY');
+      assertScrubbed(source, assert, 'PRIVATE_PRUNED_BODY');
       const bytes = await exportSnapshot(source.context.db);
 
       await source.close();
@@ -257,23 +258,25 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'completed note cleanup roundtrips content-free private captures and independent library history',
-  async () => {
-    const source = await pageTransformFixture();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const source = await pageTransformFixture(databases);
 
     let target: Awaited<ReturnType<typeof restoreSnapshot>> | undefined;
 
     try {
-      const saved = await setup(source, 'PRIVATE_SESSION_BODY_BACKUP');
+      const saved = await setup(source, assert, 'PRIVATE_SESSION_BODY_BACKUP');
 
       await Effect.runPromise(
         Effect.flatMap(Notes, (c) => c.deleteNote(saved.note.id)).pipe(
           Effect.provide(source.domain())
         )
       );
-      await cleanupNote(source, saved.note.id);
-      assertScrubbed(source, 'PRIVATE_SESSION_BODY_BACKUP');
+      await cleanupNote(source, saved.note.id, assert);
+      assertScrubbed(source, assert, 'PRIVATE_SESSION_BODY_BACKUP');
 
       const bytes = await exportSnapshot(source.context.db);
 

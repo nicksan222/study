@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies rewrite prompts distinguish note targets from captured task               │
@@ -12,32 +13,32 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
-
 import { rewriteAgent } from './rewrite.ts';
 
 for (const origin of ['improve', 'summarize'] as const)
-  testStable(`rewrite ${origin} keeps the captured target immediately before the task`, () => {
-    const messages = [
-      { role: 'user' as const, content: 'Earlier context' },
-      { role: 'assistant' as const, content: 'The requested target' }
-    ];
-    const prompt = rewriteAgent.prompt({
-      messages,
-      origin,
-      instruction: null,
-      preferences: {}
-    });
+  test.stable(
+    `rewrite ${origin} keeps the captured target immediately before the task`,
+    ({ expect }) => {
+      const messages = [
+        { role: 'user' as const, content: 'Earlier context' },
+        { role: 'assistant' as const, content: 'The requested target' }
+      ];
+      const prompt = rewriteAgent.prompt({
+        messages,
+        origin,
+        instruction: null,
+        preferences: {}
+      });
 
-    expect(prompt.slice(0, -1)).toStrictEqual(messages);
-    expect(prompt.at(-2)).toStrictEqual(messages.at(-1));
-    expect(prompt.at(-1)).toStrictEqual({ role: 'user', content: `Task: ${origin}. ` });
-  });
+      expect(prompt.slice(0, -1)).toStrictEqual(messages);
+      expect(prompt.at(-2)).toStrictEqual(messages.at(-1));
+      expect(prompt.at(-1)).toStrictEqual({ role: 'user', content: `Task: ${origin}. ` });
+    }
+  );
 
-testStable(
+test.stable(
   'rewrite instruction and preferences appear once in the task, outside captured text',
-  () => {
+  ({ expect }) => {
     const messages = [{ role: 'user' as const, content: 'Rewrite this passage' }];
     const prompt = rewriteAgent.prompt({
       messages,

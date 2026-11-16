@@ -1,17 +1,13 @@
 import { projectIdSchema, summarySchema } from '@study/contracts';
 import type { rpc } from '@study/contracts/react';
-import { testStable } from '@study/testing/vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { expect, vi } from 'vite-plus/test';
-
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { usePageBrowse } from './use-page-browse';
 
-testStable(
+test.stable(
   'changing the page browser owner discards a slower previous-owner snapshot',
-  async () => {
+  async ({ vi, rpcHandlersTransport, renderHook, waitFor, expect, act }) => {
     const first = projectIdSchema.make(1n);
     const second = projectIdSchema.make(2n);
     const page = (id: bigint) =>

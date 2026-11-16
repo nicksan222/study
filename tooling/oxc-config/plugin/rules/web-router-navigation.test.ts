@@ -1,13 +1,17 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('rejects manual browser navigation and raw search decoding', async () => {
-  const diagnostics = await lintRule(
-    'web-router-navigation',
-    {
-      'apps/client/src/pages/home/use-page.ts': `
+test.stable(
+  'rejects manual browser navigation and raw search decoding',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule(
+      { assert },
+      'web-router-navigation',
+      {
+        'apps/client/src/pages/home/use-page.ts': `
         window.history.pushState({}, '', '/home');
         history.replaceState({}, '', '/');
         window.location.hash = '/home';
@@ -15,32 +19,42 @@ testStable('rejects manual browser navigation and raw search decoding', async ()
         const search = new URLSearchParams(location.search);
         const path = location.pathname;
       `,
-      'apps/client/src/pages/home/page.view.tsx': `export const view = <><a href="/home">Home</a><a href="#/settings">Settings</a><a href="https://example.com">External</a></>;`
-    },
-    true
-  );
-
-  assert.strictEqual(diagnostics.length, 8, JSON.stringify(diagnostics));
-});
-
-testStable('allows the router adapter, transport discovery and external links', async () => {
-  expect(
-    await lintRule(
-      'web-router-navigation',
-      {
-        'apps/client/src/app/router.ts': `const parse = (search) => new URLSearchParams(search);`,
-        'apps/client/src/lib/host.ts': `const origin = window.location.origin; const protocol = window.location.protocol;`,
-        'apps/client/src/pages/home/page.view.tsx': `import { Link } from '@tanstack/react-router'; export const view = <><Link to="/home" /><a href="https://example.com">External</a></>;`
+        'apps/client/src/pages/home/page.view.tsx': `export const view = <><a href="/home">Home</a><a href="#/settings">Settings</a><a href="https://example.com">External</a></>;`
       },
       true
-    )
-  ).toStrictEqual([]);
-});
+    );
 
-testStable(
+    assert.strictEqual(diagnostics.length, 8, JSON.stringify(diagnostics));
+  }
+);
+
+test.stable(
+  'allows the router adapter, transport discovery and external links',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lintRule(
+        { assert },
+        'web-router-navigation',
+        {
+          'apps/client/src/app/router.ts': `const parse = (search) => new URLSearchParams(search);`,
+          'apps/client/src/lib/host.ts': `const origin = window.location.origin; const protocol = window.location.protocol;`,
+          'apps/client/src/pages/home/page.view.tsx': `import { Link } from '@tanstack/react-router'; export const view = <><Link to="/home" /><a href="https://example.com">External</a></>;`
+        },
+        true
+      )
+    ).toStrictEqual([]);
+  }
+);
+
+test.stable(
   'host environment reads do not permit navigation or leak into feature modules',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'web-router-navigation',
       {
         'apps/client/src/lib/host.ts': `window.location.assign('/home'); const path = window.location.pathname;`,
@@ -54,28 +68,37 @@ testStable(
   }
 );
 
-testStable('destructured browser aliases cannot bypass TanStack navigation', async () => {
-  const diagnostics = await lintRule(
-    'web-router-navigation',
-    {
-      'apps/client/src/pages/home/use-page.ts': `
+test.stable(
+  'destructured browser aliases cannot bypass TanStack navigation',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule(
+      { assert },
+      'web-router-navigation',
+      {
+        'apps/client/src/pages/home/use-page.ts': `
       const { history: navigation, location: url } = window;
       navigation.pushState({}, '', '/home');
       url.assign('/settings');
       const Search = URLSearchParams;
       export const state = new Search('?id=1');
     `
-    },
-    true
-  );
+      },
+      true
+    );
 
-  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+  }
+);
 
-testStable(
+test.stable(
   'rejects hash history and nonstandard internal paths including route declarations',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'web-router-navigation',
       {
         'apps/client/src/app/router.ts': `import { createHashHistory as history } from '@tanstack/react-router';`,
@@ -89,11 +112,14 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'permits browser history, kebab-case paths and parameterized route segments',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     expect(
       await lintRule(
+        { assert },
         'web-router-navigation',
         {
           'apps/client/src/app/router.ts': `import { createBrowserHistory } from '@tanstack/react-router'; const parse = (search) => new URLSearchParams(search);`,
@@ -105,10 +131,13 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'Home project links and collection destinations use router search rather than manual browser navigation',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'web-router-navigation',
       {
         'apps/client/src/pages/home/unsafe.tsx': `export const view = <a href="/projects?project=9007199254740993">Collections</a>;`,
@@ -132,11 +161,14 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'proposal result and captured input links use typed route search for exact versions',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     expect(
       await lintRule(
+        { assert },
         'web-router-navigation',
         {
           'apps/client/src/features/document-editing/proposal-review.tsx': `
@@ -152,6 +184,7 @@ testStable(
       )
     ).toStrictEqual([]);
     const diagnostics = await lintRule(
+      { assert },
       'web-router-navigation',
       {
         'apps/client/src/features/document-editing/proposal-review.tsx': `
@@ -166,10 +199,13 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'permits bound TanStack index route IDs while retaining strict actual navigation paths',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'web-router-navigation',
       {
         'apps/client/src/routes/notes.index.tsx': `import { createFileRoute as fileRoute } from '@tanstack/react-router';

@@ -4,16 +4,12 @@ import {
   materialSummarySchema,
   materialVersionDetailSchema
 } from '@study/contracts';
+import type { StudyClient } from '@study/contracts/react/testing';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { expect, vi } from 'vite-plus/test';
 
 import { learningVersion, materialRpc } from '#client/features/material-library/test/support.tsx';
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
-import type { StudyClient } from '#client/test/rpc.tsx';
 
 import { ArchivedPracticeAction } from './archive-dialog';
 
@@ -64,8 +60,17 @@ function fixture(kind: 'quiz' | 'flashcards', id: bigint) {
   return { detail, summary };
 }
 
-function mount(project = true, paginated = false, empty = false) {
-  const base = materialRpc();
+function mount(
+  {
+    vi,
+    rpcHandlersTransport,
+    render
+  }: Pick<test.Context, 'vi' | 'rpcHandlersTransport' | 'render'>,
+  project = true,
+  paginated = false,
+  empty = false
+) {
+  const base = materialRpc({ vi });
   const quiz = fixture('quiz', 41n);
   const cards = fixture('flashcards', 42n);
   const extra = fixture('quiz', 43n);
@@ -113,10 +118,10 @@ function mount(project = true, paginated = false, empty = false) {
   return { rpc, notify: transport.notify };
 }
 
-testStable(
+test.stable(
   'opens the sidebar archive, previews saved content, and restores through the real mutation',
-  async () => {
-    const { rpc } = mount();
+  async ({ userEvent, screen, expect, within, waitFor, vi, rpcHandlersTransport, render }) => {
+    const { rpc } = mount({ vi, rpcHandlersTransport, render });
     const user = userEvent.setup();
     const trigger = screen.getByRole('button', { name: en.PracticeArchived });
 
@@ -150,41 +155,44 @@ testStable(
   }
 );
 
-testStable('pages through the global archive, and searches quizzes and flashcards', async () => {
-  const { rpc } = mount(false, true);
-  const user = userEvent.setup();
+test.stable(
+  'pages through the global archive, and searches quizzes and flashcards',
+  async ({ userEvent, screen, within, expect, vi, rpcHandlersTransport, render }) => {
+    const { rpc } = mount({ vi, rpcHandlersTransport, render }, false, true);
+    const user = userEvent.setup();
 
-  await user.click(screen.getByRole('button', { name: en.PracticeArchived }));
-  const dialog = await screen.findByRole('dialog', { name: en.PracticeArchived });
+    await user.click(screen.getByRole('button', { name: en.PracticeArchived }));
+    const dialog = await screen.findByRole('dialog', { name: en.PracticeArchived });
 
-  await user.click(await within(dialog).findByRole('button', { name: en.LibraryMore }));
-  expect(
-    await within(dialog).findByRole('button', { name: /Prime flashcards/ })
-  ).toBeInTheDocument();
-  expect(rpc['materials.materials']).toHaveBeenLastCalledWith({
-    projectId: undefined,
-    archived: true,
-    cursor: undefined,
-    limit: 60
-  });
-  await user.type(
-    within(dialog).getByRole('searchbox', { name: en.PracticeSearchArchived }),
-    'Prime'
-  );
-  expect(within(dialog).getByRole('button', { name: /Prime flashcards/ })).toBeInTheDocument();
-  expect(within(dialog).queryByRole('button', { name: /Number theory quiz/ })).toBeNull();
-  await user.click(within(dialog).getByRole('button', { name: /Prime flashcards/ }));
-  expect(
-    await within(dialog).findByRole('heading', { name: 'Smallest prime?' })
-  ).toBeInTheDocument();
-  expect(within(dialog).getByText('Two.')).toBeInTheDocument();
-  expect(within(dialog).getByText(en.CardBack)).toBeInTheDocument();
-});
+    await user.click(await within(dialog).findByRole('button', { name: en.LibraryMore }));
+    expect(
+      await within(dialog).findByRole('button', { name: /Prime flashcards/ })
+    ).toBeInTheDocument();
+    expect(rpc['materials.materials']).toHaveBeenLastCalledWith({
+      projectId: undefined,
+      archived: true,
+      cursor: undefined,
+      limit: 60
+    });
+    await user.type(
+      within(dialog).getByRole('searchbox', { name: en.PracticeSearchArchived }),
+      'Prime'
+    );
+    expect(within(dialog).getByRole('button', { name: /Prime flashcards/ })).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: /Number theory quiz/ })).toBeNull();
+    await user.click(within(dialog).getByRole('button', { name: /Prime flashcards/ }));
+    expect(
+      await within(dialog).findByRole('heading', { name: 'Smallest prime?' })
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText('Two.')).toBeInTheDocument();
+    expect(within(dialog).getByText(en.CardBack)).toBeInTheDocument();
+  }
+);
 
-testStable(
+test.stable(
   'uses the shared empty presentation and automatically previews available archived items',
-  async () => {
-    const { rpc, notify } = mount(true, false, true);
+  async ({ userEvent, screen, within, expect, vi, rpcHandlersTransport, render }) => {
+    const { rpc, notify } = mount({ vi, rpcHandlersTransport, render }, true, false, true);
     const user = userEvent.setup();
 
     await user.click(screen.getByRole('button', { name: en.PracticeArchived }));

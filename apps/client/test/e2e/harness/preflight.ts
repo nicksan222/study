@@ -1,3 +1,5 @@
+import { testPolicy } from '@study/testing';
+import { spawnScopedProcess } from '@study/testing/process';
 import type { FullConfig } from 'playwright/test';
 import type { JSONReport, JSONReportSuite } from 'playwright/types/testReporter';
 
@@ -6,7 +8,7 @@ import { safeName, workflowName } from './identity.ts';
 type Journey = { title: string; parts: string[] };
 
 async function collect(configFile: string): Promise<Map<string, Journey>> {
-  const child = Bun.spawn(
+  await using child = spawnScopedProcess(
     [
       process.execPath,
       '--bun',
@@ -18,6 +20,7 @@ async function collect(configFile: string): Promise<Map<string, Journey>> {
       '--reporter=json'
     ],
     {
+      timeout: testPolicy.processStartupTimeout,
       env: { ...process.env, E2E_UPDATE: undefined },
       stdout: 'pipe',
       stderr: 'pipe'

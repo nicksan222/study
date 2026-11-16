@@ -1,10 +1,11 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { projectIdSchema } from '../src/ids.ts';
 
-testStable('project IDs are positive signed 64-bit integers', () => {
+test.stable('project IDs are positive signed 64-bit integers', ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const decode = Schema.decodeUnknownSync(projectIdSchema);
 
   assert.strictEqual(decode(1n), 1n);

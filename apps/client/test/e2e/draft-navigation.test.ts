@@ -1,6 +1,5 @@
 import { catalogs } from '@study/localization';
-
-import { expect, testE2e } from './harness/index.ts';
+import { test } from '@study/testing';
 
 const copy = catalogs.english;
 
@@ -32,9 +31,9 @@ const scopes = [
 
 const removed = 'river-removed.md';
 
-testE2e(
+test.stable(
   'Scoped drafts survive navigation and save to their own projects',
-  async ({ page, expectScreenshot }) => {
+  async ({ page, expectScreenshot, expect }) => {
     await page.goto('/notes');
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
     const composeRegion = page.getByRole('region', { name: copy.NoteCompose, exact: true });
@@ -44,7 +43,7 @@ testE2e(
     const saved = new Map<string, string>();
     const projects = new Map<string, string>();
 
-    async function controls() {
+    async function controls({ expect }: Pick<test.Context, 'expect'>) {
       for (const control of [
         composer,
         save,
@@ -56,7 +55,11 @@ testE2e(
       }
     }
 
-    async function assertDraft(scope: (typeof scopes)[number], filenames: string[]) {
+    async function assertDraft(
+      { expect }: Pick<test.Context, 'expect'>,
+      scope: (typeof scopes)[number],
+      filenames: string[]
+    ) {
       await expect(page).toHaveURL(`${projects.get(scope.name)}/notes`);
       await expect(picker).toHaveAccessibleName(scope.name);
       await expect(picker).toContainText(scope.name);
@@ -69,10 +72,13 @@ testE2e(
       ).toHaveCount(filenames.length);
       await expect(page.locator('a[href*="/notes/"]')).toHaveCount(saved.has(scope.name) ? 1 : 0);
       await expect(save).toBeEnabled();
-      await controls();
+      await controls({ expect });
     }
 
-    async function selectScope(scope: (typeof scopes)[number]) {
+    async function selectScope(
+      { expect }: Pick<test.Context, 'expect'>,
+      scope: (typeof scopes)[number]
+    ) {
       await picker.click();
       await page.getByRole('option', { name: scope.name, exact: true }).click();
       await expect(picker).toHaveAccessibleName(scope.name);
@@ -81,7 +87,7 @@ testE2e(
       await page.getByRole('link', { name: scope.title }).click();
     }
 
-    async function visitOtherRoutes() {
+    async function visitOtherRoutes({ expect }: Pick<test.Context, 'expect'>) {
       await navigation.getByRole('link', { name: copy.SourcePage }).click();
       await expect(page).toHaveURL(/\/pages$/);
       await page.getByRole('button', { name: copy.Settings, exact: true }).click();
@@ -95,7 +101,11 @@ testE2e(
       await expect(page).toHaveURL(/\/projects$/);
     }
 
-    async function createDraft(scope: (typeof scopes)[number], index: number) {
+    async function createDraft(
+      { expect }: Pick<test.Context, 'expect'>,
+      scope: (typeof scopes)[number],
+      index: number
+    ) {
       await picker.click();
       await page
         .locator('[data-slot="combobox-popup"]')
@@ -132,7 +142,7 @@ testE2e(
             ]
           : [])
       ]);
-      await assertDraft(scope, index === 0 ? [scope.file, removed] : [scope.file]);
+      await assertDraft({ expect }, scope, index === 0 ? [scope.file, removed] : [scope.file]);
 
       if (index === 0) {
         await composer.press('ControlOrMeta+Home');
@@ -142,7 +152,7 @@ testE2e(
           target: 'viewport',
           ready: async () => {
             await expect(composer).toHaveValue(scope.text);
-            await controls();
+            await controls({ expect });
           }
         });
         await expect(composer).toHaveJSProperty('scrollTop', 0);
@@ -154,7 +164,7 @@ testE2e(
           target: 'viewport',
           ready: async () => {
             await expect(composer).toHaveValue(scope.text);
-            await controls();
+            await controls({ expect });
           }
         });
         await expect(composer).not.toHaveJSProperty('scrollTop', 0);
@@ -163,7 +173,7 @@ testE2e(
           target: 'viewport',
           ready: async () => {
             await expect(composer).toHaveValue(scope.text);
-            await controls();
+            await controls({ expect });
           }
         });
         await expect(composer).not.toHaveJSProperty('scrollTop', 0);
@@ -171,40 +181,43 @@ testE2e(
       }
     }
 
-    for (const [index, scope] of scopes.entries()) await createDraft(scope, index);
+    for (const [index, scope] of scopes.entries()) await createDraft({ expect }, scope, index);
 
     const a = scopes[0]!;
     const b = scopes[1]!;
 
     for (let round = 0; round < 2; round++) {
       for (const scope of scopes) {
-        await visitOtherRoutes();
-        await selectScope(scope);
-        await assertDraft(scope, scope === a ? [a.file, removed] : [b.file]);
+        await visitOtherRoutes({ expect });
+        await selectScope({ expect }, scope);
+        await assertDraft({ expect }, scope, scope === a ? [a.file, removed] : [b.file]);
       }
     }
 
-    await selectScope(a);
+    await selectScope({ expect }, a);
     await composeRegion
       .locator('li')
       .filter({ hasText: removed })
       .getByRole('button', { name: copy.NoteRemoveAttachment })
       .click();
-    await assertDraft(a, [a.file]);
-    await selectScope(b);
-    await assertDraft(b, [b.file]);
-    await selectScope(a);
-    await assertDraft(a, [a.file]);
+    await assertDraft({ expect }, a, [a.file]);
+    await selectScope({ expect }, b);
+    await assertDraft({ expect }, b, [b.file]);
+    await selectScope({ expect }, a);
+    await assertDraft({ expect }, a, [a.file]);
     await composer.press('ControlOrMeta+Home');
     await expectScreenshot('returned-draft', {
       target: 'viewport',
       ready: async () => {
         await expect(composer).toHaveValue(a.text);
-        await assertDraft(a, [a.file]);
+        await assertDraft({ expect }, a, [a.file]);
       }
     });
 
-    async function assertSaved(scope: (typeof scopes)[number]) {
+    async function assertSaved(
+      { expect }: Pick<test.Context, 'expect'>,
+      scope: (typeof scopes)[number]
+    ) {
       await expect(picker).toHaveAccessibleName(scope.name);
       await expect(picker).toContainText(scope.name);
       await expect(composer).toHaveValue('');
@@ -226,8 +239,11 @@ testE2e(
       return { notebook, entry };
     }
 
-    async function source(scope: (typeof scopes)[number]) {
-      const { entry } = await assertSaved(scope);
+    async function source(
+      { expect }: Pick<test.Context, 'expect'>,
+      scope: (typeof scopes)[number]
+    ) {
+      const { entry } = await assertSaved({ expect }, scope);
       const attachment = entry.getByRole('button', { name: scope.file, exact: true });
 
       await attachment.scrollIntoViewIfNeeded();
@@ -251,19 +267,22 @@ testE2e(
       await page.getByRole('button', { name: copy.NoteClosePage, exact: true }).click();
     }
 
-    async function saveDraft(scope: (typeof scopes)[number]) {
+    async function saveDraft(
+      { expect }: Pick<test.Context, 'expect'>,
+      scope: (typeof scopes)[number]
+    ) {
       if (scope === b) {
-        await selectScope(b);
-        await assertDraft(b, [b.file]);
+        await selectScope({ expect }, b);
+        await assertDraft({ expect }, b, [b.file]);
       }
 
       await save.click();
       await expect(page).toHaveURL(new RegExp(`${projects.get(scope.name)}/notes/[^/?]+$`));
       expect([...saved.values()]).not.toContain(page.url());
       saved.set(scope.name, page.url());
-      const { notebook } = await assertSaved(scope);
+      const { notebook } = await assertSaved({ expect }, scope);
 
-      await source(scope);
+      await source({ expect }, scope);
       const body = notebook.locator('[data-slot="chat-message-text"]');
       const heading = notebook.getByText(copy.NoteEntryNote, { exact: true });
 
@@ -300,21 +319,21 @@ testE2e(
           return !!content && !!dock && content.y + content.height <= dock.y;
         })
         .toBe(true);
-      await controls();
+      await controls({ expect });
       await expectScreenshot(`${scope === a ? 'river' : 'orchard'}-saved-destination`, {
         target: 'viewport',
         ready: async () => {
           await expect(body).toHaveText(scope.text);
-          await assertSaved(scope);
+          await assertSaved({ expect }, scope);
         }
       });
     }
 
-    for (const scope of scopes) await saveDraft(scope);
+    for (const scope of scopes) await saveDraft({ expect }, scope);
 
     // Only saved work is reloaded: starter drafts intentionally live for one app lifetime.
     for (const scope of scopes) {
-      await visitOtherRoutes();
+      await visitOtherRoutes({ expect });
       await picker.click();
       await page.getByRole('option', { name: scope.name, exact: true }).click();
       await expect(page).toHaveURL(projects.get(scope.name)!);
@@ -329,8 +348,8 @@ testE2e(
       await members.getByRole('link').click();
       await expect(page).toHaveURL(saved.get(scope.name)!);
       await page.reload();
-      await assertSaved(scope);
-      await source(scope);
+      await assertSaved({ expect }, scope);
+      await source({ expect }, scope);
       await expect(page.locator('a[href*="/notes/"]')).toHaveCount(1);
     }
   }

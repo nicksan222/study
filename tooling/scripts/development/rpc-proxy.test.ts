@@ -1,21 +1,21 @@
 import { StudyRpc } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
 import { makeStudyClient, studySocketProtocol } from '@study/server/client';
-import { App, serve } from '@study/server/runtime';
-import { testStable } from '@study/testing/vitest';
+import { serve } from '@study/server/runtime';
+import { test } from '@study/testing';
 import { Deferred, Effect, Exit, Fiber, Layer, Stream } from 'effect';
 import { RpcClient, RpcSerialization } from 'effect/rpc';
 import { Socket } from 'effect/socket';
 import { createServer } from 'vite-plus';
-import { assert } from 'vite-plus/test';
 
 import { studyRpcProxy } from './rpc-proxy.ts';
 
-testStable(
+test.stable(
   'the browser dev proxy keeps appearance RPC connected across Vite restarts',
-  async () => {
-    const database = await createTestDatabase();
-    const app = await App.open({ path: database.path });
+  async ({ databases, resources, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const database = await databases();
+    const app = await resources.openApp({ path: database.path });
     const server = await serve(app);
     const web = await createServer({
       configFile: Bun.fileURLToPath(
@@ -27,8 +27,10 @@ testStable(
 
     try {
       await web.listen();
-      const load = () =>
-        Effect.runPromise(
+      const load = ({ assert: assertions }: Pick<test.Context, 'assert'>) => {
+        const assert: test.Assert = assertions;
+
+        return Effect.runPromise(
           Effect.scoped(
             Effect.gen(function* () {
               const client = yield* makeStudyClient(StudyRpc, {
@@ -48,27 +50,29 @@ testStable(
             })
           )
         );
+      };
 
-      await load();
+      await load({ assert });
       await web.restart();
-      await load();
+      await load({ assert });
     } finally {
       await web.close();
       await server.close();
       await app.close();
-      await database.cleanup();
     }
   }
 );
 
-testStable(
+test.stable(
   'browser OAuth completes through the forwarded web port and persists the account',
-  async () => {
-    const database = await createTestDatabase();
+  async ({ databases, resources, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const database = await databases();
     let nonce = '';
     let callbackUrl = '';
     let exchanges = 0;
-    const app = await App.open({
+    const app = await resources.openApp({
       path: database.path,
       fetch: async (_url, init) => {
         const form = new URLSearchParams(init?.body as string);
@@ -148,7 +152,7 @@ testStable(
       await app.close();
     }
 
-    const reopened = await App.open({ path: database.path });
+    const reopened = await resources.openApp({ path: database.path });
 
     try {
       const reopenedServer = await serve(reopened);
@@ -168,112 +172,115 @@ testStable(
       }
     } finally {
       await reopened.close();
-      await database.cleanup();
     }
   }
 );
 
-testStable('eight live observers share one socket and leave unary RPC available', async () => {
-  const database = await createTestDatabase();
-  const app = await App.open({ path: database.path });
-  const server = await serve(app);
-  let upgrades = 0;
-  let closes = 0;
-  let closed = Promise.withResolvers<void>();
-  const proxy = studyRpcProxy(server.url);
-  const configure = proxy['/rpc']!.configure;
+test.stable(
+  'eight live observers share one socket and leave unary RPC available',
+  async ({ databases, resources, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  proxy['/rpc']!.configure = (instance, options) => {
-    configure?.(instance, options);
-    instance.on('close', () => {
-      closes += 1;
-      closed.resolve();
+    const database = await databases();
+    const app = await resources.openApp({ path: database.path });
+    const server = await serve(app);
+    let upgrades = 0;
+    let closes = 0;
+    let closed = Promise.withResolvers<void>();
+    const proxy = studyRpcProxy(server.url);
+    const configure = proxy['/rpc']!.configure;
+
+    proxy['/rpc']!.configure = (instance, options) => {
+      configure?.(instance, options);
+      instance.on('close', () => {
+        closes += 1;
+        closed.resolve();
+      });
+      instance.on('proxyReqWs', () => {
+        upgrades += 1;
+      });
+    };
+    const web = await createServer({
+      configFile: false,
+      server: { host: '127.0.0.1', port: 0, hmr: false, proxy }
     });
-    instance.on('proxyReqWs', () => {
-      upgrades += 1;
-    });
-  };
-  const web = await createServer({
-    configFile: false,
-    server: { host: '127.0.0.1', port: 0, hmr: false, proxy }
-  });
 
-  try {
-    await web.listen();
-    const address = web.httpServer?.address();
+    try {
+      await web.listen();
+      const address = web.httpServer?.address();
 
-    assert.ok(address && typeof address !== 'string');
-    const baseUrl = `http://127.0.0.1:${address.port}`;
-    const forbiddenProtocol = RpcClient.layerProtocolSocket().pipe(
-      Layer.provide(RpcSerialization.layerNdjson),
-      Layer.provide(
-        Socket.layerWebSocket(baseUrl.replace('http:', 'ws:') + '/rpc/live', {
-          headers: { origin: 'https://evil.example' }
-        })
-      ),
-      Layer.provide(Socket.layerWebSocketConstructorGlobal)
-    );
-    const forbidden = await Effect.runPromiseExit(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const client = yield* RpcClient.make(StudyRpc).pipe(Effect.provide(forbiddenProtocol));
+      assert.ok(address && typeof address !== 'string');
+      const baseUrl = `http://127.0.0.1:${address.port}`;
+      const forbiddenProtocol = RpcClient.layerProtocolSocket().pipe(
+        Layer.provide(RpcSerialization.layerNdjson),
+        Layer.provide(
+          Socket.layerWebSocket(baseUrl.replace('http:', 'ws:') + '/rpc/live', {
+            headers: { origin: 'https://evil.example' }
+          })
+        ),
+        Layer.provide(Socket.layerWebSocketConstructorGlobal)
+      );
+      const forbidden = await Effect.runPromiseExit(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const client = yield* RpcClient.make(StudyRpc).pipe(Effect.provide(forbiddenProtocol));
 
-          return yield* Stream.runHead(client['settings.appSettings.live']({}));
-        })
-      ).pipe(Effect.timeout('2 seconds'))
-    );
+            return yield* Stream.runHead(client['settings.appSettings.live']({}));
+          })
+        ).pipe(Effect.timeout('2 seconds'))
+      );
 
-    assert.ok(Exit.isFailure(forbidden));
-    upgrades = 0;
-    closes = 0;
-    closed = Promise.withResolvers<void>();
-    const protocol = studySocketProtocol({ baseUrl });
-    const memoMap = Layer.makeMemoMapUnsafe();
+      assert.ok(Exit.isFailure(forbidden));
+      upgrades = 0;
+      closes = 0;
+      closed = Promise.withResolvers<void>();
+      const protocol = studySocketProtocol({ baseUrl });
+      const memoMap = Layer.makeMemoMapUnsafe();
 
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const ready = yield* Effect.forEach(Array.from({ length: 8 }), () =>
-            Deferred.make<void>()
-          );
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const ready = yield* Effect.forEach(Array.from({ length: 8 }), () =>
+              Deferred.make<void>()
+            );
 
-          const observers: Array<Fiber.Fiber<void, unknown>> = [];
+            const observers: Array<Fiber.Fiber<void, unknown>> = [];
 
-          for (const signal of ready) {
-            const observer = yield* Effect.gen(function* () {
-              const scope = yield* Effect.scope;
-              const services = yield* Layer.buildWithMemoMap(protocol, memoMap, scope);
-              const client = yield* RpcClient.make(StudyRpc).pipe(Effect.provide(services));
+            for (const signal of ready) {
+              const observer = yield* Effect.gen(function* () {
+                const scope = yield* Effect.scope;
+                const services = yield* Layer.buildWithMemoMap(protocol, memoMap, scope);
+                const client = yield* RpcClient.make(StudyRpc).pipe(Effect.provide(services));
 
-              const markReady = (frame: { readonly _tag: string }) =>
-                frame._tag === 'Snapshot' ? Deferred.succeed(signal, undefined) : Effect.void;
+                const markReady = (frame: { readonly _tag: string }) =>
+                  frame._tag === 'Snapshot' ? Deferred.succeed(signal, undefined) : Effect.void;
 
-              yield* client['settings.appSettings.live']({}).pipe(Stream.runForEach(markReady));
-            }).pipe(Effect.forkScoped);
+                yield* client['settings.appSettings.live']({}).pipe(Stream.runForEach(markReady));
+              }).pipe(Effect.forkScoped);
 
-            observers.push(observer);
-          }
+              observers.push(observer);
+            }
 
-          yield* Effect.forEach(ready, Deferred.await);
-          const first = observers[0];
+            yield* Effect.forEach(ready, Deferred.await);
+            const first = observers[0];
 
-          assert.ok(first);
-          yield* Fiber.interrupt(first);
-          assert.strictEqual(closes, 0);
-          const unary = yield* makeStudyClient(StudyRpc, { baseUrl });
+            assert.ok(first);
+            yield* Fiber.interrupt(first);
+            assert.strictEqual(closes, 0);
+            const unary = yield* makeStudyClient(StudyRpc, { baseUrl });
 
-          assert.strictEqual((yield* unary['settings.appSettings']({})).appearance, 2);
-          assert.strictEqual(upgrades, 1);
-        })
-      ).pipe(Effect.timeout('10 seconds'))
-    );
-    await Effect.runPromise(
-      Effect.tryPromise(() => closed.promise).pipe(Effect.timeout('5 seconds'))
-    );
-  } finally {
-    await web.close();
-    await server.close();
-    await app.close();
-    await database.cleanup();
+            assert.strictEqual((yield* unary['settings.appSettings']({})).appearance, 2);
+            assert.strictEqual(upgrades, 1);
+          })
+        ).pipe(Effect.timeout('10 seconds'))
+      );
+      await Effect.runPromise(
+        Effect.tryPromise(() => closed.promise).pipe(Effect.timeout('5 seconds'))
+      );
+    } finally {
+      await web.close();
+      await server.close();
+      await app.close();
+    }
   }
-});
+);

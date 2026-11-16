@@ -1,10 +1,8 @@
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { projectIdSchema } from '@study/contracts';
-import { spawnTestProcess } from '@study/testing/vitest';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { sql, eq, getTableName } from 'drizzle-orm';
 import { Effect, FileSystem, Path, Schema } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { Db } from '../src/index.ts';
 import * as schema from '../src/schema.ts';
@@ -13,7 +11,13 @@ const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFile
 
 const { dirname, join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
-function assertThrowsMatching(run: () => unknown, matches: (error: unknown) => boolean) {
+function assertThrowsMatching(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  run: () => unknown,
+  matches: (error: unknown) => boolean
+) {
+  const assert: test.Assert = assertions;
+
   try {
     run();
   } catch (error) {
@@ -25,56 +29,59 @@ function assertThrowsMatching(run: () => unknown, matches: (error: unknown) => b
   assert.fail('Expected function to throw');
 }
 
-async function fixture(run: (path: string) => Promise<void>) {
-  const folder = await Effect.runPromise(fs.makeTempDirectory({ prefix: 'study-schema-' }));
+async function fixture(
+  { temporaryDirectory }: Pick<test.Context, 'temporaryDirectory'>,
+  run: (path: string) => Promise<void>
+) {
+  await using folder = await temporaryDirectory({ prefix: 'study-schema-' });
 
-  try {
-    await run(join(folder, 'study.db'));
-  } finally {
-    await Effect.runPromise(fs.remove(folder, { recursive: true, force: true }));
-  }
+  await run(join(folder.path, 'study.db'));
 }
 
-testStable('the Drizzle baseline initializes every modeled table and current code vocabulary', () =>
-  fixture(async (path) => {
-    const connection = await Db.open(path);
-    const db = connection.orm;
+test.stable(
+  'the Drizzle baseline initializes every modeled table and current code vocabulary',
+  ({ expect, temporaryDirectory }) =>
+    fixture({ temporaryDirectory }, async (path) => {
+      const connection = await Db.open(path);
+      const db = connection.orm;
 
-    try {
-      const tables = db
-        .all(
-          sql.raw(
-            "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '%_fts%' AND name != '__drizzle_migrations' ORDER BY name"
+      try {
+        const tables = db
+          .all(
+            sql.raw(
+              "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '%_fts%' AND name != '__drizzle_migrations' ORDER BY name"
+            )
           )
-        )
-        .map((row) => row.name);
+          .map((row) => row.name);
 
-      expect(tables).toStrictEqual(Object.values(schema).map(getTableName).sort());
+        expect(tables).toStrictEqual(Object.values(schema).map(getTableName).sort());
 
-      for (const [name, table] of Object.entries(schema))
-        if (name.startsWith('codes_')) {
-          const codes = db
-            .all(sql.raw(`SELECT code FROM "${name}" ORDER BY code`))
-            .map((row) => row.code);
+        for (const [name, table] of Object.entries(schema))
+          if (name.startsWith('codes_')) {
+            const codes = db
+              .all(sql.raw(`SELECT code FROM "${name}" ORDER BY code`))
+              .map((row) => row.code);
 
-          expect(codes).toStrictEqual('code' in table ? [...table.code.enumValues!].sort() : []);
-        }
+            expect(codes).toStrictEqual('code' in table ? [...table.code.enumValues!].sort() : []);
+          }
 
-      expect(db.all(sql.raw('PRAGMA foreign_key_check'))).toStrictEqual([]);
-    } finally {
-      connection.close();
-    }
+        expect(db.all(sql.raw('PRAGMA foreign_key_check'))).toStrictEqual([]);
+      } finally {
+        connection.close();
+      }
 
-    const reopened = await Db.open(path);
+      const reopened = await Db.open(path);
 
-    reopened.close();
-  })
+      reopened.close();
+    })
 );
 
-testStable(
+test.stable(
   'Drizzle reads and writes identities beyond Number precision without losing references',
-  () =>
-    fixture(async (path) => {
+  ({ assert: assertions, temporaryDirectory }: test.Context) => {
+    const assert: test.Assert = assertions;
+
+    return fixture({ temporaryDirectory }, async (path) => {
       const connection = await Db.open(path);
       const db = connection.orm;
       const id = Schema.decodeUnknownSync(projectIdSchema)(9007199254740993n);
@@ -104,6 +111,7 @@ testStable(
         db.insert(schema.project_notes).values({ project_id: id, note_id: note.id }).run();
         assert.strictEqual(db.select().from(schema.project_notes).get()?.project_id, id);
         assertThrowsMatching(
+          { assert },
           () =>
             db
               .insert(schema.project_notes)
@@ -135,59 +143,56 @@ testStable(
       } finally {
         connection.close();
       }
-    })
+    });
+  }
 );
 
-testStable(
+test.stable(
   'Drizzle generation is stable and leaves SQL-managed FTS outside schema diffs',
-  async () => {
-    const folder = await Effect.runPromise(
-      fs.makeTempDirectory({ prefix: 'study-drizzle-generate-' })
+  async ({ temporaryDirectory, spawnTestProcess, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    await using folder = await temporaryDirectory({ prefix: 'study-drizzle-generate-' });
+
+    const output = join(folder.path, 'drizzle');
+
+    await Effect.runPromise(
+      fs.copy(Bun.fileURLToPath(new URL('../drizzle', import.meta.url)), output)
     );
+    const before = await Effect.runPromise(fs.readDirectory(output));
+    const config = join(folder.path, 'drizzle.config.ts');
 
-    try {
-      const output = join(folder, 'drizzle');
-
-      await Effect.runPromise(
-        fs.copy(Bun.fileURLToPath(new URL('../drizzle', import.meta.url)), output)
-      );
-      const before = await Effect.runPromise(fs.readDirectory(output));
-      const config = join(folder, 'drizzle.config.ts');
-
-      await Bun.write(
-        config,
-        `export default ${JSON.stringify({ dialect: 'sqlite', schema: Bun.fileURLToPath(new URL('../src/schema.ts', import.meta.url)), out: output })};`
-      );
-      const child = spawnTestProcess(
-        [
-          process.execPath,
-          join(
-            dirname(
-              Bun.resolveSync(
-                'drizzle-kit/package.json',
-                Bun.fileURLToPath(new URL('.', import.meta.url))
-              )
-            ),
-            'bin.cjs'
+    await Bun.write(
+      config,
+      `export default ${JSON.stringify({ dialect: 'sqlite', schema: Bun.fileURLToPath(new URL('../src/schema.ts', import.meta.url)), out: output })};`
+    );
+    const child = spawnTestProcess(
+      [
+        process.execPath,
+        join(
+          dirname(
+            Bun.resolveSync(
+              'drizzle-kit/package.json',
+              Bun.fileURLToPath(new URL('.', import.meta.url))
+            )
           ),
-          'generate',
-          '--config',
-          config
-        ],
-        { stdout: 'pipe', stderr: 'pipe' }
-      );
-      const [status, result, stderr] = await Promise.all([
-        child.exited,
-        new Response(child.stdout).text(),
-        new Response(child.stderr).text()
-      ]);
+          'bin.cjs'
+        ),
+        'generate',
+        '--config',
+        config
+      ],
+      { stdout: 'pipe', stderr: 'pipe' }
+    );
+    const [status, result, stderr] = await Promise.all([
+      child.exited,
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text()
+    ]);
 
-      assert.strictEqual(status, 0, stderr);
+    assert.strictEqual(status, 0, stderr);
 
-      expect(result).toMatch(/No schema changes/);
-      expect(await Effect.runPromise(fs.readDirectory(output))).toStrictEqual(before);
-    } finally {
-      await Effect.runPromise(fs.remove(folder, { recursive: true, force: true }));
-    }
+    expect(result).toMatch(/No schema changes/);
+    expect(await Effect.runPromise(fs.readDirectory(output))).toStrictEqual(before);
   }
 );

@@ -5,7 +5,6 @@
     "": {
       "name": "study-workspace",
       "devDependencies": {
-        "@axe-core/playwright": "4.14.0",
         "@study/testing": "*",
         "@study/tooling": "*",
         "@stylistic/eslint-plugin": "5.10.0",
@@ -155,10 +154,13 @@
         "effect": "4.0.7",
       },
       "devDependencies": {
+        "@axe-core/playwright": "4.14.0",
         "@effect/platform-bun": "4.0.7",
         "@testing-library/jest-dom": "^7.0.1",
         "@testing-library/react": "^16.3.3",
+        "@testing-library/user-event": "^14.6.8",
         "effect": "4.0.7",
+        "playwright": "1.65.0",
         "react": "^19.3.0",
         "react-dom": "^19.3.0",
         "vite-plus": "1.4.0",

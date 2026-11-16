@@ -1,5 +1,5 @@
 import { projectIdSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import {
   createRootRoute,
   createRoute,
@@ -8,27 +8,49 @@ import {
   RouterProvider,
   Outlet
 } from '@tanstack/react-router';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { afterEach, expect, vi } from 'vite-plus/test';
 
-import { rpcTestTransport } from '#client/test/rpc.tsx';
+import type * as __MockType0 from '../document-editing/test-support';
+import type * as __MockType1 from './page-context-menu';
 
-import { authoredPage } from '../document-editing/test-support';
-import { PageContextMenu } from './page-context-menu';
+let authoredPage: typeof __MockType0.authoredPage;
 
-const api = vi.hoisted(() => ({ remove: vi.fn() }));
+let PageContextMenu: typeof __MockType1.PageContextMenu;
 
-const document = authoredPage(5n, 'Text', 8n);
+let api: ReturnType<typeof createMockState>['api'];
 
-vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+function initializeDocument() {
+  return authoredPage(5n, 'Text', 8n);
+}
 
-afterEach(() => {
+let document: ReturnType<typeof initializeDocument>;
+
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({ remove: mock.fn() }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  const __mockModule0 = await import('../document-editing/test-support');
+
+  authoredPage = __mockModule0.authoredPage;
+  const __mockModule1 = await import('./page-context-menu');
+
+  PageContextMenu = __mockModule1.PageContextMenu;
+  document = initializeDocument();
+});
+
+test.afterEach(({ cleanup, vi }) => {
   cleanup();
   vi.resetAllMocks();
 });
 
-function mount() {
+function mount({ rpcTestTransport, render }: Pick<test.Context, 'rpcTestTransport' | 'render'>) {
   const harness = rpcTestTransport(async (tag, input) => {
     if (tag === 'pages.page') return document;
 
@@ -65,10 +87,10 @@ function mount() {
   return harness;
 }
 
-testStable(
+test.stable(
   'provides shared page actions and requires the existing delete confirmation before any removal',
-  async () => {
-    mount();
+  async ({ fireEvent, screen, expect, userEvent, rpcTestTransport, render }) => {
+    mount({ rpcTestTransport, render });
 
     fireEvent.contextMenu(await screen.findByRole('link', { name: 'Example document' }));
     expect(await screen.findByRole('menuitem', { name: 'PageAskAI' })).toBeEnabled();

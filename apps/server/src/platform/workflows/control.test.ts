@@ -1,3 +1,4 @@
+import { executionIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises native runtime control behavior through real persistence boundaries.     │
@@ -10,14 +11,10 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { executionIdSchema } from '@study/contracts';
 import { workflow_executions } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Deferred, Effect, Schema } from 'effect';
 import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
-import { assert } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 
@@ -25,10 +22,12 @@ import { cancelExecution } from './control.ts';
 import { workflowEngineLayer } from './engine.ts';
 import { workflowStore } from './store.ts';
 
-testStable(
+test.stable(
   'explicit cancellation waits for local provider cleanup before terminal domain state',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const id = executionIdSchema.make('cancel-provider');
     const workflow = Workflow.make('StudyControlProofV1', {

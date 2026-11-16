@@ -1,10 +1,8 @@
 import { agentProgressPageSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { expect } from 'vite-plus/test';
 
-import { api, message, mountAssistant } from '#client/test/assistant.tsx';
+import type { AssistantHarness } from '#client/test/assistant.tsx';
 
 function progress(status: 'running' | 'completed' | 'failed' | 'cancelled' = 'completed') {
   return Schema.decodeUnknownSync(agentProgressPageSchema)([
@@ -46,12 +44,24 @@ function savedThread() {
   };
 }
 
-testStable(
+let api: AssistantHarness['api'];
+
+let message: AssistantHarness['message'];
+
+let mountAssistant: AssistantHarness['mountAssistant'];
+
+test.beforeEach(({ assistant }) => {
+  api = assistant.api;
+  message = assistant.message;
+  mountAssistant = assistant.mountAssistant;
+});
+
+test.stable(
   'saved calls expand with real inputs and results and reload with the exact reply version',
-  async () => {
+  async ({ screen, expect, fireEvent }) => {
     api.thread.mockResolvedValue(savedThread());
     api.progress.mockResolvedValue(progress());
-    const view = mountAssistant();
+    const view = await mountAssistant();
     const summary = await screen.findByRole('button', {
       name: /Actions (completed|failed|stopped)/
     });
@@ -79,7 +89,7 @@ testStable(
     expect(api.provenance).toHaveBeenCalledWith({ noteId: 91n, messageId: 2n, versionId: 2n });
     expect(api.progress).toHaveBeenCalledWith({ correlationId: 'reply' });
     view.unmount();
-    mountAssistant();
+    await mountAssistant();
     expect(await screen.findByText('Read settings')).toBeInTheDocument();
     expect(
       screen.getByText('Read settings').closest('[data-slot=trace-collapsible]')
@@ -87,40 +97,43 @@ testStable(
   }
 );
 
-testStable('open tool details stay open when streaming settles into the saved reply', async () => {
-  api.thread.mockResolvedValue({
-    items: [message('user', 'Check settings.', 1n), message('assistant', '', 2n, true)],
-    next: null
-  });
-  api.progress.mockResolvedValue(progress('running'));
-  const { notify } = mountAssistant();
+test.stable(
+  'open tool details stay open when streaming settles into the saved reply',
+  async ({ screen, fireEvent, expect, act }) => {
+    api.thread.mockResolvedValue({
+      items: [message('user', 'Check settings.', 1n), message('assistant', '', 2n, true)],
+      next: null
+    });
+    api.progress.mockResolvedValue(progress('running'));
+    const { notify } = await mountAssistant();
 
-  await expandSavedActivity();
-  const label = await screen.findByText('Read settings');
+    await expandSavedActivity({ screen, fireEvent });
+    const label = await screen.findByText('Read settings');
 
-  fireEvent.click(label.closest('button')!);
-  const disclosure = label.closest('[data-slot=trace-collapsible]');
+    fireEvent.click(label.closest('button')!);
+    const disclosure = label.closest('[data-slot=trace-collapsible]');
 
-  expect(disclosure).toHaveAttribute('data-open');
-  api.progress.mockResolvedValue(progress());
-  api.thread.mockResolvedValue(savedThread());
-  await act(async () => {
-    await notify();
-  });
-  expect(await screen.findByText('Saved.')).toBeInTheDocument();
-  await expandSavedActivity();
-  expect(screen.getByText('Read settings').closest('[data-slot=trace-collapsible]')).toBe(
-    disclosure
-  );
-  expect(disclosure).toHaveAttribute('data-open');
-  expect(screen.getByRole('region', { name: 'Result' })).toHaveTextContent(
-    '{"review":{"newCardsPerDay":12}}'
-  );
-});
+    expect(disclosure).toHaveAttribute('data-open');
+    api.progress.mockResolvedValue(progress());
+    api.thread.mockResolvedValue(savedThread());
+    await act(async () => {
+      await notify();
+    });
+    expect(await screen.findByText('Saved.')).toBeInTheDocument();
+    await expandSavedActivity({ screen, fireEvent });
+    expect(screen.getByText('Read settings').closest('[data-slot=trace-collapsible]')).toBe(
+      disclosure
+    );
+    expect(disclosure).toHaveAttribute('data-open');
+    expect(screen.getByRole('region', { name: 'Result' })).toHaveTextContent(
+      '{"review":{"newCardsPerDay":12}}'
+    );
+  }
+);
 
-testStable.each(['failed', 'cancelled'] as const)(
+test.stable.for(['failed', 'cancelled'] as const)(
   'settles %s calls honestly without a fake result',
-  async (status) => {
+  async (status, { screen, expect, fireEvent }) => {
     api.thread.mockResolvedValue(savedThread());
     const snapshot = progress(status);
 
@@ -131,8 +144,8 @@ testStable.each(['failed', 'cancelled'] as const)(
         tools: run.tools.map((tool) => ({ ...tool, status: 'running' }))
       }))
     );
-    mountAssistant();
-    await expandSavedActivity();
+    await mountAssistant();
+    await expandSavedActivity({ screen, fireEvent });
     const label = await screen.findByText('Read settings');
 
     expect(await screen.findByText(status === 'failed' ? 'Failed' : 'Stopped')).toBeInTheDocument();
@@ -142,9 +155,9 @@ testStable.each(['failed', 'cancelled'] as const)(
   }
 );
 
-testStable(
+test.stable(
   'repeated calls stay separate, and large or unsafe result text stays a bounded preview',
-  async () => {
+  async ({ screen, expect, fireEvent, within }) => {
     api.thread.mockResolvedValue(savedThread());
     const data = progress();
     const tool = data[0]!.tools[0]!;
@@ -164,9 +177,9 @@ testStable(
         }
       ])
     );
-    const { container } = mountAssistant();
+    const { container } = await mountAssistant();
 
-    await expandSavedActivity();
+    await expandSavedActivity({ screen, fireEvent });
     const rows = await screen.findAllByText('Read settings');
 
     expect(rows).toHaveLength(2);
@@ -182,55 +195,67 @@ testStable(
   }
 );
 
-testStable('receives later tool activity after an initially empty live snapshot', async () => {
-  api.thread.mockResolvedValue({
-    items: [message('user', 'Check settings.', 1n), message('assistant', '', 2n, true)],
-    next: null
-  });
-  api.progress.mockResolvedValue([]);
-  const { notify } = mountAssistant();
+test.stable(
+  'receives later tool activity after an initially empty live snapshot',
+  async ({ waitFor, expect, act, screen }) => {
+    api.thread.mockResolvedValue({
+      items: [message('user', 'Check settings.', 1n), message('assistant', '', 2n, true)],
+      next: null
+    });
+    api.progress.mockResolvedValue([]);
+    const { notify } = await mountAssistant();
 
-  await waitFor(() => expect(api.progress).toHaveBeenCalled());
-  api.progress.mockResolvedValue(progress('running'));
-  await act(async () => {
-    await notify();
-  });
-  expect(await screen.findByText('Read settings')).toBeInTheDocument();
-});
+    await waitFor(() => expect(api.progress).toHaveBeenCalled());
+    api.progress.mockResolvedValue(progress('running'));
+    await act(async () => {
+      await notify();
+    });
+    expect(await screen.findByText('Read settings')).toBeInTheDocument();
+  }
+);
 
-testStable('legacy calls without stored details remain inspectable', async () => {
-  api.thread.mockResolvedValue(savedThread());
-  const data = progress();
+test.stable(
+  'legacy calls without stored details remain inspectable',
+  async ({ screen, fireEvent, expect }) => {
+    api.thread.mockResolvedValue(savedThread());
+    const data = progress();
 
-  api.progress.mockResolvedValue(
-    data.map((run) => ({
-      ...run,
-      tools: [{ toolCallId: 'legacy-1', toolName: 'retired_tool', status: 'completed' }]
-    }))
-  );
-  mountAssistant();
-  await expandSavedActivity();
-  const label = await screen.findByText('Study action');
+    api.progress.mockResolvedValue(
+      data.map((run) => ({
+        ...run,
+        tools: [{ toolCallId: 'legacy-1', toolName: 'retired_tool', status: 'completed' }]
+      }))
+    );
+    await mountAssistant();
+    await expandSavedActivity({ screen, fireEvent });
+    const label = await screen.findByText('Study action');
 
-  fireEvent.click(label.closest('button')!);
-  expect(screen.getByText('retired_tool')).toBeInTheDocument();
-  expect(screen.queryByRole('region', { name: 'Input' })).not.toBeInTheDocument();
-  expect(screen.queryByRole('region', { name: 'Result' })).not.toBeInTheDocument();
-  expect(screen.getByText('Details were not recorded for this call.')).toBeInTheDocument();
-});
+    fireEvent.click(label.closest('button')!);
+    expect(screen.getByText('retired_tool')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Input' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Result' })).not.toBeInTheDocument();
+    expect(screen.getByText('Details were not recorded for this call.')).toBeInTheDocument();
+  }
+);
 
-testStable('failed activity requests offer a retry that loads the saved calls', async () => {
-  api.thread.mockResolvedValue(savedThread());
-  api.progress.mockRejectedValueOnce(new Error('Disconnected')).mockResolvedValue(progress());
-  mountAssistant();
-  fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
-  expect(await screen.findByText('Read settings')).toBeInTheDocument();
-  await waitFor(() =>
-    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
-  );
-});
+test.stable(
+  'failed activity requests offer a retry that loads the saved calls',
+  async ({ fireEvent, screen, expect, waitFor }) => {
+    api.thread.mockResolvedValue(savedThread());
+    api.progress.mockRejectedValueOnce(new Error('Disconnected')).mockResolvedValue(progress());
+    await mountAssistant();
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('Read settings')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+    );
+  }
+);
 
-async function expandSavedActivity() {
+async function expandSavedActivity({
+  screen,
+  fireEvent
+}: Pick<test.Context, 'screen' | 'fireEvent'>) {
   const summary = await screen.findByRole('button', {
     name: /(?:Actions (?:completed|failed|stopped)|Working) ·/
   });

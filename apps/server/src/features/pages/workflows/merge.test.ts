@@ -1,3 +1,4 @@
+import { createBlock } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises durable document merge capture publication and failure recovery.         │
@@ -9,13 +10,10 @@
  * │ Tests exercise public services and production database ownership boundaries.             │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { createBlock } from '@study/contracts';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Deferred, Effect, Exit, Fiber } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
-import { assert, expect } from 'vite-plus/test';
 
 import { Pages } from '#server/features/pages/index';
 import {
@@ -79,7 +77,13 @@ function setup(fixture: Fixture) {
   );
 }
 
-function eventFor(fixture: Fixture, requestId: string) {
+function eventFor(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  fixture: Fixture,
+  requestId: string
+) {
+  const assert: test.Assert = assertions;
+
   const event = decodeEvent(
     fixture.context.db.orm
       .select()
@@ -108,10 +112,12 @@ function reply(fixture: Fixture) {
   );
 }
 
-testStable(
+test.stable(
   'merge publishes once, retains exact inputs and archives originals only on success',
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const fixture = await pageTransformFixture(databases);
 
     try {
       const { docs, input, request } = await setup(fixture);
@@ -128,7 +134,7 @@ testStable(
           );
         }).pipe(Effect.provide(fixture.domain()))
       );
-      const event = eventFor(fixture, request.id);
+      const event = eventFor({ assert }, fixture, request.id);
 
       reply(fixture);
       const versionId = await fixture.executeAuthored(event, 'merge');
@@ -184,10 +190,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'a concurrent edit fences real merge publication and keeps both originals visible',
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const fixture = await pageTransformFixture(databases);
 
     try {
       const { docs, request } = await setup(fixture);
@@ -206,7 +214,7 @@ testStable(
         )
       );
       await expect(
-        fixture.executeAuthored(eventFor(fixture, request.id), 'merge-edit')
+        fixture.executeAuthored(eventFor({ assert }, fixture, request.id), 'merge-edit')
       ).rejects.toBeDefined();
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -228,10 +236,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'cancelling while the provider runs fences late publication without archiving originals',
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const fixture = await pageTransformFixture(databases);
 
     try {
       const { docs, request } = await setup(fixture);
@@ -256,10 +266,10 @@ testStable(
                 fixture.context,
                 pageTransformWorkflow,
                 'merge-cancel',
-                { event: eventFor(fixture, request.id) },
+                { event: eventFor({ assert }, fixture, request.id) },
                 engine.execute(pageTransformWorkflow, {
                   executionId: 'merge-cancel',
-                  payload: { event: eventFor(fixture, request.id) }
+                  payload: { event: eventFor({ assert }, fixture, request.id) }
                 })
               )
             );
@@ -301,10 +311,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'duplicate merge inputs are rejected and older pending work stays reachable',
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases, expect }) => {
+    const fixture = await pageTransformFixture(databases);
 
     try {
       const { input, request } = await setup(fixture);

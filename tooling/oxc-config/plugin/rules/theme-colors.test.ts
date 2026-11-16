@@ -1,34 +1,40 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 import { hasRawColor, hasRawColorClass, cssColorViolations } from '../theme-color-values.ts';
 
-testStable('raw CSS colors are rejected but semantic colors and ordinary words are allowed', () => {
-  for (const value of [
-    '#abc',
-    '#12345678',
-    'rgb(1 2 3)',
-    'hsl(0 0% 50%)',
-    'oklch(50% 0 0)',
-    'rebeccapurple',
-    'darkslateblue'
-  ])
-    assert.strictEqual(hasRawColor(value), true, value);
+test.stable(
+  'raw CSS colors are rejected but semantic colors and ordinary words are allowed',
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  for (const value of [
-    'var(--background)',
-    'currentColor',
-    'transparent',
-    'color-mix(in srgb, var(--foreground), transparent)',
-    'blueprint'
-  ])
-    assert.strictEqual(hasRawColor(value), false, value);
-});
+    for (const value of [
+      '#abc',
+      '#12345678',
+      'rgb(1 2 3)',
+      'hsl(0 0% 50%)',
+      'oklch(50% 0 0)',
+      'rebeccapurple',
+      'darkslateblue'
+    ])
+      assert.strictEqual(hasRawColor(value), true, value);
 
-testStable(
+    for (const value of [
+      'var(--background)',
+      'currentColor',
+      'transparent',
+      'color-mix(in srgb, var(--foreground), transparent)',
+      'blueprint'
+    ])
+      assert.strictEqual(hasRawColor(value), false, value);
+  }
+);
+
+test.stable(
   'raw Tailwind palette and arbitrary colors are rejected without matching semantic classes',
-  () => {
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     for (const value of [
       'hover:bg-red-500/20',
       'text-white',
@@ -54,18 +60,26 @@ testStable(
   }
 );
 
-testStable('CSS checks declarations while ignoring comments and non-color text', () => {
-  const violations = cssColorViolations(
-    '/* color: #abc; */ .x { color: red; background: var(--background); box-shadow: 0 1px rgb(0 0 0 / 20%); content: "blue"; }'
-  );
+test.stable(
+  'CSS checks declarations while ignoring comments and non-color text',
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  assert.strictEqual(violations.length, 2);
-});
+    const violations = cssColorViolations(
+      '/* color: #abc; */ .x { color: red; background: var(--background); box-shadow: 0 1px rgb(0 0 0 / 20%); content: "blue"; }'
+    );
 
-testStable(
+    assert.strictEqual(violations.length, 2);
+  }
+);
+
+test.stable(
   'theme colors rule detects raw JSX styles and palette classes without flagging prose or semantic utilities',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'theme-colors',
       {
         'apps/client/src/colors.tsx': `
@@ -88,10 +102,13 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'theme colors rule covers template values, SVG fills and named arbitrary colors',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'theme-colors',
       {
         'apps/client/src/templates.tsx':
@@ -108,10 +125,13 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'shared feature previews retain semantic app colors while landing art stays independent',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'theme-colors',
       {
         'apps/client/src/feature-previews/index.tsx':

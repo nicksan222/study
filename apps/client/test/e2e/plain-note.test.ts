@@ -1,6 +1,5 @@
 import { catalogs } from '@study/localization';
-
-import { expect, testE2e } from './harness/index.ts';
+import { test } from '@study/testing';
 
 const copy = catalogs.english;
 
@@ -13,7 +12,7 @@ const paragraphs = Array.from(
 
 const original = ['River garden field notebook', ...paragraphs].join('\n\n');
 
-testE2e('Create edit and reopen a plain note', async ({ page, expectScreenshot }) => {
+test.stable('Create edit and reopen a plain note', async ({ page, expectScreenshot, expect }) => {
   await page.goto('/notes');
   expect(page.viewportSize()).toEqual({ width: 2560, height: 1440 });
   const composer = page.getByRole('textbox', { name: copy.NoteCompose });

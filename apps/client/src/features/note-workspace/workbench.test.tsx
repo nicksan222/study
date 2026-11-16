@@ -4,23 +4,19 @@ import {
   chatMessageSchema,
   defaultWorkspacePreferences
 } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
-import { rpcTestTransport } from '#client/test/rpc.tsx';
+import type * as __MockType0 from './workbench.queries';
 
-import { useWorkbench, workbenchIdentity } from './workbench.queries';
+let useWorkbench: typeof __MockType0.useWorkbench;
 
-const preferences = vi.hoisted(() => ({ expandPages: false }));
+let workbenchIdentity: typeof __MockType0.workbenchIdentity;
 
-vi.mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
-  useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, ...preferences })
-}));
+let preferences: ReturnType<typeof createMockState>['preferences'];
 
-const api = vi.hoisted(() => ({ thread: vi.fn() }));
+let api: ReturnType<typeof createMockState>['api'];
 
 const id = noteIdSchema.make(1n);
 
@@ -28,7 +24,10 @@ const otherId = noteIdSchema.make(2n);
 
 const caches: AtomRegistry.AtomRegistry[] = [];
 
-function mount() {
+function mount({
+  rpcTestTransport,
+  renderHook
+}: Pick<test.Context, 'rpcTestTransport' | 'renderHook'>) {
   const client = AtomRegistry.make();
 
   caches.push(client);
@@ -75,20 +74,42 @@ function persistedPage(captureKey: string) {
   });
 }
 
-beforeEach(() => {
+function createMockState(mock: test.Mock) {
+  return {
+    preferences: (() => ({ expandPages: false }))(),
+    api: (() => ({ thread: mock.fn() }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  preferences = __mockState.preferences;
+  api = __mockState.api;
+
+  mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
+    useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, ...preferences })
+  }));
+  const __mockModule0 = await import('./workbench.queries');
+
+  useWorkbench = __mockModule0.useWorkbench;
+  workbenchIdentity = __mockModule0.workbenchIdentity;
+});
+
+test.beforeEach(({ vi }) => {
   vi.resetAllMocks();
   api.thread.mockResolvedValue({ items: [], next: null });
 });
 
-afterEach(() => {
+test.afterEach(({ cleanup }) => {
   cleanup();
   caches.splice(0).forEach((cache) => cache.dispose());
 });
 
-testStable(
+test.stable(
   'opens a persisted material once and refreshes a legacy page without converting a quick note',
-  async () => {
-    const view = mount();
+  async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
+    const view = mount({ rpcTestTransport, renderHook });
     const target = {
       kind: 'page' as const,
       pageId: pageIdSchema.make(8n),
@@ -120,10 +141,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'keeps tabs while hidden and selects the adjacent document when the active tab closes',
-  async () => {
-    const view = mount();
+  async ({ act, waitFor, expect, rpcTestTransport, renderHook }) => {
+    const view = mount({ rpcTestTransport, renderHook });
     const identities: string[] = [];
 
     for (const title of ['First', 'Second', 'Third']) {
@@ -157,56 +178,62 @@ testStable(
   }
 );
 
-testStable('isolates page tabs by note and restores them when returning to the note', async () => {
-  const view = mount();
+test.stable(
+  'isolates page tabs by note and restores them when returning to the note',
+  async ({ act, waitFor, expect, rpcTestTransport, renderHook }) => {
+    const view = mount({ rpcTestTransport, renderHook });
 
-  act(() =>
-    view.result.current.open({
-      kind: 'page',
-      pageId: pageIdSchema.make(1n),
-      title: 'First note page'
-    })
-  );
-  await waitFor(() => expect(view.result.current.tabs).toHaveLength(1));
-  const firstIdentity = view.result.current.active;
+    act(() =>
+      view.result.current.open({
+        kind: 'page',
+        pageId: pageIdSchema.make(1n),
+        title: 'First note page'
+      })
+    );
+    await waitFor(() => expect(view.result.current.tabs).toHaveLength(1));
+    const firstIdentity = view.result.current.active;
 
-  view.rerender({ noteId: otherId });
-  expect(view.result.current.tabs).toHaveLength(0);
-  expect(view.result.current.visible).toBe(false);
-  act(() =>
-    view.result.current.open({
-      kind: 'page',
-      pageId: pageIdSchema.make(2n),
-      title: 'Second note page'
-    })
-  );
-  await waitFor(() => expect(view.result.current.tabs).toHaveLength(1));
-  expect(view.result.current.active).not.toBe(firstIdentity);
-  view.rerender({ noteId: id });
-  expect(view.result.current.active).toBe(firstIdentity);
-  expect(view.result.current.tabs).toHaveLength(1);
-  expect(view.result.current.visible).toBe(true);
-});
+    view.rerender({ noteId: otherId });
+    expect(view.result.current.tabs).toHaveLength(0);
+    expect(view.result.current.visible).toBe(false);
+    act(() =>
+      view.result.current.open({
+        kind: 'page',
+        pageId: pageIdSchema.make(2n),
+        title: 'Second note page'
+      })
+    );
+    await waitFor(() => expect(view.result.current.tabs).toHaveLength(1));
+    expect(view.result.current.active).not.toBe(firstIdentity);
+    view.rerender({ noteId: id });
+    expect(view.result.current.active).toBe(firstIdentity);
+    expect(view.result.current.tabs).toHaveLength(1);
+    expect(view.result.current.visible).toBe(true);
+  }
+);
 
-testStable('uses the configured initial width until the user manually changes it', async () => {
-  preferences.expandPages = true;
-  const view = mount();
+test.stable(
+  'uses the configured initial width until the user manually changes it',
+  async ({ expect, act, waitFor, rpcTestTransport, renderHook }) => {
+    preferences.expandPages = true;
+    const view = mount({ rpcTestTransport, renderHook });
 
-  expect(view.result.current.expanded).toBe(true);
-  act(() => view.result.current.expand());
-  await waitFor(() => expect(view.result.current.expanded).toBe(false));
-  preferences.expandPages = false;
-  view.rerender({ noteId: id });
-  preferences.expandPages = true;
-  view.rerender({ noteId: id });
-  expect(view.result.current.expanded).toBe(false);
-  preferences.expandPages = false;
-});
+    expect(view.result.current.expanded).toBe(true);
+    act(() => view.result.current.expand());
+    await waitFor(() => expect(view.result.current.expanded).toBe(false));
+    preferences.expandPages = false;
+    view.rerender({ noteId: id });
+    preferences.expandPages = true;
+    view.rerender({ noteId: id });
+    expect(view.result.current.expanded).toBe(false);
+    preferences.expandPages = false;
+  }
+);
 
-testStable(
+test.stable(
   'keeps the action card visible until hidden and docks existing tabs without creating pages',
-  async () => {
-    const view = mount();
+  async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
+    const view = mount({ rpcTestTransport, renderHook });
 
     await waitFor(() => expect(view.result.current.cardVisible).toBe(true));
     act(() => view.result.current.showEditor('bottom'));
@@ -239,10 +266,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'switches from an open editor back to its action card without dropping tabs',
-  async () => {
-    const view = mount();
+  async ({ act, waitFor, expect, rpcTestTransport, renderHook }) => {
+    const view = mount({ rpcTestTransport, renderHook });
 
     act(() => view.result.current.open({ kind: 'new', captureKey: 'draft-card', text: '' }));
     await waitFor(() => expect(view.result.current.cardVisible).toBe(false));
@@ -253,10 +280,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'the note assistant is one document-style tab, survives hiding and stays scoped across note switches',
-  async () => {
-    const view = mount();
+  async ({ act, waitFor, expect, rpcTestTransport, renderHook }) => {
+    const view = mount({ rpcTestTransport, renderHook });
 
     act(() => view.result.current.open({ kind: 'assistant' }));
     act(() => view.result.current.open({ kind: 'assistant' }));

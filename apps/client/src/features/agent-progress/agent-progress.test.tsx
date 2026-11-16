@@ -1,20 +1,24 @@
 import { agentRunIdSchema, executionIdSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
-import { rpcTestTransport } from '#client/test/rpc.tsx';
+import type * as __MockType0 from './index';
 
-import { AgentProgress } from './index';
+let AgentProgress: typeof __MockType0.AgentProgress;
 
-vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-afterEach(() => {
+test.beforeEach(async ({ mock }) => {
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  const __mockModule0 = await import('./index');
+
+  AgentProgress = __mockModule0.AgentProgress;
+});
+
+test.afterEach(({ cleanup }) => {
   cleanup();
 });
 
-testStable(
+test.stable(
   'renders intermediate text and tool activity, replaces reconnect snapshots, and releases the viewer',
-  async () => {
+  async ({ rpcTestTransport, render, screen, expect, act }) => {
     const run = {
       runId: agentRunIdSchema.make('agent'),
       executionId: executionIdSchema.make('run'),
@@ -71,25 +75,28 @@ testStable(
   }
 );
 
-testStable('does not expose raw structured output as a finished document', async () => {
-  const fixture = rpcTestTransport(async () => [
-    {
-      runId: agentRunIdSchema.make('structured'),
-      executionId: executionIdSchema.make('run'),
-      executionStatus: 'running',
-      agentId: 'quiz',
-      mode: 'object',
-      text: '{"unfinished":',
-      status: 'running',
-      failureKind: null,
-      revision: 1n,
-      updatedAtMs: 1n,
-      tools: []
-    }
-  ]);
+test.stable(
+  'does not expose raw structured output as a finished document',
+  async ({ rpcTestTransport, render, waitFor, expect, screen }) => {
+    const fixture = rpcTestTransport(async () => [
+      {
+        runId: agentRunIdSchema.make('structured'),
+        executionId: executionIdSchema.make('run'),
+        executionStatus: 'running',
+        agentId: 'quiz',
+        mode: 'object',
+        text: '{"unfinished":',
+        status: 'running',
+        failureKind: null,
+        revision: 1n,
+        updatedAtMs: 1n,
+        tools: []
+      }
+    ]);
 
-  render(<AgentProgress executionId={executionIdSchema.make('run')} />, {
-    wrapper: fixture.wrapper
-  });
-  await waitFor(() => expect(screen.queryByText('{"unfinished":')).not.toBeInTheDocument());
-});
+    render(<AgentProgress executionId={executionIdSchema.make('run')} />, {
+      wrapper: fixture.wrapper
+    });
+    await waitFor(() => expect(screen.queryByText('{"unfinished":')).not.toBeInTheDocument());
+  }
+);

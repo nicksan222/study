@@ -1,21 +1,22 @@
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { screen, waitFor, within } from '@testing-library/react';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
+import { Option } from 'effect';
 
-import { renderPage } from '#client/test/render-page.tsx';
+test.stable(
+  'redirects Home to the note starter with the selected project',
+  async ({ page, rpc, waitFor, expect }) => {
+    rpc.given({ 'projects.findProject': Option.none() });
+    const { router } = await page.open('/home?project=9007199254740993');
 
-testStable('redirects Home to the note starter with the selected project', async () => {
-  const { router } = renderPage('/home?project=9007199254740993', 'english');
+    await waitFor(() => expect(router.state.location.pathname).toBe('/notes'));
+    expect(router.state.location.search.project).toBe('9007199254740993');
+  }
+);
 
-  await waitFor(() => expect(router.state.location.pathname).toBe('/notes'));
-  expect(router.state.location.search.project).toBe('9007199254740993');
-});
-
-testStable.each(['english', 'italian'] as const)(
+test.stable.for(['english', 'italian'] as const)(
   'opens the note composer immediately in %s',
-  async (locale) => {
-    renderPage('/notes', locale);
+  async (locale, { page, expect, screen, within }) => {
+    await page.open('/notes', { locale });
     const t = catalogs[locale];
 
     expect(await screen.findByRole('textbox', { name: t.NoteCompose })).toBeVisible();

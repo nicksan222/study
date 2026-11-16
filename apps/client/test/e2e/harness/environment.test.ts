@@ -1,11 +1,10 @@
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { assertCapturePlatform } from './environment.ts';
 
-testStable(
+test.stable(
   'capture platform accepts Linux x64 and rejects incompatible rendering platforms',
-  () => {
+  ({ expect }) => {
     expect(() => assertCapturePlatform('linux', 'x64')).not.toThrow();
 
     for (const [platform, architecture] of [

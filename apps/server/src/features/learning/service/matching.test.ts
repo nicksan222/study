@@ -1,3 +1,4 @@
+import { defaultQuizSettings } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Tests matching persistence and grading using the real SQLite service boundary.     │
@@ -9,14 +10,10 @@
  * │ Private learning stores own matching behavior inside caller transactions.                │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { defaultQuizSettings } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
@@ -26,10 +23,12 @@ import { Database } from '#server/platform/database/database';
 
 import { Learning } from './index.ts';
 
-testStable(
+test.stable(
   'matching saves associations, hides mappings, grades each pair and rejects foreign permutations',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const domain = Learning.layer.pipe(
       Layer.provideMerge(Settings.layer),

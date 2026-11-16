@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Starts the real server entrypoint as a child process and verifies native RPC       │
@@ -12,24 +13,26 @@
  * │ closes owned resources.                                                                  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
 import { sql } from '@study/db';
-import { testPolicy } from '@study/testing';
-import { spawnTestProcess } from '@study/testing/vitest';
-import { testStable, waitFor } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
-import { createServerTest } from '#testing/server-test';
 
 for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
-  testStable(
+  test.stable(
     `server entry serves native RPC and shuts down on ${shutdown}`,
-    { timeout: testPolicy.processStartupTimeout },
-    async (t) => {
-      const testDatabase = createServerTest(t, { app: false });
+    async ({
+      resources: resourcesFixture,
+      spawnTestProcess,
+      waitFor,
+      assert: assertions,
+      policy,
+      expect
+    }) => {
+      const assert: test.Assert = assertions;
+
+      const testDatabase = resourcesFixture;
       const env: Record<string, string | undefined> = {
         ...process.env,
         STUDY_DATABASE: testDatabase.path
@@ -74,7 +77,7 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
 
       try {
         await waitFor(() => assert.ok(stdout.length > 0 || child.exitCode !== null), {
-          timeout: testPolicy.processStartupTimeout
+          timeout: policy.processStartupTimeout
         });
 
         assert.ok(stdout.length > 0, child.exitCode === null ? '' : await stderr);
@@ -97,7 +100,7 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
         );
 
         assert.ok(typeof project.id === 'bigint');
-        const database = await createServerTest(t, { app: false }).openDb(env.STUDY_DATABASE!);
+        const database = await resourcesFixture.openDb(env.STUDY_DATABASE!);
 
         try {
           const saved = database.orm.get<{ id: bigint; name: string }>(

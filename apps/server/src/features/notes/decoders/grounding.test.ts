@@ -1,3 +1,4 @@
+import type { ContentSnapshotId, SourceId } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks that citations resolve only searched excerpts, evidence is bounded and      │
@@ -13,39 +14,42 @@
  * │ provider requests.                                                                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { ContentSnapshotId, SourceId } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
 
-testStable('citations only resolve excerpts exposed by search', () => {
-  const catalog = createEvidenceCatalog([
-    {
-      key: '1:2',
-      reference: { sourceId: 1n as SourceId, documentId: 2n as ContentSnapshotId },
-      name: 'Notes',
-      blocks: [{ text: 'alpha beta' }, { text: 'gamma' }]
-    }
-  ]);
+test.stable(
+  'citations only resolve excerpts exposed by search',
+  ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  assert.throws(() => catalog.citations('Answer [1]'));
-  assert.ok(catalog.search('alpha')[0]?.text === '[1] alpha beta');
-  expect(catalog.citations('Answer [1]')).toStrictEqual([
-    {
-      marker: 1,
-      reference: { sourceId: 1n, documentId: 2n },
-      blockOrdinal: 0,
-      quote: 'alpha beta'
-    }
-  ]);
-  assert.throws(() => catalog.citations('Answer [2]'));
-  expect(catalog.citations('Plain answer')).toStrictEqual([]);
-});
+    const catalog = createEvidenceCatalog([
+      {
+        key: '1:2',
+        reference: { sourceId: 1n as SourceId, documentId: 2n as ContentSnapshotId },
+        name: 'Notes',
+        blocks: [{ text: 'alpha beta' }, { text: 'gamma' }]
+      }
+    ]);
 
-testStable('bounds excerpts and deduplicates captured documents', () => {
+    assert.throws(() => catalog.citations('Answer [1]'));
+    assert.ok(catalog.search('alpha')[0]?.text === '[1] alpha beta');
+    expect(catalog.citations('Answer [1]')).toStrictEqual([
+      {
+        marker: 1,
+        reference: { sourceId: 1n, documentId: 2n },
+        blockOrdinal: 0,
+        quote: 'alpha beta'
+      }
+    ]);
+    assert.throws(() => catalog.citations('Answer [2]'));
+    expect(catalog.citations('Plain answer')).toStrictEqual([]);
+  }
+);
+
+test.stable('bounds excerpts and deduplicates captured documents', ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const catalog = createEvidenceCatalog([]);
   const document = {
     key: '1:2',
@@ -63,28 +67,35 @@ testStable('bounds excerpts and deduplicates captured documents', () => {
   assert.throws(() => catalog.citations('Answer [101]'));
 });
 
-testStable('shared catalog preserves opaque material references', async () => {
-  const { createEvidenceCatalog: createSharedCatalog } =
-    await import('#server/platform/ai/evidence');
-  const catalog = createSharedCatalog([
-    {
-      key: 'version',
-      name: 'Notes',
-      reference: { inputVersionId: 9n },
-      blocks: [{ text: 'captured evidence' }]
-    }
-  ]);
+test.stable(
+  'shared catalog preserves opaque material references',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  assert.throws(() => catalog.citations('[1]'));
-  catalog.search('captured');
-  expect(catalog.citations('[1]')).toStrictEqual([
-    { marker: 1, reference: { inputVersionId: 9n }, blockOrdinal: 0, quote: 'captured evidence' }
-  ]);
-});
+    const { createEvidenceCatalog: createSharedCatalog } =
+      await import('#server/platform/ai/evidence');
+    const catalog = createSharedCatalog([
+      {
+        key: 'version',
+        name: 'Notes',
+        reference: { inputVersionId: 9n },
+        blocks: [{ text: 'captured evidence' }]
+      }
+    ]);
 
-testStable(
+    assert.throws(() => catalog.citations('[1]'));
+    catalog.search('captured');
+    expect(catalog.citations('[1]')).toStrictEqual([
+      { marker: 1, reference: { inputVersionId: 9n }, blockOrdinal: 0, quote: 'captured evidence' }
+    ]);
+  }
+);
+
+test.stable(
   'evidence ranking preserves case-insensitive scores, marker ties and empty queries',
-  () => {
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const catalog = createEvidenceCatalog([
       {
         key: 'ranking',

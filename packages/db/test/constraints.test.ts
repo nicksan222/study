@@ -1,19 +1,21 @@
-import { BunFileSystem, BunPath } from '@effect/platform-bun';
+import { BunPath } from '@effect/platform-bun';
 import { versionIdSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { eq, sql } from 'drizzle-orm';
-import { Effect, FileSystem, Path, Schema } from 'effect';
-import { assert, expect } from 'vite-plus/test';
-import type { TestContext } from 'vite-plus/test';
+import { Effect, Path, Schema } from 'effect';
 
 import { Db } from '../src/index.ts';
 import * as schema from '../src/schema.ts';
 
-const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
-
 const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
-function assertThrowsMatching(run: () => unknown, matches: (error: unknown) => boolean) {
+function assertThrowsMatching(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  run: () => unknown,
+  matches: (error: unknown) => boolean
+) {
+  const assert: test.Assert = assertions;
+
   try {
     run();
   } catch (error) {
@@ -25,14 +27,11 @@ function assertThrowsMatching(run: () => unknown, matches: (error: unknown) => b
   assert.fail('Expected function to throw');
 }
 
-async function newDb(t: TestContext) {
-  const folder = await Effect.runPromise(fs.makeTempDirectory({ prefix: 'study-constraints-' }));
-  const connection = await Db.open(join(folder, 'study.db'));
+type Databases = () => Promise<{ open(): Promise<Db> }>;
 
-  t.onTestFinished(async () => {
-    connection.close();
-    await Effect.runPromise(fs.remove(folder, { recursive: true, force: true }));
-  });
+async function newDb(databases: Databases) {
+  const location = await databases();
+  const connection = await location.open();
 
   return seed(connection.orm);
 }
@@ -100,62 +99,77 @@ function checkViolation(error: unknown): boolean {
   );
 }
 
-testStable('message instructions are nullable but otherwise nonblank and bounded', async (t) => {
-  const { db, version } = await newDb(t);
+test.stable(
+  'message instructions are nullable but otherwise nonblank and bounded',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  assert.strictEqual(version.instruction, null);
+    const { db, version } = await newDb(databases);
 
-  for (const instruction of ['', '   ', '\t\n\r', '\u00a0\u2003\ufeff', 'x'.repeat(100001)])
-    assertThrowsMatching(
-      () =>
-        db
-          .update(schema.message_versions)
-          .set({ origin: 'instruction', instruction })
-          .where(eq(schema.message_versions.id, version.id))
-          .run(),
-      checkViolation
-    );
+    assert.strictEqual(version.instruction, null);
 
-  db.update(schema.message_versions)
-    .set({ origin: 'instruction', instruction: 'x'.repeat(100000) })
-    .where(eq(schema.message_versions.id, version.id))
-    .run();
-  assert.strictEqual(db.select().from(schema.message_versions).get()?.instruction?.length, 100000);
-});
+    for (const instruction of ['', '   ', '\t\n\r', '\u00a0\u2003\ufeff', 'x'.repeat(100001)])
+      assertThrowsMatching(
+        { assert },
+        () =>
+          db
+            .update(schema.message_versions)
+            .set({ origin: 'instruction', instruction })
+            .where(eq(schema.message_versions.id, version.id))
+            .run(),
+        checkViolation
+      );
 
-testStable('message citations enforce unsigned 32 bit positive markers', async (t) => {
-  const { db, version } = await newDb(t);
-  const citation = { source_name: 'N', anchor: '{}', quote: 'Quote' };
-
-  for (const marker of [0n, -1n, 4294967296n]) {
-    assertThrowsMatching(
-      () =>
-        db
-          .insert(schema.citations)
-          .values({ ...citation, version_id: version.id, marker })
-          .run(),
-      checkViolation
-    );
-  }
-
-  for (const marker of [1n, 4294967295n]) {
-    db.insert(schema.citations)
-      .values({ ...citation, version_id: version.id, marker })
+    db.update(schema.message_versions)
+      .set({ origin: 'instruction', instruction: 'x'.repeat(100000) })
+      .where(eq(schema.message_versions.id, version.id))
       .run();
-  }
-
-  assert.strictEqual(db.select().from(schema.citations).all().length, 2);
-});
-
-testStable(
-  'fresh baseline preserves populated references and message search triggers across reopen',
-  async (t) => {
-    const folder = await Effect.runPromise(
-      fs.makeTempDirectory({ prefix: 'study-constraint-migration-' })
+    assert.strictEqual(
+      db.select().from(schema.message_versions).get()?.instruction?.length,
+      100000
     );
-    const path = join(folder, 'study.db');
+  }
+);
 
-    t.onTestFinished(() => Effect.runPromise(fs.remove(folder, { recursive: true, force: true })));
+test.stable(
+  'message citations enforce unsigned 32 bit positive markers',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const { db, version } = await newDb(databases);
+    const citation = { source_name: 'N', anchor: '{}', quote: 'Quote' };
+
+    for (const marker of [0n, -1n, 4294967296n]) {
+      assertThrowsMatching(
+        { assert },
+        () =>
+          db
+            .insert(schema.citations)
+            .values({ ...citation, version_id: version.id, marker })
+            .run(),
+        checkViolation
+      );
+    }
+
+    for (const marker of [1n, 4294967295n]) {
+      db.insert(schema.citations)
+        .values({ ...citation, version_id: version.id, marker })
+        .run();
+    }
+
+    assert.strictEqual(db.select().from(schema.citations).all().length, 2);
+  }
+);
+
+test.stable(
+  'fresh baseline preserves populated references and message search triggers across reopen',
+  async ({ onTestFinished, temporaryDirectory, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const folder = await temporaryDirectory({ prefix: 'study-constraint-migration-' });
+    const path = join(folder.path, 'study.db');
+
+    onTestFinished(() => folder[Symbol.asyncDispose]());
     const first = await Db.open(path);
     const original = first.orm;
 
@@ -174,7 +188,7 @@ testStable(
 
     const connection = await Db.open(path);
 
-    t.onTestFinished(() => connection.close());
+    onTestFinished(() => connection.close());
     const db = connection.orm;
 
     assert.strictEqual(db.select().from(schema.messages).get()?.active_version_id, version.id);
@@ -231,17 +245,15 @@ testStable(
 
 for (const table of ['message_versions'] as const)
   for (const keepLowerRow of [false, true])
-    testStable(
+    test.stable(
       `fresh baseline preserves deleted ${table} identities across reopen with ${keepLowerRow ? 'surviving rows' : 'an empty table'}`,
-      async (t) => {
-        const folder = await Effect.runPromise(
-          fs.makeTempDirectory({ prefix: 'study-migration-sequences-' })
-        );
-        const path = join(folder, 'study.db');
+      async ({ onTestFinished, temporaryDirectory, assert: assertions, expect }) => {
+        const assert: test.Assert = assertions;
 
-        t.onTestFinished(() =>
-          Effect.runPromise(fs.remove(folder, { recursive: true, force: true }))
-        );
+        const folder = await temporaryDirectory({ prefix: 'study-migration-sequences-' });
+        const path = join(folder.path, 'study.db');
+
+        onTestFinished(() => folder[Symbol.asyncDispose]());
         const first = await Db.open(path);
         const original = first.orm;
 
@@ -282,7 +294,7 @@ for (const table of ['message_versions'] as const)
         first.close();
         const connection = await Db.open(path);
 
-        t.onTestFinished(() => connection.close());
+        onTestFinished(() => connection.close());
         assert.strictEqual(
           connection.orm.get(sql`SELECT seq FROM sqlite_sequence WHERE name = ${table}`)?.seq,
           highest

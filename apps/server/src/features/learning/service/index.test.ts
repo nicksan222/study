@@ -1,3 +1,4 @@
+import type { QuizAnswerSubmitted } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Covers optional versus typed missing-attempt results, quiz ownership and durable   │
@@ -13,18 +14,13 @@
  * │ by the feature implementation.                                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { QuizAnswerSubmitted } from '@study/contracts';
 import { projectIdSchema } from '@study/contracts';
 import type { QuizAttemptId, QuizChoiceId } from '@study/contracts';
 import { defaultQuizSettings } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { eq } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Option, Schema } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
@@ -34,53 +30,60 @@ import { Database } from '#server/platform/database/database';
 
 import { Learning } from './index.ts';
 
-testStable('missing attempts are optional or typed failures', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
+test.stable(
+  'missing attempts are optional or typed failures',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const learning = yield* Learning;
-        const id = 999n as QuizAttemptId;
+    const location = await databases();
+    const context = new ServerContext(await location.open());
 
-        assert.ok(Option.isNone(yield* learning.findAttempt(id)));
-        assert.ok((yield* Effect.flip(learning.attempt(id))).kind === 'not_found');
-        const projectId = Schema.decodeUnknownSync(projectIdSchema)(999n);
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const learning = yield* Learning;
+          const id = 999n as QuizAttemptId;
 
-        assert.ok(
-          (yield* Effect.flip(learning.dueCards({ projectId, limit: 10 }))).kind === 'not_found'
-        );
-        assert.ok(
-          (yield* Effect.flip(learning.attempts({ projectId, limit: 10 }))).kind === 'not_found'
-        );
-      }).pipe(
-        Effect.provide(
-          Learning.layer
-            .pipe(
-              Layer.provideMerge(Settings.layer),
-              Layer.provideMerge(Materials.layer),
-              Layer.provideMerge(Pages.layer)
-            )
-            .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
+          assert.ok(Option.isNone(yield* learning.findAttempt(id)));
+          assert.ok((yield* Effect.flip(learning.attempt(id))).kind === 'not_found');
+          const projectId = Schema.decodeUnknownSync(projectIdSchema)(999n);
+
+          assert.ok(
+            (yield* Effect.flip(learning.dueCards({ projectId, limit: 10 }))).kind === 'not_found'
+          );
+          assert.ok(
+            (yield* Effect.flip(learning.attempts({ projectId, limit: 10 }))).kind === 'not_found'
+          );
+        }).pipe(
+          Effect.provide(
+            Learning.layer
+              .pipe(
+                Layer.provideMerge(Settings.layer),
+                Layer.provideMerge(Materials.layer),
+                Layer.provideMerge(Pages.layer)
+              )
+              .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
+          )
         )
-      )
-    );
-  } finally {
-    context.close();
-    await location.cleanup();
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
-testStable(
+test.stable(
   'quiz submissions preserve snapshots, validate ownership and emit a durable event',
-  async () => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { eq, sql } = await import('@study/db');
     const s = await import('@study/db');
     const { decodeEvent, emitEvent } = await import('#server/platform/workflows/events');
     const { transaction } = await import('#server/platform/definitions/define-store');
     const { AttemptStore } = await import('#server/features/learning/store/index');
-    const location = await createTestDatabase();
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const db = context.db.orm;
 
@@ -491,234 +494,244 @@ testStable(
   }
 );
 
-testStable('daily allowance limits new cards and review schedules persist', async () => {
-  const s = await import('@study/db');
-  const { eq } = await import('@study/db');
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const db = context.db.orm;
+test.stable(
+  'daily allowance limits new cards and review schedules persist',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    const project = db
-      .insert(s.projects)
-      .values({ name: 'P', created_at: 1n, updated_at: 1n })
-      .returning()
-      .get()!;
-    const material = db
-      .insert(s.materials)
-      .values({
-        kind: 'flashcards',
-        title: 'Deck',
-        created_at: 1n,
-        updated_at: 1n
-      })
-      .returning()
-      .get()!;
+    const s = await import('@study/db');
+    const { eq } = await import('@study/db');
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const db = context.db.orm;
 
-    db.insert(s.project_materials)
-      .values({ project_id: project.id, material_id: material.id })
-      .run();
-    const version = db
-      .insert(s.material_versions)
-      .values({
-        material_id: material.id,
-        kind: 'flashcards',
-        number: 1n,
-        created_at: 1n
-      })
-      .returning()
-      .get()!;
-
-    db.insert(s.material_flashcard_versions)
-      .values({ version_id: version.id, material_id: material.id })
-      .run();
-
-    for (let i = 0; i < 2; i++) {
-      const card = db
-        .insert(s.material_card_identities)
-        .values({ material_id: material.id })
+    try {
+      const project = db
+        .insert(s.projects)
+        .values({ name: 'P', created_at: 1n, updated_at: 1n })
+        .returning()
+        .get()!;
+      const material = db
+        .insert(s.materials)
+        .values({
+          kind: 'flashcards',
+          title: 'Deck',
+          created_at: 1n,
+          updated_at: 1n
+        })
         .returning()
         .get()!;
 
-      db.insert(s.material_flashcard_entries)
-        .values({
-          version_id: version.id,
-          material_id: material.id,
-          card_id: card.id,
-          position: BigInt(i),
-          front: 'front',
-          back: 'back'
-        })
+      db.insert(s.project_materials)
+        .values({ project_id: project.id, material_id: material.id })
         .run();
-    }
+      const version = db
+        .insert(s.material_versions)
+        .values({
+          material_id: material.id,
+          kind: 'flashcards',
+          number: 1n,
+          created_at: 1n
+        })
+        .returning()
+        .get()!;
 
-    db.update(s.material_versions)
-      .set({ status: 'published', published_at: 1n })
-      .where(eq(s.material_versions.id, version.id))
-      .run();
-    db.insert(s.preferences).values({ scope: 'review', key: 'newCardsPerDay', value: '1' }).run();
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const learning = yield* Learning;
-        const page = yield* learning.dueCards({ projectId: project.id, limit: 10 });
+      db.insert(s.material_flashcard_versions)
+        .values({ version_id: version.id, material_id: material.id })
+        .run();
 
-        assert.strictEqual(page.items.length, 1);
-        const settings = yield* Settings;
+      for (let i = 0; i < 2; i++) {
+        const card = db
+          .insert(s.material_card_identities)
+          .values({ material_id: material.id })
+          .returning()
+          .get()!;
 
-        yield* settings.saveReviewSettings({ newCardsPerDay: 2 });
-        assert.strictEqual(
-          (yield* learning.dueCards({ projectId: project.id, limit: 10 })).items.length,
-          2
-        );
-        yield* settings.saveReviewSettings({ newCardsPerDay: 1 });
-        const cardId = page.items[0]!.snapshot.card_id;
-
-        yield* learning.reviewCard({ versionId: version.id, cardId, rating: 'good' });
-        assert.strictEqual(
-          (yield* learning.card({ versionId: version.id, cardId })).schedule?.reps,
-          1n
-        );
-        assert.strictEqual(
-          (yield* learning.reviewHistory({ versionId: version.id, cardId, limit: 10 })).items
-            .length,
-          1
-        );
-        assert.strictEqual(
-          (yield* learning.dueCards({ projectId: project.id, limit: 10 })).items.length,
-          0
-        );
-      }).pipe(
-        Effect.provide(
-          Learning.layer
-            .pipe(
-              Layer.provideMerge(Settings.layer),
-              Layer.provideMerge(Materials.layer),
-              Layer.provideMerge(Pages.layer)
-            )
-            .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
-        )
-      )
-    );
-  } finally {
-    context.close();
-    await location.cleanup();
-  }
-});
-
-testStable('practice starts idempotently with two captured pending slots', async () => {
-  const s = await import('@study/db');
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-
-  try {
-    const project = context.db.orm
-      .insert(s.projects)
-      .values({ name: 'Practice', created_at: 1n, updated_at: 1n })
-      .returning()
-      .get()!;
-
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const learning = yield* Learning;
-        const materials = yield* Materials;
-        const doc = yield* (yield* Pages).create({
-          createKey: crypto.randomUUID(),
-          inputs: [],
-          citations: [],
-          projectId: project.id,
-          title: 'Document',
-          document: {
-            blocks: [plainBlock('paragraph', 'Study', { type: 'authored' })],
-            meta: {
-              extractor: null,
-              extractorVersion: 1,
-              provider: null,
-              durationMs: null,
-              pageCount: null,
-              refiners: [],
-              waitingFor: [],
-              corrected: false,
-              omissions: []
-            }
-          }
-        });
-        const first = yield* learning.startPractice({
-          projectId: project.id,
-          inputs: [{ kind: 'page', versionId: doc.version!.id }]
-        });
-        const second = yield* learning.startPractice({
-          projectId: project.id,
-          inputs: [{ kind: 'page', versionId: doc.version!.id }]
-        });
-
-        assert.strictEqual(first.epoch, second.epoch);
-        context.db.orm
-          .update(s.learning_practice_slots)
-          .set({ failure_kind: 'config' })
-          .where(eq(s.learning_practice_slots.id, first.slots[0]!.slotId))
+        db.insert(s.material_flashcard_entries)
+          .values({
+            version_id: version.id,
+            material_id: material.id,
+            card_id: card.id,
+            position: BigInt(i),
+            front: 'front',
+            back: 'back'
+          })
           .run();
-        const failed = yield* learning.practice({ projectId: project.id });
+      }
 
-        assert.ok(failed.slots[0]!.status === 'failed');
-        assert.ok(failed.slots[0]!.failureKind === 'config');
-        const retried = yield* learning.retryPracticeQuestion({ slotId: first.slots[0]!.slotId });
+      db.update(s.material_versions)
+        .set({ status: 'published', published_at: 1n })
+        .where(eq(s.material_versions.id, version.id))
+        .run();
+      db.insert(s.preferences).values({ scope: 'review', key: 'newCardsPerDay', value: '1' }).run();
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const learning = yield* Learning;
+          const page = yield* learning.dueCards({ projectId: project.id, limit: 10 });
 
-        assert.ok(retried.status === 'pending');
-        assert.strictEqual(retried.slotId, first.slots[0]!.slotId);
-        yield* learning.retryPracticeQuestion({ slotId: first.slots[0]!.slotId });
-        expect(first.slots.map((slot) => slot.kind)).toStrictEqual(['choice', 'choice']);
-        expect(first.slots.map((slot) => slot.slotId)).toStrictEqual(
-          second.slots.map((slot) => slot.slotId)
-        );
-        assert.strictEqual(
-          context.db.orm
-            .select()
-            .from(s.workflowEvents)
-            .all()
-            .filter((event) => event.type === 'PracticeSlotRequested').length,
-          3
-        );
-        const stopped = yield* learning.stopPractice({ projectId: project.id });
+          assert.strictEqual(page.items.length, 1);
+          const settings = yield* Settings;
 
-        assert.ok(stopped.enabled === false);
-        assert.strictEqual(stopped.slots.length, 0);
-        yield* materials.openGenerationScope({ scopeId: first.epoch!, projectId: project.id });
-        assert.ok(
-          (yield* Effect.flip(
-            materials.requestMaterialGenerationOnce({
-              requestId: first.slots[0]!.slotId,
-              request: {
-                projectId: project.id,
-                title: 'Question',
-                kind: 'quiz',
-                inputs: [{ kind: 'page', versionId: doc.version!.id }],
-                scopeId: first.epoch!,
-                questionSpec: { count: 1, kind: 'choice' }
-              }
-            })
-          )).kind === 'invalid_input'
-        );
-        const restarted = yield* learning.startPractice({
-          projectId: project.id,
-          inputs: [{ kind: 'page', versionId: doc.version!.id }]
-        });
+          yield* settings.saveReviewSettings({ newCardsPerDay: 2 });
+          assert.strictEqual(
+            (yield* learning.dueCards({ projectId: project.id, limit: 10 })).items.length,
+            2
+          );
+          yield* settings.saveReviewSettings({ newCardsPerDay: 1 });
+          const cardId = page.items[0]!.snapshot.card_id;
 
-        assert.notStrictEqual(restarted.epoch, first.epoch);
-        assert.strictEqual(restarted.slots.length, 2);
-      }).pipe(
-        Effect.provide(
-          Learning.layer
-            .pipe(
-              Layer.provideMerge(Settings.layer),
-              Layer.provideMerge(Materials.layer),
-              Layer.provideMerge(Pages.layer)
-            )
-            .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
+          yield* learning.reviewCard({ versionId: version.id, cardId, rating: 'good' });
+          assert.strictEqual(
+            (yield* learning.card({ versionId: version.id, cardId })).schedule?.reps,
+            1n
+          );
+          assert.strictEqual(
+            (yield* learning.reviewHistory({ versionId: version.id, cardId, limit: 10 })).items
+              .length,
+            1
+          );
+          assert.strictEqual(
+            (yield* learning.dueCards({ projectId: project.id, limit: 10 })).items.length,
+            0
+          );
+        }).pipe(
+          Effect.provide(
+            Learning.layer
+              .pipe(
+                Layer.provideMerge(Settings.layer),
+                Layer.provideMerge(Materials.layer),
+                Layer.provideMerge(Pages.layer)
+              )
+              .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
+          )
         )
-      )
-    );
-  } finally {
-    context.close();
-    await location.cleanup();
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
+
+test.stable(
+  'practice starts idempotently with two captured pending slots',
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const s = await import('@study/db');
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+
+    try {
+      const project = context.db.orm
+        .insert(s.projects)
+        .values({ name: 'Practice', created_at: 1n, updated_at: 1n })
+        .returning()
+        .get()!;
+
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const learning = yield* Learning;
+          const materials = yield* Materials;
+          const doc = yield* (yield* Pages).create({
+            createKey: crypto.randomUUID(),
+            inputs: [],
+            citations: [],
+            projectId: project.id,
+            title: 'Document',
+            document: {
+              blocks: [plainBlock('paragraph', 'Study', { type: 'authored' })],
+              meta: {
+                extractor: null,
+                extractorVersion: 1,
+                provider: null,
+                durationMs: null,
+                pageCount: null,
+                refiners: [],
+                waitingFor: [],
+                corrected: false,
+                omissions: []
+              }
+            }
+          });
+          const first = yield* learning.startPractice({
+            projectId: project.id,
+            inputs: [{ kind: 'page', versionId: doc.version!.id }]
+          });
+          const second = yield* learning.startPractice({
+            projectId: project.id,
+            inputs: [{ kind: 'page', versionId: doc.version!.id }]
+          });
+
+          assert.strictEqual(first.epoch, second.epoch);
+          context.db.orm
+            .update(s.learning_practice_slots)
+            .set({ failure_kind: 'config' })
+            .where(eq(s.learning_practice_slots.id, first.slots[0]!.slotId))
+            .run();
+          const failed = yield* learning.practice({ projectId: project.id });
+
+          assert.ok(failed.slots[0]!.status === 'failed');
+          assert.ok(failed.slots[0]!.failureKind === 'config');
+          const retried = yield* learning.retryPracticeQuestion({ slotId: first.slots[0]!.slotId });
+
+          assert.ok(retried.status === 'pending');
+          assert.strictEqual(retried.slotId, first.slots[0]!.slotId);
+          yield* learning.retryPracticeQuestion({ slotId: first.slots[0]!.slotId });
+          expect(first.slots.map((slot) => slot.kind)).toStrictEqual(['choice', 'choice']);
+          expect(first.slots.map((slot) => slot.slotId)).toStrictEqual(
+            second.slots.map((slot) => slot.slotId)
+          );
+          assert.strictEqual(
+            context.db.orm
+              .select()
+              .from(s.workflowEvents)
+              .all()
+              .filter((event) => event.type === 'PracticeSlotRequested').length,
+            3
+          );
+          const stopped = yield* learning.stopPractice({ projectId: project.id });
+
+          assert.ok(stopped.enabled === false);
+          assert.strictEqual(stopped.slots.length, 0);
+          yield* materials.openGenerationScope({ scopeId: first.epoch!, projectId: project.id });
+          assert.ok(
+            (yield* Effect.flip(
+              materials.requestMaterialGenerationOnce({
+                requestId: first.slots[0]!.slotId,
+                request: {
+                  projectId: project.id,
+                  title: 'Question',
+                  kind: 'quiz',
+                  inputs: [{ kind: 'page', versionId: doc.version!.id }],
+                  scopeId: first.epoch!,
+                  questionSpec: { count: 1, kind: 'choice' }
+                }
+              })
+            )).kind === 'invalid_input'
+          );
+          const restarted = yield* learning.startPractice({
+            projectId: project.id,
+            inputs: [{ kind: 'page', versionId: doc.version!.id }]
+          });
+
+          assert.notStrictEqual(restarted.epoch, first.epoch);
+          assert.strictEqual(restarted.slots.length, 2);
+        }).pipe(
+          Effect.provide(
+            Learning.layer
+              .pipe(
+                Layer.provideMerge(Settings.layer),
+                Layer.provideMerge(Materials.layer),
+                Layer.provideMerge(Pages.layer)
+              )
+              .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
+          )
+        )
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
+  }
+);

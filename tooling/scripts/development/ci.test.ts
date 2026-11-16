@@ -1,7 +1,4 @@
-import { spawnTestProcess } from '@study/testing/vitest';
-import { temporaryDirectory } from '@study/testing/vitest';
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 type Workflow = {
   jobs: Record<
@@ -34,42 +31,54 @@ const lanes = [
   'landing'
 ];
 
-testStable('all CI lanes start independently and feed the required merge gate', () => {
-  assert.sameMembers(workflow.jobs.check!.needs as string[], lanes);
-  assert.equal(workflow.jobs.check!.name, 'Test and build');
+test.stable(
+  'all CI lanes start independently and feed the required merge gate',
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  for (const name of lanes) {
-    const job = workflow.jobs[name]!;
+    assert.sameMembers(workflow.jobs.check!.needs as string[], lanes);
+    assert.equal(workflow.jobs.check!.name, 'Test and build');
 
-    assert.isDefined(job);
-    assert.isUndefined(job.needs);
-    assert.isUndefined(job.if);
+    for (const name of lanes) {
+      const job = workflow.jobs[name]!;
 
-    if (name !== 'browser') assert.isUndefined(job.strategy);
+      assert.isDefined(job);
+      assert.isUndefined(job.needs);
+      assert.isUndefined(job.if);
+
+      if (name !== 'browser') assert.isUndefined(job.strategy);
+    }
   }
-});
+);
 
-testStable('browser shards run the full catalog without cancelling sibling diagnostics', () => {
-  const browser = workflow.jobs.browser!;
+test.stable(
+  'browser shards run the full catalog without cancelling sibling diagnostics',
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  assert.deepEqual(browser.strategy, {
-    'fail-fast': false,
-    'max-parallel': 3,
-    matrix: { shard: [1, 2, 3] }
-  });
-  const runner = browser.steps!.find((step) => step.with?.runCmd);
-  const artifacts = browser.steps!.find((step) =>
-    step.uses?.startsWith('actions/upload-artifact@')
-  );
+    const browser = workflow.jobs.browser!;
 
-  assert.equal(runner?.with?.runCmd, 'bun run web:e2e:compare --shard=${{ matrix.shard }}/3');
-  assert.equal(artifacts?.if, '${{ always() }}');
-  assert.equal(artifacts?.with?.name, 'web-e2e-diagnostics-${{ matrix.shard }}');
-});
+    assert.deepEqual(browser.strategy, {
+      'fail-fast': false,
+      'max-parallel': 3,
+      matrix: { shard: [1, 2, 3] }
+    });
+    const runner = browser.steps!.find((step) => step.with?.runCmd);
+    const artifacts = browser.steps!.find((step) =>
+      step.uses?.startsWith('actions/upload-artifact@')
+    );
 
-testStable.each(['success', 'failure', 'cancelled', 'skipped', 'missing'])(
+    assert.equal(runner?.with?.runCmd, 'bun run web:e2e:compare --shard=${{ matrix.shard }}/3');
+    assert.equal(artifacts?.if, '${{ always() }}');
+    assert.equal(artifacts?.with?.name, 'web-e2e-diagnostics-${{ matrix.shard }}');
+  }
+);
+
+test.stable.for(['success', 'failure', 'cancelled', 'skipped', 'missing'])(
   'the required gate handles a %s lane result without allowing an unsafe merge',
-  async (status) => {
+  async (status, { temporaryDirectory, spawnTestProcess, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     await using temporary = await temporaryDirectory();
     const directory = temporary.path;
 
@@ -97,9 +106,11 @@ testStable.each(['success', 'failure', 'cancelled', 'skipped', 'missing'])(
   }
 );
 
-testStable(
+test.stable(
   'release publication waits for four independent platform builds without a matrix',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const release = Bun.YAML.parse(
       await Bun.file(new URL('.github/workflows/release.yml', root)).text()
     ) as Workflow;

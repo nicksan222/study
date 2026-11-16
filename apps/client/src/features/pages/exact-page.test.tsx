@@ -1,21 +1,16 @@
 import { StudyError, sourceIdSchema, createBlock, revisionExportSchema } from '@study/contracts';
+import type { StudyClient } from '@study/contracts/react/testing';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { act, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { expect, vi } from 'vite-plus/test';
-
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
-import type { StudyClient } from '#client/test/rpc.tsx';
 
 import { authoredPage } from '../document-editing/test-support';
 import { deferred } from '../material-library/test/support';
 import { ExactAuthoredPageContent } from './exact-page';
 
-testStable(
+test.stable(
   'retries the exact document and individual image, distinguishes loading, and releases URLs on replacement/unmount',
-  async () => {
+  async ({ vi, rpcHandlersTransport, render, userEvent, screen, expect, act, waitFor }) => {
     const document = authoredPage(41n).version!;
     const block = createBlock({
       type: 'image',
@@ -116,9 +111,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'retries one failed image without reacquiring an already displayed neighbor',
-  async () => {
+  async ({ vi, rpcHandlersTransport, render, screen, userEvent, expect }) => {
     const base = authoredPage(41n).version!;
     const asset = Schema.decodeUnknownSync(revisionExportSchema)({
       sourceId: 7n,

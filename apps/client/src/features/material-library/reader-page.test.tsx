@@ -6,25 +6,21 @@ import {
   materialVersionSummarySchema,
   defaultWorkspacePreferences
 } from '@study/contracts';
+import type { StudyClient } from '@study/contracts/react/testing';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { expect, vi } from 'vite-plus/test';
-
-import type { StudyClient } from '#client/test/rpc.tsx';
 
 import { materialId, versionId } from './identity';
 import { learningVersion, materialRpc, mountLibraryRoute } from './test/support';
 
-testStable(
+test.stable(
   'rejects a foreign Material version before rendering extraction or exposing its original',
-  async () => {
-    const rpc = materialRpc();
+  async ({ expect, within, screen, vi, render, rpcHandlersTransport }) => {
+    const rpc = materialRpc({ vi });
 
     rpc['materials.materialVersion'].mockReturnValue(Effect.succeed(learningVersion(101n, 99n)));
-    mountLibraryRoute('/materials/41?version=101', rpc);
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/materials/41?version=101', rpc);
     expect(await within(await screen.findByRole('main')).findByRole('alert')).toHaveTextContent(
       catalogs.english.ReaderUnavailable
     );
@@ -38,10 +34,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'loads history only on opening, refreshes the bounded prefix and preserves collection on selection',
-  async () => {
-    const rpc = materialRpc();
+  async ({ userEvent, screen, expect, within, vi, render, rpcHandlersTransport }) => {
+    const rpc = materialRpc({ vi });
     const decode = Schema.decodeUnknownSync(materialVersionSummarySchema);
     const current = decode(learningVersion(102n));
     const old = decode({ ...learningVersion(), availability: 'unavailable' });
@@ -54,7 +50,11 @@ testStable(
         ? Effect.fail(new StudyError('not_found', 'Historical version unavailable'))
         : Effect.succeed(learningVersion(102n, 41n, 'Current extraction 41'))
     );
-    const { router } = mountLibraryRoute('/materials/41?project=3', rpc);
+    const { router } = mountLibraryRoute(
+      { render, rpcHandlersTransport, vi },
+      '/materials/41?project=3',
+      rpc
+    );
     const user = userEvent.setup();
 
     await screen.findByText(/Current extraction 41/);
@@ -63,7 +63,9 @@ testStable(
 
     expect(summary.closest('details')).not.toHaveAttribute('open');
     await user.click(summary);
-    await screen.findByRole('link', { name: new RegExp(`${catalogs.english.ReaderVersion} 2`) });
+    await screen.findByRole('link', {
+      name: new RegExp(`${catalogs.english.ReaderVersion} 2`)
+    });
     await user.click(screen.getByRole('button', { name: catalogs.english.LibraryMore }));
     const historic = await screen.findByRole('link', {
       name: new RegExp(`${catalogs.english.ReaderVersion} 1`)
@@ -90,18 +92,26 @@ testStable(
   }
 );
 
-testStable('preserves the collection while moving from historical to current content', async () => {
-  const { router } = mountLibraryRoute('/materials/41?project=3&version=101');
+test.stable(
+  'preserves the collection while moving from historical to current content',
+  async ({ screen, userEvent, expect, render, rpcHandlersTransport, vi }) => {
+    const { router } = mountLibraryRoute(
+      { render, rpcHandlersTransport, vi },
+      '/materials/41?project=3&version=101'
+    );
 
-  await screen.findByText(/Historical extraction/);
-  await userEvent.setup().click(screen.getByRole('link', { name: catalogs.english.ReaderCurrent }));
-  await screen.findByText(/Current extraction 41/);
-  expect(router.state.location.search).toMatchObject({ project: '3', version: '102' });
-});
+    await screen.findByText(/Historical extraction/);
+    await userEvent
+      .setup()
+      .click(screen.getByRole('link', { name: catalogs.english.ReaderCurrent }));
+    await screen.findByText(/Current extraction 41/);
+    expect(router.state.location.search).toMatchObject({ project: '3', version: '102' });
+  }
+);
 
-testStable(
+test.stable(
   'opens deletion through reader Actions and recovers accepted cleanup after the reader becomes fenced',
-  async () => {
+  async ({ vi, userEvent, screen, expect, within, render, rpcHandlersTransport }) => {
     const preview = Schema.decodeUnknownSync(materialDeletionPreviewSchema)({
       materialId: 41n,
       token: 'delete-preview',
@@ -128,7 +138,7 @@ testStable(
       completedAt: null
     });
     const rpc = {
-      ...materialRpc(),
+      ...materialRpc({ vi }),
       'materials.previewDeletion': vi
         .fn<StudyClient['materials.previewDeletion']>()
         .mockReturnValue(Effect.succeed(preview)),
@@ -138,7 +148,7 @@ testStable(
     };
 
     rpc['materials.deletion'].mockReturnValue(Effect.succeed(operation));
-    mountLibraryRoute('/materials/41', rpc);
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/materials/41', rpc);
     const user = userEvent.setup();
 
     await screen.findByText(/Current extraction 41/);
@@ -186,52 +196,57 @@ testStable(
   }
 );
 
-testStable('reports CSV structure loss without an unrelated image warning', async () => {
-  const rpc = materialRpc();
+test.stable(
+  'reports CSV structure loss without an unrelated image warning',
+  async ({ vi, screen, waitFor, expect, userEvent, render, rpcHandlersTransport }) => {
+    const rpc = materialRpc({ vi });
 
-  rpc['settings.workspacePreferences'].mockReturnValue(
-    Effect.succeed({ ...defaultWorkspacePreferences, defaultExportFormat: 'csv' })
-  );
-  rpc['materials.materialVersion'].mockReturnValue(
-    Effect.succeed(
-      Schema.decodeUnknownSync(materialVersionDetailSchema)({
-        ...learningVersion(),
-        kind: 'flashcards',
-        content: { kind: 'flashcards', cards: [] }
-      })
-    )
-  );
-  rpc['materials.exportMaterialVersion'].mockReturnValue(
-    Effect.succeed({
-      versionId: versionId('101'),
-      format: 'csv',
-      filename: 'cards.csv',
-      mediaType: 'text/csv; charset=utf-8',
-      bytes: new Uint8Array(new TextEncoder().encode('cardId,front,back')),
-      omissions: [{ code: 'csv_structure' }]
-    })
-  );
-  const download = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
-  const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:csv-export');
-
-  try {
-    mountLibraryRoute('/materials/41?version=101', rpc);
-    const button = await screen.findByRole('button', { name: catalogs.english.ExportDownload });
-
-    await waitFor(() =>
-      expect(
-        screen.getByRole('combobox', { name: catalogs.english.ExportFormat })
-      ).toHaveTextContent(catalogs.english.ExportCsv)
+    rpc['settings.workspacePreferences'].mockReturnValue(
+      Effect.succeed({ ...defaultWorkspacePreferences, defaultExportFormat: 'csv' })
     );
-    await userEvent.click(button);
-    expect(await screen.findByText(catalogs.english.ExportOmitCsv)).toBeInTheDocument();
-    expect(screen.queryByText(catalogs.english.ExportOmitImage)).not.toBeInTheDocument();
-    expect(rpc['materials.exportMaterialVersion']).toHaveBeenCalledWith({
-      id: versionId('101'),
-      format: 'csv'
-    });
-  } finally {
-    download.mockRestore();
-    create.mockRestore();
+    rpc['materials.materialVersion'].mockReturnValue(
+      Effect.succeed(
+        Schema.decodeUnknownSync(materialVersionDetailSchema)({
+          ...learningVersion(),
+          kind: 'flashcards',
+          content: { kind: 'flashcards', cards: [] }
+        })
+      )
+    );
+    rpc['materials.exportMaterialVersion'].mockReturnValue(
+      Effect.succeed({
+        versionId: versionId('101'),
+        format: 'csv',
+        filename: 'cards.csv',
+        mediaType: 'text/csv; charset=utf-8',
+        bytes: new Uint8Array(new TextEncoder().encode('cardId,front,back')),
+        omissions: [{ code: 'csv_structure' }]
+      })
+    );
+    const download = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:csv-export');
+
+    try {
+      mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/materials/41?version=101', rpc);
+      const button = await screen.findByRole('button', {
+        name: catalogs.english.ExportDownload
+      });
+
+      await waitFor(() =>
+        expect(
+          screen.getByRole('combobox', { name: catalogs.english.ExportFormat })
+        ).toHaveTextContent(catalogs.english.ExportCsv)
+      );
+      await userEvent.click(button);
+      expect(await screen.findByText(catalogs.english.ExportOmitCsv)).toBeInTheDocument();
+      expect(screen.queryByText(catalogs.english.ExportOmitImage)).not.toBeInTheDocument();
+      expect(rpc['materials.exportMaterialVersion']).toHaveBeenCalledWith({
+        id: versionId('101'),
+        format: 'csv'
+      });
+    } finally {
+      download.mockRestore();
+      create.mockRestore();
+    }
   }
-});
+);

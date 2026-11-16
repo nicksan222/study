@@ -6,15 +6,11 @@ import {
   executionIdSchema
 } from '@study/contracts';
 import type { executionSchema } from '@study/contracts';
+import type { StudyClient } from '@study/contracts/react/testing';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { act, cleanup, render, renderHook, screen, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
 import { useLayoutEffect } from 'react';
-import { afterEach, expect, vi } from 'vite-plus/test';
-
-import type { StudyClient } from '#client/test/rpc.tsx';
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { authoredPage } from '../document-editing/test-support';
 import { importedSource, materialRpc, mountLibraryRoute } from '../material-library/test/support';
@@ -22,15 +18,23 @@ import { useSourceProcessingExecution, useSourceCopy } from './source-panel.quer
 
 const source = sourceIdSchema.make(7n);
 
-const rpc = {
-  copy: vi.fn<StudyClient['pages.copySource']>(),
-  processing: vi.fn<StudyClient['sources.sourceProcessing']>(),
-  executions: vi.fn<StudyClient['workflows.executions']>()
-};
+function createRpc({ vi }: Pick<test.Context, 'vi'>) {
+  return {
+    copy: vi.fn<StudyClient['pages.copySource']>(),
+    processing: vi.fn<StudyClient['sources.sourceProcessing']>(),
+    executions: vi.fn<StudyClient['workflows.executions']>()
+  };
+}
 
-afterEach(() => {
+let rpc: ReturnType<typeof createRpc>;
+
+test.afterEach(({ cleanup, vi }) => {
   cleanup();
   vi.resetAllMocks();
+});
+
+test.beforeEach(({ vi }) => {
+  rpc = createRpc({ vi });
 });
 
 function execution(
@@ -55,9 +59,9 @@ function processing(requestId: string | null) {
   return Effect.succeed({ sourceId: source, revision: 1, requestId, documentId: null });
 }
 
-testStable(
+test.stable(
   'keeps an uncertain exact copy request across caller remount and newer source extraction',
-  async () => {
+  async ({ rpcHandlersTransport, render, act, expect, waitFor }) => {
     const note = noteIdSchema.make(8n);
     const harness = rpcHandlersTransport({ 'pages.copySource': rpc.copy });
     let current: ReturnType<typeof useSourceCopy> | undefined;
@@ -134,9 +138,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'live processing follows the current request and never presents an unrelated workflow outcome',
-  async () => {
+  async ({ rpcHandlersTransport, renderHook, waitFor, expect, act }) => {
     const harness = rpcHandlersTransport({
       'sources.sourceProcessing': rpc.processing,
       'workflows.executions': rpc.executions
@@ -163,74 +167,90 @@ testStable(
     await waitFor(() => expect(view.result.current.data).toBeUndefined());
   }
 );
-testStable(
-  'renders canonical failure and configuration waits, then recovers to extracted content',
-  async () => {
-    const copy = catalogs.english;
 
-    for (const [overrides, label] of [
-      [{ failureKind: 'unsupported' }, copy.SourceExtractionUnsupported],
-      [{ failureKind: 'internal' }, copy.SourceExtractionFailed],
-      [{ status: 'cancelled', failureKind: 'cancelled' }, copy.SourceExtractionFailed],
-      ...(['auth', 'config', 'model_unavailable'] as const).map(
-        (reason) =>
-          [
-            {
-              status: 'suspended',
-              outcome: null,
-              failureKind: null,
-              configurationWaitReason: reason
-            },
-            reason === 'auth'
-              ? copy.NoteWaitAuth
-              : reason === 'config'
-                ? copy.NoteWaitConfig
-                : copy.NoteWaitModel
-          ] as const
-      )
-    ] as const) {
-      const client = {
-        ...materialRpc(),
-        'sources.sourceProcessing': rpc.processing,
-        'workflows.executions': rpc.executions
-      };
-
-      rpc.processing.mockReturnValue(processing('request-1'));
-      rpc.executions.mockReturnValue(Effect.succeed({ items: [execution(overrides)], next: null }));
-      client['sources.currentExtraction'].mockReturnValue(Effect.succeed(null));
-      const view = mountLibraryRoute('/sources/7', client);
-
-      try {
-        expect(await screen.findByText(label)).toBeInTheDocument();
-        expect(screen.queryByText(copy.NotePending)).toBeNull();
-
-        if ('configurationWaitReason' in overrides)
-          expect(screen.getByRole('link', { name: copy.Settings })).toHaveAttribute(
-            'href',
-            '/settings'
-          );
-
-        rpc.processing.mockReturnValue(processing(null));
-        await act(async () => {
-          await view.notify();
-        });
-        expect(await screen.findByText(copy.NotePending)).toBeInTheDocument();
-        expect(screen.queryByText(label)).toBeNull();
-        client['sources.currentExtraction'].mockReturnValue(
-          client['sources.extraction']({
-            sourceId: importedSource.id,
-            revision: 1n,
-            snapshotId: contentSnapshotIdSchema.make(101n)
-          })
-        );
-        await act(async () => {
-          await view.notify();
-        });
-        expect(await screen.findByText('Historical extraction')).toBeInTheDocument();
-        expect(screen.queryByText(copy.NotePending)).toBeNull();
-      } finally {
-        view.unmount();
-      }
+const failureScenarios = [
+  [
+    'unsupported',
+    {
+      overrides: { failureKind: 'unsupported' },
+      label: catalogs.english.SourceExtractionUnsupported
     }
+  ],
+  [
+    'internal',
+    { overrides: { failureKind: 'internal' }, label: catalogs.english.SourceExtractionFailed }
+  ],
+  [
+    'cancelled',
+    {
+      overrides: { status: 'cancelled', failureKind: 'cancelled' },
+      label: catalogs.english.SourceExtractionFailed
+    }
+  ],
+  ...(['auth', 'config', 'model_unavailable'] as const).map(
+    (reason) =>
+      [
+        `${reason}-wait`,
+        {
+          overrides: {
+            status: 'suspended',
+            outcome: null,
+            failureKind: null,
+            configurationWaitReason: reason
+          },
+          label:
+            reason === 'auth'
+              ? catalogs.english.NoteWaitAuth
+              : reason === 'config'
+                ? catalogs.english.NoteWaitConfig
+                : catalogs.english.NoteWaitModel
+        }
+      ] as const
+  )
+] as const;
+
+test.stable.for(failureScenarios)(
+  'renders canonical failure and configuration waits for %s, then recovers to extracted content',
+  async ([_scenarioName, scenario], { expect, screen, act, vi, render, rpcHandlersTransport }) => {
+    const copy = catalogs.english;
+    const { overrides, label } = scenario;
+    const client = {
+      ...materialRpc({ vi }),
+      'sources.sourceProcessing': rpc.processing,
+      'workflows.executions': rpc.executions
+    };
+
+    rpc.processing.mockReturnValue(processing('request-1'));
+    rpc.executions.mockReturnValue(Effect.succeed({ items: [execution(overrides)], next: null }));
+    client['sources.currentExtraction'].mockReturnValue(Effect.succeed(null));
+    const view = mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/sources/7', client);
+
+    expect(await screen.findByText(label)).toBeInTheDocument();
+    expect(screen.queryByText(copy.NotePending)).toBeNull();
+
+    if ('configurationWaitReason' in overrides)
+      expect(screen.getByRole('link', { name: copy.Settings })).toHaveAttribute(
+        'href',
+        '/settings'
+      );
+
+    rpc.processing.mockReturnValue(processing(null));
+    await act(async () => {
+      await view.notify();
+    });
+    expect(await screen.findByText(copy.NotePending)).toBeInTheDocument();
+    expect(screen.queryByText(label)).toBeNull();
+    client['sources.currentExtraction'].mockReturnValue(
+      client['sources.extraction']({
+        sourceId: importedSource.id,
+        revision: 1n,
+        snapshotId: contentSnapshotIdSchema.make(101n)
+      })
+    );
+    await act(async () => {
+      await view.notify();
+    });
+    expect(await screen.findByText('Historical extraction')).toBeInTheDocument();
+    expect(screen.queryByText(copy.NotePending)).toBeNull();
   }
 );

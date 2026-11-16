@@ -1,3 +1,4 @@
+import { failureSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks grading checkpoints provider output and rejects stale or manual             │
@@ -13,20 +14,15 @@
  * │ replace production activities.                                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { failureSchema } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { executionIdSchema } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { createAiMock } from '@study/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import type { Context } from 'effect';
 import { Effect, Layer, Option, Schema } from 'effect';
 import { Activity, DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';
-import { assert, expect } from 'vite-plus/test';
 
 import { learningGradeAgent } from '#server/features/learning/agents/learning-grade';
 import { Learning } from '#server/features/learning/service/index';
@@ -56,9 +52,11 @@ import {
   practicePublicationHandler
 } from './index.ts';
 
-testStable(
+test.stable(
   'grading checkpoints provider output and fences stale and manual submissions',
-  async () => {
+  async ({ databases, createAiMock, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     using mock = createAiMock();
     const grade = (answer: string, hold = false) =>
       mock.next(learningGradeAgent, {
@@ -66,7 +64,7 @@ testStable(
         output: { verdict: 'partly', feedback: 'Good' },
         hold
       });
-    const location = await createTestDatabase();
+    const location = await databases();
     let context = new ServerContext(await location.open());
     const services = () =>
       Layer.mergeAll(
@@ -155,7 +153,12 @@ testStable(
       const attempt = await run(
         Effect.flatMap(Learning, (learning) => learning.startQuiz({ versionId: version.id }))
       );
-      const submit = async (answer: string) => {
+      const submit = async (
+        { assert: assertions }: Pick<test.Context, 'assert'>,
+        answer: string
+      ) => {
+        const assert: test.Assert = assertions;
+
         await run(
           Effect.flatMap(Learning, (learning) =>
             learning.answerQuestion({
@@ -194,8 +197,8 @@ testStable(
             }).pipe(Effect.provide(services()))
           )
         );
-      const old = await submit('same');
-      const current = await submit('same');
+      const old = await submit({ assert }, 'same');
+      const current = await submit({ assert }, 'same');
 
       await expect(execute(old, 'stale')).rejects.toSatisfy(() => true);
       mock.verify();
@@ -214,7 +217,7 @@ testStable(
       await execute(current, 'replay');
       mock.verify();
       assert.strictEqual(context.db.orm.select().from(s.material_quiz_responses).get()?.score, 0.5);
-      const racing = await submit('racing');
+      const racing = await submit({ assert }, 'racing');
 
       const racingGrade = grade('racing', true);
 
@@ -222,12 +225,12 @@ testStable(
         expect(execute(racing, 'race')).rejects.toSatisfy(() => true),
         (async () => {
           await racingGrade.called;
-          await submit('newer');
+          await submit({ assert }, 'newer');
           racingGrade.release();
         })()
       ]);
       assert.ok(context.db.orm.select().from(s.material_quiz_responses).get()?.score === null);
-      const manualRace = await submit('manual race');
+      const manualRace = await submit({ assert }, 'manual race');
 
       const manualGrade = grade('manual race', true);
       const manualExecution = execute(manualRace, 'manual-race');
@@ -249,7 +252,7 @@ testStable(
       assert.ok(
         context.db.orm.select().from(s.material_quiz_responses).get()?.feedback === 'Manual race'
       );
-      const manual = await submit('manual');
+      const manual = await submit({ assert }, 'manual');
 
       await run(
         Effect.flatMap(Learning, (learning) =>
@@ -264,7 +267,7 @@ testStable(
       await expect(execute(manual, 'manual')).rejects.toSatisfy(() => true);
       mock.verify();
       assert.strictEqual(context.db.orm.select().from(s.material_quiz_responses).get()?.score, 1);
-      const finished = await submit('finished');
+      const finished = await submit({ assert }, 'finished');
 
       await run(
         Effect.flatMap(Learning, (learning) => learning.finishQuiz({ attemptId: attempt.id }))
@@ -326,10 +329,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'practice slot workflow reuses its generation request and ignores manual publication',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect, pollUntil }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const dbLayer = Layer.succeed(Database, { store: context });
     const services = Layer.mergeAll(
@@ -596,8 +601,15 @@ testStable(
               })
             );
 
-            while (Option.isNone(yield* engine.poll(cancelledWorkflow, 'cancelled-generation')))
-              yield* Effect.sleep('10 millis');
+            yield* pollUntil(
+              engine.poll(cancelledWorkflow, 'cancelled-generation'),
+              Option.isSome,
+              {
+                attempts: 500,
+                interval: '10 millis',
+                message: 'Cancelled generation did not start'
+              }
+            );
 
             yield* cancelExecution(context, [cancelledWorkflow], {
               id: executionIdSchema.make('cancelled-generation'),

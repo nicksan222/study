@@ -1,3 +1,4 @@
+import type { NoteId } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Covers note and message pagination, immutable versions, attachment ownership       │
@@ -13,14 +14,9 @@
  * │ by the feature implementation.                                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { NoteId } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Option } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
@@ -32,172 +28,184 @@ import { withTestPublication } from '#testing/publication';
 
 import { Notes } from './index.ts';
 
-testStable('notes support normalized creation, bounded pagination and missing reads', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const database = Layer.succeed(Database, { store: context });
-  const layer = Layer.merge(Projects.layer, Notes.layer).pipe(Layer.provideMerge(database));
+test.stable(
+  'notes support normalized creation, bounded pagination and missing reads',
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const projects = yield* Projects;
-        const notes = yield* Notes;
-        const project = yield* projects.createProject({ name: 'Test' });
-        const first = yield* notes.createNote({
-          project: project.id,
-          title: ' First '
-        });
-        const second = yield* notes.createNote({
-          project: project.id,
-          title: 'Second'
-        });
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const database = Layer.succeed(Database, { store: context });
+    const layer = Layer.merge(Projects.layer, Notes.layer).pipe(Layer.provideMerge(database));
 
-        assert.ok(first.title === 'First');
-        assert.ok(first.titleSource === 'user');
-        const page = yield* notes.notes({ limit: 1 });
-
-        assert.strictEqual(page.items[0]?.id, second.id);
-        expect(page.next).toStrictEqual({ updatedAt: second.updatedAt, id: second.id });
-        assert.strictEqual(
-          (yield* notes.notes({ limit: 1, before: page.next! })).items[0]?.id,
-          first.id
-        );
-        const global = yield* notes.createNote({ title: 'Projectless' });
-
-        expect(
-          (yield* notes.notes({ limit: 1, project: project.id })).items.map((item) => item.id)
-        ).toStrictEqual([second.id]);
-        const scoped = yield* notes.notes({ limit: 1, project: project.id });
-
-        expect(
-          (yield* notes.notes({
-            limit: 1,
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const projects = yield* Projects;
+          const notes = yield* Notes;
+          const project = yield* projects.createProject({ name: 'Test' });
+          const first = yield* notes.createNote({
             project: project.id,
-            before: scoped.next!
-          })).items.map((item) => item.id)
-        ).toStrictEqual([first.id]);
-        expect(
-          (yield* notes.notes({ limit: 100, project: null })).items.map((item) => item.id)
-        ).toStrictEqual([global.id]);
-        assert.strictEqual((yield* notes.notes({ limit: 1 })).items[0]?.id, global.id);
-        const absent = 999n as NoteId;
+            title: ' First '
+          });
+          const second = yield* notes.createNote({
+            project: project.id,
+            title: 'Second'
+          });
 
-        assert.ok(Option.isNone(yield* notes.findNote(absent)));
-        assert.ok((yield* Effect.flip(notes.note(absent))).kind === 'not_found');
-        assert.ok(
-          (yield* Effect.flip(notes.createNote({ project: project.id, title: ' ' }))).kind ===
-            'invalid_input'
-        );
-      }).pipe(Effect.provide(layer))
-    );
-  } finally {
-    context.close();
-    await location.cleanup();
+          assert.ok(first.title === 'First');
+          assert.ok(first.titleSource === 'user');
+          const page = yield* notes.notes({ limit: 1 });
+
+          assert.strictEqual(page.items[0]?.id, second.id);
+          expect(page.next).toStrictEqual({ updatedAt: second.updatedAt, id: second.id });
+          assert.strictEqual(
+            (yield* notes.notes({ limit: 1, before: page.next! })).items[0]?.id,
+            first.id
+          );
+          const global = yield* notes.createNote({ title: 'Projectless' });
+
+          expect(
+            (yield* notes.notes({ limit: 1, project: project.id })).items.map((item) => item.id)
+          ).toStrictEqual([second.id]);
+          const scoped = yield* notes.notes({ limit: 1, project: project.id });
+
+          expect(
+            (yield* notes.notes({
+              limit: 1,
+              project: project.id,
+              before: scoped.next!
+            })).items.map((item) => item.id)
+          ).toStrictEqual([first.id]);
+          expect(
+            (yield* notes.notes({ limit: 100, project: null })).items.map((item) => item.id)
+          ).toStrictEqual([global.id]);
+          assert.strictEqual((yield* notes.notes({ limit: 1 })).items[0]?.id, global.id);
+          const absent = 999n as NoteId;
+
+          assert.ok(Option.isNone(yield* notes.findNote(absent)));
+          assert.ok((yield* Effect.flip(notes.note(absent))).kind === 'not_found');
+          assert.ok(
+            (yield* Effect.flip(notes.createNote({ project: project.id, title: ' ' }))).kind ===
+              'invalid_input'
+          );
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
-testStable('messages retain immutable versions and paginate in chronological order', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
+test.stable(
+  'messages retain immutable versions and paginate in chronological order',
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const projects = yield* Projects;
-        const notes = yield* Notes;
-        const project = yield* projects.createProject({ name: 'Messages' });
-        const note = yield* notes.createNote({ project: project.id, title: 'Chat' });
-        const pageText = '# Lecture notes\n\n- **Key idea**\n- Next steps\n\n> Remember this';
-        const input = {
-          noteId: note.id,
-          text: pageText,
-          captureKey: 'page-autosave-identity',
-          requestReply: false
-        };
-        const first = yield* notes.postMessage(input);
-
-        assert.strictEqual((yield* notes.postMessage(input)).id, first.id);
-        const second = yield* notes.postMessage({ noteId: note.id, text: 'second' });
-        const edited = yield* notes.editMessage({
-          messageId: first.id,
-          text: 'changed',
-          expectedActiveVersionId: first.activeVersionId!
-        });
-
-        assert.strictEqual(
-          (yield* notes.postMessage(input)).activeVersionId,
-          edited.activeVersionId
-        );
-        assert.ok(
-          (yield* Effect.flip(
-            notes.editMessage({
-              messageId: first.id,
-              text: 'stale writer',
-              expectedActiveVersionId: first.activeVersionId!
-            })
-          )).kind === 'invalid_input'
-        );
-        assert.ok(
-          (yield* Effect.flip(notes.postMessage({ ...input, text: 'different payload' }))).kind ===
-            'invalid_input'
-        );
-
-        expect(edited.versions.map((v) => v.text)).toStrictEqual([pageText, 'changed']);
-        assert.strictEqual(edited.versions[1]?.basedOn, first.activeVersionId);
-        assert.ok(
-          (yield* Effect.flip(
-            notes.setActiveVersion({
-              messageId: second.id,
-              versionId: edited.versions[0]!.id
-            })
-          )).kind === 'invalid_input'
-        );
-        const restored = yield* notes.setActiveVersion({
-          messageId: first.id,
-          versionId: first.activeVersionId!
-        });
-
-        assert.strictEqual(restored.activeVersionId, first.activeVersionId);
-        expect(
-          (yield* notes.thread({ noteId: note.id, limit: 2 })).items.map((m) => m.id)
-        ).toStrictEqual([first.id, second.id]);
-        const page = yield* notes.thread({ noteId: note.id, limit: 1 });
-
-        assert.strictEqual(page.items[0]?.id, second.id);
-        assert.strictEqual(page.next, second.id);
-        assert.strictEqual(
-          (yield* notes.thread({ noteId: note.id, limit: 1, before: page.next! })).items[0]?.id,
-          first.id
-        );
-        assert.strictEqual(yield* notes.deleteMessage(first.id), true);
-        assert.ok((yield* Effect.flip(notes.message(first.id))).kind === 'not_found');
-        const { message_versions } = yield* Effect.promise(() => import('@study/db'));
-        const { eq } = yield* Effect.promise(() => import('@study/db'));
-
-        assert.strictEqual(
-          context.db.orm
-            .select()
-            .from(message_versions)
-            .where(eq(message_versions.message_id, first.id))
-            .all().length,
-          0
-        );
-      }).pipe(Effect.provide(layer))
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
-  } finally {
-    context.close();
-    await location.cleanup();
-  }
-});
 
-testStable(
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const projects = yield* Projects;
+          const notes = yield* Notes;
+          const project = yield* projects.createProject({ name: 'Messages' });
+          const note = yield* notes.createNote({ project: project.id, title: 'Chat' });
+          const pageText = '# Lecture notes\n\n- **Key idea**\n- Next steps\n\n> Remember this';
+          const input = {
+            noteId: note.id,
+            text: pageText,
+            captureKey: 'page-autosave-identity',
+            requestReply: false
+          };
+          const first = yield* notes.postMessage(input);
+
+          assert.strictEqual((yield* notes.postMessage(input)).id, first.id);
+          const second = yield* notes.postMessage({ noteId: note.id, text: 'second' });
+          const edited = yield* notes.editMessage({
+            messageId: first.id,
+            text: 'changed',
+            expectedActiveVersionId: first.activeVersionId!
+          });
+
+          assert.strictEqual(
+            (yield* notes.postMessage(input)).activeVersionId,
+            edited.activeVersionId
+          );
+          assert.ok(
+            (yield* Effect.flip(
+              notes.editMessage({
+                messageId: first.id,
+                text: 'stale writer',
+                expectedActiveVersionId: first.activeVersionId!
+              })
+            )).kind === 'invalid_input'
+          );
+          assert.ok(
+            (yield* Effect.flip(notes.postMessage({ ...input, text: 'different payload' })))
+              .kind === 'invalid_input'
+          );
+
+          expect(edited.versions.map((v) => v.text)).toStrictEqual([pageText, 'changed']);
+          assert.strictEqual(edited.versions[1]?.basedOn, first.activeVersionId);
+          assert.ok(
+            (yield* Effect.flip(
+              notes.setActiveVersion({
+                messageId: second.id,
+                versionId: edited.versions[0]!.id
+              })
+            )).kind === 'invalid_input'
+          );
+          const restored = yield* notes.setActiveVersion({
+            messageId: first.id,
+            versionId: first.activeVersionId!
+          });
+
+          assert.strictEqual(restored.activeVersionId, first.activeVersionId);
+          expect(
+            (yield* notes.thread({ noteId: note.id, limit: 2 })).items.map((m) => m.id)
+          ).toStrictEqual([first.id, second.id]);
+          const page = yield* notes.thread({ noteId: note.id, limit: 1 });
+
+          assert.strictEqual(page.items[0]?.id, second.id);
+          assert.strictEqual(page.next, second.id);
+          assert.strictEqual(
+            (yield* notes.thread({ noteId: note.id, limit: 1, before: page.next! })).items[0]?.id,
+            first.id
+          );
+          assert.strictEqual(yield* notes.deleteMessage(first.id), true);
+          assert.ok((yield* Effect.flip(notes.message(first.id))).kind === 'not_found');
+          const { message_versions } = yield* Effect.promise(() => import('@study/db'));
+          const { eq } = yield* Effect.promise(() => import('@study/db'));
+
+          assert.strictEqual(
+            context.db.orm
+              .select()
+              .from(message_versions)
+              .where(eq(message_versions.message_id, first.id))
+              .all().length,
+            0
+          );
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
+  }
+);
+
+test.stable(
   'explicit attachment snapshots share sources across collections and survive source deletion',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -271,10 +279,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'editing and deleting messages update note ordering with a composite cursor',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -329,10 +339,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'message validation rejects invalid text, incomplete versions, and foreign versions',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -397,92 +409,99 @@ testStable(
   }
 );
 
-testStable('reply request persists its context and rejects another pending request', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
+test.stable(
+  'reply request persists its context and rejects another pending request',
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const projects = yield* Projects;
-        const notes = yield* Notes;
-        const project = yield* projects.createProject({ name: 'Reply' });
-        const note = yield* notes.createNote({ project: project.id, title: 'Chat' });
-        const message = yield* notes.postMessage({ noteId: note.id, text: 'hello' });
-        const request = yield* notes.requestReply({ noteId: note.id });
-        const snapshot = yield* notes.replySnapshot({ requestId: request.requestId });
-        const { workflowEvents } = yield* Effect.promise(() => import('@study/db'));
-        const { decodeEvent } = yield* Effect.promise(
-          () => import('#server/platform/workflows/events')
-        );
-        const events = context.db.orm
-          .select()
-          .from(workflowEvents)
-          .all()
-          .filter((event) => event.type === 'NoteGenerationRequested');
-
-        assert.strictEqual(events.length, 1);
-        expect(decodeEvent(events[0]!.payload)).toStrictEqual({
-          type: 'NoteGenerationRequested',
-          eventId: events[0]!.eventId,
-          causationId: null,
-          correlationId: request.requestId,
-          inputVersion: 1,
-          depth: 0,
-          ...request,
-          operation: 'reply'
-        });
-        const target = yield* notes.message(request.messageId);
-
-        assert.strictEqual(target.activeVersionId, request.versionId);
-        assert.ok(target.versions[0]?.status === 'pending');
-        assert.strictEqual(snapshot.messages[0]?.versionId, message.activeVersionId);
-        assert.ok(snapshot.messages[0]?.text === 'hello');
-        assert.ok(
-          (yield* Effect.flip(notes.requestReply({ noteId: note.id }))).kind === 'invalid_input'
-        );
-        yield* notes.editMessage({ messageId: message.id, text: 'changed' });
-        assert.ok(
-          (yield* notes.replySnapshot({ requestId: request.requestId })).messages[0]?.text ===
-            'hello'
-        );
-        yield* withTestPublication(context, notes.abandonReply(request).pipe(Effect.asVoid));
-        const replacement = yield* notes.requestReply({ noteId: note.id });
-
-        assert.notStrictEqual(replacement.requestId, request.requestId);
-        assert.ok(
-          (yield* notes.replySnapshot({ requestId: replacement.requestId })).messages[0]?.text ===
-            'changed'
-        );
-        const editedReply = yield* notes.editMessage({
-          messageId: replacement.messageId,
-          text: 'Keep this complete edit'
-        });
-        const afterEdit = yield* notes.requestReply({ noteId: note.id });
-
-        assert.strictEqual(
-          (yield* notes.message(editedReply.id)).activeVersionId,
-          editedReply.activeVersionId
-        );
-        assert.ok(
-          (yield* notes.replySnapshot({ requestId: afterEdit.requestId })).messages.at(-1)?.text ===
-            'Keep this complete edit'
-        );
-      }).pipe(Effect.provide(layer))
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
-  } finally {
-    context.close();
-    await location.cleanup();
-  }
-});
 
-testStable(
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const projects = yield* Projects;
+          const notes = yield* Notes;
+          const project = yield* projects.createProject({ name: 'Reply' });
+          const note = yield* notes.createNote({ project: project.id, title: 'Chat' });
+          const message = yield* notes.postMessage({ noteId: note.id, text: 'hello' });
+          const request = yield* notes.requestReply({ noteId: note.id });
+          const snapshot = yield* notes.replySnapshot({ requestId: request.requestId });
+          const { workflowEvents } = yield* Effect.promise(() => import('@study/db'));
+          const { decodeEvent } = yield* Effect.promise(
+            () => import('#server/platform/workflows/events')
+          );
+          const events = context.db.orm
+            .select()
+            .from(workflowEvents)
+            .all()
+            .filter((event) => event.type === 'NoteGenerationRequested');
+
+          assert.strictEqual(events.length, 1);
+          expect(decodeEvent(events[0]!.payload)).toStrictEqual({
+            type: 'NoteGenerationRequested',
+            eventId: events[0]!.eventId,
+            causationId: null,
+            correlationId: request.requestId,
+            inputVersion: 1,
+            depth: 0,
+            ...request,
+            operation: 'reply'
+          });
+          const target = yield* notes.message(request.messageId);
+
+          assert.strictEqual(target.activeVersionId, request.versionId);
+          assert.ok(target.versions[0]?.status === 'pending');
+          assert.strictEqual(snapshot.messages[0]?.versionId, message.activeVersionId);
+          assert.ok(snapshot.messages[0]?.text === 'hello');
+          assert.ok(
+            (yield* Effect.flip(notes.requestReply({ noteId: note.id }))).kind === 'invalid_input'
+          );
+          yield* notes.editMessage({ messageId: message.id, text: 'changed' });
+          assert.ok(
+            (yield* notes.replySnapshot({ requestId: request.requestId })).messages[0]?.text ===
+              'hello'
+          );
+          yield* withTestPublication(context, notes.abandonReply(request).pipe(Effect.asVoid));
+          const replacement = yield* notes.requestReply({ noteId: note.id });
+
+          assert.notStrictEqual(replacement.requestId, request.requestId);
+          assert.ok(
+            (yield* notes.replySnapshot({ requestId: replacement.requestId })).messages[0]?.text ===
+              'changed'
+          );
+          const editedReply = yield* notes.editMessage({
+            messageId: replacement.messageId,
+            text: 'Keep this complete edit'
+          });
+          const afterEdit = yield* notes.requestReply({ noteId: note.id });
+
+          assert.strictEqual(
+            (yield* notes.message(editedReply.id)).activeVersionId,
+            editedReply.activeVersionId
+          );
+          assert.ok(
+            (yield* notes.replySnapshot({ requestId: afterEdit.requestId })).messages.at(-1)
+              ?.text === 'Keep this complete edit'
+          );
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
+  }
+);
+
+test.stable(
   'reply snapshots retain historical attachments after reopen and reprocessing',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     let context = new ServerContext(await location.open());
     const { sources, source_snapshots, content_snapshots, source_processing } =
       await import('@study/db');
@@ -606,303 +625,332 @@ testStable(
   }
 );
 
-testStable('outbox failure rolls back reply request and pending message', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const { sql } = await import('@study/db');
-  const { workflowEvents, note_reply_requests } = await import('@study/db');
-  const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
+test.stable(
+  'outbox failure rolls back reply request and pending message',
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const project = yield* (yield* Projects).createProject({ name: 'Rollback' });
-        const notes = yield* Notes;
-        const note = yield* notes.createNote({ project: project.id, title: 'Chat' });
-
-        yield* notes.postMessage({ noteId: note.id, text: 'hello' });
-        context.db.orm.run(
-          sql`CREATE TRIGGER fail_reply_event BEFORE INSERT ON workflow_events BEGIN SELECT RAISE(ABORT, 'event failed'); END`
-        );
-        yield* Effect.flip(notes.requestReply({ noteId: note.id }));
-        assert.strictEqual((yield* notes.thread({ noteId: note.id, limit: 10 })).items.length, 1);
-        assert.strictEqual(context.db.orm.select().from(note_reply_requests).all().length, 0);
-        expect(
-          context.db.orm
-            .select()
-            .from(workflowEvents)
-            .all()
-            .map((event) => event.type)
-        ).toStrictEqual(['NoteQuestionRequested']);
-      }).pipe(Effect.provide(layer))
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const { sql } = await import('@study/db');
+    const { workflowEvents, note_reply_requests } = await import('@study/db');
+    const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
-  } finally {
-    context.close();
-    await location.cleanup();
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const project = yield* (yield* Projects).createProject({ name: 'Rollback' });
+          const notes = yield* Notes;
+          const note = yield* notes.createNote({ project: project.id, title: 'Chat' });
+
+          yield* notes.postMessage({ noteId: note.id, text: 'hello' });
+          context.db.orm.run(
+            sql`CREATE TRIGGER fail_reply_event BEFORE INSERT ON workflow_events BEGIN SELECT RAISE(ABORT, 'event failed'); END`
+          );
+          yield* Effect.flip(notes.requestReply({ noteId: note.id }));
+          assert.strictEqual((yield* notes.thread({ noteId: note.id, limit: 10 })).items.length, 1);
+          assert.strictEqual(context.db.orm.select().from(note_reply_requests).all().length, 0);
+          expect(
+            context.db.orm
+              .select()
+              .from(workflowEvents)
+              .all()
+              .map((event) => event.type)
+          ).toStrictEqual(['NoteQuestionRequested']);
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
-testStable('reply captures pending attachments and invalidates deleted context', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const { sources, source_snapshots, content_snapshots, source_processing } =
-    await import('@study/db');
-  const { eq } = await import('@study/db');
-  const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
+test.stable(
+  'reply captures pending attachments and invalidates deleted context',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const project = yield* (yield* Projects).createProject({ name: 'Pages' });
-        const other = yield* (yield* Projects).createProject({ name: 'Other' });
-        const notes = yield* Notes;
-        const note = yield* notes.createNote({ project: project.id, title: 'Chat' });
-        const source = context.db.orm
-          .insert(sources)
-          .values({
-            project_id: project.id,
-            origin: 'attachment',
-            kind: 'text',
-            mime: 'text/plain',
-            name: 'a.txt',
-            size_bytes: 1n,
-            sha256: Buffer.alloc(32),
-            created_at: 1n
-          })
-          .returning()
-          .get();
-        const message = yield* notes.postMessage({
-          noteId: note.id,
-          text: 'hello',
-          sourceIds: [source.id]
-        });
-
-        context.db.orm
-          .insert(source_snapshots)
-          .values({ source_id: source.id, revision: 1n, bytes: Buffer.from('a') })
-          .run();
-        context.db.orm
-          .insert(source_processing)
-          .values({
-            source_id: source.id,
-            revision: 1n,
-            request_id: 'one'
-          })
-          .run();
-        const request = yield* notes.requestReply({ noteId: note.id });
-        const pending = yield* notes.replySnapshot({ requestId: request.requestId });
-
-        assert.strictEqual(pending.pendingAttachments?.length, 1);
-        assert.strictEqual(pending.pendingAttachments?.[0]?.sourceId, source.id);
-        const document = context.db.orm
-          .insert(content_snapshots)
-          .values({
-            source_id: source.id,
-            extractor_version: 1n,
-            meta: JSON.stringify(deletionDocument('').meta),
-            created_at: 1n
-          })
-          .returning()
-          .get();
-
-        context.db.orm
-          .update(source_processing)
-          .set({ document_id: document.id, published_request_id: 'one' })
-          .where(eq(source_processing.source_id, source.id))
-          .run();
-        // Collection reassignment is permitted; keep the captured input unchanged for readiness.
-        context.db.orm
-          .update(sources)
-          .set({ project_id: other.id })
-          .where(eq(sources.id, source.id))
-          .run();
-        context.db.orm
-          .update(sources)
-          .set({ project_id: project.id })
-          .where(eq(sources.id, source.id))
-          .run();
-        assert.strictEqual(
-          (yield* notes.replyReadiness({ requestId: request.requestId })).length,
-          0
-        );
-        context.db.orm
-          .update(source_processing)
-          .set({ request_id: 'replacement', revision: 2n })
-          .where(eq(source_processing.source_id, source.id))
-          .run();
-        assert.ok(
-          (yield* Effect.flip(notes.replySnapshot({ requestId: request.requestId }))).kind ===
-            'invalid_input'
-        );
-        yield* notes.deleteMessage(message.id);
-        assert.ok(
-          (yield* Effect.flip(notes.replySnapshot({ requestId: request.requestId }))).kind ===
-            'not_found'
-        );
-      }).pipe(Effect.provide(layer))
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const { sources, source_snapshots, content_snapshots, source_processing } =
+      await import('@study/db');
+    const { eq } = await import('@study/db');
+    const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
-  } finally {
-    context.close();
-    await location.cleanup();
-  }
-});
 
-testStable('reply history includes every active note and rejects excess total text', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
-
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const project = yield* (yield* Projects).createProject({ name: 'Bounded' });
-        const notes = yield* Notes;
-        const note = yield* notes.createNote({
-          project: project.id,
-          title: 'History'
-        });
-
-        for (let i = 0; i < 60; i++)
-          yield* notes.postMessage({ noteId: note.id, text: `message ${i}` });
-
-        const request = yield* notes.requestReply({ noteId: note.id });
-        const history = yield* notes.replySnapshot({ requestId: request.requestId });
-
-        assert.strictEqual(history.messages.length, 60);
-        assert.ok(history.messages[0]?.text === 'message 0');
-        assert.ok(history.messages.at(-1)?.text === 'message 59');
-        const largeNote = yield* notes.createNote({
-          project: project.id,
-          title: 'Large'
-        });
-
-        for (let i = 0; i < 3; i++)
-          yield* notes.postMessage({
-            noteId: largeNote.id,
-            text: String(i).repeat(80000)
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const project = yield* (yield* Projects).createProject({ name: 'Pages' });
+          const other = yield* (yield* Projects).createProject({ name: 'Other' });
+          const notes = yield* Notes;
+          const note = yield* notes.createNote({ project: project.id, title: 'Chat' });
+          const source = context.db.orm
+            .insert(sources)
+            .values({
+              project_id: project.id,
+              origin: 'attachment',
+              kind: 'text',
+              mime: 'text/plain',
+              name: 'a.txt',
+              size_bytes: 1n,
+              sha256: Buffer.alloc(32),
+              created_at: 1n
+            })
+            .returning()
+            .get();
+          const message = yield* notes.postMessage({
+            noteId: note.id,
+            text: 'hello',
+            sourceIds: [source.id]
           });
 
-        assert.strictEqual(
-          (yield* Effect.flip(notes.requestReply({ noteId: largeNote.id }))).kind,
-          'not_enough'
-        );
-      }).pipe(Effect.provide(layer))
-    );
-  } finally {
-    context.close();
-    await location.cleanup();
+          context.db.orm
+            .insert(source_snapshots)
+            .values({ source_id: source.id, revision: 1n, bytes: Buffer.from('a') })
+            .run();
+          context.db.orm
+            .insert(source_processing)
+            .values({
+              source_id: source.id,
+              revision: 1n,
+              request_id: 'one'
+            })
+            .run();
+          const request = yield* notes.requestReply({ noteId: note.id });
+          const pending = yield* notes.replySnapshot({ requestId: request.requestId });
+
+          assert.strictEqual(pending.pendingAttachments?.length, 1);
+          assert.strictEqual(pending.pendingAttachments?.[0]?.sourceId, source.id);
+          const document = context.db.orm
+            .insert(content_snapshots)
+            .values({
+              source_id: source.id,
+              extractor_version: 1n,
+              meta: JSON.stringify(deletionDocument('').meta),
+              created_at: 1n
+            })
+            .returning()
+            .get();
+
+          context.db.orm
+            .update(source_processing)
+            .set({ document_id: document.id, published_request_id: 'one' })
+            .where(eq(source_processing.source_id, source.id))
+            .run();
+          // Collection reassignment is permitted; keep the captured input unchanged for readiness.
+          context.db.orm
+            .update(sources)
+            .set({ project_id: other.id })
+            .where(eq(sources.id, source.id))
+            .run();
+          context.db.orm
+            .update(sources)
+            .set({ project_id: project.id })
+            .where(eq(sources.id, source.id))
+            .run();
+          assert.strictEqual(
+            (yield* notes.replyReadiness({ requestId: request.requestId })).length,
+            0
+          );
+          context.db.orm
+            .update(source_processing)
+            .set({ request_id: 'replacement', revision: 2n })
+            .where(eq(source_processing.source_id, source.id))
+            .run();
+          assert.ok(
+            (yield* Effect.flip(notes.replySnapshot({ requestId: request.requestId }))).kind ===
+              'invalid_input'
+          );
+          yield* notes.deleteMessage(message.id);
+          assert.ok(
+            (yield* Effect.flip(notes.replySnapshot({ requestId: request.requestId }))).kind ===
+              'not_found'
+          );
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
-testStable('untitled notes capture title requests and reject stale context', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
+test.stable(
+  'reply history includes every active note and rejects excess total text',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const projects = yield* Projects;
-        const notes = yield* Notes;
-        const { Settings } = yield* Effect.promise(() => import('#server/features/settings/index'));
-        const project = yield* projects.createProject({ name: 'Title' });
-        const note = yield* notes
-          .createUntitledNote({ project: project.id })
-          .pipe(
-            Effect.provide(
-              Settings.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
-            )
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const project = yield* (yield* Projects).createProject({ name: 'Bounded' });
+          const notes = yield* Notes;
+          const note = yield* notes.createNote({
+            project: project.id,
+            title: 'History'
+          });
+
+          for (let i = 0; i < 60; i++)
+            yield* notes.postMessage({ noteId: note.id, text: `message ${i}` });
+
+          const request = yield* notes.requestReply({ noteId: note.id });
+          const history = yield* notes.replySnapshot({ requestId: request.requestId });
+
+          assert.strictEqual(history.messages.length, 60);
+          assert.ok(history.messages[0]?.text === 'message 0');
+          assert.ok(history.messages.at(-1)?.text === 'message 59');
+          const largeNote = yield* notes.createNote({
+            project: project.id,
+            title: 'Large'
+          });
+
+          for (let i = 0; i < 3; i++)
+            yield* notes.postMessage({
+              noteId: largeNote.id,
+              text: String(i).repeat(80000)
+            });
+
+          assert.strictEqual(
+            (yield* Effect.flip(notes.requestReply({ noteId: largeNote.id }))).kind,
+            'not_enough'
+          );
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
+  }
+);
+
+test.stable(
+  'untitled notes capture title requests and reject stale context',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const projects = yield* Projects;
+          const notes = yield* Notes;
+          const { Settings } = yield* Effect.promise(
+            () => import('#server/features/settings/index')
+          );
+          const project = yield* projects.createProject({ name: 'Title' });
+          const note = yield* notes
+            .createUntitledNote({ project: project.id })
+            .pipe(
+              Effect.provide(
+                Settings.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
+              )
+            );
+
+          assert.ok(note.titleSource === 'provisional');
+          assert.ok(note.title === 'New note');
+          const settingsLayer = Settings.layer.pipe(
+            Layer.provideMerge(Layer.succeed(Database, { store: context }))
           );
 
-        assert.ok(note.titleSource === 'provisional');
-        assert.ok(note.title === 'New note');
-        const settingsLayer = Settings.layer.pipe(
-          Layer.provideMerge(Layer.succeed(Database, { store: context }))
-        );
+          yield* Effect.gen(function* () {
+            const settings = yield* Settings;
 
-        yield* Effect.gen(function* () {
-          const settings = yield* Settings;
+            yield* settings.saveAppSettings({
+              language: 2,
+              appearance: 2,
+              zoomPercent: 100,
+              onboarded: false
+            });
+          }).pipe(Effect.provide(settingsLayer));
+          const italian = yield* notes
+            .createUntitledNote({ project: project.id })
+            .pipe(Effect.provide(settingsLayer));
 
-          yield* settings.saveAppSettings({
-            language: 2,
-            appearance: 2,
-            zoomPercent: 100,
-            onboarded: false
+          assert.ok(italian.title === 'Nuova nota');
+          const message = yield* notes.postMessage({
+            noteId: note.id,
+            text: 'Study cells'
           });
-        }).pipe(Effect.provide(settingsLayer));
-        const italian = yield* notes
-          .createUntitledNote({ project: project.id })
-          .pipe(Effect.provide(settingsLayer));
+          const request = yield* notes.requestTitle({ noteId: note.id });
+          const snapshot = yield* notes.titleSnapshot({ requestId: request.requestId });
 
-        assert.ok(italian.title === 'Nuova nota');
-        const message = yield* notes.postMessage({
-          noteId: note.id,
-          text: 'Study cells'
-        });
-        const request = yield* notes.requestTitle({ noteId: note.id });
-        const snapshot = yield* notes.titleSnapshot({ requestId: request.requestId });
-
-        assert.strictEqual(snapshot.messages[0]?.versionId, message.activeVersionId);
-        assert.ok(snapshot.messages[0]?.text === 'Study cells');
-        yield* notes.editMessage({ messageId: message.id, text: 'Study plants' });
-        assert.ok(
-          (yield* Effect.flip(notes.titleSnapshot({ requestId: request.requestId }))).kind ===
-            'invalid_input'
-        );
-      }).pipe(Effect.provide(layer))
-    );
-  } finally {
-    context.close();
-    await location.cleanup();
+          assert.strictEqual(snapshot.messages[0]?.versionId, message.activeVersionId);
+          assert.ok(snapshot.messages[0]?.text === 'Study cells');
+          yield* notes.editMessage({ messageId: message.id, text: 'Study plants' });
+          assert.ok(
+            (yield* Effect.flip(notes.titleSnapshot({ requestId: request.requestId }))).kind ===
+              'invalid_input'
+          );
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
-testStable('title context retains every active note within its text budget', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const { Settings } = await import('#server/features/settings/index');
-  const layer = Layer.mergeAll(Projects.layer, Notes.layer, Settings.layer).pipe(
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
+test.stable(
+  'title context retains every active note within its text budget',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const project = yield* (yield* Projects).createProject({ name: 'Bounded title' });
-        const notes = yield* Notes;
-        const note = yield* notes.createUntitledNote({ project: project.id });
-
-        for (let i = 0; i < 51; i++)
-          yield* notes.postMessage({ noteId: note.id, text: `message ${i}` });
-
-        const request = yield* notes.requestTitle({ noteId: note.id });
-        const snapshot = yield* notes.titleSnapshot({ requestId: request.requestId });
-
-        assert.strictEqual(snapshot.messages.length, 51);
-        assert.ok(snapshot.messages[0]?.text === 'message 0');
-        assert.ok(snapshot.messages.at(-1)?.text === 'message 50');
-      }).pipe(Effect.provide(layer))
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const { Settings } = await import('#server/features/settings/index');
+    const layer = Layer.mergeAll(Projects.layer, Notes.layer, Settings.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
-  } finally {
-    context.close();
-    await location.cleanup();
-  }
-});
 
-testStable(
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const project = yield* (yield* Projects).createProject({ name: 'Bounded title' });
+          const notes = yield* Notes;
+          const note = yield* notes.createUntitledNote({ project: project.id });
+
+          for (let i = 0; i < 51; i++)
+            yield* notes.postMessage({ noteId: note.id, text: `message ${i}` });
+
+          const request = yield* notes.requestTitle({ noteId: note.id });
+          const snapshot = yield* notes.titleSnapshot({ requestId: request.requestId });
+
+          assert.strictEqual(snapshot.messages.length, 51);
+          assert.ok(snapshot.messages[0]?.text === 'message 0');
+          assert.ok(snapshot.messages.at(-1)?.text === 'message 50');
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
+  }
+);
+
+test.stable(
   'titles respect the aggregate text budget and do not require ready attachment content_snapshots',
-  async () => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { Settings } = await import('#server/features/settings/index');
     const { Sources } = await import('#server/features/sources/index');
-    const location = await createTestDatabase();
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const services = Layer.mergeAll(
       Projects.layer,
@@ -958,224 +1006,240 @@ testStable(
   }
 );
 
-testStable('attachment threads are isolated, owned and paginated', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const { sources, source_snapshots, content_snapshots, source_processing } =
-    await import('@study/db');
-  const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
+test.stable(
+  'attachment threads are isolated, owned and paginated',
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const project = yield* (yield* Projects).createProject({ name: 'Threads' });
-        const notes = yield* Notes;
-        const note = yield* notes.createNote({ project: project.id, title: 'Chat' });
-        const other = yield* notes.createNote({ project: project.id, title: 'Other' });
-        const source = context.db.orm
-          .insert(sources)
-          .values({
-            project_id: project.id,
-            origin: 'attachment',
-            kind: 'text',
-            mime: 'text/plain',
-            name: 'a.txt',
-            size_bytes: 1n,
-            sha256: Buffer.alloc(32),
-            created_at: 1n
-          })
-          .returning()
-          .get();
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const { sources, source_snapshots, content_snapshots, source_processing } =
+      await import('@study/db');
+    const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
 
-        context.db.orm
-          .insert(source_snapshots)
-          .values({ source_id: source.id, revision: 1n, bytes: Buffer.from('a') })
-          .run();
-        const document = context.db.orm
-          .insert(content_snapshots)
-          .values({
-            source_id: source.id,
-            extractor_version: 1n,
-            meta: JSON.stringify(deletionDocument('').meta),
-            created_at: 1n
-          })
-          .returning()
-          .get();
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const project = yield* (yield* Projects).createProject({ name: 'Threads' });
+          const notes = yield* Notes;
+          const note = yield* notes.createNote({ project: project.id, title: 'Chat' });
+          const other = yield* notes.createNote({ project: project.id, title: 'Other' });
+          const source = context.db.orm
+            .insert(sources)
+            .values({
+              project_id: project.id,
+              origin: 'attachment',
+              kind: 'text',
+              mime: 'text/plain',
+              name: 'a.txt',
+              size_bytes: 1n,
+              sha256: Buffer.alloc(32),
+              created_at: 1n
+            })
+            .returning()
+            .get();
 
-        context.db.orm
-          .insert(source_processing)
-          .values({
-            source_id: source.id,
-            revision: 1n,
-            request_id: 'one',
-            published_request_id: 'one',
-            document_id: document.id
-          })
-          .run();
-        const root = yield* notes.postMessage({
-          noteId: note.id,
-          text: 'root',
-          sourceIds: [source.id]
-        });
-        const part = root.parts[0]!.id;
+          context.db.orm
+            .insert(source_snapshots)
+            .values({ source_id: source.id, revision: 1n, bytes: Buffer.from('a') })
+            .run();
+          const document = context.db.orm
+            .insert(content_snapshots)
+            .values({
+              source_id: source.id,
+              extractor_version: 1n,
+              meta: JSON.stringify(deletionDocument('').meta),
+              created_at: 1n
+            })
+            .returning()
+            .get();
 
-        assert.ok(
-          (yield* Effect.flip(
-            notes.postMessage({ noteId: other.id, text: 'bad', threadRoot: part })
-          )).kind === 'invalid_input'
-        );
-        const one = yield* notes.postMessage({
-          noteId: note.id,
-          text: 'one',
-          threadRoot: part
-        });
-        const two = yield* notes.postMessage({
-          noteId: note.id,
-          text: 'two',
-          threadRoot: part
-        });
+          context.db.orm
+            .insert(source_processing)
+            .values({
+              source_id: source.id,
+              revision: 1n,
+              request_id: 'one',
+              published_request_id: 'one',
+              document_id: document.id
+            })
+            .run();
+          const root = yield* notes.postMessage({
+            noteId: note.id,
+            text: 'root',
+            sourceIds: [source.id]
+          });
+          const part = root.parts[0]!.id;
 
-        expect(
-          (yield* notes.thread({ noteId: note.id, limit: 10 })).items.map((m) => m.id)
-        ).toStrictEqual([root.id]);
-        const page = yield* notes.thread({
-          noteId: note.id,
-          threadRoot: part,
-          limit: 1
-        });
+          assert.ok(
+            (yield* Effect.flip(
+              notes.postMessage({ noteId: other.id, text: 'bad', threadRoot: part })
+            )).kind === 'invalid_input'
+          );
+          const one = yield* notes.postMessage({
+            noteId: note.id,
+            text: 'one',
+            threadRoot: part
+          });
+          const two = yield* notes.postMessage({
+            noteId: note.id,
+            text: 'two',
+            threadRoot: part
+          });
 
-        assert.strictEqual(page.items[0]?.id, two.id);
-        assert.strictEqual(
-          (yield* notes.thread({
+          expect(
+            (yield* notes.thread({ noteId: note.id, limit: 10 })).items.map((m) => m.id)
+          ).toStrictEqual([root.id]);
+          const page = yield* notes.thread({
             noteId: note.id,
             threadRoot: part,
-            limit: 1,
-            before: page.next!
-          })).items[0]?.id,
-          one.id
-        );
-        const request = yield* notes.requestReply({
-          noteId: note.id,
-          threadRoot: part
-        });
-        const reply = yield* notes.message(request.messageId);
+            limit: 1
+          });
 
-        assert.strictEqual(reply.threadRoot, part);
-        assert.strictEqual(reply.replyTo, two.id);
-        const snapshot = yield* notes.replySnapshot({ requestId: request.requestId });
+          assert.strictEqual(page.items[0]?.id, two.id);
+          assert.strictEqual(
+            (yield* notes.thread({
+              noteId: note.id,
+              threadRoot: part,
+              limit: 1,
+              before: page.next!
+            })).items[0]?.id,
+            one.id
+          );
+          const request = yield* notes.requestReply({
+            noteId: note.id,
+            threadRoot: part
+          });
+          const reply = yield* notes.message(request.messageId);
 
-        expect(snapshot.messages.map((m) => m.text)).toStrictEqual(['root', 'one', 'two']);
-        assert.strictEqual(snapshot.messages[0]?.attachments[0]?.partId, part);
-        const { message_versions } = yield* Effect.promise(() => import('@study/db'));
-        const { eq } = yield* Effect.promise(() => import('@study/db'));
+          assert.strictEqual(reply.threadRoot, part);
+          assert.strictEqual(reply.replyTo, two.id);
+          const snapshot = yield* notes.replySnapshot({ requestId: request.requestId });
 
-        context.db.orm
-          .update(message_versions)
-          .set({ status: 'complete', text: 'answer' })
-          .where(eq(message_versions.id, request.versionId))
-          .run();
-        const reanswer = yield* notes.reanswer({ messageId: request.messageId });
-        const reanswerSnapshot = yield* notes.replySnapshot({
-          requestId: reanswer.requestId
-        });
+          expect(snapshot.messages.map((m) => m.text)).toStrictEqual(['root', 'one', 'two']);
+          assert.strictEqual(snapshot.messages[0]?.attachments[0]?.partId, part);
+          const { message_versions } = yield* Effect.promise(() => import('@study/db'));
+          const { eq } = yield* Effect.promise(() => import('@study/db'));
 
-        expect(reanswerSnapshot.messages.map((m) => m.text)).toStrictEqual(['root', 'one', 'two']);
-        assert.strictEqual((yield* notes.message(reanswer.messageId)).threadRoot, part);
-        context.db.orm
-          .update(message_versions)
-          .set({ status: 'complete', text: 'another answer' })
-          .where(eq(message_versions.id, reanswer.versionId))
-          .run();
-        const rewrite = yield* notes.rewriteMessage({
-          messageId: reanswer.messageId,
-          origin: 'improve'
-        });
-        const rewriteSnapshot = yield* notes.replySnapshot({
-          requestId: rewrite.requestId
-        });
+          context.db.orm
+            .update(message_versions)
+            .set({ status: 'complete', text: 'answer' })
+            .where(eq(message_versions.id, request.versionId))
+            .run();
+          const reanswer = yield* notes.reanswer({ messageId: request.messageId });
+          const reanswerSnapshot = yield* notes.replySnapshot({
+            requestId: reanswer.requestId
+          });
 
-        expect(rewriteSnapshot.messages.map((m) => m.text)).toStrictEqual([
-          'root',
-          'one',
-          'two',
-          'another answer'
-        ]);
-      }).pipe(Effect.provide(layer))
-    );
-  } finally {
-    context.close();
-    await location.cleanup();
+          expect(reanswerSnapshot.messages.map((m) => m.text)).toStrictEqual([
+            'root',
+            'one',
+            'two'
+          ]);
+          assert.strictEqual((yield* notes.message(reanswer.messageId)).threadRoot, part);
+          context.db.orm
+            .update(message_versions)
+            .set({ status: 'complete', text: 'another answer' })
+            .where(eq(message_versions.id, reanswer.versionId))
+            .run();
+          const rewrite = yield* notes.rewriteMessage({
+            messageId: reanswer.messageId,
+            origin: 'improve'
+          });
+          const rewriteSnapshot = yield* notes.replySnapshot({
+            requestId: rewrite.requestId
+          });
+
+          expect(rewriteSnapshot.messages.map((m) => m.text)).toStrictEqual([
+            'root',
+            'one',
+            'two',
+            'another answer'
+          ]);
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
-testStable('posting a message can request a reply explicitly or by assistant mention', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
+test.stable(
+  'posting a message can request a reply explicitly or by assistant mention',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const project = yield* (yield* Projects).createProject({ name: 'Mention' });
-        const notes = yield* Notes;
-        const note = yield* notes.createNote({ project: project.id, title: 'Chat' });
-        const posted = yield* notes.postMessage({
-          noteId: note.id,
-          text: 'Please help',
-          requestReply: true
-        });
-        const items = (yield* notes.thread({ noteId: note.id, limit: 10 })).items;
-
-        assert.strictEqual(items.length, 2);
-        assert.strictEqual(items[1]?.replyTo, posted.id);
-        const second = yield* notes.createNote({
-          project: project.id,
-          title: 'Mention'
-        });
-        const mention = yield* notes.postMessage({
-          noteId: second.id,
-          text: 'Hello @study!'
-        });
-
-        assert.strictEqual(
-          (yield* notes.thread({ noteId: second.id, limit: 10 })).items[1]?.replyTo,
-          mention.id
-        );
-
-        for (const [text, replies] of [
-          ['@STUDY', true],
-          ['Hello @study, help?', true],
-          ['@study123', false],
-          ['@study_notes', false],
-          ['@studying', false],
-          ['@studyé', false],
-          ['@study中文', false],
-          ['@study\u0301', false],
-          ['mail@study', false]
-        ] as const) {
-          const target = yield* notes.createNote({ title: 'Mention boundary' });
-
-          yield* notes.postMessage({ noteId: target.id, text });
-          const thread = yield* notes.thread({ noteId: target.id, limit: 10 });
-
-          assert.strictEqual(thread.items.length, replies ? 2 : 1, text);
-        }
-      }).pipe(Effect.provide(layer))
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
-  } finally {
-    context.close();
-    await location.cleanup();
-  }
-});
 
-testStable(
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const project = yield* (yield* Projects).createProject({ name: 'Mention' });
+          const notes = yield* Notes;
+          const note = yield* notes.createNote({ project: project.id, title: 'Chat' });
+          const posted = yield* notes.postMessage({
+            noteId: note.id,
+            text: 'Please help',
+            requestReply: true
+          });
+          const items = (yield* notes.thread({ noteId: note.id, limit: 10 })).items;
+
+          assert.strictEqual(items.length, 2);
+          assert.strictEqual(items[1]?.replyTo, posted.id);
+          const second = yield* notes.createNote({
+            project: project.id,
+            title: 'Mention'
+          });
+          const mention = yield* notes.postMessage({
+            noteId: second.id,
+            text: 'Hello @study!'
+          });
+
+          assert.strictEqual(
+            (yield* notes.thread({ noteId: second.id, limit: 10 })).items[1]?.replyTo,
+            mention.id
+          );
+
+          for (const [text, replies] of [
+            ['@STUDY', true],
+            ['Hello @study, help?', true],
+            ['@study123', false],
+            ['@study_notes', false],
+            ['@studying', false],
+            ['@studyé', false],
+            ['@study中文', false],
+            ['@study\u0301', false],
+            ['mail@study', false]
+          ] as const) {
+            const target = yield* notes.createNote({ title: 'Mention boundary' });
+
+            yield* notes.postMessage({ noteId: target.id, text });
+            const thread = yield* notes.thread({ noteId: target.id, limit: 10 });
+
+            assert.strictEqual(thread.items.length, replies ? 2 : 1, text);
+          }
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
+  }
+);
+
+test.stable(
   'note source links survive raw message deletion while authored documents keep independent project lifetime',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(Projects.layer, Notes.layer, Sources.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -1250,10 +1314,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'deletes an exact note version, preserves other items, and protects the final version',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Notes.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 

@@ -1,10 +1,17 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { sql } from 'drizzle-orm';
-import { assert, expect } from 'vite-plus/test';
 
-import { createTestDatabase } from '../src/testing.ts';
+import type { Db } from '../src/index.ts';
 
-function assertThrowsMatching(run: () => unknown, matches: (error: unknown) => boolean) {
+type Databases = () => Promise<{ open(): Promise<Db>; cleanup(): Promise<void> }>;
+
+function assertThrowsMatching(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  run: () => unknown,
+  matches: (error: unknown) => boolean
+) {
+  const assert: test.Assert = assertions;
+
   try {
     run();
   } catch (error) {
@@ -31,8 +38,8 @@ const seed = `INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Proj
  INSERT INTO material_versions(id,material_id,kind,number,creator,operation,created_at) VALUES(2,2,'flashcards',1,'agent','generate',1);
  INSERT INTO material_flashcard_versions(version_id,material_id) SELECT id,material_id FROM material_versions v WHERE id IN (2) AND NOT EXISTS(SELECT 1 FROM material_flashcard_versions f WHERE f.version_id=v.id); INSERT INTO material_card_identities(id,material_id) SELECT DISTINCT material_id,material_id FROM material_versions v WHERE id IN (2) AND NOT EXISTS(SELECT 1 FROM material_card_identities c WHERE c.id=v.material_id); INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'flowchart TD; A-->B','Answer' FROM material_versions WHERE id=2;`;
 
-async function fixture(scoped = false, autoTitle = false) {
-  const location = await createTestDatabase();
+async function fixture(databases: Databases, scoped = false, autoTitle = false) {
+  const location = await databases();
   const db = await location.open();
   const intent = autoTitle
     ? seed.replace('"title":"Requested",', '"title":"Requested","autoTitle":true,')
@@ -61,11 +68,13 @@ async function fixture(scoped = false, autoTitle = false) {
   };
 }
 
-testStable(
+test.stable(
   'automatic titles permit bounded generated names while ordinary requests keep exact title intent',
-  async () => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     for (const autoTitle of [false, true]) {
-      const { db, close } = await fixture(false, autoTitle);
+      const { db, close } = await fixture(databases, false, autoTitle);
 
       try {
         db.exec(`INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0);
@@ -84,10 +93,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'automatic titles reject unbounded or blank names and malformed title intent',
-  async () => {
-    const { db, close } = await fixture(false, true);
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const { db, close } = await fixture(databases, false, true);
 
     try {
       db.exec(`INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0);
@@ -111,24 +122,31 @@ testStable(
   }
 );
 
-testStable('a receipt cannot select an unrelated draft', async () => {
-  const { db, close } = await fixture();
+test.stable(
+  'a receipt cannot select an unrelated draft',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    assert.throws(() =>
-      db.exec(
-        `UPDATE material_generation_requests SET result_version_id=2,result_hash='${'0'.repeat(64)}' WHERE id='request'`
-      )
-    );
-  } finally {
-    await close();
+    const { db, close } = await fixture(databases);
+
+    try {
+      assert.throws(() =>
+        db.exec(
+          `UPDATE material_generation_requests SET result_version_id=2,result_hash='${'0'.repeat(64)}' WHERE id='request'`
+        )
+      );
+    } finally {
+      await close();
+    }
   }
-});
+);
 
-testStable(
+test.stable(
   'captured generation intent and ordered inputs cannot be rewritten or deleted',
-  async () => {
-    const { db, close } = await fixture();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const { db, close } = await fixture(databases);
 
     try {
       assert.throws(() =>
@@ -155,10 +173,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'a completed receipt stays bound to its published output and permits project deletion',
-  async () => {
-    const { db, close } = await fixture();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const { db, close } = await fixture(databases);
 
     try {
       db.exec(`INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0);
@@ -180,27 +200,34 @@ testStable(
   }
 );
 
-testStable('closed scopes fence direct publication of a valid generated draft', async () => {
-  const { db, close } = await fixture(true);
+test.stable(
+  'closed scopes fence direct publication of a valid generated draft',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    db.exec(`INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0);
+    const { db, close } = await fixture(databases, true);
+
+    try {
+      db.exec(`INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0);
       UPDATE material_versions SET generation_request_id='request' WHERE id=2;
       UPDATE material_generation_scopes SET enabled=0,updated_at=2 WHERE id='scope';`);
-    assert.throws(
-      () => db.exec("UPDATE material_versions SET status='published',published_at=2 WHERE id=2"),
-      /scope is not active/
-    );
-    assert.doesNotThrow(() => db.exec('DELETE FROM projects WHERE id=1'));
-  } finally {
-    await close();
+      assert.throws(
+        () => db.exec("UPDATE material_versions SET status='published',published_at=2 WHERE id=2"),
+        /scope is not active/
+      );
+      assert.doesNotThrow(() => db.exec('DELETE FROM projects WHERE id=1'));
+    } finally {
+      await close();
+    }
   }
-});
+);
 
-testStable(
+test.stable(
   'generation publication rejects a captured input removed from its collection',
-  async () => {
-    const { db, close } = await fixture();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const { db, close } = await fixture(databases);
 
     try {
       db.exec(
@@ -215,10 +242,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'the first generation receipt rejects an input removed after output publication',
-  async () => {
-    const { db, close } = await fixture();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const { db, close } = await fixture(databases);
 
     try {
       db.exec(
@@ -237,10 +266,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'a committed generation receipt remains stable after its input leaves the collection',
-  async () => {
-    const { db, close } = await fixture();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const { db, close } = await fixture(databases);
 
     try {
       db.exec(
@@ -269,10 +300,12 @@ testStable(
 );
 
 for (const stage of ['publication', 'receipt']) {
-  testStable(
+  test.stable(
     `every captured input needs membership at first ${stage}, even when shared elsewhere`,
-    async () => {
-      const { db, close } = await fixture();
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
+      const { db, close } = await fixture(databases);
 
       try {
         db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(2,'Elsewhere',1,1);
@@ -298,6 +331,7 @@ for (const stage of ['publication', 'receipt']) {
             : `UPDATE material_generation_requests SET result_version_id=2,result_hash='${'0'.repeat(64)}' WHERE id='multiple'`;
 
         assertThrowsMatching(
+          { assert },
           () => db.exec(write),
           (error: unknown) => error instanceof Error && 'errno' in error && error.errno === 1811
         );
@@ -321,10 +355,12 @@ for (const stage of ['publication', 'receipt']) {
   );
 }
 
-testStable(
+test.stable(
   'publication cannot replace a captured revision with another revision of the same member',
-  async () => {
-    const { db, close } = await fixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const { db, close } = await fixture(databases);
 
     try {
       db.exec("UPDATE material_versions SET generation_request_id='request' WHERE id=2");

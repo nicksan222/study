@@ -1,46 +1,81 @@
-import { testStable } from '@study/testing/vitest';
-import { beforeEach, expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
-import {
-  browserSignInCallbackUrl,
-  checkDesktopUpdate,
-  desktopUpdateStatus,
-  diagnosticLog,
-  hostCapabilities,
-  installDesktopUpdate,
-  prepareSignInBrowser,
-  rpcBaseUrl,
-  signInOptions
-} from './host';
+import type * as __StudyMockType0 from '#client/lib/host.ts';
 
-const native = vi.hoisted(() => ({ enabled: false, invoke: vi.fn(), openUrl: vi.fn() }));
+function createNative(mock: test.Mock) {
+  return {
+    enabled: false,
+    invoke: mock.fn(),
+    openUrl: mock.fn()
+  };
+}
 
-vi.mock('@tauri-apps/api/core', () => ({ isTauri: () => native.enabled, invoke: native.invoke }));
-vi.mock('@tauri-apps/plugin-opener', () => ({ openUrl: native.openUrl }));
+let native: ReturnType<typeof createNative>;
 
-beforeEach(() => {
+let browserSignInCallbackUrl: typeof __StudyMockType0.browserSignInCallbackUrl;
+
+let checkDesktopUpdate: typeof __StudyMockType0.checkDesktopUpdate;
+
+let desktopUpdateStatus: typeof __StudyMockType0.desktopUpdateStatus;
+
+let diagnosticLog: typeof __StudyMockType0.diagnosticLog;
+
+let hostCapabilities: typeof __StudyMockType0.hostCapabilities;
+
+let installDesktopUpdate: typeof __StudyMockType0.installDesktopUpdate;
+
+let prepareSignInBrowser: typeof __StudyMockType0.prepareSignInBrowser;
+
+let rpcBaseUrl: typeof __StudyMockType0.rpcBaseUrl;
+
+let signInOptions: typeof __StudyMockType0.signInOptions;
+
+test.beforeEach(async ({ mock }) => {
+  native = createNative(mock);
+  mock('@tauri-apps/api/core', () => ({ isTauri: () => native.enabled, invoke: native.invoke }));
+  mock('@tauri-apps/plugin-opener', () => ({ openUrl: native.openUrl }));
+  const __studyMockModule0 = await import('./host');
+
+  browserSignInCallbackUrl = __studyMockModule0.browserSignInCallbackUrl;
+  checkDesktopUpdate = __studyMockModule0.checkDesktopUpdate;
+  desktopUpdateStatus = __studyMockModule0.desktopUpdateStatus;
+  diagnosticLog = __studyMockModule0.diagnosticLog;
+  hostCapabilities = __studyMockModule0.hostCapabilities;
+  installDesktopUpdate = __studyMockModule0.installDesktopUpdate;
+  prepareSignInBrowser = __studyMockModule0.prepareSignInBrowser;
+  rpcBaseUrl = __studyMockModule0.rpcBaseUrl;
+  signInOptions = __studyMockModule0.signInOptions;
+});
+
+test.beforeEach(() => {
   native.enabled = false;
   native.invoke.mockReset();
   native.openUrl.mockReset().mockResolvedValue(undefined);
 });
 
-testStable('browser RPC uses its reachable origin and exposes no native capabilities', async () => {
-  expect(await rpcBaseUrl()).toBe(window.location.origin);
-  expect(hostCapabilities()).toEqual({ updates: false, diagnostics: false });
-  expect(native.invoke).not.toHaveBeenCalled();
-});
+test.stable(
+  'browser RPC uses its reachable origin and exposes no native capabilities',
+  async ({ expect }) => {
+    expect(await rpcBaseUrl()).toBe(window.location.origin);
+    expect(hostCapabilities()).toEqual({ updates: false, diagnostics: false });
+    expect(native.invoke).not.toHaveBeenCalled();
+  }
+);
 
-testStable('desktop RPC discovers the private server and exposes native capabilities', async () => {
-  native.enabled = true;
-  native.invoke.mockResolvedValue({ baseUrl: 'http://127.0.0.1:43891' });
-  expect(await rpcBaseUrl()).toBe('http://127.0.0.1:43891');
-  expect(native.invoke).toHaveBeenCalledExactlyOnceWith('server_connection');
-  expect(hostCapabilities()).toEqual({ updates: true, diagnostics: true });
-});
+test.stable(
+  'desktop RPC discovers the private server and exposes native capabilities',
+  async ({ expect }) => {
+    native.enabled = true;
+    native.invoke.mockResolvedValue({ baseUrl: 'http://127.0.0.1:43891' });
+    expect(await rpcBaseUrl()).toBe('http://127.0.0.1:43891');
+    expect(native.invoke).toHaveBeenCalledExactlyOnceWith('server_connection');
+    expect(hostCapabilities()).toEqual({ updates: true, diagnostics: true });
+  }
+);
 
-testStable(
+test.stable(
   'desktop discovery propagates failure rather than using the browser origin',
-  async () => {
+  async ({ expect }) => {
     native.enabled = true;
     native.invoke.mockRejectedValue(new Error('server unavailable'));
     await expect(rpcBaseUrl()).rejects.toThrow('server unavailable');
@@ -53,18 +88,18 @@ for (const [origin, expected] of [
   ['http://[::1]:8080', 'http://127.0.0.1:8080/auth/callback'],
   ['http://localhost', 'http://127.0.0.1/auth/callback']
 ])
-  testStable(`browser callback preserves the reachable port for ${origin}`, () => {
+  test.stable(`browser callback preserves the reachable port for ${origin}`, ({ expect }) => {
     expect(browserSignInCallbackUrl(origin!)).toBe(expected);
   });
 
 for (const origin of ['https://host.example', 'http://192.168.1.2:5173', 'https://localhost:5173'])
-  testStable(`unsupported browser origin fails before OAuth: ${origin}`, () => {
+  test.stable(`unsupported browser origin fails before OAuth: ${origin}`, ({ expect }) => {
     expect(() => browserSignInCallbackUrl(origin)).toThrow(
       expect.objectContaining({ kind: 'unsupported' })
     );
   });
 
-testStable('only browser sign-in overrides the native callback listener', () => {
+test.stable('only browser sign-in overrides the native callback listener', ({ expect }) => {
   expect(signInOptions()).toEqual({
     callbackUrl: browserSignInCallbackUrl(window.location.origin)
   });
@@ -72,10 +107,15 @@ testStable('only browser sign-in overrides the native callback listener', () => 
   expect(signInOptions()).toEqual({});
 });
 
-testStable(
+test.stable(
   'browser sign-in reserves a detached popup synchronously before authorization',
-  async () => {
-    const popup = { location: { replace: vi.fn() }, close: vi.fn(), closed: false, opener: window };
+  async ({ vi, expect }) => {
+    const popup = {
+      location: { replace: vi.fn() },
+      close: vi.fn(),
+      closed: false,
+      opener: window
+    };
     const open = vi.spyOn(window, 'open').mockReturnValue(popup as unknown as Window);
     const browser = prepareSignInBrowser();
 
@@ -89,38 +129,49 @@ testStable(
   }
 );
 
-testStable('blocked or closed sign-in popups report recovery without navigating', async () => {
-  const popup = { location: { replace: vi.fn() }, close: vi.fn(), closed: true, opener: window };
+test.stable(
+  'blocked or closed sign-in popups report recovery without navigating',
+  async ({ vi, expect }) => {
+    const popup = {
+      location: { replace: vi.fn() },
+      close: vi.fn(),
+      closed: true,
+      opener: window
+    };
 
-  vi.spyOn(window, 'open')
-    .mockReturnValueOnce(null)
-    .mockReturnValueOnce(popup as unknown as Window);
-  const blocked = prepareSignInBrowser();
+    vi.spyOn(window, 'open')
+      .mockReturnValueOnce(null)
+      .mockReturnValueOnce(popup as unknown as Window);
+    const blocked = prepareSignInBrowser();
 
-  expect(await blocked.open('https://auth.example')).toBe(false);
-  blocked.close();
-  const closed = prepareSignInBrowser();
+    expect(await blocked.open('https://auth.example')).toBe(false);
+    blocked.close();
+    const closed = prepareSignInBrowser();
 
-  expect(await closed.open('https://auth.example')).toBe(false);
-  expect(popup.location.replace).not.toHaveBeenCalled();
-});
+    expect(await closed.open('https://auth.example')).toBe(false);
+    expect(popup.location.replace).not.toHaveBeenCalled();
+  }
+);
 
-testStable('desktop sign-in opens the system browser and propagates launch failures', async () => {
-  native.enabled = true;
-  const open = vi.spyOn(window, 'open');
-  const browser = prepareSignInBrowser();
+test.stable(
+  'desktop sign-in opens the system browser and propagates launch failures',
+  async ({ vi, expect }) => {
+    native.enabled = true;
+    const open = vi.spyOn(window, 'open');
+    const browser = prepareSignInBrowser();
 
-  expect(open).not.toHaveBeenCalled();
-  expect(await browser.open('https://auth.example')).toBe(true);
-  expect(native.openUrl).toHaveBeenCalledExactlyOnceWith('https://auth.example');
-  native.openUrl.mockRejectedValueOnce(new Error('No browser'));
-  await expect(browser.open('https://auth.example')).rejects.toThrow('No browser');
-  browser.close();
-});
+    expect(open).not.toHaveBeenCalled();
+    expect(await browser.open('https://auth.example')).toBe(true);
+    expect(native.openUrl).toHaveBeenCalledExactlyOnceWith('https://auth.example');
+    native.openUrl.mockRejectedValueOnce(new Error('No browser'));
+    await expect(browser.open('https://auth.example')).rejects.toThrow('No browser');
+    browser.close();
+  }
+);
 
-testStable(
+test.stable(
   'desktop operations preserve native commands and the selected update version',
-  async () => {
+  async ({ expect }) => {
     native.enabled = true;
     native.invoke
       .mockResolvedValueOnce({ version: '1.0.0', supported: true })

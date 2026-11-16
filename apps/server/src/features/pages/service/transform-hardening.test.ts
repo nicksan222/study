@@ -1,3 +1,4 @@
+import { pageVersionIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies authored document transformation integrity across persistence boundaries. │
@@ -9,16 +10,13 @@
  * │ Tests use real SQLite fixtures and public feature services exclusively.                  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { pageVersionIdSchema } from '@study/contracts';
 import type { pageCitationSchema as citationSchema } from '@study/contracts';
 import type { transformPublicationSchema } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
@@ -61,7 +59,13 @@ function publish(f: Fixture, value: Publication) {
   }).pipe(Effect.provide(f.domain()));
 }
 
-function create(title: string, blocks = [paragraph('alpha evidence')]) {
+function create(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  title: string,
+  blocks = [paragraph('alpha evidence')]
+) {
+  const assert: test.Assert = assertions;
+
   return Effect.flatMap(Pages, (docs) =>
     docs.create({
       createKey: crypto.randomUUID(),
@@ -79,12 +83,14 @@ function create(title: string, blocks = [paragraph('alpha evidence')]) {
   );
 }
 
-function capture(exactTarget: boolean) {
+function capture({ assert: assertions }: Pick<test.Context, 'assert'>, exactTarget: boolean) {
+  const assert: test.Assert = assertions;
+
   return Effect.gen(function* () {
     const chats = yield* Notes;
     const block = paragraph('😀 echo :: echo');
     const unselected = paragraph('echo');
-    const original = yield* create('Repeated phrases', [block, unselected]);
+    const original = yield* create({ assert }, 'Repeated phrases', [block, unselected]);
     const note = yield* chats.createUntitledNote({});
 
     yield* (yield* Pages).attach({ noteId: note.id, pageId: original.id });
@@ -134,13 +140,17 @@ function capture(exactTarget: boolean) {
   });
 }
 
-testStable(
+test.stable(
   'whole captured blocks publish and exact citation identities and report hashes remain immutable across reopen',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
-      const saved = await Effect.runPromise(capture(false).pipe(Effect.provide(f.domain())));
+      const saved = await Effect.runPromise(
+        capture({ assert }, false).pipe(Effect.provide(f.domain()))
+      );
       const cited = saved.publication.citations[0]!;
       const forged: (typeof citationSchema.Type)[] = [
         { ...cited, target: null },
@@ -241,17 +251,19 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'canonical authored citations reject fabricated exact inputs and UTF16 splits while anchor-only provenance stays explicitly inexact',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
           const docs = yield* Pages;
           const block = paragraph('😀 echo');
-          const evidence = yield* create('Evidence', [block]);
+          const evidence = yield* create({ assert }, 'Evidence', [block]);
           const input = { kind: 'page' as const, versionId: evidence.version.id };
           const citation = {
             marker: 1,
@@ -310,10 +322,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'note-only publication rejects separator-only tables without outputs, receipts, memberships or events',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
       await Effect.runPromise(
@@ -370,13 +384,17 @@ testStable(
 );
 
 for (const table of ['page_proposals', 'page_transform_requests'] as const)
-  testStable(
+  test.stable(
     `proposal publication rolls back ${table} failure before same-key retry and reopen`,
-    async () => {
-      const f = await pageTransformFixture();
+    async ({ databases, expect, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+
+      const f = await pageTransformFixture(databases);
 
       try {
-        const saved = await Effect.runPromise(capture(true).pipe(Effect.provide(f.domain())));
+        const saved = await Effect.runPromise(
+          capture({ assert }, true).pipe(Effect.provide(f.domain()))
+        );
         const before = state(f);
 
         f.context.db.exec(

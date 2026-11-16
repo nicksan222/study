@@ -1,3 +1,4 @@
+import { defaultAgentRules } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Covers reply wake-up from indexed-source receipts and confirms pending replies     │
@@ -12,18 +13,12 @@
  * │ replace production activities.                                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { defaultAgentRules } from '@study/contracts';
 import { eq } from '@study/db';
 import * as tables from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { createAiMock } from '@study/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Option } from 'effect';
 import type { MessageStorage, Sharding } from 'effect/cluster';
 import { WorkflowEngine } from 'effect/workflow';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { replyAgent } from '#server/features/notes/agents/reply';
 import { Notes } from '#server/features/notes/service/index';
@@ -55,557 +50,461 @@ import {
   noteAttachmentWakeRegistration
 } from './index.ts';
 
-testStable('indexed source wakes the dispatched reply using its persisted receipt', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  let calls = 0;
-  using mock = createAiMock();
+test.stable(
+  'indexed source wakes the dispatched reply using its persisted receipt',
+  async ({ databases, createAiMock, assert: assertions, pollUntil, expect }) => {
+    const assert: test.Assert = assertions;
 
-  mock.next(replyAgent, {
-    input: {
-      messages: [
-        { role: 'user', content: 'Question' },
-        { role: 'user', content: '\nPreferences: {"detail":"balanced"}' }
-      ]
-    },
-    output: 'Answer'
-  });
-  mock.next(replyAgent, {
-    input: {
-      messages: [
-        { role: 'user', content: 'Root' },
-        { role: 'user', content: 'Question' },
-        { role: 'user', content: '\nPreferences: {"detail":"balanced"}' }
-      ]
-    },
-    output: 'Answer'
-  });
-  const database = Layer.succeed(Database, { store: context });
-  const services = Layer.mergeAll(
-    database,
-    Layer.merge(Notes.layer, Sources.layer).pipe(Layer.provideMerge(database)),
-    Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
-    agentsLayer({
-      model: (tier, call) => {
-        calls++;
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    let calls = 0;
+    using mock = createAiMock();
 
-        return mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError));
+    mock.next(replyAgent, {
+      input: {
+        messages: [
+          { role: 'user', content: 'Question' },
+          { role: 'user', content: '\nPreferences: {"detail":"balanced"}' }
+        ]
       },
-      language: 'en',
-      rules: Effect.succeed(defaultAgentRules),
-      searchSources: () => Effect.succeed([])
-    }),
-    workflowEngineLayer(context)
-  );
+      output: 'Answer'
+    });
+    mock.next(replyAgent, {
+      input: {
+        messages: [
+          { role: 'user', content: 'Root' },
+          { role: 'user', content: 'Question' },
+          { role: 'user', content: '\nPreferences: {"detail":"balanced"}' }
+        ]
+      },
+      output: 'Answer'
+    });
+    const database = Layer.succeed(Database, { store: context });
+    const services = Layer.mergeAll(
+      database,
+      Layer.merge(Notes.layer, Sources.layer).pipe(Layer.provideMerge(database)),
+      Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
+      agentsLayer({
+        model: (tier, call) => {
+          calls++;
 
-  try {
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const notes = yield* Notes;
-          const sources = yield* Sources;
-          const engine = yield* WorkflowEngine.WorkflowEngine;
+          return mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError));
+        },
+        language: 'en',
+        rules: Effect.succeed(defaultAgentRules),
+        searchSources: () => Effect.succeed([])
+      }),
+      workflowEngineLayer(context)
+    );
 
-          yield* engine.register(noteReplyWorkflow, noteReplyHandler);
-          yield* engine.register(noteAttachmentWakeWorkflow, noteAttachmentWakeHandler);
-          yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
-          const project = context.db.orm
-            .insert(tables.projects)
-            .values({ name: 'P', created_at: 1n, updated_at: 1n })
-            .returning()
-            .get();
-          const note = yield* notes.createNote({
-            project: project.id,
-            title: 'Chat'
-          });
-          const source = yield* createUnregisteredSource({
-            projectId: project.id,
-            name: 'note.txt',
-            bytes: new TextEncoder().encode('Hello')
-          });
+    try {
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const notes = yield* Notes;
+            const sources = yield* Sources;
+            const engine = yield* WorkflowEngine.WorkflowEngine;
 
-          yield* notes.postMessage({
-            noteId: note.id,
-            text: 'Question',
-            sourceIds: [source.id]
-          });
-          const request = yield* notes.requestReply({ noteId: note.id });
-
-          assert.strictEqual(
-            (yield* notes.replyReadiness({ requestId: request.requestId })).length,
-            1
-          );
-          assert.strictEqual(
-            yield* dispatchPending(context, noteReplyRegistration.triggers, Date.now()),
-            1
-          );
-          const receipt = context.db.orm
-            .select()
-            .from(tables.workflowReceipts)
-            .where(eq(tables.workflowReceipts.subscription, 'conversation-reply'))
-            .get()!;
-          const generation = decodeEvent(
-            context.db.orm
-              .select()
-              .from(tables.workflowEvents)
-              .where(eq(tables.workflowEvents.eventId, receipt.eventId))
-              .get()!.payload
-          );
-
-          assertEventType(generation, 'NoteGenerationRequested', 'wrong event');
-
-          yield* withTestAdmission(
-            context,
-            noteReplyWorkflow,
-            receipt.executionId,
-            { event: generation },
-            engine.execute(noteReplyWorkflow, {
-              executionId: receipt.executionId,
-              payload: { event: generation },
-              discard: true
-            })
-          );
-          let result = yield* engine.poll(noteReplyWorkflow, receipt.executionId);
-
-          while (Option.isNone(result)) {
-            yield* Effect.sleep('10 millis');
-            result = yield* engine.poll(noteReplyWorkflow, receipt.executionId);
-          }
-
-          assert.ok(result.value._tag === 'Suspended');
-          assert.strictEqual(calls, 0);
-          const sourceEvent = context.db.orm
-            .select()
-            .from(tables.workflowEvents)
-            .all()
-            .filter((row) => row.payload !== '{}')
-            .map((row) => decodeEvent(row.payload))
-            .find((event) => event.type === 'SourceProcessingRequested');
-
-          assertEventType(sourceEvent, 'SourceProcessingRequested', 'missing event');
-
-          yield* withTestAdmission(
-            context,
-            sourceIngestionWorkflow,
-            'ingestion',
-            { event: sourceEvent },
-            engine.execute(sourceIngestionWorkflow, {
-              executionId: 'ingestion',
-              payload: { event: sourceEvent }
-            })
-          );
-          const indexed = context.db.orm
-            .select()
-            .from(tables.workflowEvents)
-            .all()
-            .filter((row) => row.payload !== '{}')
-            .map((row) => decodeEvent(row.payload))
-            .find((event) => event.type === 'SourceIndexed');
-
-          assertEventType(indexed, 'SourceIndexed', 'missing index event');
-
-          yield* dispatchPending(
-            context,
-            noteAttachmentWakeRegistration.triggers.filter(
-              (trigger) => trigger.event === 'SourceIndexed'
-            ),
-            Date.now()
-          );
-          const wakeReceipt = context.db.orm
-            .select()
-            .from(tables.workflowReceipts)
-            .where(eq(tables.workflowReceipts.eventId, indexed.eventId))
-            .get()!;
-
-          yield* withTestAdmission(
-            context,
-            noteAttachmentWakeWorkflow,
-            wakeReceipt.executionId,
-            { event: indexed },
-            engine.execute(noteAttachmentWakeWorkflow, {
-              executionId: wakeReceipt.executionId,
-              payload: { event: indexed }
-            })
-          );
-          yield* withTestAdmission(
-            context,
-            noteReplyWorkflow,
-            receipt.executionId,
-            { event: generation },
-            engine.execute(noteReplyWorkflow, {
-              executionId: receipt.executionId,
-              payload: { event: generation }
-            })
-          );
-          assert.strictEqual(calls, 1);
-          const row = context.db.orm
-            .select()
-            .from(tables.note_reply_requests)
-            .where(eq(tables.note_reply_requests.request_id, request.requestId))
-            .get()!;
-          const snapshot = JSON.parse(row.snapshot);
-
-          assert.strictEqual(snapshot.pendingAttachments, undefined);
-          assert.strictEqual(snapshot.messages[0].attachments.length, 1);
-
-          const earlyNote = yield* notes.createNote({
-            project: project.id,
-            title: 'Early'
-          });
-          const earlySource = yield* createUnregisteredSource({
-            projectId: project.id,
-            name: 'early.txt',
-            bytes: new TextEncoder().encode('Early')
-          });
-
-          const root = yield* notes.postMessage({
-            noteId: earlyNote.id,
-            text: 'Root',
-            sourceIds: [earlySource.id]
-          });
-          const threadRoot = root.parts[0]!.id;
-
-          yield* notes.postMessage({
-            noteId: earlyNote.id,
-            text: 'Question',
-            threadRoot
-          });
-          const earlyRequest = yield* notes.requestReply({
-            noteId: earlyNote.id,
-            threadRoot
-          });
-          const earlySnapshot = yield* notes.replySnapshot({
-            requestId: earlyRequest.requestId
-          });
-
-          assert.strictEqual(earlySnapshot.pendingAttachments?.[0]?.partId, threadRoot);
-          const earlyIngestion = context.db.orm
-            .select()
-            .from(tables.workflowEvents)
-            .all()
-            .filter((row) => row.payload !== '{}')
-            .map((item) => decodeEvent(item.payload))
-            .find(
-              (item) =>
-                item.type === 'SourceProcessingRequested' && item.sourceId === earlySource.id
-            );
-
-          assertEventType(earlyIngestion, 'SourceProcessingRequested', 'missing ingestion');
-
-          yield* withTestAdmission(
-            context,
-            sourceIngestionWorkflow,
-            'early-ingestion',
-            { event: earlyIngestion },
-            engine.execute(sourceIngestionWorkflow, {
-              executionId: 'early-ingestion',
-              payload: { event: earlyIngestion }
-            })
-          );
-          const earlyIndex = context.db.orm
-            .select()
-            .from(tables.workflowEvents)
-            .all()
-            .filter((row) => row.payload !== '{}')
-            .map((item) => decodeEvent(item.payload))
-            .find((item) => item.type === 'SourceIndexed' && item.sourceId === earlySource.id);
-
-          assertEventType(earlyIndex, 'SourceIndexed', 'missing index');
-
-          yield* withTestAdmission(
-            context,
-            noteAttachmentWakeWorkflow,
-            'early-wake',
-            { event: earlyIndex },
-            engine.execute(noteAttachmentWakeWorkflow, {
-              executionId: 'early-wake',
-              payload: { event: earlyIndex }
-            })
-          );
-          yield* dispatchPending(context, noteReplyRegistration.triggers, Date.now());
-          const earlyEventRow = context.db.orm
-            .select()
-            .from(tables.workflowEvents)
-            .where(eq(tables.workflowEvents.correlationId, earlyRequest.requestId))
-            .get()!;
-          const earlyEvent = decodeEvent(earlyEventRow.payload);
-
-          assertEventType(earlyEvent, 'NoteGenerationRequested', 'wrong event');
-
-          const earlyReceipt = context.db.orm
-            .select()
-            .from(tables.workflowReceipts)
-            .where(eq(tables.workflowReceipts.eventId, earlyEvent.eventId))
-            .get()!;
-
-          yield* withTestAdmission(
-            context,
-            noteReplyWorkflow,
-            earlyReceipt.executionId,
-            { event: earlyEvent },
-            engine.execute(noteReplyWorkflow, {
-              executionId: earlyReceipt.executionId,
-              payload: { event: earlyEvent }
-            })
-          );
-          assert.strictEqual(calls, 2);
-
-          const failedNote = yield* notes.createNote({
-            project: project.id,
-            title: 'Early failure'
-          });
-          const failedSource = yield* createUnregisteredSource({
-            projectId: project.id,
-            name: 'bad.bin',
-            bytes: new Uint8Array([0, 1, 2])
-          });
-
-          yield* notes.postMessage({
-            noteId: failedNote.id,
-            text: 'Question',
-            sourceIds: [failedSource.id]
-          });
-          const failedRequest = yield* notes.requestReply({ noteId: failedNote.id });
-          const failedIngestion = context.db.orm
-            .select()
-            .from(tables.workflowEvents)
-            .all()
-            .filter((row) => row.payload !== '{}')
-            .map((item) => decodeEvent(item.payload))
-            .find(
-              (item) =>
-                item.type === 'SourceProcessingRequested' && item.sourceId === failedSource.id
-            );
-
-          assertEventType(failedIngestion, 'SourceProcessingRequested', 'missing ingestion');
-
-          yield* Effect.flip(
-            withTestAdmission(
-              context,
-              sourceIngestionWorkflow,
-              'early-failure-ingestion',
-              { event: failedIngestion },
-              engine.execute(sourceIngestionWorkflow, {
-                executionId: 'early-failure-ingestion',
-                payload: { event: failedIngestion }
-              })
-            )
-          );
-          const failureNotice = context.db.orm
-            .select()
-            .from(tables.workflowEvents)
-            .all()
-            .filter((row) => row.payload !== '{}')
-            .map((item) => decodeEvent(item.payload))
-            .find(
-              (item) => item.type === 'SourceProcessingFailed' && item.sourceId === failedSource.id
-            );
-
-          assertEventType(failureNotice, 'SourceProcessingFailed', 'missing failure notice');
-
-          yield* withTestAdmission(
-            context,
-            noteAttachmentWakeWorkflow,
-            'early-failure-wake',
-            { event: failureNotice },
-            engine.execute(noteAttachmentWakeWorkflow, {
-              executionId: 'early-failure-wake',
-              payload: { event: failureNotice }
-            })
-          );
-          yield* dispatchPending(context, noteReplyRegistration.triggers, Date.now());
-          const failedRow = context.db.orm
-            .select()
-            .from(tables.workflowEvents)
-            .where(eq(tables.workflowEvents.correlationId, failedRequest.requestId))
-            .get()!;
-          const failedEvent = decodeEvent(failedRow.payload);
-
-          assert.ok(!(failedEvent.type !== 'NoteGenerationRequested'), 'wrong event');
-
-          const failedReceipt = context.db.orm
-            .select()
-            .from(tables.workflowReceipts)
-            .where(eq(tables.workflowReceipts.eventId, failedEvent.eventId))
-            .get()!;
-          const earlyFailure = yield* Effect.flip(
-            withTestAdmission(
-              context,
-              noteReplyWorkflow,
-              failedReceipt.executionId,
-              { event: failedEvent },
-              engine.execute(noteReplyWorkflow, {
-                executionId: failedReceipt.executionId,
-                payload: { event: failedEvent }
-              })
-            )
-          );
-
-          assert.ok(earlyFailure.kind === 'invalid_input');
-          assert.strictEqual(calls, 2);
-
-          for (const mode of [
-            'delete',
-            'replace',
-            'reprocess',
-            'unsupported',
-            'later-pending',
-            'ready-reference'
-          ] as const) {
-            yield* assertInvalidationResumesReply(mode);
-          }
-
-          function* assertInvalidationResumesReply(
-            mode:
-              | 'delete'
-              | 'replace'
-              | 'reprocess'
-              | 'unsupported'
-              | 'later-pending'
-              | 'ready-reference'
-          ) {
-            const nextNote = yield* notes.createNote({
+            yield* engine.register(noteReplyWorkflow, noteReplyHandler);
+            yield* engine.register(noteAttachmentWakeWorkflow, noteAttachmentWakeHandler);
+            yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
+            const project = context.db.orm
+              .insert(tables.projects)
+              .values({ name: 'P', created_at: 1n, updated_at: 1n })
+              .returning()
+              .get();
+            const note = yield* notes.createNote({
               project: project.id,
-              title: mode
+              title: 'Chat'
             });
-            const nextSource = yield* createUnregisteredSource({
+            const source = yield* createUnregisteredSource({
               projectId: project.id,
-              name: mode === 'unsupported' ? 'unknown.bin' : 'next.txt',
-              bytes: new Uint8Array([0, 1, 2, 3])
+              name: 'note.txt',
+              bytes: new TextEncoder().encode('Hello')
             });
-
-            const blocker =
-              mode === 'later-pending' || mode === 'ready-reference'
-                ? yield* createUnregisteredSource({
-                    projectId: project.id,
-                    name: 'blocker.txt',
-                    bytes: new TextEncoder().encode('blocked')
-                  })
-                : undefined;
-
-            if (mode === 'ready-reference') {
-              const ingestion = context.db.orm
-                .select()
-                .from(tables.workflowEvents)
-                .all()
-                .filter((row) => row.payload !== '{}')
-                .map((item) => decodeEvent(item.payload))
-                .find(
-                  (item) =>
-                    item.type === 'SourceProcessingRequested' && item.sourceId === nextSource.id
-                );
-
-              assertEventType(ingestion, 'SourceProcessingRequested', 'missing ingestion');
-
-              yield* withTestAdmission(
-                context,
-                sourceIngestionWorkflow,
-                'ready-reference-source',
-                { event: ingestion },
-                engine.execute(sourceIngestionWorkflow, {
-                  executionId: 'ready-reference-source',
-                  payload: { event: ingestion }
-                })
-              );
-            }
 
             yield* notes.postMessage({
-              noteId: nextNote.id,
+              noteId: note.id,
               text: 'Question',
-              sourceIds: blocker
-                ? mode === 'later-pending'
-                  ? [blocker.id, nextSource.id]
-                  : [nextSource.id, blocker.id]
-                : [nextSource.id]
+              sourceIds: [source.id]
             });
-            const nextRequest = yield* notes.requestReply({ noteId: nextNote.id });
-            const captured = yield* notes.inspectReplySnapshot({
-              requestId: nextRequest.requestId
-            });
+            const request = yield* notes.requestReply({ noteId: note.id });
 
-            yield* dispatchPending(context, noteReplyRegistration.triggers, Date.now());
-            const eventRow = context.db.orm
-              .select()
-              .from(tables.workflowEvents)
-              .where(eq(tables.workflowEvents.correlationId, nextRequest.requestId))
-              .get()!;
-            const nextEvent = decodeEvent(eventRow.payload);
-
-            assert.ok(!(nextEvent.type !== 'NoteGenerationRequested'), 'wrong event');
-
-            const nextReceipt = context.db.orm
+            assert.strictEqual(
+              (yield* notes.replyReadiness({ requestId: request.requestId })).length,
+              1
+            );
+            assert.strictEqual(
+              yield* dispatchPending(context, noteReplyRegistration.triggers, Date.now()),
+              1
+            );
+            const receipt = context.db.orm
               .select()
               .from(tables.workflowReceipts)
-              .where(eq(tables.workflowReceipts.eventId, nextEvent.eventId))
+              .where(eq(tables.workflowReceipts.subscription, 'conversation-reply'))
+              .get()!;
+            const generation = decodeEvent(
+              context.db.orm
+                .select()
+                .from(tables.workflowEvents)
+                .where(eq(tables.workflowEvents.eventId, receipt.eventId))
+                .get()!.payload
+            );
+
+            assertEventType({ assert }, generation, 'NoteGenerationRequested', 'wrong event');
+
+            yield* withTestAdmission(
+              context,
+              noteReplyWorkflow,
+              receipt.executionId,
+              { event: generation },
+              engine.execute(noteReplyWorkflow, {
+                executionId: receipt.executionId,
+                payload: { event: generation },
+                discard: true
+              })
+            );
+            const result = yield* pollUntil(
+              engine.poll(noteReplyWorkflow, receipt.executionId),
+              Option.isSome,
+              { attempts: 500, interval: '10 millis', message: 'Note reply did not start' }
+            );
+
+            assert.ok(result.value._tag === 'Suspended');
+            assert.strictEqual(calls, 0);
+            const sourceEvent = context.db.orm
+              .select()
+              .from(tables.workflowEvents)
+              .all()
+              .filter((row) => row.payload !== '{}')
+              .map((row) => decodeEvent(row.payload))
+              .find((event) => event.type === 'SourceProcessingRequested');
+
+            assertEventType({ assert }, sourceEvent, 'SourceProcessingRequested', 'missing event');
+
+            yield* withTestAdmission(
+              context,
+              sourceIngestionWorkflow,
+              'ingestion',
+              { event: sourceEvent },
+              engine.execute(sourceIngestionWorkflow, {
+                executionId: 'ingestion',
+                payload: { event: sourceEvent }
+              })
+            );
+            const indexed = context.db.orm
+              .select()
+              .from(tables.workflowEvents)
+              .all()
+              .filter((row) => row.payload !== '{}')
+              .map((row) => decodeEvent(row.payload))
+              .find((event) => event.type === 'SourceIndexed');
+
+            assertEventType({ assert }, indexed, 'SourceIndexed', 'missing index event');
+
+            yield* dispatchPending(
+              context,
+              noteAttachmentWakeRegistration.triggers.filter(
+                (trigger) => trigger.event === 'SourceIndexed'
+              ),
+              Date.now()
+            );
+            const wakeReceipt = context.db.orm
+              .select()
+              .from(tables.workflowReceipts)
+              .where(eq(tables.workflowReceipts.eventId, indexed.eventId))
+              .get()!;
+
+            yield* withTestAdmission(
+              context,
+              noteAttachmentWakeWorkflow,
+              wakeReceipt.executionId,
+              { event: indexed },
+              engine.execute(noteAttachmentWakeWorkflow, {
+                executionId: wakeReceipt.executionId,
+                payload: { event: indexed }
+              })
+            );
+            yield* withTestAdmission(
+              context,
+              noteReplyWorkflow,
+              receipt.executionId,
+              { event: generation },
+              engine.execute(noteReplyWorkflow, {
+                executionId: receipt.executionId,
+                payload: { event: generation }
+              })
+            );
+            assert.strictEqual(calls, 1);
+            const row = context.db.orm
+              .select()
+              .from(tables.note_reply_requests)
+              .where(eq(tables.note_reply_requests.request_id, request.requestId))
+              .get()!;
+            const snapshot = JSON.parse(row.snapshot);
+
+            assert.strictEqual(snapshot.pendingAttachments, undefined);
+            assert.strictEqual(snapshot.messages[0].attachments.length, 1);
+
+            const earlyNote = yield* notes.createNote({
+              project: project.id,
+              title: 'Early'
+            });
+            const earlySource = yield* createUnregisteredSource({
+              projectId: project.id,
+              name: 'early.txt',
+              bytes: new TextEncoder().encode('Early')
+            });
+
+            const root = yield* notes.postMessage({
+              noteId: earlyNote.id,
+              text: 'Root',
+              sourceIds: [earlySource.id]
+            });
+            const threadRoot = root.parts[0]!.id;
+
+            yield* notes.postMessage({
+              noteId: earlyNote.id,
+              text: 'Question',
+              threadRoot
+            });
+            const earlyRequest = yield* notes.requestReply({
+              noteId: earlyNote.id,
+              threadRoot
+            });
+            const earlySnapshot = yield* notes.replySnapshot({
+              requestId: earlyRequest.requestId
+            });
+
+            assert.strictEqual(earlySnapshot.pendingAttachments?.[0]?.partId, threadRoot);
+            const earlyIngestion = context.db.orm
+              .select()
+              .from(tables.workflowEvents)
+              .all()
+              .filter((row) => row.payload !== '{}')
+              .map((item) => decodeEvent(item.payload))
+              .find(
+                (item) =>
+                  item.type === 'SourceProcessingRequested' && item.sourceId === earlySource.id
+              );
+
+            assertEventType(
+              { assert },
+              earlyIngestion,
+              'SourceProcessingRequested',
+              'missing ingestion'
+            );
+
+            yield* withTestAdmission(
+              context,
+              sourceIngestionWorkflow,
+              'early-ingestion',
+              { event: earlyIngestion },
+              engine.execute(sourceIngestionWorkflow, {
+                executionId: 'early-ingestion',
+                payload: { event: earlyIngestion }
+              })
+            );
+            const earlyIndex = context.db.orm
+              .select()
+              .from(tables.workflowEvents)
+              .all()
+              .filter((row) => row.payload !== '{}')
+              .map((item) => decodeEvent(item.payload))
+              .find((item) => item.type === 'SourceIndexed' && item.sourceId === earlySource.id);
+
+            assertEventType({ assert }, earlyIndex, 'SourceIndexed', 'missing index');
+
+            yield* withTestAdmission(
+              context,
+              noteAttachmentWakeWorkflow,
+              'early-wake',
+              { event: earlyIndex },
+              engine.execute(noteAttachmentWakeWorkflow, {
+                executionId: 'early-wake',
+                payload: { event: earlyIndex }
+              })
+            );
+            yield* dispatchPending(context, noteReplyRegistration.triggers, Date.now());
+            const earlyEventRow = context.db.orm
+              .select()
+              .from(tables.workflowEvents)
+              .where(eq(tables.workflowEvents.correlationId, earlyRequest.requestId))
+              .get()!;
+            const earlyEvent = decodeEvent(earlyEventRow.payload);
+
+            assertEventType({ assert }, earlyEvent, 'NoteGenerationRequested', 'wrong event');
+
+            const earlyReceipt = context.db.orm
+              .select()
+              .from(tables.workflowReceipts)
+              .where(eq(tables.workflowReceipts.eventId, earlyEvent.eventId))
               .get()!;
 
             yield* withTestAdmission(
               context,
               noteReplyWorkflow,
-              nextReceipt.executionId,
-              { event: nextEvent },
+              earlyReceipt.executionId,
+              { event: earlyEvent },
               engine.execute(noteReplyWorkflow, {
-                executionId: nextReceipt.executionId,
-                payload: { event: nextEvent },
-                discard: true
+                executionId: earlyReceipt.executionId,
+                payload: { event: earlyEvent }
               })
             );
-            let nextResult = yield* engine.poll(noteReplyWorkflow, nextReceipt.executionId);
+            assert.strictEqual(calls, 2);
 
-            while (Option.isNone(nextResult)) {
-              yield* Effect.sleep('10 millis');
-              nextResult = yield* engine.poll(noteReplyWorkflow, nextReceipt.executionId);
+            const failedNote = yield* notes.createNote({
+              project: project.id,
+              title: 'Early failure'
+            });
+            const failedSource = yield* createUnregisteredSource({
+              projectId: project.id,
+              name: 'bad.bin',
+              bytes: new Uint8Array([0, 1, 2])
+            });
+
+            yield* notes.postMessage({
+              noteId: failedNote.id,
+              text: 'Question',
+              sourceIds: [failedSource.id]
+            });
+            const failedRequest = yield* notes.requestReply({ noteId: failedNote.id });
+            const failedIngestion = context.db.orm
+              .select()
+              .from(tables.workflowEvents)
+              .all()
+              .filter((row) => row.payload !== '{}')
+              .map((item) => decodeEvent(item.payload))
+              .find(
+                (item) =>
+                  item.type === 'SourceProcessingRequested' && item.sourceId === failedSource.id
+              );
+
+            assertEventType(
+              { assert },
+              failedIngestion,
+              'SourceProcessingRequested',
+              'missing ingestion'
+            );
+
+            yield* Effect.flip(
+              withTestAdmission(
+                context,
+                sourceIngestionWorkflow,
+                'early-failure-ingestion',
+                { event: failedIngestion },
+                engine.execute(sourceIngestionWorkflow, {
+                  executionId: 'early-failure-ingestion',
+                  payload: { event: failedIngestion }
+                })
+              )
+            );
+            const failureNotice = context.db.orm
+              .select()
+              .from(tables.workflowEvents)
+              .all()
+              .filter((row) => row.payload !== '{}')
+              .map((item) => decodeEvent(item.payload))
+              .find(
+                (item) =>
+                  item.type === 'SourceProcessingFailed' && item.sourceId === failedSource.id
+              );
+
+            assertEventType(
+              { assert },
+              failureNotice,
+              'SourceProcessingFailed',
+              'missing failure notice'
+            );
+
+            yield* withTestAdmission(
+              context,
+              noteAttachmentWakeWorkflow,
+              'early-failure-wake',
+              { event: failureNotice },
+              engine.execute(noteAttachmentWakeWorkflow, {
+                executionId: 'early-failure-wake',
+                payload: { event: failureNotice }
+              })
+            );
+            yield* dispatchPending(context, noteReplyRegistration.triggers, Date.now());
+            const failedRow = context.db.orm
+              .select()
+              .from(tables.workflowEvents)
+              .where(eq(tables.workflowEvents.correlationId, failedRequest.requestId))
+              .get()!;
+            const failedEvent = decodeEvent(failedRow.payload);
+
+            assert.ok(!(failedEvent.type !== 'NoteGenerationRequested'), 'wrong event');
+
+            const failedReceipt = context.db.orm
+              .select()
+              .from(tables.workflowReceipts)
+              .where(eq(tables.workflowReceipts.eventId, failedEvent.eventId))
+              .get()!;
+            const earlyFailure = yield* Effect.flip(
+              withTestAdmission(
+                context,
+                noteReplyWorkflow,
+                failedReceipt.executionId,
+                { event: failedEvent },
+                engine.execute(noteReplyWorkflow, {
+                  executionId: failedReceipt.executionId,
+                  payload: { event: failedEvent }
+                })
+              )
+            );
+
+            assert.ok(earlyFailure.kind === 'invalid_input');
+            assert.strictEqual(calls, 2);
+
+            for (const mode of [
+              'delete',
+              'replace',
+              'reprocess',
+              'unsupported',
+              'later-pending',
+              'ready-reference'
+            ] as const) {
+              yield* assertInvalidationResumesReply({ assert, pollUntil, expect }, mode);
             }
 
-            assert.ok(nextResult.value._tag === 'Suspended');
+            function* assertInvalidationResumesReply(
+              {
+                assert: assertions,
+                pollUntil,
+                expect
+              }: Pick<test.Context, 'assert' | 'pollUntil' | 'expect'>,
+              mode:
+                | 'delete'
+                | 'replace'
+                | 'reprocess'
+                | 'unsupported'
+                | 'later-pending'
+                | 'ready-reference'
+            ) {
+              const assert: test.Assert = assertions;
 
-            if (['delete', 'later-pending', 'ready-reference'].includes(mode)) {
-              assert.ok(
-                (yield* Effect.flip(sources.deleteSource({ id: nextSource.id }))).kind ===
-                  'invalid_input'
-              );
-              expect(
-                yield* notes.inspectReplySnapshot({ requestId: nextRequest.requestId })
-              ).toStrictEqual(captured);
-              yield* notes.deleteNote(nextNote.id);
-              assert.strictEqual(yield* sources.deleteSource({ id: nextSource.id }), true);
-              assert.strictEqual(calls, 2);
-              assert.strictEqual(
-                context.db.orm
-                  .select()
-                  .from(tables.note_reply_requests)
-                  .where(eq(tables.note_reply_requests.request_id, nextRequest.requestId))
-                  .get(),
-                undefined
-              );
+              const nextNote = yield* notes.createNote({
+                project: project.id,
+                title: mode
+              });
+              const nextSource = yield* createUnregisteredSource({
+                projectId: project.id,
+                name: mode === 'unsupported' ? 'unknown.bin' : 'next.txt',
+                bytes: new Uint8Array([0, 1, 2, 3])
+              });
 
-              return;
-            }
+              const blocker =
+                mode === 'later-pending' || mode === 'ready-reference'
+                  ? yield* createUnregisteredSource({
+                      projectId: project.id,
+                      name: 'blocker.txt',
+                      bytes: new TextEncoder().encode('blocked')
+                    })
+                  : undefined;
 
-            yield* invalidateSource();
-
-            function* invalidateSource() {
-              if (mode === 'replace')
-                yield* sources.replaceSource({
-                  id: nextSource.id,
-                  expectedRevision: 1,
-                  name: 'new.txt',
-                  bytes: new TextEncoder().encode('new')
-                });
-
-              if (mode === 'reprocess') {
-                yield* sources.requestSourceProcessing({ id: nextSource.id, expectedRevision: 1 });
-                const replacement = yield* sources.sourceProcessing(nextSource.id);
-                const accepted = captured.pendingAttachments![0]!;
-
-                assert.strictEqual(BigInt(replacement.revision), accepted.inputRevision);
-                assert.notStrictEqual(replacement.requestId, accepted.requestId);
-                expect(
-                  yield* notes.inspectReplySnapshot({ requestId: nextRequest.requestId })
-                ).toStrictEqual(captured);
-              }
-
-              if (mode === 'unsupported') {
+              if (mode === 'ready-reference') {
                 const ingestion = context.db.orm
                   .select()
                   .from(tables.workflowEvents)
@@ -617,109 +516,243 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
                       item.type === 'SourceProcessingRequested' && item.sourceId === nextSource.id
                   );
 
-                assertEventType(ingestion, 'SourceProcessingRequested', 'missing ingestion');
+                assertEventType(
+                  { assert },
+                  ingestion,
+                  'SourceProcessingRequested',
+                  'missing ingestion'
+                );
 
-                yield* Effect.flip(
-                  withTestAdmission(
-                    context,
-                    sourceIngestionWorkflow,
-                    `ingestion-${mode}`,
-                    { event: ingestion },
-                    engine.execute(sourceIngestionWorkflow, {
-                      executionId: `ingestion-${mode}`,
-                      payload: { event: ingestion }
-                    })
-                  )
+                yield* withTestAdmission(
+                  context,
+                  sourceIngestionWorkflow,
+                  'ready-reference-source',
+                  { event: ingestion },
+                  engine.execute(sourceIngestionWorkflow, {
+                    executionId: 'ready-reference-source',
+                    payload: { event: ingestion }
+                  })
                 );
               }
-            }
 
-            const wake = context.db.orm
-              .select()
-              .from(tables.workflowEvents)
-              .all()
-              .filter((row) => row.payload !== '{}')
-              .map((item) => decodeEvent(item.payload))
-              .findLast(
-                (item) =>
-                  'sourceId' in item &&
-                  item.sourceId === nextSource.id &&
-                  (item.type === 'SourceDeleted' ||
-                    item.type === 'SourceProcessingRequested' ||
-                    item.type === 'SourceProcessingFailed')
-              );
+              yield* notes.postMessage({
+                noteId: nextNote.id,
+                text: 'Question',
+                sourceIds: blocker
+                  ? mode === 'later-pending'
+                    ? [blocker.id, nextSource.id]
+                    : [nextSource.id, blocker.id]
+                  : [nextSource.id]
+              });
+              const nextRequest = yield* notes.requestReply({ noteId: nextNote.id });
+              const captured = yield* notes.inspectReplySnapshot({
+                requestId: nextRequest.requestId
+              });
 
-            assertWakeEvent(wake);
+              yield* dispatchPending(context, noteReplyRegistration.triggers, Date.now());
+              const eventRow = context.db.orm
+                .select()
+                .from(tables.workflowEvents)
+                .where(eq(tables.workflowEvents.correlationId, nextRequest.requestId))
+                .get()!;
+              const nextEvent = decodeEvent(eventRow.payload);
 
-            yield* withTestAdmission(
-              context,
-              noteAttachmentWakeWorkflow,
-              `wake-${mode}`,
-              { event: wake },
-              engine.execute(noteAttachmentWakeWorkflow, {
-                executionId: `wake-${mode}`,
-                payload: { event: wake }
-              })
-            );
-            yield* assertReplyCompleted();
+              assert.ok(!(nextEvent.type !== 'NoteGenerationRequested'), 'wrong event');
 
-            function* assertReplyCompleted() {
-              let completed = false;
+              const nextReceipt = context.db.orm
+                .select()
+                .from(tables.workflowReceipts)
+                .where(eq(tables.workflowReceipts.eventId, nextEvent.eventId))
+                .get()!;
 
-              for (let i = 0; i < 100; i++) {
-                const observed = yield* engine.poll(noteReplyWorkflow, nextReceipt.executionId);
-
-                if (Option.isSome(observed) && observed.value._tag === 'Complete') {
-                  completed = true;
-                  break;
-                }
-
-                yield* Effect.sleep('10 millis');
-              }
-
-              assert.ok(
-                completed === true,
-                `source invalidation must resume the blocked ${mode} reply`
-              );
-            }
-
-            const error = yield* Effect.flip(
-              withTestAdmission(
+              yield* withTestAdmission(
                 context,
                 noteReplyWorkflow,
                 nextReceipt.executionId,
                 { event: nextEvent },
                 engine.execute(noteReplyWorkflow, {
                   executionId: nextReceipt.executionId,
-                  payload: { event: nextEvent }
+                  payload: { event: nextEvent },
+                  discard: true
                 })
-              )
-            );
+              );
+              const nextResult = yield* pollUntil(
+                engine.poll(noteReplyWorkflow, nextReceipt.executionId),
+                Option.isSome,
+                { attempts: 500, interval: '10 millis', message: 'Next note reply did not start' }
+              );
 
-            assert.ok(error.kind === 'invalid_input');
-            assert.strictEqual(calls, 2);
-            assert.strictEqual(
-              context.db.orm
+              assert.ok(nextResult.value._tag === 'Suspended');
+
+              if (['delete', 'later-pending', 'ready-reference'].includes(mode)) {
+                assert.ok(
+                  (yield* Effect.flip(sources.deleteSource({ id: nextSource.id }))).kind ===
+                    'invalid_input'
+                );
+                expect(
+                  yield* notes.inspectReplySnapshot({ requestId: nextRequest.requestId })
+                ).toStrictEqual(captured);
+                yield* notes.deleteNote(nextNote.id);
+                assert.strictEqual(yield* sources.deleteSource({ id: nextSource.id }), true);
+                assert.strictEqual(calls, 2);
+                assert.strictEqual(
+                  context.db.orm
+                    .select()
+                    .from(tables.note_reply_requests)
+                    .where(eq(tables.note_reply_requests.request_id, nextRequest.requestId))
+                    .get(),
+                  undefined
+                );
+
+                return;
+              }
+
+              yield* invalidateSource({ assert, expect });
+
+              function* invalidateSource({
+                assert: assertions,
+                expect
+              }: Pick<test.Context, 'assert' | 'expect'>) {
+                const assert: test.Assert = assertions;
+
+                if (mode === 'replace')
+                  yield* sources.replaceSource({
+                    id: nextSource.id,
+                    expectedRevision: 1,
+                    name: 'new.txt',
+                    bytes: new TextEncoder().encode('new')
+                  });
+
+                if (mode === 'reprocess') {
+                  yield* sources.requestSourceProcessing({
+                    id: nextSource.id,
+                    expectedRevision: 1
+                  });
+                  const replacement = yield* sources.sourceProcessing(nextSource.id);
+                  const accepted = captured.pendingAttachments![0]!;
+
+                  assert.strictEqual(BigInt(replacement.revision), accepted.inputRevision);
+                  assert.notStrictEqual(replacement.requestId, accepted.requestId);
+                  expect(
+                    yield* notes.inspectReplySnapshot({ requestId: nextRequest.requestId })
+                  ).toStrictEqual(captured);
+                }
+
+                if (mode === 'unsupported') {
+                  const ingestion = context.db.orm
+                    .select()
+                    .from(tables.workflowEvents)
+                    .all()
+                    .filter((row) => row.payload !== '{}')
+                    .map((item) => decodeEvent(item.payload))
+                    .find(
+                      (item) =>
+                        item.type === 'SourceProcessingRequested' && item.sourceId === nextSource.id
+                    );
+
+                  assertEventType(
+                    { assert },
+                    ingestion,
+                    'SourceProcessingRequested',
+                    'missing ingestion'
+                  );
+
+                  yield* Effect.flip(
+                    withTestAdmission(
+                      context,
+                      sourceIngestionWorkflow,
+                      `ingestion-${mode}`,
+                      { event: ingestion },
+                      engine.execute(sourceIngestionWorkflow, {
+                        executionId: `ingestion-${mode}`,
+                        payload: { event: ingestion }
+                      })
+                    )
+                  );
+                }
+              }
+
+              const wake = context.db.orm
                 .select()
-                .from(tables.note_reply_requests)
-                .where(eq(tables.note_reply_requests.request_id, nextRequest.requestId))
-                .get(),
-              undefined
-            );
-          }
-        }).pipe(Effect.provide(services))
-      )
-    );
-  } finally {
-    context.close();
-    await location.cleanup();
-  }
-});
+                .from(tables.workflowEvents)
+                .all()
+                .filter((row) => row.payload !== '{}')
+                .map((item) => decodeEvent(item.payload))
+                .findLast(
+                  (item) =>
+                    'sourceId' in item &&
+                    item.sourceId === nextSource.id &&
+                    (item.type === 'SourceDeleted' ||
+                      item.type === 'SourceProcessingRequested' ||
+                      item.type === 'SourceProcessingFailed')
+                );
 
-testStable(
+              assertWakeEvent({ assert }, wake);
+
+              yield* withTestAdmission(
+                context,
+                noteAttachmentWakeWorkflow,
+                `wake-${mode}`,
+                { event: wake },
+                engine.execute(noteAttachmentWakeWorkflow, {
+                  executionId: `wake-${mode}`,
+                  payload: { event: wake }
+                })
+              );
+              yield* assertReplyCompleted({ pollUntil });
+
+              function* assertReplyCompleted({ pollUntil }: Pick<test.Context, 'pollUntil'>) {
+                yield* pollUntil(
+                  engine.poll(noteReplyWorkflow, nextReceipt.executionId),
+                  (observed) => Option.isSome(observed) && observed.value._tag === 'Complete',
+                  {
+                    attempts: 100,
+                    interval: '10 millis',
+                    message: `source invalidation must resume the blocked ${mode} reply`
+                  }
+                );
+              }
+
+              const error = yield* Effect.flip(
+                withTestAdmission(
+                  context,
+                  noteReplyWorkflow,
+                  nextReceipt.executionId,
+                  { event: nextEvent },
+                  engine.execute(noteReplyWorkflow, {
+                    executionId: nextReceipt.executionId,
+                    payload: { event: nextEvent }
+                  })
+                )
+              );
+
+              assert.ok(error.kind === 'invalid_input');
+              assert.strictEqual(calls, 2);
+              assert.strictEqual(
+                context.db.orm
+                  .select()
+                  .from(tables.note_reply_requests)
+                  .where(eq(tables.note_reply_requests.request_id, nextRequest.requestId))
+                  .get(),
+                undefined
+              );
+            }
+          }).pipe(Effect.provide(services))
+        )
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
+  }
+);
+
+test.stable(
   'a pending reply survives reopening and protects its source until raw note deletion',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, createAiMock, pollUntil, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     let context = new ServerContext(await location.open());
     using mock = createAiMock();
     const services = () => {
@@ -798,7 +831,7 @@ testStable(
                 .get()!.payload
             );
 
-            assertEventType(event, 'NoteGenerationRequested', 'wrong event');
+            assertEventType({ assert }, event, 'NoteGenerationRequested', 'wrong event');
 
             yield* withTestAdmission(
               context,
@@ -811,12 +844,11 @@ testStable(
                 discard: true
               })
             );
-            let result = yield* engine.poll(noteReplyWorkflow, receipt.executionId);
-
-            while (Option.isNone(result)) {
-              yield* Effect.sleep('10 millis');
-              result = yield* engine.poll(noteReplyWorkflow, receipt.executionId);
-            }
+            const result = yield* pollUntil(
+              engine.poll(noteReplyWorkflow, receipt.executionId),
+              Option.isSome,
+              { attempts: 500, interval: '10 millis', message: 'Note reply did not start' }
+            );
 
             assert.ok(result.value._tag === 'Suspended');
 
@@ -860,7 +892,7 @@ testStable(
                 (event) => event.type === 'NoteDeletionRequested' && event.noteId === saved.noteId
               );
 
-            assertEventType(cleanup, 'NoteDeletionRequested', 'missing cleanup event');
+            assertEventType({ assert }, cleanup, 'NoteDeletionRequested', 'missing cleanup event');
             yield* withTestAdmission(
               context,
               noteDeletionWorkflow,
@@ -881,7 +913,7 @@ testStable(
               .map((row) => decodeEvent(row.payload))
               .find((event) => event.type === 'SourceDeleted' && event.sourceId === saved.sourceId);
 
-            assertEventType(deleted, 'SourceDeleted', 'missing deletion');
+            assertEventType({ assert }, deleted, 'SourceDeleted', 'missing deletion');
 
             yield* withTestAdmission(
               context,
@@ -912,19 +944,25 @@ testStable(
 );
 
 function assertEventType<T extends ReturnType<typeof decodeEvent>['type']>(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
   event: ReturnType<typeof decodeEvent> | undefined,
   type: T,
   message: string
 ): asserts event is Extract<ReturnType<typeof decodeEvent>, { type: T }> {
+  const assert: test.Assert = assertions;
+
   assert.ok(event && event.type === type, message);
 }
 
 function assertWakeEvent(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
   event: ReturnType<typeof decodeEvent> | undefined
 ): asserts event is Extract<
   ReturnType<typeof decodeEvent>,
   { type: 'SourceDeleted' | 'SourceProcessingRequested' | 'SourceProcessingFailed' }
 > {
+  const assert: test.Assert = assertions;
+
   assert.ok(
     event &&
       (event.type === 'SourceDeleted' ||

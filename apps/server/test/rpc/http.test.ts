@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies the web RPC adapter round-trips unary values, typed failures, bigint IDs, │
@@ -13,12 +14,8 @@
  * │ test owns and closes that peer.                                                          │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { testStable } from '@study/testing/vitest';
 import { Effect, Fiber, Schema, Stream } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { createRpcWebHandler } from '#server/platform/rpc/index';
@@ -75,25 +72,30 @@ async function withServer(
   }
 }
 
-testStable('serves unary values, typed failures and binary codecs over HTTP', async () => {
-  await withServer(async (url) => {
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const client = yield* makeStudyClient(Group, { baseUrl: url });
+test.stable(
+  'serves unary values, typed failures and binary codecs over HTTP',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-          assert.strictEqual(yield* client.echo({ value: 'hello' }), 'hello');
-          const data = { id: 9007199254740993n, bytes: new Uint8Array([0, 128, 255]) };
+    await withServer(async (url) => {
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const client = yield* makeStudyClient(Group, { baseUrl: url });
 
-          expect(yield* client.wire(data)).toStrictEqual(data);
-          expect(yield* Effect.flip(client.fail())).toStrictEqual({ kind: 'not_found' });
-        })
-      )
-    );
-  });
-});
+            assert.strictEqual(yield* client.echo({ value: 'hello' }), 'hello');
+            const data = { id: 9007199254740993n, bytes: new Uint8Array([0, 128, 255]) };
 
-testStable('cancels a streaming handler when its client scope closes', async () => {
+            expect(yield* client.wire(data)).toStrictEqual(data);
+            expect(yield* Effect.flip(client.fail())).toStrictEqual({ kind: 'not_found' });
+          })
+        )
+      );
+    });
+  }
+);
+
+test.stable('cancels a streaming handler when its client scope closes', async ({ expect }) => {
   await withServer(async (url, ended) => {
     const values = await Effect.runPromise(
       Effect.scoped(
@@ -115,9 +117,11 @@ testStable('cancels a streaming handler when its client scope closes', async () 
   });
 });
 
-testStable(
+test.stable(
   'allows desktop origins and rejects other origins before handling requests',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     await withServer(async (url) => {
       const allowed = await fetch(`${url}/rpc`, {
         method: 'OPTIONS',
@@ -139,35 +143,40 @@ testStable(
   }
 );
 
-testStable('retries discovery on a later call without replaying the failed call', async () => {
-  await withServer(async (url, _ended, calls) => {
-    let discoveries = 0;
+test.stable(
+  'retries discovery on a later call without replaying the failed call',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const client = yield* makeStudyClient(Group, {
-            baseUrl: () => {
-              discoveries++;
+    await withServer(async (url, _ended, calls) => {
+      let discoveries = 0;
 
-              assert.ok(!(discoveries === 1), 'unavailable');
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const client = yield* makeStudyClient(Group, {
+              baseUrl: () => {
+                discoveries++;
 
-              return url;
-            }
-          });
+                assert.ok(!(discoveries === 1), 'unavailable');
 
-          yield* Effect.flip(client.echo({ value: 'first' }));
-          assert.strictEqual(discoveries, 1);
-          assert.strictEqual(yield* client.echo({ value: 'second' }), 'second');
-          assert.strictEqual(discoveries, 2);
-          assert.strictEqual(calls(), 1);
-        })
-      )
-    );
-  });
-});
+                return url;
+              }
+            });
 
-testStable('disposes active handlers when the server shuts down', async () => {
+            yield* Effect.flip(client.echo({ value: 'first' }));
+            assert.strictEqual(discoveries, 1);
+            assert.strictEqual(yield* client.echo({ value: 'second' }), 'second');
+            assert.strictEqual(discoveries, 2);
+            assert.strictEqual(calls(), 1);
+          })
+        )
+      );
+    });
+  }
+);
+
+test.stable('disposes active handlers when the server shuts down', async () => {
   await withServer(async (url, ended, _calls, shutdown) => {
     let started!: () => void;
     const first = new Promise<void>((resolve) => {

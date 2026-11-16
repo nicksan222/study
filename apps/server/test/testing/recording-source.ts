@@ -1,3 +1,4 @@
+import { eq } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Publishes a real recording Source while preserving independently owned note        │
@@ -10,12 +11,10 @@
  * │ Test callers own isolated SQLite lifetimes and explicitly control provider responses.    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { eq } from '@study/db';
 import * as s from '@study/db';
+import type { test } from '@study/testing';
 import { Effect } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Recordings } from '#server/features/recordings/index';
@@ -29,7 +28,9 @@ import { withTestAdmission } from '#testing/workflow-admission';
 
 type SourceFixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
-export async function recordingSource(f: SourceFixture) {
+type TestAssertion = Pick<test.Context, 'assert'>['assert'];
+
+export async function recordingSource(f: SourceFixture, assert: TestAssertion) {
   const post = await Effect.runPromise(
     Effect.gen(function* () {
       const note = yield* (yield* Notes).createUntitledNote({});

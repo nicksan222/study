@@ -1,11 +1,10 @@
 import { projectIdSchema, materialSummarySchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { libraryItems } from './library.logic';
 
-testStable('filters practice materials by project and orders newest first', () => {
+test.stable('filters practice materials by project and orders newest first', ({ expect }) => {
   const project = Schema.decodeUnknownSync(projectIdSchema)(1n);
   const materials = Schema.decodeUnknownSync(Schema.Array(materialSummarySchema))(
     [

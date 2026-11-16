@@ -1,7 +1,6 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
 import fc from 'fast-check';
-import { assert, expect } from 'vite-plus/test';
 
 import { contentRangeSchema } from '../src/inputs.ts';
 import {
@@ -13,9 +12,11 @@ import {
 import type { BlockContent, Inline } from '../src/sources/schemas.ts';
 import { canonicalText, anchorSchema } from '../src/sources/schemas.ts';
 
-testStable(
+test.stable(
   'editor ranges use exact UTF-16 boundaries independently of source byte positions',
-  () => {
+  ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const block = createBlock(
       { type: 'paragraph', inlines: [{ type: 'text', text: 'é😀e\u0301', marks: [] }] },
       { type: 'text', lineStart: 1, lineEnd: 1, start: 100, end: 109 }
@@ -78,9 +79,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'source anchors reject nonfinite, unsafe, reversed and unsupported locations centrally',
-  () => {
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const valid = [
       { type: 'authored' },
       { type: 'page', page: 1 },
@@ -108,9 +111,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'Unicode editor offsets agree with independently enumerated code point boundaries',
-  () => {
+  ({ expect }) => {
     fc.assert(
       fc.property(
         fc.string({ unit: 'grapheme', maxLength: 40 }),
@@ -206,15 +209,18 @@ const content: fc.Arbitrary<BlockContent> = fc.oneof(
   })
 );
 
-testStable('rich content JSON roundtrips preserve every inline and canonical projection', () => {
-  fc.assert(
-    fc.property(content, (original) => {
-      const restored = decodeBlockContent(encodeBlockContent(original));
+test.stable(
+  'rich content JSON roundtrips preserve every inline and canonical projection',
+  ({ expect }) => {
+    fc.assert(
+      fc.property(content, (original) => {
+        const restored = decodeBlockContent(encodeBlockContent(original));
 
-      expect(restored).toEqual(original);
-      expect(encodeBlockContent(restored)).toBe(encodeBlockContent(original));
-      expect(canonicalText(restored)).toBe(canonicalText(original));
-    }),
-    { numRuns: 150 }
-  );
-});
+        expect(restored).toEqual(original);
+        expect(encodeBlockContent(restored)).toBe(encodeBlockContent(original));
+        expect(canonicalText(restored)).toBe(canonicalText(original));
+      }),
+      { numRuns: 150 }
+    );
+  }
+);

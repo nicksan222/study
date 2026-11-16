@@ -1,17 +1,19 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import * as database from '../src/index.ts';
 import { projects } from '../src/schema.ts';
 
-testStable(
+test.stable(
   'database facade executes parameterized queries and schema predicates on its connection',
-  async () => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     assert.strictEqual(typeof database.sql, 'function');
-    const db = await database.Db.open(':memory:');
+    const location = await databases();
+    const db = await location.open();
     const name = "a quoted ' project";
 
-    try {
+    {
       db.orm.insert(projects).values({ name, created_at: 1n, updated_at: 1n }).run();
       assert.strictEqual(
         db.orm.select().from(projects).where(database.eq(projects.name, name)).get()?.name,
@@ -20,8 +22,6 @@ testStable(
       const query: database.SQL = database.sql`SELECT ${name} AS value`;
 
       assert.strictEqual(db.orm.get<{ value: string }>(query)?.value, name);
-    } finally {
-      db.close();
     }
   }
 );

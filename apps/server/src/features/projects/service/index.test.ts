@@ -1,3 +1,4 @@
+import type { ProjectId } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies project validation, lookup semantics, pagination, and mutations through   │
@@ -13,22 +14,20 @@
  * │ fixtures stay local to these tests.                                                      │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { ProjectId } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Option } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 
 import { Projects } from './index.ts';
 
-testStable(
+test.stable(
   'projects enforce validation, distinguish missing records and page accurately',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Projects.layer.pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -70,10 +69,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'large project IDs survive reads and deletion cascades, while constraints roll back',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Projects.layer.pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))

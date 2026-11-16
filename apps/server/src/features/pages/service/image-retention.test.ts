@@ -1,3 +1,4 @@
+import { createBlock } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises authored Page image retention behavior through real persistence          │
@@ -11,14 +12,9 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { createBlock } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
@@ -27,10 +23,12 @@ import { Sources } from '#server/features/sources/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 
-testStable(
+test.stable(
   'authored images retain exact source bytes through replacement, unrelated draft cleanup and project deletion',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(Pages.layer, Materials.layer, Sources.layer, Projects.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))

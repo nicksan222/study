@@ -1,12 +1,14 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable(
+test.stable(
   'shared UI components reject local style props but native wrappers and type imports remain legal',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'shared-ui-variants',
       {
         'apps/client/src/example.tsx': `import { Button as Control } from "@study/ui";
@@ -22,14 +24,20 @@ export const view = <div className="layout"><Control className="p-2" /><Shell.He
   }
 );
 
-testStable('computed literal style props cannot bypass shared UI variants', async () => {
-  const diagnostics = await lintRule(
-    'shared-ui-variants',
-    {
-      'apps/client/src/example.tsx': `import { Button } from '@study/ui'; export const view = <Button {...{ ['style']: {} }} />;`
-    },
-    true
-  );
+test.stable(
+  'computed literal style props cannot bypass shared UI variants',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-});
+    const diagnostics = await lintRule(
+      { assert },
+      'shared-ui-variants',
+      {
+        'apps/client/src/example.tsx': `import { Button } from '@study/ui'; export const view = <Button {...{ ['style']: {} }} />;`
+      },
+      true
+    );
+
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  }
+);

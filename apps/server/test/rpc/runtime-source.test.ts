@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Creates and corrects sources through HTTP while the durable worker is stopped or   │
@@ -13,26 +14,21 @@
  * │ real SQLite and application resources; fixture cleanup closes owned resources.           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { Sources } from '#server/features/sources/index';
-import { App, serve } from '#server/runtime/index';
-import { pollUntil } from '#testing/poll';
+import { serve } from '#server/runtime/index';
 
-testStable(
+test.stable(
   'runtime consumes source requests made over HTTP and recovers pending requests on reopen',
   { timeout: 15000 },
-  async () => {
-    const location = await createTestDatabase();
-    let app = await App.open({ path: location.path });
+  async ({ resources: location, pollUntil, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    let app = await location.openApp({ path: location.path });
     let server = await serve(app);
 
     try {
@@ -53,11 +49,16 @@ testStable(
 
       await server.close();
       await app.close();
-      app = await App.open({ path: location.path });
+      app = await location.openApp({ path: location.path });
       server = await serve(app);
       await app.workers.start();
 
-      function* verifyRecoveredSource() {
+      function* verifyRecoveredSource({
+        pollUntil,
+        assert: assertions
+      }: Pick<test.Context, 'pollUntil' | 'assert'>) {
+        const assert: test.Assert = assertions;
+
         const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
 
         const state = yield* pollUntil(
@@ -88,21 +89,24 @@ testStable(
         assert.ok(document.document.blocks[0]?.text === 'Corrected');
       }
 
-      await Effect.runPromise(Effect.scoped(Effect.gen(verifyRecoveredSource)));
+      await Effect.runPromise(
+        Effect.scoped(Effect.gen(() => verifyRecoveredSource({ pollUntil, assert })))
+      );
     } finally {
       await server.close();
       await app.close();
-      await location.cleanup();
+      await location.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'running worker processes a source created through HTTP',
   { timeout: 10000 },
-  async () => {
-    const location = await createTestDatabase();
-    const app = await App.open({ path: location.path });
+  async ({ resources: location, pollUntil, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const app = await location.openApp({ path: location.path });
     const server = await serve(app);
 
     await app.workers.start();
@@ -138,17 +142,18 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      await location.cleanup();
+      await location.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'HTTP source upload retains exact original bytes and extraction history without authoring or projecting a Material',
   { timeout: 15000 },
-  async () => {
-    const location = await createTestDatabase();
-    const app = await App.open({ path: location.path });
+  async ({ resources: location, assert: assertions, expect, pollUntil }) => {
+    const assert: test.Assert = assertions;
+
+    const app = await location.openApp({ path: location.path });
     const server = await serve(app);
 
     await app.workers.start();
@@ -165,7 +170,12 @@ testStable(
               projectId: project.id
             });
 
-            function* waitForExtraction(text: string) {
+            function* waitForExtraction(
+              { pollUntil, assert: assertions }: Pick<test.Context, 'pollUntil' | 'assert'>,
+              text: string
+            ) {
+              const assert: test.Assert = assertions;
+
               const extraction = yield* pollUntil(
                 client['sources.currentExtraction']({ id: source.id }),
                 (value) => value?.document.blocks[0]?.text === text,
@@ -181,7 +191,10 @@ testStable(
               return extraction;
             }
 
-            const extracted = yield* waitForExtraction('Mitochondria generate ATP');
+            const extracted = yield* waitForExtraction(
+              { pollUntil, assert },
+              'Mitochondria generate ATP'
+            );
 
             assert.strictEqual(
               (yield* client['materials.materials']({
@@ -207,7 +220,10 @@ testStable(
             });
 
             assert.strictEqual(replaced.revision, 2);
-            const next = yield* waitForExtraction('Chloroplasts capture sunlight');
+            const next = yield* waitForExtraction(
+              { pollUntil, assert },
+              'Chloroplasts capture sunlight'
+            );
 
             assert.strictEqual(next.sourceId, extracted.sourceId);
             assert.notStrictEqual(next.snapshotId, extracted.snapshotId);
@@ -245,7 +261,7 @@ testStable(
           })
         )
       );
-      const check = await location.open();
+      const check = await location.openDb();
 
       try {
         const snapshots = check.orm.all(
@@ -265,7 +281,7 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      await location.cleanup();
+      await location.close();
     }
   }
 );

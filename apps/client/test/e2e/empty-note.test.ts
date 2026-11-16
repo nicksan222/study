@@ -1,12 +1,11 @@
 import { catalogs } from '@study/localization';
-
-import { expect, testE2e } from './harness/index.ts';
+import { test } from '@study/testing';
 
 const copy = catalogs.english;
 
-testE2e(
+test.stable(
   'Empty note drafts recover without creating notebooks',
-  async ({ page, expectScreenshot }) => {
+  async ({ page, expectScreenshot, expect }) => {
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
     const save = page.getByRole('button', { name: copy.NoteSaveNote, exact: true });
     const attach = page.getByTitle(copy.NoteAttachFiles, { exact: true });
@@ -21,7 +20,7 @@ testE2e(
       'Final observation: the corrected draft is complete.'
     ].join('\n\n');
 
-    async function reachableControls() {
+    async function reachableControls({ expect }: Pick<test.Context, 'expect'>) {
       for (const control of [composer, attach, save]) {
         await expect(control).toBeInViewport({ ratio: 1 });
 
@@ -50,7 +49,7 @@ testE2e(
       if (await save.isEnabled()) await save.click({ trial: true });
     }
 
-    async function invalidDraft() {
+    async function invalidDraft({ expect }: Pick<test.Context, 'expect'>) {
       await expect(save).toBeDisabled();
       await expect(save).not.toHaveAttribute('aria-busy', 'true');
       await composer.press('Control+Enter');
@@ -60,12 +59,12 @@ testE2e(
       await expect(save).toBeDisabled();
       await expect(save).not.toHaveAttribute('aria-busy', 'true');
       await expect(composer).toHaveAccessibleDescription(copy.NoteNotebookHint);
-      await reachableControls();
+      await reachableControls({ expect });
     }
 
     await page.goto('/notes');
     await expect(composer).toHaveValue('');
-    await invalidDraft();
+    await invalidDraft({ expect });
     await expectScreenshot('empty-validation', {
       target: 'viewport',
       ready: async () => {
@@ -78,10 +77,10 @@ testE2e(
       await composer.fill(`Observation draft ${cycle}: waiting for the measured river level.`);
       await expect(save).toBeEnabled();
       await expect(save).not.toHaveAttribute('aria-busy', 'true');
-      await reachableControls();
+      await reachableControls({ expect });
       await composer.fill(' \n ');
       await expect(composer).toHaveValue(' \n ');
-      await invalidDraft();
+      await invalidDraft({ expect });
     }
 
     await expectScreenshot('whitespace-validation', {
@@ -96,7 +95,7 @@ testE2e(
     await composer.fill(content);
     await expect(save).toBeEnabled();
     await composer.press('Control+Home');
-    await reachableControls();
+    await reachableControls({ expect });
     await composer.press('Control+End');
     await composer.press('End');
     await composer.press('!');
@@ -104,7 +103,7 @@ testE2e(
     const corrected = `${content}!`;
 
     await expect(composer).toHaveValue(corrected);
-    await reachableControls();
+    await reachableControls({ expect });
     await expectScreenshot('corrected-draft', {
       target: 'viewport',
       ready: () => expect(composer).toHaveValue(corrected)
@@ -120,7 +119,7 @@ testE2e(
     expect(await text.textContent()).toBe(corrected);
     await expect(noteLinks).toHaveCount(1);
     await expect(composer).toHaveValue('');
-    await reachableControls();
+    await reachableControls({ expect });
 
     const entryLabel = page.getByText(copy.NoteEntryNote, { exact: true });
 
@@ -143,7 +142,7 @@ testE2e(
         return noteBox && composerBox ? composerBox.y - (noteBox.y + noteBox.height) : -1;
       })
       .toBeGreaterThan(0);
-    await reachableControls();
+    await reachableControls({ expect });
     await composer.click();
     await expect(composer).toBeFocused();
     await expectScreenshot('corrected-saved', {

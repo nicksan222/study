@@ -1,10 +1,19 @@
 const libraryExportFacets: Readonly<Record<string, readonly string[]>> = {
-  contracts: ['react'],
+  contracts: ['react', 'testing', 'react/testing'],
   db: ['testing', 'schema-builder'],
   icons: [],
   integrations: [],
   localization: [],
-  testing: ['vitest', 'react/setup'],
+  testing: [
+    'vitest',
+    'resources',
+    'process',
+    'effect',
+    'playwright',
+    'react',
+    'react/setup',
+    'vite'
+  ],
   theme: [],
   // Embedded app surfaces share component CSS without the full application shell reset.
   ui: ['theme.css', 'styles.css', 'presentation.css']

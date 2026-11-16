@@ -1,3 +1,4 @@
+import { StudyError } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies schema validation and rollback in the shared mutation harness.            │
@@ -9,13 +10,9 @@
  * │ Exercises real typed stores and SQLite transactions without feature services.            │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyError } from '@study/contracts';
 import { preferences } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -43,10 +40,12 @@ const probe = defineStore({
   })
 });
 
-testStable(
+test.stable(
   'validated mutation rejects inputs and rolls back a typed store write on failure',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const failure = new StudyError('internal', 'write failed');
     const save = validatedMutation({

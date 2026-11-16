@@ -1,28 +1,47 @@
 import { noteSelectionTargetSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, cleanup, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import type { StudyClient } from '@study/contracts/react/testing';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { afterEach, expect, vi } from 'vite-plus/test';
 
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
-import type { StudyClient } from '#client/test/rpc.tsx';
+import type * as __MockType0 from '../document-editing/test-support';
+import type * as __MockType1 from './selection';
 
-import { authoredPage } from '../document-editing/test-support';
-import { SelectedTarget } from './selection';
+let authoredPage: typeof __MockType0.authoredPage;
 
-vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+let SelectedTarget: typeof __MockType1.SelectedTarget;
 
-const original = authoredPage(31n, 'Keep selected outside', 41n);
+function initializeOriginal() {
+  return authoredPage(31n, 'Keep selected outside', 41n);
+}
 
-const exact = original.version!;
+let original: ReturnType<typeof initializeOriginal>;
 
-const target = Schema.decodeUnknownSync(noteSelectionTargetSchema)({
-  input: { kind: 'page', versionId: exact.id },
-  scope: { kind: 'ranges', ranges: [{ blockId: exact.document.blocks[0]!.id, start: 5, end: 13 }] }
-});
+function initializeExact() {
+  return original.version!;
+}
 
-function mount(owner = { ...original, title: 'Mechanics' }) {
+let exact: ReturnType<typeof initializeExact>;
+
+function initializeTarget() {
+  return Schema.decodeUnknownSync(noteSelectionTargetSchema)({
+    input: { kind: 'page', versionId: exact.id },
+    scope: {
+      kind: 'ranges',
+      ranges: [{ blockId: exact.document.blocks[0]!.id, start: 5, end: 13 }]
+    }
+  });
+}
+
+let target: ReturnType<typeof initializeTarget>;
+
+function mount(
+  {
+    vi,
+    rpcHandlersTransport,
+    render
+  }: Pick<test.Context, 'vi' | 'rpcHandlersTransport' | 'render'>,
+  owner = { ...original, title: 'Mechanics' }
+) {
   const rpc = {
     'pages.version': vi.fn<StudyClient['pages.version']>().mockReturnValue(Effect.succeed(exact)),
     'pages.page': vi.fn<StudyClient['pages.page']>().mockReturnValue(Effect.succeed(owner))
@@ -35,14 +54,27 @@ function mount(owner = { ...original, title: 'Mechanics' }) {
   return { notify: fixture.notify, rpc };
 }
 
-afterEach(() => {
+test.beforeEach(async ({ mock }) => {
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  const __mockModule0 = await import('../document-editing/test-support');
+
+  authoredPage = __mockModule0.authoredPage;
+  const __mockModule1 = await import('./selection');
+
+  SelectedTarget = __mockModule1.SelectedTarget;
+  original = initializeOriginal();
+  exact = initializeExact();
+  target = initializeTarget();
+});
+
+test.afterEach(({ cleanup, vi }) => {
   cleanup();
   vi.resetAllMocks();
 });
-testStable(
+test.stable(
   'labels the retained authored version and excerpts only its selected range',
-  async () => {
-    const { rpc } = mount();
+  async ({ expect, screen, vi, rpcHandlersTransport, render }) => {
+    const { rpc } = mount({ vi, rpcHandlersTransport, render });
 
     expect(await screen.findByText('Mechanics')).toBeVisible();
     expect(await screen.findByText('selected')).toBeVisible();
@@ -53,15 +85,21 @@ testStable(
     expect(screen.queryByText('Keep selected outside')).toBeNull();
   }
 );
-testStable('does not display excerpts under a different authored owner identity', async () => {
-  mount(authoredPage(32n, 'Different owner', 52n));
-  expect(await screen.findByText('NoteReadUnavailable')).toBeVisible();
-  expect(screen.queryByText('selected')).toBeNull();
-});
-testStable(
+test.stable(
+  'does not display excerpts under a different authored owner identity',
+  async ({ expect, screen, vi, rpcHandlersTransport, render }) => {
+    mount({ vi, rpcHandlersTransport, render }, authoredPage(32n, 'Different owner', 52n));
+    expect(await screen.findByText('NoteReadUnavailable')).toBeVisible();
+    expect(screen.queryByText('selected')).toBeNull();
+  }
+);
+test.stable(
   'updates the catalog title without replacing retained content with the current authored version',
-  async () => {
-    const { notify, rpc } = mount({ ...original, title: 'Old catalog title' });
+  async ({ expect, screen, act, vi, rpcHandlersTransport, render }) => {
+    const { notify, rpc } = mount(
+      { vi, rpcHandlersTransport, render },
+      { ...original, title: 'Old catalog title' }
+    );
 
     expect(await screen.findByText('selected')).toBeVisible();
     expect(await screen.findByText('Old catalog title')).toBeVisible();
@@ -81,15 +119,18 @@ testStable(
   }
 );
 
-testStable('keeps the full selected content behind a native disclosure', async () => {
-  const user = userEvent.setup();
+test.stable(
+  'keeps the full selected content behind a native disclosure',
+  async ({ userEvent, expect, screen, vi, rpcHandlersTransport, render }) => {
+    const user = userEvent.setup();
 
-  mount();
-  expect(await screen.findByText('selected')).toBeVisible();
-  const disclosure = screen.getByText('NoteSelectionReadContent');
+    mount({ vi, rpcHandlersTransport, render });
+    expect(await screen.findByText('selected')).toBeVisible();
+    const disclosure = screen.getByText('NoteSelectionReadContent');
 
-  await user.click(disclosure);
-  expect(disclosure.closest('details')).toHaveAttribute('open');
-  expect(screen.getAllByText('selected')).toHaveLength(2);
-  expect(screen.queryByText('Keep selected outside')).toBeNull();
-});
+    await user.click(disclosure);
+    expect(disclosure.closest('details')).toHaveAttribute('open');
+    expect(screen.getAllByText('selected')).toHaveLength(2);
+    expect(screen.queryByText('Keep selected outside')).toBeNull();
+  }
+);

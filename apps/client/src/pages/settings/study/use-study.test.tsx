@@ -1,20 +1,24 @@
-import { testStable } from '@study/testing/vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
-import { beforeEach, expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport as settingsTransport } from '#client/test/rpc.tsx';
+import { test } from '@study/testing';
 
 import { useStudySettings } from './use-study';
 
-const api = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn() }));
+function createApi(mock: test.Mock) {
+  return { load: mock.fn(), save: mock.fn() };
+}
 
-beforeEach(() => {
-  api.load.mockReset().mockResolvedValue({ newCardsPerDay: 20 });
-  api.save.mockReset().mockResolvedValue({});
+let api: ReturnType<typeof createApi>;
+
+test.beforeEach(({ mock }) => {
+  api = createApi(mock);
+  api.load.mockResolvedValue({ newCardsPerDay: 20 });
+  api.save.mockResolvedValue({});
 });
 
-function setup() {
-  const fixture = settingsTransport(async (tag, input) => {
+function setup({
+  rpcTestTransport,
+  renderHook
+}: Pick<test.Context, 'rpcTestTransport' | 'renderHook'>) {
+  const fixture = rpcTestTransport(async (tag, input) => {
     if (tag === 'settings.reviewSettings') return api.load();
 
     if (tag === 'settings.saveReviewSettings') {
@@ -31,10 +35,10 @@ function setup() {
   return renderHook(() => useStudySettings(), { wrapper: fixture.wrapper });
 }
 
-testStable(
+test.stable(
   'rejects empty, fractional and out-of-range values without sending a request',
-  async () => {
-    const { result } = setup();
+  async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
+    const { result } = setup({ rpcTestTransport, renderHook });
 
     await waitFor(() => expect(result.current.draft).toBe('20'));
 
@@ -48,27 +52,33 @@ testStable(
   }
 );
 
-testStable('saves zero and reloads the committed allowance', async () => {
-  const { result } = setup();
+test.stable(
+  'saves zero and reloads the committed allowance',
+  async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
+    const { result } = setup({ rpcTestTransport, renderHook });
 
-  await waitFor(() => expect(result.current.draft).toBe('20'));
-  api.load.mockResolvedValue({ newCardsPerDay: 0 });
-  act(() => result.current.setDraft('0'));
-  act(() => result.current.save());
-  await waitFor(() => expect(api.save).toHaveBeenCalledWith({ newCardsPerDay: 0 }));
-  await waitFor(() => expect(result.current.data?.newCardsPerDay).toBe(0));
-  expect(result.current.changed).toBe(false);
-});
+    await waitFor(() => expect(result.current.draft).toBe('20'));
+    api.load.mockResolvedValue({ newCardsPerDay: 0 });
+    act(() => result.current.setDraft('0'));
+    act(() => result.current.save());
+    await waitFor(() => expect(api.save).toHaveBeenCalledWith({ newCardsPerDay: 0 }));
+    await waitFor(() => expect(result.current.data?.newCardsPerDay).toBe(0));
+    expect(result.current.changed).toBe(false);
+  }
+);
 
-testStable('restores the saved allowance on failure and recovers by retrying', async () => {
-  const { result } = setup();
+test.stable(
+  'restores the saved allowance on failure and recovers by retrying',
+  async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
+    const { result } = setup({ rpcTestTransport, renderHook });
 
-  await waitFor(() => expect(result.current.draft).toBe('20'));
-  api.save.mockRejectedValue(new Error('offline'));
-  act(() => result.current.setDraft('30'));
-  act(() => result.current.save());
-  await waitFor(() => expect(result.current.error).toBe(true));
-  expect(result.current.draft).toBe('30');
-  act(() => result.current.retry());
-  await waitFor(() => expect(result.current.error).toBe(false));
-});
+    await waitFor(() => expect(result.current.draft).toBe('20'));
+    api.save.mockRejectedValue(new Error('offline'));
+    act(() => result.current.setDraft('30'));
+    act(() => result.current.save());
+    await waitFor(() => expect(result.current.error).toBe(true));
+    expect(result.current.draft).toBe('30');
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.error).toBe(false));
+  }
+);

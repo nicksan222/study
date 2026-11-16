@@ -1,15 +1,12 @@
 import { createBlock, canonicalText } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { useState } from 'react';
-import { expect } from 'vite-plus/test';
 
 import { BlockEditor, authoredCopy, blankDocument } from './block-editor';
 
-testStable(
+test.stable(
   'edits a text run without flattening marks, links or neighboring structures',
-  async () => {
+  async ({ render, screen, userEvent, expect }) => {
     const paragraph = createBlock({
       type: 'paragraph',
       inlines: [
@@ -73,9 +70,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'gives independent copies fresh authored identities while preserving rich content',
-  () => {
+  ({ expect }) => {
     const block = createBlock(
       { type: 'code', code: 'const n = 1;', language: 'ts' },
       { type: 'authored' }

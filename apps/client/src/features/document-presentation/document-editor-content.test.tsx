@@ -1,12 +1,10 @@
 import { sourceIdSchema, createBlock } from '@study/contracts';
 import type { BlockContent } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { StructuredEditor } from '@study/ui';
 import type { StructuredEditorInstance } from '@study/ui';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Schema } from 'effect';
 import { useState } from 'react';
-import { expect, vi } from 'vite-plus/test';
 
 import { blankDocument } from '../document-editing/block-editor';
 import { documentToEditor, editorToDocument } from './document-editor-content';
@@ -68,9 +66,9 @@ const labels = {
   superscript: 'Superscript'
 };
 
-testStable(
+test.stable(
   'retains imported rich structures, source anchors and block identity through the real editor',
-  async () => {
+  async ({ vi, render, expect, screen, fireEvent, waitFor }) => {
     const content: BlockContent[] = [
       {
         type: 'heading',
@@ -149,9 +147,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'edits formatting without flattening neighboring tables and gives split blocks fresh identities',
-  async () => {
+  async ({ vi, render, fireEvent, screen, waitFor, expect }) => {
     const document = {
       ...blankDocument(),
       blocks: [
@@ -190,9 +188,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'keeps the caret and undo history when newly authored blocks receive database identities',
-  async () => {
+  async ({ render, screen, act, expect, waitFor }) => {
     function Controlled() {
       const [document, change] = useState(() => ({
         ...blankDocument(),
@@ -251,9 +249,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'inserts a table through the document controls and preserves it as canonical content',
-  async () => {
+  async ({ vi, render, fireEvent, screen, within, waitFor, expect }) => {
     const document = blankDocument();
     const onChange = vi.fn();
 
@@ -270,7 +268,9 @@ testStable(
     const dialog = await screen.findByRole('dialog', { name: 'Insert table' });
 
     fireEvent.change(within(dialog).getByLabelText('Rows'), { target: { value: '2' } });
-    fireEvent.change(within(dialog).getByLabelText('Columns'), { target: { value: '3' } });
+    fireEvent.change(within(dialog).getByLabelText('Columns'), {
+      target: { value: '3' }
+    });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Insert table' }));
     await waitFor(() => expect(screen.getByRole('table').querySelectorAll('tr')).toHaveLength(2));
     const result = editorToDocument(onChange.mock.calls.at(-1)![0], document);
@@ -286,9 +286,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'inserts an uploaded image as a durable source reference and displays the image',
-  async () => {
+  async ({ vi, render, fireEvent, screen, waitFor, expect }) => {
     const document = blankDocument();
     const onChange = vi.fn();
     const upload = vi.fn().mockResolvedValue({ sourceId: '17', revision: 1, alt: 'Diagram' });
@@ -321,9 +321,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'keeps merged table cells and column widths through a native Tiptap edit and canonical round trip',
-  async () => {
+  async ({ vi, render, screen, act, waitFor, expect }) => {
     const document = {
       ...blankDocument(),
       blocks: [
@@ -378,9 +378,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'right-click formatting applies to the selected text and leaves its neighbors unchanged',
-  async () => {
+  async ({ vi, render, screen, act, fireEvent, within, waitFor, expect }) => {
     const document = {
       ...blankDocument(),
       blocks: [createBlock({ type: 'paragraph', inlines: plain('Selected neighbor') })]
@@ -420,9 +420,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'right-clicking an image selects it and edits its description without changing its retained identity',
-  async () => {
+  async ({ vi, render, screen, fireEvent, within, expect, waitFor }) => {
     const document = {
       ...blankDocument(),
       blocks: [
@@ -474,9 +474,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'adds a link to the selected text and retains its formatting through save and reload',
-  async () => {
+  async ({ vi, render, screen, act, fireEvent, within, waitFor, expect }) => {
     const document = {
       ...blankDocument(),
       blocks: [createBlock({ type: 'paragraph', inlines: plain('Selected neighbor') })]
@@ -523,9 +523,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'right-clicking a table cell offers native row actions even when the caret was outside the table',
-  async () => {
+  async ({ vi, render, fireEvent, screen, within, waitFor, expect }) => {
     const document = {
       ...blankDocument(),
       blocks: [
@@ -559,34 +559,37 @@ testStable(
   }
 );
 
-testStable('read-only rendering preserves anchors and removes editing controls', () => {
-  const block = createBlock({ type: 'heading', level: 2, inlines: plain('Source heading') });
-  const onChange = vi.fn();
-  const { container } = render(
-    <StructuredEditor
-      value={documentToEditor({ ...blankDocument(), blocks: [block] })}
-      onChange={onChange}
-      labels={labels}
-      label="Source"
-      placeholder="Write"
-      readOnly
-    />
-  );
+test.stable(
+  'read-only rendering preserves anchors and removes editing controls',
+  ({ vi, render, expect, screen, fireEvent }) => {
+    const block = createBlock({ type: 'heading', level: 2, inlines: plain('Source heading') });
+    const onChange = vi.fn();
+    const { container } = render(
+      <StructuredEditor
+        value={documentToEditor({ ...blankDocument(), blocks: [block] })}
+        onChange={onChange}
+        labels={labels}
+        label="Source"
+        placeholder="Write"
+        readOnly
+      />
+    );
 
-  expect(screen.getByRole('heading', { name: 'Source heading' })).toHaveAttribute(
-    'id',
-    `block-${block.id}`
-  );
-  expect(container.querySelector('[contenteditable="false"]')).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: /^Text style: / })).not.toBeInTheDocument();
-  fireEvent.contextMenu(screen.getByText('Source heading'));
-  expect(screen.queryByRole('menu')).not.toBeInTheDocument();
-  expect(onChange).not.toHaveBeenCalled();
-});
+    expect(screen.getByRole('heading', { name: 'Source heading' })).toHaveAttribute(
+      'id',
+      `block-${block.id}`
+    );
+    expect(container.querySelector('[contenteditable="false"]')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Text style: / })).not.toBeInTheDocument();
+    fireEvent.contextMenu(screen.getByText('Source heading'));
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  }
+);
 
-testStable(
+test.stable(
   'source previews retain list continuations, explicit numbering and reference destinations',
-  () => {
+  ({ vi, render, expect, screen }) => {
     const document = {
       ...blankDocument(),
       blocks: [
@@ -646,9 +649,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'splitting authored content keeps original anchors and continues explicit list numbering',
-  () => {
+  ({ render, screen, act, expect }) => {
     const paragraph = createBlock({ type: 'paragraph', inlines: plain('Paragraph') });
     const list = createBlock({
       type: 'list_item',

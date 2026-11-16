@@ -1,3 +1,4 @@
+import { eq, sql } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises recording publication workflows across note and source features          │
@@ -13,14 +14,10 @@
  * │ fixtures stay local to these tests.                                                      │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { eq, sql } from '@study/db';
 import * as tables from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
-import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Projects } from '#server/features/projects/index';
@@ -35,10 +32,12 @@ import { admitTestExecution } from '#testing/workflow-admission';
 import { recordingPostHandler, recordingPostWorkflow } from './index.ts';
 
 for (const deleteCommittedMessage of [false, true])
-  testStable(
+  test.stable(
     `same-version recording replay after reopen preserves ${deleteCommittedMessage ? 'deleted' : 'retained'} messages`,
-    async () => {
-      const location = await createTestDatabase();
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
+      const location = await databases();
       let context = new ServerContext(await location.open());
       const services = () =>
         Layer.mergeAll(Projects.layer, Notes.layer, Sources.layer, Recordings.layer).pipe(

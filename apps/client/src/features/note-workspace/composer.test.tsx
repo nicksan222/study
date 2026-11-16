@@ -4,37 +4,24 @@ import {
   askResultSchema,
   defaultWorkspacePreferences
 } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
-import { beforeEach, expect, vi } from 'vite-plus/test';
 
-import { rpcTestTransport } from '#client/test/rpc.tsx';
+let Composer: typeof __MockType0.Composer;
 
-import { Composer } from './composer';
-import { composerDraft } from './composer.queries';
+let composerDraft: typeof __MockType1.composerDraft;
+
+import type * as __MockType0 from './composer';
+import type * as __MockType1 from './composer.queries';
 import type * as NoteQueries from './note-workspace.queries';
-import { ask, saveNote } from './note-workspace.queries';
+import type * as __MockType2 from './note-workspace.queries';
 
-vi.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: 'italian' })
-}));
-vi.mock('./note-workspace.queries', async (importOriginal) => {
-  const actual = await importOriginal<typeof NoteQueries>();
+let ask: typeof __MockType2.ask;
 
-  return {
-    ...actual,
-    ask: vi.fn(),
-    saveNote: vi.fn()
-  };
-});
+let saveNote: typeof __MockType2.saveNote;
 
-const preferences = vi.hoisted(() => ({ submitOnEnter: false }));
-
-vi.mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
-  useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, ...preferences })
-}));
+let preferences: ReturnType<typeof createMockState>['preferences'];
 
 const id = Schema.decodeUnknownSync(noteIdSchema)(9007199254740993n);
 
@@ -47,9 +34,50 @@ const receipt = Schema.decodeUnknownSync(askResultSchema)({
   userVersionId: 2n
 });
 
-beforeEach(() => vi.clearAllMocks());
+function createMockState() {
+  return {
+    preferences: (() => ({ submitOnEnter: false }))()
+  };
+}
 
-function mount(cache = AtomRegistry.make()) {
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState();
+
+  preferences = __mockState.preferences;
+
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({ t: (key: string) => key, locale: 'italian' })
+  }));
+  mock('#client/features/note-workspace/note-workspace.queries', async (importOriginal) => {
+    const actual = await importOriginal<typeof NoteQueries>();
+
+    return {
+      ...actual,
+      ask: mock.fn(),
+      saveNote: mock.fn()
+    };
+  });
+  mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
+    useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, ...preferences })
+  }));
+  const __mockModule0 = await import('./composer');
+
+  Composer = __mockModule0.Composer;
+  const __mockModule1 = await import('./composer.queries');
+
+  composerDraft = __mockModule1.composerDraft;
+  const __mockModule2 = await import('./note-workspace.queries');
+
+  ask = __mockModule2.ask;
+  saveNote = __mockModule2.saveNote;
+});
+
+test.beforeEach(({ vi }) => vi.clearAllMocks());
+
+function mount(
+  { rpcTestTransport, render }: Pick<test.Context, 'rpcTestTransport' | 'render'>,
+  cache = AtomRegistry.make()
+) {
   const { wrapper: Provider } = rpcTestTransport(async (tag) => {
     if (tag === 'notes.noteSelection') return { revision: 8n, targets: [] };
 
@@ -66,9 +94,9 @@ function mount(cache = AtomRegistry.make()) {
   };
 }
 
-testStable(
+test.stable(
   'captures a note without chat controls and preserves later typing after its save',
-  async () => {
+  async ({ vi, expect, screen, fireEvent, waitFor, act, rpcTestTransport, render }) => {
     let resolve!: (value: Awaited<ReturnType<typeof saveNote>>) => void;
 
     vi.mocked(saveNote).mockImplementation(
@@ -77,7 +105,7 @@ testStable(
           resolve = accept;
         })
     );
-    mount();
+    mount({ rpcTestTransport, render });
     expect(screen.queryByRole('button', { name: 'NoteAsk' })).toBeNull();
     expect(screen.queryByTitle('NoteGenerationPreferences')).toBeNull();
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Lecture notes' } });
@@ -91,9 +119,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'recovers an already stored ambiguous Ask after navigation without exposing new chat controls',
-  async () => {
+  async ({ vi, expect, screen, fireEvent, waitFor, rpcTestTransport, render }) => {
     vi.mocked(ask)
       .mockRejectedValueOnce(new StudyError('transient', 'Unconfirmed'))
       .mockResolvedValueOnce(receipt);
@@ -110,14 +138,16 @@ testStable(
       instruction: '',
       askAttempt: submitted
     });
-    const first = mount(cache);
+    const first = mount({ rpcTestTransport, render }, cache);
 
     expect(screen.queryByRole('button', { name: 'NoteAsk' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'NoteRetryAsk' }));
     await screen.findByRole('alert');
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Do not send this yet' } });
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: 'Do not send this yet' }
+    });
     first.unmount();
-    mount(cache);
+    mount({ rpcTestTransport, render }, cache);
     fireEvent.click(screen.getByRole('button', { name: 'NoteRetryAsk' }));
     await waitFor(() => expect(ask).toHaveBeenCalledTimes(2));
     expect(vi.mocked(ask).mock.calls[1]![0]).toEqual(submitted);
@@ -126,68 +156,82 @@ testStable(
   }
 );
 
-testStable('does not automatically resubmit a note whose save was not confirmed', async () => {
-  vi.mocked(saveNote).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
-  mount();
-  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Keep this note' } });
-  await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
-  fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
-  await screen.findByText('NoteNoteUncertain');
-  expect(saveNote).toHaveBeenCalledTimes(1);
-  expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
-  expect(screen.getByRole('textbox')).toHaveValue('Keep this note');
-  expect(ask).not.toHaveBeenCalled();
-});
+test.stable(
+  'does not automatically resubmit a note whose save was not confirmed',
+  async ({ vi, fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
+    vi.mocked(saveNote).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
+    mount({ rpcTestTransport, render });
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Keep this note' } });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
+    await screen.findByText('NoteNoteUncertain');
+    expect(saveNote).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
+    expect(screen.getByRole('textbox')).toHaveValue('Keep this note');
+    expect(ask).not.toHaveBeenCalled();
+  }
+);
 
-testStable('keeps plain capture available while selection edits remain unsaved', async () => {
-  const cache = AtomRegistry.make();
+test.stable(
+  'keeps plain capture available while selection edits remain unsaved',
+  async ({ vi, fireEvent, screen, expect, waitFor, rpcTestTransport, render }) => {
+    const cache = AtomRegistry.make();
 
-  vi.mocked(saveNote).mockResolvedValue({} as Awaited<ReturnType<typeof saveNote>>);
-  mount(cache);
-  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A quick note' } });
-  expect(screen.queryByRole('button', { name: 'NoteAsk' })).toBeNull();
-  await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
-  fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
-  await waitFor(() => expect(saveNote).toHaveBeenCalledWith(id, 'A quick note', []));
-  expect(ask).not.toHaveBeenCalled();
-});
-
-testStable(
-  'saves a note with the primary keyboard shortcut without asking for a reply',
-  async () => {
     vi.mocked(saveNote).mockResolvedValue({} as Awaited<ReturnType<typeof saveNote>>);
-    mount();
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Rough lecture notes' } });
+    mount({ rpcTestTransport, render }, cache);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A quick note' } });
+    expect(screen.queryByRole('button', { name: 'NoteAsk' })).toBeNull();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
+    await waitFor(() => expect(saveNote).toHaveBeenCalledWith(id, 'A quick note', []));
+    expect(ask).not.toHaveBeenCalled();
+  }
+);
+
+test.stable(
+  'saves a note with the primary keyboard shortcut without asking for a reply',
+  async ({ vi, fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
+    vi.mocked(saveNote).mockResolvedValue({} as Awaited<ReturnType<typeof saveNote>>);
+    mount({ rpcTestTransport, render });
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: 'Rough lecture notes' }
+    });
     fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter', ctrlKey: true });
     await waitFor(() => expect(saveNote).toHaveBeenCalledWith(id, 'Rough lecture notes', []));
     expect(ask).not.toHaveBeenCalled();
   }
 );
 
-testStable('keeps Enter and composition keystrokes in the notebook editor', () => {
-  mount();
-  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'First line' } });
-  fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
-  fireEvent.keyDown(screen.getByRole('textbox'), {
-    key: 'Enter',
-    ctrlKey: true,
-    isComposing: true
-  });
-  expect(saveNote).not.toHaveBeenCalled();
-  expect(ask).not.toHaveBeenCalled();
-});
+test.stable(
+  'keeps Enter and composition keystrokes in the notebook editor',
+  ({ fireEvent, screen, expect, rpcTestTransport, render }) => {
+    mount({ rpcTestTransport, render });
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'First line' } });
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
+    fireEvent.keyDown(screen.getByRole('textbox'), {
+      key: 'Enter',
+      ctrlKey: true,
+      isComposing: true
+    });
+    expect(saveNote).not.toHaveBeenCalled();
+    expect(ask).not.toHaveBeenCalled();
+  }
+);
 
-testStable('optionally submits Enter while preserving Shift+Enter and composition', async () => {
-  preferences.submitOnEnter = true;
-  vi.mocked(saveNote).mockImplementation(() => new Promise(() => {}));
-  mount();
-  const input = screen.getByRole('textbox');
+test.stable(
+  'optionally submits Enter while preserving Shift+Enter and composition',
+  async ({ vi, screen, fireEvent, expect, waitFor, rpcTestTransport, render }) => {
+    preferences.submitOnEnter = true;
+    vi.mocked(saveNote).mockImplementation(() => new Promise(() => {}));
+    mount({ rpcTestTransport, render });
+    const input = screen.getByRole('textbox');
 
-  fireEvent.change(input, { target: { value: 'Quick thought' } });
-  fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
-  fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
-  expect(saveNote).not.toHaveBeenCalled();
-  fireEvent.keyDown(input, { key: 'Enter' });
-  await waitFor(() => expect(saveNote).toHaveBeenCalledTimes(1));
-  preferences.submitOnEnter = false;
-});
+    fireEvent.change(input, { target: { value: 'Quick thought' } });
+    fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+    expect(saveNote).not.toHaveBeenCalled();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(saveNote).toHaveBeenCalledTimes(1));
+    preferences.submitOnEnter = false;
+  }
+);

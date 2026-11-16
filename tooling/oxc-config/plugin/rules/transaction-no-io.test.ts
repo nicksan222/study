@@ -1,12 +1,13 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable(
+test.stable(
   'rejects network requests inside database transactions while allowing tests',
-  async () => {
-    const diagnostics = await lintRule('transaction-no-io', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'transaction-no-io', {
       'src/bad.ts':
         "import { Db } from '@study/db'; const db = Db.open(':memory:'); db.transaction(() => fetch(url));",
       'src/good.ts':
@@ -20,25 +21,32 @@ testStable(
   }
 );
 
-testStable('transaction-no-io handles aliases and avoids unrelated bindings', async () => {
-  const diagnostics = await lintRule('transaction-no-io', {
-    'src/bad.ts': `import { Db } from '@study/db';
+test.stable(
+  'transaction-no-io handles aliases and avoids unrelated bindings',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'transaction-no-io', {
+      'src/bad.ts': `import { Db } from '@study/db';
  import { readFileSync as read } from 'node:fs';
  function f(db: Db) { db.transaction(() => { read(path);
  });
  }`,
-    'src/good.ts':
-      "import { Db } from '@study/db'; function f(db: Db, fetch) { db.transaction(() => fetch(url)); }"
-  });
+      'src/good.ts':
+        "import { Db } from '@study/db'; function f(db: Db, fetch) { db.transaction(() => fetch(url)); }"
+    });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
-});
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+  }
+);
 
-testStable(
+test.stable(
   'named transaction callbacks cannot hide external I/O behind database aliases',
-  async () => {
-    const diagnostics = await lintRule('transaction-no-io', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'transaction-no-io', {
       'src/bad.ts': `import type { ServerContext } from '#server/runtime/context';
 function operation(ctx: ServerContext) { const db = ctx.db;
 const work = () => { fetch(url);

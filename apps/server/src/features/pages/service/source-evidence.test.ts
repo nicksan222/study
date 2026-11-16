@@ -1,3 +1,4 @@
+import { NotesRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises authored Page source evidence behavior through real persistence          │
@@ -11,18 +12,13 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { NotesRpc } from '@study/contracts';
 import { PagesRpc } from '@study/contracts';
 import { createBlock, correctBlockText } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { NotesRpcLive } from '#server/features/notes/rpc/index';
@@ -36,7 +32,12 @@ import { decodeEvent } from '#server/platform/workflows/events';
 import { testLiveQueries } from '#testing/live-queries';
 import { withTestPublication } from '#testing/publication';
 
-function requireRow<T>(value: T | null | undefined): T {
+function requireRow<T>(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  value: T | null | undefined
+): T {
+  const assert: test.Assert = assertions;
+
   assert.ok(value !== null && value !== undefined);
 
   return value;
@@ -54,10 +55,12 @@ const meta = {
   omissions: []
 };
 
-testStable(
+test.stable(
   'source correction and replacement retain exact citations, independent authored copies and user judgments',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const handlers = Layer.mergeAll(
       PagesRpcLive.pipe(Layer.provide(testLiveQueries)),
@@ -83,8 +86,13 @@ testStable(
               { type: 'paragraph', inlines: [{ type: 'text', text: 'A😀B original', marks: [] }] },
               { type: 'text', lineStart: 0, lineEnd: 0, start: 0, end: 'A😀B original'.length }
             );
-            const publish = (document: { blocks: (typeof block)[]; meta: typeof meta }) =>
-              Effect.gen(function* () {
+            const publish = (
+              { assert: assertions }: Pick<test.Context, 'assert'>,
+              document: { blocks: (typeof block)[]; meta: typeof meta }
+            ) => {
+              const assert: test.Assert = assertions;
+
+              return Effect.gen(function* () {
                 const state = yield* sources.sourceProcessing(source.id);
                 const row = context.db.orm.get(
                   sql`SELECT payload FROM workflow_events WHERE correlation_id=${state.requestId} ORDER BY rowid DESC LIMIT 1`
@@ -107,7 +115,8 @@ testStable(
 
                 return current.snapshotId;
               });
-            const first = yield* publish({ blocks: [block], meta });
+            };
+            const first = yield* publish({ assert }, { blocks: [block], meta });
             const input = {
               kind: 'source' as const,
               sourceId: source.id,
@@ -116,11 +125,11 @@ testStable(
             };
 
             assert.strictEqual(
-              requireRow(context.db.orm.get(sql`SELECT count(*) n FROM materials`)).n,
+              requireRow({ assert }, context.db.orm.get(sql`SELECT count(*) n FROM materials`)).n,
               0n
             );
             assert.strictEqual(
-              requireRow(context.db.orm.get(sql`SELECT count(*) n FROM pages`)).n,
+              requireRow({ assert }, context.db.orm.get(sql`SELECT count(*) n FROM pages`)).n,
               0n
             );
             const note = yield* rpc['notes.createNote']({ title: 'Historic source' });
@@ -240,10 +249,13 @@ testStable(
               block.text
             );
             assert.ok((yield* support()).items[0]?.state === 'stale');
-            const corrected = yield* publish({
-              blocks: [correctBlockText(block, 'A😀B corrected')],
-              meta: { ...meta, corrected: true }
-            });
+            const corrected = yield* publish(
+              { assert },
+              {
+                blocks: [correctBlockText(block, 'A😀B corrected')],
+                meta: { ...meta, corrected: true }
+              }
+            );
 
             assert.notStrictEqual(corrected, first);
             assert.strictEqual(
@@ -312,7 +324,7 @@ testStable(
               (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind === 'invalid_input'
             );
             assert.strictEqual(
-              requireRow(context.db.orm.get(sql`SELECT count(*) n FROM materials`)).n,
+              requireRow({ assert }, context.db.orm.get(sql`SELECT count(*) n FROM materials`)).n,
               0n
             );
             expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);

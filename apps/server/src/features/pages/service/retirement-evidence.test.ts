@@ -1,3 +1,4 @@
+import type { PageVersion } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Body retirement preserves honest annotation metadata and protects exact retained   │
@@ -11,19 +12,18 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { PageVersion } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { Pages } from '#server/features/pages/index';
 import { deletionDocument } from '#testing/material-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
-function create(title: string, text: string) {
+function create({ assert: assertions }: Pick<test.Context, 'assert'>, title: string, text: string) {
+  const assert: test.Assert = assertions;
+
   return Effect.flatMap(Pages, (docs) =>
     docs.create({
       createKey: crypto.randomUUID(),
@@ -41,16 +41,18 @@ function create(title: string, text: string) {
   );
 }
 
-testStable(
+test.stable(
   'entity deletion scrubs owned metadata and annotation history atomically across reopen',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
       const saved = await Effect.runPromise(
         Effect.gen(function* () {
           const docs = yield* Pages;
-          const page = yield* create('PRIVATE_TITLE', 'First body');
+          const page = yield* create({ assert }, 'PRIVATE_TITLE', 'First body');
 
           assert.ok(page.version);
           yield* docs.updateMetadata({
@@ -139,16 +141,18 @@ function target(version: PageVersion) {
   };
 }
 
-testStable(
+test.stable(
   'history retirement hides annotations on removed bodies before pagination while retaining explicit note revision metadata',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
       const saved = await Effect.runPromise(
         Effect.gen(function* () {
           const docs = yield* Pages;
-          const document = yield* create('Annotations', 'Retained annotated content');
+          const document = yield* create({ assert }, 'Annotations', 'Retained annotated content');
           const oldTarget = target(document.version);
           const hidden = yield* docs.createAnnotation({
             target: oldTarget,
@@ -218,8 +222,10 @@ testStable(
           };
         }).pipe(Effect.provide(f.domain()))
       );
-      const visible = () =>
-        Effect.runPromise(
+      const visible = ({ assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>) => {
+        const assert: test.Assert = assertions;
+
+        return Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Pages;
 
@@ -260,10 +266,11 @@ testStable(
             assert.ok(prior.nextCursor === null);
           }).pipe(Effect.provide(f.domain()))
         );
+      };
 
-      await visible();
+      await visible({ assert, expect });
       await f.reopen();
-      await visible();
+      await visible({ assert, expect });
       assert.strictEqual(
         f.context.db.orm.select().from(s.page_annotation_revisions).all().length,
         5
@@ -276,16 +283,18 @@ testStable(
 );
 
 for (const mode of ['delete', 'prune'] as const)
-  testStable(
+  test.stable(
     `${mode} removes claim-owned judgments atomically while unrelated exact assessments remain`,
-    async () => {
-      const f = await pageTransformFixture();
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
+      const f = await pageTransformFixture(databases);
 
       try {
         const saved = await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Pages;
-            const evidence = yield* create('Evidence', 'Evidence passage');
+            const evidence = yield* create({ assert }, 'Evidence', 'Evidence passage');
             const input = { kind: 'page' as const, versionId: evidence.version.id };
             const evidenceRange = {
               blockId: evidence.version.document.blocks[0]!.id,
@@ -394,16 +403,18 @@ for (const mode of ['delete', 'prune'] as const)
   );
 
 for (const mode of ['delete', 'prune'] as const)
-  testStable(
+  test.stable(
     `${mode} protects retained exact evidence through edits, conflicts and restores until every dependent body retires`,
-    async () => {
-      const f = await pageTransformFixture();
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
+      const f = await pageTransformFixture(databases);
 
       try {
         const saved = await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Pages;
-            const evidence = yield* create('Evidence', 'Evidence passage');
+            const evidence = yield* create({ assert }, 'Evidence', 'Evidence passage');
             const input = { kind: 'page' as const, versionId: evidence.version.id };
             const range = { blockId: evidence.version.document.blocks[0]!.id, start: 0, end: 8 };
             const citation = {

@@ -1,3 +1,4 @@
+import { plainBlock } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Tests conversion discovery and dispatch through one registry registration.         │
@@ -9,20 +10,17 @@
  * │ Tests use deterministic strategies without invoking any external model providers.        │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { plainBlock } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { DEFAULT_MAX_BYTES, document } from '#server/features/sources/decoders/common';
 
 import type { ConversionContext, ConversionInput } from './registry.ts';
 import { makeConversionRegistry } from './registry.ts';
 
-testStable(
+test.stable(
   'one registration exposes a strategy and routes conversions with validated output',
-  async () => {
+  async ({ expect }) => {
     const context: ConversionContext = { generate: () => Effect.die('Unexpected model call') };
     const output = document([plainBlock('paragraph', 'Converted', { type: 'authored' })], 'text');
     const registry = makeConversionRegistry([
@@ -57,7 +55,7 @@ testStable(
   }
 );
 
-testStable('a method for one input kind does not disable default PDF reading', () => {
+test.stable('a method for one input kind does not disable default PDF reading', ({ expect }) => {
   const convert = () => Effect.die('Unexpected conversion');
   const registry = makeConversionRegistry([
     { id: 'default-pdf', label: 'ConversionChatGpt', supportedInputs: ['pdf'], convert },
@@ -69,9 +67,9 @@ testStable('a method for one input kind does not disable default PDF reading', (
   expect(() => registry.forInput('missing', 'pdf')).toThrow();
 });
 
-testStable(
+test.stable(
   'rejects empty or oversized inputs before invoking any conversion implementation',
-  async () => {
+  async ({ expect }) => {
     let calls = 0;
     const output = document([plainBlock('paragraph', 'Converted', { type: 'authored' })], 'text');
     const registry = makeConversionRegistry([

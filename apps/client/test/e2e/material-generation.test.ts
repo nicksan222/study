@@ -1,11 +1,10 @@
 import { StudyError } from '@study/contracts';
 import { Appearance, Language, defaultQuizSettings } from '@study/contracts';
 import { catalogs } from '@study/localization';
+import { test } from '@study/testing';
 import type { Locator } from 'playwright';
 
-import { expect, testE2e } from './harness/index.ts';
-
-testE2e.use({ aiEnabled: true, video: { mode: 'on', size: { width: 2560, height: 1440 } } });
+test.stable.use({ aiEnabled: true, video: { mode: 'on', size: { width: 2560, height: 1440 } } });
 
 const copy = catalogs.english;
 
@@ -28,9 +27,9 @@ async function itemSize(sidebar: Locator, title: string) {
   return { width: box.width, height: box.height };
 }
 
-testE2e(
+test.stable(
   'Material generation progress and recovery',
-  async ({ page, study, ai, expectScreenshot, expectAccessibility }) => {
+  async ({ page, study, ai, expectScreenshot, expectAccessibility, expect }) => {
     const fixture = await study.seed();
     const title = 'Cell division flashcards';
     const expected = ai.next(study.agents.flashcards, {
@@ -234,9 +233,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'Long study notes prepare every section before final material',
-  async ({ page, study, ai, expectScreenshot, expectAccessibility }) => {
+  async ({ page, study, ai, expectScreenshot, expectAccessibility, expect }) => {
     const fixture = await study.seed(`${study.lecture}\n\n`.repeat(180));
     const title = 'Full lecture flashcards';
     const context = await study.contextInputs(fixture, title);
@@ -359,9 +358,9 @@ testE2e(
   }
 );
 
-testE2e(
+test.stable(
   'Quiz generation uses the selected notes and saved question settings',
-  async ({ page, study, ai, expectScreenshot, expectAccessibility }) => {
+  async ({ page, study, ai, expectScreenshot, expectAccessibility, expect }) => {
     const fixture = await study.seed();
 
     await study.quizPreferences({

@@ -1,33 +1,41 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('keeps AI SDK access inside the platform runtime', async () => {
-  const diagnostics = await lintRule('ai-boundary', {
+test.stable('keeps AI SDK access inside the platform runtime', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
+  const diagnostics = await lintRule({ assert }, 'ai-boundary', {
     'src/domains/jobs/service.ts': "import { generateText } from 'ai';"
   });
 
   assert.strictEqual(diagnostics.length, 1);
 });
 
-testStable('platform AI runtime owns generation and respects lexical shadowing', async () => {
-  const diagnostics = await lintRule('ai-boundary', {
-    'src/platform/ai/providers/a.ts': `import { generateText as generate } from 'ai';
+test.stable(
+  'platform AI runtime owns generation and respects lexical shadowing',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'ai-boundary', {
+      'src/platform/ai/providers/a.ts': `import { generateText as generate } from 'ai';
  const run = generate;
  run({});
  function f(run: () => void) { run();
  }`,
-    'src/platform/ai/agents.ts': "import { generateText } from 'ai'; generateText({});"
-  });
+      'src/platform/ai/agents.ts': "import { generateText } from 'ai'; generateText({});"
+    });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  }
+);
 
-testStable(
+test.stable(
   'feature agents and tools use narrow capabilities and only platform AI owns SDK access',
-  async () => {
-    const diagnostics = await lintRule('ai-boundary', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'ai-boundary', {
       'src/features/source/source.agent.ts': `import { generateText } from 'ai';
  import '@ai-sdk/openai';
  import '@study/db';
@@ -41,42 +49,54 @@ testStable(
   }
 );
 
-testStable('model work stays in checkpointed workflow activities', async () => {
-  const diagnostics = await lintRule('ai-boundary', {
-    'src/features/sources/service.ts': `import {generateAgent as generate} from '#server/platform/ai/agents';
+test.stable(
+  'model work stays in checkpointed workflow activities',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'ai-boundary', {
+      'src/features/sources/service.ts': `import {generateAgent as generate} from '#server/platform/ai/agents';
  const run = generate;
  run(agent,input);
 `,
-    'src/features/sources/workflow.ts': `import {Activity} from 'effect/workflow';
+      'src/features/sources/workflow.ts': `import {Activity} from 'effect/workflow';
 import {Effect} from 'effect';
 import {generateAgent} from '#server/platform/ai/agents';
 generateAgent(agent,input);
 Activity.make({execute:Effect.gen(function*(){return yield* generateAgent(agent,input,{maxRetries:0,preflight:Effect.void});})});`,
-    'src/platform/ai/agents.ts': "import {streamText} from 'ai'; streamText({});"
-  });
+      'src/platform/ai/agents.ts': "import {streamText} from 'ai'; streamText({});"
+    });
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  }
+);
 
-testStable('destructured generation aliases cannot bypass checkpoint ownership', async () => {
-  const diagnostics = await lintRule('ai-boundary', {
-    'src/features/sources/service.ts': `import * as api from '#server/platform/ai/agents';
+test.stable(
+  'destructured generation aliases cannot bypass checkpoint ownership',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'ai-boundary', {
+      'src/features/sources/service.ts': `import * as api from '#server/platform/ai/agents';
 const ns = api;
 const {generateAgent: run} = ns;
 const alias = run;
 alias(agent,input);
 function f(alias) {alias(agent,input);}`,
-    'src/features/sources/workflow.ts':
-      "import * as api from '#server/platform/ai/agents'; const ns = api; ns.streamAgent(agent,input);"
-  });
+      'src/features/sources/workflow.ts':
+        "import * as api from '#server/platform/ai/agents'; const ns = api; ns.streamAgent(agent,input);"
+    });
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  }
+);
 
-testStable(
+test.stable(
   'the agent factory may describe SDK messages but cannot execute SDK generation',
-  async () => {
-    const diagnostics = await lintRule('ai-boundary', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'ai-boundary', {
       'src/platform/definitions/define-agent.ts':
         "import type {ModelMessage} from 'ai'; import {generateText} from 'ai';",
       'src/features/sources/service.ts': "import type {ModelMessage} from 'ai';"
@@ -86,10 +106,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'workflow model calls declare a last-boundary preflight and leave retries to activities',
-  async () => {
-    const diagnostics = await lintRule('ai-boundary', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'ai-boundary', {
       'src/features/source/workflow.ts': `import {Effect} from 'effect';
 import {Activity} from 'effect/workflow';
 import {generateAgent} from '#server/platform/ai/agents';
@@ -103,10 +125,12 @@ yield* generateAgent(agent,input,options);})});`
   }
 );
 
-testStable(
+test.stable(
   'extracted transform workflows retain explicit Activity ownership and provider preflight',
-  async () => {
-    const diagnostics = await lintRule('ai-boundary', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'ai-boundary', {
       'src/features/materials/workflows/unguarded.ts': `
       import { generateAgent } from '#server/platform/ai/agents';
       export const generate = (input) => generateAgent(agent, input, { maxRetries: 0, preflight: check });
@@ -129,10 +153,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'canonical activity harness owns generation and still requires request preflight',
-  async () => {
-    const diagnostics = await lintRule('ai-boundary', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'ai-boundary', {
       'src/features/notes/workflows/harness.ts': `import {defineActivity as checkpoint} from '#server/platform/definitions/define-activity';
 import {generateAgent} from '#server/platform/ai/agents';
 checkpoint({name: 'good', execute: function* () { return yield* generateAgent(agent, input, {maxRetries: 0, preflight});
@@ -146,10 +172,12 @@ checkpoint({name: 'bad', execute: function* () { return yield* generateAgent(age
   }
 );
 
-testStable(
+test.stable(
   'shared context preparation owns agent plumbing while callers retain checkpoint and preflight fences',
-  async () => {
-    const diagnostics = await lintRule('ai-boundary', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'ai-boundary', {
       'src/platform/ai/context-preparation/agent.ts':
         "import {generateAgent} from '#server/platform/ai/agents'; generateAgent(agent, input, {maxRetries:0, preflight:check}); generateAgent(agent, input);",
       'src/platform/ai/context-preparation/unrelated.ts':

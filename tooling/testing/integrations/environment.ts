@@ -10,13 +10,17 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { testPolicy } from '@study/testing';
+import { spawnScopedProcess } from '@study/testing/process';
+import { createTestResources, temporaryDirectory } from '@study/testing/resources';
+
 import { fs, path, run } from './filesystem.ts';
 
 /** Copy authored input only; never mount a checkout, host dependencies, credentials or test state. */
 export async function buildContext(
   root = Bun.fileURLToPath(new URL('../../../', import.meta.url))
 ) {
-  const directory = await run(fs.makeTempDirectory({ prefix: 'study-integrations-image-' }));
+  const directory = await temporaryDirectory({ prefix: 'study-integrations-image-' });
   const files = [
     'package.json',
     'bun.lock',
@@ -54,7 +58,7 @@ export async function buildContext(
         return;
 
       const source = path.resolve(root, relative);
-      const target = path.join(directory, relative);
+      const target = path.join(directory.path, relative);
       const info = await run(fs.lstat(source));
 
       if (info.type === 'Directory') {
@@ -71,7 +75,7 @@ export async function buildContext(
 
     return directory;
   } catch (error) {
-    await run(fs.remove(directory, { recursive: true, force: true }));
+    await directory[Symbol.asyncDispose]();
 
     throw error;
   }
@@ -94,15 +98,22 @@ export async function runIntegrationTests(
 
   const docker = async (
     args: string[],
-    options: { cwd?: string; visible?: boolean; signal?: AbortSignal; check?: boolean } = {}
+    options: {
+      cwd?: string;
+      visible?: boolean;
+      signal?: AbortSignal;
+      check?: boolean;
+      suite?: boolean;
+    } = {}
   ) => {
-    const child = Bun.spawn(['docker', ...args], {
+    await using child = spawnScopedProcess(['docker', ...args], {
       cwd: options.cwd ?? root,
       env: process.env,
       stdin: 'ignore',
       stdout: options.visible ? 'inherit' : 'pipe',
       stderr: options.visible ? 'inherit' : 'pipe',
-      signal: options.signal ?? AbortSignal.timeout(30000)
+      timeout: options.suite ? testPolicy.suiteTimeout : testPolicy.processStartupTimeout,
+      signal: options.signal ?? AbortSignal.timeout(testPolicy.processStartupTimeout)
     });
     const read = (stream: typeof child.stdout) =>
       stream instanceof ReadableStream ? new Response(stream).text() : Promise.resolve('');
@@ -121,15 +132,15 @@ export async function runIntegrationTests(
     return stdout;
   };
 
-  await using resources = new AsyncDisposableStack();
+  await using resources = createTestResources();
   const directory = await buildContext(root);
 
-  resources.defer(() => run(fs.remove(directory, { recursive: true, force: true })));
+  resources.defer(() => directory[Symbol.asyncDispose]());
   const name = `study-integrations-${crypto.randomUUID()}`;
   const image = `study-integrations-e2e:${crypto.randomUUID()}`;
   const execution = signal
-    ? AbortSignal.any([signal, AbortSignal.timeout(900000)])
-    : AbortSignal.timeout(900000);
+    ? AbortSignal.any([signal, AbortSignal.timeout(testPolicy.suiteTimeout)])
+    : AbortSignal.timeout(testPolicy.suiteTimeout);
 
   resources.defer(async () => {
     const existing = await docker(['images', '--quiet', '--filter', `reference=${image}`]);
@@ -148,7 +159,7 @@ export async function runIntegrationTests(
       image,
       '.'
     ],
-    { cwd: directory, signal: execution }
+    { cwd: directory.path, signal: execution, suite: true }
   );
   resources.defer(async () => {
     const existing = await docker(['ps', '--all', '--quiet', '--filter', `name=^/${name}$`]);
@@ -185,7 +196,7 @@ export async function runIntegrationTests(
       '--config',
       'tooling/testing/integrations/vite.config.ts'
     ],
-    { signal: execution }
+    { signal: execution, suite: true }
   );
   resources.defer(() =>
     docker(['cp', `${name}:/workspace/tooling/test-results/.`, reports]).then(() => {})
@@ -193,7 +204,12 @@ export async function runIntegrationTests(
   resources.defer(() => docker(['stop', '--time', '5', name]).then(() => {}));
 
   // docker start attaches the runner's own output; inspect supplies its actual exit status.
-  await docker(['start', '--attach', name], { visible: true, signal: execution, check: false });
+  await docker(['start', '--attach', name], {
+    visible: true,
+    signal: execution,
+    check: false,
+    suite: true
+  });
   const output = await docker([
     'inspect',
     '--format',

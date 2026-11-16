@@ -1,47 +1,73 @@
 import { StudyError, noteIdSchema, archivedNoteItemSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { afterEach, expect, vi } from 'vite-plus/test';
 
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import type * as __MockType0 from '../document-editing/test-support';
+import type * as __MockType1 from './archive';
+import type * as __MockType2 from './archive.queries';
 
-import { authoredPage } from '../document-editing/test-support';
-import { ArchivePanel } from './archive';
-import { useItemArchive } from './archive.queries';
+let authoredPage: typeof __MockType0.authoredPage;
 
-vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock(import('../document-presentation'), async (importOriginal) => ({
-  ...(await importOriginal()),
-  DocumentReader: ({ document }: { document: { blocks: readonly { text: string }[] } }) => (
-    <article>{document.blocks.map((block) => block.text).join(' ')}</article>
-  )
-}));
+let ArchivePanel: typeof __MockType1.ArchivePanel;
+
+let useItemArchive: typeof __MockType2.useItemArchive;
 
 const id = Schema.decodeUnknownSync(noteIdSchema)(7n);
 
-const document = authoredPage(31n, 'Archived physics content', 41n);
+function initializeDocument() {
+  return authoredPage(31n, 'Archived physics content', 41n);
+}
 
-const item = Schema.decodeUnknownSync(archivedNoteItemSchema)({
-  target: { kind: 'page', id: document.id },
-  name: 'Physics',
-  archivedAt: 1n
+let document: ReturnType<typeof initializeDocument>;
+
+function initializeItem() {
+  return Schema.decodeUnknownSync(archivedNoteItemSchema)({
+    target: { kind: 'page', id: document.id },
+    name: 'Physics',
+    archivedAt: 1n
+  });
+}
+
+let item: ReturnType<typeof initializeItem>;
+
+let fixture: ReturnType<test.Context['rpcHandlersTransport']>;
+
+test.beforeEach(async ({ mock }) => {
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  mock('#client/features/document-presentation', async (importOriginal) => ({
+    ...(await importOriginal()),
+    DocumentReader: ({ document }: { document: { blocks: readonly { text: string }[] } }) => (
+      <article>{document.blocks.map((block) => block.text).join(' ')}</article>
+    )
+  }));
+  const __mockModule0 = await import('../document-editing/test-support');
+
+  authoredPage = __mockModule0.authoredPage;
+  const __mockModule1 = await import('./archive');
+
+  ArchivePanel = __mockModule1.ArchivePanel;
+  const __mockModule2 = await import('./archive.queries');
+
+  useItemArchive = __mockModule2.useItemArchive;
+  document = initializeDocument();
+  item = initializeItem();
 });
 
-let fixture: ReturnType<typeof rpcHandlersTransport>;
-
-afterEach(() => {
+test.afterEach(({ cleanup, vi }) => {
   cleanup();
   vi.resetAllMocks();
 });
 
-function mount(children = <ArchivePanel id={id} />) {
+function mount({ render }: Pick<test.Context, 'render'>, children = <ArchivePanel id={id} />) {
   render(children, { wrapper: fixture.wrapper });
 
   return fixture;
 }
 
-function setup(items = [item]) {
+function setup(
+  { vi, rpcHandlersTransport }: Pick<test.Context, 'vi' | 'rpcHandlersTransport'>,
+  items = [item]
+) {
   const rpc = {
     'notes.archivedItems': vi.fn().mockResolvedValue(items),
     'notes.setItemArchived': vi.fn().mockResolvedValue(undefined),
@@ -61,50 +87,59 @@ function setup(items = [item]) {
   return rpc;
 }
 
-testStable('previews archived content read-only and restores the note membership', async () => {
-  const rpc = setup();
+test.stable(
+  'previews archived content read-only and restores the note membership',
+  async ({ fireEvent, screen, expect, waitFor, vi, rpcHandlersTransport, render }) => {
+    const rpc = setup({ vi, rpcHandlersTransport });
 
-  mount();
-  fireEvent.click(await screen.findByRole('button', { name: 'Physics' }));
-  expect(await screen.findByText('Archived physics content')).toBeVisible();
-  expect(screen.queryByRole('textbox')).toBeNull();
-  expect(screen.queryByRole('radio')).toBeNull();
-  expect(screen.queryByRole('checkbox')).toBeNull();
-  expect(screen.getByRole('button', { name: 'NoteDeletePermanently' })).toBeEnabled();
-  rpc['notes.archivedItems'].mockResolvedValue([]);
-  fireEvent.click(screen.getByRole('button', { name: 'NoteRestore' }));
-  await waitFor(() =>
-    expect(rpc['notes.setItemArchived']).toHaveBeenCalledExactlyOnceWith({
-      noteId: id,
-      target: item.target,
-      archived: false
-    })
-  );
-  await waitFor(() => expect(screen.queryByText('Archived physics content')).toBeNull());
-});
-testStable('searches only this note archive and distinguishes no matches from empty', async () => {
-  setup();
-  mount();
-  await screen.findByRole('button', { name: 'Physics' });
-  fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'missing' } });
-  expect(await screen.findByText('NoteArchiveNoMatches')).toBeVisible();
-  expect(screen.queryByRole('button', { name: 'Physics' })).toBeNull();
-});
-testStable('shows honest empty and failed archive reads', async () => {
-  const rpc = setup([]);
-  const client = mount();
+    mount({ render });
+    fireEvent.click(await screen.findByRole('button', { name: 'Physics' }));
+    expect(await screen.findByText('Archived physics content')).toBeVisible();
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.queryByRole('radio')).toBeNull();
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    expect(screen.getByRole('button', { name: 'NoteDeletePermanently' })).toBeEnabled();
+    rpc['notes.archivedItems'].mockResolvedValue([]);
+    fireEvent.click(screen.getByRole('button', { name: 'NoteRestore' }));
+    await waitFor(() =>
+      expect(rpc['notes.setItemArchived']).toHaveBeenCalledExactlyOnceWith({
+        noteId: id,
+        target: item.target,
+        archived: false
+      })
+    );
+    await waitFor(() => expect(screen.queryByText('Archived physics content')).toBeNull());
+  }
+);
+test.stable(
+  'searches only this note archive and distinguishes no matches from empty',
+  async ({ screen, fireEvent, expect, vi, rpcHandlersTransport, render }) => {
+    setup({ vi, rpcHandlersTransport });
+    mount({ render });
+    await screen.findByRole('button', { name: 'Physics' });
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'missing' } });
+    expect(await screen.findByText('NoteArchiveNoMatches')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Physics' })).toBeNull();
+  }
+);
+test.stable(
+  'shows honest empty and failed archive reads',
+  async ({ waitFor, expect, screen, act, vi, rpcHandlersTransport, render }) => {
+    const rpc = setup({ vi, rpcHandlersTransport }, []);
+    const client = mount({ render });
 
-  await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('NoteArchiveEmpty'));
-  rpc['notes.archivedItems'].mockRejectedValue(new StudyError('internal', 'Unavailable'));
-  await act(async () => {
-    await client.notify();
-  });
-  expect(await screen.findByRole('button', { name: 'Retry' })).toBeVisible();
-  expect(screen.getByText('NoteArchiveLoadFailed')).toBeVisible();
-  expect(screen.queryByText('NoteArchiveEmpty')).toBeNull();
-  expect(screen.queryByText('NoteReadErrorTitle')).toBeNull();
-  expect(screen.queryByRole('button', { name: 'Physics' })).toBeNull();
-});
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('NoteArchiveEmpty'));
+    rpc['notes.archivedItems'].mockRejectedValue(new StudyError('internal', 'Unavailable'));
+    await act(async () => {
+      await client.notify();
+    });
+    expect(await screen.findByRole('button', { name: 'Retry' })).toBeVisible();
+    expect(screen.getByText('NoteArchiveLoadFailed')).toBeVisible();
+    expect(screen.queryByText('NoteArchiveEmpty')).toBeNull();
+    expect(screen.queryByText('NoteReadErrorTitle')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Physics' })).toBeNull();
+  }
+);
 
 function SharedRestore() {
   const archive = useItemArchive(id, item.target);
@@ -116,10 +151,10 @@ function SharedRestore() {
   );
 }
 
-testStable(
+test.stable(
   'fences duplicate archive changes across mounted observers and recovers from failure',
-  async () => {
-    const rpc = setup();
+  async ({ screen, fireEvent, waitFor, expect, act, vi, rpcHandlersTransport, render }) => {
+    const rpc = setup({ vi, rpcHandlersTransport });
     let reject!: (error: unknown) => void;
 
     rpc['notes.setItemArchived'].mockReturnValue(
@@ -128,6 +163,7 @@ testStable(
       })
     );
     mount(
+      { render },
       <>
         <SharedRestore />
         <SharedRestore />
@@ -144,12 +180,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'protects permanent deletion and disables Restore while its confirmation is open',
-  async () => {
-    const rpc = setup();
+  async ({ fireEvent, screen, expect, vi, rpcHandlersTransport, render }) => {
+    const rpc = setup({ vi, rpcHandlersTransport });
 
-    mount();
+    mount({ render });
     fireEvent.click(await screen.findByRole('button', { name: 'Physics' }));
     const restore = await screen.findByRole('button', { name: 'NoteRestore' });
 

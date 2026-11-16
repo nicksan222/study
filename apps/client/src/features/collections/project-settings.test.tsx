@@ -1,18 +1,13 @@
 import { StudyError, projectSchema } from '@study/contracts';
 import type { ProjectId } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { beforeEach, expect, vi } from 'vite-plus/test';
 
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import type * as __MockType0 from './project-settings';
 
-import { ProjectSettings } from './project-settings';
+let ProjectSettings: typeof __MockType0.ProjectSettings;
 
-const api = vi.hoisted(() => ({ list: vi.fn(), rename: vi.fn(), remove: vi.fn(), icon: vi.fn() }));
-
-vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+let api: ReturnType<typeof createMockState>['api'];
 
 const first = Schema.decodeUnknownSync(projectSchema)({
   id: 9007199254740993n,
@@ -29,12 +24,37 @@ const second = {
   name: 'Math 101'
 };
 
-beforeEach(() => {
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({
+      list: mock.fn(),
+      rename: mock.fn(),
+      remove: mock.fn(),
+      icon: mock.fn()
+    }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  const __mockModule0 = await import('./project-settings');
+
+  ProjectSettings = __mockModule0.ProjectSettings;
+});
+
+test.beforeEach(({ vi }) => {
   vi.resetAllMocks();
   api.list.mockResolvedValue([first, second]);
 });
 
-function mount(initialProject: ProjectId | null = second.id) {
+function mount(
+  { rpcHandlersTransport, render }: Pick<test.Context, 'rpcHandlersTransport' | 'render'>,
+  initialProject: ProjectId | null = second.id
+) {
   const harness = rpcHandlersTransport({
     'projects.projects': async () => ({ items: await api.list(), next: null }),
     'projects.project': async ({ id }) => {
@@ -59,15 +79,15 @@ function mount(initialProject: ProjectId | null = second.id) {
   };
 }
 
-testStable(
+test.stable(
   'edits the exact selected subject and refreshes canonical sidebar data after renaming',
-  async () => {
+  async ({ screen, expect, fireEvent, waitFor, rpcHandlersTransport, render }) => {
     api.rename.mockImplementation(async () => {
       api.list.mockResolvedValue([first, { ...second, name: 'Linear algebra' }]);
 
       return true;
     });
-    mount();
+    mount({ rpcHandlersTransport, render });
     const name = await screen.findByRole('textbox', { name: 'ProjectName' });
 
     expect(name).toHaveValue('Math 101');
@@ -80,12 +100,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'keeps unsaved names with their subject when navigating between list and details',
-  async () => {
+  async ({ userEvent, fireEvent, screen, expect, rpcHandlersTransport, render }) => {
     const user = userEvent.setup();
 
-    mount();
+    mount({ rpcHandlersTransport, render });
     fireEvent.change(await screen.findByRole('textbox', { name: 'ProjectName' }), {
       target: { value: 'Draft algebra' }
     });
@@ -98,24 +118,27 @@ testStable(
   }
 );
 
-testStable('keeps the submitted name available after a failed rename', async () => {
-  api.rename.mockRejectedValue(new StudyError('transient', 'Offline'));
-  mount();
-  fireEvent.change(await screen.findByRole('textbox', { name: 'ProjectName' }), {
-    target: { value: 'Draft algebra' }
-  });
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled());
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-  await screen.findByText('collections.mutationError');
-  expect(screen.getByRole('textbox', { name: 'ProjectName' })).toHaveValue('Draft algebra');
-  expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
-});
+test.stable(
+  'keeps the submitted name available after a failed rename',
+  async ({ fireEvent, screen, waitFor, expect, rpcHandlersTransport, render }) => {
+    api.rename.mockRejectedValue(new StudyError('transient', 'Offline'));
+    mount({ rpcHandlersTransport, render });
+    fireEvent.change(await screen.findByRole('textbox', { name: 'ProjectName' }), {
+      target: { value: 'Draft algebra' }
+    });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await screen.findByText('collections.mutationError');
+    expect(screen.getByRole('textbox', { name: 'ProjectName' })).toHaveValue('Draft algebra');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+  }
+);
 
-testStable(
+test.stable(
   'opens the icon editor for the selected subject and persists its exact identity',
-  async () => {
+  async ({ fireEvent, screen, within, waitFor, expect, rpcHandlersTransport, render }) => {
     api.icon.mockImplementation(async (input) => ({ ...second, icon: input.icon }));
-    mount();
+    mount({ rpcHandlersTransport, render });
     fireEvent.click(await screen.findByRole('button', { name: 'SubjectIconChange' }));
     const dialog = within(await screen.findByRole('dialog', { name: 'SubjectIconTitle' }));
 
@@ -133,40 +156,46 @@ testStable(
   }
 );
 
-testStable('requires exact-name confirmation and removes only the selected subject', async () => {
-  api.remove.mockImplementation(async () => {
-    api.list.mockResolvedValue([first]);
+test.stable(
+  'requires exact-name confirmation and removes only the selected subject',
+  async ({ fireEvent, screen, within, expect, waitFor, rpcHandlersTransport, render }) => {
+    api.remove.mockImplementation(async () => {
+      api.list.mockResolvedValue([first]);
 
-    return true;
-  });
-  mount();
-  fireEvent.click(await screen.findByRole('button', { name: 'ProjectSettingsDelete' }));
-  const dialog = within(screen.getByRole('alertdialog'));
+      return true;
+    });
+    mount({ rpcHandlersTransport, render });
+    fireEvent.click(await screen.findByRole('button', { name: 'ProjectSettingsDelete' }));
+    const dialog = within(screen.getByRole('alertdialog'));
 
-  expect(dialog.getByRole('button', { name: 'ProjectSettingsDelete' })).toBeDisabled();
-  fireEvent.change(dialog.getByRole('textbox'), { target: { value: 'Math 101' } });
-  fireEvent.click(dialog.getByRole('button', { name: 'ProjectSettingsDelete' }));
-  await waitFor(() => expect(api.remove).toHaveBeenCalledExactlyOnceWith({ id: second.id }));
-  await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
-  expect(await screen.findByRole('button', { name: 'Biology' })).toBeVisible();
-  expect(screen.queryByRole('button', { name: 'Math 101' })).not.toBeInTheDocument();
-});
+    expect(dialog.getByRole('button', { name: 'ProjectSettingsDelete' })).toBeDisabled();
+    fireEvent.change(dialog.getByRole('textbox'), { target: { value: 'Math 101' } });
+    fireEvent.click(dialog.getByRole('button', { name: 'ProjectSettingsDelete' }));
+    await waitFor(() => expect(api.remove).toHaveBeenCalledExactlyOnceWith({ id: second.id }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(await screen.findByRole('button', { name: 'Biology' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Math 101' })).not.toBeInTheDocument();
+  }
+);
 
-testStable(
+test.stable(
   'shows a useful empty state without editable fields when no subjects exist',
-  async () => {
+  async ({ expect, screen, rpcHandlersTransport, render }) => {
     api.list.mockResolvedValue([]);
-    mount();
+    mount({ rpcHandlersTransport, render });
     expect(await screen.findByText('NoProjectsYet')).toBeVisible();
     expect(screen.queryByRole('textbox', { name: 'ProjectName' })).not.toBeInTheDocument();
   }
 );
 
-testStable('opens the subjects index first and drills into the chosen subject', async () => {
-  mount(null);
-  expect(await screen.findByRole('button', { name: 'Biology' })).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Math 101' })).toBeVisible();
-  expect(screen.queryByRole('textbox', { name: 'ProjectName' })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Biology' }));
-  expect(await screen.findByRole('textbox', { name: 'ProjectName' })).toHaveValue('Biology');
-});
+test.stable(
+  'opens the subjects index first and drills into the chosen subject',
+  async ({ expect, screen, fireEvent, rpcHandlersTransport, render }) => {
+    mount({ rpcHandlersTransport, render }, null);
+    expect(await screen.findByRole('button', { name: 'Biology' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Math 101' })).toBeVisible();
+    expect(screen.queryByRole('textbox', { name: 'ProjectName' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Biology' }));
+    expect(await screen.findByRole('textbox', { name: 'ProjectName' })).toHaveValue('Biology');
+  }
+);

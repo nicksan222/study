@@ -1,16 +1,19 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message =
   'Use Effect for feature orchestration; native async, Promise construction and fetch belong at I/O boundaries.';
 
-testStable(
+test.stable(
   'checks canonical feature owners and respects shadowed globals and adapters',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     assertDiagnostics(
+      { assert, expect },
       'feature-orchestration',
-      await lintRule('feature-orchestration', {
+      await lintRule({ assert }, 'feature-orchestration', {
         'src/features/sources/service.ts': String.raw`async function load() {}
 const f = fetch;
 f(url);
@@ -33,12 +36,18 @@ function local(fetch: any, Promise: any) {
   }
 );
 
-testStable('recognizes fallback fetch aliases in feature tool directories', async () => {
-  assertDiagnostics(
-    'feature-orchestration',
-    await lintRule('feature-orchestration', {
-      'src/features/a/tools/search.ts': 'const request = options.fetch ?? fetch; request(url);'
-    }),
-    [['src/features/a/tools/search.ts', message]]
-  );
-});
+test.stable(
+  'recognizes fallback fetch aliases in feature tool directories',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    assertDiagnostics(
+      { assert, expect },
+      'feature-orchestration',
+      await lintRule({ assert }, 'feature-orchestration', {
+        'src/features/a/tools/search.ts': 'const request = options.fetch ?? fetch; request(url);'
+      }),
+      [['src/features/a/tools/search.ts', message]]
+    );
+  }
+);

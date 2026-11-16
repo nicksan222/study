@@ -1,12 +1,7 @@
 import { chatMessageSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { afterEach, expect, vi } from 'vite-plus/test';
-
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { MessageDeletion } from './message-deletion';
 
@@ -40,56 +35,61 @@ const message = Schema.decodeUnknownSync(chatMessageSchema)({
   citations: []
 });
 
-let fixture: ReturnType<typeof rpcHandlersTransport>;
+let fixture: ReturnType<test.Context['rpcHandlersTransport']>;
 
-afterEach(() => {
+test.afterEach(({ cleanup, vi }) => {
   cleanup();
   vi.clearAllMocks();
 });
 
-function mount() {
+function mount({ render }: Pick<test.Context, 'render'>) {
   render(<MessageDeletion message={message} versionId={message.versions[0]!.id} />, {
     wrapper: fixture.wrapper
   });
 }
 
-testStable('confirms only the displayed revision and keeps item deletion separate', async () => {
-  const removeVersion = vi.fn().mockResolvedValue({ ...message, versions: [message.versions[1]!] });
-  const removeItem = vi.fn().mockResolvedValue(true);
+test.stable(
+  'confirms only the displayed revision and keeps item deletion separate',
+  async ({ vi, rpcHandlersTransport, userEvent, screen, expect, within, waitFor, render }) => {
+    const removeVersion = vi
+      .fn()
+      .mockResolvedValue({ ...message, versions: [message.versions[1]!] });
+    const removeItem = vi.fn().mockResolvedValue(true);
 
-  fixture = rpcHandlersTransport({
-    'notes.deleteMessageVersion': removeVersion,
-    'notes.deleteMessage': removeItem
-  });
-  mount();
-  const user = userEvent.setup();
+    fixture = rpcHandlersTransport({
+      'notes.deleteMessageVersion': removeVersion,
+      'notes.deleteMessage': removeItem
+    });
+    mount({ render });
+    const user = userEvent.setup();
 
-  await user.click(screen.getByRole('button', { name: en.NoteDeleteVersion }));
-  const dialog = await screen.findByRole('alertdialog');
+    await user.click(screen.getByRole('button', { name: en.NoteDeleteVersion }));
+    const dialog = await screen.findByRole('alertdialog');
 
-  expect(removeVersion).not.toHaveBeenCalled();
-  expect(within(dialog).getByText(en.NoteDeleteVersionHelp)).toBeVisible();
-  await user.type(within(dialog).getByRole('textbox'), en.DeleteConfirmationWord);
-  await user.click(within(dialog).getByRole('button', { name: en.NoteDeleteVersion }));
-  await waitFor(() =>
-    expect(removeVersion).toHaveBeenCalledExactlyOnceWith({
-      messageId: message.id,
-      versionId: message.versions[0]!.id
-    })
-  );
-  expect(removeItem).not.toHaveBeenCalled();
-  await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
-  await user.click(screen.getByRole('button', { name: en.NoteDeleteItem }));
-  const entire = await screen.findByRole('alertdialog');
+    expect(removeVersion).not.toHaveBeenCalled();
+    expect(within(dialog).getByText(en.NoteDeleteVersionHelp)).toBeVisible();
+    await user.type(within(dialog).getByRole('textbox'), en.DeleteConfirmationWord);
+    await user.click(within(dialog).getByRole('button', { name: en.NoteDeleteVersion }));
+    await waitFor(() =>
+      expect(removeVersion).toHaveBeenCalledExactlyOnceWith({
+        messageId: message.id,
+        versionId: message.versions[0]!.id
+      })
+    );
+    expect(removeItem).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: en.NoteDeleteItem }));
+    const entire = await screen.findByRole('alertdialog');
 
-  expect(within(entire).getByText(en.NoteDeleteItemHelp)).toBeVisible();
-  await user.click(within(entire).getByRole('button', { name: en.Cancel }));
-  expect(removeItem).not.toHaveBeenCalled();
-  await user.click(screen.getByRole('button', { name: en.NoteDeleteItem }));
-  const confirmed = await screen.findByRole('alertdialog');
+    expect(within(entire).getByText(en.NoteDeleteItemHelp)).toBeVisible();
+    await user.click(within(entire).getByRole('button', { name: en.Cancel }));
+    expect(removeItem).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: en.NoteDeleteItem }));
+    const confirmed = await screen.findByRole('alertdialog');
 
-  await user.type(within(confirmed).getByRole('textbox'), en.DeleteConfirmationWord);
-  await user.click(within(confirmed).getByRole('button', { name: en.NoteDeleteItem }));
-  await waitFor(() => expect(removeItem).toHaveBeenCalledExactlyOnceWith({ id: message.id }));
-  expect(removeVersion).toHaveBeenCalledOnce();
-});
+    await user.type(within(confirmed).getByRole('textbox'), en.DeleteConfirmationWord);
+    await user.click(within(confirmed).getByRole('button', { name: en.NoteDeleteItem }));
+    await waitFor(() => expect(removeItem).toHaveBeenCalledExactlyOnceWith({ id: message.id }));
+    expect(removeVersion).toHaveBeenCalledOnce();
+  }
+);

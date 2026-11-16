@@ -1,14 +1,10 @@
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
-import { renderPage } from '#client/test/render-page.tsx';
-
-testStable.each(['english', 'italian'] as const)(
+test.stable.for(['english', 'italian'] as const)(
   'renders a new draft with the regular notebook layout in %s',
-  async (locale) => {
-    const { router } = renderPage('/notes?project=9007199254740993', locale);
+  async (locale, { page, expect, screen, within, fireEvent, waitFor }) => {
+    const { router } = await page.open('/notes?project=9007199254740993', { locale });
     const copy = catalogs[locale];
 
     expect(await screen.findByRole('heading', { name: copy.Notes })).toBeInTheDocument();

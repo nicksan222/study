@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises native runtime runtime documents behavior through real persistence       │
@@ -11,23 +12,20 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { sql } from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { serve } from '#server/runtime/index';
-import { createStudyTest } from '#testing/server-test';
 
-testStable(
+test.stable(
   'native HTTP runtime exposes independent Pages and persists exact saves, annotations and archive',
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const fixture = serverFixture;
     const server = fixture.manage(await serve(fixture.app));
 
     await Effect.runPromise(

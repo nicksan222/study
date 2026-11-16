@@ -1,3 +1,4 @@
+import { MaterialsRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises exact native exports and their retained content availability barriers.   │
@@ -10,17 +11,12 @@
  * │ Tests use real temporary SQLite state and native RPC without external provider calls.    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { MaterialsRpc } from '@study/contracts';
 import { PagesRpc } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { SourcesRpc } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
@@ -36,24 +32,31 @@ import { materialRpcHandlers } from '#testing/material-rpc';
 
 import { safeExportLink, escapeHtml } from './export-serializer.ts';
 
-testStable('export primitives reject active protocols and escape text and attributes', () => {
-  for (const link of [
-    'javascript:alert(1)',
-    'data:text/html,x',
-    'https://a/\n',
-    '//example.com',
-    'file:///tmp/x'
-  ])
-    assert.ok(safeExportLink(link) === false);
+test.stable(
+  'export primitives reject active protocols and escape text and attributes',
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  assert.ok(safeExportLink('https://example.com/a') === true);
-  assert.ok(escapeHtml('<script a="x">&') === '&lt;script a=&quot;x&quot;&gt;&amp;');
-});
+    for (const link of [
+      'javascript:alert(1)',
+      'data:text/html,x',
+      'https://a/\n',
+      '//example.com',
+      'file:///tmp/x'
+    ])
+      assert.ok(safeExportLink(link) === false);
 
-testStable(
+    assert.ok(safeExportLink('https://example.com/a') === true);
+    assert.ok(escapeHtml('<script a="x">&') === '&lt;script a=&quot;x&quot;&gt;&amp;');
+  }
+);
+
+test.stable(
   'native export is deterministic, exact, escaped and fenced by deletion acceptance',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const services = Layer.mergeAll(Materials.layer, Sources.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -321,9 +324,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'export budget counts escaped UTF-8 exactly and rejects before reading later evidence',
-  () => {
+  ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     for (const value of [
       'é😀\n"\\',
       '\ud800',

@@ -7,16 +7,14 @@ import {
   sourceSchema
 } from '@study/contracts';
 import { configureRpcTransport } from '@study/contracts/react';
+import type { StudyClient } from '@study/contracts/react/testing';
+import type { test } from '@study/testing';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
-import { render, waitFor } from '@testing-library/react';
 import { Effect, Option, Schema } from 'effect';
-import { vi } from 'vite-plus/test';
 
 import { Providers } from '#client/app/providers.tsx';
 import { createAppRouter } from '#client/app/router.ts';
 import { authoredPage } from '#client/features/document-editing/test-support.ts';
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
-import type { StudyClient } from '#client/test/rpc.tsx';
 
 export function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -88,7 +86,7 @@ export function summary(id = 41n) {
   return Schema.decodeUnknownSync(materialSummarySchema)(material(id));
 }
 
-export function materialRpc() {
+export function materialRpc({ vi }: Pick<test.Context, 'vi'>) {
   return {
     'pages.count': vi.fn<StudyClient['pages.count']>().mockReturnValue(Effect.succeed(0n)),
     'materials.count': vi.fn<StudyClient['materials.count']>().mockReturnValue(Effect.succeed(1n)),
@@ -213,7 +211,15 @@ export function materialRpc() {
   };
 }
 
-export function mountLibraryRoute(initial = '/pages', rpc = materialRpc()) {
+export function mountLibraryRoute(
+  {
+    render,
+    rpcHandlersTransport,
+    vi
+  }: Pick<test.Context, 'render' | 'rpcHandlersTransport' | 'vi'>,
+  initial = '/pages',
+  rpc = materialRpc({ vi })
+) {
   const harness = rpcHandlersTransport(rpc);
 
   configureRpcTransport(harness.transport);
@@ -228,7 +234,11 @@ export function mountLibraryRoute(initial = '/pages', rpc = materialRpc()) {
   return { ...view, rpc, notify: harness.notify, history, router };
 }
 
-export async function locationIs(router: ReturnType<typeof createAppRouter>, pathname: string) {
+export async function locationIs(
+  { waitFor }: Pick<test.Context, 'waitFor'>,
+  router: ReturnType<typeof createAppRouter>,
+  pathname: string
+) {
   await waitFor(() => {
     if (router.state.location.pathname !== pathname || router.state.status !== 'idle') {
       throw new Error(`Waiting for ${pathname}`);

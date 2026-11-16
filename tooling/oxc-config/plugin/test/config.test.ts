@@ -1,8 +1,6 @@
 import { BunPath } from '@effect/platform-bun';
-import { spawnTestProcessSync } from '@study/testing/vitest';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Path } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { header } from './file-description.ts';
 import { lintFiles as lintSources, root } from './utils.ts';
@@ -10,21 +8,34 @@ import { lintFiles as lintSources, root } from './utils.ts';
 const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
 // These fixtures exercise other policies; keep their module purposes documented.
-const lintFiles: typeof lintSources = async (files, ...options) =>
-  await lintSources(
+const lintFiles: typeof lintSources = async (
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  files,
+  ...options
+) => {
+  const assert: test.Assert = assertions;
+
+  return await lintSources(
+    { assert },
     Object.fromEntries(
       Object.entries(files).map(([name, source]) => [name, header + '\n\n' + source])
     ),
     ...options
   );
+};
 
-testStable(
+test.stable(
   'whole import type remains enforced by built-in rules without a boundary false positive',
-  async () => {
-    const diagnostics = await lintFiles({
-      'src/shared/inline-type.ts':
-        "import { type Project } from '@study/contracts';\n\nexport type Entity = Project;\n"
-    });
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintFiles(
+      { assert },
+      {
+        'src/shared/inline-type.ts':
+          "import { type Project } from '@study/contracts';\n\nexport type Entity = Project;\n"
+      }
+    );
 
     assert.ok(diagnostics.length > 0);
     assert.ok(diagnostics.every(({ code }) => !code.includes('browser-boundary')));
@@ -32,73 +43,96 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'server cross-directory imports use package aliases and sibling imports stay legal',
-  async () => {
-    const diagnostics = await lintFiles({
-      'src/runtime/bad-import.ts':
-        "import type { Value } from '../shared/safe.ts';\n\nexport type Next = Value;\n",
-      'src/runtime/bad-export.ts': "export * from '../shared/safe.ts';\n",
-      'src/runtime/bad-dynamic.ts': "export const value = import('../shared/safe.ts');\n",
-      'src/runtime/good-server.ts': "export { value } from '#server/shared/safe';\n",
-      'test/good-testing.ts': "export { helper } from '#testing/procedures';\n",
-      'src/shared/safe.ts': 'export const value = 1;\n\nexport type Value = number;\n',
-      'src/shared/sibling.ts': "export { value } from './safe.ts';\n"
-    });
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintFiles(
+      { assert },
+      {
+        'src/runtime/bad-import.ts':
+          "import type { Value } from '../shared/safe.ts';\n\nexport type Next = Value;\n",
+        'src/runtime/bad-export.ts': "export * from '../shared/safe.ts';\n",
+        'src/runtime/bad-dynamic.ts': "export const value = import('../shared/safe.ts');\n",
+        'src/runtime/good-server.ts': "export { value } from '#server/shared/safe';\n",
+        'test/good-testing.ts': "export { helper } from '#testing/procedures';\n",
+        'src/shared/safe.ts': 'export const value = 1;\n\nexport type Value = number;\n',
+        'src/shared/sibling.ts': "export { value } from './safe.ts';\n"
+      }
+    );
 
     assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
     assert.ok(diagnostics.every(({ code }) => code.includes('no-restricted-imports')));
   }
 );
 
-testStable('Bun resolves package roots and explicit testing facets', () => {
-  const result = spawnTestProcessSync(
-    [
-      process.execPath,
-      '--eval',
-      `
+test.stable(
+  'Bun resolves package roots and explicit testing facets',
+  ({ spawnTestProcessSync, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const result = spawnTestProcessSync(
+      [
+        process.execPath,
+        '--eval',
+        `
     for (const [specifier, suffix] of [
       ['@study/contracts', '/src/index.ts'],
       ['@study/db', '/src/index.ts'],
+      ['@study/testing', '/src/index.ts'],
+      ['@study/testing/resources', '/src/resources.ts'],
       ['@study/testing/vitest', '/src/vitest.ts']
     ]) {
       if (!Bun.fileURLToPath(import.meta.resolve(specifier)).endsWith(suffix)) throw new Error(specifier);
-      await import(specifier);
+      if (specifier !== '@study/testing/vitest') await import(specifier);
     }
+
+    const testing = await import('@study/testing');
+
+    if (typeof testing.test !== 'object' || typeof testing.createAiMock !== 'function')
+      throw new Error('The public testing root must import without starting a runner');
+
+    await import('@study/testing/resources');
   `
-    ],
-    { cwd: join(root, 'apps/server') }
-  );
+      ],
+      { cwd: join(root, 'apps/server') }
+    );
 
-  assert.strictEqual(result.exitCode, 0, result.stderr.toString() || result.stdout.toString());
-});
+    assert.strictEqual(result.exitCode, 0, result.stderr.toString() || result.stdout.toString());
+  }
+);
 
-testStable(
+test.stable(
   'server tests reject Node mock imports and context mocking through built-in rules',
-  async () => {
-    const diagnostics = await lintFiles({
-      'test/mock-context.test.ts': String.raw`import { testStable } from "@study/testing/vitest";
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-testStable("mocked method", (t) => {
+    const diagnostics = await lintFiles(
+      { assert },
+      {
+        'test/mock-context.test.ts': String.raw`import { test } from "@study/testing";
+
+test.stable("mocked method", (t) => {
   t.mock.method(Math, "random", () => 0.5);
 });`,
-      'test/mock-import.ts':
-        "import { mock as tracker } from 'node:test';\n\nexport const mocking = tracker;\n",
-      'test/mock-destructure.ts': String.raw`export function tracker(context: { mock: unknown }) {
+        'test/mock-import.ts':
+          "import { mock as tracker } from 'node:test';\n\nexport const mocking = tracker;\n",
+        'test/mock-destructure.ts': String.raw`export function tracker(context: { mock: unknown }) {
   const { mock: tracker } = context;
 
   return tracker;
 }`,
-      'test/real.test.ts': String.raw`import { assert } from "vite-plus/test";
-import { testStable } from "@study/testing/vitest";
+        'test/real.test.ts': String.raw`import { test } from "@study/testing";
 
-testStable("real value", (t) => {
-  t.onTestFinished(() => {});
+test.stable("real value", ({ onTestFinished, assert }) => {
+  onTestFinished(() => {});
   assert.strictEqual(Math.max(1, 2), 2);
 });`
-    });
+      }
+    );
 
-    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 5, JSON.stringify(diagnostics));
     assert.strictEqual(
       diagnostics.filter(({ code }) => code.includes('no-restricted-properties')).length,
       2
@@ -107,37 +141,54 @@ testStable("real value", (t) => {
       diagnostics.filter(({ code }) => code.includes('no-restricted-imports')).length,
       1
     );
+    assert.strictEqual(
+      diagnostics.filter(({ code }) => code === 'study(test-classification)').length,
+      1
+    );
     assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/real.test.ts')));
   }
 );
 
-testStable('server tests reject Vitest and Jest mocking imports', async () => {
-  const diagnostics = await lintFiles({
-    'test/vitest.ts': "export { vi as mocking } from 'vitest';\n",
-    'test/vite-plus.ts': "export { vi as mocking } from 'vite-plus/test';\n",
-    'test/jest.ts': "export { jest as mocking } from '@jest/globals';\n",
-    'test/jest-mock.ts': "export { fn } from 'jest-mock';\n"
-  });
+test.stable(
+  'server tests reject Vitest and Jest mocking imports',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  const restrictedImports = diagnostics.filter(({ code }) =>
-    code.includes('no-restricted-imports')
+    const diagnostics = await lintFiles(
+      { assert },
+      {
+        'test/vitest.ts': "export { vi as mocking } from 'vitest';\n",
+        'test/vite-plus.ts': "export { vi as mocking } from 'vite-plus/test';\n",
+        'test/jest.ts': "export { jest as mocking } from '@jest/globals';\n",
+        'test/jest-mock.ts': "export { fn } from 'jest-mock';\n"
+      }
+    );
+
+    const restrictedImports = diagnostics.filter(({ code }) =>
+      code.includes('no-restricted-imports')
+    );
+
+    assert.strictEqual(restrictedImports.length, 4, JSON.stringify(diagnostics));
+    assert.ok(
+      diagnostics.every(
+        ({ code }) =>
+          code.includes('no-restricted-imports') ||
+          code.includes('prefer-vite-plus-imports') ||
+          code === 'study(server-no-mocks)'
+      )
+    );
+  }
+);
+
+test.stable('production config loads the Study plugin', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
+  const diagnostics = await lintFiles(
+    { assert },
+    {
+      'src/shared/boundary-smoke.ts': "export * from '#server/runtime/context';\n"
+    }
   );
-
-  assert.strictEqual(restrictedImports.length, 4, JSON.stringify(diagnostics));
-  assert.ok(
-    diagnostics.every(
-      ({ code }) =>
-        code.includes('no-restricted-imports') ||
-        code.includes('prefer-vite-plus-imports') ||
-        code === 'study(server-no-mocks)'
-    )
-  );
-});
-
-testStable('production config loads the Study plugin', async () => {
-  const diagnostics = await lintFiles({
-    'src/shared/boundary-smoke.ts': "export * from '#server/runtime/context';\n"
-  });
 
   assert.ok(
     diagnostics.some(
@@ -147,10 +198,15 @@ testStable('production config loads the Study plugin', async () => {
   );
 });
 
-testStable('production config enforces package boundaries', async () => {
-  const diagnostics = await lintFiles({
-    'src/package-smoke.ts': "import '@study/ui';\n"
-  });
+test.stable('production config enforces package boundaries', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
+  const diagnostics = await lintFiles(
+    { assert },
+    {
+      'src/package-smoke.ts': "import '@study/ui';\n"
+    }
+  );
 
   assert.ok(
     diagnostics.some(
@@ -160,50 +216,71 @@ testStable('production config enforces package boundaries', async () => {
   );
 });
 
-testStable('production config enforces database ownership', async () => {
-  const diagnostics = await lintFiles({
-    'src/database-smoke.ts': "import { DatabaseSync } from 'node:sqlite';\n"
-  });
+test.stable('production config enforces database ownership', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
+  const diagnostics = await lintFiles(
+    { assert },
+    {
+      'src/database-smoke.ts': "import { DatabaseSync } from 'node:sqlite';\n"
+    }
+  );
 
   assert.ok(diagnostics.some(({ code }) => code === 'study(database-ownership)'));
 });
 
-testStable(
+test.stable(
   'production config rejects direct Drizzle imports outside the database package',
-  async () => {
-    const diagnostics = await lintFiles({
-      'src/drizzle-smoke.ts': "import { sql } from 'drizzle-orm'; export { sql };"
-    });
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintFiles(
+      { assert },
+      {
+        'src/drizzle-smoke.ts': "import { sql } from 'drizzle-orm'; export { sql };"
+      }
+    );
 
     assert.ok(diagnostics.some(({ code }) => code === 'study(drizzle-boundary)'));
   }
 );
 
-testStable('future contracts subpaths are checked against explicit manifest exports', async () => {
-  const diagnostics = await lintFiles(
-    {
-      'src/domains/projects/schema.ts':
-        "export { projectSchema } from '@study/contracts/projects';",
-      'src/domains/sources/schema.ts': "export { privateSchema } from '@study/contracts/private';"
-    },
-    'package-boundary',
-    false,
-    { contracts: { '.': './src/index.ts', './projects': './src/projects.ts' } }
-  );
+test.stable(
+  'future contracts subpaths are checked against explicit manifest exports',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-  assert.ok(diagnostics[0]?.filename.endsWith('/src/domains/sources/schema.ts'));
-});
+    const diagnostics = await lintFiles(
+      { assert },
+      {
+        'src/domains/projects/schema.ts':
+          "export { projectSchema } from '@study/contracts/projects';",
+        'src/domains/sources/schema.ts': "export { privateSchema } from '@study/contracts/private';"
+      },
+      'package-boundary',
+      false,
+      { contracts: { '.': './src/index.ts', './projects': './src/projects.ts' } }
+    );
 
-testStable(
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.ok(diagnostics[0]?.filename.endsWith('/src/domains/sources/schema.ts'));
+  }
+);
+
+test.stable(
   'production config enables feature orchestration, native clock and metric cardinality',
-  async () => {
-    const diagnostics = await lintFiles({
-      'src/features/example/service.ts': String.raw`import { Metric } from "effect";
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintFiles(
+      { assert },
+      {
+        'src/features/example/service.ts': String.raw`import { Metric } from "effect";
 async function operation() {}
 Date.now();
 Metric.withAttributes({ requestId: "id" });`
-    });
+      }
+    );
 
     for (const rule of ['feature-orchestration', 'native-clock', 'metric-cardinality'])
       assert.ok(
@@ -213,27 +290,33 @@ Metric.withAttributes({ requestId: "id" });`
   }
 );
 
-testStable(
+test.stable(
   'Vitest expectations accept a diagnostic message and reject a third argument',
-  async () => {
-    const accepted = await lintFiles({
-      'src/shared/message.test.ts': String.raw`import { testStable } from "@study/testing/vitest";
-import { expect } from "vite-plus/test";
-testStable("message", () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const accepted = await lintFiles(
+      { assert },
+      {
+        'src/shared/message.test.ts': String.raw`import { test } from "@study/testing";
+test.stable("message", ({ expect }) => {
   expect(1, "context").toBe(1);
 });`
-    });
+      }
+    );
 
     assert.strictEqual(accepted.length, 0, JSON.stringify(accepted));
-    const rejected = await lintFiles({
-      'src/shared/message.test.ts': String.raw`import { testStable } from "@study/testing/vitest";
-import { expect } from "vite-plus/test";
-testStable("message", () => {
+    const rejected = await lintFiles(
+      { assert },
+      {
+        'src/shared/message.test.ts': String.raw`import { test } from "@study/testing";
+test.stable("message", ({ expect }) => {
   expect(1, "context", "extra").toBe(1);
 });`
-    });
+      }
+    );
 
     assert.strictEqual(rejected.length, 1, JSON.stringify(rejected));
-    assert.strictEqual(rejected[0]?.code, 'vitest(valid-expect)');
+    assert.strictEqual(rejected[0]?.code, 'study(test-infrastructure)');
   }
 );

@@ -1,11 +1,9 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { ChatNote, ChatMessage, ChatMessageText, ChatMessageActionToolbar } from '@study/ui';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { expect } from 'vite-plus/test';
 
-testStable(
+test.stable(
   'keeps the reading anchor on older-page insertion and follows new arrivals only at the end',
-  () => {
+  ({ render, screen, fireEvent, expect }) => {
     const view = render(
       <ChatNote label="Note" jumpLabel="Latest" itemCount={3} firstItemKey="b">
         <p>Notes</p>
@@ -48,17 +46,20 @@ testStable(
   }
 );
 
-testStable('keeps quick notes literal and exposes their actions to keyboard users', () => {
-  render(
-    <ChatMessage>
-      <ChatMessageText text={'**Literal note**\nSecond line'} />
-      <ChatMessageActionToolbar aria-label="Note actions">
-        <button>Edit</button>
-      </ChatMessageActionToolbar>
-    </ChatMessage>
-  );
-  expect(screen.getByText('**Literal note** Second line')).toHaveTextContent('**Literal note**');
-  expect(screen.getByRole('group', { name: 'Note actions' })).toContainElement(
-    screen.getByRole('button', { name: 'Edit' })
-  );
-});
+test.stable(
+  'keeps quick notes literal and exposes their actions to keyboard users',
+  ({ render, expect, screen }) => {
+    render(
+      <ChatMessage>
+        <ChatMessageText text={'**Literal note**\nSecond line'} />
+        <ChatMessageActionToolbar aria-label="Note actions">
+          <button>Edit</button>
+        </ChatMessageActionToolbar>
+      </ChatMessage>
+    );
+    expect(screen.getByText('**Literal note** Second line')).toHaveTextContent('**Literal note**');
+    expect(screen.getByRole('group', { name: 'Note actions' })).toContainElement(
+      screen.getByRole('button', { name: 'Edit' })
+    );
+  }
+);

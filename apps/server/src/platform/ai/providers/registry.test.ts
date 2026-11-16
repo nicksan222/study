@@ -1,3 +1,4 @@
+import { StudyError } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks provider registration, public metadata and SDK model construction without   │
@@ -10,39 +11,42 @@
  * │ Tests use production provider factories; no external provider calls are required here.   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyError } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { expect, expectTypeOf } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { anthropic } from './anthropic.ts';
 import { apiKeyProviders, getApiKeyProvider, providerCatalog } from './registry.ts';
 
-testStable('the provider registry exposes ten API-key providers without credentials', () => {
-  expect(apiKeyProviders).toHaveLength(10);
-  expect(new Set(apiKeyProviders.map((provider) => provider.id)).size).toBe(10);
-  expect(providerCatalog().map((provider) => provider.id)).toContain('anthropic');
-  expect(providerCatalog().map((provider) => provider.id)).toContain('openrouter');
-  expect(providerCatalog().map((provider) => provider.id)).toContain('deepseek');
-  expect(JSON.stringify(providerCatalog())).not.toContain('apiKey');
-});
+test.stable(
+  'the provider registry exposes ten API-key providers without credentials',
+  ({ expect }) => {
+    expect(apiKeyProviders).toHaveLength(10);
+    expect(new Set(apiKeyProviders.map((provider) => provider.id)).size).toBe(10);
+    expect(providerCatalog().map((provider) => provider.id)).toContain('anthropic');
+    expect(providerCatalog().map((provider) => provider.id)).toContain('openrouter');
+    expect(providerCatalog().map((provider) => provider.id)).toContain('deepseek');
+    expect(JSON.stringify(providerCatalog())).not.toContain('apiKey');
+  }
+);
 
-testStable('unknown providers fail before a request can be constructed', () => {
+test.stable('unknown providers fail before a request can be constructed', ({ expect }) => {
   expect(() => getApiKeyProvider('unknown')).toThrow(StudyError);
 });
 
-testStable('each registry entry constructs an AI SDK v3 model with the requested id', () => {
-  for (const provider of apiKeyProviders) {
-    const model = provider.createModel({ apiKey: 'test-key', modelId: 'test-model' });
+test.stable(
+  'each registry entry constructs an AI SDK v3 model with the requested id',
+  ({ expect }) => {
+    for (const provider of apiKeyProviders) {
+      const model = provider.createModel({ apiKey: 'test-key', modelId: 'test-model' });
 
-    expect(model.specificationVersion).toBe('v3');
-    expect(model.modelId).toBe('test-model');
+      expect(model.specificationVersion).toBe('v3');
+      expect(model.modelId).toBe('test-model');
+    }
   }
-});
+);
 
-testStable(
+test.stable(
   'all providers serialize credentials and parse their native protocol over HTTP',
-  async () => {
+  async ({ expect }) => {
     const expectedOrigins: Record<string, string> = {
       anthropic: 'https://api.anthropic.com',
       google: 'https://generativelanguage.googleapis.com',
@@ -155,9 +159,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'provider model options retain literal types and every tier default is selectable',
-  () => {
+  ({ expectTypeOf, expect }) => {
     expectTypeOf(anthropic.models).toEqualTypeOf<
       readonly ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5']
     >();

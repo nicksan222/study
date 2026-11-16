@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks that project timestamps come from the transaction’s captured clock and      │
@@ -12,85 +13,91 @@
  * │ fixtures stay local to these tests.                                                      │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
 import { Clock, Effect } from 'effect';
 import { TestClock } from 'effect/testing';
-import { assert } from 'vite-plus/test';
 
 import { ProjectsStore } from '#server/features/projects/store/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { transaction, useStore } from '#server/platform/definitions/define-store';
 
-testStable('project timestamps use the captured native clock in SQLite transactions', async () => {
-  const location = await createTestDatabase();
+test.stable(
+  'project timestamps use the captured native clock in SQLite transactions',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        yield* TestClock.setTime(100_000);
-        const clock = yield* Clock.Clock;
-        const context = new ServerContext(yield* Effect.promise(() => location.open()), clock);
+    const location = await databases();
 
-        try {
-          const project = yield* transaction((tx) =>
-            tx.store(ProjectsStore).createProject({ name: 'First' })
-          ).pipe(Effect.provideService(Database, { store: context }));
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          yield* TestClock.setTime(100_000);
+          const clock = yield* Clock.Clock;
+          const context = new ServerContext(yield* Effect.promise(() => location.open()), clock);
 
-          assert.strictEqual(project.createdAt, 100n);
-          yield* TestClock.adjust('2 seconds');
-          yield* transaction((tx) =>
-            tx.store(ProjectsStore).renameProject({ id: project.id, name: 'Second' })
-          ).pipe(Effect.provideService(Database, { store: context }));
-          const updated = yield* Effect.runSync(
-            useStore(ProjectsStore).pipe(Effect.provideService(Database, { store: context }))
-          ).project(project.id);
+          try {
+            const project = yield* transaction((tx) =>
+              tx.store(ProjectsStore).createProject({ name: 'First' })
+            ).pipe(Effect.provideService(Database, { store: context }));
 
-          assert.strictEqual(updated.updatedAt, 102n);
-        } finally {
-          context.close();
-        }
-      }).pipe(Effect.provide(TestClock.layer()))
-    );
-  } finally {
-    await location.cleanup();
+            assert.strictEqual(project.createdAt, 100n);
+            yield* TestClock.adjust('2 seconds');
+            yield* transaction((tx) =>
+              tx.store(ProjectsStore).renameProject({ id: project.id, name: 'Second' })
+            ).pipe(Effect.provideService(Database, { store: context }));
+            const updated = yield* Effect.runSync(
+              useStore(ProjectsStore).pipe(Effect.provideService(Database, { store: context }))
+            ).project(project.id);
+
+            assert.strictEqual(updated.updatedAt, 102n);
+          } finally {
+            context.close();
+          }
+        }).pipe(Effect.provide(TestClock.layer()))
+      );
+    } finally {
+      await location.cleanup();
+    }
   }
-});
+);
 
-testStable('project stores retain their own SQLite context', async () => {
-  const first = await createTestDatabase();
-  const second = await createTestDatabase();
+test.stable(
+  'project stores retain their own SQLite context',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const clock = yield* Clock.Clock;
-        const left = new ServerContext(yield* Effect.promise(() => first.open()), clock);
-        const right = new ServerContext(yield* Effect.promise(() => second.open()), clock);
+    const first = await databases();
+    const second = await databases();
 
-        try {
-          const leftStore = Effect.runSync(
-            useStore(ProjectsStore).pipe(Effect.provideService(Database, { store: left }))
-          );
-          const rightStore = Effect.runSync(
-            useStore(ProjectsStore).pipe(Effect.provideService(Database, { store: right }))
-          );
-          const created = yield* transaction((tx) =>
-            tx.store(ProjectsStore).createProject({ name: 'Left only' })
-          ).pipe(Effect.provideService(Database, { store: left }));
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const clock = yield* Clock.Clock;
+          const left = new ServerContext(yield* Effect.promise(() => first.open()), clock);
+          const right = new ServerContext(yield* Effect.promise(() => second.open()), clock);
 
-          assert.ok((yield* leftStore.project(created.id)).name === 'Left only');
-          assert.strictEqual((yield* rightStore.projects({ limit: 10 })).length, 0);
-        } finally {
-          left.close();
-          right.close();
-        }
-      })
-    );
-  } finally {
-    await first.cleanup();
-    await second.cleanup();
+          try {
+            const leftStore = Effect.runSync(
+              useStore(ProjectsStore).pipe(Effect.provideService(Database, { store: left }))
+            );
+            const rightStore = Effect.runSync(
+              useStore(ProjectsStore).pipe(Effect.provideService(Database, { store: right }))
+            );
+            const created = yield* transaction((tx) =>
+              tx.store(ProjectsStore).createProject({ name: 'Left only' })
+            ).pipe(Effect.provideService(Database, { store: left }));
+
+            assert.ok((yield* leftStore.project(created.id)).name === 'Left only');
+            assert.strictEqual((yield* rightStore.projects({ limit: 10 })).length, 0);
+          } finally {
+            left.close();
+            right.close();
+          }
+        })
+      );
+    } finally {
+      await first.cleanup();
+      await second.cleanup();
+    }
   }
-});
+);

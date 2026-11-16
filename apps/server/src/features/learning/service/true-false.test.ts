@@ -1,3 +1,4 @@
+import { quizChoiceIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies true or false persistence and deterministic grading behavior.             │
@@ -10,13 +11,9 @@
  * │ Uses feature services and real database records without model execution.                 │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { quizChoiceIdSchema } from '@study/contracts';
 import { defaultQuizSettings } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
@@ -27,10 +24,12 @@ import { Database } from '#server/platform/database/database';
 import { Learning } from './index.ts';
 
 for (const truth of [true, false])
-  testStable(
+  test.stable(
     `${truth ? 'True' : 'False'} statement attempts validate responses, resume and review both verdicts`,
-    async () => {
-      const location = await createTestDatabase();
+    async ({ databases, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+
+      const location = await databases();
       const context = new ServerContext(await location.open());
       const domain = Learning.layer.pipe(
         Layer.provideMerge(Settings.layer),

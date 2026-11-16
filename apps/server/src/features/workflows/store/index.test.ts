@@ -1,3 +1,4 @@
+import { workflow_executions } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies bounded workflow reads filter before applying pagination limits.          │
@@ -10,12 +11,8 @@
  * │ Exercises the private store through public database and typed store services.            │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { workflow_executions } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -23,10 +20,10 @@ import { useStore } from '#server/platform/definitions/define-store';
 
 import { ExecutionStore } from './index.ts';
 
-testStable(
+test.stable(
   'workflow filters find a source outcome behind unrelated newer wake executions in one bounded read',
-  async () => {
-    const fixture = await createTestDatabase();
+  async ({ databases, expect }) => {
+    const fixture = await databases();
     const context = new ServerContext(await fixture.open());
 
     try {

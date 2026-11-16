@@ -1,6 +1,6 @@
 import { StudyError, noteIdSchema, noteDeletionSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import type * as UiModule from '@study/ui';
 import {
   createMemoryHistory,
@@ -8,32 +8,54 @@ import {
   createRouter,
   RouterProvider
 } from '@tanstack/react-router';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
-import { afterEach, expect, vi } from 'vite-plus/test';
 
-import { rpcTestTransport } from '#client/test/rpc.tsx';
+import type * as __StudyMockType0 from '#client/app/shell/sidebar-note-actions.tsx';
 
-import { SidebarNoteActions } from './sidebar-note-actions';
+function createTitles(mock: test.Mock) {
+  return { request: mock.fn(), executions: mock.fn() };
+}
 
-const titles = vi.hoisted(() => ({ request: vi.fn(), executions: vi.fn() }));
+let titles: ReturnType<typeof createTitles>;
 
-const notices = vi.hoisted(() => ({ add: vi.fn() }));
+function createNotices(mock: test.Mock) {
+  return { add: mock.fn() };
+}
 
-vi.mock('@study/ui', async (load) => {
-  const actual = await load<typeof UiModule>();
+let notices: ReturnType<typeof createNotices>;
 
-  return { ...actual, toastManager: { ...actual.toastManager, ...notices } };
+function createDeletion(mock: test.Mock) {
+  return {
+    remove: mock.fn(),
+    read: mock.fn(),
+    retry: mock.fn()
+  };
+}
+
+let deletion: ReturnType<typeof createDeletion>;
+
+let SidebarNoteActions: typeof __StudyMockType0.SidebarNoteActions;
+
+test.beforeEach(async ({ mock }) => {
+  titles = createTitles(mock);
+  notices = createNotices(mock);
+  deletion = createDeletion(mock);
+  mock('@study/ui', async (load) => {
+    const actual = await load<typeof UiModule>();
+
+    return { ...actual, toastManager: { ...actual.toastManager, ...notices } };
+  });
+  mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+  const __studyMockModule0 = await import('./sidebar-note-actions');
+
+  SidebarNoteActions = __studyMockModule0.SidebarNoteActions;
 });
-
-const deletion = vi.hoisted(() => ({ remove: vi.fn(), read: vi.fn(), retry: vi.fn() }));
 
 const id = Schema.decodeUnknownSync(noteIdSchema)(9007199254740993n);
 
 const en = catalogs.english;
 
-function mount() {
+function mount({ rpcTestTransport, render }: Pick<test.Context, 'rpcTestTransport' | 'render'>) {
   deletion.read.mockRejectedValue(new StudyError('not_found', 'No deletion'));
   titles.executions.mockResolvedValue({ items: [], next: null });
   const client = rpcTestTransport(async (tag, input) => {
@@ -74,14 +96,14 @@ function mount() {
   return router;
 }
 
-afterEach(() => {
+test.afterEach(({ vi }) => {
   vi.clearAllMocks();
 });
 
-testStable(
+test.stable(
   'opens note actions with right click and cancels deletion without a mutation',
-  async () => {
-    mount();
+  async ({ fireEvent, screen, userEvent, expect, within, waitFor, rpcTestTransport, render }) => {
+    mount({ rpcTestTransport, render });
     fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), {
       button: 2,
       clientX: 80,
@@ -100,10 +122,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'opens the canonical note path from the context menu without adding row controls',
-  async () => {
-    const router = mount();
+  async ({ fireEvent, screen, expect, userEvent, waitFor, rpcTestTransport, render }) => {
+    const router = mount({ rpcTestTransport, render });
 
     fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), {
       button: 2,
@@ -117,37 +139,40 @@ testStable(
   }
 );
 
-testStable('deletes only the exact note after explicit confirmation', async () => {
-  deletion.remove.mockReturnValue(new Promise(() => {}));
-  mount();
-  const user = userEvent.setup();
+test.stable(
+  'deletes only the exact note after explicit confirmation',
+  async ({ userEvent, fireEvent, screen, expect, within, waitFor, rpcTestTransport, render }) => {
+    deletion.remove.mockReturnValue(new Promise(() => {}));
+    mount({ rpcTestTransport, render });
+    const user = userEvent.setup();
 
-  fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), {
-    button: 2,
-    clientX: 80,
-    clientY: 80
-  });
-  await user.click(await screen.findByRole('menuitem', { name: en.NoteDelete }));
-  const dialog = await screen.findByRole('alertdialog');
+    fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), {
+      button: 2,
+      clientX: 80,
+      clientY: 80
+    });
+    await user.click(await screen.findByRole('menuitem', { name: en.NoteDelete }));
+    const dialog = await screen.findByRole('alertdialog');
 
-  expect(deletion.remove).not.toHaveBeenCalled();
-  const confirm = await within(dialog).findByRole('button', { name: en.NoteConfirmDelete });
+    expect(deletion.remove).not.toHaveBeenCalled();
+    const confirm = await within(dialog).findByRole('button', { name: en.NoteConfirmDelete });
 
-  expect(confirm).toBeDisabled();
-  const phrase = within(dialog).getByRole('textbox');
+    expect(confirm).toBeDisabled();
+    const phrase = within(dialog).getByRole('textbox');
 
-  await user.type(phrase, 'wrong');
-  expect(confirm).toBeDisabled();
-  expect(deletion.remove).not.toHaveBeenCalled();
-  await user.clear(phrase);
-  await user.type(phrase, en.DeleteConfirmationWord);
-  await user.click(confirm);
-  await waitFor(() => expect(deletion.remove).toHaveBeenCalledExactlyOnceWith(id));
-  expect(within(dialog).getByRole('status')).toHaveTextContent(en.NoteDeleting);
-  expect(within(dialog).getByRole('button', { name: en.Cancel })).toBeDisabled();
-  await user.keyboard('{Escape}');
-  expect(screen.getByRole('alertdialog')).toBe(dialog);
-});
+    await user.type(phrase, 'wrong');
+    expect(confirm).toBeDisabled();
+    expect(deletion.remove).not.toHaveBeenCalled();
+    await user.clear(phrase);
+    await user.type(phrase, en.DeleteConfirmationWord);
+    await user.click(confirm);
+    await waitFor(() => expect(deletion.remove).toHaveBeenCalledExactlyOnceWith(id));
+    expect(within(dialog).getByRole('status')).toHaveTextContent(en.NoteDeleting);
+    expect(within(dialog).getByRole('button', { name: en.Cancel })).toBeDisabled();
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('alertdialog')).toBe(dialog);
+  }
+);
 
 function receipt(status: 'failed' | 'completed') {
   return Schema.decodeUnknownSync(noteDeletionSchema)({
@@ -160,10 +185,10 @@ function receipt(status: 'failed' | 'completed') {
   });
 }
 
-testStable(
+test.stable(
   'announces an owned retry completion once and does not announce cached receipts',
-  async () => {
-    mount();
+  async ({ userEvent, fireEvent, screen, within, waitFor, expect, rpcTestTransport, render }) => {
+    mount({ rpcTestTransport, render });
     deletion.read.mockResolvedValue(receipt('failed'));
     deletion.retry.mockResolvedValue(receipt('completed'));
     const user = userEvent.setup();
@@ -186,7 +211,9 @@ testStable(
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
 
     deletion.read.mockResolvedValue(receipt('completed'));
-    fireEvent.contextMenu(screen.getByRole('link', { name: 'Cell division' }), { button: 2 });
+    fireEvent.contextMenu(screen.getByRole('link', { name: 'Cell division' }), {
+      button: 2
+    });
     await user.click(await screen.findByRole('menuitem', { name: en.NoteDelete }));
     const cached = await screen.findByRole('alertdialog');
 
@@ -198,50 +225,67 @@ testStable(
   }
 );
 
-testStable('offers page creation in the note context menu', async () => {
-  mount();
-  fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), {
-    button: 2,
-    clientX: 80,
-    clientY: 80
-  });
-  expect(await screen.findByRole('menuitem', { name: en.NoteTransform })).toBeVisible();
-});
+test.stable(
+  'offers page creation in the note context menu',
+  async ({ fireEvent, screen, expect, rpcTestTransport, render }) => {
+    mount({ rpcTestTransport, render });
+    fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), {
+      button: 2,
+      clientX: 80,
+      clientY: 80
+    });
+    expect(await screen.findByRole('menuitem', { name: en.NoteTransform })).toBeVisible();
+  }
+);
 
-testStable('regenerates the selected note title without navigating', async () => {
-  titles.request.mockResolvedValue({ noteId: id, requestId: 'title-request' });
-  const router = mount();
+test.stable(
+  'regenerates the selected note title without navigating',
+  async ({ fireEvent, screen, userEvent, waitFor, expect, rpcTestTransport, render }) => {
+    titles.request.mockResolvedValue({ noteId: id, requestId: 'title-request' });
+    const router = mount({ rpcTestTransport, render });
 
-  fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), { button: 2 });
-  await userEvent.setup().click(await screen.findByRole('menuitem', { name: en.RegenerateTitle }));
-  await waitFor(() => expect(titles.request).toHaveBeenCalledExactlyOnceWith({ noteId: id }));
-  expect(router.state.location.pathname).toBe('/');
-  expect(notices.add).not.toHaveBeenCalledWith({ title: en.RegeneratingTitle, type: 'info' });
-});
+    fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), {
+      button: 2
+    });
+    await userEvent
+      .setup()
+      .click(await screen.findByRole('menuitem', { name: en.RegenerateTitle }));
+    await waitFor(() => expect(titles.request).toHaveBeenCalledExactlyOnceWith({ noteId: id }));
+    expect(router.state.location.pathname).toBe('/');
+    expect(notices.add).not.toHaveBeenCalledWith({ title: en.RegeneratingTitle, type: 'info' });
+  }
+);
 
-testStable('reports title request failures and allows another attempt', async () => {
-  titles.request.mockRejectedValue(new Error('Offline'));
-  mount();
-  const user = userEvent.setup();
+test.stable(
+  'reports title request failures and allows another attempt',
+  async ({ userEvent, fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
+    titles.request.mockRejectedValue(new Error('Offline'));
+    mount({ rpcTestTransport, render });
+    const user = userEvent.setup();
 
-  fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), { button: 2 });
-  await user.click(await screen.findByRole('menuitem', { name: en.RegenerateTitle }));
-  await waitFor(() =>
-    expect(notices.add).toHaveBeenCalledWith({
-      title: en.NoteActionErrorTitle,
-      description: en.TitleGenerationError,
-      type: 'error'
-    })
-  );
-  titles.request.mockReturnValue(new Promise(() => {}));
-  fireEvent.contextMenu(screen.getByRole('link', { name: 'Cell division' }), { button: 2 });
-  await user.click(await screen.findByRole('menuitem', { name: en.RegenerateTitle }));
-  await waitFor(() => expect(titles.request).toHaveBeenCalledTimes(2));
-  fireEvent.contextMenu(screen.getByRole('link', { name: 'Cell division' }), { button: 2 });
-  expect(await screen.findByRole('menuitem', { name: en.RegenerateTitle })).toHaveAttribute(
-    'aria-disabled',
-    'true'
-  );
-});
-
-vi.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+    fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), {
+      button: 2
+    });
+    await user.click(await screen.findByRole('menuitem', { name: en.RegenerateTitle }));
+    await waitFor(() =>
+      expect(notices.add).toHaveBeenCalledWith({
+        title: en.NoteActionErrorTitle,
+        description: en.TitleGenerationError,
+        type: 'error'
+      })
+    );
+    titles.request.mockReturnValue(new Promise(() => {}));
+    fireEvent.contextMenu(screen.getByRole('link', { name: 'Cell division' }), {
+      button: 2
+    });
+    await user.click(await screen.findByRole('menuitem', { name: en.RegenerateTitle }));
+    await waitFor(() => expect(titles.request).toHaveBeenCalledTimes(2));
+    fireEvent.contextMenu(screen.getByRole('link', { name: 'Cell division' }), {
+      button: 2
+    });
+    expect(await screen.findByRole('menuitem', { name: en.RegenerateTitle })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+  }
+);

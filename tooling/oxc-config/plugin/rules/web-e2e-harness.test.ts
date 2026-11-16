@@ -1,36 +1,44 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule, lintRulePaths } from '../test/utils.ts';
 
-testStable('native fixture options do not register a browser journey', async () => {
-  const diagnostics = await lintRule(
-    'web-e2e-harness',
-    {
-      'apps/client/test/e2e/model.test.ts': `
-      import { expect, testE2e } from './harness/index.ts';
-      testE2e.use({ aiEnabled: true });
-      testE2e('Material generation retains progress', async ({ page, expectScreenshot }) => {
+test.stable(
+  'native fixture options do not register a browser journey',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule(
+      { assert },
+      'web-e2e-harness',
+      {
+        'apps/client/test/e2e/model.test.ts': `
+      import { test } from '@study/testing';
+      test.stable.use({ aiEnabled: true });
+      test.stable('Material generation retains progress', async ({ page, expectScreenshot, expect }) => {
         await page.goto('/practice');
         await expectScreenshot('ready', { target: 'viewport', ready: () => expect(page.getByRole('heading')).toBeVisible() });
       });
     `
-    },
-    true
-  );
+      },
+      true
+    );
 
-  assert.deepStrictEqual(diagnostics, []);
-});
+    assert.deepStrictEqual(diagnostics, []);
+  }
+);
 
-testStable(
-  'journeys use the direct harness API and await explicit screenshot readiness',
-  async () => {
+test.stable(
+  'journeys use the public test API and await explicit screenshot readiness',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'web-e2e-harness',
       {
         'apps/client/test/e2e/good.test.ts': `
-        import { expect, testE2e } from './harness/index.ts';
-        testE2e('Notes retain edits', async ({ page, expectScreenshot }) => {
+        import { test } from '@study/testing';
+        test.stable('Notes retain edits', async ({ page, expectScreenshot, expect }) => {
           await page.goto('/notes');
           await expectScreenshot('ready', {
             target: 'viewport',
@@ -39,10 +47,10 @@ testStable(
         });
           `,
         'apps/client/test/e2e/bad.test.ts':
-          "import { testE2e } from './harness/index.ts'; testE2e('Notes retain edits', async ({ page }) => { await page.goto('/notes'); });",
+          "import { test } from '@study/testing'; test.stable('Notes retain edits', async ({ page }) => { await page.goto('/notes'); });",
         'apps/client/test/e2e/old.test.ts': `
-        import { testE2e } from './harness/index.ts';
-        testE2e('Notes retain edits', async ({ checkpoint }) => {
+        import { test } from '@study/testing';
+        test.stable('Notes retain edits', async ({ checkpoint }) => {
           await checkpoint('ready', {
             target: 'viewport',
             ready: () => expect(page.getByRole('heading')).toBeVisible()
@@ -57,62 +65,80 @@ testStable(
   }
 );
 
-testStable('browser specs cannot own resources, mock requests or use fixed waits', async () => {
-  const diagnostics = await lintRule(
-    'web-e2e-harness',
-    {
-      'apps/client/test/e2e/bad.test.ts':
-        "import { chromium } from 'playwright'; import { createTestDatabase } from '@study/db/testing'; import { serve } from '@study/server/runtime'; page.route('**/*', handler); page.waitForTimeout(50);",
-      'apps/client/test/e2e/harness/index.ts':
-        "import { chromium } from 'playwright'; chromium.launch();"
-    },
-    true
-  );
+test.stable(
+  'browser specs cannot own resources, mock requests or use fixed waits',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  assert.strictEqual(diagnostics.length, 5, JSON.stringify(diagnostics));
-});
-
-testStable('aliases cannot conceal interception or global timers', async () => {
-  const diagnostics = await lintRule(
-    'web-e2e-harness',
-    {
-      'apps/client/test/e2e/helper.ts':
-        'const delay = setTimeout; const intercept = page.routeWebSocket; globalThis.setTimeout(fn, 10); const { routeFromHAR } = page;'
-    },
-    true
-  );
-
-  assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
-});
-
-testStable(
-  'opaque, concurrent and parameterized registrations cannot bypass fixture checks',
-  async () => {
     const diagnostics = await lintRule(
+      { assert },
       'web-e2e-harness',
       {
         'apps/client/test/e2e/bad.test.ts':
-          "import { testE2e } from './harness/index.ts'; testStable('opaque', callback); testE2e.concurrent('parallel', async () => {}); testStable.each([1])('parameterized', async () => {});"
+          "import { chromium } from 'playwright'; import { createTestDatabase } from '@study/db/testing'; import { serve } from '@study/server/runtime'; page.route('**/*', handler); page.waitForTimeout(50);",
+        'apps/client/test/e2e/harness/index.ts':
+          "import { chromium } from 'playwright'; chromium.launch();"
       },
       true
     );
 
-    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 5, JSON.stringify(diagnostics));
   }
 );
 
-testStable(
-  'unawaited captures, missing readiness and anonymous titles fail conventions',
-  async () => {
+test.stable(
+  'aliases cannot conceal interception or global timers',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
+      'web-e2e-harness',
+      {
+        'apps/client/test/e2e/helper.ts':
+          'const delay = setTimeout; const intercept = page.routeWebSocket; globalThis.setTimeout(fn, 10); const { routeFromHAR } = page;'
+      },
+      true
+    );
+
+    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+  }
+);
+
+test.stable(
+  'opaque, concurrent and parameterized registrations cannot bypass fixture checks',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule(
+      { assert },
+      'web-e2e-harness',
+      {
+        'apps/client/test/e2e/bad.test.ts':
+          "import { test } from '@study/testing'; test.stable('opaque', callback); test.stable.concurrent('parallel', async () => {}); test.stable.each([1])('parameterized', async () => {});"
+      },
+      true
+    );
+
+    assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
+  }
+);
+
+test.stable(
+  'unawaited captures, missing readiness and anonymous titles fail conventions',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule(
+      { assert },
       'web-e2e-harness',
       {
         'apps/client/test/e2e/bad.test.ts': `
-        import { testE2e } from './harness/index.ts';
-        testE2e('W001', async ({ expectScreenshot }) => {
+        import { test } from '@study/testing';
+        test.stable('W001', async ({ expectScreenshot }) => {
           await expectScreenshot('ready', { target: 'viewport' });
         });
-        testE2e('Notes retain edits', async ({ expectScreenshot }) => {
+        test.stable('Notes retain edits', async ({ expectScreenshot }) => {
           expectScreenshot('ready', {
             target: 'viewport',
             ready: () => expect(page.getByRole('heading')).toBeVisible()
@@ -127,16 +153,19 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'empty readiness callbacks and internal fixture imports cannot bypass conventions',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'web-e2e-harness',
       {
         'apps/client/test/e2e/bad.test.ts': `
-        import { testE2e } from './harness/index.ts';
+        import { test } from '@study/testing';
         import { testWeb } from './harness/worker.ts';
-        testE2e('Notes retain edits', async ({ expectScreenshot }) => {
+        test.stable('Notes retain edits', async ({ expectScreenshot }) => {
           await expectScreenshot('ready', { target: 'viewport', ready: async () => {} });
         });
         Bun.sleep(10);
@@ -149,21 +178,22 @@ testStable(
   }
 );
 
-testStable('only direct public runtime imports are accepted', async () => {
+test.stable('only direct public runtime imports are accepted', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const diagnostics = await lintRule(
+    { assert },
     'web-e2e-harness',
     {
       'apps/client/test/e2e/bad.test.ts':
-        "import { testHarness, testE2e as hidden } from './harness/index.ts'; hidden('Notes retain edits', async () => {});",
-      'apps/client/test/e2e/aliased.test.ts':
-        "import { expect as hidden } from './harness/index.ts';",
+        "import { test as hidden } from '@study/testing'; hidden.stable('Notes retain edits', async () => {});",
+      'apps/client/test/e2e/aliased.test.ts': "import { test as hidden } from '@study/testing';",
       'apps/client/test/e2e/removed.test.ts': "import { expect } from './harness/assertions.ts';",
-      'apps/client/test/e2e/reexport.test.ts':
-        "export { testHarness as run } from './harness/index.ts';",
-      'apps/client/test/e2e/export-all.test.ts': "export * from './harness/index.ts';",
-      'apps/client/test/e2e/dynamic.test.ts': "const harness = await import('./harness/index.ts');",
+      'apps/client/test/e2e/reexport.test.ts': "export { test as run } from '@study/testing';",
+      'apps/client/test/e2e/export-all.test.ts': "export * from '@study/testing';",
+      'apps/client/test/e2e/dynamic.test.ts': "const harness = await import('@study/testing');",
       'apps/client/test/e2e/types.test.ts':
-        "import type { testE2e } from './harness/index.ts'; export type { testE2e } from './harness/index.ts'; export { type expect } from './harness/index.ts';"
+        "import type { test } from '@study/testing'; export type { test } from '@study/testing';"
     },
     true
   );
@@ -171,10 +201,13 @@ testStable('only direct public runtime imports are accepted', async () => {
   assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
 });
 
-testStable(
+test.stable(
   'browser interactions use locators while keyboard input and navigation remain valid',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'web-e2e-harness',
       {
         'apps/client/test/e2e/helper.ts': `
@@ -221,9 +254,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'public helpers reject browser DOM shortcuts, selector actions, coordinates and forced actions',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const cases = [
       ...[
         'evaluate',
@@ -284,7 +319,7 @@ testStable(
         source
       ])
     );
-    const diagnostics = await lintRule('web-e2e-harness', files, true);
+    const diagnostics = await lintRule({ assert }, 'web-e2e-harness', files, true);
 
     assert.deepStrictEqual(
       diagnostics.map(({ filename }) => filename.split('/').at(-1)).sort(),
@@ -296,87 +331,100 @@ testStable(
   }
 );
 
-testStable('screenshot readiness must await or return a matcher in its own callback', async () => {
-  const cases = [
-    ['() => expect(page.getByRole("heading")).toBeVisible()', true],
-    ['async () => await expect(page.getByRole("heading")).toBeVisible()', true],
-    ['async () => { await expect(page.getByRole("heading")).toBeVisible(); }', true],
-    ['() => { return expect(page.getByRole("heading")).toBeVisible(); }', true],
-    ['async () => { return await expect(page.getByRole("heading")).toBeVisible(); }', true],
-    ['async () => { expect(page.getByRole("heading")).toBeVisible(); }', false],
-    ['async () => { await expect(page.getByRole("heading")); }', false],
-    [
-      'async () => { const later = async () => { await expect(page.getByRole("heading")).toBeVisible(); }; }',
-      false
-    ]
-  ] as const;
+test.stable(
+  'screenshot readiness must await or return a matcher in its own callback',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  for (const [ready, valid] of cases) {
-    const diagnostics = await lintRule(
-      'web-e2e-harness',
-      {
-        'apps/client/test/e2e/readiness.test.ts': `import { testE2e, expect } from './harness/index.ts'; testE2e('Notes retain edits', async ({ page, expectScreenshot }) => { await expectScreenshot('ready', { target: 'viewport', ready: ${ready} }); });`
-      },
-      true
-    );
+    const cases = [
+      ['() => expect(page.getByRole("heading")).toBeVisible()', true],
+      ['async () => await expect(page.getByRole("heading")).toBeVisible()', true],
+      ['async () => { await expect(page.getByRole("heading")).toBeVisible(); }', true],
+      ['() => { return expect(page.getByRole("heading")).toBeVisible(); }', true],
+      ['async () => { return await expect(page.getByRole("heading")).toBeVisible(); }', true],
+      ['async () => { expect(page.getByRole("heading")).toBeVisible(); }', false],
+      ['async () => { await expect(page.getByRole("heading")); }', false],
+      [
+        'async () => { const later = async () => { await expect(page.getByRole("heading")).toBeVisible(); }; }',
+        false
+      ]
+    ] as const;
 
-    assert.strictEqual(diagnostics.length, valid ? 0 : 1, ready);
+    for (const [ready, valid] of cases) {
+      const diagnostics = await lintRule(
+        { assert },
+        'web-e2e-harness',
+        {
+          'apps/client/test/e2e/readiness.test.ts': `import { test } from '@study/testing'; test.stable('Notes retain edits', async ({ page, expectScreenshot, expect }) => { await expectScreenshot('ready', { target: 'viewport', ready: ${ready} }); });`
+        },
+        true
+      );
+
+      assert.strictEqual(diagnostics.length, valid ? 0 : 1, ready);
+    }
   }
-});
+);
 
-testStable('forced locator options follow static spreads in last-property order', async () => {
-  const rejected = [
-    'button.click({ ...{ force: true } })',
-    'button.click({ ...{ ...{ force: true } } })',
-    'button.click({ force: false, ...forced })',
-    'button.click({ ...safe, ...forced })',
-    'button.click({ ...unknown })',
-    'button.click({ force: false, ...unknown })',
-    'button.click(unknown)',
-    'button.click({ force: true, ...{ timeout: 10 } })',
-    'button.click({ ...cycle })',
-    'button.fill(text, { ...forced })',
-    'button.dragTo(target, { ...forced })',
-    'button.clear({ force: true })',
-    'button.selectText({ ...forced })'
-  ];
-  const allowed = [
-    'button.click({ ...forced, force: false })',
-    'button.click({ ...forced, ...safe })',
-    'button.click({ ...unknown, force: false })',
-    'button.click({ ...{ ...forced, force: false } })',
-    'button.click({ ...safe, ...safe })',
-    'button.click({ ...{ timeout: 10 } })',
-    'button.fill(text)',
-    'button.press(key)',
-    'button.selectOption(value)',
-    'button.setInputFiles(files)',
-    'button.dragTo(target)',
-    'button.clear()',
-    'button.clear({ force: false })',
-    'button.selectText()',
-    'button.selectText({ ...safe })',
-    'other.click({ ...forced })'
-  ];
+test.stable(
+  'forced locator options follow static spreads in last-property order',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  const files = Object.fromEntries(
-    [...rejected, ...allowed].map((call, index) => [
-      `apps/client/test/e2e/helper-${index}.ts`,
-      `const forced = { force: true }; const safe = { force: false };
+    const rejected = [
+      'button.click({ ...{ force: true } })',
+      'button.click({ ...{ ...{ force: true } } })',
+      'button.click({ force: false, ...forced })',
+      'button.click({ ...safe, ...forced })',
+      'button.click({ ...unknown })',
+      'button.click({ force: false, ...unknown })',
+      'button.click(unknown)',
+      'button.click({ force: true, ...{ timeout: 10 } })',
+      'button.click({ ...cycle })',
+      'button.fill(text, { ...forced })',
+      'button.dragTo(target, { ...forced })',
+      'button.clear({ force: true })',
+      'button.selectText({ ...forced })'
+    ];
+    const allowed = [
+      'button.click({ ...forced, force: false })',
+      'button.click({ ...forced, ...safe })',
+      'button.click({ ...unknown, force: false })',
+      'button.click({ ...{ ...forced, force: false } })',
+      'button.click({ ...safe, ...safe })',
+      'button.click({ ...{ timeout: 10 } })',
+      'button.fill(text)',
+      'button.press(key)',
+      'button.selectOption(value)',
+      'button.setInputFiles(files)',
+      'button.dragTo(target)',
+      'button.clear()',
+      'button.clear({ force: false })',
+      'button.selectText()',
+      'button.selectText({ ...safe })',
+      'other.click({ ...forced })'
+    ];
+
+    const files = Object.fromEntries(
+      [...rejected, ...allowed].map((call, index) => [
+        `apps/client/test/e2e/helper-${index}.ts`,
+        `const forced = { force: true }; const safe = { force: false };
      const cycle = { ...cycle }; const button = page.getByRole('button');
      ${call};`
-    ])
-  );
+      ])
+    );
 
-  assert.deepStrictEqual(
-    await lintRulePaths('web-e2e-harness', files),
-    Object.keys(files).slice(0, rejected.length).sort()
-  );
-});
+    assert.deepStrictEqual(
+      await lintRulePaths({ assert }, 'web-e2e-harness', files),
+      Object.keys(files).slice(0, rejected.length).sort()
+    );
+  }
+);
 
-testStable(
+test.stable(
   'typed browser parameter patterns reject selector actions and allow locator actions',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const rejected = [
       "async function helper({ click }: Page) { await click('button'); }",
       "const helper = async ({ fill: enter }: Frame) => { await enter('input', 'text'); };",
@@ -398,39 +446,51 @@ testStable(
     );
 
     assert.deepStrictEqual(
-      await lintRulePaths('web-e2e-harness', files),
+      await lintRulePaths({ assert }, 'web-e2e-harness', files),
       Object.keys(files).slice(0, rejected.length).sort()
     );
   }
 );
 
-testStable('direct journey callbacks cannot escape into DOM or raw transports', async () => {
-  const rejected = [
-    'await browser.evaluate(() => document.body.click());',
-    'await browser.request.post("/rpc", { data: "request" });',
-    'await browser.context().request.post("/rpc");',
-    'await fetch("/rpc");',
-    'await globalThis.fetch("/rpc");',
-    'const { fetch: send } = globalThis; await send("/rpc");',
-    'const { evaluate: run } = browser; await run(fn);'
-  ];
-  const files = Object.fromEntries(
-    rejected.map((action, index) => [
-      `apps/client/test/e2e/direct-${index}.test.ts`,
-      `import { testE2e, expect } from './harness/index.ts';
-     testE2e('Recovery retains the draft', async ({ page: browser, expectScreenshot }) => {
+test.stable(
+  'direct journey callbacks cannot escape into DOM or raw transports',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const rejected = [
+      'await browser.evaluate(() => document.body.click());',
+      'await browser.request.post("/rpc", { data: "request" });',
+      'await browser.context().request.post("/rpc");',
+      'await fetch("/rpc");',
+      'await globalThis.fetch("/rpc");',
+      'const { fetch: send } = globalThis; await send("/rpc");',
+      'const { evaluate: run } = browser; await run(fn);'
+    ];
+    const files = Object.fromEntries(
+      rejected.map((action, index) => [
+        `apps/client/test/e2e/direct-${index}.test.ts`,
+        `import { test } from '@study/testing';
+     test.stable('Recovery retains the draft', async ({ page: browser, expectScreenshot }) => {
        ${action}
        await expectScreenshot('ready', { target: 'viewport', ready: () => expect(browser.getByRole('heading')).toBeVisible() });
      });`
-    ])
-  );
+      ])
+    );
 
-  assert.deepStrictEqual(await lintRulePaths('web-e2e-harness', files), Object.keys(files).sort());
-});
+    assert.deepStrictEqual(
+      await lintRulePaths({ assert }, 'web-e2e-harness', files),
+      Object.keys(files).sort()
+    );
+  }
+);
 
-testStable('public locator file drops need no DOM dispatch escape', async () => {
-  const diagnostics = await lintRulePaths('web-e2e-harness', {
-    'apps/client/test/e2e/public-drop.ts': `
+test.stable(
+  'public locator file drops need no DOM dispatch escape',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRulePaths({ assert }, 'web-e2e-harness', {
+      'apps/client/test/e2e/public-drop.ts': `
       async function journey({ page }) {
         const composer = page.getByRole('region', { name: 'Compose' });
         const files = [{ name: 'survey.md', mimeType: 'text/markdown', buffer: Buffer.from('Survey') }];
@@ -441,42 +501,48 @@ testStable('public locator file drops need no DOM dispatch escape', async () => 
         await target.drop({ files });
       }
     `,
-    'apps/client/test/e2e/dom-dispatch.ts': `
+      'apps/client/test/e2e/dom-dispatch.ts': `
       page.getByRole('region').dispatchEvent('drop', { dataTransfer });
     `,
-    'apps/client/test/e2e/dom-evaluate.ts': `
+      'apps/client/test/e2e/dom-evaluate.ts': `
       page.getByRole('region').evaluate(target => target.dispatchEvent(event));
     `
-  });
+    });
 
-  assert.deepStrictEqual(diagnostics, [
-    'apps/client/test/e2e/dom-dispatch.ts',
-    'apps/client/test/e2e/dom-evaluate.ts'
-  ]);
-});
+    assert.deepStrictEqual(diagnostics, [
+      'apps/client/test/e2e/dom-dispatch.ts',
+      'apps/client/test/e2e/dom-evaluate.ts'
+    ]);
+  }
+);
 
-testStable('journey names describe behavior instead of workflow tracker IDs', async () => {
-  const journey = `
-    import { expect, testE2e } from './harness/index.ts';
-    testE2e('Read and reopen a Markdown source', async ({ page, expectScreenshot }) => {
+test.stable(
+  'journey names describe behavior instead of workflow tracker IDs',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const journey = `
+    import { test } from '@study/testing';
+    test.stable('Read and reopen a Markdown source', async ({ page, expectScreenshot, expect }) => {
       await page.goto('/notes');
       await expectScreenshot('source-top', { target: 'viewport', ready: () => expect(page.getByRole('heading')).toBeVisible() });
     });
   `;
 
-  const diagnostics = await lintRulePaths('web-e2e-harness', {
-    'apps/client/test/e2e/markdown-source.test.ts': journey,
-    'apps/client/test/e2e/w014-markdown.test.ts': journey,
-    'apps/client/test/e2e/workflow-014.test.ts': journey,
-    'apps/client/test/e2e/numbered-title.test.ts': journey.replace(
-      'Read and reopen',
-      'W014 reads and reopens'
-    )
-  });
+    const diagnostics = await lintRulePaths({ assert }, 'web-e2e-harness', {
+      'apps/client/test/e2e/markdown-source.test.ts': journey,
+      'apps/client/test/e2e/w014-markdown.test.ts': journey,
+      'apps/client/test/e2e/workflow-014.test.ts': journey,
+      'apps/client/test/e2e/numbered-title.test.ts': journey.replace(
+        'Read and reopen',
+        'W014 reads and reopens'
+      )
+    });
 
-  assert.deepStrictEqual(diagnostics, [
-    'apps/client/test/e2e/numbered-title.test.ts',
-    'apps/client/test/e2e/w014-markdown.test.ts',
-    'apps/client/test/e2e/workflow-014.test.ts'
-  ]);
-});
+    assert.deepStrictEqual(diagnostics, [
+      'apps/client/test/e2e/numbered-title.test.ts',
+      'apps/client/test/e2e/w014-markdown.test.ts',
+      'apps/client/test/e2e/workflow-014.test.ts'
+    ]);
+  }
+);

@@ -1,6 +1,5 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { materialQuestionInputSchema } from './schemas.ts';
 
@@ -15,9 +14,11 @@ const matching = {
   ]
 };
 
-testStable(
+test.stable(
   'matching requires distinct nonempty terms and definitions and at least two pairs',
-  () => {
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const decode = Schema.decodeUnknownSync(materialQuestionInputSchema);
 
     assert.deepEqual(decode(matching), matching);

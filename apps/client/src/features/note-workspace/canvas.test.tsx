@@ -1,66 +1,48 @@
 import { StudyError, noteIdSchema, chatMessageSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { TooltipProvider } from '@study/ui';
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 import { useMemo } from 'react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+let attachmentState: typeof __MockType0.attachmentState;
 
-import { attachmentState } from './attachments';
-import { Composer } from './composer';
-import { composerDraft } from './composer.queries';
-import { MessageActions } from './message-actions';
-import { messageActionDraft } from './message-actions.queries';
+let Composer: typeof __MockType1.Composer;
+
+let composerDraft: typeof __MockType2.composerDraft;
+
+let MessageActions: typeof __MockType3.MessageActions;
+
+let messageActionDraft: typeof __MockType4.messageActionDraft;
+
+import type * as __MockType0 from './attachments';
+import type * as __MockType1 from './composer';
+import type * as __MockType2 from './composer.queries';
+import type * as __MockType3 from './message-actions';
+import type * as __MockType4 from './message-actions.queries';
 import type * as NoteQueries from './note-workspace.queries';
-import {
-  activateVersion,
-  ask,
-  editNote,
-  reanswerNote,
-  rewriteNote,
-  saveNote,
-  uploadSource
-} from './note-workspace.queries';
-import { NoteRuns } from './transformation';
+import type * as __MockType5 from './note-workspace.queries';
+import type * as __MockType6 from './transformation';
 
-const rpc = vi.hoisted(() => ({
-  message: vi.fn(),
-  pages: vi.fn(),
-  archive: vi.fn(),
-  convert: vi.fn(),
-  strategies: vi.fn()
-}));
+let activateVersion: typeof __MockType5.activateVersion;
 
-vi.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+let ask: typeof __MockType5.ask;
 
-vi.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: 'english', date: String })
-}));
-vi.mock('../document-editing/proposal-review', () => ({
-  ProposalReview: ({ requestId }: { requestId: string }) => (
-    <div data-testid="proposal">{requestId}</div>
-  )
-}));
-vi.mock('./note-workspace.queries', async (load) => {
-  const actual = await load<typeof NoteQueries>();
+let editNote: typeof __MockType5.editNote;
 
-  return {
-    ...actual,
-    uploadSource: vi.fn(),
-    saveNote: vi.fn(),
-    ask: vi.fn(),
-    editNote: vi.fn(),
-    rewriteNote: vi.fn(),
-    reanswerNote: vi.fn(),
-    activateVersion: vi.fn()
-  };
-});
+let reanswerNote: typeof __MockType5.reanswerNote;
+
+let rewriteNote: typeof __MockType5.rewriteNote;
+
+let saveNote: typeof __MockType5.saveNote;
+
+let uploadSource: typeof __MockType5.uploadSource;
+
+let NoteRuns: typeof __MockType6.NoteRuns;
+
+let rpc: ReturnType<typeof createMockState>['rpc'];
 
 const id = Schema.decodeUnknownSync(noteIdSchema)(501n);
 
@@ -104,9 +86,11 @@ const message = Schema.decodeUnknownSync(chatMessageSchema)({
 const clients: AtomRegistry.AtomRegistry[] = [];
 
 function CanvasProvider({
+  rpcHandlersTransport,
   registry,
   children
 }: {
+  rpcHandlersTransport: test.Context['rpcHandlersTransport'];
   registry: AtomRegistry.AtomRegistry;
   children: ReactNode;
 }) {
@@ -137,23 +121,103 @@ function CanvasProvider({
         },
         registry
       ),
-    [registry]
+    [registry, rpcHandlersTransport]
   );
 
   return <fixture.wrapper>{children}</fixture.wrapper>;
 }
 
-function mount(node: ReactNode, client = AtomRegistry.make()) {
+function mount(
+  { render, rpcHandlersTransport }: Pick<test.Context, 'render' | 'rpcHandlersTransport'>,
+  node: ReactNode,
+  client = AtomRegistry.make()
+) {
   if (!clients.includes(client)) clients.push(client);
 
-  return { client, ...render(<CanvasProvider registry={client}>{node}</CanvasProvider>) };
+  return {
+    client,
+    ...render(
+      <CanvasProvider registry={client} rpcHandlersTransport={rpcHandlersTransport}>
+        {node}
+      </CanvasProvider>
+    )
+  };
 }
 
 const actions = (versionId = message.activeVersionId!, value = message) => (
   <MessageActions message={value} versionId={versionId} onActive={() => {}} />
 );
 
-beforeEach(() => {
+function createMockState(mock: test.Mock) {
+  return {
+    rpc: (() => ({
+      message: mock.fn(),
+      pages: mock.fn(),
+      archive: mock.fn(),
+      convert: mock.fn(),
+      strategies: mock.fn()
+    }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  rpc = __mockState.rpc;
+
+  mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({ t: (key: string) => key, locale: 'english', date: String })
+  }));
+  mock('#client/features/document-editing/proposal-review', () => ({
+    ProposalReview: ({ requestId }: { requestId: string }) => (
+      <div data-testid="proposal">{requestId}</div>
+    )
+  }));
+  mock('#client/features/note-workspace/note-workspace.queries', async (load) => {
+    const actual = await load<typeof NoteQueries>();
+
+    return {
+      ...actual,
+      uploadSource: mock.fn(),
+      saveNote: mock.fn(),
+      ask: mock.fn(),
+      editNote: mock.fn(),
+      rewriteNote: mock.fn(),
+      reanswerNote: mock.fn(),
+      activateVersion: mock.fn()
+    };
+  });
+  const __mockModule0 = await import('./attachments');
+
+  attachmentState = __mockModule0.attachmentState;
+  const __mockModule1 = await import('./composer');
+
+  Composer = __mockModule1.Composer;
+  const __mockModule2 = await import('./composer.queries');
+
+  composerDraft = __mockModule2.composerDraft;
+  const __mockModule3 = await import('./message-actions');
+
+  MessageActions = __mockModule3.MessageActions;
+  const __mockModule4 = await import('./message-actions.queries');
+
+  messageActionDraft = __mockModule4.messageActionDraft;
+  const __mockModule5 = await import('./note-workspace.queries');
+
+  activateVersion = __mockModule5.activateVersion;
+  ask = __mockModule5.ask;
+  editNote = __mockModule5.editNote;
+  reanswerNote = __mockModule5.reanswerNote;
+  rewriteNote = __mockModule5.rewriteNote;
+  saveNote = __mockModule5.saveNote;
+  uploadSource = __mockModule5.uploadSource;
+  const __mockModule6 = await import('./transformation');
+
+  NoteRuns = __mockModule6.NoteRuns;
+});
+
+test.beforeEach(({ vi }) => {
   vi.resetAllMocks();
   rpc.message.mockResolvedValue(message);
   rpc.strategies.mockResolvedValue([
@@ -161,17 +225,17 @@ beforeEach(() => {
   ]);
   rpc.pages.mockResolvedValue({ items: [], next: null });
 });
-afterEach(() => {
+test.afterEach(({ cleanup }) => {
   cleanup();
 
   for (const client of clients.splice(0)) client.dispose();
 });
 
-testStable(
+test.stable(
   'keeps an uncertain upload across remount and never automatically creates it twice',
-  async () => {
+  async ({ vi, act, fireEvent, screen, expect, render, rpcHandlersTransport }) => {
     vi.mocked(uploadSource).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
-    const first = mount(<Composer id={id} />);
+    const first = mount({ render, rpcHandlersTransport }, <Composer id={id} />);
 
     await act(async () => {
       fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
@@ -182,7 +246,7 @@ testStable(
     await screen.findByText('NoteUploadUncertain');
     expect(uploadSource).toHaveBeenCalledTimes(1);
     first.unmount();
-    mount(<Composer id={id} />, first.client);
+    mount({ render, rpcHandlersTransport }, <Composer id={id} />, first.client);
     expect(screen.getByText('notes.txt')).toBeVisible();
     expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
     expect(uploadSource).toHaveBeenCalledTimes(1);
@@ -190,14 +254,14 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'sends attachment-only notes with accepted source IDs and does not upload again on send',
-  async () => {
+  async ({ vi, act, fireEvent, screen, waitFor, expect, render, rpcHandlersTransport }) => {
     vi.mocked(uploadSource).mockResolvedValue({ id: 44n } as Awaited<
       ReturnType<typeof uploadSource>
     >);
     vi.mocked(saveNote).mockResolvedValue(message);
-    mount(<Composer id={id} />);
+    mount({ render, rpcHandlersTransport }, <Composer id={id} />);
     await act(async () => {
       fireEvent.drop(screen.getByRole('region', { name: 'NoteCompose' }), {
         dataTransfer: { files: [new File(['notes'], 'notes.txt')] }
@@ -216,67 +280,76 @@ testStable(
   }
 );
 
-testStable('keeps upload ownership while a receipt arrives after unmount', async () => {
-  let accept!: (value: Awaited<ReturnType<typeof uploadSource>>) => void;
+test.stable(
+  'keeps upload ownership while a receipt arrives after unmount',
+  async ({ vi, act, fireEvent, screen, expect, render, rpcHandlersTransport }) => {
+    let accept!: (value: Awaited<ReturnType<typeof uploadSource>>) => void;
 
-  vi.mocked(uploadSource).mockImplementation(
-    () =>
-      new Promise((resolve) => {
-        accept = resolve;
-      })
-  );
-  const first = mount(<Composer id={id} />);
+    vi.mocked(uploadSource).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          accept = resolve;
+        })
+    );
+    const first = mount({ render, rpcHandlersTransport }, <Composer id={id} />);
 
-  await act(async () => {
-    fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
-      target: { files: [new File(['n'], 'n.txt')] }
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
+        target: { files: [new File(['n'], 'n.txt')] }
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  first.unmount();
-  mount(<Composer id={id} />, first.client);
-  expect(screen.getByText('NoteUploading')).toBeVisible();
-  await act(async () => accept({ id: 45n } as Awaited<ReturnType<typeof uploadSource>>));
-  await screen.findByText('NoteFileAccepted');
-  expect(first.client.get(attachmentState(id))).toEqual([
-    expect.objectContaining({ sourceId: 45n, state: 'ready' })
-  ]);
-  expect(uploadSource).toHaveBeenCalledTimes(1);
-});
+    first.unmount();
+    mount({ render, rpcHandlersTransport }, <Composer id={id} />, first.client);
+    expect(screen.getByText('NoteUploading')).toBeVisible();
+    await act(async () => accept({ id: 45n } as Awaited<ReturnType<typeof uploadSource>>));
+    await screen.findByText('NoteFileAccepted');
+    expect(first.client.get(attachmentState(id))).toEqual([
+      expect.objectContaining({ sourceId: 45n, state: 'ready' })
+    ]);
+    expect(uploadSource).toHaveBeenCalledTimes(1);
+  }
+);
 
-testStable('retains a definite rejection and only retries after a deliberate click', async () => {
-  vi.mocked(uploadSource)
-    .mockRejectedValueOnce(new StudyError('invalid_input', 'Unsupported'))
-    .mockResolvedValueOnce({ id: 46n } as Awaited<ReturnType<typeof uploadSource>>);
-  mount(<Composer id={id} />);
-  await act(async () => {
-    fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
-      target: { files: [new File(['n'], 'n.txt')] }
+test.stable(
+  'retains a definite rejection and only retries after a deliberate click',
+  async ({ vi, act, fireEvent, screen, expect, render, rpcHandlersTransport }) => {
+    vi.mocked(uploadSource)
+      .mockRejectedValueOnce(new StudyError('invalid_input', 'Unsupported'))
+      .mockResolvedValueOnce({ id: 46n } as Awaited<ReturnType<typeof uploadSource>>);
+    mount({ render, rpcHandlersTransport }, <Composer id={id} />);
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
+        target: { files: [new File(['n'], 'n.txt')] }
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await screen.findByText('NoteFileRejected');
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await screen.findByText('NoteFileAccepted');
-  expect(uploadSource).toHaveBeenCalledTimes(2);
-});
+    await screen.findByText('NoteFileRejected');
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await screen.findByText('NoteFileAccepted');
+    expect(uploadSource).toHaveBeenCalledTimes(2);
+  }
+);
 
-testStable.each([
+test.stable.for([
   ['NoteImprove', 'improve'],
   ['NoteSummarize', 'summarize']
 ] as const)(
   'targets the exact message for %s and retains its request receipt',
-  async (label, origin) => {
+  async (
+    [label, origin],
+    { vi, act, fireEvent, screen, expect, waitFor, render, rpcHandlersTransport }
+  ) => {
     vi.mocked(rewriteNote).mockResolvedValue({
       requestId: 'rewrite-exact',
       noteId: id,
       messageId: message.id,
       versionId: message.activeVersionId!
     });
-    mount(actions());
+    mount({ render, rpcHandlersTransport }, actions());
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: label }));
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -296,9 +369,19 @@ testStable.each([
   }
 );
 
-testStable(
+test.stable(
   'keeps the edit payload and write fence across remounts until the original receipt',
-  async () => {
+  async ({
+    vi,
+    act,
+    fireEvent,
+    screen,
+    userEvent,
+    waitFor,
+    expect,
+    render,
+    rpcHandlersTransport
+  }) => {
     let accept!: (value: typeof message) => void;
 
     vi.mocked(editNote).mockImplementation(
@@ -307,7 +390,7 @@ testStable(
           accept = resolve;
         })
     );
-    const first = mount(actions());
+    const first = mount({ render, rpcHandlersTransport }, actions());
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'NoteEditNote' }));
@@ -328,7 +411,7 @@ testStable(
       expect(editNote).toHaveBeenCalledWith({ messageId: message.id, text: 'Edited note' })
     );
     first.unmount();
-    mount(actions(), first.client);
+    mount({ render, rpcHandlersTransport }, actions(), first.client);
     expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
     await act(async () => accept(message));
     await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument());
@@ -336,11 +419,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'does not rewrite a changed active version or silently use a historical version',
-  async () => {
+  async ({ act, fireEvent, screen, expect, render, rpcHandlersTransport }) => {
     rpc.message.mockResolvedValue({ ...message, activeVersionId: message.versions[0]!.id });
-    mount(actions());
+    mount({ render, rpcHandlersTransport }, actions());
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'NoteImprove', hidden: true }));
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -354,11 +437,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'offers explicit historical activation and sends setActiveVersion with its exact identity',
-  async () => {
+  async ({ vi, expect, screen, act, fireEvent, waitFor, render, rpcHandlersTransport }) => {
     vi.mocked(activateVersion).mockResolvedValue(message);
-    mount(actions(message.versions[0]!.id));
+    mount({ render, rpcHandlersTransport }, actions(message.versions[0]!.id));
     expect(screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBeDisabled();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'NoteUseVersion' }));
@@ -377,69 +460,80 @@ testStable(
   }
 );
 
-testStable('never replays a rewrite after uncertain acceptance and remount', async () => {
-  vi.mocked(rewriteNote).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
-  const first = mount(actions());
+test.stable(
+  'never replays a rewrite after uncertain acceptance and remount',
+  async ({ vi, act, fireEvent, screen, expect, render, rpcHandlersTransport }) => {
+    vi.mocked(rewriteNote).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
+    const first = mount({ render, rpcHandlersTransport }, actions());
 
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'NoteImprove', hidden: true }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'NoteApplyAction' }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await screen.findByText('NoteItemActionUncertain');
-  first.unmount();
-  mount(actions(), first.client);
-  expect(screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBeDisabled();
-  expect(rewriteNote).toHaveBeenCalledTimes(1);
-  expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
-});
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'NoteImprove', hidden: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'NoteApplyAction' }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await screen.findByText('NoteItemActionUncertain');
+    first.unmount();
+    mount({ render, rpcHandlersTransport }, actions(), first.client);
+    expect(screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBeDisabled();
+    expect(rewriteNote).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+  }
+);
 
-testStable('sends custom instructions only to the chosen message', async () => {
-  vi.mocked(rewriteNote).mockResolvedValue({
-    requestId: 'custom',
-    noteId: id,
-    messageId: message.id,
-    versionId: message.activeVersionId!
-  });
-  mount(actions());
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'NoteCustomTransform', hidden: true }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await act(async () => {
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Use shorter sentences' } });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'NoteApplyAction' }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-  await waitFor(() =>
-    expect(rewriteNote).toHaveBeenCalledWith({
+test.stable(
+  'sends custom instructions only to the chosen message',
+  async ({ vi, act, fireEvent, screen, waitFor, expect, render, rpcHandlersTransport }) => {
+    vi.mocked(rewriteNote).mockResolvedValue({
+      requestId: 'custom',
+      noteId: id,
       messageId: message.id,
-      origin: 'instruction',
-      instruction: 'Use shorter sentences'
-    })
-  );
-});
+      versionId: message.activeVersionId!
+    });
+    mount({ render, rpcHandlersTransport }, actions());
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'NoteCustomTransform', hidden: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await act(async () => {
+      fireEvent.change(screen.getByRole('textbox'), {
+        target: { value: 'Use shorter sentences' }
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'NoteApplyAction' }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await waitFor(() =>
+      expect(rewriteNote).toHaveBeenCalledWith({
+        messageId: message.id,
+        origin: 'instruction',
+        instruction: 'Use shorter sentences'
+      })
+    );
+  }
+);
 
-testStable('offers editing actions without Ask or Reanswer for existing entries', () => {
-  const assistant = { ...message, role: 'assistant' as const, replyTo: message.id };
+test.stable(
+  'offers editing actions without Ask or Reanswer for existing entries',
+  ({ expect, screen, render, rpcHandlersTransport }) => {
+    const assistant = { ...message, role: 'assistant' as const, replyTo: message.id };
 
-  mount(actions(message.activeVersionId!, assistant));
-  expect(screen.queryByRole('button', { name: 'NoteAsk' })).toBeNull();
-  expect(screen.queryByRole('button', { name: 'NoteReanswer' })).toBeNull();
-  expect(screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBeVisible();
-  expect(reanswerNote).not.toHaveBeenCalled();
-  expect(ask).not.toHaveBeenCalled();
-});
+    mount({ render, rpcHandlersTransport }, actions(message.activeVersionId!, assistant));
+    expect(screen.queryByRole('button', { name: 'NoteAsk' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'NoteReanswer' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBeVisible();
+    expect(reanswerNote).not.toHaveBeenCalled();
+    expect(ask).not.toHaveBeenCalled();
+  }
+);
 
-testStable(
+test.stable(
   'retains exact retry identity for an Ask operation already stored before the capture-only UI',
-  async () => {
+  async ({ vi, expect, screen, fireEvent, waitFor, render, rpcHandlersTransport }) => {
     vi.mocked(ask).mockResolvedValue({ requestId: 'ask-exact' } as Awaited<ReturnType<typeof ask>>);
     const client = AtomRegistry.make();
     const input = {
@@ -466,20 +560,20 @@ testStable(
         askInput: input
       }
     });
-    const first = mount(actions(), client);
+    const first = mount({ render, rpcHandlersTransport }, actions(), client);
 
     expect(screen.queryByRole('button', { name: 'NoteAsk' })).toBeNull();
     first.unmount();
-    mount(actions(), client);
+    mount({ render, rpcHandlersTransport }, actions(), client);
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     await waitFor(() => expect(ask).toHaveBeenCalledExactlyOnceWith(input));
     expect(saveNote).not.toHaveBeenCalled();
   }
 );
 
-testStable(
+test.stable(
   'discovers canonical runs on a cold mount, paginates exact cursors, and mounts only retained proposals',
-  async () => {
+  async ({ expect, screen, act, fireEvent, render, rpcHandlersTransport }) => {
     const run = {
       requestId: 'request-z',
       contextRequestId: null,
@@ -519,7 +613,7 @@ testStable(
             }
       )
     );
-    mount(<NoteRuns id={id} />);
+    mount({ render, rpcHandlersTransport }, <NoteRuns id={id} />);
     expect(await screen.findByTestId('proposal')).toHaveTextContent('request-z');
     expect(screen.getAllByText('NoteContextUnavailable')[0]).toBeVisible();
     await act(async () => {
@@ -532,14 +626,14 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'captures accepted files and plain text together without requesting a reply',
-  async () => {
+  async ({ vi, fireEvent, screen, expect, waitFor, render, rpcHandlersTransport }) => {
     vi.mocked(uploadSource).mockResolvedValue({ id: 47n } as Awaited<
       ReturnType<typeof uploadSource>
     >);
     vi.mocked(saveNote).mockResolvedValue(message);
-    mount(<Composer id={id} />);
+    mount({ render, rpcHandlersTransport }, <Composer id={id} />);
     fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
       target: { files: [new File(['n'], 'n.txt')] }
     });
@@ -557,14 +651,14 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'keeps the original note and source payload after an uncertain post without replay',
-  async () => {
+  async ({ vi, act, fireEvent, screen, expect, render, rpcHandlersTransport }) => {
     vi.mocked(uploadSource).mockResolvedValue({ id: 48n } as Awaited<
       ReturnType<typeof uploadSource>
     >);
     vi.mocked(saveNote).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
-    const first = mount(<Composer id={id} />);
+    const first = mount({ render, rpcHandlersTransport }, <Composer id={id} />);
 
     await act(async () => {
       fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
@@ -579,7 +673,7 @@ testStable(
     });
     await screen.findByText('NoteNoteUncertain');
     first.unmount();
-    mount(<Composer id={id} />, first.client);
+    mount({ render, rpcHandlersTransport }, <Composer id={id} />, first.client);
     expect(first.client.get(composerDraft(id))).toMatchObject({
       noteAttempt: '',
       noteSourceIds: [48n]
@@ -590,10 +684,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'hands focus to the item editor and restores the invoking action on cancel',
-  async () => {
-    mount(actions());
+  async ({ screen, act, fireEvent, waitFor, expect, render, rpcHandlersTransport }) => {
+    mount({ render, rpcHandlersTransport }, actions());
     const trigger = screen.getByRole('button', { name: 'NoteEditNote' });
 
     trigger.focus();
@@ -613,16 +707,19 @@ testStable(
   }
 );
 
-testStable('keeps editing actions disabled on a historical version', () => {
-  mount(actions(message.versions[0]!.id));
-  expect(screen.getByRole('button', { name: 'NoteEditNote' })).toBeDisabled();
-  expect(screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBeDisabled();
-  expect(screen.getByRole('button', { name: 'NoteUseVersion' })).toBeEnabled();
-});
+test.stable(
+  'keeps editing actions disabled on a historical version',
+  ({ expect, screen, render, rpcHandlersTransport }) => {
+    mount({ render, rpcHandlersTransport }, actions(message.versions[0]!.id));
+    expect(screen.getByRole('button', { name: 'NoteEditNote' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'NoteUseVersion' })).toBeEnabled();
+  }
+);
 
-testStable(
+test.stable(
   'puts the saved task title above technical run details without inventing a date',
-  async () => {
+  async ({ expect, screen, render, rpcHandlersTransport }) => {
     rpc.pages.mockResolvedValue({
       items: [
         {
@@ -637,7 +734,7 @@ testStable(
       ],
       next: null
     });
-    mount(<NoteRuns id={id} />);
+    mount({ render, rpcHandlersTransport }, <NoteRuns id={id} />);
     expect(await screen.findByText('Retained generation title')).toBeVisible();
     const identity = screen.getByText('technical-request-identity');
 
@@ -661,10 +758,10 @@ function VersionedNote({ value = message }: { value?: typeof message }) {
   );
 }
 
-testStable(
+test.stable(
   'browses exact saved versions with inline boundaries and a Latest badge without activating them',
-  async () => {
-    mount(<VersionedNote />);
+  async ({ expect, screen, fireEvent, render, rpcHandlersTransport }) => {
+    mount({ render, rpcHandlersTransport }, <VersionedNote />);
     expect(screen.getByRole('button', { name: 'NoteNextVersion' })).toBeDisabled();
     expect(screen.getByText('NoteVersionLatest')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'NotePreviousVersion' }));
@@ -679,11 +776,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'keeps version browsing disabled while an edit or uncertain write owns the note and restores it after review',
-  async () => {
+  async ({ vi, fireEvent, screen, waitFor, expect, render, rpcHandlersTransport }) => {
     vi.mocked(editNote).mockRejectedValue(new StudyError('transient', 'Uncertain edit'));
-    mount(<VersionedNote />);
+    mount({ render, rpcHandlersTransport }, <VersionedNote />);
     fireEvent.click(screen.getByRole('button', { name: 'NoteEditNote' }));
     await waitFor(() =>
       expect(
@@ -715,60 +812,72 @@ testStable(
   }
 );
 
-testStable('labels the newest saved version Latest even when another version is active', () => {
-  mount(
-    <VersionedNote
-      value={{
-        ...message,
-        activeVersionId: message.versions[0]!.id,
-        versions: [...message.versions].reverse()
-      }}
-    />
-  );
-  expect(screen.getByText('1', { selector: '[role="status"]' })).toBeVisible();
-  fireEvent.click(screen.getByRole('button', { name: 'NoteNextVersion' }));
-  expect(screen.getByText('NoteVersionLatest')).toBeVisible();
-  expect(screen.getByRole('button', { name: 'NoteUseVersion' })).toBeEnabled();
-  expect(activateVersion).not.toHaveBeenCalled();
-});
+test.stable(
+  'labels the newest saved version Latest even when another version is active',
+  ({ expect, screen, fireEvent, render, rpcHandlersTransport }) => {
+    mount(
+      { render, rpcHandlersTransport },
+      <VersionedNote
+        value={{
+          ...message,
+          activeVersionId: message.versions[0]!.id,
+          versions: [...message.versions].reverse()
+        }}
+      />
+    );
+    expect(screen.getByText('1', { selector: '[role="status"]' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'NoteNextVersion' }));
+    expect(screen.getByText('NoteVersionLatest')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'NoteUseVersion' })).toBeEnabled();
+    expect(activateVersion).not.toHaveBeenCalled();
+  }
+);
 
-testStable('retains the same action controls while browsing saved versions', () => {
-  mount(<VersionedNote />);
-  const edit = screen.getByRole('button', { name: 'NoteEditNote' });
-  const improve = screen.getByRole('button', { name: 'NoteImprove', hidden: true });
-  const activate = screen.getByRole('button', { name: 'NoteUseVersion' });
+test.stable(
+  'retains the same action controls while browsing saved versions',
+  ({ screen, expect, fireEvent, render, rpcHandlersTransport }) => {
+    mount({ render, rpcHandlersTransport }, <VersionedNote />);
+    const edit = screen.getByRole('button', { name: 'NoteEditNote' });
+    const improve = screen.getByRole('button', { name: 'NoteImprove', hidden: true });
+    const activate = screen.getByRole('button', { name: 'NoteUseVersion' });
 
-  expect(activate).toBeDisabled();
-  fireEvent.click(screen.getByRole('button', { name: 'NotePreviousVersion' }));
-  expect(screen.getByRole('button', { name: 'NoteEditNote' })).toBe(edit);
-  expect(screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBe(improve);
-  expect(screen.getByRole('button', { name: 'NoteUseVersion' })).toBe(activate);
-  expect(edit).toBeDisabled();
-  expect(improve).toBeDisabled();
-  expect(activate).toBeEnabled();
-  fireEvent.click(screen.getByRole('button', { name: 'NoteNextVersion' }));
-  expect(edit).toBeEnabled();
-  expect(improve).toBeEnabled();
-  expect(activate).toBeDisabled();
-});
+    expect(activate).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'NotePreviousVersion' }));
+    expect(screen.getByRole('button', { name: 'NoteEditNote' })).toBe(edit);
+    expect(screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBe(improve);
+    expect(screen.getByRole('button', { name: 'NoteUseVersion' })).toBe(activate);
+    expect(edit).toBeDisabled();
+    expect(improve).toBeDisabled();
+    expect(activate).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'NoteNextVersion' }));
+    expect(edit).toBeEnabled();
+    expect(improve).toBeEnabled();
+    expect(activate).toBeDisabled();
+  }
+);
 
-testStable('protects an open edit from other toolbar actions', async () => {
-  mount(<VersionedNote />);
-  fireEvent.click(screen.getByRole('button', { name: 'NoteEditNote' }));
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBeDisabled()
-  );
-  expect(screen.getByRole('button', { name: 'NoteCustomTransform', hidden: true })).toBeDisabled();
-  fireEvent.click(screen.getByRole('button', { name: 'NoteCancel' }));
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBeEnabled()
-  );
-});
+test.stable(
+  'protects an open edit from other toolbar actions',
+  async ({ fireEvent, screen, waitFor, expect, render, rpcHandlersTransport }) => {
+    mount({ render, rpcHandlersTransport }, <VersionedNote />);
+    fireEvent.click(screen.getByRole('button', { name: 'NoteEditNote' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBeDisabled()
+    );
+    expect(
+      screen.getByRole('button', { name: 'NoteCustomTransform', hidden: true })
+    ).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'NoteCancel' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBeEnabled()
+    );
+  }
+);
 
-testStable(
+test.stable(
   'opens deliberate editing in a dialog while keeping the saved note in the notebook',
-  async () => {
-    mount(<VersionedNote />);
+  async ({ fireEvent, screen, expect, waitFor, render, rpcHandlersTransport }) => {
+    mount({ render, rpcHandlersTransport }, <VersionedNote />);
     fireEvent.click(screen.getByRole('button', { name: 'NoteEditNote' }));
     expect(await screen.findByRole('dialog', { name: 'NoteEditNote' })).toBeVisible();
     expect(screen.getByText('Current note', { selector: 'p' })).toBeInTheDocument();
@@ -778,19 +887,26 @@ testStable(
   }
 );
 
-testStable('opens note actions on right click and edits the exact selected note', async () => {
-  mount(<VersionedNote />);
-  fireEvent.contextMenu(screen.getByText('Current note'), { button: 2, clientX: 80, clientY: 80 });
-  await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'NoteEditNote' }));
-  expect(await screen.findByRole('dialog')).toBeVisible();
-  expect(screen.getByRole('textbox', { name: 'NoteEditNote' })).toHaveValue('Current note');
-  expect(editNote).not.toHaveBeenCalled();
-});
+test.stable(
+  'opens note actions on right click and edits the exact selected note',
+  async ({ fireEvent, screen, userEvent, expect, render, rpcHandlersTransport }) => {
+    mount({ render, rpcHandlersTransport }, <VersionedNote />);
+    fireEvent.contextMenu(screen.getByText('Current note'), {
+      button: 2,
+      clientX: 80,
+      clientY: 80
+    });
+    await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'NoteEditNote' }));
+    expect(await screen.findByRole('dialog')).toBeVisible();
+    expect(screen.getByRole('textbox', { name: 'NoteEditNote' })).toHaveValue('Current note');
+    expect(editNote).not.toHaveBeenCalled();
+  }
+);
 
-testStable(
+test.stable(
   'restricts historical note context actions to activating the selected version',
-  async () => {
-    mount(<VersionedNote />);
+  async ({ fireEvent, screen, expect, userEvent, render, rpcHandlersTransport }) => {
+    mount({ render, rpcHandlersTransport }, <VersionedNote />);
     fireEvent.click(screen.getByRole('button', { name: 'NotePreviousVersion' }));
     fireEvent.contextMenu(screen.getByText('Historical note'), {
       button: 2,
@@ -812,16 +928,16 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'keeps pending assistant message context actions disabled and hides note editing',
-  async () => {
+  async ({ fireEvent, screen, expect, render, rpcHandlersTransport }) => {
     const pending = {
       ...message,
       role: 'assistant' as const,
       versions: message.versions.map((version) => ({ ...version, status: 'pending' as const }))
     };
 
-    mount(<VersionedNote value={pending} />);
+    mount({ render, rpcHandlersTransport }, <VersionedNote value={pending} />);
     fireEvent.contextMenu(screen.getByText('Current note'), {
       button: 2,
       clientX: 80,
@@ -835,85 +951,116 @@ testStable(
   }
 );
 
-testStable('keeps raw note deletion in both the toolbar and right-click menu', async () => {
-  mount(<VersionedNote />);
-  expect(screen.getByRole('button', { name: 'NoteDeleteItem' })).toBeVisible();
-  expect(screen.getByRole('button', { name: 'NoteDeleteVersion' })).toBeVisible();
-  fireEvent.contextMenu(screen.getByText('Current note'), { button: 2, clientX: 80, clientY: 80 });
-  expect(await screen.findByRole('menuitem', { name: 'NoteDeleteItem' })).toBeVisible();
-  await userEvent.setup().click(screen.getByRole('menuitem', { name: 'NoteDeleteVersion' }));
-  const dialog = await screen.findByRole('alertdialog');
+test.stable(
+  'keeps raw note deletion in both the toolbar and right-click menu',
+  async ({
+    expect,
+    screen,
+    fireEvent,
+    userEvent,
+    within,
+    waitFor,
+    render,
+    rpcHandlersTransport
+  }) => {
+    mount({ render, rpcHandlersTransport }, <VersionedNote />);
+    expect(screen.getByRole('button', { name: 'NoteDeleteItem' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'NoteDeleteVersion' })).toBeVisible();
+    fireEvent.contextMenu(screen.getByText('Current note'), {
+      button: 2,
+      clientX: 80,
+      clientY: 80
+    });
+    expect(await screen.findByRole('menuitem', { name: 'NoteDeleteItem' })).toBeVisible();
+    await userEvent.setup().click(screen.getByRole('menuitem', { name: 'NoteDeleteVersion' }));
+    const dialog = await screen.findByRole('alertdialog');
 
-  expect(within(dialog).getByText('NoteDeleteVersionHelp')).toBeVisible();
-  await userEvent.setup().click(within(dialog).getByRole('button', { name: 'Cancel' }));
-  await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
-  expect(screen.getByRole('button', { name: 'NoteDeleteItem' })).toBeVisible();
-});
+    expect(within(dialog).getByText('NoteDeleteVersionHelp')).toBeVisible();
+    await userEvent.setup().click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'NoteDeleteItem' })).toBeVisible();
+  }
+);
 
-testStable('archives the exact note membership independently of permanent deletion', async () => {
-  rpc.archive.mockResolvedValue(undefined);
-  mount(<VersionedNote />);
-  fireEvent.contextMenu(screen.getByText('Current note'), { button: 2, clientX: 80, clientY: 80 });
-  await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'NoteArchive' }));
-  await waitFor(() =>
-    expect(rpc.archive).toHaveBeenCalledExactlyOnceWith({
-      noteId: id,
-      target: { kind: 'message', id: message.id },
-      archived: true
-    })
-  );
-  expect(screen.queryByRole('alertdialog')).toBeNull();
-});
+test.stable(
+  'archives the exact note membership independently of permanent deletion',
+  async ({ fireEvent, screen, userEvent, waitFor, expect, render, rpcHandlersTransport }) => {
+    rpc.archive.mockResolvedValue(undefined);
+    mount({ render, rpcHandlersTransport }, <VersionedNote />);
+    fireEvent.contextMenu(screen.getByText('Current note'), {
+      button: 2,
+      clientX: 80,
+      clientY: 80
+    });
+    await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'NoteArchive' }));
+    await waitFor(() =>
+      expect(rpc.archive).toHaveBeenCalledExactlyOnceWith({
+        noteId: id,
+        target: { kind: 'message', id: message.id },
+        archived: true
+      })
+    );
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  }
+);
 
-testStable('converts the selected active message version directly from its toolbar', async () => {
-  rpc.convert.mockResolvedValue({
-    requestId: 'converted',
-    noteId: id,
-    messageId: message.id,
-    versionId: 99n
-  });
-  mount(actions());
-  fireEvent.click(await screen.findByRole('button', { name: 'NoteConvertText' }));
-  await waitFor(() =>
-    expect(rpc.convert).toHaveBeenCalledWith({
-      messageId: message.id,
-      expectedActiveVersionId: message.activeVersionId,
-      strategyId: 'chatgpt'
-    })
-  );
-  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-});
-
-testStable('retries the original conversion payload after viewing another version', async () => {
-  rpc.convert
-    .mockRejectedValueOnce(new StudyError('transient', 'Unconfirmed'))
-    .mockResolvedValueOnce({
+test.stable(
+  'converts the selected active message version directly from its toolbar',
+  async ({ fireEvent, screen, waitFor, expect, render, rpcHandlersTransport }) => {
+    rpc.convert.mockResolvedValue({
       requestId: 'converted',
       noteId: id,
       messageId: message.id,
       versionId: 99n
     });
-  const view = mount(actions());
+    mount({ render, rpcHandlersTransport }, actions());
+    fireEvent.click(await screen.findByRole('button', { name: 'NoteConvertText' }));
+    await waitFor(() =>
+      expect(rpc.convert).toHaveBeenCalledWith({
+        messageId: message.id,
+        expectedActiveVersionId: message.activeVersionId,
+        strategyId: 'chatgpt'
+      })
+    );
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  }
+);
 
-  fireEvent.click(await screen.findByRole('button', { name: 'NoteConvertText' }));
-  await screen.findByRole('button', { name: 'Retry' });
-  view.rerender(
-    <CanvasProvider registry={view.client}>{actions(message.versions[0].id)}</CanvasProvider>
-  );
-  fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
-  await waitFor(() => expect(rpc.convert).toHaveBeenCalledTimes(2));
-  expect(rpc.convert.mock.calls[1][0]).toEqual(rpc.convert.mock.calls[0][0]);
-});
+test.stable(
+  'retries the original conversion payload after viewing another version',
+  async ({ fireEvent, screen, waitFor, expect, render, rpcHandlersTransport }) => {
+    rpc.convert
+      .mockRejectedValueOnce(new StudyError('transient', 'Unconfirmed'))
+      .mockResolvedValueOnce({
+        requestId: 'converted',
+        noteId: id,
+        messageId: message.id,
+        versionId: 99n
+      });
+    const view = mount({ render, rpcHandlersTransport }, actions());
 
-testStable.each(['Copied text', ''])(
+    fireEvent.click(await screen.findByRole('button', { name: 'NoteConvertText' }));
+    await screen.findByRole('button', { name: 'Retry' });
+    view.rerender(
+      <CanvasProvider registry={view.client} rpcHandlersTransport={rpcHandlersTransport}>
+        {actions(message.versions[0].id)}
+      </CanvasProvider>
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(rpc.convert).toHaveBeenCalledTimes(2));
+    expect(rpc.convert.mock.calls[1][0]).toEqual(rpc.convert.mock.calls[0][0]);
+  }
+);
+
+test.stable.for(['Copied text', ''])(
   'pasting files retains the clipboard text payload %j',
-  async (text) => {
+  async (text, { vi, fireEvent, screen, expect, waitFor, render, rpcHandlersTransport }) => {
     const file = new File(['pdf'], 'pasted.pdf', { type: 'application/pdf' });
 
     vi.mocked(uploadSource).mockResolvedValue({ id: 47n } as Awaited<
       ReturnType<typeof uploadSource>
     >);
-    mount(<Composer id={id} />);
+    mount({ render, rpcHandlersTransport }, <Composer id={id} />);
     const accepted = fireEvent.paste(screen.getByRole('textbox'), {
       clipboardData: {
         files: [file],
@@ -926,10 +1073,16 @@ testStable.each(['Copied text', ''])(
   }
 );
 
-testStable('identifies the conversion icon on hover', async () => {
-  const user = userEvent.setup();
+test.stable(
+  'identifies the conversion icon on hover',
+  async ({ userEvent, screen, expect, render, rpcHandlersTransport }) => {
+    const user = userEvent.setup();
 
-  mount(<TooltipProvider delay={0}>{actions()}</TooltipProvider>);
-  await user.hover(await screen.findByRole('button', { name: 'NoteConvertText' }));
-  expect(await screen.findByRole('tooltip')).toHaveTextContent('NoteConvertText');
-});
+    mount(
+      { render, rpcHandlersTransport },
+      <TooltipProvider delay={0}>{actions()}</TooltipProvider>
+    );
+    await user.hover(await screen.findByRole('button', { name: 'NoteConvertText' }));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('NoteConvertText');
+  }
+);

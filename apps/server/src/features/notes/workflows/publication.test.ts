@@ -1,3 +1,4 @@
+import { blockIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies guarded note publication validates captured citations and replays         │
@@ -12,8 +13,6 @@
  * │ replace production activities.                                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { blockIdSchema } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import {
   blocks,
@@ -24,12 +23,9 @@ import {
   source_snapshots,
   source_extraction_revisions
 } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/service/index';
 import { Projects } from '#server/features/projects/index';
@@ -39,17 +35,24 @@ import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { withTestAdmission } from '#testing/workflow-admission';
 
-testStable(
+test.stable(
   'guarded publication validates captured citations and replays without writes',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
 
     try {
-      function* verifyGuardedCitationPublication() {
+      function* verifyGuardedCitationPublication({
+        assert: assertions,
+        expect
+      }: Pick<test.Context, 'assert' | 'expect'>) {
+        const assert: test.Assert = assertions;
+
         const project = yield* (yield* Projects).createProject({ name: 'Publication' });
         const notes = yield* Notes;
         const note = yield* notes.createNote({
@@ -325,7 +328,7 @@ testStable(
 
       await Effect.runPromise(
         Effect.scoped(
-          Effect.gen(verifyGuardedCitationPublication).pipe(
+          Effect.gen(() => verifyGuardedCitationPublication({ assert, expect })).pipe(
             Effect.provide(layer),
             Effect.provide(workflowEngineLayer(context))
           )

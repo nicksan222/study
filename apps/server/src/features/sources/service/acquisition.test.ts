@@ -1,3 +1,4 @@
+import { SourcesRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises source acquisition behavior through real persistence boundaries.         │
@@ -10,15 +11,10 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { SourcesRpc } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Sources } from '#server/features/sources/index';
 import { SourcesRpcLive } from '#server/features/sources/rpc/index';
@@ -26,10 +22,12 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { testLiveQueries } from '#testing/live-queries';
 
-testStable(
+test.stable(
   'acquisition atomically retains independent originals without authoring documents or source Materials',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const domain = SourcesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
       Layer.provideMerge(Sources.layer),
@@ -99,10 +97,12 @@ const originalFixtures = {
 };
 
 for (const kind of ['image', 'audio', 'video', 'link'] as const)
-  testStable(
+  test.stable(
     `replacement from ${kind} retains original revision exports with independent source identity`,
-    async () => {
-      const location = await createTestDatabase();
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
+      const location = await databases();
       const context = new ServerContext(await location.open());
       const domain = SourcesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
         Layer.provideMerge(Sources.layer),

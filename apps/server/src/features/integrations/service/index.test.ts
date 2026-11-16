@@ -1,3 +1,6 @@
+import { StudyRpc } from '@study/contracts';
+import { sql } from '@study/db';
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises integration imports through real SQLite HTTP and Workflow execution.     │
@@ -9,12 +12,7 @@
  * │ Tests use production services and real temporary database ownership and listeners.       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
-import { sql } from '@study/db';
-import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { Integrations } from '#server/features/integrations/index';
@@ -23,8 +21,8 @@ import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
 import { serve } from '#server/runtime/server';
+import { awaitSnapshot } from '#testing/live-queries';
 import { withTestPublication } from '#testing/publication';
-import { createStudyTest } from '#testing/server-test';
 
 const input = (text = '# Cells\n\nSee [[DNA]].') => ({
   providerId: 'obsidian',
@@ -35,10 +33,10 @@ const input = (text = '# Cells\n\nSee [[DNA]].') => ({
   ]
 });
 
-testStable(
+test.stable(
   'imports through real HTTP RPC and native Workflow into editable note documents',
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture, expect, observeUntil, snapshotValues }) => {
+    const fixture = serverFixture;
     const server = fixture.manage(await serve(fixture.app));
 
     await fixture.app.workers.start();
@@ -51,12 +49,10 @@ testStable(
           expect(preview.status).toBe('preview');
           expect((yield* client['notes.notes']({ limit: 100 })).items).toHaveLength(0);
           yield* client['integrations.startImport']({ id: preview.id, excludedKeys: [] });
-          let result = yield* client['integrations.import']({ id: preview.id });
-
-          while (result.status === 'running') {
-            yield* Effect.sleep('20 millis');
-            result = yield* client['integrations.import']({ id: preview.id });
-          }
+          const result = yield* observeUntil(
+            snapshotValues(client['integrations.import.live']({ id: preview.id })),
+            (value) => value.status !== 'running'
+          );
 
           expect(result.status).toBe('completed');
           expect(result.items.map((item) => item.status)).toEqual(['imported', 'imported']);
@@ -91,10 +87,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'resumes a cancelled import after destination reservation without duplicate notes',
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture, expect }) => {
+    const fixture = serverFixture;
     const preview = await fixture.run(
       Effect.flatMap(Integrations, (service) => service.previewImport(input()))
     );
@@ -130,12 +126,10 @@ testStable(
     await fixture.run(
       Effect.gen(function* () {
         const service = yield* Integrations;
-        let state = yield* service.import({ id: preview.id });
-
-        while (state.status === 'running') {
-          yield* Effect.sleep('20 millis');
-          state = yield* service.import({ id: preview.id });
-        }
+        let state = yield* awaitSnapshot(
+          service.import({ id: preview.id }),
+          (value) => value.status !== 'running'
+        );
 
         expect(state.status).toBe('completed');
         expect(state.items.map((item) => item.noteId)).toEqual(
@@ -151,10 +145,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'reports changed link destinations for review when previously excluded notes are included',
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture, expect }) => {
+    const fixture = serverFixture;
 
     await fixture.app.workers.start();
     await fixture.run(
@@ -163,23 +157,19 @@ testStable(
         const first = yield* service.previewImport(input());
 
         yield* service.startImport({ id: first.id, excludedKeys: ['DNA.md'] });
-        let state = yield* service.import({ id: first.id });
-
-        while (state.status === 'running') {
-          yield* Effect.sleep('20 millis');
-          state = yield* service.import({ id: first.id });
-        }
+        let state = yield* awaitSnapshot(
+          service.import({ id: first.id }),
+          (value) => value.status !== 'running'
+        );
 
         expect(state.items.map((item) => item.status)).toEqual(['imported', 'excluded']);
         const second = yield* service.previewImport(input());
 
         yield* service.startImport({ id: second.id, excludedKeys: [] });
-        state = yield* service.import({ id: second.id });
-
-        while (state.status === 'running') {
-          yield* Effect.sleep('20 millis');
-          state = yield* service.import({ id: second.id });
-        }
+        state = yield* awaitSnapshot(
+          service.import({ id: second.id }),
+          (value) => value.status !== 'running'
+        );
 
         expect(state.items.map((item) => item.status)).toEqual(['conflict', 'imported']);
       }),
@@ -188,10 +178,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'shares one retained attachment Source across notes in the same vault import',
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture, expect }) => {
+    const fixture = serverFixture;
 
     await fixture.app.workers.start();
     await fixture.run(
@@ -211,12 +201,10 @@ testStable(
         });
 
         yield* service.startImport({ id: preview.id, excludedKeys: [] });
-        let state = yield* service.import({ id: preview.id });
-
-        while (state.status === 'running') {
-          yield* Effect.sleep('20 millis');
-          state = yield* service.import({ id: preview.id });
-        }
+        let state = yield* awaitSnapshot(
+          service.import({ id: preview.id }),
+          (value) => value.status !== 'running'
+        );
 
         expect(state.status).toBe('completed');
         const sources = yield* Sources;
@@ -239,10 +227,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'replays a start, resumes after restart, skips unchanged notes and reports changed-note conflicts',
-  async (t) => {
-    const fixture = createStudyTest(t, { app: false });
+  async ({ resources: resourcesFixture, expect }) => {
+    const fixture = resourcesFixture;
     const first = await fixture.openApp();
     const preview = await first.nativeRuntime.runPromise(
       Effect.flatMap(Integrations, (service) => service.previewImport(input()))
@@ -260,24 +248,20 @@ testStable(
     await second.nativeRuntime.runPromise(
       Effect.gen(function* () {
         const service = yield* Integrations;
-        let result = yield* service.import({ id: preview.id });
-
-        while (result.status === 'running') {
-          yield* Effect.sleep('20 millis');
-          result = yield* service.import({ id: preview.id });
-        }
+        let result = yield* awaitSnapshot(
+          service.import({ id: preview.id }),
+          (value) => value.status !== 'running'
+        );
 
         expect(result.items.every((item) => item.status === 'imported')).toBe(true);
         yield* service.startImport({ id: preview.id, excludedKeys: [] });
         const next = yield* service.previewImport(input('# Changed externally'));
 
         yield* service.startImport({ id: next.id, excludedKeys: [] });
-        let repeated = yield* service.import({ id: next.id });
-
-        while (repeated.status === 'running') {
-          yield* Effect.sleep('20 millis');
-          repeated = yield* service.import({ id: next.id });
-        }
+        let repeated = yield* awaitSnapshot(
+          service.import({ id: next.id }),
+          (value) => value.status !== 'running'
+        );
 
         expect(repeated.items.map((item) => item.status)).toEqual(['conflict', 'unchanged']);
         const notes = yield* Notes;
@@ -291,10 +275,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'cancels before publication and excludes selected notes without creating notes',
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture, expect }) => {
+    const fixture = serverFixture;
 
     await fixture.run(
       Effect.gen(function* () {
@@ -314,10 +298,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'can cancel and settle an import after its destination project is deleted',
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture, expect }) => {
+    const fixture = serverFixture;
     const id = await fixture.run(
       Effect.gen(function* () {
         const projects = yield* Projects;
@@ -342,12 +326,10 @@ testStable(
     await fixture.run(
       Effect.gen(function* () {
         const integrations = yield* Integrations;
-        let state = yield* integrations.import({ id });
-
-        while (state.status === 'running') {
-          yield* Effect.sleep('20 millis');
-          state = yield* integrations.import({ id });
-        }
+        let state = yield* awaitSnapshot(
+          integrations.import({ id }),
+          (value) => value.status !== 'running'
+        );
 
         expect(state.status).toBe('failed');
         expect(state.errorKind).toBe('not_found');
@@ -360,29 +342,32 @@ testStable(
   }
 );
 
-testStable('a cancelled preview cannot bypass import confirmation through retry', async (t) => {
-  const fixture = await createStudyTest(t);
+test.stable(
+  'a cancelled preview cannot bypass import confirmation through retry',
+  async ({ server: serverFixture, expect }) => {
+    const fixture = serverFixture;
 
-  await fixture.run(
-    Effect.gen(function* () {
-      const service = yield* Integrations;
-      const preview = yield* service.previewImport(input());
-      const cancelled = yield* service.cancelImport({ id: preview.id });
+    await fixture.run(
+      Effect.gen(function* () {
+        const service = yield* Integrations;
+        const preview = yield* service.previewImport(input());
+        const cancelled = yield* service.cancelImport({ id: preview.id });
 
-      expect(cancelled.attempt).toBe(0);
-      expect((yield* Effect.flip(service.retryImport({ id: preview.id }))).kind).toBe(
-        'invalid_input'
-      );
-      expect((yield* service.import({ id: preview.id })).status).toBe('cancelled');
-      expect((yield* (yield* Notes).notes({ limit: 100 })).items).toHaveLength(0);
-    })
-  );
-});
+        expect(cancelled.attempt).toBe(0);
+        expect((yield* Effect.flip(service.retryImport({ id: preview.id }))).kind).toBe(
+          'invalid_input'
+        );
+        expect((yield* service.import({ id: preview.id })).status).toBe('cancelled');
+        expect((yield* (yield* Notes).notes({ limit: 100 })).items).toHaveLength(0);
+      })
+    );
+  }
+);
 
-testStable(
+test.stable(
   'a finish failure preserves imported items and retries without republishing documents',
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture, expect }) => {
+    const fixture = serverFixture;
 
     fixture.store.db.orm.run(
       sql`CREATE TRIGGER reject_import_completion BEFORE UPDATE OF state ON integration_imports WHEN json_extract(NEW.state, '$.status') = 'completed' BEGIN SELECT RAISE(ABORT, 'injected finish failure'); END`
@@ -394,23 +379,19 @@ testStable(
         const preview = yield* service.previewImport(input());
 
         yield* service.startImport({ id: preview.id, excludedKeys: [] });
-        let failed = yield* service.import({ id: preview.id });
-
-        while (failed.status === 'running') {
-          yield* Effect.sleep('20 millis');
-          failed = yield* service.import({ id: preview.id });
-        }
+        let failed = yield* awaitSnapshot(
+          service.import({ id: preview.id }),
+          (value) => value.status !== 'running'
+        );
 
         expect(failed.status).toBe('failed');
         expect(failed.items.map((item) => item.status)).toEqual(['imported', 'imported']);
         fixture.store.db.orm.run(sql`DROP TRIGGER reject_import_completion`);
         yield* service.retryImport({ id: preview.id });
-        let retried = yield* service.import({ id: preview.id });
-
-        while (retried.status === 'running') {
-          yield* Effect.sleep('20 millis');
-          retried = yield* service.import({ id: preview.id });
-        }
+        let retried = yield* awaitSnapshot(
+          service.import({ id: preview.id }),
+          (value) => value.status !== 'running'
+        );
 
         expect(retried.status).toBe('completed');
         expect(retried.items.map((item) => item.noteId)).toEqual(

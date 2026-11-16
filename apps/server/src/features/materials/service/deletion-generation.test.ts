@@ -1,3 +1,4 @@
+import { eq, sql } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises learning deletion generation behavior through real persistence           │
@@ -11,13 +12,10 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { eq, sql } from '@study/db';
 import * as s from '@study/db';
+import { test } from '@study/testing';
 /** Generated learning output deletion releases evidence pins and retires only its original native ownership. */
-import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
@@ -27,13 +25,15 @@ import { acceptMaterialDeletion, cleanupMaterial } from '#testing/material-delet
 import { assertScrubbed } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
-testStable(
+test.stable(
   'generated learning deletion fences replay, releases exact authored evidence and never reassigns cleanup ownership',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
-      const saved = await learningGeneration(f);
+      const saved = await learningGeneration(f, assert);
       const event = f.event(saved.request.id);
 
       queueLearningGeneration(f);
@@ -71,7 +71,7 @@ testStable(
       f.context.db.exec(
         "CREATE TRIGGER reject_generation_cleanup BEFORE DELETE ON material_flashcard_versions BEGIN SELECT RAISE(ABORT,'injected'); END"
       );
-      await expect(cleanupMaterial(f, output.material_id)).rejects.toSatisfy(() => true);
+      await expect(cleanupMaterial(f, output.material_id, assert)).rejects.toSatisfy(() => true);
       await Effect.runPromise(
         Effect.gen(function* () {
           const m = yield* Materials;
@@ -96,7 +96,7 @@ testStable(
           Effect.provide(f.domain())
         )
       );
-      await cleanupMaterial(f, output.material_id);
+      await cleanupMaterial(f, output.material_id, assert);
       await f.reopen();
       const retired = f.context.db.orm
         .select()
@@ -109,8 +109,8 @@ testStable(
       assert.ok(retired.cancelled === true);
       assert.ok(retired.result_version_id === null);
       assert.ok(retired.result_hash === null);
-      assertScrubbed(f, 'HISTORY_PRIVATE_GENERATION');
-      assertScrubbed(f, 'GENERATED_HISTORICAL_BODY');
+      assertScrubbed(f, assert, 'HISTORY_PRIVATE_GENERATION');
+      assertScrubbed(f, assert, 'GENERATED_HISTORICAL_BODY');
       const native = workflowStore(f.context).execution('completed-generation');
 
       assert.ok(native?.status === 'completed');

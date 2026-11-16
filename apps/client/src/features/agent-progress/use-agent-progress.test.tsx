@@ -1,15 +1,11 @@
 import { executionIdSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
-import { expect } from 'vite-plus/test';
-
-import { rpcTestTransport } from '#client/test/rpc.tsx';
+import { test } from '@study/testing';
 
 import { useAgentProgress } from './use-agent-progress';
 
-testStable(
+test.stable(
   'switching progress input ignores a late snapshot from the previous execution',
-  async () => {
+  async ({ rpcTestTransport, renderHook, waitFor, expect, act }) => {
     let resolveOld!: (value: unknown) => void;
     const inputs: unknown[] = [];
     const fixture = rpcTestTransport(async (_tag, input) => {

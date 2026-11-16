@@ -1,14 +1,12 @@
-import { testStable } from '@study/testing/vitest';
-import { render, screen } from '@testing-library/react';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { LanguageProvider } from '#client/lib/i18n.tsx';
 
 import { PageView } from './page.view';
 
-testStable.each(['english', 'italian'] as const)(
+test.stable.for(['english', 'italian'] as const)(
   'keeps the unselected workspace quiet in %s',
-  (locale) => {
+  (locale, { render, expect, screen }) => {
     render(
       <LanguageProvider locale={locale}>
         <PageView />

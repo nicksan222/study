@@ -1,4 +1,5 @@
-export {};
+import { testPolicy } from '@study/testing';
+import { spawnScopedProcess } from '@study/testing/process';
 
 const repetitions = Number(process.argv[2] ?? 3);
 
@@ -16,10 +17,14 @@ const results: { wallMs: number; exitCode: number }[] = [];
 
 for (let index = 0; index < repetitions; index++) {
   const start = performance.now();
-  const child = Bun.spawn(['bun', 'run', 'web:e2e:compare', '--workers', String(workers)], {
-    stdout: 'inherit',
-    stderr: 'inherit'
-  });
+  await using child = spawnScopedProcess(
+    ['bun', 'run', 'web:e2e:compare', '--workers', String(workers)],
+    {
+      timeout: testPolicy.suiteTimeout,
+      stdout: 'inherit',
+      stderr: 'inherit'
+    }
+  );
   const exitCode = await child.exited;
 
   results.push({ wallMs: performance.now() - start, exitCode });

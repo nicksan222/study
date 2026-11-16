@@ -1,26 +1,39 @@
 import { pageIdSchema, pageVersionIdSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { afterEach, expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
-import { rpcTestTransport } from '#client/test/rpc.tsx';
+import type * as __MockType0 from './merge';
 
-import { MergePagesDialog } from './merge';
+let MergePagesDialog: typeof __MockType0.MergePagesDialog;
 
-const api = vi.hoisted(() => ({ merge: vi.fn() }));
+let api: ReturnType<typeof createMockState>['api'];
 
-vi.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: 'italian' })
-}));
-afterEach(() => {
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({ merge: mock.fn() }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({ t: (key: string) => key, locale: 'italian' })
+  }));
+  const __mockModule0 = await import('./merge');
+
+  MergePagesDialog = __mockModule0.MergePagesDialog;
+});
+
+test.afterEach(({ cleanup, vi }) => {
   cleanup();
   vi.clearAllMocks();
 });
 
-testStable(
+test.stable(
   'merge explains archival, requires a title and submits selected exact versions in the UI language',
-  async () => {
+  async ({ userEvent, rpcTestTransport, vi, render, expect, screen, waitFor }) => {
     const user = userEvent.setup();
     const harness = rpcTestTransport(async (tag, input) => {
       if (tag === 'pages.merge') return api.merge(input);

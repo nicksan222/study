@@ -1,24 +1,20 @@
 import { StudyError, contentSnapshotIdSchema, noteIdSchema, createBlock } from '@study/contracts';
 import { configureRpcTransport } from '@study/contracts/react';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { expect, vi } from 'vite-plus/test';
 
 import { Providers } from '#client/app/providers.tsx';
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { authoredPage } from '../document-editing/test-support';
 import { importedSource, materialRpc } from '../material-library/test/support';
 import { SourcePanel } from './source-panel';
 
 for (const context of ['current', 'historical', 'note'] as const)
-  testStable(
+  test.stable(
     `renders retained source images in ${context}, isolates retry and cleans URLs across extraction identities`,
-    async () => {
-      const rpc = materialRpc();
+    async ({ vi, rpcHandlersTransport, render, screen, waitFor, expect, userEvent }) => {
+      const rpc = materialRpc({ vi });
       const sourceId = importedSource.id;
       const base = authoredPage().version!;
       const figure = createBlock({

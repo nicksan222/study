@@ -1,12 +1,11 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { replySnapshotSchema } from '../src/notes/schemas.ts';
 
-testStable(
+test.stable(
   'conversion provenance requires its captured target and cannot decorate other operations',
-  () => {
+  ({ expect }) => {
     const decode = Schema.decodeUnknownSync(replySnapshotSchema);
     const snapshot = {
       requestId: 'conversion',

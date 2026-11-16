@@ -1,3 +1,4 @@
+import * as s from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Covers active feature authority and consumed proposal receipts across restore.     │
@@ -10,12 +11,8 @@
  * │ Uses public owners, native generation and a controlled provider; all SQLite guards stay. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Learning } from '#server/features/learning/index';
 import { Materials } from '#server/features/materials/index';
@@ -35,10 +32,12 @@ import { validPageTransformOutput } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
 for (const action of ['apply', 'keep'] as const)
-  testStable(
+  test.stable(
     `completed proposal ${action} receipt replays after restore while a new key retains normal proposal validation`,
-    async () => {
-      const source = await pageTransformFixture();
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
+      const source = await pageTransformFixture(databases);
 
       let target: Awaited<ReturnType<typeof restoreSnapshot>> | undefined;
 
@@ -171,9 +170,11 @@ for (const action of ['apply', 'keep'] as const)
     }
   );
 
-testStable(
+test.stable(
   'pending generation, practice and open-answer grading remain admitted after import',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const source = await backupFixture();
 
     let target: Awaited<ReturnType<typeof restoreSnapshot>> | undefined;
@@ -301,10 +302,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'pending source correction retains completed extraction and durable outbox intent',
-  async () => {
-    const source = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const source = await pageTransformFixture(databases);
 
     let target: Awaited<ReturnType<typeof restoreSnapshot>> | undefined;
 
@@ -319,7 +322,7 @@ testStable(
         ).pipe(Effect.provide(source.domain()))
       );
 
-      const completed = await processSource(source);
+      const completed = await processSource(source, assert);
 
       await Effect.runPromise(
         Effect.gen(function* () {

@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies fixed presentation timestamps preserve advancing learning scheduling.     │
@@ -10,12 +11,8 @@
  * │ Uses real stores and SQLite with separate Effect test clocks; no app runtime is started. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
 import { Clock, Effect } from 'effect';
 import { TestClock } from 'effect/testing';
-import { assert, expect } from 'vite-plus/test';
 
 import { CardStore } from '#server/features/learning/store/index';
 import { MaterialsStore } from '#server/features/materials/store/index';
@@ -26,7 +23,12 @@ import { Database } from '#server/platform/database/database';
 import { transaction, useStore } from '#server/platform/definitions/define-store';
 import { unixSeconds } from '#server/platform/time/index';
 
-function checkAdvancingEligibility(context: ServerContext) {
+function checkAdvancingEligibility(
+  { assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>,
+  context: ServerContext
+) {
+  const assert: test.Assert = assertions;
+
   return Effect.gen(function* () {
     const project = yield* transaction((tx) =>
       tx.store(ProjectsStore).createProject({ name: 'Live scheduling' })
@@ -77,9 +79,11 @@ function checkAdvancingEligibility(context: ServerContext) {
   }).pipe(Effect.provideService(Database, { store: context }));
 }
 
-testStable(
+test.stable(
   'future cards become due as operational time advances with fixed note timestamps',
-  async () => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const timestampClock = await Effect.runPromise(
       Effect.gen(function* () {
         yield* TestClock.setTime(100_000);
@@ -87,7 +91,7 @@ testStable(
         return yield* Clock.Clock;
       }).pipe(Effect.provide(TestClock.layer()))
     );
-    const location = await createTestDatabase();
+    const location = await databases();
 
     try {
       await Effect.runPromise(
@@ -101,7 +105,7 @@ testStable(
           );
 
           assert.notStrictEqual(context.clock, context.timestampClock);
-          yield* checkAdvancingEligibility(context).pipe(
+          yield* checkAdvancingEligibility({ assert, expect }, context).pipe(
             Effect.ensuring(Effect.sync(() => context.close()))
           );
         }).pipe(Effect.provide(TestClock.layer()))
@@ -112,10 +116,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'default store contexts preserve clock identity through nested transactions',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     try {

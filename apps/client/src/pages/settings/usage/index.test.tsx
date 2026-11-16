@@ -1,14 +1,18 @@
-import { testStable } from '@study/testing/vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { LanguageProvider } from '#client/lib/i18n.tsx';
-import { rpcTestTransport as settingsTransport } from '#client/test/rpc.tsx';
-
-const request = vi.fn();
 
 import { UsageSettings } from './index';
+
+function createRequest({ vi }: Pick<test.Context, 'vi'>) {
+  return vi.fn();
+}
+
+let request: ReturnType<typeof createRequest>;
+
+test.beforeEach(({ vi }) => {
+  request = createRequest({ vi });
+});
 
 const totals = {
   input: 100,
@@ -21,9 +25,9 @@ const totals = {
   incomplete: 0
 };
 
-testStable(
+test.stable(
   'shows reported totals, switches breakdowns and refreshes the selected time range',
-  async () => {
+  async ({ vi, rpcTestTransport, userEvent, render, expect, screen, waitFor }) => {
     const call = vi.mocked(request).mockResolvedValue({
       generatedAt: Date.now(),
       totals,
@@ -32,7 +36,7 @@ testStable(
       agents: [{ key: 'reply', provider: 'chatgpt', ...totals }],
       days: []
     });
-    const client = settingsTransport((tag, input) => request(tag, input));
+    const client = rpcTestTransport((tag, input) => request(tag, input));
     const user = userEvent.setup();
     const { unmount } = render(
       <client.wrapper>
@@ -59,28 +63,31 @@ testStable(
   }
 );
 
-testStable('explains empty history in Italian without presenting invented usage', async () => {
-  vi.mocked(request).mockResolvedValue({
-    generatedAt: Date.now(),
-    totals: { ...totals, requests: 0 },
-    providers: [],
-    models: [],
-    agents: [],
-    days: []
-  });
-  const client = settingsTransport((tag, input) => request(tag, input));
-  const { unmount } = render(
-    <client.wrapper>
-      <LanguageProvider locale="italian">
-        <UsageSettings />
-      </LanguageProvider>
-    </client.wrapper>
-  );
+test.stable(
+  'explains empty history in Italian without presenting invented usage',
+  async ({ vi, rpcTestTransport, render, expect, screen }) => {
+    vi.mocked(request).mockResolvedValue({
+      generatedAt: Date.now(),
+      totals: { ...totals, requests: 0 },
+      providers: [],
+      models: [],
+      agents: [],
+      days: []
+    });
+    const client = rpcTestTransport((tag, input) => request(tag, input));
+    const { unmount } = render(
+      <client.wrapper>
+        <LanguageProvider locale="italian">
+          <UsageSettings />
+        </LanguageProvider>
+      </client.wrapper>
+    );
 
-  try {
-    expect(await screen.findByText(/Nessun utilizzo registrato/)).toBeInTheDocument();
-    expect(screen.queryByRole('table')).not.toBeInTheDocument();
-  } finally {
-    unmount();
+    try {
+      expect(await screen.findByText(/Nessun utilizzo registrato/)).toBeInTheDocument();
+      expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    } finally {
+      unmount();
+    }
   }
-});
+);

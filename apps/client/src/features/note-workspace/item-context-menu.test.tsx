@@ -1,35 +1,23 @@
 import { noteIdSchema, messagePartSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { afterEach, expect, vi } from 'vite-plus/test';
 
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import type * as __MockType0 from '../document-editing/test-support';
+import type * as __MockType1 from './attachment-cards';
+import type * as __MockType2 from './note-page-card';
 
-import { authoredPage } from '../document-editing/test-support';
-import { AttachmentCards } from './attachment-cards';
-import { NotePageCard } from './note-page-card';
+let authoredPage: typeof __MockType0.authoredPage;
 
-vi.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: 'english' })
-}));
-vi.mock('../source-library', () => ({
-  SourceDeletion: ({
-    renderTrigger
-  }: {
-    renderTrigger?: (show: () => void, open: boolean) => unknown;
-  }) => renderTrigger?.(() => {}, false) ?? null,
-  SourceVersionDeletion: ({
-    renderTrigger
-  }: {
-    renderTrigger?: (show: () => void, open: boolean) => unknown;
-  }) => renderTrigger?.(() => {}, false) ?? null
-}));
+let AttachmentCards: typeof __MockType1.AttachmentCards;
 
-let archiveHandler = vi.fn();
+let NotePageCard: typeof __MockType2.NotePageCard;
 
-function Provider({ children }: { children: React.ReactNode }) {
+let archiveHandler: ReturnType<typeof createMockState>['archiveHandler'];
+
+function Provider({
+  rpcHandlersTransport,
+  children
+}: Pick<test.Context, 'rpcHandlersTransport'> & { children: React.ReactNode }) {
   const fixture = rpcHandlersTransport({
     'sources.source': async ({ id }) => ({
       id,
@@ -50,11 +38,48 @@ function Provider({ children }: { children: React.ReactNode }) {
   return <fixture.wrapper>{children}</fixture.wrapper>;
 }
 
-afterEach(cleanup);
+function createMockState(mock: test.Mock) {
+  return {
+    archiveHandler: mock.fn()
+  };
+}
 
-testStable.each([false, true])(
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  archiveHandler = __mockState.archiveHandler;
+
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({ t: (key: string) => key, locale: 'english' })
+  }));
+  mock('#client/features/source-library', () => ({
+    SourceDeletion: ({
+      renderTrigger
+    }: {
+      renderTrigger?: (show: () => void, open: boolean) => unknown;
+    }) => renderTrigger?.(() => {}, false) ?? null,
+    SourceVersionDeletion: ({
+      renderTrigger
+    }: {
+      renderTrigger?: (show: () => void, open: boolean) => unknown;
+    }) => renderTrigger?.(() => {}, false) ?? null
+  }));
+  const __mockModule0 = await import('../document-editing/test-support');
+
+  authoredPage = __mockModule0.authoredPage;
+  const __mockModule1 = await import('./attachment-cards');
+
+  AttachmentCards = __mockModule1.AttachmentCards;
+  const __mockModule2 = await import('./note-page-card');
+
+  NotePageCard = __mockModule2.NotePageCard;
+});
+
+test.afterEach(({ cleanup }) => cleanup());
+
+test.stable.for([false, true])(
   'opens the exact attachment from its context menu (compact: %s)',
-  async (compact) => {
+  async (compact, { vi, render, screen, expect, fireEvent, userEvent, rpcHandlersTransport }) => {
     const open = vi.fn();
     const part = Schema.decodeUnknownSync(messagePartSchema)({
       id: 3n,
@@ -64,7 +89,7 @@ testStable.each([false, true])(
     });
 
     render(
-      <Provider>
+      <Provider rpcHandlersTransport={rpcHandlersTransport}>
         <AttachmentCards parts={[part]} compact={compact} onOpenSource={open} />
       </Provider>
     );
@@ -87,52 +112,62 @@ testStable.each([false, true])(
   }
 );
 
-testStable('opens the exact authored page from its context menu', async () => {
-  const document = authoredPage();
-  const open = vi.fn();
+test.stable(
+  'opens the exact authored page from its context menu',
+  async ({ vi, render, expect, screen, fireEvent, userEvent, rpcHandlersTransport }) => {
+    const document = authoredPage();
+    const open = vi.fn();
 
-  render(
-    <Provider>
-      <NotePageCard page={document} active={false} onOpen={open} />
-    </Provider>
-  );
-  expect(screen.queryByRole('button', { name: 'NoteDeleteItem' })).not.toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'NoteDeleteVersion' })).not.toBeInTheDocument();
-  fireEvent.contextMenu(screen.getByRole('button', { name: /New page/ }), {
-    button: 2,
-    clientX: 80,
-    clientY: 80
-  });
-  expect(open).not.toHaveBeenCalled();
-  expect(await screen.findByRole('menuitem', { name: 'NoteDeleteItem' })).toBeVisible();
-  expect(screen.getByRole('menuitem', { name: 'NoteDeleteVersion' })).toBeVisible();
-  await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'NoteOpenPage' }));
-  expect(open).toHaveBeenCalledExactlyOnceWith(document);
-});
+    render(
+      <Provider rpcHandlersTransport={rpcHandlersTransport}>
+        <NotePageCard page={document} active={false} onOpen={open} />
+      </Provider>
+    );
+    expect(screen.queryByRole('button', { name: 'NoteDeleteItem' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'NoteDeleteVersion' })).not.toBeInTheDocument();
+    fireEvent.contextMenu(screen.getByRole('button', { name: /New page/ }), {
+      button: 2,
+      clientX: 80,
+      clientY: 80
+    });
+    expect(open).not.toHaveBeenCalled();
+    expect(await screen.findByRole('menuitem', { name: 'NoteDeleteItem' })).toBeVisible();
+    expect(screen.getByRole('menuitem', { name: 'NoteDeleteVersion' })).toBeVisible();
+    await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'NoteOpenPage' }));
+    expect(open).toHaveBeenCalledExactlyOnceWith(document);
+  }
+);
 
-testStable('keeps unavailable attachment context actions disabled', async () => {
-  const part = Schema.decodeUnknownSync(messagePartSchema)({
-    id: 3n,
-    sourceId: null,
-    sourceName: 'Missing.pdf',
-    sourceKind: 'pdf'
-  });
+test.stable(
+  'keeps unavailable attachment context actions disabled',
+  async ({ render, vi, fireEvent, screen, expect, rpcHandlersTransport }) => {
+    const part = Schema.decodeUnknownSync(messagePartSchema)({
+      id: 3n,
+      sourceId: null,
+      sourceName: 'Missing.pdf',
+      sourceKind: 'pdf'
+    });
 
-  render(
-    <Provider>
-      <AttachmentCards parts={[part]} onOpenSource={vi.fn()} />
-    </Provider>
-  );
-  fireEvent.contextMenu(screen.getByText('Missing.pdf'), { button: 2, clientX: 80, clientY: 80 });
-  expect(await screen.findByRole('menuitem', { name: 'OpenMaterial' })).toHaveAttribute(
-    'aria-disabled',
-    'true'
-  );
-});
+    render(
+      <Provider rpcHandlersTransport={rpcHandlersTransport}>
+        <AttachmentCards parts={[part]} onOpenSource={vi.fn()} />
+      </Provider>
+    );
+    fireEvent.contextMenu(screen.getByText('Missing.pdf'), {
+      button: 2,
+      clientX: 80,
+      clientY: 80
+    });
+    expect(await screen.findByRole('menuitem', { name: 'OpenMaterial' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+  }
+);
 
-testStable.each(['page', 'source'] as const)(
+test.stable.for(['page', 'source'] as const)(
   'archives the exact %s membership in this note',
-  async (kind) => {
+  async (kind, { vi, render, screen, expect, fireEvent, userEvent, rpcHandlersTransport }) => {
     const noteId = Schema.decodeUnknownSync(noteIdSchema)(15n);
     const archive = vi.fn().mockResolvedValue(undefined);
 
@@ -146,7 +181,7 @@ testStable.each(['page', 'source'] as const)(
     });
 
     render(
-      <Provider>
+      <Provider rpcHandlersTransport={rpcHandlersTransport}>
         {kind === 'page' ? (
           <NotePageCard noteId={noteId} page={document} active={false} onOpen={vi.fn()} />
         ) : (

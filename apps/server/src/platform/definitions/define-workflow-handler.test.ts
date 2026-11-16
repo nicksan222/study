@@ -1,3 +1,4 @@
+import { sourceIndexedSchema, sourceDeletedSchema, workflowEventSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Tests typed workflow registration, event subscriptions, and native execution       │
@@ -15,17 +16,12 @@
  * │ resources; fixture cleanup closes owned resources.                                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sourceIndexedSchema, sourceDeletedSchema, workflowEventSchema } from '@study/contracts';
 import { workflowReceipts } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Context, Effect, Schema } from 'effect';
 import type { Scope, Layer } from 'effect';
 import type { Workflow } from 'effect/workflow';
 import type { WorkflowEngine } from 'effect/workflow';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -43,9 +39,11 @@ const workflow = defineWorkflow({
   idempotencyKey: ({ event }) => event.eventId
 });
 
-testStable(
+test.stable(
   'registration retains native definition, derived version and independent subscriptions',
-  () => {
+  ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     let enabled = false;
     let calls = 0;
     const policy = () => {
@@ -239,10 +237,12 @@ const event = (id: string) =>
     documentId: 3n
   });
 
-testStable(
+test.stable(
   'registration preserves dispatch duplicate subscription and synchronous policy validation',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const subscription = { subscription: 'duplicate', event: 'SourceIndexed', emits: [] } as const;
     const duplicates = defineWorkflowHandler(workflow, {
@@ -282,9 +282,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'reused registrations resolve each engine environment and preserve execution scopes',
-  async () => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const observed: string[] = [];
     let releases = 0;
     const release = Effect.sync(() => {
@@ -302,7 +304,7 @@ testStable(
     });
 
     for (const value of ['first', 'second']) {
-      const location = await createTestDatabase();
+      const location = await databases();
       const context = new ServerContext(await location.open());
 
       try {

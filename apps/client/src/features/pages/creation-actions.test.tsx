@@ -1,45 +1,66 @@
 import { projectIdSchema, pageIdSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
-import { NewBlankPage } from './creation-actions';
+import type * as __MockType0 from './creation-actions';
 
-const api = vi.hoisted(() => ({ create: vi.fn(), owner: vi.fn(), navigate: vi.fn() }));
+let NewBlankPage: typeof __MockType0.NewBlankPage;
 
-vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('@tanstack/react-router', () => ({ useNavigate: () => api.navigate }));
-vi.mock('../note-workspace', () => ({ useBlankPageCreation: api.owner }));
+let api: ReturnType<typeof createMockState>['api'];
 
-beforeEach(() => {
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({
+      create: mock.fn(),
+      owner: mock.fn(),
+      navigate: mock.fn()
+    }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  mock('@tanstack/react-router', () => ({ useNavigate: () => api.navigate }));
+  mock('#client/features/note-workspace', () => ({ useBlankPageCreation: api.owner }));
+  const __mockModule0 = await import('./creation-actions');
+
+  NewBlankPage = __mockModule0.NewBlankPage;
+});
+
+test.beforeEach(({ vi }) => {
   vi.resetAllMocks();
   api.owner.mockReturnValue({ create: api.create, pending: false, error: undefined });
   api.create.mockResolvedValue({ id: pageIdSchema.make(5n) });
   api.navigate.mockResolvedValue(undefined);
 });
-afterEach(cleanup);
+test.afterEach(({ cleanup }) => cleanup());
 
-testStable('opens a subject-owned blank page directly in the shared editor', async () => {
-  const project = projectIdSchema.make(2n);
+test.stable(
+  'opens a subject-owned blank page directly in the shared editor',
+  async ({ render, userEvent, screen, expect, waitFor }) => {
+    const project = projectIdSchema.make(2n);
 
-  render(<NewBlankPage project={project} />);
-  await userEvent.click(screen.getByRole('button', { name: 'PageNew' }));
-  expect(api.owner).toHaveBeenCalledWith({ kind: 'project', projectId: project });
-  expect(api.create).toHaveBeenCalledExactlyOnceWith('NoteNewPage');
-  await waitFor(() =>
-    expect(api.navigate).toHaveBeenCalledWith({
-      to: '/pages/$pageId',
-      params: { pageId: '5' },
-      search: { project: '2' }
-    })
-  );
-  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-});
+    render(<NewBlankPage project={project} />);
+    await userEvent.click(screen.getByRole('button', { name: 'PageNew' }));
+    expect(api.owner).toHaveBeenCalledWith({ kind: 'project', projectId: project });
+    expect(api.create).toHaveBeenCalledExactlyOnceWith('NoteNewPage');
+    await waitFor(() =>
+      expect(api.navigate).toHaveBeenCalledWith({
+        to: '/pages/$pageId',
+        params: { pageId: '5' },
+        search: { project: '2' }
+      })
+    );
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  }
+);
 
-testStable(
+test.stable(
   'reopens the known document after a navigation failure without creating a duplicate',
-  async () => {
+  async ({ render, userEvent, screen, waitFor, expect }) => {
     api.navigate.mockRejectedValueOnce(new Error('Navigation unavailable'));
     render(<NewBlankPage />);
     await userEvent.click(screen.getByRole('button', { name: 'PageNew' }));

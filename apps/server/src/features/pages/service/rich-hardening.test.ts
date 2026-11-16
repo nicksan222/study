@@ -1,3 +1,4 @@
+import { materialGenerationPayloadSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Canonical authored bodies keep empty-evidence, receipt-draft and managed asset     │
@@ -11,15 +12,11 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { materialGenerationPayloadSchema } from '@study/contracts';
 import { createBlock, encodeBlockContent } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
@@ -42,10 +39,12 @@ const meta = {
 const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] });
 
-testStable(
+test.stable(
   'a retained separator-only learning request cannot retry after reopen or emit new work',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
       const saved = await Effect.runPromise(
@@ -142,10 +141,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'invalid rich input rolls back and retained conflict drafts reject canonical projection and payload corruption after reopen',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
       const saved = await Effect.runPromise(
@@ -253,10 +254,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'authored image replacement and body retirement release only owned roots while independent copies retain exact bytes',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
     const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 
     try {

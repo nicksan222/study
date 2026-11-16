@@ -1,3 +1,4 @@
+import { NotesRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises atomic Ask receipts and exact version recovery against real SQLite.      │
@@ -10,16 +11,11 @@
  * │ Uses public services and native RPC with temporary databases and controlled publication. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { NotesRpc } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { NotesRpcLive } from '#server/features/notes/rpc/index';
@@ -35,10 +31,12 @@ import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';
 
 // No workers or providers are started: publication is controlled through the existing test fence.
-testStable(
+test.stable(
   'Ask fences stale windows, replays full intent once, rolls back outbox failure and reopens exact versions',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     let context = new ServerContext(await location.open());
     const handlers = () =>
       NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
@@ -367,10 +365,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'Ask binds ordered attachments to its intent and rejects changed order without writes',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
       await Effect.runPromise(
@@ -426,10 +426,12 @@ testStable(
 );
 
 for (const mode of ['history', 'material', 'note'] as const) {
-  testStable(
+  test.stable(
     `Ask cannot resurrect after note cleanup and exact pins protect ${mode} retirement`,
-    async () => {
-      const f = await pageTransformFixture();
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
+      const f = await pageTransformFixture(databases);
 
       try {
         const saved = await Effect.runPromise(
@@ -537,7 +539,7 @@ for (const mode of ['history', 'material', 'note'] as const) {
             yield* chats.deleteNote(saved.note.id);
           }).pipe(Effect.provide(f.domain()))
         );
-        await cleanup(f, saved.note.id);
+        await cleanup(f, saved.note.id, assert);
 
         await Effect.runPromise(
           Effect.gen(function* () {

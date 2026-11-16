@@ -6,7 +6,7 @@ import {
 } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import {
   stringifySearchWith,
   createRootRoute,
@@ -16,17 +16,13 @@ import {
   RouterProvider,
   Outlet
 } from '@tanstack/react-router';
-import { cleanup, screen, within, waitFor, act } from '@testing-library/react';
-import { render } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
-import { rpcTestTransport } from '#client/test/rpc.tsx';
+import type * as __MockType0 from './pages-sidebar';
 
-import { PagesSidebar } from './pages-sidebar';
+let PagesSidebar: typeof __MockType0.PagesSidebar;
 
-const api = vi.hoisted(() => ({ pages: vi.fn(), remove: vi.fn() }));
+let api: ReturnType<typeof createMockState>['api'];
 
 const en = catalogs.english;
 
@@ -47,15 +43,31 @@ const document = (id: bigint, overrides: Record<string, unknown> = {}) =>
     ...overrides
   });
 
-beforeEach(() => {
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({ pages: mock.fn(), remove: mock.fn() }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  const __mockModule0 = await import('./pages-sidebar');
+
+  PagesSidebar = __mockModule0.PagesSidebar;
+});
+
+test.beforeEach(() => {
   preferences = defaultWorkspacePreferences;
   api.pages.mockReset().mockResolvedValue({ items: [], nextCursor: null });
 });
-afterEach(() => {
+test.afterEach(({ cleanup }) => {
   cleanup();
 });
 
-function show() {
+function show({ rpcTestTransport, render }: Pick<test.Context, 'rpcTestTransport' | 'render'>) {
   const harness = rpcTestTransport(async (tag, input) => {
     if (tag === 'pages.pages') return api.pages(input);
 
@@ -95,9 +107,9 @@ function show() {
   return { notify: harness.notify, router };
 }
 
-testStable(
+test.stable(
   'shows only published, unarchived pages for the subject and opens their reader',
-  async () => {
+  async ({ userEvent, screen, expect, within, waitFor, act, rpcTestTransport, render }) => {
     api.pages.mockResolvedValue({
       items: [
         document(1n),
@@ -109,7 +121,7 @@ testStable(
       nextCursor: null
     });
     const user = userEvent.setup();
-    const { router, notify } = show();
+    const { router, notify } = show({ rpcTestTransport, render });
     const newest = await screen.findByRole('link', { name: /\bDocument 2\b/ });
 
     expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual([
@@ -145,10 +157,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'shows an empty document list and picks up a newly published document after a server change hint',
-  async () => {
-    const { notify } = show();
+  async ({ expect, screen, act, rpcTestTransport, render }) => {
+    const { notify } = show({ rpcTestTransport, render });
 
     expect(await screen.findByText(en.PagesEmpty)).toBeInTheDocument();
     api.pages.mockResolvedValue({ items: [document(7n)], nextCursor: null });
@@ -160,38 +172,44 @@ testStable(
   }
 );
 
-testStable('loads additional document pages without dropping the current rows', async () => {
-  api.pages.mockImplementation(({ limit }) =>
-    Promise.resolve(
-      limit > 30
-        ? { items: [document(2n), document(1n)], nextCursor: null }
-        : { items: [document(2n)], nextCursor: 2n }
-    )
-  );
-  const user = userEvent.setup();
+test.stable(
+  'loads additional document pages without dropping the current rows',
+  async ({ userEvent, screen, expect, rpcTestTransport, render }) => {
+    api.pages.mockImplementation(({ limit }) =>
+      Promise.resolve(
+        limit > 30
+          ? { items: [document(2n), document(1n)], nextCursor: null }
+          : { items: [document(2n)], nextCursor: 2n }
+      )
+    );
+    const user = userEvent.setup();
 
-  show();
-  await screen.findByRole('link', { name: /\bDocument 2\b/ });
-  await user.click(screen.getByRole('button', { name: en.LibraryMore }));
-  expect(await screen.findByRole('link', { name: /\bDocument 1\b/ })).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: /\bDocument 2\b/ })).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: en.LibraryMore })).not.toBeInTheDocument();
-});
+    show({ rpcTestTransport, render });
+    await screen.findByRole('link', { name: /\bDocument 2\b/ });
+    await user.click(screen.getByRole('button', { name: en.LibraryMore }));
+    expect(await screen.findByRole('link', { name: /\bDocument 1\b/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /\bDocument 2\b/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: en.LibraryMore })).not.toBeInTheDocument();
+  }
+);
 
-testStable('keeps failed reads recoverable through retry', async () => {
-  api.pages.mockRejectedValueOnce(new Error('offline'));
-  const user = userEvent.setup();
+test.stable(
+  'keeps failed reads recoverable through retry',
+  async ({ userEvent, expect, screen, rpcTestTransport, render }) => {
+    api.pages.mockRejectedValueOnce(new Error('offline'));
+    const user = userEvent.setup();
 
-  show();
-  expect(await screen.findByText(en.PagesLoadError)).toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: en.Retry }));
-  expect(await screen.findByText(en.PagesEmpty)).toBeInTheDocument();
-  expect(screen.queryByText(en.PagesLoadError)).not.toBeInTheDocument();
-});
+    show({ rpcTestTransport, render });
+    expect(await screen.findByText(en.PagesLoadError)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: en.Retry }));
+    expect(await screen.findByText(en.PagesEmpty)).toBeInTheDocument();
+    expect(screen.queryByText(en.PagesLoadError)).not.toBeInTheDocument();
+  }
+);
 
-testStable(
+test.stable(
   'browses beyond one hundred rows in bounded live windows and returns to the newest window',
-  async () => {
+  async ({ userEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     const items = Array.from({ length: 151 }, (_, index) => document(BigInt(151 - index)));
 
     api.pages.mockImplementation(({ limit, cursor }: { limit: number; cursor?: bigint }) => {
@@ -205,7 +223,7 @@ testStable(
     });
     const user = userEvent.setup();
 
-    show();
+    show({ rpcTestTransport, render });
     await screen.findByRole('link', { name: /\bDocument 151\b/ });
 
     for (const limit of [60, 90, 100]) {
@@ -225,11 +243,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'a committed list replacement updates membership and ordering without duplicate rows',
-  async () => {
+  async ({ screen, act, expect, rpcTestTransport, render }) => {
     api.pages.mockResolvedValue({ items: [document(2n), document(1n)], nextCursor: null });
-    const view = show();
+    const view = show({ rpcTestTransport, render });
 
     await screen.findByRole('link', { name: /\bDocument 1\b/ });
     api.pages.mockResolvedValue({
@@ -247,9 +265,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'a committed cursor-anchor deletion resets the mounted window to a fresh authoritative first page',
-  async () => {
+  async ({ userEvent, screen, act, expect, rpcTestTransport, render }) => {
     let items = Array.from({ length: 151 }, (_, index) => document(BigInt(151 - index)));
     const removed = new Set<bigint>();
 
@@ -271,7 +289,7 @@ testStable(
     });
     const user = userEvent.setup();
 
-    show();
+    show({ rpcTestTransport, render });
     await screen.findByRole('link', { name: /\bDocument 151\b/ });
 
     for (const limit of [60, 90, 100]) {

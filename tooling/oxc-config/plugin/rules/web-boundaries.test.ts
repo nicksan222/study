@@ -1,12 +1,14 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable(
+test.stable(
   'rejects upward dependencies, cross-page imports and private feature imports',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'web-boundaries',
       {
         'apps/client/src/lib/leak.ts': `import '../pages/home/page'; export * from '../app/app';`,
@@ -21,11 +23,14 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'allows composition, same-domain internals and explicit feature entry points',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     expect(
       await lintRule(
+        { assert },
         'web-boundaries',
         {
           'apps/client/src/app/shell/sidebar.tsx': `import '../../features/library'; import '../../lib/i18n';`,
@@ -40,23 +45,32 @@ testStable(
   }
 );
 
-testStable('restricts the raw transport and root-level application files', async () => {
-  const diagnostics = await lintRule(
-    'web-boundaries',
-    {
-      'apps/client/src/extra.ts': `export const x = 1;`,
-      'apps/client/src/pages/home/leak.ts': `import { studyClient } from '../../lib/study-client/client'; studyClient.projects.projects.query({}); fetch('/trpc');`
-    },
-    true
-  );
+test.stable(
+  'restricts the raw transport and root-level application files',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
-});
-
-testStable(
-  'canonical folders, type imports and alternate loaders cannot bypass ownership',
-  async () => {
     const diagnostics = await lintRule(
+      { assert },
+      'web-boundaries',
+      {
+        'apps/client/src/extra.ts': `export const x = 1;`,
+        'apps/client/src/pages/home/leak.ts': `import { studyClient } from '../../lib/study-client/client'; studyClient.projects.projects.query({}); fetch('/trpc');`
+      },
+      true
+    );
+
+    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+  }
+);
+
+test.stable(
+  'canonical folders, type imports and alternate loaders cannot bypass ownership',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule(
+      { assert },
       'web-boundaries',
       {
         'apps/client/src/misc/example.ts': 'export const value = 1;',
@@ -75,25 +89,34 @@ testStable(
   }
 );
 
-testStable('permits Query while keeping raw RPC in the transport adapter', async () => {
-  expect(
-    await lintRule(
-      'web-boundaries',
-      {
-        'apps/client/src/app/providers.tsx': `import { RpcProvider } from '@study/contracts/react';`,
-        'apps/client/src/features/library/library.queries.ts': `import { rpc } from '@study/contracts/react';`
-      },
-      true
-    )
-  ).toStrictEqual([]);
-});
+test.stable(
+  'permits Query while keeping raw RPC in the transport adapter',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-testStable(
+    expect(
+      await lintRule(
+        { assert },
+        'web-boundaries',
+        {
+          'apps/client/src/app/providers.tsx': `import { RpcProvider } from '@study/contracts/react';`,
+          'apps/client/src/features/library/library.queries.ts': `import { rpc } from '@study/contracts/react';`
+        },
+        true
+      )
+    ).toStrictEqual([]);
+  }
+);
+
+test.stable(
   'Material routes compose the feature entrypoint while internals stay feature-owned',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     assert.strictEqual(
       (
         await lintRule(
+          { assert },
           'web-boundaries',
           {
             'apps/client/src/routes/library.tsx': `import {LibraryPage} from '../features/material-library/library-page';`,
@@ -106,6 +129,7 @@ testStable(
     );
     expect(
       await lintRule(
+        { assert },
         'web-boundaries',
         {
           'apps/client/src/routes/library.tsx': `import {LibraryPage, materialsOptions} from '../features/material-library';`,
@@ -120,10 +144,13 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'private web aliases preserve downward ownership and transport restrictions',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'web-boundaries',
       {
         'apps/client/src/lib/alias.ts':
@@ -139,12 +166,15 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'only the isolated feature preview layer may compose private feature views',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     expect(
       (
         await lintRule(
+          { assert },
           'web-boundaries',
           {
             'apps/client/src/feature-previews/index.tsx':
@@ -158,16 +188,22 @@ testStable(
   }
 );
 
-testStable('raw RPC execution is limited to the single runtime transport adapter', async () => {
-  const diagnostics = await lintRule(
-    'web-boundaries',
-    {
-      'apps/client/src/lib/effect/rpc.ts': `import { makeStudyClient } from '@study/server/client'; import { RpcGroup } from 'effect/rpc';`,
-      'apps/client/src/lib/study-client/bypass.ts': `import { makeStudyClient } from '@study/server/client';`,
-      'apps/client/src/test/native.ts': `import type { RpcClient } from 'effect/rpc';`
-    },
-    true
-  );
+test.stable(
+  'raw RPC execution is limited to the single runtime transport adapter',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  expect(diagnostics).toHaveLength(1);
-});
+    const diagnostics = await lintRule(
+      { assert },
+      'web-boundaries',
+      {
+        'apps/client/src/lib/effect/rpc.ts': `import { makeStudyClient } from '@study/server/client'; import { RpcGroup } from 'effect/rpc';`,
+        'apps/client/src/lib/study-client/bypass.ts': `import { makeStudyClient } from '@study/server/client';`,
+        'apps/client/src/test/native.ts': `import type { RpcClient } from 'effect/rpc';`
+      },
+      true
+    );
+
+    expect(diagnostics).toHaveLength(1);
+  }
+);

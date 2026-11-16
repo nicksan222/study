@@ -1,3 +1,4 @@
+import { workflowEventSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises workflow event trigger graph validation and transactional dispatch.      │
@@ -14,14 +15,11 @@
  * │ cleanup closes owned resources.                                                          │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { workflowEventSchema } from '@study/contracts';
 import { workflow_executions, workflowReceipts } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import type { createTestDatabase } from '@study/db/testing';
+import { test } from '@study/testing';
 import { Effect, ManagedRuntime, Layer, Schema } from 'effect';
 import { Workflow, WorkflowEngine } from 'effect/workflow';
-import { assert, expect } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 
@@ -69,7 +67,9 @@ const trigger: Trigger = {
   enabled: () => true
 };
 
-testStable('automatic trigger cycles are rejected', () => {
+test.stable('automatic trigger cycles are rejected', ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   assert.throws(
     () =>
       validateTriggerGraph([
@@ -80,10 +80,12 @@ testStable('automatic trigger cycles are rejected', () => {
   );
 });
 
-testStable(
+test.stable(
   'bounded dispatch persists receipts after official acceptance and survives restart',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = await openContext(location);
     const calls: string[] = [];
     const record = ({ event }: typeof testWorkflow.payloadSchema.Type) =>
@@ -141,32 +143,37 @@ testStable(
   }
 );
 
-testStable('material publication events identify a published material version', () => {
-  const value = {
-    type: 'MaterialPublished',
-    eventId: 'material',
-    causationId: null,
-    correlationId: 'material',
-    inputVersion: 1,
-    depth: 0,
-    projectId: 1n,
-    materialId: 2n,
-    materialVersionId: 3n
-  };
-  const decoded = Schema.decodeUnknownSync(workflowEventSchema)(value);
+test.stable(
+  'material publication events identify a published material version',
+  ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  assert.ok(decoded.type === 'MaterialPublished');
-  expect('materialVersionId' in decoded && decoded.materialVersionId).toBe(3n);
-  assert.throws(() =>
-    Schema.decodeUnknownSync(workflowEventSchema)({
-      ...value,
-      materialVersionId: undefined,
-      artifactId: 2n
-    })
-  );
-});
+    const value = {
+      type: 'MaterialPublished',
+      eventId: 'material',
+      causationId: null,
+      correlationId: 'material',
+      inputVersion: 1,
+      depth: 0,
+      projectId: 1n,
+      materialId: 2n,
+      materialVersionId: 3n
+    };
+    const decoded = Schema.decodeUnknownSync(workflowEventSchema)(value);
 
-testStable('registered workflows accept canonical failure values', async () => {
+    assert.ok(decoded.type === 'MaterialPublished');
+    expect('materialVersionId' in decoded && decoded.materialVersionId).toBe(3n);
+    assert.throws(() =>
+      Schema.decodeUnknownSync(workflowEventSchema)({
+        ...value,
+        materialVersionId: undefined,
+        artifactId: 2n
+      })
+    );
+  }
+);
+
+test.stable('registered workflows accept canonical failure values', async ({ expect }) => {
   const { sourceIngestionWorkflow } = await import('#server/features/sources/workflows/index');
   const failure = { kind: 'cancelled', message: 'superseded', retryAfterMs: null };
 
@@ -175,12 +182,17 @@ testStable('registered workflows accept canonical failure values', async () => {
   );
 });
 
-testStable('trigger graph fanout counts every subscription with the same source event', () => {
-  const edges = Array.from({ length: 17 }, () => ({
-    event: 'SourceIndexed' as const,
-    emits: ['MaterialPublished' as const]
-  }));
+test.stable(
+  'trigger graph fanout counts every subscription with the same source event',
+  ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  assert.throws(() => validateTriggerGraph(edges), /fanout/);
-  expect(() => validateTriggerGraph(edges.slice(0, 16))).not.toThrow();
-});
+    const edges = Array.from({ length: 17 }, () => ({
+      event: 'SourceIndexed' as const,
+      emits: ['MaterialPublished' as const]
+    }));
+
+    assert.throws(() => validateTriggerGraph(edges), /fanout/);
+    expect(() => validateTriggerGraph(edges.slice(0, 16))).not.toThrow();
+  }
+);

@@ -1,3 +1,4 @@
+import type { materialGenerationInputSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks generation rejects mismatched event identity before provider access and     │
@@ -12,20 +13,15 @@
  * │ replace production activities.                                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { materialGenerationInputSchema } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { executionIdSchema } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { createAiMock } from '@study/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import type { MessageStorage, Sharding } from 'effect/cluster';
 import { WorkflowEngine } from 'effect/workflow';
-import { assert, expect } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/service/index';
 import { Pages } from '#server/features/pages/index';
@@ -47,105 +43,112 @@ import { withTestAdmission } from '#testing/workflow-admission';
 
 import { materialGenerationWorkflow, materialGenerationHandler } from './generation.ts';
 
-testStable('rejects mismatched generation event before reaching a provider', async () => {
-  using mock = createAiMock();
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const database = Layer.succeed(Database, { store: context });
-  const domain = Layer.mergeAll(Projects.layer, Materials.layer, Sources.layer, Pages.layer).pipe(
-    Layer.provideMerge(database)
-  );
-  const services = Layer.mergeAll(
-    domain,
-    database,
-    workflowEngineLayer(context),
-    Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
-    agentsLayer({
-      model: (tier, call) => mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError)),
-      language: 'en',
-      rules: Effect.succeed(defaultAgentRules),
-      searchSources: () => Effect.succeed([])
-    })
-  );
+test.stable(
+  'rejects mismatched generation event before reaching a provider',
+  async ({ databases, createAiMock, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    const event = await Effect.runPromise(
-      Effect.gen(function* () {
-        const projects = yield* Projects;
-        const materials = yield* Materials;
-        const project = yield* projects.createProject({ name: 'test' });
-        const doc = yield* (yield* Pages).create({
-          createKey: crypto.randomUUID(),
-          inputs: [],
-          citations: [],
-          projectId: project.id,
-          title: 'doc',
-          document: {
-            blocks: [plainBlock('paragraph', 'alpha', { type: 'authored' })],
-            meta: {
-              extractor: null,
-              extractorVersion: 1,
-              provider: null,
-              durationMs: null,
-              pageCount: null,
-              refiners: [],
-              waitingFor: [],
-              corrected: false,
-              omissions: []
-            }
-          }
-        });
-
-        yield* materials.requestMaterialGeneration({
-          projectId: project.id,
-          title: 'cards',
-          kind: 'flashcards',
-          inputs: [{ kind: 'page', versionId: doc.version!.id }]
-        });
-        const value = decodeEvent(
-          context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
-        );
-
-        assertEventType(value, 'MaterialGenerationRequested', 'wrong event');
-
-        return value;
-      }).pipe(Effect.provide(domain))
+    using mock = createAiMock();
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const database = Layer.succeed(Database, { store: context });
+    const domain = Layer.mergeAll(Projects.layer, Materials.layer, Sources.layer, Pages.layer).pipe(
+      Layer.provideMerge(database)
+    );
+    const services = Layer.mergeAll(
+      domain,
+      database,
+      workflowEngineLayer(context),
+      Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
+      agentsLayer({
+        model: (tier, call) => mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError)),
+        language: 'en',
+        rules: Effect.succeed(defaultAgentRules),
+        searchSources: () => Effect.succeed([])
+      })
     );
 
-    await expect(
-      Effect.runPromise(
-        Effect.scoped(
-          Effect.gen(function* () {
-            const engine = yield* WorkflowEngine.WorkflowEngine;
+    try {
+      const event = await Effect.runPromise(
+        Effect.gen(function* () {
+          const projects = yield* Projects;
+          const materials = yield* Materials;
+          const project = yield* projects.createProject({ name: 'test' });
+          const doc = yield* (yield* Pages).create({
+            createKey: crypto.randomUUID(),
+            inputs: [],
+            citations: [],
+            projectId: project.id,
+            title: 'doc',
+            document: {
+              blocks: [plainBlock('paragraph', 'alpha', { type: 'authored' })],
+              meta: {
+                extractor: null,
+                extractorVersion: 1,
+                provider: null,
+                durationMs: null,
+                pageCount: null,
+                refiners: [],
+                waitingFor: [],
+                corrected: false,
+                omissions: []
+              }
+            }
+          });
 
-            yield* engine.register(materialGenerationWorkflow, materialGenerationHandler);
+          yield* materials.requestMaterialGeneration({
+            projectId: project.id,
+            title: 'cards',
+            kind: 'flashcards',
+            inputs: [{ kind: 'page', versionId: doc.version!.id }]
+          });
+          const value = decodeEvent(
+            context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
+          );
 
-            return yield* withTestAdmission(
-              context,
-              materialGenerationWorkflow,
-              'mismatch',
-              { event: { ...event, kind: 'quiz' } },
-              engine.execute(materialGenerationWorkflow, {
-                executionId: 'mismatch',
-                payload: { event: { ...event, kind: 'quiz' } }
-              })
-            );
-          }).pipe(Effect.provide(services))
+          assertEventType({ assert }, value, 'MaterialGenerationRequested', 'wrong event');
+
+          return value;
+        }).pipe(Effect.provide(domain))
+      );
+
+      await expect(
+        Effect.runPromise(
+          Effect.scoped(
+            Effect.gen(function* () {
+              const engine = yield* WorkflowEngine.WorkflowEngine;
+
+              yield* engine.register(materialGenerationWorkflow, materialGenerationHandler);
+
+              return yield* withTestAdmission(
+                context,
+                materialGenerationWorkflow,
+                'mismatch',
+                { event: { ...event, kind: 'quiz' } },
+                engine.execute(materialGenerationWorkflow, {
+                  executionId: 'mismatch',
+                  payload: { event: { ...event, kind: 'quiz' } }
+                })
+              );
+            }).pipe(Effect.provide(services))
+          )
         )
-      )
-    ).rejects.toSatisfy(() => true);
-  } finally {
-    context.close();
-    await location.cleanup();
+      ).rejects.toSatisfy(() => true);
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
-testStable(
+test.stable(
   'generates and publishes all material kinds with captured evidence and replays receipts',
-  async () => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const { createChatGptModel } = await import('#server/platform/ai/providers/chatgpt/model');
     const { AuthManager } = await import('#server/platform/ai/providers/chatgpt/session');
-    const location = await createTestDatabase();
+    const location = await databases();
     let context = new ServerContext(await location.open());
     let calls = 0;
     let tool = true;
@@ -308,11 +311,14 @@ testStable(
         }).pipe(Effect.scoped, Effect.provide(services()))
       );
       const generate = async (
+        { expect, assert: assertions }: Pick<test.Context, 'expect' | 'assert'>,
         kind: 'flashcards' | 'quiz',
         content: unknown,
         failure?: 'publication',
         quizConfig?: (typeof materialGenerationInputSchema.Type)['quizConfig']
       ) => {
+        const assert: test.Assert = assertions;
+
         await Effect.runPromise(
           Effect.flatMap(Materials, (m) =>
             m.requestMaterialGeneration({
@@ -328,7 +334,7 @@ testStable(
           context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
         );
 
-        assertEventType(event, 'MaterialGenerationRequested', 'wrong event');
+        assertEventType({ assert }, event, 'MaterialGenerationRequested', 'wrong event');
 
         tool = true;
         output = JSON.stringify(content);
@@ -441,11 +447,12 @@ testStable(
         return version;
       };
 
-      await generate('flashcards', {
+      await generate({ expect, assert }, 'flashcards', {
         kind: 'flashcards',
         cards: [{ front: 'What? [1]', back: 'alpha' }]
       });
       await generate(
+        { expect, assert },
         'flashcards',
         {
           kind: 'flashcards',
@@ -453,7 +460,7 @@ testStable(
         },
         'publication'
       );
-      const quiz = await generate('quiz', {
+      const quiz = await generate({ expect, assert }, 'quiz', {
         kind: 'quiz',
         questions: [
           {
@@ -506,9 +513,10 @@ testStable(
         ]
       });
 
-      assertQuizQuestionShapes();
+      assertQuizQuestionShapes({ assert, expect });
 
       await generate(
+        { expect, assert },
         'quiz',
         {
           kind: 'quiz',
@@ -527,7 +535,12 @@ testStable(
       );
       expect(bodies.at(-1)).toMatch(/Question kind: [^.]*\bordering\b[^.]*questions\./);
 
-      function assertQuizQuestionShapes() {
+      function assertQuizQuestionShapes({
+        assert: assertions,
+        expect
+      }: Pick<test.Context, 'assert' | 'expect'>) {
+        const assert: test.Assert = assertions;
+
         assert.ok(quiz);
         assert.ok(quiz.content.kind === 'quiz');
 
@@ -594,7 +607,7 @@ testStable(
           }
         ]
       ] as const) {
-        await expect(generate(kind, content)).rejects.toSatisfy(() => true);
+        await expect(generate({ expect, assert }, kind, content)).rejects.toSatisfy(() => true);
         assert.strictEqual(
           context.db.orm
             .select()
@@ -606,7 +619,9 @@ testStable(
         );
       }
 
-      const request = async () => {
+      const request = async ({ assert: assertions }: Pick<test.Context, 'assert'>) => {
+        const assert: test.Assert = assertions;
+
         await Effect.runPromise(
           Effect.flatMap(Materials, (m) =>
             m.requestMaterialGeneration({
@@ -621,7 +636,7 @@ testStable(
           context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
         );
 
-        assertEventType(event, 'MaterialGenerationRequested', 'wrong event');
+        assertEventType({ assert }, event, 'MaterialGenerationRequested', 'wrong event');
 
         return event;
       };
@@ -669,7 +684,7 @@ testStable(
             sources.setSourceProject({ id: doc.sourceId, projectId: doc.projectId })
           ).pipe(Effect.provide(domain()))
         );
-      const stale = await request();
+      const stale = await request({ assert });
 
       await archive();
       const beforeStale = calls;
@@ -677,7 +692,7 @@ testStable(
       await expect(executeEvent(stale)).rejects.toSatisfy(() => true);
       assert.strictEqual(calls, beforeStale);
       await unarchive();
-      const resolver = await request();
+      const resolver = await request({ assert });
 
       duringModel = async () => {
         await archive();
@@ -685,7 +700,7 @@ testStable(
       await expect(executeEvent(resolver)).rejects.toSatisfy(() => true);
       assert.strictEqual(calls, beforeStale);
       await unarchive();
-      const racing = await request();
+      const racing = await request({ assert });
 
       tool = false;
       output = JSON.stringify({ kind: 'flashcards', cards: [{ front: 'Q', back: 'A' }] });
@@ -703,7 +718,7 @@ testStable(
         )._tag === 'Failure'
       );
       await unarchive();
-      const forged = await request();
+      const forged = await request({ assert });
 
       tool = false;
       output = JSON.stringify({ kind: 'flashcards', cards: [{ front: 'Q [99]', back: 'A' }] });
@@ -745,7 +760,7 @@ testStable(
         context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
       );
 
-      assertEventType(retry, 'MaterialGenerationRequested', 'wrong retry event');
+      assertEventType({ assert }, retry, 'MaterialGenerationRequested', 'wrong retry event');
 
       await expect(executeEvent({ ...retry, eventId: 'forged-retry' })).rejects.toSatisfy(
         () => true
@@ -800,7 +815,7 @@ testStable(
         context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
       );
 
-      assertEventType(closedEvent, 'MaterialGenerationRequested', 'wrong event');
+      assertEventType({ assert }, closedEvent, 'MaterialGenerationRequested', 'wrong event');
 
       const beforeClosed = calls;
 
@@ -818,7 +833,7 @@ testStable(
         );
 
       assert.strictEqual(closedFailures.length, 1);
-      const cancelled = await request();
+      const cancelled = await request({ assert });
 
       tool = false;
       output = JSON.stringify({ kind: 'flashcards', cards: [{ front: 'Q', back: 'A' }] });
@@ -851,9 +866,12 @@ testStable(
 );
 
 function assertEventType<T extends ReturnType<typeof decodeEvent>['type']>(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
   event: ReturnType<typeof decodeEvent> | undefined,
   type: T,
   message: string
 ): asserts event is Extract<ReturnType<typeof decodeEvent>, { type: T }> {
+  const assert: test.Assert = assertions;
+
   assert.ok(event && event.type === type, message);
 }

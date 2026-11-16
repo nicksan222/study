@@ -1,20 +1,24 @@
-import { testStable } from '@study/testing/vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
-import { beforeEach, expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport as settingsTransport } from '#client/test/rpc.tsx';
+import { test } from '@study/testing';
 
 import { usePerformanceSettings } from './use-performance';
 
-const api = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn() }));
+function createApi(mock: test.Mock) {
+  return { load: mock.fn(), save: mock.fn() };
+}
 
-beforeEach(() => {
-  api.load.mockReset().mockResolvedValue({ maxConcurrentAi: 2, maxQueuedAi: 16 });
-  api.save.mockReset().mockResolvedValue({});
+let api: ReturnType<typeof createApi>;
+
+test.beforeEach(({ mock }) => {
+  api = createApi(mock);
+  api.load.mockResolvedValue({ maxConcurrentAi: 2, maxQueuedAi: 16 });
+  api.save.mockResolvedValue({});
 });
 
-function setup() {
-  const fixture = settingsTransport(async (tag, input) => {
+function setup({
+  rpcTestTransport,
+  renderHook
+}: Pick<test.Context, 'rpcTestTransport' | 'renderHook'>) {
+  const fixture = rpcTestTransport(async (tag, input) => {
     if (tag === 'settings.concurrencySettings') return api.load();
 
     if (tag === 'settings.saveConcurrencySettings') {
@@ -31,30 +35,33 @@ function setup() {
   return renderHook(() => usePerformanceSettings(), { wrapper: fixture.wrapper });
 }
 
-testStable('rejects invalid active and queue limits without sending a request', async () => {
-  const { result } = setup();
+test.stable(
+  'rejects invalid active and queue limits without sending a request',
+  async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
+    const { result } = setup({ rpcTestTransport, renderHook });
 
-  await waitFor(() => expect(result.current.active.value).toBe('2'));
+    await waitFor(() => expect(result.current.active.value).toBe('2'));
 
-  for (const value of ['', '0', '1.5', '9']) {
-    act(() => result.current.active.setValue(value));
-    expect(result.current.active.valid).toBe(false);
-    act(() => result.current.active.save());
+    for (const value of ['', '0', '1.5', '9']) {
+      act(() => result.current.active.setValue(value));
+      expect(result.current.active.valid).toBe(false);
+      act(() => result.current.active.save());
+    }
+
+    for (const value of ['', '-1', '2.5', '65']) {
+      act(() => result.current.queued.setValue(value));
+      expect(result.current.queued.valid).toBe(false);
+      act(() => result.current.queued.save());
+    }
+
+    expect(api.save).not.toHaveBeenCalled();
   }
+);
 
-  for (const value of ['', '-1', '2.5', '65']) {
-    act(() => result.current.queued.setValue(value));
-    expect(result.current.queued.valid).toBe(false);
-    act(() => result.current.queued.save());
-  }
-
-  expect(api.save).not.toHaveBeenCalled();
-});
-
-testStable(
+test.stable(
   'saves zero queue capacity while preserving active capacity and its unsaved draft',
-  async () => {
-    const { result } = setup();
+  async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
+    const { result } = setup({ rpcTestTransport, renderHook });
 
     await waitFor(() => expect(result.current.queued.value).toBe('16'));
     act(() => result.current.active.setValue('8'));
@@ -70,10 +77,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'does not save unchanged values and retains a failed draft before explicit retry',
-  async () => {
-    const { result } = setup();
+  async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
+    const { result } = setup({ rpcTestTransport, renderHook });
 
     await waitFor(() => expect(result.current.active.value).toBe('2'));
     act(() => result.current.active.save());
@@ -88,12 +95,15 @@ testStable(
   }
 );
 
-testStable('exposes loading failures and retries to recover saved limits', async () => {
-  api.load.mockRejectedValueOnce(new Error('offline'));
-  const { result } = setup();
+test.stable(
+  'exposes loading failures and retries to recover saved limits',
+  async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
+    api.load.mockRejectedValueOnce(new Error('offline'));
+    const { result } = setup({ rpcTestTransport, renderHook });
 
-  await waitFor(() => expect(result.current.error).toBe(true));
-  act(() => result.current.retry());
-  await waitFor(() => expect(result.current.active.value).toBe('2'));
-  expect(result.current.error).toBe(false);
-});
+    await waitFor(() => expect(result.current.error).toBe(true));
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.active.value).toBe('2'));
+    expect(result.current.error).toBe(false);
+  }
+);

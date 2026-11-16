@@ -1,3 +1,4 @@
+import { sql } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises note deletion receipts behavior through real persistence                 │
@@ -11,14 +12,10 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sql } from '@study/db';
 import * as s from '@study/db';
+import { test } from '@study/testing';
 /** Authored proposal receipts survive note cleanup without retired Material tombstones. */
-import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import {
@@ -31,14 +28,16 @@ import {
 } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
-testStable(
+test.stable(
   'exact authored apply and keep receipts reject substituted intent across note deletion and reopen',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
     const marker = 'EXACT_RECEIPT_SESSION_PRIVATE_8';
 
     try {
-      const saved = await setup(f, marker, true);
+      const saved = await setup(f, assert, marker, true);
 
       f.replies.push(
         { kind: 'sources', query: 'independent' },
@@ -72,8 +71,13 @@ testStable(
           };
         }).pipe(Effect.provide(f.domain()))
       );
-      const checkReplay = () =>
-        Effect.runPromise(
+      const checkReplay = ({
+        expect,
+        assert: assertions
+      }: Pick<test.Context, 'expect' | 'assert'>) => {
+        const assert: test.Assert = assertions;
+
+        return Effect.runPromise(
           Effect.gen(function* () {
             const chats = yield* Notes;
 
@@ -98,9 +102,15 @@ testStable(
               assert.ok((yield* Effect.flip(action)).kind === 'invalid_input');
           }).pipe(Effect.provide(f.domain()))
         );
+      };
       const receipts = () => f.context.db.orm.select().from(s.page_proposal_receipts).all();
       const beforeReceipts = receipts();
-      const rejectForged = () => {
+      const rejectForged = ({
+        assert: assertions,
+        expect
+      }: Pick<test.Context, 'assert' | 'expect'>) => {
+        const assert: test.Assert = assertions;
+
         for (const mutation of [
           sql`UPDATE page_proposal_receipts SET intent=json_set(intent,'$.title','forged')`,
           sql`UPDATE page_proposal_receipts SET request_id='different'`,
@@ -113,9 +123,9 @@ testStable(
         expect(receipts()).toStrictEqual(beforeReceipts);
       };
 
-      await checkReplay();
-      rejectForged();
-      await annotateLibrary(f, retained.ids);
+      await checkReplay({ expect, assert });
+      rejectForged({ assert, expect });
+      await annotateLibrary(f, retained.ids, assert);
       const before = await libraryState(f, retained.ids);
       const after = before.map((state) => ({
         ...state,
@@ -130,18 +140,18 @@ testStable(
           Effect.provide(f.domain())
         )
       );
-      await checkReplay();
-      rejectForged();
-      await cleanup(f, saved.note.id);
-      await checkReplay();
-      rejectForged();
+      await checkReplay({ expect, assert });
+      rejectForged({ assert, expect });
+      await cleanup(f, saved.note.id, assert);
+      await checkReplay({ expect, assert });
+      rejectForged({ assert, expect });
       expect(await libraryState(f, retained.ids)).toStrictEqual(after);
-      assertScrubbed(f, marker);
+      assertScrubbed(f, assert, marker);
       await f.reopen();
-      await checkReplay();
-      rejectForged();
+      await checkReplay({ expect, assert });
+      rejectForged({ assert, expect });
       expect(await libraryState(f, retained.ids)).toStrictEqual(after);
-      assertScrubbed(f, marker);
+      assertScrubbed(f, assert, marker);
       await Effect.runPromise(
         Effect.gen(function* () {
           const chats = yield* Notes;

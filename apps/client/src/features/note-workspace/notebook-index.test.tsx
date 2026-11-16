@@ -1,25 +1,19 @@
 import { noteIdSchema, chatMessageSchema } from '@study/contracts';
 import { rpc as protocol } from '@study/contracts/react';
-import { testStable } from '@study/testing/vitest';
-import { cleanup, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import type * as __MockType0 from '../document-editing/test-support';
+import type * as __MockType1 from './history';
+import type * as __MockType2 from './workspace-context';
 
-import { authoredPage as summary } from '../document-editing/test-support';
-import { History } from './history';
-import { WorkspaceContext } from './workspace-context';
+let summary: typeof __MockType0.authoredPage;
 
-const rpc = vi.hoisted(() => ({ thread: vi.fn(), materials: vi.fn(), generations: vi.fn() }));
+let History: typeof __MockType1.History;
 
-vi.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: string) => key, date: String })
-}));
-vi.mock('./message-actions', () => ({
-  MessageActions: ({ children }: { children: React.ReactNode }) => children
-}));
+let WorkspaceContext: typeof __MockType2.WorkspaceContext;
+
+let rpc: ReturnType<typeof createMockState>['rpc'];
 
 const id = Schema.decodeUnknownSync(noteIdSchema)(51n);
 
@@ -72,7 +66,10 @@ const message = Schema.decodeUnknownSync(chatMessageSchema)({
   ]
 });
 
-function Provider({ children }: { children: React.ReactNode }) {
+function Provider({
+  rpcHandlersTransport,
+  children
+}: Pick<test.Context, 'rpcHandlersTransport'> & { children: React.ReactNode }) {
   const fixture = rpcHandlersTransport({
     'pages.pages': rpc.materials,
     'notes.thread': ({ noteId, before, limit }) => rpc.thread(noteId, before, limit),
@@ -98,36 +95,75 @@ function Notebook() {
   );
 }
 
-function mount(noteId?: typeof id, board = false) {
+function mount(
+  { render, rpcHandlersTransport }: Pick<test.Context, 'render' | 'rpcHandlersTransport'>,
+  noteId?: typeof id,
+  board = false
+) {
   return render(
-    <Provider>
+    <Provider rpcHandlersTransport={rpcHandlersTransport}>
       {board && <Notebook />}
       <WorkspaceContext id={noteId} onOpenSource={() => undefined} />
     </Provider>
   );
 }
 
-beforeEach(() => {
+function createMockState(mock: test.Mock) {
+  return {
+    rpc: (() => ({
+      thread: mock.fn(),
+      materials: mock.fn(),
+      generations: mock.fn()
+    }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  rpc = __mockState.rpc;
+
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({ t: (key: string) => key, date: String })
+  }));
+  mock('#client/features/note-workspace/message-actions', () => ({
+    MessageActions: ({ children }: { children: React.ReactNode }) => children
+  }));
+  const __mockModule0 = await import('../document-editing/test-support');
+
+  summary = __mockModule0.authoredPage;
+  const __mockModule1 = await import('./history');
+
+  History = __mockModule1.History;
+  const __mockModule2 = await import('./workspace-context');
+
+  WorkspaceContext = __mockModule2.WorkspaceContext;
+});
+
+test.beforeEach(({ vi }) => {
   vi.clearAllMocks();
   rpc.thread.mockResolvedValue({ items: [], next: null });
   rpc.materials.mockResolvedValue({ items: [], nextCursor: null });
   rpc.generations.mockResolvedValue({ items: [], next: null });
   Element.prototype.scrollIntoView = vi.fn();
 });
-afterEach(() => {
+test.afterEach(({ cleanup, vi }) => {
   cleanup();
   vi.restoreAllMocks();
 });
 
-testStable('shows a starter index hint without fetching note content', () => {
-  mount();
-  expect(screen.getByText('NoteAttachmentsStart')).toBeVisible();
-  expect(rpc.thread).not.toHaveBeenCalled();
-  expect(rpc.materials).not.toHaveBeenCalled();
-});
-testStable(
+test.stable(
+  'shows a starter index hint without fetching note content',
+  ({ expect, screen, render, rpcHandlersTransport }) => {
+    mount({ render, rpcHandlersTransport });
+    expect(screen.getByText('NoteAttachmentsStart')).toBeVisible();
+    expect(rpc.thread).not.toHaveBeenCalled();
+    expect(rpc.materials).not.toHaveBeenCalled();
+  }
+);
+test.stable(
   'jumps and focuses actual rendered note, attachment and document targets without preview dialogs',
-  async () => {
+  async ({ screen, within, expect, vi, userEvent, render, rpcHandlersTransport }) => {
     const attached = Schema.decodeUnknownSync(chatMessageSchema)({
       ...message,
       parts: [{ id: 101n, sourceId: 201n, sourceName: 'Lecture notes.pdf', sourceKind: 'pdf' }]
@@ -141,7 +177,7 @@ testStable(
       items: [{ ...summary(91n), title: 'Study outline', kind: 'page' }],
       nextCursor: null
     });
-    mount(id, true);
+    mount({ render, rpcHandlersTransport }, id, true);
     const index = await screen.findByRole('navigation', { name: 'NotePageIndex' });
 
     for (const name of ['Current note', 'Lecture notes.pdf', 'Study outline']) {
@@ -176,13 +212,13 @@ testStable(
     expect(rpc.generations).not.toHaveBeenCalled();
   }
 );
-testStable(
+test.stable(
   'loads earlier notes into both the index and the rendered notebook through authoritative bounded pages',
-  async () => {
+  async ({ screen, fireEvent, within, expect, render, rpcHandlersTransport }) => {
     rpc.thread.mockImplementation((_id, _before, limit) =>
       Promise.resolve({ items: limit > 30 ? [message] : [], next: limit > 30 ? null : 71n })
     );
-    mount(id, true);
+    mount({ render, rpcHandlersTransport }, id, true);
     const index = await screen.findByRole('navigation', { name: 'NotePageIndex' });
 
     fireEvent.click(await within(index).findByRole('button', { name: 'NoteEarlier' }));
@@ -192,49 +228,67 @@ testStable(
     expect(rpc.thread).toHaveBeenCalledWith(id, undefined, 60);
   }
 );
-testStable('respects reduced motion when jumping to a notebook entry', async () => {
-  rpc.thread.mockResolvedValue({ items: [message], next: null });
-  mount(id, true);
-  const index = await screen.findByRole('navigation', { name: 'NotePageIndex' });
-  const link = await within(index).findByRole('button', { name: 'Current note' });
-
-  vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList);
-  const target = document.getElementById(link.getAttribute('data-target')!)!;
-  const scroll = vi.spyOn(target, 'scrollIntoView');
-
-  fireEvent.click(link);
-  expect(scroll).toHaveBeenCalledWith({ behavior: 'auto', block: 'start', inline: 'nearest' });
-});
-testStable('does not claim an empty index while data is pending or has failed', async () => {
-  rpc.thread.mockRejectedValue(new Error('Read failed'));
-  mount(id);
-  expect(await screen.findByRole('alert')).toBeVisible();
-  expect(screen.queryByText('NoteAttachmentsEmpty')).toBeNull();
-});
-
-testStable('previews a note from the tiny rail on both hover and keyboard focus', async () => {
-  rpc.thread.mockResolvedValue({ items: [message], next: null });
-  mount(id, true);
-  const index = await screen.findByRole('navigation', { name: 'NotePageIndex' });
-  const marker = await within(index).findByRole('button', { name: 'Current note' });
-  const user = userEvent.setup();
-
-  await user.hover(marker);
-  fireEvent.mouseMove(marker, { movementX: 4, movementY: 0 });
-  await waitFor(() => expect(marker).toHaveAttribute('data-popup-open'));
-  expect(await screen.findByRole('tooltip')).toHaveTextContent('Current note');
-  await user.unhover(marker);
-  await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
-  await user.tab();
-  expect(marker).toHaveFocus();
-  expect(await screen.findByRole('tooltip')).toHaveTextContent('Current note');
-});
-
-testStable(
-  'keeps notebook content ordered and jumpable without repeated dates or timeline wrappers',
-  async () => {
+test.stable(
+  'respects reduced motion when jumping to a notebook entry',
+  async ({ screen, within, vi, fireEvent, expect, render, rpcHandlersTransport }) => {
     rpc.thread.mockResolvedValue({ items: [message], next: null });
-    mount(id, true);
+    mount({ render, rpcHandlersTransport }, id, true);
+    const index = await screen.findByRole('navigation', { name: 'NotePageIndex' });
+    const link = await within(index).findByRole('button', { name: 'Current note' });
+
+    vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList);
+    const target = document.getElementById(link.getAttribute('data-target')!)!;
+    const scroll = vi.spyOn(target, 'scrollIntoView');
+
+    fireEvent.click(link);
+    expect(scroll).toHaveBeenCalledWith({ behavior: 'auto', block: 'start', inline: 'nearest' });
+  }
+);
+test.stable(
+  'does not claim an empty index while data is pending or has failed',
+  async ({ expect, screen, render, rpcHandlersTransport }) => {
+    rpc.thread.mockRejectedValue(new Error('Read failed'));
+    mount({ render, rpcHandlersTransport }, id);
+    expect(await screen.findByRole('alert')).toBeVisible();
+    expect(screen.queryByText('NoteAttachmentsEmpty')).toBeNull();
+  }
+);
+
+test.stable(
+  'previews a note from the tiny rail on both hover and keyboard focus',
+  async ({
+    screen,
+    within,
+    userEvent,
+    fireEvent,
+    waitFor,
+    expect,
+    render,
+    rpcHandlersTransport
+  }) => {
+    rpc.thread.mockResolvedValue({ items: [message], next: null });
+    mount({ render, rpcHandlersTransport }, id, true);
+    const index = await screen.findByRole('navigation', { name: 'NotePageIndex' });
+    const marker = await within(index).findByRole('button', { name: 'Current note' });
+    const user = userEvent.setup();
+
+    await user.hover(marker);
+    fireEvent.mouseMove(marker, { movementX: 4, movementY: 0 });
+    await waitFor(() => expect(marker).toHaveAttribute('data-popup-open'));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Current note');
+    await user.unhover(marker);
+    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
+    await user.tab();
+    expect(marker).toHaveFocus();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Current note');
+  }
+);
+
+test.stable(
+  'keeps notebook content ordered and jumpable without repeated dates or timeline wrappers',
+  async ({ screen, within, expect, render, rpcHandlersTransport }) => {
+    rpc.thread.mockResolvedValue({ items: [message], next: null });
+    mount({ render, rpcHandlersTransport }, id, true);
     const board = await screen.findByRole('log', { name: 'NoteNotebook' });
 
     await within(board).findByText('Current note');
@@ -248,29 +302,32 @@ testStable(
   }
 );
 
-testStable('retains rich document headings and lists in the unboxed notebook', async () => {
-  rpc.thread.mockResolvedValue({
-    items: [
-      {
-        ...message,
-        format: 'document',
-        versions: message.versions.map((version) =>
-          version.id === message.activeVersionId
-            ? { ...version, text: '## Key idea\n\nA **clear** explanation.\n\n- One\n- Two' }
-            : version
-        )
-      }
-    ],
-    next: null
-  });
-  render(
-    <Provider>
-      <History id={id} />
-    </Provider>
-  );
-  const board = await screen.findByRole('log', { name: 'NoteNotebook' });
+test.stable(
+  'retains rich document headings and lists in the unboxed notebook',
+  async ({ render, screen, expect, within, rpcHandlersTransport }) => {
+    rpc.thread.mockResolvedValue({
+      items: [
+        {
+          ...message,
+          format: 'document',
+          versions: message.versions.map((version) =>
+            version.id === message.activeVersionId
+              ? { ...version, text: '## Key idea\n\nA **clear** explanation.\n\n- One\n- Two' }
+              : version
+          )
+        }
+      ],
+      next: null
+    });
+    render(
+      <Provider rpcHandlersTransport={rpcHandlersTransport}>
+        <History id={id} />
+      </Provider>
+    );
+    const board = await screen.findByRole('log', { name: 'NoteNotebook' });
 
-  expect(await within(board).findByRole('heading', { name: 'Key idea', level: 2 })).toBeVisible();
-  expect(within(board).getByText('clear', { selector: 'strong' })).toBeVisible();
-  expect(within(board).getAllByRole('listitem')).toHaveLength(2);
-});
+    expect(await within(board).findByRole('heading', { name: 'Key idea', level: 2 })).toBeVisible();
+    expect(within(board).getByText('clear', { selector: 'strong' })).toBeVisible();
+    expect(within(board).getAllByRole('listitem')).toHaveLength(2);
+  }
+);

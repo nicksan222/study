@@ -1,14 +1,19 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message = 'Pass the generator factory to defineService; the harness owns Effect.gen.';
 
-testStable('service construction keeps generator wrapping in the harness', async () => {
-  assertDiagnostics(
-    'definition-generators',
-    await lintRule('definition-generators', {
-      'src/bad.ts': String.raw`import { Effect as E } from "effect";
+test.stable(
+  'service construction keeps generator wrapping in the harness',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    assertDiagnostics(
+      { assert, expect },
+      'definition-generators',
+      await lintRule({ assert }, 'definition-generators', {
+        'src/bad.ts': String.raw`import { Effect as E } from "effect";
 import { defineService as service } from "#server/platform/definitions/define-service";
 service(
   "x",
@@ -20,7 +25,7 @@ const make = E.gen(function* () {
   return {};
 });
 service("y", make);`,
-      'src/good.ts': String.raw`import { Effect } from "effect";
+        'src/good.ts': String.raw`import { Effect } from "effect";
 import { defineService } from "#server/platform/definitions/define-service";
 defineService("x", function* () {
   return {};
@@ -34,20 +39,24 @@ function other(defineService: any) {
     }),
   );
 }`
-    }),
-    [
-      ['src/bad.ts', message],
-      ['src/bad.ts', message]
-    ]
-  );
-});
+      }),
+      [
+        ['src/bad.ts', message],
+        ['src/bad.ts', message]
+      ]
+    );
+  }
+);
 
-testStable(
+test.stable(
   'RPC wiring uses named dependency binding and preserves shadowed functions',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     assertDiagnostics(
+      { assert, expect },
       'definition-generators',
-      await lintRule('definition-generators', {
+      await lintRule({ assert }, 'definition-generators', {
         'src/bad.ts': String.raw`import { defineRpc as rpc } from "#server/platform/definitions/define-rpc";
 rpc(group, handlers);`,
         'src/good.ts': String.raw`import { defineRpc as rpc } from "#server/platform/definitions/define-rpc";

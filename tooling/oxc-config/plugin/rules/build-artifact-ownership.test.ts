@@ -1,12 +1,13 @@
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRulePaths } from '../test/utils.ts';
 
-testStable(
+test.stable(
   'disposable runners disable disk transforms and contract fixtures own temporary paths',
-  async () => {
-    const paths = await lintRulePaths('build-artifact-ownership', {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const paths = await lintRulePaths({ assert }, 'build-artifact-ownership', {
       'apps/client/test/e2e/harness/good.test.ts': `
       import { createVitest as runner } from 'vite-plus/test/node';
       const options = { fsModuleCache: false }; runner('test', options);
@@ -33,17 +34,22 @@ testStable(
   }
 );
 
-testStable('computed runner options cannot hide a later cache override', async () => {
-  const header = "import { createVitest } from 'vite-plus/test/node';";
-  const paths = await lintRulePaths('build-artifact-ownership', {
-    'apps/client/test/e2e/harness/known.test.ts': `${header} const key = 'fsModuleCache'; createVitest('test', {fsModuleCache:false, [key]:true});`,
-    'apps/client/test/e2e/harness/unknown.test.ts': `${header} createVitest('test', {fsModuleCache:false, [key]:true});`,
-    'apps/client/test/e2e/harness/good.test.ts': `${header} const key = 'fsModuleCache'; createVitest('test', {[key]:false});`,
-    'apps/client/test/e2e/harness/earlier.test.ts': `${header} createVitest('test', {[key]:true, fsModuleCache:false});`
-  });
+test.stable(
+  'computed runner options cannot hide a later cache override',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  expect(paths).toEqual([
-    'apps/client/test/e2e/harness/known.test.ts',
-    'apps/client/test/e2e/harness/unknown.test.ts'
-  ]);
-});
+    const header = "import { createVitest } from 'vite-plus/test/node';";
+    const paths = await lintRulePaths({ assert }, 'build-artifact-ownership', {
+      'apps/client/test/e2e/harness/known.test.ts': `${header} const key = 'fsModuleCache'; createVitest('test', {fsModuleCache:false, [key]:true});`,
+      'apps/client/test/e2e/harness/unknown.test.ts': `${header} createVitest('test', {fsModuleCache:false, [key]:true});`,
+      'apps/client/test/e2e/harness/good.test.ts': `${header} const key = 'fsModuleCache'; createVitest('test', {[key]:false});`,
+      'apps/client/test/e2e/harness/earlier.test.ts': `${header} createVitest('test', {[key]:true, fsModuleCache:false});`
+    });
+
+    expect(paths).toEqual([
+      'apps/client/test/e2e/harness/known.test.ts',
+      'apps/client/test/e2e/harness/unknown.test.ts'
+    ]);
+  }
+);

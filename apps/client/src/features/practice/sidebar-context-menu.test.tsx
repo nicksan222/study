@@ -1,23 +1,18 @@
 import { materialSummarySchema } from '@study/contracts';
 import { RpcProvider } from '@study/contracts/react';
+import type { StudyClient } from '@study/contracts/react/testing';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { expect, vi } from 'vite-plus/test';
 
 import { summary } from '#client/features/material-library/test/support.tsx';
-import { renderInRouter } from '#client/test/render-in-router.tsx';
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
-import type { StudyClient } from '#client/test/rpc.tsx';
 
 import { LibraryListView } from '../library/library-list.view';
 
 for (const kind of ['quiz', 'flashcards'] as const) {
-  testStable(
+  test.stable(
     `${kind} sidebar items expose scoped destinations and archive without opening the row`,
-    async () => {
+    async ({ userEvent, vi, rpcHandlersTransport, renderInRouter, screen, expect, waitFor }) => {
       const user = userEvent.setup();
       const material = Schema.decodeUnknownSync(materialSummarySchema)({
         ...summary(),
@@ -45,7 +40,9 @@ for (const kind of ['quiz', 'flashcards'] as const) {
         target: await screen.findByRole('link', { name: new RegExp(material.title) }),
         keys: '[MouseRight]'
       });
-      const open = await screen.findByRole('menuitem', { name: catalogs.english.OpenPractice });
+      const open = await screen.findByRole('menuitem', {
+        name: catalogs.english.OpenPractice
+      });
 
       expect(open).toHaveAttribute(
         'href',

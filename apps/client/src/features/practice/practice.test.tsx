@@ -9,21 +9,18 @@ import {
   materialVersionDetailSchema,
   defaultQuizSettings
 } from '@study/contracts';
+import type { StudyClient } from '@study/contracts/react/testing';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { expect, vi } from 'vite-plus/test';
 
-import {
-  learningVersion,
-  materialRpc,
-  mountLibraryRoute
-} from '#client/features/material-library/test/support.tsx';
-import type { StudyClient } from '#client/test/rpc.tsx';
+import type * as __MockType0 from '#client/features/material-library/test/support.tsx';
 
-vi.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+let learningVersion: typeof __MockType0.learningVersion;
+
+let materialRpc: typeof __MockType0.materialRpc;
+
+let mountLibraryRoute: typeof __MockType0.mountLibraryRoute;
 
 const en = catalogs.english;
 
@@ -73,8 +70,12 @@ const completed = Schema.decodeUnknownSync(quizAttemptCompletedSchema)({
   ]
 });
 
-function practiceRpc(kind: 'quiz' | 'flashcards' = 'quiz', scoped = false) {
-  const rpc = materialRpc();
+function practiceRpc(
+  { vi }: Pick<test.Context, 'vi'>,
+  kind: 'quiz' | 'flashcards' = 'quiz',
+  scoped = false
+) {
+  const rpc = materialRpc({ vi });
   const content =
     kind === 'quiz'
       ? {
@@ -183,12 +184,21 @@ function practiceRpc(kind: 'quiz' | 'flashcards' = 'quiz', scoped = false) {
   return handlers;
 }
 
-testStable(
+test.beforeEach(async ({ mock }) => {
+  mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+  const __mockModule0 = await import('#client/features/material-library/test/support.tsx');
+
+  learningVersion = __mockModule0.learningVersion;
+  materialRpc = __mockModule0.materialRpc;
+  mountLibraryRoute = __mockModule0.mountLibraryRoute;
+});
+
+test.stable(
   'starts a quiz at its material path, saves an answer, and displays completed results',
-  async () => {
-    const rpc = practiceRpc();
+  async ({ userEvent, screen, waitFor, expect, vi, render, rpcHandlersTransport }) => {
+    const rpc = practiceRpc({ vi });
     const user = userEvent.setup();
-    const { router } = mountLibraryRoute('/practice/41', rpc);
+    const { router } = mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41', rpc);
 
     const start = await screen.findByRole('button', { name: en.PracticeStartQuiz });
 
@@ -210,25 +220,28 @@ testStable(
   }
 );
 
-testStable('rejects a foreign attempt without exposing its questions', async () => {
-  const rpc = practiceRpc();
+test.stable(
+  'rejects a foreign attempt without exposing its questions',
+  async ({ expect, within, screen, vi, render, rpcHandlersTransport }) => {
+    const rpc = practiceRpc({ vi });
 
-  rpc['learning.attempt'].mockReturnValue(
-    Effect.succeed({ ...initial, materialId: Schema.decodeUnknownSync(materialIdSchema)(99n) })
-  );
-  mountLibraryRoute('/practice/41?attempt=70', rpc);
+    rpc['learning.attempt'].mockReturnValue(
+      Effect.succeed({ ...initial, materialId: Schema.decodeUnknownSync(materialIdSchema)(99n) })
+    );
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?attempt=70', rpc);
 
-  expect(await within(await screen.findByRole('main')).findByRole('alert')).toHaveTextContent(
-    en.ReaderUnavailable
-  );
-  expect(screen.queryByText(question.prompt)).not.toBeInTheDocument();
-  expect(rpc['learning.startQuiz']).not.toHaveBeenCalled();
-});
+    expect(await within(await screen.findByRole('main')).findByRole('alert')).toHaveTextContent(
+      en.ReaderUnavailable
+    );
+    expect(screen.queryByText(question.prompt)).not.toBeInTheDocument();
+    expect(rpc['learning.startQuiz']).not.toHaveBeenCalled();
+  }
+);
 
-testStable(
+test.stable(
   'keeps a failed card rating on the revealed card and leaves successful ratings to the scheduler',
-  async () => {
-    const rpc = practiceRpc('flashcards');
+  async ({ userEvent, expect, screen, waitFor, vi, render, rpcHandlersTransport }) => {
+    const rpc = practiceRpc({ vi }, 'flashcards');
     const review = Schema.decodeUnknownSync(reviewedCardSchema)({
       snapshot: {
         version_id: 102n,
@@ -266,7 +279,7 @@ testStable(
       .mockReturnValue(Effect.succeed(review));
     const user = userEvent.setup();
 
-    mountLibraryRoute('/flashcards/41', rpc);
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/flashcards/41', rpc);
 
     expect(await screen.findByText('What is a prime number?')).toBeInTheDocument();
     expect(screen.queryByText('A whole number with exactly two divisors.')).not.toBeInTheDocument();
@@ -289,99 +302,117 @@ testStable(
   }
 );
 
-testStable('resumes a saved attempt directly without creating another', async () => {
-  const rpc = practiceRpc();
+test.stable(
+  'resumes a saved attempt directly without creating another',
+  async ({ expect, screen, vi, render, rpcHandlersTransport }) => {
+    const rpc = practiceRpc({ vi });
 
-  mountLibraryRoute('/practice/41?attempt=70', rpc);
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?attempt=70', rpc);
 
-  expect(await screen.findByRole('heading', { name: question.prompt })).toBeInTheDocument();
-  expect(rpc['learning.startQuiz']).not.toHaveBeenCalled();
-});
+    expect(await screen.findByRole('heading', { name: question.prompt })).toBeInTheDocument();
+    expect(rpc['learning.startQuiz']).not.toHaveBeenCalled();
+  }
+);
 
-testStable('rejects a flashcard material opened through a quiz path', async () => {
-  const rpc = practiceRpc('flashcards');
+test.stable(
+  'rejects a flashcard material opened through a quiz path',
+  async ({ expect, within, screen, vi, render, rpcHandlersTransport }) => {
+    const rpc = practiceRpc({ vi }, 'flashcards');
 
-  mountLibraryRoute('/practice/41', rpc);
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41', rpc);
 
-  expect(await within(await screen.findByRole('main')).findByRole('alert')).toHaveTextContent(
-    en.PracticeUnavailable
-  );
-  expect(screen.queryByText('What is a prime number?')).not.toBeInTheDocument();
-});
+    expect(await within(await screen.findByRole('main')).findByRole('alert')).toHaveTextContent(
+      en.PracticeUnavailable
+    );
+    expect(screen.queryByText('What is a prime number?')).not.toBeInTheDocument();
+  }
+);
 
-testStable('answers a generated practice attempt through its owning slot', async () => {
-  const rpc = practiceRpc();
-  const slotId = '123e4567-e89b-42d3-a456-426614174000';
+test.stable(
+  'answers a generated practice attempt through its owning slot',
+  async ({ userEvent, screen, expect, vi, render, rpcHandlersTransport }) => {
+    const rpc = practiceRpc({ vi });
+    const slotId = '123e4567-e89b-42d3-a456-426614174000';
 
-  rpc['learning.attempt'].mockReturnValue(Effect.succeed({ ...initial, practiceSlotId: slotId }));
-  const user = userEvent.setup();
+    rpc['learning.attempt'].mockReturnValue(Effect.succeed({ ...initial, practiceSlotId: slotId }));
+    const user = userEvent.setup();
 
-  mountLibraryRoute('/practice/41?attempt=70', rpc);
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?attempt=70', rpc);
 
-  await user.click(await screen.findByRole('radio', { name: /Two/ }));
-  await user.click(screen.getByRole('button', { name: en.SubmitAnswer }));
-  await screen.findByRole('button', { name: en.PracticeFinishQuiz });
-  expect(rpc['learning.answerPracticeQuestion']).toHaveBeenCalledExactlyOnceWith({
-    slotId,
-    answer: { type: 'choice', choiceIds: [5n] }
-  });
-  expect(rpc['learning.answerQuestion']).not.toHaveBeenCalled();
-});
+    await user.click(await screen.findByRole('radio', { name: /Two/ }));
+    await user.click(screen.getByRole('button', { name: en.SubmitAnswer }));
+    await screen.findByRole('button', { name: en.PracticeFinishQuiz });
+    expect(rpc['learning.answerPracticeQuestion']).toHaveBeenCalledExactlyOnceWith({
+      slotId,
+      answer: { type: 'choice', choiceIds: [5n] }
+    });
+    expect(rpc['learning.answerQuestion']).not.toHaveBeenCalled();
+  }
+);
 
-testStable('opens the immutable version used by a saved quiz attempt', async () => {
-  const rpc = practiceRpc();
+test.stable(
+  'opens the immutable version used by a saved quiz attempt',
+  async ({ userEvent, screen, waitFor, expect, vi, render, rpcHandlersTransport }) => {
+    const rpc = practiceRpc({ vi });
 
-  mountLibraryRoute('/practice/41?attempt=70', rpc);
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?attempt=70', rpc);
 
-  await userEvent.setup().click(await screen.findByRole('button', { name: en.PracticeActions }));
-  await waitFor(() =>
-    expect(screen.getByRole('link', { name: en.PracticeViewMaterial })).toHaveAttribute(
-      'href',
-      '/materials/41?version=102'
-    )
-  );
-});
+    await userEvent.setup().click(await screen.findByRole('button', { name: en.PracticeActions }));
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: en.PracticeViewMaterial })).toHaveAttribute(
+        'href',
+        '/materials/41?version=102'
+      )
+    );
+  }
+);
 
-testStable('reviews only cards returned by the persisted due-card queue', async () => {
-  const rpc = practiceRpc('flashcards', true);
-  const card = Schema.decodeUnknownSync(dueCardSchema)({
-    snapshot: {
-      version_id: 102n,
-      material_id: 41n,
-      card_id: 12n,
-      position: 1n,
-      front: 'Name the smallest prime.',
-      back: 'Two.'
-    },
-    schedule: null,
-    due: 0n
-  });
+test.stable(
+  'reviews only cards returned by the persisted due-card queue',
+  async ({ expect, screen, vi, render, rpcHandlersTransport }) => {
+    const rpc = practiceRpc({ vi }, 'flashcards', true);
+    const card = Schema.decodeUnknownSync(dueCardSchema)({
+      snapshot: {
+        version_id: 102n,
+        material_id: 41n,
+        card_id: 12n,
+        position: 1n,
+        front: 'Name the smallest prime.',
+        back: 'Two.'
+      },
+      schedule: null,
+      due: 0n
+    });
 
-  rpc['learning.dueCards'].mockReturnValue(Effect.succeed({ items: [card], nextCursor: null }));
-  mountLibraryRoute('/flashcards/41', rpc);
+    rpc['learning.dueCards'].mockReturnValue(Effect.succeed({ items: [card], nextCursor: null }));
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/flashcards/41', rpc);
 
-  expect(await screen.findByText('Name the smallest prime.')).toBeInTheDocument();
-  expect(screen.queryByText('What is a prime number?')).not.toBeInTheDocument();
-  expect(rpc['learning.dueCards']).toHaveBeenCalledExactlyOnceWith({
-    projectId: 1n,
-    limit: 100,
-    cursor: undefined
-  });
-});
+    expect(await screen.findByText('Name the smallest prime.')).toBeInTheDocument();
+    expect(screen.queryByText('What is a prime number?')).not.toBeInTheDocument();
+    expect(rpc['learning.dueCards']).toHaveBeenCalledExactlyOnceWith({
+      projectId: 1n,
+      limit: 100,
+      cursor: undefined
+    });
+  }
+);
 
-testStable('shows that no review is due instead of replaying already scheduled cards', async () => {
-  const rpc = practiceRpc('flashcards', true);
+test.stable(
+  'shows that no review is due instead of replaying already scheduled cards',
+  async ({ expect, screen, vi, render, rpcHandlersTransport }) => {
+    const rpc = practiceRpc({ vi }, 'flashcards', true);
 
-  mountLibraryRoute('/flashcards/41', rpc);
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/flashcards/41', rpc);
 
-  expect(await screen.findByText(en.PracticeNothingDue)).toBeInTheDocument();
-  expect(screen.queryByText('What is a prime number?')).not.toBeInTheDocument();
-});
+    expect(await screen.findByText(en.PracticeNothingDue)).toBeInTheDocument();
+    expect(screen.queryByText('What is a prime number?')).not.toBeInTheDocument();
+  }
+);
 
-testStable(
+test.stable(
   'uses the shared actions card and keeps the current answer when reviewing attempts',
-  async () => {
-    const rpc = practiceRpc();
+  async ({ userEvent, screen, expect, within, waitFor, vi, render, rpcHandlersTransport }) => {
+    const rpc = practiceRpc({ vi });
 
     rpc['learning.attempts'].mockReturnValue(
       Effect.succeed({
@@ -402,7 +433,7 @@ testStable(
     );
     const user = userEvent.setup();
 
-    mountLibraryRoute('/practice/41?attempt=70', rpc);
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?attempt=70', rpc);
 
     await user.click(await screen.findByRole('radio', { name: /Two/ }));
     const toggle = screen.getByRole('button', { name: en.PracticeActions });
@@ -424,10 +455,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'keeps the selected subject after archiving material shared by multiple subjects',
-  async () => {
-    const rpc = practiceRpc();
+  async ({ userEvent, screen, waitFor, expect, vi, render, rpcHandlersTransport }) => {
+    const rpc = practiceRpc({ vi });
     const material = Schema.decodeUnknownSync(materialDetailSchema)({
       ...rpc.fixture,
       projectIds: [1n, 2n]
@@ -436,7 +467,11 @@ testStable(
     rpc['materials.material'].mockReturnValue(Effect.succeed(material));
     rpc['materials.archive'].mockReturnValue(Effect.succeed({ ...material, archived_at: 2n }));
     const user = userEvent.setup();
-    const { router } = mountLibraryRoute('/practice/41?project=2', rpc);
+    const { router } = mountLibraryRoute(
+      { render, rpcHandlersTransport, vi },
+      '/practice/41?project=2',
+      rpc
+    );
 
     await user.click(await screen.findByRole('button', { name: en.PracticeActions }));
     await user.click(screen.getByRole('button', { name: en.PracticeArchiveMaterial }));
@@ -445,15 +480,15 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'reviews saved answers and edits them before finishing in the same action footer',
-  async () => {
-    const rpc = practiceRpc();
+  async ({ userEvent, screen, expect, vi, render, rpcHandlersTransport }) => {
+    const rpc = practiceRpc({ vi });
 
     rpc['learning.attempt'].mockReturnValue(Effect.succeed(answered));
     const user = userEvent.setup();
 
-    mountLibraryRoute('/practice/41?attempt=70', rpc);
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?attempt=70', rpc);
     await screen.findByRole('heading', { name: en.QuizReviewAnswers });
     const finish = screen.getByRole('button', { name: en.PracticeFinishQuiz });
 
@@ -474,10 +509,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'keeps preferences in Settings and shows exact document sources without Archived',
-  async () => {
-    const rpc = practiceRpc();
+  async ({ userEvent, screen, expect, within, vi, render, rpcHandlersTransport }) => {
+    const rpc = practiceRpc({ vi });
     const version = Schema.decodeUnknownSync(materialVersionDetailSchema)({
       ...rpc.fixture.latestPublishedVersion,
       inputs: [
@@ -489,7 +524,7 @@ testStable(
     rpc['materials.materialVersion'].mockReturnValue(Effect.succeed(version));
     const user = userEvent.setup();
 
-    mountLibraryRoute('/practice/41', rpc);
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41', rpc);
     await screen.findByRole('button', { name: en.PracticeStartQuiz });
     expect(screen.queryByRole('combobox', { name: en.QuizQuestionCount })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: en.PracticeActions }));
@@ -511,13 +546,13 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'explicitly replays the full flashcard deck when no scheduled review is due',
-  async () => {
-    const rpc = practiceRpc('flashcards', true);
+  async ({ userEvent, screen, expect, vi, render, rpcHandlersTransport }) => {
+    const rpc = practiceRpc({ vi }, 'flashcards', true);
     const user = userEvent.setup();
 
-    mountLibraryRoute('/flashcards/41', rpc);
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/flashcards/41', rpc);
     await screen.findByText(en.PracticeNothingDue);
     await user.click(screen.getByRole('button', { name: en.PracticeReplayFlashcards }));
     expect(await screen.findByText('What is a prime number?')).toBeInTheDocument();
@@ -527,10 +562,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'reviews text answers as labeled read-only content and keeps multiline feedback separate',
-  async () => {
-    const rpc = practiceRpc();
+  async ({ screen, expect, within, vi, render, rpcHandlersTransport }) => {
+    const rpc = practiceRpc({ vi });
     const learnerAnswer =
       'La membrana regola gli scambi.\nMantiene condizioni adatte alla cellula.';
     const referenceAnswer =
@@ -555,7 +590,7 @@ testStable(
     });
 
     rpc['learning.attempt'].mockReturnValue(Effect.succeed(result));
-    mountLibraryRoute('/practice/41?attempt=70', rpc);
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?attempt=70', rpc);
 
     const review = await screen.findByRole('region', { name: en.PracticeResults });
 
@@ -575,10 +610,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'distinguishes pending grading from unanswered text and preserves result navigation',
-  async () => {
-    const rpc = practiceRpc();
+  async ({ screen, expect, within, userEvent, vi, render, rpcHandlersTransport }) => {
+    const rpc = practiceRpc({ vi });
     const result = Schema.decodeUnknownSync(quizAttemptCompletedSchema)({
       ...completed,
       scoring: { complete: false, gradedCount: 0, questionCount: 2, earned: 0, score: null },
@@ -611,7 +646,7 @@ testStable(
     });
 
     rpc['learning.attempt'].mockReturnValue(Effect.succeed(result));
-    mountLibraryRoute('/practice/41?attempt=70', rpc);
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?attempt=70', rpc);
     const review = await screen.findByRole('region', { name: en.PracticeResults });
 
     expect(within(review).getByRole('group', { name: en.YourAnswer })).toHaveTextContent(

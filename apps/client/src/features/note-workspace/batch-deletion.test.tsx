@@ -1,19 +1,13 @@
 import { StudyError, noteIdSchema } from '@study/contracts';
 import type { NoteId } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { afterEach, expect, vi } from 'vite-plus/test';
 
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import type * as __MockType0 from './deletion';
 
-import { NoteBatchDeleteDialog } from './deletion';
+let NoteBatchDeleteDialog: typeof __MockType0.NoteBatchDeleteDialog;
 
-const rpc = vi.hoisted(() => ({ remove: vi.fn(), retry: vi.fn(), read: vi.fn() }));
-
-vi.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: 'english' })
-}));
+let rpc: ReturnType<typeof createMockState>['rpc'];
 
 const first = Schema.decodeUnknownSync(noteIdSchema)(1n);
 
@@ -26,12 +20,38 @@ const notes = [
   { id: second, title: 'Second note' }
 ];
 
-afterEach(() => {
+function createMockState(mock: test.Mock) {
+  return {
+    rpc: (() => ({ remove: mock.fn(), retry: mock.fn(), read: mock.fn() }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  rpc = __mockState.rpc;
+
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({ t: (key: string) => key, locale: 'english' })
+  }));
+  const __mockModule0 = await import('./deletion');
+
+  NoteBatchDeleteDialog = __mockModule0.NoteBatchDeleteDialog;
+});
+
+test.afterEach(({ cleanup, vi }) => {
   cleanup();
   vi.resetAllMocks();
 });
 
-function mount(onDeleted = vi.fn()) {
+function mount(
+  {
+    vi,
+    rpcHandlersTransport,
+    render
+  }: Pick<test.Context, 'vi' | 'rpcHandlersTransport' | 'render'>,
+  onDeleted = vi.fn()
+) {
   if (!rpc.read.getMockImplementation()) rpc.read.mockResolvedValue(null);
 
   const receipts = new Map<NoteId, unknown>();
@@ -69,14 +89,17 @@ function mount(onDeleted = vi.fn()) {
   return { ...render(node()), node, close, onDeleted };
 }
 
-testStable('does not delete anything when batch confirmation is cancelled', async () => {
-  mount();
-  fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
-  expect(rpc.remove).not.toHaveBeenCalled();
-});
-testStable(
+test.stable(
+  'does not delete anything when batch confirmation is cancelled',
+  async ({ fireEvent, screen, expect, vi, rpcHandlersTransport, render }) => {
+    mount({ vi, rpcHandlersTransport, render });
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+    expect(rpc.remove).not.toHaveBeenCalled();
+  }
+);
+test.stable(
   'keeps the reviewed selection fixed and retries only a failed note after a partial success',
-  async () => {
+  async ({ fireEvent, screen, waitFor, expect, vi, rpcHandlersTransport, render }) => {
     const receipt = (id: NoteId) => ({
       noteId: id,
       operationId: String(id),
@@ -95,7 +118,7 @@ testStable(
 
       return receipt(id);
     });
-    const view = mount();
+    const view = mount({ vi, rpcHandlersTransport, render });
 
     fireEvent.change(await screen.findByRole('textbox'), {
       target: { value: 'DeleteConfirmationWord' }
@@ -117,9 +140,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'treats an already completed target as satisfied and deletes only the remaining target',
-  async () => {
+  async ({ fireEvent, screen, waitFor, expect, vi, rpcHandlersTransport, render }) => {
     const receipt = {
       noteId: first,
       operationId: 'already-deleted',
@@ -131,7 +154,7 @@ testStable(
 
     rpc.read.mockImplementation(async (id: NoteId) => (id === first ? receipt : null));
     rpc.remove.mockResolvedValue({ ...receipt, noteId: second, operationId: 'second' });
-    mount();
+    mount({ vi, rpcHandlersTransport, render });
     fireEvent.change(await screen.findByRole('textbox'), {
       target: { value: 'DeleteConfirmationWord' }
     });
@@ -142,9 +165,9 @@ testStable(
     await waitFor(() => expect(rpc.remove).toHaveBeenCalledExactlyOnceWith(second));
   }
 );
-testStable(
+test.stable(
   'allows cancelling before confirmation when another deletion is already pending',
-  async () => {
+  async ({ screen, expect, fireEvent, vi, rpcHandlersTransport, render }) => {
     rpc.read.mockResolvedValue({
       noteId: first,
       operationId: 'external',
@@ -153,7 +176,7 @@ testStable(
       attempt: 1,
       completedAt: null
     });
-    const view = mount();
+    const view = mount({ vi, rpcHandlersTransport, render });
 
     await screen.findAllByText('NoteDeleting');
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled();

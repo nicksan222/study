@@ -1,3 +1,4 @@
+import { NotesRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises note work discovery through real SQLite and native RPC.                  │
@@ -10,15 +11,11 @@
  * │ Real feature services own state; fixtures provide isolated SQLite and native RPC.        │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { NotesRpc } from '@study/contracts';
 import { eq } from '@study/db';
 import { workflow_executions } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { assert, expect } from 'vite-plus/test';
 
 import { NotesRpcLive } from '#server/features/notes/rpc/index';
 import { Notes } from '#server/features/notes/service/index';
@@ -29,10 +26,12 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { testLiveQueries } from '#testing/live-queries';
 
-testStable(
+test.stable(
   'note work RPC scopes active executions, paginates, and preserves canonical cancellation state',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(Notes.layer, Pages.layer, Sources.layer, Settings.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))

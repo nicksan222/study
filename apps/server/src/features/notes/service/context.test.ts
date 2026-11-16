@@ -1,3 +1,4 @@
+import type { PageVersionId, SourceId } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises exact note context capture through native RPC and migrated SQLite.       │
@@ -10,20 +11,15 @@
  * │ Uses public feature services and real persistence without replacing workflow ownership.  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { PageVersionId, SourceId } from '@study/contracts';
 import { pageVersionIdSchema } from '@study/contracts';
 import { NotesRpc } from '@study/contracts';
 import type { chatMessageSchema } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { NotesRpcLive } from '#server/features/notes/rpc/index';
@@ -52,10 +48,12 @@ const content = (value: string) => ({
   }
 });
 
-testStable(
+test.stable(
   'native selection guards exact historic ranges, captures once and survives edits and reopen',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     let context = new ServerContext(await location.open());
     const services = () =>
       Layer.mergeAll(Notes.layer, Pages.layer, Settings.layer).pipe(
@@ -405,10 +403,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'reply outbox rejection rolls back the logical context and retry uses original message versions',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Notes.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
@@ -441,10 +441,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'active membership controls capture independently of selection and all notes are retained',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(Notes.layer, Pages.layer, Settings.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -614,10 +616,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'active image documents retain whole bodies and exact asset revisions despite manual range selection',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     let context = new ServerContext(await location.open());
     const services = () =>
       Layer.mergeAll(Notes.layer, Pages.layer, Sources.layer, Settings.layer).pipe(
@@ -782,6 +786,7 @@ testStable(
 );
 
 function assertRetainedCitationShapes(
+  { assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>,
   read: typeof chatMessageSchema.Type,
   anchor: Extract<(typeof chatMessageSchema.Type.citations)[number]['anchor'], { type: 'text' }>,
   versionId: PageVersionId,
@@ -789,6 +794,8 @@ function assertRetainedCitationShapes(
   draftVersionId: PageVersionId,
   sourceId: SourceId
 ) {
+  const assert: test.Assert = assertions;
+
   const [incomplete, mismatch, unpublished, attachment] = read.citations;
 
   for (const citation of read.citations) {
@@ -809,10 +816,12 @@ function assertRetainedCitationShapes(
   assert.ok(attachment!.quote === 'Retained attachment');
 }
 
-testStable(
+test.stable(
   'retained legacy and attachment citations keep bounded precision; wrong exact identities never use latest content',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     let context = new ServerContext(await location.open());
     const handlers = () =>
       NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
@@ -915,6 +924,7 @@ testStable(
             const read = yield* rpc('notes.message', { id: message.id });
 
             assertRetainedCitationShapes(
+              { assert, expect },
               read,
               anchor,
               material.version!.id,
@@ -990,10 +1000,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'native capture rejects foreign or deleted boundaries and preserves exact bounded replay',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const handlers = NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
       Layer.provideMerge(

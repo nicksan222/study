@@ -28,6 +28,15 @@ export default defineConfig({
   },
   build: { outDir: 'dist', emptyOutDir: true },
   test: {
+    server: {
+      deps: {
+        // Setup-owned providers and app-lifetime state keep one identity when subjects reset.
+        external: [
+          /\/packages\/(?:contracts|ui)\/src\//,
+          /\/apps\/client\/src\/(?:lib\/i18n|features\/assistant\/note|features\/note-workspace\/start-drafts\.queries)\.tsx?$/
+        ]
+      }
+    },
     environment: 'jsdom',
     silent: 'passed-only',
     setupFiles: ['./src/test/setup.ts'],

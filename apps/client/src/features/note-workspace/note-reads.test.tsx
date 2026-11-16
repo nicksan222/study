@@ -1,17 +1,13 @@
 import { noteIdSchema, projectIdSchema, notePageInputSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { expect } from 'vite-plus/test';
-
-import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { useNoteList } from './note-reads';
 
 /** Interaction-level coverage; authoritative membership and transaction races are server tests. */
-testStable(
+test.stable(
   'keeps loaded note windows bounded, navigates beyond one hundred and resets on owner changes',
-  async () => {
+  async ({ rpcTestTransport, renderHook, waitFor, expect, act }) => {
     const items = Array.from({ length: 150 }, (_, index) => {
       const value = BigInt(150 - index);
 

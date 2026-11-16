@@ -1,55 +1,74 @@
 import { StudyError } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import type { ReactNode } from 'react';
-import { expect, vi } from 'vite-plus/test';
 
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import type * as __MockType0 from '../document-editing/test-support';
+import type * as __MockType1 from './annotation-target';
 
-import { authoredPage } from '../document-editing/test-support';
-import { TargetPicker, EvidenceTarget } from './annotation-target';
-vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+let authoredPage: typeof __MockType0.authoredPage;
 
-function setup(handlers: Parameters<typeof rpcHandlersTransport>[0], child: ReactNode) {
+let TargetPicker: typeof __MockType1.TargetPicker;
+
+let EvidenceTarget: typeof __MockType1.EvidenceTarget;
+
+function setup(
+  { rpcHandlersTransport, render }: Pick<test.Context, 'rpcHandlersTransport' | 'render'>,
+  handlers: Parameters<test.Context['rpcHandlersTransport']>[0],
+  child: ReactNode
+) {
   const harness = rpcHandlersTransport(handlers);
 
   return { ...render(<harness.wrapper>{child}</harness.wrapper>), ...harness };
 }
 
-testStable('selects one canonical block and rejects a split UTF-16 surrogate pair', async () => {
-  const owner = authoredPage(41n, 'A😀BC', 101n);
-  const doc = owner.version!;
-  const pick = vi.fn();
+test.beforeEach(async ({ mock }) => {
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  const __mockModule0 = await import('../document-editing/test-support');
 
-  setup(
-    {
-      'pages.versions': () => Promise.resolve({ items: [], nextCursor: null }),
-      'pages.version': () => Promise.resolve(doc)
-    },
-    <TargetPicker pageId={owner.id} initialVersion={doc.id} onPick={pick} />
-  );
-  await userEvent.setup().click(await screen.findByLabelText('PageBlock'));
-  await userEvent.setup().click(await screen.findByRole('option', { name: '1 · A😀BC' }));
-  const field = screen.getByLabelText<HTMLTextAreaElement>('PageSelectPassage');
+  authoredPage = __mockModule0.authoredPage;
+  const __mockModule1 = await import('./annotation-target');
 
-  field.setSelectionRange(1, 2);
-  fireEvent.select(field);
-  expect(pick).toHaveBeenLastCalledWith(undefined);
-  field.setSelectionRange(1, 3);
-  fireEvent.select(field);
-  expect(pick).toHaveBeenLastCalledWith({
-    pageId: owner.id,
-    range: {
-      versionId: doc.id,
-      snapshotId: doc.snapshotId,
-      blockId: doc.document.blocks[0]!.id,
-      start: 1,
-      end: 3
-    }
-  });
-  expect(screen.getByLabelText('AnnotationPreview')).toHaveTextContent('😀');
+  TargetPicker = __mockModule1.TargetPicker;
+  EvidenceTarget = __mockModule1.EvidenceTarget;
 });
+
+test.stable(
+  'selects one canonical block and rejects a split UTF-16 surrogate pair',
+  async ({ vi, userEvent, screen, fireEvent, expect, rpcHandlersTransport, render }) => {
+    const owner = authoredPage(41n, 'A😀BC', 101n);
+    const doc = owner.version!;
+    const pick = vi.fn();
+
+    setup(
+      { rpcHandlersTransport, render },
+      {
+        'pages.versions': () => Promise.resolve({ items: [], nextCursor: null }),
+        'pages.version': () => Promise.resolve(doc)
+      },
+      <TargetPicker pageId={owner.id} initialVersion={doc.id} onPick={pick} />
+    );
+    await userEvent.setup().click(await screen.findByLabelText('PageBlock'));
+    await userEvent.setup().click(await screen.findByRole('option', { name: '1 · A😀BC' }));
+    const field = screen.getByLabelText<HTMLTextAreaElement>('PageSelectPassage');
+
+    field.setSelectionRange(1, 2);
+    fireEvent.select(field);
+    expect(pick).toHaveBeenLastCalledWith(undefined);
+    field.setSelectionRange(1, 3);
+    fireEvent.select(field);
+    expect(pick).toHaveBeenLastCalledWith({
+      pageId: owner.id,
+      range: {
+        versionId: doc.id,
+        snapshotId: doc.snapshotId,
+        blockId: doc.document.blocks[0]!.id,
+        start: 1,
+        end: 3
+      }
+    });
+    expect(screen.getByLabelText('AnnotationPreview')).toHaveTextContent('😀');
+  }
+);
 
 function retainedTarget() {
   const owner = authoredPage(41n, 'Retained private evidence', 101n);
@@ -68,28 +87,33 @@ function retainedTarget() {
   return { owner, version, target };
 }
 
-testStable('a retained reference never follows a different document identity', async () => {
-  const { version, target } = retainedTarget();
+test.stable(
+  'a retained reference never follows a different document identity',
+  async ({ expect, screen, rpcHandlersTransport, render }) => {
+    const { version, target } = retainedTarget();
 
-  setup(
-    {
-      'pages.version': async () => ({
-        ...version,
-        snapshotId: authoredPage(41n, 'Replacement', 102n).version!.snapshotId
-      })
-    },
-    <EvidenceTarget preview reference={{ kind: 'range', target }} />
-  );
-  expect(await screen.findByText('ReaderUnavailable')).toBeVisible();
-  expect(screen.queryByText('Retained private evidence')).toBeNull();
-});
+    setup(
+      { rpcHandlersTransport, render },
+      {
+        'pages.version': async () => ({
+          ...version,
+          snapshotId: authoredPage(41n, 'Replacement', 102n).version!.snapshotId
+        })
+      },
+      <EvidenceTarget preview reference={{ kind: 'range', target }} />
+    );
+    expect(await screen.findByText('ReaderUnavailable')).toBeVisible();
+    expect(screen.queryByText('Retained private evidence')).toBeNull();
+  }
+);
 
-testStable(
+test.stable(
   'a mounted retained reference discards its body after a committed retirement hint',
-  async () => {
+  async ({ vi, screen, act, waitFor, expect, rpcHandlersTransport, render }) => {
     const { version, target } = retainedTarget();
     const read = vi.fn().mockResolvedValue(version);
     const view = setup(
+      { rpcHandlersTransport, render },
       { 'pages.version': read },
       <EvidenceTarget preview reference={{ kind: 'range', target }} />
     );

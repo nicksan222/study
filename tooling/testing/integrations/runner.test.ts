@@ -10,15 +10,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { testStable, waitFor } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { runIntegrationTests } from './environment.ts';
 import { integrationFixture } from './fixture.ts';
 
-testStable.each(['success', 'test-failure'])(
+test.stable.for(['success', 'test-failure'])(
   'integration execution preserves native reports and the %s exit code, then cleans up',
-  async (mode) => {
+  async (mode, { expect }) => {
     await using context = await integrationFixture(mode);
     const code = await runIntegrationTests(context.root).catch(async (error) => {
       throw new Error(
@@ -39,40 +38,46 @@ testStable.each(['success', 'test-failure'])(
   }
 );
 
-testStable.each([
+test.stable.for([
   { mode: 'build-failure', error: 'build' },
   { mode: 'create-failure', error: 'create' },
   { mode: 'start-failure', error: 'invalid exit status' },
   { mode: 'report-failure', error: 'cp' }
-])('integration execution fails visibly and cleans up after $mode', async ({ mode, error }) => {
-  await using context = await integrationFixture(mode);
+])(
+  'integration execution fails visibly and cleans up after $mode',
+  async ({ mode, error }, { expect }) => {
+    await using context = await integrationFixture(mode);
 
-  await expect(runIntegrationTests(context.root)).rejects.toThrow(error);
-  expect(await Bun.file(`${context.directory}/container`).exists()).toBe(false);
-  expect(await Bun.file(`${context.directory}/image`).exists()).toBe(false);
-  expect(
-    await Bun.file(`${context.root}/tooling/test-results/integrations/setup.log`).exists()
-  ).toBe(true);
-});
-
-testStable('interrupted integration execution removes its container and image', async () => {
-  await using context = await integrationFixture('interrupt');
-  const controller = new AbortController();
-  const running = runIntegrationTests(context.root, controller.signal);
-
-  void running.catch(() => {});
-
-  try {
-    await waitFor(async () =>
-      expect(await Bun.file(`${context.directory}/started`).exists()).toBe(true)
-    );
-
-    controller.abort();
-    await expect(running).rejects.toThrow();
+    await expect(runIntegrationTests(context.root)).rejects.toThrow(error);
     expect(await Bun.file(`${context.directory}/container`).exists()).toBe(false);
     expect(await Bun.file(`${context.directory}/image`).exists()).toBe(false);
-  } finally {
-    controller.abort();
-    await running.catch(() => {});
+    expect(
+      await Bun.file(`${context.root}/tooling/test-results/integrations/setup.log`).exists()
+    ).toBe(true);
   }
-});
+);
+
+test.stable(
+  'interrupted integration execution removes its container and image',
+  async ({ waitFor, expect }) => {
+    await using context = await integrationFixture('interrupt');
+    const controller = new AbortController();
+    const running = runIntegrationTests(context.root, controller.signal);
+
+    void running.catch(() => {});
+
+    try {
+      await waitFor(async () =>
+        expect(await Bun.file(`${context.directory}/started`).exists()).toBe(true)
+      );
+
+      controller.abort();
+      await expect(running).rejects.toThrow();
+      expect(await Bun.file(`${context.directory}/container`).exists()).toBe(false);
+      expect(await Bun.file(`${context.directory}/image`).exists()).toBe(false);
+    } finally {
+      controller.abort();
+      await running.catch(() => {});
+    }
+  }
+);

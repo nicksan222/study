@@ -1,14 +1,13 @@
 import { catalogs } from '@study/localization';
-
-import { expect, testHarness } from './index.ts';
+import { test } from '@study/testing';
 
 const copy = catalogs.english;
 
-testHarness.use({ captureWorkflow: 'closing-settings-preserves-the-underlying-route' });
+test.stable.use({ captureWorkflow: 'closing-settings-preserves-the-underlying-route' });
 
-testHarness(
+test.stable(
   'persisted zoom keeps notebook scrolling inside the shell',
-  async ({ journey: { page, expectScreenshot } }) => {
+  async ({ journey: { page, expectScreenshot }, expect }) => {
     await page.goto('/notes');
 
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });

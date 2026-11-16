@@ -1,11 +1,14 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { NotebookRail } from '@study/ui';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, expect, vi } from 'vite-plus/test';
 
-afterEach(() => vi.restoreAllMocks());
+test.afterEach(({ vi }) => vi.restoreAllMocks());
 
-function mount() {
+function mount({
+  render,
+  screen,
+  within,
+  vi
+}: Pick<test.Context, 'render' | 'screen' | 'within' | 'vi'>) {
   render(
     <>
       <NotebookRail.Root label="Notebook navigation">
@@ -44,10 +47,10 @@ function mount() {
 const scale = (marker: HTMLElement) =>
   Number(marker.style.getPropertyValue('--notebook-marker-scale') || 1);
 
-testStable(
+test.stable(
   'starts every marker at rest and magnifies a smooth symmetric neighborhood without moving hitboxes',
-  () => {
-    const { rail, markers } = mount();
+  ({ expect, fireEvent, render, screen, within, vi }) => {
+    const { rail, markers } = mount({ render, screen, within, vi });
 
     expect(markers.map(scale)).toEqual([1, 1, 1, 1, 1]);
     fireEvent(rail, new MouseEvent('pointermove', { bubbles: true, clientY: 24 }));
@@ -67,10 +70,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'uses the same tapered wave for keyboard focus, keeps it on pointer leave, and resets after blur',
-  () => {
-    const { rail, markers } = mount();
+  ({ act, expect, fireEvent, screen, render, within, vi }) => {
+    const { rail, markers } = mount({ render, screen, within, vi });
 
     act(() => markers[3]!.focus());
     expect(scale(markers[3]!)).toBeGreaterThan(scale(markers[2]!));

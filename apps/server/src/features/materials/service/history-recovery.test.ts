@@ -1,3 +1,4 @@
+import { eq, sql } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises cleanup rollback, failed settlement, restart and exact attempt fencing.  │
@@ -9,12 +10,9 @@
  * │ No failure setter substitutes for the cleanup path; temporary triggers only inject I/O.  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { eq, sql } from '@study/db';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { acceptMaterialDeletion, cleanupMaterial } from '#testing/material-deletion';
@@ -24,10 +22,12 @@ import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';
 
 for (const failSettlement of [false, true]) {
-  testStable(
+  test.stable(
     `injected cleanup failure ${failSettlement ? 'and failed state persistence' : 'with durable failure'} rolls back and recovers after reopen`,
-    async () => {
-      const f = await pageTransformFixture();
+    async ({ databases, expect, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+
+      const f = await pageTransformFixture(databases);
 
       try {
         const saved = await Effect.runPromise(
@@ -72,7 +72,7 @@ for (const failSettlement of [false, true]) {
             sql`CREATE TRIGGER reject_history_failure BEFORE UPDATE OF status ON material_history_prunes WHEN NEW.status='failed' BEGIN SELECT RAISE(ABORT,'injected settlement'); END`
           );
 
-        await expect(cleanupHistory(f, 'history-rollback')).rejects.toSatisfy(() => true);
+        await expect(cleanupHistory(f, 'history-rollback', assert)).rejects.toSatisfy(() => true);
 
         await Effect.runPromise(
           awaitNativeStatus(f, 'history-test/history-rollback/1', 'completed')
@@ -152,11 +152,11 @@ for (const failSettlement of [false, true]) {
           before
         );
 
-        await cleanupHistory(f, state.operationId);
+        await cleanupHistory(f, state.operationId, assert);
 
         await f.reopen();
 
-        assertScrubbed(f, 'ROLLBACK_HISTORY_PRIVATE');
+        assertScrubbed(f, assert, 'ROLLBACK_HISTORY_PRIVATE');
 
         await Effect.runPromise(
           Effect.gen(function* () {
@@ -181,11 +181,11 @@ for (const failSettlement of [false, true]) {
 
         await acceptMaterialDeletion(f, saved.root.id);
 
-        await cleanupMaterial(f, saved.root.id);
+        await cleanupMaterial(f, saved.root.id, assert);
 
         await f.reopen();
 
-        assertScrubbed(f, 'ROLLBACK_CURRENT_KEEP');
+        assertScrubbed(f, assert, 'ROLLBACK_CURRENT_KEEP');
       } finally {
         await f.close();
       }

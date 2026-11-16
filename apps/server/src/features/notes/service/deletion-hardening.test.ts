@@ -1,3 +1,4 @@
+import { noteDeletionRequestedSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises exact native deletion attempts and canonical query bindings over SQLite. │
@@ -9,15 +10,11 @@
  * │ Uses real feature services and native Workflow timing gates without changing guards.     │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { noteDeletionRequestedSchema } from '@study/contracts';
 import { eq } from '@study/db';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Deferred, Effect, Exit, Option } from 'effect';
 import { DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import {
@@ -36,13 +33,15 @@ import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';
 import { withTestAdmission, admitTestExecution } from '#testing/workflow-admission';
 
-testStable(
+test.stable(
   'canonical status, ownership and correlation queries bind directly with typed aggregate results',
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const fixture = await pageTransformFixture(databases);
 
     try {
-      const saved = await setup(fixture, 'DIRECT_QUERY_BINDING_8');
+      const saved = await setup(fixture, assert, 'DIRECT_QUERY_BINDING_8');
 
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -109,15 +108,17 @@ testStable(
 );
 
 for (const state of ['running', 'suspended'] as const) {
-  testStable(
+  test.stable(
     `pending retry waits for every exact current native execution while ${state}, then rejects stale settlement`,
-    async () => {
-      const fixture = await pageTransformFixture();
+    async ({ databases, expect, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+
+      const fixture = await pageTransformFixture(databases);
 
       const marker = `ATTEMPT_FENCE_${state}_8`;
 
       try {
-        const saved = await setup(fixture, marker);
+        const saved = await setup(fixture, assert, marker);
 
         await Effect.runPromise(
           Effect.scoped(
@@ -128,7 +129,7 @@ for (const state of ['running', 'suspended'] as const) {
 
               const accepted = yield* chats.deleteNote(saved.note.id);
 
-              const event = deletionEvent(fixture, saved.note.id);
+              const event = deletionEvent(fixture, saved.note.id, assert);
 
               const entered = yield* Deferred.make<void>();
 
@@ -291,10 +292,10 @@ for (const state of ['running', 'suspended'] as const) {
                 fixture.context,
                 noteDeletionWorkflow,
                 'current-cleanup',
-                { event: deletionEvent(fixture, saved.note.id) },
+                { event: deletionEvent(fixture, saved.note.id, assert) },
                 engine.execute(noteDeletionWorkflow, {
                   executionId: 'current-cleanup',
-                  payload: { event: deletionEvent(fixture, saved.note.id) }
+                  payload: { event: deletionEvent(fixture, saved.note.id, assert) }
                 })
               );
 
@@ -319,11 +320,11 @@ for (const state of ['running', 'suspended'] as const) {
           )
         );
 
-        assertScrubbed(fixture, marker);
+        assertScrubbed(fixture, assert, marker);
 
         await fixture.reopen();
 
-        assertScrubbed(fixture, marker);
+        assertScrubbed(fixture, assert, marker);
       } finally {
         await fixture.close();
       }

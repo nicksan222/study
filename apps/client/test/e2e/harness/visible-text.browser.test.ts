@@ -1,10 +1,8 @@
-import { expect as assert } from 'playwright/test';
+import { test } from '@study/testing';
 
-import { expect, testHarness } from './index.ts';
-
-testHarness(
+test.stable(
   'visible substring rejects clipped and obscured text inside one prewrapped paragraph',
-  async ({ page }) => {
+  async ({ page, expect }) => {
     await page.setViewportSize({ width: 800, height: 600 });
 
     await page.setContent(`
@@ -20,10 +18,10 @@ testHarness(
     // The whole element passes ordinary visibility even though its final text is clipped.
     await expect(paragraph).toBeVisible();
     await expect(paragraph).toHaveVisibleText('Beginning is readable.');
-    await assert(
+    await expect(
       expect(paragraph).not.toHaveVisibleText('Beginning is readable.', { timeout: 100 })
     ).rejects.toThrow('fully visible');
-    await assert(
+    await expect(
       expect(paragraph).toHaveVisibleText('Hidden conclusion.', { timeout: 100 })
     ).rejects.toThrow('fully visible');
     await expect(paragraph).not.toHaveVisibleText('Hidden conclusion.');
@@ -39,12 +37,12 @@ testHarness(
     await page.setContent(
       '<p>Covered text.</p><div style="position:fixed;inset:0;background:white"></div>'
     );
-    await assert(
+    await expect(
       expect(paragraph).toHaveVisibleText('Covered text.', { timeout: 100 })
     ).rejects.toThrow('fully visible');
 
     await page.setContent('<p style="position:absolute;top:700px">Outside viewport.</p>');
-    await assert(
+    await expect(
       expect(paragraph).toHaveVisibleText('Outside viewport.', { timeout: 100 })
     ).rejects.toThrow('fully visible');
 
@@ -52,7 +50,7 @@ testHarness(
     await expect(paragraph).not.toHaveVisibleText('Invisible text.');
 
     await page.setContent('<p>Repeated. Repeated.</p>');
-    await assert(
+    await expect(
       expect(paragraph).toHaveVisibleText('Repeated.', { timeout: 100 })
     ).rejects.toThrow('unique substring');
     await expect(paragraph).not.toHaveVisibleText('Absent.');

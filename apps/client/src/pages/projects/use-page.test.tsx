@@ -1,19 +1,26 @@
-import { testStable } from '@study/testing/vitest';
-import { renderHook } from '@testing-library/react';
-import { expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
-import { usePage } from './use-page';
+import type * as ProjectPageModule from './use-page.ts';
 
-const search = vi.hoisted(() => ({ project: undefined as string | undefined }));
+let usePage: typeof ProjectPageModule.usePage;
 
-vi.mock('@tanstack/react-router', () => ({ useSearch: () => search }));
+let project: string | undefined;
 
-testStable('preserves subject precision and clears the unselected workspace', () => {
-  search.project = '9007199254740993';
-  const { result, rerender } = renderHook(usePage);
-
-  expect(result.current.project).toBe(9007199254740993n);
-  search.project = undefined;
-  rerender();
-  expect(result.current.project).toBeUndefined();
+test.beforeEach(async ({ mock }) => {
+  project = undefined;
+  mock('@tanstack/react-router', () => ({ useSearch: () => ({ project }) }));
+  ({ usePage } = await import('./use-page.ts'));
 });
+
+test.stable(
+  'preserves subject precision and clears the unselected workspace',
+  ({ renderHook, expect }) => {
+    project = '9007199254740993';
+    const { result, rerender } = renderHook(usePage);
+
+    expect(result.current.project).toBe(9007199254740993n);
+    project = undefined;
+    rerender();
+    expect(result.current.project).toBeUndefined();
+  }
+);

@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks workflow RPC subscriptions emit an initial database snapshot and then       │
@@ -13,23 +14,20 @@
  * │ resources; fixture cleanup closes owned resources.                                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
 import { workflow_executions } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Deferred, Effect, Fiber, Stream } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { makeStudyClient, workflowSnapshots } from '#server/client/index';
-import { App, serve } from '#server/runtime/index';
+import { serve } from '#server/runtime/index';
 
 for (const hinted of [true, false])
-  testStable(
+  test.stable(
     `workflow subscription reseeds, follows ${hinted ? 'commit hints' : 'unhinted commits'}, and releases its listener`,
-    async () => {
-      const location = await createTestDatabase();
-      const app = await App.open({ path: location.path });
+    async ({ resources: location, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+
+      const app = await location.openApp({ path: location.path });
       const server = await serve(app);
       const subscribe = app.store.subscribe.bind(app.store);
       let listeners = 0;
@@ -105,7 +103,7 @@ for (const hinted of [true, false])
       } finally {
         await server.close();
         await app.close();
-        await location.cleanup();
+        await location.close();
       }
     }
   );

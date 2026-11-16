@@ -1,41 +1,44 @@
 import { BunPath } from '@effect/platform-bun';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Path } from 'effect';
-import { assert, expect, vi } from 'vite-plus/test';
 
 import { Db } from '../src/db.ts';
-import { createTestDatabase } from '../src/testing.ts';
 
 const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
-testStable('snapshot checks build one trusted reference but inspect every candidate', async () => {
-  const location = await createTestDatabase();
-  const db = await location.open();
-  const target = join(location.dir, 'snapshot.sqlite');
-  const open = vi.spyOn(Db, 'open');
+test.stable(
+  'snapshot checks build one trusted reference but inspect every candidate',
+  async ({ onTestFinished, createTestDatabase, vi, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    await db.snapshot(target);
+    const location = await createTestDatabase();
 
-    for (let index = 0; index < 3; index++)
-      assert.strictEqual(await Db.validateSnapshot(target), db.schemaIdentity());
-
-    assert.strictEqual(new Set(open.mock.calls.map((call) => call[0])).size, 1);
-
-    const candidate = await Db.openSnapshot(target);
+    onTestFinished(() => location.cleanup());
+    const db = await location.open();
+    const target = join(location.dir, 'snapshot.sqlite');
+    const open = vi.spyOn(Db, 'open');
 
     try {
-      candidate.exec("UPDATE __drizzle_migrations SET hash='tampered'");
-    } finally {
-      candidate.close();
-    }
+      await db.snapshot(target);
 
-    await expect(Db.validateSnapshot(target)).rejects.toThrow(/Unsupported snapshot schema/);
-    assert.strictEqual(await Db.validateSnapshot(location.path), db.schemaIdentity());
-    assert.strictEqual(new Set(open.mock.calls.map((call) => call[0])).size, 1);
-  } finally {
-    open.mockRestore();
-    db.close();
-    await location.cleanup();
+      for (let index = 0; index < 3; index++)
+        assert.strictEqual(await Db.validateSnapshot(target), db.schemaIdentity());
+
+      assert.strictEqual(new Set(open.mock.calls.map((call) => call[0])).size, 1);
+
+      const candidate = await Db.openSnapshot(target);
+
+      try {
+        candidate.exec("UPDATE __drizzle_migrations SET hash='tampered'");
+      } finally {
+        candidate.close();
+      }
+
+      await expect(Db.validateSnapshot(target)).rejects.toThrow(/Unsupported snapshot schema/);
+      assert.strictEqual(await Db.validateSnapshot(location.path), db.schemaIdentity());
+      assert.strictEqual(new Set(open.mock.calls.map((call) => call[0])).size, 1);
+    } finally {
+      open.mockRestore();
+    }
   }
-});
+);

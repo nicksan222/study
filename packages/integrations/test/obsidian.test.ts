@@ -1,5 +1,4 @@
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { integrationProvider, integrationProviders } from '../src/index.ts';
 
@@ -8,9 +7,9 @@ const file = (path: string, text: string) => ({
   content: Buffer.from(text).toString('base64')
 });
 
-testStable(
+test.stable(
   'imports nested vault notes, preserving metadata, links, embeds and original bytes',
-  () => {
+  ({ expect }) => {
     const plan = integrationProvider('obsidian').capabilities.import!.plan({
       files: [
         file(
@@ -50,9 +49,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'reports ambiguous and missing references without discarding note text or inventing targets',
-  () => {
+  ({ expect }) => {
     const plan = integrationProvider('obsidian').capabilities.import!.plan({
       files: [
         file('Home.md', '[[Same]] [[Missing]] ![[photo.png]]\n```md\n[[not a link]]\n```'),
@@ -71,26 +70,32 @@ testStable(
   }
 );
 
-testStable.each(['../escape.md', '/absolute.md', 'a/../../escape.md', 'C:\\escape.md', 'a\\b.md'])(
+test.stable.for(['../escape.md', '/absolute.md', 'a/../../escape.md', 'C:\\escape.md', 'a\\b.md'])(
   'rejects unsafe vault entry %s',
-  (path) => {
+  (path, { expect }) => {
     expect(() =>
       integrationProvider('obsidian').capabilities.import!.plan({ files: [file(path, 'text')] })
     ).toThrow();
   }
 );
 
-testStable('rejects duplicate paths and invalid text encoding; reports empty notes', () => {
-  const provider = integrationProvider('obsidian').capabilities.import!;
+test.stable(
+  'rejects duplicate paths and invalid text encoding; reports empty notes',
+  ({ expect }) => {
+    const provider = integrationProvider('obsidian').capabilities.import!;
 
-  expect(() => provider.plan({ files: [file('A.md', 'one'), file('A.md', 'two')] })).toThrow();
-  expect(() => provider.plan({ files: [{ path: 'A.md', content: '/w==' }] })).toThrow();
-  expect(provider.plan({ files: [file('Empty.md', '   ')] }).warnings).toEqual([
-    { code: 'empty_note', path: 'Empty.md', target: null }
-  ]);
-});
+    expect(() => provider.plan({ files: [file('A.md', 'one'), file('A.md', 'two')] })).toThrow();
+    expect(() => provider.plan({ files: [{ path: 'A.md', content: '/w==' }] })).toThrow();
+    expect(provider.plan({ files: [file('Empty.md', '   ')] }).warnings).toEqual([
+      { code: 'empty_note', path: 'Empty.md', target: null }
+    ]);
+  }
+);
 
-testStable('discovers provider capabilities without advertising unsupported export', () => {
-  expect(integrationProviders()).toEqual([{ id: 'obsidian', capabilities: ['import'] }]);
-  expect(() => integrationProvider('unknown')).toThrow();
-});
+test.stable(
+  'discovers provider capabilities without advertising unsupported export',
+  ({ expect }) => {
+    expect(integrationProviders()).toEqual([{ id: 'obsidian', capabilities: ['import'] }]);
+    expect(() => integrationProvider('unknown')).toThrow();
+  }
+);

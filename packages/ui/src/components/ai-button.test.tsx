@@ -1,14 +1,11 @@
-import { testStable } from '@study/testing/vitest';
-import { render, screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { AiButton, AiActivity } from './ai-button';
 import { TooltipProvider } from './tooltip';
 
-testStable(
+test.stable(
   'keeps a pending AI action disabled while exposing its task on hover and keyboard focus',
-  async () => {
+  async ({ vi, userEvent, render, screen, expect }) => {
     const clicked = vi.fn();
     const user = userEvent.setup();
 
@@ -38,22 +35,25 @@ testStable(
   }
 );
 
-testStable('shows the current task without requiring hover or keyboard discovery', async () => {
-  render(
-    <TooltipProvider delay={0}>
-      <AiActivity label="Reading your pages" />
-    </TooltipProvider>
-  );
-  const status = screen.getByRole('status');
+test.stable(
+  'shows the current task without requiring hover or keyboard discovery',
+  async ({ render, screen, expect, within }) => {
+    render(
+      <TooltipProvider delay={0}>
+        <AiActivity label="Reading your pages" />
+      </TooltipProvider>
+    );
+    const status = screen.getByRole('status');
 
-  expect(status).toHaveAccessibleName('Reading your pages');
-  expect(within(status).getByText('Reading your pages')).toBeVisible();
-  expect(status).toHaveAttribute('data-state', 'running');
-});
+    expect(status).toHaveAccessibleName('Reading your pages');
+    expect(within(status).getByText('Reading your pages')).toBeVisible();
+    expect(status).toHaveAttribute('data-state', 'running');
+  }
+);
 
-testStable.each(['waiting', 'stopping', 'attention'] as const)(
+test.stable.for(['waiting', 'stopping', 'attention'] as const)(
   'keeps %s work visible without an active-generation animation',
-  (state) => {
+  (state, { render, screen, expect, within }) => {
     render(<AiActivity label="Current work" state={state} />);
     const status = screen.getByRole('status', { name: 'Current work' });
 

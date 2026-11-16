@@ -1,5 +1,4 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { catalogs } from '../src/catalog.ts';
 import {
@@ -10,7 +9,9 @@ import {
   mediaSize,
   secondsTaken
 } from '../src/index.ts';
-testStable('catalog and formatting match the Rust examples', () => {
+test.stable('catalog and formatting match the Rust examples', ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   assert.strictEqual(text('italian', 'Home'), 'Panoramica');
   assert.strictEqual(joined(['Question 1', '', 'PDF']), 'Question 1 · PDF');
   assert.strictEqual(choiceLabel(1, 'Ribosomes'), 'B. Ribosomes');
@@ -38,7 +39,9 @@ import {
   citationLabel,
   mentionSuggestions
 } from '../src/index.ts';
-testStable('counts, dates, anchors and mentions', () => {
+test.stable('counts, dates, anchors and mentions', ({ assert: assertions, expect }) => {
+  const assert: test.Assert = assertions;
+
   assert.strictEqual(fileCount('english', 1), '1 file');
   assert.strictEqual(sourceCount('italian', 2), '2 fonti');
   assert.strictEqual(examCountdown('italian', -1), "L'esame è passato");
@@ -71,7 +74,7 @@ testStable('counts, dates, anchors and mentions', () => {
 });
 
 import { createLocalization, countText } from '../src/index.ts';
-testStable('localized plurals cover zero, one and many in both locales', () => {
+test.stable('localized plurals cover zero, one and many in both locales', ({ expect }) => {
   for (const [locale, expected] of [
     ['english', ['0 sources', '1 source', '3 sources']],
     ['italian', ['0 fonti', '1 fonte', '3 fonti']]
@@ -79,7 +82,9 @@ testStable('localized plurals cover zero, one and many in both locales', () => {
     expect([0, 1, 3].map((count) => countText(locale, 'source', count))).toStrictEqual(expected);
   }
 });
-testStable('locale-bound and server translations remain isolated', () => {
+test.stable('locale-bound and server translations remain isolated', ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const english = createLocalization('english');
   const italian = createLocalization('italian');
 
@@ -89,6 +94,6 @@ testStable('locale-bound and server translations remain isolated', () => {
   assert.strictEqual(text('italian', 'Home'), 'Panoramica');
 });
 
-testStable('English and Italian catalogs have exactly the same message keys', () => {
+test.stable('English and Italian catalogs have exactly the same message keys', ({ expect }) => {
   expect(Object.keys(catalogs.italian).sort()).toStrictEqual(Object.keys(catalogs.english).sort());
 });

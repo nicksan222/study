@@ -1,16 +1,17 @@
-import { StudyError, EndpointPolicy } from '@study/contracts';
-import type { StudyRpc } from '@study/contracts';
-/** Controlled, schema-validated protocol streams for component product tests. */
-import { RpcProvider, configureRpcTransport } from '@study/contracts/react';
-import type { ProtocolTransport } from '@study/contracts/react';
 import { Context, Effect, Option, Queue, Result, Schema, Stream } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
 import { RpcSchema } from 'effect/rpc';
 import type { Rpc } from 'effect/rpc';
 import type { RpcClient, RpcGroup } from 'effect/rpc';
 import type { RpcClientError } from 'effect/rpc/RpcClientError';
-import { useLayoutEffect } from 'react';
+import { createElement, useLayoutEffect } from 'react';
 import type { ReactNode } from 'react';
+
+import { StudyError, EndpointPolicy } from './index.ts';
+import type { StudyRpc } from './index.ts';
+/** Controlled, schema-validated protocol streams for component product tests. */
+import { RpcProvider, configureRpcTransport } from './react.ts';
+import type { ProtocolTransport } from './react.ts';
 
 export function rpcTestTransport(
   read: (tag: string, input: unknown) => Promise<unknown>,
@@ -62,12 +63,9 @@ export function rpcTestTransport(
       Stream.callback<unknown, Rpc.Error<R>>((queue) =>
         Effect.gen(function* () {
           let active = true;
-          let inFlight = false;
-          const refresh = async () => {
-            if (inFlight || !active) return;
-
-            inFlight = true;
-
+          let pending = false;
+          let dirty = false;
+          const readSnapshot = async () => {
             try {
               const data = await read(
                 definition._tag.replace(/\.live$/, ''),
@@ -82,8 +80,26 @@ export function rpcTestTransport(
                   _tag: 'Snapshot',
                   result: Result.fail(decodeFailure(definition, error))
                 });
+            }
+          };
+          const refresh = async () => {
+            if (!active) return;
+
+            dirty = true;
+
+            // Pending queries may intentionally never resolve. Queue their refresh without
+            // holding unrelated notifications; the active reader drains the latest state.
+            if (pending) return;
+
+            pending = true;
+
+            try {
+              while (active && dirty) {
+                dirty = false;
+                await readSnapshot();
+              }
             } finally {
-              inFlight = false;
+              pending = false;
             }
           };
 
@@ -112,11 +128,7 @@ export function rpcTestTransport(
   function Wrapper({ children }: { children: ReactNode }) {
     useLayoutEffect(() => configureRpcTransport(transport), []);
 
-    return (
-      <RpcProvider transport={transport} policy={testPolicy} registry={registry}>
-        {children}
-      </RpcProvider>
-    );
+    return createElement(RpcProvider, { transport, policy: testPolicy, registry }, children);
   }
 
   return { transport, notify, wrapper: Wrapper, activeSubscriptions: () => observers.size };
@@ -146,6 +158,24 @@ type TestHandlers = {
     : never;
 };
 
+/** Snapshot fixtures use canonical endpoint names and fail on any unplanned operation. */
+export type RpcFixtureValues = {
+  readonly [K in keyof NativeHandlers]?: NativeHandlers[K] extends (
+    ...args: any[]
+  ) => Effect.Effect<infer A, any, any>
+    ? A
+    : never;
+};
+
+export function rpcValuesTransport(values: RpcFixtureValues, registry?: AtomRegistry.AtomRegistry) {
+  return rpcTestTransport(async (tag) => {
+    if (!Object.hasOwn(values, tag))
+      throw new StudyError('unsupported', `Unexpected test RPC: ${tag}`);
+
+    return Reflect.get(values, tag);
+  }, registry);
+}
+
 /** Reuses typed native handler fixtures; responses still cross the canonical schema boundary. */
 export function rpcHandlersTransport(handlers: TestHandlers, registry?: AtomRegistry.AtomRegistry) {
   return rpcTestTransport(async (tag, input) => {
@@ -165,3 +195,67 @@ export function rpcHandlersTransport(handlers: TestHandlers, registry?: AtomRegi
 
 /** Native schema-derived fixture methods; no client or transport is initialized by this type. */
 export type StudyClient = NativeHandlers;
+
+/** Plain return values, promises and Effects all cross the canonical RPC schema boundary. */
+type ScenarioHandlers = {
+  readonly [K in keyof NativeHandlers]?: NativeHandlers[K] extends (
+    input: infer I,
+    ...args: never[]
+  ) => Effect.Effect<infer A, any, any>
+    ? (input: I) => A | Promise<A> | Effect.Effect<A, unknown>
+    : never;
+};
+
+/** Per-test RPC state with explicit declarations and end-of-test verification of missing setup. */
+export function createRpcScenario() {
+  const values: RpcFixtureValues = {};
+  const handlers: ScenarioHandlers = {};
+  const unexpected: Error[] = [];
+  const fixture = rpcTestTransport(async (tag, input) => {
+    const handler: unknown = Reflect.get(handlers, tag);
+
+    if (typeof handler === 'function') {
+      const result: unknown = handler(input);
+
+      return Effect.isEffect(result)
+        ? Effect.runPromise(result as Effect.Effect<unknown, unknown>)
+        : result;
+    }
+
+    if (Object.hasOwn(values, tag)) return Reflect.get(values, tag);
+
+    const error = new StudyError('unsupported', `Unplanned test RPC: ${tag}`);
+
+    unexpected.push(error);
+
+    throw error;
+  });
+  const given = (next: RpcFixtureValues) => {
+    for (const [tag, value] of Object.entries(next)) {
+      Reflect.set(values, tag, value);
+      Reflect.deleteProperty(handlers, tag);
+    }
+  };
+
+  return {
+    ...fixture,
+    given,
+    handle(next: ScenarioHandlers) {
+      for (const [tag, handler] of Object.entries(next)) {
+        Reflect.set(handlers, tag, handler);
+        Reflect.deleteProperty(values, tag);
+      }
+    },
+    async update(next: RpcFixtureValues) {
+      given(next);
+      await fixture.notify();
+    },
+    verify() {
+      if (unexpected.length)
+        throw new AggregateError(
+          unexpected,
+          `Unplanned test RPC: ${unexpected.map((error) => error.message).join(', ')}`
+        );
+    }
+  };
+}

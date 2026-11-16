@@ -1,10 +1,11 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { materialQuestionInputSchema } from './schemas.ts';
 
-testStable('true or false content requires a boolean truth value', () => {
+test.stable('true or false content requires a boolean truth value', ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const decode = Schema.decodeUnknownSync(materialQuestionInputSchema);
   const question = {
     kind: 'true_false' as const,

@@ -1,3 +1,4 @@
+import { sourceIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies the native Node RPC listener reaches source SQLite transactions,          │
@@ -14,14 +15,10 @@
  * │ fixture cleanup closes owned resources.                                                  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sourceIdSchema } from '@study/contracts';
 import { SourcesRpc } from '@study/contracts';
 import { workflowEvents } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Option, Schema } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { SourcesRpcLive } from '#server/features/sources/rpc/index';
@@ -31,10 +28,12 @@ import { Database } from '#server/platform/database/database';
 import { serveRpc } from '#server/platform/rpc/bun';
 import { testLiveQueries } from '#testing/live-queries';
 
-testStable(
+test.stable(
   'native scoped HTTP RPC reaches Source SQLite transactions and closes its listener',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const handlers = SourcesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
       Layer.provide(Sources.layer),

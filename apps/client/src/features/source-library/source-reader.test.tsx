@@ -1,21 +1,22 @@
 import { StudyError } from '@study/contracts';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { assert, expect, vi } from 'vite-plus/test';
 
 import { materialRpc, mountLibraryRoute, importedSource } from '../material-library/test/support';
-testStable(
+test.stable(
   'keeps unavailable historical extraction unavailable without falling back to current content or bytes',
-  async () => {
-    const rpc = materialRpc();
+  async ({ expect, within, screen, vi, render, rpcHandlersTransport }) => {
+    const rpc = materialRpc({ vi });
 
     rpc['sources.extraction'].mockReturnValue(
       Effect.fail(new StudyError('not_found', 'Revision unavailable'))
     );
-    mountLibraryRoute('/sources/7?sourceRevision=1&sourceSnapshot=1101', rpc);
+    mountLibraryRoute(
+      { render, rpcHandlersTransport, vi },
+      '/sources/7?sourceRevision=1&sourceSnapshot=1101',
+      rpc
+    );
     expect(await within(await screen.findByRole('main')).findByRole('alert')).toHaveTextContent(
       catalogs.english.ReaderUnavailable
     );
@@ -33,10 +34,21 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'exports the selected historical version with its exact retained bytes, MIME and filename',
-  async () => {
-    const rpc = materialRpc();
+  async ({
+    vi,
+    screen,
+    expect,
+    userEvent,
+    waitFor,
+    assert: assertions,
+    render,
+    rpcHandlersTransport
+  }) => {
+    const assert: test.Assert = assertions;
+
+    const rpc = materialRpc({ vi });
     const bytes = new Uint8Array([0, 128, 255]);
 
     rpc['sources.exportRevision'].mockReturnValue(
@@ -69,7 +81,11 @@ testStable(
     });
 
     try {
-      mountLibraryRoute('/sources/7?sourceRevision=1&sourceSnapshot=1101', rpc);
+      mountLibraryRoute(
+        { render, rpcHandlersTransport, vi },
+        '/sources/7?sourceRevision=1&sourceSnapshot=1101',
+        rpc
+      );
       await screen.findByText('Historical extraction');
       expect(screen.queryByText('Current extraction 41')).toBeNull();
       const original = screen.getByRole('button', { name: catalogs.english.ReaderOriginal });
@@ -114,16 +130,22 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'reports an unavailable historical original without requesting a current-version or Source fallback',
-  async () => {
-    const rpc = materialRpc();
+  async ({ screen, userEvent, expect, within, vi, render, rpcHandlersTransport }) => {
+    const rpc = materialRpc({ vi });
 
     rpc['sources.exportRevision'].mockReturnValue(
       Effect.fail(new StudyError('not_found', 'Original unavailable'))
     );
-    mountLibraryRoute('/sources/7?sourceRevision=1&sourceSnapshot=1101', rpc);
-    const original = await screen.findByRole('button', { name: catalogs.english.ReaderOriginal });
+    mountLibraryRoute(
+      { render, rpcHandlersTransport, vi },
+      '/sources/7?sourceRevision=1&sourceSnapshot=1101',
+      rpc
+    );
+    const original = await screen.findByRole('button', {
+      name: catalogs.english.ReaderOriginal
+    });
 
     await userEvent.setup().click(original);
     expect(await within(await screen.findByRole('main')).findByRole('alert')).toHaveTextContent(

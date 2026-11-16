@@ -1,3 +1,4 @@
+import { sql } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks application close is idempotent and orders worker stop/start with shutdown. │
@@ -13,29 +14,30 @@
  * │ closes owned resources.                                                                  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sql } from '@study/db';
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { Database } from '#server/platform/database/database';
 import { useStore } from '#server/platform/definitions/define-store';
 import { App } from '#server/runtime/service';
-import { createServerTest } from '#testing/server-test';
 
-testStable('application close is safe to call repeatedly', async (t) => {
-  const resources = createServerTest(t, { app: false });
+test.stable(
+  'application close is safe to call repeatedly',
+  async ({ resources: resourcesFixture, expect }) => {
+    const resources = resourcesFixture;
 
-  const app = await resources.openApp();
+    const app = await resources.openApp();
 
-  await app.close();
-  await expect(App.prototype.close.call(app)).resolves.toSatisfy(() => true);
-});
+    await app.close();
+    await expect(App.prototype.close.call(app)).resolves.toSatisfy(() => true);
+  }
+);
 
-testStable(
+test.stable(
   'worker stop and start are ordered, and application close rejects new starts',
-  async (t) => {
-    const resources = createServerTest(t, { app: false });
+  async ({ resources: resourcesFixture, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const resources = resourcesFixture;
 
     const app = await resources.openApp();
 
@@ -55,23 +57,30 @@ testStable(
   }
 );
 
-testStable('a rejected second application open never acquires another database', async (t) => {
-  const resources = createServerTest(t, { app: false });
+test.stable(
+  'a rejected second application open never acquires another database',
+  async ({ resources: resourcesFixture, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  const app = await resources.openApp();
+    const resources = resourcesFixture;
 
-  const second = `${resources.path}.second`;
+    const app = await resources.openApp();
 
-  assert.ok((await Bun.file(second).exists()) === false);
-  await expect(resources.openApp({ path: second })).rejects.toSatisfy(() => true);
-  assert.ok((await Bun.file(second).exists()) === false);
-  await app.close();
-});
+    const second = `${resources.path}.second`;
+
+    assert.ok((await Bun.file(second).exists()) === false);
+    await expect(resources.openApp({ path: second })).rejects.toSatisfy(() => true);
+    assert.ok((await Bun.file(second).exists()) === false);
+    await app.close();
+  }
+);
 
 for (const failPersistence of [false, true])
-  testStable(
+  test.stable(
     `shutdown ${failPersistence ? 'can retry' : 'persists'} an in-flight credential rotation before releasing Auth and SQLite`,
-    async (t) => {
+    async ({ resources: resourcesFixture, onTestFinished, expect, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+
       const { Effect, Option } = await import('effect');
 
       const { AuthStore } = await import('#server/features/auth/store/index');
@@ -112,12 +121,12 @@ for (const failPersistence of [false, true])
         }
       });
 
-      t.onTestFinished(async () => {
+      onTestFinished(async () => {
         release();
         await peer.stop(true);
       });
 
-      const resources = createServerTest(t, { app: false });
+      const resources = resourcesFixture;
 
       const context = new ServerContext(await resources.openDb());
 
@@ -193,14 +202,17 @@ for (const failPersistence of [false, true])
     }
   );
 
-testStable('failed database acquisition releases the process-wide auth owner', async (t) => {
-  const resources = createServerTest(t, { app: false });
+test.stable(
+  'failed database acquisition releases the process-wide auth owner',
+  async ({ resources: resourcesFixture, expect }) => {
+    const resources = resourcesFixture;
 
-  await expect(
-    resources.openApp({ path: `${resources.dir}/missing/database.sqlite` })
-  ).rejects.toSatisfy(() => true);
+    await expect(
+      resources.openApp({ path: `${resources.dir}/missing/database.sqlite` })
+    ).rejects.toSatisfy(() => true);
 
-  const app = await resources.openApp();
+    const app = await resources.openApp();
 
-  await app.close();
-});
+    await app.close();
+  }
+);

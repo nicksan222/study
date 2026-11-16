@@ -1,12 +1,8 @@
 import { agentProgressPageSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { expect, vi } from 'vite-plus/test';
 
-import { api, message, mountAssistant } from '#client/test/assistant.tsx';
-
-vi.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+import type { AssistantHarness } from '#client/test/assistant.tsx';
 
 const execution = {
   id: 'run',
@@ -21,16 +17,29 @@ const execution = {
   updatedAtMs: 1n
 };
 
-testStable(
+let api: AssistantHarness['api'];
+
+let message: AssistantHarness['message'];
+
+let mountAssistant: AssistantHarness['mountAssistant'];
+
+test.beforeEach(({ assistant, mock }) => {
+  mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+  api = assistant.api;
+  message = assistant.message;
+  mountAssistant = assistant.mountAssistant;
+});
+
+test.stable(
   'renders streamed snapshots without duplicating text and stops the exact execution',
-  async () => {
+  async ({ waitFor, expect, act, screen, fireEvent }) => {
     api.thread.mockResolvedValue({
       items: [message('user', 'Explain.', 1n), message('assistant', '', 2n, true)],
       next: null
     });
     api.executions.mockResolvedValue({ items: [execution], next: null });
     api.cancel.mockResolvedValue(execution);
-    const { notify } = mountAssistant();
+    const { notify } = await mountAssistant();
 
     await waitFor(() => expect(api.progress).toHaveBeenCalled());
     const update = (text: string) =>
@@ -68,31 +77,34 @@ testStable(
   }
 );
 
-testStable('explains sign-in failures and retries the same Assistant message', async () => {
-  api.thread.mockResolvedValue({
-    items: [message('user', 'Explain.', 1n), message('assistant', '', 2n, true)],
-    next: null
-  });
-  api.executions.mockResolvedValue({
-    items: [
-      {
-        ...execution,
-        status: 'completed',
-        outcome: 'failure',
-        failureKind: 'auth',
-        canCancel: false
-      }
-    ],
-    next: null
-  });
-  api.reanswer.mockResolvedValue({
-    requestId: 'retry',
-    noteId: 91n,
-    messageId: 2n,
-    versionId: 3n
-  });
-  mountAssistant();
-  expect(await screen.findByText(/Connect a provider under Settings/)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-  await waitFor(() => expect(api.reanswer).toHaveBeenCalledWith({ messageId: 2n }));
-});
+test.stable(
+  'explains sign-in failures and retries the same Assistant message',
+  async ({ expect, screen, fireEvent, waitFor }) => {
+    api.thread.mockResolvedValue({
+      items: [message('user', 'Explain.', 1n), message('assistant', '', 2n, true)],
+      next: null
+    });
+    api.executions.mockResolvedValue({
+      items: [
+        {
+          ...execution,
+          status: 'completed',
+          outcome: 'failure',
+          failureKind: 'auth',
+          canCancel: false
+        }
+      ],
+      next: null
+    });
+    api.reanswer.mockResolvedValue({
+      requestId: 'retry',
+      noteId: 91n,
+      messageId: 2n,
+      versionId: 3n
+    });
+    await mountAssistant();
+    expect(await screen.findByText(/Connect a provider under Settings/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(api.reanswer).toHaveBeenCalledWith({ messageId: 2n }));
+  }
+);

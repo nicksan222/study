@@ -1,21 +1,27 @@
-import { spawnTestProcess } from '@study/testing/vitest';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import type { JSONReport, JSONReportSpec, JSONReportSuite } from 'playwright/types/testReporter';
-import { expect } from 'vite-plus/test';
 
 import { workflowName } from './identity.ts';
 import { assertSnapshotComparison } from './preflight.ts';
 import { temporaryArtifacts } from './temporary.ts';
 
-async function fixture(titles: string[], suite = '') {
-  const directory = await temporaryArtifacts();
+async function fixture(
+  { spawnTestProcess, onTestFinished }: Pick<test.Context, 'spawnTestProcess' | 'onTestFinished'>,
+  titles: string[],
+  suite = ''
+) {
+  const directory = await temporaryArtifacts({ onTestFinished });
   const config = `${directory}/playwright.config.ts`;
   const preflight = Bun.fileURLToPath(new URL('./preflight.ts', import.meta.url));
+  const harness = Bun.fileURLToPath(new URL('./index.ts', import.meta.url));
 
   await Bun.write(
     config,
     `
+    import { installTestApi } from '@study/testing';
+    import { test as browserApi } from ${JSON.stringify(harness)};
     import { workflowSelection } from ${JSON.stringify(preflight)};
+    installTestApi(browserApi);
     export default { testDir: ${JSON.stringify(directory)}, testMatch: '*.spec.ts',
       globalSetup: ${JSON.stringify(preflight)}, outputDir: ${JSON.stringify(`${directory}/output`)},
       updateSnapshots: 'none', tag: '@stable', grep: await workflowSelection(import.meta.filename, process.env.E2E_UPDATE), workers: 1, reporter: 'list' };
@@ -23,12 +29,12 @@ async function fixture(titles: string[], suite = '') {
   );
 
   for (const [index, title] of titles.entries()) {
-    const registration = `test(${JSON.stringify(title)}, {tag: ['@journey', ${JSON.stringify(`@workflow:${workflowName(title)}`)}]}, async () => { await Bun.write(${JSON.stringify(`${directory}/${index}.txt`)}, 'executed'); });`;
+    const registration = `test.stable(${JSON.stringify(title)}, {tag: ['@journey', ${JSON.stringify(`@workflow:${workflowName(title)}`)}]}, async () => { await Bun.write(${JSON.stringify(`${directory}/${index}.txt`)}, 'executed'); });`;
 
     await Bun.write(
       `${directory}/${index}.spec.ts`,
       `
-      import { test } from 'playwright/test';
+      import { test } from '@study/testing';
       ${suite ? `test.describe(${JSON.stringify(suite)}, () => { ${registration} });` : registration}
     `
     );
@@ -40,7 +46,11 @@ async function fixture(titles: string[], suite = '') {
       const child = spawnTestProcess(
         ['bun', '--bun', 'playwright', 'test', '--config', config, ...flags],
         {
-          env: { ...process.env, E2E_UPDATE: scope },
+          env: {
+            ...process.env,
+            E2E_UPDATE: scope,
+            PLAYWRIGHT_BROWSERS_PATH: `${directory}/no-browsers`
+          },
           stdout: 'pipe',
           stderr: 'pipe'
         }
@@ -56,32 +66,35 @@ async function fixture(titles: string[], suite = '') {
   };
 }
 
-testStable.each([
+test.stable.for([
   ['Notes retain edits', 'Notes: retain edits'],
   ['Notes retain edits', 'Notes retain edits'],
   ['Notes\nretain edits', 'Notes retain edits'],
   ['Notes\tretain edits', 'Notes retain edits'],
   ['Notes\u00a0retain edits', 'Notes retain edits']
-])('native preflight rejects cross-file baseline collisions for %j', async (...titles) => {
-  const { directory, run } = await fixture(titles);
-  const result = await run('notes-retain-edits');
+])(
+  'native preflight rejects cross-file baseline collisions for %j',
+  async (titles, { expect, spawnTestProcess, onTestFinished }) => {
+    const { directory, run } = await fixture({ onTestFinished, spawnTestProcess }, titles);
+    const result = await run('notes-retain-edits');
 
-  expect(result.code).not.toBe(0);
-  expect(result.output).toContain('Baseline identity collision');
+    expect(result.code).not.toBe(0);
+    expect(result.output).toContain('Baseline identity collision');
 
-  for (const index of [0, 1])
-    expect(await Bun.file(`${directory}/${index}.txt`).exists()).toBe(false);
-});
+    for (const index of [0, 1])
+      expect(await Bun.file(`${directory}/${index}.txt`).exists()).toBe(false);
+  }
+);
 
-testStable.each(['', 'Editor "quoted" \\ path > [draft]?'])(
+test.stable.for(['', 'Editor "quoted" \\ path > [draft]?'])(
   'native catalog selects exact nested titles in %s',
-  async (suite) => {
+  async (suite, { expect, spawnTestProcess, onTestFinished }) => {
     const titles = [
       '2 Notes: retain edits. [draft]?',
       'Reopened 2 Notes: retain edits. [draft]?',
       'Notes "retain" edits.'
     ];
-    const { directory, run } = await fixture(titles, suite);
+    const { directory, run } = await fixture({ onTestFinished, spawnTestProcess }, titles, suite);
     const result = await run('2-notes-retain-edits-draft/settings');
 
     expect(result.code, result.output).toBe(0);
@@ -91,10 +104,12 @@ testStable.each(['', 'Editor "quoted" \\ path > [draft]?'])(
   }
 );
 
-testStable.each(['--update-snapshots', '--ignore-snapshots'])(
+test.stable.for(['--update-snapshots', '--ignore-snapshots'])(
   'native snapshot overrides fail before running a journey: %s',
-  async (flag) => {
-    const { directory, run } = await fixture(['One scoped journey']);
+  async (flag, { expect, spawnTestProcess, onTestFinished }) => {
+    const { directory, run } = await fixture({ onTestFinished, spawnTestProcess }, [
+      'One scoped journey'
+    ]);
     const result = await run(undefined, [flag]);
 
     expect(result.code).not.toBe(0);
@@ -103,23 +118,29 @@ testStable.each(['--update-snapshots', '--ignore-snapshots'])(
   }
 );
 
-testStable('per-comparison policy rejects UI run overrides and ignored snapshots', () => {
-  expect(() => assertSnapshotComparison('none', false)).not.toThrow();
+test.stable(
+  'per-comparison policy rejects UI run overrides and ignored snapshots',
+  ({ expect }) => {
+    expect(() => assertSnapshotComparison('none', false)).not.toThrow();
 
-  for (const mode of ['all', 'changed', 'missing', 'default'] as const)
-    expect(() => assertSnapshotComparison(mode, false)).toThrow(
+    for (const mode of ['all', 'changed', 'missing', 'default'] as const)
+      expect(() => assertSnapshotComparison(mode, false)).toThrow(
+        'native snapshot overrides are forbidden'
+      );
+
+    expect(() => assertSnapshotComparison('none', true)).toThrow(
       'native snapshot overrides are forbidden'
     );
+  }
+);
 
-  expect(() => assertSnapshotComparison('none', true)).toThrow(
-    'native snapshot overrides are forbidden'
-  );
-});
-
-testStable(
+test.stable(
   'native shards partition every journey and distribute settings cases within one file',
-  async () => {
-    async function catalog(shard?: string) {
+  async ({ expect, spawnTestProcess }) => {
+    async function catalog(
+      { spawnTestProcess, expect }: Pick<test.Context, 'spawnTestProcess' | 'expect'>,
+      shard?: string
+    ) {
       const child = spawnTestProcess(
         [
           'bun',
@@ -161,10 +182,10 @@ testStable(
     }
 
     const [all, ...shards] = await Promise.all([
-      catalog(),
-      catalog('1/3'),
-      catalog('2/3'),
-      catalog('3/3')
+      catalog({ spawnTestProcess, expect }),
+      catalog({ spawnTestProcess, expect }, '1/3'),
+      catalog({ spawnTestProcess, expect }, '2/3'),
+      catalog({ spawnTestProcess, expect }, '3/3')
     ]);
     const ids = (specs: typeof all) => specs.map((spec) => spec.id).sort();
 

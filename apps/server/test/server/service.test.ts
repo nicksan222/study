@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Creates a project and source through native services, reopens the application, and │
@@ -12,19 +13,17 @@
  * │ and application resources; fixture cleanup closes owned resources.                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
-import { createStudyTest } from '#testing/server-test';
 
-testStable(
+test.stable(
   'native projects and source inputs persist after reopening the real application',
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const fixture = serverFixture;
     const app = fixture.app;
     const source = await fixture.run(
       Effect.gen(function* () {

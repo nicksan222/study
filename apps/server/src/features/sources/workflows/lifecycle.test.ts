@@ -1,3 +1,4 @@
+import { sql } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises source lifecycle behavior through real persistence boundaries.           │
@@ -10,12 +11,9 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sql } from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
-import { assert, expect } from 'vite-plus/test';
 
 import { Learning } from '#server/features/learning/index';
 import { Materials } from '#server/features/materials/index';
@@ -32,12 +30,16 @@ import {
   sourceCorrectionHandler
 } from './index.ts';
 
-testStable(
+test.stable(
   'native source ingestion, correction and reprocessing retain independent exact history across reopen without projections',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
     const domain = () => Learning.layer.pipe(Layer.provideMerge(f.domain()));
-    const event = (requestId: string) => {
+    const event = ({ assert: assertions }: Pick<test.Context, 'assert'>, requestId: string) => {
+      const assert: test.Assert = assertions;
+
       const row = f.context.db.orm.get(
         sql`SELECT payload FROM workflow_events WHERE correlation_id=${requestId} AND type IN ('SourceProcessingRequested','SourceCorrectionRequested') ORDER BY rowid DESC LIMIT 1`
       );
@@ -98,7 +100,7 @@ testStable(
 
           assert.ok(state.requestId);
 
-          return { source, project, other, request: event(state.requestId) };
+          return { source, project, other, request: event({ assert }, state.requestId) };
         }).pipe(Effect.provide(domain()))
       );
 
@@ -161,7 +163,7 @@ testStable(
 
           expect(capture.inputs).toStrictEqual([input]);
 
-          return event(state.requestId);
+          return event({ assert }, state.requestId);
         }).pipe(Effect.provide(domain()))
       );
 
@@ -181,7 +183,7 @@ testStable(
 
           assert.ok(state.requestId);
 
-          return event(state.requestId);
+          return event({ assert }, state.requestId);
         }).pipe(Effect.provide(domain()))
       );
       const reprocessed = await execute(fresh, 'reprocessed');
@@ -212,7 +214,7 @@ testStable(
 
           assert.ok(state.requestId);
 
-          return event(state.requestId);
+          return event({ assert }, state.requestId);
         }).pipe(Effect.provide(domain()))
       );
       const replaced = await execute(replacement, 'replacement');
@@ -262,10 +264,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'unsupported native extraction keeps the original bytes and creates no fake source material',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
       await Effect.runPromise(

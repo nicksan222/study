@@ -5,14 +5,14 @@
  * │ Prevents:                                                                                │
  * │ apps/client/test/e2e code outside harness/ owning browser/server resources, mocking      │
  * │ requests, using fixed waits, DOM handles/coordinate shortcuts or forced locator actions. │
- * │ Specs register testE2e directly, use behavior names and await a named screenshot whose   │
+ * │ Specs register test.stable directly, use behavior names and await a named screenshot.    │
  * │ ready callback returns or awaits an expect matcher. Alias tracking is intentionally      │
  * │ static.                                                                                  │
  * │                                                                                          │
  * │ Allowed:                                                                                 │
  * │   // apps/client/test/e2e/example.test.ts                                                │
- * │   import { expect, testE2e } from './harness/index.ts';                                  │
- * │   testE2e('Notes retain edits', async ({ page, expectScreenshot }) => {                  │
+ * │   import { test } from '@study/testing';                                                 │
+ * │   test.stable('Notes retain edits', async ({ page, expectScreenshot, expect }) => {      │
  * │     await expectScreenshot('ready', { target: 'viewport',                                │
  * │       ready: () => expect(page.getByRole('heading')).toBeVisible() });                   │
  * │   });                                                                                    │
@@ -46,6 +46,12 @@ function callback(node: any): any {
   );
 }
 
+function expectCall(node: any): boolean {
+  if (node?.type !== 'CallExpression') return false;
+
+  return node.callee?.name === 'expect';
+}
+
 function explicitReadiness(node: any): boolean {
   const ready = fields(node).find((part: any) => part.key?.name === 'ready')?.value;
 
@@ -54,11 +60,7 @@ function explicitReadiness(node: any): boolean {
   function assertion(node: any): boolean {
     if (node?.type !== 'CallExpression' || node.callee?.type !== 'MemberExpression') return false;
 
-    let receiver = node.callee.object;
-
-    while (receiver?.type === 'MemberExpression') receiver = receiver.object;
-
-    return receiver?.type === 'CallExpression' && receiver.callee?.name === 'expect';
+    return expectCall(node.callee.object);
   }
 
   if (ready.body.type !== 'BlockStatement')
@@ -349,24 +351,25 @@ export default defineRule({
       if (!source || typeOnly) return;
 
       if (
-        source === './harness/index.ts' &&
+        source === '@study/testing' &&
         (node.type !== 'ImportDeclaration' ||
           node.specifiers.some(
             (part: any) =>
-              !['testE2e', 'expect'].includes(part.imported?.name) ||
-              part.local?.name !== part.imported?.name
+              part.type !== 'ImportSpecifier' ||
+              part.imported?.name !== 'test' ||
+              part.local?.name !== 'test'
           ))
       )
         context.report({
           node,
           message:
-            'Import testE2e directly; internal fixtures, aliases, reexports and dynamic imports are forbidden in journeys.'
+            'Import only test from @study/testing; aliases, reexports and dynamic imports are forbidden in journeys.'
         });
 
-      if (/harness\//.test(source) && source !== './harness/index.ts')
+      if (/harness\//.test(source))
         context.report({
           node,
-          message: 'Journeys use only the public testE2e and Playwright assertion APIs.'
+          message: 'Journeys use only the public test API and fixtures.'
         });
 
       if (
@@ -386,8 +389,8 @@ export default defineRule({
       if (declaration?.type !== 'ImportSpecifier') return false;
 
       return (
-        declaration.imported?.name === 'testE2e' &&
-        declaration.parent?.source?.value === './harness/index.ts'
+        declaration.imported?.name === 'test' &&
+        declaration.parent?.source?.value === '@study/testing'
       );
     }
 
@@ -399,15 +402,28 @@ export default defineRule({
       return node;
     }
 
+    function registrationMethod(node: any): string | undefined {
+      if (node?.type === 'CallExpression') return registrationMethod(node.callee);
+
+      const method = memberName(node);
+
+      if (['each', 'for', 'concurrent'].includes(method ?? ''))
+        return registrationMethod(node.object);
+
+      return method;
+    }
+
     function registration(node: any): boolean {
       const owner = root(node.callee);
+      const method = registrationMethod(node.callee);
 
       // Native fixture configuration does not register a browser journey.
       if (memberName(node.callee) === 'use' && canonical(owner)) return false;
 
       return (
         owner?.type === 'Identifier' &&
-        /^test(?:Stable|E2e|Regression|Migration|Characterization)$/.test(owner.name) &&
+        owner.name === 'test' &&
+        ['stable', 'regression', 'migration', 'characterization'].includes(method ?? '') &&
         !(node.parent?.type === 'CallExpression' && node.parent.callee === node)
       );
     }
@@ -488,10 +504,10 @@ export default defineRule({
 
         if (!spec || !registration(node)) return;
 
-        if (!canonical(node.callee)) {
+        if (!canonical(root(node.callee))) {
           context.report({
             node,
-            message: 'Declare every browser journey directly with testE2e from the shared harness.'
+            message: 'Declare every browser journey directly with test.stable from @study/testing.'
           });
 
           return;

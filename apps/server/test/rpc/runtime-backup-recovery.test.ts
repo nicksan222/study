@@ -1,3 +1,4 @@
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Injects real filesystem failures at staging, recovery retention and settlement.    │
@@ -10,14 +11,10 @@
  * │ active.                                                                                  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { Db, sql } from '@study/db';
 import * as s from '@study/db';
-import { spawnTestProcess } from '@study/testing/vitest';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, FileSystem, Path } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { ManagedBackups } from '#server/platform/database/backups';
 import { acquireDatabaseOwnership } from '#server/platform/database/ownership';
@@ -52,9 +49,11 @@ async function stagedFixture() {
   }
 }
 
-testStable(
+test.stable(
   'failed staging write keeps the exact preview retryable and preserves the active target',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { f, api, before, preview, root } = await stagedFixture();
 
     try {
@@ -81,9 +80,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'recovery-copy preparation failure preserves old state and failed discard remains retryable',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const { f, api, before, preview, root } = await stagedFixture();
 
     try {
@@ -128,9 +129,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'post-rename journal failure aborts startup and reconciles the applied identity on later restarts',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { f, api, preview, root } = await stagedFixture();
 
     try {
@@ -195,9 +198,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'startup cleans interrupted private scratch and known writing files without removing artifacts',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const f = await backupFixture();
 
     try {
@@ -237,9 +242,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'a real SQLite read lock prevents the journal transition without replacing the current target',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { f, api, before, preview } = await stagedFixture();
 
     let reader: Db | undefined;
@@ -279,9 +286,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'failed atomic rename leaves old data and pending intent for an explicit filesystem retry',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { f, api, before, preview, root } = await stagedFixture();
 
     const staged = path.join(root, 'restore.sqlite');
@@ -339,9 +348,11 @@ testStable(
 );
 
 if (process.platform === 'darwin')
-  testStable(
+  test.stable(
     'SQLite runtime setup failure preserves accepted restore bytes for the next startup',
-    async () => {
+    async ({ spawnTestProcess, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+
       const { f, api, preview, root } = await stagedFixture();
 
       try {

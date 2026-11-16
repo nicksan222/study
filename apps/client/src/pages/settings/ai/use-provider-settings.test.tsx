@@ -1,17 +1,21 @@
 import { llmSettingsSchema, apiKeyInputSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport as settingsTransport } from '#client/test/rpc.tsx';
 
 import { useProviderSettings } from './use-provider-settings';
 
-const operations = vi.hoisted(() => ({
-  saveAiSettings: vi.fn().mockResolvedValue({}),
-  saveProviderApiKey: vi.fn().mockResolvedValue(undefined)
-}));
+function createOperations(mock: test.Mock) {
+  return {
+    saveAiSettings: mock.fn().mockResolvedValue({}),
+    saveProviderApiKey: mock.fn().mockResolvedValue(undefined)
+  };
+}
+
+let operations: ReturnType<typeof createOperations>;
+
+test.beforeEach(({ mock }) => {
+  operations = createOperations(mock);
+});
 
 const data = {
   settings: {
@@ -31,8 +35,11 @@ const data = {
   status: { signedIn: false, email: null, sharing: false }
 };
 
-function mount() {
-  const fixture = settingsTransport(async (tag, input) => {
+function mount({
+  rpcTestTransport,
+  renderHook
+}: Pick<test.Context, 'rpcTestTransport' | 'renderHook'>) {
+  const fixture = rpcTestTransport(async (tag, input) => {
     if (tag === 'settings.saveLlmSettings')
       return operations.saveAiSettings(Schema.decodeUnknownSync(llmSettingsSchema)(input));
 
@@ -45,10 +52,10 @@ function mount() {
   return renderHook(() => useProviderSettings(data), { wrapper: fixture.wrapper });
 }
 
-testStable(
+test.stable(
   'a combined selection saves its provider and model together and preserves other tiers',
-  async () => {
-    const { result } = mount();
+  async ({ act, waitFor, expect, rpcTestTransport, renderHook }) => {
+    const { result } = mount({ rpcTestTransport, renderHook });
 
     act(() => result.current.setSetup('tiny', { provider: 'anthropic', model: 'new-model' }));
     await waitFor(() =>
@@ -68,16 +75,19 @@ testStable(
   }
 );
 
-testStable('submits write-only credentials once and clears mutation presentation', async () => {
-  const { result } = mount();
+test.stable(
+  'submits write-only credentials once and clears mutation presentation',
+  async ({ act, expect, rpcTestTransport, renderHook }) => {
+    const { result } = mount({ rpcTestTransport, renderHook });
 
-  await act(async () => {
-    await result.current.saveApiKey('anthropic', 'temporary-secret');
-  });
-  expect(operations.saveProviderApiKey).toHaveBeenCalledWith({
-    provider: 'anthropic',
-    apiKey: 'temporary-secret'
-  });
-  expect(result.current.pending).toBe(false);
-  expect(result.current.error).toBe(false);
-});
+    await act(async () => {
+      await result.current.saveApiKey('anthropic', 'temporary-secret');
+    });
+    expect(operations.saveProviderApiKey).toHaveBeenCalledWith({
+      provider: 'anthropic',
+      apiKey: 'temporary-secret'
+    });
+    expect(result.current.pending).toBe(false);
+    expect(result.current.error).toBe(false);
+  }
+);

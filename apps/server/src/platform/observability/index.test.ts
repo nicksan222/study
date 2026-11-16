@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies operation instrumentation filters log metadata and records completion,    │
@@ -13,10 +14,7 @@
  * │ database fixture is involved.                                                            │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { testStable } from '@study/testing/vitest';
 import type { Tracer } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { safeMetadata } from '#server/platform/observability/index';
 
@@ -24,7 +22,7 @@ function spanName(span: Tracer.AnySpan) {
   return span._tag === 'Span' ? span.name : 'external';
 }
 
-testStable('only approved scalar operation metadata reaches the log sink', () => {
+test.stable('only approved scalar operation metadata reaches the log sink', ({ expect }) => {
   expect(
     safeMetadata({
       requestId: 'r1',
@@ -37,45 +35,52 @@ testStable('only approved scalar operation metadata reaches the log sink', () =>
   ).toStrictEqual({ requestId: 'r1', attempt: 2, entity: 'project' });
 });
 
-testStable('operation logs inherit only allowed annotations and carry a span', async () => {
-  const { Effect, Logger, References, Context, Tracer, Option } = await import('effect');
-  const { observeOperation } = await import('#server/platform/observability/index');
-  const entries: { message: unknown; annotations: unknown; spans: unknown }[] = [];
-  const logger = Logger.make((entry) => {
-    entries.push({
-      message: entry.message,
-      annotations: entry.fiber.getRef(References.CurrentLogAnnotations),
-      spans: Option.map(Context.getOption(entry.fiber.context, Tracer.ParentSpan), (span) =>
-        span._tag === 'Span'
-          ? {
-              name: span.name,
-              parent: Option.map(span.parent, spanName)
-            }
-          : 'external'
-      )
+test.stable(
+  'operation logs inherit only allowed annotations and carry a span',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const { Effect, Logger, References, Context, Tracer, Option } = await import('effect');
+    const { observeOperation } = await import('#server/platform/observability/index');
+    const entries: { message: unknown; annotations: unknown; spans: unknown }[] = [];
+    const logger = Logger.make((entry) => {
+      entries.push({
+        message: entry.message,
+        annotations: entry.fiber.getRef(References.CurrentLogAnnotations),
+        spans: Option.map(Context.getOption(entry.fiber.context, Tracer.ParentSpan), (span) =>
+          span._tag === 'Span'
+            ? {
+                name: span.name,
+                parent: Option.map(span.parent, spanName)
+              }
+            : 'external'
+        )
+      });
     });
-  });
 
-  await Effect.runPromise(
-    observeOperation('test.operation', Effect.succeed('secret result')).pipe(
-      Effect.annotateLogs({ requestId: 'r1', prompt: 'secret prompt' }),
-      Effect.withSpan('parent'),
-      Effect.provide(Logger.layer([logger])),
-      Effect.provideService(References.MinimumLogLevel, 'Debug')
-    )
-  );
-  assert.strictEqual(entries.length, 2);
-  const serialized = JSON.stringify(entries);
+    await Effect.runPromise(
+      observeOperation('test.operation', Effect.succeed('secret result')).pipe(
+        Effect.annotateLogs({ requestId: 'r1', prompt: 'secret prompt' }),
+        Effect.withSpan('parent'),
+        Effect.provide(Logger.layer([logger])),
+        Effect.provideService(References.MinimumLogLevel, 'Debug')
+      )
+    );
+    assert.strictEqual(entries.length, 2);
+    const serialized = JSON.stringify(entries);
 
-  expect(serialized).toMatch(/r1/);
-  expect(serialized).toMatch(/test.operation/);
-  expect(serialized).toMatch(/parent/);
-  expect(serialized).not.toMatch(/secret/);
-});
+    expect(serialized).toMatch(/r1/);
+    expect(serialized).toMatch(/test.operation/);
+    expect(serialized).toMatch(/parent/);
+    expect(serialized).not.toMatch(/secret/);
+  }
+);
 
-testStable(
+test.stable(
   'operation metrics record outcomes and release active operations without inheriting identifiers',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const { Deferred, Effect, Fiber, Metric } = await import('effect');
     const { TestClock } = await import('effect/testing');
     const { observeOperation } = await import('#server/platform/observability/index');
@@ -144,9 +149,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'metric labels admit only canonical finite values and hooks ignore ambient attributes',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { Effect, Metric } = await import('effect');
     const {
       safeMetricLabels,

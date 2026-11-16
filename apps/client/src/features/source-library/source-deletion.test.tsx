@@ -1,10 +1,7 @@
 import { StudyError } from '@study/contracts';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Effect, Option } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import {
   importedSource,
@@ -13,16 +10,19 @@ import {
   mountLibraryRoute
 } from '../material-library/test/support';
 
-async function openDeletion(user: ReturnType<typeof userEvent.setup>) {
+async function openDeletion(
+  { screen }: Pick<test.Context, 'screen'>,
+  user: ReturnType<test.Context['userEvent']['setup']>
+) {
   await user.click(await screen.findByRole('button', { name: catalogs.english.SourceDeleteTitle }));
 
   return screen.findByRole('alertdialog');
 }
 
-testStable(
+test.stable(
   'previews source revisions and requires its exact name before deleting while preserving unrelated authored content',
-  async () => {
-    const rpc = materialRpc();
+  async ({ userEvent, expect, within, waitFor, screen, vi, render, rpcHandlersTransport }) => {
+    const rpc = materialRpc({ vi });
 
     rpc['sources.deleteSource'].mockImplementation(() =>
       Effect.sync(() => {
@@ -31,10 +31,14 @@ testStable(
         return true;
       })
     );
-    const { router } = mountLibraryRoute('/sources/7?sourceRevision=1&sourceSnapshot=1101', rpc);
+    const { router } = mountLibraryRoute(
+      { render, rpcHandlersTransport, vi },
+      '/sources/7?sourceRevision=1&sourceSnapshot=1101',
+      rpc
+    );
 
     const user = userEvent.setup();
-    const dialog = await openDeletion(user);
+    const dialog = await openDeletion({ screen }, user);
 
     expect(
       await within(dialog).findByText(`${catalogs.english.SourceDeleteRevisions}: 1`)
@@ -50,16 +54,16 @@ testStable(
     await waitFor(() => expect(name).toBeEnabled());
     await user.type(name, importedSource.name);
     await user.click(confirm);
-    await locationIs(router, '/notes');
+    await locationIs({ waitFor }, router, '/notes');
     expect(rpc['sources.deleteSource']).toHaveBeenCalledExactlyOnceWith({ id: importedSource.id });
     expect(rpc['sources.findSource']).not.toHaveBeenCalled();
   }
 );
 
-testStable(
+test.stable(
   'keeps exact input pins visible and disables deletion without hiding retained source content',
-  async () => {
-    const rpc = materialRpc();
+  async ({ userEvent, expect, within, screen, vi, render, rpcHandlersTransport }) => {
+    const rpc = materialRpc({ vi });
 
     rpc['sources.previewDeletion'].mockReturnValue(
       Effect.succeed({
@@ -71,9 +75,13 @@ testStable(
         retainedCopies: 'authored_outputs_and_raw_note_records'
       })
     );
-    mountLibraryRoute('/sources/7?sourceRevision=1&sourceSnapshot=1101', rpc);
+    mountLibraryRoute(
+      { render, rpcHandlersTransport, vi },
+      '/sources/7?sourceRevision=1&sourceSnapshot=1101',
+      rpc
+    );
     const user = userEvent.setup();
-    const dialog = await openDeletion(user);
+    const dialog = await openDeletion({ screen }, user);
 
     expect(
       await within(dialog).findByText(catalogs.english.SourceDeleteExactPins)
@@ -91,10 +99,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'recovers a lost deletion response through durable source absence and returns to Notes',
-  async () => {
-    const rpc = materialRpc();
+  async ({ userEvent, within, waitFor, expect, screen, vi, render, rpcHandlersTransport }) => {
+    const rpc = materialRpc({ vi });
 
     rpc['sources.deleteSource'].mockReturnValue(
       Effect.fail(new StudyError('transient', 'Lost response'))
@@ -106,9 +114,13 @@ testStable(
         return Option.none();
       })
     );
-    const { router } = mountLibraryRoute('/sources/7?sourceRevision=1&sourceSnapshot=1101', rpc);
+    const { router } = mountLibraryRoute(
+      { render, rpcHandlersTransport, vi },
+      '/sources/7?sourceRevision=1&sourceSnapshot=1101',
+      rpc
+    );
     const user = userEvent.setup();
-    const dialog = await openDeletion(user);
+    const dialog = await openDeletion({ screen }, user);
     const name = within(dialog).getByRole('textbox', { name: catalogs.english.SourceDeleteName });
 
     await waitFor(() => expect(name).toBeEnabled());
@@ -116,7 +128,7 @@ testStable(
     await user.click(
       within(dialog).getByRole('button', { name: catalogs.english.SourceDeleteConfirm })
     );
-    await locationIs(router, '/notes');
+    await locationIs({ waitFor }, router, '/notes');
     expect(rpc['sources.findSource']).toHaveBeenCalledExactlyOnceWith({ id: importedSource.id });
     expect(rpc['sources.deleteSource']).toHaveBeenCalledTimes(1);
   }

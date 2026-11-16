@@ -1,29 +1,40 @@
 import { noteSchema, defaultWorkspacePreferences } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import {
   createRootRoute,
   createRouter,
   createMemoryHistory,
   RouterProvider
 } from '@tanstack/react-router';
-import { act, cleanup, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
-import { afterEach, expect, vi } from 'vite-plus/test';
 
-import { rpcTestTransport } from '#client/test/rpc.tsx';
+import type * as __StudyMockType0 from '#client/app/shell/rich-sidebar.tsx';
 
-import { RichSidebarNotes } from './rich-sidebar';
+function createApi(mock: test.Mock) {
+  return {
+    settings: mock.fn(),
+    summaries: mock.fn(),
+    settle: mock.fn()
+  };
+}
 
-const api = vi.hoisted(() => ({ settings: vi.fn(), summaries: vi.fn(), settle: vi.fn() }));
+let api: ReturnType<typeof createApi>;
 
-vi.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: 'english', date: String })
-}));
+let RichSidebarNotes: typeof __StudyMockType0.RichSidebarNotes;
+
+test.beforeEach(async ({ mock }) => {
+  api = createApi(mock);
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({ t: (key: string) => key, locale: 'english', date: String })
+  }));
+  const __studyMockModule0 = await import('./rich-sidebar');
+
+  RichSidebarNotes = __studyMockModule0.RichSidebarNotes;
+});
 
 let preferences = defaultWorkspacePreferences;
 
-function fixture() {
+function fixture({ rpcTestTransport }: Pick<test.Context, 'rpcTestTransport'>) {
   return rpcTestTransport(async (tag, input) => {
     if (tag === 'settings.sidebarSettings') return api.settings(input);
 
@@ -49,14 +60,14 @@ const notes = [1n, 2n, 3n].map((id) =>
   })
 );
 
-afterEach(() => {
+test.afterEach(({ cleanup }) => {
   cleanup();
   preferences = defaultWorkspacePreferences;
 });
 
-testStable(
+test.stable(
   'settles only notes meeting the saved document threshold and keeps running work open',
-  async () => {
+  async ({ render, screen, expect, within, fireEvent, act, waitFor, rpcTestTransport }) => {
     api.settings.mockResolvedValue({ settledPageThreshold: 2 });
     api.summaries.mockResolvedValue({
       items: [
@@ -65,7 +76,7 @@ testStable(
         { id: 3n, generatedPageCount: 5n, running: true, activity: 'generating' }
       ]
     });
-    const cache = fixture();
+    const cache = fixture({ rpcTestTransport });
 
     const route = createRootRoute({
       component: () => (
@@ -150,9 +161,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'settles a row without navigating and persists an explicit reopen over the automatic threshold',
-  async () => {
+  async ({ render, screen, fireEvent, waitFor, expect, within, rpcTestTransport }) => {
     let override: boolean | null = null;
 
     api.settings.mockResolvedValue({ settledPageThreshold: 2 });
@@ -174,7 +185,7 @@ testStable(
 
       return Promise.resolve({});
     });
-    const cache = fixture();
+    const cache = fixture({ rpcTestTransport });
 
     const route = createRootRoute({
       component: () => (
@@ -224,9 +235,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'shows settled notes as compact recent rows with ten initially and twenty-five more per click',
-  async () => {
+  async ({ render, screen, expect, fireEvent, waitFor, within, rpcTestTransport }) => {
     const many = Array.from({ length: 40 }, (_, index) => ({
       ...notes[0]!,
       id: BigInt(index + 1) as (typeof notes)[number]['id'],
@@ -244,7 +255,7 @@ testStable(
         settledOverride: true
       }))
     });
-    const cache = fixture();
+    const cache = fixture({ rpcTestTransport });
 
     const route = createRootRoute({
       component: () => (
@@ -292,7 +303,10 @@ testStable(
   }
 );
 
-function mountSelectionSidebar() {
+function mountSelectionSidebar({
+  render,
+  rpcTestTransport
+}: Pick<test.Context, 'render' | 'rpcTestTransport'>) {
   api.settings.mockResolvedValue({ settledPageThreshold: 1 });
   api.summaries.mockResolvedValue({
     items: notes.map((note) => ({
@@ -302,7 +316,7 @@ function mountSelectionSidebar() {
       activity: 'idle'
     }))
   });
-  const cache = fixture();
+  const cache = fixture({ rpcTestTransport });
 
   const route = createRootRoute({
     component: () => (
@@ -323,10 +337,10 @@ function mountSelectionSidebar() {
   return router;
 }
 
-testStable(
+test.stable(
   'starts selection from a row context menu and creates one document from the selected rows without navigating',
-  async () => {
-    const router = mountSelectionSidebar();
+  async ({ fireEvent, screen, expect, within, render, rpcTestTransport }) => {
+    const router = mountSelectionSidebar({ render, rpcTestTransport });
 
     fireEvent.contextMenu(await screen.findByRole('link', { name: /\bNote 1\b/ }), {
       button: 2,
@@ -363,10 +377,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'disables batch actions for zero selected rows and cancel returns to navigation',
-  async () => {
-    mountSelectionSidebar();
+  async ({ fireEvent, screen, expect, within, render, rpcTestTransport }) => {
+    mountSelectionSidebar({ render, rpcTestTransport });
     fireEvent.contextMenu(await screen.findByRole('link', { name: /\bNote 1\b/ }), {
       button: 2,
       clientX: 80,
@@ -389,10 +403,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'opens deletion review for the selected notes without deleting on selection',
-  async () => {
-    mountSelectionSidebar();
+  async ({ fireEvent, screen, within, expect, render, rpcTestTransport }) => {
+    mountSelectionSidebar({ render, rpcTestTransport });
     fireEvent.contextMenu(await screen.findByRole('link', { name: /\bNote 1\b/ }), {
       button: 2,
       clientX: 80,
@@ -411,97 +425,100 @@ testStable(
   }
 );
 
-testStable('keeps loaded settled rows available regardless of the sidebar height', async () => {
-  const many = Array.from({ length: 7 }, (_, index) => ({
-    ...notes[0]!,
-    id: BigInt(index + 1) as (typeof notes)[number]['id'],
-    title: 'Recent ' + (index + 1)
-  }));
+test.stable(
+  'keeps loaded settled rows available regardless of the sidebar height',
+  async ({ vi, render, fireEvent, screen, waitFor, expect, within, rpcTestTransport }) => {
+    const many = Array.from({ length: 7 }, (_, index) => ({
+      ...notes[0]!,
+      id: BigInt(index + 1) as (typeof notes)[number]['id'],
+      title: 'Recent ' + (index + 1)
+    }));
 
-  api.settings.mockResolvedValue({ settledPageThreshold: 1 });
-  api.summaries.mockResolvedValue({
-    items: many.map((note) => ({
-      id: note.id,
-      generatedPageCount: 1n,
-      running: false,
-      activity: 'idle'
-    }))
-  });
-  const geometry = vi
-    .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
-    .mockImplementation(function (this: HTMLElement) {
-      const height = this.classList.contains('study-sidebar-scroll')
-        ? 400
-        : this.tagName === 'SUMMARY'
-          ? 38
-          : this.classList.contains('study-note-entry')
-            ? 36
-            : 0;
-
-      return {
-        x: 0,
-        y: 0,
-        top: 0,
-        left: 0,
-        right: 280,
-        bottom: height,
-        width: 280,
-        height,
-        toJSON: () => ({})
-      };
+    api.settings.mockResolvedValue({ settledPageThreshold: 1 });
+    api.summaries.mockResolvedValue({
+      items: many.map((note) => ({
+        id: note.id,
+        generatedPageCount: 1n,
+        running: false,
+        activity: 'idle'
+      }))
     });
+    const geometry = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function (this: HTMLElement) {
+        const height = this.classList.contains('study-sidebar-scroll')
+          ? 400
+          : this.tagName === 'SUMMARY'
+            ? 38
+            : this.classList.contains('study-note-entry')
+              ? 36
+              : 0;
 
-  vi.stubGlobal(
-    'ResizeObserver',
-    class {
-      observe() {}
+        return {
+          x: 0,
+          y: 0,
+          top: 0,
+          left: 0,
+          right: 280,
+          bottom: height,
+          width: 280,
+          height,
+          toJSON: () => ({})
+        };
+      });
 
-      disconnect() {}
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {}
+
+        disconnect() {}
+      }
+    );
+    const cache = fixture({ rpcTestTransport });
+
+    try {
+      const route = createRootRoute({
+        component: () => (
+          <div className="study-sidebar-scroll">
+            <RichSidebarNotes notes={many} subjects={[]} project={undefined} selectedNote={null} />
+          </div>
+        )
+      });
+      const router = createRouter({
+        routeTree: route,
+        history: createMemoryHistory({ initialEntries: ['/'] })
+      });
+
+      render(
+        <cache.wrapper>
+          <RouterProvider router={router} />
+        </cache.wrapper>
+      );
+      fireEvent.click(await screen.findByText('SidebarSettled'));
+      await waitFor(() =>
+        expect(screen.getByRole('link', { name: /\bRecent 1\b/ })).toHaveAttribute(
+          'data-layout',
+          'summary'
+        )
+      );
+      const group = screen.getByRole('link', { name: /\bRecent 1\b/ }).closest('details')!;
+
+      expect(within(group).getAllByRole('link')).toHaveLength(7);
+      expect(
+        within(group).queryByRole('button', { name: 'SidebarShowMore' })
+      ).not.toBeInTheDocument();
+    } finally {
+      geometry.mockRestore();
+      vi.unstubAllGlobals();
     }
-  );
-  const cache = fixture();
-
-  try {
-    const route = createRootRoute({
-      component: () => (
-        <div className="study-sidebar-scroll">
-          <RichSidebarNotes notes={many} subjects={[]} project={undefined} selectedNote={null} />
-        </div>
-      )
-    });
-    const router = createRouter({
-      routeTree: route,
-      history: createMemoryHistory({ initialEntries: ['/'] })
-    });
-
-    render(
-      <cache.wrapper>
-        <RouterProvider router={router} />
-      </cache.wrapper>
-    );
-    fireEvent.click(await screen.findByText('SidebarSettled'));
-    await waitFor(() =>
-      expect(screen.getByRole('link', { name: /\bRecent 1\b/ })).toHaveAttribute(
-        'data-layout',
-        'summary'
-      )
-    );
-    const group = screen.getByRole('link', { name: /\bRecent 1\b/ }).closest('details')!;
-
-    expect(within(group).getAllByRole('link')).toHaveLength(7);
-    expect(
-      within(group).queryByRole('button', { name: 'SidebarShowMore' })
-    ).not.toBeInTheDocument();
-  } finally {
-    geometry.mockRestore();
-    vi.unstubAllGlobals();
   }
-});
+);
 
-testStable(
+test.stable(
   'uses keyboard row toggles without changing the sidebar density or navigating',
-  async () => {
-    const router = mountSelectionSidebar();
+  async ({ screen, expect, fireEvent, userEvent, within, render, rpcTestTransport }) => {
+    const router = mountSelectionSidebar({ render, rpcTestTransport });
     const original = await screen.findByRole('link', { name: /\bNote 1\b/ });
 
     expect(original).toHaveAttribute('data-layout', 'detailed');
@@ -521,49 +538,55 @@ testStable(
   }
 );
 
-testStable('opens the conversion dialog from a row without navigating or settling it', async () => {
-  const router = mountSelectionSidebar();
-  const link = await screen.findByRole('link', { name: /\bNote 1\b/ });
-  const row = link.closest('.study-note-entry') as HTMLElement;
+test.stable(
+  'opens the conversion dialog from a row without navigating or settling it',
+  async ({ screen, expect, within, fireEvent, render, rpcTestTransport }) => {
+    const router = mountSelectionSidebar({ render, rpcTestTransport });
+    const link = await screen.findByRole('link', { name: /\bNote 1\b/ });
+    const row = link.closest('.study-note-entry') as HTMLElement;
 
-  expect(within(row).getByRole('button', { name: 'SidebarSettle' })).toBeInTheDocument();
-  fireEvent.click(within(row).getByRole('button', { name: 'SidebarTurnIntoPage' }));
-  const dialog = await screen.findByRole('dialog', { name: 'NoteTransform' });
+    expect(within(row).getByRole('button', { name: 'SidebarSettle' })).toBeInTheDocument();
+    fireEvent.click(within(row).getByRole('button', { name: 'SidebarTurnIntoPage' }));
+    const dialog = await screen.findByRole('dialog', { name: 'NoteTransform' });
 
-  expect(within(dialog).getByText('Note 1')).toBeVisible();
-  expect(within(dialog).queryByText('Note 2')).not.toBeInTheDocument();
-  expect(router.state.location.pathname).toBe('/');
-});
+    expect(within(dialog).getByText('Note 1')).toBeVisible();
+    expect(within(dialog).queryByText('Note 2')).not.toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/');
+  }
+);
 
-testStable('offers merge only after selecting at least two notes', async () => {
-  api.settings.mockResolvedValue({ settledPageThreshold: 1 });
-  api.summaries.mockResolvedValue({ items: [] });
-  const cache = fixture();
+test.stable(
+  'offers merge only after selecting at least two notes',
+  async ({ render, fireEvent, screen, expect, within, rpcTestTransport }) => {
+    api.settings.mockResolvedValue({ settledPageThreshold: 1 });
+    api.summaries.mockResolvedValue({ items: [] });
+    const cache = fixture({ rpcTestTransport });
 
-  const route = createRootRoute({
-    component: () => (
-      <RichSidebarNotes notes={notes} subjects={[]} project={undefined} selectedNote={null} />
-    )
-  });
-  const router = createRouter({
-    routeTree: route,
-    history: createMemoryHistory({ initialEntries: ['/'] })
-  });
+    const route = createRootRoute({
+      component: () => (
+        <RichSidebarNotes notes={notes} subjects={[]} project={undefined} selectedNote={null} />
+      )
+    });
+    const router = createRouter({
+      routeTree: route,
+      history: createMemoryHistory({ initialEntries: ['/'] })
+    });
 
-  render(
-    <cache.wrapper>
-      <RouterProvider router={router} />
-    </cache.wrapper>
-  );
-  fireEvent.contextMenu(await screen.findByRole('link', { name: /\bNote 1\b/ }));
-  fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectNotes' }));
-  expect(screen.getByRole('button', { name: 'NoteMerge' })).toBeDisabled();
-  fireEvent.click(screen.getByRole('button', { name: /\bNote 2\b/ }));
-  expect(screen.getByRole('button', { name: 'NoteMerge' })).toBeEnabled();
-  fireEvent.click(screen.getByRole('button', { name: 'NoteMerge' }));
-  const dialog = await screen.findByRole('dialog');
+    render(
+      <cache.wrapper>
+        <RouterProvider router={router} />
+      </cache.wrapper>
+    );
+    fireEvent.contextMenu(await screen.findByRole('link', { name: /\bNote 1\b/ }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectNotes' }));
+    expect(screen.getByRole('button', { name: 'NoteMerge' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: /\bNote 2\b/ }));
+    expect(screen.getByRole('button', { name: 'NoteMerge' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'NoteMerge' }));
+    const dialog = await screen.findByRole('dialog');
 
-  expect(within(dialog).getByText('NoteMergeHelp')).toBeInTheDocument();
-  expect(within(dialog).getByText('Note 1')).toBeInTheDocument();
-  expect(within(dialog).getByText('Note 2')).toBeInTheDocument();
-});
+    expect(within(dialog).getByText('NoteMergeHelp')).toBeInTheDocument();
+    expect(within(dialog).getByText('Note 1')).toBeInTheDocument();
+    expect(within(dialog).getByText('Note 2')).toBeInTheDocument();
+  }
+);

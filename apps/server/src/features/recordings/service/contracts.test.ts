@@ -1,3 +1,4 @@
+import { appendRecordingInputSchema, recordingPageInputSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks schema bounds for appended PCM samples and recording pagination.            │
@@ -11,23 +12,28 @@
  * │ fixtures stay local to these tests.                                                      │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { appendRecordingInputSchema, recordingPageInputSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
-testStable('recording append accepts only bounded signed 16-bit PCM', () => {
-  const decode = Schema.decodeUnknownSync(appendRecordingInputSchema);
+test.stable(
+  'recording append accepts only bounded signed 16-bit PCM',
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  expect(decode({ id: 1n, samples: [-32768, 0, 32767] }).samples).toStrictEqual([-32768, 0, 32767]);
+    const decode = Schema.decodeUnknownSync(appendRecordingInputSchema);
 
-  for (const samples of [[], [32768], [-32769], [1.5], [NaN], Array(960001).fill(0)])
-    assert.throws(() => decode({ id: 1n, samples }));
-});
+    expect(decode({ id: 1n, samples: [-32768, 0, 32767] }).samples).toStrictEqual([
+      -32768, 0, 32767
+    ]);
 
-testStable('recording pages are bounded', () => {
+    for (const samples of [[], [32768], [-32769], [1.5], [NaN], Array(960001).fill(0)])
+      assert.throws(() => decode({ id: 1n, samples }));
+  }
+);
+
+test.stable('recording pages are bounded', ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const decode = Schema.decodeUnknownSync(recordingPageInputSchema);
 
   assert.throws(() => decode({ limit: 0 }));

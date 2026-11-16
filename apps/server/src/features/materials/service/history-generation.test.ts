@@ -1,3 +1,4 @@
+import { eq, sql } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises learning history generation behavior through real persistence            │
@@ -11,13 +12,10 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { eq, sql } from '@study/db';
 import * as s from '@study/db';
+import { test } from '@study/testing';
 /** Generated learning history owns private retirement; exact authored inputs stay pinned until release. */
-import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { makeGenerationRetirement } from '#server/features/materials/store/generation-retirement';
@@ -31,7 +29,13 @@ import { pageTransformFixture } from '#testing/page-transform';
 
 type Fixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
-function assertRetired(f: Fixture, requestId: string) {
+function assertRetired(
+  { assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>,
+  f: Fixture,
+  requestId: string
+) {
+  const assert: test.Assert = assertions;
+
   const row = f.context.db.orm
     .select()
     .from(s.material_generation_requests)
@@ -53,13 +57,15 @@ function assertRetired(f: Fixture, requestId: string) {
 }
 
 for (const attemptInputFirst of [false, true])
-  testStable(
+  test.stable(
     `generated learning history preserves exact ownership when authored input retirement is ${attemptInputFirst ? 'attempted first' : 'not requested'}`,
-    async () => {
-      const f = await pageTransformFixture();
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
+      const f = await pageTransformFixture(databases);
 
       try {
-        const saved = await learningGeneration(f);
+        const saved = await learningGeneration(f, assert);
         const event = f.event(saved.request.id);
 
         queueLearningGeneration(f);
@@ -121,10 +127,10 @@ for (const attemptInputFirst of [false, true])
 
         assert.ok(owner?.kind === 'generation');
         assert.ok(owner.operation_id === 'history-output');
-        await cleanupHistory(f, 'history-output');
+        await cleanupHistory(f, 'history-output', assert);
         await f.reopen();
-        assertRetired(f, saved.request.id);
-        assertScrubbed(f, 'HISTORY_PRIVATE_GENERATION');
+        assertRetired({ assert, expect }, f, saved.request.id);
+        assertScrubbed(f, assert, 'HISTORY_PRIVATE_GENERATION');
         const native = workflowStore(f.context).execution('history-generated');
 
         assert.ok(native?.payload === '{}');
@@ -174,13 +180,15 @@ for (const attemptInputFirst of [false, true])
     }
   );
 
-testStable(
+test.stable(
   'completed learning generation cleanup proof rejects restoring private payload, result, pins or ownership',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
-      const saved = await learningGeneration(f);
+      const saved = await learningGeneration(f, assert);
 
       queueLearningGeneration(f);
       const versionId = await f.execute(f.event(saved.request.id), 'scrub-proof-generation');
@@ -206,7 +214,7 @@ testStable(
       assert.ok(retirement().isScrubbed(saved.request.id) === false);
       await acceptHistory(f, owner, 'scrub-shape-proof');
       assert.ok(retirement().isScrubbed(saved.request.id) === false);
-      await cleanupHistory(f, 'scrub-shape-proof');
+      await cleanupHistory(f, 'scrub-shape-proof', assert);
       await f.reopen();
       assert.ok(retirement().isScrubbed(saved.request.id) === true);
       assert.ok(retirement().isScrubbed('missing') === false);
@@ -241,7 +249,7 @@ testStable(
           .run()
       );
       assert.ok(retirement().isScrubbed(saved.request.id) === true);
-      assertRetired(f, saved.request.id);
+      assertRetired({ assert, expect }, f, saved.request.id);
     } finally {
       await f.close();
     }

@@ -1,6 +1,4 @@
-import { testStable } from '@study/testing/vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { ChatNote } from './chat';
 
@@ -28,9 +26,9 @@ function dimensions(host: HTMLElement, height: number) {
   Object.defineProperty(host, 'clientHeight', { configurable: true, value: 200 });
 }
 
-testStable(
+test.stable(
   'uses the workspace scroll host for reading position and the Latest action',
-  async () => {
+  async ({ render, vi, fireEvent, screen, expect }) => {
     const view = render(<Note />);
     const host = view.container.querySelector<HTMLElement>('[data-notebook-scroll-host]')!;
     const overlay = view.container.querySelector('[data-notebook-navigation-host]')!;
@@ -50,9 +48,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'preserves the reader position when older entries are prepended in the workspace host',
-  async () => {
+  async ({ render, fireEvent, screen, waitFor, expect }) => {
     const view = render(<Note />);
     const host = view.container.querySelector<HTMLElement>('[data-notebook-scroll-host]')!;
 

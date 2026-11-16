@@ -1,43 +1,40 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
-import { createTestDatabase } from '../src/testing.ts';
-
-testStable(
+test.stable(
   'generation scope closure and identity survive direct writes and allow project cascades',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const db = await location.open();
 
-    try {
-      db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'One',1,1),(2,'Two',1,1);
+    db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'One',1,1),(2,'Two',1,1);
       INSERT INTO material_generation_scopes(id,project_id,enabled,created_at,updated_at) VALUES('scope',1,1,1,1);
       UPDATE material_generation_scopes SET enabled=0,updated_at=2 WHERE id='scope';`);
 
-      for (const mutation of [
-        "UPDATE material_generation_scopes SET enabled=1 WHERE id='scope'",
-        "UPDATE material_generation_scopes SET id='replacement' WHERE id='scope'",
-        "UPDATE material_generation_scopes SET project_id=2 WHERE id='scope'",
-        "UPDATE material_generation_scopes SET created_at=0 WHERE id='scope'",
-        "DELETE FROM material_generation_scopes WHERE id='scope'"
-      ])
-        assert.throws(() => db.exec(mutation));
+    for (const mutation of [
+      "UPDATE material_generation_scopes SET enabled=1 WHERE id='scope'",
+      "UPDATE material_generation_scopes SET id='replacement' WHERE id='scope'",
+      "UPDATE material_generation_scopes SET project_id=2 WHERE id='scope'",
+      "UPDATE material_generation_scopes SET created_at=0 WHERE id='scope'",
+      "DELETE FROM material_generation_scopes WHERE id='scope'"
+    ])
+      assert.throws(() => db.exec(mutation));
 
-      db.exec('DELETE FROM projects WHERE id=1');
-      assert.strictEqual(db.orm.get('SELECT * FROM material_generation_scopes'), undefined);
-      expect(db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
-    } finally {
-      db.close();
-      await location.cleanup();
-    }
+    db.exec('DELETE FROM projects WHERE id=1');
+    assert.strictEqual(db.orm.get('SELECT * FROM material_generation_scopes'), undefined);
+    expect(db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
   }
 );
 
-testStable('scoped generation requests require a live scope in their own project', async () => {
-  const location = await createTestDatabase();
-  const db = await location.open();
+test.stable(
+  'scoped generation requests require a live scope in their own project',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  try {
+    const location = await databases();
+    const db = await location.open();
+
     db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'One',1,1),(2,'Two',1,1);
       INSERT INTO material_generation_scopes(id,project_id,enabled,created_at,updated_at) VALUES('scope',1,1,1,1),('closed',1,0,1,1);`);
     db.exec(`INSERT INTO material_generation_requests(id,project_id,payload,created_at)
@@ -59,8 +56,5 @@ testStable('scoped generation requests require a live scope in their own project
       db.exec(`INSERT INTO material_generation_requests(id,project_id,payload,created_at)
       VALUES('other-project',2,'{"title":"Question","kind":"quiz","inputs":[{"kind":"page","versionId":"1"}],"scopeId":"scope"}',1)`)
     );
-  } finally {
-    db.close();
-    await location.cleanup();
   }
-});
+);

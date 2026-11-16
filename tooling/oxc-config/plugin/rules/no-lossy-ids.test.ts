@@ -1,31 +1,42 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('rejects lossy numeric conversions of identifiers while allowing counts', async () => {
-  const diagnostics = await lintRule('no-lossy-ids', {
-    'src/bad.ts': 'Number(item.id); parseInt(projectId, 10);',
-    'src/good.ts': 'Number(count); Number(durationMs); function f(Number) { Number(item.id); }',
-    'src/fixture.test.ts': 'Number(item.id); parseInt(projectId, 10);'
-  });
+test.stable(
+  'rejects lossy numeric conversions of identifiers while allowing counts',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
-});
+    const diagnostics = await lintRule({ assert }, 'no-lossy-ids', {
+      'src/bad.ts': 'Number(item.id); parseInt(projectId, 10);',
+      'src/good.ts': 'Number(count); Number(durationMs); function f(Number) { Number(item.id); }',
+      'src/fixture.test.ts': 'Number(item.id); parseInt(projectId, 10);'
+    });
 
-testStable('no-lossy-ids handles aliases and avoids unrelated bindings', async () => {
-  const diagnostics = await lintRule('no-lossy-ids', {
-    'src/bad.ts': 'Number(item["id"]); parseFloat(source_id);',
-    'src/good.ts': 'function f(JSON) { return JSON.parse(row.body) as Body; } Number(pageCount);'
-  });
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+  }
+);
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
-});
+test.stable(
+  'no-lossy-ids handles aliases and avoids unrelated bindings',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-testStable('no-lossy-ids covers direct unsafe forms', async () => {
-  const diagnostics = await lintRule('no-lossy-ids', {
+    const diagnostics = await lintRule({ assert }, 'no-lossy-ids', {
+      'src/bad.ts': 'Number(item["id"]); parseFloat(source_id);',
+      'src/good.ts': 'function f(JSON) { return JSON.parse(row.body) as Body; } Number(pageCount);'
+    });
+
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+  }
+);
+
+test.stable('no-lossy-ids covers direct unsafe forms', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
+  const diagnostics = await lintRule({ assert }, 'no-lossy-ids', {
     'src/bad.ts': 'Number.parseInt(row.id, 10);',
     'src/good.ts': 'Number.parseInt(row.duration, 10);'
   });
@@ -34,10 +45,12 @@ testStable('no-lossy-ids covers direct unsafe forms', async () => {
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
-testStable(
+test.stable(
   'editing tokens and captured target identities stay lossless across native prompt and replay boundaries',
-  async () => {
-    const diagnostics = await lintRule('no-lossy-ids', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'no-lossy-ids', {
       'src/features/materials/store/unsafe.ts': `
       Number(value.expectedVersionId);
       Number(value.baseVersionId);
@@ -57,10 +70,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'annotation and historic source identities stay lossless while SQLite editor offsets become numbers',
-  async () => {
-    const diagnostics = await lintRule('no-lossy-ids', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'no-lossy-ids', {
       'src/features/materials/store/unsafe.ts': `
       Number(value.annotationId);
       Number(value.target.range.versionId);
@@ -79,10 +94,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'deletion and retired receipt identities remain lossless while attempt counters are numeric',
-  async () => {
-    const diagnostics = await lintRule('no-lossy-ids', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'no-lossy-ids', {
       'src/features/notes/store/deletion.ts': `Number(row.note_id); parseInt(value.noteId, 10); Number(row.attempt);`,
       'src/features/materials/store/note-retirement.ts': `Number(row.result_version_id);
  Number(row.proposed_version_id);
@@ -95,10 +112,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'Material cleanup members, original sources and retained candidate identities stay lossless',
-  async () => {
-    const diagnostics = await lintRule('no-lossy-ids', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'no-lossy-ids', {
       'src/features/sources/store/material-deletion.ts': `
       Number(candidate.source_id); parseInt(member.materialId, 10); Number(owner.deletion_id);
       Number(candidate.revision); Number(status.attempt); String(candidate.source_id); String(owner.deletion_id);
@@ -109,10 +128,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'history candidates and exact attachment roots remain lossless across preview and SQL proofs',
-  async () => {
-    const diagnostics = await lintRule('no-lossy-ids', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'no-lossy-ids', {
       'src/features/notes/store/material-history.ts': `
       Number(attachment.documentId); parseInt(attachment.sourceId, 10); Number(member.version_id);
 
@@ -125,10 +146,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'backup inventories keep exact content identities while bounded scope counts remain numeric',
-  async () => {
-    const diagnostics = await lintRule('no-lossy-ids', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'no-lossy-ids', {
       'src/features/system/store/backup.ts':
         'Number(row.material_id); parseInt(row.version_id, 10); Number(row.n); Number(scope.tombstones); String(row.document_id);',
       'src/features/notes/store/backup.ts':
@@ -139,17 +162,23 @@ testStable(
   }
 );
 
-testStable('workspace project selections and membership identities stay lossless', async () => {
-  const diagnostics = await lintRule(
-    'no-lossy-ids',
-    {
-      'apps/client/src/pages/home/page.view.tsx': `Number(search.projectId);`,
-      'apps/client/src/features/collections/collections-page.tsx': `parseInt(project.id, 10); Number(item.materialId);`,
-      'apps/client/src/features/collections/identity.ts': `String(project.id); String(item.materialId); Number(pageCount);`
-    },
-    true
-  );
+test.stable(
+  'workspace project selections and membership identities stay lossless',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/identity.ts')));
-});
+    const diagnostics = await lintRule(
+      { assert },
+      'no-lossy-ids',
+      {
+        'apps/client/src/pages/home/page.view.tsx': `Number(search.projectId);`,
+        'apps/client/src/features/collections/collections-page.tsx': `parseInt(project.id, 10); Number(item.materialId);`,
+        'apps/client/src/features/collections/identity.ts': `String(project.id); String(item.materialId); Number(pageCount);`
+      },
+      true
+    );
+
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/identity.ts')));
+  }
+);

@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks that defineWorkflow preserves the versioned native workflow identity and    │
@@ -11,14 +12,13 @@
  * │ application or database fixture is involved.                                             │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 
-testStable('workflow retains versioned identity and native schemas', () => {
+test.stable('workflow retains versioned identity and native schemas', ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const workflow = defineWorkflow({
     name: 'study/test',
     version: 2,

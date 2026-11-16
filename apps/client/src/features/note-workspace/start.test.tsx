@@ -1,5 +1,5 @@
 import { StudyError, noteSchema, defaultWorkspacePreferences } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { WorkspaceCard } from '@study/ui';
 import {
   createRootRoute,
@@ -10,25 +10,32 @@ import {
   Outlet,
   RouterProvider
 } from '@tanstack/react-router';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
-import { SidebarNoteDrafts } from '#client/app/shell/sidebar-note-drafts.tsx';
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import type * as __MockType0 from '#client/app/shell/sidebar-note-drafts.tsx';
 
-import { NoteStart } from './start';
-import { startDraftKey, startDraft, startDrafts } from './start-drafts.queries';
+import type * as __MockType1 from './start';
+import type * as __MockType2 from './start-drafts.queries';
 
-const api = vi.hoisted(() => ({ create: vi.fn() }));
+let SidebarNoteDrafts: typeof __MockType0.SidebarNoteDrafts;
 
-vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('./workspace-context', () => ({ WorkspaceContext: () => null }));
+let NoteStart: typeof __MockType1.NoteStart;
+
+let startDraftKey: typeof __MockType2.startDraftKey;
+
+let startDraft: typeof __MockType2.startDraft;
+
+let startDrafts: typeof __MockType2.startDrafts;
+
+let api: ReturnType<typeof createMockState>['api'];
 
 const clients: AtomRegistry.AtomRegistry[] = [];
 
-function mount() {
+function mount({
+  rpcHandlersTransport,
+  render
+}: Pick<test.Context, 'rpcHandlersTransport' | 'render'>) {
   const cache = AtomRegistry.make();
   const fixture = rpcHandlersTransport(
     {
@@ -88,16 +95,44 @@ function mount() {
   return { cache, router, ...view };
 }
 
-beforeEach(() => vi.resetAllMocks());
-afterEach(() => {
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({ create: mock.fn() }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  mock('#client/features/note-workspace/workspace-context', () => ({
+    WorkspaceContext: () => null
+  }));
+  const __mockModule0 = await import('#client/app/shell/sidebar-note-drafts.tsx');
+
+  SidebarNoteDrafts = __mockModule0.SidebarNoteDrafts;
+  const __mockModule1 = await import('./start');
+
+  NoteStart = __mockModule1.NoteStart;
+  const __mockModule2 = await import('./start-drafts.queries');
+
+  startDraftKey = __mockModule2.startDraftKey;
+  startDraft = __mockModule2.startDraft;
+  startDrafts = __mockModule2.startDrafts;
+});
+
+test.beforeEach(({ vi }) => vi.resetAllMocks());
+test.afterEach(({ cleanup }) => {
   cleanup();
   clients.splice(0).forEach((cache) => cache.dispose());
 });
 
-testStable(
+test.stable(
   'opening, typing and switching subjects only cache drafts until first send',
-  async () => {
-    const { cache, router } = mount();
+  async ({ screen, fireEvent, act, expect, waitFor, rpcHandlersTransport, render }) => {
+    const { cache, router } = mount({ rpcHandlersTransport, render });
     const input = await screen.findByRole('textbox', { name: 'NoteCompose' });
 
     fireEvent.change(input, { target: { value: 'Math draft' } });
@@ -125,50 +160,56 @@ testStable(
   }
 );
 
-testStable('first send creates once, consumes its draft, and preserves later typing', async () => {
-  let resolve!: (value: unknown) => void;
+test.stable(
+  'first send creates once, consumes its draft, and preserves later typing',
+  async ({ screen, fireEvent, waitFor, expect, act, rpcHandlersTransport, render }) => {
+    let resolve!: (value: unknown) => void;
 
-  api.create.mockImplementation(
-    () =>
-      new Promise((accept) => {
-        resolve = accept;
+    api.create.mockImplementation(
+      () =>
+        new Promise((accept) => {
+          resolve = accept;
+        })
+    );
+    const { cache } = mount({ rpcHandlersTransport, render });
+    const input = await screen.findByRole('textbox', { name: 'NoteCompose' });
+
+    fireEvent.change(input, { target: { value: 'Lecture notes' } });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
+    await waitFor(() =>
+      expect(api.create).toHaveBeenCalledExactlyOnceWith(1n, {
+        text: 'Lecture notes',
+        sourceIds: []
       })
-  );
-  const { cache } = mount();
-  const input = await screen.findByRole('textbox', { name: 'NoteCompose' });
+    );
+    fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true });
+    fireEvent.change(input, { target: { value: 'Newer notes' } });
+    await act(async () =>
+      resolve(
+        Schema.decodeUnknownSync(noteSchema)({
+          id: 10n,
+          title: 'Lecture',
+          titleSource: 'user',
+          archivedAt: null,
+          projectIds: [1n],
+          createdAt: 1n,
+          updatedAt: 1n
+        })
+      )
+    );
+    await screen.findByText('Saved note');
+    expect(api.create).toHaveBeenCalledTimes(1);
+    expect(cache.get(startDraft(startDraftKey('1')))).toBe('Newer notes');
+    expect(cache.get(startDrafts)).toEqual(['1']);
+  }
+);
 
-  fireEvent.change(input, { target: { value: 'Lecture notes' } });
-  await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
-  fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
-  await waitFor(() =>
-    expect(api.create).toHaveBeenCalledExactlyOnceWith(1n, { text: 'Lecture notes', sourceIds: [] })
-  );
-  fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true });
-  fireEvent.change(input, { target: { value: 'Newer notes' } });
-  await act(async () =>
-    resolve(
-      Schema.decodeUnknownSync(noteSchema)({
-        id: 10n,
-        title: 'Lecture',
-        titleSource: 'user',
-        archivedAt: null,
-        projectIds: [1n],
-        createdAt: 1n,
-        updatedAt: 1n
-      })
-    )
-  );
-  await screen.findByText('Saved note');
-  expect(api.create).toHaveBeenCalledTimes(1);
-  expect(cache.get(startDraft(startDraftKey('1')))).toBe('Newer notes');
-  expect(cache.get(startDrafts)).toEqual(['1']);
-});
-
-testStable(
+test.stable(
   'lost creation receipts retain the draft and prevent duplicate creation across remount',
-  async () => {
+  async ({ fireEvent, screen, waitFor, expect, act, rpcHandlersTransport, render }) => {
     api.create.mockRejectedValue(new StudyError('transient', 'Receipt lost'));
-    const { router } = mount();
+    const { router } = mount({ rpcHandlersTransport, render });
 
     fireEvent.change(await screen.findByRole('textbox', { name: 'NoteCompose' }), {
       target: { value: 'Keep my note' }

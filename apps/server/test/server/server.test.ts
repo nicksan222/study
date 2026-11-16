@@ -1,3 +1,4 @@
+import { projectIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies the native HTTP RPC endpoint preserves int64 IDs, bytes, settings, and    │
@@ -13,125 +14,102 @@
  * │ resources; fixture cleanup closes owned resources.                                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { projectIdSchema } from '@study/contracts';
-import { StudyRpc } from '@study/contracts';
 import { Appearance, Language } from '@study/contracts';
 import { sql } from '@study/db';
 import * as schema from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable, withinTestDeadline } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Option, Schema } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
-import { makeStudyClient } from '#server/client/index';
-import { App, serve } from '#server/runtime/index';
+function failureKind({ assert: assertions }: Pick<test.Context, 'assert'>, error: unknown) {
+  const assert: test.Assert = assertions;
 
-function failureKind(error: unknown) {
   assert.ok(error && typeof error === 'object' && 'kind' in error);
 
   return error.kind;
 }
 
-async function fixture() {
-  const location = await createTestDatabase();
-  const app = await App.open({ path: location.path });
-  const server = await serve(app);
+test.stable(
+  'native HTTP RPC preserves int64 IDs, bytes, typed failures and settings',
+  async ({ rpc, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  return {
-    location,
-    app,
-    server,
-    async close() {
-      await server.close();
-      await app.close();
-      await location.cleanup();
-    }
-  };
-}
-
-testStable('native HTTP RPC preserves int64 IDs, bytes, typed failures and settings', async () => {
-  const f = await fixture();
-
-  try {
     const large = Schema.decodeUnknownSync(projectIdSchema)(9007199254740993n);
 
-    f.app.store.db.orm
+    rpc.app.store.db.orm
       .insert(schema.projects)
       .values({ id: large, name: 'Large', created_at: 0n, updated_at: 0n })
       .run();
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const client = yield* makeStudyClient(StudyRpc, { baseUrl: f.server.url });
+    await rpc.runPromise(
+      Effect.gen(function* () {
+        const client = rpc.client;
 
-          assert.strictEqual(
-            (yield* client['projects.projects']({ limit: 10 })).items[0]?.id,
-            large
-          );
-          const absent = Schema.decodeUnknownSync(projectIdSchema)(9223372036854775807n);
+        assert.strictEqual((yield* client['projects.projects']({ limit: 10 })).items[0]?.id, large);
+        const absent = Schema.decodeUnknownSync(projectIdSchema)(9223372036854775807n);
 
-          assert.ok(Option.isNone(yield* client['projects.findProject']({ id: absent })));
-          assert.ok(
-            failureKind(yield* Effect.flip(client['projects.project']({ id: absent }))) ===
-              'not_found'
-          );
-          assert.ok(
-            failureKind(yield* Effect.flip(client['projects.createProject']({ name: '' }))) ===
-              'invalid_input'
-          );
-          const source = yield* client['sources.createSource']({
-            name: 'hello.txt',
-            bytes: new TextEncoder().encode('hello'),
-            projectId: large
-          });
+        assert.ok(Option.isNone(yield* client['projects.findProject']({ id: absent })));
+        assert.ok(
+          failureKind(
+            { assert },
+            yield* Effect.flip(client['projects.project']({ id: absent }))
+          ) === 'not_found'
+        );
+        assert.ok(
+          failureKind(
+            { assert },
+            yield* Effect.flip(client['projects.createProject']({ name: '' }))
+          ) === 'invalid_input'
+        );
+        const source = yield* client['sources.createSource']({
+          name: 'hello.txt',
+          bytes: new TextEncoder().encode('hello'),
+          projectId: large
+        });
 
-          assert.strictEqual(source.projectId, large);
-          assert.ok(source.sha256 instanceof Uint8Array);
-          expect(yield* client['sources.source']({ id: source.id })).toStrictEqual(source);
-          const settings = {
-            language: Language.ITALIAN,
-            appearance: Appearance.LIGHT,
-            zoomPercent: 125,
-            onboarded: true
-          };
+        assert.strictEqual(source.projectId, large);
+        assert.ok(source.sha256 instanceof Uint8Array);
+        expect(yield* client['sources.source']({ id: source.id })).toStrictEqual(source);
+        const settings = {
+          language: Language.ITALIAN,
+          appearance: Appearance.LIGHT,
+          zoomPercent: 125,
+          onboarded: true
+        };
 
-          yield* client['settings.saveAppSettings'](settings);
-          expect(yield* client['settings.appSettings']({})).toStrictEqual(settings);
-          assert.strictEqual(yield* client['auth.publicAccount']({}), undefined);
-          assert.strictEqual(
-            yield* client['projects.setExam']({ id: large, examOn: '2028-02-29' }),
-            true
-          );
-          assert.ok(
-            failureKind(
-              yield* Effect.flip(client['projects.setExam']({ id: large, examOn: '2026-02-29' }))
-            ) === 'invalid_input'
-          );
-        })
-      )
+        yield* client['settings.saveAppSettings'](settings);
+        expect(yield* client['settings.appSettings']({})).toStrictEqual(settings);
+        assert.strictEqual(yield* client['auth.publicAccount']({}), undefined);
+        assert.strictEqual(
+          yield* client['projects.setExam']({ id: large, examOn: '2028-02-29' }),
+          true
+        );
+        assert.ok(
+          failureKind(
+            { assert },
+            yield* Effect.flip(client['projects.setExam']({ id: large, examOn: '2026-02-29' }))
+          ) === 'invalid_input'
+        );
+      })
     );
-    const snapshot = f.app.store.db.orm.get(sql`SELECT bytes FROM source_snapshots LIMIT 1`) as {
+    const snapshot = rpc.app.store.db.orm.get(sql`SELECT bytes FROM source_snapshots LIMIT 1`) as {
       bytes: Uint8Array;
     };
 
     expect(snapshot.bytes).toStrictEqual(new TextEncoder().encode('hello'));
-  } finally {
-    await f.close();
   }
-});
+);
 
-testStable('native listener enforces browser origins and exposes the RPC endpoint', async () => {
-  const f = await fixture();
+test.stable(
+  'native listener enforces browser origins and exposes the RPC endpoint',
+  async ({ rpc, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  try {
     for (const origin of [
       'tauri://localhost',
       'http://tauri.localhost',
       'https://tauri.localhost',
       'http://localhost:5173'
     ]) {
-      const response = await fetch(`${f.server.url}/rpc`, {
+      const response = await fetch(`${rpc.server.url}/rpc`, {
         method: 'OPTIONS',
         headers: {
           origin,
@@ -144,7 +122,7 @@ testStable('native listener enforces browser origins and exposes the RPC endpoin
       assert.strictEqual(response.headers.get('access-control-allow-origin'), origin);
     }
 
-    const denied = await fetch(`${f.server.url}/rpc`, {
+    const denied = await fetch(`${rpc.server.url}/rpc`, {
       method: 'OPTIONS',
       headers: { origin: 'https://evil.example', 'access-control-request-method': 'POST' }
     });
@@ -152,7 +130,7 @@ testStable('native listener enforces browser origins and exposes the RPC endpoin
     assert.strictEqual(denied.status, 204);
     assert.strictEqual(
       (
-        await fetch(`${f.server.url}/rpc`, {
+        await fetch(`${rpc.server.url}/rpc`, {
           method: 'POST',
           headers: { origin: 'https://evil.example' }
         })
@@ -161,20 +139,19 @@ testStable('native listener enforces browser origins and exposes the RPC endpoin
     );
     assert.ok(denied.headers.get('access-control-allow-origin') === null);
     assert.strictEqual(
-      (await fetch(`${f.server.url}/api/listProjects`, { method: 'POST' })).status,
+      (await fetch(`${rpc.server.url}/api/listProjects`, { method: 'POST' })).status,
       404
     );
-  } finally {
-    await f.close();
   }
-});
+);
 
-testStable(
+test.stable(
   'closing the listener terminates an incomplete request and rejects new connections',
   { timeout: 5000 },
-  async () => {
-    const f = await fixture();
-    const endpoint = new URL(f.server.url);
+  async ({ rpc, assert: assertions, withinTestDeadline, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const endpoint = new URL(rpc.server.url);
     let onClose!: () => void;
     const closed = new Promise<void>((resolve) => {
       onClose = resolve;
@@ -197,66 +174,59 @@ testStable(
       socket.write(
         `POST /rpc HTTP/1.1\r\nHost: ${endpoint.host}\r\nContent-Type: application/json\r\nContent-Length: 1000000\r\n\r\n{`
       );
-      await f.server.close();
+      await rpc.server.close();
       await withinTestDeadline(closed);
-      await expect(fetch(`${f.server.url}/rpc`)).rejects.toSatisfy(() => true);
+      await expect(fetch(`${rpc.server.url}/rpc`)).rejects.toSatisfy(() => true);
     } finally {
       socket.end();
-      await f.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'HTTP message attachments retain explicit source identity across collections',
-  async () => {
-    const f = await fixture();
+  async ({ rpc, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-    try {
-      await Effect.runPromise(
-        Effect.scoped(
-          Effect.gen(function* () {
-            const client = yield* makeStudyClient(StudyRpc, { baseUrl: f.server.url });
-            const one = yield* client['projects.createProject']({ name: 'One' });
-            const two = yield* client['projects.createProject']({ name: 'Two' });
-            const note = yield* client['notes.createNote']({
-              project: one.id,
-              title: 'Notes'
-            });
-            const source = yield* client['sources.createSource']({
-              projectId: one.id,
-              name: 'notes.txt',
-              bytes: new TextEncoder().encode('Physics')
-            });
-            const foreign = yield* client['sources.createSource']({
-              projectId: two.id,
-              name: 'other.txt',
-              bytes: new TextEncoder().encode('Other')
-            });
-            const message = yield* client['notes.postMessage']({
-              noteId: note.id,
-              text: '',
-              sourceIds: [source.id]
-            });
+    await rpc.runPromise(
+      Effect.gen(function* () {
+        const client = rpc.client;
+        const one = yield* client['projects.createProject']({ name: 'One' });
+        const two = yield* client['projects.createProject']({ name: 'Two' });
+        const note = yield* client['notes.createNote']({
+          project: one.id,
+          title: 'Notes'
+        });
+        const source = yield* client['sources.createSource']({
+          projectId: one.id,
+          name: 'notes.txt',
+          bytes: new TextEncoder().encode('Physics')
+        });
+        const foreign = yield* client['sources.createSource']({
+          projectId: two.id,
+          name: 'other.txt',
+          bytes: new TextEncoder().encode('Other')
+        });
+        const message = yield* client['notes.postMessage']({
+          noteId: note.id,
+          text: '',
+          sourceIds: [source.id]
+        });
 
-            assert.strictEqual(message.parts[0]?.sourceId, source.id);
-            assert.ok(message.parts[0]?.sourceName === 'notes.txt');
-            const shared = yield* client['notes.postMessage']({
-              noteId: note.id,
-              text: '',
-              sourceIds: [foreign.id]
-            });
+        assert.strictEqual(message.parts[0]?.sourceId, source.id);
+        assert.ok(message.parts[0]?.sourceName === 'notes.txt');
+        const shared = yield* client['notes.postMessage']({
+          noteId: note.id,
+          text: '',
+          sourceIds: [foreign.id]
+        });
 
-            assert.strictEqual(shared.parts[0]?.sourceId, foreign.id);
-            assert.strictEqual(
-              (yield* client['notes.thread']({ noteId: note.id, limit: 10 })).items.length,
-              2
-            );
-          })
-        )
-      );
-    } finally {
-      await f.close();
-    }
+        assert.strictEqual(shared.parts[0]?.sourceId, foreign.id);
+        assert.strictEqual(
+          (yield* client['notes.thread']({ noteId: note.id, limit: 10 })).items.length,
+          2
+        );
+      })
+    );
   }
 );

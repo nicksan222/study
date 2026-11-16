@@ -1,3 +1,4 @@
+import { noteQuestionRequestedSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises durable question classifier recovery and publication ownership fences.   │
@@ -11,17 +12,12 @@
  * │ services.                                                                                │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { noteQuestionRequestedSchema } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
 import { workflowEvents } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { createAiMock } from '@study/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import type { Context } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
-import { assert, expect } from 'vite-plus/test';
 
 import { questionAgent } from '#server/features/notes/agents/question';
 import { Notes } from '#server/features/notes/index';
@@ -38,10 +34,12 @@ import { withTestAdmission } from '#testing/workflow-admission';
 
 import { noteQuestionHandler, noteQuestionWorkflow } from './question.ts';
 
-testStable(
+test.stable(
   'classifier resumes persisted events and checkpoints generation; opt-out and obsolete work are safe',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, createAiMock, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     let context = new ServerContext(await location.open());
     let calls = 0;
     using mock = createAiMock();
@@ -49,7 +47,7 @@ testStable(
       Layer.merge(Notes.layer, Settings.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
-    const services = () =>
+    const services = ({ expect }: Pick<test.Context, 'expect'>) =>
       Layer.mergeAll(
         domain(),
         agentsLayer({
@@ -96,7 +94,7 @@ testStable(
         .all()
         .map((e) => decodeEvent(e.payload))
         .find((e) => e.type === 'NoteQuestionRequested' && e.messageId === id);
-    const execute = (raw: unknown, id: string) =>
+    const execute = ({ expect }: Pick<test.Context, 'expect'>, raw: unknown, id: string) =>
       Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
@@ -114,7 +112,7 @@ testStable(
                 payload: { event }
               })
             );
-          }).pipe(Effect.provide(services()))
+          }).pipe(Effect.provide(services({ expect })))
         )
       );
 
@@ -131,9 +129,9 @@ testStable(
         input: { text: 'Why do stars shine?' },
         output: { kind: 'question' }
       });
-      await execute(eventFor(note.id), 'question-recovered');
+      await execute({ expect }, eventFor(note.id), 'question-recovered');
       expect(calls).toBe(1);
-      await execute(eventFor(note.id), 'question-recovered');
+      await execute({ expect }, eventFor(note.id), 'question-recovered');
       expect(calls).toBe(1);
       const read = await run(Effect.flatMap(Notes, (c) => c.message(note.id)));
 
@@ -153,7 +151,7 @@ testStable(
         output: { kind: 'question' },
         hold: true
       });
-      const optoutExecution = execute(eventFor(optout.id), 'question-optout');
+      const optoutExecution = execute({ expect }, eventFor(optout.id), 'question-optout');
 
       await optoutPlan.called;
       await run(
@@ -181,7 +179,7 @@ testStable(
       );
       const before = calls;
 
-      await execute(eventFor(stale.id), 'question-stale');
+      await execute({ expect }, eventFor(stale.id), 'question-stale');
       expect(calls).toBe(before);
       await run(
         Effect.flatMap(Settings, (s) =>
@@ -213,12 +211,12 @@ testStable(
       context = new ServerContext(await location.open());
       const beforeManual = calls;
 
-      await execute(followup, 'manual-question-recovered');
+      await execute({ expect }, followup, 'manual-question-recovered');
       expect(calls).toBe(beforeManual);
       const answered = await run(Effect.flatMap(Notes, (c) => c.message(manual.id)));
 
       expect(answered.question?.answerMessageId).toBeDefined();
-      await execute(followup, 'manual-question-recovered');
+      await execute({ expect }, followup, 'manual-question-recovered');
       expect(
         (await run(Effect.flatMap(Notes, (c) => c.message(manual.id)))).question?.answerMessageId
       ).toBe(answered.question?.answerMessageId);

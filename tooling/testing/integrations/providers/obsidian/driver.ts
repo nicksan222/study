@@ -10,6 +10,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { spawnScopedProcess } from '@study/testing/process';
+
 import { connectDevTools } from '#tooling/testing/integrations/devtools';
 import { fs, path, run } from '#tooling/testing/integrations/filesystem';
 import { requireIntegrationContainer } from '#tooling/testing/integrations/guard';
@@ -57,7 +59,7 @@ export async function startObsidian(directory: string) {
   );
   await Bun.write(path.join(vault, '.obsidian/app.json'), '{}');
   const port = await unusedPort();
-  const app = Bun.spawn({
+  const app = spawnScopedProcess({
     cmd: [
       executable,
       `--user-data-dir=${profile}`,
@@ -88,15 +90,15 @@ export async function startObsidian(directory: string) {
   };
   const output = Promise.all([collect(app.stdout), collect(app.stderr)]);
   const stop = async () => {
-    if (app.exitCode === null) app.kill('SIGTERM');
-
-    await app.exited;
+    await app[Symbol.asyncDispose]();
     await output;
     await Bun.write(path.join(directory, 'obsidian.log'), logs);
   };
 
+  let connection: Awaited<ReturnType<typeof renderer>> | undefined;
+
   try {
-    const connection = await waitForRenderer(
+    connection = await waitForRenderer(
       port,
       () => {
         return app.exitCode !== null;
@@ -111,11 +113,12 @@ export async function startObsidian(directory: string) {
       vault,
       evaluate,
       close: async () => {
-        connection.close();
+        connection?.close();
         await stop();
       }
     };
   } catch (error) {
+    connection?.close();
     await stop();
 
     throw error;

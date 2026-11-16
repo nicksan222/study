@@ -1,3 +1,4 @@
+import { sql } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exact proposals retain bases/evidence and immutable receipts until explicit        │
@@ -10,12 +11,9 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sql } from '@study/db';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
@@ -24,10 +22,12 @@ import { setup, cleanup, validPageTransformOutput } from '#testing/note-deletion
 import { pageTransformFixture } from '#testing/page-transform';
 
 for (const apply of [false, true])
-  testStable(
+  test.stable(
     `completed ${apply ? 'applied' : 'kept'} proposal retains exact bases, evidence and replay identity independently of body retirement`,
-    async () => {
-      const f = await pageTransformFixture();
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
+      const f = await pageTransformFixture(databases);
 
       try {
         const additional = await Effect.runPromise(
@@ -43,7 +43,13 @@ for (const apply of [false, true])
         );
 
         assert.ok(additional.version);
-        const saved = await setup(f, 'PROPOSAL_HISTORY_PRIVATE', true, additional.version.id);
+        const saved = await setup(
+          f,
+          assert,
+          'PROPOSAL_HISTORY_PRIVATE',
+          true,
+          additional.version.id
+        );
         const event = f.authoredEvent(saved.request.id);
 
         f.replies.push(
@@ -152,7 +158,7 @@ for (const apply of [false, true])
           }).pipe(Effect.provide(f.services()))
         );
 
-        await cleanup(f, saved.note.id);
+        await cleanup(f, saved.note.id, assert);
         await f.reopen();
         await Effect.runPromise(
           Effect.gen(function* () {

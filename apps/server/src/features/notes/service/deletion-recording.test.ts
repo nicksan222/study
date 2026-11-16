@@ -1,3 +1,4 @@
+import { failureSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises recording deletion between source import and late note                   │
@@ -10,17 +11,13 @@
  * │ The fixture owns timing gates while real recording and source services own mutations.    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { failureSchema } from '@study/contracts';
 import { sourceProcessingRequestedSchema } from '@study/contracts';
 import { sourceIdSchema } from '@study/contracts';
 import { eq } from '@study/db';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Exit, Schema } from 'effect';
 import { Activity, DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import {
@@ -43,15 +40,17 @@ import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';
 import { withTestAdmission } from '#testing/workflow-admission';
 
-testStable(
+test.stable(
   'deleting an in-flight recording fences late attachment and checkpoints while its independent source work survives',
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const fixture = await pageTransformFixture(databases);
 
     const marker = 'INFLIGHT_RECORDING_SESSION_PRIVATE_8';
 
     try {
-      const saved = await setup(fixture, marker);
+      const saved = await setup(fixture, assert, marker);
 
       const post = await Effect.runPromise(
         Effect.gen(function* () {
@@ -212,10 +211,10 @@ testStable(
               fixture.context,
               noteDeletionWorkflow,
               'recording-cleanup',
-              { event: deletionEvent(fixture, saved.note.id) },
+              { event: deletionEvent(fixture, saved.note.id, assert) },
               engine.execute(noteDeletionWorkflow, {
                 executionId: 'recording-cleanup',
-                payload: { event: deletionEvent(fixture, saved.note.id) }
+                payload: { event: deletionEvent(fixture, saved.note.id, assert) }
               })
             );
 
@@ -315,7 +314,7 @@ testStable(
         )
       );
 
-      assertScrubbed(fixture, marker);
+      assertScrubbed(fixture, assert, marker);
 
       await fixture.reopen();
 
@@ -346,7 +345,7 @@ testStable(
         0
       );
 
-      assertScrubbed(fixture, marker);
+      assertScrubbed(fixture, assert, marker);
     } finally {
       await fixture.close();
     }

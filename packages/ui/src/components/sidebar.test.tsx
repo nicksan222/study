@@ -1,68 +1,71 @@
-import { testStable } from '@study/testing/vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { useState } from 'react';
-import { beforeEach, expect, vi } from 'vite-plus/test';
 
 import { Sidebar } from './sidebar';
 
-beforeEach(() => localStorage.clear());
+test.beforeEach(() => localStorage.clear());
 
-testStable('resizes by dragging its edge and remembers the committed width', () => {
-  const { container } = render(
-    <Sidebar.Frame
-      collapsed={false}
-      defaultWidth={320}
-      minWidth={208}
-      minContentWidth={360}
-      storageKey="sidebar-test"
-      resizeLabel="Resize sidebar"
-      resizeHint="Drag to resize"
-    >
-      <aside />
-      <main />
-    </Sidebar.Frame>
-  );
-  const separator = screen.getByRole('separator', { name: 'Resize sidebar' });
+test.stable(
+  'resizes by dragging its edge and remembers the committed width',
+  ({ render, screen, fireEvent, expect }) => {
+    const { container } = render(
+      <Sidebar.Frame
+        collapsed={false}
+        defaultWidth={320}
+        minWidth={208}
+        minContentWidth={360}
+        storageKey="sidebar-test"
+        resizeLabel="Resize sidebar"
+        resizeHint="Drag to resize"
+      >
+        <aside />
+        <main />
+      </Sidebar.Frame>
+    );
+    const separator = screen.getByRole('separator', { name: 'Resize sidebar' });
 
-  fireEvent(separator, new MouseEvent('pointerdown', { bubbles: true, button: 0, clientX: 320 }));
-  fireEvent(separator, new MouseEvent('pointermove', { bubbles: true, clientX: 420 }));
-  fireEvent(separator, new MouseEvent('pointerup', { bubbles: true, clientX: 420 }));
-  expect(separator).toHaveAttribute('aria-valuenow', '420');
-  expect((container.firstChild as HTMLElement).style.getPropertyValue('--sidebar-width')).toBe(
-    '420px'
-  );
-  expect(localStorage.getItem('sidebar-test')).toBe('420');
-});
+    fireEvent(separator, new MouseEvent('pointerdown', { bubbles: true, button: 0, clientX: 320 }));
+    fireEvent(separator, new MouseEvent('pointermove', { bubbles: true, clientX: 420 }));
+    fireEvent(separator, new MouseEvent('pointerup', { bubbles: true, clientX: 420 }));
+    expect(separator).toHaveAttribute('aria-valuenow', '420');
+    expect((container.firstChild as HTMLElement).style.getPropertyValue('--sidebar-width')).toBe(
+      '420px'
+    );
+    expect(localStorage.getItem('sidebar-test')).toBe('420');
+  }
+);
 
-testStable('supports keyboard resizing and resets with a double click', async () => {
-  const user = userEvent.setup();
+test.stable(
+  'supports keyboard resizing and resets with a double click',
+  async ({ userEvent, render, screen, expect, fireEvent }) => {
+    const user = userEvent.setup();
 
-  render(
-    <Sidebar.Frame
-      collapsed={false}
-      defaultWidth={320}
-      minWidth={208}
-      minContentWidth={360}
-      resizeLabel="Resize sidebar"
-      resizeHint="Drag to resize"
-    >
-      <aside />
-      <main />
-    </Sidebar.Frame>
-  );
-  const separator = screen.getByRole('separator');
+    render(
+      <Sidebar.Frame
+        collapsed={false}
+        defaultWidth={320}
+        minWidth={208}
+        minContentWidth={360}
+        resizeLabel="Resize sidebar"
+        resizeHint="Drag to resize"
+      >
+        <aside />
+        <main />
+      </Sidebar.Frame>
+    );
+    const separator = screen.getByRole('separator');
 
-  separator.focus();
-  await user.keyboard('{ArrowRight}');
-  expect(separator).toHaveAttribute('aria-valuenow', '336');
-  await user.keyboard('{Home}');
-  expect(separator).toHaveAttribute('aria-valuenow', '208');
-  fireEvent.doubleClick(separator);
-  expect(separator).toHaveAttribute('aria-valuenow', '320');
-});
+    separator.focus();
+    await user.keyboard('{ArrowRight}');
+    expect(separator).toHaveAttribute('aria-valuenow', '336');
+    await user.keyboard('{Home}');
+    expect(separator).toHaveAttribute('aria-valuenow', '208');
+    fireEvent.doubleClick(separator);
+    expect(separator).toHaveAttribute('aria-valuenow', '320');
+  }
+);
 
-testStable('removes the resize rail when collapsed', () => {
+test.stable('removes the resize rail when collapsed', ({ render, expect, screen }) => {
   render(
     <Sidebar.Frame collapsed resizeLabel="Resize sidebar" resizeHint="Drag to resize">
       <aside />
@@ -72,9 +75,9 @@ testStable('removes the resize rail when collapsed', () => {
   expect(screen.queryByRole('separator')).not.toBeInTheDocument();
 });
 
-testStable(
+test.stable(
   'clamps a restored width and tracks smaller viewports without losing the preference',
-  () => {
+  ({ render, expect, screen, fireEvent }) => {
     localStorage.setItem('sidebar-test', '900');
     const originalWidth = window.innerWidth;
 
@@ -105,9 +108,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'places trailing footer actions in a dedicated slot and respects utility variants',
-  () => {
+  ({ render, screen, expect }) => {
     render(
       <Sidebar.Footer trailing={<Sidebar.Utility title="Settings" variant="secondary" />}>
         <Sidebar.Utility title="Notes" />
@@ -123,9 +126,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'searches subject identities while preserving their metadata and current selection',
-  async () => {
+  async ({ userEvent, vi, render, expect, screen }) => {
     const user = userEvent.setup();
     const subjects = [
       { id: 'biology', name: 'Biology', description: 'Exam 12 Dec 2026' },
@@ -165,9 +168,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'supports keyboard selection and returns focus when the subject picker closes',
-  async () => {
+  async ({ userEvent, vi, render, screen, expect, waitFor }) => {
     const user = userEvent.setup();
     const subjects = ['Biology', 'History'];
     const selected = vi.fn();
@@ -212,52 +215,58 @@ testStable(
   }
 );
 
-testStable('keeps settled-group disclosure usable in the collapsed rail', async () => {
-  const user = userEvent.setup();
+test.stable(
+  'keeps settled-group disclosure usable in the collapsed rail',
+  async ({ userEvent, render, screen, expect }) => {
+    const user = userEvent.setup();
 
-  render(
-    <Sidebar.Frame collapsed resizeLabel="Resize sidebar" resizeHint="Drag to resize">
-      <Sidebar.NoteGroup title="Settled" count={1}>
-        <a href="/notes/42">Settled note</a>
-      </Sidebar.NoteGroup>
-    </Sidebar.Frame>
-  );
-  const summary = screen.getByText('Settled').closest('summary')!;
-  const group = summary.closest('details')!;
+    render(
+      <Sidebar.Frame collapsed resizeLabel="Resize sidebar" resizeHint="Drag to resize">
+        <Sidebar.NoteGroup title="Settled" count={1}>
+          <a href="/notes/42">Settled note</a>
+        </Sidebar.NoteGroup>
+      </Sidebar.Frame>
+    );
+    const summary = screen.getByText('Settled').closest('summary')!;
+    const group = summary.closest('details')!;
 
-  expect(group).not.toHaveAttribute('open');
-  await user.click(summary);
-  expect(group).toHaveAttribute('open');
-  expect(screen.getByRole('link', { name: 'Settled note' })).toBeVisible();
-  await user.click(summary);
-  expect(group).not.toHaveAttribute('open');
-});
+    expect(group).not.toHaveAttribute('open');
+    await user.click(summary);
+    expect(group).toHaveAttribute('open');
+    expect(screen.getByRole('link', { name: 'Settled note' })).toBeVisible();
+    await user.click(summary);
+    expect(group).not.toHaveAttribute('open');
+  }
+);
 
-testStable('preserves supporting activity and counts in compact note rows', () => {
-  render(
-    <Sidebar.Item
-      layout="compact"
-      label="Note"
-      icon={<span>Icon</span>}
-      timestamp={<time>Now</time>}
-      description={
-        <>
-          <span>Writing</span>
-          <Sidebar.NoteCount>3</Sidebar.NoteCount>
-        </>
-      }
-    />
-  );
-  const row = screen.getByRole('button', { name: /Note/ });
+test.stable(
+  'preserves supporting activity and counts in compact note rows',
+  ({ render, screen, expect }) => {
+    render(
+      <Sidebar.Item
+        layout="compact"
+        label="Note"
+        icon={<span>Icon</span>}
+        timestamp={<time>Now</time>}
+        description={
+          <>
+            <span>Writing</span>
+            <Sidebar.NoteCount>3</Sidebar.NoteCount>
+          </>
+        }
+      />
+    );
+    const row = screen.getByRole('button', { name: /Note/ });
 
-  expect(row).toHaveAttribute('data-layout', 'compact');
-  expect(screen.getByText('Writing')).toBeInTheDocument();
-  expect(screen.getByText('3')).toBeInTheDocument();
-});
+    expect(row).toHaveAttribute('data-layout', 'compact');
+    expect(screen.getByText('Writing')).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
+  }
+);
 
-testStable(
+test.stable(
   'slides settled content closed before removing the native open state and restores it on reopening',
-  async () => {
+  async ({ render, screen, fireEvent, expect, waitFor }) => {
     render(
       <Sidebar.NoteGroup title="Settled" count={1} defaultOpen variant="settled">
         <a href="/notes/42">Settled note</a>
@@ -282,9 +291,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'keeps a reopened settled group open when the previous close transition finishes',
-  async () => {
+  async ({ render, screen, fireEvent, waitFor, expect }) => {
     render(
       <Sidebar.NoteGroup title="Settled" count={1} defaultOpen variant="settled">
         <a href="/notes/42">Settled note</a>
@@ -300,28 +309,33 @@ testStable(
   }
 );
 
-testStable('closes settled content immediately when reduced motion is enabled', () => {
-  const media = vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList);
+test.stable(
+  'closes settled content immediately when reduced motion is enabled',
+  ({ vi, render, screen, fireEvent, expect }) => {
+    const media = vi
+      .spyOn(window, 'matchMedia')
+      .mockReturnValue({ matches: true } as MediaQueryList);
 
-  try {
-    render(
-      <Sidebar.NoteGroup title="Settled" count={1} defaultOpen variant="settled">
-        <a href="/notes/42">Settled note</a>
-      </Sidebar.NoteGroup>
-    );
-    const summary = screen.getByText('Settled').closest('summary')!;
+    try {
+      render(
+        <Sidebar.NoteGroup title="Settled" count={1} defaultOpen variant="settled">
+          <a href="/notes/42">Settled note</a>
+        </Sidebar.NoteGroup>
+      );
+      const summary = screen.getByText('Settled').closest('summary')!;
 
-    fireEvent.click(summary);
-    expect(summary).toHaveAttribute('aria-expanded', 'false');
-    expect(summary.closest('details')).not.toHaveAttribute('open');
-  } finally {
-    media.mockRestore();
+      fireEvent.click(summary);
+      expect(summary).toHaveAttribute('aria-expanded', 'false');
+      expect(summary.closest('details')).not.toHaveAttribute('open');
+    } finally {
+      media.mockRestore();
+    }
   }
-});
+);
 
-testStable(
+test.stable(
   'caps populated sections without reserving a share for empty sections or draft cards',
-  async () => {
+  async ({ vi, render, screen, expect, waitFor }) => {
     const geometry = vi
       .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
       .mockImplementation(function (this: HTMLElement) {
@@ -374,21 +388,24 @@ testStable(
   }
 );
 
-testStable('sidebar names include the visible navigation count and note metadata', () => {
-  render(
-    <>
-      <Sidebar.NavigationItem label="Pages" count={3}>
-        <svg aria-hidden="true" />
-      </Sidebar.NavigationItem>
-      <Sidebar.Item
-        label="Cell notes"
-        icon={<svg aria-hidden="true" />}
-        context="Biology"
-        description="Draft"
-      />
-    </>
-  );
+test.stable(
+  'sidebar names include the visible navigation count and note metadata',
+  ({ render, expect, screen }) => {
+    render(
+      <>
+        <Sidebar.NavigationItem label="Pages" count={3}>
+          <svg aria-hidden="true" />
+        </Sidebar.NavigationItem>
+        <Sidebar.Item
+          label="Cell notes"
+          icon={<svg aria-hidden="true" />}
+          context="Biology"
+          description="Draft"
+        />
+      </>
+    );
 
-  expect(screen.getByRole('button', { name: 'Pages 3' })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Biology Cell notes Draft' })).toBeInTheDocument();
-});
+    expect(screen.getByRole('button', { name: 'Pages 3' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Biology Cell notes Draft' })).toBeInTheDocument();
+  }
+);

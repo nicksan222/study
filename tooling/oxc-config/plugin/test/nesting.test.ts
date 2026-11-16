@@ -1,12 +1,16 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintFiles } from './utils.ts';
 
-testStable('production config rejects four nested control-flow blocks', async () => {
-  const diagnostics = await lintFiles(
-    {
-      'apps/client/src/lib/nesting.ts': `
+test.stable(
+  'production config rejects four nested control-flow blocks',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintFiles(
+      { assert },
+      {
+        'apps/client/src/lib/nesting.ts': `
       export function nested(a, b, c, d) {
         if (a) {
           if (b) {
@@ -21,20 +25,24 @@ testStable('production config rejects four nested control-flow blocks', async ()
         return 0;
       }
     `
-    },
-    undefined,
-    true
-  );
+      },
+      undefined,
+      true
+    );
 
-  assert.strictEqual(
-    diagnostics.filter(({ code }) => code === 'eslint(max-depth)').length,
-    1,
-    JSON.stringify(diagnostics)
-  );
-});
+    assert.strictEqual(
+      diagnostics.filter(({ code }) => code === 'eslint(max-depth)').length,
+      1,
+      JSON.stringify(diagnostics)
+    );
+  }
+);
 
-testStable('production config rejects four nested callbacks', async () => {
+test.stable('production config rejects four nested callbacks', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const diagnostics = await lintFiles(
+    { assert },
     {
       'apps/client/src/lib/callbacks.ts': `
       export function nested(items) {
@@ -59,10 +67,15 @@ testStable('production config rejects four nested callbacks', async () => {
   );
 });
 
-testStable('production config accepts guard clauses and three callback levels', async () => {
-  const diagnostics = await lintFiles(
-    {
-      'apps/client/src/lib/shallow.ts': `
+test.stable(
+  'production config accepts guard clauses and three callback levels',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintFiles(
+      { assert },
+      {
+        'apps/client/src/lib/shallow.ts': `
       export function guarded(a, b, c) {
         if (!a) return 0;
 
@@ -77,10 +90,11 @@ testStable('production config accepts guard clauses and three callback levels', 
         return items.map((a) => items.map((b) => items.map((c) => a + b + c)));
       }
     `
-    },
-    undefined,
-    true
-  );
+      },
+      undefined,
+      true
+    );
 
-  expect(diagnostics).toStrictEqual([]);
-});
+    expect(diagnostics).toStrictEqual([]);
+  }
+);

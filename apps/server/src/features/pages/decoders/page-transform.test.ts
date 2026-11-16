@@ -1,3 +1,4 @@
+import { pageTransformOutputSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises structural and authorization failures using deterministic captured       │
@@ -10,16 +11,13 @@
  * │ Fixtures validate contracts and scope without claiming model factual correctness.        │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { pageTransformOutputSchema } from '@study/contracts';
 import { sourceIdSchema } from '@study/contracts';
 import { materialGenerationInputSchema } from '@study/contracts';
 import { runSelectionContextSchema } from '@study/contracts';
 import { transformPublicationSchema, transformRequestSchema } from '@study/contracts';
 import { createBlock } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { standardSchema } from '#server/platform/ai/schema';
 
@@ -101,9 +99,11 @@ function fixture() {
   return { context, publication, image, output };
 }
 
-testStable(
+test.stable(
   'managed images require captured structured authorization; an alt-text range grants only text',
-  () => {
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { context, publication, image } = fixture();
 
     assert.strictEqual(authorizedTransformAssets(context).length, 1);
@@ -183,9 +183,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'empty, malformed, reused identity, fabricated source anchor and unscoped citations reject',
-  () => {
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { context, publication, image, output } = fixture();
 
     validatePageTransform(context, publication);
@@ -221,9 +223,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'learning generation requires a project while authored execution requires captured intent and unique operations',
-  () => {
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const learning = Schema.decodeUnknownSync(materialGenerationInputSchema);
     const authored = Schema.decodeUnknownSync(transformRequestSchema);
 
@@ -255,9 +259,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'provider JSON accepts authorized image identifiers without native bigint values',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const output = {
       blocks: [{ type: 'image', sourceId: '1', revision: 1, alt: 'alpha image' }],
       notes: [{ kind: 'limit', explanation: 'No external verification', blockOrdinals: [] }]
@@ -270,7 +276,9 @@ testStable(
   }
 );
 
-testStable('separator-only tables are not completed note-only Pages', () => {
+test.stable('separator-only tables are not completed note-only Pages', ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const { context, publication } = fixture();
   const table = createBlock({
     type: 'table',
@@ -298,9 +306,11 @@ testStable('separator-only tables are not completed note-only Pages', () => {
   );
 });
 
-testStable(
+test.stable(
   'report-only evidence markers and captured target locations obey the same scope barrier',
-  () => {
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { context, publication, output } = fixture();
     const note = {
       kind: 'correction_proposal' as const,

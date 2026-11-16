@@ -39,6 +39,22 @@ export function constantDeclarator(node: any): boolean {
   return node?.type === 'VariableDeclarator' && node.parent?.kind === 'const';
 }
 
+/** Detect test registrations hidden inside named functions or assigned callback wrappers. */
+export function nestedRegistration(node: any): boolean {
+  for (let owner = node.parent; owner; owner = owner.parent) {
+    if (
+      owner.type === 'FunctionDeclaration' ||
+      (['ArrowFunctionExpression', 'FunctionExpression'].includes(owner.type) &&
+        owner.parent.type === 'VariableDeclarator')
+    )
+      return true;
+
+    if (owner.type === 'Program') return false;
+  }
+
+  return false;
+}
+
 export function runtimeImport(node: any): boolean {
   return (
     node?.parent?.type === 'ImportDeclaration' &&

@@ -1,3 +1,4 @@
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises managed backup privacy, integrity, native transport and controlled       │
@@ -10,20 +11,18 @@
  * │ All fixtures use isolated SQLite locations and native services without real user data.   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { createBlock } from '@study/contracts';
 import { backupManifestSchema } from '@study/contracts';
 import type { BackupManifest, RestorePreview } from '@study/contracts';
 import { Db } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
 import { Effect, FileSystem, Path, Schema } from 'effect';
 import type { TestContext } from 'vite-plus/test';
 
 import { Pages } from '#server/features/pages/index';
 import { System } from '#server/features/system/index';
-import { App } from '#server/runtime/index';
+import type { App } from '#server/runtime/index';
 
+import { createServerFixture } from './fixture.ts';
 import { inTestPhase } from './progress.ts';
 
 export const meta = {
@@ -52,15 +51,14 @@ export const acceptance = (preview: RestorePreview) => ({
 });
 
 export async function backupFixture(t?: TestContext) {
-  const location = await createTestDatabase();
+  const location = await createServerFixture();
 
   const requests: string[] = [];
 
   const open = async () => {
     const started = performance.now();
 
-    return App.open({
-      path: await location.prepare(),
+    return location.openApp({
       onPhase: (phase) =>
         console.debug(
           `study-test-phase:fixture-startup:${phase} elapsedMs=${Math.round(performance.now() - started)}`
@@ -78,7 +76,7 @@ export async function backupFixture(t?: TestContext) {
   try {
     app = await inTestPhase(t, 'fixture-open', open);
   } catch (cause) {
-    await location.cleanup();
+    await location.close();
 
     throw cause;
   }
@@ -99,7 +97,7 @@ export async function backupFixture(t?: TestContext) {
     },
     async close() {
       await inTestPhase(t, 'fixture-app-close', () => app.close());
-      await inTestPhase(t, 'fixture-files-cleanup', async () => await location.cleanup());
+      await inTestPhase(t, 'fixture-files-cleanup', async () => await location.close());
     }
   };
 }

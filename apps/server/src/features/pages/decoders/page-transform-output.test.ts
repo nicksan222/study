@@ -1,3 +1,4 @@
+import { createBlock } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises exact rich-content correspondence for target block editing identities.   │
@@ -10,19 +11,17 @@
  * │ regressions.                                                                             │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { createBlock } from '@study/contracts';
 import { blockContentSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { canonicalPageTransformOutput } from './page-transform-output.ts';
 
-testStable(
+test.stable(
   'target proposals retain unchanged rich identities once, including reordered duplicate blocks',
-  () => {
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const first = createBlock({ type: 'math', expression: 'x²' });
     const second = createBlock(first.content);
     const code = createBlock({ type: 'code', language: 'ts', code: 'const x = 1;' });
@@ -57,9 +56,11 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'equal text projections do not reuse IDs for changed rich table marks or list numbering',
-  () => {
+  ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const table = createBlock({
       type: 'table',
       rows: [

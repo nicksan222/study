@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises authoritative native RPC snapshots and independent concurrent mutation   │
@@ -12,23 +13,18 @@
  * │ files.                                                                                   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { pages } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Deferred, Effect, Fiber, Result, Stream } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
-import { App, serve } from '#server/runtime/index';
+import { serve } from '#server/runtime/index';
 
-testStable(
+test.stable(
   'native live RPC reflects another client mutation and keeps concurrent results separate',
-  async () => {
-    const fixture = await createTestDatabase();
-    const app = await App.open({ path: fixture.path });
+  async ({ resources: fixture, expect }) => {
+    const app = await fixture.openApp({ path: fixture.path });
     const server = await serve(app);
 
     try {
@@ -78,16 +74,15 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      await fixture.cleanup();
+      await fixture.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'navigation counts are not capped by mounted windows and exclude unpublished pages',
-  async () => {
-    const fixture = await createTestDatabase();
-    const app = await App.open({ path: fixture.path });
+  async ({ resources: fixture, expect }) => {
+    const app = await fixture.openApp({ path: fixture.path });
     const server = await serve(app);
 
     try {
@@ -140,7 +135,7 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      await fixture.cleanup();
+      await fixture.close();
     }
   }
 );

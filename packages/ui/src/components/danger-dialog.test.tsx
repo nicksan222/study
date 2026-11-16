@@ -1,8 +1,5 @@
-import { testStable } from '@study/testing/vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { useState } from 'react';
-import { expect, vi } from 'vite-plus/test';
 
 import { DangerDialog } from './danger-dialog';
 
@@ -14,9 +11,9 @@ const labels = {
   confirmation: { identity: 'backup-1', value: 'delete', label: 'Type delete to confirm.' }
 };
 
-testStable(
+test.stable(
   'focuses Cancel, uses alert semantics and leaves confirmation ownership with the caller',
-  async () => {
+  async ({ userEvent, vi, render, screen, expect, waitFor }) => {
     const user = userEvent.setup();
     const confirm = vi.fn();
     const change = vi.fn();
@@ -47,9 +44,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'blocks duplicate confirm, Cancel and Escape while the operation is pending',
-  async () => {
+  async ({ userEvent, vi, render, screen, expect, fireEvent }) => {
     const user = userEvent.setup();
     const confirm = vi.fn();
     const change = vi.fn();
@@ -68,9 +65,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'does not dismiss on outside pointer interaction and returns focus after Cancel',
-  async () => {
+  async ({ userEvent, render, screen, expect, waitFor }) => {
     const user = userEvent.setup();
 
     function Harness() {
@@ -101,9 +98,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'resets exact confirmation when the target, required phrase or open note changes',
-  async () => {
+  async ({ userEvent, vi, render, screen, expect }) => {
     const user = userEvent.setup();
     const confirm = vi.fn();
     const change = vi.fn();
@@ -148,9 +145,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'does not accept leading or trailing whitespace as the exact confirmation phrase',
-  () => {
+  ({ vi, render, fireEvent, screen, expect }) => {
     const confirm = vi.fn();
 
     render(<DangerDialog open {...labels} onOpenChange={() => {}} onConfirm={confirm} />);
@@ -161,9 +158,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'keeps Cancel focused without scrolling long reviewed content away on open',
-  async () => {
+  async ({ vi, render, waitFor, expect, screen }) => {
     const focus = vi.spyOn(HTMLElement.prototype, 'focus');
 
     render(
@@ -178,17 +175,26 @@ testStable(
   }
 );
 
-testStable('review-only dialogs hide typed intent and cannot invoke deletion', async () => {
-  const confirm = vi.fn();
-  const view = render(
-    <DangerDialog open {...labels} confirmation={null} onOpenChange={vi.fn()} onConfirm={confirm} />
-  );
+test.stable(
+  'review-only dialogs hide typed intent and cannot invoke deletion',
+  async ({ vi, render, expect, screen }) => {
+    const confirm = vi.fn();
+    const view = render(
+      <DangerDialog
+        open
+        {...labels}
+        confirmation={null}
+        onOpenChange={vi.fn()}
+        onConfirm={confirm}
+      />
+    );
 
-  expect(await screen.findByRole('alertdialog')).toBeVisible();
-  expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
-  expect(confirm).not.toHaveBeenCalled();
-  view.rerender(<DangerDialog open {...labels} onOpenChange={vi.fn()} onConfirm={confirm} />);
-  expect(screen.getByRole('textbox')).toHaveValue('');
-  expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
-});
+    expect(await screen.findByRole('alertdialog')).toBeVisible();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
+    expect(confirm).not.toHaveBeenCalled();
+    view.rerender(<DangerDialog open {...labels} onOpenChange={vi.fn()} onConfirm={confirm} />);
+    expect(screen.getByRole('textbox')).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
+  }
+);

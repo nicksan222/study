@@ -1,3 +1,7 @@
+import { StudyRpc } from '@study/contracts';
+import { snapshotValues } from '@study/contracts/testing';
+import { makeStudyClient } from '@study/server/client';
+import { createServerFixture } from '@study/server/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Creates independent Obsidian vaults and Study services for each test.              │
@@ -9,28 +13,25 @@
  * │ Every resource belongs to one scoped test and closes before directory removal.           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
-import { makeStudyClient } from '@study/server/client';
-import { App, serve } from '@study/server/runtime';
+import { observeUntil } from '@study/testing/effect';
+import { temporaryDirectory } from '@study/testing/resources';
 import { Effect, Exit } from 'effect';
 
-import { fs, path, run } from '#tooling/testing/integrations/filesystem';
+import { path } from '#tooling/testing/integrations/filesystem';
 
 import { readVault, startObsidian } from './driver.ts';
 
 export function obsidianVault(name: string) {
   return Effect.gen(function* () {
     const directory = yield* Effect.acquireRelease(
-      Effect.promise(() => run(fs.makeTempDirectory({ prefix: 'study-obsidian-' }))),
-      (directory) =>
-        Effect.promise(() => run(fs.remove(directory, { recursive: true, force: true })))
+      Effect.promise(() => temporaryDirectory({ prefix: 'study-obsidian-' })),
+      (directory) => Effect.promise(() => directory[Symbol.asyncDispose]())
     );
 
     yield* Effect.addFinalizer((exit) =>
       Effect.promise(async () => {
         if (Exit.isFailure(exit)) {
-          const source = Bun.file(path.join(directory, 'obsidian.log'));
+          const source = Bun.file(path.join(directory.path, 'obsidian.log'));
 
           if (await source.exists())
             await Bun.write(
@@ -41,7 +42,7 @@ export function obsidianVault(name: string) {
       })
     );
     const obsidian = yield* Effect.acquireRelease(
-      Effect.promise(() => startObsidian(directory)),
+      Effect.promise(() => startObsidian(directory.path)),
       (obsidian) => Effect.promise(() => obsidian.close())
     );
 
@@ -58,13 +59,12 @@ export function obsidianVault(name: string) {
   })()`)
     );
 
-    const app = yield* Effect.acquireRelease(
-      Effect.promise(() => App.open({ path: path.join(directory, 'study.sqlite') })),
-      (app) => Effect.promise(() => app.close())
+    const fixture = yield* Effect.acquireRelease(
+      Effect.promise(() => createServerFixture()),
+      (fixture) => Effect.promise(() => fixture[Symbol.asyncDispose]())
     );
-    const server = yield* Effect.acquireRelease(
-      Effect.promise(() => serve(app)),
-      (server) => Effect.promise(() => server.close())
+    const { app, server } = yield* Effect.promise(() =>
+      fixture.openRpc({ path: path.join(directory.path, 'study.sqlite') })
     );
 
     yield* Effect.promise(() => app.workers.start());
@@ -88,14 +88,11 @@ export function obsidianVault(name: string) {
           });
 
           yield* client['integrations.startImport']({ id: preview.id, excludedKeys });
-          let result = yield* client['integrations.import']({ id: preview.id });
 
-          while (result.status === 'running') {
-            yield* Effect.sleep('50 millis');
-            result = yield* client['integrations.import']({ id: preview.id });
-          }
-
-          return result;
+          return yield* observeUntil(
+            snapshotValues(client['integrations.import.live']({ id: preview.id })),
+            (value) => value.status !== 'running'
+          );
         })
     };
   });

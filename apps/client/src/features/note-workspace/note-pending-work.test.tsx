@@ -1,28 +1,13 @@
 import { noteIdSchema, executionIdSchema } from '@study/contracts';
 import type { noteWorkItemSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import type * as __MockType0 from './note-pending-work';
 
-import { NotePendingWork } from './note-pending-work';
+let NotePendingWork: typeof __MockType0.NotePendingWork;
 
-const api = vi.hoisted(() => ({ work: vi.fn(), cancel: vi.fn(), transform: vi.fn() }));
-
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children, to, ...props }: React.ComponentProps<'a'> & { to: string }) => (
-    <a href={to} {...props}>
-      {children}
-    </a>
-  )
-}));
-vi.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({
-    t: (key: string, values?: { title: string }) => (values ? key + ' ' + values.title : key)
-  })
-}));
+let api: ReturnType<typeof createMockState>['api'];
 
 const id = Schema.decodeUnknownSync(noteIdSchema)(1n);
 
@@ -44,7 +29,10 @@ const row: typeof noteWorkItemSchema.Type = {
   }
 };
 
-function mount() {
+function mount({
+  rpcHandlersTransport,
+  render
+}: Pick<test.Context, 'rpcHandlersTransport' | 'render'>) {
   const fixture = rpcHandlersTransport({
     'notes.noteWork': api.work,
     'workflows.cancelExecution': api.cancel,
@@ -56,46 +44,81 @@ function mount() {
   return fixture;
 }
 
-beforeEach(() => vi.resetAllMocks());
-afterEach(() => {
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({
+      work: mock.fn(),
+      cancel: mock.fn(),
+      transform: mock.fn()
+    }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  mock('@tanstack/react-router', () => ({
+    Link: ({ children, to, ...props }: React.ComponentProps<'a'> & { to: string }) => (
+      <a href={to} {...props}>
+        {children}
+      </a>
+    )
+  }));
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({
+      t: (key: string, values?: { title: string }) => (values ? key + ' ' + values.title : key)
+    })
+  }));
+  const __mockModule0 = await import('./note-pending-work');
+
+  NotePendingWork = __mockModule0.NotePendingWork;
+});
+
+test.beforeEach(({ vi }) => vi.resetAllMocks());
+test.afterEach(({ cleanup }) => {
   cleanup();
 });
 
-testStable('stops the exact execution safely and waits for committed cancellation', async () => {
-  let stopping = false;
+test.stable(
+  'stops the exact execution safely and waits for committed cancellation',
+  async ({ screen, expect, fireEvent, waitFor, act, rpcHandlersTransport, render }) => {
+    let stopping = false;
 
-  api.work.mockImplementation(async () => ({
-    items: stopping
-      ? [{ ...row, execution: { ...row.execution, status: 'cancelling', canCancel: false } }]
-      : [row],
-    next: null
-  }));
-  let resolve!: (value: unknown) => void;
+    api.work.mockImplementation(async () => ({
+      items: stopping
+        ? [{ ...row, execution: { ...row.execution, status: 'cancelling', canCancel: false } }]
+        : [row],
+      next: null
+    }));
+    let resolve!: (value: unknown) => void;
 
-  api.cancel.mockImplementation(
-    () =>
-      new Promise((accept) => {
-        resolve = accept;
-      })
-  );
-  mount();
-  const stop = await screen.findByRole('button', { name: 'NoteWorkStop NoteWorkReply' });
+    api.cancel.mockImplementation(
+      () =>
+        new Promise((accept) => {
+          resolve = accept;
+        })
+    );
+    mount({ rpcHandlersTransport, render });
+    const stop = await screen.findByRole('button', { name: 'NoteWorkStop NoteWorkReply' });
 
-  expect(api.work).toHaveBeenCalledWith({ noteId: id, limit: 20, before: undefined });
-  fireEvent.click(stop);
-  await waitFor(() => expect(stop).toBeDisabled());
-  await waitFor(() =>
-    expect(api.cancel).toHaveBeenCalledExactlyOnceWith({ id: row.execution.id, mode: 'safe' })
-  );
-  stopping = true;
-  await act(async () => resolve({ ...row.execution, status: 'cancelling', canCancel: false }));
-  expect(await screen.findByRole('status', { name: 'NoteWorkStopping' })).toBeInTheDocument();
-  expect(stop).toBeDisabled();
-});
+    expect(api.work).toHaveBeenCalledWith({ noteId: id, limit: 20, before: undefined });
+    fireEvent.click(stop);
+    await waitFor(() => expect(stop).toBeDisabled());
+    await waitFor(() =>
+      expect(api.cancel).toHaveBeenCalledExactlyOnceWith({ id: row.execution.id, mode: 'safe' })
+    );
+    stopping = true;
+    await act(async () => resolve({ ...row.execution, status: 'cancelling', canCancel: false }));
+    expect(await screen.findByRole('status', { name: 'NoteWorkStopping' })).toBeInTheDocument();
+    expect(stop).toBeDisabled();
+  }
+);
 
-testStable(
+test.stable(
   'shows the operation and waiting state while keeping live details collapsed',
-  async () => {
+  async ({ screen, expect, fireEvent, rpcHandlersTransport, render }) => {
     api.work.mockResolvedValue({
       items: [
         {
@@ -107,7 +130,7 @@ testStable(
       ],
       next: null
     });
-    mount();
+    mount({ rpcHandlersTransport, render });
     const status = await screen.findByRole('status', { name: 'NoteWorkWaiting' });
 
     expect(status).toHaveTextContent('NoteWorkWaiting');
@@ -123,9 +146,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'uses domain cancellation for transforms and reconciles a lost response without replay',
-  async () => {
+  async ({ fireEvent, screen, expect, rpcHandlersTransport, render }) => {
     const transform = { ...row, kind: 'transform', title: 'Study guide' };
     let cancelled = false;
 
@@ -135,7 +158,7 @@ testStable(
 
       throw new Error('Receipt lost');
     });
-    mount();
+    mount({ rpcHandlersTransport, render });
     fireEvent.click(await screen.findByRole('button', { name: 'NoteWorkStop Study guide' }));
     await screen.findByText('NoteWorkEmpty');
     expect(api.transform).toHaveBeenCalledExactlyOnceWith({ requestId: row.requestId });
@@ -143,32 +166,38 @@ testStable(
   }
 );
 
-testStable('retains honest cancellation error and disables replay until refreshed', async () => {
-  api.work.mockResolvedValue({ items: [row], next: null });
-  api.cancel.mockRejectedValue(new Error('Offline'));
-  mount();
-  fireEvent.click(await screen.findByRole('button', { name: 'NoteWorkStop NoteWorkReply' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('NoteWorkStopError');
-  expect(screen.getByRole('button', { name: 'NoteWorkStop NoteWorkReply' })).toBeDisabled();
-  expect(api.cancel).toHaveBeenCalledTimes(1);
-});
+test.stable(
+  'retains honest cancellation error and disables replay until refreshed',
+  async ({ fireEvent, screen, expect, rpcHandlersTransport, render }) => {
+    api.work.mockResolvedValue({ items: [row], next: null });
+    api.cancel.mockRejectedValue(new Error('Offline'));
+    mount({ rpcHandlersTransport, render });
+    fireEvent.click(await screen.findByRole('button', { name: 'NoteWorkStop NoteWorkReply' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('NoteWorkStopError');
+    expect(screen.getByRole('button', { name: 'NoteWorkStop NoteWorkReply' })).toBeDisabled();
+    expect(api.cancel).toHaveBeenCalledTimes(1);
+  }
+);
 
-testStable('shows actionable guidance for configuration waits', async () => {
-  api.work.mockResolvedValue({
-    items: [
-      {
-        ...row,
-        kind: 'transform',
-        execution: {
-          ...row.execution,
-          status: 'suspended',
-          configurationWaitReason: 'model_unavailable'
+test.stable(
+  'shows actionable guidance for configuration waits',
+  async ({ expect, screen, rpcHandlersTransport, render }) => {
+    api.work.mockResolvedValue({
+      items: [
+        {
+          ...row,
+          kind: 'transform',
+          execution: {
+            ...row.execution,
+            status: 'suspended',
+            configurationWaitReason: 'model_unavailable'
+          }
         }
-      }
-    ],
-    next: null
-  });
-  mount();
-  expect(await screen.findByText('NoteWaitModel')).toBeVisible();
-  expect(screen.getByRole('link', { name: 'Settings' })).toBeEnabled();
-});
+      ],
+      next: null
+    });
+    mount({ rpcHandlersTransport, render });
+    expect(await screen.findByText('NoteWaitModel')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Settings' })).toBeEnabled();
+  }
+);

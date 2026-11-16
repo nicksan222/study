@@ -1,3 +1,4 @@
+import { plainBlock } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Tests durable document creation and guarded material description updates.          │
@@ -9,12 +10,8 @@
  * │ Uses public feature services and the shared server test harness.                         │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { plainBlock } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { Pages } from '#server/features/pages/index';
 import { ServerContext } from '#server/platform/database/context';
@@ -35,10 +32,12 @@ const document = {
   }
 };
 
-testStable(
+test.stable(
   'empty document creation replays its exact key and descriptions use guarded independent metadata',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Pages.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 

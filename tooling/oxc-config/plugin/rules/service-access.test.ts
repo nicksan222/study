@@ -1,16 +1,19 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message =
   'Use the native service.use callback instead of nesting Effect.flatMap around a service key.';
 
-testStable(
+test.stable(
   'service access uses native accessors across aliases and preserves unrelated effects',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     assertDiagnostics(
+      { assert, expect },
       'service-access',
-      await lintRule('service-access', {
+      await lintRule({ assert }, 'service-access', {
         'src/bad.ts': String.raw`import { Effect as E, Context } from "effect";
 import { Settings as Preferences } from "#server/features/settings/index";
 import * as DB from "#server/platform/database/database";

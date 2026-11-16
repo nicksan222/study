@@ -1,3 +1,4 @@
+import { citations } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies edits retain and renumber surviving citation evidence while leaving       │
@@ -12,22 +13,19 @@
  * │ by the feature implementation.                                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { citations } from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Projects } from '#server/features/projects/index';
-import { createStudyTest } from '#testing/server-test';
 
 import { Notes } from './index.ts';
 
-testStable(
+test.stable(
   'edits preserve and renumber surviving citation evidence without changing historical versions',
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const fixture = serverFixture;
 
     await fixture.run(
       Effect.gen(function* () {

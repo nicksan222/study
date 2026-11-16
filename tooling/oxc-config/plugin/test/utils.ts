@@ -1,6 +1,7 @@
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
+import type { test } from '@study/testing';
+import { temporaryDirectory } from '@study/testing/resources';
 import { Effect, FileSystem, Path } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 const { dirname, join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
@@ -75,6 +76,7 @@ async function preparePlugin(
 }
 
 async function runLint(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
   directory: string,
   server: string,
   plugin: string,
@@ -82,6 +84,8 @@ async function runLint(
   workspace = false,
   toolingFixtures: readonly string[] = []
 ): Promise<Diagnostic[]> {
+  const assert: test.Assert = assertions;
+
   const config = join(directory, 'oxlintrc.json');
 
   if (rule)
@@ -123,7 +127,7 @@ async function runLint(
   const stderr = result.stderr.toString();
   const stdout = result.stdout.toString();
 
-  assertLintStatus(result.exitCode, stderr, stdout);
+  assertLintStatus({ assert }, result.exitCode, stderr, stdout);
   const output = JSON.parse(stdout) as { diagnostics: Diagnostic[] };
 
   assert.strictEqual(result.exitCode, output.diagnostics.length ? 1 : 0, stderr);
@@ -132,48 +136,55 @@ async function runLint(
 }
 
 export async function lintFiles(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
   files: Record<string, string>,
   rule?: string,
   workspace = false,
   manifests?: Record<string, unknown>
 ): Promise<Diagnostic[]> {
-  const directory = await Effect.runPromise(fs.makeTempDirectory({ prefix: 'oxlint-quality-' }));
+  const assert: test.Assert = assertions;
+
+  await using temporary = await temporaryDirectory({ prefix: 'oxlint-quality-' });
+  const directory = temporary.path;
   const server = join(directory, 'apps/server');
 
-  try {
-    await writeSources(files, workspace ? directory : server);
-    const plugin = await preparePlugin(directory, manifests);
+  await writeSources(files, workspace ? directory : server);
+  const plugin = await preparePlugin(directory, manifests);
 
-    return await runLint(
-      directory,
-      server,
-      plugin,
-      rule,
-      workspace,
-      Object.keys(files).filter((name) => name.startsWith('tooling/'))
-    );
-  } finally {
-    await Effect.runPromise(fs.remove(directory, { recursive: true, force: true }));
-  }
+  return await runLint(
+    { assert },
+    directory,
+    server,
+    plugin,
+    rule,
+    workspace,
+    Object.keys(files).filter((name) => name.startsWith('tooling/'))
+  );
 }
 
 export function lintRule(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
   rule: string,
   files: Record<string, string>,
   workspace = false,
   manifests?: Record<string, unknown>
 ): Promise<Diagnostic[]> {
-  return lintFiles(files, rule, workspace, manifests);
+  const assert: test.Assert = assertions;
+
+  return lintFiles({ assert }, files, rule, workspace, manifests);
 }
 
 /** Run workspace fixtures through the shared runner and retain their supplied paths. */
 export async function lintRulePaths(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
   rule: string,
   files: Record<string, string>
 ): Promise<string[]> {
+  const assert: test.Assert = assertions;
+
   const paths = Object.keys(files).sort((a, b) => b.length - a.length);
 
-  return (await lintRule(rule, files, true))
+  return (await lintRule({ assert }, rule, files, true))
     .map(({ filename }) => {
       const path = paths.find((candidate) => filename.endsWith(`/${candidate}`));
 
@@ -185,11 +196,14 @@ export async function lintRulePaths(
 }
 
 export function checkWiring(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
   rules: string[],
   configured: Record<string, unknown>,
   testFiles: string[],
   overrides: Record<string, unknown>[] = []
 ): void {
+  const assert: test.Assert = assertions;
+
   for (const rule of rules) {
     assert.strictEqual(
       configured[`study/${rule}`],
@@ -214,10 +228,13 @@ export function checkWiring(
 }
 
 export function assertDiagnostics(
+  { expect, assert: assertions }: Pick<test.Context, 'expect' | 'assert'>,
   rule: string,
   diagnostics: Diagnostic[],
   expected: [string, string][]
 ): void {
+  const assert: test.Assert = assertions;
+
   expect(
     diagnostics
       .map(({ code, filename, message }) => {
@@ -232,6 +249,13 @@ export function assertDiagnostics(
   ).toStrictEqual(expected.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))));
 }
 
-function assertLintStatus(status: number | null, stderr: string, stdout: string): void {
+function assertLintStatus(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  status: number | null,
+  stderr: string,
+  stdout: string
+): void {
+  const assert: test.Assert = assertions;
+
   assert.ok(status === 0 || status === 1, stderr || stdout);
 }

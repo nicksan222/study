@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises workflow execution listing, bounded public status, and persisted         │
@@ -14,17 +15,11 @@
  * │ resources; fixture cleanup closes owned resources.                                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Option } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
-import { App, serve } from '#server/runtime/index';
-import { pollUntil } from '#testing/poll';
+import { serve } from '#server/runtime/index';
 
 const isSourceIngestion = (item: { workflow: string }) => item.workflow === 'source-ingestion/v1';
 
@@ -33,12 +28,13 @@ const isCancelledSource = (item: { workflow: string; status: string }) =>
 
 const isCompleted = (item: { status: string }) => item.status === 'completed';
 
-testStable(
+test.stable(
   'native workflow RPC exposes bounded status and persists cancellation while the worker is stopped',
   { timeout: 10000 },
-  async () => {
-    const location = await createTestDatabase();
-    let app = await App.open({ path: location.path });
+  async ({ resources: location, expect, pollUntil, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    let app = await location.openApp({ path: location.path });
     let server = await serve(app);
 
     try {
@@ -113,7 +109,7 @@ testStable(
       );
       await server.close();
       await app.close();
-      app = await App.open({ path: location.path });
+      app = await location.openApp({ path: location.path });
       server = await serve(app);
       await app.workers.start();
       await Effect.runPromise(
@@ -150,17 +146,18 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      await location.cleanup();
+      await location.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'workflow status distinguishes terminal failures and paginates without exposing checkpoints',
   { timeout: 10000 },
-  async () => {
-    const location = await createTestDatabase();
-    const app = await App.open({ path: location.path });
+  async ({ resources: location, pollUntil, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const app = await location.openApp({ path: location.path });
     const server = await serve(app);
 
     await app.workers.start();
@@ -259,15 +256,17 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      await location.cleanup();
+      await location.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'unsafe workflow cancellation aborts an active real HTTP fetch',
   { timeout: 10000 },
-  async (t) => {
+  async ({ resources: location, onTestFinished, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     let entered!: () => void;
     let aborted!: () => void;
     const requested = new Promise<void>((resolve) => {
@@ -295,10 +294,9 @@ testStable(
       }
     });
 
-    t.onTestFinished(() => peer.stop(true));
+    onTestFinished(() => peer.stop(true));
 
-    const location = await createTestDatabase();
-    const app = await App.open({ path: location.path });
+    const app = await location.openApp({ path: location.path });
     const server = await serve(app);
 
     await app.workers.start();
@@ -338,7 +336,7 @@ testStable(
       await server.close();
       await app.close();
       await peer.stop(true);
-      await location.cleanup();
+      await location.close();
     }
   }
 );

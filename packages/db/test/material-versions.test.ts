@@ -1,20 +1,15 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { sql } from 'drizzle-orm';
-import { assert, expect } from 'vite-plus/test';
-import type { TestContext } from 'vite-plus/test';
 
 import type { Db } from '../src/index.ts';
 import { material_quiz_choices } from '../src/schema.ts';
-import { createTestDatabase } from '../src/testing.ts';
 
-async function fixture(t: TestContext) {
-  const location = await createTestDatabase();
+type Databases = (migrationsFolder?: string) => Promise<{ open(): Promise<Db> }>;
+
+async function fixture(databases: Databases) {
+  const location = await databases();
   const db = await location.open();
 
-  t.onTestFinished(async () => {
-    db.close();
-    await location.cleanup();
-  });
   db.exec(`
     INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Math',1,1),(2,'Other',1,1);
     INSERT INTO notes(id,title,title_source,created_at,updated_at)
@@ -68,10 +63,12 @@ function publish(db: Db, id: bigint) {
   db.orm.run(sql`UPDATE material_versions SET status='published',published_at=2 WHERE id=${id}`);
 }
 
-testStable(
+test.stable(
   'materials enforce kind and version identity while note selection crosses collections',
-  async (t) => {
-    const db = await fixture(t);
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const db = await fixture(databases);
 
     flashcards(db, 1n);
     db.exec('INSERT INTO note_materials(note_id,material_id,position) VALUES(1,1,0)');
@@ -96,10 +93,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'publication rejects absent or incomplete payloads and freezes content and identities',
-  async (t) => {
-    const db = await fixture(t);
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const db = await fixture(databases);
 
     draft(db, 1n);
     assert.throws(() => publish(db, 1n));
@@ -134,10 +133,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'multi-input provenance crosses collections, stays published-only and is sealed at publication',
-  async (t) => {
-    const db = await fixture(t);
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const db = await fixture(databases);
 
     flashcards(db, 1n);
     publish(db, 1n);
@@ -177,10 +178,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'revision history supports branching within one material and preserves exact versions',
-  async (t) => {
-    const db = await fixture(t);
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const db = await fixture(databases);
 
     flashcards(db, 1n);
     publish(db, 1n);
@@ -212,10 +215,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'source originals own media bytes independently of learning and authored storage',
-  async (t) => {
-    const db = await fixture(t);
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const db = await fixture(databases);
 
     original(db);
     assert.strictEqual(db.orm.get(sql`SELECT count(*) n FROM source_snapshots`)?.n, 2n);
@@ -232,10 +237,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'authored versions own canonical snapshots and freeze their underlying blocks',
-  async (t) => {
-    const db = await fixture(t);
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const db = await fixture(databases);
 
     authored(db, 1n, false);
     db.exec('DELETE FROM blocks WHERE document_id=1');
@@ -255,10 +262,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'collection deletion preserves source bytes, authored versions, learning and independent note attachments',
-  async (t) => {
-    const db = await fixture(t);
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const db = await fixture(databases);
 
     original(db);
     authored(db, 1n);
@@ -287,31 +296,36 @@ testStable(
   }
 );
 
-testStable('correct quiz answers roundtrip through the ORM boolean codec', async (t) => {
-  const db = await fixture(t);
+test.stable(
+  'correct quiz answers roundtrip through the ORM boolean codec',
+  async ({ databases, expect }) => {
+    const db = await fixture(databases);
 
-  draft(db, 1n, 'quiz');
-  db.exec('INSERT INTO material_quiz_versions(version_id) VALUES(1)');
-  db.exec(
-    "INSERT INTO material_quiz_questions(id,version_id,position,kind,prompt,explanation) VALUES(1,1,0,'single_choice','Q','E')"
-  );
-  db.exec(
-    "INSERT INTO material_quiz_choices(id,question_id,question_kind,position,text,is_correct) VALUES(1,1,'single_choice',0,'yes',1),(2,1,'single_choice',1,'no',0)"
-  );
-  expect(
-    db.orm
-      .select()
-      .from(material_quiz_choices)
-      .orderBy(material_quiz_choices.id)
-      .all()
-      .map((c) => c.is_correct)
-  ).toStrictEqual([true, false]);
-});
+    draft(db, 1n, 'quiz');
+    db.exec('INSERT INTO material_quiz_versions(version_id) VALUES(1)');
+    db.exec(
+      "INSERT INTO material_quiz_questions(id,version_id,position,kind,prompt,explanation) VALUES(1,1,0,'single_choice','Q','E')"
+    );
+    db.exec(
+      "INSERT INTO material_quiz_choices(id,question_id,question_kind,position,text,is_correct) VALUES(1,1,'single_choice',0,'yes',1),(2,1,'single_choice',1,'no',0)"
+    );
+    expect(
+      db.orm
+        .select()
+        .from(material_quiz_choices)
+        .orderBy(material_quiz_choices.id)
+        .all()
+        .map((c) => c.is_correct)
+    ).toStrictEqual([true, false]);
+  }
+);
 
-testStable(
+test.stable(
   'draft learning inputs reference exact source extractions independently of collection organization',
-  async (t) => {
-    const db = await fixture(t);
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const db = await fixture(databases);
 
     original(db);
     flashcards(db, 1n);
@@ -326,42 +340,54 @@ testStable(
   }
 );
 
-testStable('authored publication rejects malformed canonical anchors', async (t) => {
-  const db = await fixture(t);
+test.stable(
+  'authored publication rejects malformed canonical anchors',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  authored(db, 1n, false);
+    const db = await fixture(databases);
 
-  for (const anchor of ['null', '{}', '[]', '{"type":"page","page":0}']) {
-    db.orm.run(sql`UPDATE blocks SET anchor=${anchor} WHERE document_id=1`);
-    assert.throws(() =>
-      db.exec("UPDATE page_versions SET status='published',published_at=2 WHERE id=1")
-    );
-  }
+    authored(db, 1n, false);
 
-  db.exec(`UPDATE blocks SET anchor='{"type":"authored"}' WHERE document_id=1;
+    for (const anchor of ['null', '{}', '[]', '{"type":"page","page":0}']) {
+      db.orm.run(sql`UPDATE blocks SET anchor=${anchor} WHERE document_id=1`);
+      assert.throws(() =>
+        db.exec("UPDATE page_versions SET status='published',published_at=2 WHERE id=1")
+      );
+    }
+
+    db.exec(`UPDATE blocks SET anchor='{"type":"authored"}' WHERE document_id=1;
     UPDATE page_versions SET status='published',published_at=2 WHERE id=1`);
-});
-
-testStable('scheduling fields declared bigint reject fractional storage', async (t) => {
-  const db = await fixture(t);
-
-  draft(db, 1n, 'flashcards');
-  db.exec('INSERT INTO material_card_identities(id,material_id) VALUES(1,1)');
-  db.exec(
-    "INSERT INTO material_card_schedules(card_id,due,state,stability,difficulty,reps,lapses) VALUES(1,0,'new',0,1,0,0)"
-  );
-
-  for (const name of ['last_review', 'elapsed_days', 'scheduled_days', 'learning_steps']) {
-    assert.throws(() =>
-      db.exec('UPDATE material_card_schedules SET ' + name + '=0.5 WHERE card_id=1')
-    );
   }
-});
+);
 
-testStable(
+test.stable(
+  'scheduling fields declared bigint reject fractional storage',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const db = await fixture(databases);
+
+    draft(db, 1n, 'flashcards');
+    db.exec('INSERT INTO material_card_identities(id,material_id) VALUES(1,1)');
+    db.exec(
+      "INSERT INTO material_card_schedules(card_id,due,state,stability,difficulty,reps,lapses) VALUES(1,0,'new',0,1,0,0)"
+    );
+
+    for (const name of ['last_review', 'elapsed_days', 'scheduled_days', 'learning_steps']) {
+      assert.throws(() =>
+        db.exec('UPDATE material_card_schedules SET ' + name + '=0.5 WHERE card_id=1')
+      );
+    }
+  }
+);
+
+test.stable(
   'removing a draft learning artifact preserves a source-owned extraction snapshot',
-  async (t) => {
-    const db = await fixture(t);
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const db = await fixture(databases);
 
     original(db);
     flashcards(db, 1n);
@@ -374,34 +400,41 @@ testStable(
   }
 );
 
-testStable('material citations enforce positive unsigned 32 bit markers', async (t) => {
-  const db = await fixture(t);
+test.stable(
+  'material citations enforce positive unsigned 32 bit markers',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  authored(db, 1n);
-  flashcards(db, 2n);
-  db.exec(
-    'INSERT INTO material_evidence_inputs(id,version_id,position,page_version_id) VALUES(1,2,0,1)'
-  );
-  const insert = (marker: bigint) =>
-    db.orm.run(
-      sql`INSERT INTO material_evidence_citations(version_id,marker,input_id,anchor,quote) VALUES(2,${marker},1,'{"type":"authored"}','Quote')`
+    const db = await fixture(databases);
+
+    authored(db, 1n);
+    flashcards(db, 2n);
+    db.exec(
+      'INSERT INTO material_evidence_inputs(id,version_id,position,page_version_id) VALUES(1,2,0,1)'
     );
+    const insert = (marker: bigint) =>
+      db.orm.run(
+        sql`INSERT INTO material_evidence_citations(version_id,marker,input_id,anchor,quote) VALUES(2,${marker},1,'{"type":"authored"}','Quote')`
+      );
 
-  for (const marker of [0n, -1n, 4294967296n]) assert.throws(() => insert(marker));
+    for (const marker of [0n, -1n, 4294967296n]) assert.throws(() => insert(marker));
 
-  for (const marker of [1n, 4294967295n]) insert(marker);
+    for (const marker of [1n, 4294967295n]) insert(marker);
 
-  assert.strictEqual(
-    db.orm.get<{ n: bigint }>(sql`SELECT count(*) AS n FROM material_evidence_citations`)?.n,
-    2n
-  );
-  assert.throws(() => insert(1n));
-});
+    assert.strictEqual(
+      db.orm.get<{ n: bigint }>(sql`SELECT count(*) AS n FROM material_evidence_citations`)?.n,
+      2n
+    );
+    assert.throws(() => insert(1n));
+  }
+);
 
-testStable(
+test.stable(
   'fresh canonical migrations preserve all published citation mutation guards',
-  async (t) => {
-    const db = await fixture(t);
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const db = await fixture(databases);
 
     authored(db, 1n);
     flashcards(db, 2n);

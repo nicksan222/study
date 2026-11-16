@@ -1,3 +1,4 @@
+import { BunCrypto } from '@effect/platform-bun';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises official SQLite acceptance, recovery, durable waits and explicit         │
@@ -11,25 +12,22 @@
  * │ engine.                                                                                  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { BunCrypto } from '@effect/platform-bun';
 import { SqliteClient } from '@effect/sql-sqlite-bun';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { spawnTestProcess } from '@study/testing/vitest';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Deferred, Effect, Fiber, Layer, ManagedRuntime, Option, Schedule, Schema } from 'effect';
 import { ClusterWorkflowEngine, SingleRunner } from 'effect/cluster';
 import { SqlClient } from 'effect/sql';
 import { Activity, DurableClock, DurableDeferred, Workflow } from 'effect/workflow';
-import { assert } from 'vite-plus/test';
 
 import { crashLayer, crashWorkflow } from '#testing/official-crash-runner';
 
-testStable(
+test.stable(
   'official SQL engine preserves accepted work, activity replies and durable waits across restart',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
 
     await location.prepare();
     let calls = 0;
@@ -122,10 +120,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'official interruption persists across reopening and does not run a cancelled activity',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
 
     await location.prepare();
     let calls = 0;
@@ -183,10 +183,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'SIGKILL after official acceptance before receipt acknowledgment safely redelivers without repeating persisted activity',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, spawnTestProcess, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const db = await location.open();
 
     db.orm.run(sql`CREATE TABLE proof_calls (id INTEGER PRIMARY KEY)`);
@@ -230,10 +232,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'official SQL writer and domain writer contend on the same SQLite file and release transaction locks',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const db = await location.open();
 
     db.orm.run(sql`CREATE TABLE proof_contention (id INTEGER PRIMARY KEY)`);

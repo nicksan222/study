@@ -1,3 +1,4 @@
+import { workflowEvents, workflow_executions } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises persisted question classification and targeted answer request behavior.  │
@@ -11,12 +12,8 @@
  * │ operations.                                                                              │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { workflowEvents, workflow_executions } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Settings } from '#server/features/settings/index';
@@ -26,10 +23,10 @@ import { Database } from '#server/platform/database/database';
 import { decodeEvent } from '#server/platform/workflows/events';
 import { withTestPublication } from '#testing/publication';
 
-testStable.each([1, 2] as const)(
+test.stable.for([1, 2] as const)(
   'marking a question starts one answer version and publishes question and answer in place in language %s',
-  async (language) => {
-    const location = await createTestDatabase();
+  async (language, { databases, expect }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     try {
@@ -107,10 +104,10 @@ testStable.each([1, 2] as const)(
   }
 );
 
-testStable(
+test.stable(
   'abandoning an in-place answer preserves the question and permits a fresh answer',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     try {
@@ -154,78 +151,81 @@ testStable(
   }
 );
 
-testStable('question answers capture their exact target and deduplicate per version', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
+test.stable(
+  'question answers capture their exact target and deduplicate per version',
+  async ({ databases, expect }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const c = yield* Notes;
-        const note = yield* c.createNote({ title: 'Questions' });
-        const question = yield* c.postMessage({
-          noteId: note.id,
-          text: 'Why does ice float?',
-          requestReply: false
-        });
-        const input = {
-          messageId: question.id,
-          expectedActiveVersionId: question.activeVersionId!
-        };
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const c = yield* Notes;
+          const note = yield* c.createNote({ title: 'Questions' });
+          const question = yield* c.postMessage({
+            noteId: note.id,
+            text: 'Why does ice float?',
+            requestReply: false
+          });
+          const input = {
+            messageId: question.id,
+            expectedActiveVersionId: question.activeVersionId!
+          };
 
-        yield* c.setMessageKind({ ...input, kind: 'question' });
-        const later = yield* c.postMessage({
-          noteId: note.id,
-          text: 'Later unrelated note',
-          requestReply: false
-        });
-        const answer = yield* c.answerQuestion(input);
+          yield* c.setMessageKind({ ...input, kind: 'question' });
+          const later = yield* c.postMessage({
+            noteId: note.id,
+            text: 'Later unrelated note',
+            requestReply: false
+          });
+          const answer = yield* c.answerQuestion(input);
 
-        expect(yield* c.answerQuestion(input)).toEqual(answer);
-        expect(answer.messageId).toBe(question.id);
-        const snapshot = yield* c.replySnapshot({ requestId: answer.requestId });
+          expect(yield* c.answerQuestion(input)).toEqual(answer);
+          expect(answer.messageId).toBe(question.id);
+          const snapshot = yield* c.replySnapshot({ requestId: answer.requestId });
 
-        expect(snapshot.messages.at(-1)?.messageId).toBe(question.id);
-        expect(snapshot.messages.some((m) => m.messageId === later.id)).toBe(false);
+          expect(snapshot.messages.at(-1)?.messageId).toBe(question.id);
+          expect(snapshot.messages.some((m) => m.messageId === later.id)).toBe(false);
 
-        context.db.orm
-          .insert(workflow_executions)
-          .values({
-            execution_id: 'cancelled-answer',
-            workflow_tag: 'conversation-reply',
-            version: 1,
-            payload: JSON.stringify({ event: { correlationId: answer.requestId } }),
-            status: 'cancelled',
-            created_at: 1n,
-            updated_at: 1n
-          })
-          .run();
-        const retried = yield* c.answerQuestion(input);
+          context.db.orm
+            .insert(workflow_executions)
+            .values({
+              execution_id: 'cancelled-answer',
+              workflow_tag: 'conversation-reply',
+              version: 1,
+              payload: JSON.stringify({ event: { correlationId: answer.requestId } }),
+              status: 'cancelled',
+              created_at: 1n,
+              updated_at: 1n
+            })
+            .run();
+          const retried = yield* c.answerQuestion(input);
 
-        expect(retried.requestId).not.toBe(answer.requestId);
-        expect(retried.messageId).toBe(question.id);
-        expect((yield* c.message(question.id)).question?.answerRequestId).toBe(retried.requestId);
-        expect(yield* c.answerQuestion(input)).toEqual(retried);
-        const edited = yield* c.editMessage({ ...input, text: 'Why does wood float?' });
+          expect(retried.requestId).not.toBe(answer.requestId);
+          expect(retried.messageId).toBe(question.id);
+          expect((yield* c.message(question.id)).question?.answerRequestId).toBe(retried.requestId);
+          expect(yield* c.answerQuestion(input)).toEqual(retried);
+          const edited = yield* c.editMessage({ ...input, text: 'Why does wood float?' });
 
-        expect(edited.question?.origin).toBe('manual');
-        expect(edited.question?.versionId).toBe(edited.activeVersionId);
-        expect((yield* Effect.result(c.answerQuestion(input)))._tag).toBe('Failure');
-      }).pipe(
-        Effect.provide(Notes.layer),
-        Effect.provide(Layer.succeed(Database, { store: context }))
-      )
-    );
-  } finally {
-    context.close();
-    await location.cleanup();
+          expect(edited.question?.origin).toBe('manual');
+          expect(edited.question?.versionId).toBe(edited.activeVersionId);
+          expect((yield* Effect.result(c.answerQuestion(input)))._tag).toBe('Failure');
+        }).pipe(
+          Effect.provide(Notes.layer),
+          Effect.provide(Layer.succeed(Database, { store: context }))
+        )
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
-testStable(
+test.stable(
   'classification persists, fences stale work and preserves manual overrides',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect }) => {
+    const location = await databases();
     let context = new ServerContext(await location.open());
 
     const run = <A, E>(effect: Effect.Effect<A, E, Database>) =>
@@ -319,10 +319,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'automatic and manual answers share one durable receipt; archive and override fence generation',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     try {
@@ -405,86 +405,95 @@ testStable(
   }
 );
 
-testStable('explicit Ask and requested replies are reused by automatic answering', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
+test.stable(
+  'explicit Ask and requested replies are reused by automatic answering',
+  async ({ databases, expect }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const c = yield* Notes;
-        const settings = yield* Settings;
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const c = yield* Notes;
+          const settings = yield* Settings;
 
-        yield* settings.saveWorkspacePreferences({
-          ...(yield* settings.workspacePreferences()),
-          autoAnswerQuestions: true
-        });
-        const note = yield* c.createNote({ title: 'Explicit' });
-        const asked = yield* c.ask({
-          noteId: note.id,
-          intentKey: 'explicit-ask',
-          expectedSelectionRevision: 0n,
-          text: 'Why does ice float?'
-        });
+          yield* settings.saveWorkspacePreferences({
+            ...(yield* settings.workspacePreferences()),
+            autoAnswerQuestions: true
+          });
+          const note = yield* c.createNote({ title: 'Explicit' });
+          const asked = yield* c.ask({
+            noteId: note.id,
+            intentKey: 'explicit-ask',
+            expectedSelectionRevision: 0n,
+            text: 'Why does ice float?'
+          });
 
-        yield* c.replySnapshot({ requestId: asked.requestId });
-        const input = {
-          messageId: asked.userMessageId,
-          expectedActiveVersionId: asked.userVersionId
-        };
+          yield* c.replySnapshot({ requestId: asked.requestId });
+          const input = {
+            messageId: asked.userMessageId,
+            expectedActiveVersionId: asked.userVersionId
+          };
 
-        yield* withTestPublication(context, c.publishQuestion({ ...input, kind: 'question' }));
-        expect((yield* c.answerQuestion(input)).requestId).toBe(asked.requestId);
-        const secondNote = yield* c.createNote({ title: 'Requested' });
-        const requested = yield* c.postMessage({
-          noteId: secondNote.id,
-          text: 'Why is the sky blue?',
-          requestReply: true
-        });
-        const latest = context.db.orm
-          .select()
-          .from(workflowEvents)
-          .all()
-          .map((e) => decodeEvent(e.payload))
-          .filter((e) => e.type === 'NoteGenerationRequested')
-          .at(-1)!;
+          yield* withTestPublication(context, c.publishQuestion({ ...input, kind: 'question' }));
+          expect((yield* c.answerQuestion(input)).requestId).toBe(asked.requestId);
+          const secondNote = yield* c.createNote({ title: 'Requested' });
+          const requested = yield* c.postMessage({
+            noteId: secondNote.id,
+            text: 'Why is the sky blue?',
+            requestReply: true
+          });
+          const latest = context.db.orm
+            .select()
+            .from(workflowEvents)
+            .all()
+            .map((e) => decodeEvent(e.payload))
+            .filter((e) => e.type === 'NoteGenerationRequested')
+            .at(-1)!;
 
-        if (latest.type !== 'NoteGenerationRequested') throw Error('missing generation');
+          if (latest.type !== 'NoteGenerationRequested') throw Error('missing generation');
 
-        yield* c.replySnapshot({ requestId: latest.requestId });
-        const next = {
-          messageId: requested.id,
-          expectedActiveVersionId: requested.activeVersionId!
-        };
+          yield* c.replySnapshot({ requestId: latest.requestId });
+          const next = {
+            messageId: requested.id,
+            expectedActiveVersionId: requested.activeVersionId!
+          };
 
-        yield* withTestPublication(context, c.publishQuestion({ ...next, kind: 'question' }));
-        expect((yield* c.answerQuestion(next)).requestId).toBe(latest.requestId);
-        const thirdNote = yield* c.createNote({ title: 'Separate request' });
-        const saved = yield* c.postMessage({
-          noteId: thirdNote.id,
-          text: 'Why is water wet?',
-          requestReply: false
-        });
-        const direct = yield* c.requestReply({ noteId: thirdNote.id });
-        const savedInput = { messageId: saved.id, expectedActiveVersionId: saved.activeVersionId! };
+          yield* withTestPublication(context, c.publishQuestion({ ...next, kind: 'question' }));
+          expect((yield* c.answerQuestion(next)).requestId).toBe(latest.requestId);
+          const thirdNote = yield* c.createNote({ title: 'Separate request' });
+          const saved = yield* c.postMessage({
+            noteId: thirdNote.id,
+            text: 'Why is water wet?',
+            requestReply: false
+          });
+          const direct = yield* c.requestReply({ noteId: thirdNote.id });
+          const savedInput = {
+            messageId: saved.id,
+            expectedActiveVersionId: saved.activeVersionId!
+          };
 
-        yield* withTestPublication(context, c.publishQuestion({ ...savedInput, kind: 'question' }));
-        expect((yield* c.answerQuestion(savedInput)).requestId).toBe(direct.requestId);
-      }).pipe(
-        Effect.provide(Layer.merge(Notes.layer, Settings.layer)),
-        Effect.provide(Layer.succeed(Database, { store: context }))
-      )
-    );
-  } finally {
-    context.close();
-    await location.cleanup();
+          yield* withTestPublication(
+            context,
+            c.publishQuestion({ ...savedInput, kind: 'question' })
+          );
+          expect((yield* c.answerQuestion(savedInput)).requestId).toBe(direct.requestId);
+        }).pipe(
+          Effect.provide(Layer.merge(Notes.layer, Settings.layer)),
+          Effect.provide(Layer.succeed(Database, { store: context }))
+        )
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
-testStable(
+test.stable(
   'empty attachment captures and inactive-version deletion do not schedule classification',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     try {
@@ -544,10 +553,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'deleting a question cascades its pending answer and fences late publication',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     try {
@@ -578,7 +587,11 @@ testStable(
             (yield* Effect.result(
               withTestPublication(
                 context,
-                c.publishReply({ requestId: answer.requestId, text: 'Late answer', citations: [] })
+                c.publishReply({
+                  requestId: answer.requestId,
+                  text: 'Late answer',
+                  citations: []
+                })
               )
             ))._tag
           ).toBe('Failure');
@@ -595,10 +608,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'unavailable evidence preserves automatic classification and rejects a manual answer atomically',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     try {

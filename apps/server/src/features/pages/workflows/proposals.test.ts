@@ -1,3 +1,4 @@
+import type { pageGenerationRequestedSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises authored Page proposals behavior through real persistence                │
@@ -10,16 +11,13 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { pageGenerationRequestedSchema } from '@study/contracts';
 import type { messageIdSchema, noteIdSchema } from '@study/contracts';
 import type { PageVersion } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { sql } from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
 import type { Context } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
@@ -46,7 +44,13 @@ const meta = {
 
 type Fixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
-function generationEvent(f: Fixture, requestId: string): typeof pageGenerationRequestedSchema.Type {
+function generationEvent(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  f: Fixture,
+  requestId: string
+): typeof pageGenerationRequestedSchema.Type {
+  const assert: test.Assert = assertions;
+
   const row = f.context.db.orm.get(
     sql`SELECT payload FROM workflow_events WHERE type='PageGenerationRequested' AND correlation_id=${requestId} ORDER BY rowid DESC LIMIT 1`
   );
@@ -59,7 +63,13 @@ function generationEvent(f: Fixture, requestId: string): typeof pageGenerationRe
   return event;
 }
 
-function create(title: string, blocks = [paragraph('alpha evidence')]) {
+function create(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  title: string,
+  blocks = [paragraph('alpha evidence')]
+) {
+  const assert: test.Assert = assertions;
+
   return Effect.flatMap(Pages, (docs) =>
     docs.create({
       createKey: crypto.randomUUID(),
@@ -77,7 +87,13 @@ function create(title: string, blocks = [paragraph('alpha evidence')]) {
   );
 }
 
-function assertIndependentImage(independent: PageVersion, proposal: PageVersion) {
+function assertIndependentImage(
+  { assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>,
+  independent: PageVersion,
+  proposal: PageVersion
+) {
+  const assert: test.Assert = assertions;
+
   assert.notStrictEqual(independent.pageId, proposal.pageId);
   expect(independent.document.blocks[1]!.content).toStrictEqual(
     proposal.document.blocks[1]!.content
@@ -85,7 +101,9 @@ function assertIndependentImage(independent: PageVersion, proposal: PageVersion)
   assert.notStrictEqual(independent.document.blocks[1]!.id, proposal.document.blocks[1]!.id);
 }
 
-function assessApplied(version: PageVersion) {
+function assessApplied({ assert: assertions }: Pick<test.Context, 'assert'>, version: PageVersion) {
+  const assert: test.Assert = assertions;
+
   return Effect.gen(function* () {
     const docs = yield* Pages;
     const cited = version.citations[0];
@@ -118,10 +136,13 @@ function assessApplied(version: PageVersion) {
 }
 
 function assertSupport(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
   docs: Context.Service.Shape<typeof Pages>,
   versionId: PageVersion['id'],
   state: 'assessed' | 'stale' | undefined
 ) {
+  const assert: test.Assert = assertions;
+
   return docs
     .assessments({ versionId, marker: 1, limit: 10 })
     .pipe(Effect.map((page) => assert.strictEqual(page.items[0]?.state, state)));
@@ -178,10 +199,12 @@ for (const scenario of [
   'selection_changed',
   'message_changed'
 ] as const)
-  testStable(
+  test.stable(
     `native authored proposal ${scenario} preserves exact receipts, alternatives, citations and independent retention`,
-    async () => {
-      const f = await pageTransformFixture();
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
+      const f = await pageTransformFixture(databases);
 
       try {
         const setup = await Effect.runPromise(
@@ -204,8 +227,11 @@ for (const scenario of [
               revision: 1,
               alt: ''
             });
-            const target = yield* create('Target', [paragraph('alpha target'), imageBlock]);
-            const input = yield* create('Evidence');
+            const target = yield* create({ assert }, 'Target', [
+              paragraph('alpha target'),
+              imageBlock
+            ]);
+            const input = yield* create({ assert }, 'Evidence');
 
             for (const document of [target, input])
               yield* (yield* Pages).attach({ noteId: note.id, pageId: document.id });
@@ -257,7 +283,7 @@ for (const scenario of [
             }
           }
         );
-        const event = generationEvent(f, setup.request.id);
+        const event = generationEvent({ assert }, f, setup.request.id);
         const proposalId = await f.executeAuthored(event, `proposal-${scenario}`);
 
         assert.strictEqual(
@@ -387,7 +413,7 @@ for (const scenario of [
             assert.ok(kept.resultVersionId);
             const independent = yield* docs.version({ id: kept.resultVersionId });
 
-            assertIndependentImage(independent, proposal);
+            assertIndependentImage({ assert, expect }, independent, proposal);
             expect(independent.inputs).toStrictEqual(proposal.inputs);
             expect(independent.citations).toStrictEqual(proposal.citations);
             assert.ok(
@@ -397,7 +423,7 @@ for (const scenario of [
                 title: 'Independent'
               })).replayed === true
             );
-            yield* assertSupport(docs, independent.id, undefined);
+            yield* assertSupport({ assert }, docs, independent.id, undefined);
             assert.ok(
               (yield* Effect.flip(
                 chats.keepPageProposal({
@@ -425,8 +451,8 @@ for (const scenario of [
               assert.strictEqual(applied.document.blocks[1]!.id, setup.imageBlock.id);
               expect(applied.citations).toStrictEqual(proposal.citations);
               expect(applied.parents).toStrictEqual([setup.target.version.id]);
-              yield* assessApplied(applied);
-              yield* assertSupport(docs, applied.id, 'stale');
+              yield* assessApplied({ assert }, applied);
+              yield* assertSupport({ assert }, docs, applied.id, 'stale');
               const restore = {
                 pageId: setup.target.id,
                 expectedVersionId: applied.id,
@@ -436,8 +462,8 @@ for (const scenario of [
               const restored = yield* docs.restore(restore);
 
               assert.ok(restored.outcome === 'saved');
-              yield* assertSupport(docs, restored.submittedVersionId, undefined);
-              yield* assertSupport(docs, applied.id, 'stale');
+              yield* assertSupport({ assert }, docs, restored.submittedVersionId, undefined);
+              yield* assertSupport({ assert }, docs, applied.id, 'stale');
               assert.ok((yield* docs.restore(restore)).replayed === true);
             }
 
@@ -461,7 +487,7 @@ for (const scenario of [
             );
 
             if (outcomes.resultVersionId)
-              yield* assertSupport(docs, outcomes.resultVersionId, 'stale');
+              yield* assertSupport({ assert }, docs, outcomes.resultVersionId, 'stale');
           }).pipe(Effect.provide(f.domain()))
         );
         await Effect.runPromise(
@@ -469,7 +495,7 @@ for (const scenario of [
             Effect.provide(f.domain())
           )
         );
-        await cleanup(f, setup.note.id);
+        await cleanup(f, setup.note.id, assert);
         const calls = f.bodies.length;
 
         await expect(f.executeAuthored(event, `retired-${scenario}`)).rejects.toSatisfy(() => true);
@@ -489,10 +515,12 @@ for (const scenario of [
   );
 
 for (const barrier of ['cancel', 'delete'] as const)
-  testStable(
+  test.stable(
     `authored proposal ${barrier} before native execution fences late publication`,
-    async () => {
-      const f = await pageTransformFixture();
+    async ({ databases, expect, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+
+      const f = await pageTransformFixture(databases);
 
       try {
         const request = await Effect.runPromise(
@@ -500,7 +528,7 @@ for (const barrier of ['cancel', 'delete'] as const)
             const chats = yield* Notes;
             const docs = yield* Pages;
             const note = yield* chats.createNote({ title: 'Fence' });
-            const target = yield* create('Target');
+            const target = yield* create({ assert }, 'Target');
 
             yield* docs.attach({ noteId: note.id, pageId: target.id });
 
@@ -535,7 +563,7 @@ for (const barrier of ['cancel', 'delete'] as const)
         );
 
         await expect(
-          f.executeAuthored(generationEvent(f, request.id), `barrier-${barrier}`)
+          f.executeAuthored(generationEvent({ assert }, f, request.id), `barrier-${barrier}`)
         ).rejects.toSatisfy(() => true);
         assert.strictEqual(f.bodies.length, 0);
         assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM page_proposals`)?.n, 0n);
@@ -547,10 +575,12 @@ for (const barrier of ['cancel', 'delete'] as const)
     }
   );
 
-testStable(
+test.stable(
   'stored block and passage selection does not narrow automatic whole-document target captures',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await pageTransformFixture(databases);
 
     try {
       await Effect.runPromise(
@@ -558,7 +588,7 @@ testStable(
           const chats = yield* Notes;
           const note = yield* chats.createUntitledNote({});
           const block = paragraph('alpha selected omega');
-          const target = yield* create('Target', [block]);
+          const target = yield* create({ assert }, 'Target', [block]);
 
           yield* (yield* Pages).attach({ noteId: note.id, pageId: target.id });
           const input = { kind: 'page' as const, versionId: target.version.id };

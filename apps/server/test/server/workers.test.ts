@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies source processing and note reply workflows survive application            │
@@ -13,24 +14,20 @@
  * │ resources; fixture cleanup closes owned resources.                                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
-import { App, serve } from '#server/runtime/index';
-import { pollUntil } from '#testing/poll';
+import { serve } from '#server/runtime/index';
 
-testStable(
+test.stable(
   'source workflow survives restart and makes its content discoverable',
   { timeout: 15000 },
-  async () => {
-    const location = await createTestDatabase();
-    let app = await App.open({ path: location.path });
+  async ({ resources: location, assert: assertions, pollUntil }) => {
+    const assert: test.Assert = assertions;
+
+    let app = await location.openApp({ path: location.path });
     let server = await serve(app);
 
     try {
@@ -52,7 +49,7 @@ testStable(
       assert.strictEqual(app.store.db.orm.all(sql`SELECT * FROM workflow_events`).length, 1);
       await server.close();
       await app.close();
-      app = await App.open({ path: location.path });
+      app = await location.openApp({ path: location.path });
       server = await serve(app);
       await Effect.runPromise(
         Effect.scoped(
@@ -90,17 +87,18 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      await location.cleanup();
+      await location.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'reply workflow records a durable sign-in wait across restart',
   { timeout: 15000 },
-  async () => {
-    const location = await createTestDatabase();
-    let app = await App.open({ path: location.path });
+  async ({ resources: location, pollUntil, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    let app = await location.openApp({ path: location.path });
     let server = await serve(app);
 
     try {
@@ -150,7 +148,7 @@ testStable(
       );
       await server.close();
       await app.close();
-      app = await App.open({ path: location.path });
+      app = await location.openApp({ path: location.path });
       server = await serve(app);
       assert.strictEqual(
         app.store.db.orm.all(
@@ -170,7 +168,7 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      await location.cleanup();
+      await location.close();
     }
   }
 );

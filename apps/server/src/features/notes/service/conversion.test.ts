@@ -1,3 +1,4 @@
+import { workflowEvents } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Tests conversion receipts and preservation of original message versions.           │
@@ -9,12 +10,8 @@
  * │ Tests use public services with migrated temporary SQLite databases.                      │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { workflowEvents } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
-import { afterEach, beforeEach, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Settings } from '#server/features/settings/index';
@@ -24,19 +21,15 @@ import { Database } from '#server/platform/database/database';
 import { decodeEvent } from '#server/platform/workflows/events';
 import { withTestPublication } from '#testing/publication';
 
-let location: Awaited<ReturnType<typeof createTestDatabase>>;
-
 let context: ServerContext;
 
-beforeEach(async () => {
-  location = await createTestDatabase();
+test.beforeEach(async ({ databases }) => {
+  const location = await databases();
+
   context = new ServerContext(await location.open());
 });
 
-afterEach(async () => {
-  context.close();
-  await location.cleanup();
-});
+test.afterEach(() => context.close());
 
 function services() {
   return Layer.mergeAll(Notes.layer, Sources.layer, Settings.layer).pipe(
@@ -44,9 +37,9 @@ function services() {
   );
 }
 
-testStable(
+test.stable(
   'conversion deduplicates requests, preserves originals and retains results after edits',
-  async () => {
+  async ({ expect }) => {
     await Effect.runPromise(
       Effect.gen(function* () {
         const c = yield* Notes;
@@ -95,9 +88,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'automatic conversion is opt-in and uses the same durable request as the button',
-  async () => {
+  async ({ expect }) => {
     await Effect.runPromise(
       Effect.gen(function* () {
         const c = yield* Notes;
@@ -157,9 +150,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'failed conversions retain their payload, unblock replies and support exact retry or discard',
-  async () => {
+  async ({ expect }) => {
     await Effect.runPromise(
       Effect.gen(function* () {
         const c = yield* Notes;
@@ -219,44 +212,47 @@ testStable(
   }
 );
 
-testStable('failed conversion retry rejects a base version that is no longer active', async () => {
-  await Effect.runPromise(
-    Effect.gen(function* () {
-      const c = yield* Notes;
-      const note = yield* c.createNote({ title: 'Stale conversion' });
-      const noteMessage = yield* c.postMessage({
-        noteId: note.id,
-        text: 'Original\ntext.',
-        requestReply: false
-      });
-      const input = {
-        messageId: noteMessage.id,
-        expectedActiveVersionId: noteMessage.activeVersionId!,
-        strategyId: 'chatgpt'
-      };
-      const receipt = yield* c.convertMessage(input);
+test.stable(
+  'failed conversion retry rejects a base version that is no longer active',
+  async ({ expect }) => {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const c = yield* Notes;
+        const note = yield* c.createNote({ title: 'Stale conversion' });
+        const noteMessage = yield* c.postMessage({
+          noteId: note.id,
+          text: 'Original\ntext.',
+          requestReply: false
+        });
+        const input = {
+          messageId: noteMessage.id,
+          expectedActiveVersionId: noteMessage.activeVersionId!,
+          strategyId: 'chatgpt'
+        };
+        const receipt = yield* c.convertMessage(input);
 
-      yield* withTestPublication(context, c.failConversion(receipt).pipe(Effect.asVoid));
-      yield* c.editMessage({ messageId: noteMessage.id, text: 'A newer edit.' });
-      const edited = yield* c.message(noteMessage.id);
-      const events = context.db.orm.select().from(workflowEvents).all();
-      const error = yield* c
-        .convertMessage(input)
-        .pipe(Effect.match({ onFailure: (error) => error, onSuccess: () => null }));
+        yield* withTestPublication(context, c.failConversion(receipt).pipe(Effect.asVoid));
+        yield* c.editMessage({ messageId: noteMessage.id, text: 'A newer edit.' });
+        const edited = yield* c.message(noteMessage.id);
+        const events = context.db.orm.select().from(workflowEvents).all();
+        const error = yield* c
+          .convertMessage(input)
+          .pipe(Effect.match({ onFailure: (error) => error, onSuccess: () => null }));
 
-      expect(error?.kind).toBe('invalid_input');
-      expect(yield* c.message(noteMessage.id)).toEqual(edited);
-      expect(edited.versions.find((version) => version.id === receipt.versionId)?.status).toBe(
-        'failed'
-      );
-      expect(context.db.orm.select().from(workflowEvents).all()).toEqual(events);
-    }).pipe(Effect.provide(services()))
-  );
-});
+        expect(error?.kind).toBe('invalid_input');
+        expect(yield* c.message(noteMessage.id)).toEqual(edited);
+        expect(edited.versions.find((version) => version.id === receipt.versionId)?.status).toBe(
+          'failed'
+        );
+        expect(context.db.orm.select().from(workflowEvents).all()).toEqual(events);
+      }).pipe(Effect.provide(services()))
+    );
+  }
+);
 
-testStable(
+test.stable(
   'Ask schedules automatic conversion once after capturing its original reply input',
-  async () => {
+  async ({ expect }) => {
     await Effect.runPromise(
       Effect.gen(function* () {
         const c = yield* Notes;

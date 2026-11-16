@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies notebook tools reuse named notes and protect Assistant notes.             │
@@ -9,11 +10,7 @@
  * │ Uses isolated SQLite fixtures and real feature services.                                 │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { ServerContext } from '#server/platform/database/context';
@@ -24,10 +21,12 @@ import { subjectTools } from './subjects.ts';
 
 const environment = { language: 'en', searchSources: () => Effect.succeed([]) };
 
-testStable(
+test.stable(
   'notebook tools scope exact-name retries, page history and preserve memberships',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     try {

@@ -1,45 +1,68 @@
 import { StudyError, chatMessageSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { ChatMessageActionToolbar } from '@study/ui';
 import type * as Router from '@tanstack/react-router';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
-import { useAiReadiness } from '#client/lib/ai-readiness.ts';
-import { rpcTestTransport } from '#client/test/rpc.tsx';
+import type * as __MockType0 from '#client/lib/ai-readiness.ts';
 
-import { QuestionActions } from './question-actions';
+import type * as __MockType1 from './question-actions';
 
-vi.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: vi.fn(() => 'ready') }));
+let useAiReadiness: typeof __MockType0.useAiReadiness;
 
-vi.mock('@tanstack/react-router', async (load) => ({
-  ...(await load<typeof Router>()),
-  Link: ({ to, children }: { to: string; children?: ReactNode }) => <a href={to}>{children}</a>
-}));
+let QuestionActions: typeof __MockType1.QuestionActions;
 
-vi.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: 'english' })
-}));
-vi.mock('./pending-message-work', () => ({
-  PendingMessageWork: () => <div role="status">NoteThinking</div>
-}));
+let answer: ReturnType<typeof createMockState>['answer'];
 
-const answer = vi.fn();
+let mark: ReturnType<typeof createMockState>['mark'];
 
-const mark = vi.fn();
+let executions: ReturnType<typeof createMockState>['executions'];
 
-const executions = vi.fn();
+let restore: ReturnType<typeof createMockState>['restore'];
 
-const restore = vi.fn();
+function createMockState(mock: test.Mock) {
+  return {
+    answer: mock.fn(),
+    mark: mock.fn(),
+    executions: mock.fn(),
+    restore: mock.fn()
+  };
+}
 
-beforeEach(() => {
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  answer = __mockState.answer;
+  mark = __mockState.mark;
+  executions = __mockState.executions;
+  restore = __mockState.restore;
+
+  mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: mock.fn(() => 'ready') }));
+  mock('@tanstack/react-router', async (load) => ({
+    ...(await load<typeof Router>()),
+    Link: ({ to, children }: { to: string; children?: ReactNode }) => <a href={to}>{children}</a>
+  }));
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({ t: (key: string) => key, locale: 'english' })
+  }));
+  mock('#client/features/note-workspace/pending-message-work', () => ({
+    PendingMessageWork: () => <div role="status">NoteThinking</div>
+  }));
+  const __mockModule0 = await import('#client/lib/ai-readiness.ts');
+
+  useAiReadiness = __mockModule0.useAiReadiness;
+  const __mockModule1 = await import('./question-actions');
+
+  QuestionActions = __mockModule1.QuestionActions;
+});
+
+test.beforeEach(({ vi }) => {
   vi.clearAllMocks();
   vi.mocked(useAiReadiness).mockReturnValue('ready');
   executions.mockResolvedValue({ items: [] });
 });
-afterEach(() => {
+test.afterEach(({ vi }) => {
   vi.useRealTimers();
 });
 
@@ -85,7 +108,11 @@ function note(
   });
 }
 
-function mount(message = note(), versionId = message.activeVersionId!) {
+function mount(
+  { rpcTestTransport, render }: Pick<test.Context, 'rpcTestTransport' | 'render'>,
+  message = note(),
+  versionId = message.activeVersionId!
+) {
   const fixture = rpcTestTransport(async (tag, input) => {
     if (tag === 'notes.answerQuestion')
       return {
@@ -150,67 +177,79 @@ function mount(message = note(), versionId = message.activeVersionId!) {
   };
 }
 
-testStable('puts Answer inside the message toolbar instead of a separate action row', () => {
-  mount();
-  const toolbar = within(screen.getByRole('group', { name: 'NoteItemActions' }));
+test.stable(
+  'puts Answer inside the message toolbar instead of a separate action row',
+  ({ within, screen, expect, rpcTestTransport, render }) => {
+    mount({ rpcTestTransport, render });
+    const toolbar = within(screen.getByRole('group', { name: 'NoteItemActions' }));
 
-  expect(toolbar.getByRole('button', { name: 'NoteAnswerQuestion' })).toBeVisible();
-  expect(screen.queryByLabelText('NoteQuestionActions')).toBeNull();
-});
+    expect(toolbar.getByRole('button', { name: 'NoteAnswerQuestion' })).toBeVisible();
+    expect(screen.queryByLabelText('NoteQuestionActions')).toBeNull();
+  }
+);
 
-testStable('answers the displayed question once while its request is pending', async () => {
-  let resolve!: (value: unknown) => void;
+test.stable(
+  'answers the displayed question once while its request is pending',
+  async ({ screen, fireEvent, waitFor, expect, rpcTestTransport, render }) => {
+    let resolve!: (value: unknown) => void;
 
-  answer.mockImplementationOnce(
-    () =>
-      new Promise((done) => {
-        resolve = done;
+    answer.mockImplementationOnce(
+      () =>
+        new Promise((done) => {
+          resolve = done;
+        })
+    );
+    mount({ rpcTestTransport, render });
+    const button = screen.getByRole('button', { name: 'NoteAnswerQuestion' });
+
+    fireEvent.click(button);
+    await waitFor(() => expect(button).toBeDisabled());
+    fireEvent.click(button);
+    expect(answer).toHaveBeenCalledExactlyOnceWith({
+      messageId: 2n,
+      expectedActiveVersionId: 3n
+    });
+    resolve({});
+    await waitFor(() => expect(button).toBeEnabled());
+  }
+);
+
+test.stable(
+  'lets users correct automatic question detection',
+  async ({ fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
+    mark.mockResolvedValueOnce(note('note'));
+    mount({ rpcTestTransport, render });
+    fireEvent.click(screen.getByRole('button', { name: 'NoteMarkAsNote' }));
+    await waitFor(() =>
+      expect(mark).toHaveBeenCalledExactlyOnceWith({
+        messageId: 2n,
+        expectedActiveVersionId: 3n,
+        kind: 'note'
       })
-  );
-  mount();
-  const button = screen.getByRole('button', { name: 'NoteAnswerQuestion' });
+    );
+  }
+);
 
-  fireEvent.click(button);
-  await waitFor(() => expect(button).toBeDisabled());
-  fireEvent.click(button);
-  expect(answer).toHaveBeenCalledExactlyOnceWith({
-    messageId: 2n,
-    expectedActiveVersionId: 3n
-  });
-  resolve({});
-  await waitFor(() => expect(button).toBeEnabled());
-});
+test.stable(
+  'lets users mark an ordinary note as a question',
+  async ({ expect, screen, fireEvent, waitFor, rpcTestTransport, render }) => {
+    mark.mockResolvedValueOnce(note());
+    mount({ rpcTestTransport, render }, note('note'));
+    expect(screen.queryByRole('button', { name: 'NoteAnswerQuestion' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'NoteMarkAsQuestion' }));
+    await waitFor(() =>
+      expect(mark).toHaveBeenCalledExactlyOnceWith({
+        messageId: 2n,
+        expectedActiveVersionId: 3n,
+        kind: 'question'
+      })
+    );
+  }
+);
 
-testStable('lets users correct automatic question detection', async () => {
-  mark.mockResolvedValueOnce(note('note'));
-  mount();
-  fireEvent.click(screen.getByRole('button', { name: 'NoteMarkAsNote' }));
-  await waitFor(() =>
-    expect(mark).toHaveBeenCalledExactlyOnceWith({
-      messageId: 2n,
-      expectedActiveVersionId: 3n,
-      kind: 'note'
-    })
-  );
-});
-
-testStable('lets users mark an ordinary note as a question', async () => {
-  mark.mockResolvedValueOnce(note());
-  mount(note('note'));
-  expect(screen.queryByRole('button', { name: 'NoteAnswerQuestion' })).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'NoteMarkAsQuestion' }));
-  await waitFor(() =>
-    expect(mark).toHaveBeenCalledExactlyOnceWith({
-      messageId: 2n,
-      expectedActiveVersionId: 3n,
-      kind: 'question'
-    })
-  );
-});
-
-testStable.each(['pending', 'complete'] as const)(
+test.stable.for(['pending', 'complete'] as const)(
   'keeps an in-place %s answer in the original entry without a separate answer link',
-  (status) => {
+  (status, { expect, screen, rpcTestTransport, render }) => {
     const message = note('question', 2n, 'answer-in-place');
     const answerVersion = {
       ...message.versions[0]!,
@@ -222,12 +261,15 @@ testStable.each(['pending', 'complete'] as const)(
       basedOn: message.activeVersionId
     };
 
-    mount({
-      ...message,
-      activeVersionId: status === 'complete' ? answerVersion.id : message.activeVersionId,
-      versions: [...message.versions, answerVersion],
-      question: { ...message.question!, answerVersionId: answerVersion.id }
-    });
+    mount(
+      { rpcTestTransport, render },
+      {
+        ...message,
+        activeVersionId: status === 'complete' ? answerVersion.id : message.activeVersionId,
+        versions: [...message.versions, answerVersion],
+        question: { ...message.question!, answerVersionId: answerVersion.id }
+      }
+    );
     expect(screen.queryByRole('button', { name: 'NoteViewAnswer' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'NoteAnswerQuestion' })).toBeNull();
     const mark = screen.getByRole('button', { name: 'NoteMarkAsNote' });
@@ -239,53 +281,69 @@ testStable.each(['pending', 'complete'] as const)(
   }
 );
 
-testStable('disables question mutations while browsing historical content', () => {
-  const message = note();
+test.stable(
+  'disables question mutations while browsing historical content',
+  ({ expect, screen, rpcTestTransport, render }) => {
+    const message = note();
 
-  mount(message, Schema.decodeUnknownSync(chatMessageSchema.fields.activeVersionId)(9n)!);
-  expect(screen.getByRole('button', { name: 'NoteMarkAsQuestion' })).toBeDisabled();
-  expect(screen.queryByRole('button', { name: 'NoteAnswerQuestion' })).toBeNull();
-});
+    mount(
+      { rpcTestTransport, render },
+      message,
+      Schema.decodeUnknownSync(chatMessageSchema.fields.activeVersionId)(9n)!
+    );
+    expect(screen.getByRole('button', { name: 'NoteMarkAsQuestion' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'NoteAnswerQuestion' })).toBeNull();
+  }
+);
 
-testStable('links to an existing answer instead of creating another', () => {
-  const target = document.createElement('div');
+test.stable(
+  'links to an existing answer instead of creating another',
+  ({ vi, fireEvent, screen, expect, rpcTestTransport, render }) => {
+    const target = document.createElement('div');
 
-  target.id = 'notebook-1-message-8';
-  target.tabIndex = -1;
-  target.scrollIntoView = vi.fn();
-  document.body.append(target);
-  mount(note('question', 8n));
-  fireEvent.click(screen.getByRole('button', { name: 'NoteViewAnswer' }));
-  expect(document.activeElement).toBe(target);
-  expect(target.scrollIntoView).toHaveBeenCalledOnce();
-  expect(answer).not.toHaveBeenCalled();
-  target.remove();
-});
+    target.id = 'notebook-1-message-8';
+    target.tabIndex = -1;
+    target.scrollIntoView = vi.fn();
+    document.body.append(target);
+    mount({ rpcTestTransport, render }, note('question', 8n));
+    fireEvent.click(screen.getByRole('button', { name: 'NoteViewAnswer' }));
+    expect(document.activeElement).toBe(target);
+    expect(target.scrollIntoView).toHaveBeenCalledOnce();
+    expect(answer).not.toHaveBeenCalled();
+    target.remove();
+  }
+);
 
-testStable('offers a safe retry after an answer request fails', async () => {
-  answer
-    .mockRejectedValueOnce(new StudyError('transient', 'Unavailable'))
-    .mockResolvedValueOnce({});
-  mount();
-  fireEvent.click(screen.getByRole('button', { name: 'NoteAnswerQuestion' }));
-  fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
-  await waitFor(() => expect(answer).toHaveBeenCalledTimes(2));
-  expect(answer).toHaveBeenLastCalledWith({ messageId: 2n, expectedActiveVersionId: 3n });
-});
+test.stable(
+  'offers a safe retry after an answer request fails',
+  async ({ fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
+    answer
+      .mockRejectedValueOnce(new StudyError('transient', 'Unavailable'))
+      .mockResolvedValueOnce({});
+    mount({ rpcTestTransport, render });
+    fireEvent.click(screen.getByRole('button', { name: 'NoteAnswerQuestion' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(answer).toHaveBeenCalledTimes(2));
+    expect(answer).toHaveBeenLastCalledWith({ messageId: 2n, expectedActiveVersionId: 3n });
+  }
+);
 
-testStable('does not classify assistant messages or document pages', () => {
-  const message = note();
-  const view = mount({ ...message, role: 'assistant' });
+test.stable(
+  'does not classify assistant messages or document pages',
+  ({ expect, screen, rpcTestTransport, render }) => {
+    const message = note();
+    const view = mount({ rpcTestTransport, render }, { ...message, role: 'assistant' });
 
-  expect(screen.queryByRole('button')).toBeNull();
-  view.unmount();
-  mount({ ...message, format: 'document' });
-  expect(screen.queryByRole('button')).toBeNull();
-});
+    expect(screen.queryByRole('button')).toBeNull();
+    view.unmount();
+    mount({ rpcTestTransport, render }, { ...message, format: 'document' });
+    expect(screen.queryByRole('button')).toBeNull();
+  }
+);
 
-testStable.each(['failed', 'cancelled'])(
+test.stable.for(['failed', 'cancelled'])(
   'retries a terminal %s answer through the same question target',
-  async (state) => {
+  async (state, { fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     executions.mockResolvedValue({
       items: [
         {
@@ -296,7 +354,7 @@ testStable.each(['failed', 'cancelled'])(
       ]
     });
     answer.mockResolvedValueOnce({});
-    mount(note('question', 8n, 'request-1'));
+    mount({ rpcTestTransport, render }, note('question', 8n, 'request-1'));
     fireEvent.click(await screen.findByRole('button', { name: 'NoteRetryAnswer' }));
     await waitFor(() =>
       expect(answer).toHaveBeenCalledExactlyOnceWith({
@@ -307,38 +365,46 @@ testStable.each(['failed', 'cancelled'])(
   }
 );
 
-testStable('restores an archived answer through its note membership', async () => {
-  restore.mockResolvedValueOnce(undefined);
-  mount(note('question', 8n, 'request-1', true));
-  fireEvent.click(screen.getByRole('button', { name: 'NoteRestoreAnswer' }));
-  await waitFor(() =>
-    expect(restore).toHaveBeenCalledExactlyOnceWith({
-      noteId: 1n,
-      target: { kind: 'message', id: 8n },
-      archived: false
-    })
-  );
-  expect(answer).not.toHaveBeenCalled();
-});
+test.stable(
+  'restores an archived answer through its note membership',
+  async ({ fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
+    restore.mockResolvedValueOnce(undefined);
+    mount({ rpcTestTransport, render }, note('question', 8n, 'request-1', true));
+    fireEvent.click(screen.getByRole('button', { name: 'NoteRestoreAnswer' }));
+    await waitFor(() =>
+      expect(restore).toHaveBeenCalledExactlyOnceWith({
+        noteId: 1n,
+        target: { kind: 'message', id: 8n },
+        archived: false
+      })
+    );
+    expect(answer).not.toHaveBeenCalled();
+  }
+);
 
-testStable('uses the authoritative receipt after a linked answer is deleted', async () => {
-  answer.mockResolvedValueOnce({ messageId: 8n, requestId: 'old-request' });
-  const view = mount();
+test.stable(
+  'uses the authoritative receipt after a linked answer is deleted',
+  async ({ fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
+    answer.mockResolvedValueOnce({ messageId: 8n, requestId: 'old-request' });
+    const view = mount({ rpcTestTransport, render });
 
-  fireEvent.click(screen.getByRole('button', { name: 'NoteAnswerQuestion' }));
-  await waitFor(() => expect(screen.getByRole('button', { name: 'NoteMarkAsNote' })).toBeEnabled());
-  view.update(note());
-  expect(screen.getByRole('button', { name: 'NoteAnswerQuestion' })).toBeEnabled();
-  expect(screen.queryByRole('button', { name: 'NoteViewAnswer' })).toBeNull();
-});
+    fireEvent.click(screen.getByRole('button', { name: 'NoteAnswerQuestion' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'NoteMarkAsNote' })).toBeEnabled()
+    );
+    view.update(note());
+    expect(screen.getByRole('button', { name: 'NoteAnswerQuestion' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'NoteViewAnswer' })).toBeNull();
+  }
+);
 
-testStable.each(['completed', 'cancelled', 'running'])(
+test.stable.for(['completed', 'cancelled', 'running'])(
   'observes authoritative answer updates without a component polling timer: %s',
-  async (status) => {
+  async (status, { waitFor, expect, act, rpcTestTransport, render }) => {
     executions.mockResolvedValue({
       items: [{ id: 'execution', status, outcome: status === 'completed' ? 'success' : null }]
     });
-    const view = mount(note('question', 8n, 'request-1'));
+    const view = mount({ rpcTestTransport, render }, note('question', 8n, 'request-1'));
 
     await waitFor(() => expect(executions).toHaveBeenCalledOnce());
     await act(async () => {
@@ -348,11 +414,11 @@ testStable.each(['completed', 'cancelled', 'running'])(
   }
 );
 
-testStable(
+test.stable(
   'blocks marking a note as a question without a provider but permits marking it back',
-  () => {
+  ({ vi, screen, expect, fireEvent, rpcTestTransport, render }) => {
     vi.mocked(useAiReadiness).mockReturnValue('setup');
-    const view = mount(note('note'));
+    const view = mount({ rpcTestTransport, render }, note('note'));
     const question = screen.getByRole('button', { name: 'NoteMarkAsQuestion' });
 
     expect(question).toBeDisabled();
@@ -366,12 +432,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'removes an AI retry after provider setup is removed and restores it afterward',
-  async () => {
+  async ({ fireEvent, screen, vi, expect, rpcTestTransport, render }) => {
     answer.mockRejectedValueOnce(new StudyError('transient', 'Unavailable'));
     const message = note();
-    const view = mount(message);
+    const view = mount({ rpcTestTransport, render }, message);
 
     fireEvent.click(screen.getByRole('button', { name: 'NoteAnswerQuestion' }));
     await screen.findByRole('button', { name: 'Retry' });

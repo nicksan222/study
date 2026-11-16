@@ -1,3 +1,4 @@
+import { PagesRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises source history behavior through real persistence boundaries.             │
@@ -10,17 +11,13 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { PagesRpc } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { SourcesRpc } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import type { Db } from '@study/db';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Pages } from '#server/features/pages/index';
 import { PagesRpcLive } from '#server/features/pages/rpc/index';
@@ -47,8 +44,10 @@ const document = (text: string) => ({
   }
 });
 
-async function fixture() {
-  const location = await createTestDatabase();
+type Databases = () => Promise<{ open(): Promise<Db>; cleanup(): Promise<void>; path: string }>;
+
+async function fixture(databases: Databases) {
+  const location = await databases();
   const context = new ServerContext(await location.open());
   const handlers = Layer.mergeAll(
     PagesRpcLive.pipe(Layer.provide(testLiveQueries)),
@@ -93,10 +92,12 @@ function setup() {
   });
 }
 
-testStable(
+test.stable(
   'source history respects authored and raw citation pins even after private reply captures have gone',
-  async () => {
-    const f = await fixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await fixture(databases);
 
     try {
       await Effect.runPromise(
@@ -194,10 +195,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'source history preview fences new publication and rolls body removal back with its outbox',
-  async () => {
-    const f = await fixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await fixture(databases);
 
     try {
       await Effect.runPromise(
@@ -293,10 +296,12 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'deletes only the selected attachment extraction through the history boundary',
-  async () => {
-    const f = await fixture();
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const f = await fixture(databases);
 
     try {
       await Effect.runPromise(

@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies automatic note inclusion and reversible item archiving.                   │
@@ -9,10 +10,7 @@
  * │ Tests use real SQLite fixtures and public feature services exclusively.                  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
@@ -20,10 +18,10 @@ import { Sources } from '#server/features/sources/index';
 import { deletionDocument } from '#testing/material-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
-testStable(
+test.stable(
   'automatically includes active note items, archives reversibly, and preserves captured requests',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, expect }) => {
+    const f = await pageTransformFixture(databases);
 
     try {
       await Effect.runPromise(
@@ -116,10 +114,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'source archive is note-scoped and pending active material is never silently omitted',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases, expect }) => {
+    const f = await pageTransformFixture(databases);
 
     try {
       await Effect.runPromise(
@@ -191,71 +189,77 @@ testStable(
   }
 );
 
-testStable('archive mutation rejects an item owned by another note', async () => {
-  const f = await pageTransformFixture();
+test.stable(
+  'archive mutation rejects an item owned by another note',
+  async ({ databases, expect }) => {
+    const f = await pageTransformFixture(databases);
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const notes = yield* Notes;
-        const first = yield* notes.createNote({ title: 'First' });
-        const second = yield* notes.createNote({ title: 'Second' });
-        const noteMessage = yield* notes.postMessage({
-          noteId: second.id,
-          text: 'Other note',
-          requestReply: false
-        });
-        const failure = yield* Effect.flip(
-          notes.setItemArchived({
-            noteId: first.id,
-            target: { kind: 'message', id: noteMessage.id },
-            archived: true
-          })
-        );
-
-        expect(failure.kind).toBe('not_found');
-        expect((yield* notes.thread({ noteId: second.id, limit: 30 })).items).toHaveLength(1);
-      }).pipe(Effect.provide(f.domain()))
-    );
-  } finally {
-    await f.close();
-  }
-});
-
-testStable('empty archives load and bounded reads retain every archived item', async () => {
-  const f = await pageTransformFixture();
-
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const notes = yield* Notes;
-        const note = yield* notes.createNote({ title: 'Archive pages' });
-
-        expect(yield* notes.archivedItems({ noteId: note.id })).toEqual([]);
-        const ids = [];
-
-        for (let i = 0; i < 101; i++) {
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const notes = yield* Notes;
+          const first = yield* notes.createNote({ title: 'First' });
+          const second = yield* notes.createNote({ title: 'Second' });
           const noteMessage = yield* notes.postMessage({
-            noteId: note.id,
-            text: 'Archived note ' + i,
+            noteId: second.id,
+            text: 'Other note',
             requestReply: false
           });
+          const failure = yield* Effect.flip(
+            notes.setItemArchived({
+              noteId: first.id,
+              target: { kind: 'message', id: noteMessage.id },
+              archived: true
+            })
+          );
 
-          ids.push(noteMessage.id);
-          yield* notes.setItemArchived({
-            noteId: note.id,
-            target: { kind: 'message', id: noteMessage.id },
-            archived: true
-          });
-        }
-
-        const items = yield* notes.archivedItems({ noteId: note.id });
-
-        expect(items).toHaveLength(101);
-        expect(new Set(items.map((item) => item.target.id))).toEqual(new Set(ids));
-      }).pipe(Effect.provide(f.domain()))
-    );
-  } finally {
-    await f.close();
+          expect(failure.kind).toBe('not_found');
+          expect((yield* notes.thread({ noteId: second.id, limit: 30 })).items).toHaveLength(1);
+        }).pipe(Effect.provide(f.domain()))
+      );
+    } finally {
+      await f.close();
+    }
   }
-});
+);
+
+test.stable(
+  'empty archives load and bounded reads retain every archived item',
+  async ({ databases, expect }) => {
+    const f = await pageTransformFixture(databases);
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const notes = yield* Notes;
+          const note = yield* notes.createNote({ title: 'Archive pages' });
+
+          expect(yield* notes.archivedItems({ noteId: note.id })).toEqual([]);
+          const ids = [];
+
+          for (let i = 0; i < 101; i++) {
+            const noteMessage = yield* notes.postMessage({
+              noteId: note.id,
+              text: 'Archived note ' + i,
+              requestReply: false
+            });
+
+            ids.push(noteMessage.id);
+            yield* notes.setItemArchived({
+              noteId: note.id,
+              target: { kind: 'message', id: noteMessage.id },
+              archived: true
+            });
+          }
+
+          const items = yield* notes.archivedItems({ noteId: note.id });
+
+          expect(items).toHaveLength(101);
+          expect(new Set(items.map((item) => item.target.id))).toEqual(new Set(ids));
+        }).pipe(Effect.provide(f.domain()))
+      );
+    } finally {
+      await f.close();
+    }
+  }
+);

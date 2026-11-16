@@ -1,10 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { PerformanceSettingsView } from './performance.view';
 
-function model() {
+function model({ vi }: Pick<test.Context, 'vi'>) {
   return {
     data: { maxConcurrentAi: 2, maxQueuedAi: 16 },
     active: {
@@ -32,42 +30,48 @@ function model() {
   };
 }
 
-testStable('exposes both limits with bounds and disables unchanged saves', () => {
-  render(<PerformanceSettingsView model={model()} />);
-  const active = screen.getByRole('spinbutton', { name: 'Concurrent AI requests' });
-  const queued = screen.getByRole('spinbutton', { name: 'Waiting AI requests' });
+test.stable(
+  'exposes both limits with bounds and disables unchanged saves',
+  ({ render, screen, expect, vi }) => {
+    render(<PerformanceSettingsView model={model({ vi })} />);
+    const active = screen.getByRole('spinbutton', { name: 'Concurrent AI requests' });
+    const queued = screen.getByRole('spinbutton', { name: 'Waiting AI requests' });
 
-  expect(active).toHaveAttribute('min', '1');
-  expect(active).toHaveAttribute('max', '8');
-  expect(queued).toHaveAttribute('min', '0');
-  expect(queued).toHaveAttribute('max', '64');
-  expect(
-    screen
-      .getAllByRole('button', { name: 'Save' })
-      .every((button) => button.hasAttribute('disabled'))
-  ).toBe(true);
-});
+    expect(active).toHaveAttribute('min', '1');
+    expect(active).toHaveAttribute('max', '8');
+    expect(queued).toHaveAttribute('min', '0');
+    expect(queued).toHaveAttribute('max', '64');
+    expect(
+      screen
+        .getAllByRole('button', { name: 'Save' })
+        .every((button) => button.hasAttribute('disabled'))
+    ).toBe(true);
+  }
+);
 
-testStable('submits a changed setting through its form and links validation to the input', () => {
-  const state = model();
+test.stable(
+  'submits a changed setting through its form and links validation to the input',
+  ({ render, screen, fireEvent, expect, vi }) => {
+    const state = model({ vi });
 
-  state.active.changed = true;
-  const { rerender } = render(<PerformanceSettingsView model={state} />);
-  const input = screen.getByRole('spinbutton', { name: 'Concurrent AI requests' });
+    state.active.changed = true;
+    const { rerender } = render(<PerformanceSettingsView model={state} />);
+    const input = screen.getByRole('spinbutton', { name: 'Concurrent AI requests' });
 
-  fireEvent.submit(input.closest('form')!);
-  expect(state.active.save).toHaveBeenCalledOnce();
-  rerender(
-    <PerformanceSettingsView
-      model={{ ...state, active: { ...state.active, valid: false, value: '0' } }}
-    />
-  );
-  expect(input).toHaveAttribute('aria-invalid', 'true');
-  expect(input).toHaveAttribute('aria-describedby', screen.getByRole('alert').id);
-});
+    fireEvent.submit(input.closest('form')!);
+    expect(state.active.save).toHaveBeenCalledOnce();
+    rerender(
+      <PerformanceSettingsView
+        model={{ ...state, active: { ...state.active, valid: false, value: '0' } }}
+      />
+    );
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(input).toHaveAttribute('aria-describedby', screen.getByRole('alert').id);
+  }
+);
 
-testStable('offers retry after a load failure', () => {
-  const state = { ...model(), data: undefined, error: true };
+test.stable('offers retry after a load failure', ({ render, fireEvent, screen, expect, vi }) => {
+  const state = { ...model({ vi }), data: undefined, error: true };
 
   render(<PerformanceSettingsView model={state} />);
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }));

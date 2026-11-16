@@ -1,3 +1,4 @@
+import type { ContentSnapshotId } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises durable source ingestion and correction workflows, including decoder and │
@@ -12,18 +13,12 @@
  * │ fixtures stay local to these tests.                                                      │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { ContentSnapshotId } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import * as tables from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { createAiMock } from '@study/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { Sources } from '#server/features/sources/index';
@@ -55,10 +50,12 @@ for (const [name, text] of [
   ['empty-cell.docx', ''],
   ['empty-table.docx', '']
 ] as const)
-  testStable(
+  test.stable(
     `${name} settles empty extraction as failed and preserves original bytes`,
-    async () => {
-      const location = await createTestDatabase();
+    async ({ databases, createAiMock, expect, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+
+      const location = await databases();
       const context = new ServerContext(await location.open());
       using mock = createAiMock();
       const services = Layer.mergeAll(

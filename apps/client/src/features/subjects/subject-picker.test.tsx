@@ -1,11 +1,8 @@
 import { projectSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Sidebar } from '@study/ui';
-import { render, screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
 import { useState } from 'react';
-import { expect } from 'vite-plus/test';
 
 import { SubjectIdentity } from './subject-identity';
 
@@ -53,21 +50,22 @@ function Picker() {
   );
 }
 
-testStable(
+test.stable(
   'uses the same custom/automatic identity in the trigger and searchable keyboard picker',
-  async () => {
-    const user = userEvent.setup();
-
-    render(<Picker />);
-    const trigger = screen.getByRole('combobox', { name: 'Cell Biology' });
+  async ({ react, expect, within }) => {
+    react.render(<Picker />);
+    const trigger = react.screen.getByRole('combobox', { name: 'Cell Biology' });
 
     expect(within(trigger).getByText('BIO')).toBeVisible();
-    await user.click(trigger);
-    await user.type(await screen.findByRole('combobox', { name: 'Find subject' }), 'History');
-    const choice = await screen.findByRole('option', { name: 'History of Art' });
+    await react.user.click(trigger);
+    await react.user.type(
+      await react.screen.findByRole('combobox', { name: 'Find subject' }),
+      'History'
+    );
+    const choice = await react.screen.findByRole('option', { name: 'History of Art' });
 
     expect(within(choice).getByText('HA')).toBeVisible();
-    await user.keyboard('{ArrowDown}{Enter}');
-    expect(await screen.findByRole('combobox', { name: 'History of Art' })).toBeVisible();
+    await react.user.keyboard('{ArrowDown}{Enter}');
+    expect(await react.screen.findByRole('combobox', { name: 'History of Art' })).toBeVisible();
   }
 );

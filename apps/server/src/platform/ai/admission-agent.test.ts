@@ -1,3 +1,4 @@
+import { StudyError } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises AI admission at the agent boundary with a local Responses API peer. It   │
@@ -14,22 +15,21 @@
  * │ and closes that peer.                                                                    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyError } from '@study/contracts';
 import { AgentRule } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Deferred, Effect, Fiber, Schema } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { generateAgent, layer } from '#server/platform/ai/agents';
 import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 import { defineAgent } from '#server/platform/definitions/define-agent';
 
-testStable(
+test.stable(
   'queued agents cannot preflight or dispatch until admitted and cancelled waiters never dispatch',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const entered = Effect.runSync(Deferred.make<void>());
     const responses: ((response: Response) => void)[] = [];
     const server = Bun.serve({
