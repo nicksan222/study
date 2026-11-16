@@ -2542,10 +2542,16 @@ testE2e(
     await name.fill('S'.repeat(100));
     await expect(save).toBeEnabled();
     await name.press('Enter');
+    await expect(dialog.getByRole('heading', { name: 'S'.repeat(100), exact: true })).toBeVisible();
     await expect(save).toBeDisabled();
+    await name.press('Home');
+    await expect(name).toHaveJSProperty('selectionStart', 0);
     await expectScreenshot('project-name-maximum-saved', {
       target: dialog,
-      ready: () => expect(name).toHaveValue('S'.repeat(100))
+      ready: async () => {
+        await expect(name).toHaveValue('S'.repeat(100));
+        await expect(name).toHaveJSProperty('scrollLeft', 0);
+      }
     });
     await name.fill('Renamed settings subject');
     await name.press('Enter');

@@ -115,19 +115,34 @@ export function screenshotAssertions(
 
           if (scrollToEnd) {
             fence();
-            // Root zoom can publish before its scroll geometry reaches the rendered frame.
-            await page.evaluate(async () => {
-              await new Promise<number>(requestAnimationFrame);
-              await new Promise<number>(requestAnimationFrame);
+            // Screenshot preparation can finish zoom layout before camera positioning.
+            await page.screenshot({
+              animations: 'disabled',
+              caret: 'hide',
+              scale: 'css',
+              timeout: remaining()
             });
             fence();
-            await scrollToEnd.evaluate(
+            const layout = await scrollToEnd.evaluate(
               (element) => {
                 element.scrollTop = element.scrollHeight;
+
+                return {
+                  scrollTop: element.scrollTop,
+                  scrollHeight: element.scrollHeight,
+                  clientHeight: element.clientHeight,
+                  bounds: element.getBoundingClientRect().toJSON(),
+                  contentBounds: element.firstElementChild?.getBoundingClientRect().toJSON(),
+                  zoom: getComputedStyle(document.documentElement).zoom,
+                  viewport: { width: innerWidth, height: innerHeight }
+                };
               },
               undefined,
               { timeout: remaining() }
             );
+
+            fence();
+            await Bun.write(`${directory}/${name}-layout.json`, JSON.stringify(layout, null, 2));
           }
 
           fence();
