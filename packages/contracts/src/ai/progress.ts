@@ -9,9 +9,47 @@ export const agentRunIdSchema = Schema.String.check(Schema.isBetweenLength(1, 25
 
 export const agentPhaseSchema = Schema.Literals(['generating', 'preparing', 'compacting']);
 
-const agentToolDetailSchema = Schema.Struct({
+export const agentToolDetailSchema = Schema.Struct({
   text: Schema.String.check(Schema.isMaxLength(12000)),
   truncated: Schema.Boolean
+});
+
+/** Semantic presentation belongs to the declared work, independently of internal identifiers. */
+export const procedurePurposeSchema = Schema.Literals([
+  'procedure',
+  'material',
+  'draft',
+  'agent',
+  'operation',
+  'history',
+  'plan',
+  'quiz',
+  'flashcards',
+  'novelty',
+  'repair',
+  'publish',
+  'prepare',
+  'response',
+  'title',
+  'grade'
+]);
+
+export const procedureTraceSchema = Schema.Struct({
+  kind: Schema.Literals(['procedure', 'agent', 'operation']),
+  parentRunId: Schema.NullOr(agentRunIdSchema),
+  parentToolCallId: Schema.optional(Schema.String),
+  purpose: procedurePurposeSchema,
+  attempt: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
+  startedAtMs: Schema.BigInt,
+  finishedAtMs: Schema.optional(Schema.BigInt),
+  input: Schema.optional(agentToolDetailSchema),
+  output: Schema.optional(agentToolDetailSchema)
+});
+
+export const procedureUsageSchema = Schema.Struct({
+  input: Schema.Number,
+  output: Schema.Number,
+  requests: Schema.Number
 });
 
 const toolIdentity = { toolCallId: Schema.String, toolName: Schema.String };
@@ -37,10 +75,14 @@ export const agentObservationSchema = Schema.Struct({
   agentId: Schema.String,
   phase: Schema.optional(agentPhaseSchema),
   mode: Schema.Literals(['text', 'object']),
+  trace: Schema.optional(procedureTraceSchema),
   event: Schema.Union([
     agentUpdateSchema,
     Schema.Struct({ type: Schema.Literal('start') }),
-    Schema.Struct({ type: Schema.Literal('complete') }),
+    Schema.Struct({
+      type: Schema.Literal('complete'),
+      output: Schema.optional(agentToolDetailSchema)
+    }),
     Schema.Struct({ type: Schema.Literal('failed'), kind: errorKindSchema })
   ])
 });
@@ -60,6 +102,8 @@ export const agentProgressSchema = Schema.Struct({
   executionId: executionIdSchema,
   executionStatus: executionSchema.fields.status,
   agentId: Schema.String,
+  trace: Schema.optional(procedureTraceSchema),
+  usage: Schema.optional(procedureUsageSchema),
   phase: Schema.optional(agentPhaseSchema),
   mode: Schema.Literals(['text', 'object']),
   status: Schema.Literals(['running', 'completed', 'failed', 'cancelled']),

@@ -1,48 +1,14 @@
-/**
- * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Constructs shared AI SDK adapters for providers implementing the Chat Completions  │
- * │ protocol.                                                                                │
- * │                                                                                          │
- * │ Responsibilities:                                                                        │
- * │ - Applies provider endpoints, explicit credentials and structured output support.        │
- * │                                                                                          │
- * │ Boundaries:                                                                              │
- * │ Individual provider modules own defaults; this transport shares no feature behavior.     │
- * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
- */
+/** @file Constructs native Effect adapters for Chat Completions providers. */
+import { OpenAiClient, OpenAiLanguageModel } from '@effect/ai-openai-compat';
+import { Effect, Layer } from 'effect';
+import type { Schema } from 'effect';
+import { Model, OpenAiStructuredOutput } from 'effect/ai';
 
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import type { LanguageModelV3, LanguageModelV3CallOptions } from '@ai-sdk/provider';
+import type { AiModel } from '#server/platform/ai/model';
 
-import { defineApiKeyProvider, sdkFetch } from './definition.ts';
+import { defineApiKeyProvider } from './definition.ts';
 import type { ProviderDefinition } from './definition.ts';
-
-/** JSON-object mode also works for providers that cannot stream strict JSON Schema. */
-function jsonMode(options: LanguageModelV3CallOptions): LanguageModelV3CallOptions {
-  if (options.responseFormat?.type !== 'json' || !options.responseFormat.schema) return options;
-
-  return {
-    ...options,
-    responseFormat: { type: 'json' },
-    prompt: [
-      {
-        role: 'system',
-        content: `Respond with a JSON object matching this JSON Schema. Do not wrap it in Markdown.\n${JSON.stringify(options.responseFormat.schema)}`
-      },
-      ...options.prompt
-    ]
-  };
-}
-
-function withJsonMode(model: LanguageModelV3): LanguageModelV3 {
-  const generate = model.doGenerate.bind(model);
-  const stream = model.doStream.bind(model);
-
-  return Object.assign(model, {
-    doGenerate: (options: LanguageModelV3CallOptions) => generate(jsonMode(options)),
-    doStream: (options: LanguageModelV3CallOptions) => stream(jsonMode(options))
-  });
-}
+import { providerHttpLayer } from './transport.ts';
 
 export function compatibleProvider<
   const Id extends string,
@@ -52,14 +18,75 @@ export function compatibleProvider<
 
   return defineApiKeyProvider({
     ...metadata,
-    createModel: ({ apiKey, modelId, fetch }) =>
-      withJsonMode(
-        createOpenAICompatible({
-          name: metadata.id,
-          baseURL,
-          apiKey,
-          fetch: fetch ? sdkFetch(fetch) : undefined
-        }).chatModel(modelId)
-      )
+    createModel: (options): AiModel => {
+      const clientLayer = Layer.effect(
+        OpenAiClient.OpenAiClient,
+        Effect.gen(function* () {
+          const client = yield* OpenAiClient.make({ apiUrl: baseURL });
+          const prepare = <
+            T extends { readonly response_format?: unknown; readonly messages?: unknown }
+          >(
+            input: T
+          ): T => {
+            const format = options.outputSchema
+              ? {
+                  type: 'json_schema',
+                  json_schema: {
+                    schema: OpenAiStructuredOutput.toCodecOpenAI(options.outputSchema).jsonSchema
+                  }
+                }
+              : input.response_format;
+
+            if (
+              !format ||
+              typeof format !== 'object' ||
+              !('type' in format) ||
+              format.type !== 'json_schema' ||
+              !('json_schema' in format)
+            )
+              return input;
+
+            const envelope = format.json_schema;
+
+            if (!isJsonSchemaEnvelope(envelope)) return input;
+
+            return Object.assign({}, input, {
+              response_format: { type: 'json_object' },
+              messages: [
+                {
+                  role: 'system',
+                  content: `Respond with a JSON object matching this JSON Schema. Do not wrap it in Markdown.\n${JSON.stringify(envelope.schema)}`
+                },
+                ...(Array.isArray(input.messages) ? input.messages : [])
+              ]
+            });
+          };
+
+          return {
+            ...client,
+            createResponse: (input) => client.createResponse(prepare(input)),
+            createResponseStream: (input) => client.createResponseStream(prepare(input))
+          } satisfies typeof client;
+        })
+      ).pipe(Layer.provide(providerHttpLayer(options)));
+
+      return Object.assign(
+        Model.make(
+          metadata.id as string,
+          options.modelId,
+          OpenAiLanguageModel.layer({ model: options.modelId }).pipe(Layer.provide(clientLayer))
+        ),
+        {
+          withOutputSchema: (schema: Schema.Top & Schema.ConstraintDecoder<unknown>) => ({
+            model: compatibleProvider(definition).createModel({ ...options, outputSchema: schema }),
+            codec: OpenAiStructuredOutput.toCodecOpenAI(schema).codec
+          })
+        }
+      );
+    }
   });
+}
+
+function isJsonSchemaEnvelope(value: unknown): value is { readonly schema: unknown } {
+  return value !== null && typeof value === 'object' && 'schema' in value;
 }

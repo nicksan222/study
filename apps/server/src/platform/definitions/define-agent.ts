@@ -15,12 +15,18 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { LanguageModelV3 } from '@ai-sdk/provider';
-import type { AgentRule, ModelTier, StudyError, sourceEvidenceSchema } from '@study/contracts';
-import type { ModelMessage } from 'ai';
+import type {
+  AgentRule,
+  ModelTier,
+  StudyError,
+  sourceEvidenceSchema,
+  procedurePurposeSchema
+} from '@study/contracts';
 import type { Effect, Schema } from 'effect';
+import type { Prompt } from 'effect/ai';
 
 import type { ContextPreparation } from '#server/platform/ai/context-preparation/agent';
+import type { AiModel } from '#server/platform/ai/model';
 
 export type CitationEvidence = typeof sourceEvidenceSchema.Type;
 
@@ -37,7 +43,7 @@ export interface AiInvocation {
 
 /** Optional external execution dependencies; application behavior stays in feature services. */
 export interface AiRuntimeAdapters {
-  readonly model?: (tier: ModelTier, call: AiInvocation) => Effect.Effect<LanguageModelV3, unknown>;
+  readonly model?: (tier: ModelTier, call: AiInvocation) => Effect.Effect<AiModel, unknown>;
   readonly executeTool?: (
     call: AiInvocation,
     execute: () => Effect.Effect<unknown, StudyError>
@@ -99,13 +105,16 @@ export interface AgentDefinition<
   /** Source-consuming agents declare preparation once; the common runner requires captured inputs. */
   context?: ContextPreparation<Requirements>;
   id: string;
+  purpose?: typeof procedurePurposeSchema.Type;
+  /** Omit copied source or history payloads from durable presentation traces. */
+  recordInput?: boolean;
   input: Input;
   output: Output;
   model: ModelTier;
   /** Every agent explicitly selects at least one user preference category. */
   customRules: readonly [AgentRule, ...AgentRule[]];
   instructions: string | ((language: string) => string);
-  prompt: (input: Input['Type']) => string | ModelMessage[];
+  prompt: (input: Input['Type']) => Prompt.RawInput;
   tools?: Record<
     string,
     AgentTool<Schema.ConstraintDecoder<unknown>, unknown, Requirements> | ProviderTool

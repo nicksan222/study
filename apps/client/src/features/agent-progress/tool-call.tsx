@@ -27,10 +27,12 @@ const states = {
 
 export function AgentToolCall({
   tool,
-  details
+  details,
+  children
 }: {
   tool: typeof agentToolProgressSchema.Type;
   details?: ReactNode;
+  children?: ReactNode;
 }) {
   const { t } = useI18n();
   const key = Schema.is(assistantToolNameSchema)(tool.toolName)
@@ -66,6 +68,7 @@ export function AgentToolCall({
           <CallTiming tool={tool} />
         </ToolActivity.Metadata>
         {details ?? <CallDetails tool={tool} />}
+        {children}
       </TraceCollapsibleContent>
     </TraceCollapsible>
   );

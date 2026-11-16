@@ -1,62 +1,12 @@
 import type { agentUpdateSchema } from '@study/contracts';
-/**
- * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Verifies provider preflight callbacks retain the originating Effect logger and     │
- * │ propagate typed failures. This protects context across the callback bridge into the      │
- * │ model request.                                                                           │
- * │                                                                                          │
- * │ Responsibilities:                                                                        │
- * │ - Asserts: provider preflights inherit the scoped logger and preserve typed failures.    │
- * │                                                                                          │
- * │ Boundaries:                                                                              │
- * │ Invokes ./tool-adapter.ts directly with Vitest   ; no application or database fixture is │
- * │ involved.                                                                                │
- * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
- */
 import { StudyError } from '@study/contracts';
 import { test } from '@study/testing';
-import { Effect, Logger, Schema } from 'effect';
+import { Context, Effect, Fiber, Schema, Stream } from 'effect';
 
 import { defineTool } from '#server/platform/definitions/define-agent';
 
-import { adaptRequestCheck, adaptTool } from './tool-adapter.ts';
-
-test.unit.stable(
-  'provider preflights inherit the scoped logger and preserve typed failures',
-  async ({ assert: assertions, expect }) => {
-    const assert: test.Assert = assertions;
-
-    const messages: unknown[] = [];
-    const logger = Logger.make((entry) => messages.push(entry.message));
-
-    function* verifyScopedPreflights({
-      assert: assertions,
-      expect
-    }: Pick<test.unit.Context, 'assert' | 'expect'>) {
-      const assert: test.Assert = assertions;
-
-      const context = yield* Effect.context<never>();
-      const span = yield* Effect.currentSpan;
-      const callback = adaptRequestCheck(Effect.logInfo('Preflight checked'), span, {}, context);
-
-      yield* Effect.promise(() => callback(undefined));
-      assert.strictEqual(messages.length, 1);
-      const error = new StudyError('invalid_input', 'stale request');
-      const invalid = adaptRequestCheck(Effect.fail(error), span, {}, context);
-
-      yield* Effect.promise(() =>
-        expect(invalid(undefined)).rejects.toSatisfy((actual: unknown) => actual === error)
-      );
-    }
-
-    await Effect.runPromise(
-      Effect.gen(() => verifyScopedPreflights({ assert, expect })).pipe(
-        Effect.withSpan('scoped-preflight'),
-        Effect.provide(Logger.layer([logger]))
-      )
-    );
-  }
-);
+import { makeAgentToolkit } from './tool-adapter.ts';
+import { ProcedureTraceScope } from './trace.ts';
 
 const previewInput = Schema.Struct({ query: Schema.String });
 
@@ -70,45 +20,43 @@ async function executeWithProgress(
   let result: unknown;
   let error: unknown;
 
-  await Effect.runPromise(
-    Effect.gen(function* () {
-      const context = yield* Effect.context<never>();
-      const span = yield* Effect.currentSpan;
-      const tool = adaptTool(
-        defineTool({
-          description: 'Search sources',
-          wiki: { when: 'Search', examples: ['Search sources'], limits: 'None' },
-          input: previewInput,
-          output: Schema.String,
-          mutates: false,
-          execute
-        }),
-        { language: 'en', searchSources: () => Effect.succeed([]) },
-        span,
-        {},
-        context,
-        {
-          name: 'sources',
-          emit: (event) =>
+  try {
+    result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const toolkit = yield* makeAgentToolkit(
+          [
+            [
+              'sources',
+              defineTool({
+                description: 'Search sources',
+                wiki: { when: 'Search', examples: ['Search sources'], limits: 'None' },
+                input: previewInput,
+                output: Schema.String,
+                mutates: false,
+                execute
+              })
+            ]
+          ],
+          { language: 'en', searchSources: () => Effect.succeed([]) },
+          (event) =>
             Effect.sync(() => {
               events.push(event);
             }).pipe(Effect.andThen(observe?.(event) ?? Effect.void))
-        }
-      );
+        );
+        const stream = yield* toolkit.handle('sources', input, 'call');
+        const outputs = yield* Stream.runCollect(stream);
 
-      yield* Effect.promise(async () => {
-        try {
-          result = await tool.execute?.(input, {
-            toolCallId: 'call',
-            messages: [],
-            abortSignal: signal
-          });
-        } catch (cause) {
-          error = cause;
-        }
-      });
-    }).pipe(Effect.withSpan('tool-progress'))
-  );
+        return outputs.at(-1)?.result;
+      }).pipe(
+        Effect.scoped,
+        Effect.withSpan('tool-progress'),
+        Effect.provideContext(Context.makeUnsafe<unknown>(new Map()))
+      ),
+      { signal }
+    );
+  } catch (cause) {
+    error = cause;
+  }
 
   return { events, result, error };
 }
@@ -145,7 +93,7 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'invalid inputs finish the visible tool with a typed failure',
+  'native toolkit rejects invalid inputs before starting execution',
   async ({ expect }) => {
     let executed = false;
     const run = await executeWithProgress({ query: 42 }, () => {
@@ -155,22 +103,8 @@ test.unit.stable(
     });
 
     expect(executed).toBe(false);
-    expect(run.error).toMatchObject({ kind: 'invalid_input' });
-    expect(run.events).toEqual([
-      {
-        type: 'tool-start',
-        toolCallId: 'call',
-        toolName: 'sources',
-        input: { text: '{\n  "query": 42\n}', truncated: false }
-      },
-      {
-        type: 'tool-finish',
-        toolCallId: 'call',
-        toolName: 'sources',
-        outcome: 'failure',
-        errorKind: 'invalid_input'
-      }
-    ]);
+    expect(run.error).toMatchObject({ reason: { _tag: 'ToolParameterValidationError' } });
+    expect(run.events).toEqual([]);
   }
 );
 
@@ -264,5 +198,188 @@ test.unit.stable(
     expect(run.error).toBeDefined();
     expect(run.events).toHaveLength(2);
     expect(run.events.at(-1)).toMatchObject({ type: 'tool-finish', outcome: 'success' });
+  }
+);
+
+test.unit.stable(
+  'native tool handlers retain ancestry and add their tool call identity',
+  async ({ expect }) => {
+    const run = await executeWithProgress({ query: 'cells' }, () =>
+      Effect.gen(function* () {
+        expect(yield* ProcedureTraceScope).toMatchObject({
+          parentRunId: null,
+          parentToolCallId: 'call',
+          toolKey: 'sources:1'
+        });
+
+        return 'ok';
+      })
+    );
+
+    expect(run.error).toBeUndefined();
+    expect(run.result).toBe('ok');
+  }
+);
+
+test.unit.stable(
+  'native tools preserve decoded mock inputs and durable JSON receipts',
+  async ({ createAiMock, expect }) => {
+    using mock = createAiMock();
+    const receipts: { name: string; ordinal: number; input: Schema.Json; mutates: boolean }[] = [];
+    let actualCalls = 0;
+    const definition = defineTool({
+      description: 'Resolve identifiers',
+      wiki: { when: 'Lookup', examples: ['Resolve an identifier'], limits: 'None' },
+      input: Schema.Struct({ id: Schema.BigIntFromString }),
+      output: Schema.Struct({ id: Schema.BigIntFromString }),
+      mutates: true,
+      execute: () =>
+        Effect.sync(() => {
+          actualCalls++;
+
+          return { id: 99n };
+        })
+    });
+
+    mock.next(definition, { input: { id: 1n }, output: { id: 2n } });
+    mock.next(definition, { input: { id: 3n }, output: { id: 4n } });
+    const results = await Effect.runPromise(
+      Effect.gen(function* () {
+        const toolkit = yield* makeAgentToolkit(
+          [['lookup', definition]],
+          {
+            language: 'en',
+            searchSources: () => Effect.succeed([]),
+            executeTool: mock.runtime.executeTool,
+            runTool: (call, execute) => {
+              receipts.push(call);
+
+              return execute;
+            }
+          },
+          () => Effect.void
+        );
+        const first = yield* toolkit
+          .handle('lookup', { id: '1' }, 'first')
+          .pipe(Effect.flatMap(Stream.runCollect));
+        const second = yield* toolkit
+          .handle('lookup', { id: '3' }, 'second')
+          .pipe(Effect.flatMap(Stream.runCollect));
+
+        return [first.at(-1), second.at(-1)];
+      }).pipe(Effect.scoped, Effect.provideContext(Context.makeUnsafe<unknown>(new Map())))
+    );
+
+    expect(actualCalls).toBe(0);
+    expect(receipts).toEqual([
+      { name: 'lookup', ordinal: 1, input: { id: '1' }, mutates: true },
+      { name: 'lookup', ordinal: 2, input: { id: '3' }, mutates: true }
+    ]);
+    expect(results).toMatchObject([
+      { result: { id: 2n }, encodedResult: { id: '2' } },
+      { result: { id: 4n }, encodedResult: { id: '4' } }
+    ]);
+  }
+);
+
+test.unit.stable(
+  'durable tool receipts replay without executing feature code',
+  async ({ expect }) => {
+    let actualCalls = 0;
+    const definition = defineTool({
+      description: 'Resolve identifiers',
+      wiki: { when: 'Lookup', examples: ['Resolve an identifier'], limits: 'None' },
+      input: Schema.Struct({ id: Schema.Int }),
+      output: Schema.Struct({ id: Schema.BigIntFromString }),
+      mutates: true,
+      execute: () =>
+        Effect.sync(() => {
+          actualCalls++;
+
+          return { id: 99n };
+        })
+    });
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const toolkit = yield* makeAgentToolkit(
+          [['lookup', definition]],
+          {
+            language: 'en',
+            searchSources: () => Effect.succeed([]),
+            runTool: () => Effect.succeed({ id: '5' })
+          },
+          () => Effect.void
+        );
+        const values = yield* toolkit
+          .handle('lookup', { id: 1 })
+          .pipe(Effect.flatMap(Stream.runCollect));
+
+        return values.at(-1);
+      }).pipe(Effect.scoped, Effect.provideContext(Context.makeUnsafe<unknown>(new Map())))
+    );
+
+    expect(actualCalls).toBe(0);
+    expect(result).toMatchObject({ result: { id: 5n }, encodedResult: { id: '5' } });
+  }
+);
+
+test.unit.stable(
+  'native tool handlers keep feature services through mock and receipt hooks',
+  async ({ expect }) => {
+    class Feature extends Context.Service<Feature, { value: string }>()('ToolAdapterFeature') {}
+
+    const definition = defineTool({
+      description: 'Read feature value',
+      wiki: { when: 'Read', examples: ['Read feature state'], limits: 'None' },
+      input: Schema.Struct({}),
+      output: Schema.String,
+      mutates: false,
+      execute: () => Effect.map(Feature, (feature) => feature.value)
+    });
+    const toolkit = await Effect.runPromise(
+      makeAgentToolkit(
+        [['feature', definition]],
+        {
+          language: 'en',
+          searchSources: () => Effect.succeed([]),
+          executeTool: (_call, execute) => execute(),
+          runTool: (_call, execute) => execute
+        },
+        () => Effect.void
+      ).pipe(Effect.provideService(Feature, { value: 'feature state' }))
+    );
+    const result = await Effect.runPromise(
+      toolkit
+        .handle('feature', {}, 'feature-call')
+        .pipe(
+          Effect.flatMap(Stream.runCollect),
+          Effect.scoped,
+          Effect.provideContext(Context.makeUnsafe<unknown>(new Map()))
+        )
+    );
+
+    expect(result.at(-1)?.result).toBe('feature state');
+  }
+);
+
+test.unit.stable(
+  'native workflow self-interruption closes the toolkit result stream',
+  async ({ expect }) => {
+    const run = await executeWithProgress({ query: 'topic' }, () =>
+      Effect.interruptible(
+        Effect.callback<never>(() => {
+          const fiber = Fiber.getCurrent()!;
+
+          fiber.interruptUnsafe(fiber.id);
+        })
+      )
+    );
+
+    expect(run.error).toBeDefined();
+    expect(run.events.at(-1)).toMatchObject({
+      type: 'tool-finish',
+      outcome: 'cancelled',
+      errorKind: 'cancelled'
+    });
   }
 );

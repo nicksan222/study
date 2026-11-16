@@ -29,6 +29,7 @@ const roles = new Set([
   'service',
   'rpc',
   'workflows',
+  'procedures',
   'agents',
   'tools',
   'decoders',

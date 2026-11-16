@@ -1,23 +1,21 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Centralizes model execution and checkpoints feature generation inside workflow     │
- * │ activities.                                                                              │
+ * │ @file Centralizes native model execution and checkpointed feature generation.            │
  * │                                                                                          │
  * │ Prevents:                                                                                │
- * │ Production server modules outside platform/ai importing AI SDKs (except definition-only  │
- * │ SDK types), agents/tools importing stores or database access, and non-runtime AI modules │
- * │ executing SDK generation. Feature generateAgent/streamAgent calls belong in workflow     │
- * │ activity execute bodies with non-null preflight and maxRetries: 0; activities own        │
- * │ retries.                                                                                 │
+ * │ Retired ai and @ai-sdk imports, provider packages outside the server, native model       │
+ * │ generation outside shared runtime/providers, and feature model work without Activity     │
+ * │ ownership, preflight checks and activity-owned retries. Agents cannot import stores.     │
  * │                                                                                          │
  * │ Allowed:                                                                                 │
  * │   // apps/server/src/platform/ai/agents.ts                                               │
- * │   import { generateText } from 'ai';                                                     │
- * │   generateText(options);                                                                 │
+ * │   import { LanguageModel } from 'effect/ai';                                             │
+ * │   LanguageModel.streamText(options);                                                     │
  * │                                                                                          │
  * │ Rejected:                                                                                │
  * │   // apps/server/src/features/sources/service.ts                                         │
- * │   import { generateText } from 'ai';                                                     │
+ * │   import { LanguageModel } from 'effect/ai';                                             │
+ * │   LanguageModel.generateText(options);                                                   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -44,14 +42,16 @@ export default defineRule({
   create(context) {
     const current = serverPath(context.filename);
 
-    if (!current || !serverProduction(context.filename)) return {};
-
-    const inAi = current.startsWith('platform/ai/');
+    const production = serverProduction(context.filename);
+    const server = Boolean(current);
     const generationOwner = current === 'platform/ai/agents.ts';
+    const nativeOwner = generationOwner || current?.startsWith('platform/ai/providers/');
+
+    const inAi = current?.startsWith('platform/ai/') ?? false;
     // This adapter delegates piece checkpoints to the runner; callers checkpoint final output.
     const contextOwner = current === 'platform/ai/context-preparation/agent.ts';
     const effects = effectBindings(context);
-    const edges = moduleEdges(context, (node, source, typeOnly) => {
+    const edges = moduleEdges(context, (node, source) => {
       if (!source) {
         if (inAi) context.report({ node, message: 'AI modules require literal module paths.' });
 
@@ -59,47 +59,39 @@ export default defineRule({
       }
 
       const target = targetPath(context.filename, source);
-      const sdk = sdkModule(source);
-      const db = /^@study\/db(?:\/|$)|^drizzle-orm(?:\/|$)/.test(source);
-      const definitionType = current === 'platform/definitions/define-agent.ts' && typeOnly;
-      let forbidden = sdk && !inAi && !definitionType;
-
-      if (['agent', 'tool'].includes(featureRole(current) ?? ''))
-        forbidden ||= storeImport(db, target);
+      const forbidden =
+        forbiddenModelImport(source, server) ||
+        featureStoreImport(current, production, source, target);
 
       if (forbidden) context.report({ node, message: 'Import crosses the AI ownership boundary.' });
     });
 
-    function sdkBinding(node: any, seen = new Set<any>()): boolean {
-      if (!enterNode(node, seen)) return false;
-
-      if (node.type === 'MemberExpression') return sdkBinding(node.object, seen);
-
-      if (node.type !== 'Identifier') return false;
+    function nativeGeneration(node: any): boolean {
+      const resolved = effects.resolve(node)?.replaceAll('/', '.');
 
       return (
-        binding(context, node)?.defs.some((def: any) => {
-          const declaration = def.node;
-
-          if (
-            declaration.parent?.type === 'ImportDeclaration' &&
-            declaration.parent.source.value === 'ai'
-          ) {
-            return (
-              declaration.type === 'ImportNamespaceSpecifier' ||
-              /^(?:ToolLoopAgent|generateText|generateObject|streamText|streamObject)$/.test(
-                declaration.imported?.name ?? ''
-              )
-            );
-          }
-
-          return (
-            declaration.type === 'VariableDeclarator' &&
-            declaration.parent?.kind === 'const' &&
-            sdkBinding(declaration.init, seen)
-          );
-        }) ?? false
+        /^ai\.LanguageModel\.(?:generateText|generateObject|streamText)$/.test(resolved ?? '') ||
+        (node?.type === 'MemberExpression' &&
+          /^(?:generateText|generateObject|streamText)$/.test(property(node) ?? '') &&
+          nativeInstance(node.object))
       );
+    }
+
+    function nativeInstance(node: any, seen = new Set<any>()): boolean {
+      if (!enterNode(node, seen)) return false;
+
+      if (node.type === 'YieldExpression') {
+        const target =
+          node.argument?.type === 'CallExpression' ? node.argument.callee : node.argument;
+
+        return /^ai\.LanguageModel\.(?:LanguageModel|make)$/.test(
+          effects.resolve(target)?.replaceAll('/', '.') ?? ''
+        );
+      }
+
+      const def = binding(context, node)?.defs[0]?.node;
+
+      return constantDeclarator(def) && nativeInstance(def.init, seen);
     }
 
     function agentNamespace(node: any, seen = new Set<any>()): boolean {
@@ -191,7 +183,11 @@ export default defineRule({
     const checkpointed = (node: any): boolean => {
       if (contextOwner) return true;
 
-      if (!current.startsWith('features/') || featureRole(current) !== 'workflow') return false;
+      if (!current?.startsWith('features/')) return false;
+
+      const procedure = /^features\/[^/]+\/procedures\//.test(current);
+
+      if (!procedure && featureRole(current) !== 'workflow') return false;
 
       for (let parent = node.parent; parent; parent = parent.parent) {
         if (activityExecute(parent)) return true;
@@ -218,21 +214,9 @@ export default defineRule({
       return (
         canonicalImport(context, callee, 'define-activity', 'defineActivity') ||
         canonicalImport(context, callee, 'define-activity', 'resumableActivity') ||
+        canonicalImport(context, callee, 'define-procedure', 'defineProcedure') ||
         effects.resolve(callee)?.replace(/^(?:unstable\/)?workflow[./]/, '') === 'Activity.make'
       );
-    }
-
-    function sdkAgentMethod(node: any): boolean {
-      const object =
-        node.callee.type === 'MemberExpression' &&
-        /^(?:generate|stream)$/.test(node.callee.property.name)
-          ? node.callee.object
-          : null;
-      const definition = binding(context, object)?.defs[0]?.node;
-      const init = definition?.init;
-      const agent = init?.type === 'NewExpression' && sdkBinding(init.callee);
-
-      return agent;
     }
 
     function checkGeneration(node: any) {
@@ -258,20 +242,33 @@ export default defineRule({
       CallExpression(node: any) {
         edges.CallExpression(node);
 
-        if (!generationOwner && agentBinding(node.callee)) checkGeneration(node);
+        if (production && !generationOwner && agentBinding(node.callee)) checkGeneration(node);
 
-        const agent = sdkAgentMethod(node);
-
-        if (inAi && !generationOwner && (sdkBinding(node.callee) || agent))
-          context.report({ node, message: 'AI generation belongs in AI runtime.' });
-      },
-      NewExpression(node: any) {
-        if (inAi && !generationOwner && sdkBinding(node.callee))
-          context.report({ node, message: 'AI generation belongs in AI runtime.' });
+        if (production && !nativeOwner && nativeGeneration(node.callee))
+          context.report({
+            node,
+            message: 'Native model generation belongs in the shared AI runtime or providers.'
+          });
       }
     };
   }
 });
+
+function forbiddenModelImport(source: string, server: boolean): boolean {
+  return sdkModule(source) || (source.startsWith('@effect/ai-') && !server);
+}
+
+function featureStoreImport(
+  current: string | null,
+  production: boolean,
+  source: string,
+  target: string | null
+): boolean {
+  if (!production || !current || !['agent', 'tool'].includes(featureRole(current) ?? ''))
+    return false;
+
+  return storeImport(/^@study\/db(?:\/|$)|^drizzle-orm(?:\/|$)/.test(source), target);
+}
 
 function storeImport(db: boolean, target: string | null): boolean {
   return db || (!!target && featureRole(target) === 'store');

@@ -1,6 +1,6 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Defines the shared contract for provider identity, suggested models and SDK model  │
+ * │ @file Defines the shared contract for provider identity, suggested models and Effect model  │
  * │ construction.                                                                            │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
@@ -11,16 +11,17 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { LanguageModelV3 } from '@ai-sdk/provider';
-import type { ModelTier } from '@study/contracts';
+import type { ModelTier, StudyError } from '@study/contracts';
+import type { Effect, Schema } from 'effect';
 
-/** Preserve runtime fetch properties while adapting an injected callable for SDK types. */
-export function sdkFetch(
-  request: (...args: Parameters<typeof globalThis.fetch>) => ReturnType<typeof globalThis.fetch>
-): typeof globalThis.fetch {
-  return new Proxy(globalThis.fetch, {
-    apply: (_target, _receiver, args) => request(...(args as Parameters<typeof globalThis.fetch>))
-  });
+import type { AiModel } from '#server/platform/ai/model';
+
+export interface ApiKeyModelOptions {
+  apiKey: string;
+  resolveApiKey?: Effect.Effect<string, StudyError>;
+  modelId: string;
+  outputSchema?: Schema.Top & Schema.ConstraintDecoder<unknown>;
+  fetch?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
 }
 
 export interface ApiKeyProvider {
@@ -28,11 +29,7 @@ export interface ApiKeyProvider {
   readonly name: string;
   readonly models: readonly string[];
   readonly defaults: Readonly<Record<ModelTier, string>>;
-  readonly createModel: (options: {
-    apiKey: string;
-    modelId: string;
-    fetch?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
-  }) => LanguageModelV3;
+  readonly createModel: (options: ApiKeyModelOptions) => AiModel;
 }
 
 /** Model tuples infer the permitted IDs; defaults cannot introduce undeclared models. */

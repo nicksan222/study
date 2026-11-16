@@ -3,11 +3,11 @@ import { rpc } from '@study/contracts/react';
 import { ThinkingIcon, CompletedIcon, ErrorIcon, CancelledIcon, QueuedIcon } from '@study/icons';
 import { RetryButton, ErrorState, ExecutionLog } from '@study/ui';
 
+import { workflowLabel } from '#client/features/agent-progress/index.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
 import { toStudyError } from '#client/lib/study-client/errors.ts';
 
 import { ConfigurationWait } from './configuration-wait';
-import { workflowLabel } from './workflow-label';
 
 export function NoteError({ error, retry }: { error: unknown; retry?: () => void }) {
   const { t } = useI18n();

@@ -2,7 +2,7 @@ import { sourcesOutputSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks native Effect structured generation with a grounded source tool against a   │
- * │ local Responses API peer. The test bridge covers the initial tool-call exchange without  │
+ * │ local Responses API peer. The native model covers the initial tool-call exchange without  │
  * │ representing production traffic.                                                         │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
@@ -15,17 +15,14 @@ import { sourcesOutputSchema } from '@study/contracts';
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import { test } from '@study/testing';
-import { Effect, Schema, Stream } from 'effect';
-import type { Response } from 'effect/ai';
-import { AiError, LanguageModel, Tool, Toolkit } from 'effect/ai';
+import { Effect, Schema } from 'effect';
+import { LanguageModel, Tool, Toolkit } from 'effect/ai';
 
 import { flashcardsAgent } from '#server/features/materials/agents/flashcards';
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
 import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 
-// This deliberately narrow, test-only bridge handles the single initial prompt
-// needed to measure Effect's object-with-tools behavior, not production traffic.
 test.unit.stable(
   'native structured generation stops after a grounded tool call',
   async ({ assert: assertions, expect }) => {
@@ -49,10 +46,39 @@ test.unit.stable(
             {
               type: 'response.output_item.added',
               output_index: 0,
-              item: { type: 'message', id: 'm' }
+              item: {
+                type: 'message',
+                id: 'm',
+                role: 'assistant',
+                status: 'in_progress',
+                content: []
+              }
             },
-            { type: 'response.output_text.delta', item_id: 'm', delta: output },
-            { type: 'response.completed', response: {} }
+            {
+              type: 'response.output_text.delta',
+              item_id: 'm',
+              output_index: 0,
+              content_index: 0,
+              delta: output
+            },
+            {
+              type: 'response.completed',
+              response: {
+                id: 'resp',
+                created_at: 1,
+                model: 'test',
+                output: [
+                  {
+                    type: 'message',
+                    id: 'm',
+                    role: 'assistant',
+                    status: 'completed',
+                    content: [{ type: 'output_text', text: output, annotations: [] }]
+                  }
+                ],
+                usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 }
+              }
+            }
           ])
             events += `data: ${JSON.stringify(event)}\n\n`;
 
@@ -76,7 +102,16 @@ test.unit.stable(
             output_index: 0,
             item: { ...call, status: 'completed' }
           },
-          { type: 'response.completed', response: {} }
+          {
+            type: 'response.completed',
+            response: {
+              id: 'resp',
+              created_at: 1,
+              model: 'test',
+              output: [{ ...call, status: 'completed' }],
+              usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 }
+            }
+          }
         ])
           events += `data: ${JSON.stringify(event)}\n\n`;
 
@@ -107,63 +142,14 @@ test.unit.stable(
         success: sourcesOutputSchema
       });
       const toolkit = Toolkit.make(source);
-      const native = await Effect.runPromise(
-        LanguageModel.make({
-          generateText: (options) =>
-            Effect.tryPromise({
-              try: async (signal) => {
-                const result = await provider.doGenerate({
-                  abortSignal: signal,
-                  prompt: [
-                    { role: 'system', content: flashcardsAgent.instructions('en') },
-                    { role: 'user', content: [{ type: 'text', text: 'Make a card about cells' }] }
-                  ],
-                  tools: options.tools.map((tool) => ({
-                    type: 'function' as const,
-                    name: tool.name,
-                    description: tool.description,
-                    inputSchema: Tool.getJsonSchema(tool)
-                  })),
-                  responseFormat: {
-                    type: 'json',
-                    schema: Tool.getJsonSchemaFromSchema(flashcardsAgent.output),
-                    name: 'flashcards'
-                  }
-                });
-
-                return result.content.flatMap((part): Response.PartEncoded[] => {
-                  if (part.type === 'text') return [{ type: 'text' as const, text: part.text }];
-
-                  if (part.type === 'tool-call')
-                    return [
-                      {
-                        type: 'tool-call' as const,
-                        id: part.toolCallId,
-                        name: part.toolName,
-                        params: JSON.parse(part.input)
-                      }
-                    ];
-
-                  return [];
-                });
-              },
-              catch: () =>
-                AiError.make({
-                  module: 'evaluation',
-                  method: 'generateText',
-                  reason: new AiError.UnknownError({ description: 'provider failed' })
-                })
-            }),
-          streamText: () => Stream.empty
-        })
-      );
-      const program = native.generateObject({
+      const program = LanguageModel.generateObject({
         prompt: flashcardsAgent.prompt({ prompt: 'Make a card about cells' }),
         schema: flashcardsAgent.output,
         toolkit
       });
       const result = await Effect.runPromise(
         Effect.flip(program).pipe(
+          Effect.provide(provider),
           Effect.provide(
             toolkit.toLayer({
               sources: (input) =>
@@ -188,7 +174,10 @@ test.unit.stable(
         cards: [{ front: 'What uses energy?', back: 'A cell [1]' }]
       });
       const decoded = await Effect.runPromise(
-        native.generateObject({ prompt: 'Make a card', schema: flashcardsAgent.output })
+        LanguageModel.generateObject({
+          prompt: 'Make a card',
+          schema: flashcardsAgent.output
+        }).pipe(Effect.provide(provider))
       );
 
       assert.ok(decoded.value.cards[0]?.back === 'A cell [1]');
@@ -196,7 +185,10 @@ test.unit.stable(
       output = JSON.stringify({ kind: 'flashcards', cards: [] });
       const invalid = await Effect.runPromise(
         Effect.flip(
-          native.generateObject({ prompt: 'Make a card', schema: flashcardsAgent.output })
+          LanguageModel.generateObject({
+            prompt: 'Make a card',
+            schema: flashcardsAgent.output
+          }).pipe(Effect.provide(provider))
         )
       );
 

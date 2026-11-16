@@ -23,6 +23,8 @@ import { materialStudyContext } from './study-context.ts';
 export const flashcardsTitledAgent = defineAgent({
   context: materialStudyContext,
   id: 'flashcards-titled',
+  purpose: 'flashcards',
+  recordInput: false,
   customRules: [AgentRule.Flashcards, AgentRule.Titles],
   input: promptInputSchema,
   output: titledFlashcardsGenerationOutputSchema,

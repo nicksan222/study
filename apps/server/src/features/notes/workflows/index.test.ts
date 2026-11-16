@@ -1,18 +1,4 @@
 import type { messageVersionSchema } from '@study/contracts';
-/**
- * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Checks reply workflow checkpointing and rejects stale note context or              │
- * │ citations that were not present in captured evidence.                                    │
- * │                                                                                          │
- * │ Responsibilities:                                                                        │
- * │ - Provides controlled agent and database layers to test checkpoint and citation fences.  │
- * │ - Asserts durable effects against persisted state and replay behavior.                   │
- * │                                                                                          │
- * │ Boundaries:                                                                              │
- * │ The suite drives the native workflow engine with persisted test state; it does not       │
- * │ replace production activities.                                                           │
- * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
- */
 import { defaultAgentRules } from '@study/contracts';
 import { defaultWorkspacePreferences } from '@study/contracts';
 import { createBlock } from '@study/contracts';
@@ -39,6 +25,21 @@ import { Notes } from '#server/features/notes/service/index';
 import { Pages } from '#server/features/pages/index';
 import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Checks reply workflow checkpointing and rejects stale note context or              │
+ * │ citations that were not present in captured evidence.                                    │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Provides controlled agent and database layers to test checkpoint and citation fences.  │
+ * │ - Asserts durable effects against persisted state and replay behavior.                   │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The suite drives the native workflow engine with persisted test state; it does not       │
+ * │ replace production activities.                                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+import { textResponseEvents, toolResponseEvents } from '#testing/responses';
 import { withTestAdmission } from '#testing/workflow-admission';
 
 import { noteReplyHandler, noteReplyWorkflow } from './index.ts';
@@ -83,15 +84,7 @@ test.server.stable(
             arguments: '{"query":"alpha"}'
           };
 
-          for (const event of [
-            { type: 'response.output_item.added', output_index: 0, item: call },
-            {
-              type: 'response.output_item.done',
-              output_index: 0,
-              item: { ...call, status: 'completed' }
-            },
-            { type: 'response.completed', response: {} }
-          ])
+          for (const event of toolResponseEvents(call))
             events += `data: ${JSON.stringify(event)}\n\n`;
 
           return new Response(events, { headers: { 'content-type': 'text/event-stream' } });
@@ -104,16 +97,7 @@ test.server.stable(
           await action();
         }
 
-        for (const event of [
-          { type: 'response.created', response: { id: 'resp', created_at: 1, model: 'test' } },
-          {
-            type: 'response.output_item.added',
-            output_index: 0,
-            item: { type: 'message', id: 'item' }
-          },
-          { type: 'response.output_text.delta', item_id: 'item', delta: output },
-          { type: 'response.completed', response: {} }
-        ])
+        for (const event of textResponseEvents(output))
           events += `data: ${JSON.stringify(event)}\n\n`;
 
         return new Response(events + 'data: [DONE]\n\n', {

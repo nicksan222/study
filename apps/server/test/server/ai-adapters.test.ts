@@ -1,21 +1,20 @@
 import { AgentRule } from '@study/contracts';
 import { Agents, generateAgent } from '@study/server';
 import { defineAgent, defineTool } from '@study/server';
+import { makeAgentToolkit } from '@study/server';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises shared typed mocks through the real application's AI dependencies.       │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Keeps schema decoding, SDK streaming and tool validation active around mocked results. │
+ * │ - Keeps schema decoding, native streaming and tool validation active around mocked results. │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
  * │ Test fixtures own mock expectations; production services own runtime and SQLite state.   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import { test } from '@study/testing';
-import { Effect, Schema } from 'effect';
-
-import { adaptTool } from '#server/platform/ai/tool-adapter';
+import { Effect, Schema, Stream } from 'effect';
 
 const agent = defineAgent({
   id: 'testing-summary',
@@ -70,20 +69,18 @@ test.server.stable(
     const toolOutput = await app.nativeRuntime.runPromise(
       Effect.gen(function* () {
         const environment = yield* Agents;
-        const span = yield* Effect.currentSpan;
-        const context = yield* Effect.context<never>();
-        const adapter = adaptTool(tool, environment, span, {}, context);
-
-        return yield* Effect.promise(async () =>
-          adapter.execute!(
-            { id: 'observation-one' },
-            {
-              toolCallId: 'read-observation',
-              messages: [],
-              abortSignal: new AbortController().signal
-            }
-          )
+        const toolkit = yield* makeAgentToolkit(
+          [['observation', tool]],
+          environment,
+          () => Effect.void
         );
+        const results = yield* (yield* toolkit.handle(
+          'observation',
+          { id: 'observation-one' },
+          'read-observation'
+        )).pipe(Stream.runCollect);
+
+        return results.at(-1)?.result;
       }).pipe(Effect.withSpan('testing.mocked-tool'))
     );
 

@@ -12,10 +12,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
-
-import { defineApiKeyProvider, sdkFetch } from './definition.ts';
-import { withProviderTools } from './tools.ts';
+import { defineApiKeyProvider } from './definition.ts';
+import { createGoogleModel } from './google-model.ts';
 
 export const google = defineApiKeyProvider({
   id: 'google',
@@ -26,12 +24,5 @@ export const google = defineApiKeyProvider({
     medium: 'gemini-3.8-flash',
     smart: 'gemini-3.8-flash'
   },
-  createModel: ({ apiKey, modelId, fetch }) =>
-    withProviderTools(
-      createGoogleGenerativeAI({ apiKey, fetch: fetch ? sdkFetch(fetch) : undefined })(modelId),
-      {
-        web_search: createGoogleGenerativeAI().tools.googleSearch({})
-      },
-      modelId.startsWith('gemini-3')
-    )
+  createModel: createGoogleModel
 });

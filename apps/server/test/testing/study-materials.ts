@@ -19,13 +19,16 @@ import type { appSettingsSchema, quizSettingsSchema } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { preferences } from '@study/db';
 import { encodeAccount } from '@study/server';
+import { planSourcePassages } from '@study/server';
 import type { createAiMock } from '@study/testing';
 import { Effect } from 'effect';
 
 import { flashcardsAgent } from '#server/features/materials/agents/flashcards';
+import { generationPlanAgent } from '#server/features/materials/agents/generation-plan';
 import { quizTitledAgent } from '#server/features/materials/agents/quiz-titled';
 import { materialStudyContext } from '#server/features/materials/agents/study-context';
 import { studyNotesAgent } from '#server/features/materials/agents/study-notes';
+import { materialGenerationPrompt } from '#server/features/materials/decoders/generation-novelty';
 import { Materials } from '#server/features/materials/index';
 import { questionAgent } from '#server/features/notes/agents/question';
 import { Notes } from '#server/features/notes/index';
@@ -33,8 +36,15 @@ import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
 import { Settings } from '#server/features/settings/index';
 import { Workflows } from '#server/features/workflows/index';
-import { planSourcePassages } from '#server/platform/ai/context-preparation/index';
 import type { App } from '#server/runtime/index';
+import {
+  emptyGenerationHistory,
+  expectMaterialGeneration,
+  expectNoveltyGeneration,
+  failMaterialGeneration,
+  generationTestPlan,
+  generationTestHistory
+} from '#testing/generation-expectations';
 
 const lecture =
   'Mitosis preserves chromosome number and produces two daughter cells. Chromosomes carry genetic information. DNA is copied before cell division.';
@@ -140,6 +150,22 @@ function publishedMaterial(app: App, requestId: string) {
 export function createStudyMaterials(app: App, ai: ReturnType<typeof createAiMock>) {
   return {
     agents: { flashcards: flashcardsAgent, studyNotes: studyNotesAgent, quiz: quizTitledAgent },
+    generate: <A extends typeof flashcardsAgent | typeof quizTitledAgent>(
+      target: A,
+      options: Parameters<typeof expectMaterialGeneration<A>>[2],
+      history?: Parameters<typeof expectMaterialGeneration<A>>[3]
+    ) => expectMaterialGeneration(ai, target, options, history),
+    failGeneration: (
+      target: typeof flashcardsAgent | typeof quizTitledAgent,
+      options: Parameters<typeof failMaterialGeneration>[2],
+      history?: Parameters<typeof failMaterialGeneration>[3]
+    ) => failMaterialGeneration(ai, target, options, history),
+    history: generationTestHistory,
+    novelty: <A extends typeof flashcardsAgent | typeof quizTitledAgent>(
+      target: A,
+      options: Parameters<typeof expectNoveltyGeneration<A>>[2],
+      history: Parameters<typeof expectNoveltyGeneration<A>>[3]
+    ) => expectNoveltyGeneration(ai, target, options, history),
     active: (projectId: ProjectId) =>
       app.nativeRuntime.runPromise(
         Effect.flatMap(Materials, (materials) => materials.activeMaterialGenerations({ projectId }))
@@ -178,7 +204,8 @@ export function createStudyMaterials(app: App, ai: ReturnType<typeof createAiMoc
 
 async function contextInputs(
   fixture: Awaited<ReturnType<typeof studyMaterialFixture>>,
-  title: string
+  title: string,
+  stage: 'plan' | 'candidate' = 'plan'
 ) {
   if (!fixture.page.version) throw new Error('Fixture page has no saved version');
 
@@ -196,7 +223,11 @@ async function contextInputs(
       ]
     })
   );
-  const task = `Title: ${title}\nStudent instruction (data): `;
+  const request = `Title: ${title}\nStudent instruction (data): `;
+  const task =
+    stage === 'plan'
+      ? generationPlanAgent.prompt({ kind: 'flashcards', request, history: emptyGenerationHistory })
+      : materialGenerationPrompt(request, generationTestPlan, emptyGenerationHistory);
 
   const maps = plan.pieces.map((piece, index) => ({
     input: {

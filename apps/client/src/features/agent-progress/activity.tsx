@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
+import { runPurposeLabels } from './run-labels';
 import { useAgentProgress } from './use-agent-progress';
 
 export type AgentActivityStatus =
@@ -28,12 +29,7 @@ export function AgentActivity({
   const current = live
     ? runs.findLast((run) => run.status === 'running' && run.executionStatus === 'running')
     : undefined;
-  const phaseLabel =
-    current?.phase === 'preparing'
-      ? t('AgentActivityPreparing')
-      : current?.phase === 'compacting'
-        ? t('AgentActivityCompacting')
-        : label;
+  const phaseLabel = activityLabel(current, label, t);
 
   const state = current ? 'running' : activityState(status);
 
@@ -58,4 +54,16 @@ function activityState(status: AgentActivityStatus) {
     default:
       return 'waiting';
   }
+}
+
+function activityLabel(
+  current: typeof agentProgressSchema.Type | undefined,
+  fallback: string,
+  t: ReturnType<typeof useI18n>['t']
+) {
+  if (current?.phase === 'preparing') return t('AgentActivityPreparing');
+
+  if (current?.phase === 'compacting') return t('AgentActivityCompacting');
+
+  return current?.trace ? t(runPurposeLabels[current.trace.purpose]) : fallback;
 }

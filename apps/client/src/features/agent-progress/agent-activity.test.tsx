@@ -1,4 +1,5 @@
 import { agentRunIdSchema, executionIdSchema } from '@study/contracts';
+import type { agentProgressSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 
@@ -6,7 +7,7 @@ import { AgentActivity } from './activity';
 
 const en = catalogs.english;
 
-const run = {
+const run: typeof agentProgressSchema.Type = {
   runId: agentRunIdSchema.make('structured'),
   executionId: executionIdSchema.make('run'),
   executionStatus: 'running',
@@ -105,5 +106,25 @@ test.unit.stable(
       'waiting'
     );
     expect(screen.queryByText(en.AgentActivityCompacting)).not.toBeInTheDocument();
+  }
+);
+
+test.unit.stable(
+  'uses the declared purpose for compact activity without exposing internal names',
+  async ({ rpc, react, expect }) => {
+    const { screen } = react;
+
+    rpc.given({
+      'workflows.agentProgress': [
+        {
+          ...run,
+          trace: { kind: 'agent', purpose: 'plan', parentRunId: null, attempt: 1, startedAtMs: 1n }
+        }
+      ]
+    });
+
+    react.render(<AgentActivity correlationId="request" label="Generating" status="running" />);
+    expect(await screen.findByRole('status', { name: en.AgentRunPlan })).toBeVisible();
+    expect(screen.queryByText(run.agentId)).not.toBeInTheDocument();
   }
 );

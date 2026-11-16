@@ -313,7 +313,7 @@ test.server.stable(
 );
 
 test.server.stable(
-  'recovery discards interrupted previews but preserves completed and concurrent steps',
+  'recovery retains interrupted steps as cancelled and preserves completed and concurrent work',
   async ({ server: serverFixture, expect }) => {
     const { app } = serverFixture;
     const executionId = executionIdSchema.make('progress-recovery');
@@ -351,14 +351,29 @@ test.server.stable(
     seed('finished', 'completed');
     seed('interrupted');
     await app.workers.start();
-    expect(read().map((run) => run.run_id)).toEqual(['finished']);
+    expect(
+      read().map(({ run_id, status, failure_kind }) => ({ run_id, status, failure_kind }))
+    ).toEqual([
+      { run_id: 'finished', status: 'completed', failure_kind: null },
+      { run_id: 'interrupted', status: 'cancelled', failure_kind: 'cancelled' }
+    ]);
 
     seed('parallel-a');
     seed('parallel-b');
     await app.workers.start();
-    expect(read().map((run) => run.run_id)).toEqual(['finished', 'parallel-a', 'parallel-b']);
+    expect(read().map((run) => [run.run_id, run.status])).toEqual([
+      ['finished', 'completed'],
+      ['interrupted', 'cancelled'],
+      ['parallel-a', 'running'],
+      ['parallel-b', 'running']
+    ]);
     await app.workers.stop();
     await app.workers.start();
-    expect(read().map((run) => run.run_id)).toEqual(['finished']);
+    expect(read().map((run) => [run.run_id, run.status, run.revision])).toEqual([
+      ['finished', 'completed', 0n],
+      ['interrupted', 'cancelled', 1n],
+      ['parallel-a', 'cancelled', 1n],
+      ['parallel-b', 'cancelled', 1n]
+    ]);
   }
 );

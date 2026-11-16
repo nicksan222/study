@@ -12,7 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { LanguageModelV3 } from '@ai-sdk/provider';
 import type { MaterialVersionId } from '@study/contracts';
 import { materialGenerationPublicationSchema } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
@@ -32,7 +31,8 @@ import {
   retryResumableActivity
 } from '@study/server';
 import { test } from '@study/testing';
-import { Effect, Layer, Option, Schedule } from 'effect';
+import { Effect, Layer, Option, Schedule, Stream } from 'effect';
+import { AiError, LanguageModel, Model, Response } from 'effect/ai';
 import type { MessageStorage, Sharding } from 'effect/cluster';
 import { WorkflowEngine, DurableDeferred } from 'effect/workflow';
 
@@ -66,7 +66,7 @@ async function generationFixture(
   let mapCalls = 0;
   let reduceCalls = 0;
   let finalCalls = 0;
-  let legacyReply = false;
+  let completedReply = false;
   let retire: (() => Promise<void>) | undefined;
   let cancel: (() => Promise<void>) | undefined;
   const afterMap = async () => {
@@ -74,56 +74,70 @@ async function generationFixture(
 
     if (options.cancelAfterMap) await cancel?.();
   };
-  const model: LanguageModelV3 = {
-    specificationVersion: 'v3',
-    provider: 'fixture',
-    modelId: 'fixture',
-    supportedUrls: {},
-    doGenerate: async () => {
-      throw new Error('stream required');
-    },
-    doStream: async (input) => {
-      const prompt = JSON.stringify(input.prompt);
+  const output = (input: LanguageModel.ProviderOptions) =>
+    Effect.tryPromise({
+      try: async () => {
+        const prompt = JSON.stringify(input.prompt);
 
-      prompts.push(prompt);
-      const map = prompt.includes('Extract study notes for this material request');
-      const reduce = prompt.includes('Reduce study notes into');
-      let output: unknown;
+        prompts.push(prompt);
+        const map = prompt.includes('Extract study notes for this material request');
+        const reduce = prompt.includes('Reduce study notes into');
+        let output: unknown;
 
-      if (map || reduce) {
-        if (map) mapCalls++;
-        else reduceCalls++;
+        if (prompt.includes('Plan fresh learning coverage')) {
+          output = { focus: ['Explore distinct supported concepts'] };
+        } else if (prompt.includes('Review learning exercise novelty')) {
+          output = { duplicates: [] };
+        } else if (map || reduce) {
+          if (map) mapCalls++;
+          else reduceCalls++;
 
-        output = notesOutput(prompt, map, map ? options.invalidMap : options.invalidReduce);
+          output = notesOutput(prompt, map, map ? options.invalidMap : options.invalidReduce);
 
-        if (map) await afterMap();
-      } else {
-        finalCalls++;
-        output = quizOutput(prompt, options.invalidFinal, options.questionCount);
-      }
+          if (map) await afterMap();
+        } else {
+          finalCalls++;
+          output = quizOutput(prompt, options.invalidFinal, options.questionCount);
+        }
 
-      const text = JSON.stringify(output);
-
-      return {
-        stream: new ReadableStream({
-          start(controller) {
-            controller.enqueue({ type: 'text-start', id: 'text' });
-            controller.enqueue({ type: 'text-delta', id: 'text', delta: text });
-            controller.enqueue({ type: 'text-end', id: 'text' });
-            controller.enqueue({
-              type: 'finish',
-              finishReason: { unified: 'stop', raw: 'stop' },
-              usage: {
-                inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
-                outputTokens: { total: 1, text: 1, reasoning: 0 }
-              }
-            });
-            controller.close();
-          }
+        return JSON.stringify(output);
+      },
+      catch: (cause) =>
+        AiError.make({
+          module: 'fixture',
+          method: 'generateText',
+          reason: new AiError.UnknownError({ description: String(cause) })
         })
-      };
-    }
-  };
+    });
+  const finish = Response.makePart('finish', {
+    reason: 'stop',
+    usage: new Response.Usage({ inputTokens: { total: 1 }, outputTokens: { total: 1 } })
+  });
+  const model = Model.make(
+    'fixture' as string,
+    'fixture',
+    Layer.effect(
+      LanguageModel.LanguageModel,
+      LanguageModel.make({
+        generateText: (input) =>
+          output(input).pipe(Effect.map((text) => [Response.makePart('text', { text }), finish])),
+        streamText: (input) =>
+          Stream.unwrap(
+            output(input).pipe(
+              Effect.map((text) =>
+                Stream.fromArray([
+                  Response.makePart('text-start', { id: 'text' }),
+                  Response.makePart('text-delta', { id: 'text', delta: text }),
+                  Response.makePart('text-end', { id: 'text' }),
+                  finish
+                ])
+              )
+            )
+          )
+      })
+    )
+  );
+
   const domain = () =>
     Layer.mergeAll(Projects.layer, Materials.layer, Sources.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -212,8 +226,8 @@ async function generationFixture(
 
           yield* engine.register(materialGenerationWorkflow, materialGenerationHandler);
 
-          if (legacyReply) {
-            const gate = DurableDeferred.make('legacy-before-publication');
+          if (completedReply) {
+            const gate = DurableDeferred.make('completed-before-publication');
 
             yield* DurableDeferred.succeed(gate, {
               token: DurableDeferred.tokenFromExecutionId(gate, {
@@ -240,19 +254,19 @@ async function generationFixture(
       )
     );
 
-  const legacyCompletedOuter = () =>
+  const completedProcedure = () =>
     Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          legacyReply = true;
+          completedReply = true;
           const engine = yield* WorkflowEngine.WorkflowEngine;
-          const gate = DurableDeferred.make('legacy-before-publication');
+          const gate = DurableDeferred.make('completed-before-publication');
 
           yield* engine.register(materialGenerationWorkflow, () =>
             Effect.gen(function* () {
               yield* retryResumableActivity(
                 defineActivity({
-                  name: 'generate-material-1',
+                  name: 'procedure/generate-material-1/material-generation-v1',
                   success: materialGenerationPublicationSchema,
                   execute: Effect.succeed({
                     requestId: event.requestId,
@@ -262,9 +276,9 @@ async function generationFixture(
                       questions: [
                         {
                           kind: 'open' as const,
-                          prompt: 'Legacy question',
+                          prompt: 'Saved question',
                           explanation: 'Original evidence [1]',
-                          referenceAnswer: 'Legacy answer'
+                          referenceAnswer: 'Saved answer'
                         }
                       ]
                     },
@@ -281,7 +295,7 @@ async function generationFixture(
               );
               yield* DurableDeferred.await(gate);
 
-              return yield* Effect.die('Legacy handler must remain suspended');
+              return yield* Effect.die('Fixture handler must remain suspended');
             })
           );
           yield* Effect.sync(() =>
@@ -306,7 +320,7 @@ async function generationFixture(
   return {
     prompts,
     execute,
-    legacyCompletedOuter,
+    completedProcedure,
     evidence: (id: MaterialVersionId) =>
       Effect.runPromise(
         Effect.flatMap(Materials, (materials) => materials.citations({ id, limit: 10 })).pipe(
@@ -354,12 +368,18 @@ test.server.stable(
       for (let index = 0; index < 240; index++)
         expect(mapPrompts.join('\n')).toContain(`block-${index}-tail`);
 
-      const originalMarkers = mapPrompts.flatMap((value) =>
-        Array.from(value.matchAll(/\[(\d+)\]/g), (match) => Number(match[1]))
-      );
+      // Planning and candidate generation each prepare their own source context.
+      for (const candidate of [false, true]) {
+        const originalMarkers = mapPrompts
+          .filter((value) => value.includes('Fresh coverage plan (derived guidance') === candidate)
+          .flatMap((value) =>
+            Array.from(value.matchAll(/\[(\d+)\]/g), (match) => Number(match[1]))
+          );
 
-      expect(new Set(originalMarkers).size).toBe(originalMarkers.length);
-      expect(Math.max(...originalMarkers)).toBeGreaterThan(200);
+        expect(new Set(originalMarkers).size).toBe(originalMarkers.length);
+        expect(Math.max(...originalMarkers)).toBeGreaterThan(200);
+      }
+
       expect(fixture.counts().finalCalls).toBe(1);
       expect(fixture.published()).toBe(1);
       const evidence = await fixture.evidence(version);
@@ -525,14 +545,13 @@ function quizOutput(prompt: string, invalid = false, count = 1) {
 }
 
 test.server.stable(
-  'replays a preexisting completed generate-material-1 reply through the current handler',
+  'replays a completed generation procedure receipt after reopening',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
-
-    const fixture = await generationFixture({ assert }, databases, ['legacy exact evidence']);
+    const fixture = await generationFixture({ assert }, databases, ['saved exact evidence']);
 
     try {
-      await fixture.legacyCompletedOuter();
+      await fixture.completedProcedure();
       expect(fixture.prompts).toHaveLength(0);
       await fixture.reopen();
       await fixture.execute();

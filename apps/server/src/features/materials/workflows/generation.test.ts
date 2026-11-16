@@ -1,4 +1,3 @@
-import type { materialGenerationInputSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks generation rejects mismatched event identity before provider access and     │
@@ -13,6 +12,8 @@ import type { materialGenerationInputSchema } from '@study/contracts';
  * │ replace production activities.                                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
+
+import type { materialGenerationInputSchema } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { executionIdSchema } from '@study/contracts';
@@ -41,6 +42,7 @@ import {
   sourceIngestionWorkflow,
   sourceIngestionHandler
 } from '#server/features/sources/workflows/index';
+import { textResponseEvents, toolResponseEvents } from '#testing/responses';
 import { withTestAdmission } from '#testing/workflow-admission';
 
 import { materialGenerationWorkflow, materialGenerationHandler } from './generation.ts';
@@ -171,6 +173,11 @@ test.server.stable(
 
         duringCall = undefined;
         await action?.();
+        const auxiliary = body.includes('Plan fresh learning coverage')
+          ? { focus: ['Explore fresh supported concepts'] }
+          : body.includes('Review learning exercise novelty')
+            ? { duplicates: [] }
+            : undefined;
         const call = {
           type: 'function_call',
           id: 'item1',
@@ -178,31 +185,12 @@ test.server.stable(
           name: 'sources',
           arguments: '{"query":"alpha"}'
         };
-        const events = tool
-          ? [
-              { type: 'response.output_item.added', output_index: 0, item: call },
-              {
-                type: 'response.output_item.done',
-                output_index: 0,
-                item: { ...call, status: 'completed' }
-              },
-              { type: 'response.completed', response: {} }
-            ]
-          : [
-              {
-                type: 'response.output_item.added',
-                output_index: 0,
-                item: { type: 'message', id: 'item' }
-              },
-              {
-                type: 'response.output_text.delta',
-                item_id: 'item',
-                delta: output
-              },
-              { type: 'response.completed', response: {} }
-            ];
+        const events =
+          tool && !auxiliary
+            ? toolResponseEvents(call)
+            : textResponseEvents(auxiliary ? JSON.stringify(auxiliary) : output);
 
-        tool = false;
+        if (!auxiliary) tool = false;
 
         return new Response(
           events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join('') + 'data: [DONE]\n\n',
@@ -399,7 +387,7 @@ test.server.stable(
 
           assert.strictEqual(
             completedCalls - beforeCorrection,
-            2,
+            4,
             JSON.stringify(rejected, (_key, value) =>
               value instanceof Error ? { message: value.message, cause: value.cause } : value
             )
@@ -433,7 +421,9 @@ test.server.stable(
 
         const id = await execute();
 
-        expect(bodies.at(-1)!).toMatch(/alpha evidence/);
+        expect(
+          bodies.findLast((body) => !body.includes('Review learning exercise novelty'))!
+        ).toMatch(/alpha evidence/);
         const before = calls;
 
         context.close();
@@ -458,7 +448,7 @@ test.server.stable(
         'flashcards',
         {
           kind: 'flashcards',
-          cards: [{ front: 'What? [1]', back: 'alpha' }]
+          cards: [{ front: 'What else? [1]', back: 'alpha' }]
         },
         'publication'
       );
@@ -523,7 +513,12 @@ test.server.stable(
         {
           kind: 'quiz',
           questions: [
-            { kind: 'open', prompt: 'Explain [1]', explanation: 'alpha', referenceAnswer: 'alpha' },
+            {
+              kind: 'open',
+              prompt: 'Describe the captured evidence [1]',
+              explanation: 'alpha',
+              referenceAnswer: 'alpha'
+            },
             {
               kind: 'ordering',
               prompt: 'Order the process.',
@@ -535,7 +530,9 @@ test.server.stable(
         undefined,
         { questionCount: 2, choiceCount: 2, questionKind: 'mixed', difficulty: 'balanced' }
       );
-      expect(bodies.at(-1)).toMatch(/Question kind: [^.]*\bordering\b[^.]*questions\./);
+      expect(bodies.findLast((body) => !body.includes('Review learning exercise novelty'))).toMatch(
+        /Question kind: [^.]*\bordering\b[^.]*questions\./
+      );
 
       function assertQuizQuestionShapes({
         assert: assertions,

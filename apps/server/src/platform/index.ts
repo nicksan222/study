@@ -23,12 +23,12 @@ export { ChatGptSession } from './ai/auth/service.ts';
 export { sourcesTool } from './ai/captured-sources-tool.ts';
 export { defineContextPreparation } from './ai/context-preparation/index.ts';
 export type { ContextPreparation } from './ai/context-preparation/index.ts';
+export { planSourcePassages } from './ai/context-preparation/planner.ts';
 export { createEvidenceCatalog } from './ai/evidence.ts';
 export { createApiKeyModel } from './ai/providers/api-key-model.ts';
 export { createChatGptModel } from './ai/providers/chatgpt/model.ts';
 export { getApiKeyProvider, providerCatalog } from './ai/providers/registry.ts';
-export { standardSchema } from './ai/schema.ts';
-export { adaptCredentialReader } from './ai/tool-adapter.ts';
+export { makeAgentToolkit } from './ai/tool-adapter.ts';
 export { webSearchTool } from './ai/web-search-tool.ts';
 export { exportBudget } from './content-export/budget.ts';
 export { BackupStorage, ManagedBackups } from './database/backups.ts';
@@ -52,6 +52,7 @@ export type {
   AiRuntimeAdapters,
   ToolWiki
 } from './definitions/define-agent.ts';
+export { defineProcedure, runProcedure, procedureTool } from './definitions/define-procedure.ts';
 export { defineRpc } from './definitions/define-rpc.ts';
 export { defineService } from './definitions/define-service.ts';
 export {

@@ -12,14 +12,16 @@
 
 import {
   agentObservationSchema,
+  procedureTraceSchema,
   agentProgressLimit,
   agentProgressSchema,
   agentToolProgressSchema
 } from '@study/contracts';
 import type { agentProgressInputSchema } from '@study/contracts';
 import { StudyError } from '@study/contracts';
-import { and, desc, eq, sql } from '@study/db';
+import { and, desc, eq, inArray, sql } from '@study/db';
 import {
+  aiUsage,
   workflow_agent_progress,
   workflow_executions,
   workflow_retired_executions
@@ -31,6 +33,8 @@ import type { ServerContext, ServerTransactionContext } from '#server/platform/d
 import { currentWorkflowActivityOwner } from '#server/platform/workflows/ownership';
 import { withPublicationGuard, PublicationGuard } from '#server/platform/workflows/publication';
 import { workflowStore } from '#server/platform/workflows/store';
+
+const traceCodec = Schema.fromJsonString(Schema.toCodecJson(procedureTraceSchema));
 
 const toolsCodec = Schema.fromJsonString(Schema.toCodecJson(Schema.Array(agentToolProgressSchema)));
 
@@ -70,15 +74,31 @@ function updateToolProgress(
   return Schema.encodeSync(toolsCodec)(tools);
 }
 
+/** Only terminal observations finalize bounded trace details. */
+function finishTrace(
+  encoded: string | null,
+  event: Exclude<(typeof agentObservationSchema.Type)['event'], { type: 'start' }>,
+  now: bigint
+) {
+  if (!encoded || (event.type !== 'complete' && event.type !== 'failed')) return encoded;
+
+  return Schema.encodeSync(traceCodec)({
+    ...Schema.decodeUnknownSync(traceCodec)(encoded),
+    finishedAtMs: now,
+    ...(event.type === 'complete' && event.output ? { output: event.output } : {})
+  });
+}
+
 /** Advance the snapshot revision and apply one accepted text, tool or terminal update. */
 function progressChanges(
-  existing: { revision: bigint; tools: string },
+  existing: { revision: bigint; tools: string; trace: string | null },
   event: Exclude<(typeof agentObservationSchema.Type)['event'], { type: 'start' }>,
   now: bigint
 ) {
   const update: Partial<typeof workflow_agent_progress.$inferInsert> = {
     revision: existing.revision + 1n,
-    updated_at: now
+    updated_at: now,
+    trace: finishTrace(existing.trace, event, now)
   };
 
   switch (event.type) {
@@ -140,12 +160,13 @@ export function observeAgentProgress(context: ServerContext) {
                     generation: workflow_agent_progress.generation,
                     status: workflow_agent_progress.status,
                     revision: workflow_agent_progress.revision,
-                    tools: workflow_agent_progress.tools
+                    tools: workflow_agent_progress.tools,
+                    trace: workflow_agent_progress.trace
                   })
                   .from(workflow_agent_progress)
                   .where(eq(workflow_agent_progress.run_id, value.runId))
                   .get();
-                const now = BigInt(context.clock.currentTimeMillisUnsafe());
+                const now = BigInt(context.timestampClock.currentTimeMillisUnsafe());
 
                 if (event.type === 'start') {
                   db.delete(workflow_agent_progress)
@@ -167,6 +188,7 @@ export function observeAgentProgress(context: ServerContext) {
                       phase: value.phase ?? 'generating',
                       mode: value.mode,
                       status: 'running',
+                      trace: value.trace ? Schema.encodeSync(traceCodec)(value.trace) : null,
                       revision: 0n,
                       updated_at: now
                     })
@@ -198,19 +220,43 @@ export function observeAgentProgress(context: ServerContext) {
     });
 }
 
-/** Discard unfinished previews only while the exclusive worker runtime is stopped. */
+/** Preserve interrupted traces while the exclusive worker runtime is stopped. */
 export function discardInterruptedAgentProgress(context: ServerContext): void {
   context.transaction(['workflows'], ({ db }) => {
-    db.orm
-      .delete(workflow_agent_progress)
+    const now = BigInt(context.timestampClock.currentTimeMillisUnsafe());
+    const interrupted = db.orm
+      .select()
+      .from(workflow_agent_progress)
       .where(eq(workflow_agent_progress.status, 'running'))
-      .run();
+      .all();
+
+    for (const row of interrupted) {
+      db.orm
+        .update(workflow_agent_progress)
+        .set({
+          ...progressChanges(row, { type: 'failed', kind: 'cancelled' }, now),
+          tools: Schema.encodeSync(toolsCodec)(
+            Schema.decodeUnknownSync(toolsCodec)(row.tools).map((tool) =>
+              tool.status === 'running'
+                ? {
+                    ...tool,
+                    status: 'cancelled' as const,
+                    errorKind: 'cancelled' as const,
+                    finishedAtMs: now
+                  }
+                : tool
+            )
+          )
+        })
+        .where(eq(workflow_agent_progress.run_id, row.run_id))
+        .run();
+    }
   });
 }
 
 /**
  * Read bounded, validated snapshots by execution or correlation for reconnecting viewers.
- * Exclude retired and cancelled work and previews from obsolete domain generations.
+ * Exclude retired work, active cancellation and previews from obsolete domain generations.
  */
 export function agentProgressSnapshot(
   context: Pick<ServerContext | ServerTransactionContext, 'db'>,
@@ -237,8 +283,7 @@ export function agentProgressSnapshot(
               input.correlationId
             ),
         sql`${workflow_retired_executions.execution_id} IS NULL`,
-        sql`${workflow_executions.status} IN ('running', 'completed')`,
-        sql`${workflow_executions.cancellation_mode} IS NULL`,
+        sql`(${workflow_executions.status} = 'cancelled' OR (${workflow_executions.status} IN ('running', 'completed', 'suspended', 'blocked') AND ${workflow_executions.cancellation_mode} IS NULL))`,
         eq(workflow_executions.generation, workflow_agent_progress.generation)
       )
     )
@@ -250,10 +295,34 @@ export function agentProgressSnapshot(
     .limit(limit)
     .all();
 
+  const usage = new Map(
+    rows.length
+      ? context.db.orm
+          .select({
+            runId: aiUsage.runId,
+            input: sql<number>`sum(${aiUsage.input})`.mapWith(Number),
+            output: sql<number>`sum(${aiUsage.output})`.mapWith(Number),
+            requests: sql<number>`count(*)`.mapWith(Number)
+          })
+          .from(aiUsage)
+          .where(
+            inArray(
+              aiUsage.runId,
+              rows.map(({ progress }) => progress.run_id)
+            )
+          )
+          .groupBy(aiUsage.runId)
+          .all()
+          .map(({ runId, ...counts }) => [runId, counts] as const)
+      : []
+  );
+
   // Select the most recent bounded window, then present invocation order to reconnecting viewers.
   return rows.reverse().map(({ progress, execution }) =>
     Schema.decodeUnknownSync(agentProgressSchema)({
       executionStatus: execution.status,
+      ...(progress.trace ? { trace: Schema.decodeUnknownSync(traceCodec)(progress.trace) } : {}),
+      usage: usage.get(progress.run_id) ?? { input: 0, output: 0, requests: 0 },
       runId: progress.run_id,
       executionId: progress.execution_id,
       agentId: progress.agent_id,

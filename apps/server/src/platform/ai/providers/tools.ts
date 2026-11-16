@@ -1,25 +1,12 @@
-/**
- * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Attaches optional provider capabilities to models for provider independent feature │
- * │ agent execution.                                                                         │
- * │                                                                                          │
- * │ Responsibilities:                                                                        │
- * │ - Resolves declared provider tools from the selected model capabilities.                 │
- * │                                                                                          │
- * │ Boundaries:                                                                              │
- * │ Provider modules select native tools; the shared agent runner handles feature tool       │
- * │ execution.                                                                               │
- * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
- */
+/** @file Resolves native provider tools declared by feature agents. */
+import type { Tool } from 'effect/ai';
 
-import type { LanguageModelV3 } from '@ai-sdk/provider';
-import type { Tool } from 'ai';
-
+import type { AiModel } from '#server/platform/ai/model';
 import type { ProviderTool } from '#server/platform/definitions/define-agent';
 
-type ProviderTools = Partial<Record<ProviderTool['provider'], Tool>>;
+type ProviderTools = Partial<Record<ProviderTool['provider'], Tool.Any>>;
 
-export function withProviderTools<T extends LanguageModelV3>(
+export function withProviderTools<T extends AiModel>(
   model: T,
   providerTools: ProviderTools,
   supportsMixedTools = true
@@ -28,14 +15,11 @@ export function withProviderTools<T extends LanguageModelV3>(
 }
 
 export function adaptProviderTool(
-  model: LanguageModelV3,
+  model: AiModel,
   definition: ProviderTool,
   hasFunctionTools = false
-): Tool | undefined {
-  if (!('providerTools' in model)) return undefined;
+): Tool.Any | undefined {
+  if (hasFunctionTools && model.supportsMixedTools === false) return undefined;
 
-  if (hasFunctionTools && 'supportsMixedTools' in model && model.supportsMixedTools === false)
-    return undefined;
-
-  return (model.providerTools as ProviderTools)[definition.provider];
+  return model.providerTools?.[definition.provider];
 }

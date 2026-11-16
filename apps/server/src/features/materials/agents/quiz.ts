@@ -29,6 +29,8 @@ export const quizAgent = defineAgent({
   tools: { sources: sourcesTool },
   mode: 'object',
   id: 'quiz',
+  purpose: 'quiz',
+  recordInput: false,
   customRules: [AgentRule.Quizzes],
   output: materialQuizContentInputSchema,
   model: 'medium',

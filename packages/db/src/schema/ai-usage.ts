@@ -22,6 +22,7 @@ export const aiUsage = defineTable({
   },
   (t) => [
     index('ai_usage_timestamp').on(t.timestamp),
+    index('ai_usage_run_id').on(t.runId),
     check(
       'ai_usage_counts',
       sql`${t.input} >= 0 AND ${t.cacheRead} >= 0 AND ${t.cacheWrite} >= 0 AND ${t.output} >= 0 AND ${t.reasoning} >= 0 AND ${t.cacheRead} + ${t.cacheWrite} <= ${t.input} AND ${t.reasoning} <= ${t.output}`

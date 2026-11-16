@@ -1,4 +1,6 @@
 import {
+  agentRunIdSchema,
+  failureSchema,
   AgentRule,
   StudyError,
   defaultAgentRules,
@@ -20,18 +22,32 @@ import {
  * │ and closes that peer.                                                                    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
+import { workflow_agent_progress } from '@study/db';
 import { test } from '@study/testing';
 import { Effect, Fiber, Schema, Stream } from 'effect';
 import { TestClock } from 'effect/testing';
+import { Workflow, WorkflowEngine } from 'effect/workflow';
 
-import { generateAgent, layer, streamAgent } from '#server/platform/ai/agents';
+import { makeAdmission } from '#server/platform/ai/admission';
+import { Agents, generateAgent, layer, streamAgent } from '#server/platform/ai/agents';
 import type { AgentProgress, AgentsConfig } from '#server/platform/ai/agents';
 import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
+import { deepseek } from '#server/platform/ai/providers/deepseek';
+import { ProcedureTraceScope } from '#server/platform/ai/trace';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { defineAgent, defineTool } from '#server/platform/definitions/define-agent';
+import {
+  defineProcedure,
+  procedureTool,
+  runProcedure
+} from '#server/platform/definitions/define-procedure';
 import { normalizeError } from '#server/platform/errors/classify-error';
+import { observeAgentProgress } from '#server/platform/workflows/agent-progress';
+import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
+import { workflowEngineLayer } from '#server/platform/workflows/engine';
+import { admitTestExecution } from '#testing/workflow-admission';
 
 const definition = defineAgent({
   id: 'reply',
@@ -54,8 +70,35 @@ const objectDefinition = defineAgent({
   mode: 'object'
 });
 
+/** Supply the required Responses wire envelope while cases focus on the event under test. */
+function eventJson(value: unknown): string {
+  const event = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown))(value);
+
+  if (event.type === 'response.output_text.delta')
+    return JSON.stringify({ output_index: 0, content_index: 0, ...event });
+
+  if (event.response && typeof event.response === 'object')
+    return JSON.stringify({
+      ...event,
+      response: { id: 'response', model: 'test', created_at: 1, output: [], ...event.response }
+    });
+
+  if (
+    event.item &&
+    typeof event.item === 'object' &&
+    'type' in event.item &&
+    event.item.type === 'message'
+  )
+    return JSON.stringify({
+      ...event,
+      item: { role: 'assistant', content: [], status: 'completed', ...event.item }
+    });
+
+  return JSON.stringify(event);
+}
+
 function eventsResponse(events: unknown[]): Response {
-  return new Response(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(''), {
+  return new Response(events.map((event) => `data: ${eventJson(event)}\n\n`).join(''), {
     headers: { 'content-type': 'text/event-stream' }
   });
 }
@@ -132,6 +175,18 @@ test.server.stable(
     const observe: NonNullable<AgentsConfig['observe']> = (observation) =>
       Effect.sync(() => {
         expect(observation.phase).toBe('generating');
+        expect(observation.trace).toMatchObject({
+          kind: 'agent',
+          purpose: 'agent',
+          parentRunId: 'parent',
+          parentToolCallId: 'call',
+          attempt: 1,
+          startedAtMs: expect.any(BigInt),
+          input: { text: '"cells"', truncated: false }
+        });
+
+        if (observation.event.type === 'complete')
+          expect(observation.event.output).toEqual({ text: '"Biology"', truncated: false });
       });
 
     await peer(
@@ -140,7 +195,15 @@ test.server.stable(
       async (base, auth) => {
         assert.ok(
           (await Effect.runPromise(
-            generateAgent(definition, 'cells').pipe(Effect.provide(service(base, auth, observe)))
+            generateAgent(definition, 'cells').pipe(
+              Effect.provideService(ProcedureTraceScope, {
+                parentRunId: agentRunIdSchema.make('parent'),
+                parentToolCallId: 'call',
+                depth: 1,
+                path: '/parent'
+              }),
+              Effect.provide(service(base, auth, observe))
+            )
           )) === 'Biology'
         );
       }
@@ -176,18 +239,18 @@ test.server.stable(
 
               controller.enqueue(
                 encoder.encode(
-                  `data: ${JSON.stringify({ type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } })}\n\n`
+                  `data: ${eventJson({ type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } })}\n\n`
                 )
               );
               controller.enqueue(
                 encoder.encode(
-                  `data: ${JSON.stringify({ type: 'response.output_text.delta', item_id: 'm', delta: 'First' })}\n\n`
+                  `data: ${eventJson({ type: 'response.output_text.delta', item_id: 'm', delta: 'First' })}\n\n`
                 )
               );
               finish = () => {
                 controller.enqueue(
                   encoder.encode(
-                    `data: ${JSON.stringify({ type: 'response.completed', response: {} })}\n\n`
+                    `data: ${eventJson({ type: 'response.completed', response: {} })}\n\n`
                   )
                 );
                 controller.close();
@@ -260,7 +323,7 @@ test.server.stable(
     const delta = (text: string) =>
       response.enqueue(
         new TextEncoder().encode(
-          `data: ${JSON.stringify({ type: 'response.output_text.delta', item_id: 'm', delta: text })}\n\n`
+          `data: ${eventJson({ type: 'response.output_text.delta', item_id: 'm', delta: text })}\n\n`
         )
       );
     const receive = (event: AgentProgress<string>) =>
@@ -302,7 +365,7 @@ test.server.stable(
         delta('tail');
         response.enqueue(
           new TextEncoder().encode(
-            `data: ${JSON.stringify({ type: 'response.completed', response: {} })}\n\n`
+            `data: ${eventJson({ type: 'response.completed', response: {} })}\n\n`
           )
         );
         response.close();
@@ -321,7 +384,7 @@ test.server.stable(
               response = controller;
               controller.enqueue(
                 new TextEncoder().encode(
-                  `data: ${JSON.stringify({ type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } })}\n\n`
+                  `data: ${eventJson({ type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } })}\n\n`
                 )
               );
               delta('First');
@@ -375,7 +438,7 @@ for (const intercepted of [false, true])
             },
             { type: 'response.completed', response: {} }
           ])
-            events += `data: ${JSON.stringify(event)}\n\n`;
+            events += `data: ${eventJson(event)}\n\n`;
 
           return new Response(events, { headers: { 'content-type': 'text/event-stream' } });
         },
@@ -481,7 +544,7 @@ test.server.stable(
                 },
                 { type: 'response.output_text.delta', item_id: 'm', delta: 'partial' }
               ])
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+                controller.enqueue(encoder.encode(`data: ${eventJson(event)}\n\n`));
 
               await gate;
               controller.close();
@@ -617,14 +680,14 @@ test.server.stable(
                   },
                   { type: 'response.output_text.delta', item_id: 'm', delta: 'partial' }
                 ])
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+                  controller.enqueue(encoder.encode(`data: ${eventJson(event)}\n\n`));
 
                 await gate;
 
                 try {
                   controller.enqueue(
                     encoder.encode(
-                      `data: ${JSON.stringify({ type: 'response.completed', response: {} })}\n\n`
+                      `data: ${eventJson({ type: 'response.completed', response: {} })}\n\n`
                     )
                   );
                   controller.close();
@@ -797,7 +860,7 @@ test.server.stable(
           { type: 'response.output_text.delta', item_id: 'm', delta: answer },
           { type: 'response.completed', response: {} }
         ])
-          events += `data: ${JSON.stringify(event)}\n\n`;
+          events += `data: ${eventJson(event)}\n\n`;
 
         return new Response(events, { headers: { 'content-type': 'text/event-stream' } });
       },
@@ -898,6 +961,15 @@ test.server.stable(
 
       expect(error.kind).toBe('invalid_input');
     }
+
+    const nesting = await Effect.runPromise(
+      Effect.flip(generateAgent(definition, 'x')).pipe(
+        Effect.provideService(ProcedureTraceScope, { parentRunId: null, path: '/full', depth: 16 }),
+        Effect.provide(mockService(mock))
+      )
+    );
+
+    expect(nesting.kind).toBe('invalid_input');
   }
 );
 
@@ -986,7 +1058,7 @@ test.server.stable(
         return send('unexpected');
       },
       async (base, auth) => {
-        const { withRequestCheck: _check, ...model } = createChatGptModel({
+        const model = createChatGptModel({
           auth,
           modelId: 'test',
           baseUrl: base
@@ -1047,7 +1119,7 @@ test.server.stable(
               if (index === events.length) controller.close();
               else
                 controller.enqueue(
-                  new TextEncoder().encode(`data: ${JSON.stringify(events[index++])}\n\n`)
+                  new TextEncoder().encode(`data: ${eventJson(events[index++])}\n\n`)
                 );
             }
           }),
@@ -1097,7 +1169,7 @@ test.server.stable(
               ];
 
               for (const event of events)
-                controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`));
+                controller.enqueue(new TextEncoder().encode(`data: ${eventJson(event)}\n\n`));
 
               finish = () => controller.close();
             }
@@ -1322,13 +1394,14 @@ test.server.stable(
               usage: {
                 input_tokens: 100,
                 output_tokens: 20,
+                total_tokens: 120,
                 input_tokens_details: { cached_tokens: 80 },
                 output_tokens_details: { reasoning_tokens: 5 }
               }
             }
           }
         ])
-          events += `data: ${JSON.stringify(event)}\n\n`;
+          events += `data: ${eventJson(event)}\n\n`;
 
         return new Response(events, { headers: { 'content-type': 'text/event-stream' } });
       },
@@ -1387,7 +1460,7 @@ test.server.stable(
           content: {
             ...generated.content,
             cards: [
-              { ...generated.content.cards[0], cardId: undefined },
+              { front: 'Nucleus?', back: 'Stores DNA' },
               { ...generated.content.cards[1], cardId: 7n }
             ]
           }
@@ -1454,3 +1527,379 @@ test.server.stable(
     ).toBe('The next logical call');
   }
 );
+
+test.server.stable(
+  'material source preparation omits copied history input from durable traces',
+  async ({ expect, assert: assertions }) => {
+    const { studyNotesAgent } = await import('#server/features/materials/agents/study-notes');
+    const notes = { notes: [{ text: 'ATP carries energy', markers: [1] }] };
+    const assert: test.Assert = assertions;
+    const observations: Parameters<NonNullable<AgentsConfig['observe']>>[0][] = [];
+    const observe: NonNullable<AgentsConfig['observe']> = (observation) =>
+      Effect.sync(() => {
+        observations.push(observation);
+      });
+
+    await peer(
+      { assert },
+      () => send(JSON.stringify(notes)),
+      async (base, auth) => {
+        const output = await Effect.runPromise(
+          generateAgent(studyNotesAgent, {
+            prompt: 'Request containing private history and original passages [1]'
+          }).pipe(Effect.provide(service(base, auth, observe)))
+        );
+
+        expect(output).toEqual(notes);
+        expect(observations.length).toBeGreaterThan(0);
+
+        for (const observation of observations) expect(observation.trace?.input).toBeUndefined();
+      }
+    );
+  }
+);
+
+test.server.stable(
+  'repeated agent calls keep distinct native child checkpoints when provider tool IDs repeat',
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const inputs: number[] = [];
+    let requests = 0;
+    const child = defineProcedure({
+      id: 'remember',
+      purpose: 'operation',
+      input: Schema.Struct({ value: Schema.Number }),
+      output: Schema.Number,
+      execute: ({ value }) =>
+        Effect.sync(() => {
+          inputs.push(value);
+
+          return value;
+        })
+    });
+    const capability = procedureTool(child, {
+      description: 'Remember a value',
+      mutates: false,
+      wiki: { when: 'Remember a value', examples: ['Remember one'], limits: 'One number' }
+    });
+    const agent = defineAgent({ ...definition, tools: { remember: capability } });
+    const parent = defineProcedure({
+      id: 'repeat-agent',
+      purpose: 'procedure',
+      input: Schema.Void,
+      output: Schema.Array(Schema.String),
+      execute: () =>
+        Effect.gen(function* () {
+          const first = yield* generateAgent(agent, 'one');
+          const second = yield* generateAgent(agent, 'two');
+
+          return [first, second];
+        })
+    });
+    const workflow = Workflow.make('repeated-agent-tools', {
+      payload: {},
+      success: Schema.Array(Schema.String),
+      error: failureSchema,
+      idempotencyKey: () => 'one'
+    });
+
+    const executeParent = () => runProcedure(parent, undefined, { key: 'root', retry: false });
+
+    try {
+      await peer(
+        { assert },
+        () => {
+          requests++;
+
+          if (requests % 2 === 0) return send('Remembered');
+
+          const item = {
+            type: 'function_call',
+            id: 'item',
+            call_id: 'call1',
+            name: 'remember',
+            arguments: JSON.stringify({ value: (requests + 1) / 2 })
+          };
+
+          return eventsResponse([
+            { type: 'response.output_item.added', output_index: 0, item },
+            {
+              type: 'response.output_item.done',
+              output_index: 0,
+              item: { ...item, status: 'completed' }
+            },
+            { type: 'response.completed', response: {} }
+          ]);
+        },
+        async (base, auth) => {
+          const results = await Effect.runPromise(
+            Effect.scoped(
+              Effect.gen(function* () {
+                const engine = yield* WorkflowEngine.WorkflowEngine;
+
+                yield* engine.register(workflow, executeParent);
+                admitTestExecution(context, workflow, 'one', {});
+
+                return yield* engine.execute(workflow, { executionId: 'one', payload: {} });
+              }).pipe(
+                Effect.provide(service(base, auth, observeAgentProgress(context))),
+                Effect.provideService(Database, { store: context }),
+                Effect.provideService(WorkflowConfiguration, { revision: Effect.succeed('one') }),
+                Effect.provide(workflowEngineLayer(context))
+              )
+            )
+          );
+
+          expect(results).toEqual(['Remembered', 'Remembered']);
+          expect(inputs).toEqual([1, 2]);
+        }
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
+  }
+);
+
+for (const { transient, parallel } of [
+  { transient: false, parallel: 1 },
+  { transient: true, parallel: 1 },
+  { transient: false, parallel: 2 }
+]) {
+  test.server.stable(
+    `a tool-delegated child agent completes with one shared provider permit (transient ${transient}, tools ${parallel})`,
+    async ({ databases, expect, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+      const location = await databases();
+      const context = new ServerContext(await location.open());
+      const admission = makeAdmission({ concurrency: 1 });
+      let requests = 0;
+      let childRequests = 0;
+      let parentRequests = 0;
+      let activeChildren = 0;
+      let peakChildren = 0;
+      const child = defineProcedure({
+        id: 'delegate-child',
+        purpose: 'response',
+        input: Schema.Struct({ prompt: Schema.String }),
+        output: Schema.String,
+        execute: ({ prompt }) =>
+          Effect.sync(() => {
+            activeChildren++;
+            peakChildren = Math.max(peakChildren, activeChildren);
+          }).pipe(
+            Effect.andThen(generateAgent(definition, prompt)),
+            Effect.ensuring(
+              Effect.sync(() => {
+                activeChildren--;
+              })
+            )
+          )
+      });
+      const parent = defineAgent({
+        ...definition,
+        id: 'delegate-parent',
+        tools: {
+          delegate: procedureTool(child, {
+            description: 'Delegate to a child',
+            mutates: false,
+            wiki: { when: 'Delegate', examples: ['Ask a child'], limits: 'One child' }
+          })
+        }
+      });
+      const root = defineProcedure({
+        id: 'delegate-root',
+        purpose: 'procedure',
+        input: Schema.String,
+        output: Schema.String,
+        execute: (input) => generateAgent(parent, input)
+      });
+      const executeParent = () => runProcedure(root, 'parent', { key: 'root', retry: false });
+      const workflow = Workflow.make('nested-agent-admission', {
+        payload: {},
+        success: Schema.String,
+        error: failureSchema,
+        idempotencyKey: () => 'one'
+      });
+
+      try {
+        await peer(
+          { assert },
+          (_, body) => {
+            requests++;
+
+            if (body.includes('function_call_output')) return send('Parent answer');
+
+            if (!JSON.stringify(JSON.parse(body)).includes('"parent"')) {
+              childRequests++;
+
+              return transient && childRequests === 1
+                ? new Response('unavailable', { status: 503 })
+                : send('Child answer');
+            }
+
+            parentRequests++;
+            const items = Array.from({ length: parallel }, (_, index) => ({
+              type: 'function_call',
+              id: `item-${index}`,
+              call_id: `delegate-call-${parentRequests}-${index}`,
+              name: 'delegate',
+              arguments: JSON.stringify({ prompt: `child-${index}` })
+            }));
+
+            return eventsResponse([
+              ...items.flatMap((item, index) => [
+                { type: 'response.output_item.added', output_index: index, item },
+                {
+                  type: 'response.output_item.done',
+                  output_index: index,
+                  item: { ...item, status: 'completed' }
+                }
+              ]),
+              { type: 'response.completed', response: {} }
+            ]);
+          },
+          async (base, auth) => {
+            const result = await Effect.runPromise(
+              Effect.scoped(
+                Effect.gen(function* () {
+                  const engine = yield* WorkflowEngine.WorkflowEngine;
+
+                  yield* engine.register(workflow, executeParent);
+                  admitTestExecution(context, workflow, 'one', {});
+
+                  const first = yield* engine.execute(workflow, {
+                    executionId: 'one',
+                    payload: {}
+                  });
+                  const count = requests;
+
+                  expect(yield* engine.execute(workflow, { executionId: 'one', payload: {} })).toBe(
+                    first
+                  );
+                  expect(requests).toBe(count);
+
+                  return first;
+                }).pipe(
+                  Effect.timeout('5 seconds'),
+                  Effect.updateService(Agents, (agents) => ({ ...agents, admission })),
+                  Effect.provide(service(base, auth, observeAgentProgress(context))),
+                  Effect.provideService(Database, { store: context }),
+                  Effect.provideService(WorkflowConfiguration, { revision: Effect.succeed('one') }),
+                  Effect.provide(workflowEngineLayer(context))
+                )
+              )
+            );
+
+            expect(result).toBe('Parent answer');
+            expect(childRequests).toBe(transient ? 2 : parallel);
+            expect(peakChildren).toBe(1);
+            expect(activeChildren).toBe(0);
+            expect(requests).toBe(transient ? 5 : parallel + 2);
+            const childAttempts = context.db.orm
+              .select()
+              .from(workflow_agent_progress)
+              .all()
+              .filter((row) => row.agent_id === 'delegate-child')
+              .map((row) => row.attempt);
+
+            expect(childAttempts).toEqual(
+              transient ? [1n, 2n] : Array.from({ length: parallel }, () => 1n)
+            );
+
+            if (transient) expect(parentRequests).toBe(2);
+          }
+        );
+      } finally {
+        context.close();
+        await location.cleanup();
+      }
+    }
+  );
+}
+
+for (const [status, kind] of [
+  [402, 'config'],
+  [404, 'model_unavailable'],
+  [405, 'unsupported']
+] as const) {
+  test.server.stable(
+    `preserves native provider HTTP ${status} classification`,
+    async ({ expect }) => {
+      const model = deepseek.createModel({
+        apiKey: 'test',
+        modelId: 'test',
+        fetch: async () => new Response(null, { status })
+      });
+      const error = await Effect.runPromise(
+        Effect.flip(generateAgent(definition, 'question')).pipe(
+          Effect.provide(
+            layer({
+              model: () => Effect.succeed(model),
+              language: 'en',
+              rules: Effect.succeed(defaultAgentRules),
+              searchSources: () => Effect.succeed([])
+            })
+          )
+        )
+      );
+
+      expect(error.kind).toBe(kind);
+    }
+  );
+}
+
+for (const phase of ['prompt', 'schema'] as const) {
+  test.server.stable(
+    `synchronous ${phase} builder failures stay typed and sanitize private details`,
+    async ({ expect }) => {
+      let requests = 0;
+      const model = deepseek.createModel({
+        apiKey: 'test',
+        modelId: 'test',
+        fetch: async () => {
+          requests++;
+
+          return new Response(null, { status: 400 });
+        }
+      });
+
+      if (phase === 'schema')
+        Object.assign(model, {
+          withOutputSchema: () => {
+            throw new Error('private schema details');
+          }
+        });
+
+      const target = {
+        ...definition,
+        mode: 'object' as const,
+        output: Schema.Struct({ answer: Schema.String }),
+        prompt: (input: string) => {
+          if (phase === 'prompt') throw new Error('private prompt details');
+
+          return input;
+        }
+      };
+      const error = await Effect.runPromise(
+        Effect.flip(generateAgent(target, 'question', { maxRetries: 0 })).pipe(
+          Effect.provide(
+            layer({
+              model: () => Effect.succeed(model),
+              language: 'en',
+              rules: Effect.succeed(defaultAgentRules),
+              searchSources: () => Effect.succeed([])
+            })
+          )
+        )
+      );
+
+      expect(error).toBeInstanceOf(StudyError);
+      expect(error.kind).toBe('transient');
+      expect(error.message).toBe('Agent request failed');
+      expect(requests).toBe(0);
+    }
+  );
+}

@@ -17,7 +17,7 @@ The native shell owns windows, devices, and the private server process. Native E
 5. **Log Rust with `tracing`.** Don't print. Native libraries return typed errors;
    TypeScript domain failures use `StudyError` and `ErrorKind` from `@study/contracts`.
 6. **All user-visible text comes from `@study/localization`**, in English and Italian.
-7. **Model work runs on the user's ChatGPT plan**, using AI SDK in `apps/server/src/platform/ai`.
+7. **Model work runs on the user's ChatGPT plan**, using native Effect v4 AI in `apps/server/src/platform/ai`.
    Feature-owned agents, tools and workflows live under `apps/server/src/features`. Shared provider
    implementations live under `platform/ai/providers` inside the server app. Retired local model capabilities are unavailable
    until implemented again; nothing downloads without an explicit install.

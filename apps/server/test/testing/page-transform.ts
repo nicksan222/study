@@ -1,16 +1,4 @@
 import type { pageTransformOutputSchema } from '@study/contracts';
-/**
- * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Supplies a controlled provider peer for native Document transformation tests.      │
- * │                                                                                          │
- * │ Responsibilities:                                                                        │
- * │ - Opens migrated SQLite and composes real feature services and Workflow control.         │
- * │ - Sends JSON tool calls, structured output and transient transport failures.             │
- * │                                                                                          │
- * │ Boundaries:                                                                              │
- * │ Tests control remote responses while production Activities, codecs and guards execute.   │
- * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
- */
 import type { pageGenerationRequestedSchema } from '@study/contracts';
 import type { materialGenerationRequestedSchema } from '@study/contracts';
 import type { materialFlashcardsContentInputSchema } from '@study/contracts';
@@ -53,6 +41,19 @@ import {
   sourceIngestionWorkflow,
   sourceCorrectionWorkflow
 } from '#server/features/sources/workflows/index';
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Supplies a controlled provider peer for native Document transformation tests.      │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Opens migrated SQLite and composes real feature services and Workflow control.         │
+ * │ - Sends JSON tool calls, structured output and transient transport failures.             │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Tests control remote responses while production Activities, codecs and guards execute.   │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+import { textResponseEvents, toolResponseEvents } from '#testing/responses';
 import { withTestAdmission } from '#testing/workflow-admission';
 
 type Reply =
@@ -76,30 +77,12 @@ function responseEvents(reply: Exclude<Reply, { kind: 'transient' }>, ordinal: n
       arguments: JSON.stringify({ query: reply.query })
     };
 
-    return [
-      { type: 'response.output_item.added', output_index: 0, item: call },
-      {
-        type: 'response.output_item.done',
-        output_index: 0,
-        item: { ...call, status: 'completed' }
-      },
-      { type: 'response.completed', response: {} }
-    ];
+    return toolResponseEvents(call);
   }
 
-  return [
-    {
-      type: 'response.output_item.added',
-      output_index: 0,
-      item: { type: 'message', id: `message${ordinal}` }
-    },
-    {
-      type: 'response.output_text.delta',
-      item_id: `message${ordinal}`,
-      delta: typeof reply.output === 'string' ? reply.output : JSON.stringify(reply.output)
-    },
-    { type: 'response.completed', response: {} }
-  ];
+  return textResponseEvents(
+    typeof reply.output === 'string' ? reply.output : JSON.stringify(reply.output)
+  );
 }
 
 export async function pageTransformFixture(

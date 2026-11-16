@@ -1,4 +1,12 @@
 import { StudyRpc } from '@study/contracts';
+import { plainBlock } from '@study/contracts';
+import { encodeAccount, ServerContext, Database, transaction } from '@study/server';
+import { test } from '@study/testing';
+import { Effect, Option, Result, Stream } from 'effect';
+
+import { makeStudyClient } from '#server/client/index';
+import { AuthStore } from '#server/features/auth/store/index';
+import { serve } from '#server/runtime/index';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises HTTP practice generation across normal, invalid-model, archived-request, │
@@ -15,17 +23,7 @@ import { StudyRpc } from '@study/contracts';
  * │ cleanup closes owned resources.                                                          │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-import { plainBlock } from '@study/contracts';
-import { encodeAccount } from '@study/server';
-import { ServerContext } from '@study/server';
-import { Database } from '@study/server';
-import { transaction } from '@study/server';
-import { test } from '@study/testing';
-import { Effect } from 'effect';
-
-import { makeStudyClient } from '#server/client/index';
-import { AuthStore } from '#server/features/auth/store/index';
-import { serve } from '#server/runtime/index';
+import { textResponseEvents, toolResponseEvents } from '#testing/responses';
 
 const isReady = (slot: { status: string }) => slot.status === 'ready';
 
@@ -33,6 +31,15 @@ const isSettled = (slot: { status: string }) => isReady(slot) || slot.status ===
 
 const isDrained = (execution: { status: string }) =>
   ['completed', 'cancelled'].includes(execution.status);
+
+function auxiliaryGeneration(body: string) {
+  if (body.includes('Plan fresh learning coverage'))
+    return { focus: ['Explore a fresh evidence-grounded question'] };
+
+  if (body.includes('Review learning exercise novelty')) return { duplicates: [] };
+
+  return undefined;
+}
 
 for (const mode of [
   'normal',
@@ -50,6 +57,7 @@ for (const mode of [
       let generations = 0;
       let failedCalls = 0;
       let healthyStarts = 0;
+      let outputs = 0;
       const startedAt = Date.now();
       const trace: { ms: number; stage: string; status?: number }[] = [];
       const mark = (stage: string, status?: number) => {
@@ -75,14 +83,18 @@ for (const mode of [
 
           const toolResult = body.includes('function_call_output');
           const open = body.includes('exactly one open question');
+          const auxiliary = auxiliaryGeneration(body);
+          const candidateStart = !toolResult && !auxiliary;
 
           mark(toolResult ? 'tool-result' : 'generation', transient ? 503 : 200);
 
-          if (!toolResult) generations++;
+          if (candidateStart) {
+            generations++;
 
-          if (!transient && !toolResult) healthyStarts++;
+            if (!transient) healthyStarts++;
+          }
 
-          if (transient) {
+          if (transient && !auxiliary) {
             failedCalls++;
 
             return Response.json(
@@ -91,7 +103,7 @@ for (const mode of [
             );
           }
 
-          const content = practiceContent(open);
+          const content = practiceContent(open, toolResult ? ++outputs : outputs);
           const events = providerEvents();
 
           function providerEvents() {
@@ -106,33 +118,20 @@ for (const mode of [
 
             if (invalid) invalidResponse = false;
 
-            const events = toolResult
-              ? [
-                  {
-                    type: 'response.output_item.added',
-                    output_index: 0,
-                    item: { type: 'message', id: 'answer' }
-                  },
-                  {
-                    type: 'response.output_text.delta',
-                    item_id: 'answer',
-                    delta: JSON.stringify(
-                      invalid
-                        ? { ...content, questions: [content.questions[0], content.questions[0]] }
-                        : content
+            const events =
+              toolResult || auxiliary
+                ? textResponseEvents(
+                    JSON.stringify(
+                      auxiliary ??
+                        (invalid
+                          ? {
+                              ...content,
+                              questions: [content.questions[0], content.questions[0]]
+                            }
+                          : content)
                     )
-                  },
-                  { type: 'response.completed', response: {} }
-                ]
-              : [
-                  { type: 'response.output_item.added', output_index: 0, item: call },
-                  {
-                    type: 'response.output_item.done',
-                    output_index: 0,
-                    item: { ...call, status: 'completed' }
-                  },
-                  { type: 'response.completed', response: {} }
-                ];
+                  )
+                : toolResponseEvents(call);
 
             return events;
           }
@@ -220,25 +219,25 @@ for (const mode of [
               yield* client['pages.archive']({ id: document.id, archived: true });
 
             yield* client['system.startWorkers']({});
-            let ready = yield* pollUntil(
-              client['learning.practice']({ projectId: project.id }),
-              (value) => value.slots.every(isSettled),
-              {
-                attempts: mode === 'transient-exhausted' ? 500 : 150,
-                interval: '25 millis',
-                message: 'Practice did not settle'
-              }
+            const settledPractice = client['learning.practice.live']({
+              projectId: project.id
+            }).pipe(
+              Stream.filter((frame) => frame._tag === 'Snapshot'),
+              Stream.map((frame) => Result.getOrThrow(frame.result)),
+              Stream.filter((value) => value.slots.every(isSettled)),
+              Stream.runHead,
+              Effect.map(Option.getOrThrow)
             );
+            let ready = yield* settledPractice;
 
             if (mode === 'archived-before-request')
               yield* client['pages.archive']({ id: document.id, archived: false });
 
-            yield* recoverFailedPractice({ assert, pollUntil });
+            yield* recoverFailedPractice({ assert });
 
             function* recoverFailedPractice({
-              assert: assertions,
-              pollUntil
-            }: Pick<test.server.Context, 'assert' | 'pollUntil'>) {
+              assert: assertions
+            }: Pick<test.server.Context, 'assert'>) {
               const assert: test.Assert = assertions;
 
               if (mode !== 'normal') {
@@ -269,15 +268,7 @@ for (const mode of [
                   yield* client['learning.retryPracticeQuestion']({ slotId: slot.slotId });
                 }
 
-                ready = yield* pollUntil(
-                  client['learning.practice']({ projectId: project.id }),
-                  (value) => value.slots.every(isReady),
-                  {
-                    attempts: 150,
-                    interval: '25 millis',
-                    message: 'Retried practice did not settle'
-                  }
-                );
+                ready = yield* settledPractice;
               }
             }
 
@@ -362,20 +353,20 @@ for (const mode of [
     }
   );
 
-function practiceContent(open: boolean) {
+function practiceContent(open: boolean, example: number) {
   return {
     kind: 'quiz',
     questions: [
       open
         ? {
             kind: 'open',
-            prompt: 'Explain alpha [1]',
+            prompt: `Explain alpha in example ${example} [1]`,
             explanation: 'Alpha is evidence [1]',
             referenceAnswer: 'Alpha evidence'
           }
         : {
             kind: 'single_choice',
-            prompt: 'Which is evidence? [1]',
+            prompt: `Which is evidence in example ${example}? [1]`,
             explanation: 'Alpha [1]',
             choices: [
               { text: 'Alpha', isCorrect: true },

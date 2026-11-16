@@ -10,7 +10,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { LanguageModelV3 } from '@ai-sdk/provider';
 import type { agentObservationSchema } from '@study/contracts';
 import { promptInputSchema } from '@study/contracts';
 import { failureSchema, StudyError } from '@study/contracts';
@@ -18,13 +17,16 @@ import { AgentRule } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
 import type { createTestDatabase } from '@study/db/testing';
 import { test } from '@study/testing';
-import { Effect, Schema, Stream } from 'effect';
+import { Effect, Layer, Schema, Stream } from 'effect';
+import type { Response } from 'effect/ai';
+import { LanguageModel, Model } from 'effect/ai';
 import { Workflow, WorkflowEngine } from 'effect/workflow';
 
 import { Agents, generateAgent, streamAgent } from '#server/platform/ai/agents';
 import type { AgentsConfig } from '#server/platform/ai/agents';
 import { layer as agentsLayer } from '#server/platform/ai/agents';
 import { sourcesTool } from '#server/platform/ai/captured-sources-tool';
+import type { AiModel } from '#server/platform/ai/model';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { defineAgent } from '#server/platform/definitions/define-agent';
@@ -189,75 +191,64 @@ test.server.stable(
   }
 );
 
-function fixtureModel(prompts: string[]): LanguageModelV3 {
-  return {
-    specificationVersion: 'v3',
-    provider: 'fixture',
-    modelId: 'fixture',
-    supportedUrls: {},
-    doGenerate: async () => {
-      throw new Error('Streaming required');
-    },
-    doStream: async (input) => {
-      const prompt = JSON.stringify(input.prompt);
+function fixtureModel(prompts: string[]): AiModel {
+  const parts = (
+    input: LanguageModel.ProviderOptions
+  ): (Response.TextPartEncoded | Response.ToolCallPartEncoded | Response.FinishPartEncoded)[] => {
+    const prompt = JSON.stringify(input.prompt);
 
-      prompts.push(prompt);
+    prompts.push(prompt);
+    const usage = { inputTokens: { total: 1 }, outputTokens: { total: 1 } };
 
-      if (
-        prompt.includes('Search isolated sources') &&
-        !input.prompt.some((message) => message.role === 'tool')
-      )
-        return {
-          stream: new ReadableStream({
-            start(controller) {
-              controller.enqueue({
-                type: 'tool-call',
-                toolCallId: 'isolated-search',
-                toolName: 'sources',
-                input: JSON.stringify({ query: 'shared' })
-              });
-              controller.enqueue({
-                type: 'finish',
-                finishReason: { unified: 'tool-calls', raw: 'tool-calls' },
-                usage: {
-                  inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
-                  outputTokens: { total: 1, text: 1, reasoning: 0 }
-                }
-              });
-              controller.close();
-            }
-          })
-        };
-
-      const text =
-        prompt.includes('Map task:') || prompt.includes('Reduce task:')
-          ? JSON.stringify({
-              notes: [
-                { text: 'Prepared concept', markers: [Number(prompt.match(/\[(\d+)\]/)?.[1] ?? 1)] }
-              ]
-            })
-          : 'Final [1]';
-
-      return {
-        stream: new ReadableStream({
-          start(controller) {
-            controller.enqueue({ type: 'text-start', id: 'text' });
-            controller.enqueue({ type: 'text-delta', id: 'text', delta: text });
-            controller.enqueue({ type: 'text-end', id: 'text' });
-            controller.enqueue({
-              type: 'finish',
-              finishReason: { unified: 'stop', raw: 'stop' },
-              usage: {
-                inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
-                outputTokens: { total: 1, text: 1, reasoning: 0 }
-              }
-            });
-            controller.close();
-          }
-        })
-      };
+    if (
+      prompt.includes('Search isolated sources') &&
+      !input.prompt.content.some((message) => message.role === 'tool')
+    ) {
+      return [
+        { type: 'tool-call', id: 'isolated-search', name: 'sources', params: { query: 'shared' } },
+        { type: 'finish', reason: 'tool-calls', usage }
+      ];
     }
+
+    const text =
+      prompt.includes('Map task:') || prompt.includes('Reduce task:')
+        ? JSON.stringify({
+            notes: [
+              { text: 'Prepared concept', markers: [Number(prompt.match(/\[(\d+)\]/)?.[1] ?? 1)] }
+            ]
+          })
+        : 'Final [1]';
+
+    return [
+      { type: 'text', text },
+      { type: 'finish', reason: 'stop', usage }
+    ];
   };
+
+  return Model.make(
+    'fixture' as string,
+    'fixture',
+    Layer.effect(
+      LanguageModel.LanguageModel,
+      LanguageModel.make({
+        generateText: (input) => Effect.sync(() => parts(input)),
+        streamText: (input) =>
+          Stream.suspend(() =>
+            Stream.fromArray(
+              parts(input).flatMap((part): Response.StreamPartEncoded[] =>
+                part.type === 'text'
+                  ? [
+                      { type: 'text-start', id: 'text' },
+                      { type: 'text-delta', id: 'text', delta: part.text },
+                      { type: 'text-end', id: 'text' }
+                    ]
+                  : [part]
+              )
+            )
+          )
+      })
+    )
+  );
 }
 
 async function run<A, E>(

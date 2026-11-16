@@ -1,7 +1,7 @@
 # Durable background work
 
 - Status: Accepted
-- Date: 2026-11-15
+- Date: 2026-11-16
 
 ## Decision
 
@@ -104,11 +104,14 @@ An unknown AI attempt may incur repeated usage and produce a different result.
 Use provider idempotency where actually supported; it does not establish a
 universal exactly-once guarantee.
 
-Workflow and activity names are persisted protocol identities and must be stable.
-Payloads and results use canonical schemas with explicit compatible versions.
-Renames, schema changes, and activity reordering require replay compatibility
-review against persisted work. Unsupported work must appear visibly blocked with
-a typed reason, rather than disappear, loop indefinitely, or decode unsafely.
+Workflow and activity names are persisted protocol identities and remain stable
+within an execution definition. Payloads and results use canonical versioned
+schemas. Restart recovery within the installed definition reuses completed work.
+Application updates need not preserve resumability of pending work from earlier
+definitions or migrate its checkpoints. Incompatible work may fail with a typed,
+visible outcome; the user can explicitly retry under the current definition.
+Never decode incompatible state unsafely, loop indefinitely, automatically replay
+the initiating client mutation, or discard already published domain results.
 
 ### Database ownership
 
@@ -163,7 +166,8 @@ independently of execution recovery.
 ## Tradeoffs and limitations
 
 The upstream cluster APIs require compatible package pins and deliberate upgrade
-verification. Two schema owners and separate connections add migration ordering,
+verification. An application update may require users to retry unfinished work.
+Two schema owners and separate connections add migration ordering,
 contention, backup, and replay obligations. Durable execution does not provide
 remote exactly-once behavior or execution while the application is fully stopped.
 A separate worker service, multi-machine cluster, and hidden resident daemon are

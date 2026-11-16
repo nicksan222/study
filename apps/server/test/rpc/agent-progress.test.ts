@@ -1,4 +1,3 @@
-import type { LanguageModelV3, LanguageModelV3StreamPart } from '@ai-sdk/provider';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies live generation snapshots cross the real streaming HTTP RPC transport.    │
@@ -20,7 +19,9 @@ import { generateAgent, agentsLayer as layer } from '@study/server';
 import { defineAgent } from '@study/server';
 import { observeAgentProgress } from '@study/server';
 import { test } from '@study/testing';
-import { Deferred, Effect, Fiber, Schema, Stream } from 'effect';
+import { Deferred, Effect, Fiber, Layer, Schema, Stream } from 'effect';
+import type { Response } from 'effect/ai';
+import { LanguageModel, Model } from 'effect/ai';
 import { Workflow, WorkflowEngine } from 'effect/workflow';
 
 import { makeStudyClient } from '#server/client/index';
@@ -28,37 +29,39 @@ import { serve } from '#server/runtime/index';
 
 function controlledModel() {
   let finish!: () => void;
-  const model: LanguageModelV3 = {
-    specificationVersion: 'v3',
-    provider: 'test',
-    modelId: 'stream',
-    supportedUrls: {},
-    doGenerate: async () => {
-      throw new Error('Streaming is required');
-    },
-    doStream: async () => ({
-      stream: new ReadableStream<LanguageModelV3StreamPart>({
-        start(controller) {
-          controller.enqueue({ type: 'stream-start', warnings: [] });
-          controller.enqueue({ type: 'text-start', id: 'text' });
-          controller.enqueue({ type: 'text-delta', id: 'text', delta: 'first' });
-          finish = () => {
-            controller.enqueue({ type: 'text-delta', id: 'text', delta: ' second' });
-            controller.enqueue({ type: 'text-end', id: 'text' });
-            controller.enqueue({
-              type: 'finish',
-              finishReason: { unified: 'stop', raw: 'stop' },
-              usage: {
-                inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
-                outputTokens: { total: 2, text: 2, reasoning: 0 }
-              }
-            });
-            controller.close();
-          };
-        }
+  const model = Model.make(
+    'test' as string,
+    'stream',
+    Layer.effect(
+      LanguageModel.LanguageModel,
+      LanguageModel.make({
+        generateText: () => Effect.die('Streaming is required'),
+        streamText: () =>
+          Stream.fromReadableStream({
+            evaluate: () =>
+              new ReadableStream<Response.StreamPartEncoded>({
+                start(controller) {
+                  controller.enqueue({ type: 'text-start', id: 'text' });
+                  controller.enqueue({ type: 'text-delta', id: 'text', delta: 'first' });
+                  finish = () => {
+                    controller.enqueue({ type: 'text-delta', id: 'text', delta: ' second' });
+                    controller.enqueue({ type: 'text-end', id: 'text' });
+                    controller.enqueue({
+                      type: 'finish',
+                      reason: 'stop',
+                      usage: { inputTokens: { total: 1 }, outputTokens: { total: 2 } }
+                    });
+                    controller.close();
+                  };
+                }
+              }),
+            onError: () => {
+              throw new Error('Fixture stream failed');
+            }
+          })
       })
-    })
-  };
+    )
+  );
 
   return { model, finish: () => finish() };
 }

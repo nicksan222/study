@@ -176,7 +176,7 @@ export function runHttpPromise<A, E>(
   return Effect.runPromise(effect, options);
 }
 
-/** Promise/stream boundary for consumers such as the AI SDK. The scope outlives headers. */
+/** Promise/stream boundary for provider HTTP consumers. The scope outlives headers. */
 export function streamingFetch(
   input: string | URL | Request,
   init: RequestInit | undefined,

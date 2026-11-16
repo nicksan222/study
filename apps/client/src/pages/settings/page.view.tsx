@@ -31,6 +31,7 @@ import type { ReactNode } from 'react';
 import { ProjectSettings } from '#client/features/collections/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 
+import { AiActivitySettings } from './activity';
 import { AiAccountSettings, AiModelSettings } from './ai';
 import { AgentRulesSettings } from './ai/agent-rules';
 import { AnalyticsSettings } from './analytics';
@@ -143,6 +144,12 @@ const sections = [
     ]
   },
   {
+    id: 'activity',
+    label: 'AiActivityTitle',
+    Icon: GenerateIcon,
+    keywords: ['AgentActivityDetails', 'AiActivityDescription']
+  },
+  {
     id: 'usage',
     label: 'UsageTitle',
     Icon: UsageIcon,
@@ -242,7 +249,7 @@ const navigationGroups = [
   },
   {
     label: 'SettingsAi',
-    ids: ['account', 'models', 'instructions', 'automation', 'usage', 'performance']
+    ids: ['account', 'models', 'instructions', 'automation', 'activity', 'usage', 'performance']
   },
   {
     label: 'Practice',
@@ -418,6 +425,7 @@ function SectionContent({
     performance: <PerformanceSettings />,
     analytics: <AnalyticsSettings />,
     usage: <UsageSettings />,
+    activity: <AiActivitySettings />,
     flashcards: <StudySettings />,
     quizzes: <QuizSettings />,
     fill_blank: <QuizSettings kind="fill_blank" />,

@@ -1,16 +1,4 @@
 import { sourceProcessingRequestedSchema, noteGenerationRequestedSchema } from '@study/contracts';
-/**
- * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Tests durable text conversion and exact PDF attachment extraction reuse.           │
- * │                                                                                          │
- * │ Responsibilities:                                                                        │
- * │ - Checks model routing and checkpointed conversion publication.                          │
- * │ - Preserves attachment bytes and excludes unrelated note messages.                       │
- * │                                                                                          │
- * │ Boundaries:                                                                              │
- * │ Tests use real SQLite and workflow services with a controlled model transport.           │
- * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
- */
 import { defaultAgentRules } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { workflowEvents } from '@study/db';
@@ -35,6 +23,19 @@ import { Settings } from '#server/features/settings/index';
 import { textConversionAgent } from '#server/features/sources/agents/text-conversion';
 import { Sources } from '#server/features/sources/index';
 import { withTestPublication } from '#testing/publication';
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Tests durable text conversion and exact PDF attachment extraction reuse.           │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Checks model routing and checkpointed conversion publication.                          │
+ * │ - Preserves attachment bytes and excludes unrelated note messages.                       │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Tests use real SQLite and workflow services with a controlled model transport.           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+import { textResponseEvents } from '#testing/responses';
 import { withTestAdmission } from '#testing/workflow-admission';
 
 import { noteReplyHandler, noteReplyWorkflow } from './index.ts';
@@ -308,15 +309,7 @@ test.server.stable(
 
         if (!available) return new Response('Unavailable', { status: 503 });
 
-        const events = [
-          {
-            type: 'response.output_item.added',
-            output_index: 0,
-            item: { type: 'message', id: 'm' }
-          },
-          { type: 'response.output_text.delta', item_id: 'm', delta: 'Saved text.' },
-          { type: 'response.completed', response: {} }
-        ];
+        const events = textResponseEvents('Saved text.');
 
         return new Response(
           events.map((event) => 'data: ' + JSON.stringify(event) + '\n\n').join(''),

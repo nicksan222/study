@@ -3,6 +3,8 @@
 import * as input from '@study/contracts';
 import {
   errorKindSchema,
+  materialGenerationHistorySchema,
+  materialGenerationHistoryReferencesSchema,
   materialGenerationInputSchema,
   materialGenerationPublicationSchema,
   materialGenerationRequestedSchema,
@@ -15,6 +17,7 @@ import { storeMutation, storeQuery } from '@study/server';
 import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
 
+import { makeGenerationHistory } from './generation-history.ts';
 import { makeGeneration } from './generation-operations.ts';
 
 export function makeMaterialGenerationStore(resources: StoreResources) {
@@ -31,6 +34,15 @@ export function makeMaterialGenerationStore(resources: StoreResources) {
 
   return {
     queries: {
+      generationHistory: storeQuery({
+        role: 'required',
+        input: Schema.Struct({
+          request: materialGenerationSnapshotSchema,
+          snapshot: Schema.optional(materialGenerationHistoryReferencesSchema)
+        }),
+        output: materialGenerationHistorySchema,
+        run: ({ request, snapshot }) => makeGenerationHistory(resources)(request, snapshot)
+      }),
       materialGeneration: storeQuery({
         role: 'required',
         input: Schema.Struct({

@@ -24,6 +24,7 @@ export const workflow_agent_progress = defineTable({
     failure_kind: text(),
     text: text().notNull().default(''),
     tools: text().notNull().default('[]'),
+    trace: text(),
     revision: integer().$type<bigint>().notNull(),
     updated_at: integer().$type<bigint>().notNull()
   },
@@ -32,6 +33,7 @@ export const workflow_agent_progress = defineTable({
       'workflow_agent_progress_phase_check',
       sql`${t.phase} IN ('generating', 'preparing', 'compacting')`
     ),
+    check('workflow_agent_progress_trace_check', sql`${t.trace} IS NULL OR json_valid(${t.trace})`),
     check('workflow_agent_progress_tools_check', sql`json_valid(${t.tools})`),
     check('workflow_agent_progress_mode_check', sql`${t.mode} IN ('text', 'object')`),
     check(
