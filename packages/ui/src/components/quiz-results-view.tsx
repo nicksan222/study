@@ -1,8 +1,9 @@
+import { useState, useId } from 'react';
+import type { ReactNode } from 'react';
+
 import { NextButton, PreviousButton } from '#ui/components/navigation-button.tsx';
 import { Practice } from '#ui/components/practice.tsx';
 import { SelectionSurface as Surface } from '#ui/components/selection.tsx';
-import { useState, useId } from 'react';
-import type { ReactNode } from 'react';
 
 import { MatchingReviewView as MatchingReview } from './matching-review-view';
 import { OrderingResultView as OrderingResult } from './ordering-result-view';
