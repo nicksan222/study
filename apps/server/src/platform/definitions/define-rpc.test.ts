@@ -10,8 +10,7 @@ import { StudyError, failureSchema } from '@study/contracts';
  * │   creation is lazy and scoped, and operations retain their dependencies.                 │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Invokes #server/platform/definitions/define-rpc directly with Vitest   ; no application  │
- * │ or database fixture is involved.                                                         │
+ * │ Uses native RPC directly and real SQLite revisions for generated live snapshots.        │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import { dependency, endpointGroup, liveQuery } from '@study/contracts';
@@ -25,13 +24,17 @@ import {
   Fiber,
   Layer,
   Queue,
+  Result,
   Schema,
   Stream
 } from 'effect';
 import { Rpc, RpcGroup, RpcTest } from 'effect/rpc';
 
+import { ServerContext } from '#server/platform/database/context';
+import { Database } from '#server/platform/database/database';
 import type { LiveQueries } from '#server/platform/database/live-queries';
 import { defineRpc } from '#server/platform/definitions/define-rpc';
+import { testLiveQueries } from '#testing/live-queries';
 
 const Group = RpcGroup.make(
   Rpc.make('test.read', {
@@ -46,12 +49,19 @@ const Streams = RpcGroup.make(
 );
 
 test.unit.stable(
-  'maps StudyError through native RPC without losing retryAfterMs',
+  'maps StudyError through native RPC without losing public metadata or exposing causes',
   async ({ expect }) => {
     const layer = defineRpc(
       Group,
       Effect.succeed({
-        'test.read': () => Effect.fail(new StudyError('rate_limited', 'slow', { retryAfterMs: 42 }))
+        'test.read': () =>
+          Effect.fail(
+            new StudyError('rate_limited', 'slow', {
+              retryAfterMs: 42,
+              resource: 'ai_capacity',
+              cause: new Error('private provider response')
+            })
+          )
       })
     );
     const result = await Effect.runPromise(
@@ -64,9 +74,72 @@ test.unit.stable(
       )
     );
 
-    expect(result).toStrictEqual({ kind: 'rate_limited', message: 'slow', retryAfterMs: 42 });
+    expect(result).toStrictEqual({
+      kind: 'rate_limited',
+      message: 'slow',
+      retryAfterMs: 42,
+      resource: 'ai_capacity'
+    });
   }
 );
+
+for (const [wrapper, wrap] of [
+  ['fork', Rpc.fork],
+  ['uninterruptible', Rpc.uninterruptible]
+] as const)
+  test.server.stable(
+    `generated live queries scope wrapped snapshots through the real revision service: ${wrapper}`,
+    async ({ databases, expect }) => {
+      const location = await databases();
+      const context = new ServerContext(await location.open());
+      const snapshots = endpointGroup({
+        read: liveQuery(
+          'test.snapshot',
+          { payload: {}, success: Schema.String, error: failureSchema },
+          { dependencies: [dependency.settings], refresh: 'database' }
+        )
+      });
+      let released = 0;
+      const handlers = defineRpc(
+        snapshots,
+        Effect.succeed({
+          'test.snapshot': () =>
+            wrap(
+              Effect.acquireRelease(Effect.succeed('snapshot'), () =>
+                Effect.sync(() => {
+                  released++;
+                })
+              )
+            )
+        })
+      ).pipe(
+        Layer.provide(testLiveQueries),
+        Layer.provide(Layer.succeed(Database, { store: context }))
+      );
+
+      try {
+        const frames = await Effect.runPromise(
+          Effect.scoped(
+            Effect.gen(function* () {
+              const client = yield* RpcTest.makeClient(snapshots);
+
+              return yield* client['test.snapshot.live']({}).pipe(
+                Stream.filter((frame) => frame._tag === 'Snapshot'),
+                Stream.take(1),
+                Stream.runCollect
+              );
+            }).pipe(Effect.provide(handlers))
+          )
+        );
+
+        expect(frames.map((frame) => Result.getOrThrow(frame.result))).toStrictEqual(['snapshot']);
+        expect(released).toBe(1);
+      } finally {
+        context.close();
+        await location.cleanup();
+      }
+    }
+  );
 
 class Initialization extends Context.Service<Initialization, string>()('test/RpcInitialization') {}
 

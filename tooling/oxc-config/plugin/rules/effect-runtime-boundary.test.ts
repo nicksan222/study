@@ -203,7 +203,7 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'backup policy composition reuses the managed runtime instead of adding a synchronous runner',
+  'backup policy composition reuses the native runtime boundary instead of adding a synchronous runner',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
 
@@ -216,6 +216,34 @@ test.unit.stable(
 
     assertDiagnostics({ assert, expect }, 'effect-runtime-boundary', diagnostics, [
       ['src/runtime/backups.ts', message]
+    ]);
+  }
+);
+
+test.unit.stable(
+  'only the exported native boundary may run service-free promises',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+    const diagnostics = await lintRule({ assert }, 'effect-runtime-boundary', {
+      'src/runtime/layers.ts': `
+        import { Effect as E } from 'effect';
+        export function runNative(task) {
+          E.runPromise(task);
+          E.runSync(task);
+          function nested() { E.runPromise(task); }
+        }
+        function other(task) { E.runPromise(task); }
+        export const alias = (task) => E.runPromise(task);
+      `,
+      'src/features/example/service/index.ts': `
+        import { Effect } from 'effect';
+        export function runNative(task) { return Effect.runPromise(task); }
+      `
+    });
+
+    assertDiagnostics({ assert, expect }, 'effect-runtime-boundary', diagnostics, [
+      ...Array.from({ length: 4 }, () => ['src/runtime/layers.ts', message] as [string, string]),
+      ['src/features/example/service/index.ts', message]
     ]);
   }
 );

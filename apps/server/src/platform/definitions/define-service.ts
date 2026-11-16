@@ -73,10 +73,8 @@ function serviceDefinition<
   R,
   P extends Record<string, (...args: never[]) => unknown> = Record<never, never>
 >(name: Name, make: Effect.Effect<T, E, R>, transactionParticipants?: P) {
-  const key = Context.Service<Wrapped<T>>(name);
-  const layer = Layer.effect(
-    key,
-    make.pipe(
+  const key = Context.Service<Context.ServiceClass.Shape<Name, Wrapped<T>>>()(name, {
+    make: make.pipe(
       Effect.map((operations) => {
         const wrapped = Object.fromEntries(
           Object.entries(operations).map(([operation, handler]) => [
@@ -94,7 +92,8 @@ function serviceDefinition<
         return wrapped as Wrapped<T>;
       })
     )
-  );
+  });
+  const layer = Layer.effect(key, key.make);
 
   // Public synchronous participants let feature services share a caller-owned transaction.
   // They use that transaction's typed stores and must never hold it across an await.

@@ -231,12 +231,20 @@ function errorAndLayerTypeAssertions() {
 
   type AcquisitionServices = Assert<Equal<Layer.Services<typeof service.layer>, Greeting>>;
 
-  const assertions: [OperationError, OperationServices, AcquisitionError, AcquisitionServices] = [
-    true,
-    true,
-    true,
-    true
-  ];
+  type ConstructionError = Assert<
+    Equal<Effect.Error<typeof service.make>, typeof acquisitionFailure>
+  >;
+
+  type ConstructionServices = Assert<Equal<Effect.Services<typeof service.make>, Greeting>>;
+
+  const assertions: [
+    OperationError,
+    OperationServices,
+    AcquisitionError,
+    AcquisitionServices,
+    ConstructionError,
+    ConstructionServices
+  ] = [true, true, true, true, true, true];
 
   return assertions;
 }
@@ -280,6 +288,21 @@ function publicationTypeAssertions() {
 }
 
 void publicationTypeAssertions;
+
+function serviceIdentityTypeAssertions() {
+  const first = defineService('test/FirstIdentity', Effect.succeed({ read: () => Effect.void }));
+  const second = defineService('test/SecondIdentity', Effect.succeed({ read: () => Effect.void }));
+  const action = Effect.flatMap(first, (service) => service.read()).pipe(
+    Effect.provide(second.layer)
+  );
+
+  // @ts-expect-error identically shaped services with different names are distinct dependencies
+  void Effect.runPromise(action);
+
+  return action;
+}
+
+void serviceIdentityTypeAssertions;
 
 test.unit.stable(
   'service harness accepts lazy generator factories and preserves dependency and failure types',

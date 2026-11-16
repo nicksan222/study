@@ -7,7 +7,7 @@
  * │ In production server and client source, prevents feature-local runtimes and runners from │
  * │ escaping application lifetime. Allows client lib/effect/runtime.ts, server               │
  * │ runtime/main.ts, and narrowly named platform bridges; runtime/layers.ts may construct    │
- * │ ManagedRuntime.                                                                          │
+ * │ ManagedRuntime and its exported runNative bridge may execute service-free promises.      │
  * │                                                                                          │
  * │ Allowed:                                                                                 │
  * │   import { Effect } from 'effect';                                                       │
@@ -43,6 +43,12 @@ export default defineRule({
 
     function approvedBridge(node: any, name: string): boolean {
       const bridges = [
+        {
+          suffix: '/apps/server/src/runtime/layers.ts',
+          runner: 'Effect.runPromise',
+          name: 'runNative',
+          exported: true
+        },
         {
           suffix: '/apps/server/src/platform/http/index.ts',
           runner: 'Effect.runPromise',

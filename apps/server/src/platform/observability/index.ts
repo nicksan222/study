@@ -180,11 +180,10 @@ export function observeOperation<A, E, R>(
         })
       );
 
-    yield* recordMetric(Metric.modify(activeOperations, 1));
-
-    return yield* log('operation.start').pipe(
-      Effect.andThen(restore(effect)),
-      Effect.onExit((exit) =>
+    return yield* Effect.acquireUseRelease(
+      recordMetric(Metric.modify(activeOperations, 1)),
+      () => log('operation.start').pipe(Effect.andThen(restore(effect))),
+      (_, exit) =>
         Effect.gen(function* () {
           const duration = elapsedMillis(clock, started);
           const outcome = Exit.isSuccess(exit)
@@ -198,7 +197,6 @@ export function observeOperation<A, E, R>(
           yield* recordMetric(Metric.update(outcomes[outcome], 1));
           yield* log(Exit.isSuccess(exit) ? 'operation.finish' : 'operation.failure', duration);
         })
-      )
     );
   }
 
