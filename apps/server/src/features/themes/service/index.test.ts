@@ -1,4 +1,5 @@
 import { sql } from '@study/db';
+import { ServerContext, Database } from '@study/server';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks theme catalog paging, serialization, selection, and transactional mutation  │
@@ -17,8 +18,6 @@ import { test } from '@study/testing';
 import { Effect, Layer, Option } from 'effect';
 
 import { Themes } from '#server/features/themes/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 
 test.server.stable(
   'themes catalog, mutations and selection preserve transactional rules',

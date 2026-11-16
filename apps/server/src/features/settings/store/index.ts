@@ -1,6 +1,6 @@
 /** @file Composes settings persistence with canonical typed store declarations. */
 
-import { defineStore } from '#server/platform/definitions/define-store';
+import { defineStore } from '@study/server';
 
 import { makeSettingsStore } from './preferences.ts';
 

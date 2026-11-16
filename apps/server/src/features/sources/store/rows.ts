@@ -4,9 +4,8 @@ import type { ContentSnapshotId, SourceId } from '@study/contracts';
 import { MAX_SOURCE_BYTES, StudyError, decodeBlockContent, documentSchema } from '@study/contracts';
 import * as tables from '@study/db';
 import { eq, getTableColumns } from '@study/db';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
 
 export function makeHelpers({ db }: StoreResources) {
   function selectSources() {

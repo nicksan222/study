@@ -23,12 +23,11 @@ import {
   LlmProvider
 } from '@study/contracts';
 import { sql } from '@study/db';
+import { ServerContext, Database } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 
 import { Settings } from '#server/features/settings/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 
 test.server.stable(
   'settings defaults, updates, model selection and rollback use SQLite',

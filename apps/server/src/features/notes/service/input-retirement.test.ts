@@ -13,6 +13,7 @@ import type { ContentInput } from '@study/contracts';
  */
 import { sql } from '@study/db';
 import * as s from '@study/db';
+import { decodeEvent, workflowStore } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
 import { Activity, DurableDeferred, WorkflowEngine } from 'effect/workflow';
@@ -25,8 +26,6 @@ import {
 import { noteReplyWorkflow, noteReplyHandler } from '#server/features/notes/workflows/index';
 import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
-import { decodeEvent } from '#server/platform/workflows/events';
-import { workflowStore } from '#server/platform/workflows/store';
 import { deletionDocument } from '#testing/material-deletion';
 import { processSource } from '#testing/material-history';
 import { assertScrubbed, awaitNativeStatus, deletionEvent } from '#testing/note-deletion';

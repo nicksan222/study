@@ -13,14 +13,12 @@ import { plainBlock } from '@study/contracts';
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import { sql } from '@study/db';
+import { ServerContext, Database, transaction } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 
 import { Sources } from '#server/features/sources/index';
 import { SourceStore } from '#server/features/sources/store/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { transaction } from '#server/platform/definitions/define-store';
 
 test.server.stable(
   'an unpinned published source extraction is immutable until its retained identity is released',

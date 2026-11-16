@@ -1,3 +1,4 @@
+import { ServerContext, Database } from '@study/server';
 import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
@@ -14,8 +15,6 @@ import { test } from '@study/testing';
 import { Effect } from 'effect';
 
 import { Notes } from '#server/features/notes/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 
 test.server.stable(
   'note chats are distinct, durable, excluded from global chats and scoped to a notebook',

@@ -4,10 +4,9 @@ import type { ErrorKind, ProjectId } from '@study/contracts';
 import { StudyError, contentInputKey } from '@study/contracts';
 import * as s from '@study/db';
 import { and, desc, eq, isNull, sql } from '@study/db';
+import { decodeEvent } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { decodeEvent } from '#server/platform/workflows/events';
 
 import { makeExactInputs } from './exact-inputs.ts';
 import { codec } from './generation-schemas.ts';

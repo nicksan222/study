@@ -1,6 +1,6 @@
 /** @file Composes sources persistence with canonical typed store declarations. */
 
-import { defineStore } from '#server/platform/definitions/define-store';
+import { defineStore } from '@study/server';
 
 import { makeHistoricalDocumentStore, makeSourceDocumentStore } from './documents.ts';
 import { makeSourceExportStore } from './exports.ts';

@@ -55,9 +55,8 @@ type SearchOptions = { projectId?: ProjectId; kinds?: readonly SearchKind[]; lim
 import { anchorSchema } from '@study/contracts';
 import * as schema from '@study/db';
 import { sql } from '@study/db';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
 
 export function makeSearch({ db }: StoreResources) {
   function search(query: string, options: SearchOptions = {}): SearchHit[] {

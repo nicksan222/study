@@ -15,10 +15,10 @@ import { StudyError } from '@study/contracts';
 import * as evidence from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
+import { defineStore, storeQuery } from '@study/server';
 import { Schema } from 'effect';
 
 import { decodeTransformRequest } from '#server/features/pages/store/transforms';
-import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 
 import { makePageReads } from './reads.ts';
 

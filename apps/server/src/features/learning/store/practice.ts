@@ -15,12 +15,9 @@ import {
 } from '@study/contracts';
 import * as s from '@study/db';
 import { eq } from '@study/db';
+import { requireRow, defineStore, storeMutation, storeQuery, invalid } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import { requireRow } from '#server/platform/database/rows';
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
-import { invalid } from '#server/platform/errors/domain-error';
 
 import { makePracticeFailures } from './practice-failures.ts';
 import { makePracticePublication } from './practice-publication.ts';

@@ -3,8 +3,7 @@
 import { StudyError } from '@study/contracts';
 import * as s from '@study/db';
 import { eq } from '@study/db';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
+import type { StoreResources } from '@study/server';
 
 import type { Scope } from './generation-schemas.ts';
 import { makeWrites, now } from './writes.ts';

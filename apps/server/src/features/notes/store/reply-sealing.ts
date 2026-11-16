@@ -3,10 +3,9 @@
 import { StudyError, replySnapshotInputSchema, replySnapshotSchema } from '@study/contracts';
 /** Owns reply sealing within this feature. */
 import { eq, message_parts, note_reply_requests, source_processing } from '@study/db';
+import { storeMutation } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeMutation } from '#server/platform/definitions/define-store';
 
 import { makeReplyAttachments } from './reply-attachments.ts';
 import { codec } from './reply-schemas.ts';

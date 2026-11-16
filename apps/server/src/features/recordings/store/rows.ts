@@ -3,8 +3,7 @@
 import type { recordingIdSchema } from '@study/contracts';
 import { StudyError } from '@study/contracts';
 import { eq, recording_chunks, recording_posts, recordings, sql } from '@study/db';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
+import type { StoreResources } from '@study/server';
 
 export const required = <T>(value: T | null | undefined): T => {
   if (value == null) throw new StudyError('not_found', 'Recording missing');

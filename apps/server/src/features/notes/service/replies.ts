@@ -7,6 +7,7 @@ import type {
   replyVersionInputSchema
 } from '@study/contracts';
 import { StudyError } from '@study/contracts';
+import { publicationTransaction, transaction, useStore } from '@study/server';
 import { Effect, Option } from 'effect';
 
 import { NoteContextStore } from '#server/features/notes/store/context';
@@ -20,11 +21,6 @@ import { RetainedReplySnapshotStore } from '#server/features/notes/store/reply-r
 import { ReplyVersionStore } from '#server/features/notes/store/reply-versions';
 import { Pages } from '#server/features/pages/index';
 import { Settings } from '#server/features/settings/index';
-import {
-  publicationTransaction,
-  transaction,
-  useStore
-} from '#server/platform/definitions/define-store';
 
 import { requireAvailableNote } from './availability.ts';
 import { resolveVersionCitations } from './citations.ts';

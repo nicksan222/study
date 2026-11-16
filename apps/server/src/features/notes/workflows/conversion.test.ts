@@ -14,6 +14,18 @@ import { sourceProcessingRequestedSchema, noteGenerationRequestedSchema } from '
 import { defaultAgentRules } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { workflowEvents } from '@study/db';
+import {
+  agentsLayer,
+  createChatGptModel,
+  AuthManager,
+  ServerContext,
+  Database,
+  normalizeError,
+  WorkflowConfiguration,
+  workflowEngineLayer,
+  decodeEvent
+} from '@study/server';
+import type { AgentsConfig } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
@@ -22,16 +34,6 @@ import { Notes } from '#server/features/notes/index';
 import { Settings } from '#server/features/settings/index';
 import { textConversionAgent } from '#server/features/sources/agents/text-conversion';
 import { Sources } from '#server/features/sources/index';
-import type { AgentsConfig } from '#server/platform/ai/agents';
-import { layer as agentsLayer } from '#server/platform/ai/agents';
-import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
-import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { normalizeError } from '#server/platform/errors/classify-error';
-import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
-import { workflowEngineLayer } from '#server/platform/workflows/engine';
-import { decodeEvent } from '#server/platform/workflows/events';
 import { withTestPublication } from '#testing/publication';
 import { withTestAdmission } from '#testing/workflow-admission';
 

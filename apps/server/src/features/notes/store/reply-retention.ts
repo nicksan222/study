@@ -2,8 +2,7 @@
 
 import { replySnapshotInputSchema, replySnapshotSchema } from '@study/contracts';
 /** Owns reply retention within this feature. */
-
-import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+import { defineStore, storeQuery } from '@study/server';
 
 import { makeReplySnapshots } from './reply-snapshots.ts';
 

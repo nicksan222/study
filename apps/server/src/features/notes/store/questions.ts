@@ -26,10 +26,9 @@ import {
   note_deletions,
   workflowEvents
 } from '@study/db';
+import { defineStore, storeMutation, storeQuery } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Option, Schema } from 'effect';
-
-import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
-import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { activeMessageCondition } from './archive.ts';
 import { makeDiscardPending } from './pending.ts';

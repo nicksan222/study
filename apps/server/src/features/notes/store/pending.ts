@@ -13,8 +13,7 @@
 
 import { and, desc, eq } from '@study/db';
 import { messages, message_versions } from '@study/db';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
+import type { StoreResources } from '@study/server';
 
 export function makeDiscardPending({ db }: StoreResources) {
   function discardPending(

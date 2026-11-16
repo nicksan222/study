@@ -1,6 +1,6 @@
 /** @file Owns generation operations within this feature. */
 
-import type { StoreResources } from '#server/platform/definitions/define-store';
+import type { StoreResources } from '@study/server';
 
 import { makeGenerationPublication } from './generation-publication.ts';
 import { makeGenerationQueries } from './generation-queries.ts';

@@ -12,6 +12,7 @@ import { eq } from '@study/db';
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import * as s from '@study/db';
+import { decodeEvent } from '@study/server';
 import type { test } from '@study/testing';
 import { Effect } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
@@ -22,7 +23,6 @@ import {
   recordingPostWorkflow,
   recordingPostHandler
 } from '#server/features/recordings/workflows/index';
-import { decodeEvent } from '#server/platform/workflows/events';
 import type { pageTransformFixture } from '#testing/page-transform';
 import { withTestAdmission } from '#testing/workflow-admission';
 

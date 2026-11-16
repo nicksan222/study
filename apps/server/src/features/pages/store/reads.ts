@@ -18,10 +18,9 @@ import type { ExactPageInput, PageVersion } from '@study/contracts';
 import { documentSchema } from '@study/contracts';
 import { and, asc, desc, eq, isNull, lt, sql } from '@study/db';
 import * as s from '@study/db';
+import { decodeStoredBlock } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import { decodeStoredBlock } from '#server/platform/database/content-block';
-import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { required } from './errors.ts';
 

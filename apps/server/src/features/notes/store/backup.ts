@@ -22,10 +22,9 @@ import { replySnapshotSchema } from '@study/contracts';
 import { anchorSchema } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
+import { defineStore, storeQuery } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
-import type { StoreResources } from '#server/platform/definitions/define-store';
 
 function makeCaptureValidation({ db }: StoreResources) {
   const context = Schema.decodeUnknownSync(

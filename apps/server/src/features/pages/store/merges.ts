@@ -14,9 +14,8 @@ import { projectIdSchema } from '@study/contracts';
 import * as t from '@study/contracts';
 import { and, desc, eq, isNull, sql } from '@study/db';
 import { page_transform_requests as requests } from '@study/db';
+import { defineStore, storeQuery } from '@study/server';
 import { Schema } from 'effect';
-
-import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 
 import { decodeTransformRequest } from './transforms.ts';
 

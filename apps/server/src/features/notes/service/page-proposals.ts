@@ -7,12 +7,12 @@ import type {
   transformSuggestionInputSchema
 } from '@study/contracts';
 import { StudyError } from '@study/contracts';
+import { publicationTransaction, transaction } from '@study/server';
 import { Option } from 'effect';
 
 import { NoteContextIntentStore } from '#server/features/notes/store/context-intents';
 import { NoteContextValidityStore } from '#server/features/notes/store/context-validity';
 import { Pages } from '#server/features/pages/index';
-import { publicationTransaction, transaction } from '#server/platform/definitions/define-store';
 
 import { captureContext, inputIsCurrent, readCapturedContext } from './context.ts';
 

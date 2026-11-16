@@ -17,15 +17,15 @@ import { sourceIdSchema } from '@study/contracts';
  */
 import { SourcesRpc } from '@study/contracts';
 import { workflowEvents } from '@study/db';
+import { ServerContext } from '@study/server';
+import { Database } from '@study/server';
+import { serveRpc } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer, Option, Schema } from 'effect';
 
 import { makeStudyClient } from '#server/client/index';
 import { SourcesRpcLive } from '#server/features/sources/rpc/index';
 import { Sources } from '#server/features/sources/service/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { serveRpc } from '#server/platform/rpc/bun';
 import { testLiveQueries } from '#testing/live-queries';
 
 test.server.stable(

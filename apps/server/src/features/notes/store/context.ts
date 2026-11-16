@@ -15,9 +15,8 @@ import {
   note_context_sources,
   note_run_contexts
 } from '@study/db';
+import { defineStore, storeMutation, storeQuery } from '@study/server';
 import { Option, Schema } from 'effect';
-
-import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 
 import { makeContextReads } from './context-reads.ts';
 import { assertHistoryBoundary, contextCodec, intentCodec } from './context-schemas.ts';

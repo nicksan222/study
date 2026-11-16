@@ -28,10 +28,8 @@ import {
   notes,
   sources
 } from '@study/db';
+import { defineStore, storeMutation, storeQuery, unixSeconds } from '@study/server';
 import { Schema } from 'effect';
-
-import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
-import { unixSeconds } from '#server/platform/time/index';
 
 import { activeMessageCondition } from './archive.ts';
 import { makeHelpers } from './message-rows.ts';

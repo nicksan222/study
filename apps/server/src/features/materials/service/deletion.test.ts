@@ -13,6 +13,7 @@ import { MaterialsRpc } from '@study/contracts';
  */
 import { sql } from '@study/db';
 import * as s from '@study/db';
+import { workflowStore } from '@study/server';
 import { test } from '@study/testing';
 /** Genuine learning deletion uses exact output ownership; Pages and Sources retain their independent lifetimes. */
 import { Effect, Layer, Schema, Exit } from 'effect';
@@ -28,7 +29,6 @@ import {
 import { materialGenerationWorkflow } from '#server/features/materials/workflows/generation';
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
-import { workflowStore } from '#server/platform/workflows/store';
 import { learningGeneration, queueLearningGeneration } from '#testing/learning-generation';
 import { testLiveQueries } from '#testing/live-queries';
 import {

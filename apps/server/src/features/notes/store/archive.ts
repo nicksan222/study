@@ -30,11 +30,9 @@ import {
   pages,
   sources
 } from '@study/db';
+import { defineStore, storeQuery, storeMutation, unixSeconds } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import { defineStore, storeQuery, storeMutation } from '#server/platform/definitions/define-store';
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { unixSeconds } from '#server/platform/time/index';
 
 type Entry = typeof archivedNoteItemSchema.Type;
 

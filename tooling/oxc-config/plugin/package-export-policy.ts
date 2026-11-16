@@ -20,7 +20,7 @@ const libraryExportFacets: Readonly<Record<string, readonly string[]>> = {
 };
 
 const applicationExportFacets: Readonly<Record<string, readonly string[]>> = {
-  server: ['client', 'runtime', 'runtime/ownership', 'runtime/database', 'testing'],
+  server: ['.', 'client', 'runtime', 'runtime/ownership', 'runtime/database', 'testing'],
   client: ['feature-previews', 'feature-previews/catalog'],
   tooling: ['development/rpc-proxy']
 };
@@ -40,7 +40,7 @@ export function isApprovedPackageSpecifier(source: string): boolean {
 
   if (!applicationFacets) return true;
 
-  return facet !== undefined && applicationFacets.includes(facet);
+  return applicationFacets.includes(facet ?? '.');
 }
 
 function explicitSourceTarget(prefix: string, value: unknown): boolean {
@@ -78,7 +78,7 @@ function exportMap(value: unknown): Record<string, unknown> {
 }
 
 function exportKeys(library: boolean, facets: readonly string[]): Set<string> {
-  const keys = new Set(facets.map((facet) => `./${facet}`));
+  const keys = new Set(facets.map((facet) => (facet === '.' ? '.' : `./${facet}`)));
 
   if (library) keys.add('.');
 

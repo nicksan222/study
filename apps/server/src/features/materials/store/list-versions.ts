@@ -20,9 +20,9 @@ type Input = typeof materialVersionsInputSchema.Type;
 
 import * as s from '@study/db';
 import { and, desc, eq, lt } from '@study/db';
+import type { StoreResources } from '@study/server';
 
 import { makeReads } from '#server/features/materials/store/reads';
-import type { StoreResources } from '#server/platform/definitions/define-store';
 
 export function makeListVersions(resources: StoreResources) {
   const { db: store } = resources;

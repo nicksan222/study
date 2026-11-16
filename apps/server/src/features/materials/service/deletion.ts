@@ -17,6 +17,8 @@ import { StudyError } from '@study/contracts';
 import type { ErrorKind } from '@study/contracts';
 import type { MaterialVersionId, MaterialId } from '@study/contracts';
 import type { requestMaterialDeletionSchema, materialDeletionSchema } from '@study/contracts';
+import { transaction, publicationTransaction } from '@study/server';
+import type { Transaction } from '@study/server';
 import { CryptoHasher } from 'bun';
 import { Context, Layer, Option } from 'effect';
 
@@ -27,8 +29,6 @@ import {
 import { MaterialDeletionOwnershipStore } from '#server/features/materials/store/deletion-ownership';
 import { MaterialGenerationCleanupStore } from '#server/features/materials/store/generation-cleanup';
 import { Workflows } from '#server/features/workflows/index';
-import { transaction, publicationTransaction } from '#server/platform/definitions/define-store';
-import type { Transaction } from '#server/platform/definitions/define-store';
 
 type Inspect = { token: string; requestIds: readonly string[] };
 

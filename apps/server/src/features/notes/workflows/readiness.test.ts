@@ -15,6 +15,19 @@ import { defaultAgentRules } from '@study/contracts';
  */
 import { eq } from '@study/db';
 import * as tables from '@study/db';
+import {
+  agentsLayer,
+  ServerContext,
+  Database,
+  normalizeError,
+  WorkflowConfiguration,
+  cancelExecution,
+  WorkflowControl,
+  workflowEngineLayer,
+  decodeEvent,
+  workflowStore,
+  dispatchPending
+} from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer, Option } from 'effect';
 import type { MessageStorage, Sharding } from 'effect/cluster';
@@ -27,16 +40,6 @@ import {
   sourceIngestionHandler,
   sourceIngestionWorkflow
 } from '#server/features/sources/workflows/index';
-import { layer as agentsLayer } from '#server/platform/ai/agents';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { normalizeError } from '#server/platform/errors/classify-error';
-import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
-import { cancelExecution, WorkflowControl } from '#server/platform/workflows/control';
-import { workflowEngineLayer } from '#server/platform/workflows/engine';
-import { decodeEvent } from '#server/platform/workflows/events';
-import { workflowStore } from '#server/platform/workflows/store';
-import { dispatchPending } from '#server/platform/workflows/triggers';
 import { createUnregisteredSource } from '#testing/source';
 import { withTestAdmission } from '#testing/workflow-admission';
 

@@ -15,6 +15,7 @@ import { sourceProcessingRequestedSchema } from '@study/contracts';
 import { sourceIdSchema } from '@study/contracts';
 import { eq } from '@study/db';
 import * as s from '@study/db';
+import { decodeEvent, withPublicationGuard, workflowStore, admitPending } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Exit, Schema } from 'effect';
 import { Activity, DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';
@@ -31,10 +32,6 @@ import {
   recordingPostWorkflow
 } from '#server/features/recordings/workflows/index';
 import { Sources } from '#server/features/sources/index';
-import { decodeEvent } from '#server/platform/workflows/events';
-import { withPublicationGuard } from '#server/platform/workflows/publication';
-import { workflowStore } from '#server/platform/workflows/store';
-import { admitPending } from '#server/platform/workflows/triggers';
 import { setup, deletionEvent, assertScrubbed, awaitNativeStatus } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';

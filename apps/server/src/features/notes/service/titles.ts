@@ -1,13 +1,9 @@
 /** @file Owns titles within this feature. */
 
 import type { NoteId, publishTitleInputSchema } from '@study/contracts';
+import { publicationTransaction, transaction, useStore } from '@study/server';
 
 import { TitleStore } from '#server/features/notes/store/title';
-import {
-  publicationTransaction,
-  transaction,
-  useStore
-} from '#server/platform/definitions/define-store';
 
 export function* noteTitleOperations() {
   const titles = yield* useStore(TitleStore);

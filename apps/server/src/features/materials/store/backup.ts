@@ -18,9 +18,8 @@ import { learningCitationSchema } from '@study/contracts';
 import { materialVersionDetailSchema, materialGenerationPayloadSchema } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
+import { defineStore, storeQuery } from '@study/server';
 import { Schema } from 'effect';
-
-import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 
 import { makeExactInputs } from './exact-inputs.ts';
 import { makeReads } from './reads.ts';

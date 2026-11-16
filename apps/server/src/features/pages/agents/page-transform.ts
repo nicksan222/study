@@ -14,9 +14,7 @@
 import { pageTransformOutputSchema } from '@study/contracts';
 import { promptInputSchema } from '@study/contracts';
 import { AgentRule } from '@study/contracts';
-
-import { sourcesTool } from '#server/platform/ai/captured-sources-tool';
-import { defineAgent } from '#server/platform/definitions/define-agent';
+import { sourcesTool, defineAgent } from '@study/server';
 
 export const pageTransformAgent = defineAgent({
   id: 'page-transform',

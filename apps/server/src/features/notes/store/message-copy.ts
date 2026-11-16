@@ -16,9 +16,8 @@ import type { MessageId, PartId, VersionId } from '@study/contracts';
 import { copyNoteContentSchema, recordingCopySchema } from '@study/contracts';
 import { asc, eq, inArray } from '@study/db';
 import * as s from '@study/db';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
 
 export const copyMessagesInputSchema = Schema.Struct({
   ...copyNoteContentSchema.fields,

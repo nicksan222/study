@@ -14,6 +14,7 @@ import { createBlock } from '@study/contracts';
 import type { Block } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
+import { reconcileCancellation, workflowStore } from '@study/server';
 import { test } from '@study/testing';
 import { Deferred, Effect, Exit, Fiber } from 'effect';
 import { Activity, WorkflowEngine } from 'effect/workflow';
@@ -25,8 +26,6 @@ import {
   pageTransformWorkflow
 } from '#server/features/pages/workflows/transform';
 import { Sources } from '#server/features/sources/index';
-import { reconcileCancellation } from '#server/platform/workflows/cancellation';
-import { workflowStore } from '#server/platform/workflows/store';
 import { libraryState } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';

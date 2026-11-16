@@ -1,11 +1,10 @@
 /** @file Owns export within this feature. */
 
 import type { exportMaterialVersionInputSchema } from '@study/contracts';
+import { exportBudget, transaction } from '@study/server';
 
 import { MaterialExportCitationsStore } from '#server/features/materials/store/export';
 import { MaterialVersionsStore } from '#server/features/materials/store/index';
-import { exportBudget } from '#server/platform/content-export/budget';
-import { transaction } from '#server/platform/definitions/define-store';
 
 import { serializeMaterialVersion } from './export-serializer.ts';
 

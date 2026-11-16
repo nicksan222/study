@@ -16,6 +16,8 @@ import type { PageVersionId, NoteId } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
+import { decodeEvent } from '@study/server';
+import { workflowStore } from '@study/server';
 import type { test } from '@study/testing';
 import { pollUntil } from '@study/testing/effect';
 import { Effect, Schema } from 'effect';
@@ -28,8 +30,6 @@ import {
   noteDeletionWorkflow
 } from '#server/features/notes/workflows/deletion';
 import { Pages } from '#server/features/pages/index';
-import { decodeEvent } from '#server/platform/workflows/events';
-import { workflowStore } from '#server/platform/workflows/store';
 import { workflowDefinitions } from '#server/runtime/workflows';
 import type { pageTransformFixture } from '#testing/page-transform';
 import { withTestAdmission, refreshTestExecution } from '#testing/workflow-admission';

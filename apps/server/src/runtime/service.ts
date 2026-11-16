@@ -15,15 +15,17 @@
 
 import { StudyError } from '@study/contracts';
 import { Db } from '@study/db';
+import {
+  AuthManager,
+  ManagedBackups,
+  ServerContext,
+  acquireDatabaseOwnership,
+  initializeWorkflowInfrastructure
+} from '@study/server';
+import type { AiRuntimeAdapters } from '@study/server';
 import { Cause, Clock, Effect, Exit, Queue, Scope } from 'effect';
 
 import { Auth } from '#server/features/auth/index';
-import { AuthManager } from '#server/platform/ai/auth/index';
-import { ManagedBackups } from '#server/platform/database/backups';
-import { ServerContext } from '#server/platform/database/context';
-import { acquireDatabaseOwnership } from '#server/platform/database/ownership';
-import type { AiRuntimeAdapters } from '#server/platform/definitions/define-agent';
-import { initializeWorkflowInfrastructure } from '#server/platform/workflows/engine';
 
 import { backupPolicy } from './backups.ts';
 import { createNativeRuntime, runNative } from './layers.ts';

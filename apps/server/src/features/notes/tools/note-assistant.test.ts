@@ -1,4 +1,5 @@
 import { createBlock } from '@study/contracts';
+import { ServerContext, Database, useStore } from '@study/server';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies note tool isolation and versioned edits against real SQLite.              │
@@ -18,9 +19,6 @@ import { Notes } from '#server/features/notes/index';
 import { NoteDeletionCorrelationStore } from '#server/features/notes/store/deletion';
 import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { useStore } from '#server/platform/definitions/define-store';
 
 import { noteAssistantTools } from './note-assistant.ts';
 

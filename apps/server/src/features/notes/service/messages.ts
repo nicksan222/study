@@ -13,14 +13,14 @@ import type {
 } from '@study/contracts';
 import { StudyError } from '@study/contracts';
 import { mentionLabel } from '@study/localization';
+import { publicationTransaction, transaction } from '@study/server';
+import type { Transaction } from '@study/server';
 import { Effect } from 'effect';
 
 import { MessageStore } from '#server/features/notes/store/message';
 import { RecordingPostStore } from '#server/features/notes/store/recording';
 import { ReplyStore } from '#server/features/notes/store/reply-operations';
 import { Sources } from '#server/features/sources/index';
-import type { Transaction } from '#server/platform/definitions/define-store';
-import { publicationTransaction, transaction } from '#server/platform/definitions/define-store';
 
 import { requireAvailableNote } from './availability.ts';
 import { resolveMessageCitations } from './citations.ts';

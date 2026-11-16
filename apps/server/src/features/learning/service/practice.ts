@@ -8,6 +8,8 @@ import type {
   retryPracticeQuestionInputSchema,
   startPracticeInputSchema
 } from '@study/contracts';
+import { publicationTransaction, transaction, useStore } from '@study/server';
+import type { Transaction } from '@study/server';
 import { CryptoHasher } from 'bun';
 import { Effect, Option } from 'effect';
 
@@ -15,12 +17,6 @@ import { PracticeStore } from '#server/features/learning/store/practice';
 import { PracticeControlStore } from '#server/features/learning/store/practice-controls';
 import { PracticeSlotStore } from '#server/features/learning/store/practice-slots';
 import { Materials } from '#server/features/materials/index';
-import type { Transaction } from '#server/platform/definitions/define-store';
-import {
-  publicationTransaction,
-  transaction,
-  useStore
-} from '#server/platform/definitions/define-store';
 
 export function* learningPracticeOperations() {
   const readPracticeStore = yield* useStore(PracticeStore);

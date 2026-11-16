@@ -14,10 +14,10 @@
 import { StudyError } from '@study/contracts';
 import type { resolvedSelectionSchema, noteSelectionTargetSchema } from '@study/contracts';
 import { validBlockTextRange } from '@study/contracts';
+import type { Transaction } from '@study/server';
 
 import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
-import type { Transaction } from '#server/platform/definitions/define-store';
 
 /** Capture exact public content inside the caller's synchronous transaction. */
 export function resolveSelection(

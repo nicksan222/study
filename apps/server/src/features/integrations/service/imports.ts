@@ -12,15 +12,11 @@ import {
   previewIntegrationInputSchema
 } from '@study/contracts';
 import { integrationProvider, integrationProviders } from '@study/integrations';
+import { publicationTransaction, transaction, useStore } from '@study/server';
+import type { Transaction } from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { IntegrationImportsStore } from '#server/features/integrations/store/index';
-import type { Transaction } from '#server/platform/definitions/define-store';
-import {
-  publicationTransaction,
-  transaction,
-  useStore
-} from '#server/platform/definitions/define-store';
 
 import { importFingerprints, publishImportItem, reserveImport } from './publication.ts';
 

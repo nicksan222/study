@@ -8,12 +8,10 @@ import {
   llmSettingsSchema,
   tierSetupSchema
 } from '@study/contracts';
+import { getApiKeyProvider, useStore, validatedMutation } from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { SettingsStore } from '#server/features/settings/store/index';
-import { getApiKeyProvider } from '#server/platform/ai/providers/registry';
-import { useStore } from '#server/platform/definitions/define-store';
-import { validatedMutation } from '#server/platform/definitions/validated-mutation';
 
 import type { Preferences } from './preferences.ts';
 

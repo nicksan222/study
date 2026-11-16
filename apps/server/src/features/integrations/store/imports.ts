@@ -13,10 +13,9 @@ import {
   integration_imports,
   projects
 } from '@study/db';
+import { storeMutation, storeQuery } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 
 const stagedImportSchema = Schema.Struct({
   state: integrationImportSchema,

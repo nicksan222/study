@@ -1,11 +1,10 @@
 /** @file Owns api keys within this feature. */
 
 import { StudyError, apiKeyInputSchema } from '@study/contracts';
+import { getApiKeyProvider, providerCatalog, transaction, useStore } from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { ApiKeyStore } from '#server/features/auth/store/index';
-import { getApiKeyProvider, providerCatalog } from '#server/platform/ai/providers/registry';
-import { transaction, useStore } from '#server/platform/definitions/define-store';
 
 import { authFailure, invalid } from './errors.ts';
 

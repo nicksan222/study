@@ -2,10 +2,9 @@
 
 import * as input from '@study/contracts';
 import { materialVersionDetailSchema } from '@study/contracts';
+import { storeQuery } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Option, Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeQuery } from '#server/platform/definitions/define-store';
 
 import { makeGetVersion } from './get-version.ts';
 import { makeListVersions } from './list-versions.ts';

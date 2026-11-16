@@ -13,6 +13,7 @@ import { agentRunIdSchema } from '@study/contracts';
 import type { agentProgressPageSchema } from '@study/contracts';
 import { executionIdSchema } from '@study/contracts';
 import { workflow_executions } from '@study/db';
+import { ServerContext, Database, observeAgentProgress, WorkflowControl } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Fiber, Layer, Queue, Stream } from 'effect';
 import { Schema } from 'effect';
@@ -20,10 +21,6 @@ import { TestClock } from 'effect/testing';
 import { Workflow, WorkflowEngine } from 'effect/workflow';
 
 import { Workflows } from '#server/features/workflows/service/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { observeAgentProgress } from '#server/platform/workflows/agent-progress';
-import { WorkflowControl } from '#server/platform/workflows/control';
 
 test.server.stable(
   'coalesces commit bursts before rereading the latest preview',

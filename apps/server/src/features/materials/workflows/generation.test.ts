@@ -18,6 +18,16 @@ import { plainBlock } from '@study/contracts';
 import { executionIdSchema } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
+import {
+  agentsLayer,
+  ServerContext,
+  Database,
+  normalizeError,
+  WorkflowConfiguration,
+  cancelExecution,
+  workflowEngineLayer,
+  decodeEvent
+} from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import type { MessageStorage, Sharding } from 'effect/cluster';
@@ -31,14 +41,6 @@ import {
   sourceIngestionWorkflow,
   sourceIngestionHandler
 } from '#server/features/sources/workflows/index';
-import { layer as agentsLayer } from '#server/platform/ai/agents';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { normalizeError } from '#server/platform/errors/classify-error';
-import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
-import { cancelExecution } from '#server/platform/workflows/control';
-import { workflowEngineLayer } from '#server/platform/workflows/engine';
-import { decodeEvent } from '#server/platform/workflows/events';
 import { withTestAdmission } from '#testing/workflow-admission';
 
 import { materialGenerationWorkflow, materialGenerationHandler } from './generation.ts';
@@ -146,8 +148,8 @@ test.server.stable(
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
 
-    const { createChatGptModel } = await import('#server/platform/ai/providers/chatgpt/model');
-    const { AuthManager } = await import('#server/platform/ai/providers/chatgpt/session');
+    const { createChatGptModel } = await import('@study/server');
+    const { AuthManager } = await import('@study/server');
     const location = await databases();
     let context = new ServerContext(await location.open());
     let calls = 0;

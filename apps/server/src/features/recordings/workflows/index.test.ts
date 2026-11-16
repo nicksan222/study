@@ -15,6 +15,7 @@ import { eq, sql } from '@study/db';
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import * as tables from '@study/db';
+import { ServerContext, Database, workflowEngineLayer, decodeEvent } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
@@ -23,10 +24,6 @@ import { Notes } from '#server/features/notes/index';
 import { Projects } from '#server/features/projects/index';
 import { Recordings } from '#server/features/recordings/service/index';
 import { Sources } from '#server/features/sources/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { workflowEngineLayer } from '#server/platform/workflows/engine';
-import { decodeEvent } from '#server/platform/workflows/events';
 import { admitTestExecution } from '#testing/workflow-admission';
 
 import { recordingPostHandler, recordingPostWorkflow } from './index.ts';

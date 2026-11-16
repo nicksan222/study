@@ -11,9 +11,9 @@
  */
 
 import { IntegrationsRpc } from '@study/contracts';
+import { defineRpc } from '@study/server';
 
 import { Integrations } from '#server/features/integrations/service/index';
-import { defineRpc } from '#server/platform/definitions/define-rpc';
 
 export const IntegrationsRpcLive = defineRpc(
   IntegrationsRpc,

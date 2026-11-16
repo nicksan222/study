@@ -13,8 +13,7 @@
 
 import { questionClassificationSchema, questionInputSchema } from '@study/contracts';
 import { AgentRule } from '@study/contracts';
-
-import { defineAgent } from '#server/platform/definitions/define-agent';
+import { defineAgent } from '@study/server';
 
 export const questionAgent = defineAgent({
   id: 'question',

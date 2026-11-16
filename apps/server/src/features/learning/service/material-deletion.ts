@@ -14,9 +14,9 @@
  */
 
 import type { MaterialId } from '@study/contracts';
+import type { Transaction } from '@study/server';
 
 import { LearningMaterialDeletionStore } from '#server/features/learning/store/material-deletion';
-import type { Transaction } from '#server/platform/definitions/define-store';
 
 export function prepareMaterialDeletion(tx: Transaction, ids: readonly MaterialId[]) {
   return tx.store(LearningMaterialDeletionStore).prepare(ids);

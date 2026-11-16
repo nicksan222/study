@@ -95,3 +95,21 @@ test.unit.stable(
     ]);
   }
 );
+
+test.unit.stable(
+  'server capabilities have a public root alongside its isolated facets',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    assert.deepStrictEqual(
+      packageExportIssues('apps/server', { '.': './src/platform/index.ts' }),
+      []
+    );
+    const diagnostics = await lintRule({ assert }, 'package-root-exports', {
+      'src/features/example/agents/example.ts':
+        "import { defineAgent, sourcesTool } from '@study/server';"
+    });
+
+    assert.deepStrictEqual(diagnostics, []);
+  }
+);

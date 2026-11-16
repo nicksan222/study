@@ -17,12 +17,11 @@ import { createBlock, plainBlock } from '@study/contracts';
 import type { Anchor, Block } from '@study/contracts';
 import type { Document } from '@study/contracts';
 import type { Inline } from '@study/contracts';
+import { posixPaths } from '@study/server';
 import { load } from 'cheerio';
 import { XMLValidator } from 'fast-xml-parser';
 import { fromBufferPromise } from 'yauzl';
 import type { Entry, ZipFile } from 'yauzl';
-
-import { posixPaths } from '#server/platform/filesystem/index';
 
 import { checkAbort, document } from './common.ts';
 

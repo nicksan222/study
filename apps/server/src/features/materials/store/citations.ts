@@ -3,9 +3,8 @@
 import * as input from '@study/contracts';
 import * as tables from '@study/db';
 import { and, asc, eq, gt } from '@study/db';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeQuery } from '#server/platform/definitions/define-store';
+import { storeQuery } from '@study/server';
+import type { StoreResources } from '@study/server';
 
 import { makeCitations } from './citation-operations.ts';
 import { makeReads } from './reads.ts';

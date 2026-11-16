@@ -11,9 +11,8 @@ import {
   note_run_contexts,
   workflow_retired_correlations
 } from '@study/db';
+import { defineStore, storeQuery } from '@study/server';
 import { Schema } from 'effect';
-
-import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 
 import { makeReplyAttachments } from './reply-attachments.ts';
 import { replyTargetPredicate } from './reply-identity.ts';

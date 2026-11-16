@@ -18,14 +18,12 @@ import { projectIdSchema } from '@study/contracts';
 import type { ProjectId, SourceId } from '@study/contracts';
 import { correctBlockText, plainBlock } from '@study/contracts';
 import { sql } from '@study/db';
+import { ServerContext, Database, transaction } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer, Option } from 'effect';
 
 import { Pages } from '#server/features/pages/index';
 import { SourceStore } from '#server/features/sources/store/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { transaction } from '#server/platform/definitions/define-store';
 import { deletionDocument } from '#testing/material-deletion';
 import { createUnregisteredSource } from '#testing/source';
 import { withTestAdmission } from '#testing/workflow-admission';
@@ -188,8 +186,8 @@ test.server.stable(
     );
     const { Activity, Workflow, WorkflowEngine } = await import('effect/workflow');
     const { Schema } = await import('effect');
-    const { withPublicationGuard } = await import('#server/platform/workflows/publication');
-    const { workflowEngineLayer } = await import('#server/platform/workflows/engine');
+    const { withPublicationGuard } = await import('@study/server');
+    const { workflowEngineLayer } = await import('@study/server');
     const document = {
       blocks: [plainBlock('paragraph' as const, 'hello', { type: 'page' as const, page: 1 })],
       meta: {
@@ -560,8 +558,8 @@ test.server.stable(
     );
     const { Activity, Workflow, WorkflowEngine } = await import('effect/workflow');
     const { Schema } = await import('effect');
-    const { withPublicationGuard } = await import('#server/platform/workflows/publication');
-    const { workflowEngineLayer } = await import('#server/platform/workflows/engine');
+    const { withPublicationGuard } = await import('@study/server');
+    const { workflowEngineLayer } = await import('@study/server');
     const document = {
       blocks: [plainBlock('paragraph' as const, 'fencedword', { type: 'page' as const, page: 1 })],
       meta: {

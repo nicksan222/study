@@ -20,6 +20,17 @@ import { plainBlock } from '@study/contracts';
 import { executionIdSchema } from '@study/contracts';
 import * as s from '@study/db';
 import type { createTestDatabase } from '@study/db/testing';
+import {
+  agentsLayer,
+  ServerContext,
+  Database,
+  defineActivity,
+  WorkflowConfiguration,
+  cancelExecution,
+  workflowEngineLayer,
+  decodeEvent,
+  retryResumableActivity
+} from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer, Option, Schedule } from 'effect';
 import type { MessageStorage, Sharding } from 'effect/cluster';
@@ -29,15 +40,6 @@ import { Materials } from '#server/features/materials/service/index';
 import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
-import { layer as agentsLayer } from '#server/platform/ai/agents';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { defineActivity } from '#server/platform/definitions/define-activity';
-import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
-import { cancelExecution } from '#server/platform/workflows/control';
-import { workflowEngineLayer } from '#server/platform/workflows/engine';
-import { decodeEvent } from '#server/platform/workflows/events';
-import { retryResumableActivity } from '#server/platform/workflows/retry';
 import { admitTestExecution, withTestAdmission } from '#testing/workflow-admission';
 
 import { materialGenerationHandler, materialGenerationWorkflow } from './generation.ts';

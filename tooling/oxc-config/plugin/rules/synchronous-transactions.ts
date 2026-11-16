@@ -19,7 +19,7 @@
 
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { canonicalImport, targetPath } from '../architecture-imports.ts';
+import { importTarget, canonicalImport, targetPath } from '../architecture-imports.ts';
 import { effectBindings } from '../effect-bindings.ts';
 import {
   binding,
@@ -59,7 +59,7 @@ export function resourceType(context: any, type: any, seen = new Set<any>()): st
 
 function importedResource(context: any, def: any, members: string[]): string | undefined {
   const source = def.parent.source.value;
-  const target = targetPath(context.filename, source);
+  const target = targetPath(context.filename, source, def.imported?.name ?? members[0]);
   const name =
     def.type === 'ImportSpecifier'
       ? (def.imported.name ?? def.imported.value)
@@ -89,8 +89,7 @@ function storeFactory(
 
   const native = (specifier: any) =>
     runtimeImport(specifier) &&
-    targetPath(context.filename, specifier.parent.source.value) ===
-      'platform/definitions/define-store';
+    importTarget(context, specifier, names[0]) === 'platform/definitions/define-store';
   const def = binding(context, node)?.defs[0]?.node;
 
   if (nativeSpecifier(def, native)) return names.includes(def.imported.name ?? def.imported.value);

@@ -15,6 +15,8 @@
 
 import { StudyError } from '@study/contracts';
 import type { Db } from '@study/db';
+import { ServerContext, Database, transaction, transactionDatabase } from '@study/server';
+import type { SnapshotPolicy, Transaction } from '@study/server';
 import { Effect } from 'effect';
 
 import { Auth } from '#server/features/auth/index';
@@ -24,11 +26,6 @@ import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
 import { System } from '#server/features/system/index';
 import { Themes } from '#server/features/themes/index';
-import type { SnapshotPolicy } from '#server/platform/database/backups';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { transaction, transactionDatabase } from '#server/platform/definitions/define-store';
-import type { Transaction } from '#server/platform/definitions/define-store';
 
 import { runNative } from './layers.ts';
 import './database.ts';

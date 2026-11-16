@@ -16,11 +16,10 @@ import { StudyError } from '@study/contracts';
 import { decodeBlockContent } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
+import { defineStore, storeQuery } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
-
-import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
-import type { StoreResources } from '#server/platform/definitions/define-store';
 
 function invalid(): never {
   throw new StudyError('invalid_input', 'Backup assets are incomplete');

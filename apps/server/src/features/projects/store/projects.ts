@@ -26,11 +26,9 @@ import {
   project_notes,
   projects
 } from '@study/db';
+import { storeMutation, storeQuery, unixSeconds } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Option, Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeMutation, storeQuery } from '#server/platform/definitions/define-store';
-import { unixSeconds } from '#server/platform/time/index';
 
 /** Decodes persisted glyph variants and colors through the canonical icon schema. */
 const row = (value: typeof projects.$inferSelect) => ({

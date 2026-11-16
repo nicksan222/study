@@ -14,9 +14,9 @@
  */
 
 import { SystemRpc } from '@study/contracts';
+import { defineRpc } from '@study/server';
 
 import { System } from '#server/features/system/service/index';
-import { defineRpc } from '#server/platform/definitions/define-rpc';
 
 export const SystemRpcLive = defineRpc(SystemRpc, { system: System }, ({ system }) => ({
   'system.createBackup': () => system.createBackup(),

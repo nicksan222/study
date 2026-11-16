@@ -24,6 +24,7 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import {
+  importTarget,
   canonicalImport,
   featureRole,
   moduleEdges,
@@ -107,7 +108,7 @@ export default defineRule({
       const def = binding(context, node)?.defs[0]?.node;
 
       if (def?.type === 'ImportNamespaceSpecifier')
-        return targetPath(context.filename, def.parent.source.value) === 'platform/ai/agents';
+        return importTarget(context, def, 'generateAgent') === 'platform/ai/agents';
 
       return constantDeclarator(def) && agentNamespace(def.init, seen);
     }
@@ -130,7 +131,7 @@ export default defineRule({
     function namedAgent(def: any): boolean {
       return (
         ['generateAgent', 'streamAgent'].includes(def.imported.name ?? def.imported.value) &&
-        targetPath(context.filename, def.parent.source.value) === 'platform/ai/agents'
+        importTarget(context, def) === 'platform/ai/agents'
       );
     }
 

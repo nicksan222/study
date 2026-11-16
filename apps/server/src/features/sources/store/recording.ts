@@ -16,11 +16,11 @@ import { StudyError } from '@study/contracts';
 import { projectIdSchema, noteIdSchema, sourceIdSchema } from '@study/contracts';
 import { and, eq } from '@study/db';
 import * as tables from '@study/db';
+import { defineStore, storeMutation, storeQuery } from '@study/server';
 import { CryptoHasher } from 'bun';
 import { Option, Schema } from 'effect';
 
 import { validateRecordingImport } from '#server/features/sources/decoders/recording';
-import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 
 const inputSchema = Schema.Struct({
   requestId: Schema.String,

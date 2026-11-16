@@ -14,6 +14,7 @@
  */
 
 import type { mergeNotesInputSchema } from '@study/contracts';
+import { transaction } from '@study/server';
 
 import { Materials } from '#server/features/materials/index';
 import { NoteStore } from '#server/features/notes/store/index';
@@ -22,7 +23,6 @@ import { TitleStore } from '#server/features/notes/store/title';
 import { Pages } from '#server/features/pages/index';
 import { Recordings } from '#server/features/recordings/index';
 import { Sources } from '#server/features/sources/index';
-import { transaction } from '#server/platform/definitions/define-store';
 
 export const mergeNotes = (input: typeof mergeNotesInputSchema.Type) =>
   transaction((tx) => {

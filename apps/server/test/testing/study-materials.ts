@@ -18,6 +18,7 @@ import type { materialGenerationInputSchema } from '@study/contracts';
 import type { appSettingsSchema, quizSettingsSchema } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { preferences } from '@study/db';
+import { encodeAccount } from '@study/server';
 import type { createAiMock } from '@study/testing';
 import { Effect } from 'effect';
 
@@ -32,7 +33,6 @@ import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
 import { Settings } from '#server/features/settings/index';
 import { Workflows } from '#server/features/workflows/index';
-import { encodeAccount } from '#server/platform/ai/auth/persistence';
 import { planSourcePassages } from '#server/platform/ai/context-preparation/index';
 import type { App } from '#server/runtime/index';
 

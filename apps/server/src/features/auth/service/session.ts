@@ -1,13 +1,18 @@
 /** @file Owns session within this feature. */
 
 import { StudyError } from '@study/contracts';
+import {
+  acquireSignIn,
+  decodeAccount,
+  encodeAccount,
+  ChatGptSession,
+  transaction,
+  useStore
+} from '@study/server';
+import type { Account, SignIn } from '@study/server';
 import { Effect, Exit, Option, Scope } from 'effect';
 
 import { AuthGenerationStore, AuthStore } from '#server/features/auth/store/index';
-import type { Account, SignIn } from '#server/platform/ai/auth/index';
-import { acquireSignIn, decodeAccount, encodeAccount } from '#server/platform/ai/auth/index';
-import { ChatGptSession } from '#server/platform/ai/auth/service';
-import { transaction, useStore } from '#server/platform/definitions/define-store';
 
 import { authApiKeyOperations } from './api-keys.ts';
 import { authFailure, invalid } from './errors.ts';

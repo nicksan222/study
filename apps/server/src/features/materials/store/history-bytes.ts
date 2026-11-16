@@ -14,8 +14,7 @@
 import type { MaterialVersionId } from '@study/contracts';
 import { inArray, eq } from '@study/db';
 import * as s from '@study/db';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
+import type { StoreResources } from '@study/server';
 
 /** Logical stored UTF-8 body bytes, excluding SQLite row/index overhead and retained copies. */
 

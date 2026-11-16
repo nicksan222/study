@@ -16,10 +16,8 @@ import type { MaterialCardId, MaterialVersionId } from '@study/contracts';
 import { StudyError } from '@study/contracts';
 import * as s from '@study/db';
 import { and, eq } from '@study/db';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import type { Memory } from '#server/platform/scheduling/fsrs';
-import { newMemory } from '#server/platform/scheduling/fsrs';
+import { newMemory } from '@study/server';
+import type { StoreResources, Memory } from '@study/server';
 
 import { makeQuiz } from './quiz.ts';
 

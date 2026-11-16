@@ -13,9 +13,9 @@
 import { StudyError } from '@study/contracts';
 import type { materialGenerationRequestedSchema } from '@study/contracts';
 import type { MaterialId, MaterialVersionId } from '@study/contracts';
+import type { Transaction } from '@study/server';
 
 import { Workflows } from '#server/features/workflows/index';
-import type { Transaction } from '#server/platform/definitions/define-store';
 
 export function assertGenerationActive(tx: Transaction, requestId: string) {
   if (

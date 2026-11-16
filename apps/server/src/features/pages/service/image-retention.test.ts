@@ -13,6 +13,7 @@ import { createBlock } from '@study/contracts';
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import { sql } from '@study/db';
+import { ServerContext, Database } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 
@@ -20,8 +21,6 @@ import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 
 test.server.stable(
   'authored images retain exact source bytes through replacement, unrelated draft cleanup and project deletion',

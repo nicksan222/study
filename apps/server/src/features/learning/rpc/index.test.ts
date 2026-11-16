@@ -15,6 +15,7 @@ import type { QuizAttemptId } from '@study/contracts';
  */
 import { LearningRpc } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
+import { ServerContext, Database } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer, Option } from 'effect';
 import { RpcTest } from 'effect/rpc';
@@ -23,8 +24,6 @@ import { Learning } from '#server/features/learning/service/index';
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
 import { Settings } from '#server/features/settings/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 import { testLiveQueries } from '#testing/live-queries';
 
 import { LearningRpcLive } from './index.ts';

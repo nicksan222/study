@@ -1,10 +1,7 @@
 /** @file Composes settings application operations behind the feature boundary. */
 
 import type { UsageQuery } from '@study/contracts';
-
-import { defineService } from '#server/platform/definitions/define-service';
-import { useStore } from '#server/platform/definitions/define-store';
-import { UsageStore } from '#server/platform/observability/usage-store';
+import { defineService, useStore, UsageStore } from '@study/server';
 
 import { settingsModelOperations } from './models.ts';
 import { settingsPreferenceOperations } from './preferences.ts';

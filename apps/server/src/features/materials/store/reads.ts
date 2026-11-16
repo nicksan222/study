@@ -24,9 +24,8 @@ import type {
 } from '@study/contracts';
 import { eq, and, asc, desc, sql, inArray } from '@study/db';
 import * as s from '@study/db';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { makeExactInputs } from './exact-inputs.ts';
 

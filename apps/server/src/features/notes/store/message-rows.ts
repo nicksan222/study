@@ -14,10 +14,9 @@ import {
   notes,
   sql
 } from '@study/db';
+import { unixSeconds } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { unixSeconds } from '#server/platform/time/index';
 
 import { citationInput, citationPrecision } from './citation-rows.ts';
 import { assertCaptureReplay } from './message-replay.ts';

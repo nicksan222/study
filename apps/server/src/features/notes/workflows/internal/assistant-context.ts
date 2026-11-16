@@ -7,17 +7,19 @@ import {
   assistantContextBudget,
   assistantMemorySchema
 } from '@study/contracts';
+import {
+  generateAgent,
+  Database,
+  resumableActivity,
+  impactToken,
+  withPublicationGuard
+} from '@study/server';
+import type { AgentEnvironment } from '@study/server';
 import type { Context } from 'effect';
 import { Clock, Effect, Option, Schema } from 'effect';
 
 import { compactAssistantAgent } from '#server/features/notes/agents/assistant-compaction';
 import { Notes } from '#server/features/notes/service/index';
-import { generateAgent } from '#server/platform/ai/agents';
-import { Database } from '#server/platform/database/database';
-import { resumableActivity } from '#server/platform/definitions/define-activity';
-import type { AgentEnvironment } from '#server/platform/definitions/define-agent';
-import { impactToken } from '#server/platform/definitions/impact-token';
-import { withPublicationGuard } from '#server/platform/workflows/publication';
 
 /** The checkpoint retains memory across provider retries without changing visible history. */
 export function prepareAssistantContext(requestId: string) {

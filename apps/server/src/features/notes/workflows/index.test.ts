@@ -19,6 +19,16 @@ import { createBlock } from '@study/contracts';
 import { blockIdSchema } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
+import {
+  agentsLayer,
+  createChatGptModel,
+  AuthManager,
+  ServerContext,
+  Database,
+  WorkflowConfiguration,
+  workflowEngineLayer,
+  decodeEvent
+} from '@study/server';
 import { test } from '@study/testing';
 import { Schema } from 'effect';
 import { Effect, Layer } from 'effect';
@@ -29,14 +39,6 @@ import { Notes } from '#server/features/notes/service/index';
 import { Pages } from '#server/features/pages/index';
 import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
-import { layer as agentsLayer } from '#server/platform/ai/agents';
-import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
-import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
-import { workflowEngineLayer } from '#server/platform/workflows/engine';
-import { decodeEvent } from '#server/platform/workflows/events';
 import { withTestAdmission } from '#testing/workflow-admission';
 
 import { noteReplyHandler, noteReplyWorkflow } from './index.ts';

@@ -3,9 +3,8 @@
 import type { noteSelectionInputSchema } from '@study/contracts';
 import { StudyError } from '@study/contracts';
 import { and, eq, message_versions, note_deletions, note_run_contexts, notes } from '@study/db';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { makeAssertContextAvailable } from './context-availability.ts';
 import { contextCodec, targetsCodec } from './context-schemas.ts';

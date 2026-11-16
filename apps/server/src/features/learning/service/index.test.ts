@@ -19,14 +19,13 @@ import type { QuizAttemptId, QuizChoiceId } from '@study/contracts';
 import { defaultQuizSettings } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { eq } from '@study/db';
+import { ServerContext, Database } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer, Option, Schema } from 'effect';
 
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
 import { Settings } from '#server/features/settings/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 
 import { Learning } from './index.ts';
 
@@ -80,8 +79,8 @@ test.server.stable(
 
     const { eq, sql } = await import('@study/db');
     const s = await import('@study/db');
-    const { decodeEvent, emitEvent } = await import('#server/platform/workflows/events');
-    const { transaction } = await import('#server/platform/definitions/define-store');
+    const { decodeEvent, emitEvent } = await import('@study/server');
+    const { transaction } = await import('@study/server');
     const { AttemptStore } = await import('#server/features/learning/store/index');
     const location = await databases();
     const context = new ServerContext(await location.open());

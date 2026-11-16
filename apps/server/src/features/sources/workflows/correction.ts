@@ -8,12 +8,10 @@ import {
   failureSchema,
   sourceCorrectionRequestedSchema
 } from '@study/contracts';
+import { defineActivity, defineWorkflow, defineWorkflowHandler } from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { Sources } from '#server/features/sources/service/index';
-import { defineActivity } from '#server/platform/definitions/define-activity';
-import { defineWorkflow } from '#server/platform/definitions/define-workflow';
-import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 
 import { noticeSourceFailure, publishSource } from './internal/publication.ts';
 

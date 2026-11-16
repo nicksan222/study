@@ -1,9 +1,8 @@
 /** @file Owns practice slots within this feature. */
 
 import { practiceSlotSchema } from '@study/contracts';
+import { defineStore, storeQuery } from '@study/server';
 import { Option, Schema } from 'effect';
-
-import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 
 import { practiceSlotLookupSchema } from './practice-schemas.ts';
 import { makePractice } from './practice.ts';

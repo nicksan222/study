@@ -12,14 +12,13 @@ import { defaultQuizSettings } from '@study/contracts';
  */
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
+import { ServerContext, Database } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
 import { Settings } from '#server/features/settings/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 
 import { Learning } from './index.ts';
 

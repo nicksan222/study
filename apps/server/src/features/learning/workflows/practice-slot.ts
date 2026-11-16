@@ -2,14 +2,12 @@
 
 import { failureSchema, practiceSlotRequestedSchema } from '@study/contracts';
 import { text } from '@study/localization';
+import { defineActivity, defineWorkflow, defineWorkflowHandler } from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { Learning } from '#server/features/learning/service/index';
 import { Materials } from '#server/features/materials/index';
 import { Settings } from '#server/features/settings/index';
-import { defineActivity } from '#server/platform/definitions/define-activity';
-import { defineWorkflow } from '#server/platform/definitions/define-workflow';
-import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 
 export const practiceSlotWorkflow = defineWorkflow({
   name: 'practice-slot',

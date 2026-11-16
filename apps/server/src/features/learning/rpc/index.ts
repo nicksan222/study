@@ -14,9 +14,9 @@
  */
 
 import { LearningRpc } from '@study/contracts';
+import { defineRpc } from '@study/server';
 
 import { Learning } from '#server/features/learning/service/index';
-import { defineRpc } from '#server/platform/definitions/define-rpc';
 
 export const LearningRpcLive = defineRpc(LearningRpc, { learning: Learning }, ({ learning }) => ({
   'learning.practice': learning.practice,

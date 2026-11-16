@@ -11,6 +11,7 @@ import { createBlock } from '@study/contracts';
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import * as s from '@study/db';
+import { reconcileCancellation, decodeEvent, workflowStore } from '@study/server';
 import { test } from '@study/testing';
 import { Deferred, Effect, Exit, Fiber } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
@@ -20,9 +21,6 @@ import {
   pageTransformHandler,
   pageTransformWorkflow
 } from '#server/features/pages/workflows/transform';
-import { reconcileCancellation } from '#server/platform/workflows/cancellation';
-import { decodeEvent } from '#server/platform/workflows/events';
-import { workflowStore } from '#server/platform/workflows/store';
 import { pageTransformFixture } from '#testing/page-transform';
 import { withTestAdmission } from '#testing/workflow-admission';
 

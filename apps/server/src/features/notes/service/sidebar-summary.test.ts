@@ -16,13 +16,12 @@ import { plainBlock } from '@study/contracts';
  */
 import { eq } from '@study/db';
 import { workflow_executions } from '@study/db';
+import { ServerContext, Database } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 
 import { Notes } from '#server/features/notes/service/index';
 import { Pages } from '#server/features/pages/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 import { withTestPublication } from '#testing/publication';
 
 const meta = {

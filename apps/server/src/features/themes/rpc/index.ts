@@ -14,9 +14,9 @@
  */
 
 import { ThemesRpc } from '@study/contracts';
+import { defineRpc } from '@study/server';
 
 import { Themes } from '#server/features/themes/service/index';
-import { defineRpc } from '#server/platform/definitions/define-rpc';
 
 export const ThemesRpcLive = defineRpc(ThemesRpc, { themes: Themes }, ({ themes }) => ({
   'themes.theme': ({ id }) => themes.theme(id),

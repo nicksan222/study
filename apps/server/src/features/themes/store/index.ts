@@ -1,6 +1,6 @@
 /** @file Composes themes persistence with canonical typed store declarations. */
 
-import { defineStore } from '#server/platform/definitions/define-store';
+import { defineStore } from '@study/server';
 
 import { makeThemeBackupStore } from './backup.ts';
 import { makeThemeSelectionStore } from './selection.ts';

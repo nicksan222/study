@@ -6,10 +6,9 @@ import {
   materialDetailSchema,
   materialVersionDetailSchema
 } from '@study/contracts';
+import { storeMutation, storeQuery } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Option, Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 
 import { makeArchive } from './archive.ts';
 import { makeAttach } from './attach.ts';

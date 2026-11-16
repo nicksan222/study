@@ -1,13 +1,15 @@
 /** @file Owns practice publication within this feature. */
 
 import { failureSchema, materialPublishedSchema } from '@study/contracts';
+import {
+  Database,
+  publicationActivity,
+  defineWorkflow,
+  defineWorkflowHandler
+} from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { Learning } from '#server/features/learning/service/index';
-import { Database } from '#server/platform/database/database';
-import { publicationActivity } from '#server/platform/definitions/define-activity';
-import { defineWorkflow } from '#server/platform/definitions/define-workflow';
-import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 
 export const practicePublicationWorkflow = defineWorkflow({
   name: 'practice-publication',

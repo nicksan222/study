@@ -16,10 +16,8 @@
 import { backupScopeSchema } from '@study/contracts';
 import { sql } from '@study/db';
 import type { SQL } from '@study/db';
+import { requireRow, defineStore, storeQuery } from '@study/server';
 import { Schema } from 'effect';
-
-import { requireRow } from '#server/platform/database/rows';
-import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 
 export const BackupScopeStore = defineStore({
   name: 'study/BackupScopeStore',

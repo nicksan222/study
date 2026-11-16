@@ -2,12 +2,11 @@
 
 import type { themePageInputSchema } from '@study/contracts';
 import { StudyError } from '@study/contracts';
+import { transaction, useStore, pageById } from '@study/server';
 import { parseTheme, serializeTheme } from '@study/theme';
 import { Effect } from 'effect';
 
 import { ThemeSelectionStore, ThemeStore } from '#server/features/themes/store/index';
-import { transaction, useStore } from '#server/platform/definitions/define-store';
-import { pageById } from '#server/platform/definitions/page-by-id';
 
 export function* themeOperations() {
   const themes = yield* useStore(ThemeStore);

@@ -18,15 +18,14 @@ import type { ContentInput } from '@study/contracts';
 import type { createMaterialVersionInputSchema } from '@study/contracts';
 import { and, eq, desc } from '@study/db';
 import * as s from '@study/db';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
+import { unixSeconds as now } from '@study/server';
+import type { StoreResources } from '@study/server';
 
 import { makeContent } from './content.ts';
 import { makeExactInputs } from './exact-inputs.ts';
 import { makeReads, required } from './reads.ts';
 
-export { unixSeconds as now } from '#server/platform/time/index';
-import { unixSeconds as now } from '#server/platform/time/index';
+export { unixSeconds as now } from '@study/server';
 
 export function makeWrites(resources: StoreResources) {
   const { db: store, timestampClock } = resources;

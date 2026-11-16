@@ -185,11 +185,11 @@ export async function changedArtifact(
 /** Export an isolated feature fixture through the same storage and policy as App. */
 
 export async function exportSnapshot(db: Db) {
-  const { ManagedBackups } = await import('#server/platform/database/backups');
+  const { ManagedBackups } = await import('@study/server');
 
   const { backupPolicy } = await import('#server/runtime/backups');
 
-  const { initializeWorkflowInfrastructure } = await import('#server/platform/workflows/engine');
+  const { initializeWorkflowInfrastructure } = await import('@study/server');
   const { runNative } = await import('#server/runtime/layers');
 
   await runNative(initializeWorkflowInfrastructure(db.path));

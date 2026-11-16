@@ -15,6 +15,7 @@ import type { MaterialVersionId, PageVersionId } from '@study/contracts';
  */
 import { plainBlock } from '@study/contracts';
 import { sql } from '@study/db';
+import { ServerContext, Database, workflowEngineLayer, withPublicationGuard } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
@@ -22,10 +23,6 @@ import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { workflowEngineLayer } from '#server/platform/workflows/engine';
-import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { admitTestExecution } from '#testing/workflow-admission';
 
 test.server.stable(

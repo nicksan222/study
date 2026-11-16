@@ -71,6 +71,10 @@ async function preparePlugin(
   await Effect.runPromise(fs.copy(join(root, pluginPath), join(directory, pluginPath)));
   await Effect.runPromise(fs.symlink(join(root, 'node_modules'), join(directory, 'node_modules')));
   await writeManifests(directory, manifests);
+  const facade = 'apps/server/src/platform/index.ts';
+
+  await Effect.runPromise(fs.makeDirectory(dirname(join(directory, facade)), { recursive: true }));
+  await Effect.runPromise(fs.copyFile(join(root, facade), join(directory, facade)));
 
   return join(directory, pluginPath, 'index.ts');
 }

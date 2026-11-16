@@ -15,6 +15,33 @@
  */
 
 import { StudyError } from '@study/contracts';
+import {
+  AiAdmission,
+  admissionLayer,
+  makeAdmission,
+  withAdmissionSettings,
+  Agents,
+  ChatGptSession,
+  createApiKeyModel,
+  createChatGptModel,
+  getApiKeyProvider,
+  adaptCredentialReader,
+  BackupStorage,
+  ManagedBackups,
+  Database,
+  liveQueriesLayer,
+  transaction,
+  normalizeError,
+  recordAiTokens,
+  recordUsageFailure,
+  UsageStore,
+  observeAgentProgress,
+  WorkflowConfiguration,
+  WorkflowControl,
+  workflowEngineLayer,
+  WorkerLifecycle
+} from '@study/server';
+import type { AuthManager, ServerContext, AiRuntimeAdapters } from '@study/server';
 import { CryptoHasher } from 'bun';
 import { Effect, Layer, Logger } from 'effect';
 
@@ -44,33 +71,6 @@ import { Themes } from '#server/features/themes/index';
 import { ThemesRpcLive } from '#server/features/themes/rpc/index';
 import { Workflows } from '#server/features/workflows/index';
 import { WorkflowsRpcLive } from '#server/features/workflows/rpc/index';
-import {
-  AiAdmission,
-  admissionLayer,
-  makeAdmission,
-  withAdmissionSettings
-} from '#server/platform/ai/admission';
-import { Agents } from '#server/platform/ai/agents';
-import type { AuthManager } from '#server/platform/ai/auth/index';
-import { ChatGptSession } from '#server/platform/ai/auth/service';
-import { createApiKeyModel } from '#server/platform/ai/providers/api-key-model';
-import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
-import { getApiKeyProvider } from '#server/platform/ai/providers/registry';
-import { adaptCredentialReader } from '#server/platform/ai/tool-adapter';
-import { BackupStorage, ManagedBackups } from '#server/platform/database/backups';
-import type { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { liveQueriesLayer } from '#server/platform/database/live-queries';
-import type { AiRuntimeAdapters } from '#server/platform/definitions/define-agent';
-import { transaction } from '#server/platform/definitions/define-store';
-import { normalizeError } from '#server/platform/errors/classify-error';
-import { recordAiTokens, recordUsageFailure } from '#server/platform/observability/index';
-import { UsageStore } from '#server/platform/observability/usage-store';
-import { observeAgentProgress } from '#server/platform/workflows/agent-progress';
-import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
-import { WorkflowControl } from '#server/platform/workflows/control';
-import { workflowEngineLayer } from '#server/platform/workflows/engine';
-import { WorkerLifecycle } from '#server/platform/workflows/lifecycle';
 
 import { backupPolicy } from './backups.ts';
 import { workflowHandlers } from './workflows.ts';

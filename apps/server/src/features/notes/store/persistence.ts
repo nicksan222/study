@@ -16,8 +16,7 @@ import { StudyError } from '@study/contracts';
 import type { NoteId } from '@study/contracts';
 import { eq } from '@study/db';
 import { notes, messages, message_versions } from '@study/db';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
+import type { StoreResources } from '@study/server';
 
 export function makePersistence({ db }: StoreResources) {
   function requiredNote(id: NoteId) {

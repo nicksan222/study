@@ -1,4 +1,5 @@
 import { projectIdSchema } from '@study/contracts';
+import { ServerContext, Database, transaction, useStore } from '@study/server';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises structured project icons across SQLite reopen and missing-subject        │
@@ -15,10 +16,6 @@ import { projectIdSchema } from '@study/contracts';
 import { test } from '@study/testing';
 import { Clock, Effect } from 'effect';
 import { Schema } from 'effect';
-
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { transaction, useStore } from '#server/platform/definitions/define-store';
 
 import { ProjectsStore } from './index.ts';
 

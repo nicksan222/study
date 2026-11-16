@@ -19,7 +19,7 @@
 
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { targetPath } from '../architecture-imports.ts';
+import { importTarget } from '../architecture-imports.ts';
 import { effectBindings } from '../effect-bindings.ts';
 import { binding } from '../lexical-bindings.ts';
 import { resolveValue } from './module-factories.ts';
@@ -48,7 +48,7 @@ export default defineRule({
       return (
         def?.type === 'ImportSpecifier' &&
         (def.imported.name ?? def.imported.value) === 'safeMetadata' &&
-        targetPath(context.filename, def.parent.source.value) === 'platform/observability/index'
+        importTarget(context, def, 'safeMetadata') === 'platform/observability/index'
       );
     }
 
@@ -63,7 +63,7 @@ export default defineRule({
 
         return (
           def?.type === 'ImportNamespaceSpecifier' &&
-          targetPath(context.filename, def.parent.source.value) === 'platform/observability/index'
+          importTarget(context, def, 'safeMetadata') === 'platform/observability/index'
         );
       }
 

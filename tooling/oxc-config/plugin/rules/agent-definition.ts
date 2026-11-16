@@ -26,7 +26,7 @@
 
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { featureRole, importedValue, serverPath, targetPath } from '../architecture-imports.ts';
+import { importTarget, featureRole, importedValue, serverPath } from '../architecture-imports.ts';
 import { effectBindings } from '../effect-bindings.ts';
 import { binding, constantDeclarator, enterNode } from '../lexical-bindings.ts';
 
@@ -51,8 +51,7 @@ export default defineRule({
         if (def?.type === 'ImportSpecifier')
           return (
             def.imported.name === 'defineAgent' &&
-            targetPath(context.filename, def.parent.source.value) ===
-              'platform/definitions/define-agent'
+            importTarget(context, def, 'defineAgent') === 'platform/definitions/define-agent'
           );
 
         if (constantDeclarator(def)) return target(def.init, seen);
@@ -71,8 +70,7 @@ export default defineRule({
 
         return (
           def?.type === 'ImportNamespaceSpecifier' &&
-          targetPath(context.filename, def.parent.source.value) ===
-            'platform/definitions/define-agent'
+          importTarget(context, def, 'defineAgent') === 'platform/definitions/define-agent'
         );
       }
 

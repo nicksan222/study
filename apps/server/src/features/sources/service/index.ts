@@ -7,6 +7,8 @@ import type {
   sourceLinkSchema
 } from '@study/contracts';
 import { sniff } from '@study/contracts';
+import { defineService } from '@study/server';
+import type { Transaction } from '@study/server';
 import { Option } from 'effect';
 
 import { decodeText } from '#server/features/sources/decoders/text';
@@ -18,8 +20,6 @@ import {
   SourceExtractionsStore
 } from '#server/features/sources/store/exact-extraction';
 import { SourceStore } from '#server/features/sources/store/index';
-import { defineService } from '#server/platform/definitions/define-service';
-import type { Transaction } from '#server/platform/definitions/define-store';
 
 import { sourceAcquisitionOperations } from './acquisition.ts';
 import { sourceCapabilityOperations } from './capabilities.ts';

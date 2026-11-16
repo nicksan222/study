@@ -2,12 +2,11 @@
 
 import type { NoteId, ProjectId, SourceId } from '@study/contracts';
 import { StudyError, sniff } from '@study/contracts';
+import { publicationTransaction, transaction, validateLink } from '@study/server';
 import { Option } from 'effect';
 
 import { SourceStore } from '#server/features/sources/store/index';
 import { RecordingImportStore } from '#server/features/sources/store/recording';
-import { publicationTransaction, transaction } from '#server/platform/definitions/define-store';
-import { validateLink } from '#server/platform/http/index';
 
 import { requested } from './processing-events.ts';
 

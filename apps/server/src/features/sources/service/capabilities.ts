@@ -1,6 +1,8 @@
 /** @file Owns capabilities within this feature. */
 
 import type { importCapabilityInputSchema, importCapabilitySchema } from '@study/contracts';
+import { ChatGptSession } from '@study/server';
+import type { AuthManager } from '@study/server';
 import { Effect, Option } from 'effect';
 
 import { Settings } from '#server/features/settings/index';
@@ -10,8 +12,6 @@ import type {
   ConversionInput
 } from '#server/features/sources/service/conversion/registry';
 import { conversions } from '#server/features/sources/service/conversion/strategies';
-import type { AuthManager } from '#server/platform/ai/auth/index';
-import { ChatGptSession } from '#server/platform/ai/auth/service';
 
 export function sourceCapabilityOperations() {
   return {

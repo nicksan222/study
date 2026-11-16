@@ -12,6 +12,7 @@ import { NotesRpc } from '@study/contracts';
  */
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
+import { workflowStore, admitPending } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Exit, Layer, Option, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
@@ -25,8 +26,6 @@ import {
 } from '#server/features/notes/workflows/deletion';
 import { Pages } from '#server/features/pages/index';
 import { pageTransformWorkflow } from '#server/features/pages/workflows/transform';
-import { workflowStore } from '#server/platform/workflows/store';
-import { admitPending } from '#server/platform/workflows/triggers';
 import { testLiveQueries } from '#testing/live-queries';
 import {
   setup,

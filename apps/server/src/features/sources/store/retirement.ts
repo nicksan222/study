@@ -17,9 +17,8 @@ import { sourceIdSchema } from '@study/contracts';
 import { sourceDeletionPreviewSchema } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import { sources } from '@study/db';
+import { defineStore, storeQuery } from '@study/server';
 import { Schema } from 'effect';
-
-import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 
 import { sourceDeletionBlockers } from './retention.ts';
 

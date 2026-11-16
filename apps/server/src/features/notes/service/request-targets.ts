@@ -7,12 +7,12 @@ import type {
   rewriteMessageInputSchema
 } from '@study/contracts';
 import { NoteMode, StudyError, canConvertMessage } from '@study/contracts';
+import type { Transaction } from '@study/server';
 
 import { NoteModeStore } from '#server/features/notes/store/assistant';
 import { MessageStore } from '#server/features/notes/store/message';
 import { ReplyStore } from '#server/features/notes/store/reply-operations';
 import { Sources } from '#server/features/sources/index';
-import type { Transaction } from '#server/platform/definitions/define-store';
 
 import { requireAvailableNote } from './availability.ts';
 import { captureContext } from './context.ts';

@@ -1,4 +1,5 @@
 import { plainBlock } from '@study/contracts';
+import { ServerContext, Database } from '@study/server';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Tests durable document creation and guarded material description updates.          │
@@ -14,8 +15,6 @@ import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 
 import { Pages } from '#server/features/pages/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 
 const document = {
   blocks: [plainBlock('paragraph', '', { type: 'authored' })],

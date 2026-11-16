@@ -1,6 +1,6 @@
 /** @file Composes integrations application operations behind the feature boundary. */
 
-import { defineService } from '#server/platform/definitions/define-service';
+import { defineService } from '@study/server';
 
 import { integrationImportOperations } from './imports.ts';
 

@@ -1,4 +1,5 @@
 import { sql } from '@study/db';
+import { decodeEvent } from '@study/server';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises source lifecycle behavior through real persistence boundaries.           │
@@ -19,7 +20,6 @@ import { Learning } from '#server/features/learning/index';
 import { Materials } from '#server/features/materials/index';
 import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
-import { decodeEvent } from '#server/platform/workflows/events';
 import { pageTransformFixture } from '#testing/page-transform';
 import { admitTestExecution } from '#testing/workflow-admission';
 

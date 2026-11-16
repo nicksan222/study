@@ -15,10 +15,8 @@ import {
   agentProgressPageSchema,
   agentProgressLimit
 } from '@study/contracts';
+import { defineStore, storeQuery, agentProgressSnapshot } from '@study/server';
 import { Schema } from 'effect';
-
-import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
-import { agentProgressSnapshot } from '#server/platform/workflows/agent-progress';
 
 export const AgentProgressStore = defineStore({
   name: 'study/AgentProgressStore',

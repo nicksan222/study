@@ -18,7 +18,7 @@
 
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { targetPath } from '../architecture-imports.ts';
+import { importTarget } from '../architecture-imports.ts';
 import { effectBindings, propertyName, serverProduction } from '../effect-bindings.ts';
 import { resolveValue } from './module-factories.ts';
 
@@ -48,7 +48,7 @@ export default defineRule({
         def?.type === 'ImportSpecifier' &&
         propertyName(def.imported) === 'safeMetricLabels' &&
         ['platform/observability', 'platform/observability/index'].includes(
-          targetPath(context.filename, def.parent.source.value) ?? ''
+          importTarget(context, def, 'safeMetricLabels') ?? ''
         )
       );
     }
@@ -65,7 +65,7 @@ export default defineRule({
         return (
           def?.type === 'ImportNamespaceSpecifier' &&
           ['platform/observability', 'platform/observability/index'].includes(
-            targetPath(context.filename, def.parent.source.value) ?? ''
+            importTarget(context, def, 'safeMetricLabels') ?? ''
           )
         );
       }

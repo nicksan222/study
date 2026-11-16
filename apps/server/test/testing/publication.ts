@@ -13,14 +13,14 @@
 
 import { failureSchema } from '@study/contracts';
 import { StudyError } from '@study/contracts';
+import type { ServerContext } from '@study/server';
+import type { Database } from '@study/server';
+import { workflowEngineLayer } from '@study/server';
+import type { PublicationGuard } from '@study/server';
+import { withPublicationGuard } from '@study/server';
 import { Effect, Schema, Option, Scope } from 'effect';
 import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
 
-import type { ServerContext } from '#server/platform/database/context';
-import type { Database } from '#server/platform/database/database';
-import { workflowEngineLayer } from '#server/platform/workflows/engine';
-import type { PublicationGuard } from '#server/platform/workflows/publication';
-import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { admitTestExecution } from '#testing/workflow-admission';
 
 export function withTestPublication(

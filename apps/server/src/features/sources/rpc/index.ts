@@ -13,9 +13,9 @@
  */
 
 import { SourcesRpc } from '@study/contracts';
+import { defineRpc } from '@study/server';
 
 import { Sources } from '#server/features/sources/service/index';
-import { defineRpc } from '#server/platform/definitions/define-rpc';
 
 export const SourcesRpcLive = defineRpc(SourcesRpc, { sources: Sources }, ({ sources }) => ({
   'sources.previewHistory': sources.previewHistory,

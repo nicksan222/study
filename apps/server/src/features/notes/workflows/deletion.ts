@@ -13,13 +13,10 @@
 import { failureSchema } from '@study/contracts';
 import { noteDeletionRequestedSchema } from '@study/contracts';
 import { noteDeletionSchema } from '@study/contracts';
+import { Database, defineWorkflow, defineWorkflowHandler, cleanupActivity } from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { Notes } from '#server/features/notes/index';
-import { Database } from '#server/platform/database/database';
-import { defineWorkflow } from '#server/platform/definitions/define-workflow';
-import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
-import { cleanupActivity } from '#server/platform/workflows/cleanup';
 
 export const noteDeletionWorkflow = defineWorkflow({
   name: 'session-deletion',

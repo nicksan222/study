@@ -1,4 +1,4 @@
-import { test } from '@study/testing';
+import { AuthManager } from '@study/server';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises provider fixture acquisition failures and repeatable auth ownership      │
@@ -12,8 +12,7 @@ import { test } from '@study/testing';
  * │ Tests acquire the real fixture and auth owner without bypassing singleton ownership.     │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
+import { test } from '@study/testing';
 
 import { pageTransformFixture } from './page-transform.ts';
 

@@ -15,6 +15,7 @@ import { plainBlock } from '@study/contracts';
 import { SourcesRpc } from '@study/contracts';
 import { sql } from '@study/db';
 import type { Db } from '@study/db';
+import { ServerContext, Database, transaction } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
@@ -24,9 +25,6 @@ import { PagesRpcLive } from '#server/features/pages/rpc/index';
 import { Sources } from '#server/features/sources/index';
 import { SourcesRpcLive } from '#server/features/sources/rpc/index';
 import { SourceStore } from '#server/features/sources/store/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { transaction } from '#server/platform/definitions/define-store';
 import { testLiveQueries } from '#testing/live-queries';
 
 const document = (text: string) => ({

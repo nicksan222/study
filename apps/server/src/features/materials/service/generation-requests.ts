@@ -7,6 +7,7 @@ import type {
   materialGenerationInputSchema,
   materialGenerationPublicationSchema
 } from '@study/contracts';
+import { publicationTransaction, transaction } from '@study/server';
 import { Effect } from 'effect';
 
 import {
@@ -15,7 +16,6 @@ import {
 } from '#server/features/materials/store/index';
 import { materialIntegrity } from '#server/features/materials/store/transactions';
 import { Workflows } from '#server/features/workflows/index';
-import { publicationTransaction, transaction } from '#server/platform/definitions/define-store';
 
 import { assertContentInputs } from './content-inputs.ts';
 import { assertGenerationActive, emitGenerationPublication } from './generation.ts';

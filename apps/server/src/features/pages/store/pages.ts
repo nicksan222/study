@@ -5,10 +5,9 @@ import * as e from '@study/contracts';
 import * as r from '@study/contracts';
 import { StudyError } from '@study/contracts';
 import { and, eq, note_pages, sql } from '@study/db';
+import { storeMutation, storeQuery } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 
 import { makePageDomain } from './domain.ts';
 

@@ -17,11 +17,10 @@ import type { Document } from '@study/contracts';
 import { documentSchema } from '@study/contracts';
 import { text } from '@study/localization';
 import type { Locale, StaticMessageKey } from '@study/localization';
+import type { Agents, AgentDefinition } from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { checkInput, DEFAULT_MAX_BYTES } from '#server/features/sources/decoders/common';
-import type { Agents } from '#server/platform/ai/agents';
-import type { AgentDefinition } from '#server/platform/definitions/define-agent';
 
 export type ConversionInput = { kind: 'text'; text: string } | { kind: 'pdf'; bytes: Uint8Array };
 

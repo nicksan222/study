@@ -11,12 +11,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { signInCallbackPage, recordAuthCallbackRejection } from '@study/server';
 import { Effect } from 'effect';
 import { HttpRouter, HttpServerResponse } from 'effect/http';
 
 import { Auth } from '#server/features/auth/index';
-import { signInCallbackPage } from '#server/platform/ai/auth/index';
-import { recordAuthCallbackRejection } from '#server/platform/observability/index';
 
 export const authCallbackRoutes = HttpRouter.add('GET', '/auth/callback', (request) =>
   Effect.gen(function* () {

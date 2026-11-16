@@ -15,6 +15,7 @@ import type { MaterialId } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { eq } from '@study/db';
 import * as s from '@study/db';
+import { decodeEvent } from '@study/server';
 import type { test } from '@study/testing';
 import { Effect } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
@@ -24,7 +25,6 @@ import {
   materialDeletionWorkflow,
   materialDeletionRegistration
 } from '#server/features/materials/workflows/deletion';
-import { decodeEvent } from '#server/platform/workflows/events';
 import type { pageTransformFixture } from '#testing/page-transform';
 import { refreshTestExecution } from '#testing/workflow-admission';
 

@@ -1,6 +1,6 @@
 /** @file Composes notes persistence with canonical typed store declarations. */
 
-import { defineStore } from '#server/platform/definitions/define-store';
+import { defineStore } from '@study/server';
 
 import { makeNoteStore } from './notes.ts';
 

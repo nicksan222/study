@@ -16,6 +16,16 @@ import type { ContentSnapshotId } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import * as tables from '@study/db';
+import {
+  agentsLayer,
+  ServerContext,
+  Database,
+  transaction,
+  normalizeError,
+  WorkflowConfiguration,
+  workflowEngineLayer,
+  decodeEvent
+} from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
@@ -23,14 +33,6 @@ import { WorkflowEngine } from 'effect/workflow';
 import { Materials } from '#server/features/materials/index';
 import { Sources } from '#server/features/sources/index';
 import { SourceStore } from '#server/features/sources/store/index';
-import { layer as agentsLayer } from '#server/platform/ai/agents';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { transaction } from '#server/platform/definitions/define-store';
-import { normalizeError } from '#server/platform/errors/classify-error';
-import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
-import { workflowEngineLayer } from '#server/platform/workflows/engine';
-import { decodeEvent } from '#server/platform/workflows/events';
 import { admitTestExecution } from '#testing/workflow-admission';
 
 import {

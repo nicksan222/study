@@ -19,10 +19,8 @@ import { mergeNotesInputSchema } from '@study/contracts';
 import { NoteMode } from '@study/contracts';
 import { and, asc, eq, inArray, sql } from '@study/db';
 import * as s from '@study/db';
+import { defineStore, storeMutation, storeQuery, unixSeconds } from '@study/server';
 import { Schema } from 'effect';
-
-import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
-import { unixSeconds } from '#server/platform/time/index';
 
 import { copyMessagesInputSchema, makeMessageCopy } from './message-copy.ts';
 

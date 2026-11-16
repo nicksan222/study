@@ -14,10 +14,9 @@ import {
   workflow_configuration_waits,
   workflow_executions
 } from '@study/db';
+import type { StoreResources } from '@study/server';
 import { Cause, Exit, Schema } from 'effect';
 import { Workflow } from 'effect/workflow';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
 
 const resultCodec = Schema.fromJsonString(
   Schema.toCodecJson(Workflow.Result({ success: Schema.Unknown, error: Schema.Unknown }))

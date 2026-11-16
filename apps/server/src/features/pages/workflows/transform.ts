@@ -20,6 +20,18 @@ import type { pageCitationSchema as citationSchema } from '@study/contracts';
 import type { pageTransformContextSchema } from '@study/contracts';
 import { transformPublicationSchema } from '@study/contracts';
 import type { transformSnapshotSchema } from '@study/contracts';
+import {
+  Agents,
+  generateAgent,
+  createEvidenceCatalog,
+  Database,
+  defineActivity,
+  publicationActivity,
+  defineWorkflow,
+  defineWorkflowHandler,
+  normalizeError,
+  retryResumableActivity
+} from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { Notes } from '#server/features/notes/index';
@@ -28,14 +40,6 @@ import { validatePageTransform } from '#server/features/pages/decoders/page-tran
 import { canonicalPageTransformOutput } from '#server/features/pages/decoders/page-transform-output';
 import { pageTransformPrompt } from '#server/features/pages/decoders/page-transform-prompt';
 import { Pages } from '#server/features/pages/index';
-import { Agents, generateAgent } from '#server/platform/ai/agents';
-import { createEvidenceCatalog } from '#server/platform/ai/evidence';
-import { Database } from '#server/platform/database/database';
-import { defineActivity, publicationActivity } from '#server/platform/definitions/define-activity';
-import { defineWorkflow } from '#server/platform/definitions/define-workflow';
-import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
-import { normalizeError } from '#server/platform/errors/classify-error';
-import { retryResumableActivity } from '#server/platform/workflows/retry';
 
 export const pageTransformWorkflow = defineWorkflow({
   name: 'document-transform',

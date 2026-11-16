@@ -15,10 +15,8 @@ import { noteIdSchema } from '@study/contracts';
 import { noteDeletionSchema } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
+import { defineStore, storeMutation, storeQuery, unixSeconds } from '@study/server';
 import { Option, Schema } from 'effect';
-
-import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
-import { unixSeconds } from '#server/platform/time/index';
 
 import { makeContextRetirement } from './context-retirement.ts';
 

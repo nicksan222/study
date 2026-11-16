@@ -20,10 +20,9 @@ import {
 } from '@study/contracts';
 import { and, asc, eq, inArray, sql } from '@study/db';
 import * as s from '@study/db';
+import { defineStore, storeMutation, storeQuery } from '@study/server';
 import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
-
-import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 
 export const SourceHistoryStore = defineStore({
   name: 'study/SourceHistoryStore',

@@ -13,6 +13,7 @@ import { eq, sql } from '@study/db';
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import * as s from '@study/db';
+import { workflowStore } from '@study/server';
 import { test } from '@study/testing';
 /** Generated learning history owns private retirement; exact authored inputs stay pinned until release. */
 import { Effect } from 'effect';
@@ -20,7 +21,6 @@ import { Effect } from 'effect';
 import { Materials } from '#server/features/materials/index';
 import { makeGenerationRetirement } from '#server/features/materials/store/generation-retirement';
 import { Pages } from '#server/features/pages/index';
-import { workflowStore } from '#server/platform/workflows/store';
 import { learningGeneration, queueLearningGeneration } from '#testing/learning-generation';
 import { deletionDocument } from '#testing/material-deletion';
 import { acceptHistory, cleanupHistory } from '#testing/material-history';

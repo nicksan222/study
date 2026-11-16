@@ -13,8 +13,7 @@
  */
 
 import type { materialInputSchema } from '@study/contracts';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
+import type { StoreResources } from '@study/server';
 
 type Input = typeof materialInputSchema.Type;
 

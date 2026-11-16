@@ -1,3 +1,4 @@
+import { ServerContext, Database, transaction, useStore } from '@study/server';
 import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
@@ -17,9 +18,6 @@ import { Clock, Effect } from 'effect';
 import { TestClock } from 'effect/testing';
 
 import { ProjectsStore } from '#server/features/projects/store/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { transaction, useStore } from '#server/platform/definitions/define-store';
 
 test.server.stable(
   'project timestamps use the captured native clock in SQLite transactions',

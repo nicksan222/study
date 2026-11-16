@@ -1,11 +1,11 @@
 /** @file Owns archive operations within this feature. */
 
 import type { noteArchiveInputSchema, setNoteItemArchivedSchema } from '@study/contracts';
+import { transaction } from '@study/server';
 
 import { NoteArchiveStore } from '#server/features/notes/store/archive';
 import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
-import { transaction } from '#server/platform/definitions/define-store';
 
 import { allArchivedItems } from './archive.ts';
 

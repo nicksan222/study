@@ -2,9 +2,8 @@
 
 import { StudyError, noteContextIntentSchema, runSelectionContextSchema } from '@study/contracts';
 import { and, eq, note_retired_intents, note_run_contexts } from '@study/db';
+import { defineStore, storeQuery } from '@study/server';
 import { Option, Schema } from 'effect';
-
-import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 
 import { makeContextReads } from './context-reads.ts';
 import { canonicalIntent, intentCodec, sameIntent } from './context-schemas.ts';

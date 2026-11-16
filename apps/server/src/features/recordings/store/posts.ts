@@ -2,12 +2,11 @@
 
 import { StudyError, postRecordingInputSchema, recordingPostSchema } from '@study/contracts';
 import { asc, eq, notes, recording_chunks, recording_posts } from '@study/db';
+import { storeMutation, storeQuery, unixSeconds } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
 
 import { encodeRecordingWav } from '#server/features/recordings/codecs/audio';
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeMutation, storeQuery } from '#server/platform/definitions/define-store';
-import { unixSeconds } from '#server/platform/time/index';
 
 import { makeHelpers, required } from './rows.ts';
 import { finishRecordingPostInputSchema, recordingPostSnapshotSchema } from './schemas.ts';

@@ -13,11 +13,10 @@
  */
 
 import { SettingsRpc } from '@study/contracts';
+import { AiAdmission, defineRpc } from '@study/server';
 import { Effect } from 'effect';
 
 import { Settings } from '#server/features/settings/service/index';
-import { AiAdmission } from '#server/platform/ai/admission';
-import { defineRpc } from '#server/platform/definitions/define-rpc';
 
 export const SettingsRpcLive = defineRpc(
   SettingsRpc,

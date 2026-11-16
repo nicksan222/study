@@ -10,6 +10,7 @@ import {
   enterNode
 } from './lexical-bindings.ts';
 import { requireBindings } from './require-bindings.ts';
+import { serverExports, serverExportEdges, specifierName } from './server-exports.ts';
 
 const { dirname, relative, resolve } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
@@ -21,7 +22,9 @@ export function serverPath(filename: string): string | null {
   return index < 0 ? null : normalized.slice(index + marker.length);
 }
 
-export function targetPath(filename: string, source: string): string | null {
+export function targetPath(filename: string, source: string, name?: string): string | null {
+  if (source === '@study/server') return serverExports.get(name ?? '')?.target ?? 'platform/index';
+
   const normalized = filename.replaceAll('\\', '/');
   const marker = '/apps/server/src/';
   const index = normalized.lastIndexOf(marker);
@@ -57,12 +60,25 @@ export function moduleEdges(
 
   const requireFunction = requireBindings(context);
 
+  function edge(node: any, source: string | null, typeOnly: boolean) {
+    check(node, source, typeOnly);
+
+    if (source !== '@study/server' || !serverPath(context.filename)) return;
+
+    for (const entry of serverExportEdges(node))
+      check(
+        node.specifiers?.length ? { ...node, specifiers: [entry.specifier] } : node,
+        entry.target,
+        typeOnly || entry.typeOnly
+      );
+  }
+
   return {
     TSImportType(node: any) {
-      check(node, literal(node.source), true);
+      edge(node, literal(node.source), true);
     },
     ImportDeclaration(node: any) {
-      check(
+      edge(
         node,
         node.source.value,
         node.importKind === 'type' ||
@@ -74,7 +90,7 @@ export function moduleEdges(
     },
     ExportNamedDeclaration(node: any) {
       if (node.source)
-        check(
+        edge(
           node,
           node.source.value,
           node.exportKind === 'type' ||
@@ -83,19 +99,19 @@ export function moduleEdges(
         );
     },
     ExportAllDeclaration(node: any) {
-      check(node, node.source.value, node.exportKind === 'type');
+      edge(node, node.source.value, node.exportKind === 'type');
     },
     ImportExpression(node: any) {
-      check(node, literal(node.source), false);
+      edge(node, literal(node.source), false);
     },
     TSImportEqualsDeclaration(node: any) {
       if (node.moduleReference?.type === 'TSExternalModuleReference')
-        check(node, literal(node.moduleReference.expression), node.importKind === 'type');
+        edge(node, literal(node.moduleReference.expression), node.importKind === 'type');
     },
     CallExpression(node: any) {
       if (!requireFunction(node.callee)) return;
 
-      check(node, literal(node.arguments[0]), false);
+      edge(node, literal(node.arguments[0]), false);
     }
   };
 }
@@ -160,7 +176,7 @@ export function importedValue(
     const name = node.property.name ?? node.property.value;
 
     return base && typeof name === 'string'
-      ? { ...base, name: [base.name, name].filter(Boolean).join('.') }
+      ? exportedValue(base, [base.name, name].filter(Boolean).join('.'))
       : null;
   }
 
@@ -173,27 +189,39 @@ export function canonicalImport(context: any, node: any, module: string, name: s
   return value?.target === `platform/definitions/${module}` && value.name === name;
 }
 
+export function importTarget(context: any, specifier: any, name = specifierName(specifier)) {
+  return targetPath(context.filename, specifier.parent.source.value, name);
+}
+
+function runtimeImportName(specifier: any): string {
+  if (specifier.type === 'ImportNamespaceSpecifier') return '';
+
+  if (specifier.type === 'ImportDefaultSpecifier') return 'default';
+
+  return specifierName(specifier)!;
+}
+
 function directImport(context: any, def: any): ReturnType<typeof importedValue> {
-  if (runtimeImport(def)) {
-    const name =
-      def.type === 'ImportSpecifier'
-        ? (def.imported.name ?? def.imported.value)
-        : def.type === 'ImportNamespaceSpecifier'
-          ? ''
-          : def.type === 'ImportDefaultSpecifier'
-            ? 'default'
-            : null;
+  if (!runtimeImport(def)) return null;
 
-    return name === null
-      ? null
-      : {
-          source: def.parent.source.value,
-          target: targetPath(context.filename, def.parent.source.value),
-          name
-        };
-  }
+  const name = runtimeImportName(def);
+  const source = def.parent.source.value;
+  const entry = source === '@study/server' && serverExports.get(name);
 
-  return null;
+  return {
+    source,
+    target: importTarget(context, def, name),
+    name: entry ? entry.name : name
+  };
+}
+
+function exportedValue(base: NonNullable<ReturnType<typeof importedValue>>, name: string) {
+  const [root, ...members] = name.split('.');
+  const entry = base.source === '@study/server' && serverExports.get(root!);
+
+  return entry
+    ? { ...base, target: entry.target, name: [entry.name, ...members].join('.') }
+    : { ...base, name };
 }
 
 function aliasedImport(
@@ -209,7 +237,7 @@ function aliasedImport(
 
     const names = destructuredPath(def.id, node.name, []);
 
-    return names ? { ...base, name: [base.name, ...names].filter(Boolean).join('.') } : null;
+    return names ? exportedValue(base, [base.name, ...names].filter(Boolean).join('.')) : null;
   }
 
   return null;

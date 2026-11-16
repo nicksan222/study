@@ -17,10 +17,9 @@ import type { QuizAnswerSubmitted } from '@study/contracts';
 import { isTextQuestionKind } from '@study/contracts';
 import { and, eq, sql } from '@study/db';
 import * as s from '@study/db';
+import { decodeEvent, encodeEvent } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { CryptoHasher } from 'bun';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { decodeEvent, encodeEvent } from '#server/platform/workflows/events';
 
 import { makeQuiz } from './quiz.ts';
 

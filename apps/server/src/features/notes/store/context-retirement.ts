@@ -15,8 +15,7 @@
 
 import { eq } from '@study/db';
 import * as s from '@study/db';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
+import type { StoreResources } from '@study/server';
 
 import { makeDiscardPending } from './pending.ts';
 

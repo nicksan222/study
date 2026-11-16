@@ -13,10 +13,8 @@
  */
 
 import { materialVersionIdSchema } from '@study/contracts';
+import { defineStore, storeMutation, storeQuery, impactToken } from '@study/server';
 import { Schema } from 'effect';
-
-import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
-import { impactToken } from '#server/platform/definitions/impact-token';
 
 import { makeMaterialRetirement } from './material-retirement.ts';
 

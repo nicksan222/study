@@ -12,6 +12,7 @@ import { noteDeletionRequestedSchema } from '@study/contracts';
  */
 import { eq } from '@study/db';
 import * as s from '@study/db';
+import { transaction, useStore } from '@study/server';
 import { test } from '@study/testing';
 import { Deferred, Effect, Exit, Option } from 'effect';
 import { DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';
@@ -27,7 +28,6 @@ import {
   noteDeletionHandler
 } from '#server/features/notes/workflows/deletion';
 import { Workflows } from '#server/features/workflows/index';
-import { transaction, useStore } from '#server/platform/definitions/define-store';
 import { setup, deletionEvent, assertScrubbed, awaitNativeStatus } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';

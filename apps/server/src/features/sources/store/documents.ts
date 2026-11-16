@@ -8,10 +8,9 @@ import {
 } from '@study/contracts';
 import * as tables from '@study/db';
 import { and, eq, isNull } from '@study/db';
+import { storeQuery } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeQuery } from '#server/platform/definitions/define-store';
 
 import { makeHelpers } from './rows.ts';
 

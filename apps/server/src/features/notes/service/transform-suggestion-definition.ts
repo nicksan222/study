@@ -13,9 +13,8 @@
 
 import { failureSchema } from '@study/contracts';
 import { transformSuggestionRequestedSchema } from '@study/contracts';
+import { defineWorkflow } from '@study/server';
 import { Schema } from 'effect';
-
-import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 
 export const transformSuggestionWorkflow = defineWorkflow({
   name: 'transform-suggestion',

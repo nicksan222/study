@@ -1,4 +1,5 @@
 import { sql } from '@study/db';
+import { decodeEvent } from '@study/server';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Source history retires extraction bodies independently from original bytes and     │
@@ -21,7 +22,6 @@ import {
   sourceCorrectionWorkflow,
   sourceCorrectionHandler
 } from '#server/features/sources/workflows/index';
-import { decodeEvent } from '#server/platform/workflows/events';
 import { processSource } from '#testing/material-history';
 import { assertScrubbed } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';

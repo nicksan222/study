@@ -12,9 +12,9 @@
 
 import type { ProjectId } from '@study/contracts';
 import { sniff } from '@study/contracts';
+import { transaction } from '@study/server';
 
 import { SourceStore } from '#server/features/sources/store/index';
-import { transaction } from '#server/platform/definitions/define-store';
 
 export const createUnregisteredSource = (input: {
   name: string;

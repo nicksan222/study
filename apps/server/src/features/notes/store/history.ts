@@ -18,8 +18,7 @@ import { NoteMode } from '@study/contracts';
 import type { noteMessageSnapshotSchema } from '@study/contracts';
 import { and, desc, eq, isNull, lte } from '@study/db';
 import { messages, message_versions, notes, note_merges } from '@study/db';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
+import type { StoreResources } from '@study/server';
 
 import { activeMessageCondition } from './archive.ts';
 

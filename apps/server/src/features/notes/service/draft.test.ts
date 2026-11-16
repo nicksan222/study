@@ -1,4 +1,5 @@
 import { recordings } from '@study/db';
+import { ServerContext, Database } from '@study/server';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises note draft reuse and first-capture persistence against real SQLite.      │
@@ -17,8 +18,6 @@ import { Effect, Layer } from 'effect';
 
 import { Projects } from '#server/features/projects/index';
 import { Settings } from '#server/features/settings/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 
 import { Notes } from './index.ts';
 

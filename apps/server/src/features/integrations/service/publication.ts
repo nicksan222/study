@@ -16,6 +16,7 @@ import type {
   integrationPlanSchema,
   integrationNoteSchema
 } from '@study/contracts';
+import type { Transaction } from '@study/server';
 import { CryptoHasher } from 'bun';
 import { Option } from 'effect';
 
@@ -27,7 +28,6 @@ import { IntegrationReceiptsStore } from '#server/features/integrations/store/re
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
-import type { Transaction } from '#server/platform/definitions/define-store';
 
 type State = typeof integrationImportSchema.Type;
 

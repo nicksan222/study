@@ -13,10 +13,10 @@
 
 import * as inputs from '@study/contracts';
 import { projectSchema } from '@study/contracts';
+import { defineTool } from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { Projects } from '#server/features/projects/index';
-import { defineTool } from '#server/platform/definitions/define-agent';
 
 export const subjectTools = {
   list_subjects: defineTool({

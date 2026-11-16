@@ -9,6 +9,7 @@ import type {
   setNoteSettledInputSchema
 } from '@study/contracts';
 import { text } from '@study/localization';
+import { transaction, useStore } from '@study/server';
 import { Effect } from 'effect';
 
 import { NoteModeStore } from '#server/features/notes/store/assistant';
@@ -17,7 +18,6 @@ import { NoteSummaryStore } from '#server/features/notes/store/sidebar-summary';
 import { NoteWorkStore } from '#server/features/notes/store/work';
 import { Settings } from '#server/features/settings/index';
 import { Workflows } from '#server/features/workflows/index';
-import { transaction, useStore } from '#server/platform/definitions/define-store';
 
 import { requireAvailableNote } from './availability.ts';
 import { ensureNote, notebookNote } from './ensure-note.ts';

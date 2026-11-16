@@ -2,15 +2,11 @@
 
 import type * as e from '@study/contracts';
 import { StudyError } from '@study/contracts';
+import { publicationTransaction, transaction, useStore } from '@study/server';
 import { Option } from 'effect';
 
 import { PageComparisonsStore, PageProposalsStore } from '#server/features/pages/store/index';
 import { PageTransformsStore } from '#server/features/pages/store/transforms';
-import {
-  publicationTransaction,
-  transaction,
-  useStore
-} from '#server/platform/definitions/define-store';
 
 import { proposalCommitted } from './publication.ts';
 

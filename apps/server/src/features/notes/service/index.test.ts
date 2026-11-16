@@ -15,14 +15,13 @@ import type { NoteId } from '@study/contracts';
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import { sql } from '@study/db';
+import { ServerContext, Database } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer, Option } from 'effect';
 
 import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 import { deletionDocument } from '#testing/material-deletion';
 import { withTestPublication } from '#testing/publication';
 
@@ -431,9 +430,7 @@ test.server.stable(
           const request = yield* notes.requestReply({ noteId: note.id });
           const snapshot = yield* notes.replySnapshot({ requestId: request.requestId });
           const { workflowEvents } = yield* Effect.promise(() => import('@study/db'));
-          const { decodeEvent } = yield* Effect.promise(
-            () => import('#server/platform/workflows/events')
-          );
+          const { decodeEvent } = yield* Effect.promise(() => import('@study/server'));
           const events = context.db.orm
             .select()
             .from(workflowEvents)

@@ -1,4 +1,5 @@
 import type { ContentSnapshotId, SourceId } from '@study/contracts';
+import { createEvidenceCatalog } from '@study/server';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks that citations resolve only searched excerpts, evidence is bounded and      │
@@ -15,8 +16,6 @@ import type { ContentSnapshotId, SourceId } from '@study/contracts';
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import { test } from '@study/testing';
-
-import { createEvidenceCatalog } from '#server/platform/ai/evidence';
 
 test.unit.stable(
   'citations only resolve excerpts exposed by search',
@@ -75,8 +74,7 @@ test.unit.stable(
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
 
-    const { createEvidenceCatalog: createSharedCatalog } =
-      await import('#server/platform/ai/evidence');
+    const { createEvidenceCatalog: createSharedCatalog } = await import('@study/server');
     const catalog = createSharedCatalog([
       {
         key: 'version',

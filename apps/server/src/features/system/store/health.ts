@@ -1,10 +1,9 @@
 /** @file Builds system health queries and mutations with bound store resources. */
 
 import * as schema from '@study/db';
+import { storeQuery } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeQuery } from '#server/platform/definitions/define-store';
 
 export function makeHealthStore({ db }: StoreResources) {
   return {
