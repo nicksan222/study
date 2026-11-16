@@ -1,0 +1,28 @@
+---
+import { createElement } from 'react';
+import { renderToString } from 'react-dom/server';
+import { StudyUtilityBody } from './StudyUtilityBody';
+import type { StudyUtilityProps } from './StudyUtilityBody';
+import '../styles/study-example.css';
+
+interface Props extends StudyUtilityProps {}
+
+const props = Astro.props;
+
+const prefix = `study-utility-${crypto.randomUUID()}-`;
+
+const html = renderToString(createElement(StudyUtilityBody, props), { identifierPrefix: prefix });
+---
+<div data-utility-example={JSON.stringify(props)} data-example-prefix={prefix} set:html={html}></div>
+<script>
+  import { createElement } from 'react';
+  import { hydrateRoot } from 'react-dom/client';
+  import { StudyUtilityBody } from './StudyUtilityBody';
+  import type { StudyUtilityProps } from './StudyUtilityBody';
+
+  for (const element of document.querySelectorAll<HTMLElement>('[data-utility-example]')) {
+    const props = JSON.parse(element.dataset.utilityExample ?? '{}') as StudyUtilityProps;
+
+    hydrateRoot(element, createElement(StudyUtilityBody, props), { identifierPrefix: element.dataset.examplePrefix });
+  }
+</script>

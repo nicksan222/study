@@ -50,7 +50,7 @@ test.stable(
     };
     const view = test.render(<RichNoteEditor {...props} />);
 
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'Text style' }));
+    test.fireEvent.click(test.screen.getByRole('button', { name: /^Text style: / }));
     test.fireEvent.click(await test.screen.findByRole('menuitem', { name: 'Heading' }));
     await test.waitFor(() =>
       test.expect(onChange).toHaveBeenLastCalledWith(test.expect.stringMatching(/^# A thought\n*$/))

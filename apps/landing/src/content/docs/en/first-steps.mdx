@@ -1,39 +1,86 @@
 ---
 title: First steps
+headline: Start with a note. Build from there.
 description: Start with a subject and a note, then turn your notes into material to practise.
 section: start
 order: 2
-shot: docs-note
-shotAlt: The Cell Biology note notebook with sample notes about protein trafficking.
-shotCaption: Study running with sample biology material.
+stage:
+  example: note
 ---
+
+import DocStep from '../../../components/DocStep.astro';
 
 Start with one subject and a little of your own material. You can write notes before connecting ChatGPT; generating answers and study material needs your ChatGPT connection.
 
+<DocStep number={1} example="note">
+<header slot="intro">
+
 ## Choose a subject
+
+Choose a subject to give your notes a home.
+
+</header>
 
 Create a subject for the course or topic you are studying. The subject picker in the sidebar keeps its notes, pages and practice together. Choose the subject before adding material so you can find it again in the same workspace.
 
+</DocStep>
+
+<DocStep number={2} example="note">
+<header slot="intro">
+
 ## Save your first note
+
+Write your first idea and save it before you build on it.
+
+</header>
 
 Open **Notes** and start a note. Write a note, attach a file, or ask a question. Choose **Save note** to keep what you have written. Ctrl Enter (Cmd Enter on macOS) saves from the composer.
 
 A saved note is working material. It does not have to be a polished explanation yet. See [notes](../notes/) for questions, source selection and transformations.
 
+</DocStep>
+
+<DocStep number={3} example="settings">
+<header slot="intro">
+
 ## Connect ChatGPT
+
+Connect your ChatGPT account when you are ready to request model work.
+
+</header>
 
 Open **Settings** and use the ChatGPT sign-in action. Complete sign-in in the browser, then return to Study. Work sent through your plan uses its access and usage limits.
 
 If generation cannot run, check the status and recovery action shown in the app. A saved note remains useful while you resolve access.
 
+</DocStep>
+
+<DocStep number={4} example="page">
+<header slot="intro">
+
 ## Create a page
+
+Turn saved material into a page, then review the result.
+
+</header>
 
 Save any drafts, then choose **Transform note**. Select the material to include, choose a title, and ask for the changes you need: clearer wording, a shorter explanation or a more organized structure.
 
 Open the resulting [page](../pages/), check it against your notes and sources, and revise it before using it to study.
 
+</DocStep>
+
+<DocStep number={5} example="quiz">
+<header slot="intro">
+
 ## Practise what you learned
+
+Choose your pages and test what you have learned.
+
+</header>
 
 In **Practice**, choose **Generate practice**, select the page and choose exercises or flashcards. Start with a small, focused set. Your saved attempts and card ratings let you return to the work later.
 
 Follow the [practice guide](../practice/) for generation, question formats and results, or the [flashcard guide](../flashcards/) for reviewing cards.
+
+</DocStep>

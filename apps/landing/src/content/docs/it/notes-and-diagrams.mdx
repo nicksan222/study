@@ -1,33 +1,71 @@
 ---
 title: Rivedere gli appunti
+headline: Trasforma i tuoi appunti in materiale di studio.
 description: Rendi più chiari gli appunti, unisci note collegate e controlla le modifiche prima di studiare.
 section: pages
 order: 2
-shot: docs-page
-shotAlt: La pagina di ripasso per l’esame aperto in Study.
-shotCaption: Study in italiano con materiale di biologia di esempio in inglese.
+stage:
+  example: page
 ---
+
+import DocStep from '../../../components/DocStep.astro';
 
 Raccogli mentre impari; rivedi quando ti serve una spiegazione più chiara. Le [note](../notes/) contengono gli appunti di lavoro. I [pagine](../pages/) danno una forma organizzata al risultato.
 
+<DocStep number={1} example="page">
+<header slot="intro">
+
 ## Scegli la modifica utile
+
+Scegli il tipo di revisione che renderà il tuo materiale più utile.
+
+</header>
 
 Una trasformazione può migliorare chiarezza o grammatica, organizzare la struttura, eliminare ripetizioni, riassumere, spiegare, ampliare o tradurre. Aggiungi istruzioni personali quando l'obiettivo è più preciso.
 
 Un riassunto breve serve per un ripasso veloce. Una spiegazione strutturata aiuta quando contano i collegamenti. Scegli l'operazione adatta invece di chiedere a ogni trasformazione di fare tutto.
 
+</DocStep>
+
+<DocStep number={2} example="page">
+<header slot="intro">
+
 ## Unisci il materiale collegato
+
+Combina materiali collegati mantenendo il controllo su cosa includere.
+
+</header>
 
 Usa **Da note** in Pagine per riunire più note salvate in una pagina. Seleziona le note e le fonti pertinenti e spiega cosa vuoi unire. Puoi anche unire pagine esistenti.
 
 Salva gli appunti non inviati prima di iniziare. Controlla la selezione e il risultato: il materiale lungo è soggetto al limite di contesto della trasformazione.
 
+</DocStep>
+
+<DocStep number={3} example="page" phase="result">
+<header slot="intro">
+
 ## Controlla prima di fidarti
+
+Controlla il risultato proposto confrontandolo con il materiale di cui ti fidi.
+
+</header>
 
 Confronta le correzioni dei fatti proposte con le fonti originali. Conserva le precisazioni importanti e le divergenze: una frase più scorrevole non è una prova di accuratezza.
 
 Usa l'editor per le tue modifiche e i comandi delle versioni per tornare ai testi precedenti. Leggere una versione precedente e renderla corrente sono azioni distinte.
 
+</DocStep>
+
+<DocStep number={4} example="quiz">
+<header slot="intro">
+
 ## Usa il risultato rivisto
 
+Salva il materiale rivisto e usalo per la prossima sessione di esercizi.
+
+</header>
+
 Scegli la pagina risultante quando [generi esercitazioni](../practice/) o [flashcard](../flashcards/). La versione selezionata fornisce il materiale per quella generazione. Rivedi prima la pagina e genera un nuovo insieme quando vuoi includere le modifiche.
+
+</DocStep>

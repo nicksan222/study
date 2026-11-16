@@ -1,5 +1,4 @@
-import type { ProjectId } from '@study/contracts';
-import type { materialGenerationSnapshotSchema } from '@study/contracts';
+import type { ProjectId, materialGenerationSnapshotSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import {
   QuizIcon,
@@ -9,10 +8,15 @@ import {
   CancelIcon,
   RetryIcon
 } from '@study/icons';
-import { ContextMenu, ContextMenuTrigger, ContextMenuPopup, ContextMenuItem } from '@study/ui';
-import { ErrorState } from '@study/ui';
-import { IconButton } from '@study/ui';
-import { Sidebar } from '@study/ui';
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuPopup,
+  ContextMenuItem,
+  ErrorState,
+  IconButton,
+  Sidebar
+} from '@study/ui';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

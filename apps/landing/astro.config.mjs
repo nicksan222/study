@@ -36,6 +36,7 @@ export default defineConfig({
   site: 'https://nicksan222.github.io',
   base: '/study',
   trailingSlash: 'always',
+  devToolbar: { enabled: false },
   i18n: {
     defaultLocale: 'en',
     locales: ['en', 'it'],
@@ -48,15 +49,7 @@ export default defineConfig({
     plugins: [tailwindcss()],
     resolve: {
       alias: {
-        '#brand': Bun.fileURLToPath(new URL('../../packages/ui/assets', import.meta.url)),
-        // Static previews replace data hooks; production keeps the real services.
-        '#client/lib/ai-readiness.ts': Bun.fileURLToPath(
-          new URL('./src/previews/ai-readiness.ts', import.meta.url)
-        ),
-        '#client/lib/study-client/workspace-preferences.queries.ts': Bun.fileURLToPath(
-          new URL('./src/previews/workspace-preferences.ts', import.meta.url)
-        ),
-        '#client': Bun.fileURLToPath(new URL('../client/src', import.meta.url))
+        '#brand': Bun.fileURLToPath(new URL('../../packages/ui/assets', import.meta.url))
       }
     },
     server: { fs: { allow: ['../..'] } }

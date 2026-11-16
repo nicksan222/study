@@ -1,0 +1,52 @@
+@import 'tailwindcss/theme.css';
+@import 'tailwindcss/utilities.css';
+@import '@study/ui/presentation.css';
+@source '../../../../packages/ui/src';
+@custom-variant dark (&:is(.dark, .dark *));
+@custom-variant light (&:not(.dark, .dark *));
+
+.study-example {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.55;
+  text-align: left;
+}
+.example-body {
+  container-type: inline-size;
+  padding: clamp(20px, 3vw, 40px);
+  min-height: 350px;
+}
+.study-example:is([data-kind='page'], [data-kind='source']) .example-body {
+  max-height: 520px;
+  overflow: auto;
+}
+/* Reserve the editor viewport before hydration so native fragment scrolling keeps its target. */
+.study-example[data-kind='page'] .example-body {
+  min-height: 520px;
+}
+.study-example .example-disclosure {
+  border-top: 1px solid var(--border);
+  padding: 11px 22px;
+  margin: 0;
+  max-width: none;
+  font-size: 11px;
+  color: var(--contrast-muted-foreground);
+}
+@media (max-width: 640px) {
+  .example-body {
+    padding: 20px 16px;
+    min-height: 320px;
+  }
+  .study-example:is([data-kind='page'], [data-kind='source']) .example-body {
+    max-height: 480px;
+  }
+  .study-example[data-kind='page'] .example-body {
+    min-height: 480px;
+  }
+  .study-example .example-disclosure {
+    padding-inline: 16px;
+    font-size: 10px;
+  }
+}

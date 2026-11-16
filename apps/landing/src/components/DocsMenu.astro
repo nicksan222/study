@@ -1,0 +1,47 @@
+---
+import Icon from './Icon.astro';
+import { sections, slug } from '../i18n/docs';
+import type { Doc } from '../i18n/docs';
+import { href, t } from '../i18n/strings';
+import type { Lang } from '../i18n/strings';
+
+interface Props { lang: Lang; all: Doc[]; current?: string; }
+
+const { lang, all, current } = Astro.props;
+
+const s = t(lang);
+
+const homeCurrent = () => current ? undefined : 'page';
+
+const pageCurrent = (d: Doc) => slug(d) === current ? 'page' : undefined;
+
+const link = (d: Doc) => href(lang, `docs/${slug(d)}/`);
+---
+    <details class="side" data-side>
+      <summary class="side-toggle">
+        <Icon name="panel-left" />
+        <span>{s.docs.menu}</span>
+        <Icon name="chevron-down" size={14} />
+      </summary>
+      <nav class="side-nav" aria-label={s.docs.title}>
+        <a class="side-link side-home" href={href(lang, 'docs/')} aria-current={homeCurrent()}>{s.docs.title}</a>
+        {
+          sections.map((section) => (
+            <div class="side-group">
+              <p class="side-label">{s.docs.sections[section]}</p>
+              <ul>
+                {all
+                  .filter((d) => d.data.section === section)
+                  .map((d) => (
+                    <li>
+                      <a class="side-link" href={link(d)} aria-current={pageCurrent(d)}>
+                        {d.data.title}
+                      </a>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          ))
+        }
+      </nav>
+    </details>

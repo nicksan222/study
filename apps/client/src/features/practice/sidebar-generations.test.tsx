@@ -1,7 +1,9 @@
-import { StudyError } from '@study/contracts';
-import { projectIdSchema } from '@study/contracts';
-import { materialGenerationSnapshotSchema } from '@study/contracts';
-import { executionIdSchema } from '@study/contracts';
+import {
+  StudyError,
+  projectIdSchema,
+  materialGenerationSnapshotSchema,
+  executionIdSchema
+} from '@study/contracts';
 import type { executionSchema } from '@study/contracts';
 import type { StudyClient } from '@study/contracts/react/testing';
 import { catalogs } from '@study/localization';

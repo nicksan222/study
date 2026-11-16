@@ -1,0 +1,12 @@
+---
+import PreviewPage from '#landing/components/PreviewPage.astro';
+import { previewFeatures } from '#landing/i18n/doc-examples.ts';
+import type { PreviewFeature } from '#landing/i18n/doc-examples.ts';
+
+export function getStaticPaths() {
+  return previewFeatures.map((feature) => ({ params: { feature } }));
+}
+
+const feature = Astro.params.feature as PreviewFeature;
+---
+<PreviewPage lang="en" feature={feature} />

@@ -1,9 +1,10 @@
 import { quizAttemptCompletedSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
+import { MatchingReviewView as MatchingReview } from '@study/ui';
 import { Schema } from 'effect';
 
-import { MatchingReview } from './matching-review';
+import { ClientPracticePresentation } from './presentation';
 
 const a = '11111111-1111-4111-8111-111111111111';
 
@@ -60,7 +61,11 @@ test.stable('matching review labels selected and correct associations for each t
 
   if (question.kind !== 'matching') throw Error('wrong fixture');
 
-  test.render(<MatchingReview question={question} />);
+  test.render(
+    <ClientPracticePresentation>
+      <MatchingReview question={question} />
+    </ClientPracticePresentation>
+  );
   const nucleus = test.screen.getByText('Nucleus').parentElement!;
 
   test

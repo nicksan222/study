@@ -1,0 +1,22 @@
+---
+import MacDesktopFrame from './MacDesktopFrame.astro';
+import StudyExample from './StudyExample.astro';
+import StudyUtilityExample from './StudyUtilityExample.astro';
+import Download from './landing/Download.astro';
+import { isStudyExample } from '../i18n/doc-examples';
+import type { DocExample } from '../i18n/doc-examples';
+import type { Lang } from '../i18n/strings';
+
+interface Props {
+  example: DocExample;
+  lang?: Lang;
+  phase?: 'start' | 'result';
+}
+
+const { example, phase = 'start', lang: suppliedLang } = Astro.props;
+
+const lang = suppliedLang ?? (Astro.currentLocale ?? 'en') as Lang;
+---
+{example === 'install' ? <Download lang={lang} presentation="guide" /> : <MacDesktopFrame lang={lang} compact>
+  {isStudyExample(example) ? <StudyExample lang={lang} kind={example} phase={phase} /> : <StudyUtilityExample lang={lang} kind={example} />}
+</MacDesktopFrame>}

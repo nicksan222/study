@@ -1,5 +1,4 @@
-import { agentRunIdSchema } from '@study/contracts';
-import { executionIdSchema } from '@study/contracts';
+import { agentRunIdSchema, executionIdSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 

@@ -1,28 +1,55 @@
 ---
 title: Notes
+headline: A notebook for everything you learn.
 description: Capture notes and sources, ask questions, then turn a study note into a page.
 section: capture
 order: 1
-shot: docs-note
-shotAlt: The Cell Biology note notebook with sample notes about protein trafficking.
-shotCaption: Study running with sample biology material.
+stage:
+  example: note
 ---
+
+import DocStep from '../../../components/DocStep.astro';
 
 A note is the place to collect what you are learning before you shape it into something to revise. Keep your notes, questions and attachments together in the subject you are studying.
 
+<DocStep number={1} example="note">
+<header slot="intro">
+
 ## Capture first
+
+Write an idea and save it in your subject’s notebook.
+
+</header>
 
 Open **Notes** and start a note. Write in the composer, then choose **Save note**. Ctrl Enter (Cmd Enter on macOS) saves the note. Save drafts before transforming a note: an unsent note is not part of the saved material.
 
 Attach the files that belong with your notes. Reading status and failures stay beside the affected work, so you can see whether a source is ready. See [sources](../sources/) for the difference between an original file and its readable content.
 
+</DocStep>
+
+<DocStep number={2} example="answer">
+<header slot="intro">
+
 ## Ask when you need help
+
+Ask about what you are learning, and keep the answer with your notes.
+
+</header>
 
 Use **Ask Study** to ask explicitly. A saved question also has an **Answer** action. You can mark an entry as a question or as a note, and enable automatic answers to questions in workspace settings.
 
 Answers use your ChatGPT connection. If access is missing or work fails, the note shows the problem and the available recovery action. See [answers and citations](../answers/).
 
+</DocStep>
+
+<DocStep number={3} example="page" phase="result">
+<header slot="intro">
+
 ## Turn the note into a page
+
+Choose saved material and shape it into a page you can revise.
+
+</header>
 
 Choose **Transform note**. Select the saved material to include, give the page a title, and add instructions if you have a particular goal.
 
@@ -30,8 +57,19 @@ The available changes include clarity, grammar, structure, removing repetition, 
 
 The transformation uses saved notebook entries and selected sources within its context limit; it is not a promise to include every word of an arbitrarily long note. Save important drafts and review your selection before starting.
 
+</DocStep>
+
+<DocStep number={4} example="quiz">
+<header slot="intro">
+
 ## Keep the result useful
+
+Review your page, then turn it into practice.
+
+</header>
 
 Open the result in [Pages](../pages/). Review it, edit it and keep the versions you need. Then choose the pages you want to use to [generate practice](../practice/).
 
 The note remains your original working notebook. The page gives its ideas a shape you can read and revise.
+
+</DocStep>

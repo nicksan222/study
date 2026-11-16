@@ -123,6 +123,7 @@ function DialogPopup({
         )}
       >
         <DialogPrimitive.Popup
+          data-study-ui-portal=""
           className={cn(
             variant === 'media' ? DIALOG_MEDIA_POPUP_CLASS : DIALOG_POPUP_CLASS,
             'row-start-2 text-popover-foreground',

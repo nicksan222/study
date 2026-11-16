@@ -14,6 +14,9 @@ export {
 export { choiceLabel, joined, materialFileName, mediaSize, secondsTaken } from './formatting.ts';
 export type { StaticMessageKey } from './i18n.ts';
 export { countText, createLocalization, text } from './i18n.ts';
-export { landingCopy } from './landing.ts';
+export { landingCopy, utilityExampleCopy } from './landing.ts';
 export { mentionLabel, mentionSuggestions } from './mentions.ts';
 export { age, dayLabel, moment, pastedImageName, recordingClock } from './time.ts';
+export { noteEditorLabels, structuredEditorLabels } from './editor-labels.ts';
+export { interfaceControlLabels } from './appearance-labels.ts';
+export { createPracticePresentation } from './practice-labels.ts';

@@ -1,9 +1,10 @@
 import { quizAttemptCompletedSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
+import { OrderingResultView as OrderingResult } from '@study/ui';
 import { Schema } from 'effect';
 
-import { OrderingResult } from './ordering-result';
+import { ClientPracticePresentation } from './presentation';
 
 test.stable('completed ordering shows the learner and correct sequences separately', () => {
   const attempt = Schema.decodeUnknownSync(quizAttemptCompletedSchema)({
@@ -38,7 +39,11 @@ test.stable('completed ordering shows the learner and correct sequences separate
 
   test.assert.ok(question.kind === 'ordering');
 
-  test.render(<OrderingResult question={question} />);
+  test.render(
+    <ClientPracticePresentation>
+      <OrderingResult question={question} />
+    </ClientPracticePresentation>
+  );
   const learner = test.screen.getByRole('list', { name: catalogs.english.YourAnswer });
   const correct = test.screen.getByRole('list', { name: catalogs.english.RightAnswer });
 

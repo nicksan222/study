@@ -1,39 +1,86 @@
 ---
 title: Primi passi
+headline: Parti da una nota. Costruisci da lì.
 description: Parti da una materia e una nota, poi trasforma gli appunti in materiale su cui esercitarti.
 section: start
 order: 2
-shot: docs-note
-shotAlt: Il quaderno della nota Cell Biology con appunti di esempio sul trasporto delle proteine.
-shotCaption: Study in italiano con materiale di biologia di esempio in inglese.
+stage:
+  example: note
 ---
+
+import DocStep from '../../../components/DocStep.astro';
 
 Inizia con una materia e un po' del tuo materiale. Puoi scrivere appunti prima di collegare ChatGPT; per generare risposte e materiale di studio serve la tua connessione a ChatGPT.
 
+<DocStep number={1} example="note">
+<header slot="intro">
+
 ## Scegli una materia
+
+Scegli una materia per dare un posto ai tuoi appunti.
+
+</header>
 
 Crea una materia per il corso o l'argomento che stai studiando. Il selettore nella barra laterale tiene insieme le sue note, le pagine e le esercitazioni. Scegli la materia prima di aggiungere materiale, così lo ritrovi nella stessa area di lavoro.
 
+</DocStep>
+
+<DocStep number={2} example="note">
+<header slot="intro">
+
 ## Salva la prima nota
+
+Scrivi la tua prima idea e salvala prima di svilupparla.
+
+</header>
 
 Apri **Note** e inizia una nota. Scrivi un appunto, allega un file o fai una domanda. Scegli **Salva appunto** per conservare ciò che hai scritto. Ctrl Invio (Cmd Invio su macOS) salva dal riquadro di scrittura.
 
 Un appunto salvato è materiale di lavoro. Non deve essere già una spiegazione perfetta. Vedi [note](../notes/) per domande, selezione delle fonti e trasformazioni.
 
+</DocStep>
+
+<DocStep number={3} example="settings">
+<header slot="intro">
+
 ## Collega ChatGPT
+
+Collega il tuo account ChatGPT quando vuoi richiedere un’elaborazione al modello.
+
+</header>
 
 Apri **Impostazioni** e usa l'azione per accedere con ChatGPT. Completa l'accesso nel browser, poi torna a Study. Il lavoro inviato tramite il tuo piano usa il suo accesso e i suoi limiti di utilizzo.
 
 Se la generazione non parte, controlla lo stato e l'azione di recupero mostrati nell'app. Gli appunti salvati restano utili mentre risolvi l'accesso.
 
+</DocStep>
+
+<DocStep number={4} example="page">
+<header slot="intro">
+
 ## Crea una pagina
+
+Trasforma il materiale salvato in una pagina, poi rivedi il risultato.
+
+</header>
 
 Salva le bozze e scegli **Trasforma nota**. Seleziona il materiale da includere, dai un titolo e scegli i cambiamenti utili: parole più chiare, una spiegazione più breve o una struttura più ordinata.
 
-Apri il [pagina](../pages/) risultante, confrontalo con appunti e fonti e rivedilo prima di studiarlo.
+Apri la [pagina](../pages/) risultante, confrontala con appunti e fonti e rivedila prima di studiarla.
+
+</DocStep>
+
+<DocStep number={5} example="quiz">
+<header slot="intro">
 
 ## Esercitati su ciò che hai imparato
+
+Scegli le tue pagine e metti alla prova quello che hai imparato.
+
+</header>
 
 In **Esercitazioni**, scegli l'azione di generazione, seleziona la pagina e scegli esercizi o flashcard. Parti con un insieme piccolo e mirato. I tentativi salvati e le valutazioni delle carte ti permettono di tornare al lavoro in seguito.
 
 Segui la [guida alle esercitazioni](../practice/) per generazione, formati delle domande e risultati, o la [guida alle flashcard](../flashcards/) per il ripasso.
+
+</DocStep>

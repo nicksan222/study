@@ -19,9 +19,10 @@ interface Props {
   sizes?: string;
   class?: string;
   loading?: 'eager' | 'lazy';
+  theme?: Theme;
 }
 
-const { name, lang, alt, sizes = '(min-width: 1200px) 1100px, 100vw', class: className, loading = 'lazy' } = Astro.props;
+const { name, lang, alt, sizes = '(min-width: 1200px) 1100px, 100vw', class: className, loading = 'lazy', theme }  = Astro.props;
 
 const capture = (theme: Theme) => pick(name, lang, theme, (file) => files[`../assets/shots/${file}.webp`]?.default);
 
@@ -39,9 +40,9 @@ const srcset = async (src: ImageMetadata) => {
   return sets.join(', ');
 };
 
-const light = capture('light');
+const light = capture(theme ?? 'light');
 
-const dark = capture('dark');
+const dark = capture(theme ?? 'dark');
 
 // The `<img>` itself is the light capture, for a browser that reads no `<source>`.
 const fallback = await getImage({ src: light, width: Math.min(1440, light.width), format: 'webp', quality: 82 });

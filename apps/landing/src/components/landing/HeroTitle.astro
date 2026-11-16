@@ -1,0 +1,19 @@
+---
+import Icon from '../Icon.astro';
+
+interface Props { title: readonly string[] }
+
+const { title } = Astro.props;
+
+const first = title[0]!.split(' ');
+
+const verb = first.pop();
+
+const second = title[1]!.split(' ');
+
+const ownership = second.pop();
+---
+<h1 id="hero-title" class="hero-title" aria-label={title.join(' ')}>
+  <span class="hero-title-line" aria-hidden="true">{first.join(' ')} <span class="hero-title-subject"><span class="title-notes"><span class="title-note title-note-capture"><Icon name="notebook-text" size={27} /></span><span class="title-note title-note-page"><Icon name="file-text" size={27} /></span><span class="title-note title-note-practice"><Icon name="list-checks" size={27} /></span></span> {verb}</span></span>
+  <span class="hero-title-line" aria-hidden="true">{second.join(' ')} <span class="title-ownership">{ownership}<svg class="title-underline" viewBox="0 0 180 12" preserveAspectRatio="none" fill="none"><path d="M3 8C44 3 106 3 177 6" stroke="currentColor" stroke-width="4" stroke-linecap="round" /></svg></span></span>
+</h1>

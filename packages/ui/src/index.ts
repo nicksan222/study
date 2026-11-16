@@ -16,7 +16,7 @@ export {
   ChatNote,
   ChatQuestionAnswer
 } from './components/chat.tsx';
-export { Citation, CitationEvidence, CitationSources } from './components/citation.tsx';
+export { CitationSources, EvidenceReference } from './components/citation.tsx';
 export {
   CodeBlock,
   CodeBlockContent,
@@ -211,3 +211,34 @@ export {
 } from './theme.ts';
 export { cn } from './utils.ts';
 export { observeVisibleAnimation } from './visible-animation.ts';
+
+export { ColorSchemeControls, InterfaceControls } from './components/appearance-controls.tsx';
+export type {
+  InterfaceControlKey,
+  InterfaceControlValues,
+  InterfaceControlLabels
+} from './components/appearance-controls.tsx';
+export { ExecutionLog } from './components/execution-log.tsx';
+export type { ExecutionLogItem } from './components/execution-log.tsx';
+export { FlashcardReviewView } from './components/flashcard-review-view.tsx';
+export type { FlashcardRating } from './components/flashcard-review-view.tsx';
+export { NotebookComposer } from './components/notebook-composer.tsx';
+export { PracticePresentationProvider } from './components/practice-presentation.tsx';
+export type {
+  PracticeMessageKey,
+  PracticePresentation
+} from './components/practice-presentation.tsx';
+export type {
+  PracticeAnswer,
+  PracticeQuestionModel,
+  PracticeResultQuestionModel,
+  PracticeResultsModel
+} from './components/practice-question-model.tsx';
+export { QuizQuestionView } from './components/quiz-question-view.tsx';
+export { QuizResultsView } from './components/quiz-results-view.tsx';
+export { QuizSessionView, QuizFinishView } from './components/quiz-session-view.tsx';
+export { SidebarSearchResults } from './components/sidebar-search-results.tsx';
+export type { SidebarSearchItem } from './components/sidebar-search-results.tsx';
+export { SourceContent } from './components/source-content.tsx';
+export { MatchingReviewView } from './components/matching-review-view.tsx';
+export { OrderingResultView } from './components/ordering-result-view.tsx';

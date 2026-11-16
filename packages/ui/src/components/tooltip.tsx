@@ -30,6 +30,7 @@ export function TooltipPopup({
         className="pointer-events-none z-[140] w-max max-w-(--available-width) transition-[top,left,right,bottom,transform] data-instant:transition-none"
       >
         <Primitive.Popup
+          data-study-ui-portal=""
           {...props}
           className={cn(
             'relative w-max max-w-[min(20rem,var(--available-width))] origin-(--transform-origin) whitespace-normal break-words px-2 py-1 rounded-md border border-[var(--ui-surface-border)] bg-popover text-balance text-xs leading-snug text-popover-foreground shadow-md/5 transition-[scale,opacity] before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-md)-1px)] before:shadow-[0_1px_--theme(--color-media-overlay/4%)] data-ending-style:scale-98 data-starting-style:scale-98 data-ending-style:opacity-0 data-starting-style:opacity-0 data-instant:duration-0 dark:before:shadow-[0_-1px_--theme(--color-media-foreground/6%)]',

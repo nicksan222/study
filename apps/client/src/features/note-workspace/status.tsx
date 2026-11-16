@@ -1,14 +1,7 @@
 import { StudyError } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import {
-  ThinkingIcon,
-  CompletedIcon,
-  ErrorIcon,
-  CancelledIcon,
-  QueuedIcon,
-  DisclosureIcon
-} from '@study/icons';
-import { RetryButton, ErrorState, Notebook } from '@study/ui';
+import { ThinkingIcon, CompletedIcon, ErrorIcon, CancelledIcon, QueuedIcon } from '@study/icons';
+import { RetryButton, ErrorState, ExecutionLog } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 import { toStudyError } from '#client/lib/study-client/errors.ts';
@@ -68,68 +61,46 @@ export function ExecutionStatus({ requestId }: { requestId: string }) {
   if (state.error) return <NoteReadError error={state.error} retry={() => void state.refetch()} />;
 
   return (
-    <Notebook.WorkLog
-      role="status"
-      aria-label={t('NotePromptWork')}
-      aria-live="polite"
-      aria-atomic="true"
-    >
-      {!state.data?.items.length && (
-        <Notebook.WorkRow>
-          <ThinkingIcon aria-hidden="true" />
-          <span>{t('NotePending')}</span>
-        </Notebook.WorkRow>
-      )}
-      {state.data?.items.toReversed().map((item) => {
+    <ExecutionLog
+      label={t('NotePromptWork')}
+      pendingLabel={t('NotePending')}
+      items={(state.data?.items.toReversed() ?? []).map((item) => {
         const failure = item.outcome === 'failure';
         const Icon = failure ? ErrorIcon : workIcon(item.status);
+        const timestamp = (value: bigint) =>
+          value <= 8_640_000_000_000_000n ? date(value / 1000n) : t('workspace.dateUnavailable');
 
-        return (
-          <Notebook.WorkItem key={item.id}>
-            <Notebook.WorkSummary>
-              <Icon aria-hidden="true" />
-              <Notebook.WorkCopy>
-                <span>{t(workflowLabel(item.workflow))}</span>
-                <span aria-hidden="true">·</span>
-                <span>
-                  {t(
-                    `workspace.state.${item.status === 'blocked' ? 'blocked' : failure ? 'failure' : item.status}`
-                  )}
-                </span>
-              </Notebook.WorkCopy>
-              <DisclosureIcon aria-hidden="true" />
-            </Notebook.WorkSummary>
-            <Notebook.WorkMetadata>
-              <dt>{t('NoteWorkStarted')}</dt>
-              <dd>
-                {item.createdAtMs <= 8_640_000_000_000_000n
-                  ? date(item.createdAtMs / 1000n)
-                  : t('workspace.dateUnavailable')}
-              </dd>
-              <dt>{t('NoteWorkUpdated')}</dt>
-              <dd>
-                {item.updatedAtMs <= 8_640_000_000_000_000n
-                  ? date(item.updatedAtMs / 1000n)
-                  : t('workspace.dateUnavailable')}
-              </dd>
-              <dt>{t('NoteWorkElapsed')}</dt>
-              <dd>
-                {t('NoteWorkSeconds', {
-                  seconds:
-                    (item.updatedAtMs >= item.createdAtMs
-                      ? item.updatedAtMs - item.createdAtMs
-                      : 0n) / 1000n
-                })}
-              </dd>
-            </Notebook.WorkMetadata>
-            {item.configurationWaitReason && (
-              <ConfigurationWait reason={item.configurationWaitReason} />
-            )}
-            {failure && <NoteError error={new StudyError(item.failureKind ?? 'internal', '')} />}
-          </Notebook.WorkItem>
-        );
+        return {
+          id: item.id,
+          title: t(workflowLabel(item.workflow)),
+          status: t(
+            `workspace.state.${item.status === 'blocked' ? 'blocked' : failure ? 'failure' : item.status}`
+          ),
+          icon: <Icon aria-hidden="true" />,
+          metadata: [
+            { label: t('NoteWorkStarted'), value: timestamp(item.createdAtMs) },
+            { label: t('NoteWorkUpdated'), value: timestamp(item.updatedAtMs) },
+            {
+              label: t('NoteWorkElapsed'),
+              value: t('NoteWorkSeconds', {
+                seconds:
+                  (item.updatedAtMs >= item.createdAtMs
+                    ? item.updatedAtMs - item.createdAtMs
+                    : 0n) / 1000n
+              })
+            }
+          ],
+          children: (
+            <>
+              {item.configurationWaitReason && (
+                <ConfigurationWait reason={item.configurationWaitReason} />
+              )}
+              {failure && <NoteError error={new StudyError(item.failureKind ?? 'internal', '')} />}
+            </>
+          )
+        };
       })}
-    </Notebook.WorkLog>
+    />
   );
 }
 

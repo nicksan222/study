@@ -136,7 +136,7 @@ test.stable(
     test.expect(test.screen.getByAltText('Original figure')).toBeInTheDocument();
     test.expect(editorToDocument(documentToEditor(document), document)).toEqual(document);
     test.expect(onChange).not.toHaveBeenCalled();
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'Text style' }));
+    test.fireEvent.click(test.screen.getByRole('button', { name: /^Text style: / }));
     test.fireEvent.click(await test.screen.findByRole('menuitem', { name: 'Heading' }));
     await test.waitFor(() => test.expect(onChange).toHaveBeenCalled());
     const edited = editorToDocument(onChange.mock.calls.at(-1)![0], document);
@@ -171,7 +171,7 @@ test.stable(
         placeholder="Write"
       />
     );
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'Text style' }));
+    test.fireEvent.click(test.screen.getByRole('button', { name: /^Text style: / }));
     test.fireEvent.click(await test.screen.findByRole('menuitem', { name: 'Heading' }));
     await test.waitFor(() => test.expect(onChange).toHaveBeenCalled());
     const result = editorToDocument(onChange.mock.calls.at(-1)![0], document);
@@ -581,7 +581,7 @@ test.stable('read-only rendering preserves anchors and removes editing controls'
     .expect(test.screen.getByRole('heading', { name: 'Source heading' }))
     .toHaveAttribute('id', `block-${block.id}`);
   test.expect(container.querySelector('[contenteditable="false"]')).toBeInTheDocument();
-  test.expect(test.screen.queryByRole('button', { name: 'Text style' })).not.toBeInTheDocument();
+  test.expect(test.screen.queryByRole('button', { name: /^Text style: / })).not.toBeInTheDocument();
   test.fireEvent.contextMenu(test.screen.getByText('Source heading'));
   test.expect(test.screen.queryByRole('menu')).not.toBeInTheDocument();
   test.expect(onChange).not.toHaveBeenCalled();
