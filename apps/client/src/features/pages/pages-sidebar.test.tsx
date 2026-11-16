@@ -18,9 +18,11 @@ import {
 } from '@tanstack/react-router';
 import { Schema } from 'effect';
 
-import { PagesSidebar } from './pages-sidebar';
+import type * as __MockType0 from './pages-sidebar';
 
-const api = test.hoisted(() => ({ pages: test.vi.fn(), remove: test.vi.fn() }));
+let PagesSidebar: typeof __MockType0.PagesSidebar;
+
+let api: ReturnType<typeof createMockState>['api'];
 
 const en = catalogs.english;
 
@@ -40,6 +42,22 @@ const document = (id: bigint, overrides: Record<string, unknown> = {}) =>
     headVersionId: id,
     ...overrides
   });
+
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({ pages: mock.fn(), remove: mock.fn() }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  const __mockModule0 = await import('./pages-sidebar');
+
+  PagesSidebar = __mockModule0.PagesSidebar;
+});
 
 test.beforeEach(() => {
   preferences = defaultWorkspacePreferences;

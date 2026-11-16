@@ -3,39 +3,51 @@ import type { Page } from '@study/contracts';
 import { test } from '@study/testing';
 import type { ReactNode } from 'react';
 
-import { authoredPage } from '../document-editing/test-support';
-import { AuthoredPageReader } from './reader';
+import type * as __MockType0 from '../document-editing/test-support';
+import type * as __MockType1 from './reader';
 
-test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-test.mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
-  useWorkspacePreferences: () => ({ autosaveIntervalSeconds: 3600 })
-}));
-test.mock('../note-workspace/canonical-document-editor', () => ({
-  CanonicalDocumentEditor: ({
-    document,
-    disabled,
-    toolbarEnd,
-    snapshotId
-  }: {
-    document: { blocks: { text: string }[] };
-    disabled?: boolean;
-    toolbarEnd: ReactNode;
-    snapshotId: bigint;
-  }) => (
-    <section aria-label="editor" data-snapshot={String(snapshotId)}>
-      {toolbarEnd}
-      <textarea
-        aria-label="content"
-        readOnly={disabled}
-        value={document.blocks[0]?.text ?? ''}
-        onChange={() => undefined}
-      />
-    </section>
-  )
-}));
-test.mock('../note-workspace/note-page-metadata', () => ({
-  PageMetadata: () => null
-}));
+let authoredPage: typeof __MockType0.authoredPage;
+
+let AuthoredPageReader: typeof __MockType1.AuthoredPageReader;
+
+test.beforeEach(async ({ mock }) => {
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
+    useWorkspacePreferences: () => ({ autosaveIntervalSeconds: 3600 })
+  }));
+  mock('#client/features/note-workspace/canonical-document-editor', () => ({
+    CanonicalDocumentEditor: ({
+      document,
+      disabled,
+      toolbarEnd,
+      snapshotId
+    }: {
+      document: { blocks: { text: string }[] };
+      disabled?: boolean;
+      toolbarEnd: ReactNode;
+      snapshotId: bigint;
+    }) => (
+      <section aria-label="editor" data-snapshot={String(snapshotId)}>
+        {toolbarEnd}
+        <textarea
+          aria-label="content"
+          readOnly={disabled}
+          value={document.blocks[0]?.text ?? ''}
+          onChange={() => undefined}
+        />
+      </section>
+    )
+  }));
+  mock('#client/features/note-workspace/note-page-metadata', () => ({
+    PageMetadata: () => null
+  }));
+  const __mockModule0 = await import('../document-editing/test-support');
+
+  authoredPage = __mockModule0.authoredPage;
+  const __mockModule1 = await import('./reader');
+
+  AuthoredPageReader = __mockModule1.AuthoredPageReader;
+});
 
 test.afterEach(() => {
   test.cleanup();

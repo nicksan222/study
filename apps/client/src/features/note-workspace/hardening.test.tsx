@@ -25,66 +25,71 @@ import { Effect, Schema } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 import type { ReactNode } from 'react';
 
-import { authoredPage } from '../document-editing/test-support';
-import { deferred } from '../material-library/test/support';
-import { startDraft, startFiles, startDraftKey } from './start-drafts.queries';
-import { creationFlow } from './start.queries';
-import { transformDraft } from './transformation.queries';
+import type * as __MockType0 from '../document-editing/test-support';
+import type * as __MockType1 from '../material-library/test/support';
+import type * as __MockType5 from './attachments';
+import type * as __MockType6 from './deletion';
+import type * as __MockType7 from './history';
+import type * as __MockType8 from './note-workspace.queries';
+import type * as __MockType2 from './start-drafts.queries';
+import type * as __MockType3 from './start.queries';
+import type * as __MockType9 from './transformation';
+import type * as __MockType4 from './transformation.queries';
+import type * as __MockType10 from './workspace';
 
-const pickerPage = (versionId = 102n) => {
-  const value = authoredPage(41n, 'Historical extraction', versionId);
+let authoredPage: typeof __MockType0.authoredPage;
 
-  return {
-    ...value,
-    title: 'Material 41',
-    version: {
-      ...value.version!,
-      number: versionId === 101n ? 1n : 2n,
-      document: {
-        ...value.version!.document,
-        blocks: value.version!.document.blocks.map((block) => ({
-          ...block,
-          id: Schema.decodeUnknownSync(blockIdSchema)('b0')
-        }))
+let deferred: typeof __MockType1.deferred;
+
+let startDraft: typeof __MockType2.startDraft;
+
+let startFiles: typeof __MockType2.startFiles;
+
+let startDraftKey: typeof __MockType2.startDraftKey;
+
+let creationFlow: typeof __MockType3.creationFlow;
+
+let transformDraft: typeof __MockType4.transformDraft;
+
+function initializePickerPage() {
+  return (versionId = 102n) => {
+    const value = authoredPage(41n, 'Historical extraction', versionId);
+
+    return {
+      ...value,
+      title: 'Material 41',
+      version: {
+        ...value.version!,
+        number: versionId === 101n ? 1n : 2n,
+        document: {
+          ...value.version!.document,
+          blocks: value.version!.document.blocks.map((block) => ({
+            ...block,
+            id: Schema.decodeUnknownSync(blockIdSchema)('b0')
+          }))
+        }
       }
-    }
+    };
   };
-};
+}
 
-import { attachmentState } from './attachments';
-import { NoteDeleteDialog } from './deletion';
-import { History, CapturedContext } from './history';
-import * as workspaceQueries from './note-workspace.queries';
-import { Transformation } from './transformation';
-import { NoteWorkspace } from './workspace';
+let pickerPage: ReturnType<typeof initializePickerPage>;
 
-const rpc = test.hoisted(() => ({
-  note: test.vi.fn(),
-  projects: test.vi.fn(),
-  remove: test.vi.fn(),
-  generations: test.vi.fn(),
-  citations: test.vi.fn(),
-  provenance: test.vi.fn(),
-  deletion: test.vi.fn(),
-  retryDeletion: test.vi.fn(),
-  create: test.vi.fn(),
-  notes: test.vi.fn(),
-  selection: test.vi.fn(),
-  updateSelection: test.vi.fn(),
-  generation: test.vi.fn(),
-  executions: test.vi.fn(),
-  retryGeneration: test.vi.fn(),
-  cancel: test.vi.fn(),
-  context: test.vi.fn(),
-  thread: test.vi.fn(),
-  materials: test.vi.fn(),
-  version: test.vi.fn(),
-  document: test.vi.fn()
-}));
+let attachmentState: typeof __MockType5.attachmentState;
 
-test.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: string) => key, date: String, locale: 'english' })
-}));
+let NoteDeleteDialog: typeof __MockType6.NoteDeleteDialog;
+
+let History: typeof __MockType7.History;
+
+let CapturedContext: typeof __MockType7.CapturedContext;
+
+let workspaceQueries: typeof __MockType8;
+
+let Transformation: typeof __MockType9.Transformation;
+
+let NoteWorkspace: typeof __MockType10.NoteWorkspace;
+
+let rpc: ReturnType<typeof createMockState>['rpc'];
 
 function testFixture(client: AtomRegistry.AtomRegistry) {
   return test.rpcHandlersTransport(
@@ -250,6 +255,82 @@ function seedTransform(client: AtomRegistry.AtomRegistry) {
     runs: [{ id: 'transform-1', contextId: 'capture-1' }]
   });
 }
+
+function createMockState(mock: test.Mock) {
+  return {
+    rpc: (() => ({
+      note: mock.fn(),
+      projects: mock.fn(),
+      remove: mock.fn(),
+      generations: mock.fn(),
+      citations: mock.fn(),
+      provenance: mock.fn(),
+      deletion: mock.fn(),
+      retryDeletion: mock.fn(),
+      create: mock.fn(),
+      notes: mock.fn(),
+      selection: mock.fn(),
+      updateSelection: mock.fn(),
+      generation: mock.fn(),
+      executions: mock.fn(),
+      retryGeneration: mock.fn(),
+      cancel: mock.fn(),
+      context: mock.fn(),
+      thread: mock.fn(),
+      materials: mock.fn(),
+      version: mock.fn(),
+      document: mock.fn()
+    }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  rpc = __mockState.rpc;
+
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({ t: (key: string) => key, date: String, locale: 'english' })
+  }));
+  mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+  const __mockModule0 = await import('../document-editing/test-support');
+
+  authoredPage = __mockModule0.authoredPage;
+  const __mockModule1 = await import('../material-library/test/support');
+
+  deferred = __mockModule1.deferred;
+  const __mockModule2 = await import('./start-drafts.queries');
+
+  startDraft = __mockModule2.startDraft;
+  startFiles = __mockModule2.startFiles;
+  startDraftKey = __mockModule2.startDraftKey;
+  const __mockModule3 = await import('./start.queries');
+
+  creationFlow = __mockModule3.creationFlow;
+  const __mockModule4 = await import('./transformation.queries');
+
+  transformDraft = __mockModule4.transformDraft;
+  const __mockModule5 = await import('./attachments');
+
+  attachmentState = __mockModule5.attachmentState;
+  const __mockModule6 = await import('./deletion');
+
+  NoteDeleteDialog = __mockModule6.NoteDeleteDialog;
+  const __mockModule7 = await import('./history');
+
+  History = __mockModule7.History;
+  CapturedContext = __mockModule7.CapturedContext;
+  const __mockModule8 = await import('./note-workspace.queries');
+
+  workspaceQueries = __mockModule8;
+  const __mockModule9 = await import('./transformation');
+
+  Transformation = __mockModule9.Transformation;
+  const __mockModule10 = await import('./workspace');
+
+  NoteWorkspace = __mockModule10.NoteWorkspace;
+  pickerPage = initializePickerPage();
+});
 
 test.beforeEach(() => {
   test.vi.resetAllMocks();
@@ -1448,4 +1529,3 @@ test.stable('ignores obsolete selection drafts when starting a note transformati
     test.expect(test.screen.getByRole('button', { name: 'NoteCreatePage' })).toBeEnabled()
   );
 });
-test.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));

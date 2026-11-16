@@ -7,7 +7,7 @@ import {
   createRpcScenario
 } from '@study/contracts/react/testing';
 import { createReactHarness } from '@study/testing/react';
-import { test as baseTest, createTestApi } from '@study/testing/vitest';
+import { test as baseTest, createTestApi, createMockScope } from '@study/testing/vitest';
 import { TooltipProvider, ToastProvider } from '@study/ui';
 import {
   createMemoryHistory,
@@ -36,6 +36,8 @@ import type { Locale } from '#client/lib/i18n.tsx';
 import { pageTestValues } from './page-values';
 import { renderInRouter } from './render-in-router';
 
+const clientSourceRoot = Bun.fileURLToPath(URL.parse('../', import.meta.url)!);
+
 function ScenarioToasts({ children }: { children: ReactNode }) {
   const { t } = useI18n();
 
@@ -47,6 +49,16 @@ function ScenarioToasts({ children }: { children: ReactNode }) {
 }
 
 const testScenario = baseTest.stable
+  .override('mock', ({ task: _task }, { onCleanup }) => {
+    const mock = createMockScope({
+      resolve: (source) =>
+        source.startsWith('#client/') ? clientSourceRoot + source.slice(8) : source
+    });
+
+    onCleanup(() => mock.close());
+
+    return mock;
+  })
   .extend('locale', 'english' as Locale)
   .extend('rpc', ({ task: _task }, { onCleanup }) => {
     const rpc = createRpcScenario();
@@ -91,68 +103,105 @@ function ownView(
 }
 
 /** Components and hooks receive a memory router, localization, UI providers and controlled RPC. */
-const withReact = testScenario.extend('react', async ({ rpc, locale }, { onCleanup }) => {
-  const previousLanguage = document.documentElement.lang;
-  const router = createRouter({
-    routeTree: createRootRoute(),
-    history: createMemoryHistory({ initialEntries: ['/'] })
-  });
+const withReact = testScenario.extend(
+  'react',
+  async ({ rpc, locale, mock: _mock }, { onCleanup }) => {
+    const previousLanguage = document.documentElement.lang;
+    const router = createRouter({
+      routeTree: createRootRoute(),
+      history: createMemoryHistory({ initialEntries: ['/'] })
+    });
 
-  await router.load();
-  const view = createReactHarness(({ children }) => (
-    <rpc.wrapper>
-      <LanguageProvider locale={locale}>
-        <TooltipProvider>
-          <ScenarioToasts>
-            <RouterContextProvider router={router}>{children}</RouterContextProvider>
-          </ScenarioToasts>
-        </TooltipProvider>
-      </LanguageProvider>
-    </rpc.wrapper>
-  ));
+    await router.load();
+    const view = createReactHarness(({ children }) => (
+      <rpc.wrapper>
+        <LanguageProvider locale={locale}>
+          <TooltipProvider>
+            <ScenarioToasts>
+              <RouterContextProvider router={router}>{children}</RouterContextProvider>
+            </ScenarioToasts>
+          </TooltipProvider>
+        </LanguageProvider>
+      </rpc.wrapper>
+    ));
 
-  onCleanup(async () => {
-    try {
-      await ownView(view, rpc, previousLanguage)();
-    } finally {
-      router.history.destroy();
-    }
-  });
+    onCleanup(async () => {
+      try {
+        await ownView(view, rpc, previousLanguage)();
+      } finally {
+        router.history.destroy();
+      }
+    });
 
-  return view;
-});
+    return view;
+  }
+);
 
 /** Full application routes receive production providers and a bounded explicit set of empty snapshots. */
-const withPage = withReact.extend('page', async ({ rpc, locale }, { onCleanup }) => {
+const withPage = withReact.extend('page', ({ rpc, locale, mock: _mock }, { onCleanup }) => {
   rpc.givenWorkspace(locale);
-  const [{ Providers }, { createAppRouter }] = await Promise.all([
-    import('#client/app/providers.tsx'),
-    import('#client/app/router.ts')
-  ]);
-
-  const release = configureRpcTransport(rpc.transport);
   const cleanup = new AsyncDisposableStack();
-
-  onCleanup(() => cleanup.disposeAsync());
-  cleanup.defer(release);
   const histories = new DisposableStack();
-
-  cleanup.defer(() => histories.dispose());
   const previousLanguage = document.documentElement.lang;
   let selectedLocale = locale;
-  const view = createReactHarness(({ children }) => (
-    <Providers locale={selectedLocale} transport={rpc.transport}>
-      {children}
-    </Providers>
-  ));
+  let closed = false;
+  let release = () => {};
+  let application: Awaited<ReturnType<typeof load>> | undefined;
+  let loading: ReturnType<typeof load> | undefined;
+
+  async function load() {
+    const [{ Providers }, { createAppRouter }] = await Promise.all([
+      import('#client/app/providers.tsx'),
+      import('#client/app/router.ts')
+    ]);
+
+    release = configureRpcTransport(rpc.transport);
+
+    return { Providers, createAppRouter };
+  }
+
+  cleanup.defer(async () => {
+    try {
+      await loading;
+    } finally {
+      release();
+    }
+  });
+  cleanup.defer(() => histories.dispose());
+
+  const view = createReactHarness(({ children }) => {
+    if (!application) throw new ReferenceError('Open the page before rendering its providers');
+
+    const { Providers } = application;
+
+    return (
+      <Providers locale={selectedLocale} transport={rpc.transport}>
+        {children}
+      </Providers>
+    );
+  });
 
   cleanup.defer(ownView(view, rpc, previousLanguage));
+
+  const close = () => {
+    closed = true;
+
+    return cleanup.disposeAsync();
+  };
+
+  onCleanup(close);
 
   return {
     user: view.user,
     screen: view.screen,
-    close: () => cleanup.disposeAsync(),
-    open(path: string, options: { locale?: Locale; values?: RpcFixtureValues } = {}) {
+    close,
+    async open(path: string, options: { locale?: Locale; values?: RpcFixtureValues } = {}) {
+      if (closed) throw new ReferenceError('Page scenario is closed');
+
+      application = await (loading ??= load());
+
+      if (closed) throw new ReferenceError('Page scenario is closed');
+
       selectedLocale = options.locale ?? locale;
 
       if (options.locale)
@@ -162,7 +211,7 @@ const withPage = withReact.extend('page', async ({ rpc, locale }, { onCleanup })
 
       if (options.values) rpc.given(options.values);
 
-      const router = createAppRouter(createMemoryHistory({ initialEntries: [path] }));
+      const router = application.createAppRouter(createMemoryHistory({ initialEntries: [path] }));
 
       histories.defer(() => router.history.destroy());
 
@@ -172,7 +221,16 @@ const withPage = withReact.extend('page', async ({ rpc, locale }, { onCleanup })
 });
 
 /** One classified registration API; requested native fixtures own their complete lifecycle. */
-type ClientTestApi = Omit<ReturnType<typeof createTestApi<typeof withPage>>, 'waitFor'> & {
+const withAssistant = withPage.extend('assistant', async ({ mock }, { onCleanup }) => {
+  const { createAssistantHarness } = await import('./assistant.tsx');
+  const assistant = createAssistantHarness(mock);
+
+  onCleanup(() => assistant.close());
+
+  return assistant;
+});
+
+type ClientTestApi = Omit<ReturnType<typeof createTestApi<typeof withAssistant>>, 'waitFor'> & {
   readonly renderInRouter: typeof renderInRouter;
   readonly act: typeof act;
   readonly waitFor: typeof waitFor;
@@ -191,7 +249,7 @@ type ClientTestApi = Omit<ReturnType<typeof createTestApi<typeof withPage>>, 'wa
 };
 
 export const test: ClientTestApi = {
-  ...createTestApi(withPage),
+  ...createTestApi(withAssistant),
   renderInRouter,
   act,
   waitFor,

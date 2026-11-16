@@ -2,15 +2,11 @@ import { noteIdSchema, messageIdSchema, versionIdSchema } from '@study/contracts
 import { test } from '@study/testing';
 import { Schema } from 'effect';
 
-import { PendingMessageWork } from './pending-message-work';
+import type * as __MockType0 from './pending-message-work';
 
-const api = test.hoisted(() => ({
-  provenance: test.vi.fn(),
-  executions: test.vi.fn(),
-  cancel: test.vi.fn()
-}));
+let PendingMessageWork: typeof __MockType0.PendingMessageWork;
 
-test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+let api: ReturnType<typeof createMockState>['api'];
 
 const target = {
   noteId: Schema.decodeUnknownSync(noteIdSchema)(1n),
@@ -32,6 +28,27 @@ const execution = {
 };
 
 let fixture: ReturnType<typeof test.rpcHandlersTransport>;
+
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({
+      provenance: mock.fn(),
+      executions: mock.fn(),
+      cancel: mock.fn()
+    }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  const __mockModule0 = await import('./pending-message-work');
+
+  PendingMessageWork = __mockModule0.PendingMessageWork;
+});
 
 test.beforeEach(() => {
   test.vi.resetAllMocks();

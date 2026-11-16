@@ -9,13 +9,13 @@ import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 import { Schema } from 'effect';
 
-import { LanguageProvider } from '#client/lib/i18n.tsx';
+import type * as __MockType0 from '#client/lib/i18n.tsx';
 
-import { DocumentReader } from '../document-presentation';
+import type * as __MockType1 from '../document-presentation';
 
-test.mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
-  useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, readerFontSize: 22 })
-}));
+let LanguageProvider: typeof __MockType0.LanguageProvider;
+
+let DocumentReader: typeof __MockType1.DocumentReader;
 
 const text = (value: string) => [{ type: 'text' as const, text: value, marks: [] }];
 
@@ -41,6 +41,18 @@ function document(contents: BlockContent[]): typeof documentSchema.Type {
     }
   };
 }
+
+test.beforeEach(async ({ mock }) => {
+  mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
+    useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, readerFontSize: 22 })
+  }));
+  const __mockModule0 = await import('#client/lib/i18n.tsx');
+
+  LanguageProvider = __mockModule0.LanguageProvider;
+  const __mockModule1 = await import('../document-presentation');
+
+  DocumentReader = __mockModule1.DocumentReader;
+});
 
 test.stable(
   'preserves heading, inline marks, table paragraphs, code, list nesting and stable block anchors',

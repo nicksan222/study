@@ -3,7 +3,10 @@ import type { StudyClient } from '@study/contracts/react/testing';
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 import type * as UiModule from '@study/ui';
-import { toastManager } from '@study/ui';
+
+let toastManager: typeof __MockType0.toastManager;
+
+import type * as __MockType0 from '@study/ui';
 import {
   createMemoryHistory,
   createRootRoute,
@@ -15,29 +18,15 @@ import {
 } from '@tanstack/react-router';
 import { Effect, Schema } from 'effect';
 
-import { LanguageProvider } from '#client/lib/i18n.tsx';
+import type * as __MockType1 from '#client/lib/i18n.tsx';
 
-import { CollectionsPage } from './collections-page';
+import type * as __MockType2 from './collections-page';
 
-test.mock('@study/ui', async (load) => {
-  const actual = await load<typeof UiModule>();
+let LanguageProvider: typeof __MockType1.LanguageProvider;
 
-  return { ...actual, toastManager: { ...actual.toastManager, add: test.vi.fn() } };
-});
+let CollectionsPage: typeof __MockType2.CollectionsPage;
 
-const rpc = test.hoisted(() => ({
-  'projects.projects': test.vi.fn<StudyClient['projects.projects']>(),
-  'projects.project': test.vi.fn<StudyClient['projects.project']>(),
-  'projects.createProject': test.vi.fn<StudyClient['projects.createProject']>(),
-  'projects.deleteProject': test.vi.fn<StudyClient['projects.deleteProject']>(),
-  'projects.renameProject': test.vi.fn<StudyClient['projects.renameProject']>(),
-  'projects.addMaterial': test.vi.fn<StudyClient['projects.addMaterial']>(),
-  'projects.removeMaterial': test.vi.fn<StudyClient['projects.removeMaterial']>(),
-  'projects.addNote': test.vi.fn<StudyClient['projects.addNote']>(),
-  'projects.removeNote': test.vi.fn<StudyClient['projects.removeNote']>(),
-  'materials.materials': test.vi.fn<StudyClient['materials.materials']>(),
-  'notes.notes': test.vi.fn<StudyClient['notes.notes']>()
-}));
+let rpc: ReturnType<typeof createMockState>['rpc'];
 
 const t = catalogs.english;
 
@@ -107,6 +96,45 @@ async function selectProject() {
   });
   await test.screen.findByRole('region', { name: 'Biology' });
 }
+
+function createMockState(mock: test.Mock) {
+  return {
+    rpc: (() => ({
+      'projects.projects': mock.fn<StudyClient['projects.projects']>(),
+      'projects.project': mock.fn<StudyClient['projects.project']>(),
+      'projects.createProject': mock.fn<StudyClient['projects.createProject']>(),
+      'projects.deleteProject': mock.fn<StudyClient['projects.deleteProject']>(),
+      'projects.renameProject': mock.fn<StudyClient['projects.renameProject']>(),
+      'projects.addMaterial': mock.fn<StudyClient['projects.addMaterial']>(),
+      'projects.removeMaterial': mock.fn<StudyClient['projects.removeMaterial']>(),
+      'projects.addNote': mock.fn<StudyClient['projects.addNote']>(),
+      'projects.removeNote': mock.fn<StudyClient['projects.removeNote']>(),
+      'materials.materials': mock.fn<StudyClient['materials.materials']>(),
+      'notes.notes': mock.fn<StudyClient['notes.notes']>()
+    }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  rpc = __mockState.rpc;
+
+  mock('@study/ui', async (load) => {
+    const actual = await load<typeof UiModule>();
+
+    return { ...actual, toastManager: { ...actual.toastManager, add: mock.fn() } };
+  });
+  const __mockModule0 = await import('@study/ui');
+
+  toastManager = __mockModule0.toastManager;
+  const __mockModule1 = await import('#client/lib/i18n.tsx');
+
+  LanguageProvider = __mockModule1.LanguageProvider;
+  const __mockModule2 = await import('./collections-page');
+
+  CollectionsPage = __mockModule2.CollectionsPage;
+});
 
 test.beforeEach(() => {
   test.vi.resetAllMocks();

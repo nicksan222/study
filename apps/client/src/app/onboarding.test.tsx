@@ -1,24 +1,40 @@
 import { test } from '@study/testing';
 
-import { ReplayOnboarding } from '#client/features/onboarding/index.tsx';
+import type * as __StudyMockType1 from '#client/app/onboarding.tsx';
+import type * as __StudyMockType0 from '#client/features/onboarding/index.tsx';
 
-import { OnboardingProvider } from './onboarding';
+function createApi(mock: test.Mock) {
+  return { read: mock.fn(), save: mock.fn(), signIn: mock.fn() };
+}
 
-const api = test.hoisted(() => ({ read: test.vi.fn(), save: test.vi.fn(), signIn: test.vi.fn() }));
+let api: ReturnType<typeof createApi>;
 
-test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-test.mock('#client/pages/settings/general/index.tsx', () => ({
-  GeneralSettings: () => <div>Language control</div>
-}));
-test.mock('#client/pages/settings/theme-library.tsx', () => ({
-  ColorScheme: () => <div>Appearance control</div>
-}));
-test.mock('#client/pages/settings/use-page.ts', () => ({
-  useAppearance: () => ({ data: {}, error: false })
-}));
-test.mock('#client/pages/settings/ai/index.tsx', () => ({
-  AiAccountSettings: () => <button onClick={api.signIn}>ChatGPT sign in</button>
-}));
+let ReplayOnboarding: typeof __StudyMockType0.ReplayOnboarding;
+
+let OnboardingProvider: typeof __StudyMockType1.OnboardingProvider;
+
+test.beforeEach(async ({ mock }) => {
+  api = createApi(mock);
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  mock('#client/pages/settings/general/index.tsx', () => ({
+    GeneralSettings: () => <div>Language control</div>
+  }));
+  mock('#client/pages/settings/theme-library.tsx', () => ({
+    ColorScheme: () => <div>Appearance control</div>
+  }));
+  mock('#client/pages/settings/use-page.ts', () => ({
+    useAppearance: () => ({ data: {}, error: false })
+  }));
+  mock('#client/pages/settings/ai/index.tsx', () => ({
+    AiAccountSettings: () => <button onClick={api.signIn}>ChatGPT sign in</button>
+  }));
+  const __studyMockModule0 = await import('#client/features/onboarding/index.tsx');
+
+  ReplayOnboarding = __studyMockModule0.ReplayOnboarding;
+  const __studyMockModule1 = await import('./onboarding');
+
+  OnboardingProvider = __studyMockModule1.OnboardingProvider;
+});
 
 test.afterEach(() => {
   test.vi.resetAllMocks();

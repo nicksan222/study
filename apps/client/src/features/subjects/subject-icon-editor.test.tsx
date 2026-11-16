@@ -3,11 +3,29 @@ import type { ProjectIcon } from '@study/contracts';
 import { test } from '@study/testing';
 import { Schema } from 'effect';
 
-import { SubjectIconEditor } from './subject-icon-editor';
+import type * as __MockType0 from './subject-icon-editor';
 
-const save = test.hoisted(() => test.vi.fn());
+let SubjectIconEditor: typeof __MockType0.SubjectIconEditor;
 
-test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+let save: ReturnType<typeof createMockState>['save'];
+
+function createMockState(mock: test.Mock) {
+  return {
+    save: (() => mock.fn())()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  save = __mockState.save;
+
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  const __mockModule0 = await import('./subject-icon-editor');
+
+  SubjectIconEditor = __mockModule0.SubjectIconEditor;
+});
+
 test.afterEach(() => save.mockReset());
 
 const project = Schema.decodeUnknownSync(projectSchema)({

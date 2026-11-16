@@ -3,23 +3,34 @@ import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 import type { ReactNode } from 'react';
 
-import { sidebarModel } from '#client/test/sidebar-model.ts';
+import type * as __StudyMockType1 from '#client/app/shell/sidebar.view.tsx';
+import type * as __StudyMockType0 from '#client/test/sidebar-model.ts';
 
-import { SidebarView } from './sidebar.view';
+let sidebarModel: typeof __StudyMockType0.sidebarModel;
+
+let SidebarView: typeof __StudyMockType1.SidebarView;
+
+test.beforeEach(async ({ mock }) => {
+  mock('#client/app/shell/rich-sidebar.queries.ts', () => ({
+    useSidebarProgress: () => ({
+      settings: { data: { settledPageThreshold: 1 } },
+      progress: { data: { items: [] } }
+    }),
+    useNoteSettlement: () => ({ mutate: mock.fn(), isPending: false })
+  }));
+  const __studyMockModule0 = await import('#client/test/sidebar-model.ts');
+
+  sidebarModel = __studyMockModule0.sidebarModel;
+  const __studyMockModule1 = await import('./sidebar.view');
+
+  SidebarView = __studyMockModule1.SidebarView;
+});
 
 function renderSidebar(children: ReactNode) {
   const fixture = test.rpcTestTransport(async () => defaultWorkspacePreferences);
 
   return test.renderInRouter(<fixture.wrapper>{children}</fixture.wrapper>);
 }
-
-test.mock('./rich-sidebar.queries', () => ({
-  useSidebarProgress: () => ({
-    settings: { data: { settledPageThreshold: 1 } },
-    progress: { data: { items: [] } }
-  }),
-  useNoteSettlement: () => ({ mutate: test.vi.fn(), isPending: false })
-}));
 
 test.stable(
   'renders invalid subjects and invokes retry callbacks without fetching data',

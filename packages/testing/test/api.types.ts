@@ -5,10 +5,12 @@ import { test } from '@study/testing/vitest';
 import type { Migration, Regression, Characterization } from '../src/classification.ts';
 
 function publicContract() {
-  test.stable('context inference', async (context) => {
-    const name: string = context.task.name;
+  test.stable('context inference', async ({ task, mock }) => {
+    const name: string = task.name;
+    const scopedMock: test.Mock = mock;
 
-    void name;
+    mock('@study/ui', async (load) => ({ ...(await load()), fixtureValue: true }));
+    void [name, scopedMock];
   });
   test.stable('options', { timeout: 1000, concurrent: true }, () => {});
   test.regression({ regression: 'evidence_integrity' })('regression', () => {});

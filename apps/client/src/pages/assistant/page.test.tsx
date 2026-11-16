@@ -1,12 +1,10 @@
 import { catalogs } from '@study/localization';
-
-import '#client/test/assistant.tsx';
 import { test } from '@study/testing';
 
 test.stable.for(['english', 'italian'] as const)(
   'opens Assistant as a full page in %s',
   async (locale, { page }) => {
-    page.open('/assistant', { locale });
+    await page.open('/assistant', { locale });
     const copy = catalogs[locale];
 
     test
@@ -23,7 +21,7 @@ test.stable.for(['english', 'italian'] as const)(
 );
 
 test.stable('keeps Assistant drafts across page navigation', async ({ page }) => {
-  const { router } = page.open('/assistant');
+  const { router } = await page.open('/assistant');
   const user = test.userEvent.setup();
   const input = await test.screen.findByRole('textbox', { name: 'Message' });
 

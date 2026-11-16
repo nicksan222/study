@@ -3,19 +3,36 @@ import type { StudyClient } from '@study/contracts/react/testing';
 import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
 
-import { authoredPage } from '../document-editing/test-support';
-import { SelectedTarget } from './selection';
+import type * as __MockType0 from '../document-editing/test-support';
+import type * as __MockType1 from './selection';
 
-test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+let authoredPage: typeof __MockType0.authoredPage;
 
-const original = authoredPage(31n, 'Keep selected outside', 41n);
+let SelectedTarget: typeof __MockType1.SelectedTarget;
 
-const exact = original.version!;
+function initializeOriginal() {
+  return authoredPage(31n, 'Keep selected outside', 41n);
+}
 
-const target = Schema.decodeUnknownSync(noteSelectionTargetSchema)({
-  input: { kind: 'page', versionId: exact.id },
-  scope: { kind: 'ranges', ranges: [{ blockId: exact.document.blocks[0]!.id, start: 5, end: 13 }] }
-});
+let original: ReturnType<typeof initializeOriginal>;
+
+function initializeExact() {
+  return original.version!;
+}
+
+let exact: ReturnType<typeof initializeExact>;
+
+function initializeTarget() {
+  return Schema.decodeUnknownSync(noteSelectionTargetSchema)({
+    input: { kind: 'page', versionId: exact.id },
+    scope: {
+      kind: 'ranges',
+      ranges: [{ blockId: exact.document.blocks[0]!.id, start: 5, end: 13 }]
+    }
+  });
+}
+
+let target: ReturnType<typeof initializeTarget>;
 
 function mount(owner = { ...original, title: 'Mechanics' }) {
   const rpc = {
@@ -31,6 +48,19 @@ function mount(owner = { ...original, title: 'Mechanics' }) {
 
   return { notify: fixture.notify, rpc };
 }
+
+test.beforeEach(async ({ mock }) => {
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  const __mockModule0 = await import('../document-editing/test-support');
+
+  authoredPage = __mockModule0.authoredPage;
+  const __mockModule1 = await import('./selection');
+
+  SelectedTarget = __mockModule1.SelectedTarget;
+  original = initializeOriginal();
+  exact = initializeExact();
+  target = initializeTarget();
+});
 
 test.afterEach(() => {
   test.cleanup();

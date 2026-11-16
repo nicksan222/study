@@ -15,7 +15,7 @@ test.stable.for(['english', 'italian'] as const)(
         updatedAt: 1n
       }
     });
-    const { router } = page.open('/projects?project=9007199254740993', { locale });
+    const { router } = await page.open('/projects?project=9007199254740993', { locale });
 
     test
       .expect(await test.screen.findByRole('heading', { name: catalogs[locale].Projects }))

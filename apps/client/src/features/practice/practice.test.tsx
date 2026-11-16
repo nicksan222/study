@@ -14,13 +14,13 @@ import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
 
-import {
-  learningVersion,
-  materialRpc,
-  mountLibraryRoute
-} from '#client/features/material-library/test/support.tsx';
+import type * as __MockType0 from '#client/features/material-library/test/support.tsx';
 
-test.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+let learningVersion: typeof __MockType0.learningVersion;
+
+let materialRpc: typeof __MockType0.materialRpc;
+
+let mountLibraryRoute: typeof __MockType0.mountLibraryRoute;
 
 const en = catalogs.english;
 
@@ -179,6 +179,15 @@ function practiceRpc(kind: 'quiz' | 'flashcards' = 'quiz', scoped = false) {
 
   return handlers;
 }
+
+test.beforeEach(async ({ mock }) => {
+  mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+  const __mockModule0 = await import('#client/features/material-library/test/support.tsx');
+
+  learningVersion = __mockModule0.learningVersion;
+  materialRpc = __mockModule0.materialRpc;
+  mountLibraryRoute = __mockModule0.mountLibraryRoute;
+});
 
 test.stable(
   'starts a quiz at its material path, saves an answer, and displays completed results',

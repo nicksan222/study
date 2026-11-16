@@ -1,4 +1,5 @@
 import type { test as defaultTestApi } from './vitest.ts';
+import type { MockScope } from './vitest.ts';
 export { classificationLabel } from './classification.ts';
 export { testPolicy } from './config.ts';
 export { createAiMock } from './ai-mock.ts';
@@ -13,5 +14,9 @@ type PublicTestApi = TestEnvironment extends { readonly api: infer Api extends o
   : typeof defaultTestApi;
 
 export const test: PublicTestApi = createTestFacade<PublicTestApi>();
+
+export declare namespace test {
+  export type Mock = MockScope;
+}
 
 export { installTestApi } from './facade.ts';

@@ -8,12 +8,19 @@ import {
   useWorkspacePreferenceControls
 } from './workspace-preferences.queries';
 
-const api = test.hoisted(() => ({
-  read: test.vi.fn<() => Promise<WorkspacePreferences>>(),
-  save: test.vi.fn<(value: WorkspacePreferences) => Promise<WorkspacePreferences>>()
-}));
+let api: {
+  read: ReturnType<typeof test.vi.fn<() => Promise<WorkspacePreferences>>>;
+  save: ReturnType<
+    typeof test.vi.fn<(value: WorkspacePreferences) => Promise<WorkspacePreferences>>
+  >;
+};
 
-test.beforeEach(() => test.vi.clearAllMocks());
+test.beforeEach(({ mock }) => {
+  api = {
+    read: mock.fn<() => Promise<WorkspacePreferences>>(),
+    save: mock.fn<(value: WorkspacePreferences) => Promise<WorkspacePreferences>>()
+  };
+});
 
 function wrapper() {
   let saved: WorkspacePreferences | undefined;

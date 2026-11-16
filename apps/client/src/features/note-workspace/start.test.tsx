@@ -13,15 +13,22 @@ import {
 import { Schema } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
-import { SidebarNoteDrafts } from '#client/app/shell/sidebar-note-drafts.tsx';
+import type * as __MockType0 from '#client/app/shell/sidebar-note-drafts.tsx';
 
-import { NoteStart } from './start';
-import { startDraftKey, startDraft, startDrafts } from './start-drafts.queries';
+import type * as __MockType1 from './start';
+import type * as __MockType2 from './start-drafts.queries';
 
-const api = test.hoisted(() => ({ create: test.vi.fn() }));
+let SidebarNoteDrafts: typeof __MockType0.SidebarNoteDrafts;
 
-test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-test.mock('./workspace-context', () => ({ WorkspaceContext: () => null }));
+let NoteStart: typeof __MockType1.NoteStart;
+
+let startDraftKey: typeof __MockType2.startDraftKey;
+
+let startDraft: typeof __MockType2.startDraft;
+
+let startDrafts: typeof __MockType2.startDrafts;
+
+let api: ReturnType<typeof createMockState>['api'];
 
 const clients: AtomRegistry.AtomRegistry[] = [];
 
@@ -84,6 +91,34 @@ function mount() {
 
   return { cache, router, ...view };
 }
+
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({ create: mock.fn() }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  mock('#client/features/note-workspace/workspace-context', () => ({
+    WorkspaceContext: () => null
+  }));
+  const __mockModule0 = await import('#client/app/shell/sidebar-note-drafts.tsx');
+
+  SidebarNoteDrafts = __mockModule0.SidebarNoteDrafts;
+  const __mockModule1 = await import('./start');
+
+  NoteStart = __mockModule1.NoteStart;
+  const __mockModule2 = await import('./start-drafts.queries');
+
+  startDraftKey = __mockModule2.startDraftKey;
+  startDraft = __mockModule2.startDraft;
+  startDrafts = __mockModule2.startDrafts;
+});
 
 test.beforeEach(() => test.vi.resetAllMocks());
 test.afterEach(() => {

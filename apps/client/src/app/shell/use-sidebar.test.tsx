@@ -8,28 +8,43 @@ import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 import { Option, Schema } from 'effect';
 
-import { NoteStart } from '#client/features/note-workspace/start.tsx';
+import type * as __StudyMockType1 from '#client/app/app.tsx';
+import type * as __StudyMockType0 from '#client/features/note-workspace/start.tsx';
 
-import { App } from '../app';
+function createApi(mock: test.Mock) {
+  return {
+    projects: mock.fn(),
+    notes: mock.fn(),
+    note: mock.fn(),
+    sources: mock.fn(),
+    materials: mock.fn(),
+    pages: mock.fn(),
+    document: mock.fn(),
+    search: mock.fn(),
+    createProject: mock.fn(),
+    createNote: mock.fn()
+  };
+}
 
-test.mock('#client/features/note-workspace/workspace.tsx', () => ({
-  NoteWorkspace: ({ id }: { id?: bigint }) => (id ? null : <NoteStart />)
-}));
+let api: ReturnType<typeof createApi>;
 
-test.mock('#client/features/pages/reader-page.tsx', () => ({ PageReaderPage: () => null }));
+let NoteStart: typeof __StudyMockType0.NoteStart;
 
-const api = test.hoisted(() => ({
-  projects: test.vi.fn(),
-  notes: test.vi.fn(),
-  note: test.vi.fn(),
-  sources: test.vi.fn(),
-  materials: test.vi.fn(),
-  pages: test.vi.fn(),
-  document: test.vi.fn(),
-  search: test.vi.fn(),
-  createProject: test.vi.fn(),
-  createNote: test.vi.fn()
-}));
+let App: typeof __StudyMockType1.App;
+
+test.beforeEach(async ({ mock }) => {
+  api = createApi(mock);
+  mock('#client/features/note-workspace/workspace.tsx', () => ({
+    NoteWorkspace: ({ id }: { id?: bigint }) => (id ? null : <NoteStart />)
+  }));
+  mock('#client/features/pages/reader-page.tsx', () => ({ PageReaderPage: () => null }));
+  const __studyMockModule0 = await import('#client/features/note-workspace/start.tsx');
+
+  NoteStart = __studyMockModule0.NoteStart;
+  const __studyMockModule1 = await import('../app');
+
+  App = __studyMockModule1.App;
+});
 
 const summary = (item: {
   id: bigint;

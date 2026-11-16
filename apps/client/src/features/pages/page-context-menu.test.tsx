@@ -9,14 +9,41 @@ import {
   Outlet
 } from '@tanstack/react-router';
 
-import { authoredPage } from '../document-editing/test-support';
-import { PageContextMenu } from './page-context-menu';
+import type * as __MockType0 from '../document-editing/test-support';
+import type * as __MockType1 from './page-context-menu';
 
-const api = test.hoisted(() => ({ remove: test.vi.fn() }));
+let authoredPage: typeof __MockType0.authoredPage;
 
-const document = authoredPage(5n, 'Text', 8n);
+let PageContextMenu: typeof __MockType1.PageContextMenu;
 
-test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+let api: ReturnType<typeof createMockState>['api'];
+
+function initializeDocument() {
+  return authoredPage(5n, 'Text', 8n);
+}
+
+let document: ReturnType<typeof initializeDocument>;
+
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({ remove: mock.fn() }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  const __mockModule0 = await import('../document-editing/test-support');
+
+  authoredPage = __mockModule0.authoredPage;
+  const __mockModule1 = await import('./page-context-menu');
+
+  PageContextMenu = __mockModule1.PageContextMenu;
+  document = initializeDocument();
+});
 
 test.afterEach(() => {
   test.cleanup();

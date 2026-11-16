@@ -3,15 +3,30 @@ import type { WorkspacePreferences } from '@study/contracts';
 import { test } from '@study/testing';
 import { Schema } from 'effect';
 
-import { AiWritingSettings, WritingSettings } from './workspace-settings';
+import type * as __StudyMockType0 from '#client/pages/settings/workspace-settings.tsx';
 
-const api = test.hoisted(() => ({
-  strategies: test.vi.fn<() => Promise<unknown[]>>(),
-  read: test.vi.fn<() => Promise<WorkspacePreferences>>(),
-  save: test.vi.fn<(value: WorkspacePreferences) => Promise<WorkspacePreferences>>()
-}));
+function createApi(mock: test.Mock) {
+  return {
+    strategies: mock.fn<() => Promise<unknown[]>>(),
+    read: mock.fn<() => Promise<WorkspacePreferences>>(),
+    save: mock.fn<(value: WorkspacePreferences) => Promise<WorkspacePreferences>>()
+  };
+}
 
-test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+let api: ReturnType<typeof createApi>;
+
+let AiWritingSettings: typeof __StudyMockType0.AiWritingSettings;
+
+let WritingSettings: typeof __StudyMockType0.WritingSettings;
+
+test.beforeEach(async ({ mock }) => {
+  api = createApi(mock);
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  const __studyMockModule0 = await import('./workspace-settings');
+
+  AiWritingSettings = __studyMockModule0.AiWritingSettings;
+  WritingSettings = __studyMockModule0.WritingSettings;
+});
 
 test.beforeEach(() => {
   test.vi.clearAllMocks();

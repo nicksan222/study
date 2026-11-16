@@ -10,8 +10,7 @@
     "./process": "./src/process.ts",
     "./effect": "./src/effect.ts",
     "./playwright": "./src/playwright.ts",
-    "./react": "./src/react.ts",
-    "./vite": "./src/vite.ts"
+    "./react": "./src/react.ts"
   },
   "scripts": {
     "test": "bun --bun vp test run --config ../../vite.config.ts --project tooling packages/testing && bun --bun vp test run --config ../../vite.config.ts --project @study/client packages/testing/test/react.test.ts"
@@ -26,7 +25,6 @@
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.8",
-    "@vitest/mocker": "5.0.5",
     "effect": "4.0.7",
     "playwright": "1.65.0",
     "react": "^19.3.0",

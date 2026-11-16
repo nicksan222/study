@@ -2,9 +2,7 @@ import { agentProgressPageSchema } from '@study/contracts';
 import { test } from '@study/testing';
 import { Schema } from 'effect';
 
-import { api, message, mountAssistant } from '#client/test/assistant.tsx';
-
-test.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+import type { AssistantHarness } from '#client/test/assistant.tsx';
 
 const execution = {
   id: 'run',
@@ -19,6 +17,19 @@ const execution = {
   updatedAtMs: 1n
 };
 
+let api: AssistantHarness['api'];
+
+let message: AssistantHarness['message'];
+
+let mountAssistant: AssistantHarness['mountAssistant'];
+
+test.beforeEach(({ assistant, mock }) => {
+  mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+  api = assistant.api;
+  message = assistant.message;
+  mountAssistant = assistant.mountAssistant;
+});
+
 test.stable(
   'renders streamed snapshots without duplicating text and stops the exact execution',
   async () => {
@@ -28,7 +39,7 @@ test.stable(
     });
     api.executions.mockResolvedValue({ items: [execution], next: null });
     api.cancel.mockResolvedValue(execution);
-    const { notify } = mountAssistant();
+    const { notify } = await mountAssistant();
 
     await test.waitFor(() => test.expect(api.progress).toHaveBeenCalled());
     const update = (text: string) =>
@@ -91,7 +102,7 @@ test.stable('explains sign-in failures and retries the same Assistant message', 
     messageId: 2n,
     versionId: 3n
   });
-  mountAssistant();
+  await mountAssistant();
   test
     .expect(await test.screen.findByText(/Connect a provider under Settings/))
     .toBeInTheDocument();

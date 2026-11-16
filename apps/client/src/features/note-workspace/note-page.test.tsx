@@ -11,21 +11,23 @@ import { Schema } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 import type { ReactNode } from 'react';
 
-import { blankDocument } from '../document-editing';
-import { authoredPage } from '../document-editing/test-support';
-import {
-  useNotePageCreation,
-  useBlankPageCreation,
-  useNotePageAutosave,
-  useLinkedPages
-} from './note-page.queries';
+import type * as __MockType0 from '../document-editing';
+import type * as __MockType1 from '../document-editing/test-support';
+import type * as __MockType2 from './note-page.queries';
 
-const api = test.hoisted(() => ({
-  create: test.vi.fn(),
-  save: test.vi.fn(),
-  material: test.vi.fn(),
-  list: test.vi.fn()
-}));
+let blankDocument: typeof __MockType0.blankDocument;
+
+let authoredPage: typeof __MockType1.authoredPage;
+
+let useNotePageCreation: typeof __MockType2.useNotePageCreation;
+
+let useBlankPageCreation: typeof __MockType2.useBlankPageCreation;
+
+let useNotePageAutosave: typeof __MockType2.useNotePageAutosave;
+
+let useLinkedPages: typeof __MockType2.useLinkedPages;
+
+let api: ReturnType<typeof createMockState>['api'];
 
 const saveReceipt = (outcome: 'saved' | 'conflict', submitted: bigint, expected = 10n) =>
   Schema.decodeUnknownSync(editOutcomeSchema)({
@@ -38,12 +40,20 @@ const saveReceipt = (outcome: 'saved' | 'conflict', submitted: bigint, expected 
 
 const id = noteIdSchema.make(1n);
 
-const document = (text: string) => ({
-  ...blankDocument(),
-  blocks: [plainBlock('paragraph', text, { type: 'authored' })]
-});
+function initializeDocument() {
+  return (text: string) => ({
+    ...blankDocument(),
+    blocks: [plainBlock('paragraph', text, { type: 'authored' })]
+  });
+}
 
-const material = (text = '', versionId = 10n) => authoredPage(2n, text, versionId);
+let document: ReturnType<typeof initializeDocument>;
+
+function initializeMaterial() {
+  return (text = '', versionId = 10n) => authoredPage(2n, text, versionId);
+}
+
+let material: ReturnType<typeof initializeMaterial>;
 
 const registries: AtomRegistry.AtomRegistry[] = [];
 
@@ -70,6 +80,38 @@ function mount<T>(hook: () => T, registry = AtomRegistry.make()) {
 
   return { registry, ...test.renderHook(hook, { wrapper }) };
 }
+
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({
+      create: mock.fn(),
+      save: mock.fn(),
+      material: mock.fn(),
+      list: mock.fn()
+    }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  const __mockModule0 = await import('../document-editing');
+
+  blankDocument = __mockModule0.blankDocument;
+  const __mockModule1 = await import('../document-editing/test-support');
+
+  authoredPage = __mockModule1.authoredPage;
+  const __mockModule2 = await import('./note-page.queries');
+
+  useNotePageCreation = __mockModule2.useNotePageCreation;
+  useBlankPageCreation = __mockModule2.useBlankPageCreation;
+  useNotePageAutosave = __mockModule2.useNotePageAutosave;
+  useLinkedPages = __mockModule2.useLinkedPages;
+  document = initializeDocument();
+  material = initializeMaterial();
+});
 
 test.beforeEach(() => {
   test.vi.useFakeTimers();

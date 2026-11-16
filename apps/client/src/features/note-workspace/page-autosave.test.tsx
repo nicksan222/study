@@ -10,16 +10,14 @@ import { Schema } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 import type { ReactNode } from 'react';
 
-import { usePageAutosave } from './page-autosave.queries';
+let usePageAutosave: typeof __MockType0.usePageAutosave;
+
 import type { PageTarget } from './page-autosave.queries';
+import type * as __MockType0 from './page-autosave.queries';
 
-const preferences = test.hoisted(() => ({ autosaveIntervalSeconds: 3 }));
+let preferences: ReturnType<typeof createMockState>['preferences'];
 
-test.mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
-  useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, ...preferences })
-}));
-
-const api = test.hoisted(() => ({ post: test.vi.fn(), edit: test.vi.fn(), message: test.vi.fn() }));
+let api: ReturnType<typeof createMockState>['api'];
 
 const id = noteIdSchema.make(1n);
 
@@ -78,6 +76,27 @@ function mount(page: PageTarget = target, registry = AtomRegistry.make()) {
 
   return { registry, ...test.renderHook(() => usePageAutosave(id, page), { wrapper }) };
 }
+
+function createMockState(mock: test.Mock) {
+  return {
+    preferences: (() => ({ autosaveIntervalSeconds: 3 }))(),
+    api: (() => ({ post: mock.fn(), edit: mock.fn(), message: mock.fn() }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  preferences = __mockState.preferences;
+  api = __mockState.api;
+
+  mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
+    useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, ...preferences })
+  }));
+  const __mockModule0 = await import('./page-autosave.queries');
+
+  usePageAutosave = __mockModule0.usePageAutosave;
+});
 
 test.beforeEach(() => {
   test.vi.useFakeTimers();

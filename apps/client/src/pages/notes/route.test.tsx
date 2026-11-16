@@ -1,11 +1,13 @@
 import { noteIdSchema, projectIdSchema } from '@study/contracts';
 import { test } from '@study/testing';
 
-test.mock('./page.view', () => ({
-  PageView: ({ id }: { id?: bigint }) => (
-    <div data-testid="note-route">{id === undefined ? 'starter' : String(id)}</div>
-  )
-}));
+test.beforeEach(async ({ mock }) => {
+  mock('#client/pages/notes/page.view.tsx', () => ({
+    PageView: ({ id }: { id?: bigint }) => (
+      <div data-testid="note-route">{id === undefined ? 'starter' : String(id)}</div>
+    )
+  }));
+});
 
 test.beforeEach(({ rpc }) => {
   rpc.given({
@@ -24,7 +26,7 @@ test.beforeEach(({ rpc }) => {
 test.stable(
   'parses a note path without losing precision and keeps the subject search',
   async ({ page }) => {
-    const { router } = page.open('/notes/9007199254740993?project=9007199254740995');
+    const { router } = await page.open('/notes/9007199254740993?project=9007199254740995');
 
     test.expect(await test.screen.findByTestId('note-route')).toHaveTextContent('9007199254740993');
     const match = router.state.matches.find((item) => item.routeId === '/notes/$noteId');
@@ -36,14 +38,14 @@ test.stable(
 );
 
 test.stable('keeps the starter at the notes index', async ({ page }) => {
-  page.open('/notes');
+  await page.open('/notes');
   test.expect(await test.screen.findByTestId('note-route')).toHaveTextContent('starter');
 });
 
 test.stable.for(['0', '-1', '1.5', 'text', '9223372036854775808'])(
   'rejects an invalid note path identity %s',
   async (identity, { page }) => {
-    const { router } = page.open('/notes/' + identity);
+    const { router } = await page.open('/notes/' + identity);
 
     await test.waitFor(() => test.expect(router.state.location.pathname).toBe('/notes'));
     test.expect(await test.screen.findByTestId('note-route')).toHaveTextContent('starter');
@@ -51,7 +53,7 @@ test.stable.for(['0', '-1', '1.5', 'text', '9223372036854775808'])(
 );
 
 test.stable('canonicalizes an unscoped note URL to its authoritative subject', async ({ page }) => {
-  const { router } = page.open('/notes/9007199254740993');
+  const { router } = await page.open('/notes/9007199254740993');
 
   test.expect(await test.screen.findByTestId('note-route')).toHaveTextContent('9007199254740993');
   await test.waitFor(() =>
@@ -64,7 +66,7 @@ test.stable('canonicalizes an unscoped note URL to its authoritative subject', a
 test.stable(
   'corrects a foreign subject prefix instead of exposing a mismatched note',
   async ({ page }) => {
-    const { router } = page.open('/projects/2/notes/9007199254740993');
+    const { router } = await page.open('/projects/2/notes/9007199254740993');
 
     test.expect(await test.screen.findByTestId('note-route')).toHaveTextContent('9007199254740993');
     await test.waitFor(() =>

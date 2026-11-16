@@ -10,23 +10,46 @@ import {
 } from '@tanstack/react-router';
 import { Schema } from 'effect';
 
-import { SidebarNoteActions } from './sidebar-note-actions';
+import type * as __StudyMockType0 from '#client/app/shell/sidebar-note-actions.tsx';
 
-const titles = test.hoisted(() => ({ request: test.vi.fn(), executions: test.vi.fn() }));
+function createTitles(mock: test.Mock) {
+  return { request: mock.fn(), executions: mock.fn() };
+}
 
-const notices = test.hoisted(() => ({ add: test.vi.fn() }));
+let titles: ReturnType<typeof createTitles>;
 
-test.mock('@study/ui', async (load) => {
-  const actual = await load<typeof UiModule>();
+function createNotices(mock: test.Mock) {
+  return { add: mock.fn() };
+}
 
-  return { ...actual, toastManager: { ...actual.toastManager, ...notices } };
+let notices: ReturnType<typeof createNotices>;
+
+function createDeletion(mock: test.Mock) {
+  return {
+    remove: mock.fn(),
+    read: mock.fn(),
+    retry: mock.fn()
+  };
+}
+
+let deletion: ReturnType<typeof createDeletion>;
+
+let SidebarNoteActions: typeof __StudyMockType0.SidebarNoteActions;
+
+test.beforeEach(async ({ mock }) => {
+  titles = createTitles(mock);
+  notices = createNotices(mock);
+  deletion = createDeletion(mock);
+  mock('@study/ui', async (load) => {
+    const actual = await load<typeof UiModule>();
+
+    return { ...actual, toastManager: { ...actual.toastManager, ...notices } };
+  });
+  mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+  const __studyMockModule0 = await import('./sidebar-note-actions');
+
+  SidebarNoteActions = __studyMockModule0.SidebarNoteActions;
 });
-
-const deletion = test.hoisted(() => ({
-  remove: test.vi.fn(),
-  read: test.vi.fn(),
-  retry: test.vi.fn()
-}));
 
 const id = Schema.decodeUnknownSync(noteIdSchema)(9007199254740993n);
 
@@ -267,5 +290,3 @@ test.stable('reports title request failures and allows another attempt', async (
     .expect(await test.screen.findByRole('menuitem', { name: en.RegenerateTitle }))
     .toHaveAttribute('aria-disabled', 'true');
 });
-
-test.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));

@@ -10,28 +10,35 @@ import { Schema } from 'effect';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { ProposalReview } from './proposal-review';
-import { authoredPage } from './test-support';
+import type * as __MockType0 from './proposal-review';
+import type * as __MockType1 from './test-support';
 
-test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-test.mock('@tanstack/react-router', () => ({
-  Link: ({ children }: { children: ReactNode }) => <span>{children}</span>
-}));
+let ProposalReview: typeof __MockType0.ProposalReview;
 
-const version = (id: bigint) => authoredPage(41n, `Proposal body ${id}`, id).version!;
+let authoredPage: typeof __MockType1.authoredPage;
 
-const comparison = (current = 101n) =>
-  Schema.decodeUnknownSync(comparisonSchema)({
-    beforeVersionId: 100n,
-    proposedVersionId: 102n,
-    currentVersionId: current,
-    before: version(100n),
-    proposed: version(102n),
-    current: version(current),
-    proposedChanges: [],
-    currentChanges: [],
-    evidence: 'structural_only'
-  });
+function initializeVersion() {
+  return (id: bigint) => authoredPage(41n, `Proposal body ${id}`, id).version!;
+}
+
+let version: ReturnType<typeof initializeVersion>;
+
+function initializeComparison() {
+  return (current = 101n) =>
+    Schema.decodeUnknownSync(comparisonSchema)({
+      beforeVersionId: 100n,
+      proposedVersionId: 102n,
+      currentVersionId: current,
+      before: version(100n),
+      proposed: version(102n),
+      current: version(current),
+      proposedChanges: [],
+      currentChanges: [],
+      evidence: 'structural_only'
+    });
+}
+
+let comparison: ReturnType<typeof initializeComparison>;
 
 const receipt = (outcome: 'applied' | 'kept' | 'conflict') =>
   Schema.decodeUnknownSync(proposalOutcomeSchema)({
@@ -43,6 +50,21 @@ const receipt = (outcome: 'applied' | 'kept' | 'conflict') =>
     resultVersionId: outcome === 'conflict' ? null : 103n,
     replayed: false
   });
+
+test.beforeEach(async ({ mock }) => {
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  mock('@tanstack/react-router', () => ({
+    Link: ({ children }: { children: ReactNode }) => <span>{children}</span>
+  }));
+  const __mockModule0 = await import('./proposal-review');
+
+  ProposalReview = __mockModule0.ProposalReview;
+  const __mockModule1 = await import('./test-support');
+
+  authoredPage = __mockModule1.authoredPage;
+  version = initializeVersion();
+  comparison = initializeComparison();
+});
 
 for (const kind of ['apply', 'keep'] as const) {
   test.stable(

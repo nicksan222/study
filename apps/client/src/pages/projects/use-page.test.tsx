@@ -1,17 +1,23 @@
 import { test } from '@study/testing';
 
-import { usePage } from './use-page';
+import type * as ProjectPageModule from './use-page.ts';
 
-const search = test.hoisted(() => ({ project: undefined as string | undefined }));
+let usePage: typeof ProjectPageModule.usePage;
 
-test.mock('@tanstack/react-router', () => ({ useSearch: () => search }));
+let project: string | undefined;
+
+test.beforeEach(async ({ mock }) => {
+  project = undefined;
+  mock('@tanstack/react-router', () => ({ useSearch: () => ({ project }) }));
+  ({ usePage } = await import('./use-page.ts'));
+});
 
 test.stable('preserves subject precision and clears the unselected workspace', () => {
-  search.project = '9007199254740993';
+  project = '9007199254740993';
   const { result, rerender } = test.renderHook(usePage);
 
   test.expect(result.current.project).toBe(9007199254740993n);
-  search.project = undefined;
+  project = undefined;
   rerender();
   test.expect(result.current.project).toBeUndefined();
 });

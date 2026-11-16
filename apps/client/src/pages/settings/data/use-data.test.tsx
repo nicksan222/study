@@ -6,42 +6,62 @@ import { Schema } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 import type { ReactNode } from 'react';
 
+import type * as __StudyMockType0 from '#client/pages/settings/data/files.ts';
+import type * as __StudyMockType1 from '#client/pages/settings/data/use-data.ts';
+
 import type * as MockModule0 from './files';
-import { downloadBackup } from './files';
-import { dataOwner, useDataSettings } from './use-data';
 
-test.mock('./files', async (load) => ({
-  ...(await load<typeof MockModule0>()),
-  downloadBackup: test.vi.fn()
-}));
+function createRpc(mock: test.Mock) {
+  return {
+    list: mock.fn(),
+    status: mock.fn(),
+    create: mock.fn(),
+    import: mock.fn(),
+    delete: mock.fn(),
+    preview: mock.fn(),
+    accept: mock.fn(),
+    discard: mock.fn(),
+    read: mock.fn()
+  };
+}
 
-const rpc = test.hoisted(() => ({
-  list: test.vi.fn(),
-  status: test.vi.fn(),
-  create: test.vi.fn(),
-  import: test.vi.fn(),
-  delete: test.vi.fn(),
-  preview: test.vi.fn(),
-  accept: test.vi.fn(),
-  discard: test.vi.fn(),
-  read: test.vi.fn()
-}));
+let rpc: ReturnType<typeof createRpc>;
 
-test.mock('@study/contracts/react', () => ({
-  rpc: {
-    system: {
-      listBackups: { read: rpc.list },
-      restoreStatus: { read: rpc.status },
-      createBackup: { call: rpc.create },
-      importBackup: { call: rpc.import },
-      deleteBackup: { call: rpc.delete },
-      previewRestore: { call: rpc.preview },
-      acceptRestore: { call: rpc.accept },
-      discardRestoreRecovery: { call: rpc.discard },
-      readBackup: { read: rpc.read }
+let downloadBackup: typeof __StudyMockType0.downloadBackup;
+
+let dataOwner: typeof __StudyMockType1.dataOwner;
+
+let useDataSettings: typeof __StudyMockType1.useDataSettings;
+
+test.beforeEach(async ({ mock }) => {
+  rpc = createRpc(mock);
+  mock('#client/pages/settings/data/files.ts', async (load) => ({
+    ...(await load<typeof MockModule0>()),
+    downloadBackup: mock.fn()
+  }));
+  mock('@study/contracts/react', () => ({
+    rpc: {
+      system: {
+        listBackups: { read: rpc.list },
+        restoreStatus: { read: rpc.status },
+        createBackup: { call: rpc.create },
+        importBackup: { call: rpc.import },
+        deleteBackup: { call: rpc.delete },
+        previewRestore: { call: rpc.preview },
+        acceptRestore: { call: rpc.accept },
+        discardRestoreRecovery: { call: rpc.discard },
+        readBackup: { read: rpc.read }
+      }
     }
-  }
-}));
+  }));
+  const __studyMockModule0 = await import('./files');
+
+  downloadBackup = __studyMockModule0.downloadBackup;
+  const __studyMockModule1 = await import('./use-data');
+
+  dataOwner = __studyMockModule1.dataOwner;
+  useDataSettings = __studyMockModule1.useDataSettings;
+});
 
 const id = Schema.decodeUnknownSync(backupIdSchema)('11111111-1111-4111-8111-111111111111');
 

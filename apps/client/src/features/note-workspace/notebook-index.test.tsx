@@ -3,22 +3,17 @@ import { rpc as protocol } from '@study/contracts/react';
 import { test } from '@study/testing';
 import { Schema } from 'effect';
 
-import { authoredPage as summary } from '../document-editing/test-support';
-import { History } from './history';
-import { WorkspaceContext } from './workspace-context';
+import type * as __MockType0 from '../document-editing/test-support';
+import type * as __MockType1 from './history';
+import type * as __MockType2 from './workspace-context';
 
-const rpc = test.hoisted(() => ({
-  thread: test.vi.fn(),
-  materials: test.vi.fn(),
-  generations: test.vi.fn()
-}));
+let summary: typeof __MockType0.authoredPage;
 
-test.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: string) => key, date: String })
-}));
-test.mock('./message-actions', () => ({
-  MessageActions: ({ children }: { children: React.ReactNode }) => children
-}));
+let History: typeof __MockType1.History;
+
+let WorkspaceContext: typeof __MockType2.WorkspaceContext;
+
+let rpc: ReturnType<typeof createMockState>['rpc'];
 
 const id = Schema.decodeUnknownSync(noteIdSchema)(51n);
 
@@ -105,6 +100,38 @@ function mount(noteId?: typeof id, board = false) {
     </Provider>
   );
 }
+
+function createMockState(mock: test.Mock) {
+  return {
+    rpc: (() => ({
+      thread: mock.fn(),
+      materials: mock.fn(),
+      generations: mock.fn()
+    }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  rpc = __mockState.rpc;
+
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({ t: (key: string) => key, date: String })
+  }));
+  mock('#client/features/note-workspace/message-actions', () => ({
+    MessageActions: ({ children }: { children: React.ReactNode }) => children
+  }));
+  const __mockModule0 = await import('../document-editing/test-support');
+
+  summary = __mockModule0.authoredPage;
+  const __mockModule1 = await import('./history');
+
+  History = __mockModule1.History;
+  const __mockModule2 = await import('./workspace-context');
+
+  WorkspaceContext = __mockModule2.WorkspaceContext;
+});
 
 test.beforeEach(() => {
   test.vi.clearAllMocks();

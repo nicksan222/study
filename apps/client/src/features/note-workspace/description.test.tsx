@@ -15,21 +15,14 @@ import {
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
 
-import { Description } from './description';
-import { History } from './history';
+import type * as __MockType0 from './description';
+import type * as __MockType1 from './history';
 
-const rpc = test.hoisted(() => ({
-  update: test.vi.fn(),
-  thread: test.vi.fn(),
-  citations: test.vi.fn(),
-  selection: test.vi.fn(),
-  material: test.vi.fn(),
-  source: test.vi.fn()
-}));
+let Description: typeof __MockType0.Description;
 
-test.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: string) => key, date: String, locale: 'english' })
-}));
+let History: typeof __MockType1.History;
+
+let rpc: ReturnType<typeof createMockState>['rpc'];
 
 const message = Schema.decodeUnknownSync(chatMessageSchema)({
   id: 71n,
@@ -82,6 +75,35 @@ async function openDescription() {
     input: test.within(dialog).getByRole('textbox', { name: 'NoteDescriptionLabel' })
   };
 }
+
+function createMockState(mock: test.Mock) {
+  return {
+    rpc: (() => ({
+      update: mock.fn(),
+      thread: mock.fn(),
+      citations: mock.fn(),
+      selection: mock.fn(),
+      material: mock.fn(),
+      source: mock.fn()
+    }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  rpc = __mockState.rpc;
+
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({ t: (key: string) => key, date: String, locale: 'english' })
+  }));
+  const __mockModule0 = await import('./description');
+
+  Description = __mockModule0.Description;
+  const __mockModule1 = await import('./history');
+
+  History = __mockModule1.History;
+});
 
 test.beforeEach(() => {
   test.vi.resetAllMocks();

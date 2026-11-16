@@ -7,15 +7,47 @@ import {
 import { test } from '@study/testing';
 import { createRef, useImperativeHandle } from 'react';
 
-import { blankDocument } from '../document-editing/block-editor';
-import { importedSource } from '../material-library/test/support';
-import { useDocumentEditorImages } from './editor-images.queries';
+import type * as __MockType0 from '../document-editing/block-editor';
+import type * as __MockType1 from '../material-library/test/support';
+import type * as __MockType2 from './editor-images.queries';
 
-const rpc = test.hoisted(() => ({ create: test.vi.fn(), export: test.vi.fn() }));
+let blankDocument: typeof __MockType0.blankDocument;
 
-const createUrl = test.vi.fn(() => 'blob:exact-image');
+let importedSource: typeof __MockType1.importedSource;
 
-const revokeUrl = test.vi.fn();
+let useDocumentEditorImages: typeof __MockType2.useDocumentEditorImages;
+
+let rpc: ReturnType<typeof createMockState>['rpc'];
+
+let createUrl: ReturnType<typeof createMockState>['createUrl'];
+
+let revokeUrl: ReturnType<typeof createMockState>['revokeUrl'];
+
+function createMockState(mock: test.Mock) {
+  return {
+    rpc: (() => ({ create: mock.fn(), export: mock.fn() }))(),
+    createUrl: mock.fn(() => 'blob:exact-image'),
+    revokeUrl: mock.fn()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  rpc = __mockState.rpc;
+  createUrl = __mockState.createUrl;
+  revokeUrl = __mockState.revokeUrl;
+
+  const __mockModule0 = await import('../document-editing/block-editor');
+
+  blankDocument = __mockModule0.blankDocument;
+  const __mockModule1 = await import('../material-library/test/support');
+
+  importedSource = __mockModule1.importedSource;
+  const __mockModule2 = await import('./editor-images.queries');
+
+  useDocumentEditorImages = __mockModule2.useDocumentEditorImages;
+});
 
 test.beforeEach(() => {
   test.vi.resetAllMocks();

@@ -6,44 +6,36 @@ import { AtomRegistry } from 'effect/reactivity';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 
-import { useAiReadiness } from '#client/lib/ai-readiness.ts';
+let useAiReadiness: typeof __MockType0.useAiReadiness;
 
-import { Composer } from './composer';
-import { composerDraft } from './composer.queries';
+let Composer: typeof __MockType1.Composer;
+
+let composerDraft: typeof __MockType2.composerDraft;
+
+import type * as __MockType0 from '#client/lib/ai-readiness.ts';
+
+import type * as __MockType1 from './composer';
+import type * as __MockType2 from './composer.queries';
 import type * as NoteQueries from './note-workspace.queries';
-import {
-  ask,
-  captureContext,
-  transformPage,
-  uploadSource,
-  saveNote
-} from './note-workspace.queries';
-import { Transformation } from './transformation';
-import { UnavailableAttempt } from './unavailable-attempt';
+import type * as __MockType3 from './note-workspace.queries';
+import type * as __MockType4 from './transformation';
+import type * as __MockType5 from './unavailable-attempt';
 
-const reads = test.hoisted(() => ({
-  selection: test.vi.fn(),
-  thread: test.vi.fn(),
-  runs: test.vi.fn()
-}));
+let ask: typeof __MockType3.ask;
 
-test.mock('@tanstack/react-router', async (load) => ({
-  ...(await load<typeof Router>()),
-  Link: ({ to, children }: { to: string; children?: ReactNode }) => <a href={to}>{children}</a>
-}));
+let captureContext: typeof __MockType3.captureContext;
 
-test.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: 'english' })
-}));
-test.mock('./history', () => ({ CapturedContext: () => null }));
-test.mock('./note-workspace.queries', async (load) => ({
-  ...(await load<typeof NoteQueries>()),
-  ask: test.vi.fn(),
-  saveNote: test.vi.fn(),
-  captureContext: test.vi.fn(),
-  transformPage: test.vi.fn(),
-  uploadSource: test.vi.fn()
-}));
+let transformPage: typeof __MockType3.transformPage;
+
+let uploadSource: typeof __MockType3.uploadSource;
+
+let saveNote: typeof __MockType3.saveNote;
+
+let Transformation: typeof __MockType4.Transformation;
+
+let UnavailableAttempt: typeof __MockType5.UnavailableAttempt;
+
+let reads: ReturnType<typeof createMockState>['reads'];
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -103,6 +95,62 @@ function mount(node: ReactNode, client = AtomRegistry.make()) {
 
   return { client, ...test.render(<RecoveryProvider registry={client}>{node}</RecoveryProvider>) };
 }
+
+function createMockState(mock: test.Mock) {
+  return {
+    reads: (() => ({
+      selection: mock.fn(),
+      thread: mock.fn(),
+      runs: mock.fn()
+    }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  reads = __mockState.reads;
+
+  mock('@tanstack/react-router', async (load) => ({
+    ...(await load<typeof Router>()),
+    Link: ({ to, children }: { to: string; children?: ReactNode }) => <a href={to}>{children}</a>
+  }));
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({ t: (key: string) => key, locale: 'english' })
+  }));
+  mock('#client/features/note-workspace/history', () => ({ CapturedContext: () => null }));
+  mock('#client/features/note-workspace/note-workspace.queries', async (load) => ({
+    ...(await load<typeof NoteQueries>()),
+    ask: mock.fn(),
+    saveNote: mock.fn(),
+    captureContext: mock.fn(),
+    transformPage: mock.fn(),
+    uploadSource: mock.fn()
+  }));
+  mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: mock.fn(() => 'ready') }));
+  const __mockModule0 = await import('#client/lib/ai-readiness.ts');
+
+  useAiReadiness = __mockModule0.useAiReadiness;
+  const __mockModule1 = await import('./composer');
+
+  Composer = __mockModule1.Composer;
+  const __mockModule2 = await import('./composer.queries');
+
+  composerDraft = __mockModule2.composerDraft;
+  const __mockModule3 = await import('./note-workspace.queries');
+
+  ask = __mockModule3.ask;
+  captureContext = __mockModule3.captureContext;
+  transformPage = __mockModule3.transformPage;
+  uploadSource = __mockModule3.uploadSource;
+  saveNote = __mockModule3.saveNote;
+  const __mockModule4 = await import('./transformation');
+
+  Transformation = __mockModule4.Transformation;
+  const __mockModule5 = await import('./unavailable-attempt');
+
+  UnavailableAttempt = __mockModule5.UnavailableAttempt;
+});
 
 test.beforeEach(() => {
   test.vi.resetAllMocks();
@@ -452,4 +500,3 @@ test.stable(
       .toEqual(test.vi.mocked(captureContext).mock.calls[0]![0]);
   }
 );
-test.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: test.vi.fn(() => 'ready') }));

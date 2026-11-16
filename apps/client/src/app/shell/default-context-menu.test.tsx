@@ -3,11 +3,18 @@ import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 import { ContextMenu, ContextMenuTrigger, ContextMenuPopup, ContextMenuItem } from '@study/ui';
 
-import { DefaultContextMenu } from './default-context-menu';
+import type * as __StudyMockType0 from '#client/app/shell/default-context-menu.tsx';
 
-test.mock('#client/features/pages/index.ts', () => ({
-  useNewBlankPage: () => ({ pending: false, create: async () => true })
-}));
+let DefaultContextMenu: typeof __StudyMockType0.DefaultContextMenu;
+
+test.beforeEach(async ({ mock }) => {
+  mock('#client/features/pages/index.ts', () => ({
+    useNewBlankPage: () => ({ pending: false, create: async () => true })
+  }));
+  const __studyMockModule0 = await import('./default-context-menu');
+
+  DefaultContextMenu = __studyMockModule0.DefaultContextMenu;
+});
 
 const en = catalogs.english;
 

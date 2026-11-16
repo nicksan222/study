@@ -2,7 +2,7 @@ import { agentProgressPageSchema } from '@study/contracts';
 import { test } from '@study/testing';
 import { Schema } from 'effect';
 
-import { api, message, mountAssistant } from '#client/test/assistant.tsx';
+import type { AssistantHarness } from '#client/test/assistant.tsx';
 
 function progress(status: 'running' | 'completed' | 'failed' | 'cancelled' = 'completed') {
   return Schema.decodeUnknownSync(agentProgressPageSchema)([
@@ -44,12 +44,24 @@ function savedThread() {
   };
 }
 
+let api: AssistantHarness['api'];
+
+let message: AssistantHarness['message'];
+
+let mountAssistant: AssistantHarness['mountAssistant'];
+
+test.beforeEach(({ assistant }) => {
+  api = assistant.api;
+  message = assistant.message;
+  mountAssistant = assistant.mountAssistant;
+});
+
 test.stable(
   'saved calls expand with real inputs and results and reload with the exact reply version',
   async () => {
     api.thread.mockResolvedValue(savedThread());
     api.progress.mockResolvedValue(progress());
-    const view = mountAssistant();
+    const view = await mountAssistant();
     const summary = await test.screen.findByRole('button', {
       name: /Actions (completed|failed|stopped)/
     });
@@ -77,7 +89,7 @@ test.stable(
     test.expect(api.provenance).toHaveBeenCalledWith({ noteId: 91n, messageId: 2n, versionId: 2n });
     test.expect(api.progress).toHaveBeenCalledWith({ correlationId: 'reply' });
     view.unmount();
-    mountAssistant();
+    await mountAssistant();
     test.expect(await test.screen.findByText('Read settings')).toBeInTheDocument();
     test
       .expect(test.screen.getByText('Read settings').closest('[data-slot=trace-collapsible]'))
@@ -91,7 +103,7 @@ test.stable('open tool details stay open when streaming settles into the saved r
     next: null
   });
   api.progress.mockResolvedValue(progress('running'));
-  const { notify } = mountAssistant();
+  const { notify } = await mountAssistant();
 
   await expandSavedActivity();
   const label = await test.screen.findByText('Read settings');
@@ -129,7 +141,7 @@ test.stable.each(['failed', 'cancelled'] as const)(
         tools: run.tools.map((tool) => ({ ...tool, status: 'running' }))
       }))
     );
-    mountAssistant();
+    await mountAssistant();
     await expandSavedActivity();
     const label = await test.screen.findByText('Read settings');
 
@@ -164,7 +176,7 @@ test.stable(
         }
       ])
     );
-    const { container } = mountAssistant();
+    const { container } = await mountAssistant();
 
     await expandSavedActivity();
     const rows = await test.screen.findAllByText('Read settings');
@@ -190,7 +202,7 @@ test.stable('receives later tool activity after an initially empty live snapshot
     next: null
   });
   api.progress.mockResolvedValue([]);
-  const { notify } = mountAssistant();
+  const { notify } = await mountAssistant();
 
   await test.waitFor(() => test.expect(api.progress).toHaveBeenCalled());
   api.progress.mockResolvedValue(progress('running'));
@@ -210,7 +222,7 @@ test.stable('legacy calls without stored details remain inspectable', async () =
       tools: [{ toolCallId: 'legacy-1', toolName: 'retired_tool', status: 'completed' }]
     }))
   );
-  mountAssistant();
+  await mountAssistant();
   await expandSavedActivity();
   const label = await test.screen.findByText('Study action');
 
@@ -226,7 +238,7 @@ test.stable('legacy calls without stored details remain inspectable', async () =
 test.stable('failed activity requests offer a retry that loads the saved calls', async () => {
   api.thread.mockResolvedValue(savedThread());
   api.progress.mockRejectedValueOnce(new Error('Disconnected')).mockResolvedValue(progress());
-  mountAssistant();
+  await mountAssistant();
   test.fireEvent.click(await test.screen.findByRole('button', { name: 'Retry' }));
   test.expect(await test.screen.findByText('Read settings')).toBeInTheDocument();
   await test.waitFor(() =>

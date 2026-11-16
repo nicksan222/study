@@ -1,13 +1,21 @@
 import { test } from '@study/testing';
 
-test.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+import type { AssistantHarness } from '#client/test/assistant.tsx';
 
-import { api, mountAssistant as mount } from '#client/test/assistant.tsx';
+let api: AssistantHarness['api'];
+
+let mount: AssistantHarness['mountAssistant'];
+
+test.beforeEach(({ assistant, mock }) => {
+  mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+  api = assistant.api;
+  mount = assistant.mountAssistant;
+});
 
 test.stable('sends only nonblank user messages and supports multiline drafts', async () => {
   const user = test.userEvent.setup();
 
-  mount();
+  await mount();
   const input = await test.screen.findByRole('textbox', { name: 'Message' });
 
   await test.waitFor(() => test.expect(input).toBeEnabled());

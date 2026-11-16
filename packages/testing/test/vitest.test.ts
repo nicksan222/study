@@ -5,9 +5,9 @@ import { assertTestDefinition, classificationLabel } from '../src/classification
 test.stable(
   'Vitest registration preserves context and timeout options',
   { timeout: 2000 },
-  (context) => {
+  ({ task }) => {
     test
-      .expect(context.task.name)
+      .expect(task.name)
       .toBe('[stable] Vitest registration preserves context and timeout options');
   }
 );
@@ -19,14 +19,14 @@ test.stable.each([
   test.expect(label).toBe(value === 1 ? 'one' : 'two');
 });
 
-test.regression({ regression: 'evidence_integrity' })('regression label', (context) => {
-  test.expect(context.task.name).toBe('[regression:evidence_integrity] regression label');
+test.regression({ regression: 'evidence_integrity' })('regression label', ({ task }) => {
+  test.expect(task.name).toBe('[regression:evidence_integrity] regression label');
 });
 
 test.migration({ migration: 'source_upgrade', retention: 'permanent' })(
   'migration label',
-  (context) => {
-    test.expect(context.task.name).toBe('[migration:source_upgrade:permanent] migration label');
+  ({ task }) => {
+    test.expect(task.name).toBe('[migration:source_upgrade:permanent] migration label');
   }
 );
 
@@ -34,10 +34,8 @@ test.characterization({
   migration: 'source_upgrade',
   retention: 'temporary',
   removeWhen: 'Fixture completes'
-})('characterization label', (context) => {
-  test
-    .expect(context.task.name)
-    .toBe('[characterization:source_upgrade:temporary] characterization label');
+})('characterization label', ({ task }) => {
+  test.expect(task.name).toBe('[characterization:source_upgrade:temporary] characterization label');
 });
 
 test.stable('JavaScript callers cannot bypass classification metadata or skip coverage', () => {
@@ -101,14 +99,14 @@ test.stable.extend('answer', { scope: 'worker' }, () => 42).override('answer', (
 
 test.stable.for([{ value: 42 }])(
   'native for preserves values and classification',
-  (item, context) => {
+  (item, { task }) => {
     test.expect(item.value).toBe(42);
-    test.expect(context.task.name).toBe('[stable] native for preserves values and classification');
+    test.expect(task.name).toBe('[stable] native for preserves values and classification');
   }
 );
 
-test.stable.concurrent('native concurrent retains classification', (context) => {
-  test.assert.strictEqual(context.task.name, '[stable] native concurrent retains classification');
+test.stable.concurrent('native concurrent retains classification', ({ task }) => {
+  test.assert.strictEqual(task.name, '[stable] native concurrent retains classification');
 });
 
 fixtureStable.for([{ value: 2 }])(

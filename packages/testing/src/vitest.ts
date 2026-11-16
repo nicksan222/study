@@ -16,6 +16,8 @@ import { assertTestDefinition, classificationLabel } from './classification.ts';
 import type { Characterization, Migration, Regression } from './classification.ts';
 import { testPolicy } from './config.ts';
 import { runTestEffect, pollUntil, observeUntil } from './effect.ts';
+import { createMockScope } from './mock.ts';
+import type { MockScope } from './mock.ts';
 import { spawnScopedProcess, spawnTestProcessSync } from './process.ts';
 import {
   temporaryDirectory as acquireDirectory,
@@ -72,6 +74,7 @@ type Each = {
 
 type Registration<Fixtures = object> = {
   extend: TestAPI<Fixtures>['extend'];
+  override: TestAPI<Fixtures>['override'];
   (name: string, fn: TestFunction<Fixtures>, timeout?: number): void;
   (name: string, options: Options, fn: TestFunction<Fixtures>): void;
   each: Each;
@@ -81,6 +84,11 @@ type Registration<Fixtures = object> = {
 
 type Callable = (...args: any[]) => any;
 
+type PublicVi = Omit<
+  typeof vi,
+  'mock' | 'doMock' | 'unmock' | 'doUnmock' | 'hoisted' | 'resetModules'
+>;
+
 const nativeRegistration = Symbol('native classified registration');
 
 function callable(value: unknown): value is Callable {
@@ -88,7 +96,12 @@ function callable(value: unknown): value is Callable {
 }
 
 /** Preserve native parameter inference while classifying every expanded test name. */
-type FixturesOf<T> = T extends TestAPI<infer Fixtures> ? Fixtures : object;
+type FixturesOf<T> =
+  T extends TestAPI<infer Fixtures>
+    ? Fixtures
+    : T extends Registration<infer Fixtures>
+      ? Fixtures
+      : object;
 
 function registration<T extends Callable>(
   runner: T,
@@ -151,7 +164,7 @@ type TestApi<Fixtures> = {
   readonly expect: typeof expect;
   readonly expectTypeOf: typeof expectTypeOf;
   readonly assert: typeof assert;
-  readonly vi: typeof vi;
+  readonly vi: PublicVi;
   readonly describe: typeof describe;
   readonly beforeAll: typeof beforeAll;
   readonly afterAll: typeof afterAll;
@@ -166,11 +179,6 @@ type TestApi<Fixtures> = {
   readonly createTestResources: typeof createTestResources;
   readonly createAiMock: typeof createAiMock;
   readonly spawnTestProcessSync: typeof spawnTestProcessSync;
-  readonly mock: (typeof vi)['mock'];
-  readonly unmock: (typeof vi)['unmock'];
-  readonly hoisted: (typeof vi)['hoisted'];
-  readonly doMock: (typeof vi)['doMock'];
-  readonly doUnmock: (typeof vi)['doUnmock'];
   readonly beforeEach: TestAPI<Fixtures>['beforeEach'];
   readonly afterEach: TestAPI<Fixtures>['afterEach'];
 };
@@ -185,7 +193,7 @@ export function createTestApi<T extends Callable>(runner: T): TestApi<FixturesOf
     expect,
     expectTypeOf,
     assert,
-    vi,
+    vi: vi as PublicVi,
     describe,
     beforeAll,
     afterAll,
@@ -196,11 +204,6 @@ export function createTestApi<T extends Callable>(runner: T): TestApi<FixturesOf
     afterEach: (Reflect.get(native, 'afterEach') as TestAPI<FixturesOf<T>>['afterEach']).bind(
       native
     ) as TestAPI<FixturesOf<T>>['afterEach'],
-    mock: vi.mock,
-    unmock: vi.unmock,
-    hoisted: vi.hoisted,
-    doMock: vi.doMock,
-    doUnmock: vi.doUnmock,
     spawnTestProcess,
     waitFor,
     withinTestDeadline,
@@ -249,4 +252,19 @@ async function withinTestDeadline<T>(event: Promise<T>): Promise<T> {
 
 export { installTestApi } from './facade.ts';
 
-export const test = createTestApi(nativeTest);
+const preparedNativeTest = nativeTest.extend('mock', ({ task: _task }, { onCleanup }) => {
+  const scope = createMockScope();
+
+  onCleanup(() => scope.close());
+
+  return scope;
+});
+
+export const test = createTestApi(preparedNativeTest);
+
+export declare namespace test {
+  export type Mock = MockScope;
+}
+
+export { createMockScope };
+export type { MockScope } from './mock.ts';

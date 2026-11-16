@@ -4,10 +4,18 @@ import { Schema } from 'effect';
 
 import { useProviderSettings } from './use-provider-settings';
 
-const operations = test.hoisted(() => ({
-  saveAiSettings: test.vi.fn().mockResolvedValue({}),
-  saveProviderApiKey: test.vi.fn().mockResolvedValue(undefined)
-}));
+function createOperations(mock: test.Mock) {
+  return {
+    saveAiSettings: mock.fn().mockResolvedValue({}),
+    saveProviderApiKey: mock.fn().mockResolvedValue(undefined)
+  };
+}
+
+let operations: ReturnType<typeof createOperations>;
+
+test.beforeEach(({ mock }) => {
+  operations = createOperations(mock);
+});
 
 const data = {
   settings: {

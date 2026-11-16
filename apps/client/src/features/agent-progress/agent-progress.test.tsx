@@ -1,9 +1,17 @@
 import { agentRunIdSchema, executionIdSchema } from '@study/contracts';
 import { test } from '@study/testing';
 
-import { AgentProgress } from './index';
+import type * as __MockType0 from './index';
 
-test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+let AgentProgress: typeof __MockType0.AgentProgress;
+
+test.beforeEach(async ({ mock }) => {
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  const __mockModule0 = await import('./index');
+
+  AgentProgress = __mockModule0.AgentProgress;
+});
+
 test.afterEach(() => {
   test.cleanup();
 });

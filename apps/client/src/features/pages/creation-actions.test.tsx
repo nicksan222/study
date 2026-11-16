@@ -1,17 +1,34 @@
 import { projectIdSchema, pageIdSchema } from '@study/contracts';
 import { test } from '@study/testing';
 
-import { NewBlankPage } from './creation-actions';
+import type * as __MockType0 from './creation-actions';
 
-const api = test.hoisted(() => ({
-  create: test.vi.fn(),
-  owner: test.vi.fn(),
-  navigate: test.vi.fn()
-}));
+let NewBlankPage: typeof __MockType0.NewBlankPage;
 
-test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-test.mock('@tanstack/react-router', () => ({ useNavigate: () => api.navigate }));
-test.mock('../note-workspace', () => ({ useBlankPageCreation: api.owner }));
+let api: ReturnType<typeof createMockState>['api'];
+
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({
+      create: mock.fn(),
+      owner: mock.fn(),
+      navigate: mock.fn()
+    }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  mock('@tanstack/react-router', () => ({ useNavigate: () => api.navigate }));
+  mock('#client/features/note-workspace', () => ({ useBlankPageCreation: api.owner }));
+  const __mockModule0 = await import('./creation-actions');
+
+  NewBlankPage = __mockModule0.NewBlankPage;
+});
 
 test.beforeEach(() => {
   test.vi.resetAllMocks();

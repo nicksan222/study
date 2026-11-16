@@ -1,27 +1,46 @@
 import { projectIdSchema, defaultAppearancePreferences } from '@study/contracts';
 import { test } from '@study/testing';
 
-import { useAppearance, usePage } from './use-page';
+import type * as __StudyMockType0 from '#client/pages/settings/use-page.ts';
 
-const router = test.hoisted(() => ({ scope: {} as { project?: string }, navigate: test.vi.fn() }));
+function createRouter(mock: test.Mock) {
+  return { scope: {} as { project?: string }, navigate: mock.fn() };
+}
 
-test.mock('@tanstack/react-router', () => ({
-  useSearch: () => router.scope,
-  useNavigate: () => router.navigate
-}));
+let router: ReturnType<typeof createRouter>;
 
-const api = test.hoisted(() => ({ load: test.vi.fn(), save: test.vi.fn(), select: test.vi.fn() }));
+function createApi(mock: test.Mock) {
+  return { load: mock.fn(), save: mock.fn(), select: mock.fn() };
+}
 
-test.mock('#client/lib/study-client/types.ts', () => ({
-  loadAppearance: api.load,
-  updateAppSettings: api.save,
-  saveAppearancePreferences: test.vi.fn(),
-  selectTheme: api.select,
-  importTheme: test.vi.fn(),
-  saveTheme: test.vi.fn(),
-  deleteTheme: test.vi.fn()
-}));
-test.mock('#client/lib/appearance.ts', () => ({ applyAppearance: test.vi.fn() }));
+let api: ReturnType<typeof createApi>;
+
+let useAppearance: typeof __StudyMockType0.useAppearance;
+
+let usePage: typeof __StudyMockType0.usePage;
+
+test.beforeEach(async ({ mock }) => {
+  router = createRouter(mock);
+  api = createApi(mock);
+  mock('@tanstack/react-router', () => ({
+    useSearch: () => router.scope,
+    useNavigate: () => router.navigate
+  }));
+  mock('#client/lib/study-client/types.ts', () => ({
+    loadAppearance: api.load,
+    updateAppSettings: api.save,
+    saveAppearancePreferences: mock.fn(),
+    selectTheme: api.select,
+    importTheme: mock.fn(),
+    saveTheme: mock.fn(),
+    deleteTheme: mock.fn()
+  }));
+  mock('#client/lib/appearance.ts', () => ({ applyAppearance: mock.fn() }));
+  const __studyMockModule0 = await import('./use-page');
+
+  useAppearance = __studyMockModule0.useAppearance;
+  usePage = __studyMockModule0.usePage;
+});
 
 function setup<T>(hook: () => T) {
   const fixture = test.rpcTestTransport(async (tag, input) => {

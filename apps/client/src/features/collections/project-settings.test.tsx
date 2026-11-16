@@ -3,16 +3,11 @@ import type { ProjectId } from '@study/contracts';
 import { test } from '@study/testing';
 import { Schema } from 'effect';
 
-import { ProjectSettings } from './project-settings';
+import type * as __MockType0 from './project-settings';
 
-const api = test.hoisted(() => ({
-  list: test.vi.fn(),
-  rename: test.vi.fn(),
-  remove: test.vi.fn(),
-  icon: test.vi.fn()
-}));
+let ProjectSettings: typeof __MockType0.ProjectSettings;
 
-test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+let api: ReturnType<typeof createMockState>['api'];
 
 const first = Schema.decodeUnknownSync(projectSchema)({
   id: 9007199254740993n,
@@ -28,6 +23,28 @@ const second = {
   id: Schema.decodeUnknownSync(projectSchema)({ ...first, id: 92n }).id,
   name: 'Math 101'
 };
+
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({
+      list: mock.fn(),
+      rename: mock.fn(),
+      remove: mock.fn(),
+      icon: mock.fn()
+    }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  const __mockModule0 = await import('./project-settings');
+
+  ProjectSettings = __mockModule0.ProjectSettings;
+});
 
 test.beforeEach(() => {
   test.vi.resetAllMocks();

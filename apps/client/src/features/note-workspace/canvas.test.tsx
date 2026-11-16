@@ -7,55 +7,42 @@ import { useMemo } from 'react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { attachmentState } from './attachments';
-import { Composer } from './composer';
-import { composerDraft } from './composer.queries';
-import { MessageActions } from './message-actions';
-import { messageActionDraft } from './message-actions.queries';
+let attachmentState: typeof __MockType0.attachmentState;
+
+let Composer: typeof __MockType1.Composer;
+
+let composerDraft: typeof __MockType2.composerDraft;
+
+let MessageActions: typeof __MockType3.MessageActions;
+
+let messageActionDraft: typeof __MockType4.messageActionDraft;
+
+import type * as __MockType0 from './attachments';
+import type * as __MockType1 from './composer';
+import type * as __MockType2 from './composer.queries';
+import type * as __MockType3 from './message-actions';
+import type * as __MockType4 from './message-actions.queries';
 import type * as NoteQueries from './note-workspace.queries';
-import {
-  activateVersion,
-  ask,
-  editNote,
-  reanswerNote,
-  rewriteNote,
-  saveNote,
-  uploadSource
-} from './note-workspace.queries';
-import { NoteRuns } from './transformation';
+import type * as __MockType5 from './note-workspace.queries';
+import type * as __MockType6 from './transformation';
 
-const rpc = test.hoisted(() => ({
-  message: test.vi.fn(),
-  pages: test.vi.fn(),
-  archive: test.vi.fn(),
-  convert: test.vi.fn(),
-  strategies: test.vi.fn()
-}));
+let activateVersion: typeof __MockType5.activateVersion;
 
-test.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+let ask: typeof __MockType5.ask;
 
-test.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: 'english', date: String })
-}));
-test.mock('../document-editing/proposal-review', () => ({
-  ProposalReview: ({ requestId }: { requestId: string }) => (
-    <div data-testid="proposal">{requestId}</div>
-  )
-}));
-test.mock('./note-workspace.queries', async (load) => {
-  const actual = await load<typeof NoteQueries>();
+let editNote: typeof __MockType5.editNote;
 
-  return {
-    ...actual,
-    uploadSource: test.vi.fn(),
-    saveNote: test.vi.fn(),
-    ask: test.vi.fn(),
-    editNote: test.vi.fn(),
-    rewriteNote: test.vi.fn(),
-    reanswerNote: test.vi.fn(),
-    activateVersion: test.vi.fn()
-  };
-});
+let reanswerNote: typeof __MockType5.reanswerNote;
+
+let rewriteNote: typeof __MockType5.rewriteNote;
+
+let saveNote: typeof __MockType5.saveNote;
+
+let uploadSource: typeof __MockType5.uploadSource;
+
+let NoteRuns: typeof __MockType6.NoteRuns;
+
+let rpc: ReturnType<typeof createMockState>['rpc'];
 
 const id = Schema.decodeUnknownSync(noteIdSchema)(501n);
 
@@ -147,6 +134,75 @@ function mount(node: ReactNode, client = AtomRegistry.make()) {
 const actions = (versionId = message.activeVersionId!, value = message) => (
   <MessageActions message={value} versionId={versionId} onActive={() => {}} />
 );
+
+function createMockState(mock: test.Mock) {
+  return {
+    rpc: (() => ({
+      message: mock.fn(),
+      pages: mock.fn(),
+      archive: mock.fn(),
+      convert: mock.fn(),
+      strategies: mock.fn()
+    }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  rpc = __mockState.rpc;
+
+  mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({ t: (key: string) => key, locale: 'english', date: String })
+  }));
+  mock('#client/features/document-editing/proposal-review', () => ({
+    ProposalReview: ({ requestId }: { requestId: string }) => (
+      <div data-testid="proposal">{requestId}</div>
+    )
+  }));
+  mock('#client/features/note-workspace/note-workspace.queries', async (load) => {
+    const actual = await load<typeof NoteQueries>();
+
+    return {
+      ...actual,
+      uploadSource: mock.fn(),
+      saveNote: mock.fn(),
+      ask: mock.fn(),
+      editNote: mock.fn(),
+      rewriteNote: mock.fn(),
+      reanswerNote: mock.fn(),
+      activateVersion: mock.fn()
+    };
+  });
+  const __mockModule0 = await import('./attachments');
+
+  attachmentState = __mockModule0.attachmentState;
+  const __mockModule1 = await import('./composer');
+
+  Composer = __mockModule1.Composer;
+  const __mockModule2 = await import('./composer.queries');
+
+  composerDraft = __mockModule2.composerDraft;
+  const __mockModule3 = await import('./message-actions');
+
+  MessageActions = __mockModule3.MessageActions;
+  const __mockModule4 = await import('./message-actions.queries');
+
+  messageActionDraft = __mockModule4.messageActionDraft;
+  const __mockModule5 = await import('./note-workspace.queries');
+
+  activateVersion = __mockModule5.activateVersion;
+  ask = __mockModule5.ask;
+  editNote = __mockModule5.editNote;
+  reanswerNote = __mockModule5.reanswerNote;
+  rewriteNote = __mockModule5.rewriteNote;
+  saveNote = __mockModule5.saveNote;
+  uploadSource = __mockModule5.uploadSource;
+  const __mockModule6 = await import('./transformation');
+
+  NoteRuns = __mockModule6.NoteRuns;
+});
 
 test.beforeEach(() => {
   test.vi.resetAllMocks();

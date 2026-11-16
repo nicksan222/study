@@ -2,13 +2,11 @@ import { noteIdSchema, pageIdSchema, pageVersionIdSchema } from '@study/contract
 import { configureRpcTransport } from '@study/contracts/react';
 import { test } from '@study/testing';
 
-import { attachPageToNote } from './page-context.queries';
+import type * as __MockType0 from './page-context.queries';
 
-const api = test.hoisted(() => ({
-  attach: test.vi.fn(),
-  selection: test.vi.fn(),
-  update: test.vi.fn()
-}));
+let attachPageToNote: typeof __MockType0.attachPageToNote;
+
+let api: ReturnType<typeof createMockState>['api'];
 
 const input = {
   pageId: pageIdSchema.make(4n),
@@ -20,6 +18,26 @@ const target = {
   input: { kind: 'page', versionId: input.versionId },
   scope: { kind: 'document' }
 };
+
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({
+      attach: mock.fn(),
+      selection: mock.fn(),
+      update: mock.fn()
+    }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  const __mockModule0 = await import('./page-context.queries');
+
+  attachPageToNote = __mockModule0.attachPageToNote;
+});
 
 test.beforeEach(() => {
   test.vi.resetAllMocks();

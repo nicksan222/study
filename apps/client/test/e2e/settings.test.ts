@@ -995,6 +995,7 @@ test.stable(
     for (const [index, title] of tasks.entries()) {
       await task.click();
       await page.getByRole('option', { name: title, exact: true }).click();
+      await test.expect(task).toHaveText(title);
       const editor = dialog.getByRole('textbox', { name: title, exact: true });
 
       await editor.fill(
@@ -1034,6 +1035,7 @@ test.stable(
     for (const [index, title] of tasks.entries()) {
       await task.click();
       await page.getByRole('option', { name: title, exact: true }).click();
+      await test.expect(task).toHaveText(title);
       const editor = dialog.getByRole('textbox', { name: title, exact: true });
 
       await test
@@ -1079,6 +1081,7 @@ test.stable(
     for (const [index, title] of tasks.entries()) {
       await task.click();
       await page.getByRole('option', { name: title, exact: true }).click();
+      await test.expect(task).toHaveText(title);
       const editor = dialog.getByRole('textbox', { name: title, exact: true });
 
       await test.expect(editor).toHaveValue('');

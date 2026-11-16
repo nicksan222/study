@@ -2,29 +2,56 @@ import { StudyError, noteIdSchema, archivedNoteItemSchema } from '@study/contrac
 import { test } from '@study/testing';
 import { Schema } from 'effect';
 
-import { authoredPage } from '../document-editing/test-support';
-import { ArchivePanel } from './archive';
-import { useItemArchive } from './archive.queries';
+import type * as __MockType0 from '../document-editing/test-support';
+import type * as __MockType1 from './archive';
+import type * as __MockType2 from './archive.queries';
 
-test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-test.mock(import('../document-presentation'), async (importOriginal) => ({
-  ...(await importOriginal()),
-  DocumentReader: ({ document }: { document: { blocks: readonly { text: string }[] } }) => (
-    <article>{document.blocks.map((block) => block.text).join(' ')}</article>
-  )
-}));
+let authoredPage: typeof __MockType0.authoredPage;
+
+let ArchivePanel: typeof __MockType1.ArchivePanel;
+
+let useItemArchive: typeof __MockType2.useItemArchive;
 
 const id = Schema.decodeUnknownSync(noteIdSchema)(7n);
 
-const document = authoredPage(31n, 'Archived physics content', 41n);
+function initializeDocument() {
+  return authoredPage(31n, 'Archived physics content', 41n);
+}
 
-const item = Schema.decodeUnknownSync(archivedNoteItemSchema)({
-  target: { kind: 'page', id: document.id },
-  name: 'Physics',
-  archivedAt: 1n
-});
+let document: ReturnType<typeof initializeDocument>;
+
+function initializeItem() {
+  return Schema.decodeUnknownSync(archivedNoteItemSchema)({
+    target: { kind: 'page', id: document.id },
+    name: 'Physics',
+    archivedAt: 1n
+  });
+}
+
+let item: ReturnType<typeof initializeItem>;
 
 let fixture: ReturnType<typeof test.rpcHandlersTransport>;
+
+test.beforeEach(async ({ mock }) => {
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  mock('#client/features/document-presentation', async (importOriginal) => ({
+    ...(await importOriginal()),
+    DocumentReader: ({ document }: { document: { blocks: readonly { text: string }[] } }) => (
+      <article>{document.blocks.map((block) => block.text).join(' ')}</article>
+    )
+  }));
+  const __mockModule0 = await import('../document-editing/test-support');
+
+  authoredPage = __mockModule0.authoredPage;
+  const __mockModule1 = await import('./archive');
+
+  ArchivePanel = __mockModule1.ArchivePanel;
+  const __mockModule2 = await import('./archive.queries');
+
+  useItemArchive = __mockModule2.useItemArchive;
+  document = initializeDocument();
+  item = initializeItem();
+});
 
 test.afterEach(() => {
   test.cleanup();

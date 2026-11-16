@@ -43,9 +43,11 @@ test.stable('allows test namespace references used only in TypeScript type queri
       'apps/client/src/typed.test.tsx': `import { test } from '@study/testing';
         type Transport = ReturnType<typeof test.rpcHandlersTransport>;
         type UserEvent = ReturnType<typeof test.userEvent.setup>;
+        type ScopedMock = test.Mock;
         let transport: Transport;
         let user: UserEvent;
-        test.stable('typed helpers', () => { void [transport, user]; });`,
+        let mock: ScopedMock;
+        test.stable('typed helpers', () => { void [transport, user, mock]; });`,
       'apps/client/src/runtime-alias.test.ts': `import { test } from '@study/testing';
         const runner = test;
         runner.stable('runtime alias', () => {});`
@@ -66,7 +68,9 @@ test.stable('permits private prepared test APIs only in the core conformance own
         const prepared = createTestApi(test.stable.extend({ fixture: async ({}, use) => use(1) }));
         prepared.stable('prepared runner', () => {});`,
       'packages/testing/test/other.test.ts': `import { test } from '@study/testing/vitest';
-        test.stable('private runner', () => {});`
+        test.stable('private runner', () => {});`,
+      'packages/testing/src/mock.ts': `import { vi } from 'vite-plus/test';
+        export const register = vi.doMock;`
     },
     true
   );

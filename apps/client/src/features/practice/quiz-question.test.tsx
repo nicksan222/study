@@ -4,9 +4,13 @@ import { test } from '@study/testing';
 import { Schema } from 'effect';
 
 import type { AiReadiness } from '#client/lib/ai-readiness.ts';
-import { LanguageProvider } from '#client/lib/i18n.tsx';
+import type * as __MockType0 from '#client/lib/i18n.tsx';
 
-import { QuizQuestion } from './quiz-question';
+import type * as __MockType1 from './quiz-question';
+
+let LanguageProvider: typeof __MockType0.LanguageProvider;
+
+let QuizQuestion: typeof __MockType1.QuizQuestion;
 
 const attempt = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
   id: 1n,
@@ -27,6 +31,27 @@ const attempt = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
       ]
     }
   ]
+});
+
+function createMockState() {
+  return {
+    readiness: (() => ({ value: 'ready' as AiReadiness }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState();
+
+  readiness = __mockState.readiness;
+
+  mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => readiness.value }));
+  mock('#client/lib/ai-readiness-notice.tsx', () => ({ AiReadinessNotice: () => null }));
+  const __mockModule0 = await import('#client/lib/i18n.tsx');
+
+  LanguageProvider = __mockModule0.LanguageProvider;
+  const __mockModule1 = await import('./quiz-question');
+
+  QuizQuestion = __mockModule1.QuizQuestion;
 });
 
 test.stable('requires an answer and preserves multiple selections when submitting', async () => {
@@ -292,10 +317,8 @@ test.stable(
   }
 );
 
-const readiness = test.hoisted(() => ({ value: 'ready' as AiReadiness }));
+let readiness: ReturnType<typeof createMockState>['readiness'];
 
-test.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => readiness.value }));
-test.mock('#client/lib/ai-readiness-notice.tsx', () => ({ AiReadinessNotice: () => null }));
 test.afterEach(() => {
   readiness.value = 'ready';
 });

@@ -1,20 +1,11 @@
 import { catalogs, createLocalization } from '@study/localization';
 import { test } from '@study/testing';
 
-import { ExecutionStatus } from './status';
+import type * as __MockType0 from './status';
 
-const api = test.hoisted(() => ({ executions: test.vi.fn() }));
+let ExecutionStatus: typeof __MockType0.ExecutionStatus;
 
-test.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => createLocalization('english')
-}));
-test.mock('@tanstack/react-router', () => ({
-  Link: ({ children, to, ...props }: React.ComponentProps<'a'> & { to: string }) => (
-    <a href={to} {...props}>
-      {children}
-    </a>
-  )
-}));
+let api: ReturnType<typeof createMockState>['api'];
 
 function mount() {
   const fixture = test.rpcTestTransport(async () => {
@@ -34,6 +25,32 @@ function mount() {
 
   return test.render(<ExecutionStatus requestId="prompt" />, { wrapper: fixture.wrapper });
 }
+
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({ executions: mock.fn() }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => createLocalization('english')
+  }));
+  mock('@tanstack/react-router', () => ({
+    Link: ({ children, to, ...props }: React.ComponentProps<'a'> & { to: string }) => (
+      <a href={to} {...props}>
+        {children}
+      </a>
+    )
+  }));
+  const __mockModule0 = await import('./status');
+
+  ExecutionStatus = __mockModule0.ExecutionStatus;
+});
 
 test.stable('shows real request work in chronological muted rows', async () => {
   api.executions.mockResolvedValue({

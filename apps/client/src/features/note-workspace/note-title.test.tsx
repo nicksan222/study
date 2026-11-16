@@ -2,13 +2,30 @@ import { StudyError, noteIdSchema } from '@study/contracts';
 import { test } from '@study/testing';
 import { Schema } from 'effect';
 
-import { NoteTitleEdit } from './note-title';
+import type * as __MockType0 from './note-title';
 
-const api = test.hoisted(() => ({ rename: test.vi.fn() }));
+let NoteTitleEdit: typeof __MockType0.NoteTitleEdit;
 
-test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+let api: ReturnType<typeof createMockState>['api'];
 
 const id = Schema.decodeUnknownSync(noteIdSchema)(9007199254740993n);
+
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({ rename: mock.fn() }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  const __mockModule0 = await import('./note-title');
+
+  NoteTitleEdit = __mockModule0.NoteTitleEdit;
+});
 
 test.beforeEach(() => test.vi.resetAllMocks());
 

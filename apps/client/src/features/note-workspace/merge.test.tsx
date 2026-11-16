@@ -2,12 +2,30 @@ import { noteSchema } from '@study/contracts';
 import { test } from '@study/testing';
 import { Schema } from 'effect';
 
-import { NoteMergeDialog } from './merge';
+import type * as __MockType0 from './merge';
 
-const api = test.hoisted(() => ({ merge: test.vi.fn(), navigate: test.vi.fn() }));
+let NoteMergeDialog: typeof __MockType0.NoteMergeDialog;
 
-test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-test.mock('@tanstack/react-router', () => ({ useNavigate: () => api.navigate }));
+let api: ReturnType<typeof createMockState>['api'];
+
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({ merge: mock.fn(), navigate: mock.fn() }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  mock('@tanstack/react-router', () => ({ useNavigate: () => api.navigate }));
+  const __mockModule0 = await import('./merge');
+
+  NoteMergeDialog = __mockModule0.NoteMergeDialog;
+});
+
 test.afterEach(test.cleanup);
 
 test.stable(

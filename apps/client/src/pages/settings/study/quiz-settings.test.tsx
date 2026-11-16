@@ -3,9 +3,16 @@ import type { QuizSettings as QuizPreferences } from '@study/contracts';
 import { test } from '@study/testing';
 import { Schema } from 'effect';
 
-import { QuizSettings } from './quiz-settings';
+import type * as __StudyMockType0 from '#client/pages/settings/study/quiz-settings.tsx';
 
-test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+let QuizSettings: typeof __StudyMockType0.QuizSettings;
+
+test.beforeEach(async ({ mock }) => {
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  const __studyMockModule0 = await import('./quiz-settings');
+
+  QuizSettings = __studyMockModule0.QuizSettings;
+});
 
 function mount(kind?: 'matching') {
   const api = {

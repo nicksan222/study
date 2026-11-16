@@ -1,12 +1,34 @@
 import { StudyError } from '@study/contracts';
 import { test } from '@study/testing';
 
-import { authoredPage } from '../document-editing/test-support';
-import { usePageRetirement } from './retirement.queries';
+import type * as __MockType0 from '../document-editing/test-support';
+import type * as __MockType1 from './retirement.queries';
 
-const navigate = test.vi.fn();
+let authoredPage: typeof __MockType0.authoredPage;
 
-test.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }));
+let usePageRetirement: typeof __MockType1.usePageRetirement;
+
+let navigate: ReturnType<typeof createMockState>['navigate'];
+
+function createMockState(mock: test.Mock) {
+  return {
+    navigate: mock.fn()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  navigate = __mockState.navigate;
+
+  mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }));
+  const __mockModule0 = await import('../document-editing/test-support');
+
+  authoredPage = __mockModule0.authoredPage;
+  const __mockModule1 = await import('./retirement.queries');
+
+  usePageRetirement = __mockModule1.usePageRetirement;
+});
 
 for (const uncertain of [false, true])
   test.stable(

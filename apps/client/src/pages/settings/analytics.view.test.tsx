@@ -1,21 +1,42 @@
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 import type * as UiModule from '@study/ui';
-import { downloadFile } from '@study/ui';
 
-import { diagnosticLog, hostCapabilities } from '#client/lib/host.ts';
-import { LanguageProvider } from '#client/lib/i18n.tsx';
+import type * as __StudyMockType0 from '#client/lib/host.ts';
+import type * as __StudyMockType1 from '#client/lib/i18n.tsx';
+import type * as __StudyMockType2 from '#client/pages/settings/analytics.tsx';
 
-import { AnalyticsSettings } from './analytics';
+let diagnosticLog: typeof __StudyMockType0.diagnosticLog;
 
-test.mock('#client/lib/host.ts', () => ({
-  diagnosticLog: test.vi.fn(),
-  hostCapabilities: test.vi.fn()
-}));
-test.mock('@study/ui', async (load) => {
-  const actual = await load<typeof UiModule>();
+let hostCapabilities: typeof __StudyMockType0.hostCapabilities;
 
-  return { ...actual, downloadFile: test.vi.fn() };
+let LanguageProvider: typeof __StudyMockType1.LanguageProvider;
+
+let AnalyticsSettings: typeof __StudyMockType2.AnalyticsSettings;
+
+let downloadFile: typeof UiModule.downloadFile;
+
+test.beforeEach(async ({ mock }) => {
+  mock('#client/lib/host.ts', () => ({
+    diagnosticLog: mock.fn(),
+    hostCapabilities: mock.fn()
+  }));
+  mock('@study/ui', async (load) => {
+    const actual = await load<typeof UiModule>();
+
+    return { ...actual, downloadFile: mock.fn() };
+  });
+  downloadFile = (await import('@study/ui')).downloadFile;
+  const __studyMockModule0 = await import('#client/lib/host.ts');
+
+  diagnosticLog = __studyMockModule0.diagnosticLog;
+  hostCapabilities = __studyMockModule0.hostCapabilities;
+  const __studyMockModule1 = await import('#client/lib/i18n.tsx');
+
+  LanguageProvider = __studyMockModule1.LanguageProvider;
+  const __studyMockModule2 = await import('./analytics');
+
+  AnalyticsSettings = __studyMockModule2.AnalyticsSettings;
 });
 
 const snapshot =

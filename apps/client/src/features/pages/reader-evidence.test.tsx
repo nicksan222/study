@@ -4,12 +4,24 @@ import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
 
-import { authoredPage } from '../document-editing/test-support';
-import { EvidenceDetails } from './reader-evidence';
+import type * as __MockType0 from '../document-editing/test-support';
+import type * as __MockType1 from './reader-evidence';
 
-test.mock('../source-library/input-link', () => ({
-  CapturedInputLink: ({ name }: { name: string }) => <span>{name}</span>
-}));
+let authoredPage: typeof __MockType0.authoredPage;
+
+let EvidenceDetails: typeof __MockType1.EvidenceDetails;
+
+test.beforeEach(async ({ mock }) => {
+  mock('#client/features/source-library/input-link', () => ({
+    CapturedInputLink: ({ name }: { name: string }) => <span>{name}</span>
+  }));
+  const __mockModule0 = await import('../document-editing/test-support');
+
+  authoredPage = __mockModule0.authoredPage;
+  const __mockModule1 = await import('./reader-evidence');
+
+  EvidenceDetails = __mockModule1.EvidenceDetails;
+});
 
 test.stable.each([false, true])(
   'shows unavailable message evidence with citations: %s',

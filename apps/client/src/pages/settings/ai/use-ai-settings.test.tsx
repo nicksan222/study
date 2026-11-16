@@ -5,47 +5,66 @@ import { test } from '@study/testing';
 import { Schema } from 'effect';
 
 import type * as Host from '#client/lib/host.ts';
+import type * as __StudyMockType0 from '#client/pages/settings/ai/index.tsx';
 
-import { AiAccountSettings, AiModelSettings } from './index';
+function createRuntime(mock: test.Mock) {
+  return { native: false, openUrl: mock.fn() };
+}
 
-const runtime = test.hoisted(() => ({ native: false, openUrl: test.vi.fn() }));
+let runtime: ReturnType<typeof createRuntime>;
 
-test.mock('#client/lib/host.ts', async (importOriginal) => {
-  const host = await importOriginal<typeof Host>();
-
+function createOperations(mock: test.Mock) {
   return {
-    ...host,
-    prepareSignInBrowser: () =>
-      runtime.native
-        ? {
-            open: async (url: string) => {
-              await runtime.openUrl(url);
-
-              return true;
-            },
-            close: () => {}
-          }
-        : host.prepareSignInBrowser()
+    loadAiSettings: mock.fn(),
+    startChatGptSignIn: mock.fn(),
+    finishChatGptSignIn: mock.fn(),
+    cancelChatGptSignIn: mock.fn(),
+    signOutChatGpt: mock.fn(),
+    saveAiSettings: mock.fn(),
+    saveProviderApiKey: mock.fn()
   };
+}
+
+let operations: ReturnType<typeof createOperations>;
+
+let AiAccountSettings: typeof __StudyMockType0.AiAccountSettings;
+
+let AiModelSettings: typeof __StudyMockType0.AiModelSettings;
+
+test.beforeEach(async ({ mock }) => {
+  runtime = createRuntime(mock);
+  operations = createOperations(mock);
+  mock('#client/lib/host.ts', async (importOriginal) => {
+    const host = await importOriginal<typeof Host>();
+
+    return {
+      ...host,
+      prepareSignInBrowser: () =>
+        runtime.native
+          ? {
+              open: async (url: string) => {
+                await runtime.openUrl(url);
+
+                return true;
+              },
+              close: () => {}
+            }
+          : host.prepareSignInBrowser()
+    };
+  });
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => createLocalization('english')
+  }));
+  const __studyMockModule0 = await import('./index');
+
+  AiAccountSettings = __studyMockModule0.AiAccountSettings;
+  AiModelSettings = __studyMockModule0.AiModelSettings;
 });
+
 test.beforeEach(() => {
   runtime.native = false;
   runtime.openUrl.mockReset().mockResolvedValue(undefined);
 });
-
-test.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => createLocalization('english')
-}));
-
-const operations = test.hoisted(() => ({
-  loadAiSettings: test.vi.fn(),
-  startChatGptSignIn: test.vi.fn(),
-  finishChatGptSignIn: test.vi.fn(),
-  cancelChatGptSignIn: test.vi.fn(),
-  signOutChatGpt: test.vi.fn(),
-  saveAiSettings: test.vi.fn(),
-  saveProviderApiKey: test.vi.fn()
-}));
 
 const settings = {
   tiny: { provider: 1, model: 1 },

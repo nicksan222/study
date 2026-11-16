@@ -8,18 +8,51 @@ import type { StudyClient } from '@study/contracts/react/testing';
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 import type * as ToastModule from '@study/ui';
-import { toastManager } from '@study/ui';
+
+let toastManager: typeof __MockType0.toastManager;
+
+import type * as __MockType0 from '@study/ui';
 import { Effect, Schema } from 'effect';
 
-import { materialId, versionId } from './identity';
-import { MaterialLifecycle } from './material-lifecycle';
-import { locationIs, materialRpc, mountLibraryRoute } from './test/support';
+import type * as __MockType1 from './identity';
+import type * as __MockType2 from './material-lifecycle';
+import type * as __MockType3 from './test/support';
 
-test.mock('@study/ui', async (load) => {
-  const actual = await load<typeof ToastModule>();
+let materialId: typeof __MockType1.materialId;
 
-  return { ...actual, toastManager: { ...actual.toastManager, add: test.vi.fn() } };
+let versionId: typeof __MockType1.versionId;
+
+let MaterialLifecycle: typeof __MockType2.MaterialLifecycle;
+
+let locationIs: typeof __MockType3.locationIs;
+
+let materialRpc: typeof __MockType3.materialRpc;
+
+let mountLibraryRoute: typeof __MockType3.mountLibraryRoute;
+
+test.beforeEach(async ({ mock }) => {
+  mock('@study/ui', async (load) => {
+    const actual = await load<typeof ToastModule>();
+
+    return { ...actual, toastManager: { ...actual.toastManager, add: mock.fn() } };
+  });
+  const __mockModule0 = await import('@study/ui');
+
+  toastManager = __mockModule0.toastManager;
+  const __mockModule1 = await import('./identity');
+
+  materialId = __mockModule1.materialId;
+  versionId = __mockModule1.versionId;
+  const __mockModule2 = await import('./material-lifecycle');
+
+  MaterialLifecycle = __mockModule2.MaterialLifecycle;
+  const __mockModule3 = await import('./test/support');
+
+  locationIs = __mockModule3.locationIs;
+  materialRpc = __mockModule3.materialRpc;
+  mountLibraryRoute = __mockModule3.mountLibraryRoute;
 });
+
 test.beforeEach(() => test.vi.mocked(toastManager.add).mockClear());
 
 function prunePreview() {

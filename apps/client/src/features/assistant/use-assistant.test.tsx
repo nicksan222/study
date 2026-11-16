@@ -2,18 +2,30 @@ import { askResultSchema } from '@study/contracts';
 import { test } from '@study/testing';
 import { Schema } from 'effect';
 
-import { api, message, mountAssistant } from '#client/test/assistant.tsx';
+import type { AssistantHarness } from '#client/test/assistant.tsx';
 
-const readiness = test.hoisted(() => ({ state: 'ready' }));
+const readiness = { state: 'ready' };
 
-test.mock('#client/lib/ai-readiness-notice.tsx', () => ({ AiReadinessNotice: () => null }));
-test.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => readiness.state }));
+let api: AssistantHarness['api'];
+
+let message: AssistantHarness['message'];
+
+let mountAssistant: AssistantHarness['mountAssistant'];
+
+test.beforeEach(({ assistant, mock }) => {
+  readiness.state = 'ready';
+  mock('#client/lib/ai-readiness-notice.tsx', () => ({ AiReadinessNotice: () => null }));
+  mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => readiness.state }));
+  api = assistant.api;
+  message = assistant.message;
+  mountAssistant = assistant.mountAssistant;
+});
 
 test.stable(
   'reuses the same intent after an uncertain send failure and preserves the draft',
   async () => {
     api.ask.mockRejectedValueOnce(new Error('Connection lost'));
-    mountAssistant();
+    await mountAssistant();
     const input = await test.screen.findByRole('textbox', { name: 'Message' });
 
     await test.waitFor(() => test.expect(input).toBeEnabled());
@@ -36,7 +48,7 @@ test.stable(
   'editing the next draft cannot detach an in-flight send or allow a second send',
   async () => {
     api.ask.mockImplementation(() => new Promise(() => {}));
-    mountAssistant();
+    await mountAssistant();
     const input = await test.screen.findByRole('textbox', { name: 'Message' });
 
     await test.waitFor(() => test.expect(input).toBeEnabled());
@@ -59,7 +71,7 @@ test.stable('renders saved user and Assistant messages separately with safe Mark
     ],
     next: null
   });
-  mountAssistant();
+  await mountAssistant();
   const user = await test.screen.findByRole('article', { name: 'You' });
   const assistant = await test.screen.findByRole('article', { name: 'Assistant' });
 
@@ -85,7 +97,7 @@ test.stable(
       ],
       next: null
     });
-    mountAssistant();
+    await mountAssistant();
     const input = await test.screen.findByRole('textbox', { name: 'Message' });
 
     await test.waitFor(() => test.expect(input).toBeEnabled());
@@ -114,7 +126,7 @@ test.stable(
 );
 
 test.stable('shows an estimated context ring that includes the unsent draft', async () => {
-  mountAssistant();
+  await mountAssistant();
   const meter = await test.screen.findByRole('meter');
 
   test.expect(meter).toHaveAttribute('aria-valuenow', '16');
@@ -126,7 +138,7 @@ test.stable('shows an estimated context ring that includes the unsent draft', as
 });
 
 test.stable('an idle chat does not keep polling its history and context', async () => {
-  mountAssistant();
+  await mountAssistant();
   await test.screen.findByRole('meter');
   await test.waitFor(() => test.expect(api.thread).toHaveBeenCalled());
   const threadCalls = api.thread.mock.calls.length;
@@ -156,7 +168,7 @@ test.stable(
           finish = resolve;
         })
     );
-    mountAssistant();
+    await mountAssistant();
     const input = await test.screen.findByRole('textbox', { name: 'Message' });
 
     await test.waitFor(() => test.expect(input).toBeEnabled());
@@ -188,7 +200,7 @@ test.stable('blocks new sends while setup is needed and keeps the draft editable
   readiness.state = 'setup';
 
   try {
-    mountAssistant();
+    await mountAssistant();
     const input = await test.screen.findByRole('textbox', { name: 'Message' });
 
     await test.waitFor(() => test.expect(input).toBeEnabled());
@@ -205,7 +217,7 @@ test.stable('blocks new sends while setup is needed and keeps the draft editable
 test.stable(
   'server snapshots refresh committed content while the local question draft survives',
   async () => {
-    const { notify } = mountAssistant();
+    const { notify } = await mountAssistant();
     const input = await test.screen.findByRole('textbox', { name: 'Message' });
 
     await test.waitFor(() => test.expect(input).toBeEnabled());

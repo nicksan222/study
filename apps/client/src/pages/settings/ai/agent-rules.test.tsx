@@ -3,14 +3,26 @@ import type { AgentRules } from '@study/contracts';
 import { test } from '@study/testing';
 import { Schema } from 'effect';
 
-import { AgentRulesSettings } from './agent-rules';
+import type * as __StudyMockType0 from '#client/pages/settings/ai/agent-rules.tsx';
 
-const api = test.hoisted(() => ({
-  read: test.vi.fn<() => Promise<AgentRules>>(),
-  save: test.vi.fn<(rules: AgentRules) => Promise<object>>()
-}));
+function createApi(mock: test.Mock) {
+  return {
+    read: mock.fn<() => Promise<AgentRules>>(),
+    save: mock.fn<(rules: AgentRules) => Promise<object>>()
+  };
+}
 
-test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+let api: ReturnType<typeof createApi>;
+
+let AgentRulesSettings: typeof __StudyMockType0.AgentRulesSettings;
+
+test.beforeEach(async ({ mock }) => {
+  api = createApi(mock);
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  const __studyMockModule0 = await import('./agent-rules');
+
+  AgentRulesSettings = __studyMockModule0.AgentRulesSettings;
+});
 
 test.beforeEach(() => {
   test.vi.clearAllMocks();

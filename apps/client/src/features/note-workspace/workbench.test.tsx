@@ -8,15 +8,15 @@ import { test } from '@study/testing';
 import { Schema } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
-import { useWorkbench, workbenchIdentity } from './workbench.queries';
+import type * as __MockType0 from './workbench.queries';
 
-const preferences = test.hoisted(() => ({ expandPages: false }));
+let useWorkbench: typeof __MockType0.useWorkbench;
 
-test.mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
-  useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, ...preferences })
-}));
+let workbenchIdentity: typeof __MockType0.workbenchIdentity;
 
-const api = test.hoisted(() => ({ thread: test.vi.fn() }));
+let preferences: ReturnType<typeof createMockState>['preferences'];
+
+let api: ReturnType<typeof createMockState>['api'];
 
 const id = noteIdSchema.make(1n);
 
@@ -70,6 +70,28 @@ function persistedPage(captureKey: string) {
     citations: []
   });
 }
+
+function createMockState(mock: test.Mock) {
+  return {
+    preferences: (() => ({ expandPages: false }))(),
+    api: (() => ({ thread: mock.fn() }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  preferences = __mockState.preferences;
+  api = __mockState.api;
+
+  mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
+    useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, ...preferences })
+  }));
+  const __mockModule0 = await import('./workbench.queries');
+
+  useWorkbench = __mockModule0.useWorkbench;
+  workbenchIdentity = __mockModule0.workbenchIdentity;
+});
 
 test.beforeEach(() => {
   test.vi.resetAllMocks();

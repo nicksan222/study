@@ -4,23 +4,15 @@ import type * as Router from '@tanstack/react-router';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
 
-import { useAiReadiness } from '#client/lib/ai-readiness.ts';
+import type * as __MockType0 from '#client/lib/ai-readiness.ts';
 
-import { FailedMessageConversion } from './failed-conversion';
+import type * as __MockType1 from './failed-conversion';
 
-test.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: test.vi.fn(() => 'ready') }));
-test.mock('@tanstack/react-router', async (load) => ({
-  ...(await load<typeof Router>()),
-  Link: ({ to, children }: { to: string; children?: ReactNode }) => <a href={to}>{children}</a>
-}));
+let useAiReadiness: typeof __MockType0.useAiReadiness;
 
-const api = test.hoisted(() => ({
-  snapshot: test.vi.fn(),
-  convert: test.vi.fn(),
-  discard: test.vi.fn()
-}));
+let FailedMessageConversion: typeof __MockType1.FailedMessageConversion;
 
-test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+let api: ReturnType<typeof createMockState>['api'];
 
 const message = Schema.decodeUnknownSync(chatMessageSchema)({
   id: 2n,
@@ -65,6 +57,35 @@ let fixture: ReturnType<typeof test.rpcHandlersTransport>;
 function Provider({ children }: { children: ReactNode }) {
   return <fixture.wrapper>{children}</fixture.wrapper>;
 }
+
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({
+      snapshot: mock.fn(),
+      convert: mock.fn(),
+      discard: mock.fn()
+    }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: mock.fn(() => 'ready') }));
+  mock('@tanstack/react-router', async (load) => ({
+    ...(await load<typeof Router>()),
+    Link: ({ to, children }: { to: string; children?: ReactNode }) => <a href={to}>{children}</a>
+  }));
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  const __mockModule0 = await import('#client/lib/ai-readiness.ts');
+
+  useAiReadiness = __mockModule0.useAiReadiness;
+  const __mockModule1 = await import('./failed-conversion');
+
+  FailedMessageConversion = __mockModule1.FailedMessageConversion;
+});
 
 test.beforeEach(() => {
   test.vi.resetAllMocks();

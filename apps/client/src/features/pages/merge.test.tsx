@@ -1,13 +1,31 @@
 import { pageIdSchema, pageVersionIdSchema } from '@study/contracts';
 import { test } from '@study/testing';
 
-import { MergePagesDialog } from './merge';
+import type * as __MockType0 from './merge';
 
-const api = test.hoisted(() => ({ merge: test.vi.fn() }));
+let MergePagesDialog: typeof __MockType0.MergePagesDialog;
 
-test.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: 'italian' })
-}));
+let api: ReturnType<typeof createMockState>['api'];
+
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({ merge: mock.fn() }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({ t: (key: string) => key, locale: 'italian' })
+  }));
+  const __mockModule0 = await import('./merge');
+
+  MergePagesDialog = __mockModule0.MergePagesDialog;
+});
+
 test.afterEach(() => {
   test.cleanup();
   test.vi.clearAllMocks();

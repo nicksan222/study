@@ -4,10 +4,18 @@ import { test } from '@study/testing';
 
 import { useAgentRules } from './use-agent-rules';
 
-const api = test.hoisted(() => ({
-  read: test.vi.fn<() => Promise<AgentRules>>(),
-  save: test.vi.fn<(rules: AgentRules) => Promise<object>>()
-}));
+function createApi(mock: test.Mock) {
+  return {
+    read: mock.fn<() => Promise<AgentRules>>(),
+    save: mock.fn<(rules: AgentRules) => Promise<object>>()
+  };
+}
+
+let api: ReturnType<typeof createApi>;
+
+test.beforeEach(({ mock }) => {
+  api = createApi(mock);
+});
 
 test.stable(
   'retains local drafts while incorporating refreshed preferences from another window',

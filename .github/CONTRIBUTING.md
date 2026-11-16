@@ -511,10 +511,26 @@ test.stable('renders the saved settings', async ({ react, rpc }) => {
 });
 ```
 
-`test.expect`, `test.assert`, `test.expectTypeOf`, suite hooks and `test.vi` expose the native
-assertion and mock APIs. Use `test.mock` and `test.hoisted` for module mocking: the shared
-Vite plugin preserves native hoisting while keeping the single import. Browser tests use
-the same import and their native Playwright assertions and page fixtures.
+`test.expect`, `test.assert` and `test.expectTypeOf` expose the native assertions. Request
+`mock` in the callback for spies and module mocks. Register a module mock before dynamically
+importing its subject; the fixture owns module-cache isolation and restores mocks on cleanup.
+Use canonical workspace aliases or package names for targets. Shared setup can request the
+same fixture through `test.beforeEach(async ({ mock }) => { ... })`.
+
+```ts
+import { test } from '@study/testing';
+
+test.stable('browser host capabilities are explicit', async ({ mock }) => {
+  mock('@tauri-apps/api/core', () => ({ isTauri: () => false, invoke: mock.fn() }));
+  const { hostCapabilities } = await import('#client/lib/host.ts');
+
+  test.expect(hostCapabilities()).toEqual({ updates: false, diagnostics: false });
+});
+```
+
+`test.vi` retains native clock and inspection utilities. Browser tests use the same public
+import and their native Playwright assertions and page fixtures. Module mocks and hoisted
+setup on the `test` namespace are rejected by Oxlint.
 
 Fixtures initialize when requested through callback parameters, share their dependencies
 within that test, and release consumers before their backing resources. Pure tests open
@@ -524,7 +540,7 @@ no database or application. Parameterized cases that need fixtures use native `.
 import { test } from '@study/testing';
 
 test.stable.for(['english', 'italian'] as const)('opens Notes in %s', async (locale, { page }) => {
-  page.open('/notes', { locale });
+  await page.open('/notes', { locale });
   test.expect(await page.screen.findByRole('main')).toBeVisible();
 });
 ```
@@ -534,6 +550,8 @@ test.stable.for(['english', 'italian'] as const)('opens Notes in %s', async (loc
 | `react`       | Component/hook rendering, memory router context, localization, UI providers and user interaction.  |
 | Client `rpc`  | Schema-validated `given`, `handle` and `update`; unplanned calls fail teardown.                    |
 | Client `page` | Real app routes with explicit empty-workspace snapshots and owned router histories.                |
+| `mock`        | Scoped runtime module mocks and spies, with automatic restoration and isolated subject imports.    |
+| `assistant`   | Fresh chat RPC handlers, message fixtures and owned asynchronous page rendering.                   |
 | `db`          | One isolated SQLite connection, opened only when requested.                                        |
 | `databases`   | An owned factory for tests requiring several independent databases or migration inputs.            |
 | `server`      | Real application, store and bound Effect service runtime; workers start explicitly.                |

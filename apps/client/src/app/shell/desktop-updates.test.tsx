@@ -1,18 +1,30 @@
 import { test } from '@study/testing';
 import { toastManager } from '@study/ui';
 
-import { DesktopUpdates } from './desktop-updates';
+import type * as __StudyMockType0 from '#client/app/shell/desktop-updates.tsx';
 
-const native = test.hoisted(() => ({ enabled: true, invoke: test.vi.fn() }));
+function createNative(mock: test.Mock) {
+  return { enabled: true, invoke: mock.fn() };
+}
 
-test.mock('#client/lib/host.ts', () => ({
-  hostCapabilities: () => ({ updates: native.enabled, diagnostics: native.enabled }),
-  desktopUpdateStatus: () => native.invoke('desktop_update_status'),
-  checkDesktopUpdate: () => native.invoke('check_for_update'),
-  installDesktopUpdate: (expectedVersion: string) =>
-    native.invoke('install_update', { expectedVersion })
-}));
-test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+let native: ReturnType<typeof createNative>;
+
+let DesktopUpdates: typeof __StudyMockType0.DesktopUpdates;
+
+test.beforeEach(async ({ mock }) => {
+  native = createNative(mock);
+  mock('#client/lib/host.ts', () => ({
+    hostCapabilities: () => ({ updates: native.enabled, diagnostics: native.enabled }),
+    desktopUpdateStatus: () => native.invoke('desktop_update_status'),
+    checkDesktopUpdate: () => native.invoke('check_for_update'),
+    installDesktopUpdate: (expectedVersion: string) =>
+      native.invoke('install_update', { expectedVersion })
+  }));
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  const __studyMockModule0 = await import('./desktop-updates');
+
+  DesktopUpdates = __studyMockModule0.DesktopUpdates;
+});
 
 test.beforeEach(() => {
   native.enabled = true;

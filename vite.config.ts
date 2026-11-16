@@ -1,5 +1,4 @@
 import { testPolicy } from '@study/testing';
-import { testPlugins } from '@study/testing/vite';
 import { defineConfig } from 'vite-plus';
 
 import { fmt } from './tooling/oxc-config/fmt.ts';
@@ -8,7 +7,6 @@ import { lint } from './tooling/oxc-config/lint.ts';
 export default defineConfig({
   root: Bun.fileURLToPath(new URL('.', import.meta.url)),
   fmt,
-  plugins: testPlugins(),
   lint,
   test: {
     reporters: process.env.CI

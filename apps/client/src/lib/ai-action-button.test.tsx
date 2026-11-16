@@ -2,12 +2,19 @@ import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 import { TooltipProvider } from '@study/ui';
 
-import { AiActionButton } from './ai-action-button';
+import type * as AiActionModule from './ai-action-button.tsx';
+
+let AiActionButton: typeof AiActionModule.AiActionButton;
+
 import type { AiReadiness } from './ai-readiness';
 
-const state = test.hoisted(() => ({ readiness: 'ready' as AiReadiness }));
+let currentReadiness: AiReadiness;
 
-test.mock('./ai-readiness', () => ({ useAiReadiness: () => state.readiness }));
+test.beforeEach(async ({ mock }) => {
+  currentReadiness = 'ready';
+  mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => currentReadiness }));
+  ({ AiActionButton } = await import('./ai-action-button.tsx'));
+});
 
 test.stable('blocks each unavailable state and becomes actionable after setup', async () => {
   const click = test.vi.fn();
@@ -18,11 +25,11 @@ test.stable('blocks each unavailable state and becomes actionable after setup', 
     </TooltipProvider>
   );
 
-  state.readiness = 'checking';
+  currentReadiness = 'checking';
   const mounted = test.render(view(0));
 
   for (const [index, readiness] of (['checking', 'unavailable', 'setup'] as const).entries()) {
-    state.readiness = readiness;
+    currentReadiness = readiness;
     mounted.rerender(view(index));
     const button = test.screen.getByRole('button', { name: 'Generate' });
 
@@ -44,7 +51,7 @@ test.stable('blocks each unavailable state and becomes actionable after setup', 
     await user.unhover(button.parentElement!);
   }
 
-  state.readiness = 'ready';
+  currentReadiness = 'ready';
   mounted.rerender(view(4));
   const button = test.screen.getByRole('button', { name: 'Generate' });
 

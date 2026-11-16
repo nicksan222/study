@@ -143,13 +143,13 @@ test.stable('source and test directory imports cannot bypass package boundaries'
 });
 
 test.stable(
-  'the client build config can install test runner plugins without exposing them to app code',
+  'the client build config can read test policy without exposing it to app code',
   async () => {
     const diagnostics = await lintRule(
       'package-boundary',
       {
-        'apps/client/vite.config.ts': "import { testPlugins } from '@study/testing/vite';",
-        'apps/client/src/application.ts': "import { testPlugins } from '@study/testing/vite';"
+        'apps/client/vite.config.ts': "import { testPolicy } from '@study/testing';",
+        'apps/client/src/application.ts': "import { testPolicy } from '@study/testing';"
       },
       true
     );

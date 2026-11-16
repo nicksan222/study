@@ -11,27 +11,26 @@ import { Schema } from 'effect';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { AssistantProvider } from '../assistant';
-import { authoredPage as material } from '../document-editing/test-support';
-import { SourcePanel } from '../source-library/source-panel';
-import { NoteLayoutControls } from './note-layout-controls';
-import { NotePagePanel } from './note-page-panel';
-import { NoteWorkbench } from './workbench';
+import type * as __MockType0 from '../assistant';
+import type * as __MockType1 from '../document-editing/test-support';
+import type * as __MockType2 from '../source-library/source-panel';
+import type * as __MockType3 from './note-layout-controls';
+import type * as __MockType4 from './note-page-panel';
+import type * as __MockType5 from './workbench';
 
-const rpc = test.hoisted(() => ({
-  create: test.vi.fn(),
-  copy: test.vi.fn(),
-  material: test.vi.fn(),
-  materials: test.vi.fn(),
-  thread: test.vi.fn(),
-  post: test.vi.fn(),
-  assistant: test.vi.fn(),
-  ask: test.vi.fn()
-}));
+let AssistantProvider: typeof __MockType0.AssistantProvider;
 
-test.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: string) => key, date: String, locale: 'english' })
-}));
+let material: typeof __MockType1.authoredPage;
+
+let SourcePanel: typeof __MockType2.SourcePanel;
+
+let NoteLayoutControls: typeof __MockType3.NoteLayoutControls;
+
+let NotePagePanel: typeof __MockType4.NotePagePanel;
+
+let NoteWorkbench: typeof __MockType5.NoteWorkbench;
+
+let rpc: ReturnType<typeof createMockState>['rpc'];
 
 function testFixture() {
   return test.rpcHandlersTransport({
@@ -85,8 +84,6 @@ function testFixture() {
   });
 }
 
-test.mock('./composer', () => ({ Composer: () => null }));
-
 const noteId = noteIdSchema.make(12n);
 
 let created: ReturnType<typeof material> | undefined;
@@ -102,6 +99,50 @@ function mount(children: ReactNode) {
     </Provider>
   );
 }
+
+function createMockState(mock: test.Mock) {
+  return {
+    rpc: (() => ({
+      create: mock.fn(),
+      copy: mock.fn(),
+      material: mock.fn(),
+      materials: mock.fn(),
+      thread: mock.fn(),
+      post: mock.fn(),
+      assistant: mock.fn(),
+      ask: mock.fn()
+    }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  rpc = __mockState.rpc;
+
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({ t: (key: string) => key, date: String, locale: 'english' })
+  }));
+  mock('#client/features/note-workspace/composer', () => ({ Composer: () => null }));
+  const __mockModule0 = await import('../assistant');
+
+  AssistantProvider = __mockModule0.AssistantProvider;
+  const __mockModule1 = await import('../document-editing/test-support');
+
+  material = __mockModule1.authoredPage;
+  const __mockModule2 = await import('../source-library/source-panel');
+
+  SourcePanel = __mockModule2.SourcePanel;
+  const __mockModule3 = await import('./note-layout-controls');
+
+  NoteLayoutControls = __mockModule3.NoteLayoutControls;
+  const __mockModule4 = await import('./note-page-panel');
+
+  NotePagePanel = __mockModule4.NotePagePanel;
+  const __mockModule5 = await import('./workbench');
+
+  NoteWorkbench = __mockModule5.NoteWorkbench;
+});
 
 test.beforeEach(() => {
   test.vi.resetAllMocks();

@@ -2,28 +2,46 @@ import { pageIdSchema, pageVersionIdSchema } from '@study/contracts';
 import { test } from '@study/testing';
 import type { ReactNode } from 'react';
 
-import { PagesPage } from './pages-page';
+import type * as __MockType0 from './pages-page';
 
-const api = test.hoisted(() => ({ pages: test.vi.fn() }));
+let PagesPage: typeof __MockType0.PagesPage;
 
-test.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: string) => key, date: () => 'today' })
-}));
-test.mock('@tanstack/react-router', () => ({
-  useSearch: () => ({}),
-  Link: ({ children }: { children: ReactNode }) => <a href="/pages/1">{children}</a>
-}));
-test.mock('./creation-actions', () => ({ NewBlankPage: () => null }));
-test.mock('./from-notes', () => ({ PagesFromNotes: () => null }));
-test.mock('./page-context-menu', () => ({
-  PageContextMenu: ({ children }: { children: ReactNode }) => children
-}));
-test.mock('./merge', () => ({
-  PageMerges: () => null,
-  MergePagesDialog: ({ pages }: { pages: { title: string }[] }) => (
-    <section aria-label="Merge dialog">{pages.map((doc) => doc.title).join(', ')}</section>
-  )
-}));
+let api: ReturnType<typeof createMockState>['api'];
+
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({ pages: mock.fn() }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({ t: (key: string) => key, date: () => 'today' })
+  }));
+  mock('@tanstack/react-router', () => ({
+    useSearch: () => ({}),
+    Link: ({ children }: { children: ReactNode }) => <a href="/pages/1">{children}</a>
+  }));
+  mock('#client/features/pages/creation-actions', () => ({ NewBlankPage: () => null }));
+  mock('#client/features/pages/from-notes', () => ({ PagesFromNotes: () => null }));
+  mock('#client/features/pages/page-context-menu', () => ({
+    PageContextMenu: ({ children }: { children: ReactNode }) => children
+  }));
+  mock('#client/features/pages/merge', () => ({
+    PageMerges: () => null,
+    MergePagesDialog: ({ pages }: { pages: { title: string }[] }) => (
+      <section aria-label="Merge dialog">{pages.map((doc) => doc.title).join(', ')}</section>
+    )
+  }));
+  const __mockModule0 = await import('./pages-page');
+
+  PagesPage = __mockModule0.PagesPage;
+});
+
 test.afterEach(() => {
   test.cleanup();
   test.vi.clearAllMocks();

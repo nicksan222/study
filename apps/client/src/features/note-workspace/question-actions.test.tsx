@@ -5,31 +5,57 @@ import type * as Router from '@tanstack/react-router';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
 
-import { useAiReadiness } from '#client/lib/ai-readiness.ts';
+import type * as __MockType0 from '#client/lib/ai-readiness.ts';
 
-import { QuestionActions } from './question-actions';
+import type * as __MockType1 from './question-actions';
 
-test.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: test.vi.fn(() => 'ready') }));
+let useAiReadiness: typeof __MockType0.useAiReadiness;
 
-test.mock('@tanstack/react-router', async (load) => ({
-  ...(await load<typeof Router>()),
-  Link: ({ to, children }: { to: string; children?: ReactNode }) => <a href={to}>{children}</a>
-}));
+let QuestionActions: typeof __MockType1.QuestionActions;
 
-test.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: 'english' })
-}));
-test.mock('./pending-message-work', () => ({
-  PendingMessageWork: () => <div role="status">NoteThinking</div>
-}));
+let answer: ReturnType<typeof createMockState>['answer'];
 
-const answer = test.vi.fn();
+let mark: ReturnType<typeof createMockState>['mark'];
 
-const mark = test.vi.fn();
+let executions: ReturnType<typeof createMockState>['executions'];
 
-const executions = test.vi.fn();
+let restore: ReturnType<typeof createMockState>['restore'];
 
-const restore = test.vi.fn();
+function createMockState(mock: test.Mock) {
+  return {
+    answer: mock.fn(),
+    mark: mock.fn(),
+    executions: mock.fn(),
+    restore: mock.fn()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  answer = __mockState.answer;
+  mark = __mockState.mark;
+  executions = __mockState.executions;
+  restore = __mockState.restore;
+
+  mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: mock.fn(() => 'ready') }));
+  mock('@tanstack/react-router', async (load) => ({
+    ...(await load<typeof Router>()),
+    Link: ({ to, children }: { to: string; children?: ReactNode }) => <a href={to}>{children}</a>
+  }));
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({ t: (key: string) => key, locale: 'english' })
+  }));
+  mock('#client/features/note-workspace/pending-message-work', () => ({
+    PendingMessageWork: () => <div role="status">NoteThinking</div>
+  }));
+  const __mockModule0 = await import('#client/lib/ai-readiness.ts');
+
+  useAiReadiness = __mockModule0.useAiReadiness;
+  const __mockModule1 = await import('./question-actions');
+
+  QuestionActions = __mockModule1.QuestionActions;
+});
 
 test.beforeEach(() => {
   test.vi.clearAllMocks();

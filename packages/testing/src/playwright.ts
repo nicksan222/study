@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import type { Locator } from 'playwright';
+import type { Locator, Page } from 'playwright';
 import { test } from 'playwright/test';
 import { expect as base } from 'playwright/test';
 
@@ -120,7 +120,6 @@ export const expect = base.extend({
 /** Playwright owns browser lifetimes and artifacts; every journey checks errors and exposes accessibility evidence. */
 export const testBrowser = test.extend<{
   expectAccessibility: (name: string) => Promise<void>;
-  browserErrors: void;
 }>({
   expectAccessibility: async ({ page }, provide, info) => {
     await provide(async (name) => {
@@ -138,24 +137,29 @@ export const testBrowser = test.extend<{
       expect.soft(result.violations).toEqual([]);
     });
   },
-  browserErrors: [
-    async ({ page }, provide, info) => {
-      const errors: Error[] = [];
-      const record = (error: Error) => {
-        errors.push(error);
-      };
+  context: async ({ context }, provide, info) => {
+    const errors: Error[] = [];
+    const listeners = new Map<Page, (error: Error) => void>();
+    const attach = (page: Page) => {
+      const record = (error: Error) => errors.push(error);
 
+      listeners.set(page, record);
       page.on('pageerror', record);
+    };
+    const onPage = (page: Page) => attach(page);
 
-      try {
-        await provide();
+    context.pages().forEach(attach);
+    context.on('page', onPage);
 
-        if (info.status === info.expectedStatus && errors.length)
-          throw new AggregateError(errors, 'Browser errors');
-      } finally {
-        page.off('pageerror', record);
-      }
-    },
-    { auto: true }
-  ]
+    try {
+      await provide(context);
+
+      if (info.status === info.expectedStatus && errors.length)
+        throw new AggregateError(errors, 'Browser errors');
+    } finally {
+      context.off('page', onPage);
+
+      for (const [page, record] of listeners) page.off('pageerror', record);
+    }
+  }
 });

@@ -2,7 +2,15 @@ import { test } from '@study/testing';
 
 import { aiReadiness, useAiReadiness } from './ai-readiness';
 
-const settings = test.hoisted(() => ({ load: test.vi.fn() }));
+function createMocks(mock: test.Mock) {
+  return { load: mock.fn() };
+}
+
+let settings: ReturnType<typeof createMocks>;
+
+test.beforeEach(({ mock }) => {
+  settings = createMocks(mock);
+});
 
 const data = {
   status: { signedIn: false, email: null, sharing: false },

@@ -21,7 +21,7 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { importedValue, moduleEdges } from '../architecture-imports.ts';
-import { imported, memberName, nestedRegistration } from '../lexical-bindings.ts';
+import { binding, imported, memberName, nestedRegistration } from '../lexical-bindings.ts';
 import { bunOperation, namespaceImport } from '../process-operations.ts';
 import { resolveValue } from './module-factories.ts';
 
@@ -310,6 +310,14 @@ function checkNestedRegistration(context: any, node: any): void {
 function checkTestCall(context: any, node: any, isTest: boolean, fixtureOwner: boolean): void {
   if (!isTest) return;
 
+  const operation = importedValue(context, node.callee);
+
+  if (
+    operation?.source === '@study/testing' &&
+    /^test\.(?:vi\.)?(?:mock|doMock|unmock|doUnmock|hoisted|resetModules)$/.test(operation.name)
+  )
+    context.report({ node, messageId: 'scopedMock' });
+
   if (
     !fixtureOwner &&
     (disposableFixture(context, node.callee) || directTestFixtureApi(context, node.callee))
@@ -320,6 +328,139 @@ function checkTestCall(context: any, node: any, isTest: boolean, fixtureOwner: b
   checkResources(context, node);
 
   if (localPolicy(context, node.callee)) context.report({ node, messageId: 'policy' });
+}
+
+function mockFixtureParameter(context: any, callback: any): any | undefined {
+  const registration = importedValue(context, registrationCallee(callback));
+  const index = registration?.name.endsWith('.for') ? 1 : 0;
+
+  return callback.params?.[index];
+}
+
+function callbackForTest(context: any, node: any): any | undefined {
+  for (let owner = node.parent; owner; owner = owner.parent) {
+    if (
+      !['ArrowFunctionExpression', 'FunctionExpression', 'FunctionDeclaration'].includes(owner.type)
+    )
+      continue;
+
+    const registration = importedValue(context, registrationCallee(owner));
+
+    if (canonicalTestBody(registration) || registration?.name === 'test.beforeEach') return owner;
+  }
+
+  return undefined;
+}
+
+function patternProvidesMock(context: any, pattern: any, variable: any): boolean {
+  return (
+    pattern?.type === 'ObjectPattern' &&
+    pattern.properties.some(
+      (property: any) =>
+        property.type === 'Property' &&
+        (property.key.name ?? property.key.value) === 'mock' &&
+        property.value.type === 'Identifier' &&
+        binding(context, property.value) === variable
+    )
+  );
+}
+
+function followsMockAlias(context: any, declaration: any, parameter: any, seen: Set<any>): boolean {
+  return (
+    declaration.id.type === 'Identifier' &&
+    declaration.init?.type === 'Identifier' &&
+    bindingProvidesMock(context, declaration.init, parameter, seen)
+  );
+}
+
+function destructuresMockFixture(
+  context: any,
+  declaration: any,
+  parameter: any,
+  variable: any
+): boolean {
+  if (parameter?.type !== 'Identifier' || declaration.id.type !== 'ObjectPattern') return false;
+
+  return (
+    declaration.init?.type === 'Identifier' &&
+    binding(context, declaration.init) === binding(context, parameter) &&
+    patternProvidesMock(context, declaration.id, variable)
+  );
+}
+
+function mockAliasDefinition(
+  context: any,
+  definition: any,
+  parameter: any,
+  variable: any,
+  seen: Set<any>
+): boolean {
+  const declaration = definition.node;
+
+  if (declaration?.type !== 'VariableDeclarator') return false;
+
+  return (
+    followsMockAlias(context, declaration, parameter, seen) ||
+    destructuresMockFixture(context, declaration, parameter, variable)
+  );
+}
+
+function bindingProvidesMock(
+  context: any,
+  identifier: any,
+  parameter: any,
+  seen = new Set<any>()
+): boolean {
+  const variable = binding(context, identifier);
+
+  if (!variable || seen.has(variable)) return false;
+
+  seen.add(variable);
+
+  return (
+    patternProvidesMock(context, parameter, variable) ||
+    (variable.defs ?? []).some((definition: any) =>
+      mockAliasDefinition(context, definition, parameter, variable, seen)
+    )
+  );
+}
+
+function isMockFixtureCall(context: any, node: any): boolean {
+  const callback = callbackForTest(context, node);
+
+  if (!callback) return false;
+
+  const parameter = mockFixtureParameter(context, callback);
+
+  if (node.callee.type === 'Identifier')
+    return bindingProvidesMock(context, node.callee, parameter);
+
+  return (
+    node.callee.type === 'MemberExpression' &&
+    memberName(node.callee) === 'mock' &&
+    node.callee.object.type === 'Identifier' &&
+    parameter?.type === 'Identifier' &&
+    binding(context, parameter) === binding(context, node.callee.object)
+  );
+}
+
+function runtimeImport(node: any): boolean {
+  return (
+    node.importKind !== 'type' &&
+    (node.specifiers.length === 0 ||
+      node.specifiers.some((specifier: any) => specifier.importKind !== 'type'))
+  );
+}
+
+function mockTarget(node: any): string | undefined {
+  const argument = node.arguments[0];
+
+  if (argument?.type === 'Literal' && typeof argument.value === 'string') return argument.value;
+
+  if (argument?.type === 'TemplateLiteral' && argument.expressions.length === 0)
+    return argument.quasis[0]?.value.cooked;
+
+  return undefined;
 }
 
 export default defineRule({
@@ -342,7 +483,11 @@ export default defineRule({
       registration:
         'Use the provided test registrations and native each/extend APIs instead of a custom test wrapper.',
       expectArguments:
-        'Pass at most an assertion subject and one diagnostic message to test.expect.'
+        'Pass at most an assertion subject and one diagnostic message to test.expect.',
+      scopedMock:
+        'Request mock through the test callback parameters, register the mock there, and dynamically import its subject. Module mocks must not use test.mock, hoisting, or test.vi.',
+      staticMockSubject:
+        'A subject registered with the callback mock fixture must be dynamically imported after mock registration, not statically imported.'
     }
   },
   create(context) {
@@ -355,6 +500,19 @@ export default defineRule({
       /\.(?:test|spec)\.[cm]?[jt]sx?$|\/(?:test|tests)\/(?:testing|support|fixtures)(?:\/|[.])|\/src\/test\/|\/test\/e2e\/harness\/|test-(?:support|utils)/.test(
         path
       );
+    const staticImports = new Map<string, any[]>();
+
+    for (const statement of context.sourceCode.ast.body) {
+      if (statement.type !== 'ImportDeclaration' || !runtimeImport(statement)) continue;
+
+      const source = statement.source.value;
+      const imports = staticImports.get(source) ?? [];
+
+      imports.push(statement);
+      staticImports.set(source, imports);
+    }
+
+    const reportedStaticImports = new Set<any>();
 
     if (owner) return {};
 
@@ -392,6 +550,19 @@ export default defineRule({
         checkPublicExpectation(context, node);
         checkNestedRegistration(context, node);
         checkTestCall(context, node, actualTest, fixtureOwner || fixtureSubjectPath(path));
+
+        if (!actualTest || !isMockFixtureCall(context, node)) return;
+
+        const source = mockTarget(node);
+
+        if (!source) return;
+
+        for (const statement of staticImports.get(source) ?? []) {
+          if (reportedStaticImports.has(statement)) continue;
+
+          reportedStaticImports.add(statement);
+          context.report({ node: statement, messageId: 'staticMockSubject' });
+        }
       },
       TaggedTemplateExpression(node) {
         if (

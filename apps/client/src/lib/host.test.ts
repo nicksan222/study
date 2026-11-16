@@ -1,25 +1,51 @@
 import { test } from '@study/testing';
 
-import {
-  browserSignInCallbackUrl,
-  checkDesktopUpdate,
-  desktopUpdateStatus,
-  diagnosticLog,
-  hostCapabilities,
-  installDesktopUpdate,
-  prepareSignInBrowser,
-  rpcBaseUrl,
-  signInOptions
-} from './host';
+import type * as __StudyMockType0 from '#client/lib/host.ts';
 
-const native = test.hoisted(() => ({
-  enabled: false,
-  invoke: test.vi.fn(),
-  openUrl: test.vi.fn()
-}));
+function createNative(mock: test.Mock) {
+  return {
+    enabled: false,
+    invoke: mock.fn(),
+    openUrl: mock.fn()
+  };
+}
 
-test.mock('@tauri-apps/api/core', () => ({ isTauri: () => native.enabled, invoke: native.invoke }));
-test.mock('@tauri-apps/plugin-opener', () => ({ openUrl: native.openUrl }));
+let native: ReturnType<typeof createNative>;
+
+let browserSignInCallbackUrl: typeof __StudyMockType0.browserSignInCallbackUrl;
+
+let checkDesktopUpdate: typeof __StudyMockType0.checkDesktopUpdate;
+
+let desktopUpdateStatus: typeof __StudyMockType0.desktopUpdateStatus;
+
+let diagnosticLog: typeof __StudyMockType0.diagnosticLog;
+
+let hostCapabilities: typeof __StudyMockType0.hostCapabilities;
+
+let installDesktopUpdate: typeof __StudyMockType0.installDesktopUpdate;
+
+let prepareSignInBrowser: typeof __StudyMockType0.prepareSignInBrowser;
+
+let rpcBaseUrl: typeof __StudyMockType0.rpcBaseUrl;
+
+let signInOptions: typeof __StudyMockType0.signInOptions;
+
+test.beforeEach(async ({ mock }) => {
+  native = createNative(mock);
+  mock('@tauri-apps/api/core', () => ({ isTauri: () => native.enabled, invoke: native.invoke }));
+  mock('@tauri-apps/plugin-opener', () => ({ openUrl: native.openUrl }));
+  const __studyMockModule0 = await import('./host');
+
+  browserSignInCallbackUrl = __studyMockModule0.browserSignInCallbackUrl;
+  checkDesktopUpdate = __studyMockModule0.checkDesktopUpdate;
+  desktopUpdateStatus = __studyMockModule0.desktopUpdateStatus;
+  diagnosticLog = __studyMockModule0.diagnosticLog;
+  hostCapabilities = __studyMockModule0.hostCapabilities;
+  installDesktopUpdate = __studyMockModule0.installDesktopUpdate;
+  prepareSignInBrowser = __studyMockModule0.prepareSignInBrowser;
+  rpcBaseUrl = __studyMockModule0.rpcBaseUrl;
+  signInOptions = __studyMockModule0.signInOptions;
+});
 
 test.beforeEach(() => {
   native.enabled = false;

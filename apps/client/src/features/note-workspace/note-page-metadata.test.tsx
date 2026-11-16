@@ -1,9 +1,13 @@
 import { test } from '@study/testing';
 
-import { authoredPage as material } from '../document-editing/test-support';
-import { usePageMetadata } from './note-page-metadata.queries';
+import type * as __MockType0 from '../document-editing/test-support';
+import type * as __MockType1 from './note-page-metadata.queries';
 
-const api = test.hoisted(() => ({ description: test.vi.fn() }));
+let material: typeof __MockType0.authoredPage;
+
+let usePageMetadata: typeof __MockType1.usePageMetadata;
+
+let api: ReturnType<typeof createMockState>['api'];
 
 function mount() {
   const fixture = test.rpcTestTransport(async (_tag, input) => api.description(input));
@@ -14,6 +18,25 @@ function mount() {
     ...test.renderHook(() => usePageMetadata(original), { wrapper: fixture.wrapper })
   };
 }
+
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({ description: mock.fn() }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  const __mockModule0 = await import('../document-editing/test-support');
+
+  material = __mockModule0.authoredPage;
+  const __mockModule1 = await import('./note-page-metadata.queries');
+
+  usePageMetadata = __mockModule1.usePageMetadata;
+});
 
 test.beforeEach(() => {
   test.vi.resetAllMocks();

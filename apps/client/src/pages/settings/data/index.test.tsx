@@ -3,21 +3,38 @@ import { test } from '@study/testing';
 import { Schema } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
-import { DataSettings } from './index';
+import type * as __StudyMockType0 from '#client/pages/settings/data/index.tsx';
+import type * as __StudyMockType1 from '#client/pages/settings/data/use-data.ts';
+
 import type * as MockModule0 from './use-data';
-import { dataOwner, useDataSettings } from './use-data';
-test.mock('./use-data', async (load) => ({
-  ...(await load<typeof MockModule0>()),
-  useDataSettings: test.vi.fn()
-}));
-test.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({
-    t: (key: string) => key,
-    locale: 'english',
-    number: String,
-    date: (seconds: number | bigint) => `date:${seconds}`
-  })
-}));
+
+let DataSettings: typeof __StudyMockType0.DataSettings;
+
+let dataOwner: typeof __StudyMockType1.dataOwner;
+
+let useDataSettings: typeof __StudyMockType1.useDataSettings;
+
+test.beforeEach(async ({ mock }) => {
+  mock('#client/pages/settings/data/use-data.ts', async (load) => ({
+    ...(await load<typeof MockModule0>()),
+    useDataSettings: mock.fn()
+  }));
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({
+      t: (key: string) => key,
+      locale: 'english',
+      number: String,
+      date: (seconds: number | bigint) => `date:${seconds}`
+    })
+  }));
+  const __studyMockModule0 = await import('./index');
+
+  DataSettings = __studyMockModule0.DataSettings;
+  const __studyMockModule1 = await import('./use-data');
+
+  dataOwner = __studyMockModule1.dataOwner;
+  useDataSettings = __studyMockModule1.useDataSettings;
+});
 
 const id = Schema.decodeUnknownSync(backupIdSchema)('11111111-1111-4111-8111-111111111111');
 

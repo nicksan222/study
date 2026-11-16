@@ -8,29 +8,20 @@ import { test } from '@study/testing';
 import { Schema } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 
-import { Composer } from './composer';
-import { composerDraft } from './composer.queries';
+let Composer: typeof __MockType0.Composer;
+
+let composerDraft: typeof __MockType1.composerDraft;
+
+import type * as __MockType0 from './composer';
+import type * as __MockType1 from './composer.queries';
 import type * as NoteQueries from './note-workspace.queries';
-import { ask, saveNote } from './note-workspace.queries';
+import type * as __MockType2 from './note-workspace.queries';
 
-test.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: 'italian' })
-}));
-test.mock('./note-workspace.queries', async (importOriginal) => {
-  const actual = await importOriginal<typeof NoteQueries>();
+let ask: typeof __MockType2.ask;
 
-  return {
-    ...actual,
-    ask: test.vi.fn(),
-    saveNote: test.vi.fn()
-  };
-});
+let saveNote: typeof __MockType2.saveNote;
 
-const preferences = test.hoisted(() => ({ submitOnEnter: false }));
-
-test.mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
-  useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, ...preferences })
-}));
+let preferences: ReturnType<typeof createMockState>['preferences'];
 
 const id = Schema.decodeUnknownSync(noteIdSchema)(9007199254740993n);
 
@@ -41,6 +32,44 @@ const receipt = Schema.decodeUnknownSync(askResultSchema)({
   versionId: 4n,
   userMessageId: 1n,
   userVersionId: 2n
+});
+
+function createMockState() {
+  return {
+    preferences: (() => ({ submitOnEnter: false }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState();
+
+  preferences = __mockState.preferences;
+
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({ t: (key: string) => key, locale: 'italian' })
+  }));
+  mock('#client/features/note-workspace/note-workspace.queries', async (importOriginal) => {
+    const actual = await importOriginal<typeof NoteQueries>();
+
+    return {
+      ...actual,
+      ask: mock.fn(),
+      saveNote: mock.fn()
+    };
+  });
+  mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
+    useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, ...preferences })
+  }));
+  const __mockModule0 = await import('./composer');
+
+  Composer = __mockModule0.Composer;
+  const __mockModule1 = await import('./composer.queries');
+
+  composerDraft = __mockModule1.composerDraft;
+  const __mockModule2 = await import('./note-workspace.queries');
+
+  ask = __mockModule2.ask;
+  saveNote = __mockModule2.saveNote;
 });
 
 test.beforeEach(() => test.vi.clearAllMocks());

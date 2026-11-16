@@ -1,27 +1,44 @@
 import { projectIdSchema, noteIdSchema } from '@study/contracts';
 import { test } from '@study/testing';
 
-import { PagesFromNotes } from './from-notes';
+import type * as __MockType0 from './from-notes';
 
-const api = test.hoisted(() => ({ notes: test.vi.fn() }));
+let PagesFromNotes: typeof __MockType0.PagesFromNotes;
 
-test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-test.mock('../note-workspace', () => ({
-  NotePageDialog: ({
-    id,
-    notes,
-    open
-  }: {
-    id: bigint;
-    notes: { title: string }[];
-    open: boolean;
-  }) =>
-    open ? (
-      <section aria-label="Shared transform" data-note={String(id)}>
-        {notes.map((note) => note.title).join(', ')}
-      </section>
-    ) : null
-}));
+let api: ReturnType<typeof createMockState>['api'];
+
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({ notes: mock.fn() }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  mock('#client/features/note-workspace', () => ({
+    NotePageDialog: ({
+      id,
+      notes,
+      open
+    }: {
+      id: bigint;
+      notes: { title: string }[];
+      open: boolean;
+    }) =>
+      open ? (
+        <section aria-label="Shared transform" data-note={String(id)}>
+          {notes.map((note) => note.title).join(', ')}
+        </section>
+      ) : null
+  }));
+  const __mockModule0 = await import('./from-notes');
+
+  PagesFromNotes = __mockModule0.PagesFromNotes;
+});
 
 test.afterEach(test.cleanup);
 

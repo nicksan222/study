@@ -2,20 +2,11 @@ import { StudyError, noteIdSchema } from '@study/contracts';
 import { test } from '@study/testing';
 import { Schema } from 'effect';
 
-import { Transformation } from './transformation';
+import type * as __MockType0 from './transformation';
 
-const api = test.hoisted(() => ({ suggest: test.vi.fn(), readiness: 'ready' as string }));
+let Transformation: typeof __MockType0.Transformation;
 
-test.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => api.readiness }));
-test.mock('#client/lib/ai-readiness-notice.tsx', () => ({
-  AiReadinessNotice: ({ state }: { state: string }) =>
-    state === 'ready' ? null : <p>Readiness: {state}</p>
-}));
-
-test.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: 'english' })
-}));
-test.mock('./history', () => ({ CapturedContext: () => null }));
+let api: ReturnType<typeof createMockState>['api'];
 
 const id = noteIdSchema.make(1n);
 
@@ -26,6 +17,31 @@ let revision = 1n;
 function Provider({ children }: { children: React.ReactNode }) {
   return <fixture.wrapper>{children}</fixture.wrapper>;
 }
+
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({ suggest: mock.fn(), readiness: 'ready' as string }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => api.readiness }));
+  mock('#client/lib/ai-readiness-notice.tsx', () => ({
+    AiReadinessNotice: ({ state }: { state: string }) =>
+      state === 'ready' ? null : <p>Readiness: {state}</p>
+  }));
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({ t: (key: string) => key, locale: 'english' })
+  }));
+  mock('#client/features/note-workspace/history', () => ({ CapturedContext: () => null }));
+  const __mockModule0 = await import('./transformation');
+
+  Transformation = __mockModule0.Transformation;
+});
 
 test.beforeEach(() => {
   test.vi.resetAllMocks();

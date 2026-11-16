@@ -4,15 +4,20 @@ import type { ReactNode } from 'react';
 
 import { useSidebarSearch } from './use-sidebar-search.queries';
 
-const api = test.hoisted(() => ({ search: test.vi.fn() }));
+function createMocks(mock: test.Mock) {
+  return { search: mock.fn() };
+}
+
+let api: ReturnType<typeof createMocks>;
 
 const project = projectIdSchema.make(2n);
 
 let cache: ReturnType<typeof test.rpcTestTransport>;
 
-test.beforeEach(() => {
+test.beforeEach(({ mock }) => {
+  api = createMocks(mock);
   test.vi.useFakeTimers();
-  api.search.mockReset().mockResolvedValue({ hits: [] });
+  api.search.mockResolvedValue({ hits: [] });
   cache = test.rpcTestTransport(async (_tag, input) => api.search(input));
 });
 test.afterEach(() => {

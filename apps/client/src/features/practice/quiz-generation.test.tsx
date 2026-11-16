@@ -11,19 +11,15 @@ import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 import { Effect, Option, Schema } from 'effect';
 
-import {
-  learningVersion,
-  materialRpc,
-  mountLibraryRoute
-} from '#client/features/material-library/test/support.tsx';
+import type * as __MockType0 from '#client/features/material-library/test/support.tsx';
 
-const readiness = test.hoisted(() => ({ state: 'ready' }));
+let learningVersion: typeof __MockType0.learningVersion;
 
-test.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => readiness.state }));
+let materialRpc: typeof __MockType0.materialRpc;
 
-test.mock('../agent-progress', () => ({
-  AgentProgress: () => <div>Leaked generation activity</div>
-}));
+let mountLibraryRoute: typeof __MockType0.mountLibraryRoute;
+
+let readiness: ReturnType<typeof createMockState>['readiness'];
 
 const en = catalogs.english;
 
@@ -142,6 +138,28 @@ function rpcFixture(linked = true) {
       )
   };
 }
+
+function createMockState() {
+  return {
+    readiness: (() => ({ state: 'ready' }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState();
+
+  readiness = __mockState.readiness;
+
+  mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => readiness.state }));
+  mock('#client/features/agent-progress', () => ({
+    AgentProgress: () => <div>Leaked generation activity</div>
+  }));
+  const __mockModule0 = await import('#client/features/material-library/test/support.tsx');
+
+  learningVersion = __mockModule0.learningVersion;
+  materialRpc = __mockModule0.materialRpc;
+  mountLibraryRoute = __mockModule0.mountLibraryRoute;
+});
 
 test.stable('blocks generation while provider setup is needed', async () => {
   readiness.state = 'setup';

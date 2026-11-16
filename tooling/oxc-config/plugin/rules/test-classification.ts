@@ -67,6 +67,7 @@ function workspaceRoot(filename: string): string {
 function adapterPath(filename: string): boolean {
   return [
     'packages/testing/src/vitest.ts',
+    'packages/testing/src/mock.ts',
     'packages/testing/src/playwright.ts',
     'packages/testing/src/react/setup.ts',
     'apps/client/test/e2e/harness/index.ts',
@@ -577,7 +578,7 @@ export default defineRule({
     }
 
     function aliasedTestReference(node: any): boolean {
-      if (insideTypeQuery(node)) return false;
+      if (insideTypeReference(node)) return false;
 
       const references = binding(context, node)?.references ?? [];
       const reference = references.some((part: any) => part.identifier === node);
@@ -586,9 +587,9 @@ export default defineRule({
       return reference && !directMember;
     }
 
-    function insideTypeQuery(node: any): boolean {
+    function insideTypeReference(node: any): boolean {
       for (let parent = node.parent; parent; parent = parent.parent) {
-        if (parent.type === 'TSTypeQuery') return true;
+        if (['TSTypeQuery', 'TSTypeReference'].includes(parent.type)) return true;
 
         if (['Program', 'BlockStatement', 'ExpressionStatement'].includes(parent.type))
           return false;

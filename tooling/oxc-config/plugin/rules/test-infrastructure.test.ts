@@ -2,6 +2,94 @@ import { test } from '@study/testing';
 
 import { lintRulePaths } from '../test/utils.ts';
 
+test.stable(
+  'module mocks come from lazy callback fixtures instead of the test namespace',
+  async () => {
+    const paths = await lintRulePaths('test-infrastructure', {
+      'apps/client/src/static.test.ts': `import { test } from '@study/testing';
+      test.mock('#client/lib/host.ts', () => ({}));`,
+      'apps/client/src/computed.test.ts': `import { test } from '@study/testing';
+      test['mock']('#client/lib/host.ts', () => ({}));`,
+      'apps/client/src/hoisted.test.ts': `import { test } from '@study/testing';
+      const state = test.hoisted(() => ({}));`,
+      'apps/client/src/native.test.ts': `import { test } from '@study/testing';
+      test.stable('module', () => test.vi.doMock('#client/lib/host.ts', () => ({})));`,
+      'apps/client/src/alias.test.ts': `import { test } from '@study/testing';
+      const moduleMock = test.vi.mock;
+      moduleMock('#client/lib/host.ts', () => ({}));`,
+      'apps/client/src/scoped.test.ts': `import { test } from '@study/testing';
+      test.stable('module', async ({ mock }) => {
+        mock('#client/lib/host.ts', () => ({}));
+        const host = await import('#client/lib/host.ts');
+        test.expect(host).toBeDefined();
+      });`
+    });
+
+    test
+      .expect([...new Set(paths)].sort())
+      .toEqual([
+        'apps/client/src/alias.test.ts',
+        'apps/client/src/computed.test.ts',
+        'apps/client/src/hoisted.test.ts',
+        'apps/client/src/native.test.ts',
+        'apps/client/src/static.test.ts'
+      ]);
+  }
+);
+
+test.stable(
+  'callback module mocks require a dynamic subject import but ignore type-only imports and mock functions',
+  async () => {
+    const paths = await lintRulePaths('test-infrastructure', {
+      'apps/client/src/static-subject.test.ts': `import { test } from '@study/testing';
+      import { useHost } from '#client/lib/host.ts';
+      test.stable('mocked subject', async ({ mock }) => {
+        mock('#client/lib/host.ts', () => ({ useHost: () => null }));
+        await import('#client/lib/host.ts');
+        void useHost;
+      });`,
+      'apps/client/src/aliased-static-subject.test.ts': `import { test } from '@study/testing';
+      import { useHost } from '#client/lib/host.ts';
+      test.stable('aliased mock fixture', async ({ mock: register }) => {
+        register('#client/lib/host.ts', () => ({ useHost: () => null }));
+        void useHost;
+      });`,
+      'apps/client/src/side-effect-static-subject.test.ts': `import { test } from '@study/testing';
+      import '#client/lib/host.ts';
+      test.beforeEach(({ mock }) => mock('#client/lib/host.ts', () => ({})));`,
+      'apps/client/src/for-static-subject.test.ts': `import { test } from '@study/testing';
+      import { useHost } from '#client/lib/host.ts';
+      test.stable.for([1])('mock fixture after case args', async (_value, { mock }) => {
+        const register = mock;
+        register('#client/lib/host.ts', () => ({ useHost: () => null }));
+        void useHost;
+      });`,
+      'apps/client/src/type-only-subject.test.ts': `import { test } from '@study/testing';
+      import type { Host } from '#client/lib/host.ts';
+      test.stable('typed subject', async ({ mock }) => {
+        const register = mock;
+        register('#client/lib/host.ts', () => ({}));
+        let host: Host | undefined;
+        void host;
+      });`,
+      'apps/client/src/ordinary-mock-function.test.ts': `import { test } from '@study/testing';
+      test.stable('ordinary mock function', async () => {
+        const mock = test.vi.fn();
+        mock('#client/lib/host.ts');
+      });`
+    });
+
+    test
+      .expect(paths)
+      .toEqual([
+        'apps/client/src/aliased-static-subject.test.ts',
+        'apps/client/src/for-static-subject.test.ts',
+        'apps/client/src/side-effect-static-subject.test.ts',
+        'apps/client/src/static-subject.test.ts'
+      ]);
+  }
+);
+
 test.stable('application source cannot import test-only public facets', async () => {
   const paths = await lintRulePaths('test-infrastructure', {
     'apps/client/src/lib/bad.ts':

@@ -2,11 +2,16 @@ import { test } from '@study/testing';
 
 import { usePerformanceSettings } from './use-performance';
 
-const api = test.hoisted(() => ({ load: test.vi.fn(), save: test.vi.fn() }));
+function createApi(mock: test.Mock) {
+  return { load: mock.fn(), save: mock.fn() };
+}
 
-test.beforeEach(() => {
-  api.load.mockReset().mockResolvedValue({ maxConcurrentAi: 2, maxQueuedAi: 16 });
-  api.save.mockReset().mockResolvedValue({});
+let api: ReturnType<typeof createApi>;
+
+test.beforeEach(({ mock }) => {
+  api = createApi(mock);
+  api.load.mockResolvedValue({ maxConcurrentAi: 2, maxQueuedAi: 16 });
+  api.save.mockResolvedValue({});
 });
 
 function setup() {

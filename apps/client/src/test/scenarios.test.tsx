@@ -5,6 +5,37 @@ import { test } from '@study/testing';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 import { useGeneralSettings } from '#client/pages/settings/general/use-general.ts';
+
+test.stable.for(['before opening', 'during opening'] as const)(
+  'closed page starters release setup %s',
+  async (phase, { page, rpc }) => {
+    const opening = phase === 'during opening' ? page.open('/notes') : undefined;
+    const closing = page.close();
+
+    await test.expect(opening ?? page.open('/notes')).rejects.toThrow(ReferenceError);
+    await closing;
+    test.expect(rpc.activeSubscriptions()).toBe(0);
+    test.expect(page.screen.queryByRole('main')).not.toBeInTheDocument();
+  }
+);
+
+test.stable.for(['alias', 'url'] as const)(
+  'callback module mocks resolve client targets through %s',
+  async (source, { mock }) => {
+    const readiness = mock.fn(() => 'ready');
+
+    mock(
+      source === 'alias'
+        ? '#client/lib/ai-readiness.ts'
+        : URL.parse('../lib/ai-readiness.ts', import.meta.url)!,
+      () => ({ useAiReadiness: readiness })
+    );
+    const { useAiReadiness } = await import('../lib/ai-readiness.ts');
+
+    test.expect(useAiReadiness).toBe(readiness);
+  }
+);
+
 test.stable.extend('locale', 'italian')(
   'React starters provide RPC, localization, hook rendering and planned failure recovery',
   async ({ react, rpc }) => {
@@ -60,7 +91,7 @@ test.stable(
 test.stable(
   'page starters open the real route with default RPC snapshots and accept live updates',
   async ({ page, rpc }) => {
-    const view = page.open('/notes');
+    const view = await page.open('/notes');
 
     test
       .expect(await page.screen.findByRole('heading', { name: catalogs.english.Notes }))
@@ -83,7 +114,7 @@ test.stable(
 test.stable(
   'closing a page releases its router history and RPC subscriptions',
   async ({ page, rpc }) => {
-    const view = page.open('/notes');
+    const view = await page.open('/notes');
 
     await page.screen.findByRole('heading', { name: catalogs.english.Notes });
     const destroy = test.vi.spyOn(view.router.history, 'destroy');

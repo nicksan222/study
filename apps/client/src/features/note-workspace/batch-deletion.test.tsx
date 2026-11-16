@@ -3,13 +3,11 @@ import type { NoteId } from '@study/contracts';
 import { test } from '@study/testing';
 import { Schema } from 'effect';
 
-import { NoteBatchDeleteDialog } from './deletion';
+import type * as __MockType0 from './deletion';
 
-const rpc = test.hoisted(() => ({ remove: test.vi.fn(), retry: test.vi.fn(), read: test.vi.fn() }));
+let NoteBatchDeleteDialog: typeof __MockType0.NoteBatchDeleteDialog;
 
-test.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: 'english' })
-}));
+let rpc: ReturnType<typeof createMockState>['rpc'];
 
 const first = Schema.decodeUnknownSync(noteIdSchema)(1n);
 
@@ -21,6 +19,25 @@ const notes = [
   { id: first, title: 'First note' },
   { id: second, title: 'Second note' }
 ];
+
+function createMockState(mock: test.Mock) {
+  return {
+    rpc: (() => ({ remove: mock.fn(), retry: mock.fn(), read: mock.fn() }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  rpc = __mockState.rpc;
+
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({ t: (key: string) => key, locale: 'english' })
+  }));
+  const __mockModule0 = await import('./deletion');
+
+  NoteBatchDeleteDialog = __mockModule0.NoteBatchDeleteDialog;
+});
 
 test.afterEach(() => {
   test.cleanup();

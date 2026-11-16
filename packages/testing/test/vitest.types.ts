@@ -8,8 +8,8 @@ function frontendContract() {
 
     void [typedNumber, typedLabel];
   });
-  test.stable.for([{ value: 42 }])('object inference', (item, context) => {
-    void [item.value, context.task];
+  test.stable.for([{ value: 42 }])('object inference', (item, { task, mock }) => {
+    void [item.value, task, mock];
   });
   test.regression({ regression: 'evidence_integrity' })('regression fixture', () => {});
   test.migration({ migration: 'source_upgrade', retention: 'permanent' })(

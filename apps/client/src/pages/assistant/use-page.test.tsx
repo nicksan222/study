@@ -1,9 +1,15 @@
 import { test } from '@study/testing';
 
-import { mountAssistant as mount } from '#client/test/assistant.tsx';
+import type { AssistantHarness } from '#client/test/assistant.tsx';
+
+let mount: AssistantHarness['mountAssistant'];
+
+test.beforeEach(({ assistant }) => {
+  mount = assistant.mountAssistant;
+});
 
 test.stable('does not send during input-method composition or dismiss on Escape', async () => {
-  mount();
+  await mount();
   const input = await test.screen.findByRole('textbox', { name: 'Message' });
 
   await test.waitFor(() => test.expect(input).toBeEnabled());

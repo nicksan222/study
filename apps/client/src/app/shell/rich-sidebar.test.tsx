@@ -8,17 +8,29 @@ import {
 } from '@tanstack/react-router';
 import { Schema } from 'effect';
 
-import { RichSidebarNotes } from './rich-sidebar';
+import type * as __StudyMockType0 from '#client/app/shell/rich-sidebar.tsx';
 
-const api = test.hoisted(() => ({
-  settings: test.vi.fn(),
-  summaries: test.vi.fn(),
-  settle: test.vi.fn()
-}));
+function createApi(mock: test.Mock) {
+  return {
+    settings: mock.fn(),
+    summaries: mock.fn(),
+    settle: mock.fn()
+  };
+}
 
-test.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: 'english', date: String })
-}));
+let api: ReturnType<typeof createApi>;
+
+let RichSidebarNotes: typeof __StudyMockType0.RichSidebarNotes;
+
+test.beforeEach(async ({ mock }) => {
+  api = createApi(mock);
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({ t: (key: string) => key, locale: 'english', date: String })
+  }));
+  const __studyMockModule0 = await import('./rich-sidebar');
+
+  RichSidebarNotes = __studyMockModule0.RichSidebarNotes;
+});
 
 let preferences = defaultWorkspacePreferences;
 

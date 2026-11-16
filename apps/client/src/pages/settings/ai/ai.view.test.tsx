@@ -1,12 +1,23 @@
 import { createLocalization } from '@study/localization';
 import { test } from '@study/testing';
 
-import { AiAccountSettingsView, AiModelSettingsView } from './ai.view';
+import type * as __StudyMockType0 from '#client/pages/settings/ai/ai.view.tsx';
+
 import type { AiSettingsModel } from './use-ai-settings';
 
-test.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => createLocalization('italian')
-}));
+let AiAccountSettingsView: typeof __StudyMockType0.AiAccountSettingsView;
+
+let AiModelSettingsView: typeof __StudyMockType0.AiModelSettingsView;
+
+test.beforeEach(async ({ mock }) => {
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => createLocalization('italian')
+  }));
+  const __studyMockModule0 = await import('./ai.view');
+
+  AiAccountSettingsView = __studyMockModule0.AiAccountSettingsView;
+  AiModelSettingsView = __studyMockModule0.AiModelSettingsView;
+});
 
 function settingsModel(): AiSettingsModel {
   return {

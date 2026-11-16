@@ -4,7 +4,7 @@ import { test } from '@study/testing';
 test.stable.for(['english', 'italian'] as const)(
   'opens the Settings page in %s',
   async (locale, { page }) => {
-    const { router } = page.open('/settings?project=9007199254740993', { locale });
+    const { router } = await page.open('/settings?project=9007199254740993', { locale });
 
     test
       .expect(await test.screen.findByRole('heading', { name: catalogs[locale].Settings }))

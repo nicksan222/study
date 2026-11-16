@@ -2,19 +2,36 @@ import { RegistryProvider } from '@effect/atom-react';
 import { test } from '@study/testing';
 import { toastManager } from '@study/ui';
 
-import { DesktopUpdates } from '#client/app/shell/desktop-updates.tsx';
+import type * as __StudyMockType0 from '#client/app/shell/desktop-updates.tsx';
+import type * as __StudyMockType1 from '#client/pages/settings/updates.tsx';
 
-import { UpdatesSettings } from './updates';
+function createNative(mock: test.Mock) {
+  return { enabled: true, invoke: mock.fn() };
+}
 
-const native = test.hoisted(() => ({ enabled: true, invoke: test.vi.fn() }));
+let native: ReturnType<typeof createNative>;
 
-test.mock('#client/lib/host.ts', () => ({
-  hostCapabilities: () => ({ updates: native.enabled, diagnostics: native.enabled }),
-  desktopUpdateStatus: () => native.invoke('desktop_update_status'),
-  checkDesktopUpdate: () => native.invoke('check_for_update'),
-  installDesktopUpdate: (expectedVersion: string) =>
-    native.invoke('install_update', { expectedVersion })
-}));
+let DesktopUpdates: typeof __StudyMockType0.DesktopUpdates;
+
+let UpdatesSettings: typeof __StudyMockType1.UpdatesSettings;
+
+test.beforeEach(async ({ mock }) => {
+  native = createNative(mock);
+  mock('#client/lib/host.ts', () => ({
+    hostCapabilities: () => ({ updates: native.enabled, diagnostics: native.enabled }),
+    desktopUpdateStatus: () => native.invoke('desktop_update_status'),
+    checkDesktopUpdate: () => native.invoke('check_for_update'),
+    installDesktopUpdate: (expectedVersion: string) =>
+      native.invoke('install_update', { expectedVersion })
+  }));
+  const __studyMockModule0 = await import('#client/app/shell/desktop-updates.tsx');
+
+  DesktopUpdates = __studyMockModule0.DesktopUpdates;
+  const __studyMockModule1 = await import('./updates');
+
+  UpdatesSettings = __studyMockModule1.UpdatesSettings;
+});
+
 test.beforeEach(() => {
   native.enabled = true;
   native.invoke.mockReset().mockImplementation((command) => {

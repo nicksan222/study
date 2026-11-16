@@ -6,7 +6,7 @@ test.stable(
   'redirects Home to the note starter with the selected project',
   async ({ page, rpc }) => {
     rpc.given({ 'projects.findProject': Option.none() });
-    const { router } = page.open('/home?project=9007199254740993');
+    const { router } = await page.open('/home?project=9007199254740993');
 
     await test.waitFor(() => test.expect(router.state.location.pathname).toBe('/notes'));
     test.expect(router.state.location.search.project).toBe('9007199254740993');
@@ -16,7 +16,7 @@ test.stable(
 test.stable.for(['english', 'italian'] as const)(
   'opens the note composer immediately in %s',
   async (locale, { page }) => {
-    page.open('/notes', { locale });
+    await page.open('/notes', { locale });
     const t = catalogs[locale];
 
     test.expect(await test.screen.findByRole('textbox', { name: t.NoteCompose })).toBeVisible();

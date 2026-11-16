@@ -3,26 +3,11 @@ import type { noteWorkItemSchema } from '@study/contracts';
 import { test } from '@study/testing';
 import { Schema } from 'effect';
 
-import { NotePendingWork } from './note-pending-work';
+import type * as __MockType0 from './note-pending-work';
 
-const api = test.hoisted(() => ({
-  work: test.vi.fn(),
-  cancel: test.vi.fn(),
-  transform: test.vi.fn()
-}));
+let NotePendingWork: typeof __MockType0.NotePendingWork;
 
-test.mock('@tanstack/react-router', () => ({
-  Link: ({ children, to, ...props }: React.ComponentProps<'a'> & { to: string }) => (
-    <a href={to} {...props}>
-      {children}
-    </a>
-  )
-}));
-test.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({
-    t: (key: string, values?: { title: string }) => (values ? key + ' ' + values.title : key)
-  })
-}));
+let api: ReturnType<typeof createMockState>['api'];
 
 const id = Schema.decodeUnknownSync(noteIdSchema)(1n);
 
@@ -55,6 +40,38 @@ function mount() {
 
   return fixture;
 }
+
+function createMockState(mock: test.Mock) {
+  return {
+    api: (() => ({
+      work: mock.fn(),
+      cancel: mock.fn(),
+      transform: mock.fn()
+    }))()
+  };
+}
+
+test.beforeEach(async ({ mock }) => {
+  const __mockState = createMockState(mock);
+
+  api = __mockState.api;
+
+  mock('@tanstack/react-router', () => ({
+    Link: ({ children, to, ...props }: React.ComponentProps<'a'> & { to: string }) => (
+      <a href={to} {...props}>
+        {children}
+      </a>
+    )
+  }));
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({
+      t: (key: string, values?: { title: string }) => (values ? key + ' ' + values.title : key)
+    })
+  }));
+  const __mockModule0 = await import('./note-pending-work');
+
+  NotePendingWork = __mockModule0.NotePendingWork;
+});
 
 test.beforeEach(() => test.vi.resetAllMocks());
 test.afterEach(() => {

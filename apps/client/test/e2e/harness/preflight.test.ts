@@ -42,7 +42,11 @@ async function fixture(titles: string[], suite = '') {
       const child = test.spawnTestProcess(
         ['bun', '--bun', 'playwright', 'test', '--config', config, ...flags],
         {
-          env: { ...process.env, E2E_UPDATE: scope },
+          env: {
+            ...process.env,
+            E2E_UPDATE: scope,
+            PLAYWRIGHT_BROWSERS_PATH: `${directory}/no-browsers`
+          },
           stdout: 'pipe',
           stderr: 'pipe'
         }

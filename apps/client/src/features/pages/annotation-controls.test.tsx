@@ -5,12 +5,16 @@ import { Schema } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
 import type { ReactNode } from 'react';
 
-import { AnnotationControls } from './annotation-controls';
-import { annotationDrafts } from './annotation-drafts';
-import type { AnnotationDraft } from './annotation-state';
-import { savedDraft } from './annotation-state';
+let AnnotationControls: typeof __MockType0.AnnotationControls;
 
-test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+let annotationDrafts: typeof __MockType1.annotationDrafts;
+
+import type * as __MockType0 from './annotation-controls';
+import type * as __MockType1 from './annotation-drafts';
+import type { AnnotationDraft } from './annotation-state';
+import type * as __MockType2 from './annotation-state';
+
+let savedDraft: typeof __MockType2.savedDraft;
 
 const rawTarget = {
   pageId: 41n,
@@ -36,6 +40,19 @@ const rpc = {
   'pages.versions': test.vi.fn(),
   'pages.version': test.vi.fn()
 };
+
+test.beforeEach(async ({ mock }) => {
+  mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+  const __mockModule0 = await import('./annotation-controls');
+
+  AnnotationControls = __mockModule0.AnnotationControls;
+  const __mockModule1 = await import('./annotation-drafts');
+
+  annotationDrafts = __mockModule1.annotationDrafts;
+  const __mockModule2 = await import('./annotation-state');
+
+  savedDraft = __mockModule2.savedDraft;
+});
 
 test.beforeEach(() => {
   test.vi.clearAllMocks();

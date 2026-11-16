@@ -60,11 +60,20 @@ test.stable('Bun resolves package roots and explicit testing facets', () => {
     for (const [specifier, suffix] of [
       ['@study/contracts', '/src/index.ts'],
       ['@study/db', '/src/index.ts'],
+      ['@study/testing', '/src/index.ts'],
+      ['@study/testing/resources', '/src/resources.ts'],
       ['@study/testing/vitest', '/src/vitest.ts']
     ]) {
       if (!Bun.fileURLToPath(import.meta.resolve(specifier)).endsWith(suffix)) throw new Error(specifier);
-      await import(specifier);
+      if (specifier !== '@study/testing/vitest') await import(specifier);
     }
+
+    const testing = await import('@study/testing');
+
+    if (typeof testing.test !== 'object' || typeof testing.createAiMock !== 'function')
+      throw new Error('The public testing root must import without starting a runner');
+
+    await import('@study/testing/resources');
   `
     ],
     { cwd: join(root, 'apps/server') }

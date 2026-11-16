@@ -4,13 +4,15 @@ import { test } from '@study/testing';
 import { AttachmentPreview, WorkspaceDeskSurface as Desk } from '@study/ui';
 import { AtomRegistry } from 'effect/reactivity';
 
-import { AttachmentPicker, AttachmentTray } from './attachments';
-import { attachmentState } from './attachments.queries';
-import type { Attachment } from './attachments.queries';
+let AttachmentPicker: typeof __MockType0.AttachmentPicker;
 
-test.mock('#client/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: string) => key, locale: 'english' })
-}));
+let AttachmentTray: typeof __MockType0.AttachmentTray;
+
+let attachmentState: typeof __MockType1.attachmentState;
+
+import type * as __MockType0 from './attachments';
+import type { Attachment } from './attachments.queries';
+import type * as __MockType1 from './attachments.queries';
 
 const id = noteIdSchema.make(14n);
 
@@ -32,6 +34,19 @@ function mount(entry: Attachment) {
     )
   };
 }
+
+test.beforeEach(async ({ mock }) => {
+  mock('#client/lib/i18n.tsx', () => ({
+    useI18n: () => ({ t: (key: string) => key, locale: 'english' })
+  }));
+  const __mockModule0 = await import('./attachments');
+
+  AttachmentPicker = __mockModule0.AttachmentPicker;
+  AttachmentTray = __mockModule0.AttachmentTray;
+  const __mockModule1 = await import('./attachments.queries');
+
+  attachmentState = __mockModule1.attachmentState;
+});
 
 test.afterEach(() => {
   test.cleanup();

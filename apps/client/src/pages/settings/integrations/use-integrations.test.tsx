@@ -7,14 +7,22 @@ import type { ReactNode } from 'react';
 import { IntegrationsSettings } from './index';
 import { useIntegrations } from './use-integrations';
 
-const api = test.hoisted(() => ({
-  imports: test.vi.fn(),
-  providers: test.vi.fn(),
-  projects: test.vi.fn(),
-  start: test.vi.fn(),
-  cancel: test.vi.fn(),
-  preview: test.vi.fn()
-}));
+function createApi(mock: test.Mock) {
+  return {
+    imports: mock.fn(),
+    providers: mock.fn(),
+    projects: mock.fn(),
+    start: mock.fn(),
+    cancel: mock.fn(),
+    preview: mock.fn()
+  };
+}
+
+let api: ReturnType<typeof createApi>;
+
+test.beforeEach(({ mock }) => {
+  api = createApi(mock);
+});
 
 function fixture() {
   return test.rpcTestTransport(async (tag, input) => {

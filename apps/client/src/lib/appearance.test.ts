@@ -4,13 +4,14 @@ import { test } from '@study/testing';
 
 import { initializeAppearance } from './appearance';
 
-const api = test.hoisted(() => ({
-  settings: test.vi.fn(),
-  selected: test.vi.fn(),
-  themes: test.vi.fn()
-}));
+function createMocks(mock: test.Mock) {
+  return { settings: mock.fn(), selected: mock.fn(), themes: mock.fn() };
+}
 
-test.beforeEach(() => {
+let api: ReturnType<typeof createMocks>;
+
+test.beforeEach(({ mock }) => {
+  api = createMocks(mock);
   const fixture = test.rpcTestTransport(async (tag, input) => {
     if (tag === 'settings.appSettings')
       return { language: 1, zoomPercent: 100, onboarded: true, ...(await api.settings(input)) };

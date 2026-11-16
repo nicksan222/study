@@ -1,4 +1,3 @@
-import { testPlugins } from '@study/testing/vite';
 import { studyRpcProxy } from '@study/tooling/development/rpc-proxy';
 import tailwindcss from '@tailwindcss/vite';
 import { tanstackRouter } from '@tanstack/router-plugin/vite';
@@ -8,7 +7,6 @@ import { defineConfig } from 'vite-plus';
 export default defineConfig({
   root: Bun.fileURLToPath(new URL('.', import.meta.url)),
   plugins: [
-    ...testPlugins(),
     tanstackRouter({
       target: 'react',
       quoteStyle: 'single',
@@ -30,6 +28,15 @@ export default defineConfig({
   },
   build: { outDir: 'dist', emptyOutDir: true },
   test: {
+    server: {
+      deps: {
+        // Setup-owned providers and app-lifetime state keep one identity when subjects reset.
+        external: [
+          /\/packages\/(?:contracts|ui)\/src\//,
+          /\/apps\/client\/src\/(?:lib\/i18n|features\/assistant\/note|features\/note-workspace\/start-drafts\.queries)\.tsx?$/
+        ]
+      }
+    },
     environment: 'jsdom',
     silent: 'passed-only',
     setupFiles: ['./src/test/setup.ts'],
