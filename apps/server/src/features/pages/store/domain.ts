@@ -17,8 +17,8 @@ import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { makePageEditing } from './editing.ts';
 import { makePageGeneration } from './generation.ts';
-import { makePageHistory } from './history.ts';
-import { makePageProposals } from './proposals.ts';
+import { makePageHistory } from './history-operations.ts';
+import { makePageProposals } from './proposal-operations.ts';
 import { makePageReads } from './reads.ts';
 
 export function makePageDomain(resources: StoreResources) {

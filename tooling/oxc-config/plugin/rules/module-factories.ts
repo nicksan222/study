@@ -34,6 +34,22 @@ import { production } from './synchronous-transactions.ts';
 
 type FactoryOwner = 'service' | 'store' | 'rpc' | 'workflow' | 'workflow-handler';
 
+function roleEntry(path: string): ReturnType<typeof entry> {
+  const role = featureRole(path);
+
+  if (!/\/apps\/server\/src\/features\//.test(path)) return null;
+
+  if (role !== 'rpc' && role !== 'workflow') return null;
+
+  if (role === 'workflow' && /\/workflows\/internal\//.test(path)) return null;
+
+  return {
+    domain: /features\/([^/]+)/.exec(path)![1],
+    owner: role,
+    index: path.endsWith('/workflows/index.ts')
+  };
+}
+
 export function entry(
   filename: string
 ): { domain: string; owner: FactoryOwner; index: boolean } | null {
@@ -41,10 +57,9 @@ export function entry(
 
   if (!production(path)) return null;
 
-  const role = featureRole(path);
+  const role = roleEntry(path);
 
-  if (/\/apps\/server\/src\/features\//.test(path) && (role === 'rpc' || role === 'workflow'))
-    return { domain: /features\/([^/]+)/.exec(path)![1], owner: role, index: false };
+  if (role) return role;
 
   const match =
     /\/apps\/server\/src\/features\/([^/]+)\/(index\.ts|(?:service|store)\/index\.ts)$/.exec(path);
@@ -116,6 +131,23 @@ export function entryReexport(context: any, node: any, domain: string): boolean 
   );
 }
 
+/** Workflow indexes expose named execution boundaries from sibling owners only. */
+function workflowReexport(context: any, node: any, domain: string): boolean {
+  const target = targetPath(context.filename, node.source.value);
+  const prefix = `features/${domain}/workflows/`;
+
+  return (
+    !!target?.startsWith(prefix) &&
+    !target.slice(prefix.length).includes('/') &&
+    target !== `${prefix}index` &&
+    node.specifiers.every(
+      (specifier: any) =>
+        specifier.exportKind === 'type' ||
+        /(?:Workflow|Handler|Registration)$/.test(specifier.local.name)
+    )
+  );
+}
+
 /** Keep public domain entry exports on the canonical construction boundary. */
 export default defineRule({
   meta: { type: 'problem' },
@@ -175,6 +207,8 @@ export default defineRule({
 
       if (node.specifiers.some((specifier: any) => specifier.exportKind !== 'type'))
         runtimeExport = true;
+
+      if (owner === 'workflow' && index && workflowReexport(context, node, domain)) return;
 
       if (!index || !entryReexport(context, node, domain))
         context.report({

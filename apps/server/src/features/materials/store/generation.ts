@@ -1,619 +1,25 @@
-/**
- * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Stores generation requests, snapshots, and publication or failure state for        │
- * │ material workflows.                                                                      │
- * │                                                                                          │
- * │ Responsibilities:                                                                        │
- * │ - Fences request identity and publication status for durable generation handlers.        │
- * │ - Keeps persistence inputs and results typed for service-layer composition.              │
- * │                                                                                          │
- * │ Boundaries:                                                                              │
- * │ Typed store helpers own database access; the materials service applies                   │
- * │ policy and composes these private operations.                                            │
- * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
- */
+/** @file Builds materials generation queries and mutations with bound store resources. */
 
-import { StudyError } from '@study/contracts';
-import type { ErrorKind } from '@study/contracts';
-import type { ProjectId } from '@study/contracts';
-import type { resolvedContentInputSchema } from '@study/contracts';
-import { contentInputKey } from '@study/contracts';
+import * as input from '@study/contracts';
 import {
+  errorKindSchema,
   materialGenerationInputSchema,
-  materialGenerationPayloadSchema,
-  materialGenerationPublicationSchema
+  materialGenerationPublicationSchema,
+  materialGenerationRequestedSchema,
+  materialGenerationSchema,
+  materialGenerationSnapshotSchema,
+  projectIdSchema,
+  resolvedContentInputSchema
 } from '@study/contracts';
-import { validBlockTextRange } from '@study/contracts';
-import { and, desc, eq, isNull, sql } from '@study/db';
-import * as s from '@study/db';
-import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
 
-import { canonicalJson } from '#server/features/materials/decoders/edit-intent';
-import {
-  assertQuestionSpec,
-  assertQuizConfig
-} from '#server/features/materials/decoders/question-spec';
 import type { StoreResources } from '#server/platform/definitions/define-store';
-import { decodeEvent } from '#server/platform/workflows/events';
+import { storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 
-import { makeCreateMaterial } from './create-material.ts';
-import { makeExactInputs } from './exact-inputs.ts';
-import { required } from './reads.ts';
-import { makeSetCitationsAction } from './set-citations-action.ts';
-import { makeWrites, now } from './writes.ts';
+import { makeGeneration } from './generation-operations.ts';
 
-const codec = Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayloadSchema));
-
-export function makeGeneration(resources: StoreResources) {
-  const { db, clock } = resources;
-  const exact = makeExactInputs(resources);
-
-  const { createMaterial } = makeCreateMaterial(resources);
-
-  const { setCitations } = makeSetCitationsAction(resources);
-
-  const { publish, assertProject } = makeWrites(resources);
-
-  function requestGenerationOnce(value: {
-    requestId: string;
-    request: typeof materialGenerationInputSchema.Type;
-  }) {
-    const request = Schema.decodeUnknownSync(materialGenerationInputSchema)(value.request);
-
-    const existing = readGeneration(value.requestId);
-
-    if (existing) {
-      const same = Schema.toEquivalence(materialGenerationInputSchema);
-
-      const canonical = (input: typeof request) => ({
-        projectId: input.projectId,
-        title: input.title,
-        autoTitle: input.autoTitle,
-        kind: input.kind,
-        instruction: input.instruction,
-        inputs: input.inputs,
-        scopeId: input.scopeId,
-        questionSpec: input.questionSpec,
-        quizConfig: input.quizConfig
-      });
-
-      if (!same(canonical(existing), canonical(request)))
-        throw new StudyError('invalid_input', 'Generation request key has different intent');
-
-      return { request: { id: existing.id, ...request }, created: false };
-    }
-
-    return {
-      request: requestGeneration({ requestId: value.requestId, request }),
-      created: true
-    };
-  }
-
-  function requestGeneration(value: {
-    requestId: string;
-    request: typeof materialGenerationInputSchema.Type;
-  }) {
-    const request = Schema.decodeUnknownSync(materialGenerationInputSchema)(value.request);
-
-    assertActiveScope(request);
-
-    const { title, autoTitle, kind, instruction, scopeId, questionSpec, quizConfig } = request;
-
-    db.orm
-      .insert(s.material_generation_requests)
-      .values({
-        id: value.requestId,
-        project_id: request.projectId ?? null,
-        payload: Schema.encodeSync(codec)({
-          title,
-          autoTitle,
-          kind,
-          instruction,
-          scopeId,
-          questionSpec,
-          quizConfig,
-          inputs: request.inputs
-        }),
-        created_at: now(clock)
-      })
-      .run();
-
-    exact.insertInputs({ kind: 'request', id: value.requestId }, request.inputs);
-
-    return { id: value.requestId, ...request };
-  }
-
-  function activeGenerations(value: { projectId?: ProjectId }) {
-    return db.orm
-      .select({ id: s.material_generation_requests.id })
-      .from(s.material_generation_requests)
-      .where(
-        and(
-          eq(s.material_generation_requests.cancelled, false),
-          isNull(s.material_generation_requests.result_version_id),
-          sql`${s.material_generation_requests.payload} != '{}'`,
-          value.projectId
-            ? eq(s.material_generation_requests.project_id, value.projectId)
-            : undefined
-        )
-      )
-      .orderBy(
-        desc(s.material_generation_requests.created_at),
-        desc(s.material_generation_requests.id)
-      )
-      .all()
-      .filter(
-        (row) =>
-          !db.orm
-            .select({ id: s.material_history_requests.request_id })
-            .from(s.material_history_requests)
-            .where(eq(s.material_history_requests.request_id, row.id))
-            .get() &&
-          !db.orm
-            .select({ id: s.material_deletion_requests.request_id })
-            .from(s.material_deletion_requests)
-            .where(eq(s.material_deletion_requests.request_id, row.id))
-            .get()
-      )
-      .map((row) => required(readGeneration(row.id)))
-      .filter((request) => request.kind === 'quiz' || request.kind === 'flashcards');
-  }
-
-  function readGeneration(requestId: string) {
-    if (
-      db.orm
-        .select()
-        .from(s.material_history_requests)
-        .where(eq(s.material_history_requests.request_id, requestId))
-        .get()
-    )
-      throw new StudyError('not_found', 'Generation input history is unavailable');
-
-    if (
-      db.orm
-        .select()
-        .from(s.material_deletion_requests)
-        .where(eq(s.material_deletion_requests.request_id, requestId))
-        .get()
-    )
-      throw new StudyError('not_found', 'Material generation has been retired');
-
-    const row = db.orm
-      .select()
-      .from(s.material_generation_requests)
-      .where(eq(s.material_generation_requests.id, requestId))
-      .get();
-
-    if (!row) return null;
-
-    if (row.payload === '{}')
-      throw new StudyError('not_found', 'Generation inputs are unavailable');
-
-    const payload = Schema.decodeUnknownSync(codec)(row.payload);
-    const inputs =
-      row.cancelled && row.result_version_id === null
-        ? payload.inputs
-        : exact.inputs({ kind: 'request', id: requestId });
-
-    if (
-      payload.inputs.length !== inputs.length ||
-      payload.inputs.some(
-        (input, index) => contentInputKey(input) !== contentInputKey(inputs[index]!)
-      )
-    )
-      throw new StudyError('invalid_input', 'Generation inputs differ from captured intent');
-
-    return {
-      id: row.id,
-      projectId: row.project_id ?? undefined,
-      cancelled: row.cancelled,
-      ...payload,
-      inputs,
-      errorKind: generationError(requestId, row.result_version_id !== null, row.cancelled),
-      resultVersionId: row.result_version_id
-    };
-  }
-
-  function generationError(
-    requestId: string,
-    published: boolean,
-    cancelled: boolean
-  ): ErrorKind | null {
-    if (published || cancelled) return null;
-
-    const events = db.orm
-      .select()
-      .from(s.workflowEvents)
-      .where(eq(s.workflowEvents.correlationId, requestId))
-      .orderBy(desc(s.workflowEvents.createdAt), desc(s.workflowEvents.eventId))
-      .all()
-      .map((event) => decodeEvent(event.payload));
-    const failures = events.filter((event) => event.type === 'MaterialGenerationFailed');
-    const failedAttempts = new Set(failures.map((failure) => failure.generationEventId));
-    const pending = events.some(
-      (event) => event.type === 'MaterialGenerationRequested' && !failedAttempts.has(event.eventId)
-    );
-
-    return pending ? null : (failures[0]?.errorKind ?? null);
-  }
-
-  function validateInputs(request: NonNullable<ReturnType<typeof readGeneration>>) {
-    if (!request.inputs.length)
-      throw new StudyError('invalid_input', 'Generation input capture is unavailable');
-  }
-
-  function generationContext(requestId: string, eventId?: string, verifyOnly = false) {
-    const request = readGeneration(requestId);
-
-    if (request && eventId !== undefined) assertGenerationEvent(request, eventId);
-
-    if (request && request.resultVersionId === null && !verifyOnly) {
-      assertNotCancelled(request);
-
-      assertActiveScope(request);
-
-      validateInputs(request);
-    }
-
-    return request;
-  }
-
-  function generationEventRow(eventId: string) {
-    const row = db.orm
-      .select()
-      .from(s.workflowEvents)
-      .where(eq(s.workflowEvents.eventId, eventId))
-      .get();
-
-    if (!row) throw new StudyError('invalid_input', 'Generation event is unavailable');
-
-    return row;
-  }
-
-  function assertGenerationEvent(
-    request: NonNullable<ReturnType<typeof readGeneration>>,
-    eventId: string
-  ) {
-    const row = generationEventRow(eventId);
-
-    const event = decodeEvent(row.payload);
-
-    if (
-      event.type !== 'MaterialGenerationRequested' ||
-      event.eventId !== eventId ||
-      event.requestId !== request.id ||
-      event.projectId !== request.projectId ||
-      event.kind !== request.kind ||
-      event.causationId !== null ||
-      event.correlationId !== request.id ||
-      event.inputVersion !== 1 ||
-      event.depth !== 0
-    )
-      throw new StudyError('invalid_input', 'Invalid generation event');
-
-    return event;
-  }
-
-  function prepareGenerationRetry(value: { requestId: string; retryId: string }) {
-    const request = required(readGeneration(value.requestId));
-
-    if (request.resultVersionId === null) assertNotCancelled(request);
-
-    const existing = db.orm
-      .select()
-      .from(s.workflowEvents)
-      .where(eq(s.workflowEvents.eventId, value.retryId))
-      .get();
-
-    if (existing) {
-      assertGenerationEvent(request, value.retryId);
-
-      if (value.retryId === value.requestId)
-        throw new StudyError('invalid_input', 'Retry key is the original request');
-
-      return { request, created: false };
-    }
-
-    if (request.resultVersionId !== null) return { request, created: false };
-
-    assertNotCancelled(request);
-
-    assertActiveScope(request);
-
-    validateInputs(request);
-
-    return { request, created: true };
-  }
-
-  function prepareGenerationFailure(value: {
-    requestId: string;
-    generationEventId: string;
-    errorKind: ErrorKind;
-  }) {
-    const request = required(readGeneration(value.requestId));
-
-    const event = assertGenerationEvent(request, value.generationEventId);
-
-    const failureId = `material-generation-failed/${new CryptoHasher('sha256').update(value.generationEventId).digest('hex')}`;
-
-    const row = db.orm
-      .select()
-      .from(s.workflowEvents)
-      .where(eq(s.workflowEvents.eventId, failureId))
-      .get();
-
-    if (row) {
-      const existing = decodeEvent(row.payload);
-
-      if (
-        existing.type !== 'MaterialGenerationFailed' ||
-        existing.requestId !== request.id ||
-        existing.generationEventId !== event.eventId ||
-        existing.projectId !== request.projectId ||
-        existing.kind !== request.kind ||
-        existing.errorKind !== value.errorKind
-      )
-        throw new StudyError('invalid_input', 'Generation failure key has different intent');
-    }
-
-    return { request, event, failureId, created: !row && request.resultVersionId === null };
-  }
-
-  const publicationCodec = Schema.fromJsonString(
-    Schema.toCodecJson(materialGenerationPublicationSchema)
-  );
-
-  function publishGeneration(
-    input: typeof materialGenerationPublicationSchema.Type & {
-      inputSnapshots: readonly (typeof resolvedContentInputSchema.Type)[];
-    }
-  ) {
-    const value = Schema.decodeUnknownSync(materialGenerationPublicationSchema)(input);
-
-    const citations = [...value.citations].sort((a, b) =>
-      a.marker < b.marker ? -1 : a.marker > b.marker ? 1 : 0
-    );
-
-    const hash = new CryptoHasher('sha256')
-      .update(
-        canonicalJson(
-          Schema.encodeSync(publicationCodec)({
-            requestId: value.requestId,
-            ...(value.title === undefined ? {} : { title: value.title }),
-            content: value.content,
-            language: value.language,
-            citations
-          })
-        )
-      )
-      .digest('hex');
-
-    const row = required(
-      db.orm
-        .select()
-        .from(s.material_generation_requests)
-        .where(eq(s.material_generation_requests.id, value.requestId))
-        .get()
-    );
-
-    if (row.result_version_id !== null) {
-      if (row.result_hash !== hash)
-        throw new StudyError('invalid_input', 'Generation result differs from committed result');
-
-      return { versionId: row.result_version_id, event: null };
-    }
-
-    const request = required(readGeneration(value.requestId));
-
-    assertNotCancelled(request);
-
-    assertActiveScope(request);
-
-    validateInputs(request);
-
-    assertGenerationContent(request, value);
-
-    const resolved = citations.map((citation) =>
-      resolveGenerationCitation(request, citation, input.inputSnapshots)
-    );
-
-    const event = assertGenerationEvent(request, value.generationEventId ?? request.id);
-
-    const result = createGenerationOutput(request, value, resolved);
-
-    db.orm
-      .update(s.material_generation_requests)
-      .set({
-        result_version_id: result.versionId,
-        result_hash: hash
-      })
-      .where(eq(s.material_generation_requests.id, request.id))
-      .run();
-
-    return {
-      ...result,
-      event
-    };
-  }
-
-  function createGenerationOutput(
-    request: NonNullable<ReturnType<typeof readGeneration>>,
-    value: typeof materialGenerationPublicationSchema.Type,
-    resolved: ReturnType<typeof resolveGenerationCitation>[]
-  ) {
-    const versionInput = {
-      content: value.content,
-      inputs: request.inputs,
-      operation: 'generate' as const,
-      language: value.language,
-      publish: false
-    };
-
-    const material = createMaterial({
-      ...versionInput,
-      projectId: request.projectId,
-      title: request.autoTitle ? required(value.title) : request.title
-    });
-
-    db.orm
-      .update(s.material_versions)
-      .set({
-        creator: 'agent',
-        instruction: request.instruction ?? null,
-        generation_request_id: request.id
-      })
-      .where(eq(s.material_versions.id, material.version.id))
-      .run();
-
-    setCitations({ id: material.version.id, citations: resolved });
-
-    publish(material.version.id);
-
-    return { versionId: material.version.id, materialId: material.id };
-  }
-
-  function resolveGenerationCitation(
-    request: NonNullable<ReturnType<typeof readGeneration>>,
-    citation: (typeof materialGenerationPublicationSchema.Type)['citations'][number],
-    snapshots: readonly (typeof resolvedContentInputSchema.Type)[]
-  ) {
-    const key = contentInputKey(citation.input);
-    const selected = snapshots.find((snapshot) => contentInputKey(snapshot.input) === key);
-
-    if (!selected || !request.inputs.some((input) => contentInputKey(input) === key))
-      throw new StudyError('invalid_input', 'Citation is outside exact learning inputs');
-
-    const block = selected.document.blocks[citation.blockOrdinal];
-
-    if (!block || !block.text.includes(citation.quote))
-      throw new StudyError('invalid_input', 'Citation does not match its exact source block');
-
-    if (
-      citation.target &&
-      (citation.target.blockId !== block.id ||
-        !validBlockTextRange(selected.document, citation.target) ||
-        !block.text.slice(citation.target.start, citation.target.end).includes(citation.quote))
-    )
-      throw new StudyError(
-        'invalid_input',
-        'Citation target does not match its exact source passage'
-      );
-
-    return {
-      marker: citation.marker,
-      input: citation.input,
-      anchor: block.anchor,
-      target: citation.target,
-      quote: citation.quote
-    };
-  }
-
-  function assertGenerationContent(
-    request: NonNullable<ReturnType<typeof readGeneration>>,
-    value: typeof materialGenerationPublicationSchema.Type
-  ) {
-    if (request.autoTitle && value.title === undefined)
-      throw new StudyError('invalid_input', 'Automatic generation requires a title');
-
-    assertQuestionSpec(request.questionSpec, value.content);
-    assertQuizConfig(request.quizConfig, value.content);
-
-    if (value.content.kind !== request.kind)
-      throw new StudyError('invalid_input', 'Generation kind mismatch');
-
-    if (value.citations.length === 0)
-      throw new StudyError('invalid_input', 'Generated content must cite captured evidence');
-
-    if (new Set(value.citations.map((c) => c.marker)).size !== value.citations.length)
-      throw new StudyError('invalid_input', 'Duplicate citation markers');
-  }
-
-  type Scope = {
-    scopeId: string;
-    projectId: NonNullable<(typeof materialGenerationInputSchema.Type)['projectId']>;
-  };
-
-  function setGenerationScope(value: Scope, enabled: boolean) {
-    assertProject(value.projectId);
-
-    const existing = db.orm
-      .select()
-      .from(s.material_generation_scopes)
-      .where(eq(s.material_generation_scopes.id, value.scopeId))
-      .get();
-
-    if (existing && existing.project_id !== value.projectId)
-      throw new StudyError('invalid_input', 'Generation scope belongs to another project');
-
-    if (existing) {
-      if (!enabled && existing.enabled)
-        db.orm
-          .update(s.material_generation_scopes)
-          .set({ enabled: false, updated_at: now(clock) })
-          .where(eq(s.material_generation_scopes.id, value.scopeId))
-          .run();
-
-      return;
-    }
-
-    db.orm
-      .insert(s.material_generation_scopes)
-      .values({
-        id: value.scopeId,
-        project_id: value.projectId,
-        enabled,
-        created_at: now(clock),
-        updated_at: now(clock)
-      })
-      .run();
-  }
-
-  function assertActiveScope(request: {
-    scopeId?: string | undefined;
-    projectId?: Scope['projectId'];
-    kind?: string;
-  }) {
-    if (request.kind === 'page') return;
-
-    if (request.projectId === undefined)
-      throw new StudyError('invalid_input', 'Collection generation requires a project');
-
-    assertProject(request.projectId);
-
-    if (request.scopeId === undefined) return;
-
-    const scope = db.orm
-      .select()
-      .from(s.material_generation_scopes)
-      .where(eq(s.material_generation_scopes.id, request.scopeId))
-      .get();
-
-    if (!scope || scope.project_id !== request.projectId || !scope.enabled)
-      throw new StudyError('invalid_input', 'Generation scope is not active for this project');
-  }
-
-  function assertNotCancelled(request: { id: string; cancelled: boolean }) {
-    if (request.cancelled) throw new StudyError('cancelled', 'Generation was cancelled');
-  }
-
-  function cancelGeneration(value: { requestId: string }) {
-    const request = required(readGeneration(value.requestId));
-
-    if (request.resultVersionId === null) {
-      db.orm
-        .update(s.material_generation_requests)
-        .set({ cancelled: true })
-        .where(eq(s.material_generation_requests.id, value.requestId))
-        .run();
-      exact.releaseInputs({ kind: 'request', id: value.requestId });
-    }
-
-    return required(readGeneration(value.requestId));
-  }
-
-  return {
-    activeGenerations,
+export function makeMaterialGenerationStore(resources: StoreResources) {
+  const {
     cancelGeneration,
     generationContext,
     prepareGenerationRetry,
@@ -622,5 +28,118 @@ export function makeGeneration(resources: StoreResources) {
     requestGeneration,
     requestGenerationOnce,
     setGenerationScope
+  } = makeGeneration(resources);
+
+  return {
+    queries: {
+      materialGeneration: storeQuery({
+        role: 'required',
+        input: Schema.Struct({
+          requestId: Schema.String,
+          eventId: Schema.optional(Schema.String),
+          verifyOnly: Schema.optional(Schema.Boolean)
+        }),
+        output: materialGenerationSnapshotSchema,
+        run: (value) => generationContext(value.requestId, value.eventId, value.verifyOnly)!
+      })
+    },
+    mutations: {
+      cancelGeneration: storeMutation({
+        changes: ['materials'],
+        input: Schema.Struct({ requestId: Schema.String }),
+        output: materialGenerationSnapshotSchema,
+        run: cancelGeneration
+      }),
+      prepareRetry: storeMutation({
+        changes: ['materials'],
+        input: Schema.Struct({
+          requestId: Schema.String.check(Schema.isMinLength(1)),
+          retryId: Schema.String.check(Schema.isMinLength(1))
+        }),
+        output: Schema.Struct({
+          request: materialGenerationSnapshotSchema,
+          created: Schema.Boolean
+        }),
+        run: prepareGenerationRetry
+      }),
+      prepareFailure: storeMutation({
+        changes: ['materials'],
+        input: Schema.Struct({
+          requestId: Schema.String,
+          generationEventId: Schema.String,
+          errorKind: errorKindSchema
+        }),
+        output: Schema.Struct({
+          request: materialGenerationSnapshotSchema,
+          event: materialGenerationRequestedSchema,
+          failureId: Schema.String,
+          created: Schema.Boolean
+        }),
+        run: prepareGenerationFailure
+      }),
+      openScope: storeMutation({
+        changes: ['materials'],
+        input: Schema.Struct({
+          scopeId: Schema.String.check(Schema.isMinLength(1)),
+          projectId: projectIdSchema
+        }),
+        output: Schema.Void,
+        run: (value) => setGenerationScope(value, true)
+      }),
+      closeScope: storeMutation({
+        changes: ['materials'],
+        input: Schema.Struct({
+          scopeId: Schema.String.check(Schema.isMinLength(1)),
+          projectId: projectIdSchema
+        }),
+        output: Schema.Void,
+        run: (value) => setGenerationScope(value, false)
+      }),
+      requestOnce: storeMutation({
+        changes: ['materials'],
+        input: Schema.Struct({
+          requestId: Schema.String.check(Schema.isMinLength(1)),
+          request: materialGenerationInputSchema
+        }),
+        output: Schema.Struct({ request: materialGenerationSchema, created: Schema.Boolean }),
+        run: requestGenerationOnce
+      }),
+      publishGeneration: storeMutation({
+        changes: ['materials'],
+        input: Schema.Struct({
+          ...materialGenerationPublicationSchema.fields,
+          inputSnapshots: Schema.Array(resolvedContentInputSchema)
+        }),
+        output: Schema.Struct({
+          versionId: input.materialVersionInputSchema.fields.id,
+          event: Schema.NullOr(materialGenerationRequestedSchema),
+          materialId: Schema.optional(input.materialInputSchema.fields.id)
+        }),
+        run: publishGeneration
+      }),
+      request: storeMutation({
+        changes: ['materials'],
+        input: Schema.Struct({
+          requestId: Schema.String,
+          request: materialGenerationInputSchema
+        }),
+        output: materialGenerationSchema,
+        run: requestGeneration
+      })
+    }
+  };
+}
+
+export function makeMaterialActiveGenerationsStore(resources: StoreResources) {
+  return {
+    queries: {
+      activeGenerations: storeQuery({
+        role: 'required',
+        input: Schema.Struct({ projectId: Schema.optional(projectIdSchema) }),
+        output: Schema.Array(materialGenerationSnapshotSchema),
+        run: makeGeneration(resources).activeGenerations
+      })
+    },
+    mutations: {}
   };
 }
