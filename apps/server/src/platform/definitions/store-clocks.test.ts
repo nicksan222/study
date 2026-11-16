@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies fixed presentation timestamps preserve advancing learning scheduling.     │
@@ -10,12 +11,8 @@
  * │ Uses real stores and SQLite with separate Effect test clocks; no app runtime is started. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
 import { Clock, Effect } from 'effect';
 import { TestClock } from 'effect/testing';
-import { assert, expect } from 'vite-plus/test';
 
 import { CardStore } from '#server/features/learning/store/index';
 import { MaterialsStore } from '#server/features/materials/store/index';
@@ -45,41 +42,41 @@ function checkAdvancingEligibility(context: ServerContext) {
     const query = { projectId: project.id, limit: 10, newCardsPerDay: 10 };
     const initial = yield* cards.cards(query);
 
-    assert.strictEqual(initial.length, 1);
+    test.assert.strictEqual(initial.length, 1);
     const cardId = initial[0]!.snapshot.card_id;
     const reviewInput = { versionId: material.version.id, cardId, rating: 'good' as const };
     const first = yield* transaction((tx) => tx.store(CardStore).reviewCard(reviewInput));
     const due = first.schedule.due;
 
-    expect(note.createdAt).toBe(100n);
-    expect(project.createdAt).toBe(100n);
-    expect(material.created_at).toBe(100n);
-    expect(first.review.reviewed_at).toBe(unixSeconds(context.clock));
-    assert.ok(due > unixSeconds(context.clock));
-    expect(yield* cards.cards(query)).toHaveLength(0);
+    test.expect(note.createdAt).toBe(100n);
+    test.expect(project.createdAt).toBe(100n);
+    test.expect(material.created_at).toBe(100n);
+    test.expect(first.review.reviewed_at).toBe(unixSeconds(context.clock));
+    test.assert.ok(due > unixSeconds(context.clock));
+    test.expect(yield* cards.cards(query)).toHaveLength(0);
     yield* TestClock.setTime(Number(due * 1000n - 1000n));
-    expect(yield* cards.cards(query)).toHaveLength(0);
+    test.expect(yield* cards.cards(query)).toHaveLength(0);
     yield* TestClock.adjust('1 second');
     const eligible = yield* cards.cards(query);
 
-    expect(eligible.map((card) => card.snapshot.card_id)).toEqual([cardId]);
+    test.expect(eligible.map((card) => card.snapshot.card_id)).toEqual([cardId]);
     const second = yield* transaction((tx) => tx.store(CardStore).reviewCard(reviewInput));
     const renamed = yield* transaction((tx) =>
       tx.store(NoteStore).renameNote({ id: note.id, title: 'Still fixed' })
     );
 
-    expect(second.review.reviewed_at).toBe(due);
-    expect(second.schedule.last_review).toBe(due);
-    expect(second.schedule.due).toBeGreaterThan(due);
-    expect(renamed.createdAt).toBe(100n);
-    expect(renamed.updatedAt).toBe(100n);
-    expect(unixSeconds(context.timestampClock)).toBe(100n);
+    test.expect(second.review.reviewed_at).toBe(due);
+    test.expect(second.schedule.last_review).toBe(due);
+    test.expect(second.schedule.due).toBeGreaterThan(due);
+    test.expect(renamed.createdAt).toBe(100n);
+    test.expect(renamed.updatedAt).toBe(100n);
+    test.expect(unixSeconds(context.timestampClock)).toBe(100n);
   }).pipe(Effect.provideService(Database, { store: context }));
 }
 
-testStable(
+test.stable(
   'future cards become due as operational time advances with fixed note timestamps',
-  async () => {
+  async ({ databases }) => {
     const timestampClock = await Effect.runPromise(
       Effect.gen(function* () {
         yield* TestClock.setTime(100_000);
@@ -87,7 +84,7 @@ testStable(
         return yield* Clock.Clock;
       }).pipe(Effect.provide(TestClock.layer()))
     );
-    const location = await createTestDatabase();
+    const location = await databases();
 
     try {
       await Effect.runPromise(
@@ -100,7 +97,7 @@ testStable(
             timestampClock
           );
 
-          assert.notStrictEqual(context.clock, context.timestampClock);
+          test.assert.notStrictEqual(context.clock, context.timestampClock);
           yield* checkAdvancingEligibility(context).pipe(
             Effect.ensuring(Effect.sync(() => context.close()))
           );
@@ -112,19 +109,19 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'default store contexts preserve clock identity through nested transactions',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     try {
-      expect(context.timestampClock).toBe(context.clock);
+      test.expect(context.timestampClock).toBe(context.clock);
       context.transaction(['settings'], (outer) => {
-        expect(outer.timestampClock).toBe(context.clock);
+        test.expect(outer.timestampClock).toBe(context.clock);
         outer.transaction(['settings'], (inner) => {
-          expect(inner.clock).toBe(context.clock);
-          expect(inner.timestampClock).toBe(context.clock);
+          test.expect(inner.clock).toBe(context.clock);
+          test.expect(inner.timestampClock).toBe(context.clock);
         });
       });
     } finally {

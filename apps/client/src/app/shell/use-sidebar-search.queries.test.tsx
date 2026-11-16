@@ -1,55 +1,51 @@
 import { projectIdSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, cleanup, renderHook } from '@testing-library/react';
+import { test } from '@study/testing';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { useSidebarSearch } from './use-sidebar-search.queries';
 
-const api = vi.hoisted(() => ({ search: vi.fn() }));
+const api = test.hoisted(() => ({ search: test.vi.fn() }));
 
 const project = projectIdSchema.make(2n);
 
-let cache: ReturnType<typeof rpcTestTransport>;
+let cache: ReturnType<typeof test.rpcTestTransport>;
 
-beforeEach(() => {
-  vi.useFakeTimers();
+test.beforeEach(() => {
+  test.vi.useFakeTimers();
   api.search.mockReset().mockResolvedValue({ hits: [] });
-  cache = rpcTestTransport(async (_tag, input) => api.search(input));
+  cache = test.rpcTestTransport(async (_tag, input) => api.search(input));
 });
-afterEach(() => {
-  cleanup();
-  vi.useRealTimers();
+test.afterEach(() => {
+  test.cleanup();
+  test.vi.useRealTimers();
 });
 
 function wrapper({ children }: { children: ReactNode }) {
   return <cache.wrapper>{children}</cache.wrapper>;
 }
 
-testStable(
+test.stable(
   'debounces the latest query and keeps server search scoped to the selected subject',
   async () => {
-    const view = renderHook(
+    const view = test.renderHook(
       ({ query }) =>
         useSidebarSearch({ query, project, global: false, canSearch: true, content: 'workspace' }),
       { initialProps: { query: 'old' }, wrapper }
     );
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(199);
+    await test.act(async () => {
+      await test.vi.advanceTimersByTimeAsync(199);
     });
-    expect(api.search).not.toHaveBeenCalled();
+    test.expect(api.search).not.toHaveBeenCalled();
     view.rerender({ query: ' newest ' });
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(199);
+    await test.act(async () => {
+      await test.vi.advanceTimersByTimeAsync(199);
     });
-    expect(api.search).not.toHaveBeenCalled();
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(1);
+    test.expect(api.search).not.toHaveBeenCalled();
+    await test.act(async () => {
+      await test.vi.advanceTimersByTimeAsync(1);
     });
-    expect(api.search).toHaveBeenCalledExactlyOnceWith({
+    test.expect(api.search).toHaveBeenCalledExactlyOnceWith({
       query: 'newest',
       project,
       limit: 30,
@@ -58,8 +54,8 @@ testStable(
   }
 );
 
-testStable('cancels a pending debounce when its owner unmounts', async () => {
-  const view = renderHook(
+test.stable('cancels a pending debounce when its owner unmounts', async () => {
+  const view = test.renderHook(
     () =>
       useSidebarSearch({
         query: 'notes',
@@ -72,27 +68,27 @@ testStable('cancels a pending debounce when its owner unmounts', async () => {
   );
 
   view.unmount();
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(250);
+  await test.act(async () => {
+    await test.vi.advanceTimersByTimeAsync(250);
   });
-  expect(api.search).not.toHaveBeenCalled();
+  test.expect(api.search).not.toHaveBeenCalled();
 });
 
-testStable(
+test.stable(
   'leaves document filtering local and removes subject restrictions from global search',
   async () => {
-    const view = renderHook(
+    const view = test.renderHook(
       ({ content }) =>
         useSidebarSearch({ query: 'notes', project, global: true, canSearch: true, content }),
       { initialProps: { content: 'pages' as 'pages' | 'workspace' }, wrapper }
     );
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(250);
+    await test.act(async () => {
+      await test.vi.advanceTimersByTimeAsync(250);
     });
-    expect(api.search).not.toHaveBeenCalled();
+    test.expect(api.search).not.toHaveBeenCalled();
     view.rerender({ content: 'workspace' });
-    expect(api.search).toHaveBeenCalledExactlyOnceWith({
+    test.expect(api.search).toHaveBeenCalledExactlyOnceWith({
       query: 'notes',
       project: undefined,
       limit: 30

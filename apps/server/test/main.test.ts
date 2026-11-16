@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Starts the real server entrypoint as a child process and verifies native RPC       │
@@ -12,31 +13,25 @@
  * │ closes owned resources.                                                                  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
 import { sql } from '@study/db';
-import { testPolicy } from '@study/testing';
-import { spawnTestProcess } from '@study/testing/vitest';
-import { testStable, waitFor } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
-import { createServerTest } from '#testing/server-test';
 
 for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
-  testStable(
+  test.stable(
     `server entry serves native RPC and shuts down on ${shutdown}`,
-    { timeout: testPolicy.processStartupTimeout },
-    async (t) => {
-      const testDatabase = createServerTest(t, { app: false });
+    { timeout: test.policy.processStartupTimeout },
+    async ({ resources: resourcesFixture }) => {
+      const testDatabase = resourcesFixture;
       const env: Record<string, string | undefined> = {
         ...process.env,
         STUDY_DATABASE: testDatabase.path
       };
 
       delete env.STUDY_SERVER_TOKEN;
-      const child = spawnTestProcess({
+      const child = test.spawnTestProcess({
         cmd: [
           process.execPath,
           Bun.fileURLToPath(new URL('../src/runtime/main.ts', import.meta.url))
@@ -73,19 +68,19 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
       });
 
       try {
-        await waitFor(() => assert.ok(stdout.length > 0 || child.exitCode !== null), {
-          timeout: testPolicy.processStartupTimeout
+        await test.waitFor(() => test.assert.ok(stdout.length > 0 || child.exitCode !== null), {
+          timeout: test.policy.processStartupTimeout
         });
 
-        assert.ok(stdout.length > 0, child.exitCode === null ? '' : await stderr);
+        test.assert.ok(stdout.length > 0, child.exitCode === null ? '' : await stderr);
 
         const line = stdout[0]!;
         const endpoint = JSON.parse(line) as {
           url: string;
         };
 
-        expect(endpoint.url).toMatch(/^http:\/\/127\.0\.0\.1:/);
-        expect(Object.keys(endpoint)).toStrictEqual(['url']);
+        test.expect(endpoint.url).toMatch(/^http:\/\/127\.0\.0\.1:/);
+        test.expect(Object.keys(endpoint)).toStrictEqual(['url']);
         const project = await Effect.runPromise(
           Effect.scoped(
             Effect.gen(function* () {
@@ -96,16 +91,16 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
           )
         );
 
-        assert.ok(typeof project.id === 'bigint');
-        const database = await createServerTest(t, { app: false }).openDb(env.STUDY_DATABASE!);
+        test.assert.ok(typeof project.id === 'bigint');
+        const database = await resourcesFixture.openDb(env.STUDY_DATABASE!);
 
         try {
           const saved = database.orm.get<{ id: bigint; name: string }>(
             sql`SELECT id, name FROM projects WHERE id=${project.id}`
           );
 
-          assert.strictEqual(saved?.id, project.id);
-          assert.ok(saved?.name === 'Process persistence');
+          test.assert.strictEqual(saved?.id, project.id);
+          test.assert.ok(saved?.name === 'Process persistence');
         } finally {
           database.close();
         }
@@ -116,8 +111,8 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
         const result = await exit;
 
         await output;
-        assert.strictEqual(result, 0, await stderr);
-        expect(stdout).toStrictEqual([JSON.stringify(endpoint)]);
+        test.assert.strictEqual(result, 0, await stderr);
+        test.expect(stdout).toStrictEqual([JSON.stringify(endpoint)]);
       } finally {
         if (child.exitCode === null) child.kill('SIGKILL');
 

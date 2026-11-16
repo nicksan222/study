@@ -1,5 +1,4 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
@@ -7,9 +6,10 @@ async function lint(source: string, path = 'apps/client/src/features/example/exa
   return await lintRule('shared-loading', { [path]: source }, true);
 }
 
-testStable('allows component loading indicators and isLoading usage', async () => {
-  expect(
-    await lint(`
+test.stable('allows component loading indicators and isLoading usage', async () => {
+  test
+    .expect(
+      await lint(`
     import { Loading as Wait } from '@study/ui';
     import { Spinner } from '@study/ui';
     export function Preview({ query, saving }) {
@@ -17,11 +17,12 @@ testStable('allows component loading indicators and isLoading usage', async () =
       return <button disabled={saving}>{saving && <Spinner label="Saving" />}</button>;
     }
   `)
-  ).toStrictEqual([]);
+    )
+    .toStrictEqual([]);
 });
 
-testStable('rejects initial page loading returns including imported aliases', async () => {
-  assert.strictEqual(
+test.stable('rejects initial page loading returns including imported aliases', async () => {
+  test.assert.strictEqual(
     (
       await lint(`
     import { Loading as Wait } from '@study/ui';
@@ -33,7 +34,7 @@ testStable('rejects initial page loading returns including imported aliases', as
     ).length,
     1
   );
-  assert.strictEqual(
+  test.assert.strictEqual(
     (
       await lint(`
     export const LibraryPage = ({ query }) => {
@@ -45,19 +46,21 @@ testStable('rejects initial page loading returns including imported aliases', as
   );
 });
 
-testStable('allows page data guards and contextual component indicators', async () => {
-  expect(
-    await lint(`
+test.stable('allows page data guards and contextual component indicators', async () => {
+  test
+    .expect(
+      await lint(`
     export function LibraryPage({ query, saving }) {
       if (query.isPending) return null;
       return <main><Content /><button disabled={saving}>{saving && <Spinner />}</button></main>;
     }
   `)
-  ).toStrictEqual([]);
+    )
+    .toStrictEqual([]);
 });
 
-testStable('rejects custom loading text and raw animation in initial page returns', async () => {
-  assert.strictEqual(
+test.stable('rejects custom loading text and raw animation in initial page returns', async () => {
+  test.assert.strictEqual(
     (
       await lint(`
     export function ReaderPage({ query, t }) {
@@ -68,7 +71,7 @@ testStable('rejects custom loading text and raw animation in initial page return
     ).length,
     1
   );
-  assert.strictEqual(
+  test.assert.strictEqual(
     (
       await lint(`
     export function ReaderPage({ query }) {
@@ -81,38 +84,44 @@ testStable('rejects custom loading text and raw animation in initial page return
   );
 });
 
-testStable('keeps the shared route pending boundary free of visual loading', async () => {
+test.stable('keeps the shared route pending boundary free of visual loading', async () => {
   const path = 'apps/client/src/app/shell/route-feedback.tsx';
 
-  assert.strictEqual(
+  test.assert.strictEqual(
     (await lint('export function RoutePending() { return <Spinner />; }', path)).length,
     1
   );
-  expect(await lint('export function RoutePending() { return null; }', path)).toStrictEqual([]);
+  test
+    .expect(await lint('export function RoutePending() { return null; }', path))
+    .toStrictEqual([]);
 });
 
-testStable('requires route definitions to reuse the shared pending boundary', async () => {
+test.stable('requires route definitions to reuse the shared pending boundary', async () => {
   const path = 'apps/client/src/routes/library.tsx';
 
-  assert.strictEqual(
+  test.assert.strictEqual(
     (await lint('const route = { pendingComponent: () => <Spinner /> };', path)).length,
     1
   );
-  expect(await lint('const route = { pendingComponent: RoutePending };', path)).toStrictEqual([]);
+  test
+    .expect(await lint('const route = { pendingComponent: RoutePending };', path))
+    .toStrictEqual([]);
 });
 
-testStable('does not enforce loading presentation in server code or test examples', async () => {
+test.stable('does not enforce loading presentation in server code or test examples', async () => {
   for (const path of ['apps/server/src/example.tsx', 'apps/client/src/example.test.tsx'])
-    expect(
-      await lint(
-        'export function ReaderPage({query}) { if (query.isLoading) return <Spinner />; return null; }',
-        path
+    test
+      .expect(
+        await lint(
+          'export function ReaderPage({query}) { if (query.isLoading) return <Spinner />; return null; }',
+          path
+        )
       )
-    ).toStrictEqual([]);
+      .toStrictEqual([]);
 });
 
-testStable('rejects initial page loading in concise arrows and page JSX', async () => {
-  assert.strictEqual(
+test.stable('rejects initial page loading in concise arrows and page JSX', async () => {
+  test.assert.strictEqual(
     (
       await lint(
         'export const ReaderPage = ({ query }) => query.isLoading ? <Spinner /> : <Content />;'
@@ -120,7 +129,7 @@ testStable('rejects initial page loading in concise arrows and page JSX', async 
     ).length,
     1
   );
-  assert.strictEqual(
+  test.assert.strictEqual(
     (
       await lint(
         'export function ReaderPage({query}) { return <main>{query.isPending && <Spinner />}</main>; }'

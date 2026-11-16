@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises provider fixture acquisition failures and repeatable auth ownership      │
@@ -12,25 +13,24 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
-
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 
 import { pageTransformFixture } from './page-transform.ts';
 
-testStable(
+test.stable(
   'fixture acquisition failure releases peer/database and close releases auth exactly once',
-  async () => {
+  async ({ databases }) => {
     const owner = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
 
     try {
-      await expect(pageTransformFixture()).rejects.toThrow(/auth owner already exists/);
+      await test
+        .expect(pageTransformFixture(databases))
+        .rejects.toThrow(/auth owner already exists/);
     } finally {
       await owner.dispose();
     }
 
-    const first = await pageTransformFixture();
+    const first = await pageTransformFixture(databases);
 
     try {
       await Promise.all([first.close(), first.close()]);
@@ -38,7 +38,7 @@ testStable(
       await first.close();
     }
 
-    const next = await pageTransformFixture();
+    const next = await pageTransformFixture(databases);
 
     await next.close();
   }

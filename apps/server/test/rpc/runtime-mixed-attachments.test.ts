@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises mixed-source extraction through real HTTP RPC and SQLite.                │
@@ -10,24 +11,19 @@
  * │ Uses production application workers and RPC; automatic fixtures own cleanup.             │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { serve } from '#server/runtime/index';
-import { pollUntil } from '#testing/poll';
-import { createStudyTest } from '#testing/server-test';
 
 const isSourceIngestion = (item: { workflow: string }) => item.workflow === 'source-ingestion/v1';
 
-testStable(
+test.stable(
   'failed extraction leaves same-note sibling sources and original bytes usable over HTTP',
   { timeout: 15000 },
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture }) => {
+    const fixture = serverFixture;
 
     const server = fixture.manage(await serve(fixture.app));
 
@@ -56,7 +52,7 @@ testStable(
             sourceIds: sources.map((source) => source.id)
           });
 
-          const { failed, north, south } = yield* pollUntil(
+          const { failed, north, south } = yield* test.pollUntil(
             Effect.gen(function* () {
               const processing = yield* client['sources.sourceProcessing']({ id: sources[1]!.id });
 
@@ -81,19 +77,19 @@ testStable(
             }
           );
 
-          assert.ok(failed?.outcome === 'failure' && north && south);
-          assert.strictEqual(failed.failureKind, 'unsupported');
-          assert.strictEqual(
+          test.assert.ok(failed?.outcome === 'failure' && north && south);
+          test.assert.strictEqual(failed.failureKind, 'unsupported');
+          test.assert.strictEqual(
             (yield* client['sources.sourceProcessing']({ id: sources[1]!.id })).documentId,
             null
           );
-          expect(north.document.blocks.map((block) => block.text)).toStrictEqual([
-            'North bank evidence'
-          ]);
-          expect(south.document.blocks.map((block) => block.text)).toStrictEqual([
-            'South bank evidence'
-          ]);
-          assert.notStrictEqual(north.sourceId, south.sourceId);
+          test
+            .expect(north.document.blocks.map((block) => block.text))
+            .toStrictEqual(['North bank evidence']);
+          test
+            .expect(south.document.blocks.map((block) => block.text))
+            .toStrictEqual(['South bank evidence']);
+          test.assert.notStrictEqual(north.sourceId, south.sourceId);
 
           for (const [index, source] of sources.entries()) {
             const retained = yield* client['sources.exportRevision']({
@@ -101,17 +97,19 @@ testStable(
               revision: 1n
             });
 
-            expect(retained.bytes).toStrictEqual(inputs[index]!.bytes);
+            test.expect(retained.bytes).toStrictEqual(inputs[index]!.bytes);
           }
 
           const messages = yield* client['notes.thread']({ noteId: note.id, limit: 100 });
 
-          assert.strictEqual(messages.items.length, 1);
-          expect(
-            messages.items[0]!.parts.filter((part) => part.sourceId !== null).map(
-              (part) => part.sourceId
+          test.assert.strictEqual(messages.items.length, 1);
+          test
+            .expect(
+              messages.items[0]!.parts.filter((part) => part.sourceId !== null).map(
+                (part) => part.sourceId
+              )
             )
-          ).toStrictEqual(sources.map((source) => source.id));
+            .toStrictEqual(sources.map((source) => source.id));
 
           return;
         })

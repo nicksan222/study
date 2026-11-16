@@ -10,13 +10,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { testStable, waitFor } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { runIntegrationTests } from './environment.ts';
 import { integrationFixture } from './fixture.ts';
 
-testStable.each(['success', 'test-failure'])(
+test.stable.each(['success', 'test-failure'])(
   'integration execution preserves native reports and the %s exit code, then cleans up',
   async (mode) => {
     await using context = await integrationFixture(mode);
@@ -27,19 +26,21 @@ testStable.each(['success', 'test-failure'])(
       );
     });
 
-    expect(code).toBe(mode === 'success' ? 0 : 7);
-    expect(await Bun.file(`${context.directory}/container`).exists()).toBe(false);
-    expect(await Bun.file(`${context.directory}/image`).exists()).toBe(false);
-    expect(
-      await Bun.file(`${context.root}/tooling/test-results/vitest/integrations.xml`).text()
-    ).toContain('provider imports');
-    expect(
-      await Bun.file(`${context.root}/tooling/test-results/integrations/provider.log`).text()
-    ).toBe('provider diagnostics');
+    test.expect(code).toBe(mode === 'success' ? 0 : 7);
+    test.expect(await Bun.file(`${context.directory}/container`).exists()).toBe(false);
+    test.expect(await Bun.file(`${context.directory}/image`).exists()).toBe(false);
+    test
+      .expect(await Bun.file(`${context.root}/tooling/test-results/vitest/integrations.xml`).text())
+      .toContain('provider imports');
+    test
+      .expect(
+        await Bun.file(`${context.root}/tooling/test-results/integrations/provider.log`).text()
+      )
+      .toBe('provider diagnostics');
   }
 );
 
-testStable.each([
+test.stable.each([
   { mode: 'build-failure', error: 'build' },
   { mode: 'create-failure', error: 'create' },
   { mode: 'start-failure', error: 'invalid exit status' },
@@ -47,15 +48,15 @@ testStable.each([
 ])('integration execution fails visibly and cleans up after $mode', async ({ mode, error }) => {
   await using context = await integrationFixture(mode);
 
-  await expect(runIntegrationTests(context.root)).rejects.toThrow(error);
-  expect(await Bun.file(`${context.directory}/container`).exists()).toBe(false);
-  expect(await Bun.file(`${context.directory}/image`).exists()).toBe(false);
-  expect(
-    await Bun.file(`${context.root}/tooling/test-results/integrations/setup.log`).exists()
-  ).toBe(true);
+  await test.expect(runIntegrationTests(context.root)).rejects.toThrow(error);
+  test.expect(await Bun.file(`${context.directory}/container`).exists()).toBe(false);
+  test.expect(await Bun.file(`${context.directory}/image`).exists()).toBe(false);
+  test
+    .expect(await Bun.file(`${context.root}/tooling/test-results/integrations/setup.log`).exists())
+    .toBe(true);
 });
 
-testStable('interrupted integration execution removes its container and image', async () => {
+test.stable('interrupted integration execution removes its container and image', async () => {
   await using context = await integrationFixture('interrupt');
   const controller = new AbortController();
   const running = runIntegrationTests(context.root, controller.signal);
@@ -63,14 +64,14 @@ testStable('interrupted integration execution removes its container and image', 
   void running.catch(() => {});
 
   try {
-    await waitFor(async () =>
-      expect(await Bun.file(`${context.directory}/started`).exists()).toBe(true)
+    await test.waitFor(async () =>
+      test.expect(await Bun.file(`${context.directory}/started`).exists()).toBe(true)
     );
 
     controller.abort();
-    await expect(running).rejects.toThrow();
-    expect(await Bun.file(`${context.directory}/container`).exists()).toBe(false);
-    expect(await Bun.file(`${context.directory}/image`).exists()).toBe(false);
+    await test.expect(running).rejects.toThrow();
+    test.expect(await Bun.file(`${context.directory}/container`).exists()).toBe(false);
+    test.expect(await Bun.file(`${context.directory}/image`).exists()).toBe(false);
   } finally {
     controller.abort();
     await running.catch(() => {});

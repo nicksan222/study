@@ -6,16 +6,14 @@ import {
 } from '@study/contracts';
 import type { BlockContent, documentSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { render, screen } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { expect, vi } from 'vite-plus/test';
 
 import { LanguageProvider } from '#client/lib/i18n.tsx';
 
 import { DocumentReader } from '../document-presentation';
 
-vi.mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
+test.mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
   useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, readerFontSize: 22 })
 }));
 
@@ -44,10 +42,10 @@ function document(contents: BlockContent[]): typeof documentSchema.Type {
   };
 }
 
-testStable(
+test.stable(
   'preserves heading, inline marks, table paragraphs, code, list nesting and stable block anchors',
   () => {
-    const { container } = render(
+    const { container } = test.render(
       <DocumentReader
         document={document([
           { type: 'heading', level: 2, inlines: text('A heading') },
@@ -91,19 +89,23 @@ testStable(
       />
     );
 
-    expect(screen.getByRole('article')).toHaveStyle({ fontSize: '22px' });
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('A heading');
-    expect(container.querySelector('em strong')).toHaveTextContent('Important');
-    expect(container.querySelector('th')?.querySelectorAll('p')).toHaveLength(2);
-    expect(container.querySelector('script')).toBeNull();
-    expect(container.querySelector('pre code')).toHaveTextContent('<script>not executed</script>');
-    expect(container.querySelector('ol')).toHaveAttribute('start', '3');
-    expect(container.querySelector('ol > li > ul > li')?.querySelectorAll('p')).toHaveLength(2);
-    expect(container.querySelector('#block-b0')).toBeInTheDocument();
+    test.expect(test.screen.getByRole('article')).toHaveStyle({ fontSize: '22px' });
+    test.expect(test.screen.getByRole('heading', { level: 2 })).toHaveTextContent('A heading');
+    test.expect(container.querySelector('em strong')).toHaveTextContent('Important');
+    test.expect(container.querySelector('th')?.querySelectorAll('p')).toHaveLength(2);
+    test.expect(container.querySelector('script')).toBeNull();
+    test
+      .expect(container.querySelector('pre code'))
+      .toHaveTextContent('<script>not executed</script>');
+    test.expect(container.querySelector('ol')).toHaveAttribute('start', '3');
+    test
+      .expect(container.querySelector('ol > li > ul > li')?.querySelectorAll('p'))
+      .toHaveLength(2);
+    test.expect(container.querySelector('#block-b0')).toBeInTheDocument();
   }
 );
 
-testStable(
+test.stable(
   'discloses omissions and unavailable exact image revisions in both languages without requesting current bytes',
   () => {
     const image: BlockContent = {
@@ -112,27 +114,27 @@ testStable(
       revision: 2,
       alt: 'Historical figure'
     };
-    const { container, rerender } = render(
+    const { container, rerender } = test.render(
       <LanguageProvider locale="english">
         <DocumentReader document={document([image])} />
       </LanguageProvider>
     );
 
-    expect(screen.getByText(catalogs.english.ReaderImageUnavailable)).toBeInTheDocument();
-    expect(screen.getByText(catalogs.english.ReaderOmitNestedTable)).toBeInTheDocument();
-    expect(container.querySelector('img')).toBeNull();
+    test.expect(test.screen.getByText(catalogs.english.ReaderImageUnavailable)).toBeInTheDocument();
+    test.expect(test.screen.getByText(catalogs.english.ReaderOmitNestedTable)).toBeInTheDocument();
+    test.expect(container.querySelector('img')).toBeNull();
     rerender(
       <LanguageProvider locale="italian">
         <DocumentReader document={document([image])} />
       </LanguageProvider>
     );
-    expect(screen.getByText(catalogs.italian.ReaderImageUnavailable)).toBeInTheDocument();
-    expect(screen.getByText('Historical figure')).toBeInTheDocument();
+    test.expect(test.screen.getByText(catalogs.italian.ReaderImageUnavailable)).toBeInTheDocument();
+    test.expect(test.screen.getByText('Historical figure')).toBeInTheDocument();
   }
 );
 
-testStable('keeps parent continuations after intervening nested list content', () => {
-  const { container } = render(
+test.stable('keeps parent continuations after intervening nested list content', () => {
+  const { container } = test.render(
     <DocumentReader
       document={document([
         {
@@ -160,11 +162,8 @@ testStable('keeps parent continuations after intervening nested list content', (
   );
   const item = container.querySelector('.material-prose section > ul > li');
 
-  expect(Array.from(item?.children ?? []).map((child) => child.textContent)).toEqual([
-    'Before',
-    'Child',
-    'After',
-    'Later child'
-  ]);
-  expect(item?.querySelector('ol')).toHaveAttribute('start', '4');
+  test
+    .expect(Array.from(item?.children ?? []).map((child) => child.textContent))
+    .toEqual(['Before', 'Child', 'After', 'Later child']);
+  test.expect(item?.querySelector('ol')).toHaveAttribute('start', '4');
 });

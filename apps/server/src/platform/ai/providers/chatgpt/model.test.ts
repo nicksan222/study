@@ -1,3 +1,4 @@
+import { pageTransformOutputSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises the ChatGPT Responses model adapter against a local HTTP peer. It checks │
@@ -13,13 +14,10 @@
  * │ closes that peer.                                                                        │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { pageTransformOutputSchema } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Output, streamText } from 'ai';
 import { Effect } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { titleAgent } from '#server/features/notes/agents/title';
 import { generateAgent, layer } from '#server/platform/ai/agents';
@@ -27,7 +25,7 @@ import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model'
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 import { standardSchema } from '#server/platform/ai/schema';
 
-testStable('Responses adapter retries 401 with rotated OAuth token and consumes SSE', async () => {
+test.stable('Responses adapter retries 401 with rotated OAuth token and consumes SSE', async () => {
   const bodies: Record<string, unknown>[] = [];
   const headers: string[] = [];
   const server = Bun.serve({
@@ -105,19 +103,19 @@ testStable('Responses adapter retries 401 with rotated OAuth token and consumes 
       )
     );
 
-    assert.ok(result === 'Biology');
-    expect(headers).toStrictEqual(['Bearer original', 'Bearer renewed']);
-    assert.ok(bodies[1].stream === true);
-    assert.ok(bodies[1].store === false);
-    expect(String(bodies[1].instructions)).toMatch(/study note/i);
-    assert.ok(Array.isArray(bodies[1].input));
+    test.assert.ok(result === 'Biology');
+    test.expect(headers).toStrictEqual(['Bearer original', 'Bearer renewed']);
+    test.assert.ok(bodies[1].stream === true);
+    test.assert.ok(bodies[1].store === false);
+    test.expect(String(bodies[1].instructions)).toMatch(/study note/i);
+    test.assert.ok(Array.isArray(bodies[1].input));
   } finally {
     await auth.dispose();
     await server.stop(true);
   }
 });
 
-testStable(
+test.stable(
   'page generation transmits a closed strict schema through the Responses adapter',
   async () => {
     let body: { text: { format: { type: string; strict: boolean; schema: unknown } } } | undefined;
@@ -181,9 +179,9 @@ testStable(
         output: Output.object({ schema: standardSchema(pageTransformOutputSchema) })
       });
 
-      expect(await result.output).toStrictEqual(output);
-      expect(body?.text.format.type).toBe('json_schema');
-      expect(body?.text.format.strict).toBe(true);
+      test.expect(await result.output).toStrictEqual(output);
+      test.expect(body?.text.format.type).toBe('json_schema');
+      test.expect(body?.text.format.strict).toBe(true);
       let objects = 0;
 
       function inspect(value: unknown) {
@@ -195,7 +193,7 @@ testStable(
             typeof value.properties === 'object'
           ) {
             objects++;
-            expect(value).toMatchObject({
+            test.expect(value).toMatchObject({
               additionalProperties: false,
               required: Object.keys(value.properties)
             });
@@ -206,7 +204,7 @@ testStable(
       }
 
       inspect(body?.text.format.schema);
-      expect(objects).toBeGreaterThan(10);
+      test.expect(objects).toBeGreaterThan(10);
     } finally {
       await auth.dispose();
       await server.stop(true);

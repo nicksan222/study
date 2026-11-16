@@ -1,3 +1,4 @@
+import { sql } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Authored generation receipts retain metadata independently of raw notes and        │
@@ -10,12 +11,9 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sql } from '@study/db';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
@@ -24,10 +22,10 @@ import { assertScrubbed, cleanup, validPageTransformOutput } from '#testing/note
 import { pageTransformFixture } from '#testing/page-transform';
 
 for (const mode of ['history', 'delete'] as const)
-  testStable(
+  test.stable(
     `generated authored ${mode} preserves receipt identities and scrubs instructions on entity deletion`,
-    async () => {
-      const f = await pageTransformFixture();
+    async ({ databases }) => {
+      const f = await pageTransformFixture(databases);
 
       try {
         const saved = await Effect.runPromise(
@@ -43,7 +41,7 @@ for (const mode of ['history', 'delete'] as const)
               citations: []
             });
 
-            assert.ok(input.version);
+            test.assert.ok(input.version);
             const note = yield* chats.createUntitledNote({});
 
             yield* docs.attach({ noteId: note.id, pageId: input.id });
@@ -105,10 +103,10 @@ for (const mode of ['history', 'delete'] as const)
             yield* Notes;
             const output = yield* docs.version({ id: resultId });
 
-            assert.notStrictEqual(output.pageId, saved.input.id);
-            expect(output.inputs).toStrictEqual([
-              { kind: 'page', versionId: saved.input.version.id }
-            ]);
+            test.assert.notStrictEqual(output.pageId, saved.input.id);
+            test
+              .expect(output.inputs)
+              .toStrictEqual([{ kind: 'page', versionId: saved.input.version.id }]);
             const copy = yield* docs.create({
               createKey: crypto.randomUUID(),
               title: 'Independent intentional copy',
@@ -117,27 +115,27 @@ for (const mode of ['history', 'delete'] as const)
               citations: []
             });
 
-            assert.ok(copy.version);
+            test.assert.ok(copy.version);
             f.context.db.exec(
               "CREATE TRIGGER reject_private_retirement BEFORE DELETE ON blocks BEGIN SELECT RAISE(ABORT,'injected retirement rollback'); END"
             );
             const failedPreview = yield* docs.previewDeletion({ id: output.pageId });
 
             yield* Effect.flip(docs.delete({ pageId: output.pageId, token: failedPreview.token }));
-            assert.ok(
+            test.assert.ok(
               JSON.stringify(
                 f.context.db.orm.all(sql`SELECT * FROM cluster_replies`),
                 (_key, value) => (typeof value === 'bigint' ? String(value) : value)
               ).includes('INTENTIONAL_AUTHORED_BODY'),
               'rollback must retain private official workflow replies'
             );
-            assert.strictEqual(
+            test.assert.strictEqual(
               f.context.db.orm.get(
                 sql`SELECT count(*) n FROM workflow_retired_correlations WHERE correlation_id=${saved.request.id}`
               )?.n,
               0n
             );
-            assert.ok(yield* docs.version({ id: output.id }));
+            test.assert.ok(yield* docs.version({ id: output.id }));
             f.context.db.exec('DROP TRIGGER reject_private_retirement');
 
             if (mode === 'history') {
@@ -150,13 +148,13 @@ for (const mode of ['history', 'delete'] as const)
               const scope = { pageId: output.pageId, keepLatest: 1 };
               const preview = yield* docs.previewHistory(scope);
 
-              expect(preview.versionIds).toStrictEqual([output.id]);
+              test.expect(preview.versionIds).toStrictEqual([output.id]);
               yield* docs.retireHistory({ ...scope, token: preview.token });
-              assert.strictEqual(
+              test.assert.strictEqual(
                 (yield* docs.transform({ requestId: saved.request.id })).instruction,
                 'Retained authored generation instruction'
               );
-              assert.ok(
+              test.assert.ok(
                 (yield* docs.version({ id: current.submittedVersionId })).document.blocks[0]
                   ?.text === 'Current authored body'
               );
@@ -166,13 +164,17 @@ for (const mode of ['history', 'delete'] as const)
               yield* docs.delete({ pageId: output.pageId, token: preview.token });
             }
 
-            assert.ok((yield* Effect.flip(docs.version({ id: output.id }))).kind === 'not_found');
+            test.assert.ok(
+              (yield* Effect.flip(docs.version({ id: output.id }))).kind === 'not_found'
+            );
             // Retirement must scrub native output while the independent raw note still exists.
             assertScrubbed(f, 'INTENTIONAL_AUTHORED_BODY', false);
-            assert.ok(f.context.db.orm.get(sql`SELECT 1 FROM notes WHERE id=${saved.note.id}`));
+            test.assert.ok(
+              f.context.db.orm.get(sql`SELECT 1 FROM notes WHERE id=${saved.note.id}`)
+            );
             assertScrubbed(f, 'INTENTIONAL_AUTHORED_BODY', false);
             // Raw note pins and any current authored version keep original evidence alive.
-            assert.ok(
+            test.assert.ok(
               (yield* docs.previewDeletion({ id: saved.input.id })).blockedVersionIds.includes(
                 saved.input.version.id
               )
@@ -184,19 +186,19 @@ for (const mode of ['history', 'delete'] as const)
         // Reopen with the raw note retained: retiring its independent output is sufficient.
 
         await f.reopen();
-        assert.ok(f.context.db.orm.get(sql`SELECT 1 FROM notes WHERE id=${saved.note.id}`));
+        test.assert.ok(f.context.db.orm.get(sql`SELECT 1 FROM notes WHERE id=${saved.note.id}`));
         assertScrubbed(f, 'INTENTIONAL_AUTHORED_BODY', false);
-        assert.ok(
+        test.assert.ok(
           f.context.db.orm.get(
             sql`SELECT payload FROM workflow_executions WHERE execution_id='independent-native'`
           )?.payload === independentPayload
         );
         const callsBeforeReplay = f.bodies.length;
 
-        await expect(
-          f.executeAuthored(event, 'retired-body-note-retained-replay')
-        ).rejects.toSatisfy(() => true);
-        assert.strictEqual(f.bodies.length, callsBeforeReplay);
+        await test
+          .expect(f.executeAuthored(event, 'retired-body-note-retained-replay'))
+          .rejects.toSatisfy(() => true);
+        test.assert.strictEqual(f.bodies.length, callsBeforeReplay);
         await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Pages;
@@ -206,7 +208,7 @@ for (const mode of ['history', 'delete'] as const)
             yield* chats.deleteNote(saved.note.id);
 
             if (mode === 'history') {
-              assert.ok(
+              test.assert.ok(
                 (yield* docs.previewDeletion({ id: saved.input.id })).blockedVersionIds.includes(
                   saved.input.version.id
                 )
@@ -218,7 +220,7 @@ for (const mode of ['history', 'delete'] as const)
 
             const released = yield* docs.previewDeletion({ id: saved.input.id });
 
-            expect(released.blockedVersionIds).toStrictEqual([]);
+            test.expect(released.blockedVersionIds).toStrictEqual([]);
             yield* docs.delete({ pageId: saved.input.id, token: released.token });
           }).pipe(Effect.provide(f.services()))
         );
@@ -230,26 +232,28 @@ for (const mode of ['history', 'delete'] as const)
 
             const chats = yield* Notes;
 
-            expect(yield* docs.version({ id: retained.copy.id })).toStrictEqual(retained.copy);
-            assert.ok((yield* Effect.flip(docs.version({ id: resultId }))).kind === 'not_found');
-            assert.ok(
+            test.expect(yield* docs.version({ id: retained.copy.id })).toStrictEqual(retained.copy);
+            test.assert.ok(
+              (yield* Effect.flip(docs.version({ id: resultId }))).kind === 'not_found'
+            );
+            test.assert.ok(
               (yield* Effect.flip(chats.noteContext({ requestId: saved.capture.requestId })))
                 .kind === 'not_found'
             );
             const request = yield* docs.transform({ requestId: saved.request.id });
 
-            assert.strictEqual(request.resultVersionId, resultId);
-            assert.strictEqual(request.instruction, '');
-            assert.strictEqual(request.title, '-');
-            assert.strictEqual(request.report, null);
+            test.assert.strictEqual(request.resultVersionId, resultId);
+            test.assert.strictEqual(request.instruction, '');
+            test.assert.strictEqual(request.title, '-');
+            test.assert.strictEqual(request.report, null);
           }).pipe(Effect.provide(f.services()))
         );
         const receipt = f.context.db.orm.select().from(s.page_generation_requests).get();
 
-        assert.ok(receipt);
-        assert.strictEqual(receipt.page_id, retained.outputId);
-        assert.strictEqual(receipt.result_version_id, resultId);
-        assert.ok(
+        test.assert.ok(receipt);
+        test.assert.strictEqual(receipt.page_id, retained.outputId);
+        test.assert.strictEqual(receipt.result_version_id, resultId);
+        test.assert.ok(
           f.context.db.orm.get(sql`SELECT instruction FROM page_versions WHERE id=${resultId}`)
             ?.instruction === null
         );
@@ -262,21 +266,21 @@ for (const mode of ['history', 'delete'] as const)
           sql`UPDATE page_generation_requests SET page_id=${saved.input.id}`,
           sql`DELETE FROM page_generation_requests`
         ])
-          assert.throws(() => f.context.db.orm.run(mutation));
+          test.assert.throws(() => f.context.db.orm.run(mutation));
 
         const calls = f.bodies.length;
 
-        await expect(
-          f.executeAuthored(event, 'late-retired-authored-generation')
-        ).rejects.toSatisfy(() => true);
-        assert.strictEqual(f.bodies.length, calls);
-        assert.strictEqual(
+        await test
+          .expect(f.executeAuthored(event, 'late-retired-authored-generation'))
+          .rejects.toSatisfy(() => true);
+        test.assert.strictEqual(f.bodies.length, calls);
+        test.assert.strictEqual(
           f.context.db.orm.get(
             sql`SELECT count(*) n FROM blocks WHERE text LIKE '%INTENTIONAL_AUTHORED_BODY%'`
           )?.n,
           0n
         );
-        expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+        test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         await f.close();
       }

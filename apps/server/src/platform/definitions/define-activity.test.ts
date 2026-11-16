@@ -1,3 +1,4 @@
+import { failureSchema, StudyError } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies native activity harness replay, lazy dependencies and typed failures.     │
@@ -9,13 +10,9 @@
  * │ Uses the real in-memory Effect Workflow engine without application resources.            │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { failureSchema, StudyError } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Context, Effect, Schema } from 'effect';
 import { Workflow, WorkflowEngine } from 'effect/workflow';
-import { assert } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -31,7 +28,7 @@ import { admitTestExecution } from '#testing/workflow-admission';
 
 class Input extends Context.Service<Input, string>()('test/ActivityInput') {}
 
-testStable(
+test.stable(
   'activity harness keeps native replay identity and lazy generator requirements',
   async () => {
     let calls = 0;
@@ -53,9 +50,9 @@ testStable(
       idempotencyKey: () => 'one'
     });
 
-    assert.strictEqual(calls, 0);
-    assert.strictEqual(activity.name, 'read-value');
-    assert.strictEqual(activity.errorSchema, failureSchema);
+    test.assert.strictEqual(calls, 0);
+    test.assert.strictEqual(activity.name, 'read-value');
+    test.assert.strictEqual(activity.errorSchema, failureSchema);
     const values = await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
@@ -70,12 +67,12 @@ testStable(
       )
     );
 
-    assert.deepStrictEqual(values, ['saved', 'saved']);
-    assert.strictEqual(calls, 1);
+    test.assert.deepStrictEqual(values, ['saved', 'saved']);
+    test.assert.strictEqual(calls, 1);
   }
 );
 
-testStable(
+test.stable(
   'activity harness preserves the canonical failure kind on the native error channel',
   async () => {
     const failure = new StudyError('invalid_input', 'rejected');
@@ -104,15 +101,15 @@ testStable(
       )
     );
 
-    assert.strictEqual(result.kind, 'invalid_input');
-    assert.strictEqual(result.message, 'rejected');
+    test.assert.strictEqual(result.kind, 'invalid_input');
+    test.assert.strictEqual(result.message, 'rejected');
   }
 );
 
-testStable(
+test.stable(
   'publication activities capture real domain authorization inside execution',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     let writes = 0;
     const workflow = Workflow.make('publication-harness', {
@@ -135,7 +132,7 @@ testStable(
       })
     });
 
-    assert.strictEqual(writes, 0);
+    test.assert.strictEqual(writes, 0);
 
     try {
       const result = await Effect.runPromise(
@@ -152,8 +149,8 @@ testStable(
         )
       );
 
-      assert.strictEqual(result, 1);
-      assert.strictEqual(writes, 1);
+      test.assert.strictEqual(result, 1);
+      test.assert.strictEqual(writes, 1);
     } finally {
       context.close();
       await location.cleanup();
@@ -161,10 +158,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'resumable checkpoint keeps terminal failures and honors a zero retry budget',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     let calls = 0;
     const workflow = Workflow.make('resumable-harness', {
@@ -205,8 +202,8 @@ testStable(
         )
       );
 
-      assert.strictEqual(error.kind, 'transient');
-      assert.strictEqual(calls, 1);
+      test.assert.strictEqual(error.kind, 'transient');
+      test.assert.strictEqual(calls, 1);
     } finally {
       context.close();
       await location.cleanup();

@@ -1,5 +1,4 @@
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { buildStoragePolicy } from './build-storage-policy.ts';
 
@@ -17,25 +16,36 @@ const config = {
   dockerIgnore: await Bun.file(new URL('.devcontainer/Dockerfile.dockerignore', root)).text()
 };
 
-testStable(
+test.stable(
   'build storage configuration rejects cache bypasses, duplicate targets and broad Docker contexts',
   () => {
-    expect(buildStoragePolicy(config)).toEqual([]);
-    expect(buildStoragePolicy({ ...config, cargoTarget: 'target' })).toHaveLength(1);
-    expect(
-      buildStoragePolicy({
-        ...config,
-        scripts: { ...config.scripts, build: 'bun --bun turbo run build' }
-      })
-    ).toHaveLength(2);
-    expect(
-      buildStoragePolicy({ ...config, dockerIgnore: `${config.dockerIgnore}\n!target/**\n` })
-    ).toHaveLength(1);
-    expect(
-      buildStoragePolicy({ ...config, dockerIgnore: `${config.dockerIgnore}\n!tooling/\n` })
-    ).toHaveLength(1);
-    expect(
-      buildStoragePolicy({ ...config, dockerIgnore: config.dockerIgnore.replace('!mise.toml', '') })
-    ).toHaveLength(1);
+    test.expect(buildStoragePolicy(config)).toEqual([]);
+    test.expect(buildStoragePolicy({ ...config, cargoTarget: 'target' })).toHaveLength(1);
+    test
+      .expect(
+        buildStoragePolicy({
+          ...config,
+          scripts: { ...config.scripts, build: 'bun --bun turbo run build' }
+        })
+      )
+      .toHaveLength(2);
+    test
+      .expect(
+        buildStoragePolicy({ ...config, dockerIgnore: `${config.dockerIgnore}\n!target/**\n` })
+      )
+      .toHaveLength(1);
+    test
+      .expect(
+        buildStoragePolicy({ ...config, dockerIgnore: `${config.dockerIgnore}\n!tooling/\n` })
+      )
+      .toHaveLength(1);
+    test
+      .expect(
+        buildStoragePolicy({
+          ...config,
+          dockerIgnore: config.dockerIgnore.replace('!mise.toml', '')
+        })
+      )
+      .toHaveLength(1);
   }
 );

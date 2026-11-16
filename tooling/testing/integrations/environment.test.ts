@@ -10,95 +10,90 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { buildContext } from './environment.ts';
 import { fs, path, run } from './filesystem.ts';
 
-testStable('default build context resolves the workspace from the server package', async () => {
+test.stable('default build context resolves the workspace from the server package', async () => {
   const serverRoot = path.resolve(import.meta.dirname, '../../../apps/server');
   const previousDirectory = process.cwd();
-  let context: string | undefined;
 
   try {
     process.chdir(serverRoot);
-    context = await buildContext();
-    expect(await Bun.file(path.join(context, 'package.json')).json()).toMatchObject({
+    await using context = await buildContext();
+
+    test.expect(await Bun.file(path.join(context.path, 'package.json')).json()).toMatchObject({
       name: 'study-workspace'
     });
-    expect(await Bun.file(path.join(context, 'apps/client/package.json')).json()).toMatchObject({
-      name: '@study/client'
-    });
-    expect(await run(fs.exists(path.join(context, 'bun.lock')))).toBe(true);
+    test
+      .expect(await Bun.file(path.join(context.path, 'apps/client/package.json')).json())
+      .toMatchObject({
+        name: '@study/client'
+      });
+    test.expect(await run(fs.exists(path.join(context.path, 'bun.lock')))).toBe(true);
   } finally {
     process.chdir(previousDirectory);
-
-    if (context) await run(fs.remove(context, { recursive: true, force: true }));
   }
 });
 
-testStable(
+test.stable(
   'build contexts preserve sources below a dist parent and omit secrets and dependencies',
   async () => {
-    const temporary = await run(fs.makeTempDirectory({ prefix: 'study-build-context-' }));
-    const root = path.join(temporary, 'dist', 'checkout');
-    let context: string | undefined;
+    await using temporary = await test.temporaryDirectory({ prefix: 'study-build-context-' });
+    const root = path.join(temporary.path, 'dist', 'checkout');
 
-    try {
-      for (const file of [
-        'package.json',
-        'bun.lock',
-        'vite.config.ts',
-        'apps/server/package.json',
-        'apps/client/package.json',
-        'apps/desktop/package.json',
-        'tooling/package.json',
-        'packages/integrations/src/provider.ts',
-        'packages/integrations/.env.secret',
-        'packages/integrations/node_modules/dep/index.js',
-        'tooling/.turbo/turbo-test.log',
-        'tooling/test-results/run/trace.zip',
-        'packages/db/coverage/report.json',
-        'packages/db/.fallow/cache',
-        'packages/db/__pycache__/fixture.pyc'
-      ]) {
-        const target = path.join(root, file);
+    for (const file of [
+      'package.json',
+      'bun.lock',
+      'vite.config.ts',
+      'apps/server/package.json',
+      'apps/client/package.json',
+      'apps/desktop/package.json',
+      'tooling/package.json',
+      'packages/integrations/src/provider.ts',
+      'packages/integrations/.env.secret',
+      'packages/integrations/node_modules/dep/index.js',
+      'tooling/.turbo/turbo-test.log',
+      'tooling/test-results/run/trace.zip',
+      'packages/db/coverage/report.json',
+      'packages/db/.fallow/cache',
+      'packages/db/__pycache__/fixture.pyc'
+    ]) {
+      const target = path.join(root, file);
 
-        await run(fs.makeDirectory(path.dirname(target), { recursive: true }));
-        await Bun.write(target, file);
-      }
-
-      context = await buildContext(root);
-      expect(
-        await Bun.file(path.join(context, 'packages/integrations/src/provider.ts')).text()
-      ).toBe('packages/integrations/src/provider.ts');
-      expect(await run(fs.exists(path.join(context, 'packages/integrations/.env.secret')))).toBe(
-        false
-      );
-      expect(await run(fs.exists(path.join(context, 'packages/integrations/node_modules')))).toBe(
-        false
-      );
-
-      for (const generated of [
-        'tooling/.turbo',
-        'tooling/test-results',
-        'packages/db/coverage',
-        'packages/db/.fallow',
-        'packages/db/__pycache__'
-      ])
-        expect(await run(fs.exists(path.join(context, generated)))).toBe(false);
-
-      expect(await run(fs.exists(path.join(context, 'bun.lock')))).toBe(true);
-    } finally {
-      if (context) await run(fs.remove(context, { recursive: true, force: true }));
-
-      await run(fs.remove(temporary, { recursive: true, force: true }));
+      await run(fs.makeDirectory(path.dirname(target), { recursive: true }));
+      await Bun.write(target, file);
     }
+
+    await using context = await buildContext(root);
+
+    test
+      .expect(
+        await Bun.file(path.join(context.path, 'packages/integrations/src/provider.ts')).text()
+      )
+      .toBe('packages/integrations/src/provider.ts');
+    test
+      .expect(await run(fs.exists(path.join(context.path, 'packages/integrations/.env.secret'))))
+      .toBe(false);
+    test
+      .expect(await run(fs.exists(path.join(context.path, 'packages/integrations/node_modules'))))
+      .toBe(false);
+
+    for (const generated of [
+      'tooling/.turbo',
+      'tooling/test-results',
+      'packages/db/coverage',
+      'packages/db/.fallow',
+      'packages/db/__pycache__'
+    ])
+      test.expect(await run(fs.exists(path.join(context.path, generated)))).toBe(false);
+
+    test.expect(await run(fs.exists(path.join(context.path, 'bun.lock')))).toBe(true);
   }
 );
 
-testStable('the integration install layer contains every locked workspace manifest', async () => {
+test.stable('the integration install layer contains every locked workspace manifest', async () => {
   const root = new URL('../../../', import.meta.url);
   const lock = Bun.JSON5.parse(await Bun.file(new URL('bun.lock', root)).text()) as {
     workspaces: Record<string, unknown>;
@@ -109,11 +104,13 @@ testStable('the integration install layer contains every locked workspace manife
     match[1]!.split(/\s+/).slice(0, -1)
   );
 
-  expect(inputs).toEqual(
-    expect.arrayContaining(
-      Object.keys(lock.workspaces).map((workspace) =>
-        workspace ? `${workspace}/package.json` : 'package.json'
+  test
+    .expect(inputs)
+    .toEqual(
+      test.expect.arrayContaining(
+        Object.keys(lock.workspaces).map((workspace) =>
+          workspace ? `${workspace}/package.json` : 'package.json'
+        )
       )
-    )
-  );
+    );
 });

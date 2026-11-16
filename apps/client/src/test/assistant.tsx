@@ -5,28 +5,28 @@ import {
   noteSchema
 } from '@study/contracts';
 import type { ChatMessage } from '@study/contracts';
+import { rpcTestTransport } from '@study/contracts/react/testing';
+import { test } from '@study/testing';
 import { render } from '@testing-library/react';
 import { Schema } from 'effect';
-import { beforeEach, vi } from 'vite-plus/test';
 
 import { AssistantProvider } from '#client/features/assistant/note.tsx';
 import { Page } from '#client/pages/assistant/page.tsx';
-import { rpcTestTransport } from '#client/test/rpc.tsx';
 
-const api = vi.hoisted(() => ({
-  note: vi.fn(),
-  chats: vi.fn(),
-  context: vi.fn(),
-  newChat: vi.fn(),
-  thread: vi.fn(),
-  ask: vi.fn<
+const api = test.hoisted(() => ({
+  note: test.vi.fn(),
+  chats: test.vi.fn(),
+  context: test.vi.fn(),
+  newChat: test.vi.fn(),
+  thread: test.vi.fn(),
+  ask: test.vi.fn<
     (input: typeof assistantAskInputSchema.Type) => Promise<typeof askResultSchema.Type>
   >(),
-  provenance: vi.fn(),
-  progress: vi.fn(),
-  executions: vi.fn(),
-  reanswer: vi.fn(),
-  cancel: vi.fn()
+  provenance: test.vi.fn(),
+  progress: test.vi.fn(),
+  executions: test.vi.fn(),
+  reanswer: test.vi.fn(),
+  cancel: test.vi.fn()
 }));
 
 export function message(
@@ -63,8 +63,8 @@ export function message(
   });
 }
 
-beforeEach(() => {
-  vi.clearAllMocks();
+test.beforeEach(() => {
+  test.vi.clearAllMocks();
   let messages: ChatMessage[] = [];
 
   api.note.mockImplementation(async (input) =>

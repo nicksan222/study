@@ -1,19 +1,18 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
-testStable('reports the prohibited pattern', async () => {
+test.stable('reports the prohibited pattern', async () => {
   const diagnostics = await lintRule(
     'effect-lazy-boundary',
     { 'src/domain.ts': "import { Effect } from 'effect'; Effect.sync(async () => 1);" },
     false
   );
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable('checks imported Effect aliases, lazy IO, mapped promises and shadowing', async () => {
+test.stable('checks imported Effect aliases, lazy IO, mapped promises and shadowing', async () => {
   const diagnostics = await lintRule('effect-lazy-boundary', {
     'src/a.ts': String.raw`import * as E from "effect/Effect";
 const alias = E;
@@ -28,10 +27,10 @@ alias.sync(() => 1);
 Promise.all([Promise.resolve(1)]);`
   });
 
-  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
-testStable(
+test.stable(
   'recognizes fs and Promise aliases and async try object while respecting resource path',
   async () => {
     const diagnostics = await lintRule('effect-lazy-boundary', {
@@ -47,11 +46,11 @@ all(items.map(task));`,
         "import { Effect } from 'effect'; Effect.uninterruptible(work);"
     });
 
-    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
   }
 );
 
-testStable('deferred nested functions remain lazy and eager filesystem calls do not', async () => {
+test.stable('deferred nested functions remain lazy and eager filesystem calls do not', async () => {
   const diagnostics = await lintRule('effect-lazy-boundary', {
     'src/a.ts': String.raw`import { Effect } from "effect";
 import { readFileSync } from "node:fs";
@@ -69,31 +68,31 @@ Effect.sync(() => {
 });`
   });
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-testStable(
+test.stable(
   'rejects recognized database execution during store construction but allows deferred operations',
   async () => {
     const diagnostics = await lintRule('effect-lazy-boundary', {
       'src/features/a/store/index.ts': `import { defineStore, storeQuery } from '#server/platform/definitions/define-store'; defineStore({make: ({db}) => { const alias = db; alias.orm.select().from(items).get(); db.orm.update(items).set({x: 1}).where(eq(items.id, 1)).run(); const helper = () => db.orm.select().from(items).all(); unrelated.run(); return {queries: {read: storeQuery({run: input => db.orm.select().from(items).get()})}, mutations: {}}; }});`
     });
 
-    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
-testStable('direct SQL execution stays deferred until a store operation runs', async () => {
+test.stable('direct SQL execution stays deferred until a store operation runs', async () => {
   const diagnostics = await lintRule('effect-lazy-boundary', {
     'src/features/a/store/index.ts': `import { defineStore, storeQuery } from '#server/platform/definitions/define-store'; import { sql } from '@study/db'; defineStore({make: ({db}) => { const orm = db.orm; orm.get(sql\`SELECT 1\`); db.orm.run(sql\`DELETE FROM items WHERE id=1\`); db.orm.all(sql\`SELECT 1\`); const deferred = () => db.orm.get(sql\`SELECT 1\`); unrelated.get(sql\`SELECT 1\`); return {queries: {item: storeQuery({run: input => db.orm.get(sql\`SELECT 1\`)})}, mutations: {}}; }});`
   });
 
-  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
 const message = 'Keep Effect work lazy, synchronous where required, bounded and interruptible.';
 
-testStable('keeps throwing schema codecs out of infallible Effect constructors', async () => {
+test.stable('keeps throwing schema codecs out of infallible Effect constructors', async () => {
   assertDiagnostics(
     'effect-lazy-boundary',
     await lintRule('effect-lazy-boundary', {

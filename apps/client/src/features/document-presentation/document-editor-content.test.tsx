@@ -1,12 +1,10 @@
 import { sourceIdSchema, createBlock } from '@study/contracts';
 import type { BlockContent } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { StructuredEditor } from '@study/ui';
 import type { StructuredEditorInstance } from '@study/ui';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Schema } from 'effect';
 import { useState } from 'react';
-import { expect, vi } from 'vite-plus/test';
 
 import { blankDocument } from '../document-editing/block-editor';
 import { documentToEditor, editorToDocument } from './document-editor-content';
@@ -68,7 +66,7 @@ const labels = {
   superscript: 'Superscript'
 };
 
-testStable(
+test.stable(
   'retains imported rich structures, source anchors and block identity through the real editor',
   async () => {
     const content: BlockContent[] = [
@@ -122,9 +120,9 @@ testStable(
       ...blankDocument(),
       blocks: content.map((item) => createBlock(item, { type: 'page', page: 2 }))
     };
-    const onChange = vi.fn();
+    const onChange = test.vi.fn();
 
-    render(
+    test.render(
       <StructuredEditor
         value={documentToEditor(document)}
         onChange={onChange}
@@ -133,23 +131,23 @@ testStable(
         placeholder="Write"
       />
     );
-    expect(screen.getByRole('table')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Heading' })).toBeInTheDocument();
-    expect(screen.getByAltText('Original figure')).toBeInTheDocument();
-    expect(editorToDocument(documentToEditor(document), document)).toEqual(document);
-    expect(onChange).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Text style' }));
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Heading' }));
-    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    test.expect(test.screen.getByRole('table')).toBeInTheDocument();
+    test.expect(test.screen.getByRole('heading', { name: 'Heading' })).toBeInTheDocument();
+    test.expect(test.screen.getByAltText('Original figure')).toBeInTheDocument();
+    test.expect(editorToDocument(documentToEditor(document), document)).toEqual(document);
+    test.expect(onChange).not.toHaveBeenCalled();
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'Text style' }));
+    test.fireEvent.click(await test.screen.findByRole('menuitem', { name: 'Heading' }));
+    await test.waitFor(() => test.expect(onChange).toHaveBeenCalled());
     const edited = editorToDocument(onChange.mock.calls.at(-1)![0], document);
 
-    expect(edited.blocks.slice(1, document.blocks.length)).toEqual(document.blocks.slice(1));
-    expect(edited.blocks.at(-1)!.content).toEqual({ type: 'paragraph', inlines: [] });
-    expect(edited.meta).toEqual(document.meta);
+    test.expect(edited.blocks.slice(1, document.blocks.length)).toEqual(document.blocks.slice(1));
+    test.expect(edited.blocks.at(-1)!.content).toEqual({ type: 'paragraph', inlines: [] });
+    test.expect(edited.meta).toEqual(document.meta);
   }
 );
 
-testStable(
+test.stable(
   'edits formatting without flattening neighboring tables and gives split blocks fresh identities',
   async () => {
     const document = {
@@ -162,9 +160,9 @@ testStable(
         })
       ]
     };
-    const onChange = vi.fn();
+    const onChange = test.vi.fn();
 
-    render(
+    test.render(
       <StructuredEditor
         value={documentToEditor(document)}
         onChange={onChange}
@@ -173,24 +171,24 @@ testStable(
         placeholder="Write"
       />
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Text style' }));
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Heading' }));
-    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'Text style' }));
+    test.fireEvent.click(await test.screen.findByRole('menuitem', { name: 'Heading' }));
+    await test.waitFor(() => test.expect(onChange).toHaveBeenCalled());
     const result = editorToDocument(onChange.mock.calls.at(-1)![0], document);
 
-    expect(result.blocks[0]!.content).toMatchObject({ type: 'heading', level: 1 });
-    expect(result.blocks[0]!.id).toBe(document.blocks[0]!.id);
-    expect(result.blocks[1]).toEqual(document.blocks[1]);
+    test.expect(result.blocks[0]!.content).toMatchObject({ type: 'heading', level: 1 });
+    test.expect(result.blocks[0]!.id).toBe(document.blocks[0]!.id);
+    test.expect(result.blocks[1]).toEqual(document.blocks[1]);
     const duplicated = documentToEditor(document);
 
     duplicated.content!.push(structuredClone(duplicated.content![0]!));
     const split = editorToDocument(duplicated, document);
 
-    expect(split.blocks[2]!.id).not.toBe(split.blocks[0]!.id);
+    test.expect(split.blocks[2]!.id).not.toBe(split.blocks[0]!.id);
   }
 );
 
-testStable(
+test.stable(
   'keeps the caret and undo history when newly authored blocks receive database identities',
   async () => {
     function Controlled() {
@@ -210,8 +208,8 @@ testStable(
       );
     }
 
-    render(<Controlled />);
-    const element = screen.getByRole('textbox', { name: 'Document' }) as HTMLElement & {
+    test.render(<Controlled />);
+    const element = test.screen.getByRole('textbox', { name: 'Document' }) as HTMLElement & {
       editor: {
         commands: {
           insertContent: (text: string) => boolean;
@@ -224,40 +222,40 @@ testStable(
     };
     const editor = element.editor;
 
-    act(() => {
+    test.act(() => {
       editor.commands.insertContent('First');
     });
-    expect(editor.state.selection.from).toBe(6);
-    act(() => {
+    test.expect(editor.state.selection.from).toBe(6);
+    test.act(() => {
       editor.commands.splitBlock();
     });
-    expect(editor.state.selection.from).toBe(8);
-    act(() => {
+    test.expect(editor.state.selection.from).toBe(8);
+    test.act(() => {
       editor.commands.insertContent('Second');
     });
-    expect(editor.state.selection.from).toBe(14);
-    expect(element.querySelectorAll('p')).toHaveLength(2);
-    expect(element.textContent).toBe('FirstSecond');
-    act(() => {
+    test.expect(editor.state.selection.from).toBe(14);
+    test.expect(element.querySelectorAll('p')).toHaveLength(2);
+    test.expect(element.textContent).toBe('FirstSecond');
+    test.act(() => {
       editor.commands.setHeading({ level: 1 });
     });
-    expect(screen.getByRole('heading', { name: 'Second' })).toBeInTheDocument();
-    act(() => {
+    test.expect(test.screen.getByRole('heading', { name: 'Second' })).toBeInTheDocument();
+    test.act(() => {
       editor.commands.undo();
     });
-    await waitFor(() =>
-      expect(screen.queryByRole('heading', { name: 'Second' })).not.toBeInTheDocument()
+    await test.waitFor(() =>
+      test.expect(test.screen.queryByRole('heading', { name: 'Second' })).not.toBeInTheDocument()
     );
   }
 );
 
-testStable(
+test.stable(
   'inserts a table through the document controls and preserves it as canonical content',
   async () => {
     const document = blankDocument();
-    const onChange = vi.fn();
+    const onChange = test.vi.fn();
 
-    render(
+    test.render(
       <StructuredEditor
         value={documentToEditor(document)}
         onChange={onChange}
@@ -266,17 +264,21 @@ testStable(
         placeholder="Write"
       />
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Insert table' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Insert table' });
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'Insert table' }));
+    const dialog = await test.screen.findByRole('dialog', { name: 'Insert table' });
 
-    fireEvent.change(within(dialog).getByLabelText('Rows'), { target: { value: '2' } });
-    fireEvent.change(within(dialog).getByLabelText('Columns'), { target: { value: '3' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Insert table' }));
-    await waitFor(() => expect(screen.getByRole('table').querySelectorAll('tr')).toHaveLength(2));
+    test.fireEvent.change(test.within(dialog).getByLabelText('Rows'), { target: { value: '2' } });
+    test.fireEvent.change(test.within(dialog).getByLabelText('Columns'), {
+      target: { value: '3' }
+    });
+    test.fireEvent.click(test.within(dialog).getByRole('button', { name: 'Insert table' }));
+    await test.waitFor(() =>
+      test.expect(test.screen.getByRole('table').querySelectorAll('tr')).toHaveLength(2)
+    );
     const result = editorToDocument(onChange.mock.calls.at(-1)![0], document);
     const table = result.blocks.find((block) => block.content.type === 'table')!.content;
 
-    expect(table).toMatchObject({
+    test.expect(table).toMatchObject({
       type: 'table',
       rows: [
         { cells: [{ header: true }, { header: true }, { header: true }] },
@@ -286,14 +288,14 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'inserts an uploaded image as a durable source reference and displays the image',
   async () => {
     const document = blankDocument();
-    const onChange = vi.fn();
-    const upload = vi.fn().mockResolvedValue({ sourceId: '17', revision: 1, alt: 'Diagram' });
+    const onChange = test.vi.fn();
+    const upload = test.vi.fn().mockResolvedValue({ sourceId: '17', revision: 1, alt: 'Diagram' });
 
-    render(
+    test.render(
       <StructuredEditor
         value={documentToEditor(document)}
         onChange={onChange}
@@ -305,14 +307,14 @@ testStable(
     );
     const file = new File(['image'], 'diagram.png', { type: 'image/png' });
 
-    fireEvent.change(screen.getByLabelText('Image file'), { target: { files: [file] } });
-    await waitFor(() => expect(screen.getByAltText('Diagram')).toBeInTheDocument());
-    fireEvent.load(screen.getByAltText('Diagram'));
-    expect(screen.getByRole('img', { name: 'Diagram' })).toBeVisible();
-    expect(upload).toHaveBeenCalledExactlyOnceWith(file);
+    test.fireEvent.change(test.screen.getByLabelText('Image file'), { target: { files: [file] } });
+    await test.waitFor(() => test.expect(test.screen.getByAltText('Diagram')).toBeInTheDocument());
+    test.fireEvent.load(test.screen.getByAltText('Diagram'));
+    test.expect(test.screen.getByRole('img', { name: 'Diagram' })).toBeVisible();
+    test.expect(upload).toHaveBeenCalledExactlyOnceWith(file);
     const result = editorToDocument(onChange.mock.calls.at(-1)![0], document);
 
-    expect(result.blocks.find((block) => block.content.type === 'image')?.content).toEqual({
+    test.expect(result.blocks.find((block) => block.content.type === 'image')?.content).toEqual({
       type: 'image',
       sourceId: sourceIdSchema.make(17n),
       revision: 1,
@@ -321,7 +323,7 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'keeps merged table cells and column widths through a native Tiptap edit and canonical round trip',
   async () => {
     const document = {
@@ -346,9 +348,9 @@ testStable(
         })
       ]
     };
-    const onChange = vi.fn();
+    const onChange = test.vi.fn();
 
-    render(
+    test.render(
       <StructuredEditor
         value={documentToEditor(document)}
         onChange={onChange}
@@ -358,36 +360,36 @@ testStable(
       />
     );
     const editor = (
-      screen.getByRole('textbox', { name: 'Document' }) as HTMLElement & {
+      test.screen.getByRole('textbox', { name: 'Document' }) as HTMLElement & {
         editor: StructuredEditorInstance;
       }
     ).editor;
 
-    act(() => {
+    test.act(() => {
       editor.chain().setCellSelection({ anchorCell: 2, headCell: 6 }).mergeCells().run();
     });
-    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    await test.waitFor(() => test.expect(onChange).toHaveBeenCalled());
     const saved = editorToDocument(onChange.mock.calls.at(-1)![0], document);
 
-    expect(saved.blocks[0]!.id).toBe(document.blocks[0]!.id);
-    expect(saved.blocks[0]!.content).toMatchObject({
+    test.expect(saved.blocks[0]!.id).toBe(document.blocks[0]!.id);
+    test.expect(saved.blocks[0]!.content).toMatchObject({
       type: 'table',
       rows: [{ cells: [{ colspan: 2, colwidth: [140, 0] }] }, {}]
     });
-    expect(editorToDocument(documentToEditor(saved), saved)).toEqual(saved);
+    test.expect(editorToDocument(documentToEditor(saved), saved)).toEqual(saved);
   }
 );
 
-testStable(
+test.stable(
   'right-click formatting applies to the selected text and leaves its neighbors unchanged',
   async () => {
     const document = {
       ...blankDocument(),
       blocks: [createBlock({ type: 'paragraph', inlines: plain('Selected neighbor') })]
     };
-    const onChange = vi.fn();
+    const onChange = test.vi.fn();
 
-    render(
+    test.render(
       <StructuredEditor
         value={documentToEditor(document)}
         onChange={onChange}
@@ -396,21 +398,21 @@ testStable(
         placeholder="Write"
       />
     );
-    const element = screen.getByRole('textbox', { name: 'Document' }) as HTMLElement & {
+    const element = test.screen.getByRole('textbox', { name: 'Document' }) as HTMLElement & {
       editor: StructuredEditorInstance;
     };
 
-    act(() => {
+    test.act(() => {
       element.editor.commands.setTextSelection({ from: 1, to: 9 });
     });
-    fireEvent.contextMenu(element);
-    const menu = await screen.findByRole('menu', { name: 'Editing actions' });
+    test.fireEvent.contextMenu(element);
+    const menu = await test.screen.findByRole('menu', { name: 'Editing actions' });
 
-    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Bold' }));
-    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    test.fireEvent.click(test.within(menu).getByRole('menuitem', { name: 'Bold' }));
+    await test.waitFor(() => test.expect(onChange).toHaveBeenCalled());
     const saved = editorToDocument(onChange.mock.calls.at(-1)![0], document);
 
-    expect(saved.blocks[0]!.content).toEqual({
+    test.expect(saved.blocks[0]!.content).toEqual({
       type: 'paragraph',
       inlines: [
         { type: 'text', text: 'Selected', marks: ['strong'] },
@@ -420,7 +422,7 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'right-clicking an image selects it and edits its description without changing its retained identity',
   async () => {
     const document = {
@@ -435,9 +437,9 @@ testStable(
         createBlock({ type: 'paragraph', inlines: plain('Neighbor') })
       ]
     };
-    const onChange = vi.fn();
+    const onChange = test.vi.fn();
 
-    render(
+    test.render(
       <StructuredEditor
         value={documentToEditor(document)}
         onChange={onChange}
@@ -446,44 +448,44 @@ testStable(
         placeholder="Write"
       />
     );
-    const image = screen.getByAltText('Original');
+    const image = test.screen.getByAltText('Original');
 
-    fireEvent.load(image);
-    fireEvent.contextMenu(image);
-    const menu = await screen.findByRole('menu', { name: 'Editing actions' });
+    test.fireEvent.load(image);
+    test.fireEvent.contextMenu(image);
+    const menu = await test.screen.findByRole('menu', { name: 'Editing actions' });
 
-    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Image description' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Image description' });
+    test.fireEvent.click(test.within(menu).getByRole('menuitem', { name: 'Image description' }));
+    const dialog = await test.screen.findByRole('dialog', { name: 'Image description' });
 
-    expect(within(dialog).getByLabelText('Image description')).toHaveValue('Original');
+    test.expect(test.within(dialog).getByLabelText('Image description')).toHaveValue('Original');
 
-    fireEvent.change(within(dialog).getByLabelText('Image description'), {
+    test.fireEvent.change(test.within(dialog).getByLabelText('Image description'), {
       target: { value: 'New description' }
     });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Save description' }));
-    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    test.fireEvent.click(test.within(dialog).getByRole('button', { name: 'Save description' }));
+    await test.waitFor(() => test.expect(onChange).toHaveBeenCalled());
     const saved = editorToDocument(onChange.mock.calls.at(-1)![0], document);
 
-    expect(saved.blocks[0]!.content).toEqual({
+    test.expect(saved.blocks[0]!.content).toEqual({
       type: 'image',
       sourceId: sourceIdSchema.make(17n),
       revision: 1,
       alt: 'New description'
     });
-    expect(saved.blocks[1]).toEqual(document.blocks[1]);
+    test.expect(saved.blocks[1]).toEqual(document.blocks[1]);
   }
 );
 
-testStable(
+test.stable(
   'adds a link to the selected text and retains its formatting through save and reload',
   async () => {
     const document = {
       ...blankDocument(),
       blocks: [createBlock({ type: 'paragraph', inlines: plain('Selected neighbor') })]
     };
-    const onChange = vi.fn();
+    const onChange = test.vi.fn();
 
-    render(
+    test.render(
       <StructuredEditor
         value={documentToEditor(document)}
         onChange={onChange}
@@ -492,38 +494,38 @@ testStable(
         placeholder="Write"
       />
     );
-    const element = screen.getByRole('textbox', { name: 'Document' }) as HTMLElement & {
+    const element = test.screen.getByRole('textbox', { name: 'Document' }) as HTMLElement & {
       editor: StructuredEditorInstance;
     };
 
-    act(() => {
+    test.act(() => {
       element.editor.commands.setTextSelection({ from: 1, to: 9 });
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Insert or edit link' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Insert or edit link' });
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'Insert or edit link' }));
+    const dialog = await test.screen.findByRole('dialog', { name: 'Insert or edit link' });
 
-    fireEvent.change(within(dialog).getByLabelText('Link address'), {
+    test.fireEvent.change(test.within(dialog).getByLabelText('Link address'), {
       target: { value: 'https://example.com' }
     });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Save link' }));
-    await waitFor(() => expect(onChange).toHaveBeenCalled());
-    act(() => {
+    test.fireEvent.click(test.within(dialog).getByRole('button', { name: 'Save link' }));
+    await test.waitFor(() => test.expect(onChange).toHaveBeenCalled());
+    test.act(() => {
       element.editor.chain().setTextSelection({ from: 1, to: 9 }).toggleBold().run();
     });
     const saved = editorToDocument(onChange.mock.calls.at(-1)![0], document);
 
-    expect(saved.blocks[0]!.content).toEqual({
+    test.expect(saved.blocks[0]!.content).toEqual({
       type: 'paragraph',
       inlines: [
         { type: 'link', text: 'Selected', href: 'https://example.com', marks: ['strong'] },
         { type: 'text', text: ' neighbor', marks: [] }
       ]
     });
-    expect(editorToDocument(documentToEditor(saved), saved)).toEqual(saved);
+    test.expect(editorToDocument(documentToEditor(saved), saved)).toEqual(saved);
   }
 );
 
-testStable(
+test.stable(
   'right-clicking a table cell offers native row actions even when the caret was outside the table',
   async () => {
     const document = {
@@ -536,9 +538,9 @@ testStable(
         })
       ]
     };
-    const onChange = vi.fn();
+    const onChange = test.vi.fn();
 
-    render(
+    test.render(
       <StructuredEditor
         value={documentToEditor(document)}
         onChange={onChange}
@@ -547,22 +549,24 @@ testStable(
         placeholder="Write"
       />
     );
-    fireEvent.contextMenu(screen.getByRole('cell', { name: 'Cell' }));
-    const menu = await screen.findByRole('menu', { name: 'Editing actions' });
+    test.fireEvent.contextMenu(test.screen.getByRole('cell', { name: 'Cell' }));
+    const menu = await test.screen.findByRole('menu', { name: 'Editing actions' });
 
-    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Add row below' }));
-    await waitFor(() => expect(screen.getByRole('table').querySelectorAll('tr')).toHaveLength(2));
+    test.fireEvent.click(test.within(menu).getByRole('menuitem', { name: 'Add row below' }));
+    await test.waitFor(() =>
+      test.expect(test.screen.getByRole('table').querySelectorAll('tr')).toHaveLength(2)
+    );
     const saved = editorToDocument(onChange.mock.calls.at(-1)![0], document);
 
-    expect(saved.blocks[0]).toEqual(document.blocks[0]);
-    expect(saved.blocks[1]!.id).toBe(document.blocks[1]!.id);
+    test.expect(saved.blocks[0]).toEqual(document.blocks[0]);
+    test.expect(saved.blocks[1]!.id).toBe(document.blocks[1]!.id);
   }
 );
 
-testStable('read-only rendering preserves anchors and removes editing controls', () => {
+test.stable('read-only rendering preserves anchors and removes editing controls', () => {
   const block = createBlock({ type: 'heading', level: 2, inlines: plain('Source heading') });
-  const onChange = vi.fn();
-  const { container } = render(
+  const onChange = test.vi.fn();
+  const { container } = test.render(
     <StructuredEditor
       value={documentToEditor({ ...blankDocument(), blocks: [block] })}
       onChange={onChange}
@@ -573,18 +577,17 @@ testStable('read-only rendering preserves anchors and removes editing controls',
     />
   );
 
-  expect(screen.getByRole('heading', { name: 'Source heading' })).toHaveAttribute(
-    'id',
-    `block-${block.id}`
-  );
-  expect(container.querySelector('[contenteditable="false"]')).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'Text style' })).not.toBeInTheDocument();
-  fireEvent.contextMenu(screen.getByText('Source heading'));
-  expect(screen.queryByRole('menu')).not.toBeInTheDocument();
-  expect(onChange).not.toHaveBeenCalled();
+  test
+    .expect(test.screen.getByRole('heading', { name: 'Source heading' }))
+    .toHaveAttribute('id', `block-${block.id}`);
+  test.expect(container.querySelector('[contenteditable="false"]')).toBeInTheDocument();
+  test.expect(test.screen.queryByRole('button', { name: 'Text style' })).not.toBeInTheDocument();
+  test.fireEvent.contextMenu(test.screen.getByText('Source heading'));
+  test.expect(test.screen.queryByRole('menu')).not.toBeInTheDocument();
+  test.expect(onChange).not.toHaveBeenCalled();
 });
 
-testStable(
+test.stable(
   'source previews retain list continuations, explicit numbering and reference destinations',
   () => {
     const document = {
@@ -620,8 +623,8 @@ testStable(
         })
       ]
     };
-    const onChange = vi.fn();
-    const { container } = render(
+    const onChange = test.vi.fn();
+    const { container } = test.render(
       <StructuredEditor
         value={documentToEditor(document, { '42:1': 'data:image/png;base64,' }, true)}
         onChange={onChange}
@@ -632,21 +635,20 @@ testStable(
       />
     );
 
-    expect(screen.getByText('Continuation').closest('li')).toBe(
-      screen.getByText('Parent').closest('li')
-    );
-    expect(screen.getByText('Next').closest('li')).toHaveAttribute('value', '8');
-    expect(screen.getByRole('link', { name: 'https://example.com' })).toHaveAttribute(
-      'href',
-      'https://example.com'
-    );
-    expect(container.querySelector('[data-resize-handle]')).toBeNull();
-    expect(screen.getByRole('img', { name: 'Diagram' })).toHaveAttribute('width', '120');
-    expect(onChange).not.toHaveBeenCalled();
+    test
+      .expect(test.screen.getByText('Continuation').closest('li'))
+      .toBe(test.screen.getByText('Parent').closest('li'));
+    test.expect(test.screen.getByText('Next').closest('li')).toHaveAttribute('value', '8');
+    test
+      .expect(test.screen.getByRole('link', { name: 'https://example.com' }))
+      .toHaveAttribute('href', 'https://example.com');
+    test.expect(container.querySelector('[data-resize-handle]')).toBeNull();
+    test.expect(test.screen.getByRole('img', { name: 'Diagram' })).toHaveAttribute('width', '120');
+    test.expect(onChange).not.toHaveBeenCalled();
   }
 );
 
-testStable(
+test.stable(
   'splitting authored content keeps original anchors and continues explicit list numbering',
   () => {
     const paragraph = createBlock({ type: 'paragraph', inlines: plain('Paragraph') });
@@ -658,7 +660,7 @@ testStable(
       ]
     });
     const document = { ...blankDocument(), blocks: [paragraph, list] };
-    const { container } = render(
+    const { container } = test.render(
       <StructuredEditor
         value={documentToEditor(document)}
         onChange={() => {}}
@@ -668,12 +670,12 @@ testStable(
       />
     );
     const editor = (
-      screen.getByRole('textbox', { name: 'Document' }) as HTMLElement & {
+      test.screen.getByRole('textbox', { name: 'Document' }) as HTMLElement & {
         editor: StructuredEditorInstance;
       }
     ).editor;
 
-    act(() => {
+    test.act(() => {
       editor.state.doc.descendants((node, position) => {
         if (node.text === 'Eighth') editor.commands.setTextSelection(position + node.nodeSize);
       });
@@ -681,16 +683,16 @@ testStable(
     });
     const items = container.querySelectorAll('li');
 
-    expect(items[1]).toHaveAttribute('value', '8');
-    expect(items[2]).not.toHaveAttribute('value');
-    expect(editorToDocument(editor.getJSON(), document).blocks[1]!.content).toMatchObject({
+    test.expect(items[1]).toHaveAttribute('value', '8');
+    test.expect(items[2]).not.toHaveAttribute('value');
+    test.expect(editorToDocument(editor.getJSON(), document).blocks[1]!.content).toMatchObject({
       items: [{ start: 3 }, { start: 8 }, { start: 9 }]
     });
-    act(() => {
+    test.act(() => {
       editor.commands.setTextSelection(5);
       editor.commands.splitBlock();
     });
-    expect(container.querySelectorAll(`[id="block-${paragraph.id}"]`)).toHaveLength(0);
-    expect(editor.getJSON().content![0]!.attrs!.blockId).toBe(paragraph.id);
+    test.expect(container.querySelectorAll(`[id="block-${paragraph.id}"]`)).toHaveLength(0);
+    test.expect(editor.getJSON().content![0]!.attrs!.blockId).toBe(paragraph.id);
   }
 );

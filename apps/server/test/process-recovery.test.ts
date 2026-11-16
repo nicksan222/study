@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Recovers a pending reply after abrupt termination of the real Bun server.          │
@@ -9,22 +10,18 @@
  * │ Uses the production server entry, native RPC and an isolated SQLite database.            │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { spawnTestProcess } from '@study/testing/vitest';
-import { testStable, waitFor } from '@study/testing/vitest';
+import type { createTestDatabase } from '@study/db/testing';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 
-testStable(
+test.stable(
   'a pending reply survives abrupt Bun server process death without duplicates',
-  async () => {
-    const location = await createTestDatabase();
-    const children: ReturnType<typeof spawnTestProcess<'pipe', 'pipe', 'pipe'>>[] = [];
+  async ({ databases }) => {
+    const location = await databases();
+    const children: ReturnType<typeof test.spawnTestProcess<'pipe', 'pipe', 'pipe'>>[] = [];
 
     async function start() {
       const env: Record<string, string | undefined> = {
@@ -33,7 +30,7 @@ testStable(
       };
 
       delete env.STUDY_SERVER_TOKEN;
-      const child = spawnTestProcess(
+      const child = test.spawnTestProcess(
         [process.execPath, new URL('../src/runtime/main.ts', import.meta.url).pathname],
         {
           env,
@@ -100,7 +97,7 @@ testStable(
       await waitForReply(location);
 
       first.child.kill('SIGKILL');
-      expect(await first.child.exited).not.toBe(0);
+      test.expect(await first.child.exited).not.toBe(0);
       const second = await start();
 
       await Effect.runPromise(
@@ -108,17 +105,19 @@ testStable(
           Effect.gen(function* () {
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: second.url });
 
-            expect(yield* client['notes.ask'](saved.input)).toEqual(saved.result);
-            expect(
-              yield* client['notes.replyVersion']({
-                noteId: saved.input.noteId,
-                messageId: saved.result.messageId,
-                versionId: saved.result.versionId
-              })
-            ).toEqual({ state: 'available', requestId: saved.result.requestId });
+            test.expect(yield* client['notes.ask'](saved.input)).toEqual(saved.result);
+            test
+              .expect(
+                yield* client['notes.replyVersion']({
+                  noteId: saved.input.noteId,
+                  messageId: saved.result.messageId,
+                  versionId: saved.result.versionId
+                })
+              )
+              .toEqual({ state: 'available', requestId: saved.result.requestId });
             const thread = yield* client['notes.thread']({ noteId: saved.input.noteId, limit: 10 });
 
-            expect(thread.items).toHaveLength(2);
+            test.expect(thread.items).toHaveLength(2);
           })
         )
       );
@@ -138,8 +137,8 @@ async function waitForReply(location: Awaited<ReturnType<typeof createTestDataba
   const database = await location.open();
 
   try {
-    await waitFor(() => {
-      assert.equal(
+    await test.waitFor(() => {
+      test.assert.equal(
         database.orm.all(
           sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id=w.execution_id WHERE e.workflow_tag='conversation-reply/v1'`
         ).length,

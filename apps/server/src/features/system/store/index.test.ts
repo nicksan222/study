@@ -1,3 +1,4 @@
+import { sql } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies search result projection, filtering, limits, and anchored passage         │
@@ -12,13 +13,8 @@
  * │ fixtures stay local to these tests.                                                      │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Pages } from '#server/features/pages/index';
 import { ServerContext } from '#server/platform/database/context';
@@ -28,175 +24,190 @@ import { deletionDocument } from '#testing/material-deletion';
 
 import { SystemStore } from './index.ts';
 
-testStable('search reads bounded project and source projections from SQLite', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
+test.stable(
+  'search reads bounded project and source projections from SQLite',
+  async ({ databases }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
 
-  try {
-    context.db.orm.run(
-      sql`INSERT INTO projects (id,name,created_at,updated_at) VALUES (1,'Physics',1,2)`
-    );
-    context.db.orm.run(
-      sql`INSERT INTO sources (id,project_id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES (1,1,'attachment','text','text/plain','Physics notes',1,zeroblob(32),3)`
-    );
-    const store = Effect.runSync(
-      useStore(SystemStore).pipe(Effect.provideService(Database, { store: context }))
-    );
-    const result = await Effect.runPromise(store.searches({ query: 'physics', limit: 10 }));
+    try {
+      context.db.orm.run(
+        sql`INSERT INTO projects (id,name,created_at,updated_at) VALUES (1,'Physics',1,2)`
+      );
+      context.db.orm.run(
+        sql`INSERT INTO sources (id,project_id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES (1,1,'attachment','text','text/plain','Physics notes',1,zeroblob(32),3)`
+      );
+      const store = Effect.runSync(
+        useStore(SystemStore).pipe(Effect.provideService(Database, { store: context }))
+      );
+      const result = await Effect.runPromise(store.searches({ query: 'physics', limit: 10 }));
 
-    expect(result.map((hit) => hit.kind).sort()).toStrictEqual(['project', 'source']);
-    expect(
-      (
-        await Effect.runPromise(store.searches({ query: 'physics', limit: 10, kinds: ['source'] }))
-      ).map((hit) => hit.kind)
-    ).toStrictEqual(['source']);
-    assert.strictEqual(
-      (await Effect.runPromise(store.searches({ query: '!!!', limit: 10 }))).length,
-      0
-    );
-    assert.strictEqual(
-      (await Effect.runPromise(store.searches({ query: 'physics', limit: 1 }))).length,
-      1
-    );
-  } finally {
-    context.close();
-    await location.cleanup();
+      test.expect(result.map((hit) => hit.kind).sort()).toStrictEqual(['project', 'source']);
+      test
+        .expect(
+          (
+            await Effect.runPromise(
+              store.searches({ query: 'physics', limit: 10, kinds: ['source'] })
+            )
+          ).map((hit) => hit.kind)
+        )
+        .toStrictEqual(['source']);
+      test.assert.strictEqual(
+        (await Effect.runPromise(store.searches({ query: '!!!', limit: 10 }))).length,
+        0
+      );
+      test.assert.strictEqual(
+        (await Effect.runPromise(store.searches({ query: 'physics', limit: 1 }))).length,
+        1
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
-testStable('passage search retains anchors and ignores superseded documents', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
+test.stable(
+  'passage search retains anchors and ignores superseded documents',
+  async ({ databases }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
 
-  try {
-    context.db.orm.run(
-      sql`INSERT INTO projects (id,name,created_at,updated_at) VALUES (1,'Science',1,1)`
-    );
-    context.db.orm.run(
-      sql`INSERT INTO sources (id,project_id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES (1,1,'attachment','text','text/plain','Notes',1,zeroblob(32),1)`
-    );
-    context.db.orm.run(
-      sql`INSERT INTO content_snapshots (id,source_id,extractor_version,meta,created_at) VALUES (1,1,1,'{}',1),(2,1,1,'{}',2),(3,1,1,'{}',3)`
-    );
-    context.db.orm.run(
-      sql`INSERT INTO chunks (id,document_id,ordinal,first_block,last_block,anchor,text,content_hash) VALUES (1,1,0,0,0,'{"type":"page","page":1}','obsolete fossils',zeroblob(32)),(2,2,0,0,0,'{"type":"page","page":2}','current molecules',zeroblob(32)),(3,3,0,0,0,'{"type":"page","page":3}','unpublished atoms',zeroblob(32))`
-    );
-    context.db.orm.run(
-      sql`INSERT INTO source_processing (source_id,revision,request_id,document_id,published_request_id) VALUES (1,1,'request',2,'request')`
-    );
-    const store = Effect.runSync(
-      useStore(SystemStore).pipe(Effect.provideService(Database, { store: context }))
-    );
+    try {
+      context.db.orm.run(
+        sql`INSERT INTO projects (id,name,created_at,updated_at) VALUES (1,'Science',1,1)`
+      );
+      context.db.orm.run(
+        sql`INSERT INTO sources (id,project_id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES (1,1,'attachment','text','text/plain','Notes',1,zeroblob(32),1)`
+      );
+      context.db.orm.run(
+        sql`INSERT INTO content_snapshots (id,source_id,extractor_version,meta,created_at) VALUES (1,1,1,'{}',1),(2,1,1,'{}',2),(3,1,1,'{}',3)`
+      );
+      context.db.orm.run(
+        sql`INSERT INTO chunks (id,document_id,ordinal,first_block,last_block,anchor,text,content_hash) VALUES (1,1,0,0,0,'{"type":"page","page":1}','obsolete fossils',zeroblob(32)),(2,2,0,0,0,'{"type":"page","page":2}','current molecules',zeroblob(32)),(3,3,0,0,0,'{"type":"page","page":3}','unpublished atoms',zeroblob(32))`
+      );
+      context.db.orm.run(
+        sql`INSERT INTO source_processing (source_id,revision,request_id,document_id,published_request_id) VALUES (1,1,'request',2,'request')`
+      );
+      const store = Effect.runSync(
+        useStore(SystemStore).pipe(Effect.provideService(Database, { store: context }))
+      );
 
-    assert.strictEqual(
-      (await Effect.runPromise(store.searches({ query: 'obsolete', limit: 10 }))).length,
-      0
-    );
-    assert.strictEqual(
-      (await Effect.runPromise(store.searches({ query: 'unpublished', limit: 10 }))).length,
-      0
-    );
-    const result = await Effect.runPromise(store.searches({ query: 'molecules', limit: 10 }));
+      test.assert.strictEqual(
+        (await Effect.runPromise(store.searches({ query: 'obsolete', limit: 10 }))).length,
+        0
+      );
+      test.assert.strictEqual(
+        (await Effect.runPromise(store.searches({ query: 'unpublished', limit: 10 }))).length,
+        0
+      );
+      const result = await Effect.runPromise(store.searches({ query: 'molecules', limit: 10 }));
 
-    assert.strictEqual(result.length, 1);
-    expect(result[0]?.target).toStrictEqual({
-      type: 'source',
-      sourceId: 1n,
-      anchor: { type: 'page', page: 2 }
-    });
-  } finally {
-    context.close();
-    await location.cleanup();
+      test.assert.strictEqual(result.length, 1);
+      test.expect(result[0]?.target).toStrictEqual({
+        type: 'source',
+        sourceId: 1n,
+        anchor: { type: 'page', page: 2 }
+      });
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
-testStable('search indexes only current published quiz material and prompts', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
+test.stable(
+  'search indexes only current published quiz material and prompts',
+  async ({ databases }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
 
-  try {
-    const run = (query: ReturnType<typeof sql>) => context.db.orm.run(query);
+    try {
+      const run = (query: ReturnType<typeof sql>) => context.db.orm.run(query);
 
-    run(
-      sql`INSERT INTO projects(id,name,created_at,updated_at) VALUES (1,'Science',1,1),(2,'Other',1,1)`
-    );
-    run(
-      sql`INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES (1,'quiz','Café gravity',1,1)`
-    );
-    run(
-      sql`INSERT INTO material_versions(id,material_id,kind,number,status,created_at) VALUES (1,1,'quiz',1,'draft',1)`
-    );
-    run(sql`INSERT INTO material_quiz_versions(version_id) VALUES (1)`);
-    run(
-      sql`INSERT INTO material_quiz_questions(id,version_id,position,kind,prompt,explanation) VALUES (1,1,0,'open','Orbital motion','Secret explanation')`
-    );
-    run(
-      sql`INSERT INTO material_quiz_open_answers(question_id,reference_answer) VALUES (1,'Secret reference')`
-    );
-    const store = Effect.runSync(
-      useStore(SystemStore).pipe(Effect.provideService(Database, { store: context }))
-    );
-    const find = (query: string, project?: bigint) =>
-      Effect.runPromise(store.searches({ query, limit: 10, project: project as never }));
+      run(
+        sql`INSERT INTO projects(id,name,created_at,updated_at) VALUES (1,'Science',1,1),(2,'Other',1,1)`
+      );
+      run(
+        sql`INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES (1,'quiz','Café gravity',1,1)`
+      );
+      run(
+        sql`INSERT INTO material_versions(id,material_id,kind,number,status,created_at) VALUES (1,1,'quiz',1,'draft',1)`
+      );
+      run(sql`INSERT INTO material_quiz_versions(version_id) VALUES (1)`);
+      run(
+        sql`INSERT INTO material_quiz_questions(id,version_id,position,kind,prompt,explanation) VALUES (1,1,0,'open','Orbital motion','Secret explanation')`
+      );
+      run(
+        sql`INSERT INTO material_quiz_open_answers(question_id,reference_answer) VALUES (1,'Secret reference')`
+      );
+      const store = Effect.runSync(
+        useStore(SystemStore).pipe(Effect.provideService(Database, { store: context }))
+      );
+      const find = (query: string, project?: bigint) =>
+        Effect.runPromise(store.searches({ query, limit: 10, project: project as never }));
 
-    assert.strictEqual((await find('orbital')).length, 0);
-    run(sql`UPDATE material_versions SET status='published',published_at=2 WHERE id=1`);
-    expect(
-      (await find('cafe')).map((hit) =>
-        hit.target.type === 'material' ? hit.target.materialKind : hit.kind
-      )
-    ).toStrictEqual(['quiz']);
-    expect((await find('orbital')).map((hit) => hit.kind)).toStrictEqual(['question']);
-    assert.strictEqual((await find('secret')).length, 0);
-    assert.strictEqual((await find('orbital', 2n)).length, 0);
-    run(sql`UPDATE materials SET archived_at=3 WHERE id=1`);
-    assert.strictEqual((await find('orbital')).length, 0);
-    run(sql`UPDATE materials SET archived_at=NULL WHERE id=1`);
-    assert.strictEqual((await find('orbital')).length, 1);
-    run(sql`UPDATE materials SET title='Renamed nebula',updated_at=4 WHERE id=1`);
-    assert.strictEqual((await find('cafe')).length, 0);
-    assert.strictEqual((await find('nebula')).length, 1);
-    run(
-      sql`INSERT INTO material_versions(id,material_id,kind,number,status,created_at) VALUES (2,1,'quiz',2,'draft',4)`
-    );
-    run(sql`INSERT INTO material_quiz_versions(version_id) VALUES (2)`);
-    run(
-      sql`INSERT INTO material_quiz_questions(id,version_id,position,kind,prompt,explanation) VALUES (2,2,0,'open','Quantum "lumière"','Hidden')`
-    );
-    run(
-      sql`INSERT INTO material_quiz_open_answers(question_id,reference_answer) VALUES (2,'Private')`
-    );
-    assert.strictEqual((await find('quantum')).length, 0);
-    run(sql`UPDATE material_versions SET status='published',published_at=5 WHERE id=2`);
-    assert.strictEqual((await find('orbital')).length, 0);
-    const hits = await find('quantum "lumiere"');
+      test.assert.strictEqual((await find('orbital')).length, 0);
+      run(sql`UPDATE material_versions SET status='published',published_at=2 WHERE id=1`);
+      test
+        .expect(
+          (await find('cafe')).map((hit) =>
+            hit.target.type === 'material' ? hit.target.materialKind : hit.kind
+          )
+        )
+        .toStrictEqual(['quiz']);
+      test.expect((await find('orbital')).map((hit) => hit.kind)).toStrictEqual(['question']);
+      test.assert.strictEqual((await find('secret')).length, 0);
+      test.assert.strictEqual((await find('orbital', 2n)).length, 0);
+      run(sql`UPDATE materials SET archived_at=3 WHERE id=1`);
+      test.assert.strictEqual((await find('orbital')).length, 0);
+      run(sql`UPDATE materials SET archived_at=NULL WHERE id=1`);
+      test.assert.strictEqual((await find('orbital')).length, 1);
+      run(sql`UPDATE materials SET title='Renamed nebula',updated_at=4 WHERE id=1`);
+      test.assert.strictEqual((await find('cafe')).length, 0);
+      test.assert.strictEqual((await find('nebula')).length, 1);
+      run(
+        sql`INSERT INTO material_versions(id,material_id,kind,number,status,created_at) VALUES (2,1,'quiz',2,'draft',4)`
+      );
+      run(sql`INSERT INTO material_quiz_versions(version_id) VALUES (2)`);
+      run(
+        sql`INSERT INTO material_quiz_questions(id,version_id,position,kind,prompt,explanation) VALUES (2,2,0,'open','Quantum "lumière"','Hidden')`
+      );
+      run(
+        sql`INSERT INTO material_quiz_open_answers(question_id,reference_answer) VALUES (2,'Private')`
+      );
+      test.assert.strictEqual((await find('quantum')).length, 0);
+      run(sql`UPDATE material_versions SET status='published',published_at=5 WHERE id=2`);
+      test.assert.strictEqual((await find('orbital')).length, 0);
+      const hits = await find('quantum "lumiere"');
 
-    assert.strictEqual(hits.length, 1);
-    expect(hits[0]?.target).toStrictEqual({
-      type: 'question',
-      materialId: 1n,
-      versionId: 2n,
-      questionId: 2n
-    });
-    assert.throws(() => run(sql`DELETE FROM materials WHERE id=1`));
-    assert.strictEqual((await find('quantum')).length, 1);
-    run(sql`DELETE FROM projects WHERE id=1`);
-    assert.strictEqual((await find('quantum')).length, 1);
-    assert.strictEqual(
-      context.db.orm.all(sql`SELECT rowid FROM catalog_fts WHERE kind IN ('material','question')`)
-        .length,
-      2
-    );
-  } finally {
-    context.close();
-    await location.cleanup();
+      test.assert.strictEqual(hits.length, 1);
+      test.expect(hits[0]?.target).toStrictEqual({
+        type: 'question',
+        materialId: 1n,
+        versionId: 2n,
+        questionId: 2n
+      });
+      test.assert.throws(() => run(sql`DELETE FROM materials WHERE id=1`));
+      test.assert.strictEqual((await find('quantum')).length, 1);
+      run(sql`DELETE FROM projects WHERE id=1`);
+      test.assert.strictEqual((await find('quantum')).length, 1);
+      test.assert.strictEqual(
+        context.db.orm.all(sql`SELECT rowid FROM catalog_fts WHERE kind IN ('material','question')`)
+          .length,
+        2
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
-testStable(
+test.stable(
   'bounded global Material search fills results past archived matches and uses canonical identities',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     try {
@@ -220,19 +231,19 @@ testStable(
         );
       const hits = await find();
 
-      assert.strictEqual(hits.length, 1);
-      expect(hits[0]?.target).toStrictEqual({
+      test.assert.strictEqual(hits.length, 1);
+      test.expect(hits[0]?.target).toStrictEqual({
         type: 'material',
         materialId: 2n,
         versionId: 2n,
         materialKind: 'flashcards'
       });
-      expect(await find()).toStrictEqual(hits);
+      test.expect(await find()).toStrictEqual(hits);
       const tied = await Effect.runPromise(
         store.searches({ query: 'GlobalReaderToken', kinds: ['material'], limit: 2 })
       );
 
-      expect(tied.map((hit) => hit.target)).toStrictEqual([
+      test.expect(tied.map((hit) => hit.target)).toStrictEqual([
         { type: 'material', materialId: 2n, versionId: 2n, materialKind: 'flashcards' },
         { type: 'material', materialId: 3n, versionId: 3n, materialKind: 'flashcards' }
       ]);
@@ -240,40 +251,46 @@ testStable(
         sql`INSERT INTO projects(id,name,created_at,updated_at) VALUES (1,'Scope',1,1),(2,'Other',1,1),(3,'Later match',1,1)`
       );
       run(sql`INSERT INTO project_materials(project_id,material_id) VALUES (1,2),(3,3)`);
-      expect(
-        await Effect.runPromise(
-          store.searches({
-            query: 'GlobalReaderToken',
-            kinds: ['material'],
-            limit: 1,
-            project: 1n as never
-          })
-        )
-      ).toStrictEqual(hits);
-      expect(
-        (
+      test
+        .expect(
           await Effect.runPromise(
             store.searches({
               query: 'GlobalReaderToken',
               kinds: ['material'],
               limit: 1,
-              project: 3n as never
+              project: 1n as never
             })
           )
-        ).map((hit) => hit.target)
-      ).toStrictEqual([
-        { type: 'material', materialId: 3n, versionId: 3n, materialKind: 'flashcards' }
-      ]);
-      expect(
-        await Effect.runPromise(
-          store.searches({
-            query: 'GlobalReaderToken',
-            kinds: ['material'],
-            limit: 1,
-            project: 2n as never
-          })
         )
-      ).toStrictEqual([]);
+        .toStrictEqual(hits);
+      test
+        .expect(
+          (
+            await Effect.runPromise(
+              store.searches({
+                query: 'GlobalReaderToken',
+                kinds: ['material'],
+                limit: 1,
+                project: 3n as never
+              })
+            )
+          ).map((hit) => hit.target)
+        )
+        .toStrictEqual([
+          { type: 'material', materialId: 3n, versionId: 3n, materialKind: 'flashcards' }
+        ]);
+      test
+        .expect(
+          await Effect.runPromise(
+            store.searches({
+              query: 'GlobalReaderToken',
+              kinds: ['material'],
+              limit: 1,
+              project: 2n as never
+            })
+          )
+        )
+        .toStrictEqual([]);
     } finally {
       context.close();
       await location.cleanup();
@@ -281,10 +298,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'authored search uses the independent document identity and only its visible published head',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     try {
@@ -308,22 +325,24 @@ testStable(
           });
           const store = yield* useStore(SystemStore);
 
-          expect(
-            yield* store.searches({ query: 'Obsolete', kinds: ['page'], limit: 10 })
-          ).toStrictEqual([]);
+          test
+            .expect(yield* store.searches({ query: 'Obsolete', kinds: ['page'], limit: 10 }))
+            .toStrictEqual([]);
           const hits = yield* store.searches({
             query: 'HeadOnlySearchToken',
             kinds: ['page'],
             limit: 10
           });
 
-          assert.strictEqual(hits.length, 1);
-          assert.ok(hits[0].kind === 'page');
-          expect(hits[0].target).toStrictEqual({ type: 'page', pageId: document.id });
+          test.assert.strictEqual(hits.length, 1);
+          test.assert.ok(hits[0].kind === 'page');
+          test.expect(hits[0].target).toStrictEqual({ type: 'page', pageId: document.id });
           yield* documents.archive({ id: document.id, archived: true });
-          expect(
-            yield* store.searches({ query: 'HeadOnlySearchToken', kinds: ['page'], limit: 10 })
-          ).toStrictEqual([]);
+          test
+            .expect(
+              yield* store.searches({ query: 'HeadOnlySearchToken', kinds: ['page'], limit: 10 })
+            )
+            .toStrictEqual([]);
         }).pipe(Effect.provide(Pages.layer), Effect.provideService(Database, { store: context }))
       );
     } finally {

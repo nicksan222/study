@@ -1,5 +1,4 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import {
   dependencyIdentity,
@@ -24,14 +23,14 @@ const valid = {
   }
 };
 
-testStable('the lockfile cannot split Effect schema identity or Drizzle instances', () => {
+test.stable('the lockfile cannot split Effect schema identity or Drizzle instances', () => {
   const packages = {
     effect: ['effect@4.0.7'],
     'drizzle-orm': ['drizzle-orm@1.0.0-rc.5']
   };
 
-  expect(dependencyIdentity(packages, '4.0.7')).toStrictEqual([]);
-  assert.strictEqual(
+  test.expect(dependencyIdentity(packages, '4.0.7')).toStrictEqual([]);
+  test.assert.strictEqual(
     dependencyIdentity(
       {
         ...packages,
@@ -44,8 +43,8 @@ testStable('the lockfile cannot split Effect schema identity or Drizzle instance
   );
 });
 
-testStable('workspace ownership rejects misplaced AI providers and Drizzle dependencies', () => {
-  expect(workspaceArchitecture(valid)).toStrictEqual([]);
+test.stable('workspace ownership rejects misplaced AI providers and Drizzle dependencies', () => {
+  test.expect(workspaceArchitecture(valid)).toStrictEqual([]);
   const issues = workspaceArchitecture({
     ...valid,
     'apps/client': {
@@ -54,21 +53,23 @@ testStable('workspace ownership rejects misplaced AI providers and Drizzle depen
     }
   });
 
-  assert.strictEqual(issues.length, 2, issues.join('\n'));
+  test.assert.strictEqual(issues.length, 2, issues.join('\n'));
 });
 
-testStable(
+test.stable(
   'shared AI mocks may implement the provider protocol without owning real providers',
   () => {
-    expect(
-      workspaceArchitecture({
-        ...valid,
-        'packages/testing': {
-          exports: { '.': './src/index.ts' },
-          dependencies: { '@ai-sdk/provider': '3.0.19' }
-        }
-      })
-    ).toStrictEqual([]);
+    test
+      .expect(
+        workspaceArchitecture({
+          ...valid,
+          'packages/testing': {
+            exports: { '.': './src/index.ts' },
+            dependencies: { '@ai-sdk/provider': '3.0.19' }
+          }
+        })
+      )
+      .toStrictEqual([]);
 
     const issues = workspaceArchitecture({
       ...valid,
@@ -79,11 +80,11 @@ testStable(
       'apps/client': { dependencies: { '@ai-sdk/provider': '3.0.19' } }
     });
 
-    assert.strictEqual(issues.length, 3, issues.join('\n'));
+    test.assert.strictEqual(issues.length, 3, issues.join('\n'));
   }
 );
 
-testStable(
+test.stable(
   'contracts expose browser-safe explicit entrypoints and cannot gain implementation dependencies',
   () => {
     const issues = workspaceArchitecture({
@@ -95,8 +96,8 @@ testStable(
       }
     });
 
-    expect(issues.filter((issue) => issue.includes('packages/contracts'))).toHaveLength(5);
-    assert.ok(
+    test.expect(issues.filter((issue) => issue.includes('packages/contracts'))).toHaveLength(5);
+    test.assert.ok(
       workspaceArchitecture({ 'apps/server': valid['apps/server'] }).some((issue) =>
         issue.includes('packages/contracts')
       )
@@ -104,7 +105,7 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'Effect consumers share an exact v4 version and AI dependencies stay in the server',
   () => {
     const issues = workspaceArchitecture({
@@ -113,24 +114,26 @@ testStable(
       'packages/contracts': { ...valid['packages/contracts'], dependencies: { effect: '4.0.5' } }
     });
 
-    assert.strictEqual(issues.length, 3, issues.join('\n'));
+    test.assert.strictEqual(issues.length, 3, issues.join('\n'));
   }
 );
 
-testStable('optional contract React bindings use official Effect state', () => {
-  expect(
-    workspaceArchitecture({
-      ...valid,
-      'packages/contracts': {
-        ...valid['packages/contracts'],
-        dependencies: { effect: '4.0.7', '@effect/atom-react': '4.0.7' },
-        peerDependencies: { react: '^19.3.1' }
-      }
-    })
-  ).toEqual([]);
+test.stable('optional contract React bindings use official Effect state', () => {
+  test
+    .expect(
+      workspaceArchitecture({
+        ...valid,
+        'packages/contracts': {
+          ...valid['packages/contracts'],
+          dependencies: { effect: '4.0.7', '@effect/atom-react': '4.0.7' },
+          peerDependencies: { react: '^19.3.1' }
+        }
+      })
+    )
+    .toEqual([]);
 });
 
-testStable('package manifests expose root APIs and only explicit approved facets', () => {
+test.stable('package manifests expose root APIs and only explicit approved facets', () => {
   const issues = workspaceArchitecture({
     ...valid,
     'packages/ui': {
@@ -147,7 +150,7 @@ testStable('package manifests expose root APIs and only explicit approved facets
     }
   });
 
-  expect(issues.some((issue) => issue.includes('packages/ui'))).toBe(true);
-  expect(issues.some((issue) => issue.includes('packages/testing'))).toBe(true);
-  expect(issues.some((issue) => issue.includes('apps/server'))).toBe(true);
+  test.expect(issues.some((issue) => issue.includes('packages/ui'))).toBe(true);
+  test.expect(issues.some((issue) => issue.includes('packages/testing'))).toBe(true);
+  test.expect(issues.some((issue) => issue.includes('apps/server'))).toBe(true);
 });

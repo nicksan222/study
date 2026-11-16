@@ -1,3 +1,4 @@
+import { PagesRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises authored Page citation judgments behavior through real persistence       │
@@ -11,17 +12,12 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { PagesRpc } from '@study/contracts';
 import { correctBlockText, createBlock } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Pages } from '#server/features/pages/index';
 import { PagesRpcLive } from '#server/features/pages/rpc/index';
@@ -44,10 +40,10 @@ const meta = {
 const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: ['strong'] }] });
 
-testStable(
+test.stable(
   'user judgments pin both rich ranges; claim edits, citation copies and restoration never inherit verification',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const handlers = PagesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
       Layer.provideMerge(Pages.layer),
@@ -68,7 +64,7 @@ testStable(
               citations: []
             });
 
-            assert.ok(evidence.version);
+            test.assert.ok(evidence.version);
             const input = { kind: 'page' as const, versionId: evidence.version.id };
             const evidenceRange = { blockId: block.id, start: 0, end: block.text.length };
             const claimBlock = paragraph('Claim [1]');
@@ -87,7 +83,7 @@ testStable(
               citations: [citation]
             });
 
-            assert.ok(claim.version);
+            test.assert.ok(claim.version);
             const target = {
               pageId: claim.id,
               range: {
@@ -108,7 +104,7 @@ testStable(
             };
             const before = context.db.orm.select().from(s.page_citation_assessments).all();
 
-            assert.strictEqual(
+            test.assert.strictEqual(
               (yield* rpc['pages.assessments']({
                 versionId: claim.version.id,
                 marker: 1,
@@ -122,22 +118,22 @@ testStable(
               { ...assessment, claim: { ...target, pageId: evidence.id } },
               { ...assessment, marker: 2 }
             ]) {
-              assert.ok(
+              test.assert.ok(
                 (yield* Effect.flip(rpc['pages.assessCitation'](invalid))).kind === 'invalid_input'
               );
-              expect(context.db.orm.select().from(s.page_citation_assessments).all()).toStrictEqual(
-                before
-              );
+              test
+                .expect(context.db.orm.select().from(s.page_citation_assessments).all())
+                .toStrictEqual(before);
             }
 
             context.db.exec(
               "CREATE TRIGGER reject_assessment_insert AFTER INSERT ON page_citation_assessments BEGIN SELECT RAISE(ABORT,'injected failure'); END"
             );
             yield* Effect.flip(rpc['pages.assessCitation'](assessment));
-            expect(context.db.orm.select().from(s.page_citation_assessments).all()).toStrictEqual(
-              before
-            );
-            assert.strictEqual(
+            test
+              .expect(context.db.orm.select().from(s.page_citation_assessments).all())
+              .toStrictEqual(before);
+            test.assert.strictEqual(
               (yield* rpc['pages.assessments']({ versionId: claim.version.id, limit: 10 })).items
                 .length,
               0
@@ -145,9 +141,9 @@ testStable(
             context.db.exec('DROP TRIGGER reject_assessment_insert');
             const recorded = yield* rpc['pages.assessCitation'](assessment);
 
-            assert.ok(recorded.assessment.independentVerification === false);
-            assert.ok(recorded.assessment.suppliedBy === 'user');
-            assert.ok(
+            test.assert.ok(recorded.assessment.independentVerification === false);
+            test.assert.ok(recorded.assessment.suppliedBy === 'user');
+            test.assert.ok(
               (yield* rpc['pages.assessments']({ versionId: claim.version.id, limit: 10 })).items[0]
                 .state === 'assessed'
             );
@@ -163,9 +159,9 @@ testStable(
               limit: 10
             })).items[0];
 
-            assert.ok(stale.state === 'stale');
-            expect(stale.assessment.claim).toStrictEqual(target);
-            assert.strictEqual(
+            test.assert.ok(stale.state === 'stale');
+            test.expect(stale.assessment.claim).toStrictEqual(target);
+            test.assert.strictEqual(
               (yield* rpc['pages.assessments']({
                 versionId: changed.submittedVersionId,
                 limit: 10
@@ -174,8 +170,8 @@ testStable(
             );
             const copied = yield* rpc['pages.version']({ id: changed.submittedVersionId });
 
-            expect(copied.citations).toStrictEqual([citation]);
-            expect(copied.inputs).toStrictEqual([input]);
+            test.expect(copied.citations).toStrictEqual([citation]);
+            test.expect(copied.inputs).toStrictEqual([input]);
             const restored = yield* rpc['pages.restore']({
               pageId: claim.id,
               expectedVersionId: changed.submittedVersionId,
@@ -183,7 +179,7 @@ testStable(
               key: 'claim-restore'
             });
 
-            assert.strictEqual(
+            test.assert.strictEqual(
               (yield* rpc['pages.assessments']({
                 versionId: restored.submittedVersionId,
                 limit: 10
@@ -197,22 +193,22 @@ testStable(
               document: { blocks: [correctBlockText(block, 'Revised evidence')], meta }
             });
 
-            assert.strictEqual(
+            test.assert.strictEqual(
               (yield* rpc['pages.page']({ id: evidence.id })).headVersionId,
               edited.submittedVersionId
             );
-            assert.ok(
+            test.assert.ok(
               (yield* rpc['pages.assessments']({ versionId: claim.version.id, limit: 10 })).items[0]
                 .state === 'stale'
             );
-            assert.ok(
+            test.assert.ok(
               (yield* rpc['pages.version']({ id: input.versionId })).document.blocks[0].text ===
                 'Exact evidence'
             );
             const rows = context.db.orm.select().from(s.page_citation_assessments).all();
 
-            assert.throws(() => context.db.orm.delete(s.page_citation_assessments).run());
-            assert.throws(() =>
+            test.assert.throws(() => context.db.orm.delete(s.page_citation_assessments).run());
+            test.assert.throws(() =>
               context.db.orm.update(s.page_citation_assessments).set({ payload: '{}' }).run()
             );
             const row = rows[0];
@@ -229,7 +225,7 @@ testStable(
                 citation: { ...payload.citation, target: { ...payload.citation.target, start: 1 } }
               }
             ])
-              assert.throws(() =>
+              test.assert.throws(() =>
                 context.db.orm
                   .insert(s.page_citation_assessments)
                   .values({
@@ -240,20 +236,20 @@ testStable(
                   .run()
               );
 
-            expect(context.db.orm.select().from(s.page_citation_assessments).all()).toStrictEqual(
-              rows
-            );
-            expect((yield* rpc['pages.version']({ id: claim.version.id })).inputs).toStrictEqual([
-              input
-            ]);
+            test
+              .expect(context.db.orm.select().from(s.page_citation_assessments).all())
+              .toStrictEqual(rows);
+            test
+              .expect((yield* rpc['pages.version']({ id: claim.version.id })).inputs)
+              .toStrictEqual([input]);
             const retirement = yield* rpc['pages.previewDeletion']({ id: claim.id });
 
             yield* rpc['pages.delete']({ pageId: claim.id, token: retirement.token });
-            assert.strictEqual(
+            test.assert.strictEqual(
               context.db.orm.select().from(s.page_citation_assessments).all().length,
               0
             );
-            expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+            test.expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
           }).pipe(Effect.provide(handlers))
         )
       );

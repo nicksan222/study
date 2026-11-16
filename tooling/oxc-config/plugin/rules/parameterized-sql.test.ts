@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable(
+test.stable(
   'rejects dynamic sql.raw input in production while allowing constants and tests',
   async () => {
     const diagnostics = await lintRule('parameterized-sql', {
@@ -13,12 +12,12 @@ testStable(
       'src/fixture.test.ts': "import { sql as query } from 'drizzle-orm'; query.raw(input);"
     });
 
-    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+    test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
   }
 );
 
-testStable('parameterized-sql handles aliases and avoids unrelated bindings', async () => {
+test.stable('parameterized-sql handles aliases and avoids unrelated bindings', async () => {
   const diagnostics = await lintRule('parameterized-sql', {
     'src/bad.ts': `import { Db as Database } from '@study/db';
 import { sql as query } from 'drizzle-orm';
@@ -29,11 +28,11 @@ query.raw(\`SELECT \${input}\`);`,
       'const sql = { raw: value => value }; sql.raw(input); const db = { exec: value => value }; db.exec(input);'
   });
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
-testStable('constant database aliases do not permit connection-level SQL execution', async () => {
+test.stable('constant database aliases do not permit connection-level SQL execution', async () => {
   const diagnostics = await lintRule('parameterized-sql', {
     'src/bad.ts': `import type { ServerContext } from '#server/runtime/context';
  function operation(ctx: ServerContext) { const db = ctx.db;
@@ -41,10 +40,10 @@ testStable('constant database aliases do not permit connection-level SQL executi
  }`
   });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable('facade sql aliases and namespaces retain parameter binding checks', async () => {
+test.stable('facade sql aliases and namespaces retain parameter binding checks', async () => {
   const diagnostics = await lintRule('parameterized-sql', {
     'src/bad.ts': `import { sql as query } from '@study/db';
  import * as database from '@study/db';
@@ -60,6 +59,6 @@ query.raw(input);
 }`
   });
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });

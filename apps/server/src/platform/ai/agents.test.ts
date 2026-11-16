@@ -1,3 +1,9 @@
+import {
+  AgentRule,
+  StudyError,
+  defaultAgentRules,
+  titledFlashcardsGenerationOutputSchema
+} from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises validated agent generation and streaming against a local Responses API   │
@@ -14,18 +20,9 @@
  * │ and closes that peer.                                                                    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import {
-  AgentRule,
-  StudyError,
-  defaultAgentRules,
-  titledFlashcardsGenerationOutputSchema
-} from '@study/contracts';
-import { createAiMock } from '@study/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Fiber, Schema, Stream } from 'effect';
 import { TestClock } from 'effect/testing';
-import { assert, expect } from 'vite-plus/test';
 
 import { generateAgent, layer, streamAgent } from '#server/platform/ai/agents';
 import type { AgentProgress, AgentsConfig } from '#server/platform/ai/agents';
@@ -35,7 +32,6 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { defineAgent, defineTool } from '#server/platform/definitions/define-agent';
 import { normalizeError } from '#server/platform/errors/classify-error';
-import { createServerTest } from '#testing/server-test';
 
 const definition = defineAgent({
   id: 'reply',
@@ -82,7 +78,7 @@ async function peer(
     fetch: async (req) => handler(req, await req.text())
   });
 
-  assert.ok(server.port, 'missing address');
+  test.assert.ok(server.port, 'missing address');
   const base = server.url.origin;
   const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
@@ -116,7 +112,7 @@ function service(
   });
 }
 
-function mockService(mock: ReturnType<typeof createAiMock>) {
+function mockService(mock: ReturnType<typeof test.createAiMock>) {
   return layer({
     model: (tier, call) => mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError)),
     language: 'en',
@@ -125,16 +121,16 @@ function mockService(mock: ReturnType<typeof createAiMock>) {
   });
 }
 
-testStable('generates validated output through the Responses provider', async () => {
+test.stable('generates validated output through the Responses provider', async () => {
   const observe: NonNullable<AgentsConfig['observe']> = (observation) =>
     Effect.sync(() => {
-      expect(observation.phase).toBe('generating');
+      test.expect(observation.phase).toBe('generating');
     });
 
   await peer(
     (_req) => send('Biology'),
     async (base, auth) => {
-      assert.ok(
+      test.assert.ok(
         (await Effect.runPromise(
           generateAgent(definition, 'cells').pipe(Effect.provide(service(base, auth, observe)))
         )) === 'Biology'
@@ -143,7 +139,7 @@ testStable('generates validated output through the Responses provider', async ()
   );
 });
 
-testStable('the harness publishes partial output before generation completes', async () => {
+test.stable('the harness publishes partial output before generation completes', async () => {
   let finish!: () => void;
   let sawDelta!: () => void;
   const partial = new Promise<void>((resolve) => {
@@ -198,32 +194,34 @@ testStable('the harness publishes partial output before generation completes', a
 
       try {
         await partial;
-        expect(complete).toBe(false);
-        expect(observed).toStrictEqual(['start', 'text-delta']);
+        test.expect(complete).toBe(false);
+        test.expect(observed).toStrictEqual(['start', 'text-delta']);
       } finally {
         finish();
       }
 
-      expect(await running).toBe('First');
-      expect(observed).toStrictEqual(['start', 'text-delta', 'complete']);
+      test.expect(await running).toBe('First');
+      test.expect(observed).toStrictEqual(['start', 'text-delta', 'complete']);
     }
   );
 });
 
-testStable('rejects malformed structured output', async () => {
+test.stable('rejects malformed structured output', async () => {
   await peer(
     (_req) => send('{"count":"wrong"}'),
     async (base, auth) => {
-      await expect(
-        Effect.runPromise(
-          generateAgent(objectDefinition, 'x').pipe(Effect.provide(service(base, auth)))
+      await test
+        .expect(
+          Effect.runPromise(
+            generateAgent(objectDefinition, 'x').pipe(Effect.provide(service(base, auth)))
+          )
         )
-      ).rejects.toThrow();
+        .rejects.toThrow();
     }
   );
 });
 
-testStable(
+test.stable(
   'batches preview writes without delaying direct deltas or losing the final text',
   async () => {
     let response!: ReadableStreamDefaultController<Uint8Array>;
@@ -274,11 +272,11 @@ testStable(
 
         // Synchronize with real SSE delivery before advancing the preview clock.
         yield* Effect.promise(() => directBurst);
-        expect(previews).toEqual(['First']);
-        expect(direct).toHaveLength(51);
+        test.expect(previews).toEqual(['First']);
+        test.expect(direct).toHaveLength(51);
 
         yield* TestClock.adjust('100 millis');
-        expect(previews).toEqual(['First', 'x'.repeat(50)]);
+        test.expect(previews).toEqual(['First', 'x'.repeat(50)]);
       } finally {
         delta('tail');
         response.enqueue(
@@ -290,7 +288,7 @@ testStable(
         yield* Fiber.join(running);
       }
 
-      expect(previews.join('')).toBe(`${expected}tail`);
+      test.expect(previews.join('')).toBe(`${expected}tail`);
     });
 
     await peer(
@@ -321,8 +319,8 @@ testStable(
 );
 
 for (const intercepted of [false, true])
-  testStable(`executes a validated source tool with runtime adapter ${intercepted}`, async () => {
-    using mock = createAiMock();
+  test.stable(`executes a validated source tool with runtime adapter ${intercepted}`, async () => {
+    using mock = test.createAiMock();
     const bodies: string[] = [];
 
     await peer(
@@ -413,21 +411,17 @@ for (const intercepted of [false, true])
           )
         );
 
-        assert.ok(output === 'Cells use energy.');
-        expect(queries).toStrictEqual(intercepted ? [] : ['cell']);
-        expect(bodies[1]).toMatch(/Cells use energy/);
-        expect(observed).toStrictEqual([
-          'start',
-          'tool-start',
-          'tool-finish',
-          'text-delta',
-          'complete'
-        ]);
+        test.assert.ok(output === 'Cells use energy.');
+        test.expect(queries).toStrictEqual(intercepted ? [] : ['cell']);
+        test.expect(bodies[1]).toMatch(/Cells use energy/);
+        test
+          .expect(observed)
+          .toStrictEqual(['start', 'tool-start', 'tool-finish', 'text-delta', 'complete']);
       }
     );
   });
 
-testStable(
+test.stable(
   'streams text before the provider completes and never completes a truncated response',
   async () => {
     const { Stream } = await import('effect');
@@ -464,7 +458,7 @@ testStable(
       }
     });
 
-    assert.ok(server.port, 'missing address');
+    test.assert.ok(server.port, 'missing address');
     const base = server.url.origin;
     const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
@@ -508,7 +502,7 @@ testStable(
         )
       );
       const rejected = (async () => {
-        await expect(running).rejects.toThrow();
+        await test.expect(running).rejects.toThrow();
       })();
 
       try {
@@ -518,13 +512,13 @@ testStable(
             setTimeout(() => reject(Error('delta was buffered')), 500)
           )
         ]);
-        expect(seen).toStrictEqual([{ type: 'text-delta', text: 'partial' }]);
+        test.expect(seen).toStrictEqual([{ type: 'text-delta', text: 'partial' }]);
       } finally {
         release();
       }
 
       await rejected;
-      expect(seen).toStrictEqual([{ type: 'text-delta', text: 'partial' }]);
+      test.expect(seen).toStrictEqual([{ type: 'text-delta', text: 'partial' }]);
     } finally {
       release();
       await auth.dispose();
@@ -533,7 +527,7 @@ testStable(
   }
 );
 
-testStable('retries rate-limited requests up to the configured limit', async () => {
+test.stable('retries rate-limited requests up to the configured limit', async () => {
   let calls = 0;
 
   await peer(
@@ -543,19 +537,19 @@ testStable('retries rate-limited requests up to the configured limit', async () 
       return calls === 1 ? new Response(null, { status: 429 }) : send('ok');
     },
     async (base, auth) => {
-      assert.ok(
+      test.assert.ok(
         (await Effect.runPromise(
           generateAgent(definition, 'x', { maxRetries: 1 }).pipe(
             Effect.provide(service(base, auth))
           )
         )) === 'ok'
       );
-      assert.strictEqual(calls, 2);
+      test.assert.strictEqual(calls, 2);
     }
   );
 });
 
-testStable('cancellation after a delta never publishes completion', async () => {
+test.stable('cancellation after a delta never publishes completion', async () => {
   let release!: () => void;
   const gate = new Promise<void>((resolve) => {
     release = resolve;
@@ -615,8 +609,8 @@ testStable('cancellation after a delta never publishes completion', async () => 
           { signal: controller.signal }
         );
 
-        await expect(running).rejects.toThrow();
-        expect(seen).toStrictEqual([{ type: 'text-delta', text: 'partial' }]);
+        await test.expect(running).rejects.toThrow();
+        test.expect(seen).toStrictEqual([{ type: 'text-delta', text: 'partial' }]);
       }
     );
   } finally {
@@ -624,25 +618,27 @@ testStable('cancellation after a delta never publishes completion', async () => 
   }
 });
 
-testStable('rejects empty model output without publishing completion', async () => {
-  using mock = createAiMock();
+test.stable('rejects empty model output without publishing completion', async () => {
+  using mock = test.createAiMock();
 
   mock.next(definition, { input: 'x', output: '' });
   const seen: AgentProgress<string>[] = [];
 
-  await expect(
-    Effect.runPromise(
-      streamAgent(definition, 'x').pipe(
-        Stream.tap((event) => Effect.sync(() => seen.push(event))),
-        Stream.runDrain,
-        Effect.provide(mockService(mock))
+  await test
+    .expect(
+      Effect.runPromise(
+        streamAgent(definition, 'x').pipe(
+          Stream.tap((event) => Effect.sync(() => seen.push(event))),
+          Stream.runDrain,
+          Effect.provide(mockService(mock))
+        )
       )
     )
-  ).rejects.toThrow();
-  expect(seen.some((event) => event.type === 'complete')).toBe(false);
+    .rejects.toThrow();
+  test.expect(seen.some((event) => event.type === 'complete')).toBe(false);
 });
 
-testStable('preserves note history in the native reply request', async () => {
+test.stable('preserves note history in the native reply request', async () => {
   const { replyAgent } = await import('#server/features/notes/agents/reply');
   let body = '';
 
@@ -659,54 +655,57 @@ testStable('preserves note history in the native reply request', async () => {
         { role: 'user' as const, content: 'Read these' }
       ];
 
-      assert.ok(
+      test.assert.ok(
         (await Effect.runPromise(
           generateAgent(replyAgent, { messages }).pipe(Effect.provide(service(base, auth)))
         )) === 'read'
       );
 
       for (const value of ['Earlier request', 'Earlier answer', 'Read these'])
-        assert.ok(body.includes(value));
+        test.assert.ok(body.includes(value));
 
       const request = JSON.parse(body);
 
-      expect(request.tools).toContainEqual({ type: 'web_search' });
-      expect(request.tools).toContainEqual(
-        expect.objectContaining({ type: 'function', name: 'sources' })
-      );
+      test.expect(request.tools).toContainEqual({ type: 'web_search' });
+      test
+        .expect(request.tools)
+        .toContainEqual(test.expect.objectContaining({ type: 'function', name: 'sources' }));
     }
   );
 });
 
-testStable('the Assistant keeps its local tools without gaining web search', async (t) => {
-  const { assistantAgent } = await import('#server/features/notes/agents/assistant');
-  const fixture = createServerTest(t, { app: false });
-  const store = new ServerContext(await fixture.openDb());
+test.stable(
+  'the Assistant keeps its local tools without gaining web search',
+  async ({ resources: resourcesFixture }) => {
+    const { assistantAgent } = await import('#server/features/notes/agents/assistant');
+    const fixture = resourcesFixture;
+    const store = new ServerContext(await fixture.openDb());
 
-  fixture.dispose(() => store.close());
-  let body = '';
+    fixture.dispose(() => store.close());
+    let body = '';
 
-  await peer(
-    (_req, request) => {
-      body = request;
+    await peer(
+      (_req, request) => {
+        body = request;
 
-      return send('Local answer');
-    },
-    async (base, auth) => {
-      await Effect.runPromise(
-        generateAgent(assistantAgent, {
-          messages: [{ role: 'user', content: 'Search online' }]
-        }).pipe(Effect.provide(service(base, auth)), Effect.provideService(Database, { store }))
-      );
-      const tools = JSON.parse(body).tools;
+        return send('Local answer');
+      },
+      async (base, auth) => {
+        await Effect.runPromise(
+          generateAgent(assistantAgent, {
+            messages: [{ role: 'user', content: 'Search online' }]
+          }).pipe(Effect.provide(service(base, auth)), Effect.provideService(Database, { store }))
+        );
+        const tools = JSON.parse(body).tools;
 
-      expect(tools.length).toBeGreaterThan(0);
-      expect(tools.every((tool: { type: string }) => tool.type === 'function')).toBe(true);
-    }
-  );
-});
+        test.expect(tools.length).toBeGreaterThan(0);
+        test.expect(tools.every((tool: { type: string }) => tool.type === 'function')).toBe(true);
+      }
+    );
+  }
+);
 
-testStable(
+test.stable(
   'native web search completes inside the reply request without a local search executor',
   async () => {
     const { replyAgent } = await import('#server/features/notes/agents/reply');
@@ -744,20 +743,22 @@ testStable(
         return new Response(events, { headers: { 'content-type': 'text/event-stream' } });
       },
       async (base, auth) => {
-        expect(
-          await Effect.runPromise(
-            generateAgent(replyAgent, {
-              messages: [{ role: 'user', content: 'Check online' }]
-            }).pipe(Effect.provide(service(base, auth)))
+        test
+          .expect(
+            await Effect.runPromise(
+              generateAgent(replyAgent, {
+                messages: [{ role: 'user', content: 'Check online' }]
+              }).pipe(Effect.provide(service(base, auth)))
+            )
           )
-        ).toBe(answer);
-        expect(requests).toBe(1);
+          .toBe(answer);
+        test.expect(requests).toBe(1);
       }
     );
   }
 );
 
-testStable('agents without a web search declaration never receive native web search', async () => {
+test.stable('agents without a web search declaration never receive native web search', async () => {
   let body = '';
 
   await peer(
@@ -770,14 +771,14 @@ testStable('agents without a web search declaration never receive native web sea
       await Effect.runPromise(
         generateAgent(definition, 'Search online').pipe(Effect.provide(service(base, auth)))
       );
-      expect(JSON.parse(body).tools ?? []).not.toContainEqual(
-        expect.objectContaining({ type: 'web_search' })
-      );
+      test
+        .expect(JSON.parse(body).tools ?? [])
+        .not.toContainEqual(test.expect.objectContaining({ type: 'web_search' }));
     }
   );
 });
 
-testStable('transcribes image and PDF bytes through the native vision API', async () => {
+test.stable('transcribes image and PDF bytes through the native vision API', async () => {
   const { visionTranscriptionAgent } =
     await import('#server/features/sources/agents/vision-transcription');
 
@@ -804,15 +805,15 @@ testStable('transcribes image and PDF bytes through the native vision API', asyn
           }).pipe(Effect.provide(service(base, auth)))
         );
 
-        assert.ok(result.pages[0].blocks[0].text === 'read');
-        expect(body).toMatch(new RegExp(expected));
+        test.assert.ok(result.pages[0].blocks[0].text === 'read');
+        test.expect(body).toMatch(new RegExp(expected));
       }
     );
   }
 });
 
-testStable('rejects invalid request limits before making a provider request', async () => {
-  using mock = createAiMock();
+test.stable('rejects invalid request limits before making a provider request', async () => {
+  using mock = test.createAiMock();
 
   for (const options of [
     { maxSteps: 0 },
@@ -824,11 +825,11 @@ testStable('rejects invalid request limits before making a provider request', as
       Effect.flip(generateAgent(definition, 'x', options)).pipe(Effect.provide(mockService(mock)))
     );
 
-    expect(error.kind).toBe('invalid_input');
+    test.expect(error.kind).toBe('invalid_input');
   }
 });
 
-testStable('preserves the typed provider error after retries are exhausted', async () => {
+test.stable('preserves the typed provider error after retries are exhausted', async () => {
   await peer(
     (_req) => {
       return new Response(null, { status: 429 });
@@ -838,13 +839,13 @@ testStable('preserves the typed provider error after retries are exhausted', asy
         Effect.flip(generateAgent(definition, 'x')).pipe(Effect.provide(service(base, auth)))
       );
 
-      assert.ok(error.kind === 'rate_limited');
-      assert.strictEqual(error.name, 'ChatGptRequestError');
+      test.assert.ok(error.kind === 'rate_limited');
+      test.assert.strictEqual(error.name, 'ChatGptRequestError');
     }
   );
 });
 
-testStable(
+test.stable(
   'canonical quiz agent accepts exactly one correct choice and rejects inconsistent answers',
   async () => {
     const { quizAgent } = await import('#server/features/materials/agents/quiz');
@@ -880,54 +881,57 @@ testStable(
             )
           );
 
-        assert.ok((await run()).questions[0]?.kind === 'single_choice');
+        test.assert.ok((await run()).questions[0]?.kind === 'single_choice');
         validAnswer = false;
-        await expect(run()).rejects.toThrow();
-        assert.strictEqual(requests, 2);
+        await test.expect(run()).rejects.toThrow();
+        test.assert.strictEqual(requests, 2);
       }
     );
   }
 );
 
-testStable('generic model request checks fail in the typed lane before provider work', async () => {
-  let calls = 0;
+test.stable(
+  'generic model request checks fail in the typed lane before provider work',
+  async () => {
+    let calls = 0;
 
-  await peer(
-    (_req) => {
-      calls++;
+    await peer(
+      (_req) => {
+        calls++;
 
-      return send('unexpected');
-    },
-    async (base, auth) => {
-      const { withRequestCheck: _check, ...model } = createChatGptModel({
-        auth,
-        modelId: 'test',
-        baseUrl: base
-      });
-      const failure = await Effect.runPromise(
-        Effect.flip(
-          generateAgent(definition, 'question', {
-            preflight: Effect.fail(new StudyError('cancelled', 'Ownership lost'))
-          })
-        ).pipe(
-          Effect.provide(
-            layer({
-              model: () => Effect.succeed(model),
-              language: 'en',
-              rules: Effect.succeed(defaultAgentRules),
-              searchSources: () => Effect.succeed([])
+        return send('unexpected');
+      },
+      async (base, auth) => {
+        const { withRequestCheck: _check, ...model } = createChatGptModel({
+          auth,
+          modelId: 'test',
+          baseUrl: base
+        });
+        const failure = await Effect.runPromise(
+          Effect.flip(
+            generateAgent(definition, 'question', {
+              preflight: Effect.fail(new StudyError('cancelled', 'Ownership lost'))
             })
+          ).pipe(
+            Effect.provide(
+              layer({
+                model: () => Effect.succeed(model),
+                language: 'en',
+                rules: Effect.succeed(defaultAgentRules),
+                searchSources: () => Effect.succeed([])
+              })
+            )
           )
-        )
-      );
+        );
 
-      assert.ok(failure.kind === 'cancelled');
-      assert.strictEqual(calls, 0);
-    }
-  );
-});
+        test.assert.ok(failure.kind === 'cancelled');
+        test.assert.strictEqual(calls, 0);
+      }
+    );
+  }
+);
 
-testStable('slow consumers receive all large deltas and the validated completion', async () => {
+test.stable('slow consumers receive all large deltas and the validated completion', async () => {
   const delta = 'x'.repeat(4096);
   const count = 80;
 
@@ -967,13 +971,13 @@ testStable('slow consumers receive all large deltas and the validated completion
       );
       const deltas = events.filter((event) => event.type === 'text-delta');
 
-      assert.strictEqual(deltas.map((event) => event.text).join(''), delta.repeat(count));
-      expect(events.at(-1)).toStrictEqual({ type: 'complete', output: delta.repeat(count) });
+      test.assert.strictEqual(deltas.map((event) => event.text).join(''), delta.repeat(count));
+      test.expect(events.at(-1)).toStrictEqual({ type: 'complete', output: delta.repeat(count) });
     }
   );
 });
 
-testStable('never retries a failed response after publishing a delta', async () => {
+test.stable('never retries a failed response after publishing a delta', async () => {
   let calls = 0;
   let finish!: () => void;
 
@@ -1005,29 +1009,31 @@ testStable('never retries a failed response after publishing a delta', async () 
     async (base, auth) => {
       const seen: string[] = [];
 
-      await expect(
-        Effect.runPromise(
-          streamAgent(definition, 'x', { maxRetries: 3 }).pipe(
-            Stream.tap((event) => {
-              function recordEventType() {
-                seen.push(event.type);
-                finish();
-              }
+      await test
+        .expect(
+          Effect.runPromise(
+            streamAgent(definition, 'x', { maxRetries: 3 }).pipe(
+              Stream.tap((event) => {
+                function recordEventType() {
+                  seen.push(event.type);
+                  finish();
+                }
 
-              return Effect.sync(recordEventType);
-            }),
-            Stream.runDrain,
-            Effect.provide(service(base, auth))
+                return Effect.sync(recordEventType);
+              }),
+              Stream.runDrain,
+              Effect.provide(service(base, auth))
+            )
           )
         )
-      ).rejects.toThrow();
-      expect(seen).toStrictEqual(['text-delta']);
-      assert.strictEqual(calls, 1);
+        .rejects.toThrow();
+      test.expect(seen).toStrictEqual(['text-delta']);
+      test.assert.strictEqual(calls, 1);
     }
   );
 });
 
-testStable(
+test.stable(
   'local interruption closes the request without retries or durable cancellation',
   async () => {
     let calls = 0;
@@ -1064,17 +1070,17 @@ testStable(
         while (calls === 0) await new Promise((resolve) => setTimeout(resolve, 5));
 
         controller.abort();
-        await expect(running).rejects.toThrow();
+        await test.expect(running).rejects.toThrow();
         await requestClosed;
-        assert.strictEqual(calls, 1);
-        expect(observed).toStrictEqual(['start']);
+        test.assert.strictEqual(calls, 1);
+        test.expect(observed).toStrictEqual(['start']);
       }
     );
   }
 );
 
-testStable('decoder exceptions remain typed input failures before provider work', async () => {
-  using mock = createAiMock();
+test.stable('decoder exceptions remain typed input failures before provider work', async () => {
+  using mock = test.createAiMock();
 
   const guarded = defineAgent({
     ...definition,
@@ -1090,11 +1096,11 @@ testStable('decoder exceptions remain typed input failures before provider work'
     Effect.flip(generateAgent(guarded, input)).pipe(Effect.provide(mockService(mock)))
   );
 
-  assert.ok(failure.kind === 'invalid_input');
-  assert.ok(failure.message === 'Invalid agent input');
+  test.assert.ok(failure.kind === 'invalid_input');
+  test.assert.ok(failure.message === 'Invalid agent input');
 });
 
-testStable(
+test.stable(
   'injects only selected rules, composes title rules and reloads preferences for each run',
   async () => {
     let rules = {
@@ -1128,25 +1134,25 @@ testStable(
           Effect.runPromise(generateAgent(agent, 'question').pipe(Effect.provide(configured)));
 
         await run();
-        expect(bodies[0]).toContain('Base instructions in en');
-        expect(bodies[0]).toContain('Use application questions.');
-        expect(bodies[0]).toContain('Use descriptive titles.');
-        expect(bodies[0]).not.toContain('UNRELATED DOCUMENT RULE');
+        test.expect(bodies[0]).toContain('Base instructions in en');
+        test.expect(bodies[0]).toContain('Use application questions.');
+        test.expect(bodies[0]).toContain('Use descriptive titles.');
+        test.expect(bodies[0]).not.toContain('UNRELATED DOCUMENT RULE');
         rules = { ...rules, quizzes: 'Updated quiz preference.', titles: '   ' };
         await run();
-        expect(bodies[1]).toContain('Updated quiz preference.');
-        expect(bodies[1]).not.toContain('Use application questions.');
-        expect(bodies[1]).not.toContain('Use descriptive titles.');
+        test.expect(bodies[1]).toContain('Updated quiz preference.');
+        test.expect(bodies[1]).not.toContain('Use application questions.');
+        test.expect(bodies[1]).not.toContain('Use descriptive titles.');
         rules = defaultAgentRules;
         await run();
-        expect(bodies[2]).not.toContain('User preferences');
-        expect(bodies[2]).toContain('Base instructions in en');
+        test.expect(bodies[2]).not.toContain('User preferences');
+        test.expect(bodies[2]).toContain('Base instructions in en');
       }
     );
   }
 );
 
-testStable('records provider usage even when an agent rejects the generated output', async () => {
+test.stable('records provider usage even when an agent rejects the generated output', async () => {
   const records: { input: number; output: number; incomplete: boolean }[] = [];
   const recordUsage: NonNullable<AgentsConfig['recordUsage']> = (record) =>
     Effect.sync(() => {
@@ -1164,14 +1170,14 @@ testStable('records provider usage even when an agent rejects the generated outp
         )
       );
 
-      expect(exit._tag).toBe('Failure');
-      expect(records).toHaveLength(1);
-      expect(records[0]).toMatchObject({ input: 0, output: 0, incomplete: true });
+      test.expect(exit._tag).toBe('Failure');
+      test.expect(records).toHaveLength(1);
+      test.expect(records[0]).toMatchObject({ input: 0, output: 0, incomplete: true });
     }
   );
 });
 
-testStable('retains provider-reported tokens when ChatGPT truncates a response', async () => {
+test.stable('retains provider-reported tokens when ChatGPT truncates a response', async () => {
   const records: { input: number; output: number }[] = [];
   const recordUsage: NonNullable<AgentsConfig['recordUsage']> = (record) =>
     Effect.sync(() => {
@@ -1211,9 +1217,9 @@ testStable('retains provider-reported tokens when ChatGPT truncates a response',
         )
       );
 
-      expect(exit._tag).toBe('Failure');
-      expect(records).toHaveLength(1);
-      expect(records[0]).toMatchObject({
+      test.expect(exit._tag).toBe('Failure');
+      test.expect(records).toHaveLength(1);
+      test.expect(records[0]).toMatchObject({
         input: 100,
         output: 20,
         cacheRead: 80,
@@ -1224,7 +1230,7 @@ testStable('retains provider-reported tokens when ChatGPT truncates a response',
   );
 });
 
-testStable(
+test.stable(
   'decodes JSON optional identifiers in structured agent output before publication',
   async () => {
     const generated = {
@@ -1248,7 +1254,7 @@ testStable(
           ).pipe(Effect.provide(service(base, auth)))
         );
 
-        expect(result).toStrictEqual({
+        test.expect(result).toStrictEqual({
           ...generated,
           content: {
             ...generated.content,
@@ -1263,8 +1269,8 @@ testStable(
   }
 );
 
-testStable('model adapters receive the actual agent contract and validated input', async () => {
-  using mock = createAiMock();
+test.stable('model adapters receive the actual agent contract and validated input', async () => {
+  using mock = test.createAiMock();
 
   const expected = mock.next(definition, { input: 'cells', output: 'Biology' });
   const output = await Effect.runPromise(
@@ -1272,8 +1278,8 @@ testStable('model adapters receive the actual agent contract and validated input
       Effect.provide(
         layer({
           model: (tier, call) => {
-            expect(call.definition).toBe(definition);
-            expect(call.input).toBe('cells');
+            test.expect(call.definition).toBe(definition);
+            test.expect(call.input).toBe('cells');
 
             return mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError));
           },
@@ -1285,14 +1291,14 @@ testStable('model adapters receive the actual agent contract and validated input
     )
   );
 
-  expect((await expected.called).input).toBe('cells');
-  expect(output).toBe('Biology');
+  test.expect((await expected.called).input).toBe('cells');
+  test.expect(output).toBe('Biology');
 });
 
-testStable(
+test.stable(
   'internal provider retries cannot consume the next agent invocation expectation',
   async () => {
-    using mock = createAiMock();
+    using mock = test.createAiMock();
     const unavailable = new StudyError('transient', 'Try this logical call again later');
 
     mock.failNext(definition, { input: 'cells', error: unavailable });
@@ -1311,9 +1317,11 @@ testStable(
       )
     );
 
-    expect(failed.kind).toBe('transient');
-    expect(
-      await Effect.runPromise(generateAgent(definition, 'cells').pipe(Effect.provide(services)))
-    ).toBe('The next logical call');
+    test.expect(failed.kind).toBe('transient');
+    test
+      .expect(
+        await Effect.runPromise(generateAgent(definition, 'cells').pipe(Effect.provide(services)))
+      )
+      .toBe('The next logical call');
   }
 );

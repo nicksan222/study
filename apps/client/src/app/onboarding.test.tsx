@@ -1,30 +1,27 @@
-import { testStable } from '@study/testing/vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { ReplayOnboarding } from '#client/features/onboarding/index.tsx';
-import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { OnboardingProvider } from './onboarding';
 
-const api = vi.hoisted(() => ({ read: vi.fn(), save: vi.fn(), signIn: vi.fn() }));
+const api = test.hoisted(() => ({ read: test.vi.fn(), save: test.vi.fn(), signIn: test.vi.fn() }));
 
-vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('#client/pages/settings/general/index.tsx', () => ({
+test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+test.mock('#client/pages/settings/general/index.tsx', () => ({
   GeneralSettings: () => <div>Language control</div>
 }));
-vi.mock('#client/pages/settings/theme-library.tsx', () => ({
+test.mock('#client/pages/settings/theme-library.tsx', () => ({
   ColorScheme: () => <div>Appearance control</div>
 }));
-vi.mock('#client/pages/settings/use-page.ts', () => ({
+test.mock('#client/pages/settings/use-page.ts', () => ({
   useAppearance: () => ({ data: {}, error: false })
 }));
-vi.mock('#client/pages/settings/ai/index.tsx', () => ({
+test.mock('#client/pages/settings/ai/index.tsx', () => ({
   AiAccountSettings: () => <button onClick={api.signIn}>ChatGPT sign in</button>
 }));
 
-afterEach(() => {
-  vi.resetAllMocks();
+test.afterEach(() => {
+  test.vi.resetAllMocks();
 });
 
 function mount(onboarded = false, loadError = false) {
@@ -32,11 +29,11 @@ function mount(onboarded = false, loadError = false) {
   else api.read.mockResolvedValue({ onboarded, language: 1, appearance: 3, zoomPercent: 100 });
 
   api.save.mockResolvedValue({});
-  const cache = rpcTestTransport(async (tag, input) =>
+  const cache = test.rpcTestTransport(async (tag, input) =>
     tag === 'settings.appSettings' ? api.read() : api.save(input)
   );
 
-  render(
+  test.render(
     <cache.wrapper>
       <OnboardingProvider>
         <ReplayOnboarding />
@@ -45,16 +42,16 @@ function mount(onboarded = false, loadError = false) {
   );
 }
 
-testStable('shows first run, supports back, and saves completion before closing', async () => {
+test.stable('shows first run, supports back, and saves completion before closing', async () => {
   mount();
-  await screen.findByRole('dialog');
-  await screen.findByRole('heading', { name: 'OnboardingWelcomeTitle' });
-  fireEvent.click(screen.getByRole('button', { name: /OnboardingStart/ }));
-  await screen.findByRole('heading', { name: 'GeneralSettingsLanguage' });
-  fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-  await screen.findByRole('dialog');
-  await screen.findByRole('heading', { name: 'OnboardingWelcomeTitle' });
-  fireEvent.click(screen.getByRole('button', { name: /OnboardingStart/ }));
+  await test.screen.findByRole('dialog');
+  await test.screen.findByRole('heading', { name: 'OnboardingWelcomeTitle' });
+  test.fireEvent.click(test.screen.getByRole('button', { name: /OnboardingStart/ }));
+  await test.screen.findByRole('heading', { name: 'GeneralSettingsLanguage' });
+  test.fireEvent.click(test.screen.getByRole('button', { name: 'Back' }));
+  await test.screen.findByRole('dialog');
+  await test.screen.findByRole('heading', { name: 'OnboardingWelcomeTitle' });
+  test.fireEvent.click(test.screen.getByRole('button', { name: /OnboardingStart/ }));
 
   for (const title of [
     'ColorScheme',
@@ -64,67 +61,67 @@ testStable('shows first run, supports back, and saves completion before closing'
     'OnboardingWorkflowTitle',
     'OnboardingConnectTitle'
   ]) {
-    fireEvent.click(screen.getByRole('button', { name: /OnboardingNext/ }));
-    await screen.findByRole('heading', { name: title });
-    expect(api.save).not.toHaveBeenCalled();
+    test.fireEvent.click(test.screen.getByRole('button', { name: /OnboardingNext/ }));
+    await test.screen.findByRole('heading', { name: title });
+    test.expect(api.save).not.toHaveBeenCalled();
 
     if (title === 'OnboardingSubjectsTitle')
-      expect(screen.getByText('OnboardingSampleSubject')).toBeInTheDocument();
+      test.expect(test.screen.getByText('OnboardingSampleSubject')).toBeInTheDocument();
 
     if (title === 'OnboardingPagesTitle')
-      expect(
-        screen.getByRole('heading', { name: 'OnboardingSamplePageTitle' })
-      ).toBeInTheDocument();
+      test
+        .expect(test.screen.getByRole('heading', { name: 'OnboardingSamplePageTitle' }))
+        .toBeInTheDocument();
 
     if (title === 'OnboardingWorkflowTitle') {
-      fireEvent.click(screen.getByRole('button', { name: 'OnboardingPreviewTransform' }));
-      expect(
-        screen.getByRole('heading', { name: 'OnboardingSamplePageTitle' })
-      ).toBeInTheDocument();
-      fireEvent.click(screen.getByRole('button', { name: 'OnboardingPreviewNotes' }));
-      expect(screen.getByText('OnboardingSampleEntry')).toBeInTheDocument();
+      test.fireEvent.click(test.screen.getByRole('button', { name: 'OnboardingPreviewTransform' }));
+      test
+        .expect(test.screen.getByRole('heading', { name: 'OnboardingSamplePageTitle' }))
+        .toBeInTheDocument();
+      test.fireEvent.click(test.screen.getByRole('button', { name: 'OnboardingPreviewNotes' }));
+      test.expect(test.screen.getByText('OnboardingSampleEntry')).toBeInTheDocument();
     }
   }
 
-  expect(screen.getByRole('button', { name: /OnboardingFinish/ })).toBeEnabled();
-  fireEvent.click(screen.getByRole('button', { name: 'ChatGPT sign in' }));
-  expect(api.signIn).toHaveBeenCalledOnce();
-  fireEvent.click(screen.getByRole('button', { name: /OnboardingFinish/ }));
-  await waitFor(() =>
-    expect(api.save).toHaveBeenCalledWith(expect.objectContaining({ onboarded: true }))
+  test.expect(test.screen.getByRole('button', { name: /OnboardingFinish/ })).toBeEnabled();
+  test.fireEvent.click(test.screen.getByRole('button', { name: 'ChatGPT sign in' }));
+  test.expect(api.signIn).toHaveBeenCalledOnce();
+  test.fireEvent.click(test.screen.getByRole('button', { name: /OnboardingFinish/ }));
+  await test.waitFor(() =>
+    test.expect(api.save).toHaveBeenCalledWith(test.expect.objectContaining({ onboarded: true }))
   );
-  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  await test.waitFor(() => test.expect(test.screen.queryByRole('dialog')).toBeNull());
 });
-testStable(
+test.stable(
   'does not reopen completed onboarding until replay, which starts at welcome',
   async () => {
     mount(true);
-    await screen.findByRole('button', { name: 'ReplayOnboarding' });
-    expect(screen.queryByRole('dialog')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'ReplayOnboarding' }));
-    await screen.findByRole('dialog');
-    await screen.findByRole('heading', { name: 'OnboardingWelcomeTitle' });
-    fireEvent.click(screen.getByRole('button', { name: 'OnboardingSkip' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    fireEvent.click(screen.getByRole('button', { name: 'ReplayOnboarding' }));
-    await screen.findByRole('dialog');
-    await screen.findByRole('heading', { name: 'OnboardingWelcomeTitle' });
+    await test.screen.findByRole('button', { name: 'ReplayOnboarding' });
+    test.expect(test.screen.queryByRole('dialog')).toBeNull();
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'ReplayOnboarding' }));
+    await test.screen.findByRole('dialog');
+    await test.screen.findByRole('heading', { name: 'OnboardingWelcomeTitle' });
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'OnboardingSkip' }));
+    await test.waitFor(() => test.expect(test.screen.queryByRole('dialog')).toBeNull());
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'ReplayOnboarding' }));
+    await test.screen.findByRole('dialog');
+    await test.screen.findByRole('heading', { name: 'OnboardingWelcomeTitle' });
   }
 );
-testStable('retains the flow on save failure and allows retry', async () => {
+test.stable('retains the flow on save failure and allows retry', async () => {
   mount();
   api.save.mockRejectedValueOnce(new Error('offline'));
-  await screen.findByRole('dialog');
-  await screen.findByRole('heading', { name: 'OnboardingWelcomeTitle' });
-  fireEvent.click(screen.getByRole('button', { name: 'OnboardingSkip' }));
-  await screen.findByRole('alert');
-  expect(screen.getByRole('dialog')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'OnboardingSkip' }));
-  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  await test.screen.findByRole('dialog');
+  await test.screen.findByRole('heading', { name: 'OnboardingWelcomeTitle' });
+  test.fireEvent.click(test.screen.getByRole('button', { name: 'OnboardingSkip' }));
+  await test.screen.findByRole('alert');
+  test.expect(test.screen.getByRole('dialog')).toBeInTheDocument();
+  test.fireEvent.click(test.screen.getByRole('button', { name: 'OnboardingSkip' }));
+  await test.waitFor(() => test.expect(test.screen.queryByRole('dialog')).toBeNull());
 });
 
-testStable('keeps first run closed when settings cannot be loaded', async () => {
+test.stable('keeps first run closed when settings cannot be loaded', async () => {
   mount(false, true);
-  await waitFor(() => expect(api.read).toHaveBeenCalled());
-  expect(screen.queryByRole('dialog')).toBeNull();
+  await test.waitFor(() => test.expect(api.read).toHaveBeenCalled());
+  test.expect(test.screen.queryByRole('dialog')).toBeNull();
 });

@@ -1,3 +1,4 @@
+import { historyPolicySchema, historyVersionIdsSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises bounded history pruning through migrated SQLite and native RPC.          │
@@ -10,15 +11,12 @@
  * │ Public services and native Workflows retain production ownership and publication guards. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { historyPolicySchema, historyVersionIdsSchema } from '@study/contracts';
 import { MaterialsRpc } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { assert, expect } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
@@ -31,26 +29,26 @@ import { cleanup as cleanupNote } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';
 
-testStable('retention policy and explicit candidate scope have positive finite bounds', () => {
+test.stable('retention policy and explicit candidate scope have positive finite bounds', () => {
   const policy = Schema.decodeUnknownSync(historyPolicySchema);
 
-  expect(policy({ keepLatest: 1 })).toStrictEqual({ keepLatest: 1 });
+  test.expect(policy({ keepLatest: 1 })).toStrictEqual({ keepLatest: 1 });
 
-  expect(policy({ keepLatest: 1000 })).toStrictEqual({ keepLatest: 1000 });
+  test.expect(policy({ keepLatest: 1000 })).toStrictEqual({ keepLatest: 1000 });
 
-  for (const keepLatest of [0, -1, 1001, 1.5]) assert.throws(() => policy({ keepLatest }));
+  for (const keepLatest of [0, -1, 1001, 1.5]) test.assert.throws(() => policy({ keepLatest }));
 
   const ids = Schema.decodeUnknownSync(historyVersionIdsSchema);
 
-  assert.throws(() => ids([1n, 1n]));
+  test.assert.throws(() => ids([1n, 1n]));
 
-  assert.throws(() => ids(Array.from({ length: 101 }, (_, i) => BigInt(i + 1))));
+  test.assert.throws(() => ids(Array.from({ length: 101 }, (_, i) => BigInt(i + 1))));
 });
 
-testStable(
+test.stable(
   'native RPC prunes exact learning history while preserving its current version and an independent output',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases }) => {
+    const f = await pageTransformFixture(databases);
 
     try {
       const saved = await Effect.runPromise(
@@ -95,11 +93,11 @@ testStable(
 
           const preview = yield* client('materials.previewHistoryPrune', scope);
 
-          expect(preview.candidateIds).toStrictEqual([root.version.id]);
+          test.expect(preview.candidateIds).toStrictEqual([root.version.id]);
 
-          expect(preview.references).toStrictEqual([]);
+          test.expect(preview.references).toStrictEqual([]);
 
-          assert.ok(preview.removedBodyBytes > 0n);
+          test.assert.ok(preview.removedBodyBytes > 0n);
 
           const input = {
             ...scope,
@@ -110,11 +108,13 @@ testStable(
 
           const accepted = yield* client('materials.requestHistoryPrune', input);
 
-          assert.ok(accepted.status === 'pending');
+          test.assert.ok(accepted.status === 'pending');
 
-          expect(yield* client('materials.requestHistoryPrune', input)).toStrictEqual(accepted);
+          test
+            .expect(yield* client('materials.requestHistoryPrune', input))
+            .toStrictEqual(accepted);
 
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(m.materialVersion({ id: root.version.id }))).kind === 'not_found'
           );
 
@@ -128,29 +128,29 @@ testStable(
         Effect.gen(function* () {
           const m = yield* Materials;
 
-          assert.ok(
+          test.assert.ok(
             (yield* m.historyPrune({ operationId: saved.input.operationId })).status === 'completed'
           );
 
-          expect(yield* m.material({ id: saved.root.id })).toStrictEqual(saved.current);
+          test.expect(yield* m.material({ id: saved.root.id })).toStrictEqual(saved.current);
 
-          assert.strictEqual(
+          test.assert.strictEqual(
             (yield* m.materialVersion({ id: saved.derivative.version.id })).id,
             saved.derivative.version.id
           );
 
-          expect(
-            (yield* m.materialVersion({ id: saved.derivative.version.id })).inputs
-          ).toStrictEqual([]);
+          test
+            .expect((yield* m.materialVersion({ id: saved.derivative.version.id })).inputs)
+            .toStrictEqual([]);
 
           const history = yield* m.materialVersions({ materialId: saved.root.id, limit: 30 });
 
-          assert.ok(
+          test.assert.ok(
             history.items.find((v) => v.id === saved.root.version.id)?.availability ===
               'unavailable'
           );
 
-          assert.strictEqual(
+          test.assert.strictEqual(
             (yield* m.materialVersions({
               materialId: saved.root.id,
               cursor: saved.root.version.id,
@@ -159,9 +159,9 @@ testStable(
             0
           );
 
-          expect(yield* m.requestHistoryPrune(saved.input)).toStrictEqual(
-            yield* m.historyPrune({ operationId: saved.input.operationId })
-          );
+          test
+            .expect(yield* m.requestHistoryPrune(saved.input))
+            .toStrictEqual(yield* m.historyPrune({ operationId: saved.input.operationId }));
         }).pipe(Effect.provide(f.domain()))
       );
 
@@ -169,24 +169,24 @@ testStable(
         sql`SELECT front AS payload FROM material_flashcard_entries WHERE front LIKE '%HISTORY_MARKER_REMOVE%'`
       );
 
-      expect(markerRows).toStrictEqual([]);
+      test.expect(markerRows).toStrictEqual([]);
 
-      assert.strictEqual(
+      test.assert.strictEqual(
         f.context.db.orm.select().from(s.material_deletion_members).all().length,
         0
       );
 
-      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'preview invalidates on new content, scope cannot expand, drafts are protected and no-op is explicit',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases }) => {
+    const f = await pageTransformFixture(databases);
 
     try {
       const input = await Effect.runPromise(
@@ -206,7 +206,7 @@ testStable(
 
           const first = yield* m.previewHistoryPrune(scope);
 
-          expect(first.candidateIds).toStrictEqual([]);
+          test.expect(first.candidateIds).toStrictEqual([]);
 
           const draft = yield* m.createVersion({
             materialId: root.id,
@@ -226,7 +226,7 @@ testStable(
             publish: true
           });
 
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(
               m.requestHistoryPrune({
                 ...scope,
@@ -239,19 +239,19 @@ testStable(
 
           const preview = yield* m.previewHistoryPrune(scope);
 
-          assert.ok(draft.status === 'draft');
+          test.assert.ok(draft.status === 'draft');
 
-          assert.ok(!preview.candidateIds.includes(draft.id));
+          test.assert.ok(!preview.candidateIds.includes(draft.id));
 
-          assert.ok(
+          test.assert.ok(
             preview.protected.some((p) => p.versionId === draft.id && p.reason === 'draft')
           );
 
-          assert.ok(
+          test.assert.ok(
             preview.protected.some((p) => p.versionId === latest.id && p.reason === 'keep_latest')
           );
 
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(
               m.requestHistoryPrune({
                 ...scope,
@@ -266,7 +266,7 @@ testStable(
 
           const noop = yield* m.previewHistoryPrune(noopScope);
 
-          expect(noop.candidateIds).toStrictEqual([]);
+          test.expect(noop.candidateIds).toStrictEqual([]);
 
           return yield* m.requestHistoryPrune({
             ...noopScope,
@@ -279,7 +279,7 @@ testStable(
 
       await cleanup(f, input.operationId);
 
-      assert.ok(
+      test.assert.ok(
         (
           await Effect.runPromise(
             Effect.gen(function* () {
@@ -294,10 +294,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'cleanup failure remains visible, retry advances exactly once and stale settlement cannot complete a newer attempt',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases }) => {
+    const f = await pageTransformFixture(databases);
 
     try {
       const saved = await Effect.runPromise(
@@ -341,9 +341,9 @@ testStable(
 
           const retried = yield* m.retryHistoryPrune({ operationId: accepted.operationId });
 
-          assert.strictEqual(retried.attempt, 2);
+          test.assert.strictEqual(retried.attempt, 2);
 
-          assert.ok(
+          test.assert.ok(
             (yield* m.failMaterialHistory({
               operationId: accepted.operationId,
               attempt: 1,
@@ -361,7 +361,7 @@ testStable(
           Effect.gen(function* () {
             const m = yield* Materials;
 
-            assert.ok(
+            test.assert.ok(
               (yield* m.finishMaterialHistory({
                 operationId: saved.accepted.operationId,
                 attempt: 1
@@ -371,9 +371,9 @@ testStable(
         ).pipe(Effect.provide(f.domain()))
       );
 
-      assert.strictEqual(failure, undefined);
+      test.assert.strictEqual(failure, undefined);
 
-      await expect(acceptMaterialDeletion(f, saved.root.id)).rejects.toSatisfy(() => true);
+      await test.expect(acceptMaterialDeletion(f, saved.root.id)).rejects.toSatisfy(() => true);
 
       await cleanup(f, saved.accepted.operationId);
 
@@ -384,10 +384,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'authored exact captures block body retirement until raw note cleanup, while fresh work uses the independent current head',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases }) => {
+    const f = await pageTransformFixture(databases);
 
     try {
       const saved = await Effect.runPromise(
@@ -402,7 +402,7 @@ testStable(
             citations: []
           });
 
-          assert.ok(root.version);
+          test.assert.ok(root.version);
           const note = yield* chats.createUntitledNote({});
 
           yield* docs.attach({ noteId: note.id, pageId: root.id });
@@ -442,19 +442,19 @@ testStable(
           const scope = { pageId: root.id, keepLatest: 1 };
           const preview = yield* docs.previewHistory(scope);
 
-          expect(preview.blockedVersionIds).toStrictEqual([root.version.id]);
-          assert.ok(
+          test.expect(preview.blockedVersionIds).toStrictEqual([root.version.id]);
+          test.assert.ok(
             (yield* Effect.flip(docs.retireHistory({ ...scope, token: preview.token }))).kind ===
               'invalid_input'
           );
-          assert.ok(
+          test.assert.ok(
             (yield* chats.noteContext({ requestId: capture.requestId })).instruction ===
               'PRIVATE_CAPTURE_PRUNE'
           );
           yield* chats.deleteNote(note.id);
           const released = yield* docs.previewHistory(scope);
 
-          expect(released.blockedVersionIds).toStrictEqual([]);
+          test.expect(released.blockedVersionIds).toStrictEqual([]);
           yield* docs.retireHistory({ ...scope, token: released.token });
 
           return {
@@ -474,12 +474,14 @@ testStable(
           const docs = yield* Pages;
           const chats = yield* Notes;
 
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(chats.noteContext({ requestId: saved.captureId }))).kind ===
               'not_found'
           );
-          assert.ok((yield* docs.transform({ requestId: saved.requestId })).cancelled === true);
-          assert.ok(
+          test.assert.ok(
+            (yield* docs.transform({ requestId: saved.requestId })).cancelled === true
+          );
+          test.assert.ok(
             (yield* Effect.flip(
               chats.retryPageTransform({
                 requestId: saved.requestId,
@@ -508,33 +510,33 @@ testStable(
             preferences: {}
           });
 
-          expect(fresh.inputs[0]?.input).toStrictEqual({
+          test.expect(fresh.inputs[0]?.input).toStrictEqual({
             kind: 'page',
             versionId: saved.currentId
           });
-          assert.strictEqual(
+          test.assert.strictEqual(
             (yield* docs.page({ id: saved.rootId })).headVersionId,
             saved.currentId
           );
         }).pipe(Effect.provide(f.domain()))
       );
-      assert.strictEqual(
+      test.assert.strictEqual(
         f.context.db.orm.get(
           sql`SELECT count(*) n FROM message_versions WHERE text='RAW_MESSAGE_PRIVATE'`
         )?.n,
         0n
       );
-      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'history candidate batches are deterministic oldest-first and bounded to one hundred identities',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases }) => {
+    const f = await pageTransformFixture(databases);
 
     try {
       const saved = await Effect.runPromise(
@@ -566,11 +568,11 @@ testStable(
 
           const preview = yield* m.previewHistoryPrune(scope);
 
-          expect(preview.candidateIds).toStrictEqual(ids.slice(0, 100));
+          test.expect(preview.candidateIds).toStrictEqual(ids.slice(0, 100));
 
-          assert.ok(preview.hasMore === true);
+          test.assert.ok(preview.hasMore === true);
 
-          assert.strictEqual((yield* m.previewHistoryPrune(scope)).token, preview.token);
+          test.assert.strictEqual((yield* m.previewHistoryPrune(scope)).token, preview.token);
 
           yield* m.requestHistoryPrune({
             ...scope,
@@ -591,11 +593,11 @@ testStable(
 
           const next = yield* m.previewHistoryPrune(saved.scope);
 
-          expect(next.candidateIds).toStrictEqual(saved.ids.slice(100, 102));
+          test.expect(next.candidateIds).toStrictEqual(saved.ids.slice(100, 102));
 
-          assert.ok(next.hasMore === false);
+          test.assert.ok(next.hasMore === false);
 
-          assert.strictEqual(
+          test.assert.strictEqual(
             (yield* m.material({ id: saved.scope.materialId })).version.id,
             saved.ids[102]
           );

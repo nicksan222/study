@@ -1,3 +1,4 @@
+import { MaterialsRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises learning deletion behavior through real persistence boundaries.          │
@@ -10,16 +11,13 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { MaterialsRpc } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
+import { test } from '@study/testing';
 /** Genuine learning deletion uses exact output ownership; Pages and Sources retain their independent lifetimes. */
-import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema, Exit } from 'effect';
 import { RpcTest } from 'effect/rpc';
 import { Activity, DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';
-import { assert, expect } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
@@ -47,10 +45,10 @@ const content = (text: string) => ({
   cards: [{ front: text, back: 'Answer' }]
 });
 
-testStable(
+test.stable(
   'native RPC deletes only its exact learning output, preserving shared authored evidence, raw captures and independent outputs',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases }) => {
+    const f = await pageTransformFixture(databases);
 
     try {
       const saved = await Effect.runPromise(
@@ -66,7 +64,7 @@ testStable(
             citations: []
           });
 
-          assert.ok(evidence.version);
+          test.assert.ok(evidence.version);
           const input = { kind: 'page' as const, versionId: evidence.version.id };
           const root = yield* m.create({
             title: 'Root',
@@ -116,15 +114,15 @@ testStable(
             const rpc = yield* RpcTest.makeClient(MaterialsRpc);
             const preview = yield* rpc['materials.previewDeletion']({ materialId: saved.root.id });
 
-            expect(preview.versionIds).toStrictEqual([saved.root.version.id]);
-            expect(preview.noteIds).toStrictEqual([saved.note.id]);
+            test.expect(preview.versionIds).toStrictEqual([saved.root.version.id]);
+            test.expect(preview.noteIds).toStrictEqual([saved.note.id]);
             const input = { materialId: saved.root.id, token: preview.token };
             const accepted = yield* rpc['materials.requestDeletion'](input);
 
-            assert.ok(accepted.status === 'pending');
-            expect(accepted.materialIds).toStrictEqual([saved.root.id]);
-            expect(yield* rpc['materials.requestDeletion'](input)).toStrictEqual(accepted);
-            assert.ok(
+            test.assert.ok(accepted.status === 'pending');
+            test.expect(accepted.materialIds).toStrictEqual([saved.root.id]);
+            test.expect(yield* rpc['materials.requestDeletion'](input)).toStrictEqual(accepted);
+            test.assert.ok(
               (yield* Effect.flip(rpc['materials.materialVersion']({ id: saved.root.version.id })))
                 .kind === 'not_found'
             );
@@ -149,39 +147,41 @@ testStable(
           const docs = yield* Pages;
           const chats = yield* Notes;
 
-          expect((yield* m.material({ id: saved.kept.id })).version).toStrictEqual(
-            saved.kept.version
-          );
-          expect(yield* docs.version({ id: saved.evidence.id })).toStrictEqual(saved.evidence);
-          expect(yield* chats.noteContext({ requestId: saved.capture.requestId })).toStrictEqual(
-            saved.capture
-          );
-          assert.ok(
+          test
+            .expect((yield* m.material({ id: saved.kept.id })).version)
+            .toStrictEqual(saved.kept.version);
+          test.expect(yield* docs.version({ id: saved.evidence.id })).toStrictEqual(saved.evidence);
+          test
+            .expect(yield* chats.noteContext({ requestId: saved.capture.requestId }))
+            .toStrictEqual(saved.capture);
+          test.assert.ok(
             (yield* chats.thread({ noteId: saved.note.id, limit: 10 })).items[0]?.versions[0]
               ?.text === 'Retained raw note'
           );
           const completed = yield* m.deletion({ materialId: saved.root.id });
 
-          assert.ok(completed.status === 'completed');
-          expect(yield* m.requestDeletion(input)).toStrictEqual(completed);
-          expect(
-            (yield* m.materials({ limit: 10, archived: false })).items.map((item) => item.id)
-          ).toStrictEqual([saved.kept.id]);
+          test.assert.ok(completed.status === 'completed');
+          test.expect(yield* m.requestDeletion(input)).toStrictEqual(completed);
+          test
+            .expect(
+              (yield* m.materials({ limit: 10, archived: false })).items.map((item) => item.id)
+            )
+            .toStrictEqual([saved.kept.id]);
         }).pipe(Effect.provide(f.domain()))
       );
       assertScrubbed(f, 'ORIGINAL_DELETE_ONLY');
       assertScrubbed(f, 'PRIVATE_DESCRIPTION_DELETE_ONLY');
-      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'learning deletion preview rejects substituted identity, new versions and newly attached notes without persisting a barrier',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases }) => {
+    const f = await pageTransformFixture(databases);
 
     try {
       await Effect.runPromise(
@@ -196,12 +196,12 @@ testStable(
           });
           const first = yield* m.previewDeletion({ materialId: root.id });
 
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(m.requestDeletion({ materialId: other.id, token: first.token })))
               .kind === 'invalid_input'
           );
           yield* m.createVersion({ materialId: root.id, content: content('New'), publish: true });
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(m.requestDeletion({ materialId: root.id, token: first.token })))
               .kind === 'invalid_input'
           );
@@ -209,11 +209,14 @@ testStable(
           const note = yield* chats.createUntitledNote({});
 
           yield* m.attach({ materialId: root.id, noteId: note.id });
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(m.requestDeletion({ materialId: root.id, token: second.token })))
               .kind === 'invalid_input'
           );
-          assert.strictEqual(f.context.db.orm.select().from(s.material_deletions).all().length, 0);
+          test.assert.strictEqual(
+            f.context.db.orm.select().from(s.material_deletions).all().length,
+            0
+          );
         }).pipe(Effect.provide(f.domain()))
       );
     } finally {
@@ -222,10 +225,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'learning deletion barrier and outbox roll back together on event persistence failure',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases }) => {
+    const f = await pageTransformFixture(databases);
 
     try {
       const root = await Effect.runPromise(
@@ -237,21 +240,21 @@ testStable(
       f.context.db.exec(
         "CREATE TRIGGER reject_material_intent BEFORE INSERT ON workflow_events WHEN NEW.type='MaterialDeletionRequested' BEGIN SELECT RAISE(ABORT,'injected'); END"
       );
-      await expect(acceptMaterialDeletion(f, root.id)).rejects.toSatisfy(() => true);
-      assert.strictEqual(f.context.db.orm.select().from(s.material_deletions).all().length, 0);
-      assert.strictEqual(
+      await test.expect(acceptMaterialDeletion(f, root.id)).rejects.toSatisfy(() => true);
+      test.assert.strictEqual(f.context.db.orm.select().from(s.material_deletions).all().length, 0);
+      test.assert.strictEqual(
         f.context.db.orm.select().from(s.material_deletion_members).all().length,
         0
       );
-      assert.strictEqual(
+      test.assert.strictEqual(
         f.context.db.orm.select().from(s.material_deletion_requests).all().length,
         0
       );
       await Effect.runPromise(
         Effect.gen(function* () {
-          expect((yield* (yield* Materials).material({ id: root.id })).version).toStrictEqual(
-            root.version
-          );
+          test
+            .expect((yield* (yield* Materials).material({ id: root.id })).version)
+            .toStrictEqual(root.version);
         }).pipe(Effect.provide(f.domain()))
       );
     } finally {
@@ -261,10 +264,10 @@ testStable(
 );
 
 for (const doubleFailure of [false, true])
-  testStable(
+  test.stable(
     `failed cleanup retries after restart and fences stale completion (failure settlement blocked=${doubleFailure})`,
-    async () => {
-      const f = await pageTransformFixture();
+    async ({ databases }) => {
+      const f = await pageTransformFixture(databases);
 
       try {
         const root = await Effect.runPromise(
@@ -296,13 +299,13 @@ for (const doubleFailure of [false, true])
           )
         );
 
-        assert.strictEqual(failed.status, doubleFailure ? 'pending' : 'failed');
+        test.assert.strictEqual(failed.status, doubleFailure ? 'pending' : 'failed');
 
         await Effect.runPromise(
           awaitNativeStatus(f, `material-cleanup/${accepted.operationId}/1`, 'completed')
         );
 
-        assert.ok(
+        test.assert.ok(
           workflowStore(f.context).execution(`material-cleanup/${accepted.operationId}/1`)!
             .status === 'completed'
         );
@@ -319,7 +322,7 @@ for (const doubleFailure of [false, true])
 
             const retry = yield* m.retryDeletion({ materialId: root.id });
 
-            assert.strictEqual(retry.attempt, 2);
+            test.assert.strictEqual(retry.attempt, 2);
 
             const stale = yield* m.failMaterialDeletion({
               materialId: root.id,
@@ -327,13 +330,13 @@ for (const doubleFailure of [false, true])
               errorKind: 'internal'
             });
 
-            assert.ok(stale.status === 'pending');
+            test.assert.ok(stale.status === 'pending');
 
-            assert.strictEqual(stale.attempt, 2);
+            test.assert.strictEqual(stale.attempt, 2);
           }).pipe(Effect.provide(f.domain()))
         );
 
-        assert.strictEqual(materialDeletionEvent(f, root.id).attempt, 2);
+        test.assert.strictEqual(materialDeletionEvent(f, root.id).attempt, 2);
 
         await cleanupMaterial(f, root.id);
 
@@ -345,9 +348,9 @@ for (const doubleFailure of [false, true])
 
             const completed = yield* m.deletion({ materialId: root.id });
 
-            assert.ok(completed.status === 'completed');
+            test.assert.ok(completed.status === 'completed');
 
-            expect(yield* m.retryDeletion({ materialId: root.id })).toStrictEqual(completed);
+            test.expect(yield* m.retryDeletion({ materialId: root.id })).toStrictEqual(completed);
           }).pipe(Effect.provide(f.domain()))
         );
       } finally {
@@ -356,10 +359,10 @@ for (const doubleFailure of [false, true])
     }
   );
 
-testStable(
+test.stable(
   'native retirement rejects late checkpoints and deferred delivery while unrelated execution survives',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases }) => {
+    const f = await pageTransformFixture(databases);
 
     try {
       const saved = await learningGeneration(f);
@@ -467,15 +470,15 @@ testStable(
               payload: { event: deletion }
             });
 
-            assert.ok(
+            test.assert.ok(
               (yield* m.deletion({ materialId: output.material_id })).status === 'completed'
             );
 
-            assert.ok(
+            test.assert.ok(
               workflowStore(f.context).execution('retire-material-run')?.status === 'cancelled'
             );
 
-            assert.ok(
+            test.assert.ok(
               workflowStore(f.context).execution('keep-material-run')?.status === 'suspended'
             );
 

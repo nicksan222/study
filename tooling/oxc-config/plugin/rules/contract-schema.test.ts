@@ -1,19 +1,18 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('requires browser-safe contract values to use Effect schemas', async () => {
+test.stable('requires browser-safe contract values to use Effect schemas', async () => {
   const diagnostics = await lintRule(
     'contract-schema',
     { 'packages/contracts/src/user.ts': 'export interface User { id: string }' },
     true
   );
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable(
+test.stable(
   'recognizes Effect schema aliases and leaves unrelated values and derived types alone',
   async () => {
     const diagnostics = await lintRule(
@@ -31,11 +30,11 @@ function f(S: any) { return S.Unknown;
       true
     );
 
-    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   }
 );
 
-testStable(
+test.stable(
   'rejects exported aliases to handwritten objects and inferred database types',
   async () => {
     const diagnostics = await lintRule(
@@ -47,11 +46,11 @@ testStable(
       true
     );
 
-    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
-testStable('rejects handwritten brands tied to imported Effect Brand', async () => {
+test.stable('rejects handwritten brands tied to imported Effect Brand', async () => {
   const diagnostics = await lintRule(
     'contract-schema',
     {
@@ -63,10 +62,10 @@ testStable('rejects handwritten brands tied to imported Effect Brand', async () 
     true
   );
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-testStable(
+test.stable(
   'export lists, nested handwritten shapes and structural brands cannot bypass canonical schemas',
   async () => {
     const diagnostics = await lintRule(
@@ -80,11 +79,11 @@ testStable(
       true
     );
 
-    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );
 
-testStable('native RPC declarations specify payload, success and error schemas', async () => {
+test.stable('native RPC declarations specify payload, success and error schemas', async () => {
   const diagnostics = await lintRule(
     'contract-schema',
     {
@@ -97,10 +96,10 @@ function f(Rpc: any) { Rpc.make('c', {});
     true
   );
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable(
+test.stable(
   'rich content remains schema-derived rather than a parallel public editor payload',
   async () => {
     const diagnostics = await lintRule(
@@ -118,11 +117,11 @@ testStable(
       true
     );
 
-    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
-testStable(
+test.stable(
   'run metadata derives from schemas instead of unchecked preference or parallel context objects',
   async () => {
     const diagnostics = await lintRule(
@@ -140,11 +139,11 @@ testStable(
       true
     );
 
-    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
-testStable(
+test.stable(
   'Material deletion scope and status derive from canonical schemas rather than parallel unchecked payloads',
   async () => {
     const diagnostics = await lintRule(
@@ -162,11 +161,11 @@ testStable(
       true
     );
 
-    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
-testStable(
+test.stable(
   'history policies, exact candidates and native operations derive from checked schemas',
   async () => {
     const diagnostics = await lintRule(
@@ -194,11 +193,11 @@ testStable(
       true
     );
 
-    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );
 
-testStable(
+test.stable(
   'backup descriptors and restore acknowledgements use checked canonical schemas',
   async () => {
     const diagnostics = await lintRule(
@@ -220,11 +219,11 @@ testStable(
       true
     );
 
-    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
-testStable(
+test.stable(
   'optional React implementations may describe generic bindings while wire declarations remain schema checked',
   async () => {
     const diagnostics = await lintRule(
@@ -245,6 +244,6 @@ testStable(
       true
     );
 
-    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
   }
 );

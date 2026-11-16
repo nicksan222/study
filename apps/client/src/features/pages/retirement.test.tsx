@@ -1,19 +1,15 @@
 import { StudyError } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
-import { expect, vi } from 'vite-plus/test';
-
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import { test } from '@study/testing';
 
 import { authoredPage } from '../document-editing/test-support';
 import { usePageRetirement } from './retirement.queries';
 
-const navigate = vi.fn();
+const navigate = test.vi.fn();
 
-vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }));
+test.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }));
 
 for (const uncertain of [false, true])
-  testStable(
+  test.stable(
     `retirement ${uncertain ? 'keeps unknown outcome explicit without replay' : 'completes only after the canonical mutation receipt'}`,
     async () => {
       const page = authoredPage(10n, 'Private body', 101n);
@@ -24,30 +20,32 @@ for (const uncertain of [false, true])
         blockedVersionIds: [],
         semantics: 'retire_bodies_retain_identities' as const
       };
-      const remove = vi
+      const remove = test.vi
         .fn()
         .mockImplementation(() =>
           uncertain
             ? Promise.reject(new StudyError('transient', 'Lost response'))
             : Promise.resolve(undefined)
         );
-      const harness = rpcHandlersTransport({
+      const harness = test.rpcHandlersTransport({
         'pages.previewDeletion': async () => preview,
         'pages.delete': remove
       });
-      const view = renderHook(() => usePageRetirement(page), { wrapper: harness.wrapper });
+      const view = test.renderHook(() => usePageRetirement(page), { wrapper: harness.wrapper });
 
-      act(() => view.result.current.open('deletion'));
-      await waitFor(() => expect(view.result.current.preview?.token).toBe(preview.token));
-      await act(async () => {
+      test.act(() => view.result.current.open('deletion'));
+      await test.waitFor(() => test.expect(view.result.current.preview?.token).toBe(preview.token));
+      await test.act(async () => {
         await view.result.current.retire.mutateAsync().catch(() => undefined);
       });
-      expect(remove).toHaveBeenCalledExactlyOnceWith({ pageId: page.id, token: preview.token });
+      test
+        .expect(remove)
+        .toHaveBeenCalledExactlyOnceWith({ pageId: page.id, token: preview.token });
 
       if (uncertain) {
-        expect(view.result.current.retire.isError).toBe(true);
-        expect(view.result.current.mode).toBe('deletion');
-      } else expect(view.result.current.mode).toBeUndefined();
+        test.expect(view.result.current.retire.isError).toBe(true);
+        test.expect(view.result.current.mode).toBe('deletion');
+      } else test.expect(view.result.current.mode).toBeUndefined();
 
       view.unmount();
     }

@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable(
+test.stable(
   'shared UI components reject local style props but native wrappers and type imports remain legal',
   async () => {
     const diagnostics = await lintRule(
@@ -18,11 +17,11 @@ export const view = <div className="layout"><Control className="p-2" /><Shell.He
     );
     const violations = diagnostics.filter(({ code }) => code.includes('shared-ui-variants'));
 
-    assert.strictEqual(violations.length, 3, JSON.stringify(diagnostics));
+    test.assert.strictEqual(violations.length, 3, JSON.stringify(diagnostics));
   }
 );
 
-testStable('computed literal style props cannot bypass shared UI variants', async () => {
+test.stable('computed literal style props cannot bypass shared UI variants', async () => {
   const diagnostics = await lintRule(
     'shared-ui-variants',
     {
@@ -31,5 +30,5 @@ testStable('computed literal style props cannot bypass shared UI variants', asyn
     true
   );
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

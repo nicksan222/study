@@ -1,6 +1,5 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { materialQuestionInputSchema } from './schemas.ts';
 
@@ -15,12 +14,12 @@ const matching = {
   ]
 };
 
-testStable(
+test.stable(
   'matching requires distinct nonempty terms and definitions and at least two pairs',
   () => {
     const decode = Schema.decodeUnknownSync(materialQuestionInputSchema);
 
-    assert.deepEqual(decode(matching), matching);
+    test.assert.deepEqual(decode(matching), matching);
 
     for (const pairs of [
       [],
@@ -31,6 +30,6 @@ testStable(
       [matching.pairs[0], { term: ' nucleus ', definition: 'Other' }],
       [matching.pairs[0], { term: 'Other', definition: ' stores DNA ' }]
     ])
-      assert.throws(() => decode({ ...matching, pairs }));
+      test.assert.throws(() => decode({ ...matching, pairs }));
   }
 );

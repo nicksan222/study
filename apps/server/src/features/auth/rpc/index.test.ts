@@ -1,3 +1,4 @@
+import { AuthRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies the auth RPC exposes only safe account fields and the six supported sign- │
@@ -12,14 +13,10 @@
  * │ handlers retain ownership of request behavior.                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { AuthRpc } from '@study/contracts';
 import { preferences } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
 
 import { Auth } from '#server/features/auth/index';
 import { AuthManager } from '#server/platform/ai/auth/index';
@@ -30,8 +27,8 @@ import { testLiveQueries } from '#testing/live-queries';
 
 import { AuthRpcLive } from './index.ts';
 
-testStable('auth RPC exposes only public account and operations', async () => {
-  const location = await createTestDatabase();
+test.stable('auth RPC exposes only public account and operations', async ({ databases }) => {
+  const location = await databases();
   const context = new ServerContext(await location.open());
 
   context.db.orm
@@ -64,12 +61,12 @@ testStable('auth RPC exposes only public account and operations', async () => {
         Effect.gen(function* () {
           const client = yield* RpcTest.makeClient(AuthRpc, { flatten: true });
 
-          expect(yield* client('auth.publicAccount', {})).toStrictEqual({
+          test.expect(yield* client('auth.publicAccount', {})).toStrictEqual({
             subject: 'person',
             email: undefined,
             sharing: true
           });
-          expect(yield* client('auth.status', {})).toStrictEqual({
+          test.expect(yield* client('auth.status', {})).toStrictEqual({
             signedIn: true,
             email: null,
             sharing: true
@@ -77,8 +74,10 @@ testStable('auth RPC exposes only public account and operations', async () => {
           yield* client('auth.saveApiKey', { provider: 'anthropic', apiKey: 'rpc-secret' });
           const providers = yield* client('auth.providers', {});
 
-          expect(providers.find((provider) => provider.id === 'anthropic')?.configured).toBe(true);
-          expect(JSON.stringify(providers)).not.toContain('rpc-secret');
+          test
+            .expect(providers.find((provider) => provider.id === 'anthropic')?.configured)
+            .toBe(true);
+          test.expect(JSON.stringify(providers)).not.toContain('rpc-secret');
         }).pipe(Effect.provide(handlers))
       )
     );

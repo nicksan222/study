@@ -1,3 +1,4 @@
+import { sql } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Retained raw citations protect exact authored bodies after private capture         │
@@ -10,12 +11,8 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sql } from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
@@ -26,10 +23,10 @@ import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';
 
 for (const mode of ['history', 'delete'] as const)
-  testStable(
+  test.stable(
     `raw exact authored citation blocks ${mode} after private capture retirement until its raw message is deleted`,
-    async () => {
-      const f = await pageTransformFixture();
+    async ({ databases }) => {
+      const f = await pageTransformFixture(databases);
 
       try {
         const saved = await Effect.runPromise(
@@ -44,7 +41,7 @@ for (const mode of ['history', 'delete'] as const)
               citations: []
             });
 
-            assert.ok(document.version);
+            test.assert.ok(document.version);
             const input = { kind: 'page' as const, versionId: document.version.id };
             const note = yield* chats.createUntitledNote({});
 
@@ -89,11 +86,11 @@ for (const mode of ['history', 'delete'] as const)
             f.context.db.orm.run(
               sql`DELETE FROM note_run_contexts WHERE request_id=${request.requestId}`
             );
-            assert.strictEqual(
+            test.assert.strictEqual(
               f.context.db.orm.get(sql`SELECT count(*) n FROM note_context_pages`)?.n,
               0n
             );
-            assert.strictEqual(
+            test.assert.strictEqual(
               f.context.db.orm.get(sql`SELECT count(*) n FROM note_run_contexts`)?.n,
               0n
             );
@@ -123,22 +120,22 @@ for (const mode of ['history', 'delete'] as const)
                 ? yield* docs.previewHistory({ pageId: saved.document.id, keepLatest: 1 })
                 : yield* docs.previewDeletion({ id: saved.document.id });
 
-            assert.ok(preview.blockedVersionIds.includes(saved.document.version.id));
-            assert.throws(() =>
+            test.assert.ok(preview.blockedVersionIds.includes(saved.document.version.id));
+            test.assert.throws(() =>
               f.context.db.orm.run(
                 sql`INSERT INTO page_retirements(version_id,reason,created_at) VALUES(${saved.document.version.id},'history',1)`
               )
             );
             const raw = yield* chats.message(saved.messageId);
 
-            assert.ok(raw.citations[0]?.evidence?.availability === 'available');
+            test.assert.ok(raw.citations[0]?.evidence?.availability === 'available');
             yield* chats.deleteMessage(saved.messageId);
             const released =
               mode === 'history'
                 ? yield* docs.previewHistory({ pageId: saved.document.id, keepLatest: 1 })
                 : yield* docs.previewDeletion({ id: saved.document.id });
 
-            expect(released.blockedVersionIds).toStrictEqual([]);
+            test.expect(released.blockedVersionIds).toStrictEqual([]);
 
             if (mode === 'history')
               yield* docs.retireHistory({
@@ -148,13 +145,13 @@ for (const mode of ['history', 'delete'] as const)
               });
             else yield* docs.delete({ pageId: saved.document.id, token: released.token });
 
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(docs.version({ id: saved.document.version.id }))).kind ===
                 'not_found'
             );
           }).pipe(Effect.provide(f.domain()))
         );
-        expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+        test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         await f.close();
       }

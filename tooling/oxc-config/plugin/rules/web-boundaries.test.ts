@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable(
+test.stable(
   'rejects upward dependencies, cross-page imports and private feature imports',
   async () => {
     const diagnostics = await lintRule(
@@ -17,30 +16,32 @@ testStable(
       true
     );
 
-    assert.strictEqual(diagnostics.length, 7, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 7, JSON.stringify(diagnostics));
   }
 );
 
-testStable(
+test.stable(
   'allows composition, same-domain internals and explicit feature entry points',
   async () => {
-    expect(
-      await lintRule(
-        'web-boundaries',
-        {
-          'apps/client/src/app/shell/sidebar.tsx': `import '../../features/library'; import '../../lib/i18n';`,
-          'apps/client/src/pages/home/page.tsx': `import './page.view'; import '../../features/library/index';`,
-          'apps/client/src/features/library/index.ts': `export * from './library-list';`,
-          'apps/client/src/features/library/library.logic.ts': `import '../../lib/study-client/operations';`,
-          'apps/client/src/lib/example.test.ts': `import '../pages/home/page';`
-        },
-        true
+    test
+      .expect(
+        await lintRule(
+          'web-boundaries',
+          {
+            'apps/client/src/app/shell/sidebar.tsx': `import '../../features/library'; import '../../lib/i18n';`,
+            'apps/client/src/pages/home/page.tsx': `import './page.view'; import '../../features/library/index';`,
+            'apps/client/src/features/library/index.ts': `export * from './library-list';`,
+            'apps/client/src/features/library/library.logic.ts': `import '../../lib/study-client/operations';`,
+            'apps/client/src/lib/example.test.ts': `import '../pages/home/page';`
+          },
+          true
+        )
       )
-    ).toStrictEqual([]);
+      .toStrictEqual([]);
   }
 );
 
-testStable('restricts the raw transport and root-level application files', async () => {
+test.stable('restricts the raw transport and root-level application files', async () => {
   const diagnostics = await lintRule(
     'web-boundaries',
     {
@@ -50,10 +51,10 @@ testStable('restricts the raw transport and root-level application files', async
     true
   );
 
-  assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
-testStable(
+test.stable(
   'canonical folders, type imports and alternate loaders cannot bypass ownership',
   async () => {
     const diagnostics = await lintRule(
@@ -71,27 +72,29 @@ testStable(
       true
     );
 
-    assert.strictEqual(diagnostics.length, 5, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 5, JSON.stringify(diagnostics));
   }
 );
 
-testStable('permits Query while keeping raw RPC in the transport adapter', async () => {
-  expect(
-    await lintRule(
-      'web-boundaries',
-      {
-        'apps/client/src/app/providers.tsx': `import { RpcProvider } from '@study/contracts/react';`,
-        'apps/client/src/features/library/library.queries.ts': `import { rpc } from '@study/contracts/react';`
-      },
-      true
+test.stable('permits Query while keeping raw RPC in the transport adapter', async () => {
+  test
+    .expect(
+      await lintRule(
+        'web-boundaries',
+        {
+          'apps/client/src/app/providers.tsx': `import { RpcProvider } from '@study/contracts/react';`,
+          'apps/client/src/features/library/library.queries.ts': `import { rpc } from '@study/contracts/react';`
+        },
+        true
+      )
     )
-  ).toStrictEqual([]);
+    .toStrictEqual([]);
 });
 
-testStable(
+test.stable(
   'Material routes compose the feature entrypoint while internals stay feature-owned',
   async () => {
-    assert.strictEqual(
+    test.assert.strictEqual(
       (
         await lintRule(
           'web-boundaries',
@@ -104,23 +107,25 @@ testStable(
       ).length,
       2
     );
-    expect(
-      await lintRule(
-        'web-boundaries',
-        {
-          'apps/client/src/routes/library.tsx': `import {LibraryPage, materialsOptions} from '../features/material-library';`,
-          'apps/client/src/routes/materials.$materialId.tsx': `import {ReaderPage, materialId} from '../features/material-library';`,
-          'apps/client/src/features/material-library/index.ts': `export {LibraryPage} from './library-page';`,
-          'apps/client/src/features/material-library/import-operation.ts': `import {importMutationOptions} from './material-library.queries';`,
-          'apps/client/src/app/shell/shell.tsx': `import './shell.css';`
-        },
-        true
+    test
+      .expect(
+        await lintRule(
+          'web-boundaries',
+          {
+            'apps/client/src/routes/library.tsx': `import {LibraryPage, materialsOptions} from '../features/material-library';`,
+            'apps/client/src/routes/materials.$materialId.tsx': `import {ReaderPage, materialId} from '../features/material-library';`,
+            'apps/client/src/features/material-library/index.ts': `export {LibraryPage} from './library-page';`,
+            'apps/client/src/features/material-library/import-operation.ts': `import {importMutationOptions} from './material-library.queries';`,
+            'apps/client/src/app/shell/shell.tsx': `import './shell.css';`
+          },
+          true
+        )
       )
-    ).toStrictEqual([]);
+      .toStrictEqual([]);
   }
 );
 
-testStable(
+test.stable(
   'private web aliases preserve downward ownership and transport restrictions',
   async () => {
     const diagnostics = await lintRule(
@@ -135,30 +140,32 @@ testStable(
       true
     );
 
-    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
   }
 );
 
-testStable(
+test.stable(
   'only the isolated feature preview layer may compose private feature views',
   async () => {
-    expect(
-      (
-        await lintRule(
-          'web-boundaries',
-          {
-            'apps/client/src/feature-previews/index.tsx':
-              "import { QuizQuestion } from '../features/practice/quiz-question'; export { QuizQuestion };",
-            'apps/client/src/features/practice/leak.ts': "import '../../feature-previews';"
-          },
-          true
-        )
-      ).map(({ filename }) => filename.split('/').at(-1))
-    ).toStrictEqual(['leak.ts']);
+    test
+      .expect(
+        (
+          await lintRule(
+            'web-boundaries',
+            {
+              'apps/client/src/feature-previews/index.tsx':
+                "import { QuizQuestion } from '../features/practice/quiz-question'; export { QuizQuestion };",
+              'apps/client/src/features/practice/leak.ts': "import '../../feature-previews';"
+            },
+            true
+          )
+        ).map(({ filename }) => filename.split('/').at(-1))
+      )
+      .toStrictEqual(['leak.ts']);
   }
 );
 
-testStable('raw RPC execution is limited to the single runtime transport adapter', async () => {
+test.stable('raw RPC execution is limited to the single runtime transport adapter', async () => {
   const diagnostics = await lintRule(
     'web-boundaries',
     {
@@ -169,5 +176,5 @@ testStable('raw RPC execution is limited to the single runtime transport adapter
     true
   );
 
-  expect(diagnostics).toHaveLength(1);
+  test.expect(diagnostics).toHaveLength(1);
 });

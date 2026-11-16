@@ -1,24 +1,24 @@
 import { noteIdSchema, executionIdSchema } from '@study/contracts';
 import type { noteWorkItemSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
-
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { NotePendingWork } from './note-pending-work';
 
-const api = vi.hoisted(() => ({ work: vi.fn(), cancel: vi.fn(), transform: vi.fn() }));
+const api = test.hoisted(() => ({
+  work: test.vi.fn(),
+  cancel: test.vi.fn(),
+  transform: test.vi.fn()
+}));
 
-vi.mock('@tanstack/react-router', () => ({
+test.mock('@tanstack/react-router', () => ({
   Link: ({ children, to, ...props }: React.ComponentProps<'a'> & { to: string }) => (
     <a href={to} {...props}>
       {children}
     </a>
   )
 }));
-vi.mock('#client/lib/i18n.tsx', () => ({
+test.mock('#client/lib/i18n.tsx', () => ({
   useI18n: () => ({
     t: (key: string, values?: { title: string }) => (values ? key + ' ' + values.title : key)
   })
@@ -45,23 +45,23 @@ const row: typeof noteWorkItemSchema.Type = {
 };
 
 function mount() {
-  const fixture = rpcHandlersTransport({
+  const fixture = test.rpcHandlersTransport({
     'notes.noteWork': api.work,
     'workflows.cancelExecution': api.cancel,
     'pages.cancelTransform': api.transform
   });
 
-  render(<NotePendingWork id={id} />, { wrapper: fixture.wrapper });
+  test.render(<NotePendingWork id={id} />, { wrapper: fixture.wrapper });
 
   return fixture;
 }
 
-beforeEach(() => vi.resetAllMocks());
-afterEach(() => {
-  cleanup();
+test.beforeEach(() => test.vi.resetAllMocks());
+test.afterEach(() => {
+  test.cleanup();
 });
 
-testStable('stops the exact execution safely and waits for committed cancellation', async () => {
+test.stable('stops the exact execution safely and waits for committed cancellation', async () => {
   let stopping = false;
 
   api.work.mockImplementation(async () => ({
@@ -79,21 +79,23 @@ testStable('stops the exact execution safely and waits for committed cancellatio
       })
   );
   mount();
-  const stop = await screen.findByRole('button', { name: 'NoteWorkStop NoteWorkReply' });
+  const stop = await test.screen.findByRole('button', { name: 'NoteWorkStop NoteWorkReply' });
 
-  expect(api.work).toHaveBeenCalledWith({ noteId: id, limit: 20, before: undefined });
-  fireEvent.click(stop);
-  await waitFor(() => expect(stop).toBeDisabled());
-  await waitFor(() =>
-    expect(api.cancel).toHaveBeenCalledExactlyOnceWith({ id: row.execution.id, mode: 'safe' })
+  test.expect(api.work).toHaveBeenCalledWith({ noteId: id, limit: 20, before: undefined });
+  test.fireEvent.click(stop);
+  await test.waitFor(() => test.expect(stop).toBeDisabled());
+  await test.waitFor(() =>
+    test.expect(api.cancel).toHaveBeenCalledExactlyOnceWith({ id: row.execution.id, mode: 'safe' })
   );
   stopping = true;
-  await act(async () => resolve({ ...row.execution, status: 'cancelling', canCancel: false }));
-  expect(await screen.findByRole('status', { name: 'NoteWorkStopping' })).toBeInTheDocument();
-  expect(stop).toBeDisabled();
+  await test.act(async () => resolve({ ...row.execution, status: 'cancelling', canCancel: false }));
+  test
+    .expect(await test.screen.findByRole('status', { name: 'NoteWorkStopping' }))
+    .toBeInTheDocument();
+  test.expect(stop).toBeDisabled();
 });
 
-testStable(
+test.stable(
   'shows the operation and waiting state while keeping live details collapsed',
   async () => {
     api.work.mockResolvedValue({
@@ -108,22 +110,22 @@ testStable(
       next: null
     });
     mount();
-    const status = await screen.findByRole('status', { name: 'NoteWorkWaiting' });
+    const status = await test.screen.findByRole('status', { name: 'NoteWorkWaiting' });
 
-    expect(status).toHaveTextContent('NoteWorkWaiting');
-    expect(status).toHaveAttribute('data-state', 'waiting');
-    expect(screen.getByText('NoteWorkTransform')).toBeVisible();
-    expect(screen.getByText('A long study guide title')).toBeVisible();
-    const summary = screen.getByText('NoteWorkDetails');
+    test.expect(status).toHaveTextContent('NoteWorkWaiting');
+    test.expect(status).toHaveAttribute('data-state', 'waiting');
+    test.expect(test.screen.getByText('NoteWorkTransform')).toBeVisible();
+    test.expect(test.screen.getByText('A long study guide title')).toBeVisible();
+    const summary = test.screen.getByText('NoteWorkDetails');
     const details = summary.closest('details');
 
-    expect(details).not.toHaveAttribute('open');
-    fireEvent.click(summary);
-    expect(details).toHaveAttribute('open');
+    test.expect(details).not.toHaveAttribute('open');
+    test.fireEvent.click(summary);
+    test.expect(details).toHaveAttribute('open');
   }
 );
 
-testStable(
+test.stable(
   'uses domain cancellation for transforms and reconciles a lost response without replay',
   async () => {
     const transform = { ...row, kind: 'transform', title: 'Study guide' };
@@ -136,24 +138,30 @@ testStable(
       throw new Error('Receipt lost');
     });
     mount();
-    fireEvent.click(await screen.findByRole('button', { name: 'NoteWorkStop Study guide' }));
-    await screen.findByText('NoteWorkEmpty');
-    expect(api.transform).toHaveBeenCalledExactlyOnceWith({ requestId: row.requestId });
-    expect(api.cancel).not.toHaveBeenCalled();
+    test.fireEvent.click(
+      await test.screen.findByRole('button', { name: 'NoteWorkStop Study guide' })
+    );
+    await test.screen.findByText('NoteWorkEmpty');
+    test.expect(api.transform).toHaveBeenCalledExactlyOnceWith({ requestId: row.requestId });
+    test.expect(api.cancel).not.toHaveBeenCalled();
   }
 );
 
-testStable('retains honest cancellation error and disables replay until refreshed', async () => {
+test.stable('retains honest cancellation error and disables replay until refreshed', async () => {
   api.work.mockResolvedValue({ items: [row], next: null });
   api.cancel.mockRejectedValue(new Error('Offline'));
   mount();
-  fireEvent.click(await screen.findByRole('button', { name: 'NoteWorkStop NoteWorkReply' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('NoteWorkStopError');
-  expect(screen.getByRole('button', { name: 'NoteWorkStop NoteWorkReply' })).toBeDisabled();
-  expect(api.cancel).toHaveBeenCalledTimes(1);
+  test.fireEvent.click(
+    await test.screen.findByRole('button', { name: 'NoteWorkStop NoteWorkReply' })
+  );
+  test.expect(await test.screen.findByRole('alert')).toHaveTextContent('NoteWorkStopError');
+  test
+    .expect(test.screen.getByRole('button', { name: 'NoteWorkStop NoteWorkReply' }))
+    .toBeDisabled();
+  test.expect(api.cancel).toHaveBeenCalledTimes(1);
 });
 
-testStable('shows actionable guidance for configuration waits', async () => {
+test.stable('shows actionable guidance for configuration waits', async () => {
   api.work.mockResolvedValue({
     items: [
       {
@@ -169,6 +177,6 @@ testStable('shows actionable guidance for configuration waits', async () => {
     next: null
   });
   mount();
-  expect(await screen.findByText('NoteWaitModel')).toBeVisible();
-  expect(screen.getByRole('link', { name: 'Settings' })).toBeEnabled();
+  test.expect(await test.screen.findByText('NoteWaitModel')).toBeVisible();
+  test.expect(test.screen.getByRole('link', { name: 'Settings' })).toBeEnabled();
 });

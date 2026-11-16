@@ -1,16 +1,11 @@
 import { StudyError, noteIdSchema, chatMessageSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { TooltipProvider } from '@study/ui';
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 import { useMemo } from 'react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
-
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { attachmentState } from './attachments';
 import { Composer } from './composer';
@@ -29,36 +24,36 @@ import {
 } from './note-workspace.queries';
 import { NoteRuns } from './transformation';
 
-const rpc = vi.hoisted(() => ({
-  message: vi.fn(),
-  pages: vi.fn(),
-  archive: vi.fn(),
-  convert: vi.fn(),
-  strategies: vi.fn()
+const rpc = test.hoisted(() => ({
+  message: test.vi.fn(),
+  pages: test.vi.fn(),
+  archive: test.vi.fn(),
+  convert: test.vi.fn(),
+  strategies: test.vi.fn()
 }));
 
-vi.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+test.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
 
-vi.mock('#client/lib/i18n.tsx', () => ({
+test.mock('#client/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'english', date: String })
 }));
-vi.mock('../document-editing/proposal-review', () => ({
+test.mock('../document-editing/proposal-review', () => ({
   ProposalReview: ({ requestId }: { requestId: string }) => (
     <div data-testid="proposal">{requestId}</div>
   )
 }));
-vi.mock('./note-workspace.queries', async (load) => {
+test.mock('./note-workspace.queries', async (load) => {
   const actual = await load<typeof NoteQueries>();
 
   return {
     ...actual,
-    uploadSource: vi.fn(),
-    saveNote: vi.fn(),
-    ask: vi.fn(),
-    editNote: vi.fn(),
-    rewriteNote: vi.fn(),
-    reanswerNote: vi.fn(),
-    activateVersion: vi.fn()
+    uploadSource: test.vi.fn(),
+    saveNote: test.vi.fn(),
+    ask: test.vi.fn(),
+    editNote: test.vi.fn(),
+    rewriteNote: test.vi.fn(),
+    reanswerNote: test.vi.fn(),
+    activateVersion: test.vi.fn()
   };
 });
 
@@ -112,7 +107,7 @@ function CanvasProvider({
 }) {
   const fixture = useMemo(
     () =>
-      rpcHandlersTransport(
+      test.rpcHandlersTransport(
         {
           'sources.conversionStrategies': rpc.strategies,
           'notes.convertMessage': rpc.convert,
@@ -146,80 +141,82 @@ function CanvasProvider({
 function mount(node: ReactNode, client = AtomRegistry.make()) {
   if (!clients.includes(client)) clients.push(client);
 
-  return { client, ...render(<CanvasProvider registry={client}>{node}</CanvasProvider>) };
+  return { client, ...test.render(<CanvasProvider registry={client}>{node}</CanvasProvider>) };
 }
 
 const actions = (versionId = message.activeVersionId!, value = message) => (
   <MessageActions message={value} versionId={versionId} onActive={() => {}} />
 );
 
-beforeEach(() => {
-  vi.resetAllMocks();
+test.beforeEach(() => {
+  test.vi.resetAllMocks();
   rpc.message.mockResolvedValue(message);
   rpc.strategies.mockResolvedValue([
     { id: 'chatgpt', name: 'ChatGPT', supportedInputs: ['text', 'pdf'] }
   ]);
   rpc.pages.mockResolvedValue({ items: [], next: null });
 });
-afterEach(() => {
-  cleanup();
+test.afterEach(() => {
+  test.cleanup();
 
   for (const client of clients.splice(0)) client.dispose();
 });
 
-testStable(
+test.stable(
   'keeps an uncertain upload across remount and never automatically creates it twice',
   async () => {
-    vi.mocked(uploadSource).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
+    test.vi.mocked(uploadSource).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
     const first = mount(<Composer id={id} />);
 
-    await act(async () => {
-      fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
+    await test.act(async () => {
+      test.fireEvent.change(test.screen.getByLabelText('NoteAttachFiles'), {
         target: { files: [new File(['notes'], 'notes.txt')] }
       });
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await screen.findByText('NoteUploadUncertain');
-    expect(uploadSource).toHaveBeenCalledTimes(1);
+    await test.screen.findByText('NoteUploadUncertain');
+    test.expect(uploadSource).toHaveBeenCalledTimes(1);
     first.unmount();
     mount(<Composer id={id} />, first.client);
-    expect(screen.getByText('notes.txt')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
-    expect(uploadSource).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+    test.expect(test.screen.getByText('notes.txt')).toBeVisible();
+    test.expect(test.screen.getByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
+    test.expect(uploadSource).toHaveBeenCalledTimes(1);
+    test.expect(test.screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
   }
 );
 
-testStable(
+test.stable(
   'sends attachment-only notes with accepted source IDs and does not upload again on send',
   async () => {
-    vi.mocked(uploadSource).mockResolvedValue({ id: 44n } as Awaited<
-      ReturnType<typeof uploadSource>
-    >);
-    vi.mocked(saveNote).mockResolvedValue(message);
+    test.vi
+      .mocked(uploadSource)
+      .mockResolvedValue({ id: 44n } as Awaited<ReturnType<typeof uploadSource>>);
+    test.vi.mocked(saveNote).mockResolvedValue(message);
     mount(<Composer id={id} />);
-    await act(async () => {
-      fireEvent.drop(screen.getByRole('region', { name: 'NoteCompose' }), {
+    await test.act(async () => {
+      test.fireEvent.drop(test.screen.getByRole('region', { name: 'NoteCompose' }), {
         dataTransfer: { files: [new File(['notes'], 'notes.txt')] }
       });
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await screen.findByText('NoteFileAccepted');
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
+    await test.screen.findByText('NoteFileAccepted');
+    await test.act(async () => {
+      test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteSaveNote' }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await waitFor(() => expect(saveNote).toHaveBeenCalledWith(id, '', [44n]));
-    await waitFor(() => expect(screen.queryByText('notes.txt')).not.toBeInTheDocument());
-    expect(uploadSource).toHaveBeenCalledTimes(1);
-    expect(ask).not.toHaveBeenCalled();
+    await test.waitFor(() => test.expect(saveNote).toHaveBeenCalledWith(id, '', [44n]));
+    await test.waitFor(() =>
+      test.expect(test.screen.queryByText('notes.txt')).not.toBeInTheDocument()
+    );
+    test.expect(uploadSource).toHaveBeenCalledTimes(1);
+    test.expect(ask).not.toHaveBeenCalled();
   }
 );
 
-testStable('keeps upload ownership while a receipt arrives after unmount', async () => {
+test.stable('keeps upload ownership while a receipt arrives after unmount', async () => {
   let accept!: (value: Awaited<ReturnType<typeof uploadSource>>) => void;
 
-  vi.mocked(uploadSource).mockImplementation(
+  test.vi.mocked(uploadSource).mockImplementation(
     () =>
       new Promise((resolve) => {
         accept = resolve;
@@ -227,67 +224,68 @@ testStable('keeps upload ownership while a receipt arrives after unmount', async
   );
   const first = mount(<Composer id={id} />);
 
-  await act(async () => {
-    fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
+  await test.act(async () => {
+    test.fireEvent.change(test.screen.getByLabelText('NoteAttachFiles'), {
       target: { files: [new File(['n'], 'n.txt')] }
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
   first.unmount();
   mount(<Composer id={id} />, first.client);
-  expect(screen.getByText('NoteUploading')).toBeVisible();
-  await act(async () => accept({ id: 45n } as Awaited<ReturnType<typeof uploadSource>>));
-  await screen.findByText('NoteFileAccepted');
-  expect(first.client.get(attachmentState(id))).toEqual([
-    expect.objectContaining({ sourceId: 45n, state: 'ready' })
-  ]);
-  expect(uploadSource).toHaveBeenCalledTimes(1);
+  test.expect(test.screen.getByText('NoteUploading')).toBeVisible();
+  await test.act(async () => accept({ id: 45n } as Awaited<ReturnType<typeof uploadSource>>));
+  await test.screen.findByText('NoteFileAccepted');
+  test
+    .expect(first.client.get(attachmentState(id)))
+    .toEqual([test.expect.objectContaining({ sourceId: 45n, state: 'ready' })]);
+  test.expect(uploadSource).toHaveBeenCalledTimes(1);
 });
 
-testStable('retains a definite rejection and only retries after a deliberate click', async () => {
-  vi.mocked(uploadSource)
+test.stable('retains a definite rejection and only retries after a deliberate click', async () => {
+  test.vi
+    .mocked(uploadSource)
     .mockRejectedValueOnce(new StudyError('invalid_input', 'Unsupported'))
     .mockResolvedValueOnce({ id: 46n } as Awaited<ReturnType<typeof uploadSource>>);
   mount(<Composer id={id} />);
-  await act(async () => {
-    fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
+  await test.act(async () => {
+    test.fireEvent.change(test.screen.getByLabelText('NoteAttachFiles'), {
       target: { files: [new File(['n'], 'n.txt')] }
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
-  await screen.findByText('NoteFileRejected');
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+  await test.screen.findByText('NoteFileRejected');
+  await test.act(async () => {
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'Retry' }));
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
-  await screen.findByText('NoteFileAccepted');
-  expect(uploadSource).toHaveBeenCalledTimes(2);
+  await test.screen.findByText('NoteFileAccepted');
+  test.expect(uploadSource).toHaveBeenCalledTimes(2);
 });
 
-testStable.each([
+test.stable.each([
   ['NoteImprove', 'improve'],
   ['NoteSummarize', 'summarize']
 ] as const)(
   'targets the exact message for %s and retains its request receipt',
   async (label, origin) => {
-    vi.mocked(rewriteNote).mockResolvedValue({
+    test.vi.mocked(rewriteNote).mockResolvedValue({
       requestId: 'rewrite-exact',
       noteId: id,
       messageId: message.id,
       versionId: message.activeVersionId!
     });
     mount(actions());
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: label }));
+    await test.act(async () => {
+      test.fireEvent.click(test.screen.getByRole('button', { name: label }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    expect(screen.getByText(/^NoteItemTransformScope/)).toBeVisible();
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'NoteApplyAction' }));
+    test.expect(test.screen.getByText(/^NoteItemTransformScope/)).toBeVisible();
+    await test.act(async () => {
+      test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteApplyAction' }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await waitFor(() =>
-      expect(rewriteNote).toHaveBeenCalledWith({
+    await test.waitFor(() =>
+      test.expect(rewriteNote).toHaveBeenCalledWith({
         messageId: message.id,
         origin,
         instruction: undefined
@@ -296,12 +294,12 @@ testStable.each([
   }
 );
 
-testStable(
+test.stable(
   'keeps the edit payload and write fence across remounts until the original receipt',
   async () => {
     let accept!: (value: typeof message) => void;
 
-    vi.mocked(editNote).mockImplementation(
+    test.vi.mocked(editNote).mockImplementation(
       () =>
         new Promise((resolve) => {
           accept = resolve;
@@ -309,67 +307,71 @@ testStable(
     );
     const first = mount(actions());
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'NoteEditNote' }));
+    await test.act(async () => {
+      test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteEditNote' }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await act(async () => {
-      const input = screen.getByRole('textbox');
+    await test.act(async () => {
+      const input = test.screen.getByRole('textbox');
 
-      await userEvent.clear(input);
-      await userEvent.type(input, 'Edited note', { skipClick: true });
+      await test.userEvent.clear(input);
+      await test.userEvent.type(input, 'Edited note', { skipClick: true });
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
+    await test.act(async () => {
+      test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteSaveNote' }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await waitFor(() =>
-      expect(editNote).toHaveBeenCalledWith({ messageId: message.id, text: 'Edited note' })
+    await test.waitFor(() =>
+      test.expect(editNote).toHaveBeenCalledWith({ messageId: message.id, text: 'Edited note' })
     );
     first.unmount();
     mount(actions(), first.client);
-    expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
-    await act(async () => accept(message));
-    await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument());
-    expect(editNote).toHaveBeenCalledTimes(1);
+    test.expect(test.screen.getByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
+    await test.act(async () => accept(message));
+    await test.waitFor(() =>
+      test.expect(test.screen.queryByRole('textbox')).not.toBeInTheDocument()
+    );
+    test.expect(editNote).toHaveBeenCalledTimes(1);
   }
 );
 
-testStable(
+test.stable(
   'does not rewrite a changed active version or silently use a historical version',
   async () => {
     rpc.message.mockResolvedValue({ ...message, activeVersionId: message.versions[0]!.id });
     mount(actions());
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'NoteImprove', hidden: true }));
+    await test.act(async () => {
+      test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteImprove', hidden: true }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'NoteApplyAction' }));
+    await test.act(async () => {
+      test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteApplyAction' }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await screen.findByRole('alert');
-    expect(rewriteNote).not.toHaveBeenCalled();
+    await test.screen.findByRole('alert');
+    test.expect(rewriteNote).not.toHaveBeenCalled();
   }
 );
 
-testStable(
+test.stable(
   'offers explicit historical activation and sends setActiveVersion with its exact identity',
   async () => {
-    vi.mocked(activateVersion).mockResolvedValue(message);
+    test.vi.mocked(activateVersion).mockResolvedValue(message);
     mount(actions(message.versions[0]!.id));
-    expect(screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBeDisabled();
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'NoteUseVersion' }));
+    test
+      .expect(test.screen.getByRole('button', { name: 'NoteImprove', hidden: true }))
+      .toBeDisabled();
+    await test.act(async () => {
+      test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteUseVersion' }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'NoteApplyAction' }));
+    await test.act(async () => {
+      test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteApplyAction' }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await waitFor(() =>
-      expect(activateVersion).toHaveBeenCalledWith({
+    await test.waitFor(() =>
+      test.expect(activateVersion).toHaveBeenCalledWith({
         messageId: message.id,
         versionId: message.versions[0]!.id
       })
@@ -377,48 +379,54 @@ testStable(
   }
 );
 
-testStable('never replays a rewrite after uncertain acceptance and remount', async () => {
-  vi.mocked(rewriteNote).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
+test.stable('never replays a rewrite after uncertain acceptance and remount', async () => {
+  test.vi.mocked(rewriteNote).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
   const first = mount(actions());
 
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'NoteImprove', hidden: true }));
+  await test.act(async () => {
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteImprove', hidden: true }));
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'NoteApplyAction' }));
+  await test.act(async () => {
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteApplyAction' }));
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
-  await screen.findByText('NoteItemActionUncertain');
+  await test.screen.findByText('NoteItemActionUncertain');
   first.unmount();
   mount(actions(), first.client);
-  expect(screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBeDisabled();
-  expect(rewriteNote).toHaveBeenCalledTimes(1);
-  expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+  test
+    .expect(test.screen.getByRole('button', { name: 'NoteImprove', hidden: true }))
+    .toBeDisabled();
+  test.expect(rewriteNote).toHaveBeenCalledTimes(1);
+  test.expect(test.screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
 });
 
-testStable('sends custom instructions only to the chosen message', async () => {
-  vi.mocked(rewriteNote).mockResolvedValue({
+test.stable('sends custom instructions only to the chosen message', async () => {
+  test.vi.mocked(rewriteNote).mockResolvedValue({
     requestId: 'custom',
     noteId: id,
     messageId: message.id,
     versionId: message.activeVersionId!
   });
   mount(actions());
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'NoteCustomTransform', hidden: true }));
+  await test.act(async () => {
+    test.fireEvent.click(
+      test.screen.getByRole('button', { name: 'NoteCustomTransform', hidden: true })
+    );
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
-  await act(async () => {
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Use shorter sentences' } });
+  await test.act(async () => {
+    test.fireEvent.change(test.screen.getByRole('textbox'), {
+      target: { value: 'Use shorter sentences' }
+    });
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'NoteApplyAction' }));
+  await test.act(async () => {
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteApplyAction' }));
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
-  await waitFor(() =>
-    expect(rewriteNote).toHaveBeenCalledWith({
+  await test.waitFor(() =>
+    test.expect(rewriteNote).toHaveBeenCalledWith({
       messageId: message.id,
       origin: 'instruction',
       instruction: 'Use shorter sentences'
@@ -426,21 +434,23 @@ testStable('sends custom instructions only to the chosen message', async () => {
   );
 });
 
-testStable('offers editing actions without Ask or Reanswer for existing entries', () => {
+test.stable('offers editing actions without Ask or Reanswer for existing entries', () => {
   const assistant = { ...message, role: 'assistant' as const, replyTo: message.id };
 
   mount(actions(message.activeVersionId!, assistant));
-  expect(screen.queryByRole('button', { name: 'NoteAsk' })).toBeNull();
-  expect(screen.queryByRole('button', { name: 'NoteReanswer' })).toBeNull();
-  expect(screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBeVisible();
-  expect(reanswerNote).not.toHaveBeenCalled();
-  expect(ask).not.toHaveBeenCalled();
+  test.expect(test.screen.queryByRole('button', { name: 'NoteAsk' })).toBeNull();
+  test.expect(test.screen.queryByRole('button', { name: 'NoteReanswer' })).toBeNull();
+  test.expect(test.screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBeVisible();
+  test.expect(reanswerNote).not.toHaveBeenCalled();
+  test.expect(ask).not.toHaveBeenCalled();
 });
 
-testStable(
+test.stable(
   'retains exact retry identity for an Ask operation already stored before the capture-only UI',
   async () => {
-    vi.mocked(ask).mockResolvedValue({ requestId: 'ask-exact' } as Awaited<ReturnType<typeof ask>>);
+    test.vi
+      .mocked(ask)
+      .mockResolvedValue({ requestId: 'ask-exact' } as Awaited<ReturnType<typeof ask>>);
     const client = AtomRegistry.make();
     const input = {
       noteId: id,
@@ -468,16 +478,16 @@ testStable(
     });
     const first = mount(actions(), client);
 
-    expect(screen.queryByRole('button', { name: 'NoteAsk' })).toBeNull();
+    test.expect(test.screen.queryByRole('button', { name: 'NoteAsk' })).toBeNull();
     first.unmount();
     mount(actions(), client);
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    await waitFor(() => expect(ask).toHaveBeenCalledExactlyOnceWith(input));
-    expect(saveNote).not.toHaveBeenCalled();
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'Retry' }));
+    await test.waitFor(() => test.expect(ask).toHaveBeenCalledExactlyOnceWith(input));
+    test.expect(saveNote).not.toHaveBeenCalled();
   }
 );
 
-testStable(
+test.stable(
   'discovers canonical runs on a cold mount, paginates exact cursors, and mounts only retained proposals',
   async () => {
     const run = {
@@ -520,107 +530,109 @@ testStable(
       )
     );
     mount(<NoteRuns id={id} />);
-    expect(await screen.findByTestId('proposal')).toHaveTextContent('request-z');
-    expect(screen.getAllByText('NoteContextUnavailable')[0]).toBeVisible();
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'LibraryMore' }));
+    test.expect(await test.screen.findByTestId('proposal')).toHaveTextContent('request-z');
+    test.expect(test.screen.getAllByText('NoteContextUnavailable')[0]).toBeVisible();
+    await test.act(async () => {
+      test.fireEvent.click(test.screen.getByRole('button', { name: 'LibraryMore' }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await screen.findAllByText('NoteRunRetired');
-    expect(rpc.pages).toHaveBeenCalledWith(undefined, 60);
-    expect(screen.queryByTestId('proposal')).toBeNull();
+    await test.screen.findAllByText('NoteRunRetired');
+    test.expect(rpc.pages).toHaveBeenCalledWith(undefined, 60);
+    test.expect(test.screen.queryByTestId('proposal')).toBeNull();
   }
 );
 
-testStable(
+test.stable(
   'captures accepted files and plain text together without requesting a reply',
   async () => {
-    vi.mocked(uploadSource).mockResolvedValue({ id: 47n } as Awaited<
-      ReturnType<typeof uploadSource>
-    >);
-    vi.mocked(saveNote).mockResolvedValue(message);
+    test.vi
+      .mocked(uploadSource)
+      .mockResolvedValue({ id: 47n } as Awaited<ReturnType<typeof uploadSource>>);
+    test.vi.mocked(saveNote).mockResolvedValue(message);
     mount(<Composer id={id} />);
-    fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
+    test.fireEvent.change(test.screen.getByLabelText('NoteAttachFiles'), {
       target: { files: [new File(['n'], 'n.txt')] }
     });
-    await screen.findByText('NoteFileAccepted');
-    fireEvent.change(screen.getByRole('textbox'), {
+    await test.screen.findByText('NoteFileAccepted');
+    test.fireEvent.change(test.screen.getByRole('textbox'), {
       target: { value: 'Keep this with the lecture' }
     });
-    expect(screen.queryByRole('button', { name: 'NoteAsk' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
-    await waitFor(() =>
-      expect(saveNote).toHaveBeenCalledExactlyOnceWith(id, 'Keep this with the lecture', [47n])
+    test.expect(test.screen.queryByRole('button', { name: 'NoteAsk' })).toBeNull();
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteSaveNote' }));
+    await test.waitFor(() =>
+      test.expect(saveNote).toHaveBeenCalledExactlyOnceWith(id, 'Keep this with the lecture', [47n])
     );
-    expect(ask).not.toHaveBeenCalled();
-    expect(uploadSource).toHaveBeenCalledTimes(1);
+    test.expect(ask).not.toHaveBeenCalled();
+    test.expect(uploadSource).toHaveBeenCalledTimes(1);
   }
 );
 
-testStable(
+test.stable(
   'keeps the original note and source payload after an uncertain post without replay',
   async () => {
-    vi.mocked(uploadSource).mockResolvedValue({ id: 48n } as Awaited<
-      ReturnType<typeof uploadSource>
-    >);
-    vi.mocked(saveNote).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
+    test.vi
+      .mocked(uploadSource)
+      .mockResolvedValue({ id: 48n } as Awaited<ReturnType<typeof uploadSource>>);
+    test.vi.mocked(saveNote).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
     const first = mount(<Composer id={id} />);
 
-    await act(async () => {
-      fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
+    await test.act(async () => {
+      test.fireEvent.change(test.screen.getByLabelText('NoteAttachFiles'), {
         target: { files: [new File(['n'], 'n.txt')] }
       });
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await screen.findByText('NoteFileAccepted');
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
+    await test.screen.findByText('NoteFileAccepted');
+    await test.act(async () => {
+      test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteSaveNote' }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await screen.findByText('NoteNoteUncertain');
+    await test.screen.findByText('NoteNoteUncertain');
     first.unmount();
     mount(<Composer id={id} />, first.client);
-    expect(first.client.get(composerDraft(id))).toMatchObject({
+    test.expect(first.client.get(composerDraft(id))).toMatchObject({
       noteAttempt: '',
       noteSourceIds: [48n]
     });
-    expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
-    expect(saveNote).toHaveBeenCalledTimes(1);
-    expect(uploadSource).toHaveBeenCalledTimes(1);
+    test.expect(test.screen.getByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
+    test.expect(saveNote).toHaveBeenCalledTimes(1);
+    test.expect(uploadSource).toHaveBeenCalledTimes(1);
   }
 );
 
-testStable(
+test.stable(
   'hands focus to the item editor and restores the invoking action on cancel',
   async () => {
     mount(actions());
-    const trigger = screen.getByRole('button', { name: 'NoteEditNote' });
+    const trigger = test.screen.getByRole('button', { name: 'NoteEditNote' });
 
     trigger.focus();
-    await act(async () => {
-      fireEvent.click(trigger);
+    await test.act(async () => {
+      test.fireEvent.click(trigger);
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await waitFor(() =>
-      expect(screen.getByRole('textbox', { name: 'NoteEditNote' })).toHaveFocus()
+    await test.waitFor(() =>
+      test.expect(test.screen.getByRole('textbox', { name: 'NoteEditNote' })).toHaveFocus()
     );
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'NoteCancel' }));
+    await test.act(async () => {
+      test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteCancel' }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    expect(trigger).toHaveFocus();
-    expect(screen.queryByRole('button', { name: 'NoteVersions' })).toBeNull();
+    test.expect(trigger).toHaveFocus();
+    test.expect(test.screen.queryByRole('button', { name: 'NoteVersions' })).toBeNull();
   }
 );
 
-testStable('keeps editing actions disabled on a historical version', () => {
+test.stable('keeps editing actions disabled on a historical version', () => {
   mount(actions(message.versions[0]!.id));
-  expect(screen.getByRole('button', { name: 'NoteEditNote' })).toBeDisabled();
-  expect(screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBeDisabled();
-  expect(screen.getByRole('button', { name: 'NoteUseVersion' })).toBeEnabled();
+  test.expect(test.screen.getByRole('button', { name: 'NoteEditNote' })).toBeDisabled();
+  test
+    .expect(test.screen.getByRole('button', { name: 'NoteImprove', hidden: true }))
+    .toBeDisabled();
+  test.expect(test.screen.getByRole('button', { name: 'NoteUseVersion' })).toBeEnabled();
 });
 
-testStable(
+test.stable(
   'puts the saved task title above technical run details without inventing a date',
   async () => {
     rpc.pages.mockResolvedValue({
@@ -638,11 +650,11 @@ testStable(
       next: null
     });
     mount(<NoteRuns id={id} />);
-    expect(await screen.findByText('Retained generation title')).toBeVisible();
-    const identity = screen.getByText('technical-request-identity');
+    test.expect(await test.screen.findByText('Retained generation title')).toBeVisible();
+    const identity = test.screen.getByText('technical-request-identity');
 
-    expect(identity.closest('details')).not.toHaveAttribute('open');
-    expect(identity.closest('section')?.querySelector('time')).toBeNull();
+    test.expect(identity.closest('details')).not.toHaveAttribute('open');
+    test.expect(identity.closest('section')?.querySelector('time')).toBeNull();
   }
 );
 
@@ -661,61 +673,61 @@ function VersionedNote({ value = message }: { value?: typeof message }) {
   );
 }
 
-testStable(
+test.stable(
   'browses exact saved versions with inline boundaries and a Latest badge without activating them',
   async () => {
     mount(<VersionedNote />);
-    expect(screen.getByRole('button', { name: 'NoteNextVersion' })).toBeDisabled();
-    expect(screen.getByText('NoteVersionLatest')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'NotePreviousVersion' }));
-    expect(screen.getByText('Historical note')).toBeVisible();
-    expect(screen.getByText('1', { selector: '[role="status"]' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'NotePreviousVersion' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'NoteUseVersion' })).toBeEnabled();
-    fireEvent.click(screen.getByRole('button', { name: 'NoteNextVersion' }));
-    expect(screen.getByText('Current note')).toBeVisible();
-    expect(screen.getByText('NoteVersionLatest')).toBeVisible();
-    expect(activateVersion).not.toHaveBeenCalled();
+    test.expect(test.screen.getByRole('button', { name: 'NoteNextVersion' })).toBeDisabled();
+    test.expect(test.screen.getByText('NoteVersionLatest')).toBeVisible();
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NotePreviousVersion' }));
+    test.expect(test.screen.getByText('Historical note')).toBeVisible();
+    test.expect(test.screen.getByText('1', { selector: '[role="status"]' })).toBeVisible();
+    test.expect(test.screen.getByRole('button', { name: 'NotePreviousVersion' })).toBeDisabled();
+    test.expect(test.screen.getByRole('button', { name: 'NoteUseVersion' })).toBeEnabled();
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteNextVersion' }));
+    test.expect(test.screen.getByText('Current note')).toBeVisible();
+    test.expect(test.screen.getByText('NoteVersionLatest')).toBeVisible();
+    test.expect(activateVersion).not.toHaveBeenCalled();
   }
 );
 
-testStable(
+test.stable(
   'keeps version browsing disabled while an edit or uncertain write owns the note and restores it after review',
   async () => {
-    vi.mocked(editNote).mockRejectedValue(new StudyError('transient', 'Uncertain edit'));
+    test.vi.mocked(editNote).mockRejectedValue(new StudyError('transient', 'Uncertain edit'));
     mount(<VersionedNote />);
-    fireEvent.click(screen.getByRole('button', { name: 'NoteEditNote' }));
-    await waitFor(() =>
-      expect(
-        screen.getByRole('button', { name: 'NotePreviousVersion', hidden: true })
-      ).toBeDisabled()
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteEditNote' }));
+    await test.waitFor(() =>
+      test
+        .expect(test.screen.getByRole('button', { name: 'NotePreviousVersion', hidden: true }))
+        .toBeDisabled()
     );
-    fireEvent.click(screen.getByRole('button', { name: 'NoteCancel' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    await waitFor(() =>
-      expect(
-        screen.getByRole('button', { name: 'NotePreviousVersion', hidden: true })
-      ).toBeEnabled()
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteCancel' }));
+    await test.waitFor(() => test.expect(test.screen.queryByRole('dialog')).toBeNull());
+    await test.waitFor(() =>
+      test
+        .expect(test.screen.getByRole('button', { name: 'NotePreviousVersion', hidden: true }))
+        .toBeEnabled()
     );
-    fireEvent.click(screen.getByRole('button', { name: 'NoteEditNote' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'NoteSaveNote' }));
-    await screen.findByRole('alert');
-    await waitFor(() =>
-      expect(
-        screen.getByRole('button', { name: 'NotePreviousVersion', hidden: true })
-      ).toBeDisabled()
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteEditNote' }));
+    test.fireEvent.click(await test.screen.findByRole('button', { name: 'NoteSaveNote' }));
+    await test.screen.findByRole('alert');
+    await test.waitFor(() =>
+      test
+        .expect(test.screen.getByRole('button', { name: 'NotePreviousVersion', hidden: true }))
+        .toBeDisabled()
     );
-    fireEvent.click(screen.getByRole('button', { name: 'LibraryRefresh' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'NoteReviewedHistory' }));
-    await waitFor(() =>
-      expect(
-        screen.getByRole('button', { name: 'NotePreviousVersion', hidden: true })
-      ).toBeEnabled()
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'LibraryRefresh' }));
+    test.fireEvent.click(await test.screen.findByRole('button', { name: 'NoteReviewedHistory' }));
+    await test.waitFor(() =>
+      test
+        .expect(test.screen.getByRole('button', { name: 'NotePreviousVersion', hidden: true }))
+        .toBeEnabled()
     );
   }
 );
 
-testStable('labels the newest saved version Latest even when another version is active', () => {
+test.stable('labels the newest saved version Latest even when another version is active', () => {
   mount(
     <VersionedNote
       value={{
@@ -725,94 +737,110 @@ testStable('labels the newest saved version Latest even when another version is 
       }}
     />
   );
-  expect(screen.getByText('1', { selector: '[role="status"]' })).toBeVisible();
-  fireEvent.click(screen.getByRole('button', { name: 'NoteNextVersion' }));
-  expect(screen.getByText('NoteVersionLatest')).toBeVisible();
-  expect(screen.getByRole('button', { name: 'NoteUseVersion' })).toBeEnabled();
-  expect(activateVersion).not.toHaveBeenCalled();
+  test.expect(test.screen.getByText('1', { selector: '[role="status"]' })).toBeVisible();
+  test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteNextVersion' }));
+  test.expect(test.screen.getByText('NoteVersionLatest')).toBeVisible();
+  test.expect(test.screen.getByRole('button', { name: 'NoteUseVersion' })).toBeEnabled();
+  test.expect(activateVersion).not.toHaveBeenCalled();
 });
 
-testStable('retains the same action controls while browsing saved versions', () => {
+test.stable('retains the same action controls while browsing saved versions', () => {
   mount(<VersionedNote />);
-  const edit = screen.getByRole('button', { name: 'NoteEditNote' });
-  const improve = screen.getByRole('button', { name: 'NoteImprove', hidden: true });
-  const activate = screen.getByRole('button', { name: 'NoteUseVersion' });
+  const edit = test.screen.getByRole('button', { name: 'NoteEditNote' });
+  const improve = test.screen.getByRole('button', { name: 'NoteImprove', hidden: true });
+  const activate = test.screen.getByRole('button', { name: 'NoteUseVersion' });
 
-  expect(activate).toBeDisabled();
-  fireEvent.click(screen.getByRole('button', { name: 'NotePreviousVersion' }));
-  expect(screen.getByRole('button', { name: 'NoteEditNote' })).toBe(edit);
-  expect(screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBe(improve);
-  expect(screen.getByRole('button', { name: 'NoteUseVersion' })).toBe(activate);
-  expect(edit).toBeDisabled();
-  expect(improve).toBeDisabled();
-  expect(activate).toBeEnabled();
-  fireEvent.click(screen.getByRole('button', { name: 'NoteNextVersion' }));
-  expect(edit).toBeEnabled();
-  expect(improve).toBeEnabled();
-  expect(activate).toBeDisabled();
+  test.expect(activate).toBeDisabled();
+  test.fireEvent.click(test.screen.getByRole('button', { name: 'NotePreviousVersion' }));
+  test.expect(test.screen.getByRole('button', { name: 'NoteEditNote' })).toBe(edit);
+  test.expect(test.screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBe(improve);
+  test.expect(test.screen.getByRole('button', { name: 'NoteUseVersion' })).toBe(activate);
+  test.expect(edit).toBeDisabled();
+  test.expect(improve).toBeDisabled();
+  test.expect(activate).toBeEnabled();
+  test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteNextVersion' }));
+  test.expect(edit).toBeEnabled();
+  test.expect(improve).toBeEnabled();
+  test.expect(activate).toBeDisabled();
 });
 
-testStable('protects an open edit from other toolbar actions', async () => {
+test.stable('protects an open edit from other toolbar actions', async () => {
   mount(<VersionedNote />);
-  fireEvent.click(screen.getByRole('button', { name: 'NoteEditNote' }));
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBeDisabled()
+  test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteEditNote' }));
+  await test.waitFor(() =>
+    test
+      .expect(test.screen.getByRole('button', { name: 'NoteImprove', hidden: true }))
+      .toBeDisabled()
   );
-  expect(screen.getByRole('button', { name: 'NoteCustomTransform', hidden: true })).toBeDisabled();
-  fireEvent.click(screen.getByRole('button', { name: 'NoteCancel' }));
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBeEnabled()
+  test
+    .expect(test.screen.getByRole('button', { name: 'NoteCustomTransform', hidden: true }))
+    .toBeDisabled();
+  test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteCancel' }));
+  await test.waitFor(() =>
+    test
+      .expect(test.screen.getByRole('button', { name: 'NoteImprove', hidden: true }))
+      .toBeEnabled()
   );
 });
 
-testStable(
+test.stable(
   'opens deliberate editing in a dialog while keeping the saved note in the notebook',
   async () => {
     mount(<VersionedNote />);
-    fireEvent.click(screen.getByRole('button', { name: 'NoteEditNote' }));
-    expect(await screen.findByRole('dialog', { name: 'NoteEditNote' })).toBeVisible();
-    expect(screen.getByText('Current note', { selector: 'p' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'NoteCancel' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(editNote).not.toHaveBeenCalled();
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteEditNote' }));
+    test.expect(await test.screen.findByRole('dialog', { name: 'NoteEditNote' })).toBeVisible();
+    test.expect(test.screen.getByText('Current note', { selector: 'p' })).toBeInTheDocument();
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteCancel' }));
+    await test.waitFor(() =>
+      test.expect(test.screen.queryByRole('dialog')).not.toBeInTheDocument()
+    );
+    test.expect(editNote).not.toHaveBeenCalled();
   }
 );
 
-testStable('opens note actions on right click and edits the exact selected note', async () => {
+test.stable('opens note actions on right click and edits the exact selected note', async () => {
   mount(<VersionedNote />);
-  fireEvent.contextMenu(screen.getByText('Current note'), { button: 2, clientX: 80, clientY: 80 });
-  await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'NoteEditNote' }));
-  expect(await screen.findByRole('dialog')).toBeVisible();
-  expect(screen.getByRole('textbox', { name: 'NoteEditNote' })).toHaveValue('Current note');
-  expect(editNote).not.toHaveBeenCalled();
+  test.fireEvent.contextMenu(test.screen.getByText('Current note'), {
+    button: 2,
+    clientX: 80,
+    clientY: 80
+  });
+  await test.userEvent
+    .setup()
+    .click(await test.screen.findByRole('menuitem', { name: 'NoteEditNote' }));
+  test.expect(await test.screen.findByRole('dialog')).toBeVisible();
+  test
+    .expect(test.screen.getByRole('textbox', { name: 'NoteEditNote' }))
+    .toHaveValue('Current note');
+  test.expect(editNote).not.toHaveBeenCalled();
 });
 
-testStable(
+test.stable(
   'restricts historical note context actions to activating the selected version',
   async () => {
     mount(<VersionedNote />);
-    fireEvent.click(screen.getByRole('button', { name: 'NotePreviousVersion' }));
-    fireEvent.contextMenu(screen.getByText('Historical note'), {
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NotePreviousVersion' }));
+    test.fireEvent.contextMenu(test.screen.getByText('Historical note'), {
       button: 2,
       clientX: 80,
       clientY: 80
     });
-    expect(await screen.findByRole('menuitem', { name: 'NoteImprove' })).toHaveAttribute(
-      'aria-disabled',
-      'true'
-    );
-    expect(screen.getByRole('menuitem', { name: 'NoteEditNote' })).toHaveAttribute(
-      'aria-disabled',
-      'true'
-    );
-    await userEvent.setup().click(screen.getByRole('menuitem', { name: 'NoteUseVersion' }));
-    expect(await screen.findByRole('dialog')).toBeVisible();
-    expect(screen.getByRole('dialog')).toHaveTextContent('Historical note');
-    expect(activateVersion).not.toHaveBeenCalled();
+    test
+      .expect(await test.screen.findByRole('menuitem', { name: 'NoteImprove' }))
+      .toHaveAttribute('aria-disabled', 'true');
+    test
+      .expect(test.screen.getByRole('menuitem', { name: 'NoteEditNote' }))
+      .toHaveAttribute('aria-disabled', 'true');
+    await test.userEvent
+      .setup()
+      .click(test.screen.getByRole('menuitem', { name: 'NoteUseVersion' }));
+    test.expect(await test.screen.findByRole('dialog')).toBeVisible();
+    test.expect(test.screen.getByRole('dialog')).toHaveTextContent('Historical note');
+    test.expect(activateVersion).not.toHaveBeenCalled();
   }
 );
 
-testStable(
+test.stable(
   'keeps pending assistant message context actions disabled and hides note editing',
   async () => {
     const pending = {
@@ -822,50 +850,63 @@ testStable(
     };
 
     mount(<VersionedNote value={pending} />);
-    fireEvent.contextMenu(screen.getByText('Current note'), {
+    test.fireEvent.contextMenu(test.screen.getByText('Current note'), {
       button: 2,
       clientX: 80,
       clientY: 80
     });
-    expect(await screen.findByRole('menuitem', { name: 'NoteImprove' })).toHaveAttribute(
-      'aria-disabled',
-      'true'
-    );
-    expect(screen.queryByRole('menuitem', { name: 'NoteEditNote' })).toBeNull();
+    test
+      .expect(await test.screen.findByRole('menuitem', { name: 'NoteImprove' }))
+      .toHaveAttribute('aria-disabled', 'true');
+    test.expect(test.screen.queryByRole('menuitem', { name: 'NoteEditNote' })).toBeNull();
   }
 );
 
-testStable('keeps raw note deletion in both the toolbar and right-click menu', async () => {
+test.stable('keeps raw note deletion in both the toolbar and right-click menu', async () => {
   mount(<VersionedNote />);
-  expect(screen.getByRole('button', { name: 'NoteDeleteItem' })).toBeVisible();
-  expect(screen.getByRole('button', { name: 'NoteDeleteVersion' })).toBeVisible();
-  fireEvent.contextMenu(screen.getByText('Current note'), { button: 2, clientX: 80, clientY: 80 });
-  expect(await screen.findByRole('menuitem', { name: 'NoteDeleteItem' })).toBeVisible();
-  await userEvent.setup().click(screen.getByRole('menuitem', { name: 'NoteDeleteVersion' }));
-  const dialog = await screen.findByRole('alertdialog');
+  test.expect(test.screen.getByRole('button', { name: 'NoteDeleteItem' })).toBeVisible();
+  test.expect(test.screen.getByRole('button', { name: 'NoteDeleteVersion' })).toBeVisible();
+  test.fireEvent.contextMenu(test.screen.getByText('Current note'), {
+    button: 2,
+    clientX: 80,
+    clientY: 80
+  });
+  test.expect(await test.screen.findByRole('menuitem', { name: 'NoteDeleteItem' })).toBeVisible();
+  await test.userEvent
+    .setup()
+    .click(test.screen.getByRole('menuitem', { name: 'NoteDeleteVersion' }));
+  const dialog = await test.screen.findByRole('alertdialog');
 
-  expect(within(dialog).getByText('NoteDeleteVersionHelp')).toBeVisible();
-  await userEvent.setup().click(within(dialog).getByRole('button', { name: 'Cancel' }));
-  await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
-  expect(screen.getByRole('button', { name: 'NoteDeleteItem' })).toBeVisible();
+  test.expect(test.within(dialog).getByText('NoteDeleteVersionHelp')).toBeVisible();
+  await test.userEvent.setup().click(test.within(dialog).getByRole('button', { name: 'Cancel' }));
+  await test.waitFor(() =>
+    test.expect(test.screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+  );
+  test.expect(test.screen.getByRole('button', { name: 'NoteDeleteItem' })).toBeVisible();
 });
 
-testStable('archives the exact note membership independently of permanent deletion', async () => {
+test.stable('archives the exact note membership independently of permanent deletion', async () => {
   rpc.archive.mockResolvedValue(undefined);
   mount(<VersionedNote />);
-  fireEvent.contextMenu(screen.getByText('Current note'), { button: 2, clientX: 80, clientY: 80 });
-  await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'NoteArchive' }));
-  await waitFor(() =>
-    expect(rpc.archive).toHaveBeenCalledExactlyOnceWith({
+  test.fireEvent.contextMenu(test.screen.getByText('Current note'), {
+    button: 2,
+    clientX: 80,
+    clientY: 80
+  });
+  await test.userEvent
+    .setup()
+    .click(await test.screen.findByRole('menuitem', { name: 'NoteArchive' }));
+  await test.waitFor(() =>
+    test.expect(rpc.archive).toHaveBeenCalledExactlyOnceWith({
       noteId: id,
       target: { kind: 'message', id: message.id },
       archived: true
     })
   );
-  expect(screen.queryByRole('alertdialog')).toBeNull();
+  test.expect(test.screen.queryByRole('alertdialog')).toBeNull();
 });
 
-testStable('converts the selected active message version directly from its toolbar', async () => {
+test.stable('converts the selected active message version directly from its toolbar', async () => {
   rpc.convert.mockResolvedValue({
     requestId: 'converted',
     noteId: id,
@@ -873,18 +914,18 @@ testStable('converts the selected active message version directly from its toolb
     versionId: 99n
   });
   mount(actions());
-  fireEvent.click(await screen.findByRole('button', { name: 'NoteConvertText' }));
-  await waitFor(() =>
-    expect(rpc.convert).toHaveBeenCalledWith({
+  test.fireEvent.click(await test.screen.findByRole('button', { name: 'NoteConvertText' }));
+  await test.waitFor(() =>
+    test.expect(rpc.convert).toHaveBeenCalledWith({
       messageId: message.id,
       expectedActiveVersionId: message.activeVersionId,
       strategyId: 'chatgpt'
     })
   );
-  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  test.expect(test.screen.queryByRole('dialog')).not.toBeInTheDocument();
 });
 
-testStable('retries the original conversion payload after viewing another version', async () => {
+test.stable('retries the original conversion payload after viewing another version', async () => {
   rpc.convert
     .mockRejectedValueOnce(new StudyError('transient', 'Unconfirmed'))
     .mockResolvedValueOnce({
@@ -895,41 +936,41 @@ testStable('retries the original conversion payload after viewing another versio
     });
   const view = mount(actions());
 
-  fireEvent.click(await screen.findByRole('button', { name: 'NoteConvertText' }));
-  await screen.findByRole('button', { name: 'Retry' });
+  test.fireEvent.click(await test.screen.findByRole('button', { name: 'NoteConvertText' }));
+  await test.screen.findByRole('button', { name: 'Retry' });
   view.rerender(
     <CanvasProvider registry={view.client}>{actions(message.versions[0].id)}</CanvasProvider>
   );
-  fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
-  await waitFor(() => expect(rpc.convert).toHaveBeenCalledTimes(2));
-  expect(rpc.convert.mock.calls[1][0]).toEqual(rpc.convert.mock.calls[0][0]);
+  test.fireEvent.click(await test.screen.findByRole('button', { name: 'Retry' }));
+  await test.waitFor(() => test.expect(rpc.convert).toHaveBeenCalledTimes(2));
+  test.expect(rpc.convert.mock.calls[1][0]).toEqual(rpc.convert.mock.calls[0][0]);
 });
 
-testStable.each(['Copied text', ''])(
+test.stable.each(['Copied text', ''])(
   'pasting files retains the clipboard text payload %j',
   async (text) => {
     const file = new File(['pdf'], 'pasted.pdf', { type: 'application/pdf' });
 
-    vi.mocked(uploadSource).mockResolvedValue({ id: 47n } as Awaited<
-      ReturnType<typeof uploadSource>
-    >);
+    test.vi
+      .mocked(uploadSource)
+      .mockResolvedValue({ id: 47n } as Awaited<ReturnType<typeof uploadSource>>);
     mount(<Composer id={id} />);
-    const accepted = fireEvent.paste(screen.getByRole('textbox'), {
+    const accepted = test.fireEvent.paste(test.screen.getByRole('textbox'), {
       clipboardData: {
         files: [file],
         getData: (kind: string) => (kind === 'text/plain' ? text : '')
       }
     });
 
-    expect(accepted).toBe(!!text);
-    await waitFor(() => expect(uploadSource).toHaveBeenCalledWith(file));
+    test.expect(accepted).toBe(!!text);
+    await test.waitFor(() => test.expect(uploadSource).toHaveBeenCalledWith(file));
   }
 );
 
-testStable('identifies the conversion icon on hover', async () => {
-  const user = userEvent.setup();
+test.stable('identifies the conversion icon on hover', async () => {
+  const user = test.userEvent.setup();
 
   mount(<TooltipProvider delay={0}>{actions()}</TooltipProvider>);
-  await user.hover(await screen.findByRole('button', { name: 'NoteConvertText' }));
-  expect(await screen.findByRole('tooltip')).toHaveTextContent('NoteConvertText');
+  await user.hover(await test.screen.findByRole('button', { name: 'NoteConvertText' }));
+  test.expect(await test.screen.findByRole('tooltip')).toHaveTextContent('NoteConvertText');
 });

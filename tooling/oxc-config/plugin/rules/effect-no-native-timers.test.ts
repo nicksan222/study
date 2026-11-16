@@ -1,12 +1,11 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message =
   'Use Effect.sleep or a scoped Effect schedule instead of native timers in application operations.';
 
-testStable('uses Effect scheduling instead of native server timers', async () => {
+test.stable('uses Effect scheduling instead of native server timers', async () => {
   const diagnostics = await lintRule('effect-no-native-timers', {
     'src/workers/unsafe.ts': 'setTimeout(work, 100);',
     'src/workers/safe.ts': 'function f(setTimeout) { setTimeout(work, 100); }',
@@ -17,7 +16,7 @@ testStable('uses Effect scheduling instead of native server timers', async () =>
   assertDiagnostics('effect-no-native-timers', diagnostics, [['src/workers/unsafe.ts', message]]);
 });
 
-testStable('rejects imported timers and global aliases', async () => {
+test.stable('rejects imported timers and global aliases', async () => {
   const diagnostics = await lintRule('effect-no-native-timers', {
     'src/workers/example.ts': String.raw`import { setTimeout as later } from "node:timers";
 const tick = globalThis.setInterval;
@@ -30,7 +29,7 @@ tick(work, 10);`
   ]);
 });
 
-testStable('permits the native callback transport adapter', async () => {
+test.stable('permits the native callback transport adapter', async () => {
   const diagnostics = await lintRule('effect-no-native-timers', {
     'src/runtime/server.ts': "import { setTimeout } from 'node:timers'; setTimeout(work, 1);"
   });
@@ -38,7 +37,7 @@ testStable('permits the native callback transport adapter', async () => {
   assertDiagnostics('effect-no-native-timers', diagnostics, []);
 });
 
-testStable('ignores unrelated methods and shadowed globals', async () => {
+test.stable('ignores unrelated methods and shadowed globals', async () => {
   const diagnostics = await lintRule('effect-no-native-timers', {
     'src/workers/example.ts': String.raw`function f(globalThis) {
   globalThis.setTimeout(work, 1);
@@ -50,9 +49,11 @@ other.setTimeout();`
   assertDiagnostics('effect-no-native-timers', diagnostics, []);
 });
 
-testStable('rejects native abort deadlines while preserving cancellation composition', async () => {
-  const diagnostics = await lintRule('effect-no-native-timers', {
-    'src/platform/ai/providers/example.ts': `
+test.stable(
+  'rejects native abort deadlines while preserving cancellation composition',
+  async () => {
+    const diagnostics = await lintRule('effect-no-native-timers', {
+      'src/platform/ai/providers/example.ts': `
       AbortSignal.timeout(1000);
       const deadline = globalThis.AbortSignal.timeout;
       deadline(1000);
@@ -63,16 +64,17 @@ testStable('rejects native abort deadlines while preserving cancellation composi
       const transport = { timeout(ms) {} };
       transport.timeout(1000);
     `
-  });
+    });
 
-  assertDiagnostics('effect-no-native-timers', diagnostics, [
-    ['src/platform/ai/providers/example.ts', message],
-    ['src/platform/ai/providers/example.ts', message],
-    ['src/platform/ai/providers/example.ts', message]
-  ]);
-});
+    assertDiagnostics('effect-no-native-timers', diagnostics, [
+      ['src/platform/ai/providers/example.ts', message],
+      ['src/platform/ai/providers/example.ts', message],
+      ['src/platform/ai/providers/example.ts', message]
+    ]);
+  }
+);
 
-testStable('uses Effect scheduling instead of native browser timers', async () => {
+test.stable('uses Effect scheduling instead of native browser timers', async () => {
   const diagnostics = await lintRule(
     'effect-no-native-timers',
     {
@@ -84,23 +86,25 @@ testStable('uses Effect scheduling instead of native browser timers', async () =
     true
   );
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable('allows a debounce timeout owned by a React hook effect', async () => {
-  expect(
-    await lintRule(
-      'effect-no-native-timers',
-      {
-        'apps/client/src/app/shell/use-sidebar.ts': `
+test.stable('allows a debounce timeout owned by a React hook effect', async () => {
+  test
+    .expect(
+      await lintRule(
+        'effect-no-native-timers',
+        {
+          'apps/client/src/app/shell/use-sidebar.ts': `
       import { useEffect as effect } from 'react';
       effect(() => {
         const timer = setTimeout(updateSearch, 200);
         return () => clearTimeout(timer);
       }, [query]);
     `
-      },
-      true
+        },
+        true
+      )
     )
-  ).toStrictEqual([]);
+    .toStrictEqual([]);
 });

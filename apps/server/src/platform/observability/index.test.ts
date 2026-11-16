@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies operation instrumentation filters log metadata and records completion,    │
@@ -13,10 +14,7 @@
  * │ database fixture is involved.                                                            │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { testStable } from '@study/testing/vitest';
 import type { Tracer } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { safeMetadata } from '#server/platform/observability/index';
 
@@ -24,20 +22,22 @@ function spanName(span: Tracer.AnySpan) {
   return span._tag === 'Span' ? span.name : 'external';
 }
 
-testStable('only approved scalar operation metadata reaches the log sink', () => {
-  expect(
-    safeMetadata({
-      requestId: 'r1',
-      attempt: 2,
-      prompt: 'secret',
-      cause: new Error('secret'),
-      entity: 'project',
-      token: 'secret'
-    })
-  ).toStrictEqual({ requestId: 'r1', attempt: 2, entity: 'project' });
+test.stable('only approved scalar operation metadata reaches the log sink', () => {
+  test
+    .expect(
+      safeMetadata({
+        requestId: 'r1',
+        attempt: 2,
+        prompt: 'secret',
+        cause: new Error('secret'),
+        entity: 'project',
+        token: 'secret'
+      })
+    )
+    .toStrictEqual({ requestId: 'r1', attempt: 2, entity: 'project' });
 });
 
-testStable('operation logs inherit only allowed annotations and carry a span', async () => {
+test.stable('operation logs inherit only allowed annotations and carry a span', async () => {
   const { Effect, Logger, References, Context, Tracer, Option } = await import('effect');
   const { observeOperation } = await import('#server/platform/observability/index');
   const entries: { message: unknown; annotations: unknown; spans: unknown }[] = [];
@@ -64,16 +64,16 @@ testStable('operation logs inherit only allowed annotations and carry a span', a
       Effect.provideService(References.MinimumLogLevel, 'Debug')
     )
   );
-  assert.strictEqual(entries.length, 2);
+  test.assert.strictEqual(entries.length, 2);
   const serialized = JSON.stringify(entries);
 
-  expect(serialized).toMatch(/r1/);
-  expect(serialized).toMatch(/test.operation/);
-  expect(serialized).toMatch(/parent/);
-  expect(serialized).not.toMatch(/secret/);
+  test.expect(serialized).toMatch(/r1/);
+  test.expect(serialized).toMatch(/test.operation/);
+  test.expect(serialized).toMatch(/parent/);
+  test.expect(serialized).not.toMatch(/secret/);
 });
 
-testStable(
+test.stable(
   'operation metrics record outcomes and release active operations without inheriting identifiers',
   async () => {
     const { Deferred, Effect, Fiber, Metric } = await import('effect');
@@ -104,47 +104,49 @@ testStable(
     );
     const active = snapshots.during.find((s) => s.id === 'study.operation.active');
 
-    assert.ok(active?.type === 'Gauge');
+    test.assert.ok(active?.type === 'Gauge');
 
-    assert.ok(active?.type === 'Gauge');
-    assert.strictEqual(active.state.value, 1);
+    test.assert.ok(active?.type === 'Gauge');
+    test.assert.strictEqual(active.state.value, 1);
 
     const after = snapshots.after;
     const gauge = after.find((s) => s.id === 'study.operation.active');
 
-    assert.ok(gauge?.type === 'Gauge');
+    test.assert.ok(gauge?.type === 'Gauge');
 
-    assert.ok(gauge?.type === 'Gauge');
-    assert.strictEqual(gauge.state.value, 0);
+    test.assert.ok(gauge?.type === 'Gauge');
+    test.assert.strictEqual(gauge.state.value, 0);
 
     const counts = after.filter((s) => s.id === 'study.operation.completed');
 
-    expect(
-      counts.map((s) => s.attributes?.outcome).sort((a, b) => (a ?? '').localeCompare(b ?? ''))
-    ).toStrictEqual(['failure', 'interrupted', 'success']);
+    test
+      .expect(
+        counts.map((s) => s.attributes?.outcome).sort((a, b) => (a ?? '').localeCompare(b ?? ''))
+      )
+      .toStrictEqual(['failure', 'interrupted', 'success']);
 
     for (const count of counts) {
-      assert.ok(count.type === 'Counter');
+      test.assert.ok(count.type === 'Counter');
 
-      assert.ok(count.type === 'Counter');
-      assert.strictEqual(count.state.count, 1);
+      test.assert.ok(count.type === 'Counter');
+      test.assert.strictEqual(count.state.count, 1);
     }
 
     const duration = after.find((s) => s.id === 'study.operation.duration_ms');
 
-    assert.ok(duration?.type === 'Histogram');
+    test.assert.ok(duration?.type === 'Histogram');
 
-    assert.ok(duration?.type === 'Histogram');
-    assert.strictEqual(duration.state.count, 3);
-    assert.ok(duration.state.sum >= 2000);
+    test.assert.ok(duration?.type === 'Histogram');
+    test.assert.strictEqual(duration.state.count, 3);
+    test.assert.ok(duration.state.sum >= 2000);
 
-    expect(JSON.stringify(after)).not.toMatch(
-      /private-id|secret-operation|private failure|requestId/
-    );
+    test
+      .expect(JSON.stringify(after))
+      .not.toMatch(/private-id|secret-operation|private failure|requestId/);
   }
 );
 
-testStable(
+test.stable(
   'metric labels admit only canonical finite values and hooks ignore ambient attributes',
   async () => {
     const { Effect, Metric } = await import('effect');
@@ -156,16 +158,16 @@ testStable(
       recordPublicationRejection
     } = await import('#server/platform/observability/index');
 
-    expect(
-      safeMetricLabels({ outcome: 'success', modelTier: 'smart', errorKind: 'transient' })
-    ).toStrictEqual({
-      outcome: 'success',
-      modelTier: 'smart',
-      errorKind: 'transient'
-    });
-    expect(safeMetricLabels({ outcome: 'private', requestId: 'secret' } as never)).toStrictEqual(
-      {}
-    );
+    test
+      .expect(safeMetricLabels({ outcome: 'success', modelTier: 'smart', errorKind: 'transient' }))
+      .toStrictEqual({
+        outcome: 'success',
+        modelTier: 'smart',
+        errorKind: 'transient'
+      });
+    test
+      .expect(safeMetricLabels({ outcome: 'private', requestId: 'secret' } as never))
+      .toStrictEqual({});
     const snapshots = await Effect.runPromise(
       Effect.gen(function* () {
         yield* recordAiAdmission();
@@ -180,14 +182,14 @@ testStable(
       )
     );
 
-    assert.strictEqual(snapshots.length, 4);
+    test.assert.strictEqual(snapshots.length, 4);
 
     for (const snapshot of snapshots) {
-      assert.ok(snapshot.type === 'Counter');
+      test.assert.ok(snapshot.type === 'Counter');
 
-      if (snapshot.type === 'Counter') assert.strictEqual(snapshot.state.count, 1);
+      if (snapshot.type === 'Counter') test.assert.strictEqual(snapshot.state.count, 1);
 
-      expect(JSON.stringify(snapshot.attributes ?? {})).not.toMatch(/secret|requestId/);
+      test.expect(JSON.stringify(snapshot.attributes ?? {})).not.toMatch(/secret|requestId/);
     }
   }
 );

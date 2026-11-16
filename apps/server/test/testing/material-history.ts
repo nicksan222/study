@@ -1,3 +1,4 @@
+import type { MaterialId, ContentSnapshotId } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Drives exact history pruning and source projection through native Workflows.       │
@@ -9,15 +10,13 @@
  * │ Fixtures own SQLite lifetime; production services and native guards own all mutations.   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { MaterialId, ContentSnapshotId } from '@study/contracts';
 import { MaterialsRpc } from '@study/contracts';
 import { eq } from '@study/db';
 import * as s from '@study/db';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
 import { WorkflowEngine } from 'effect/workflow';
-import { assert } from 'vite-plus/test';
 
 import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
 import {
@@ -46,7 +45,7 @@ function historyEvent(f: MaterialDeletionFixture, operationId: string) {
       (event) => event.type === 'MaterialHistoryPruneRequested' && event.operationId === operationId
     );
 
-  assert.ok(event?.type === 'MaterialHistoryPruneRequested');
+  test.assert.ok(event?.type === 'MaterialHistoryPruneRequested');
 
   return event;
 }
@@ -124,7 +123,7 @@ export function processSource(f: MaterialDeletionFixture, correction = false) {
 
   const event = row === undefined ? undefined : decodeEvent(row.payload);
 
-  assert.ok(
+  test.assert.ok(
     event?.type === 'SourceProcessingRequested' || event?.type === 'SourceCorrectionRequested'
   );
 
@@ -186,7 +185,7 @@ export function processSource(f: MaterialDeletionFixture, correction = false) {
           .map((row) => decodeEvent(row.payload))
           .findLast((e) => e.type === 'SourceIndexed' && e.documentId === documentId);
 
-        assert.ok(indexed?.type === 'SourceIndexed');
+        test.assert.ok(indexed?.type === 'SourceIndexed');
 
         return { documentId };
       }).pipe(Effect.provide(materialHistoryRegistration.layer), Effect.provide(f.services()))

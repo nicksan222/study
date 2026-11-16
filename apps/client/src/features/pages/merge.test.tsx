@@ -1,33 +1,28 @@
 import { pageIdSchema, pageVersionIdSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { afterEach, expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport } from '#client/test/rpc.tsx';
+import { test } from '@study/testing';
 
 import { MergePagesDialog } from './merge';
 
-const api = vi.hoisted(() => ({ merge: vi.fn() }));
+const api = test.hoisted(() => ({ merge: test.vi.fn() }));
 
-vi.mock('#client/lib/i18n.tsx', () => ({
+test.mock('#client/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'italian' })
 }));
-afterEach(() => {
-  cleanup();
-  vi.clearAllMocks();
+test.afterEach(() => {
+  test.cleanup();
+  test.vi.clearAllMocks();
 });
 
-testStable(
+test.stable(
   'merge explains archival, requires a title and submits selected exact versions in the UI language',
   async () => {
-    const user = userEvent.setup();
-    const harness = rpcTestTransport(async (tag, input) => {
+    const user = test.userEvent.setup();
+    const harness = test.rpcTestTransport(async (tag, input) => {
       if (tag === 'pages.merge') return api.merge(input);
 
       throw new Error(tag);
     });
-    const close = vi.fn();
+    const close = test.vi.fn();
 
     api.merge.mockResolvedValue({
       id: 'document/merge/test',
@@ -53,24 +48,27 @@ testStable(
       projectIds: []
     }));
 
-    render(
+    test.render(
       <harness.wrapper>
         <MergePagesDialog pages={pages} onClose={close} />
       </harness.wrapper>
     );
-    expect(screen.getByText('PagesMergeHelp')).toBeInTheDocument();
-    expect(screen.getByText('Document 1')).toBeInTheDocument();
-    expect(screen.getByText('Document 2')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'PagesMerge' })).toBeDisabled();
-    await user.type(screen.getByRole('textbox', { name: 'PagesMergeTitle' }), 'Combined notes');
+    test.expect(test.screen.getByText('PagesMergeHelp')).toBeInTheDocument();
+    test.expect(test.screen.getByText('Document 1')).toBeInTheDocument();
+    test.expect(test.screen.getByText('Document 2')).toBeInTheDocument();
+    test.expect(test.screen.getByRole('button', { name: 'PagesMerge' })).toBeDisabled();
     await user.type(
-      screen.getByRole('textbox', { name: 'PagesMergeInstruction' }),
+      test.screen.getByRole('textbox', { name: 'PagesMergeTitle' }),
+      'Combined notes'
+    );
+    await user.type(
+      test.screen.getByRole('textbox', { name: 'PagesMergeInstruction' }),
       'Keep the examples'
     );
-    await user.click(screen.getByRole('button', { name: 'PagesMerge' }));
-    await waitFor(() =>
-      expect(api.merge).toHaveBeenCalledWith(
-        expect.objectContaining({
+    await user.click(test.screen.getByRole('button', { name: 'PagesMerge' }));
+    await test.waitFor(() =>
+      test.expect(api.merge).toHaveBeenCalledWith(
+        test.expect.objectContaining({
           title: 'Combined notes',
           instruction: 'Keep the examples',
           versions: [11n, 12n],
@@ -78,6 +76,6 @@ testStable(
         })
       )
     );
-    await waitFor(() => expect(close).toHaveBeenCalledOnce());
+    await test.waitFor(() => test.expect(close).toHaveBeenCalledOnce());
   }
 );

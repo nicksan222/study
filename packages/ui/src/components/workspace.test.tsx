@@ -1,16 +1,13 @@
-import { testStable } from '@study/testing/vitest';
-import { cleanup, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { afterEach, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { WorkspaceCard } from './workspace';
 
-afterEach(cleanup);
+test.afterEach(test.cleanup);
 
-testStable('toggles the associated panel by keyboard and preserves its draft', async () => {
-  const user = userEvent.setup();
+test.stable('toggles the associated panel by keyboard and preserves its draft', async () => {
+  const user = test.userEvent.setup();
 
-  render(
+  test.render(
     <WorkspaceCard.Provider>
       <WorkspaceCard.Toggle label="Note context" />
       <WorkspaceCard.Root aria-label="Note context">
@@ -18,22 +15,22 @@ testStable('toggles the associated panel by keyboard and preserves its draft', a
       </WorkspaceCard.Root>
     </WorkspaceCard.Provider>
   );
-  const toggle = screen.getByRole('button', { name: 'Note context' });
-  const panel = screen.getByRole('complementary', { name: 'Note context' });
+  const toggle = test.screen.getByRole('button', { name: 'Note context' });
+  const panel = test.screen.getByRole('complementary', { name: 'Note context' });
 
-  expect(toggle.getAttribute('aria-controls')).toBe(panel.id);
-  expect(toggle.getAttribute('aria-expanded')).toBe('true');
+  test.expect(toggle.getAttribute('aria-controls')).toBe(panel.id);
+  test.expect(toggle.getAttribute('aria-expanded')).toBe('true');
   toggle.focus();
   await user.keyboard('{Enter}');
-  expect(toggle.getAttribute('aria-expanded')).toBe('false');
-  expect(panel.hidden).toBe(true);
+  test.expect(toggle.getAttribute('aria-expanded')).toBe('false');
+  test.expect(panel.hidden).toBe(true);
   await user.keyboard(' ');
-  expect(toggle.getAttribute('aria-expanded')).toBe('true');
-  expect(screen.getByRole('textbox', { name: 'Instruction' }).getAttribute('value')).toBe(
-    'Preserve this draft'
-  );
-  screen.getByRole('textbox', { name: 'Instruction' }).focus();
+  test.expect(toggle.getAttribute('aria-expanded')).toBe('true');
+  test
+    .expect(test.screen.getByRole('textbox', { name: 'Instruction' }).getAttribute('value'))
+    .toBe('Preserve this draft');
+  test.screen.getByRole('textbox', { name: 'Instruction' }).focus();
   await user.keyboard('{Escape}');
-  expect(panel.hidden).toBe(true);
-  expect(document.activeElement).toBe(toggle);
+  test.expect(panel.hidden).toBe(true);
+  test.expect(document.activeElement).toBe(toggle);
 });

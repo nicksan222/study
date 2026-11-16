@@ -1,15 +1,12 @@
 import { StudyError, noteIdSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import type * as Router from '@tanstack/react-router';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';
-import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { Composer } from './composer';
 import { composerDraft } from './composer.queries';
@@ -24,24 +21,28 @@ import {
 import { Transformation } from './transformation';
 import { UnavailableAttempt } from './unavailable-attempt';
 
-const reads = vi.hoisted(() => ({ selection: vi.fn(), thread: vi.fn(), runs: vi.fn() }));
+const reads = test.hoisted(() => ({
+  selection: test.vi.fn(),
+  thread: test.vi.fn(),
+  runs: test.vi.fn()
+}));
 
-vi.mock('@tanstack/react-router', async (load) => ({
+test.mock('@tanstack/react-router', async (load) => ({
   ...(await load<typeof Router>()),
   Link: ({ to, children }: { to: string; children?: ReactNode }) => <a href={to}>{children}</a>
 }));
 
-vi.mock('#client/lib/i18n.tsx', () => ({
+test.mock('#client/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'english' })
 }));
-vi.mock('./history', () => ({ CapturedContext: () => null }));
-vi.mock('./note-workspace.queries', async (load) => ({
+test.mock('./history', () => ({ CapturedContext: () => null }));
+test.mock('./note-workspace.queries', async (load) => ({
   ...(await load<typeof NoteQueries>()),
-  ask: vi.fn(),
-  saveNote: vi.fn(),
-  captureContext: vi.fn(),
-  transformPage: vi.fn(),
-  uploadSource: vi.fn()
+  ask: test.vi.fn(),
+  saveNote: test.vi.fn(),
+  captureContext: test.vi.fn(),
+  transformPage: test.vi.fn(),
+  uploadSource: test.vi.fn()
 }));
 
 function deferred<T>() {
@@ -66,7 +67,7 @@ function RecoveryProvider({
 }) {
   const fixture = useMemo(
     () =>
-      rpcTestTransport(async (tag, input) => {
+      test.rpcTestTransport(async (tag, input) => {
         if (tag === 'notes.noteSelection') return reads.selection();
 
         if (tag === 'notes.thread') return reads.thread();
@@ -100,75 +101,75 @@ function RecoveryProvider({
 function mount(node: ReactNode, client = AtomRegistry.make()) {
   if (!clients.includes(client)) clients.push(client);
 
-  return { client, ...render(<RecoveryProvider registry={client}>{node}</RecoveryProvider>) };
+  return { client, ...test.render(<RecoveryProvider registry={client}>{node}</RecoveryProvider>) };
 }
 
-beforeEach(() => {
-  vi.resetAllMocks();
-  vi.mocked(useAiReadiness).mockReturnValue('ready');
+test.beforeEach(() => {
+  test.vi.resetAllMocks();
+  test.vi.mocked(useAiReadiness).mockReturnValue('ready');
   reads.selection.mockResolvedValue({ revision: 8n, targets: [] });
   reads.thread.mockResolvedValue({ items: [], next: null });
   reads.runs.mockResolvedValue({ items: [], next: null });
 });
-afterEach(() => {
-  cleanup();
+test.afterEach(() => {
+  test.cleanup();
   clients.splice(0).forEach((client) => client.dispose());
 });
 
-testStable.each(['selection', 'thread', 'runs'] as const)(
+test.stable.each(['selection', 'thread', 'runs'] as const)(
   'requires successful %s reconciliation and loses review authorization on remount',
   async (failedRead) => {
-    const abandon = vi.fn();
+    const abandon = test.vi.fn();
 
     reads[failedRead].mockRejectedValueOnce(new StudyError('not_found', 'Unavailable'));
     const node = <UnavailableAttempt id={id} busy={false} onAbandon={abandon} />;
     const first = mount(node);
 
-    fireEvent.click(screen.getByRole('button', { name: 'NoteReviewUnavailableAttempt' }));
-    await screen.findByRole('alert');
-    expect(screen.queryByRole('button', { name: 'NoteAbandonAttempt' })).toBeNull();
-    expect(abandon).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'NoteReviewUnavailableAttempt' }));
-    await screen.findByRole('button', { name: 'NoteAbandonAttempt' });
-    expect(reads.selection).toHaveBeenCalledTimes(2);
-    expect(reads.thread).toHaveBeenCalledTimes(2);
-    expect(reads.runs).toHaveBeenCalledTimes(2);
-    expect(abandon).not.toHaveBeenCalled();
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteReviewUnavailableAttempt' }));
+    await test.screen.findByRole('alert');
+    test.expect(test.screen.queryByRole('button', { name: 'NoteAbandonAttempt' })).toBeNull();
+    test.expect(abandon).not.toHaveBeenCalled();
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteReviewUnavailableAttempt' }));
+    await test.screen.findByRole('button', { name: 'NoteAbandonAttempt' });
+    test.expect(reads.selection).toHaveBeenCalledTimes(2);
+    test.expect(reads.thread).toHaveBeenCalledTimes(2);
+    test.expect(reads.runs).toHaveBeenCalledTimes(2);
+    test.expect(abandon).not.toHaveBeenCalled();
     first.unmount();
     const reopened = mount(node, first.client);
 
-    expect(screen.queryByRole('button', { name: 'NoteAbandonAttempt' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'NoteReviewUnavailableAttempt' }));
-    await screen.findByRole('button', { name: 'NoteAbandonAttempt' });
+    test.expect(test.screen.queryByRole('button', { name: 'NoteAbandonAttempt' })).toBeNull();
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteReviewUnavailableAttempt' }));
+    await test.screen.findByRole('button', { name: 'NoteAbandonAttempt' });
     reopened.rerender(
       <RecoveryProvider registry={first.client}>
         <UnavailableAttempt id={id} busy onAbandon={abandon} />
       </RecoveryProvider>
     );
-    fireEvent.click(screen.getByRole('button', { name: 'NoteAbandonAttempt' }));
-    expect(abandon).not.toHaveBeenCalled();
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteAbandonAttempt' }));
+    test.expect(abandon).not.toHaveBeenCalled();
     reopened.rerender(<RecoveryProvider registry={first.client}>{node}</RecoveryProvider>);
-    fireEvent.click(screen.getByRole('button', { name: 'NoteAbandonAttempt' }));
-    expect(abandon).toHaveBeenCalledTimes(1);
-    expect(ask).not.toHaveBeenCalled();
-    expect(captureContext).not.toHaveBeenCalled();
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteAbandonAttempt' }));
+    test.expect(abandon).toHaveBeenCalledTimes(1);
+    test.expect(ask).not.toHaveBeenCalled();
+    test.expect(captureContext).not.toHaveBeenCalled();
   }
 );
 
-testStable(
+test.stable(
   'abandons a retained unavailable Ask after review and resumes plain capture with its attachments',
   async () => {
-    vi.mocked(uploadSource).mockResolvedValue({ id: 44n } as Awaited<
-      ReturnType<typeof uploadSource>
-    >);
-    vi.mocked(saveNote).mockResolvedValue({} as Awaited<ReturnType<typeof saveNote>>);
+    test.vi
+      .mocked(uploadSource)
+      .mockResolvedValue({ id: 44n } as Awaited<ReturnType<typeof uploadSource>>);
+    test.vi.mocked(saveNote).mockResolvedValue({} as Awaited<ReturnType<typeof saveNote>>);
     const first = mount(<Composer id={id} />);
 
-    fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
+    test.fireEvent.change(test.screen.getByLabelText('NoteAttachFiles'), {
       target: { files: [new File(['notes'], 'retained.txt')] }
     });
-    await screen.findByText('NoteFileAccepted');
-    act(() =>
+    await test.screen.findByText('NoteFileAccepted');
+    test.act(() =>
       first.client.set(composerDraft(id), {
         text: 'Later draft',
         instruction: '',
@@ -181,152 +182,162 @@ testStable(
         }
       })
     );
-    await screen.findByRole('button', { name: 'NoteReviewUnavailableAttempt' });
+    await test.screen.findByRole('button', { name: 'NoteReviewUnavailableAttempt' });
     first.unmount();
     mount(<Composer id={id} />, first.client);
-    expect(screen.queryByRole('button', { name: 'NoteAsk' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
-    expect(screen.queryByRole('button', { name: 'NoteRetryAsk' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'NoteReviewUnavailableAttempt' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'NoteAbandonAttempt' }));
-    expect(screen.getByRole('textbox')).toHaveValue('Later draft');
-    expect(screen.getByText('retained.txt')).toBeVisible();
-    await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
-    fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
-    await waitFor(() => expect(saveNote).toHaveBeenCalledExactlyOnceWith(id, 'Later draft', [44n]));
-    expect(ask).not.toHaveBeenCalled();
-    expect(uploadSource).toHaveBeenCalledTimes(1);
+    test.expect(test.screen.queryByRole('button', { name: 'NoteAsk' })).toBeNull();
+    test.expect(test.screen.getByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
+    test.expect(test.screen.queryByRole('button', { name: 'NoteRetryAsk' })).toBeNull();
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteReviewUnavailableAttempt' }));
+    test.fireEvent.click(await test.screen.findByRole('button', { name: 'NoteAbandonAttempt' }));
+    test.expect(test.screen.getByRole('textbox')).toHaveValue('Later draft');
+    test.expect(test.screen.getByText('retained.txt')).toBeVisible();
+    await test.waitFor(() =>
+      test.expect(test.screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled()
+    );
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteSaveNote' }));
+    await test.waitFor(() =>
+      test.expect(saveNote).toHaveBeenCalledExactlyOnceWith(id, 'Later draft', [44n])
+    );
+    test.expect(ask).not.toHaveBeenCalled();
+    test.expect(uploadSource).toHaveBeenCalledTimes(1);
   }
 );
 
-testStable(
+test.stable(
   'retains transform pending ownership and immutable retry inputs across remount and edited fields',
   async () => {
     const capture = deferred<Awaited<ReturnType<typeof captureContext>>>();
-    const onStarted = vi.fn();
+    const onStarted = test.vi.fn();
 
-    vi.mocked(captureContext)
+    test.vi
+      .mocked(captureContext)
       .mockReturnValueOnce(capture.promise)
       .mockRejectedValueOnce(new StudyError('not_found', 'Retired capture'));
-    vi.mocked(transformPage).mockRejectedValueOnce(new StudyError('transient', 'Lost receipt'));
+    test.vi
+      .mocked(transformPage)
+      .mockRejectedValueOnce(new StudyError('transient', 'Lost receipt'));
     const first = mount(<Transformation id={id} onStarted={onStarted} />);
 
-    fireEvent.change(screen.getByLabelText('NoteOutputTitle'), {
+    test.fireEvent.change(test.screen.getByLabelText('NoteOutputTitle'), {
       target: { value: 'Original title' }
     });
-    fireEvent.change(screen.getByLabelText('NoteInstructions'), {
+    test.fireEvent.change(test.screen.getByLabelText('NoteInstructions'), {
       target: { value: 'Original instruction' }
     });
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'NoteCreatePage' })).toBeEnabled()
+    await test.waitFor(() =>
+      test.expect(test.screen.getByRole('button', { name: 'NoteCreatePage' })).toBeEnabled()
     );
-    fireEvent.click(screen.getByRole('button', { name: 'NoteCreatePage' }));
-    expect(onStarted).toHaveBeenCalledExactlyOnceWith();
-    await waitFor(() => expect(captureContext).toHaveBeenCalledTimes(1));
-    const submitted = vi.mocked(captureContext).mock.calls[0]![0];
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteCreatePage' }));
+    test.expect(onStarted).toHaveBeenCalledExactlyOnceWith();
+    await test.waitFor(() => test.expect(captureContext).toHaveBeenCalledTimes(1));
+    const submitted = test.vi.mocked(captureContext).mock.calls[0]![0];
 
     first.unmount();
     const second = mount(<Transformation id={id} />, first.client);
 
-    expect(screen.getByRole('button', { name: 'NoteCreatePage' })).toBeDisabled();
-    expect(captureContext).toHaveBeenCalledTimes(1);
-    fireEvent.change(screen.getByLabelText('NoteOutputTitle'), {
+    test.expect(test.screen.getByRole('button', { name: 'NoteCreatePage' })).toBeDisabled();
+    test.expect(captureContext).toHaveBeenCalledTimes(1);
+    test.fireEvent.change(test.screen.getByLabelText('NoteOutputTitle'), {
       target: { value: 'Later title' }
     });
-    fireEvent.change(screen.getByLabelText('NoteInstructions'), {
+    test.fireEvent.change(test.screen.getByLabelText('NoteInstructions'), {
       target: { value: 'Later instruction' }
     });
-    fireEvent.click(screen.getByText('PageAdvancedOptions'));
-    fireEvent.click(screen.getByRole('button', { name: 'NoteOpGrammar' }));
-    await act(async () => {
+    test.fireEvent.click(test.screen.getByText('PageAdvancedOptions'));
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteOpGrammar' }));
+    await test.act(async () => {
       capture.resolve({ requestId: 'capture-1', selectionRevision: 8n } as Awaited<
         ReturnType<typeof captureContext>
       >);
       await capture.promise;
     });
-    await screen.findByRole('button', { name: 'Retry' });
-    expect(transformPage).toHaveBeenCalledWith({
+    await test.screen.findByRole('button', { name: 'Retry' });
+    test.expect(transformPage).toHaveBeenCalledWith({
       contextRequestId: 'capture-1',
       title: 'Original title',
       operations: ['clarity']
     });
     second.unmount();
-    vi.mocked(useAiReadiness).mockReturnValue('setup');
+    test.vi.mocked(useAiReadiness).mockReturnValue('setup');
     const unavailable = mount(<Transformation id={id} />, first.client);
 
-    expect(screen.getByRole('button', { name: 'Retry' })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    expect(captureContext).toHaveBeenCalledTimes(1);
+    test.expect(test.screen.getByRole('button', { name: 'Retry' })).toBeDisabled();
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'Retry' }));
+    test.expect(captureContext).toHaveBeenCalledTimes(1);
     unavailable.unmount();
-    vi.mocked(useAiReadiness).mockReturnValue('ready');
+    test.vi.mocked(useAiReadiness).mockReturnValue('ready');
     const third = mount(<Transformation id={id} />, first.client);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    await screen.findByRole('button', { name: 'NoteReviewUnavailableAttempt' });
-    expect(vi.mocked(captureContext).mock.calls[1]![0]).toEqual(submitted);
-    expect(transformPage).toHaveBeenCalledTimes(1);
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'Retry' }));
+    await test.screen.findByRole('button', { name: 'NoteReviewUnavailableAttempt' });
+    test.expect(test.vi.mocked(captureContext).mock.calls[1]![0]).toEqual(submitted);
+    test.expect(transformPage).toHaveBeenCalledTimes(1);
     third.unmount();
     mount(<Transformation id={id} />, first.client);
-    fireEvent.click(screen.getByRole('button', { name: 'NoteReviewUnavailableAttempt' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'NoteAbandonAttempt' }));
-    expect(screen.getByLabelText('NoteOutputTitle')).toHaveValue('Later title');
-    expect(screen.getByLabelText('NoteInstructions')).toHaveValue('Later instruction');
-    expect(screen.getByRole('button', { name: 'NoteOpGrammar' })).toHaveAttribute(
-      'aria-pressed',
-      'true'
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteReviewUnavailableAttempt' }));
+    test.fireEvent.click(await test.screen.findByRole('button', { name: 'NoteAbandonAttempt' }));
+    test.expect(test.screen.getByLabelText('NoteOutputTitle')).toHaveValue('Later title');
+    test.expect(test.screen.getByLabelText('NoteInstructions')).toHaveValue('Later instruction');
+    test
+      .expect(test.screen.getByRole('button', { name: 'NoteOpGrammar' }))
+      .toHaveAttribute('aria-pressed', 'true');
+    test.expect(captureContext).toHaveBeenCalledTimes(2);
+    await test.waitFor(() =>
+      test.expect(test.screen.getByRole('button', { name: 'NoteCreatePage' })).toBeEnabled()
     );
-    expect(captureContext).toHaveBeenCalledTimes(2);
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'NoteCreatePage' })).toBeEnabled()
-    );
-    vi.mocked(captureContext).mockResolvedValueOnce({
+    test.vi.mocked(captureContext).mockResolvedValueOnce({
       requestId: 'capture-2',
       selectionRevision: 8n
     } as Awaited<ReturnType<typeof captureContext>>);
-    vi.mocked(transformPage).mockRejectedValueOnce(
-      new StudyError('transient', 'Unconfirmed new result')
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'NoteCreatePage' }));
-    await waitFor(() => expect(transformPage).toHaveBeenCalledTimes(2));
-    expect(vi.mocked(captureContext).mock.calls[2]![0]).toMatchObject({
+    test.vi
+      .mocked(transformPage)
+      .mockRejectedValueOnce(new StudyError('transient', 'Unconfirmed new result'));
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteCreatePage' }));
+    await test.waitFor(() => test.expect(transformPage).toHaveBeenCalledTimes(2));
+    test.expect(test.vi.mocked(captureContext).mock.calls[2]![0]).toMatchObject({
       instruction: 'Later instruction'
     });
-    expect(vi.mocked(captureContext).mock.calls[2]![0].intentKey).not.toBe(submitted.intentKey);
-    expect(vi.mocked(transformPage).mock.calls[1]![0]).toEqual({
+    test
+      .expect(test.vi.mocked(captureContext).mock.calls[2]![0].intentKey)
+      .not.toBe(submitted.intentKey);
+    test.expect(test.vi.mocked(transformPage).mock.calls[1]![0]).toEqual({
       contextRequestId: 'capture-2',
       title: 'Later title',
       operations: ['clarity', 'grammar']
     });
-    await screen.findByRole('alert');
+    await test.screen.findByRole('alert');
   }
 );
 
-testStable(
+test.stable(
   'does not authorize abandonment until all reconciliation reads have completed',
   async () => {
     const runs = deferred<{ items: never[]; next: null }>();
 
     reads.runs.mockReturnValue(runs.promise);
-    const abandon = vi.fn();
+    const abandon = test.vi.fn();
 
     mount(<UnavailableAttempt id={id} busy={false} onAbandon={abandon} />);
-    fireEvent.click(screen.getByRole('button', { name: 'NoteReviewUnavailableAttempt' }));
-    await waitFor(() => expect(reads.thread).toHaveBeenCalledTimes(1));
-    expect(screen.getByRole('button', { name: 'NoteReviewUnavailableAttempt' })).toBeDisabled();
-    expect(screen.queryByRole('button', { name: 'NoteAbandonAttempt' })).toBeNull();
-    await act(async () => {
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteReviewUnavailableAttempt' }));
+    await test.waitFor(() => test.expect(reads.thread).toHaveBeenCalledTimes(1));
+    test
+      .expect(test.screen.getByRole('button', { name: 'NoteReviewUnavailableAttempt' }))
+      .toBeDisabled();
+    test.expect(test.screen.queryByRole('button', { name: 'NoteAbandonAttempt' })).toBeNull();
+    await test.act(async () => {
       runs.resolve({ items: [], next: null });
       await runs.promise;
     });
-    await screen.findByRole('button', { name: 'NoteAbandonAttempt' });
-    expect(abandon).not.toHaveBeenCalled();
+    await test.screen.findByRole('button', { name: 'NoteAbandonAttempt' });
+    test.expect(abandon).not.toHaveBeenCalled();
   }
 );
 
-testStable(
+test.stable(
   'combines externally selected notes into one immutable document attempt with optional instructions',
   async () => {
-    vi.mocked(captureContext).mockRejectedValue(new StudyError('transient', 'Retry later'));
+    test.vi.mocked(captureContext).mockRejectedValue(new StudyError('transient', 'Retry later'));
     const view = mount(
       <Transformation
         id={id}
@@ -337,15 +348,15 @@ testStable(
       />
     );
 
-    fireEvent.change(screen.getByLabelText('NoteOutputTitle'), {
+    test.fireEvent.change(test.screen.getByLabelText('NoteOutputTitle'), {
       target: { value: 'Course notes' }
     });
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'NoteCreatePage' })).toBeEnabled()
+    await test.waitFor(() =>
+      test.expect(test.screen.getByRole('button', { name: 'NoteCreatePage' })).toBeEnabled()
     );
-    fireEvent.click(screen.getByRole('button', { name: 'NoteCreatePage' }));
-    await waitFor(() => expect(captureContext).toHaveBeenCalled());
-    expect(vi.mocked(captureContext).mock.calls[0]![0]).toMatchObject({
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteCreatePage' }));
+    await test.waitFor(() => test.expect(captureContext).toHaveBeenCalled());
+    test.expect(test.vi.mocked(captureContext).mock.calls[0]![0]).toMatchObject({
       noteId: id,
       additionalNoteIds: [502n],
       instruction: '',
@@ -365,18 +376,18 @@ testStable(
         />
       </RecoveryProvider>
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    await waitFor(() => expect(captureContext).toHaveBeenCalledTimes(2));
-    expect(vi.mocked(captureContext).mock.calls[1]![0]).toEqual(
-      vi.mocked(captureContext).mock.calls[0]![0]
-    );
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'Retry' }));
+    await test.waitFor(() => test.expect(captureContext).toHaveBeenCalledTimes(2));
+    test
+      .expect(test.vi.mocked(captureContext).mock.calls[1]![0])
+      .toEqual(test.vi.mocked(captureContext).mock.calls[0]![0]);
   }
 );
 
-testStable(
+test.stable(
   'keeps document recovery separate for different selected groups with the same first note',
   async () => {
-    vi.mocked(captureContext).mockRejectedValue(new StudyError('transient', 'Retry later'));
+    test.vi.mocked(captureContext).mockRejectedValue(new StudyError('transient', 'Retry later'));
     const other = Schema.decodeUnknownSync(noteIdSchema)(502n);
     const third = Schema.decodeUnknownSync(noteIdSchema)(503n);
     const first = mount(
@@ -389,14 +400,14 @@ testStable(
       />
     );
 
-    fireEvent.change(screen.getByLabelText('NoteOutputTitle'), {
+    test.fireEvent.change(test.screen.getByLabelText('NoteOutputTitle'), {
       target: { value: 'First group' }
     });
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'NoteCreatePage' })).toBeEnabled()
+    await test.waitFor(() =>
+      test.expect(test.screen.getByRole('button', { name: 'NoteCreatePage' })).toBeEnabled()
     );
-    fireEvent.click(screen.getByRole('button', { name: 'NoteCreatePage' }));
-    await screen.findByRole('button', { name: 'Retry' });
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteCreatePage' }));
+    await test.screen.findByRole('button', { name: 'Retry' });
     first.unmount();
     const second = mount(
       <Transformation
@@ -409,17 +420,19 @@ testStable(
       first.client
     );
 
-    expect(screen.getByLabelText('NoteOutputTitle')).toHaveValue('');
-    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
-    fireEvent.change(screen.getByLabelText('NoteOutputTitle'), {
+    test.expect(test.screen.getByLabelText('NoteOutputTitle')).toHaveValue('');
+    test.expect(test.screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+    test.fireEvent.change(test.screen.getByLabelText('NoteOutputTitle'), {
       target: { value: 'Second group' }
     });
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'NoteCreatePage' })).toBeEnabled()
+    await test.waitFor(() =>
+      test.expect(test.screen.getByRole('button', { name: 'NoteCreatePage' })).toBeEnabled()
     );
-    fireEvent.click(screen.getByRole('button', { name: 'NoteCreatePage' }));
-    await waitFor(() => expect(captureContext).toHaveBeenCalledTimes(2));
-    expect(vi.mocked(captureContext).mock.calls[1]![0].additionalNoteIds).toEqual([third]);
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteCreatePage' }));
+    await test.waitFor(() => test.expect(captureContext).toHaveBeenCalledTimes(2));
+    test
+      .expect(test.vi.mocked(captureContext).mock.calls[1]![0].additionalNoteIds)
+      .toEqual([third]);
     second.unmount();
     mount(
       <Transformation
@@ -431,12 +444,12 @@ testStable(
       />,
       first.client
     );
-    expect(screen.getByLabelText('NoteOutputTitle')).toHaveValue('First group');
-    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
-    await waitFor(() => expect(captureContext).toHaveBeenCalledTimes(3));
-    expect(vi.mocked(captureContext).mock.calls[2]![0]).toEqual(
-      vi.mocked(captureContext).mock.calls[0]![0]
-    );
+    test.expect(test.screen.getByLabelText('NoteOutputTitle')).toHaveValue('First group');
+    test.fireEvent.click(await test.screen.findByRole('button', { name: 'Retry' }));
+    await test.waitFor(() => test.expect(captureContext).toHaveBeenCalledTimes(3));
+    test
+      .expect(test.vi.mocked(captureContext).mock.calls[2]![0])
+      .toEqual(test.vi.mocked(captureContext).mock.calls[0]![0]);
   }
 );
-vi.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: vi.fn(() => 'ready') }));
+test.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: test.vi.fn(() => 'ready') }));

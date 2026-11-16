@@ -1,13 +1,11 @@
 import { quizAttemptCompletedSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { render, screen, within } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { OrderingResult } from './ordering-result';
 
-testStable('completed ordering shows the learner and correct sequences separately', () => {
+test.stable('completed ordering shows the learner and correct sequences separately', () => {
   const attempt = Schema.decodeUnknownSync(quizAttemptCompletedSchema)({
     id: 1n,
     versionId: 2n,
@@ -38,21 +36,27 @@ testStable('completed ordering shows the learner and correct sequences separatel
   });
   const question = attempt.questions[0]!;
 
-  assert.ok(question.kind === 'ordering');
+  test.assert.ok(question.kind === 'ordering');
 
-  render(<OrderingResult question={question} />);
-  const learner = screen.getByRole('list', { name: catalogs.english.YourAnswer });
-  const correct = screen.getByRole('list', { name: catalogs.english.RightAnswer });
+  test.render(<OrderingResult question={question} />);
+  const learner = test.screen.getByRole('list', { name: catalogs.english.YourAnswer });
+  const correct = test.screen.getByRole('list', { name: catalogs.english.RightAnswer });
 
-  expect(
-    within(learner)
-      .getAllByRole('listitem')
-      .map((item) => item.textContent)
-  ).toEqual(['1First', '2Last', '3Middle']);
-  expect(
-    within(correct)
-      .getAllByRole('listitem')
-      .map((item) => item.textContent)
-  ).toEqual(['1First', '2Middle', '3Last']);
-  expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  test
+    .expect(
+      test
+        .within(learner)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent)
+    )
+    .toEqual(['1First', '2Last', '3Middle']);
+  test
+    .expect(
+      test
+        .within(correct)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent)
+    )
+    .toEqual(['1First', '2Middle', '3Last']);
+  test.expect(test.screen.queryByRole('button')).not.toBeInTheDocument();
 });

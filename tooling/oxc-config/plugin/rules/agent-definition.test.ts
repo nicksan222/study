@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('rejects direct agent definitions outside the canonical factory', async () => {
+test.stable('rejects direct agent definitions outside the canonical factory', async () => {
   const diagnostics = await lintRule(
     'agent-definition',
     {
@@ -14,10 +13,10 @@ testStable('rejects direct agent definitions outside the canonical factory', asy
     false
   );
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable('recognizes aliases without flagging unrelated or shadowed helpers', async () => {
+test.stable('recognizes aliases without flagging unrelated or shadowed helpers', async () => {
   const diagnostics = await lintRule('agent-definition', {
     'src/features/example/agents/a.ts': `import * as runtime from '#server/platform/definitions/define-agent';
 const make = runtime.defineAgent;
@@ -29,20 +28,20 @@ function f(make: any) { return make({});
       'const defineAgent = (x: any) => x; const a = defineAgent({});'
   });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable('rejects inline schema shapes, constructed models and per-agent limits', async () => {
+test.stable('rejects inline schema shapes, constructed models and per-agent limits', async () => {
   const diagnostics = await lintRule('agent-definition', {
     'src/features/example/agents/a.ts': `import { defineAgent as define } from '#server/platform/definitions/define-agent';
 import { Schema } from 'effect';
 export const a = define({ id: 'a', input: Schema.Struct({ id: Schema.String }), output: Schema.Struct({ id: Schema.String }), model: provider('x'), instructions: 'a', prompt: 'b' });`
   });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable('checks wrapped aliased definitions, identity and canonical schemas', async () => {
+test.stable('checks wrapped aliased definitions, identity and canonical schemas', async () => {
   const diagnostics = await lintRule('agent-definition', {
     'src/features/example/agents/grade.ts': `import { defineAgent } from '#server/platform/definitions/define-agent.ts';
 import { Input, Output } from '@study/contracts';
@@ -51,10 +50,10 @@ export const grade = defineAgent(cfg satisfies object);`,
     'src/features/example/agents/other.ts': "export const otherAgent = { id: 'other' };"
   });
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-testStable('accepts canonical schema transformations and rejects unrelated schemas', async () => {
+test.stable('accepts canonical schema transformations and rejects unrelated schemas', async () => {
   const diagnostics = await lintRule('agent-definition', {
     'src/features/example/agents/good.ts': `import { defineAgent } from '#server/platform/definitions/define-agent';
 import { Input, Output } from '@study/contracts';
@@ -65,10 +64,10 @@ import { z } from 'zod';
 defineAgent({ id: 'bad', input: z.string(), output: z.string(), model: 'tiny', instructions: '', prompt: '' });`
   });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable(
+test.stable(
   'canonical schema composition permits codec options and rejects fake harness imports and raw exported agents',
   async () => {
     const diagnostics = await lintRule('agent-definition', {
@@ -83,29 +82,29 @@ export const grade = defineAgent({id:'grade', input: Schema.Union([requestSchema
 `
     });
 
-    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-    assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/agents/grade.ts')));
+    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    test.assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/agents/grade.ts')));
   }
 );
 
-testStable('local export lists and default exports cannot publish raw agents', async () => {
+test.stable('local export lists and default exports cannot publish raw agents', async () => {
   const diagnostics = await lintRule('agent-definition', {
     'src/features/example/agents/rogue.ts': 'const agent = { id: 1 }; export { agent };',
     'src/features/example/agents/other.ts': 'export default { id: 1 };'
   });
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-testStable('agents in feature-owned folders also require canonical definitions', async () => {
+test.stable('agents in feature-owned folders also require canonical definitions', async () => {
   const diagnostics = await lintRule('agent-definition', {
     'src/features/sources/agents/vision.ts': 'export const vision = { generate() {} };'
   });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable('context preparation declarations reuse canonical feature agents', async () => {
+test.stable('context preparation declarations reuse canonical feature agents', async () => {
   const diagnostics = await lintRule('agent-definition', {
     'src/features/example/agents/preparation.ts':
       "import {defineContextPreparation as define} from '#server/platform/ai/context-preparation/index'; import {agent} from '#server/features/example/agents/notes'; const policy = define({map: {agent}, reduce: {agent}}); export {policy};",
@@ -117,11 +116,13 @@ testStable('context preparation declarations reuse canonical feature agents', as
       "import {defineContextPreparation} from './fake'; export const policy = defineContextPreparation({});"
   });
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => /(?:inline|fake-preparation)\.ts$/.test(filename)));
+  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  test.assert.ok(
+    diagnostics.every(({ filename }) => /(?:inline|fake-preparation)\.ts$/.test(filename))
+  );
 });
 
-testStable(
+test.stable(
   'context preparation steps reject spreads that can override canonical agents',
   async () => {
     for (const step of ['map', 'reduce']) {
@@ -133,7 +134,7 @@ const overrides = {agent: {generate() {}}};
 export const policy = defineContextPreparation({${step}: {${properties}}, ${step === 'map' ? 'reduce' : 'map'}: {agent}});`
         });
 
-        assert.strictEqual(
+        test.assert.strictEqual(
           diagnostics.length,
           1,
           JSON.stringify({ step, properties, diagnostics })

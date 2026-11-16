@@ -1,32 +1,31 @@
 import { catalogs } from '@study/localization';
-
-import { expect, testHarness } from './index.ts';
+import { test } from '@study/testing';
 
 const copy = catalogs.english;
 
-testHarness.use({ captureWorkflow: 'closing-settings-preserves-the-underlying-route' });
+test.stable.use({ captureWorkflow: 'closing-settings-preserves-the-underlying-route' });
 
-testHarness(
+test.stable(
   'persisted zoom keeps notebook scrolling inside the shell',
   async ({ journey: { page, expectScreenshot } }) => {
     await page.goto('/notes');
 
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
 
-    await expect(page.locator('html')).toHaveCSS('zoom', '1.25');
-    await expect(composer).toBeInViewport({ ratio: 1 });
+    await test.expect(page.locator('html')).toHaveCSS('zoom', '1.25');
+    await test.expect(composer).toBeInViewport({ ratio: 1 });
     await composer.fill(
       Array.from(
         { length: 60 },
         (_, i) => `Observation ${i}. ${'Field notes remain readable. '.repeat(20)}`
       ).join('\n\n')
     );
-    await expect(composer).toBeInViewport({ ratio: 1 });
-    await expect(page.getByRole('button', { name: copy.NoteSaveNote })).toBeInViewport({
+    await test.expect(composer).toBeInViewport({ ratio: 1 });
+    await test.expect(page.getByRole('button', { name: copy.NoteSaveNote })).toBeInViewport({
       ratio: 1
     });
     await page.getByRole('button', { name: copy.NoteSaveNote }).click();
-    await expect(page).toHaveURL(/\/notes\/.+/);
+    await test.expect(page).toHaveURL(/\/notes\/.+/);
 
     const notebook = page.getByRole('region', { name: copy.NoteNotebook });
     const body = notebook.locator('.chat-message-text');
@@ -34,7 +33,7 @@ testHarness(
     const scrollHost = page.locator('[data-notebook-scroll-host]');
     const noteUrl = page.url();
 
-    await expect(notebook).toContainText('Observation 59.');
+    await test.expect(notebook).toContainText('Observation 59.');
 
     for (const [zoom, viewport] of [
       [125, { width: 2560, height: 1440 }],
@@ -58,21 +57,21 @@ testHarness(
             .click();
 
         for (let percent = 105; percent <= zoom; percent += 5) {
-          await expect(slider).toBeEnabled();
+          await test.expect(slider).toBeEnabled();
           await slider.press('ArrowRight');
-          await expect(slider).toHaveValue(String(percent));
-          await expect(page.locator('html')).toHaveCSS('zoom', String(percent / 100));
+          await test.expect(slider).toHaveValue(String(percent));
+          await test.expect(page.locator('html')).toHaveCSS('zoom', String(percent / 100));
         }
 
-        await expect(page.locator('html')).toHaveCSS('zoom', String(zoom / 100));
+        await test.expect(page.locator('html')).toHaveCSS('zoom', String(zoom / 100));
         await dialog.getByRole('button', { name: copy.Close }).click();
       }
 
       await entry.scrollIntoViewIfNeeded();
-      await expect(entry).toBeInViewport({ ratio: 1 });
+      await test.expect(entry).toBeInViewport({ ratio: 1 });
       await scrollHost.press('End');
-      await expect(entry).not.toBeInViewport();
-      await expect
+      await test.expect(entry).not.toBeInViewport();
+      await test.expect
         .poll(async () => {
           const text = await body.boundingBox();
           const scroll = await scrollHost.boundingBox();
@@ -87,11 +86,11 @@ testHarness(
           );
         })
         .toBe(true);
-      await expect(composer).toBeInViewport({ ratio: 1 });
-      await expect(page.getByRole('button', { name: copy.NoteSaveNote })).toBeInViewport({
+      await test.expect(composer).toBeInViewport({ ratio: 1 });
+      await test.expect(page.getByRole('button', { name: copy.NoteSaveNote })).toBeInViewport({
         ratio: 1
       });
-      await expect
+      await test.expect
         .poll(async () => {
           const shell = await page.locator('.study-shell').boundingBox();
           const workspace = await page.locator('.ui-workspace').boundingBox();
@@ -107,11 +106,11 @@ testHarness(
         .toBe(true);
       await page.getByRole('combobox', { name: copy.ChooseProject }).click();
       await page.getByRole('link', { name: copy.Projects, exact: true }).click();
-      await expect(page.getByRole('heading', { name: copy.Projects })).toBeInViewport({
+      await test.expect(page.getByRole('heading', { name: copy.Projects })).toBeInViewport({
         ratio: 1
       });
       await page.goto(noteUrl);
-      await expect(notebook).toContainText('Observation 59.');
+      await test.expect(notebook).toContainText('Observation 59.');
     }
 
     // Reuse the existing Settings reference at the canonical profile after exercising persisted changes.
@@ -125,17 +124,19 @@ testHarness(
     const slider = dialog.getByRole('slider', { name: copy.TextSize, exact: true });
 
     for (let step = 0; step < 3; step++) {
-      await expect(slider).toBeEnabled();
+      await test.expect(slider).toBeEnabled();
       await slider.press('ArrowRight');
-      await expect(slider).toHaveValue(String(110 + (step + 1) * 5));
-      await expect(page.locator('html')).toHaveCSS('zoom', String((110 + (step + 1) * 5) / 100));
+      await test.expect(slider).toHaveValue(String(110 + (step + 1) * 5));
+      await test
+        .expect(page.locator('html'))
+        .toHaveCSS('zoom', String((110 + (step + 1) * 5) / 100));
     }
 
     await dialog.getByRole('button', { name: copy.GeneralSettingsTitle, exact: true }).click();
     await dialog.getByRole('button', { name: copy.Appearance, exact: true }).click();
     await expectScreenshot('settings', {
       target: dialog,
-      ready: () => expect(dialog).toBeVisible()
+      ready: () => test.expect(dialog).toBeVisible()
     });
   }
 );

@@ -1,23 +1,22 @@
 import { noteIdSchema, chatMessageSchema } from '@study/contracts';
 import { rpc as protocol } from '@study/contracts/react';
-import { testStable } from '@study/testing/vitest';
-import { cleanup, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
-
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { authoredPage as summary } from '../document-editing/test-support';
 import { History } from './history';
 import { WorkspaceContext } from './workspace-context';
 
-const rpc = vi.hoisted(() => ({ thread: vi.fn(), materials: vi.fn(), generations: vi.fn() }));
+const rpc = test.hoisted(() => ({
+  thread: test.vi.fn(),
+  materials: test.vi.fn(),
+  generations: test.vi.fn()
+}));
 
-vi.mock('#client/lib/i18n.tsx', () => ({
+test.mock('#client/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, date: String })
 }));
-vi.mock('./message-actions', () => ({
+test.mock('./message-actions', () => ({
   MessageActions: ({ children }: { children: React.ReactNode }) => children
 }));
 
@@ -73,7 +72,7 @@ const message = Schema.decodeUnknownSync(chatMessageSchema)({
 });
 
 function Provider({ children }: { children: React.ReactNode }) {
-  const fixture = rpcHandlersTransport({
+  const fixture = test.rpcHandlersTransport({
     'pages.pages': rpc.materials,
     'notes.thread': ({ noteId, before, limit }) => rpc.thread(noteId, before, limit),
     'notes.messageVersionCitations': async (input) => ({ ...input, citations: [] }),
@@ -99,7 +98,7 @@ function Notebook() {
 }
 
 function mount(noteId?: typeof id, board = false) {
-  return render(
+  return test.render(
     <Provider>
       {board && <Notebook />}
       <WorkspaceContext id={noteId} onOpenSource={() => undefined} />
@@ -107,25 +106,25 @@ function mount(noteId?: typeof id, board = false) {
   );
 }
 
-beforeEach(() => {
-  vi.clearAllMocks();
+test.beforeEach(() => {
+  test.vi.clearAllMocks();
   rpc.thread.mockResolvedValue({ items: [], next: null });
   rpc.materials.mockResolvedValue({ items: [], nextCursor: null });
   rpc.generations.mockResolvedValue({ items: [], next: null });
-  Element.prototype.scrollIntoView = vi.fn();
+  Element.prototype.scrollIntoView = test.vi.fn();
 });
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
+test.afterEach(() => {
+  test.cleanup();
+  test.vi.restoreAllMocks();
 });
 
-testStable('shows a starter index hint without fetching note content', () => {
+test.stable('shows a starter index hint without fetching note content', () => {
   mount();
-  expect(screen.getByText('NoteAttachmentsStart')).toBeVisible();
-  expect(rpc.thread).not.toHaveBeenCalled();
-  expect(rpc.materials).not.toHaveBeenCalled();
+  test.expect(test.screen.getByText('NoteAttachmentsStart')).toBeVisible();
+  test.expect(rpc.thread).not.toHaveBeenCalled();
+  test.expect(rpc.materials).not.toHaveBeenCalled();
 });
-testStable(
+test.stable(
   'jumps and focuses actual rendered note, attachment and document targets without preview dialogs',
   async () => {
     const attached = Schema.decodeUnknownSync(chatMessageSchema)({
@@ -142,113 +141,113 @@ testStable(
       nextCursor: null
     });
     mount(id, true);
-    const index = await screen.findByRole('navigation', { name: 'NotePageIndex' });
+    const index = await test.screen.findByRole('navigation', { name: 'NotePageIndex' });
 
     for (const name of ['Current note', 'Lecture notes.pdf', 'Study outline']) {
-      const link = await within(index).findByRole('button', { name });
+      const link = await test.within(index).findByRole('button', { name });
       const target = document.getElementById(link.getAttribute('data-target')!)!;
 
-      expect(target).not.toBeNull();
-      const scroll = vi.spyOn(target, 'scrollIntoView');
+      test.expect(target).not.toBeNull();
+      const scroll = test.vi.spyOn(target, 'scrollIntoView');
 
       link.focus();
-      await userEvent.setup().keyboard('{Enter}');
-      expect(scroll).toHaveBeenCalledWith({
+      await test.userEvent.setup().keyboard('{Enter}');
+      test.expect(scroll).toHaveBeenCalledWith({
         behavior: 'smooth',
         block: 'start',
         inline: 'nearest'
       });
-      expect(target).toHaveFocus();
+      test.expect(target).toHaveFocus();
     }
 
-    expect(within(index).getAllByRole('button')).toHaveLength(3);
-    expect(within(index).queryByText('Original note')).toBeNull();
-    expect(within(index).queryByText('Different branch')).toBeNull();
-    const card = screen.getByRole('complementary', { name: 'NoteContextPanel' });
+    test.expect(test.within(index).getAllByRole('button')).toHaveLength(3);
+    test.expect(test.within(index).queryByText('Original note')).toBeNull();
+    test.expect(test.within(index).queryByText('Different branch')).toBeNull();
+    const card = test.screen.getByRole('complementary', { name: 'NoteContextPanel' });
 
-    expect(within(card).queryByText('Current note')).toBeNull();
-    expect(within(card).queryByText('Original note')).toBeNull();
-    expect(within(card).getByRole('button', { name: 'Lecture notes.pdf' })).toBeVisible();
-    expect(within(card).getByRole('button', { name: 'NoteOpenPage' })).toHaveTextContent(
-      'Study outline'
-    );
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(rpc.generations).not.toHaveBeenCalled();
+    test.expect(test.within(card).queryByText('Current note')).toBeNull();
+    test.expect(test.within(card).queryByText('Original note')).toBeNull();
+    test.expect(test.within(card).getByRole('button', { name: 'Lecture notes.pdf' })).toBeVisible();
+    test
+      .expect(test.within(card).getByRole('button', { name: 'NoteOpenPage' }))
+      .toHaveTextContent('Study outline');
+    test.expect(test.screen.queryByRole('dialog')).toBeNull();
+    test.expect(rpc.generations).not.toHaveBeenCalled();
   }
 );
-testStable(
+test.stable(
   'loads earlier notes into both the index and the rendered notebook through authoritative bounded pages',
   async () => {
     rpc.thread.mockImplementation((_id, _before, limit) =>
       Promise.resolve({ items: limit > 30 ? [message] : [], next: limit > 30 ? null : 71n })
     );
     mount(id, true);
-    const index = await screen.findByRole('navigation', { name: 'NotePageIndex' });
+    const index = await test.screen.findByRole('navigation', { name: 'NotePageIndex' });
 
-    fireEvent.click(await within(index).findByRole('button', { name: 'NoteEarlier' }));
-    const link = await within(index).findByRole('button', { name: 'Current note' });
+    test.fireEvent.click(await test.within(index).findByRole('button', { name: 'NoteEarlier' }));
+    const link = await test.within(index).findByRole('button', { name: 'Current note' });
 
-    expect(document.getElementById(link.getAttribute('data-target')!)).not.toBeNull();
-    expect(rpc.thread).toHaveBeenCalledWith(id, undefined, 60);
+    test.expect(document.getElementById(link.getAttribute('data-target')!)).not.toBeNull();
+    test.expect(rpc.thread).toHaveBeenCalledWith(id, undefined, 60);
   }
 );
-testStable('respects reduced motion when jumping to a notebook entry', async () => {
+test.stable('respects reduced motion when jumping to a notebook entry', async () => {
   rpc.thread.mockResolvedValue({ items: [message], next: null });
   mount(id, true);
-  const index = await screen.findByRole('navigation', { name: 'NotePageIndex' });
-  const link = await within(index).findByRole('button', { name: 'Current note' });
+  const index = await test.screen.findByRole('navigation', { name: 'NotePageIndex' });
+  const link = await test.within(index).findByRole('button', { name: 'Current note' });
 
-  vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList);
+  test.vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList);
   const target = document.getElementById(link.getAttribute('data-target')!)!;
-  const scroll = vi.spyOn(target, 'scrollIntoView');
+  const scroll = test.vi.spyOn(target, 'scrollIntoView');
 
-  fireEvent.click(link);
-  expect(scroll).toHaveBeenCalledWith({ behavior: 'auto', block: 'start', inline: 'nearest' });
+  test.fireEvent.click(link);
+  test.expect(scroll).toHaveBeenCalledWith({ behavior: 'auto', block: 'start', inline: 'nearest' });
 });
-testStable('does not claim an empty index while data is pending or has failed', async () => {
+test.stable('does not claim an empty index while data is pending or has failed', async () => {
   rpc.thread.mockRejectedValue(new Error('Read failed'));
   mount(id);
-  expect(await screen.findByRole('alert')).toBeVisible();
-  expect(screen.queryByText('NoteAttachmentsEmpty')).toBeNull();
+  test.expect(await test.screen.findByRole('alert')).toBeVisible();
+  test.expect(test.screen.queryByText('NoteAttachmentsEmpty')).toBeNull();
 });
 
-testStable('previews a note from the tiny rail on both hover and keyboard focus', async () => {
+test.stable('previews a note from the tiny rail on both hover and keyboard focus', async () => {
   rpc.thread.mockResolvedValue({ items: [message], next: null });
   mount(id, true);
-  const index = await screen.findByRole('navigation', { name: 'NotePageIndex' });
-  const marker = await within(index).findByRole('button', { name: 'Current note' });
-  const user = userEvent.setup();
+  const index = await test.screen.findByRole('navigation', { name: 'NotePageIndex' });
+  const marker = await test.within(index).findByRole('button', { name: 'Current note' });
+  const user = test.userEvent.setup();
 
   await user.hover(marker);
-  fireEvent.mouseMove(marker, { movementX: 4, movementY: 0 });
-  await waitFor(() => expect(marker).toHaveAttribute('data-popup-open'));
-  expect(await screen.findByRole('tooltip')).toHaveTextContent('Current note');
+  test.fireEvent.mouseMove(marker, { movementX: 4, movementY: 0 });
+  await test.waitFor(() => test.expect(marker).toHaveAttribute('data-popup-open'));
+  test.expect(await test.screen.findByRole('tooltip')).toHaveTextContent('Current note');
   await user.unhover(marker);
-  await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
+  await test.waitFor(() => test.expect(test.screen.queryByRole('tooltip')).toBeNull());
   await user.tab();
-  expect(marker).toHaveFocus();
-  expect(await screen.findByRole('tooltip')).toHaveTextContent('Current note');
+  test.expect(marker).toHaveFocus();
+  test.expect(await test.screen.findByRole('tooltip')).toHaveTextContent('Current note');
 });
 
-testStable(
+test.stable(
   'keeps notebook content ordered and jumpable without repeated dates or timeline wrappers',
   async () => {
     rpc.thread.mockResolvedValue({ items: [message], next: null });
     mount(id, true);
-    const board = await screen.findByRole('log', { name: 'NoteNotebook' });
+    const board = await test.screen.findByRole('log', { name: 'NoteNotebook' });
 
-    await within(board).findByText('Current note');
-    expect(board.querySelector('time')).toBeNull();
-    expect(board.querySelector('[data-slot="timeline-event"]')).toBeNull();
-    const marker = await within(
-      screen.getByRole('navigation', { name: 'NotePageIndex' })
-    ).findByRole('button', { name: 'Current note' });
+    await test.within(board).findByText('Current note');
+    test.expect(board.querySelector('time')).toBeNull();
+    test.expect(board.querySelector('[data-slot="timeline-event"]')).toBeNull();
+    const marker = await test
+      .within(test.screen.getByRole('navigation', { name: 'NotePageIndex' }))
+      .findByRole('button', { name: 'Current note' });
 
-    expect(document.getElementById(marker.getAttribute('data-target')!)).not.toBeNull();
+    test.expect(document.getElementById(marker.getAttribute('data-target')!)).not.toBeNull();
   }
 );
 
-testStable('retains rich document headings and lists in the unboxed notebook', async () => {
+test.stable('retains rich document headings and lists in the unboxed notebook', async () => {
   rpc.thread.mockResolvedValue({
     items: [
       {
@@ -263,14 +262,16 @@ testStable('retains rich document headings and lists in the unboxed notebook', a
     ],
     next: null
   });
-  render(
+  test.render(
     <Provider>
       <History id={id} />
     </Provider>
   );
-  const board = await screen.findByRole('log', { name: 'NoteNotebook' });
+  const board = await test.screen.findByRole('log', { name: 'NoteNotebook' });
 
-  expect(await within(board).findByRole('heading', { name: 'Key idea', level: 2 })).toBeVisible();
-  expect(within(board).getByText('clear', { selector: 'strong' })).toBeVisible();
-  expect(within(board).getAllByRole('listitem')).toHaveLength(2);
+  test
+    .expect(await test.within(board).findByRole('heading', { name: 'Key idea', level: 2 }))
+    .toBeVisible();
+  test.expect(test.within(board).getByText('clear', { selector: 'strong' })).toBeVisible();
+  test.expect(test.within(board).getAllByRole('listitem')).toHaveLength(2);
 });

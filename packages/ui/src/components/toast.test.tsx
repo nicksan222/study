@@ -1,16 +1,13 @@
-import { testStable } from '@study/testing/vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { ToastProvider, toastManager } from './toast';
 
-testStable(
+test.stable(
   'shows standard success feedback and supports keyboard access and localized dismissal',
   async () => {
-    const user = userEvent.setup();
+    const user = test.userEvent.setup();
 
-    render(
+    test.render(
       <ToastProvider closeLabel="Dismiss notification" viewportLabel="Notifications">
         <button
           type="button"
@@ -20,23 +17,25 @@ testStable(
         </button>
       </ToastProvider>
     );
-    await user.click(screen.getByRole('button', { name: 'Notify' }));
-    expect(await screen.findByText('Backup created')).toBeVisible();
+    await user.click(test.screen.getByRole('button', { name: 'Notify' }));
+    test.expect(await test.screen.findByText('Backup created')).toBeVisible();
     await user.keyboard('{F6}');
-    await waitFor(() => expect(document.querySelector('.ui-toast-viewport')).toHaveFocus());
-    await user.click(screen.getByRole('button', { name: 'Dismiss notification' }));
-    await waitFor(() => expect(screen.queryByText('Backup created')).toBeNull());
+    await test.waitFor(() =>
+      test.expect(document.querySelector('.ui-toast-viewport')).toHaveFocus()
+    );
+    await user.click(test.screen.getByRole('button', { name: 'Dismiss notification' }));
+    await test.waitFor(() => test.expect(test.screen.queryByText('Backup created')).toBeNull());
   }
 );
 
-testStable(
+test.stable(
   'localizes the notification region instead of exposing the primitive English default',
   () => {
-    render(
+    test.render(
       <ToastProvider closeLabel="Chiudi" viewportLabel="Notifiche">
         <span>App</span>
       </ToastProvider>
     );
-    expect(document.querySelector('.ui-toast-viewport')).toHaveAccessibleName('Notifiche');
+    test.expect(document.querySelector('.ui-toast-viewport')).toHaveAccessibleName('Notifiche');
   }
 );

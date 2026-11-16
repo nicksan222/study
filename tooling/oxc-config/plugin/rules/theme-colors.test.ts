@@ -1,32 +1,34 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 import { hasRawColor, hasRawColorClass, cssColorViolations } from '../theme-color-values.ts';
 
-testStable('raw CSS colors are rejected but semantic colors and ordinary words are allowed', () => {
-  for (const value of [
-    '#abc',
-    '#12345678',
-    'rgb(1 2 3)',
-    'hsl(0 0% 50%)',
-    'oklch(50% 0 0)',
-    'rebeccapurple',
-    'darkslateblue'
-  ])
-    assert.strictEqual(hasRawColor(value), true, value);
+test.stable(
+  'raw CSS colors are rejected but semantic colors and ordinary words are allowed',
+  () => {
+    for (const value of [
+      '#abc',
+      '#12345678',
+      'rgb(1 2 3)',
+      'hsl(0 0% 50%)',
+      'oklch(50% 0 0)',
+      'rebeccapurple',
+      'darkslateblue'
+    ])
+      test.assert.strictEqual(hasRawColor(value), true, value);
 
-  for (const value of [
-    'var(--background)',
-    'currentColor',
-    'transparent',
-    'color-mix(in srgb, var(--foreground), transparent)',
-    'blueprint'
-  ])
-    assert.strictEqual(hasRawColor(value), false, value);
-});
+    for (const value of [
+      'var(--background)',
+      'currentColor',
+      'transparent',
+      'color-mix(in srgb, var(--foreground), transparent)',
+      'blueprint'
+    ])
+      test.assert.strictEqual(hasRawColor(value), false, value);
+  }
+);
 
-testStable(
+test.stable(
   'raw Tailwind palette and arbitrary colors are rejected without matching semantic classes',
   () => {
     for (const value of [
@@ -42,7 +44,7 @@ testStable(
       'inset-shadow-black',
       '[color:red]'
     ])
-      assert.strictEqual(hasRawColorClass(value), true, value);
+      test.assert.strictEqual(hasRawColorClass(value), true, value);
 
     for (const value of [
       'bg-background text-foreground',
@@ -50,19 +52,19 @@ testStable(
       'text-current',
       'bg-[var(--background)]'
     ])
-      assert.strictEqual(hasRawColorClass(value), false, value);
+      test.assert.strictEqual(hasRawColorClass(value), false, value);
   }
 );
 
-testStable('CSS checks declarations while ignoring comments and non-color text', () => {
+test.stable('CSS checks declarations while ignoring comments and non-color text', () => {
   const violations = cssColorViolations(
     '/* color: #abc; */ .x { color: red; background: var(--background); box-shadow: 0 1px rgb(0 0 0 / 20%); content: "blue"; }'
   );
 
-  assert.strictEqual(violations.length, 2);
+  test.assert.strictEqual(violations.length, 2);
 });
 
-testStable(
+test.stable(
   'theme colors rule detects raw JSX styles and palette classes without flagging prose or semantic utilities',
   async () => {
     const diagnostics = await lintRule(
@@ -84,11 +86,11 @@ testStable(
     );
     const violations = diagnostics.filter(({ code }) => code.includes('theme-colors'));
 
-    assert.strictEqual(violations.length, 5, JSON.stringify(diagnostics));
+    test.assert.strictEqual(violations.length, 5, JSON.stringify(diagnostics));
   }
 );
 
-testStable(
+test.stable(
   'theme colors rule covers template values, SVG fills and named arbitrary colors',
   async () => {
     const diagnostics = await lintRule(
@@ -100,7 +102,7 @@ testStable(
       true
     );
 
-    assert.strictEqual(
+    test.assert.strictEqual(
       diagnostics.filter(({ code }) => code.includes('theme-colors')).length,
       4,
       JSON.stringify(diagnostics)
@@ -108,7 +110,7 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'shared feature previews retain semantic app colors while landing art stays independent',
   async () => {
     const diagnostics = await lintRule(
@@ -124,8 +126,8 @@ testStable(
       true
     );
 
-    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-    assert.ok(
+    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    test.assert.ok(
       diagnostics.every(({ filename }) => filename.endsWith('/feature-previews/index.tsx'))
     );
   }

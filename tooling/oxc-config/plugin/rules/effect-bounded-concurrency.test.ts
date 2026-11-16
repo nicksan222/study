@@ -1,11 +1,10 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message = 'Use a finite positive concurrency limit for variable Effect batches.';
 
-testStable('requires bounded concurrency for server batches', async () => {
+test.stable('requires bounded concurrency for server batches', async () => {
   const diagnostics = await lintRule('effect-bounded-concurrency', {
     'src/workers/unsafe.ts': String.raw`import { Effect as E } from "effect";
 E.forEach(items, work, { concurrency: "unbounded" });`,
@@ -24,7 +23,7 @@ E.forEach(items, work, { concurrency: "unbounded" });`
   ]);
 });
 
-testStable(
+test.stable(
   'tracks named imports and rejects opaque limits and curried unbounded batches',
   async () => {
     const diagnostics = await lintRule('effect-bounded-concurrency', {
@@ -40,7 +39,7 @@ collect(items, { concurrency: count });`
   }
 );
 
-testStable('ignores shadowed APIs and accepts literal record batches', async () => {
+test.stable('ignores shadowed APIs and accepts literal record batches', async () => {
   const diagnostics = await lintRule('effect-bounded-concurrency', {
     'src/workers/example.ts': String.raw`import { Effect as E } from "effect";
 E.all({ a, b }, { concurrency: "unbounded" });
@@ -52,7 +51,7 @@ function f(E) {
   assertDiagnostics('effect-bounded-concurrency', diagnostics, []);
 });
 
-testStable('rejects invalid numeric limits and spread batches', async () => {
+test.stable('rejects invalid numeric limits and spread batches', async () => {
   const diagnostics = await lintRule('effect-bounded-concurrency', {
     'src/workers/example.ts': String.raw`import * as E from "effect/Effect";
 E.all([...items], { concurrency: Infinity });
@@ -65,7 +64,7 @@ E.forEach(items, work, { concurrency: 0 });`
   ]);
 });
 
-testStable('requires bounded concurrency for browser Effect batches', async () => {
+test.stable('requires bounded concurrency for browser Effect batches', async () => {
   const diagnostics = await lintRule(
     'effect-bounded-concurrency',
     {
@@ -77,5 +76,5 @@ export const task = Effect.forEach(items, f, { concurrency: "unbounded" });`
     true
   );
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

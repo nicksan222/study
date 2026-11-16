@@ -1,3 +1,4 @@
+import { PagesRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises source history behavior through real persistence boundaries.             │
@@ -10,17 +11,13 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { PagesRpc } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { SourcesRpc } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import type { Db } from '@study/db';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Pages } from '#server/features/pages/index';
 import { PagesRpcLive } from '#server/features/pages/rpc/index';
@@ -47,8 +44,10 @@ const document = (text: string) => ({
   }
 });
 
-async function fixture() {
-  const location = await createTestDatabase();
+type Databases = () => Promise<{ open(): Promise<Db>; cleanup(): Promise<void>; path: string }>;
+
+async function fixture(databases: Databases) {
+  const location = await databases();
   const context = new ServerContext(await location.open());
   const handlers = Layer.mergeAll(
     PagesRpcLive.pipe(Layer.provide(testLiveQueries)),
@@ -93,10 +92,10 @@ function setup() {
   });
 }
 
-testStable(
+test.stable(
   'source history respects authored and raw citation pins even after private reply captures have gone',
-  async () => {
-    const f = await fixture();
+  async ({ databases }) => {
+    const f = await fixture(databases);
 
     try {
       await Effect.runPromise(
@@ -106,7 +105,7 @@ testStable(
             const saved = yield* setup();
             const [first, second] = saved.snapshots;
 
-            assert.ok(first && second);
+            test.assert.ok(first && second);
             const copy = yield* rpc['pages.copySource']({
               createKey: 'history-copy',
               title: 'Independent copy',
@@ -126,17 +125,16 @@ testStable(
               keepLatest: 1
             });
 
-            expect(preview.candidates.map((item) => item.snapshotId)).toStrictEqual([
-              first,
-              second
-            ]);
-            expect(preview.blockedSnapshotIds).toStrictEqual([first, second]);
-            assert.ok(
+            test
+              .expect(preview.candidates.map((item) => item.snapshotId))
+              .toStrictEqual([first, second]);
+            test.expect(preview.blockedSnapshotIds).toStrictEqual([first, second]);
+            test.assert.ok(
               (yield* rpc['sources.previewDeletion']({ id: saved.source.id })).blockedBy.includes(
                 'exact_inputs'
               )
             );
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(
                 rpc['sources.retireHistory']({
                   sourceId: saved.source.id,
@@ -145,7 +143,7 @@ testStable(
                 })
               )).kind === 'invalid_input'
             );
-            assert.throws(() =>
+            test.assert.throws(() =>
               f.context.db.orm.run(
                 sql`DELETE FROM source_extraction_revisions WHERE snapshot_id=${second}`
               )
@@ -154,7 +152,7 @@ testStable(
 
             yield* rpc['pages.delete']({ pageId: copy.id, token: deletion.token });
             f.context.db.exec('DELETE FROM notes WHERE id=1');
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(
                 rpc['sources.retireHistory']({
                   sourceId: saved.source.id,
@@ -168,23 +166,27 @@ testStable(
               keepLatest: 1
             });
 
-            expect(fresh.blockedSnapshotIds).toStrictEqual([]);
+            test.expect(fresh.blockedSnapshotIds).toStrictEqual([]);
             yield* rpc['sources.retireHistory']({
               sourceId: saved.source.id,
               keepLatest: 1,
               token: fresh.token
             });
-            expect(
-              (yield* rpc['sources.extractions']({
-                sourceId: saved.source.id,
-                limit: 10
-              })).items.map((item) => item.snapshotId)
-            ).toStrictEqual(saved.snapshots.slice(2));
-            expect(
-              (yield* rpc['sources.exportRevision']({ sourceId: saved.source.id, revision: 1n }))
-                .bytes
-            ).toStrictEqual(saved.bytes);
-            expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+            test
+              .expect(
+                (yield* rpc['sources.extractions']({
+                  sourceId: saved.source.id,
+                  limit: 10
+                })).items.map((item) => item.snapshotId)
+              )
+              .toStrictEqual(saved.snapshots.slice(2));
+            test
+              .expect(
+                (yield* rpc['sources.exportRevision']({ sourceId: saved.source.id, revision: 1n }))
+                  .bytes
+              )
+              .toStrictEqual(saved.bytes);
+            test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
           })
         ).pipe(Effect.provide(f.handlers))
       );
@@ -194,10 +196,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'source history preview fences new publication and rolls body removal back with its outbox',
-  async () => {
-    const f = await fixture();
+  async ({ databases }) => {
+    const f = await fixture(databases);
 
     try {
       await Effect.runPromise(
@@ -215,7 +217,7 @@ testStable(
               expectedRevision: 1
             });
 
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(
                 rpc['sources.retireHistory']({
                   sourceId: saved.source.id,
@@ -248,10 +250,10 @@ testStable(
                 token: fresh.token
               })
             );
-            expect(
-              f.context.db.orm.all(sql`SELECT * FROM content_snapshots ORDER BY id`)
-            ).toStrictEqual(before);
-            assert.strictEqual(
+            test
+              .expect(f.context.db.orm.all(sql`SELECT * FROM content_snapshots ORDER BY id`))
+              .toStrictEqual(before);
+            test.assert.strictEqual(
               (yield* rpc['sources.extractions']({ sourceId: saved.source.id, limit: 10 })).items
                 .length,
               4
@@ -263,27 +265,29 @@ testStable(
               token: fresh.token
             });
 
-            assert.strictEqual(retired.candidates.length, 3);
-            assert.strictEqual(
+            test.assert.strictEqual(retired.candidates.length, 3);
+            test.assert.strictEqual(
               (yield* rpc['sources.currentExtraction']({ id: saved.source.id }))?.snapshotId,
               latest.documentId
             );
-            expect(
-              (yield* rpc['sources.exportRevision']({ sourceId: saved.source.id, revision: 1n }))
-                .bytes
-            ).toStrictEqual(saved.bytes);
-            assert.strictEqual(
+            test
+              .expect(
+                (yield* rpc['sources.exportRevision']({ sourceId: saved.source.id, revision: 1n }))
+                  .bytes
+              )
+              .toStrictEqual(saved.bytes);
+            test.assert.strictEqual(
               (yield* rpc['sources.previewHistory']({ sourceId: saved.source.id, keepLatest: 1 }))
                 .candidates.length,
               0
             );
-            assert.strictEqual(
+            test.assert.strictEqual(
               f.context.db.orm.get(
                 sql`SELECT count(*) n FROM workflow_events WHERE type='SourceHistoryPruned'`
               )?.n,
               1n
             );
-            expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+            test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
           })
         ).pipe(Effect.provide(f.handlers))
       );
@@ -293,10 +297,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'deletes only the selected attachment extraction through the history boundary',
-  async () => {
-    const f = await fixture();
+  async ({ databases }) => {
+    const f = await fixture(databases);
 
     try {
       await Effect.runPromise(
@@ -306,22 +310,24 @@ testStable(
             const saved = yield* setup();
             const [first, second, current] = saved.snapshots;
 
-            assert.ok(first && second && current);
+            test.assert.ok(first && second && current);
             const input = { sourceId: saved.source.id, keepLatest: 1, snapshotId: second };
             const preview = yield* rpc['sources.previewHistory'](input);
 
-            expect(preview.candidates.map((item) => item.snapshotId)).toEqual([second]);
+            test.expect(preview.candidates.map((item) => item.snapshotId)).toEqual([second]);
             yield* rpc['sources.retireHistory']({ ...input, token: preview.token });
             const history = yield* rpc['sources.extractions']({
               sourceId: saved.source.id,
               limit: 100
             });
 
-            expect(history.items.map((item) => item.snapshotId)).toEqual([current, first]);
-            expect(
-              (yield* rpc['sources.previewHistory']({ ...input, snapshotId: current })).candidates
-            ).toEqual([]);
-            expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toEqual([]);
+            test.expect(history.items.map((item) => item.snapshotId)).toEqual([current, first]);
+            test
+              .expect(
+                (yield* rpc['sources.previewHistory']({ ...input, snapshotId: current })).candidates
+              )
+              .toEqual([]);
+            test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toEqual([]);
           })
         ).pipe(Effect.provide(f.handlers))
       );

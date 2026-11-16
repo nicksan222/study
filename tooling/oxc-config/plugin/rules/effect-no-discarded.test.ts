@@ -1,11 +1,10 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message = 'Consume Effect computations with yield*, return, or an approved runtime boundary.';
 
-testStable('reports discarded Effects and accepts explicitly handled results', async () => {
+test.stable('reports discarded Effects and accepts explicitly handled results', async () => {
   assertDiagnostics(
     'effect-no-discarded',
     await lintRule('effect-no-discarded', {
@@ -39,11 +38,13 @@ task();`
     ]
   );
 });
-testStable('resolves imported namespaces, named imports, const aliases and shadowing', async () => {
-  assertDiagnostics(
-    'effect-no-discarded',
-    await lintRule('effect-no-discarded', {
-      'src/procedures/aliases.ts': String.raw`import * as E from "effect/Effect";
+test.stable(
+  'resolves imported namespaces, named imports, const aliases and shadowing',
+  async () => {
+    assertDiagnostics(
+      'effect-no-discarded',
+      await lintRule('effect-no-discarded', {
+        'src/procedures/aliases.ts': String.raw`import * as E from "effect/Effect";
 import { succeed as operation } from "effect/Effect";
 const alias = E;
 alias.succeed(1);
@@ -52,15 +53,16 @@ function f(E: any, operation: any) {
   E.succeed(1);
   operation(1);
 }`
-    }),
-    [
-      ['src/procedures/aliases.ts', message],
-      ['src/procedures/aliases.ts', message]
-    ]
-  );
-});
+      }),
+      [
+        ['src/procedures/aliases.ts', message],
+        ['src/procedures/aliases.ts', message]
+      ]
+    );
+  }
+);
 
-testStable(
+test.stable(
   'checks known Effect values and pipelines without guessing arbitrary service returns',
   async () => {
     assertDiagnostics(
@@ -87,7 +89,7 @@ fn();`
   }
 );
 
-testStable('recognizes canonical Effect constants through imported aliases', async () => {
+test.stable('recognizes canonical Effect constants through imported aliases', async () => {
   assertDiagnostics(
     'effect-no-discarded',
     await lintRule('effect-no-discarded', {
@@ -103,7 +105,7 @@ done;`
   );
 });
 
-testStable('void and await do not execute Effects but terminal runtime pipelines do', async () => {
+test.stable('void and await do not execute Effects but terminal runtime pipelines do', async () => {
   const diagnostics = await lintRule('effect-no-discarded', {
     'src/bad.ts': String.raw`import { Effect } from "effect";
 void Effect.sync(() => work());
@@ -115,11 +117,11 @@ Effect.sync(() => work()).pipe(Effect.runSync);
 void Effect.sync(() => work()).pipe(Effect.runPromise);`
   });
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
-testStable('reports discarded browser Effects and accepts explicit handling', async () => {
+test.stable('reports discarded browser Effects and accepts explicit handling', async () => {
   const diagnostics = await lintRule(
     'effect-no-discarded',
     {
@@ -131,10 +133,10 @@ testStable('reports discarded browser Effects and accepts explicit handling', as
     true
   );
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable('consumes v4 constructors, scheduler values and untraced operations', async () => {
+test.stable('consumes v4 constructors, scheduler values and untraced operations', async () => {
   const diagnostics = await lintRule('effect-no-discarded', {
     'src/bad.ts': String.raw`import { Effect as E } from "effect";
 E.flatten(task);
@@ -168,7 +170,7 @@ function f(E: any) {
   );
 });
 
-testStable('recognizes applied data-last v4 computations', async () => {
+test.stable('recognizes applied data-last v4 computations', async () => {
   assertDiagnostics(
     'effect-no-discarded',
     await lintRule('effect-no-discarded', {
@@ -183,7 +185,7 @@ testStable('recognizes applied data-last v4 computations', async () => {
   );
 });
 
-testStable(
+test.stable(
   'permits functions with terminal transformations that change the return type',
   async () => {
     assertDiagnostics(

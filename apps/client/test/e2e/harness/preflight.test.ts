@@ -1,7 +1,5 @@
-import { spawnTestProcess } from '@study/testing/vitest';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import type { JSONReport, JSONReportSpec, JSONReportSuite } from 'playwright/types/testReporter';
-import { expect } from 'vite-plus/test';
 
 import { workflowName } from './identity.ts';
 import { assertSnapshotComparison } from './preflight.ts';
@@ -11,11 +9,15 @@ async function fixture(titles: string[], suite = '') {
   const directory = await temporaryArtifacts();
   const config = `${directory}/playwright.config.ts`;
   const preflight = Bun.fileURLToPath(new URL('./preflight.ts', import.meta.url));
+  const harness = Bun.fileURLToPath(new URL('./index.ts', import.meta.url));
 
   await Bun.write(
     config,
     `
+    import { installTestApi } from '@study/testing';
+    import { test as browserApi } from ${JSON.stringify(harness)};
     import { workflowSelection } from ${JSON.stringify(preflight)};
+    installTestApi(browserApi);
     export default { testDir: ${JSON.stringify(directory)}, testMatch: '*.spec.ts',
       globalSetup: ${JSON.stringify(preflight)}, outputDir: ${JSON.stringify(`${directory}/output`)},
       updateSnapshots: 'none', tag: '@stable', grep: await workflowSelection(import.meta.filename, process.env.E2E_UPDATE), workers: 1, reporter: 'list' };
@@ -23,12 +25,12 @@ async function fixture(titles: string[], suite = '') {
   );
 
   for (const [index, title] of titles.entries()) {
-    const registration = `test(${JSON.stringify(title)}, {tag: ['@journey', ${JSON.stringify(`@workflow:${workflowName(title)}`)}]}, async () => { await Bun.write(${JSON.stringify(`${directory}/${index}.txt`)}, 'executed'); });`;
+    const registration = `test.stable(${JSON.stringify(title)}, {tag: ['@journey', ${JSON.stringify(`@workflow:${workflowName(title)}`)}]}, async () => { await Bun.write(${JSON.stringify(`${directory}/${index}.txt`)}, 'executed'); });`;
 
     await Bun.write(
       `${directory}/${index}.spec.ts`,
       `
-      import { test } from 'playwright/test';
+      import { test } from '@study/testing';
       ${suite ? `test.describe(${JSON.stringify(suite)}, () => { ${registration} });` : registration}
     `
     );
@@ -37,7 +39,7 @@ async function fixture(titles: string[], suite = '') {
   return {
     directory,
     async run(scope?: string, flags: string[] = []) {
-      const child = spawnTestProcess(
+      const child = test.spawnTestProcess(
         ['bun', '--bun', 'playwright', 'test', '--config', config, ...flags],
         {
           env: { ...process.env, E2E_UPDATE: scope },
@@ -56,7 +58,7 @@ async function fixture(titles: string[], suite = '') {
   };
 }
 
-testStable.each([
+test.stable.each([
   ['Notes retain edits', 'Notes: retain edits'],
   ['Notes retain edits', 'Notes retain edits'],
   ['Notes\nretain edits', 'Notes retain edits'],
@@ -66,14 +68,14 @@ testStable.each([
   const { directory, run } = await fixture(titles);
   const result = await run('notes-retain-edits');
 
-  expect(result.code).not.toBe(0);
-  expect(result.output).toContain('Baseline identity collision');
+  test.expect(result.code).not.toBe(0);
+  test.expect(result.output).toContain('Baseline identity collision');
 
   for (const index of [0, 1])
-    expect(await Bun.file(`${directory}/${index}.txt`).exists()).toBe(false);
+    test.expect(await Bun.file(`${directory}/${index}.txt`).exists()).toBe(false);
 });
 
-testStable.each(['', 'Editor "quoted" \\ path > [draft]?'])(
+test.stable.each(['', 'Editor "quoted" \\ path > [draft]?'])(
   'native catalog selects exact nested titles in %s',
   async (suite) => {
     const titles = [
@@ -84,43 +86,43 @@ testStable.each(['', 'Editor "quoted" \\ path > [draft]?'])(
     const { directory, run } = await fixture(titles, suite);
     const result = await run('2-notes-retain-edits-draft/settings');
 
-    expect(result.code, result.output).toBe(0);
-    expect(await Bun.file(`${directory}/0.txt`).exists()).toBe(true);
-    expect(await Bun.file(`${directory}/1.txt`).exists()).toBe(false);
-    expect(await Bun.file(`${directory}/2.txt`).exists()).toBe(false);
+    test.expect(result.code, result.output).toBe(0);
+    test.expect(await Bun.file(`${directory}/0.txt`).exists()).toBe(true);
+    test.expect(await Bun.file(`${directory}/1.txt`).exists()).toBe(false);
+    test.expect(await Bun.file(`${directory}/2.txt`).exists()).toBe(false);
   }
 );
 
-testStable.each(['--update-snapshots', '--ignore-snapshots'])(
+test.stable.each(['--update-snapshots', '--ignore-snapshots'])(
   'native snapshot overrides fail before running a journey: %s',
   async (flag) => {
     const { directory, run } = await fixture(['One scoped journey']);
     const result = await run(undefined, [flag]);
 
-    expect(result.code).not.toBe(0);
-    expect(result.output).toContain('native snapshot overrides are forbidden');
-    expect(await Bun.file(`${directory}/0.txt`).exists()).toBe(false);
+    test.expect(result.code).not.toBe(0);
+    test.expect(result.output).toContain('native snapshot overrides are forbidden');
+    test.expect(await Bun.file(`${directory}/0.txt`).exists()).toBe(false);
   }
 );
 
-testStable('per-comparison policy rejects UI run overrides and ignored snapshots', () => {
-  expect(() => assertSnapshotComparison('none', false)).not.toThrow();
+test.stable('per-comparison policy rejects UI run overrides and ignored snapshots', () => {
+  test.expect(() => assertSnapshotComparison('none', false)).not.toThrow();
 
   for (const mode of ['all', 'changed', 'missing', 'default'] as const)
-    expect(() => assertSnapshotComparison(mode, false)).toThrow(
-      'native snapshot overrides are forbidden'
-    );
+    test
+      .expect(() => assertSnapshotComparison(mode, false))
+      .toThrow('native snapshot overrides are forbidden');
 
-  expect(() => assertSnapshotComparison('none', true)).toThrow(
-    'native snapshot overrides are forbidden'
-  );
+  test
+    .expect(() => assertSnapshotComparison('none', true))
+    .toThrow('native snapshot overrides are forbidden');
 });
 
-testStable(
+test.stable(
   'native shards partition every journey and distribute settings cases within one file',
   async () => {
     async function catalog(shard?: string) {
-      const child = spawnTestProcess(
+      const child = test.spawnTestProcess(
         [
           'bun',
           '--bun',
@@ -145,7 +147,7 @@ testStable(
         child.exited
       ]);
 
-      expect(code, stderr).toBe(0);
+      test.expect(code, stderr).toBe(0);
       const report: JSONReport = JSON.parse(stdout);
       const specs: JSONReportSpec[] = [];
 
@@ -168,20 +170,25 @@ testStable(
     ]);
     const ids = (specs: typeof all) => specs.map((spec) => spec.id).sort();
 
-    expect(ids(shards.flat())).toEqual(ids(all));
-    expect(new Set(ids(shards.flat())).size).toBe(all.length);
+    test.expect(ids(shards.flat())).toEqual(ids(all));
+    test.expect(new Set(ids(shards.flat())).size).toBe(all.length);
 
-    expect(
-      shards.filter((shard) => shard.some((spec) => spec.file.endsWith('settings.test.ts'))).length
-    ).toBeGreaterThan(1);
+    test
+      .expect(
+        shards.filter((shard) => shard.some((spec) => spec.file.endsWith('settings.test.ts')))
+          .length
+      )
+      .toBeGreaterThan(1);
 
     // The two consecutive fixtures must stay on one worker to exercise fixture cleanup.
-    expect(
-      shards
-        .map(
-          (shard) => shard.filter((spec) => spec.file.endsWith('worker-a.browser.test.ts')).length
-        )
-        .sort()
-    ).toEqual([0, 0, 2]);
+    test
+      .expect(
+        shards
+          .map(
+            (shard) => shard.filter((spec) => spec.file.endsWith('worker-a.browser.test.ts')).length
+          )
+          .sort()
+      )
+      .toEqual([0, 0, 2]);
   }
 );

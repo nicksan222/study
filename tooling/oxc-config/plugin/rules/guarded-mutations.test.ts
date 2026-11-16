@@ -1,18 +1,17 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('requires destructive database mutations to have a guard', async () => {
+test.stable('requires destructive database mutations to have a guard', async () => {
   const diagnostics = await lintRule('guarded-mutations', {
     'src/bad.ts':
       "import type { Db } from '@study/db'; function f(db: Db) { db.orm.delete(items).run(); }"
   });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable('guards executed mutations and top-level SQL predicates', async () => {
+test.stable('guards executed mutations and top-level SQL predicates', async () => {
   const diagnostics = await lintRule('guarded-mutations', {
     'src/bad.ts': `import type { Db } from '@study/db';
 import { sql as q } from '@study/db';
@@ -31,10 +30,10 @@ function g(d) { d.sql\`DELETE FROM x\`;
 } }`
   });
 
-  assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
-testStable(
+test.stable(
   'upserts stay targeted while trivial predicates and later unguarded statements fail',
   async () => {
     const diagnostics = await lintRule('guarded-mutations', {
@@ -49,11 +48,11 @@ ctx.db.orm.delete(table).where(sql\`id=1\`).run();
 }`
     });
 
-    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );
 
-testStable(
+test.stable(
   'unconditional OR branches fail while a false conjunct does not become a tautology',
   async () => {
     const diagnostics = await lintRule('guarded-mutations', {
@@ -64,11 +63,11 @@ sql\`DELETE FROM projects WHERE (1=1 OR id=2) AND active=1\`;
 sql\`DELETE FROM projects WHERE (1=1) OR (id=2)\`;`
     });
 
-    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );
 
-testStable('recognizes bound store resources while respecting shadowed names', async () => {
+test.stable('recognizes bound store resources while respecting shadowed names', async () => {
   const diagnostics = await lintRule('guarded-mutations', {
     'src/features/items/store/index.ts': `
       import { defineStore } from '#server/platform/definitions/define-store';
@@ -78,10 +77,10 @@ testStable('recognizes bound store resources while respecting shadowed names', a
     `
   });
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-testStable('recognizes a named make callback and resource object aliases', async () => {
+test.stable('recognizes a named make callback and resource object aliases', async () => {
   const diagnostics = await lintRule('guarded-mutations', {
     'src/features/items/store/index.ts': `
       import { defineStore } from '#server/platform/definitions/define-store';
@@ -92,24 +91,27 @@ testStable('recognizes a named make callback and resource object aliases', async
     `
   });
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-testStable('tracks contextual resource objects and destructured aliases into helpers', async () => {
-  const diagnostics = await lintRule('guarded-mutations', {
-    'src/features/items/store/index.ts': `import { defineStore } from '#server/platform/definitions/define-store';
+test.stable(
+  'tracks contextual resource objects and destructured aliases into helpers',
+  async () => {
+    const diagnostics = await lintRule('guarded-mutations', {
+      'src/features/items/store/index.ts': `import { defineStore } from '#server/platform/definitions/define-store';
  defineStore({make: resources => { const {db: database} = resources;
  const alias = database;
  function helper() { alias.orm.delete(items).run();
  } return {queries: {}, mutations: {}};
  }});
 `
-  });
+    });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-});
+    test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  }
+);
 
-testStable('tracks aliased and namespace StoreResources helper parameters', async () => {
+test.stable('tracks aliased and namespace StoreResources helper parameters', async () => {
   const diagnostics = await lintRule('guarded-mutations', {
     'src/features/items/store/read.ts': `import type * as Store from '../../../platform/definitions/define-store';
  type Resources = Store.StoreResources;
@@ -118,10 +120,10 @@ testStable('tracks aliased and namespace StoreResources helper parameters', asyn
  }`
   });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable('tracks resources through an aliased store descriptor', async () => {
+test.stable('tracks resources through an aliased store descriptor', async () => {
   const diagnostics = await lintRule('guarded-mutations', {
     'src/features/items/store/index.ts': `import {defineStore} from '#server/platform/definitions/define-store';
  const descriptor = {make: ({db}) => { db.orm.delete(items).run();
@@ -132,5 +134,5 @@ testStable('tracks resources through an aliased store descriptor', async () => {
 `
   });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

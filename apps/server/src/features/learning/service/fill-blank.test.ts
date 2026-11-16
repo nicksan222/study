@@ -1,3 +1,4 @@
+import { defaultQuizSettings } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies fill-in-the-blank practice persistence and durable grading behavior.      │
@@ -10,14 +11,10 @@
  * │ Uses feature services and real database records without model execution.                 │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { defaultQuizSettings } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
@@ -28,10 +25,10 @@ import { decodeEvent } from '#server/platform/workflows/events';
 
 import { Learning } from './index.ts';
 
-testStable(
+test.stable(
   'blank practice persists, hides answers, filters kinds and settles a grade after completion',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const domain = Learning.layer.pipe(
       Layer.provideMerge(Settings.layer),
@@ -68,22 +65,22 @@ testStable(
           });
           const detail = yield* materials.materialVersion({ id: material.version.id });
 
-          assert.ok(detail.content.kind === 'quiz');
-          assert.ok(detail.content.questions[0]?.kind === 'fill_blank');
-          assert.equal(detail.content.questions[0].referenceAnswer, 'mitochondrion');
+          test.assert.ok(detail.content.kind === 'quiz');
+          test.assert.ok(detail.content.questions[0]?.kind === 'fill_blank');
+          test.assert.equal(detail.content.questions[0].referenceAnswer, 'mitochondrion');
           const configuration = { ...defaultQuizSettings, questionKind: 'fill_blank' as const };
           const attempt = yield* learning.startQuiz({
             versionId: material.version.id,
             configuration
           });
 
-          assert.equal(attempt.questions.length, 1);
+          test.assert.equal(attempt.questions.length, 1);
           const question = attempt.questions[0]!;
 
-          assert.equal(question.kind, 'fill_blank');
-          assert.ok(!('referenceAnswer' in question));
-          assert.ok(!('explanation' in question));
-          assert.equal(
+          test.assert.equal(question.kind, 'fill_blank');
+          test.assert.ok(!('referenceAnswer' in question));
+          test.assert.ok(!('explanation' in question));
+          test.assert.equal(
             (yield* Effect.flip(
               learning.answerQuestion({
                 attemptId: attempt.id,
@@ -100,7 +97,7 @@ testStable(
           });
           const restored = yield* learning.attempt(attempt.id);
 
-          assert.deepEqual(restored.questions[0]?.answer, {
+          test.assert.deepEqual(restored.questions[0]?.answer, {
             type: 'open',
             answer: 'mitochondrion'
           });
@@ -112,14 +109,14 @@ testStable(
               .find((row) => row.type === 'QuizAnswerSubmitted')!.payload
           );
 
-          assert.ok(event.type === 'QuizAnswerSubmitted');
+          test.assert.ok(event.type === 'QuizAnswerSubmitted');
           const snapshot = yield* learning.gradingSnapshot(event);
 
-          assert.equal(snapshot.referenceAnswer, 'mitochondrion');
-          assert.equal(snapshot.learnerAnswer, 'mitochondrion');
+          test.assert.equal(snapshot.referenceAnswer, 'mitochondrion');
+          test.assert.equal(snapshot.learnerAnswer, 'mitochondrion');
           const finished = yield* learning.finishQuiz({ attemptId: attempt.id });
 
-          assert.equal(finished.scoring.complete, false);
+          test.assert.equal(finished.scoring.complete, false);
           // The workflow uses the private settlement operation when grading finishes after completion.
           const { AttemptStore } = yield* Effect.promise(
             () => import('#server/features/learning/store/index')
@@ -139,13 +136,13 @@ testStable(
           );
           const completed = yield* learning.attempt(attempt.id);
 
-          assert.ok(completed.status === 'completed');
-          assert.equal(completed.scoring.score, 1);
+          test.assert.ok(completed.status === 'completed');
+          test.assert.equal(completed.scoring.score, 1);
           const result = completed.questions[0]!;
 
-          assert.ok(result.kind === 'fill_blank');
-          assert.equal(result.referenceAnswer, 'mitochondrion');
-          assert.equal(result.feedback, 'Correct.');
+          test.assert.ok(result.kind === 'fill_blank');
+          test.assert.equal(result.referenceAnswer, 'mitochondrion');
+          test.assert.equal(result.feedback, 'Correct.');
           yield* transaction((tx) =>
             tx.store(AttemptStore).publishGrade({
               attemptId: attempt.id,
@@ -157,9 +154,9 @@ testStable(
           );
           const unchanged = yield* learning.attempt(attempt.id);
 
-          assert.ok(unchanged.status === 'completed');
-          assert.equal(unchanged.scoring.score, 1);
-          assert.throws(() =>
+          test.assert.ok(unchanged.status === 'completed');
+          test.assert.equal(unchanged.scoring.score, 1);
+          test.assert.throws(() =>
             context.db.orm
               .update(s.material_quiz_responses)
               .set({ score: 0 })
@@ -171,12 +168,12 @@ testStable(
             configuration: { ...configuration, questionKind: 'open' }
           });
 
-          assert.deepEqual(
+          test.assert.deepEqual(
             open.questions.map((q) => q.kind),
             ['open']
           );
-          assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
-          assert.equal(
+          test.assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+          test.assert.equal(
             context.db.orm
               .select()
               .from(s.material_quiz_responses)

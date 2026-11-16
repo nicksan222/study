@@ -1,19 +1,17 @@
-import { testStable } from '@study/testing/vitest';
-import { renderHook } from '@testing-library/react';
-import { expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { usePage } from './use-page';
 
-const search = vi.hoisted(() => ({ project: undefined as string | undefined }));
+const search = test.hoisted(() => ({ project: undefined as string | undefined }));
 
-vi.mock('@tanstack/react-router', () => ({ useSearch: () => search }));
+test.mock('@tanstack/react-router', () => ({ useSearch: () => search }));
 
-testStable('preserves subject precision and clears the unselected workspace', () => {
+test.stable('preserves subject precision and clears the unselected workspace', () => {
   search.project = '9007199254740993';
-  const { result, rerender } = renderHook(usePage);
+  const { result, rerender } = test.renderHook(usePage);
 
-  expect(result.current.project).toBe(9007199254740993n);
+  test.expect(result.current.project).toBe(9007199254740993n);
   search.project = undefined;
   rerender();
-  expect(result.current.project).toBeUndefined();
+  test.expect(result.current.project).toBeUndefined();
 });

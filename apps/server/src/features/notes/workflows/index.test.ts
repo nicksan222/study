@@ -1,3 +1,4 @@
+import type { messageVersionSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks reply workflow checkpointing and rejects stale note context or              │
@@ -12,21 +13,17 @@
  * │ replace production activities.                                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { messageVersionSchema } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
 import { defaultWorkspacePreferences } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { blockIdSchema } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
 import { Effect, Layer } from 'effect';
 import type { Context } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
-import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/service/index';
 import { Pages } from '#server/features/pages/index';
@@ -44,10 +41,10 @@ import { withTestAdmission } from '#testing/workflow-admission';
 
 import { noteReplyHandler, noteReplyWorkflow } from './index.ts';
 
-testStable(
+test.stable(
   'reply checkpoints plain output and fences stale context and fabricated citations',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     let context = new ServerContext(await location.open());
     let calls = 0;
     let output = 'A plain answer';
@@ -121,7 +118,7 @@ testStable(
       }
     });
 
-    assert.ok(peer.port, 'missing address');
+    test.assert.ok(peer.port, 'missing address');
     const base = peer.url.origin;
     const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
@@ -230,15 +227,17 @@ testStable(
       const stale = await request();
 
       await run(Effect.flatMap(Notes, (c) => c.deleteMessage(stale.messageId)));
-      await expect(execute(stale, 'stale')).rejects.toSatisfy(() => true);
-      assert.strictEqual(calls, 0);
+      await test.expect(execute(stale, 'stale')).rejects.toSatisfy(() => true);
+      test.assert.strictEqual(calls, 0);
       const resolverRace = await request();
 
       duringModelResolution = async () => {
         await run(Effect.flatMap(Notes, (c) => c.deleteMessage(resolverRace.messageId)));
       };
-      await expect(execute(resolverRace, 'model-resolution-race')).rejects.toSatisfy(() => true);
-      assert.strictEqual(
+      await test
+        .expect(execute(resolverRace, 'model-resolution-race'))
+        .rejects.toSatisfy(() => true);
+      test.assert.strictEqual(
         calls,
         0,
         'stale context must not reach the provider after model resolution'
@@ -248,27 +247,29 @@ testStable(
       duringLanguageResolution = async () => {
         await run(Effect.flatMap(Notes, (c) => c.deleteMessage(languageRace.messageId)));
       };
-      await expect(execute(languageRace, 'language-resolution-race')).rejects.toSatisfy(() => true);
-      assert.strictEqual(
+      await test
+        .expect(execute(languageRace, 'language-resolution-race'))
+        .rejects.toSatisfy(() => true);
+      test.assert.strictEqual(
         calls,
         0,
         'stale context must not reach the provider after language resolution'
       );
       const current = await request('brief');
 
-      await expect(execute({ ...current, messageId: first.id }, 'wrong-target')).rejects.toSatisfy(
-        () => true
-      );
+      await test
+        .expect(execute({ ...current, messageId: first.id }, 'wrong-target'))
+        .rejects.toSatisfy(() => true);
       await run(Effect.flatMap(Notes, (c) => c.replySnapshot({ requestId: current.requestId })));
 
       await execute(current, 'replay');
-      assert.strictEqual(calls, 1);
-      expect(bodies[0]!).toMatch(/detail.*brief/);
+      test.assert.strictEqual(calls, 1);
+      test.expect(bodies[0]!).toMatch(/detail.*brief/);
       context.close();
       context = new ServerContext(await location.open());
       await execute(current, 'replay');
-      assert.strictEqual(calls, 1);
-      assert.ok(
+      test.assert.strictEqual(calls, 1);
+      test.assert.ok(
         context.db.orm
           .select()
           .from(s.message_versions)
@@ -288,9 +289,9 @@ testStable(
       await execute(reanswerEvent, 'reanswer');
       const answered = await run(Effect.flatMap(Notes, (c) => c.message(current.messageId)));
 
-      assert.strictEqual(reanswer.messageId, current.messageId);
-      assert.strictEqual(answered.versions.length, 2);
-      assert.ok(latestVersion(answered.versions).text === 'Another answer');
+      test.assert.strictEqual(reanswer.messageId, current.messageId);
+      test.assert.strictEqual(answered.versions.length, 2);
+      test.assert.ok(latestVersion(answered.versions).text === 'Another answer');
       const rewrite = await run(
         Effect.flatMap(Notes, (c) =>
           c.rewriteMessage({
@@ -310,20 +311,20 @@ testStable(
       const beforeRewrite = calls;
 
       await execute(rewriteEvent, 'rewrite');
-      assert.strictEqual(calls, beforeRewrite + 1);
+      test.assert.strictEqual(calls, beforeRewrite + 1);
       context.close();
       context = new ServerContext(await location.open());
       await execute(rewriteEvent, 'rewrite');
-      assert.strictEqual(calls, beforeRewrite + 1);
+      test.assert.strictEqual(calls, beforeRewrite + 1);
       const rewritten = await run(Effect.flatMap(Notes, (c) => c.message(current.messageId)));
 
-      assert.strictEqual(rewrite.messageId, current.messageId);
-      assert.ok(latestVersion(rewritten.versions).origin === 'instruction');
-      assert.ok(latestVersion(rewritten.versions).instruction === 'Use bullet points');
-      expect(bodies.at(-1)!).toMatch(/Another answer/);
-      assert.strictEqual(bodies.at(-1)!.match(/Use bullet points/g)?.length, 1);
-      expect(bodies.at(-1)!).not.toMatch(/Preferences: \{\}/);
-      expect(bodies.at(-1)!).toMatch(/detail.*detailed/);
+      test.assert.strictEqual(rewrite.messageId, current.messageId);
+      test.assert.ok(latestVersion(rewritten.versions).origin === 'instruction');
+      test.assert.ok(latestVersion(rewritten.versions).instruction === 'Use bullet points');
+      test.expect(bodies.at(-1)!).toMatch(/Another answer/);
+      test.assert.strictEqual(bodies.at(-1)!.match(/Use bullet points/g)?.length, 1);
+      test.expect(bodies.at(-1)!).not.toMatch(/Preferences: \{\}/);
+      test.expect(bodies.at(-1)!).toMatch(/detail.*detailed/);
       const userRewrite = await run(
         Effect.flatMap(Notes, (c) => c.rewriteMessage({ messageId: first.id, origin: 'summarize' }))
       );
@@ -335,11 +336,11 @@ testStable(
 
       output = 'Short question';
       await execute(userEvent, 'rewrite-user');
-      expect(bodies.at(-1)!).not.toMatch(/Preferences: \{\}/);
+      test.expect(bodies.at(-1)!).not.toMatch(/Preferences: \{\}/);
       const userResult = await run(Effect.flatMap(Notes, (c) => c.message(first.id)));
 
-      assert.ok(latestVersion(userResult.versions).origin === 'summarize');
-      assert.strictEqual(userResult.activeVersionId, userRewrite.versionId);
+      test.assert.ok(latestVersion(userResult.versions).origin === 'summarize');
+      test.assert.strictEqual(userResult.activeVersionId, userRewrite.versionId);
       const oldRequest = await run(
         Effect.flatMap(Notes, (c) =>
           c.rewriteMessage({ messageId: current.messageId, origin: 'improve' })
@@ -361,11 +362,11 @@ testStable(
         )
       );
 
-      assert.notStrictEqual(oldRequest.versionId, newer.versionId);
+      test.assert.notStrictEqual(oldRequest.versionId, newer.versionId);
       const callsBeforeOld = calls;
 
-      await expect(execute(oldEvent, 'superseded')).rejects.toSatisfy(() => true);
-      assert.strictEqual(calls, callsBeforeOld);
+      await test.expect(execute(oldEvent, 'superseded')).rejects.toSatisfy(() => true);
+      test.assert.strictEqual(calls, callsBeforeOld);
       const newerEvent = decodeEvent(
         context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
       );
@@ -377,8 +378,8 @@ testStable(
           c.editMessage({ messageId: current.messageId, text: 'Manual edit' })
         )
       );
-      await expect(execute(newerEvent, 'manual-edit')).rejects.toSatisfy(() => true);
-      assert.strictEqual(calls, callsBeforeOld);
+      await test.expect(execute(newerEvent, 'manual-edit')).rejects.toSatisfy(() => true);
+      test.assert.strictEqual(calls, callsBeforeOld);
       output = 'A plain answer';
       await post();
       const racing = await request();
@@ -386,15 +387,15 @@ testStable(
       duringCall = async () => {
         await run(Effect.flatMap(Notes, (c) => c.deleteMessage(racing.messageId)));
       };
-      await expect(execute(racing, 'race')).rejects.toSatisfy(() => true);
+      await test.expect(execute(racing, 'race')).rejects.toSatisfy(() => true);
       output = 'Fake [1]';
       const fake = await request();
 
-      await expect(execute(fake, 'fake')).rejects.toSatisfy(() => true);
-      expect(bodies.at(-1)!).toMatch(/Manual edit/);
-      expect(bodies.at(-1)!).toMatch(/"role":"assistant"/);
-      expect(bodies.at(-1)!).toMatch(/"role":"user"/);
-      assert.strictEqual(
+      await test.expect(execute(fake, 'fake')).rejects.toSatisfy(() => true);
+      test.expect(bodies.at(-1)!).toMatch(/Manual edit/);
+      test.expect(bodies.at(-1)!).toMatch(/"role":"assistant"/);
+      test.expect(bodies.at(-1)!).toMatch(/"role":"user"/);
+      test.assert.strictEqual(
         context.db.orm
           .select()
           .from(s.message_versions)
@@ -404,7 +405,7 @@ testStable(
       );
       const retryAfterInvalidOutput = await request();
 
-      assert.notStrictEqual(retryAfterInvalidOutput.requestId, fake.requestId);
+      test.assert.notStrictEqual(retryAfterInvalidOutput.requestId, fake.requestId);
       const groundedNote = await run(
         Effect.flatMap(Notes, (c) => c.createNote({ project: project.id, title: 'Grounded' }))
       );
@@ -525,8 +526,8 @@ testStable(
       toolCall = true;
       output = 'Grounded [1]';
       await execute(grounded, 'grounded');
-      expect(bodies.at(-1)!).toMatch(/alpha old evidence/);
-      expect(bodies.at(-1)!).not.toMatch(/alpha new evidence/);
+      test.expect(bodies.at(-1)!).toMatch(/alpha old evidence/);
+      test.expect(bodies.at(-1)!).not.toMatch(/alpha new evidence/);
 
       await run(
         Effect.flatMap(Notes, (c) =>
@@ -547,8 +548,8 @@ testStable(
       duringToolCall = async () => {
         await run(Effect.flatMap(Notes, (c) => c.deleteMessage(toolRace.messageId)));
       };
-      await expect(execute(toolRace, 'tool-step-race')).rejects.toSatisfy(() => true);
-      assert.strictEqual(
+      await test.expect(execute(toolRace, 'tool-step-race')).rejects.toSatisfy(() => true);
+      test.assert.strictEqual(
         calls,
         callsBeforeToolRace + 1,
         'a stale tool round trip must not start another provider call'
@@ -570,8 +571,8 @@ testStable(
       duringCall = async () => {
         await cancel!();
       };
-      await expect(execute(cancelled, 'cancelled')).rejects.toSatisfy(() => true);
-      assert.notStrictEqual(
+      await test.expect(execute(cancelled, 'cancelled')).rejects.toSatisfy(() => true);
+      test.assert.notStrictEqual(
         context.db.orm
           .select()
           .from(s.message_versions)
@@ -579,7 +580,7 @@ testStable(
           .find((v) => v.id === cancelled.versionId)?.status,
         'complete'
       );
-      assert.ok(
+      test.assert.ok(
         context.db.orm
           .select()
           .from(s.citations)
@@ -595,8 +596,8 @@ testStable(
         )
       );
 
-      assert.strictEqual(attachmentAnswer.citations[0]?.sourceId, source.id);
-      expect(attachmentEdit.citations).toStrictEqual(attachmentAnswer.citations);
+      test.assert.strictEqual(attachmentAnswer.citations[0]?.sourceId, source.id);
+      test.expect(attachmentEdit.citations).toStrictEqual(attachmentAnswer.citations);
       const selected = await run(
         Effect.gen(function* () {
           const materials = yield* Pages;
@@ -634,7 +635,7 @@ testStable(
             }
           });
 
-          assert.ok(material.version);
+          test.assert.ok(material.version);
 
           yield* notes.updateNoteSelection({
             noteId: note.id,
@@ -702,19 +703,21 @@ testStable(
       toolCall = true;
       output = 'Exact answer [1]';
       await execute(selectedEvent, 'selected-range');
-      expect(bodies.at(-1)!).toMatch(/alpha selected passage/);
-      expect(bodies.at(-1)!).toMatch(/secret before.*secret after/);
-      expect(bodies.at(-1)!).not.toMatch(/New unrelated message/);
+      test.expect(bodies.at(-1)!).toMatch(/alpha selected passage/);
+      test.expect(bodies.at(-1)!).toMatch(/secret before.*secret after/);
+      test.expect(bodies.at(-1)!).not.toMatch(/New unrelated message/);
       const selectedAnswer = await run(Effect.flatMap(Notes, (c) => c.message(selected.messageId)));
 
-      assert.ok(
+      test.assert.ok(
         selectedAnswer.citations[0]?.quote ===
           'secret before alpha selected passage secret after alpha'
       );
-      assert.strictEqual(selectedAnswer.citations[0]?.rangeStart, 0);
-      expect(
-        selectedAnswer.citations.map((citation) => [citation.rangeStart, citation.rangeEnd])
-      ).toStrictEqual([[0, 55]]);
+      test.assert.strictEqual(selectedAnswer.citations[0]?.rangeStart, 0);
+      test
+        .expect(
+          selectedAnswer.citations.map((citation) => [citation.rangeStart, citation.rangeEnd])
+        )
+        .toStrictEqual([[0, 55]]);
       await execute(selectedEvent, 'selected-range');
       const selectedEdit = await run(
         Effect.flatMap(Notes, (c) =>
@@ -722,7 +725,7 @@ testStable(
         )
       );
 
-      expect(selectedEdit.citations).toStrictEqual(selectedAnswer.citations);
+      test.expect(selectedEdit.citations).toStrictEqual(selectedAnswer.citations);
       await assertLongHistoryPreservesEarlyMessages();
 
       const marked = await run(
@@ -759,14 +762,14 @@ testStable(
 
       await execute(questionEvent, 'answer-question-in-place');
       await execute(questionEvent, 'answer-question-in-place');
-      expect(calls).toBe(callsBeforeQuestion + 1);
+      test.expect(calls).toBe(callsBeforeQuestion + 1);
       const answeredQuestion = await run(Effect.flatMap(Notes, (c) => c.message(marked.id)));
 
-      expect(answeredQuestion.activeVersionId).toBe(questionEvent.versionId);
-      expect(answeredQuestion.versions).toHaveLength(2);
-      expect(latestVersion(answeredQuestion.versions).text).toBe(
-        '**Question**\n\nWhy does ice float?\n\n**Answer**\n\nIce is less dense than water.'
-      );
+      test.expect(answeredQuestion.activeVersionId).toBe(questionEvent.versionId);
+      test.expect(answeredQuestion.versions).toHaveLength(2);
+      test
+        .expect(latestVersion(answeredQuestion.versions).text)
+        .toBe('**Question**\n\nWhy does ice float?\n\n**Answer**\n\nIce is less dense than water.');
 
       async function assertLongHistoryPreservesEarlyMessages() {
         const longNote = await run(
@@ -791,7 +794,7 @@ testStable(
           Effect.flatMap(Notes, (c) => c.replySnapshot({ requestId: earlyRewrite.requestId }))
         );
 
-        assert.ok(earlySnapshot.messages.at(-1)?.text === 'Early message');
+        test.assert.ok(earlySnapshot.messages.at(-1)?.text === 'Early message');
       }
     } finally {
       await auth.dispose();
@@ -807,13 +810,13 @@ function assertEventType<T extends ReturnType<typeof decodeEvent>['type']>(
   type: T,
   message: string
 ): asserts event is Extract<ReturnType<typeof decodeEvent>, { type: T }> {
-  assert.ok(event && event.type === type, message);
+  test.assert.ok(event && event.type === type, message);
 }
 
 function latestVersion(versions: readonly (typeof messageVersionSchema.Type)[]) {
   const version = versions.at(-1);
 
-  assert.ok(version, 'expected a retained message version');
+  test.assert.ok(version, 'expected a retained message version');
 
   return version;
 }

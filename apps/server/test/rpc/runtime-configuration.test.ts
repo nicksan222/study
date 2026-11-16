@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks durable configuration fingerprints change when same-account credentials are │
@@ -15,11 +16,7 @@
  * │ cleanup closes owned resources.                                                          │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { Auth } from '#server/features/auth/index';
 import { AuthStore } from '#server/features/auth/store/index';
@@ -29,13 +26,11 @@ import { encodeAccount } from '#server/platform/ai/auth/index';
 import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
-import { App } from '#server/runtime/index';
 
-testStable(
+test.stable(
   'same-account credential replacement changes the durable nonsecret fingerprint',
-  async () => {
-    const location = await createTestDatabase();
-    let app = await App.open({ path: location.path });
+  async ({ resources: location }) => {
+    let app = await location.openApp({ path: location.path });
     let savedRevision = '';
 
     try {
@@ -61,15 +56,15 @@ testStable(
           );
           savedRevision = yield* configuration.revision;
 
-          assert.notStrictEqual(savedRevision, before);
-          expect(yield* auth.publicAccount()).toStrictEqual(publicAccount);
-          expect(savedRevision).toMatch(/^[a-f0-9]{64}$/);
-          assert.ok(!savedRevision.includes('private-token'));
+          test.assert.notStrictEqual(savedRevision, before);
+          test.expect(yield* auth.publicAccount()).toStrictEqual(publicAccount);
+          test.expect(savedRevision).toMatch(/^[a-f0-9]{64}$/);
+          test.assert.ok(!savedRevision.includes('private-token'));
         })
       );
       await app.close();
-      app = await App.open({ path: location.path });
-      assert.strictEqual(
+      app = await location.openApp({ path: location.path });
+      test.assert.strictEqual(
         await app.nativeRuntime.runPromise(
           Effect.flatMap(WorkflowConfiguration, (configuration) => configuration.revision)
         ),
@@ -77,16 +72,15 @@ testStable(
       );
     } finally {
       await app.close();
-      await location.cleanup();
+      await location.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'shared agent instructions resolve the current application language per operation',
-  async () => {
-    const location = await createTestDatabase();
-    const app = await App.open({ path: location.path });
+  async ({ resources: location }) => {
+    const app = await location.openApp({ path: location.path });
 
     try {
       await app.nativeRuntime.runPromise(
@@ -96,16 +90,16 @@ testStable(
           const language = () =>
             typeof agents.language === 'string' ? Effect.succeed(agents.language) : agents.language;
 
-          assert.strictEqual(yield* language(), 'english');
+          test.assert.strictEqual(yield* language(), 'english');
           const current = yield* settings.appSettings();
 
           yield* settings.saveAppSettings({ ...current, language: 2 });
-          assert.strictEqual(yield* language(), 'italian');
+          test.assert.strictEqual(yield* language(), 'italian');
         })
       );
     } finally {
       await app.close();
-      await location.cleanup();
+      await location.close();
     }
   }
 );

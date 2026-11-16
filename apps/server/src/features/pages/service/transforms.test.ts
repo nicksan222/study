@@ -1,3 +1,4 @@
+import { PagesRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises native note transformation requests and atomic derivative                │
@@ -10,17 +11,13 @@
  * │ Tests use migrated SQLite and native publication ownership without remote providers.     │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { PagesRpc } from '@study/contracts';
 import type { transformPublicationSchema } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
@@ -47,10 +44,10 @@ const meta = {
 const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] });
 
-testStable(
+test.stable(
   'quick-note RPC captures exact note pages and publishes one independent derivative atomically',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const domain = Layer.mergeAll(Pages.layer, Notes.layer, Settings.layer, Projects.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -105,7 +102,7 @@ testStable(
             preferences: {}
           });
 
-          assert.strictEqual(selectedBlock.inputs[0]!.excerpts[0]!.blockId, block.id);
+          test.assert.strictEqual(selectedBlock.inputs[0]!.excerpts[0]!.blockId, block.id);
           yield* notes.updateNoteSelection({
             noteId: note.id,
             expectedRevision: 2n,
@@ -141,9 +138,9 @@ testStable(
             const first = yield* client('pages.requestTransform', requestInput);
             const replay = yield* client('pages.requestTransform', requestInput);
 
-            assert.strictEqual(first.id, replay.id);
-            assert.strictEqual(first.noteId, setup.note.id);
-            assert.ok(
+            test.assert.strictEqual(first.id, replay.id);
+            test.assert.strictEqual(first.noteId, setup.note.id);
+            test.assert.ok(
               (yield* Effect.flip(
                 client('pages.requestTransform', { ...requestInput, title: 'Changed' })
               )).kind === 'invalid_input'
@@ -175,10 +172,10 @@ testStable(
             requestId: request.id
           });
 
-          assert.ok(
+          test.assert.ok(
             retained.inputs[0]!.excerpts[0]!.text === 'private before alpha selected private after'
           );
-          expect(retained.preferences).toStrictEqual({ language: 'italian', detail: 'brief' });
+          test.expect(retained.preferences).toStrictEqual({ language: 'italian', detail: 'brief' });
         }).pipe(Effect.provide(domain))
       );
       const output = paragraph('Sintesi [1]');
@@ -216,33 +213,39 @@ testStable(
         );
       const before = context.db.orm.select().from(s.pages).all().length;
 
-      await expect(
-        publish({
-          ...publication,
-          citations: [{ ...publication.citations[0]!, quote: 'uncaptured fabricated quote' }]
-        })
-      ).rejects.toSatisfy(() => true);
-      await expect(
-        publish({
-          ...publication,
-          document: { blocks: [{ ...output, id: setup.block.id }], meta }
-        })
-      ).rejects.toSatisfy(() => true);
+      await test
+        .expect(
+          publish({
+            ...publication,
+            citations: [{ ...publication.citations[0]!, quote: 'uncaptured fabricated quote' }]
+          })
+        )
+        .rejects.toSatisfy(() => true);
+      await test
+        .expect(
+          publish({
+            ...publication,
+            document: { blocks: [{ ...output, id: setup.block.id }], meta }
+          })
+        )
+        .rejects.toSatisfy(() => true);
       context.db.orm.run(
         sql`CREATE TRIGGER reject_transform_event BEFORE INSERT ON workflow_events WHEN NEW.type='PagePublished' BEGIN SELECT RAISE(ABORT, 'fixture rollback'); END`
       );
-      await expect(publish(publication)).rejects.toSatisfy(() => true);
-      assert.strictEqual(context.db.orm.select().from(s.pages).all().length, before);
+      await test.expect(publish(publication)).rejects.toSatisfy(() => true);
+      test.assert.strictEqual(context.db.orm.select().from(s.pages).all().length, before);
       context.db.orm.run(sql`DROP TRIGGER reject_transform_event`);
       await publish(publication);
       await publish(publication);
-      assert.strictEqual(context.db.orm.select().from(s.pages).all().length, before + 1);
-      await expect(
-        publish({
-          ...publication,
-          report: { notes: [{ kind: 'limit', explanation: 'Different', blockIds: [] }] }
-        })
-      ).rejects.toSatisfy(() => true);
+      test.assert.strictEqual(context.db.orm.select().from(s.pages).all().length, before + 1);
+      await test
+        .expect(
+          publish({
+            ...publication,
+            report: { notes: [{ kind: 'limit', explanation: 'Different', blockIds: [] }] }
+          })
+        )
+        .rejects.toSatisfy(() => true);
       await Effect.runPromise(
         Effect.gen(function* () {
           const materials = yield* Pages;
@@ -250,17 +253,21 @@ testStable(
             requestId: request.id
           });
 
-          assert.ok(result.resultVersionId);
-          expect(result.report).toStrictEqual(publication.report);
+          test.assert.ok(result.resultVersionId);
+          test.expect(result.report).toStrictEqual(publication.report);
           const derivative = yield* materials.version({ id: result.resultVersionId });
 
-          expect(derivative.inputs).toStrictEqual([{ kind: 'page', versionId: setup.versionId }]);
-          assert.ok(derivative.document.blocks.length);
-          expect((yield* materials.page({ id: derivative.pageId })).projectIds).toStrictEqual([]);
-          expect((yield* materials.version({ id: setup.versionId })).document).toStrictEqual(
-            setup.original.version!.document
-          );
-          assert.strictEqual(
+          test
+            .expect(derivative.inputs)
+            .toStrictEqual([{ kind: 'page', versionId: setup.versionId }]);
+          test.assert.ok(derivative.document.blocks.length);
+          test
+            .expect((yield* materials.page({ id: derivative.pageId })).projectIds)
+            .toStrictEqual([]);
+          test
+            .expect((yield* materials.version({ id: setup.versionId })).document)
+            .toStrictEqual(setup.original.version!.document);
+          test.assert.strictEqual(
             (yield* materials.pages({
               noteId: setup.note.id,
               archived: false,
@@ -288,22 +295,22 @@ testStable(
               requestId: request.id
             });
 
-            assert.ok(read.cancelled === false);
-            assert.strictEqual(read.resultVersionId, result.resultVersionId);
+            test.assert.ok(read.cancelled === false);
+            test.assert.strictEqual(read.resultVersionId, result.resultVersionId);
           }
 
           const cancelled = yield* materials.cancelTransform({ requestId: request.id });
 
-          assert.ok(cancelled.cancelled === false);
-          assert.strictEqual(cancelled.resultVersionId, result.resultVersionId);
+          test.assert.ok(cancelled.cancelled === false);
+          test.assert.strictEqual(cancelled.resultVersionId, result.resultVersionId);
           yield* (yield* Notes).deleteNote(setup.note.id);
-          assert.strictEqual(
+          test.assert.strictEqual(
             (yield* materials.version({ id: result.resultVersionId })).id,
             result.resultVersionId
           );
-          expect(
-            (yield* materials.version({ id: result.resultVersionId })).citations[0]?.target
-          ).toStrictEqual(publication.citations[0]!.target);
+          test
+            .expect((yield* materials.version({ id: result.resultVersionId })).citations[0]?.target)
+            .toStrictEqual(publication.citations[0]!.target);
         }).pipe(Effect.provide(domain))
       );
     } finally {
@@ -313,10 +320,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'cancelled and deleted note captures reject retries and late publication without saved output',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const domain = Layer.mergeAll(Pages.layer, Notes.layer, Settings.layer, Projects.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -351,23 +358,25 @@ testStable(
             if (mode === 'cancel') {
               const cancelled = yield* materials.cancelTransform({ requestId: request.id });
 
-              assert.ok(cancelled.cancelled === true);
+              test.assert.ok(cancelled.cancelled === true);
               const persisted = context.db.orm.get<{ cancelled: bigint }>(
                 sql`SELECT cancelled FROM page_transform_requests WHERE id = ${request.id}`
               );
 
-              assert.strictEqual(persisted?.cancelled, 1n);
+              test.assert.strictEqual(persisted?.cancelled, 1n);
               const duplicate = yield* chats.requestPageTransform({
                 contextRequestId: capture.requestId,
                 title: mode,
                 operations: ['explain']
               });
 
-              assert.strictEqual(duplicate.id, request.id);
-              assert.ok((yield* materials.transform({ requestId: request.id })).cancelled === true);
+              test.assert.strictEqual(duplicate.id, request.id);
+              test.assert.ok(
+                (yield* materials.transform({ requestId: request.id })).cancelled === true
+              );
             } else yield* chats.deleteNote(note.id);
 
-            assert.strictEqual(
+            test.assert.strictEqual(
               (yield* Effect.flip(
                 (yield* Notes).retryPageTransform({
                   requestId: request.id,
@@ -396,10 +405,10 @@ testStable(
               )
             );
 
-            assert.strictEqual(failure.kind, mode === 'cancel' ? 'cancelled' : 'not_found');
+            test.assert.strictEqual(failure.kind, mode === 'cancel' ? 'cancelled' : 'not_found');
           }
 
-          assert.strictEqual(
+          test.assert.strictEqual(
             (yield* materials.pages({ archived: false, limit: 10 })).items.length,
             0
           );

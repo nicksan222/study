@@ -1,7 +1,4 @@
-import { testStable } from '@study/testing/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { useAssistantComposer } from './use-composer';
 
@@ -16,22 +13,22 @@ function Composer({ send }: { send: () => boolean }) {
   );
 }
 
-testStable(
+test.stable(
   'focuses the shared chat input only after an accepted send and respects composition and multiline input',
   async () => {
-    const send = vi.fn(() => true);
-    const user = userEvent.setup();
+    const send = test.vi.fn(() => true);
+    const user = test.userEvent.setup();
 
-    render(<Composer send={send} />);
-    const input = screen.getByRole('textbox', { name: 'Draft' });
+    test.render(<Composer send={send} />);
+    const input = test.screen.getByRole('textbox', { name: 'Draft' });
 
-    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
-    fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
-    expect(send).not.toHaveBeenCalled();
-    await user.click(screen.getByRole('button', { name: 'Send' }));
-    expect(input).toHaveFocus();
+    test.fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+    test.fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
+    test.expect(send).not.toHaveBeenCalled();
+    await user.click(test.screen.getByRole('button', { name: 'Send' }));
+    test.expect(input).toHaveFocus();
     send.mockReturnValue(false);
-    await user.click(screen.getByRole('button', { name: 'Send' }));
-    expect(screen.getByRole('button', { name: 'Send' })).toHaveFocus();
+    await user.click(test.screen.getByRole('button', { name: 'Send' }));
+    test.expect(test.screen.getByRole('button', { name: 'Send' })).toHaveFocus();
   }
 );

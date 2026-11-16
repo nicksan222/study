@@ -1,3 +1,4 @@
+import { testPolicy } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Configures isolated Vitest subprocesses for automatic server fixture scenarios.    │
@@ -7,22 +8,21 @@
  * │ - Keeps subprocess caches isolated from the parent test runner.                          │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Selects scenario files and setup hooks without starting the application itself.          │
+ * │ Selects lazy fixture scenarios without starting the application itself.                  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
 import { defineConfig } from 'vite-plus';
 
 export default defineConfig({
   root: Bun.fileURLToPath(new URL('../../../../', import.meta.url)),
   test: {
     include: ['apps/server/test/testing/automatic-fixture-scenario.ts'],
-    setupFiles: ['./apps/server/test/testing/preload.ts'],
+    setupFiles: ['apps/server/test/testing/setup.ts'],
     environment: 'node',
     fsModuleCache: false,
     pool: 'forks',
     maxWorkers: 1,
-    testTimeout: 30000,
-    hookTimeout: 30000
+    testTimeout: testPolicy.tests.unit,
+    hookTimeout: testPolicy.hookTimeout
   }
 });

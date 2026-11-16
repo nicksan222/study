@@ -1,3 +1,4 @@
+import { sql } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exact proposals retain bases/evidence and immutable receipts until explicit        │
@@ -10,12 +11,9 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sql } from '@study/db';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
@@ -24,10 +22,10 @@ import { setup, cleanup, validPageTransformOutput } from '#testing/note-deletion
 import { pageTransformFixture } from '#testing/page-transform';
 
 for (const apply of [false, true])
-  testStable(
+  test.stable(
     `completed ${apply ? 'applied' : 'kept'} proposal retains exact bases, evidence and replay identity independently of body retirement`,
-    async () => {
-      const f = await pageTransformFixture();
+    async ({ databases }) => {
+      const f = await pageTransformFixture(databases);
 
       try {
         const additional = await Effect.runPromise(
@@ -42,7 +40,7 @@ for (const apply of [false, true])
           ).pipe(Effect.provide(f.services()))
         );
 
-        assert.ok(additional.version);
+        test.assert.ok(additional.version);
         const saved = await setup(f, 'PROPOSAL_HISTORY_PRIVATE', true, additional.version.id);
         const event = f.authoredEvent(saved.request.id);
 
@@ -60,7 +58,7 @@ for (const apply of [false, true])
             const chats = yield* Notes;
             const proposed = yield* docs.version({ id: proposedId });
 
-            assert.ok(proposed.status === 'draft');
+            test.assert.ok(proposed.status === 'draft');
 
             if (!apply)
               yield* docs.save({
@@ -77,7 +75,7 @@ for (const apply of [false, true])
             };
             const keep = yield* chats.keepPageProposal(keepInput);
 
-            assert.ok(keep.resultVersionId);
+            test.assert.ok(keep.resultVersionId);
             const applyInput = {
               requestId: saved.request.id,
               key: 'history-apply',
@@ -86,8 +84,8 @@ for (const apply of [false, true])
             const applied = apply ? yield* chats.applyPageProposal(applyInput) : null;
 
             if (applied) {
-              assert.ok(applied.outcome === 'applied');
-              assert.ok(applied.resultVersionId);
+              test.assert.ok(applied.outcome === 'applied');
+              test.assert.ok(applied.resultVersionId);
             }
 
             yield* docs.save({
@@ -98,23 +96,24 @@ for (const apply of [false, true])
             });
             const copy = yield* docs.version({ id: keep.resultVersionId });
 
-            expect(copy.inputs).toStrictEqual(proposed.inputs);
-            expect(copy.citations).toStrictEqual(proposed.citations);
+            test.expect(copy.inputs).toStrictEqual(proposed.inputs);
+            test.expect(copy.citations).toStrictEqual(proposed.citations);
             const history = yield* docs.previewHistory({
               pageId: saved.library.id,
               keepLatest: 1
             });
 
-            if (!apply) assert.ok(history.blockedVersionIds.includes(saved.library.version.id));
+            if (!apply)
+              test.assert.ok(history.blockedVersionIds.includes(saved.library.version.id));
 
             const support = yield* docs.previewHistory({
               pageId: additional.id,
               keepLatest: 1
             });
 
-            assert.ok(support.blockedVersionIds.includes(additional.version!.id));
+            test.assert.ok(support.blockedVersionIds.includes(additional.version!.id));
             yield* chats.deleteNote(saved.note.id);
-            assert.ok(
+            test.assert.ok(
               (yield* docs.previewHistory({
                 pageId: additional.id,
                 keepLatest: 1
@@ -128,20 +127,20 @@ for (const apply of [false, true])
               citations: []
             });
 
-            assert.ok(independent.version);
+            test.assert.ok(independent.version);
             const removeCopy = yield* docs.previewDeletion({ id: copy.pageId });
 
             yield* docs.delete({ pageId: copy.pageId, token: removeCopy.token });
             const removeTarget = yield* docs.previewDeletion({ id: saved.library.id });
 
-            expect(removeTarget.blockedVersionIds).toStrictEqual([]);
+            test.expect(removeTarget.blockedVersionIds).toStrictEqual([]);
             yield* docs.delete({ pageId: saved.library.id, token: removeTarget.token });
             const released = yield* docs.previewHistory({
               pageId: additional.id,
               keepLatest: 1
             });
 
-            expect(released.blockedVersionIds).toStrictEqual([]);
+            test.expect(released.blockedVersionIds).toStrictEqual([]);
             yield* docs.retireHistory({
               pageId: additional.id,
               keepLatest: 1,
@@ -159,54 +158,56 @@ for (const apply of [false, true])
             const docs = yield* Pages;
             const chats = yield* Notes;
 
-            expect(yield* docs.version({ id: retained.independent.id })).toStrictEqual(
-              retained.independent
-            );
-            assert.ok(
+            test
+              .expect(yield* docs.version({ id: retained.independent.id }))
+              .toStrictEqual(retained.independent);
+            test.assert.ok(
               (yield* Effect.flip(docs.version({ id: retained.copy.id }))).kind === 'not_found'
             );
-            assert.ok((yield* Effect.flip(docs.version({ id: proposedId }))).kind === 'not_found');
-            assert.ok(
+            test.assert.ok(
+              (yield* Effect.flip(docs.version({ id: proposedId }))).kind === 'not_found'
+            );
+            test.assert.ok(
               (yield* Effect.flip(docs.version({ id: additional.version!.id }))).kind ===
                 'not_found'
             );
-            expect(yield* chats.keepPageProposal(retained.keepInput)).toStrictEqual({
+            test.expect(yield* chats.keepPageProposal(retained.keepInput)).toStrictEqual({
               ...retained.keep,
               replayed: true
             });
 
             if (retained.applied)
-              expect(yield* chats.applyPageProposal(retained.applyInput)).toStrictEqual({
+              test.expect(yield* chats.applyPageProposal(retained.applyInput)).toStrictEqual({
                 ...retained.applied,
                 replayed: true
               });
 
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(
                 chats.keepPageProposal({ ...retained.keepInput, key: 'new-after-retirement' })
               )).kind === 'not_found'
             );
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(chats.noteContext({ requestId: saved.capture.requestId })))
                 .kind === 'not_found'
             );
           }).pipe(Effect.provide(f.services()))
         );
-        assert.strictEqual(
+        test.assert.strictEqual(
           f.context.db.orm.select().from(s.page_proposals).get()?.proposed_version_id,
           proposedId
         );
-        assert.strictEqual(
+        test.assert.strictEqual(
           f.context.db.orm.select().from(s.page_proposal_receipts).all().length,
           apply ? 2 : 1
         );
         const calls = f.bodies.length;
 
-        await expect(f.executeAuthored(event, 'retired-proposal-replay')).rejects.toSatisfy(
-          () => true
-        );
-        assert.strictEqual(f.bodies.length, calls);
-        expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+        await test
+          .expect(f.executeAuthored(event, 'retired-proposal-replay'))
+          .rejects.toSatisfy(() => true);
+        test.assert.strictEqual(f.bodies.length, calls);
+        test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         await f.close();
       }

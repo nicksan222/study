@@ -1,3 +1,4 @@
+import { StudyError } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises AI admission at the agent boundary with a local Responses API peer. It   │
@@ -14,20 +15,17 @@
  * │ and closes that peer.                                                                    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyError } from '@study/contracts';
 import { AgentRule } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Deferred, Effect, Fiber, Schema } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { generateAgent, layer } from '#server/platform/ai/agents';
 import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 import { defineAgent } from '#server/platform/definitions/define-agent';
 
-testStable(
+test.stable(
   'queued agents cannot preflight or dispatch until admitted and cancelled waiters never dispatch',
   async () => {
     const entered = Effect.runSync(Deferred.make<void>());
@@ -43,7 +41,7 @@ testStable(
         })
     });
 
-    assert.ok(server.port, 'missing address');
+    test.assert.ok(server.port, 'missing address');
     const base = server.url.origin;
     const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
@@ -88,8 +86,8 @@ testStable(
 
           yield* Effect.yieldNow;
           yield* Fiber.interrupt(queued);
-          assert.strictEqual(queuedChecks, 0);
-          assert.strictEqual(responses.length, 2);
+          test.assert.strictEqual(queuedChecks, 0);
+          test.assert.strictEqual(responses.length, 2);
           const rejected = yield* Effect.forkChild(
             run(
               Effect.sync(() => {
@@ -99,7 +97,7 @@ testStable(
           );
 
           yield* Effect.yieldNow;
-          assert.strictEqual(queuedChecks, 0);
+          test.assert.strictEqual(queuedChecks, 0);
 
           for (const resolve of responses) {
             const events = [
@@ -117,11 +115,11 @@ testStable(
             resolve(new Response(events, { headers: { 'content-type': 'text/event-stream' } }));
           }
 
-          assert.strictEqual(yield* Fiber.join(first), 'ok');
-          assert.strictEqual(yield* Fiber.join(second), 'ok');
-          assert.ok((yield* Effect.flip(Fiber.join(rejected))).kind === 'cancelled');
-          assert.strictEqual(queuedChecks, 1);
-          assert.strictEqual(responses.length, 2);
+          test.assert.strictEqual(yield* Fiber.join(first), 'ok');
+          test.assert.strictEqual(yield* Fiber.join(second), 'ok');
+          test.assert.ok((yield* Effect.flip(Fiber.join(rejected))).kind === 'cancelled');
+          test.assert.strictEqual(queuedChecks, 1);
+          test.assert.strictEqual(responses.length, 2);
         })
       );
     } finally {

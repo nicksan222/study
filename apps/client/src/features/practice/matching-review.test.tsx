@@ -1,9 +1,7 @@
 import { quizAttemptCompletedSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { render, screen, within } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { MatchingReview } from './matching-review';
 
@@ -15,7 +13,7 @@ const x = '33333333-3333-4333-8333-333333333333';
 
 const y = '44444444-4444-4444-8444-444444444444';
 
-testStable('matching review labels selected and correct associations for each term', () => {
+test.stable('matching review labels selected and correct associations for each term', () => {
   const attempt = Schema.decodeUnknownSync(quizAttemptCompletedSchema)({
     id: 1n,
     versionId: 2n,
@@ -58,16 +56,22 @@ testStable('matching review labels selected and correct associations for each te
   });
   const question = attempt.questions[0]!;
 
-  expect(question.kind).toBe('matching');
+  test.expect(question.kind).toBe('matching');
 
   if (question.kind !== 'matching') throw Error('wrong fixture');
 
-  render(<MatchingReview question={question} />);
-  const nucleus = screen.getByText('Nucleus').parentElement!;
+  test.render(<MatchingReview question={question} />);
+  const nucleus = test.screen.getByText('Nucleus').parentElement!;
 
-  expect(within(nucleus).getByText(catalogs.english.YourAnswer + ':')).toBeInTheDocument();
-  expect(within(nucleus).getByText(catalogs.english.RightAnswer + ':')).toBeInTheDocument();
-  expect(within(nucleus).getByText('Builds proteins')).toBeInTheDocument();
-  expect(within(nucleus).getByText('Stores DNA')).toBeInTheDocument();
-  expect(within(nucleus).getByText(catalogs.english.VerdictIncorrect)).toBeInTheDocument();
+  test
+    .expect(test.within(nucleus).getByText(catalogs.english.YourAnswer + ':'))
+    .toBeInTheDocument();
+  test
+    .expect(test.within(nucleus).getByText(catalogs.english.RightAnswer + ':'))
+    .toBeInTheDocument();
+  test.expect(test.within(nucleus).getByText('Builds proteins')).toBeInTheDocument();
+  test.expect(test.within(nucleus).getByText('Stores DNA')).toBeInTheDocument();
+  test
+    .expect(test.within(nucleus).getByText(catalogs.english.VerdictIncorrect))
+    .toBeInTheDocument();
 });

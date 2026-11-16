@@ -1,23 +1,9 @@
-import { BunFileSystem, BunPath } from '@effect/platform-bun';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { sql } from 'drizzle-orm';
-import { Effect, FileSystem, Path } from 'effect';
-import { assert } from 'vite-plus/test';
 
-import { Db } from '../src/index.ts';
-
-const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
-
-const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
-
-testStable('learning tables enforce typed content and ownership', async (t) => {
-  const folder = await Effect.runPromise(fs.makeTempDirectory({ prefix: 'study-learning-' }));
-  const db = await Db.open(join(folder, 'study.db'));
-
-  t.onTestFinished(async () => {
-    db.close();
-    await Effect.runPromise(fs.remove(folder, { recursive: true, force: true }));
-  });
+test.stable('learning tables enforce typed content and ownership', async ({ databases }) => {
+  const location = await databases();
+  const db = await location.open();
   const run = (query: ReturnType<typeof sql>) => db.orm.run(query);
 
   run(sql`SELECT version_id FROM material_quiz_versions LIMIT 0`);
@@ -116,19 +102,14 @@ testStable('learning tables enforce typed content and ownership', async (t) => {
     sql`UPDATE material_card_reviews SET elapsed_days=-1 WHERE card_id=1`
   ];
 
-  for (const query of invalid) assert.throws(() => run(query));
+  for (const query of invalid) test.assert.throws(() => run(query));
 });
 
-testStable(
+test.stable(
   'quiz publication validates blank prompts, truth tokens and ordering content',
-  async (t) => {
-    const folder = await Effect.runPromise(fs.makeTempDirectory({ prefix: 'study-quiz-content-' }));
-    const db = await Db.open(join(folder, 'study.db'));
-
-    t.onTestFinished(async () => {
-      db.close();
-      await Effect.runPromise(fs.remove(folder, { recursive: true, force: true }));
-    });
+  async ({ databases }) => {
+    const location = await databases();
+    const db = await location.open();
     const run = (query: ReturnType<typeof sql>) => db.orm.run(query);
 
     for (const id of [1, 2, 3]) {
@@ -147,7 +128,7 @@ testStable(
     run(
       sql`INSERT INTO material_quiz_open_answers(question_id,kind,reference_answer) VALUES (1,'fill_blank','mitochondria')`
     );
-    assert.throws(() =>
+    test.assert.throws(() =>
       run(sql`UPDATE material_quiz_questions SET prompt='____ and ____' WHERE id=1`)
     );
     run(sql`UPDATE material_versions SET status='published',published_at=1 WHERE id=1`);
@@ -155,14 +136,14 @@ testStable(
     run(
       sql`INSERT INTO material_quiz_choices(id,question_id,question_kind,position,text,is_correct) VALUES (1,2,'true_false',0,'Yes',1),(2,2,'true_false',1,'No',0)`
     );
-    assert.throws(() =>
+    test.assert.throws(() =>
       run(sql`UPDATE material_versions SET status='published',published_at=1 WHERE id=2`)
     );
     run(sql`UPDATE material_quiz_choices SET text='true' WHERE id=1`);
     run(sql`UPDATE material_quiz_choices SET text='false' WHERE id=2`);
     run(sql`UPDATE material_versions SET status='published',published_at=1 WHERE id=2`);
 
-    assert.throws(() =>
+    test.assert.throws(() =>
       run(sql`UPDATE material_versions SET status='published',published_at=1 WHERE id=3`)
     );
     run(

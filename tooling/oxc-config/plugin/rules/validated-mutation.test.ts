@@ -1,8 +1,8 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
-testStable('schema-validated transaction branches use the shared mutation harness', async () => {
+test.stable('schema-validated transaction branches use the shared mutation harness', async () => {
   assertDiagnostics(
     'validated-mutation',
     await lintRule('validated-mutation', {

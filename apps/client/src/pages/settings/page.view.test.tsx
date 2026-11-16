@@ -1,22 +1,19 @@
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { LanguageProvider } from '#client/lib/i18n.tsx';
 
 import { PageView } from './page.view';
 
-testStable(
+test.stable(
   'composes an appearance-only popup with accessible scheme and theme selection',
   async () => {
-    const select = vi.fn();
+    const select = test.vi.fn();
 
-    render(
+    test.render(
       <PageView
         open
-        onClose={vi.fn()}
+        onClose={test.vi.fn()}
         model={{
           data: {
             settings: { appearance: 2, language: 1, zoomPercent: 100, onboarded: true },
@@ -27,23 +24,25 @@ testStable(
           loading: false,
           error: false,
           pending: false,
-          retry: vi.fn(),
-          setPreferences: vi.fn(),
-          setZoom: vi.fn(),
+          retry: test.vi.fn(),
+          setPreferences: test.vi.fn(),
+          setZoom: test.vi.fn(),
           setAppearance: select,
-          selectTheme: vi.fn(),
-          importTheme: vi.fn(),
-          saveTheme: vi.fn(),
-          deleteTheme: vi.fn()
+          selectTheme: test.vi.fn(),
+          importTheme: test.vi.fn(),
+          saveTheme: test.vi.fn(),
+          deleteTheme: test.vi.fn()
         }}
       />
     );
-    expect(screen.getByRole('dialog', { name: 'Settings' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Appearance' })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('radio', { name: 'Light' }));
-    expect(select).toHaveBeenCalledWith('light');
-    expect(screen.getByRole('button', { name: 'Ocean' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: 'Add theme' })).toBeInTheDocument();
+    test.expect(test.screen.getByRole('dialog', { name: 'Settings' })).toBeInTheDocument();
+    test.expect(test.screen.getByRole('heading', { name: 'Appearance' })).toBeInTheDocument();
+    await test.userEvent.click(test.screen.getByRole('radio', { name: 'Light' }));
+    test.expect(select).toHaveBeenCalledWith('light');
+    test
+      .expect(test.screen.getByRole('button', { name: 'Ocean' }))
+      .toHaveAttribute('aria-pressed', 'true');
+    test.expect(test.screen.getByRole('button', { name: 'Add theme' })).toBeInTheDocument();
   }
 );
 
@@ -58,169 +57,187 @@ function appearanceModel() {
     loading: false,
     error: false,
     pending: false,
-    retry: vi.fn(),
-    setPreferences: vi.fn(),
-    setZoom: vi.fn(),
-    setAppearance: vi.fn(),
-    selectTheme: vi.fn(),
-    importTheme: vi.fn().mockResolvedValue({}),
-    saveTheme: vi.fn().mockResolvedValue({}),
-    deleteTheme: vi.fn().mockResolvedValue(undefined)
+    retry: test.vi.fn(),
+    setPreferences: test.vi.fn(),
+    setZoom: test.vi.fn(),
+    setAppearance: test.vi.fn(),
+    selectTheme: test.vi.fn(),
+    importTheme: test.vi.fn().mockResolvedValue({}),
+    saveTheme: test.vi.fn().mockResolvedValue({}),
+    deleteTheme: test.vi.fn().mockResolvedValue(undefined)
   };
 }
 
-testStable(
+test.stable(
   'validates pasted JSON before importing and keeps invalid input available to correct',
   async () => {
     const model = appearanceModel();
-    const user = userEvent.setup();
+    const user = test.userEvent.setup();
 
-    render(<PageView open onClose={vi.fn()} model={model} />);
-    await user.click(screen.getByRole('button', { name: 'Add theme' }));
-    const field = screen.getByRole('textbox', { name: 'Theme JSON' });
+    test.render(<PageView open onClose={test.vi.fn()} model={model} />);
+    await user.click(test.screen.getByRole('button', { name: 'Add theme' }));
+    const field = test.screen.getByRole('textbox', { name: 'Theme JSON' });
 
     await user.click(field);
     await user.paste('{"version":1}');
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save this theme');
-    expect(model.importTheme).not.toHaveBeenCalled();
+    await user.click(test.screen.getByRole('button', { name: 'Save' }));
+    test
+      .expect(await test.screen.findByRole('alert'))
+      .toHaveTextContent('Could not save this theme');
+    test.expect(model.importTheme).not.toHaveBeenCalled();
     await user.clear(field);
     await user.click(field);
     await user.paste('{"version":1,"id":"my-theme","name":"My theme","dark":{"primary":"blue"}}');
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-    expect(model.importTheme).toHaveBeenCalledWith(expect.stringContaining('my-theme'));
+    await user.click(test.screen.getByRole('button', { name: 'Save' }));
+    test.expect(model.importTheme).toHaveBeenCalledWith(test.expect.stringContaining('my-theme'));
   }
 );
 
-testStable('duplicates protected themes into a portable editable definition', async () => {
+test.stable('duplicates protected themes into a portable editable definition', async () => {
   const model = appearanceModel();
-  const user = userEvent.setup();
+  const user = test.userEvent.setup();
 
-  render(<PageView open onClose={vi.fn()} model={model} />);
-  expect(screen.queryByRole('button', { name: 'Delete theme: Ocean' })).not.toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: 'Duplicate theme: Ocean' }));
+  test.render(<PageView open onClose={test.vi.fn()} model={model} />);
+  test
+    .expect(test.screen.queryByRole('button', { name: 'Delete theme: Ocean' }))
+    .not.toBeInTheDocument();
+  await user.click(test.screen.getByRole('button', { name: 'Duplicate theme: Ocean' }));
   const json = JSON.parse(
-    (screen.getByRole('textbox', { name: 'Theme JSON' }) as HTMLTextAreaElement).value
+    (test.screen.getByRole('textbox', { name: 'Theme JSON' }) as HTMLTextAreaElement).value
   );
 
-  expect(json.name).toBe('Ocean (copy)');
-  expect(json.id).not.toBe('ocean');
-  expect(json).not.toHaveProperty('builtin');
+  test.expect(json.name).toBe('Ocean (copy)');
+  test.expect(json.id).not.toBe('ocean');
+  test.expect(json).not.toHaveProperty('builtin');
 });
 
-testStable('supports arrow keys for scheme selection', async () => {
+test.stable('supports arrow keys for scheme selection', async () => {
   const model = appearanceModel();
-  const user = userEvent.setup();
+  const user = test.userEvent.setup();
 
-  render(<PageView open onClose={vi.fn()} model={model} />);
-  await user.click(screen.getByRole('radio', { name: 'Dark' }));
+  test.render(<PageView open onClose={test.vi.fn()} model={model} />);
+  await user.click(test.screen.getByRole('radio', { name: 'Dark' }));
   model.setAppearance.mockClear();
   await user.keyboard('{ArrowLeft}');
-  expect(model.setAppearance).toHaveBeenCalledWith('light');
+  test.expect(model.setAppearance).toHaveBeenCalledWith('light');
 });
 
-testStable('filters the theme library through settings search', async () => {
+test.stable('filters the theme library through settings search', async () => {
   const model = appearanceModel();
-  const onSearch = vi.fn();
-  const user = userEvent.setup();
-  const { rerender } = render(
-    <PageView open onClose={vi.fn()} model={model} search="" onSearch={onSearch} />
+  const onSearch = test.vi.fn();
+  const user = test.userEvent.setup();
+  const { rerender } = test.render(
+    <PageView open onClose={test.vi.fn()} model={model} search="" onSearch={onSearch} />
   );
 
-  await user.type(screen.getByRole('searchbox', { name: 'Search settings' }), 'o');
-  expect(onSearch).toHaveBeenCalledWith('o');
-  rerender(<PageView open onClose={vi.fn()} model={model} search="iris" onSearch={onSearch} />);
-  expect(screen.queryByRole('button', { name: 'Ocean' })).not.toBeInTheDocument();
+  await user.type(test.screen.getByRole('searchbox', { name: 'Search settings' }), 'o');
+  test.expect(onSearch).toHaveBeenCalledWith('o');
+  rerender(
+    <PageView open onClose={test.vi.fn()} model={model} search="iris" onSearch={onSearch} />
+  );
+  test.expect(test.screen.queryByRole('button', { name: 'Ocean' })).not.toBeInTheDocument();
 });
 
-testStable('shows only working interface controls and saves their committed values', async () => {
+test.stable('shows only working interface controls and saves their committed values', async () => {
   const model = appearanceModel();
 
-  render(<PageView open onClose={vi.fn()} model={model} />);
-  const contrast = screen.getByRole('slider', { name: 'Contrast' });
+  test.render(<PageView open onClose={test.vi.fn()} model={model} />);
+  const contrast = test.screen.getByRole('slider', { name: 'Contrast' });
 
-  fireEvent.change(contrast, { target: { value: '105' } });
-  fireEvent.keyUp(contrast, { key: 'ArrowRight' });
-  expect(model.setPreferences).toHaveBeenCalledWith({
+  test.fireEvent.change(contrast, { target: { value: '105' } });
+  test.fireEvent.keyUp(contrast, { key: 'ArrowRight' });
+  test.expect(model.setPreferences).toHaveBeenCalledWith({
     contrast: 105,
     glassOpacity: 80,
     animationDurationMs: 150
   });
-  expect(screen.getByRole('slider', { name: 'Glass opacity' })).toBeInTheDocument();
-  expect(screen.getByRole('slider', { name: 'Interface animations' })).toBeInTheDocument();
-  expect(screen.getByRole('slider', { name: 'Text size' })).toBeInTheDocument();
+  test.expect(test.screen.getByRole('slider', { name: 'Glass opacity' })).toBeInTheDocument();
+  test
+    .expect(test.screen.getByRole('slider', { name: 'Interface animations' }))
+    .toBeInTheDocument();
+  test.expect(test.screen.getByRole('slider', { name: 'Text size' })).toBeInTheDocument();
 });
 
-testStable('groups settings navigation and shows relevant cross-section search results', () => {
-  const onSectionChange = vi.fn();
-  const { rerender } = render(
-    <PageView open onClose={vi.fn()} model={appearanceModel()} onSectionChange={onSectionChange} />
+test.stable('groups settings navigation and shows relevant cross-section search results', () => {
+  const onSectionChange = test.vi.fn();
+  const { rerender } = test.render(
+    <PageView
+      open
+      onClose={test.vi.fn()}
+      model={appearanceModel()}
+      onSectionChange={onSectionChange}
+    />
   );
 
-  const navigation = screen.getByRole('navigation', { name: 'Settings' });
-  const labels = within(navigation)
+  const navigation = test.screen.getByRole('navigation', { name: 'Settings' });
+  const labels = test
+    .within(navigation)
     .getAllByRole('button')
     .map((button) => button.getAttribute('aria-label'));
 
-  expect(labels).toEqual([
-    'General',
-    'Appearance',
-    'Sidebar',
-    'Writing',
-    'Reading & exports',
-    'Analytics',
-    'Updates',
-    'AI providers',
-    'Models by task',
-    'Custom instructions',
-    'AI behavior',
-    'AI usage',
-    'Performance',
-    'Flashcards',
-    'Quizzes',
-    'Fill in the blank',
-    'Put in order',
-    'Matching',
-    'True or false',
-    'Subjects',
-    'Data & backups',
-    'Integrations'
-  ]);
-  expect(
-    within(navigation)
-      .getAllByRole('heading')
-      .map((heading) => heading.textContent)
-  ).toEqual(['Workspace', 'AI', 'Practice', 'Library']);
-  expect(screen.getByRole('button', { name: 'Appearance' })).toHaveAttribute(
-    'aria-current',
-    'page'
-  );
+  test
+    .expect(labels)
+    .toEqual([
+      'General',
+      'Appearance',
+      'Sidebar',
+      'Writing',
+      'Reading & exports',
+      'Analytics',
+      'Updates',
+      'AI providers',
+      'Models by task',
+      'Custom instructions',
+      'AI behavior',
+      'AI usage',
+      'Performance',
+      'Flashcards',
+      'Quizzes',
+      'Fill in the blank',
+      'Put in order',
+      'Matching',
+      'True or false',
+      'Subjects',
+      'Data & backups',
+      'Integrations'
+    ]);
+  test
+    .expect(
+      test
+        .within(navigation)
+        .getAllByRole('heading')
+        .map((heading) => heading.textContent)
+    )
+    .toEqual(['Workspace', 'AI', 'Practice', 'Library']);
+  test
+    .expect(test.screen.getByRole('button', { name: 'Appearance' }))
+    .toHaveAttribute('aria-current', 'page');
   rerender(
     <PageView
       open
-      onClose={vi.fn()}
+      onClose={test.vi.fn()}
       model={appearanceModel()}
       search="language"
       onSectionChange={onSectionChange}
     />
   );
-  expect(screen.getByRole('region', { name: 'Settings matches' })).toBeInTheDocument();
-  expect(screen.queryByText('Nothing matches.')).not.toBeInTheDocument();
-  expect(screen.queryByRole('slider', { name: 'Contrast' })).not.toBeInTheDocument();
+  test.expect(test.screen.getByRole('region', { name: 'Settings matches' })).toBeInTheDocument();
+  test.expect(test.screen.queryByText('Nothing matches.')).not.toBeInTheDocument();
+  test.expect(test.screen.queryByRole('slider', { name: 'Contrast' })).not.toBeInTheDocument();
   rerender(
     <PageView
       open
-      onClose={vi.fn()}
+      onClose={test.vi.fn()}
       model={appearanceModel()}
       search="ocean"
       onSectionChange={onSectionChange}
     />
   );
-  expect(screen.getByRole('button', { name: 'Ocean' })).toBeInTheDocument();
-  expect(screen.queryByText('Nothing matches.')).not.toBeInTheDocument();
+  test.expect(test.screen.getByRole('button', { name: 'Ocean' })).toBeInTheDocument();
+  test.expect(test.screen.queryByText('Nothing matches.')).not.toBeInTheDocument();
 });
 
-testStable.each([
+test.stable.each([
   ['Concurrent', 'Performance', 'performance'],
   ['Search logs', 'Analytics', 'analytics'],
   ['Sidebar spacing', 'Sidebar', 'sidebar'],
@@ -230,70 +247,71 @@ testStable.each([
   ['New cards per day', 'Flashcards', 'flashcards'],
   ['Automatic note titles', 'AI behavior', 'automation']
 ] as const)('finds %s under its focused %s section', (search, label, section) => {
-  const onSectionChange = vi.fn();
+  const onSectionChange = test.vi.fn();
 
-  render(
+  test.render(
     <PageView
       open
-      onClose={vi.fn()}
+      onClose={test.vi.fn()}
       model={appearanceModel()}
       search={search}
       onSectionChange={onSectionChange}
     />
   );
-  const matches = screen.getByRole('region', { name: 'Settings matches' });
+  const matches = test.screen.getByRole('region', { name: 'Settings matches' });
 
-  fireEvent.click(within(matches).getByRole('button', { name: label }));
-  expect(onSectionChange).toHaveBeenCalledWith(section);
+  test.fireEvent.click(test.within(matches).getByRole('button', { name: label }));
+  test.expect(onSectionChange).toHaveBeenCalledWith(section);
 });
 
-testStable.each(['english', 'italian'] as const)(
+test.stable.each(['english', 'italian'] as const)(
   'finds automatic answers in the dedicated behavior section in %s',
   (locale) => {
-    const onSectionChange = vi.fn();
+    const onSectionChange = test.vi.fn();
     const copy = catalogs[locale];
 
-    render(
+    test.render(
       <LanguageProvider locale={locale}>
         <PageView
           open
-          onClose={vi.fn()}
+          onClose={test.vi.fn()}
           model={appearanceModel()}
           search={copy.WorkspaceAutoAnswerQuestions}
           onSectionChange={onSectionChange}
         />
       </LanguageProvider>
     );
-    const matches = screen.getByRole('region', { name: copy.SettingsSearchMatches });
+    const matches = test.screen.getByRole('region', { name: copy.SettingsSearchMatches });
 
-    fireEvent.click(within(matches).getByRole('button', { name: copy.SettingsAiBehavior }));
-    expect(onSectionChange).toHaveBeenCalledWith('automation');
-    expect(within(matches).getAllByRole('button')).toHaveLength(1);
+    test.fireEvent.click(
+      test.within(matches).getByRole('button', { name: copy.SettingsAiBehavior })
+    );
+    test.expect(onSectionChange).toHaveBeenCalledWith('automation');
+    test.expect(test.within(matches).getAllByRole('button')).toHaveLength(1);
   }
 );
 
 for (const locale of ['english', 'italian'] as const) {
-  testStable(`finds updates through settings search in ${locale}`, () => {
-    const change = vi.fn();
+  test.stable(`finds updates through settings search in ${locale}`, () => {
+    const change = test.vi.fn();
     const catalog = catalogs[locale];
 
-    render(
+    test.render(
       <LanguageProvider locale={locale}>
         <PageView
           open
-          onClose={vi.fn()}
+          onClose={test.vi.fn()}
           model={appearanceModel()}
           search={catalog.UpdateCheck}
           onSectionChange={change}
         />
       </LanguageProvider>
     );
-    fireEvent.click(
-      within(screen.getByRole('region', { name: catalog.SettingsSearchMatches })).getByRole(
-        'button',
-        { name: catalog.Updates }
-      )
+    test.fireEvent.click(
+      test
+        .within(test.screen.getByRole('region', { name: catalog.SettingsSearchMatches }))
+        .getByRole('button', { name: catalog.Updates })
     );
-    expect(change).toHaveBeenCalledWith('updates');
+    test.expect(change).toHaveBeenCalledWith('updates');
   });
 }

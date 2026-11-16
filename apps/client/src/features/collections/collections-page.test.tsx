@@ -1,6 +1,7 @@
 import { StudyError, materialSummarySchema, noteSchema, projectSchema } from '@study/contracts';
+import type { StudyClient } from '@study/contracts/react/testing';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import type * as UiModule from '@study/ui';
 import { toastManager } from '@study/ui';
 import {
@@ -12,35 +13,30 @@ import {
   stringifySearchWith,
   RouterProvider
 } from '@tanstack/react-router';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { Effect, Schema } from 'effect';
-import { beforeEach, expect, vi } from 'vite-plus/test';
 
 import { LanguageProvider } from '#client/lib/i18n.tsx';
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
-import type { StudyClient } from '#client/test/rpc.tsx';
 
 import { CollectionsPage } from './collections-page';
 
-vi.mock('@study/ui', async (load) => {
+test.mock('@study/ui', async (load) => {
   const actual = await load<typeof UiModule>();
 
-  return { ...actual, toastManager: { ...actual.toastManager, add: vi.fn() } };
+  return { ...actual, toastManager: { ...actual.toastManager, add: test.vi.fn() } };
 });
 
-const rpc = vi.hoisted(() => ({
-  'projects.projects': vi.fn<StudyClient['projects.projects']>(),
-  'projects.project': vi.fn<StudyClient['projects.project']>(),
-  'projects.createProject': vi.fn<StudyClient['projects.createProject']>(),
-  'projects.deleteProject': vi.fn<StudyClient['projects.deleteProject']>(),
-  'projects.renameProject': vi.fn<StudyClient['projects.renameProject']>(),
-  'projects.addMaterial': vi.fn<StudyClient['projects.addMaterial']>(),
-  'projects.removeMaterial': vi.fn<StudyClient['projects.removeMaterial']>(),
-  'projects.addNote': vi.fn<StudyClient['projects.addNote']>(),
-  'projects.removeNote': vi.fn<StudyClient['projects.removeNote']>(),
-  'materials.materials': vi.fn<StudyClient['materials.materials']>(),
-  'notes.notes': vi.fn<StudyClient['notes.notes']>()
+const rpc = test.hoisted(() => ({
+  'projects.projects': test.vi.fn<StudyClient['projects.projects']>(),
+  'projects.project': test.vi.fn<StudyClient['projects.project']>(),
+  'projects.createProject': test.vi.fn<StudyClient['projects.createProject']>(),
+  'projects.deleteProject': test.vi.fn<StudyClient['projects.deleteProject']>(),
+  'projects.renameProject': test.vi.fn<StudyClient['projects.renameProject']>(),
+  'projects.addMaterial': test.vi.fn<StudyClient['projects.addMaterial']>(),
+  'projects.removeMaterial': test.vi.fn<StudyClient['projects.removeMaterial']>(),
+  'projects.addNote': test.vi.fn<StudyClient['projects.addNote']>(),
+  'projects.removeNote': test.vi.fn<StudyClient['projects.removeNote']>(),
+  'materials.materials': test.vi.fn<StudyClient['materials.materials']>(),
+  'notes.notes': test.vi.fn<StudyClient['notes.notes']>()
 }));
 
 const t = catalogs.english;
@@ -63,7 +59,7 @@ function deferred<T>() {
 }
 
 function mount() {
-  const harness = rpcHandlersTransport(rpc);
+  const harness = test.rpcHandlersTransport(rpc);
   const root = createRootRoute({ component: Outlet });
   const router = createRouter({
     routeTree: root.addChildren([
@@ -74,7 +70,7 @@ function mount() {
     stringifySearch: stringifySearchWith(String),
     history: createMemoryHistory({ initialEntries: ['/projects'] })
   });
-  const view = render(
+  const view = test.render(
     <harness.wrapper>
       <LanguageProvider locale="english">
         <RouterProvider router={router} />
@@ -86,41 +82,41 @@ function mount() {
 }
 
 async function remount(router: ReturnType<typeof mount>['router']) {
-  await act(async () => {
+  await test.act(async () => {
     await router.navigate({ to: '/home' });
   });
-  await screen.findByText('Away');
-  await act(async () => {
+  await test.screen.findByText('Away');
+  await test.act(async () => {
     await router.navigate({ to: '/projects' });
   });
-  await screen.findByRole('button', { name: t['collections.create'] });
+  await test.screen.findByRole('button', { name: t['collections.create'] });
 }
 
 function createName() {
-  return screen.getAllByRole('textbox', { name: t['collections.name'] })[0]!;
+  return test.screen.getAllByRole('textbox', { name: t['collections.name'] })[0]!;
 }
 
 function detail() {
-  return within(screen.getByRole('region', { name: 'Biology' }));
+  return test.within(test.screen.getByRole('region', { name: 'Biology' }));
 }
 
 async function selectProject() {
-  await act(async () => {
-    fireEvent.click(await screen.findByRole('button', { name: 'Biology' }));
+  await test.act(async () => {
+    test.fireEvent.click(await test.screen.findByRole('button', { name: 'Biology' }));
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
-  await screen.findByRole('region', { name: 'Biology' });
+  await test.screen.findByRole('region', { name: 'Biology' });
 }
 
-beforeEach(() => {
-  vi.resetAllMocks();
+test.beforeEach(() => {
+  test.vi.resetAllMocks();
   rpc['projects.projects'].mockReturnValue(Effect.succeed({ items: [project], next: null }));
   rpc['projects.project'].mockReturnValue(Effect.succeed(project));
   rpc['materials.materials'].mockReturnValue(Effect.succeed({ items: [], nextCursor: null }));
   rpc['notes.notes'].mockReturnValue(Effect.succeed({ items: [], next: null }));
 });
 
-testStable(
+test.stable(
   'excludes duplicate create across a route remount and preserves a newer draft after the late receipt',
   async () => {
     const response = deferred<typeof project>();
@@ -128,45 +124,47 @@ testStable(
     rpc['projects.createProject'].mockReturnValue(Effect.promise(() => response.promise));
     const { router } = mount();
 
-    await screen.findByRole('button', { name: 'Biology' });
-    await act(async () => {
-      fireEvent.change(createName(), { target: { value: 'Submitted' } });
+    await test.screen.findByRole('button', { name: 'Biology' });
+    await test.act(async () => {
+      test.fireEvent.change(createName(), { target: { value: 'Submitted' } });
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: t['collections.create'] }));
+    await test.act(async () => {
+      test.fireEvent.click(test.screen.getByRole('button', { name: t['collections.create'] }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await screen.findByText(t['collections.creating']);
-    expect(screen.queryByText(t['collections.uncertain'])).toBeNull();
+    await test.screen.findByText(t['collections.creating']);
+    test.expect(test.screen.queryByText(t['collections.uncertain'])).toBeNull();
     await remount(router);
-    await act(async () => {
-      fireEvent.change(createName(), { target: { value: 'New unsent draft' } });
+    await test.act(async () => {
+      test.fireEvent.change(createName(), { target: { value: 'New unsent draft' } });
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    expect(screen.getByRole('button', { name: t['collections.create'] })).toBeDisabled();
-    expect(screen.queryByRole('button', { name: t['collections.reviewed'] })).toBeNull();
-    await act(async () => {
-      fireEvent.submit(createName().closest('form')!);
+    test.expect(test.screen.getByRole('button', { name: t['collections.create'] })).toBeDisabled();
+    test.expect(test.screen.queryByRole('button', { name: t['collections.reviewed'] })).toBeNull();
+    await test.act(async () => {
+      test.fireEvent.submit(createName().closest('form')!);
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    expect(rpc['projects.createProject']).toHaveBeenCalledExactlyOnceWith({ name: 'Submitted' });
-    await act(async () => {
+    test
+      .expect(rpc['projects.createProject'])
+      .toHaveBeenCalledExactlyOnceWith({ name: 'Submitted' });
+    await test.act(async () => {
       response.resolve(project);
       await response.promise;
     });
-    await screen.findByText(t['collections.created']);
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: t['collections.create'] })).toBeEnabled()
+    await test.screen.findByText(t['collections.created']);
+    await test.waitFor(() =>
+      test.expect(test.screen.getByRole('button', { name: t['collections.create'] })).toBeEnabled()
     );
-    expect(createName()).toHaveValue('New unsent draft');
-    expect(screen.queryByText(String(project.id))).toBeNull();
+    test.expect(createName()).toHaveValue('New unsent draft');
+    test.expect(test.screen.queryByText(String(project.id))).toBeNull();
     await remount(router);
-    expect(createName()).toHaveValue('New unsent draft');
+    test.expect(createName()).toHaveValue('New unsent draft');
   }
 );
 
-testStable(
+test.stable(
   'requires a fresh list review after settled ambiguous creation without replaying the write',
   async () => {
     rpc['projects.createProject'].mockReturnValue(
@@ -174,41 +172,45 @@ testStable(
     );
     const { router } = mount();
 
-    await screen.findByRole('button', { name: 'Biology' });
-    await act(async () => {
-      fireEvent.change(createName(), { target: { value: 'Submitted' } });
+    await test.screen.findByRole('button', { name: 'Biology' });
+    await test.act(async () => {
+      test.fireEvent.change(createName(), { target: { value: 'Submitted' } });
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: t['collections.create'] }));
+    await test.act(async () => {
+      test.fireEvent.click(test.screen.getByRole('button', { name: t['collections.create'] }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await screen.findByText(t['collections.uncertain']);
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: t['collections.retry'] })).toBeEnabled()
+    await test.screen.findByText(t['collections.uncertain']);
+    await test.waitFor(() =>
+      test.expect(test.screen.getByRole('button', { name: t['collections.retry'] })).toBeEnabled()
     );
     await remount(router);
-    expect(screen.getByRole('button', { name: t['collections.reviewed'] })).toBeDisabled();
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: t['collections.retry'] }));
+    test
+      .expect(test.screen.getByRole('button', { name: t['collections.reviewed'] }))
+      .toBeDisabled();
+    await test.act(async () => {
+      test.fireEvent.click(test.screen.getByRole('button', { name: t['collections.retry'] }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: t['collections.reviewed'] })).toBeEnabled()
+    await test.waitFor(() =>
+      test
+        .expect(test.screen.getByRole('button', { name: t['collections.reviewed'] }))
+        .toBeEnabled()
     );
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: t['collections.reviewed'] }));
+    await test.act(async () => {
+      test.fireEvent.click(test.screen.getByRole('button', { name: t['collections.reviewed'] }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: t['collections.create'] })).toBeEnabled()
+    await test.waitFor(() =>
+      test.expect(test.screen.getByRole('button', { name: t['collections.create'] })).toBeEnabled()
     );
-    expect(createName()).toHaveValue('Submitted');
-    expect(rpc['projects.createProject']).toHaveBeenCalledTimes(1);
+    test.expect(createName()).toHaveValue('Submitted');
+    test.expect(rpc['projects.createProject']).toHaveBeenCalledTimes(1);
   }
 );
 
-testStable(
+test.stable(
   'serializes rename through remount and retains edits made after submission',
   async () => {
     const response = deferred<boolean>();
@@ -217,44 +219,48 @@ testStable(
     const { router } = mount();
 
     await selectProject();
-    await act(async () => {
-      fireEvent.change(detail().getByRole('textbox'), { target: { value: 'Submitted rename' } });
+    await test.act(async () => {
+      test.fireEvent.change(detail().getByRole('textbox'), {
+        target: { value: 'Submitted rename' }
+      });
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await act(async () => {
-      fireEvent.click(detail().getByRole('button', { name: t['collections.rename'] }));
+    await test.act(async () => {
+      test.fireEvent.click(detail().getByRole('button', { name: t['collections.rename'] }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await waitFor(() => expect(rpc['projects.renameProject']).toHaveBeenCalledTimes(1));
+    await test.waitFor(() => test.expect(rpc['projects.renameProject']).toHaveBeenCalledTimes(1));
     await remount(router);
-    await screen.findByRole('region', { name: 'Biology' });
-    await act(async () => {
-      fireEvent.change(detail().getByRole('textbox'), { target: { value: 'New rename draft' } });
+    await test.screen.findByRole('region', { name: 'Biology' });
+    await test.act(async () => {
+      test.fireEvent.change(detail().getByRole('textbox'), {
+        target: { value: 'New rename draft' }
+      });
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    expect(detail().getByRole('button', { name: t['collections.rename'] })).toBeDisabled();
-    await act(async () => {
-      fireEvent.submit(detail().getByRole('textbox').closest('form')!);
+    test.expect(detail().getByRole('button', { name: t['collections.rename'] })).toBeDisabled();
+    await test.act(async () => {
+      test.fireEvent.submit(detail().getByRole('textbox').closest('form')!);
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await act(async () => {
+    await test.act(async () => {
       response.resolve(true);
       await response.promise;
     });
-    await waitFor(() =>
-      expect(detail().getByRole('button', { name: t['collections.rename'] })).toBeEnabled()
+    await test.waitFor(() =>
+      test.expect(detail().getByRole('button', { name: t['collections.rename'] })).toBeEnabled()
     );
     await remount(router);
-    expect(await screen.findByRole('region', { name: 'Biology' })).toBeInTheDocument();
-    expect(detail().getByRole('textbox')).toHaveValue('New rename draft');
-    expect(rpc['projects.renameProject']).toHaveBeenCalledExactlyOnceWith({
+    test.expect(await test.screen.findByRole('region', { name: 'Biology' })).toBeInTheDocument();
+    test.expect(detail().getByRole('textbox')).toHaveValue('New rename draft');
+    test.expect(rpc['projects.renameProject']).toHaveBeenCalledExactlyOnceWith({
       id: project.id,
       name: 'Submitted rename'
     });
   }
 );
 
-testStable(
+test.stable(
   'reads the selected identity exactly when it is absent from the reloaded catalog and shows canonical rename data',
   async () => {
     const { router } = mount();
@@ -263,67 +269,77 @@ testStable(
     rpc['projects.projects'].mockReturnValue(Effect.succeed({ items: [], next: project.id }));
     rpc['projects.project'].mockReturnValue(Effect.succeed({ ...project, name: 'Canonical name' }));
     await remount(router);
-    await screen.findByRole('region', { name: 'Canonical name' });
-    expect(screen.queryByRole('button', { name: 'Biology' })).toBeNull();
-    expect(
-      within(screen.getByRole('region', { name: 'Canonical name' })).getByRole('textbox')
-    ).toHaveValue('Canonical name');
-    expect(rpc['projects.project']).toHaveBeenLastCalledWith({ id: project.id });
+    await test.screen.findByRole('region', { name: 'Canonical name' });
+    test.expect(test.screen.queryByRole('button', { name: 'Biology' })).toBeNull();
+    test
+      .expect(
+        test
+          .within(test.screen.getByRole('region', { name: 'Canonical name' }))
+          .getByRole('textbox')
+      )
+      .toHaveValue('Canonical name');
+    test.expect(rpc['projects.project']).toHaveBeenLastCalledWith({ id: project.id });
   }
 );
 
-testStable('treats a false rename receipt as missing and preserves its unsent name', async () => {
+test.stable('treats a false rename receipt as missing and preserves its unsent name', async () => {
   rpc['projects.renameProject'].mockReturnValue(Effect.succeed(false));
   const { router } = mount();
 
   await selectProject();
-  await act(async () => {
-    fireEvent.change(detail().getByRole('textbox'), { target: { value: 'Keep this name' } });
+  await test.act(async () => {
+    test.fireEvent.change(detail().getByRole('textbox'), { target: { value: 'Keep this name' } });
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
-  await act(async () => {
-    fireEvent.click(detail().getByRole('button', { name: t['collections.rename'] }));
+  await test.act(async () => {
+    test.fireEvent.click(detail().getByRole('button', { name: t['collections.rename'] }));
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
-  await screen.findByText(t['collections.missing']);
-  await waitFor(() =>
-    expect(detail().getByRole('button', { name: t['collections.rename'] })).toBeEnabled()
+  await test.screen.findByText(t['collections.missing']);
+  await test.waitFor(() =>
+    test.expect(detail().getByRole('button', { name: t['collections.rename'] })).toBeEnabled()
   );
   await remount(router);
-  await screen.findByRole('region', { name: 'Biology' });
-  expect(detail().getByRole('textbox')).toHaveValue('Keep this name');
+  await test.screen.findByRole('region', { name: 'Biology' });
+  test.expect(detail().getByRole('textbox')).toHaveValue('Keep this name');
 });
 
-testStable(
+test.stable(
   'hides stale selected controls and the accepted receipt when the exact project becomes missing',
   async () => {
     rpc['projects.createProject'].mockReturnValue(Effect.succeed(project));
     mount();
-    await screen.findByRole('button', { name: 'Biology' });
-    await act(async () => {
-      fireEvent.change(createName(), { target: { value: 'Biology' } });
+    await test.screen.findByRole('button', { name: 'Biology' });
+    await test.act(async () => {
+      test.fireEvent.change(createName(), { target: { value: 'Biology' } });
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: t['collections.create'] }));
+    await test.act(async () => {
+      test.fireEvent.click(test.screen.getByRole('button', { name: t['collections.create'] }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await screen.findByText(t['collections.created']);
-    await waitFor(() =>
-      expect(screen.getAllByRole('button', { name: t['collections.retry'] })[0]).toBeEnabled()
+    await test.screen.findByText(t['collections.created']);
+    await test.waitFor(() =>
+      test
+        .expect(test.screen.getAllByRole('button', { name: t['collections.retry'] })[0])
+        .toBeEnabled()
     );
     rpc['projects.project'].mockReturnValue(Effect.fail(new StudyError('not_found', 'gone')));
-    await act(async () => {
-      fireEvent.click(screen.getAllByRole('button', { name: t['collections.retry'] })[0]!);
+    await test.act(async () => {
+      test.fireEvent.click(
+        test.screen.getAllByRole('button', { name: t['collections.retry'] })[0]!
+      );
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await screen.findByText(t['collections.missing']);
-    expect(screen.queryByRole('region', { name: 'Biology' })).toBeNull();
-    await waitFor(() => expect(screen.queryByText(t['collections.created'])).toBeNull());
+    await test.screen.findByText(t['collections.missing']);
+    test.expect(test.screen.queryByRole('region', { name: 'Biology' })).toBeNull();
+    await test.waitFor(() =>
+      test.expect(test.screen.queryByText(t['collections.created'])).toBeNull()
+    );
   }
 );
 
-testStable.each(['materials', 'notes'] as const)(
+test.stable.each(['materials', 'notes'] as const)(
   'reconciles an ambiguous %s membership response and supports explicit refresh without replay',
   async (kind) => {
     let member = true;
@@ -382,83 +398,91 @@ testStable.each(['materials', 'notes'] as const)(
 
     await selectProject();
     const title = kind === 'materials' ? 'Reading' : 'Discussion';
-    const button = await screen.findByRole('button', {
+    const button = await test.screen.findByRole('button', {
       name: `${t['collections.detach']}: ${title}`
     });
     const section = button.closest('section')!;
 
-    await act(async () => {
-      fireEvent.click(button);
+    await test.act(async () => {
+      test.fireEvent.click(button);
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await screen.findByText(t['collections.mutationError']);
-    await act(() => notify());
-    await waitFor(() => expect(within(section).queryByText(title)).toBeNull());
-    await waitFor(() =>
-      expect(within(section).getByRole('button', { name: t['collections.retry'] })).toBeEnabled()
+    await test.screen.findByText(t['collections.mutationError']);
+    await test.act(() => notify());
+    await test.waitFor(() => test.expect(test.within(section).queryByText(title)).toBeNull());
+    await test.waitFor(() =>
+      test
+        .expect(test.within(section).getByRole('button', { name: t['collections.retry'] }))
+        .toBeEnabled()
     );
-    expect(within(section).getByText(t['collections.emptyMembers'])).toBeInTheDocument();
+    test.expect(test.within(section).getByText(t['collections.emptyMembers'])).toBeInTheDocument();
     member = true;
-    await act(async () => {
-      fireEvent.click(within(section).getByRole('button', { name: t['collections.retry'] }));
+    await test.act(async () => {
+      test.fireEvent.click(
+        test.within(section).getByRole('button', { name: t['collections.retry'] })
+      );
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await within(section).findByText(title);
-    expect(screen.getByText(t['collections.mutationError'])).toBeInTheDocument();
-    expect(remove).toHaveBeenCalledTimes(1);
-    expect(remove).toHaveBeenCalledWith(
-      kind === 'materials'
-        ? { projectId: project.id, materialId: material.id }
-        : { projectId: project.id, noteId: note.id }
-    );
+    await test.within(section).findByText(title);
+    test.expect(test.screen.getByText(t['collections.mutationError'])).toBeInTheDocument();
+    test.expect(remove).toHaveBeenCalledTimes(1);
+    test
+      .expect(remove)
+      .toHaveBeenCalledWith(
+        kind === 'materials'
+          ? { projectId: project.id, materialId: material.id }
+          : { projectId: project.id, noteId: note.id }
+      );
   }
 );
 
-testStable('provides contextual empty guidance for catalog, members and picker', async () => {
+test.stable('provides contextual empty guidance for catalog, members and picker', async () => {
   rpc['projects.projects'].mockReturnValueOnce(Effect.succeed({ items: [], next: null }));
   const { notify } = mount();
 
-  await screen.findByText(t['collections.emptyCatalog']);
-  await act(async () => {
+  await test.screen.findByText(t['collections.emptyCatalog']);
+  await test.act(async () => {
     await notify();
   });
   await selectProject();
-  await waitFor(() => expect(screen.getAllByText(t['collections.emptyMembers'])).toHaveLength(2));
-  await act(async () => {
-    fireEvent.click(screen.getAllByRole('button', { name: t['collections.picker'] })[0]!);
+  await test.waitFor(() =>
+    test.expect(test.screen.getAllByText(t['collections.emptyMembers'])).toHaveLength(2)
+  );
+  await test.act(async () => {
+    test.fireEvent.click(test.screen.getAllByRole('button', { name: t['collections.picker'] })[0]!);
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
-  await screen.findByText(t['collections.emptyPicker']);
+  await test.screen.findByText(t['collections.emptyPicker']);
 });
 
-testStable(
+test.stable(
   'keeps typed invalid-input rejection editable without an ambiguous-create acknowledgement',
   async () => {
     rpc['projects.createProject'].mockReturnValue(
       Effect.fail(new StudyError('invalid_input', 'rejected'))
     );
     mount();
-    await screen.findByRole('button', { name: 'Biology' });
-    await act(async () => {
-      fireEvent.change(createName(), { target: { value: 'Rejected draft' } });
+    await test.screen.findByRole('button', { name: 'Biology' });
+    await test.act(async () => {
+      test.fireEvent.change(createName(), { target: { value: 'Rejected draft' } });
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: t['collections.create'] }));
+    await test.act(async () => {
+      test.fireEvent.click(test.screen.getByRole('button', { name: t['collections.create'] }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await screen.findByText(t['collections.invalidName']);
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: t['collections.create'] })).toBeEnabled()
+    await test.screen.findByText(t['collections.invalidName']);
+    await test.waitFor(() =>
+      test.expect(test.screen.getByRole('button', { name: t['collections.create'] })).toBeEnabled()
     );
-    expect(createName()).toHaveValue('Rejected draft');
-    expect(screen.queryByText(t['collections.uncertain'])).toBeNull();
-    expect(screen.queryByRole('button', { name: t['collections.reviewed'] })).toBeNull();
-    expect(rpc['projects.createProject']).toHaveBeenCalledTimes(1);
+    test.expect(createName()).toHaveValue('Rejected draft');
+    test.expect(test.screen.queryByText(t['collections.uncertain'])).toBeNull();
+    test.expect(test.screen.queryByRole('button', { name: t['collections.reviewed'] })).toBeNull();
+    test.expect(rpc['projects.createProject']).toHaveBeenCalledTimes(1);
   }
 );
 
-testStable(
+test.stable(
   'uses complete projectIds in the picker and reconciles a lost add response without replay',
   async () => {
     let attached = false;
@@ -496,48 +520,58 @@ testStable(
     mount();
 
     await selectProject();
-    const picker = screen.getAllByRole('button', { name: t['collections.picker'] })[1]!;
+    const picker = test.screen.getAllByRole('button', { name: t['collections.picker'] })[1]!;
 
-    await act(async () => {
-      fireEvent.click(picker);
+    await test.act(async () => {
+      test.fireEvent.click(picker);
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    const add = await screen.findByRole('button', {
+    const add = await test.screen.findByRole('button', {
       name: `${t['collections.add']}: Available discussion`
     });
 
-    expect(
-      screen.getByRole('button', { name: `${t['collections.add']}: Already attached` })
-    ).toBeDisabled();
-    await act(async () => {
-      fireEvent.click(add);
+    test
+      .expect(
+        test.screen.getByRole('button', { name: `${t['collections.add']}: Already attached` })
+      )
+      .toBeDisabled();
+    await test.act(async () => {
+      test.fireEvent.click(add);
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await screen.findByText(t['collections.mutationError']);
-    await waitFor(() =>
-      expect(
-        screen.getByRole('button', { name: `${t['collections.add']}: Available discussion` })
-      ).toBeDisabled()
+    await test.screen.findByText(t['collections.mutationError']);
+    await test.waitFor(() =>
+      test
+        .expect(
+          test.screen.getByRole('button', { name: `${t['collections.add']}: Available discussion` })
+        )
+        .toBeDisabled()
     );
     const section = picker.closest('section')!;
 
-    await waitFor(() =>
-      expect(within(section).getByRole('button', { name: t['collections.retry'] })).toBeEnabled()
+    await test.waitFor(() =>
+      test
+        .expect(test.within(section).getByRole('button', { name: t['collections.retry'] }))
+        .toBeEnabled()
     );
-    await act(async () => {
-      fireEvent.click(within(section).getByRole('button', { name: t['collections.members'] }));
+    await test.act(async () => {
+      test.fireEvent.click(
+        test.within(section).getByRole('button', { name: t['collections.members'] })
+      );
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    await screen.findByRole('button', { name: `${t['collections.detach']}: Available discussion` });
-    expect(rpc['projects.addNote']).toHaveBeenCalledExactlyOnceWith({
+    await test.screen.findByRole('button', {
+      name: `${t['collections.detach']}: Available discussion`
+    });
+    test.expect(rpc['projects.addNote']).toHaveBeenCalledExactlyOnceWith({
       projectId: project.id,
       noteId: note.id
     });
-    expect(rpc['projects.removeNote']).not.toHaveBeenCalled();
+    test.expect(rpc['projects.removeNote']).not.toHaveBeenCalled();
   }
 );
 
-testStable(
+test.stable(
   'requires the exact subject name and fences dismissal while its native deletion is pending',
   async () => {
     const response = deferred<boolean>();
@@ -545,28 +579,30 @@ testStable(
     rpc['projects.deleteProject'].mockReturnValue(Effect.promise(() => response.promise));
     mount();
     await selectProject();
-    fireEvent.click(detail().getByRole('button', { name: t['collections.delete'] }));
-    const dialog = await screen.findByRole('alertdialog');
-    const confirm = within(dialog).getByRole('button', { name: t['collections.delete'] });
-    const field = within(dialog).getByRole('textbox');
+    test.fireEvent.click(detail().getByRole('button', { name: t['collections.delete'] }));
+    const dialog = await test.screen.findByRole('alertdialog');
+    const confirm = test.within(dialog).getByRole('button', { name: t['collections.delete'] });
+    const field = test.within(dialog).getByRole('textbox');
 
-    expect(confirm).toBeDisabled();
-    fireEvent.change(field, { target: { value: 'delete' } });
-    expect(confirm).toBeDisabled();
-    expect(rpc['projects.deleteProject']).not.toHaveBeenCalled();
-    fireEvent.change(field, { target: { value: project.name } });
-    fireEvent.click(confirm);
-    await waitFor(() =>
-      expect(rpc['projects.deleteProject']).toHaveBeenCalledExactlyOnceWith({
+    test.expect(confirm).toBeDisabled();
+    test.fireEvent.change(field, { target: { value: 'delete' } });
+    test.expect(confirm).toBeDisabled();
+    test.expect(rpc['projects.deleteProject']).not.toHaveBeenCalled();
+    test.fireEvent.change(field, { target: { value: project.name } });
+    test.fireEvent.click(confirm);
+    await test.waitFor(() =>
+      test.expect(rpc['projects.deleteProject']).toHaveBeenCalledExactlyOnceWith({
         id: project.id
       })
     );
-    expect(within(dialog).getByRole('button', { name: t['collections.cancel'] })).toBeDisabled();
-    await userEvent.setup().keyboard('{Escape}');
-    expect(screen.getByRole('alertdialog')).toBe(dialog);
-    await act(async () => response.resolve(true));
-    await waitFor(() =>
-      expect(toastManager.add).toHaveBeenCalledExactlyOnceWith({
+    test
+      .expect(test.within(dialog).getByRole('button', { name: t['collections.cancel'] }))
+      .toBeDisabled();
+    await test.userEvent.setup().keyboard('{Escape}');
+    test.expect(test.screen.getByRole('alertdialog')).toBe(dialog);
+    await test.act(async () => response.resolve(true));
+    await test.waitFor(() =>
+      test.expect(toastManager.add).toHaveBeenCalledExactlyOnceWith({
         title: t.SubjectDeleted,
         type: 'success'
       })
@@ -574,21 +610,25 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'does not announce a missing subject as deleted when the native receipt is false',
   async () => {
     rpc['projects.deleteProject'].mockReturnValue(Effect.succeed(false));
     mount();
     await selectProject();
-    fireEvent.click(detail().getByRole('button', { name: t['collections.delete'] }));
-    const dialog = await screen.findByRole('alertdialog');
+    test.fireEvent.click(detail().getByRole('button', { name: t['collections.delete'] }));
+    const dialog = await test.screen.findByRole('alertdialog');
 
-    fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: project.name } });
-    fireEvent.click(within(dialog).getByRole('button', { name: t['collections.delete'] }));
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
-      t['collections.mutationError']
+    test.fireEvent.change(test.within(dialog).getByRole('textbox'), {
+      target: { value: project.name }
+    });
+    test.fireEvent.click(
+      test.within(dialog).getByRole('button', { name: t['collections.delete'] })
     );
-    expect(toastManager.add).not.toHaveBeenCalled();
-    expect(rpc['projects.deleteProject']).toHaveBeenCalledExactlyOnceWith({ id: project.id });
+    test
+      .expect(await test.within(dialog).findByRole('alert'))
+      .toHaveTextContent(t['collections.mutationError']);
+    test.expect(toastManager.add).not.toHaveBeenCalled();
+    test.expect(rpc['projects.deleteProject']).toHaveBeenCalledExactlyOnceWith({ id: project.id });
   }
 );

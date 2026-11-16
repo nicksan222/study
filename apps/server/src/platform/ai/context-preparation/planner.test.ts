@@ -13,9 +13,8 @@
 
 import { contentInputSchema } from '@study/contracts';
 import type { Document } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { planSourcePassages, splitTextRanges, sourcePassagePlanSchema } from './index.ts';
 import type { SourcePlanLimits, SourceInput, SourceSelection } from './index.ts';
@@ -43,7 +42,7 @@ function plan(input: Document, options?: Partial<typeof limits>) {
   });
 }
 
-testStable(
+test.stable(
   'reconstructs more than 100k characters, 200 blocks and oversized Unicode blocks exactly',
   async () => {
     const input = document([
@@ -53,41 +52,41 @@ testStable(
     const result = await Effect.runPromise(plan(input));
     const passages = result.pieces.flatMap((piece) => piece.passages);
 
-    assert.equal(new Set(passages.map((p) => p.marker)).size, passages.length);
+    test.assert.equal(new Set(passages.map((p) => p.marker)).size, passages.length);
 
     for (const [ordinal, block] of input.blocks.entries()) {
       const parts = passages.filter((p) => p.blockId === block.id);
 
-      assert.equal(parts.map((p) => p.text).join(''), block.text);
+      test.assert.equal(parts.map((p) => p.text).join(''), block.text);
 
       for (const part of parts) {
-        assert.equal(part.ordinal, ordinal);
-        assert.equal(part.text, block.text.slice(part.start, part.end));
-        assert.deepEqual(part.anchor, block.anchor);
-        assert.deepEqual(part.reference, { version: 'exact' });
-        assert.isFalse(/[\uD800-\uDBFF]$/.test(part.text));
+        test.assert.equal(part.ordinal, ordinal);
+        test.assert.equal(part.text, block.text.slice(part.start, part.end));
+        test.assert.deepEqual(part.anchor, block.anchor);
+        test.assert.deepEqual(part.reference, { version: 'exact' });
+        test.assert.isFalse(/[\uD800-\uDBFF]$/.test(part.text));
       }
     }
 
-    assert.deepEqual(await Effect.runPromise(plan(input)), result);
+    test.assert.deepEqual(await Effect.runPromise(plan(input)), result);
   }
 );
 
-testStable(
+test.stable(
   'rejects whole-plan exhaustion and invalid limits with canonical typed failures',
   async () => {
-    assert.equal(
+    test.assert.equal(
       (await Effect.runPromise(Effect.flip(plan(document(['abc']), { maxPlanChars: 2 })))).kind,
       'not_enough'
     );
-    assert.equal(
+    test.assert.equal(
       (await Effect.runPromise(Effect.flip(plan(document(['abc']), { maxPieceChars: 0 })))).kind,
       'invalid_input'
     );
   }
 );
 
-testStable(
+test.stable(
   'keeps explicit selected scope and rejects invalid or overlapping selections',
   async () => {
     const input = document(['alpha 🌏 omega']);
@@ -106,20 +105,20 @@ testStable(
     const range = { documentKey: 'one', blockId: block.id, start: 6, end: 8 };
     const result = await Effect.runPromise(selected([range]));
 
-    assert.deepEqual(result.selection, { mode: 'selected', ranges: [range] });
-    assert.equal(result.pieces[0]!.passages[0]!.text, '🌏');
-    assert.equal(
+    test.assert.deepEqual(result.selection, { mode: 'selected', ranges: [range] });
+    test.assert.equal(result.pieces[0]!.passages[0]!.text, '🌏');
+    test.assert.equal(
       (await Effect.runPromise(Effect.flip(selected([{ ...range, end: 7 }])))).kind,
       'invalid_input'
     );
-    assert.equal(
+    test.assert.equal(
       (await Effect.runPromise(Effect.flip(selected([range, range])))).kind,
       'invalid_input'
     );
   }
 );
 
-testStable(
+test.stable(
   'bounds encoded bigint content references and preserves exact message references',
   async () => {
     const contentReference = Schema.decodeUnknownSync(contentInputSchema)({
@@ -140,7 +139,7 @@ testStable(
       })
     );
 
-    assert.deepEqual(result.pieces[0]!.passages[0]!.reference, contentReference);
+    test.assert.deepEqual(result.pieces[0]!.passages[0]!.reference, contentReference);
     const messageSchema = Schema.Struct({
       kind: Schema.Literal('message'),
       messageId: Schema.BigInt,
@@ -158,17 +157,17 @@ testStable(
       })
     );
 
-    assert.deepEqual(selected.pieces[0]!.passages[0]!.reference, exact);
+    test.assert.deepEqual(selected.pieces[0]!.passages[0]!.reference, exact);
   }
 );
 
-testStable('counts metadata for empty blocks and rejects duplicate document keys', async () => {
+test.stable('counts metadata for empty blocks and rejects duplicate document keys', async () => {
   const input = document(Array.from({ length: 3000 }, () => ''));
   const failure = await Effect.runPromise(
     Effect.flip(plan(input, { maxPieceBytes: 1000, maxPieces: 2 }))
   );
 
-  assert.equal(failure.kind, 'not_enough');
+  test.assert.equal(failure.kind, 'not_enough');
   const duplicate: SourceInput<{ version: string }> = {
     key: 'one',
     name: 'Original',
@@ -182,55 +181,66 @@ testStable('counts metadata for empty blocks and rejects duplicate document keys
     selection: { mode: 'complete' }
   });
 
-  assert.equal((await Effect.runPromise(Effect.flip(duplicated))).kind, 'invalid_input');
+  test.assert.equal((await Effect.runPromise(Effect.flip(duplicated))).kind, 'invalid_input');
 });
 
-testStable('bounds canonical Unicode ranges with no omitted characters', () => {
+test.stable('bounds canonical Unicode ranges with no omitted characters', () => {
   const text = 'a🌏z🌏';
   const ranges = splitTextRanges(text, 2);
 
-  assert.deepEqual(ranges, [
+  test.assert.deepEqual(ranges, [
     { start: 0, end: 1 },
     { start: 1, end: 3 },
     { start: 3, end: 4 },
     { start: 4, end: 6 }
   ]);
-  assert.equal(ranges.map((range) => text.slice(range.start, range.end)).join(''), text);
-  assert.deepEqual(splitTextRanges('', 2), [{ start: 0, end: 0 }]);
+  test.assert.equal(ranges.map((range) => text.slice(range.start, range.end)).join(''), text);
+  test.assert.deepEqual(splitTextRanges('', 2), [{ start: 0, end: 0 }]);
 });
 
-testStable('accepts feature reference codecs whose encoded and decoded shapes differ', async () => {
-  const transformedReferenceSchema = Schema.Struct({ revision: Schema.NumberFromString });
-  const result = await Effect.runPromise(
-    planSourcePassages({
-      documents: [
-        { key: 'one', name: 'Original', reference: { revision: 42 }, document: document(['exact']) }
-      ],
-      referenceSchema: transformedReferenceSchema,
-      limits,
-      selection: { mode: 'complete' }
-    })
-  );
+test.stable(
+  'accepts feature reference codecs whose encoded and decoded shapes differ',
+  async () => {
+    const transformedReferenceSchema = Schema.Struct({ revision: Schema.NumberFromString });
+    const result = await Effect.runPromise(
+      planSourcePassages({
+        documents: [
+          {
+            key: 'one',
+            name: 'Original',
+            reference: { revision: 42 },
+            document: document(['exact'])
+          }
+        ],
+        referenceSchema: transformedReferenceSchema,
+        limits,
+        selection: { mode: 'complete' }
+      })
+    );
 
-  assert.deepEqual(result.pieces[0]!.passages[0]!.reference, { revision: 42 });
-});
+    test.assert.deepEqual(result.pieces[0]!.passages[0]!.reference, { revision: 42 });
+  }
+);
 
-testStable('validates persisted plan markers and encoded metadata bounds', async () => {
+test.stable('validates persisted plan markers and encoded metadata bounds', async () => {
   const original = await Effect.runPromise(plan(document(['original'])));
   const schema = sourcePassagePlanSchema(referenceSchema);
   const codec = Schema.toCodecJson(schema);
 
-  assert.deepEqual(Schema.decodeUnknownSync(codec)(Schema.encodeSync(codec)(original)), original);
+  test.assert.deepEqual(
+    Schema.decodeUnknownSync(codec)(Schema.encodeSync(codec)(original)),
+    original
+  );
   const piece = original.pieces[0]!;
   const passage = piece.passages[0]!;
 
-  assert.throws(() =>
+  test.assert.throws(() =>
     Schema.decodeUnknownSync(schema)({
       ...original,
       pieces: [{ ...piece, passages: [{ ...passage, marker: 42 }] }]
     })
   );
-  assert.throws(() =>
+  test.assert.throws(() =>
     Schema.decodeUnknownSync(schema)({
       ...original,
       limits: { ...original.limits, maxPieceBytes: 1 }
@@ -238,7 +248,7 @@ testStable('validates persisted plan markers and encoded metadata bounds', async
   );
 });
 
-testStable('byte-budget search finds fitting prefixes after a surrogate pair', async () => {
+test.stable('byte-budget search finds fitting prefixes after a surrogate pair', async () => {
   const input = document(['🌏abc']);
   const original = await Effect.runPromise(plan(input, { maxPieceChars: 5, maxPassageChars: 5 }));
   const piece = original.pieces[0]!;
@@ -257,7 +267,7 @@ testStable('byte-budget search finds fitting prefixes after a surrogate pair', a
     })
   );
 
-  assert.deepEqual(
+  test.assert.deepEqual(
     result.pieces.flatMap((part) => part.passages.map((span) => span.text)),
     ['🌏', 'abc']
   );

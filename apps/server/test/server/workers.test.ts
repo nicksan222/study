@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies source processing and note reply workflows survive application            │
@@ -13,24 +14,18 @@
  * │ resources; fixture cleanup closes owned resources.                                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
-import { App, serve } from '#server/runtime/index';
-import { pollUntil } from '#testing/poll';
+import { serve } from '#server/runtime/index';
 
-testStable(
+test.stable(
   'source workflow survives restart and makes its content discoverable',
   { timeout: 15000 },
-  async () => {
-    const location = await createTestDatabase();
-    let app = await App.open({ path: location.path });
+  async ({ resources: location }) => {
+    let app = await location.openApp({ path: location.path });
     let server = await serve(app);
 
     try {
@@ -49,10 +44,10 @@ testStable(
         )
       );
 
-      assert.strictEqual(app.store.db.orm.all(sql`SELECT * FROM workflow_events`).length, 1);
+      test.assert.strictEqual(app.store.db.orm.all(sql`SELECT * FROM workflow_events`).length, 1);
       await server.close();
       await app.close();
-      app = await App.open({ path: location.path });
+      app = await location.openApp({ path: location.path });
       server = await serve(app);
       await Effect.runPromise(
         Effect.scoped(
@@ -60,9 +55,9 @@ testStable(
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
 
             yield* client['system.startWorkers']({});
-            assert.ok((yield* client['system.health']({})).workersRunning === true);
+            test.assert.ok((yield* client['system.health']({})).workersRunning === true);
 
-            yield* pollUntil(
+            yield* test.pollUntil(
               client['sources.sourceProcessing']({ id: source.id }),
               (value) => value.documentId !== null,
               { attempts: 100, interval: '50 millis', message: 'source workflow did not recover' }
@@ -70,37 +65,36 @@ testStable(
 
             const search = yield* client['system.search']({ query: 'gravity', limit: 10 });
 
-            assert.ok(
+            test.assert.ok(
               search.hits.some(
                 (hit) => hit.target.type === 'source' && hit.target.sourceId === source.id
               )
             );
             yield* client['system.stopWorkers']({});
-            assert.ok((yield* client['system.health']({})).workersRunning === false);
+            test.assert.ok((yield* client['system.health']({})).workersRunning === false);
 
             return;
           })
         )
       );
-      assert.ok(app.store.db.orm.all(sql`SELECT * FROM workflow_receipts`).length > 0);
-      assert.ok(
+      test.assert.ok(app.store.db.orm.all(sql`SELECT * FROM workflow_receipts`).length > 0);
+      test.assert.ok(
         app.store.db.orm.all(sql`SELECT * FROM workflow_executions WHERE status = 'completed'`)
           .length > 0
       );
     } finally {
       await server.close();
       await app.close();
-      await location.cleanup();
+      await location.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'reply workflow records a durable sign-in wait across restart',
   { timeout: 15000 },
-  async () => {
-    const location = await createTestDatabase();
-    let app = await App.open({ path: location.path });
+  async ({ resources: location }) => {
+    let app = await location.openApp({ path: location.path });
     let server = await serve(app);
 
     try {
@@ -122,7 +116,7 @@ testStable(
 
             yield* client['system.startWorkers']({});
 
-            yield* pollUntil(
+            yield* test.pollUntil(
               Effect.sync(
                 () =>
                   app.store.db.orm.all(
@@ -139,7 +133,7 @@ testStable(
 
             const message = yield* client['notes.message']({ id: request.messageId });
 
-            assert.ok(
+            test.assert.ok(
               message.versions.find((version) => version.id === request.versionId)?.status ===
                 'pending'
             );
@@ -150,9 +144,9 @@ testStable(
       );
       await server.close();
       await app.close();
-      app = await App.open({ path: location.path });
+      app = await location.openApp({ path: location.path });
       server = await serve(app);
-      assert.strictEqual(
+      test.assert.strictEqual(
         app.store.db.orm.all(
           sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id = w.execution_id WHERE e.workflow_tag = 'conversation-reply/v1'`
         ).length,
@@ -163,14 +157,14 @@ testStable(
           Effect.gen(function* () {
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
 
-            assert.strictEqual(yield* client['auth.publicAccount']({}), undefined);
+            test.assert.strictEqual(yield* client['auth.publicAccount']({}), undefined);
           })
         )
       );
     } finally {
       await server.close();
       await app.close();
-      await location.cleanup();
+      await location.close();
     }
   }
 );

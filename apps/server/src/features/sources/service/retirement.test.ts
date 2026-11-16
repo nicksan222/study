@@ -1,3 +1,4 @@
+import { createBlock, plainBlock } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises source retirement behavior through real persistence boundaries.          │
@@ -10,14 +11,9 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { createBlock, plainBlock } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
@@ -31,10 +27,10 @@ import { withTestPublication } from '#testing/publication';
 
 import { Sources } from './index.ts';
 
-testStable(
+test.stable(
   'source deletion scrubs native captures before interrupting a retired provider execution',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const cancelled: string[] = [];
     const layer = Sources.layer.pipe(
@@ -44,8 +40,11 @@ testStable(
           Layer.succeed(WorkflowControl, {
             cancel: ({ id }) =>
               Effect.sync(() => {
-                assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM sources`)?.n, 0n);
-                assert.ok(
+                test.assert.strictEqual(
+                  context.db.orm.get(sql`SELECT count(*) n FROM sources`)?.n,
+                  0n
+                );
+                test.assert.ok(
                   context.db.orm.get(
                     sql`SELECT payload FROM workflow_executions WHERE execution_id=${id}`
                   )?.payload === '{}'
@@ -80,27 +79,30 @@ testStable(
           context.db.orm
             .run(sql`INSERT INTO workflow_executions(execution_id,workflow_tag,version,payload,status,created_at,updated_at)
         VALUES('source-run','SourceIngestionWorkflow',1,${JSON.stringify({ event })},'running',1,1)`);
-          assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
-          expect(cancelled).toStrictEqual(['source-run']);
-          assert.strictEqual(context.db.orm.get(sql`SELECT 1 FROM source_snapshots`), undefined);
+          test.assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
+          test.expect(cancelled).toStrictEqual(['source-run']);
+          test.assert.strictEqual(
+            context.db.orm.get(sql`SELECT 1 FROM source_snapshots`),
+            undefined
+          );
 
-          assert.ok(
+          test.assert.ok(
             context.db.orm.get(
               sql`SELECT payload FROM workflow_events WHERE correlation_id=${request.requestId}`
             )?.payload === '{}'
           );
-          assert.ok(
+          test.assert.ok(
             context.db.orm.get(
               sql`SELECT status FROM workflow_executions WHERE execution_id='source-run'`
             )?.status === 'cancelled'
           );
-          assert.strictEqual(
+          test.assert.strictEqual(
             context.db.orm.get(
               sql`SELECT correlation_id FROM workflow_retired_executions WHERE execution_id='source-run'`
             )?.correlation_id,
             request.requestId
           );
-          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+          test.expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -110,10 +112,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'raw reply captures pin pending and ready source revisions until their note is deleted',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Sources.layer, Notes.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -140,10 +142,10 @@ testStable(
           });
           const request = yield* notes.requestReply({ noteId: note.id });
 
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind === 'invalid_input'
           );
-          assert.ok(
+          test.assert.ok(
             context.db.orm.get(
               sql`SELECT snapshot_id FROM note_reply_sources WHERE request_id=${request.requestId}`
             )?.snapshot_id === null
@@ -179,8 +181,8 @@ testStable(
             context,
             notes.sealReplyAttachments({ requestId: request.requestId }).pipe(
               Effect.tap((sealed) => {
-                assert.strictEqual(sealed.messages[0].attachments[0].revision, 1n);
-                assert.strictEqual(
+                test.assert.strictEqual(sealed.messages[0].attachments[0].revision, 1n);
+                test.assert.strictEqual(
                   sealed.messages[0].attachments[0].snapshotId,
                   published.documentId
                 );
@@ -195,18 +197,18 @@ testStable(
             name: 'replacement.txt',
             bytes: new TextEncoder().encode('Replacement')
           });
-          assert.strictEqual(
+          test.assert.strictEqual(
             (yield* notes.replySnapshot({ requestId: request.requestId })).messages[0]
               .attachments[0].snapshotId,
             published.documentId
           );
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind === 'invalid_input'
           );
-          assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);
+          test.assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);
           yield* notes.deleteNote(note.id);
-          assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
-          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+          test.assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
+          test.expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -216,10 +218,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'source preview protects external authored images while allowing deletion of its own canonical image extraction',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Sources.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -263,9 +265,9 @@ testStable(
           );
           const own = yield* sources.previewDeletion({ id: source.id });
 
-          expect(own.blockedBy).toStrictEqual([]);
-          assert.strictEqual(own.revisionCount, 1n);
-          assert.strictEqual(own.extractionCount, 1n);
+          test.expect(own.blockedBy).toStrictEqual([]);
+          test.assert.strictEqual(own.revisionCount, 1n);
+          test.assert.strictEqual(own.extractionCount, 1n);
           const authored = yield* documents.create({
             createKey: 'external-image',
             title: 'External image',
@@ -284,22 +286,24 @@ testStable(
             citations: []
           });
 
-          expect((yield* sources.previewDeletion({ id: source.id })).blockedBy).toStrictEqual([
-            'image_assets'
-          ]);
-          assert.ok(
+          test
+            .expect((yield* sources.previewDeletion({ id: source.id })).blockedBy)
+            .toStrictEqual(['image_assets']);
+          test.assert.ok(
             (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind === 'invalid_input'
           );
           const preview = yield* documents.previewDeletion({ id: authored.id });
 
           yield* documents.delete({ pageId: authored.id, token: preview.token });
-          expect((yield* sources.previewDeletion({ id: source.id })).blockedBy).toStrictEqual([]);
-          assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
-          assert.strictEqual(
+          test
+            .expect((yield* sources.previewDeletion({ id: source.id })).blockedBy)
+            .toStrictEqual([]);
+          test.assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
+          test.assert.strictEqual(
             context.db.orm.get(sql`SELECT 1 FROM document_assets WHERE source_id=${source.id}`),
             undefined
           );
-          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+          test.expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(layer))
       );
     } finally {

@@ -1,3 +1,4 @@
+import { createBlock } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises exact rich-content correspondence for target block editing identities.   │
@@ -10,17 +11,13 @@
  * │ regressions.                                                                             │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { createBlock } from '@study/contracts';
 import { blockContentSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { canonicalPageTransformOutput } from './page-transform-output.ts';
 
-testStable(
+test.stable(
   'target proposals retain unchanged rich identities once, including reordered duplicate blocks',
   () => {
     const first = createBlock({ type: 'math', expression: 'x²' });
@@ -42,22 +39,22 @@ testStable(
     const proposed = canonicalPageTransformOutput(output, [first, second, code]);
     const ids = proposed.document.blocks.map((block) => block.id);
 
-    expect(ids.slice(0, 3)).toStrictEqual([code.id, first.id, second.id]);
-    assert.strictEqual(new Set(ids).size, ids.length);
-    assert.ok(![first.id, second.id, code.id].includes(ids[3]!));
-    assert.ok(![first.id, second.id, code.id, added.id].includes(ids[4]!));
-    expect(proposed.report.notes[0]!.blockIds).toStrictEqual([code.id, first.id, second.id]);
+    test.expect(ids.slice(0, 3)).toStrictEqual([code.id, first.id, second.id]);
+    test.assert.strictEqual(new Set(ids).size, ids.length);
+    test.assert.ok(![first.id, second.id, code.id].includes(ids[3]!));
+    test.assert.ok(![first.id, second.id, code.id, added.id].includes(ids[4]!));
+    test.expect(proposed.report.notes[0]!.blockIds).toStrictEqual([code.id, first.id, second.id]);
 
     const independent = canonicalPageTransformOutput(output);
 
-    assert.ok(independent.document.blocks.every((block) => !ids.includes(block.id)));
-    expect(independent.document.blocks.map((block) => block.content)).toStrictEqual(
-      proposed.document.blocks.map((block) => block.content)
-    );
+    test.assert.ok(independent.document.blocks.every((block) => !ids.includes(block.id)));
+    test
+      .expect(independent.document.blocks.map((block) => block.content))
+      .toStrictEqual(proposed.document.blocks.map((block) => block.content));
   }
 );
 
-testStable(
+test.stable(
   'equal text projections do not reuse IDs for changed rich table marks or list numbering',
   () => {
     const table = createBlock({
@@ -89,8 +86,8 @@ testStable(
       ]
     });
 
-    assert.strictEqual(table.text, marked.text);
-    assert.strictEqual(list.text, renumbered.text);
+    test.assert.strictEqual(table.text, marked.text);
+    test.assert.strictEqual(list.text, renumbered.text);
 
     const result = canonicalPageTransformOutput(
       {
@@ -103,8 +100,8 @@ testStable(
     );
     const ids = result.document.blocks.map((block) => block.id);
 
-    assert.ok(ids.slice(0, 2).every((id) => id !== table.id && id !== list.id));
-    expect(ids.slice(2)).toStrictEqual([table.id, list.id]);
-    expect(result.report.notes[0]!.blockIds).toStrictEqual(ids);
+    test.assert.ok(ids.slice(0, 2).every((id) => id !== table.id && id !== list.id));
+    test.expect(ids.slice(2)).toStrictEqual([table.id, list.id]);
+    test.expect(result.report.notes[0]!.blockIds).toStrictEqual(ids);
   }
 );

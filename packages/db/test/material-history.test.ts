@@ -1,16 +1,13 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { sql as dbSql } from 'drizzle-orm';
-import { assert, expect } from 'vite-plus/test';
 
-import { Db } from '../src/index.ts';
-
-testStable(
+test.stable(
   'migrated pruning guards retain current roots, require exact proof and forbid body resurrection',
-  async () => {
-    const db = await Db.open(':memory:');
+  async ({ databases }) => {
+    const location = await databases();
+    const db = await location.open();
 
-    try {
-      db.exec(`INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'flashcards','History',1,1);
+    db.exec(`INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'flashcards','History',1,1);
 
       INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(1,1,'flashcards',1,1),(2,1,'flashcards',2,1);
 
@@ -18,59 +15,56 @@ testStable(
 
       UPDATE material_versions SET status='published',published_at=2;`);
 
-      assert.throws(() => db.exec('DELETE FROM material_flashcard_entries WHERE version_id=1'));
+    test.assert.throws(() => db.exec('DELETE FROM material_flashcard_entries WHERE version_id=1'));
 
-      assert.throws(() =>
-        db.exec("UPDATE material_versions SET instruction='tampered' WHERE id=1")
-      );
+    test.assert.throws(() =>
+      db.exec("UPDATE material_versions SET instruction='tampered' WHERE id=1")
+    );
 
+    db.exec(
+      `INSERT INTO material_history_prunes(operation_id,material_id,keep_latest,token,selection,status,created_at) VALUES('prune',1,1,'${'a'.repeat(64)}','["1","2"]','pending',3);`
+    );
+
+    test.assert.throws(() =>
+      db.exec("INSERT INTO material_history_members(version_id,operation_id) VALUES(2,'prune')")
+    );
+
+    db.exec("INSERT INTO material_history_members(version_id,operation_id) VALUES(1,'prune')");
+
+    test.assert.throws(() =>
+      db.exec("UPDATE material_flashcard_entries SET front='restored' WHERE version_id=1")
+    );
+
+    db.exec('DELETE FROM material_flashcard_entries WHERE version_id=1');
+
+    test.assert.throws(() =>
       db.exec(
-        `INSERT INTO material_history_prunes(operation_id,material_id,keep_latest,token,selection,status,created_at) VALUES('prune',1,1,'${'a'.repeat(64)}','["1","2"]','pending',3);`
-      );
+        "INSERT INTO material_flashcard_versions(version_id,material_id) SELECT id,material_id FROM material_versions v WHERE id IN (1) AND NOT EXISTS(SELECT 1 FROM material_flashcard_versions f WHERE f.version_id=v.id); INSERT INTO material_card_identities(id,material_id) SELECT DISTINCT material_id,material_id FROM material_versions v WHERE id IN (1) AND NOT EXISTS(SELECT 1 FROM material_card_identities c WHERE c.id=v.material_id); INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'restored','Answer' FROM material_versions WHERE id=1"
+      )
+    );
 
-      assert.throws(() =>
-        db.exec("INSERT INTO material_history_members(version_id,operation_id) VALUES(2,'prune')")
-      );
+    test.assert.throws(() => db.exec('UPDATE material_versions SET number=9 WHERE id=1'));
 
-      db.exec("INSERT INTO material_history_members(version_id,operation_id) VALUES(1,'prune')");
+    test.assert.throws(() => db.exec('DELETE FROM material_history_members WHERE version_id=1'));
 
-      assert.throws(() =>
-        db.exec("UPDATE material_flashcard_entries SET front='restored' WHERE version_id=1")
-      );
+    test.assert.throws(() => db.exec('DELETE FROM material_flashcard_entries WHERE version_id=2'));
 
-      db.exec('DELETE FROM material_flashcard_entries WHERE version_id=1');
-
-      assert.throws(() =>
-        db.exec(
-          "INSERT INTO material_flashcard_versions(version_id,material_id) SELECT id,material_id FROM material_versions v WHERE id IN (1) AND NOT EXISTS(SELECT 1 FROM material_flashcard_versions f WHERE f.version_id=v.id); INSERT INTO material_card_identities(id,material_id) SELECT DISTINCT material_id,material_id FROM material_versions v WHERE id IN (1) AND NOT EXISTS(SELECT 1 FROM material_card_identities c WHERE c.id=v.material_id); INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'restored','Answer' FROM material_versions WHERE id=1"
-        )
-      );
-
-      assert.throws(() => db.exec('UPDATE material_versions SET number=9 WHERE id=1'));
-
-      assert.throws(() => db.exec('DELETE FROM material_history_members WHERE version_id=1'));
-
-      assert.throws(() => db.exec('DELETE FROM material_flashcard_entries WHERE version_id=2'));
-
-      assert.strictEqual(
-        db.orm.get<{ n: bigint }>(
-          dbSql`SELECT count(*) n FROM material_flashcard_entries WHERE version_id=2`
-        )?.n,
-        1n
-      );
-    } finally {
-      db.close();
-    }
+    test.assert.strictEqual(
+      db.orm.get<{ n: bigint }>(
+        dbSql`SELECT count(*) n FROM material_flashcard_entries WHERE version_id=2`
+      )?.n,
+      1n
+    );
   }
 );
 
-testStable(
+test.stable(
   'upgraded membership proof counts retained newer roots and binds exact operation and candidate ownership',
-  async () => {
-    const db = await Db.open(':memory:');
+  async ({ databases }) => {
+    const location = await databases();
+    const db = await location.open();
 
-    try {
-      db.exec(`INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'flashcards','History',1,1),(2,'flashcards','Other',1,1);
+    db.exec(`INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'flashcards','History',1,1),(2,'flashcards','Other',1,1);
 
       INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(1,1,'flashcards',1,1),(2,1,'flashcards',2,1),(3,1,'flashcards',3,1),(4,2,'flashcards',1,1);
 
@@ -90,65 +84,62 @@ testStable(
       INSERT INTO material_history_prunes(operation_id,material_id,keep_latest,token,selection,status,created_at)
       VALUES('keep-two',1,2,'${'c'.repeat(64)}','["1","3"]','pending',5);`);
 
-      // Version 2 is a tombstone: only version 3 still counts toward keepLatest.
+    // Version 2 is a tombstone: only version 3 still counts toward keepLatest.
 
-      for (const id of [1, 3, 4])
-        assert.throws(() =>
-          db.exec(
-            `INSERT INTO material_history_members(version_id,operation_id) VALUES(${id},'keep-two')`
-          )
-        );
+    for (const id of [1, 3, 4])
+      test.assert.throws(() =>
+        db.exec(
+          `INSERT INTO material_history_members(version_id,operation_id) VALUES(${id},'keep-two')`
+        )
+      );
 
-      db.exec(`UPDATE material_history_prunes SET status='completed',completed_at=6 WHERE operation_id='keep-two';
+    db.exec(`UPDATE material_history_prunes SET status='completed',completed_at=6 WHERE operation_id='keep-two';
 
       INSERT INTO material_history_prunes(operation_id,material_id,keep_latest,token,selection,status,created_at)
       VALUES('exact',1,1,'${'d'.repeat(64)}','["1"]','pending',6);`);
 
-      assert.throws(() =>
-        db.exec("INSERT INTO material_history_members(version_id,operation_id) VALUES(3,'exact')")
-      );
+    test.assert.throws(() =>
+      db.exec("INSERT INTO material_history_members(version_id,operation_id) VALUES(3,'exact')")
+    );
 
-      db.exec("INSERT INTO material_history_members(version_id,operation_id) VALUES(1,'exact')");
+    db.exec("INSERT INTO material_history_members(version_id,operation_id) VALUES(1,'exact')");
 
-      assert.throws(() =>
-        db.exec("UPDATE material_history_members SET operation_id='keep-two' WHERE version_id=1")
-      );
+    test.assert.throws(() =>
+      db.exec("UPDATE material_history_members SET operation_id='keep-two' WHERE version_id=1")
+    );
 
-      assert.throws(() => db.exec('DELETE FROM material_versions WHERE id=1'));
+    test.assert.throws(() => db.exec('DELETE FROM material_versions WHERE id=1'));
 
-      assert.throws(() =>
-        db.exec("UPDATE material_flashcard_entries SET front='resurrected' WHERE version_id=1")
-      );
+    test.assert.throws(() =>
+      db.exec("UPDATE material_flashcard_entries SET front='resurrected' WHERE version_id=1")
+    );
 
-      db.exec('DELETE FROM material_flashcard_entries WHERE version_id=1');
+    db.exec('DELETE FROM material_flashcard_entries WHERE version_id=1');
 
-      assert.throws(() =>
-        db.exec(
-          "INSERT INTO material_flashcard_versions(version_id,material_id) SELECT id,material_id FROM material_versions v WHERE id IN (1) AND NOT EXISTS(SELECT 1 FROM material_flashcard_versions f WHERE f.version_id=v.id); INSERT INTO material_card_identities(id,material_id) SELECT DISTINCT material_id,material_id FROM material_versions v WHERE id IN (1) AND NOT EXISTS(SELECT 1 FROM material_card_identities c WHERE c.id=v.material_id); INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'resurrected','Answer' FROM material_versions WHERE id=1"
-        )
-      );
+    test.assert.throws(() =>
+      db.exec(
+        "INSERT INTO material_flashcard_versions(version_id,material_id) SELECT id,material_id FROM material_versions v WHERE id IN (1) AND NOT EXISTS(SELECT 1 FROM material_flashcard_versions f WHERE f.version_id=v.id); INSERT INTO material_card_identities(id,material_id) SELECT DISTINCT material_id,material_id FROM material_versions v WHERE id IN (1) AND NOT EXISTS(SELECT 1 FROM material_card_identities c WHERE c.id=v.material_id); INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'resurrected','Answer' FROM material_versions WHERE id=1"
+      )
+    );
 
-      assert.strictEqual(
-        db.orm.get<{ n: bigint }>(
-          dbSql`SELECT count(*) n FROM material_flashcard_entries WHERE version_id IN(3,4)`
-        )?.n,
-        2n
-      );
+    test.assert.strictEqual(
+      db.orm.get<{ n: bigint }>(
+        dbSql`SELECT count(*) n FROM material_flashcard_entries WHERE version_id IN(3,4)`
+      )?.n,
+      2n
+    );
 
-      expect(db.orm.all(dbSql`PRAGMA foreign_key_check`)).toStrictEqual([]);
-    } finally {
-      db.close();
-    }
+    test.expect(db.orm.all(dbSql`PRAGMA foreign_key_check`)).toStrictEqual([]);
   }
 );
 
-testStable(
+test.stable(
   'exact raw attachment pins reject forged source or extraction ownership while preserving current source roots',
-  async () => {
-    const db = await Db.open(':memory:');
+  async ({ databases }) => {
+    const location = await databases();
+    const db = await location.open();
 
-    try {
-      db.exec(`INSERT INTO sources(id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES(1,'attachment','text','text/plain','source.txt',1,zeroblob(32),1),(2,'attachment','text','text/plain','other.txt',1,zeroblob(32),1);
+    db.exec(`INSERT INTO sources(id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES(1,'attachment','text','text/plain','source.txt',1,zeroblob(32),1),(2,'attachment','text','text/plain','other.txt',1,zeroblob(32),1);
   INSERT INTO source_blobs(source_id,bytes) VALUES(1,X'01'),(2,X'02');
   INSERT INTO source_snapshots(source_id,revision,bytes,kind,mime) VALUES(1,1,X'01','text','text/plain'),(2,1,X'02','text','text/plain');
   INSERT INTO content_snapshots(id,source_id,extractor_version,meta,created_at) VALUES(1,1,1,'{}',1),(2,1,1,'{}',1),(3,2,1,'{}',1);
@@ -159,50 +150,50 @@ testStable(
   INSERT INTO messages(id,note_id,role,created_at) VALUES(1,1,'assistant',1),(2,1,'assistant',1),(3,1,'assistant',1);
   INSERT INTO message_versions(id,message_id,number,origin,status,created_at) VALUES(1,1,1,'answer','pending',1),(2,2,1,'answer','pending',1),(3,3,1,'answer','pending',1);`);
 
-      for (const [requestId, versionId, sourceId, snapshotId] of [
-        ['exact', 1, '1', '1'],
-        ['wrong-source', 2, '2', '1'],
-        ['wrong-document', 3, '1', '2']
-      ] as const)
-        db.orm.run(
-          dbSql`INSERT INTO note_reply_requests(request_id,note_id,version_id,snapshot) VALUES(${requestId},1,${versionId},${JSON.stringify({ messages: [{ attachments: [{ partId: '1', sourceId, revision: '1', snapshotId }] }] })})`
-        );
+    for (const [requestId, versionId, sourceId, snapshotId] of [
+      ['exact', 1, '1', '1'],
+      ['wrong-source', 2, '2', '1'],
+      ['wrong-document', 3, '1', '2']
+    ] as const)
+      db.orm.run(
+        dbSql`INSERT INTO note_reply_requests(request_id,note_id,version_id,snapshot) VALUES(${requestId},1,${versionId},${JSON.stringify({ messages: [{ attachments: [{ partId: '1', sourceId, revision: '1', snapshotId }] }] })})`
+      );
 
+    db.exec(
+      "INSERT INTO note_reply_sources(request_id,part_id,source_id,revision,snapshot_id) VALUES('exact',1,1,1,1)"
+    );
+    test.assert.throws(() =>
       db.exec(
-        "INSERT INTO note_reply_sources(request_id,part_id,source_id,revision,snapshot_id) VALUES('exact',1,1,1,1)"
-      );
-      assert.throws(() =>
-        db.exec(
-          "INSERT INTO note_reply_sources(request_id,part_id,source_id,revision,snapshot_id) VALUES('wrong-source',1,2,1,1)"
-        )
-      );
-      assert.throws(() =>
-        db.exec(
-          "INSERT INTO note_reply_sources(request_id,part_id,source_id,revision,snapshot_id) VALUES('wrong-document',1,1,1,1)"
-        )
-      );
-
-      for (const statement of [
-        "UPDATE note_reply_sources SET snapshot_id=2 WHERE request_id='exact'",
-        "DELETE FROM note_reply_sources WHERE request_id='exact'",
-        'DELETE FROM source_extraction_revisions WHERE snapshot_id=1',
-        'DELETE FROM content_snapshots WHERE id=1',
-        'DELETE FROM content_snapshots WHERE id=2',
-        'DELETE FROM source_snapshots WHERE source_id=1 AND revision=1'
-      ])
-        assert.throws(() => db.exec(statement));
-
+        "INSERT INTO note_reply_sources(request_id,part_id,source_id,revision,snapshot_id) VALUES('wrong-source',1,2,1,1)"
+      )
+    );
+    test.assert.throws(() =>
       db.exec(
-        'DELETE FROM notes WHERE id=1; DELETE FROM source_extraction_revisions WHERE snapshot_id=1; DELETE FROM content_snapshots WHERE id=1'
-      );
-      assert.strictEqual(db.orm.get(dbSql`SELECT 1 FROM content_snapshots WHERE id=1`), undefined);
-      assert.strictEqual(
-        db.orm.get(dbSql`SELECT document_id FROM source_processing WHERE source_id=1`)?.document_id,
-        2n
-      );
-      expect(db.orm.all(dbSql`PRAGMA foreign_key_check`)).toStrictEqual([]);
-    } finally {
-      db.close();
-    }
+        "INSERT INTO note_reply_sources(request_id,part_id,source_id,revision,snapshot_id) VALUES('wrong-document',1,1,1,1)"
+      )
+    );
+
+    for (const statement of [
+      "UPDATE note_reply_sources SET snapshot_id=2 WHERE request_id='exact'",
+      "DELETE FROM note_reply_sources WHERE request_id='exact'",
+      'DELETE FROM source_extraction_revisions WHERE snapshot_id=1',
+      'DELETE FROM content_snapshots WHERE id=1',
+      'DELETE FROM content_snapshots WHERE id=2',
+      'DELETE FROM source_snapshots WHERE source_id=1 AND revision=1'
+    ])
+      test.assert.throws(() => db.exec(statement));
+
+    db.exec(
+      'DELETE FROM notes WHERE id=1; DELETE FROM source_extraction_revisions WHERE snapshot_id=1; DELETE FROM content_snapshots WHERE id=1'
+    );
+    test.assert.strictEqual(
+      db.orm.get(dbSql`SELECT 1 FROM content_snapshots WHERE id=1`),
+      undefined
+    );
+    test.assert.strictEqual(
+      db.orm.get(dbSql`SELECT document_id FROM source_processing WHERE source_id=1`)?.document_id,
+      2n
+    );
+    test.expect(db.orm.all(dbSql`PRAGMA foreign_key_check`)).toStrictEqual([]);
   }
 );

@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises native runtime runtime documents behavior through real persistence       │
@@ -11,23 +12,18 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { sql } from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { serve } from '#server/runtime/index';
-import { createStudyTest } from '#testing/server-test';
 
-testStable(
+test.stable(
   'native HTTP runtime exposes independent Pages and persists exact saves, annotations and archive',
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture }) => {
+    const fixture = serverFixture;
     const server = fixture.manage(await serve(fixture.app));
 
     await Effect.runPromise(
@@ -60,8 +56,8 @@ testStable(
           };
           const document = yield* rpc['pages.create'](input);
 
-          assert.ok(document.version);
-          assert.strictEqual((yield* rpc['pages.create'](input)).id, document.id);
+          test.assert.ok(document.version);
+          test.assert.strictEqual((yield* rpc['pages.create'](input)).id, document.id);
           const renamed = yield* rpc['pages.updateMetadata']({
             id: document.id,
             title: 'HTTP renamed',
@@ -70,7 +66,7 @@ testStable(
             expectedDescription: null
           });
 
-          assert.ok(renamed.title === 'HTTP renamed');
+          test.assert.ok(renamed.title === 'HTTP renamed');
           const rejectedMetadata = yield* Effect.flip(
             rpc['pages.updateMetadata']({
               id: document.id,
@@ -81,8 +77,8 @@ testStable(
             })
           );
 
-          assert.ok('kind' in rejectedMetadata);
-          assert.ok(rejectedMetadata.kind === 'invalid_input');
+          test.assert.ok('kind' in rejectedMetadata);
+          test.assert.ok(rejectedMetadata.kind === 'invalid_input');
           const note = yield* rpc['notes.createNote']({ title: 'HTTP source links' });
           const source = yield* rpc['sources.createSource']({
             name: 'source.txt',
@@ -92,12 +88,12 @@ testStable(
 
           yield* rpc['sources.attachSource']({ noteId: note.id, sourceId: source.id });
           yield* rpc['sources.attachSource']({ noteId: note.id, sourceId: source.id });
-          assert.strictEqual(
+          test.assert.strictEqual(
             (yield* rpc['sources.noteSources']({ noteId: note.id, limit: 100 })).length,
             1
           );
           yield* rpc['sources.detachSource']({ noteId: note.id, sourceId: source.id });
-          assert.strictEqual(
+          test.assert.strictEqual(
             (yield* rpc['sources.noteSources']({ noteId: note.id, limit: 100 })).length,
             0
           );
@@ -109,7 +105,7 @@ testStable(
             document: input.document
           });
 
-          assert.ok(saved.outcome === 'saved');
+          test.assert.ok(saved.outcome === 'saved');
           const latest = yield* rpc['pages.version']({ id: saved.submittedVersionId });
           const annotation = yield* rpc['pages.createAnnotation']({
             target: {
@@ -126,11 +122,11 @@ testStable(
             note: 'HTTP exact note'
           });
 
-          assert.ok(
+          test.assert.ok(
             (yield* rpc['pages.annotation']({ id: annotation.annotation.id })).note ===
               'HTTP exact note'
           );
-          assert.ok(
+          test.assert.ok(
             (yield* rpc['pages.annotations']({
               pageId: document.id,
               versionId: latest.id,
@@ -139,24 +135,24 @@ testStable(
             })).items[0].note === 'HTTP exact note'
           );
           yield* rpc['pages.archive']({ id: document.id, archived: true });
-          assert.strictEqual(
+          test.assert.strictEqual(
             (yield* rpc['pages.pages']({ limit: 10, archived: false })).items.length,
             0
           );
-          assert.strictEqual(
+          test.assert.strictEqual(
             (yield* rpc['pages.pages']({ limit: 10, archived: true })).items[0]?.id,
             document.id
           );
-          assert.ok(
+          test.assert.ok(
             (yield* rpc['pages.exportVersion']({ id: latest.id })).format === 'canonical_json'
           );
         })
       )
     );
-    assert.strictEqual(
+    test.assert.strictEqual(
       fixture.store.db.orm.get(sql`SELECT count(*) AS n FROM materials WHERE kind='document'`)?.n,
       0n
     );
-    expect(fixture.store.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+    test.expect(fixture.store.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
   }
 );

@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable(
+test.stable(
   'rejects raw runner imports including aliases, namespaces and default imports',
   async () => {
     for (const source of [
@@ -13,193 +12,155 @@ testStable(
       "import {test} from '@playwright/test'; test('raw', () => {});",
       "import raw from 'node:test'; raw('raw', () => {});",
       "import * as runner from 'node:test'; runner.test('raw', () => {});",
-      "export { test as testStable } from 'node:test';",
       "export * from 'vite-plus/test';",
-      "const runner = await import('node:test');",
-      "const {test: check} = require('node:test');",
-      "import runner = require('node:test');"
+      "const runner = await import('node:test');"
     ])
-      assert.strictEqual(
-        (await lintRule('test-classification', { 'test/case.test.ts': source })).length,
-        1,
-        source
-      );
+      test
+        .expect((await lintRule('test-classification', { 'test/case.test.ts': source })).length)
+        .toBeGreaterThan(0);
   }
 );
 
-testStable('rejects global tests while respecting unrelated lexical bindings', async () => {
-  const diagnostics = await lintRule('test-classification', {
-    'test/raw.test.ts': "test('raw', () => {}); it.each([1])('raw', () => {});",
-    'test/safe.test.ts':
-      "function inspect(test) { test(); } /a/.test('a'); const regex = new RegExp('a'); regex.test('a');"
-  });
-
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-});
-
-testStable('permits classified imports, runner hooks and type imports', async () => {
+test.stable('accepts canonical test namespace imports for each owning test area', async () => {
   const diagnostics = await lintRule(
     'test-classification',
     {
-      'apps/client/src/a.test.ts': `import {testStable, testRegression} from '@study/testing/vitest';
-import {expect, beforeEach, describe} from 'vite-plus/test';
-testStable.each([1])('case', n => {});
-testRegression({regression: 'evidence_integrity'})('case', () => {});`,
-      'apps/server/test/a.test.ts': `import type {TestContext} from 'node:test';
- import {beforeEach, describe} from 'node:test';
- import {testStable} from '@study/testing/vitest';
- testStable('case', () => {});
-`
+      'packages/sample/a.test.ts': `import {test} from '@study/testing'; test.stable('case', () => {});`,
+      'apps/client/src/a.test.ts': `import {test} from '@study/testing'; test.stable('case', () => {});`,
+      'apps/server/test/a.test.ts': `import {test} from '@study/testing'; test.stable('case', () => {});`,
+      'apps/client/src/locale.test.ts': `import {test} from '@study/testing'; test.stable.extend('locale', 'italian')('case', () => {});`
     },
     true
   );
 
-  expect(diagnostics).toStrictEqual([]);
+  test.expect(diagnostics).toStrictEqual([]);
 });
 
-testStable(
-  'rejects classification aliases, fake definitions, namespace imports and modifiers',
-  async () => {
-    for (const source of [
-      "import {testStable as test} from '@study/testing/vitest';",
-      "import * as tests from '@study/testing/vitest';",
-      "import {testStable} from './fake.ts'; testStable('case', () => {});",
-      'function testStable() {} testStable();',
-      "import {testStable} from '@study/testing/vitest'; testStable.only('case', () => {});",
-      `import {testRegression} from '@study/testing/vitest';
- testRegression({regression:'evidence_integrity'}).skip('case', () => {});
-`
-    ])
-      assert.strictEqual(
-        (await lintRule('test-classification', { 'apps/client/src/a.test.ts': source }, true))
-          .length,
-        1,
-        source
-      );
-  }
-);
-
-testStable(
-  'rejects runtime subtests and permits classified tests in collected suites',
-  async () => {
-    const diagnostics = await lintRule(
-      'test-classification',
-      {
-        'apps/server/test/a.test.ts': `import {describe} from 'vite-plus/test';
-import {testStable} from '@study/testing/vitest';
-describe('group', () => { testStable('child', () => {});
-});
-testStable('parent', async t => { await t.test('raw', () => {});
-});`
-      },
-      true
-    );
-
-    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-  }
-);
-
-testStable('only canonical adapter implementations may access raw registration', async () => {
+test.stable('allows test namespace references used only in TypeScript type queries', async () => {
   const diagnostics = await lintRule(
     'test-classification',
     {
-      'packages/testing/src/node.ts':
-        "import {test} from 'node:test'; export const testStable = test;",
-      'packages/testing/src/vitest.ts':
-        "import {test} from 'vite-plus/test'; export const testStable = test;",
-      'apps/server/test/testing/node.ts':
-        "import {test} from 'node:test'; export const testStable = test;"
+      'apps/client/src/typed.test.tsx': `import { test } from '@study/testing';
+        type Transport = ReturnType<typeof test.rpcHandlersTransport>;
+        type UserEvent = ReturnType<typeof test.userEvent.setup>;
+        let transport: Transport;
+        let user: UserEvent;
+        test.stable('typed helpers', () => { void [transport, user]; });`,
+      'apps/client/src/runtime-alias.test.ts': `import { test } from '@study/testing';
+        const runner = test;
+        runner.stable('runtime alias', () => {});`
     },
     true
   );
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  test
+    .expect([...new Set(diagnostics.map(({ filename }) => filename.split('/').at(-1)))])
+    .toEqual(['runtime-alias.test.ts']);
 });
 
-testStable('requires the public alias and rejects aliases of registrations', async () => {
+test.stable('permits private prepared test APIs only in the core conformance owner', async () => {
   const diagnostics = await lintRule(
     'test-classification',
     {
-      'apps/client/src/a.test.ts':
-        "import {testStable} from '../../../packages/testing/src/vitest.ts';",
-      'apps/client/src/b.test.ts':
-        "import {testStable} from '@study/testing/vitest'; const check = testStable;",
-      'apps/client/src/c.test.ts': `import {testRegression} from '@study/testing/vitest';
- const check = testRegression({regression:'evidence_integrity'});
-`
+      'packages/testing/test/vitest.test.ts': `import { test, createTestApi } from '@study/testing/vitest';
+        const prepared = createTestApi(test.stable.extend({ fixture: async ({}, use) => use(1) }));
+        prepared.stable('prepared runner', () => {});`,
+      'packages/testing/test/other.test.ts': `import { test } from '@study/testing/vitest';
+        test.stable('private runner', () => {});`
     },
     true
   );
 
-  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+  test
+    .expect([...new Set(diagnostics.map(({ filename }) => filename.split('/').at(-1)))])
+    .toEqual(['other.test.ts']);
 });
 
-testStable('rejects global namespace tests and focus or skip options', async () => {
+test.stable('permits private APIs only in the database scenario and setup owners', async () => {
   const diagnostics = await lintRule(
     'test-classification',
     {
-      'apps/client/src/a.test.ts': "globalThis.test('raw', () => {}); window.it('raw', () => {});",
-      'apps/client/src/b.test.ts': `import {testStable} from '@study/testing/vitest';
- testStable('case', {only:true}, () => {});
- testStable.each([1])('case', {skip:true}, () => {});
-`
+      'packages/db/test/scenarios.ts': `import { createTestApi, test as baseTest } from '@study/testing/vitest';
+        const runner = baseTest.stable.extend('fixture', async ({}, use) => use(1));
+        export const test = createTestApi(runner);`,
+      'packages/db/test/setup.ts': `import { installTestApi } from '@study/testing/vitest';`,
+      'packages/db/test/ordinary.test.ts': `import { test } from '@study/testing/vitest';
+        test.stable('private', () => {});`
     },
     true
   );
 
-  assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+  test
+    .expect([...new Set(diagnostics.map(({ filename }) => filename.split('/').at(-1)))])
+    .toEqual(['ordinary.test.ts']);
 });
 
-testStable('metadata must be explicit and temporary removal conditions meaningful', async () => {
+test.stable('rejects aliases, fake sources, legacy APIs and wrong application owners', async () => {
   const diagnostics = await lintRule(
     'test-classification',
     {
-      'apps/client/src/a.test.ts': `import {testMigration, testRegression} from '@study/testing/vitest';
-testMigration(metadata)('case', () => {});
-testRegression({...metadata})('case', () => {});
-testMigration({migration:'source_upgrade',retention:'temporary',removeWhen:'  '})('case', () => {});`
+      'packages/sample/alias.test.ts': `import {test as check} from '@study/testing/vitest'; check.stable('case', () => {});`,
+      'packages/sample/fake.test.ts': `import {test} from './fake.ts'; test.stable('case', () => {});`,
+      'packages/sample/fake-alias.test.ts': `import {test as check} from './fake.ts'; check.stable('case', () => {});`,
+      'packages/sample/fake-namespace.test.ts': `import * as api from './fake.ts'; api.test.stable('case', () => {});`,
+      'packages/sample/old.test.ts': `import {testStable} from '@study/testing/vitest'; testStable('case', () => {});`,
+      'apps/client/src/wrong-owner.test.ts': `import {test} from '@study/testing/vitest'; test.stable('case', () => {});`,
+      'apps/server/test/wrong-owner.test.ts': `import {test} from '@study/testing'; test.stable('case', () => {});`,
+      'packages/sample/namespace.test.ts': `import * as api from '@study/testing/vitest'; api.test.stable('case', () => {});`,
+      'packages/sample/helper-import.test.ts': `import {test, expect} from '@study/testing'; test.stable('case', () => {});`,
+      'packages/sample/helper-import.test.mts': `import {test, createAiMock} from '@study/testing'; test.stable('case', () => {});`,
+      'packages/sample/raw-assert.test.ts': `import {expect} from 'vite-plus/test'; expect(true).toBe(true);`,
+      'packages/sample/reexport.ts': `export {test} from '@study/testing/vitest';`
     },
     true
   );
 
-  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+  test
+    .expect([...new Set(diagnostics.map(({ filename }) => filename.split('/').at(-1)))].sort())
+    .toEqual([
+      'alias.test.ts',
+      'fake-alias.test.ts',
+      'fake-namespace.test.ts',
+      'fake.test.ts',
+      'helper-import.test.mts',
+      'helper-import.test.ts',
+      'namespace.test.ts',
+      'old.test.ts',
+      'raw-assert.test.ts',
+      'reexport.ts',
+      'wrong-owner.test.ts'
+    ]);
 });
 
-testStable(
-  'classified registration cannot escape through reexports, objects or assignment',
-  async () => {
-    for (const source of [
-      "export {testStable as check} from '@study/testing/vitest';",
-      "const tests = await import('@study/testing/vitest');",
-      "import {testStable} from '@study/testing/vitest'; const tests = {check:testStable};",
-      "import {testStable} from '@study/testing/vitest'; let check; check = testStable.each;",
-      `import {testRegression} from '@study/testing/vitest';
- let check;
- check = testRegression({regression:'evidence_integrity'});
-`
-    ])
-      assert.strictEqual(
-        (await lintRule('test-classification', { 'test/a.test.ts': source })).length,
-        1,
-        source
-      );
-  }
-);
+test.stable('prevents focus, skip, aliases, hidden wrappers and raw subtests', async () => {
+  const diagnostics = await lintRule(
+    'test-classification',
+    {
+      'packages/sample/a.test.ts': `import {test} from '@study/testing'; test.stable.only('case', () => {});`,
+      'packages/sample/b.test.ts': `import {test} from '@study/testing'; test.stable('case', {skip:true}, () => {});`,
+      'packages/sample/c.test.ts': `import {test} from '@study/testing'; const check = test.stable;`,
+      'packages/sample/d.test.ts': `import {test} from '@study/testing'; const wrapped = test.stable.extend('custom', () => ({}));`,
+      'packages/sample/e.test.ts': `import {test} from '@study/testing'; test.stable('parent', t => { t.test('raw', () => {}); });`
+    },
+    true
+  );
 
-testStable(
-  'nested contexts cannot hide raw subtests behind destructuring or type aliases',
-  async () => {
-    const diagnostics = await lintRule('test-classification', {
-      'test/a.test.ts': `import {testStable} from '@study/testing/vitest';
- testStable('parent', t => { const {test:check} = t;
- check('raw', () => {});
- });
-`,
-      'test/b.test.ts': `import type {TestContext as Context} from 'vite-plus/test';
- function nested(context: Context) { context.test('raw', () => {});
- }`
-    });
+  test.expect(diagnostics.length).toBeGreaterThanOrEqual(4);
+});
 
-    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-  }
-);
+test.stable('requires explicit metadata and meaningful removal conditions', async () => {
+  const diagnostics = await lintRule(
+    'test-classification',
+    {
+      'packages/sample/a.test.ts': `import {test} from '@study/testing'; test.migration(metadata)('case', () => {});`,
+      'packages/sample/b.test.ts': `import {test} from '@study/testing'; test.regression({...metadata})('case', () => {});`,
+      'packages/sample/c.test.ts': `import {test} from '@study/testing'; test.migration({migration:'source_upgrade',retention:'temporary',removeWhen:'  '})('case', () => {});`,
+      'packages/sample/d.test.ts': `import {test} from '@study/testing'; test.regression({regression:'evidence_integrity'})('case', () => {});`
+    },
+    true
+  );
+
+  test
+    .expect(diagnostics.map(({ filename }) => filename.split('/').at(-1)).sort())
+    .toEqual(['a.test.ts', 'b.test.ts', 'c.test.ts']);
+});

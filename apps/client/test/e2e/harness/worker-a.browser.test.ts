@@ -1,13 +1,12 @@
 import { catalogs } from '@study/localization';
-
-import { expect, testHarness } from './index.ts';
+import { test } from '@study/testing';
 
 // Keep consecutive fixtures in one worker to verify cleanup between tests.
-testHarness.describe.configure({ mode: 'default' });
+test.stable.describe.configure({ mode: 'default' });
 
 const copy = catalogs.english;
 
-testHarness(
+test.stable(
   'one application fixture can save private browser and SQLite state',
   async ({ page }) => {
     await page.goto('/notes');
@@ -15,19 +14,19 @@ testHarness(
     await page.context().addCookies([{ name: 'sentinel', value: 'private', url: page.url() }]);
     await page.getByRole('textbox', { name: copy.NoteCompose }).fill('Isolation sentinel');
     await page.getByRole('button', { name: copy.NoteSaveNote }).click();
-    await expect(page).toHaveURL(/\/notes\/.+/);
+    await test.expect(page).toHaveURL(/\/notes\/.+/);
   }
 );
 
-testHarness(
+test.stable(
   'the next application fixture has fresh browser storage and SQLite rows',
   async ({ page }) => {
     await page.goto('/notes');
-    await expect(page.getByRole('textbox', { name: copy.NoteCompose })).toBeVisible();
-    expect(await page.evaluate(() => localStorage.getItem('sentinel'))).toBeNull();
-    expect((await page.context().cookies()).some((cookie) => cookie.name === 'sentinel')).toBe(
-      false
-    );
-    await expect(page.getByText('Isolation sentinel', { exact: true })).toHaveCount(0);
+    await test.expect(page.getByRole('textbox', { name: copy.NoteCompose })).toBeVisible();
+    test.expect(await page.evaluate(() => localStorage.getItem('sentinel'))).toBeNull();
+    test
+      .expect((await page.context().cookies()).some((cookie) => cookie.name === 'sentinel'))
+      .toBe(false);
+    await test.expect(page.getByText('Isolation sentinel', { exact: true })).toHaveCount(0);
   }
 );

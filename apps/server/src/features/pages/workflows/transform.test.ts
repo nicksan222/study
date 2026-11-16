@@ -1,3 +1,4 @@
+import { createBlock } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises Page generation with native activities and a controlled provider.        │
@@ -9,12 +10,9 @@
  * │ The local provider peer tests transport contracts rather than factual model accuracy.    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { createBlock } from '@study/contracts';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
@@ -36,10 +34,10 @@ const meta = {
 const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] });
 
-testStable(
+test.stable(
   'native transform consumes immutable excerpts and policy, validates output, replays and fences note deletion',
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases }) => {
+    const fixture = await pageTransformFixture(databases);
     const bodies = fixture.bodies;
     const domain = fixture.domain;
     const output = {
@@ -181,9 +179,9 @@ testStable(
               )!.payload
           );
 
-          assert.ok(event.type === 'PageGenerationRequested');
+          test.assert.ok(event.type === 'PageGenerationRequested');
 
-          assert.ok(!(event.type !== 'PageGenerationRequested'), 'Wrong event');
+          test.assert.ok(!(event.type !== 'PageGenerationRequested'), 'Wrong event');
 
           return { note, original, event, capture, request };
         }).pipe(Effect.provide(domain()))
@@ -192,20 +190,20 @@ testStable(
       const result = await execute(setup.event, 'document-fixture');
       const calls = bodies.length;
 
-      assert.strictEqual(calls, 2);
+      test.assert.strictEqual(calls, 2);
       const prompt = bodies.join('\n');
 
-      assert.ok(prompt.includes('alpha selected'));
-      assert.ok(prompt.includes('Captured note'));
-      assert.ok(prompt.includes('untrusted data'));
-      assert.ok(prompt.includes('Keep uncertainty'));
-      assert.ok(prompt.includes('factual_correction'));
-      assert.ok(prompt.includes('italian'));
-      assert.ok(prompt.includes('OUTSIDE alpha selected OUTSIDE'));
-      assert.ok(!prompt.includes('NEW MESSAGE SECRET'));
+      test.assert.ok(prompt.includes('alpha selected'));
+      test.assert.ok(prompt.includes('Captured note'));
+      test.assert.ok(prompt.includes('untrusted data'));
+      test.assert.ok(prompt.includes('Keep uncertainty'));
+      test.assert.ok(prompt.includes('factual_correction'));
+      test.assert.ok(prompt.includes('italian'));
+      test.assert.ok(prompt.includes('OUTSIDE alpha selected OUTSIDE'));
+      test.assert.ok(!prompt.includes('NEW MESSAGE SECRET'));
       await fixture.reopen();
-      expect(await execute(setup.event, 'document-replay')).toStrictEqual(result);
-      assert.strictEqual(bodies.length, calls);
+      test.expect(await execute(setup.event, 'document-replay')).toStrictEqual(result);
+      test.assert.strictEqual(bodies.length, calls);
       await Effect.runPromise(
         Effect.gen(function* () {
           const materials = yield* Pages;
@@ -213,33 +211,35 @@ testStable(
             requestId: setup.request.id
           });
 
-          assert.ok(receipt.resultVersionId);
-          expect(receipt.report?.notes.map((note) => note.kind)).toStrictEqual([
-            'conflict',
-            'addition',
-            'omission',
-            'limit',
-            'uncertainty',
-            'correction_proposal'
-          ]);
+          test.assert.ok(receipt.resultVersionId);
+          test
+            .expect(receipt.report?.notes.map((note) => note.kind))
+            .toStrictEqual([
+              'conflict',
+              'addition',
+              'omission',
+              'limit',
+              'uncertainty',
+              'correction_proposal'
+            ]);
           const saved = yield* materials.version({ id: receipt.resultVersionId });
           const reportTargets = receipt.report?.notes.flatMap((note) => note.blockIds) ?? [];
 
-          assert.ok(reportTargets.length);
+          test.assert.ok(reportTargets.length);
           const savedBlocks = saved.document.blocks;
 
           assertReportTargets(savedBlocks, reportTargets);
-          assert.ok(saved.creator === 'agent');
-          expect(saved.inputs).toStrictEqual([
+          test.assert.ok(saved.creator === 'agent');
+          test.expect(saved.inputs).toStrictEqual([
             { kind: 'page', versionId: setup.original.version!.id },
             ...setup.capture.messages.map((message) => ({
               kind: 'message',
               versionId: message.versionId
             }))
           ]);
-          expect(
-            (yield* materials.version({ id: setup.original.version!.id })).document
-          ).toStrictEqual(setup.original.version!.document);
+          test
+            .expect((yield* materials.version({ id: setup.original.version!.id })).document)
+            .toStrictEqual(setup.original.version!.document);
         }).pipe(Effect.provide(domain()))
       );
       const late = await Effect.runPromise(
@@ -267,12 +267,12 @@ testStable(
             retryId: 'exact-retry'
           });
 
-          assert.strictEqual(retry.contextRequestId, capture.requestId);
+          test.assert.strictEqual(retry.contextRequestId, capture.requestId);
           const event = decodeEvent(
             fixture.context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
           );
 
-          assert.ok(!(event.type !== 'PageGenerationRequested'), 'Wrong event');
+          test.assert.ok(!(event.type !== 'PageGenerationRequested'), 'Wrong event');
 
           return event;
         }).pipe(Effect.provide(domain()))
@@ -285,8 +285,8 @@ testStable(
       );
 
       fixture.beforeOutput(() => Effect.runPromise(deleteNote));
-      await expect(execute(late, 'late-document')).rejects.toSatisfy(() => true);
-      assert.strictEqual(fixture.context.db.orm.select().from(s.pages).all().length, 2);
+      await test.expect(execute(late, 'late-document')).rejects.toSatisfy(() => true);
+      test.assert.strictEqual(fixture.context.db.orm.select().from(s.pages).all().length, 2);
     } finally {
       await fixture.close();
     }
@@ -296,5 +296,5 @@ testStable(
 function assertReportTargets(blocks: readonly { id: string }[], targets: readonly string[]) {
   const ids = new Set(blocks.map((block) => block.id));
 
-  assert.ok(targets.every((id) => ids.has(id)));
+  test.assert.ok(targets.every((id) => ids.has(id)));
 }

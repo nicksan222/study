@@ -1,3 +1,4 @@
+import { quizChoiceIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies true or false persistence and deterministic grading behavior.             │
@@ -10,13 +11,9 @@
  * │ Uses feature services and real database records without model execution.                 │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { quizChoiceIdSchema } from '@study/contracts';
 import { defaultQuizSettings } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
@@ -27,10 +24,10 @@ import { Database } from '#server/platform/database/database';
 import { Learning } from './index.ts';
 
 for (const truth of [true, false])
-  testStable(
+  test.stable(
     `${truth ? 'True' : 'False'} statement attempts validate responses, resume and review both verdicts`,
-    async () => {
-      const location = await createTestDatabase();
+    async ({ databases }) => {
+      const location = await databases();
       const context = new ServerContext(await location.open());
       const domain = Learning.layer.pipe(
         Layer.provideMerge(Settings.layer),
@@ -73,7 +70,7 @@ for (const truth of [true, false])
                 format
               });
 
-              assert.ok(new TextDecoder().decode(exported.bytes).includes('true_false'));
+              test.assert.ok(new TextDecoder().decode(exported.bytes).includes('true_false'));
             }
 
             for (const correct of [true, false]) {
@@ -82,13 +79,13 @@ for (const truth of [true, false])
                 configuration: { ...defaultQuizSettings, questionKind: 'true_false' }
               });
 
-              assert.equal(attempt.questions.length, 1);
+              test.assert.equal(attempt.questions.length, 1);
               const question = attempt.questions[0]!;
 
-              assert.ok(question.kind === 'true_false');
-              assert.ok(!('explanation' in question));
-              assert.ok(!('score' in question));
-              assert.ok(question.choices.every((c) => !('isCorrect' in c)));
+              test.assert.ok(question.kind === 'true_false');
+              test.assert.ok(!('explanation' in question));
+              test.assert.ok(!('score' in question));
+              test.assert.ok(question.choices.every((c) => !('isCorrect' in c)));
 
               for (const answer of [
                 { type: 'open' as const, answer: 'true' },
@@ -110,7 +107,7 @@ for (const truth of [true, false])
                   })
                 );
 
-                assert.equal(failure.kind, 'invalid_input');
+                test.assert.equal(failure.kind, 'invalid_input');
               }
 
               const choiceIds = [
@@ -122,22 +119,25 @@ for (const truth of [true, false])
                 questionId: question.id,
                 answer: { type: 'choice', choiceIds }
               });
-              assert.deepEqual((yield* learning.attempt(attempt.id)).questions[0]?.answer, {
+              test.assert.deepEqual((yield* learning.attempt(attempt.id)).questions[0]?.answer, {
                 type: 'choice',
                 choiceIds
               });
               const finished = yield* learning.finishQuiz({ attemptId: attempt.id });
 
-              assert.equal(finished.scoring.score, correct ? 1 : 0);
+              test.assert.equal(finished.scoring.score, correct ? 1 : 0);
               const result = finished.questions[0]!;
 
-              assert.ok(result.kind === 'true_false');
-              assert.equal(result.choices.find((c) => c.isCorrect)?.text, truth ? 'true' : 'false');
-              assert.equal(result.explanation, 'ATP is an energy carrier.');
-              assert.deepEqual(yield* learning.attempt(attempt.id), finished);
+              test.assert.ok(result.kind === 'true_false');
+              test.assert.equal(
+                result.choices.find((c) => c.isCorrect)?.text,
+                truth ? 'true' : 'false'
+              );
+              test.assert.equal(result.explanation, 'ATP is an energy carrier.');
+              test.assert.deepEqual(yield* learning.attempt(attempt.id), finished);
               const history = yield* learning.attempts({ materialId: material.id, limit: 50 });
 
-              assert.ok(
+              test.assert.ok(
                 history.items.some(
                   (item) => item.attempt.id === attempt.id && item.attempt.status === 'completed'
                 )

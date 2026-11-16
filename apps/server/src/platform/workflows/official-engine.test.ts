@@ -1,3 +1,4 @@
+import { BunCrypto } from '@effect/platform-bun';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises official SQLite acceptance, recovery, durable waits and explicit         │
@@ -11,25 +12,20 @@
  * │ engine.                                                                                  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { BunCrypto } from '@effect/platform-bun';
 import { SqliteClient } from '@effect/sql-sqlite-bun';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { spawnTestProcess } from '@study/testing/vitest';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Deferred, Effect, Fiber, Layer, ManagedRuntime, Option, Schedule, Schema } from 'effect';
 import { ClusterWorkflowEngine, SingleRunner } from 'effect/cluster';
 import { SqlClient } from 'effect/sql';
 import { Activity, DurableClock, DurableDeferred, Workflow } from 'effect/workflow';
-import { assert } from 'vite-plus/test';
 
 import { crashLayer, crashWorkflow } from '#testing/official-crash-runner';
 
-testStable(
+test.stable(
   'official SQL engine preserves accepted work, activity replies and durable waits across restart',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
 
     await location.prepare();
     let calls = 0;
@@ -74,7 +70,7 @@ testStable(
     try {
       const id = await first.runPromise(workflow.execute({ id: 'accepted' }, { discard: true }));
 
-      assert.isString(id);
+      test.assert.isString(id);
       await first.runPromise(
         workflow.poll(id).pipe(
           Effect.repeat({
@@ -90,7 +86,7 @@ testStable(
           })
         )
       );
-      assert.equal(calls, 1);
+      test.assert.equal(calls, 1);
       await first.dispose();
       const second = ManagedRuntime.make(layer);
 
@@ -101,8 +97,8 @@ testStable(
             value: undefined
           })
         );
-        assert.equal(await second.runPromise(workflow.execute({ id: 'accepted' })), 1);
-        assert.equal(calls, 1);
+        test.assert.equal(await second.runPromise(workflow.execute({ id: 'accepted' })), 1);
+        test.assert.equal(calls, 1);
       } finally {
         await second.dispose();
       }
@@ -110,8 +106,8 @@ testStable(
       const third = ManagedRuntime.make(layer);
 
       try {
-        assert.equal(await third.runPromise(workflow.execute({ id: 'accepted' })), 1);
-        assert.equal(calls, 1);
+        test.assert.equal(await third.runPromise(workflow.execute({ id: 'accepted' })), 1);
+        test.assert.equal(calls, 1);
       } finally {
         await third.dispose();
       }
@@ -122,10 +118,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'official interruption persists across reopening and does not run a cancelled activity',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
 
     await location.prepare();
     let calls = 0;
@@ -171,8 +167,8 @@ testStable(
       try {
         const result = await second.runPromise(Effect.exit(workflow.execute({ id: 'cancel' })));
 
-        assert.equal(result._tag, 'Failure');
-        assert.equal(calls, 0);
+        test.assert.equal(result._tag, 'Failure');
+        test.assert.equal(calls, 0);
       } finally {
         await second.dispose();
       }
@@ -183,14 +179,14 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'SIGKILL after official acceptance before receipt acknowledgment safely redelivers without repeating persisted activity',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const db = await location.open();
 
     db.orm.run(sql`CREATE TABLE proof_calls (id INTEGER PRIMARY KEY)`);
-    const child = spawnTestProcess(
+    const child = test.spawnTestProcess(
       [
         process.execPath,
         new URL('../../../test/testing/official-crash-runner.ts', import.meta.url).pathname,
@@ -203,18 +199,18 @@ testStable(
       const reader = child.stdout.getReader();
       const first = await reader.read();
 
-      assert.include(new TextDecoder().decode(first.value), 'accepted-before-domain-ack');
+      test.assert.include(new TextDecoder().decode(first.value), 'accepted-before-domain-ack');
       child.kill('SIGKILL');
       await child.exited;
       reader.releaseLock();
       const runtime = ManagedRuntime.make(crashLayer(location.path));
 
       try {
-        assert.equal(
+        test.assert.equal(
           await runtime.runPromise(crashWorkflow.execute({ id: 'accepted-before-ack' })),
           1
         );
-        assert.equal(
+        test.assert.equal(
           db.orm.all<{ count: bigint }>(sql`SELECT count(*) AS count FROM proof_calls`)[0].count,
           1n
         );
@@ -230,10 +226,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'official SQL writer and domain writer contend on the same SQLite file and release transaction locks',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const db = await location.open();
 
     db.orm.run(sql`CREATE TABLE proof_contention (id INTEGER PRIMARY KEY)`);
@@ -256,11 +252,11 @@ testStable(
             .pipe(Effect.forkChild);
 
           yield* Deferred.await(held);
-          assert.throws(() => db.orm.run(sql`INSERT INTO proof_contention VALUES (2)`));
+          test.assert.throws(() => db.orm.run(sql`INSERT INTO proof_contention VALUES (2)`));
           yield* Deferred.succeed(release, undefined);
           yield* Fiber.join(writer);
           db.orm.run(sql`INSERT INTO proof_contention VALUES (2)`);
-          assert.equal(db.orm.all(sql`SELECT * FROM proof_contention`).length, 2);
+          test.assert.equal(db.orm.all(sql`SELECT * FROM proof_contention`).length, 2);
         }).pipe(Effect.provide(SqliteClient.layer({ filename: location.path })), Effect.scoped)
       );
     } finally {

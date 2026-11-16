@@ -1,42 +1,38 @@
 import { projectIdSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { ContextMenu, ContextMenuTrigger, ContextMenuPopup, ContextMenuItem } from '@study/ui';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { expect, vi } from 'vite-plus/test';
-
-import { renderInRouter } from '#client/test/render-in-router.tsx';
 
 import { DefaultContextMenu } from './default-context-menu';
 
-vi.mock('#client/features/pages/index.ts', () => ({
+test.mock('#client/features/pages/index.ts', () => ({
   useNewBlankPage: () => ({ pending: false, create: async () => true })
 }));
 
 const en = catalogs.english;
 
-testStable('offers creation and scoped destinations on otherwise unhandled content', async () => {
-  renderInRouter(
+test.stable('offers creation and scoped destinations on otherwise unhandled content', async () => {
+  test.renderInRouter(
     <DefaultContextMenu project={projectIdSchema.make(2n)}>
       <p>Workspace</p>
     </DefaultContextMenu>
   );
 
-  fireEvent.contextMenu(await screen.findByText('Workspace'));
-  expect(await screen.findByRole('menuitem', { name: en.NewNote })).toBeEnabled();
-  expect(screen.getByRole('menuitem', { name: en.PageNew })).toBeEnabled();
-  expect(screen.getByRole('menuitem', { name: en.SourcePage })).toHaveAttribute(
-    'href',
-    '/pages?project=2'
-  );
-  expect(screen.getByRole('menuitem', { name: en.Projects })).toHaveAttribute('href', '/projects');
-  await userEvent.keyboard('{Escape}');
-  await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+  test.fireEvent.contextMenu(await test.screen.findByText('Workspace'));
+  test.expect(await test.screen.findByRole('menuitem', { name: en.NewNote })).toBeEnabled();
+  test.expect(test.screen.getByRole('menuitem', { name: en.PageNew })).toBeEnabled();
+  test
+    .expect(test.screen.getByRole('menuitem', { name: en.SourcePage }))
+    .toHaveAttribute('href', '/pages?project=2');
+  test
+    .expect(test.screen.getByRole('menuitem', { name: en.Projects }))
+    .toHaveAttribute('href', '/projects');
+  await test.userEvent.keyboard('{Escape}');
+  await test.waitFor(() => test.expect(test.screen.queryByRole('menu')).not.toBeInTheDocument());
 });
 
-testStable('lets nested custom menus and handlers take precedence over the fallback', async () => {
-  renderInRouter(
+test.stable('lets nested custom menus and handlers take precedence over the fallback', async () => {
+  test.renderInRouter(
     <DefaultContextMenu>
       <ContextMenu>
         <ContextMenuTrigger>Custom target</ContextMenuTrigger>
@@ -48,11 +44,13 @@ testStable('lets nested custom menus and handlers take precedence over the fallb
     </DefaultContextMenu>
   );
 
-  fireEvent.contextMenu(await screen.findByText('Custom target'));
-  expect(await screen.findByRole('menuitem', { name: 'Custom action' })).toBeInTheDocument();
-  expect(screen.queryByRole('menuitem', { name: en.NewNote })).not.toBeInTheDocument();
-  await userEvent.keyboard('{Escape}');
-  await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
-  fireEvent.contextMenu(screen.getByRole('button', { name: 'Handled target' }));
-  await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+  test.fireEvent.contextMenu(await test.screen.findByText('Custom target'));
+  test
+    .expect(await test.screen.findByRole('menuitem', { name: 'Custom action' }))
+    .toBeInTheDocument();
+  test.expect(test.screen.queryByRole('menuitem', { name: en.NewNote })).not.toBeInTheDocument();
+  await test.userEvent.keyboard('{Escape}');
+  await test.waitFor(() => test.expect(test.screen.queryByRole('menu')).not.toBeInTheDocument());
+  test.fireEvent.contextMenu(test.screen.getByRole('button', { name: 'Handled target' }));
+  await test.waitFor(() => test.expect(test.screen.queryByRole('menu')).not.toBeInTheDocument());
 });

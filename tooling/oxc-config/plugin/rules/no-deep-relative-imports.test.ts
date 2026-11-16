@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable(
+test.stable(
   'rejects relative imports that ascend two or more directories across module edge forms',
   async () => {
     const diagnostics = await lintRule('no-deep-relative-imports', {
@@ -16,8 +15,8 @@ const y = import('../folder/../../x');
 require('../../x');`
     });
 
-    assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
-    assert.ok(
+    test.assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
+    test.assert.ok(
       diagnostics.every(
         ({ message }) =>
           message ===
@@ -27,7 +26,7 @@ require('../../x');`
   }
 );
 
-testStable('allows shallow and non-import strings and respects shadowed require', async () => {
+test.stable('allows shallow and non-import strings and respects shadowed require', async () => {
   const diagnostics = await lintRule('no-deep-relative-imports', {
     'src/a.ts': `import './x';
  import '../x';
@@ -36,5 +35,5 @@ testStable('allows shallow and non-import strings and respects shadowed require'
  }`
   });
 
-  expect(diagnostics).toStrictEqual([]);
+  test.expect(diagnostics).toStrictEqual([]);
 });

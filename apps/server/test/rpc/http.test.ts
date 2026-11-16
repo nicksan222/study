@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies the web RPC adapter round-trips unary values, typed failures, bigint IDs, │
@@ -13,12 +14,8 @@
  * │ test owns and closes that peer.                                                          │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { testStable } from '@study/testing/vitest';
 import { Effect, Fiber, Schema, Stream } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { createRpcWebHandler } from '#server/platform/rpc/index';
@@ -75,25 +72,25 @@ async function withServer(
   }
 }
 
-testStable('serves unary values, typed failures and binary codecs over HTTP', async () => {
+test.stable('serves unary values, typed failures and binary codecs over HTTP', async () => {
   await withServer(async (url) => {
     await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
           const client = yield* makeStudyClient(Group, { baseUrl: url });
 
-          assert.strictEqual(yield* client.echo({ value: 'hello' }), 'hello');
+          test.assert.strictEqual(yield* client.echo({ value: 'hello' }), 'hello');
           const data = { id: 9007199254740993n, bytes: new Uint8Array([0, 128, 255]) };
 
-          expect(yield* client.wire(data)).toStrictEqual(data);
-          expect(yield* Effect.flip(client.fail())).toStrictEqual({ kind: 'not_found' });
+          test.expect(yield* client.wire(data)).toStrictEqual(data);
+          test.expect(yield* Effect.flip(client.fail())).toStrictEqual({ kind: 'not_found' });
         })
       )
     );
   });
 });
 
-testStable('cancels a streaming handler when its client scope closes', async () => {
+test.stable('cancels a streaming handler when its client scope closes', async () => {
   await withServer(async (url, ended) => {
     const values = await Effect.runPromise(
       Effect.scoped(
@@ -105,7 +102,7 @@ testStable('cancels a streaming handler when its client scope closes', async () 
       )
     );
 
-    expect(Array.from(values)).toStrictEqual([1]);
+    test.expect(Array.from(values)).toStrictEqual([1]);
     await Promise.race([
       ended,
       new Promise<never>((_, reject) =>
@@ -115,7 +112,7 @@ testStable('cancels a streaming handler when its client scope closes', async () 
   });
 });
 
-testStable(
+test.stable(
   'allows desktop origins and rejects other origins before handling requests',
   async () => {
     await withServer(async (url) => {
@@ -128,18 +125,18 @@ testStable(
         }
       });
 
-      assert.ok(allowed.headers.get('access-control-allow-origin') === 'tauri://localhost');
+      test.assert.ok(allowed.headers.get('access-control-allow-origin') === 'tauri://localhost');
       const denied = await fetch(`${url}/rpc`, {
         method: 'POST',
         headers: { origin: 'https://evil.example' }
       });
 
-      assert.strictEqual(denied.status, 403);
+      test.assert.strictEqual(denied.status, 403);
     });
   }
 );
 
-testStable('retries discovery on a later call without replaying the failed call', async () => {
+test.stable('retries discovery on a later call without replaying the failed call', async () => {
   await withServer(async (url, _ended, calls) => {
     let discoveries = 0;
 
@@ -150,24 +147,24 @@ testStable('retries discovery on a later call without replaying the failed call'
             baseUrl: () => {
               discoveries++;
 
-              assert.ok(!(discoveries === 1), 'unavailable');
+              test.assert.ok(!(discoveries === 1), 'unavailable');
 
               return url;
             }
           });
 
           yield* Effect.flip(client.echo({ value: 'first' }));
-          assert.strictEqual(discoveries, 1);
-          assert.strictEqual(yield* client.echo({ value: 'second' }), 'second');
-          assert.strictEqual(discoveries, 2);
-          assert.strictEqual(calls(), 1);
+          test.assert.strictEqual(discoveries, 1);
+          test.assert.strictEqual(yield* client.echo({ value: 'second' }), 'second');
+          test.assert.strictEqual(discoveries, 2);
+          test.assert.strictEqual(calls(), 1);
         })
       )
     );
   });
 });
 
-testStable('disposes active handlers when the server shuts down', async () => {
+test.stable('disposes active handlers when the server shuts down', async () => {
   await withServer(async (url, ended, _calls, shutdown) => {
     let started!: () => void;
     const first = new Promise<void>((resolve) => {

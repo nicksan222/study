@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('service factories use the domain identity in service and index entries', async () => {
+test.stable('service factories use the domain identity in service and index entries', async () => {
   const diagnostics = await lintRule('service-definition', {
     'src/features/projects/service/index.ts': String.raw`import { defineService as define } from "#server/platform/definitions/define-service";
 export const Projects = define("study/Projects", make);`,
@@ -18,14 +17,16 @@ export class Jobs extends Context.Service()("study/Jobs") {}`,
     'src/domains/projects/store.ts': 'export function helper() {}'
   });
 
-  expect(diagnostics.map((d) => d.filename.split('/apps/server/')[1]).sort()).toStrictEqual([
-    'src/features/empty/index.ts',
-    'src/features/jobs/index.ts',
-    'src/features/sources/service/index.ts'
-  ]);
+  test
+    .expect(diagnostics.map((d) => d.filename.split('/apps/server/')[1]).sort())
+    .toStrictEqual([
+      'src/features/empty/index.ts',
+      'src/features/jobs/index.ts',
+      'src/features/sources/service/index.ts'
+    ]);
 });
 
-testStable(
+test.stable(
   'service identity checks follow aliases without accepting shadowed factories',
   async () => {
     const diagnostics = await lintRule('service-definition', {
@@ -40,12 +41,12 @@ function build(defineService) {
 export const Jobs = build(custom);`
     });
 
-    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-    assert.match(diagnostics[0].filename, /jobs\/service\/index.ts/);
+    test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    test.assert.match(diagnostics[0].filename, /jobs\/service\/index.ts/);
   }
 );
 
-testStable('feature service uses canonical platform factory and identity', async () => {
+test.stable('feature service uses canonical platform factory and identity', async () => {
   const diagnostics = await lintRule('service-definition', {
     'src/features/source/service/index.ts': String.raw`import { defineService as factory } from "#server/platform/definitions/define-service";
 export const SourceService = factory("study/Wrong", make);`,
@@ -53,5 +54,5 @@ export const SourceService = factory("study/Wrong", make);`,
 export const ProjectService = defineService("study/Project", make);`
   });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

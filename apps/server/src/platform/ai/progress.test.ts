@@ -1,3 +1,4 @@
+import type { agentObservationSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies preview buffering preserves text and observation ordering.                │
@@ -9,18 +10,15 @@
  * │ Exercises the real batching helper with a recording observation sink.                    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { agentObservationSchema } from '@study/contracts';
 import { StudyError } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { batchAgentProgress } from '#server/platform/ai/progress';
 
 type Event = (typeof agentObservationSchema.Type)['event'];
 
-testStable.each<Event>([
+test.stable.each<Event>([
   { type: 'tool-start', toolCallId: 'call', toolName: 'sources' },
   { type: 'tool-finish', toolCallId: 'call', toolName: 'sources', outcome: 'success' },
   { type: 'complete' },
@@ -38,20 +36,22 @@ testStable.each<Event>([
     Effect.gen(function* () {
       yield* progress.observe({ type: 'text-delta', text: 'first' });
       yield* progress.observe({ type: 'text-delta', text: 'pending' });
-      expect(written).toEqual([{ type: 'text-delta', text: 'first' }]);
+      test.expect(written).toEqual([{ type: 'text-delta', text: 'first' }]);
       yield* progress.observe(event);
       yield* progress.flush;
     })
   );
 
-  expect(written).toEqual([
-    { type: 'text-delta', text: 'first' },
-    { type: 'text-delta', text: 'pending' },
-    event
-  ]);
+  test
+    .expect(written)
+    .toEqual([
+      { type: 'text-delta', text: 'first' },
+      { type: 'text-delta', text: 'pending' },
+      event
+    ]);
 });
 
-testStable('flushes large pending text without waiting for the timer', async () => {
+test.stable('flushes large pending text without waiting for the timer', async () => {
   const written: string[] = [];
   const progress = batchAgentProgress((event) =>
     Effect.sync(() => {
@@ -68,10 +68,10 @@ testStable('flushes large pending text without waiting for the timer', async () 
     })
   );
 
-  expect(written).toEqual(['first', 'x'.repeat(4096), 'x'.repeat(4096)]);
+  test.expect(written).toEqual(['first', 'x'.repeat(4096), 'x'.repeat(4096)]);
 });
 
-testStable('a failed write cannot leak abandoned text into a later attempt', async () => {
+test.stable('a failed write cannot leak abandoned text into a later attempt', async () => {
   const written: Event[] = [];
   let reject = true;
   const progress = batchAgentProgress((event) =>
@@ -96,10 +96,10 @@ testStable('a failed write cannot leak abandoned text into a later attempt', asy
     })
   );
 
-  expect(written).toEqual([{ type: 'text-delta', text: 'replacement' }, { type: 'complete' }]);
+  test.expect(written).toEqual([{ type: 'text-delta', text: 'replacement' }, { type: 'complete' }]);
 });
 
-testStable(
+test.stable(
   'durable progress commits outside the provider permit owner before acknowledging delivery',
   async () => {
     const { Context } = await import('effect');
@@ -114,7 +114,7 @@ testStable(
       db.exec('CREATE TABLE progress_probe(event TEXT NOT NULL)');
       const write = (event: Event) =>
         Effect.gen(function* () {
-          expect(yield* ProviderPermit).toBe(false);
+          test.expect(yield* ProviderPermit).toBe(false);
           db.transaction((tx) =>
             tx.orm.run(sql`INSERT INTO progress_probe(event) VALUES(${event.type})`)
           );
@@ -128,14 +128,15 @@ testStable(
             yield* progress
               .observe({ type: 'start' })
               .pipe(Effect.provideService(ProviderPermit, true));
-            expect(db.orm.all(sql`SELECT event FROM progress_probe`)).toEqual([{ event: 'start' }]);
+            test
+              .expect(db.orm.all(sql`SELECT event FROM progress_probe`))
+              .toEqual([{ event: 'start' }]);
             yield* progress
               .observe({ type: 'complete' })
               .pipe(Effect.provideService(ProviderPermit, true));
-            expect(db.orm.all(sql`SELECT event FROM progress_probe`)).toEqual([
-              { event: 'start' },
-              { event: 'complete' }
-            ]);
+            test
+              .expect(db.orm.all(sql`SELECT event FROM progress_probe`))
+              .toEqual([{ event: 'start' }, { event: 'complete' }]);
           })
         )
       );

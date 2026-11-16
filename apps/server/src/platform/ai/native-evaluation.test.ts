@@ -1,3 +1,4 @@
+import { sourcesOutputSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks native Effect structured generation with a grounded source tool against a   │
@@ -13,13 +14,10 @@
  * │ closes that peer.                                                                        │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sourcesOutputSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Schema, Stream } from 'effect';
 import type { Response } from 'effect/ai';
 import { AiError, LanguageModel, Tool, Toolkit } from 'effect/ai';
-import { assert, expect } from 'vite-plus/test';
 
 import { flashcardsAgent } from '#server/features/materials/agents/flashcards';
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
@@ -28,7 +26,7 @@ import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 
 // This deliberately narrow, test-only bridge handles the single initial prompt
 // needed to measure Effect's object-with-tools behavior, not production traffic.
-testStable('native structured generation stops after a grounded tool call', async () => {
+test.stable('native structured generation stops after a grounded tool call', async () => {
   let requests = 0;
   let body = '';
   let output: string | undefined;
@@ -174,11 +172,11 @@ testStable('native structured generation stops after a grounded tool call', asyn
       )
     );
 
-    assert.ok(result.reason._tag === 'StructuredOutputError');
-    assert.strictEqual(requests, 1);
-    assert.ok(catalog.citations('answer [1]')[0]?.quote === 'A cell uses energy.');
-    expect(body).toMatch(/Make a card about cells/);
-    expect(body).toMatch(/sources/);
+    test.assert.ok(result.reason._tag === 'StructuredOutputError');
+    test.assert.strictEqual(requests, 1);
+    test.assert.ok(catalog.citations('answer [1]')[0]?.quote === 'A cell uses energy.');
+    test.expect(body).toMatch(/Make a card about cells/);
+    test.expect(body).toMatch(/sources/);
     output = JSON.stringify({
       kind: 'flashcards',
       cards: [{ front: 'What uses energy?', back: 'A cell [1]' }]
@@ -187,14 +185,14 @@ testStable('native structured generation stops after a grounded tool call', asyn
       native.generateObject({ prompt: 'Make a card', schema: flashcardsAgent.output })
     );
 
-    assert.ok(decoded.value.cards[0]?.back === 'A cell [1]');
-    assert.ok(catalog.citations(decoded.value.cards[0]?.back ?? '')[0]?.reference === 'doc');
+    test.assert.ok(decoded.value.cards[0]?.back === 'A cell [1]');
+    test.assert.ok(catalog.citations(decoded.value.cards[0]?.back ?? '')[0]?.reference === 'doc');
     output = JSON.stringify({ kind: 'flashcards', cards: [] });
     const invalid = await Effect.runPromise(
       Effect.flip(native.generateObject({ prompt: 'Make a card', schema: flashcardsAgent.output }))
     );
 
-    assert.ok(invalid.reason._tag === 'StructuredOutputError');
+    test.assert.ok(invalid.reason._tag === 'StructuredOutputError');
   } finally {
     await auth.dispose();
     await server.stop(true);

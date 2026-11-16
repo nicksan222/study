@@ -1,10 +1,9 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { materialQuestionInputSchema } from './schemas.ts';
 
-testStable('true or false content requires a boolean truth value', () => {
+test.stable('true or false content requires a boolean truth value', () => {
   const decode = Schema.decodeUnknownSync(materialQuestionInputSchema);
   const question = {
     kind: 'true_false' as const,
@@ -13,9 +12,9 @@ testStable('true or false content requires a boolean truth value', () => {
     isTrue: true
   };
 
-  assert.deepEqual(decode(question), question);
-  assert.throws(() => decode({ ...question, isTrue: 'true' }));
-  assert.throws(() =>
+  test.assert.deepEqual(decode(question), question);
+  test.assert.throws(() => decode({ ...question, isTrue: 'true' }));
+  test.assert.throws(() =>
     decode({
       kind: 'true_false' as const,
       prompt: question.prompt,

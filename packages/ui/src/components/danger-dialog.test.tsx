@@ -1,8 +1,5 @@
-import { testStable } from '@study/testing/vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { useState } from 'react';
-import { expect, vi } from 'vite-plus/test';
 
 import { DangerDialog } from './danger-dialog';
 
@@ -14,64 +11,67 @@ const labels = {
   confirmation: { identity: 'backup-1', value: 'delete', label: 'Type delete to confirm.' }
 };
 
-testStable(
+test.stable(
   'focuses Cancel, uses alert semantics and leaves confirmation ownership with the caller',
   async () => {
-    const user = userEvent.setup();
-    const confirm = vi.fn();
-    const change = vi.fn();
+    const user = test.userEvent.setup();
+    const confirm = test.vi.fn();
+    const change = test.vi.fn();
 
-    render(<DangerDialog open {...labels} onOpenChange={change} onConfirm={confirm} />);
-    const dialog = await screen.findByRole('alertdialog', { name: labels.title });
+    test.render(<DangerDialog open {...labels} onOpenChange={change} onConfirm={confirm} />);
+    const dialog = await test.screen.findByRole('alertdialog', { name: labels.title });
 
-    expect(dialog).toHaveAccessibleDescription(labels.description);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus());
-    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Delete' })).toHaveAttribute(
-      'data-variant',
-      'destructive'
+    test.expect(dialog).toHaveAccessibleDescription(labels.description);
+    await test.waitFor(() =>
+      test.expect(test.screen.getByRole('button', { name: 'Cancel' })).toHaveFocus()
     );
-    const field = screen.getByRole('textbox', { name: 'Type delete to confirm.' });
+    test.expect(test.screen.queryByRole('button', { name: 'Close' })).toBeNull();
+    test
+      .expect(test.screen.getByRole('button', { name: 'Delete' }))
+      .toHaveAttribute('data-variant', 'destructive');
+    const field = test.screen.getByRole('textbox', { name: 'Type delete to confirm.' });
 
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
-    await user.click(screen.getByRole('button', { name: 'Delete' }));
-    expect(confirm).not.toHaveBeenCalled();
+    test.expect(test.screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
+    await user.click(test.screen.getByRole('button', { name: 'Delete' }));
+    test.expect(confirm).not.toHaveBeenCalled();
     await user.type(field, 'DELETE');
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
+    test.expect(test.screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
     await user.clear(field);
     await user.type(field, 'delete');
-    await user.click(screen.getByRole('button', { name: 'Delete' }));
-    expect(confirm).toHaveBeenCalledOnce();
-    expect(change).not.toHaveBeenCalled();
-    expect(dialog).toBeInTheDocument();
+    await user.click(test.screen.getByRole('button', { name: 'Delete' }));
+    test.expect(confirm).toHaveBeenCalledOnce();
+    test.expect(change).not.toHaveBeenCalled();
+    test.expect(dialog).toBeInTheDocument();
   }
 );
 
-testStable(
+test.stable(
   'blocks duplicate confirm, Cancel and Escape while the operation is pending',
   async () => {
-    const user = userEvent.setup();
-    const confirm = vi.fn();
-    const change = vi.fn();
+    const user = test.userEvent.setup();
+    const confirm = test.vi.fn();
+    const change = test.vi.fn();
 
-    render(<DangerDialog open pending {...labels} onOpenChange={change} onConfirm={confirm} />);
-    const dialog = await screen.findByRole('alertdialog');
+    test.render(
+      <DangerDialog open pending {...labels} onOpenChange={change} onConfirm={confirm} />
+    );
+    const dialog = await test.screen.findByRole('alertdialog');
 
-    expect(dialog).toHaveAttribute('aria-busy', 'true');
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
-    expect(screen.getByRole('textbox')).toBeDisabled();
+    test.expect(dialog).toHaveAttribute('aria-busy', 'true');
+    test.expect(test.screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
+    test.expect(test.screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    test.expect(test.screen.getByRole('textbox')).toBeDisabled();
     await user.keyboard('{Escape}');
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
-    expect(change).not.toHaveBeenCalled();
-    expect(confirm).not.toHaveBeenCalled();
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'Delete' }));
+    test.expect(change).not.toHaveBeenCalled();
+    test.expect(confirm).not.toHaveBeenCalled();
   }
 );
 
-testStable(
+test.stable(
   'does not dismiss on outside pointer interaction and returns focus after Cancel',
   async () => {
-    const user = userEvent.setup();
+    const user = test.userEvent.setup();
 
     function Harness() {
       const [open, setOpen] = useState(false);
@@ -86,33 +86,33 @@ testStable(
       );
     }
 
-    render(<Harness />);
-    const opener = screen.getByRole('button', { name: 'Open' });
+    test.render(<Harness />);
+    const opener = test.screen.getByRole('button', { name: 'Open' });
 
     await user.click(opener);
-    await screen.findByRole('alertdialog');
+    await test.screen.findByRole('alertdialog');
     const backdrop = document.querySelector('.ui-danger-backdrop')!;
 
     await user.click(backdrop);
-    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
-    await waitFor(() => expect(opener).toHaveFocus());
+    test.expect(test.screen.getByRole('alertdialog')).toBeInTheDocument();
+    await user.click(test.screen.getByRole('button', { name: 'Cancel' }));
+    await test.waitFor(() => test.expect(test.screen.queryByRole('alertdialog')).toBeNull());
+    await test.waitFor(() => test.expect(opener).toHaveFocus());
   }
 );
 
-testStable(
+test.stable(
   'resets exact confirmation when the target, required phrase or open note changes',
   async () => {
-    const user = userEvent.setup();
-    const confirm = vi.fn();
-    const change = vi.fn();
-    const view = render(
+    const user = test.userEvent.setup();
+    const confirm = test.vi.fn();
+    const change = test.vi.fn();
+    const view = test.render(
       <DangerDialog open {...labels} onOpenChange={change} onConfirm={confirm} />
     );
 
-    await user.type(screen.getByRole('textbox'), 'delete');
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
+    await user.type(test.screen.getByRole('textbox'), 'delete');
+    test.expect(test.screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
     view.rerender(
       <DangerDialog
         open
@@ -122,9 +122,9 @@ testStable(
         onConfirm={confirm}
       />
     );
-    expect(screen.getByRole('textbox')).toHaveValue('');
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
-    await user.type(screen.getByRole('textbox'), 'delete');
+    test.expect(test.screen.getByRole('textbox')).toHaveValue('');
+    test.expect(test.screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
+    await user.type(test.screen.getByRole('textbox'), 'delete');
     view.rerender(
       <DangerDialog
         open
@@ -134,61 +134,69 @@ testStable(
         onConfirm={confirm}
       />
     );
-    expect(screen.getByRole('textbox')).toHaveValue('');
-    await user.type(screen.getByRole('textbox'), 'Biology');
+    test.expect(test.screen.getByRole('textbox')).toHaveValue('');
+    await user.type(test.screen.getByRole('textbox'), 'Biology');
     view.rerender(
       <DangerDialog open={false} {...labels} onOpenChange={change} onConfirm={confirm} />
     );
     view.rerender(<DangerDialog open {...labels} onOpenChange={change} onConfirm={confirm} />);
-    expect(screen.getByRole('textbox')).toHaveValue('');
-    expect(confirm).not.toHaveBeenCalled();
+    test.expect(test.screen.getByRole('textbox')).toHaveValue('');
+    test.expect(confirm).not.toHaveBeenCalled();
     view.unmount();
-    render(<DangerDialog open {...labels} onOpenChange={change} onConfirm={confirm} />);
-    expect(screen.getByRole('textbox')).toHaveValue('');
+    test.render(<DangerDialog open {...labels} onOpenChange={change} onConfirm={confirm} />);
+    test.expect(test.screen.getByRole('textbox')).toHaveValue('');
   }
 );
 
-testStable(
+test.stable(
   'does not accept leading or trailing whitespace as the exact confirmation phrase',
   () => {
-    const confirm = vi.fn();
+    const confirm = test.vi.fn();
 
-    render(<DangerDialog open {...labels} onOpenChange={() => {}} onConfirm={confirm} />);
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'delete ' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
-    expect(confirm).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
+    test.render(<DangerDialog open {...labels} onOpenChange={() => {}} onConfirm={confirm} />);
+    test.fireEvent.change(test.screen.getByRole('textbox'), { target: { value: 'delete ' } });
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'Delete' }));
+    test.expect(confirm).not.toHaveBeenCalled();
+    test.expect(test.screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
   }
 );
 
-testStable(
+test.stable(
   'keeps Cancel focused without scrolling long reviewed content away on open',
   async () => {
-    const focus = vi.spyOn(HTMLElement.prototype, 'focus');
+    const focus = test.vi.spyOn(HTMLElement.prototype, 'focus');
 
-    render(
+    test.render(
       <DangerDialog open {...labels} onOpenChange={() => {}} onConfirm={() => {}}>
         <div style={{ height: 2000 }}>Reviewed content begins here</div>
       </DangerDialog>
     );
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus());
-    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
-    expect(screen.getByRole('heading', { name: labels.title })).toBeVisible();
-    expect(screen.getByText(labels.description)).toBeVisible();
+    await test.waitFor(() =>
+      test.expect(test.screen.getByRole('button', { name: 'Cancel' })).toHaveFocus()
+    );
+    test.expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+    test.expect(test.screen.getByRole('heading', { name: labels.title })).toBeVisible();
+    test.expect(test.screen.getByText(labels.description)).toBeVisible();
   }
 );
 
-testStable('review-only dialogs hide typed intent and cannot invoke deletion', async () => {
-  const confirm = vi.fn();
-  const view = render(
-    <DangerDialog open {...labels} confirmation={null} onOpenChange={vi.fn()} onConfirm={confirm} />
+test.stable('review-only dialogs hide typed intent and cannot invoke deletion', async () => {
+  const confirm = test.vi.fn();
+  const view = test.render(
+    <DangerDialog
+      open
+      {...labels}
+      confirmation={null}
+      onOpenChange={test.vi.fn()}
+      onConfirm={confirm}
+    />
   );
 
-  expect(await screen.findByRole('alertdialog')).toBeVisible();
-  expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
-  expect(confirm).not.toHaveBeenCalled();
-  view.rerender(<DangerDialog open {...labels} onOpenChange={vi.fn()} onConfirm={confirm} />);
-  expect(screen.getByRole('textbox')).toHaveValue('');
-  expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
+  test.expect(await test.screen.findByRole('alertdialog')).toBeVisible();
+  test.expect(test.screen.queryByRole('textbox')).not.toBeInTheDocument();
+  test.expect(test.screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
+  test.expect(confirm).not.toHaveBeenCalled();
+  view.rerender(<DangerDialog open {...labels} onOpenChange={test.vi.fn()} onConfirm={confirm} />);
+  test.expect(test.screen.getByRole('textbox')).toHaveValue('');
+  test.expect(test.screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
 });

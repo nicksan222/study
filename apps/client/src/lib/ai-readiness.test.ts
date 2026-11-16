@@ -1,12 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport } from '#client/test/rpc.tsx';
+import { test } from '@study/testing';
 
 import { aiReadiness, useAiReadiness } from './ai-readiness';
 
-const settings = vi.hoisted(() => ({ load: vi.fn() }));
+const settings = test.hoisted(() => ({ load: test.vi.fn() }));
 
 const data = {
   status: { signedIn: false, email: null, sharing: false },
@@ -26,24 +22,31 @@ const data = {
   }
 };
 
-describe('AI readiness', () => {
-  testStable('checks the configured provider for each tier', () => {
-    expect(aiReadiness(data, 'tiny')).toBe(false);
-    expect(aiReadiness(data, 'medium')).toBe(true);
-    expect(aiReadiness({ ...data, status: { ...data.status, signedIn: true } }, 'smart')).toBe(
-      false
-    );
-    expect(
-      aiReadiness({ ...data, status: { ...data.status, signedIn: true, sharing: true } }, 'smart')
-    ).toBe(true);
-    expect(aiReadiness({ ...data, providers: [] }, 'medium')).toBe(false);
-    expect(
-      aiReadiness({ ...data, providers: [{ ...data.providers[0]!, configured: false }] }, 'medium')
-    ).toBe(false);
+test.describe('AI readiness', () => {
+  test.stable('checks the configured provider for each tier', () => {
+    test.expect(aiReadiness(data, 'tiny')).toBe(false);
+    test.expect(aiReadiness(data, 'medium')).toBe(true);
+    test
+      .expect(aiReadiness({ ...data, status: { ...data.status, signedIn: true } }, 'smart'))
+      .toBe(false);
+    test
+      .expect(
+        aiReadiness({ ...data, status: { ...data.status, signedIn: true, sharing: true } }, 'smart')
+      )
+      .toBe(true);
+    test.expect(aiReadiness({ ...data, providers: [] }, 'medium')).toBe(false);
+    test
+      .expect(
+        aiReadiness(
+          { ...data, providers: [{ ...data.providers[0]!, configured: false }] },
+          'medium'
+        )
+      )
+      .toBe(false);
   });
 });
 
-testStable(
+test.stable(
   'readiness distinguishes loading and failure and refreshes after configuration changes',
   async () => {
     let finish: (value: typeof data) => void = () => {};
@@ -53,7 +56,7 @@ testStable(
         finish = resolve;
       })
     );
-    const client = rpcTestTransport(async (tag) => {
+    const client = test.rpcTestTransport(async (tag) => {
       const snapshot = await settings.load();
 
       if (tag === 'auth.status') return snapshot.status;
@@ -64,27 +67,27 @@ testStable(
 
       throw new Error(tag);
     });
-    const hook = renderHook(() => useAiReadiness('tiny'), { wrapper: client.wrapper });
+    const hook = test.renderHook(() => useAiReadiness('tiny'), { wrapper: client.wrapper });
 
     try {
-      expect(hook.result.current).toBe('checking');
-      await act(async () => {
+      test.expect(hook.result.current).toBe('checking');
+      await test.act(async () => {
         finish(data);
       });
-      await waitFor(() => expect(hook.result.current).toBe('setup'));
+      await test.waitFor(() => test.expect(hook.result.current).toBe('setup'));
       settings.load.mockResolvedValue({
         ...data,
         status: { ...data.status, signedIn: true, sharing: true }
       });
-      await act(async () => {
+      await test.act(async () => {
         await client.notify();
       });
-      await waitFor(() => expect(hook.result.current).toBe('ready'));
+      await test.waitFor(() => test.expect(hook.result.current).toBe('ready'));
       settings.load.mockRejectedValue(new Error('Unavailable'));
-      await act(async () => {
+      await test.act(async () => {
         await client.notify();
       });
-      await waitFor(() => expect(hook.result.current).toBe('unavailable'));
+      await test.waitFor(() => test.expect(hook.result.current).toBe('unavailable'));
     } finally {
       hook.unmount();
     }

@@ -1,17 +1,16 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('requires SQL null checks to use IS NULL semantics', async () => {
+test.stable('requires SQL null checks to use IS NULL semantics', async () => {
   const diagnostics = await lintRule('sql-null-comparison', {
     'src/bad.ts': "import { eq } from '@study/db'; eq(items.id, null);"
   });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable(
+test.stable(
   'recognizes aliases and ignores quoted or commented SQL and shadowed names',
   async () => {
     const diagnostics = await lintRule('sql-null-comparison', {
@@ -31,11 +30,11 @@ d.sql\`NULL = x\`;`,
       'src/example.test.ts': "import { eq } from '@study/db'; eq(col, null);"
     });
 
-    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
   }
 );
 
-testStable(
+test.stable(
   'NULL assignments are valid while comparisons in WHERE and assignment expressions fail',
   async () => {
     const diagnostics = await lintRule('sql-null-comparison', {
@@ -47,6 +46,6 @@ sql\`UPDATE projects SET error=NULL WHERE title=NULL\`;
 sql\`SELECT id FROM projects WHERE NULL = title\`;`
     });
 
-    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );

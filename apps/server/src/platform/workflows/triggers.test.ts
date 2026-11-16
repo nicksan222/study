@@ -1,3 +1,4 @@
+import { workflowEventSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises workflow event trigger graph validation and transactional dispatch.      │
@@ -14,14 +15,11 @@
  * │ cleanup closes owned resources.                                                          │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { workflowEventSchema } from '@study/contracts';
 import { workflow_executions, workflowReceipts } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import type { createTestDatabase } from '@study/db/testing';
+import { test } from '@study/testing';
 import { Effect, ManagedRuntime, Layer, Schema } from 'effect';
 import { Workflow, WorkflowEngine } from 'effect/workflow';
-import { assert, expect } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 
@@ -69,8 +67,8 @@ const trigger: Trigger = {
   enabled: () => true
 };
 
-testStable('automatic trigger cycles are rejected', () => {
-  assert.throws(
+test.stable('automatic trigger cycles are rejected', () => {
+  test.assert.throws(
     () =>
       validateTriggerGraph([
         { event: 'SourceIndexed', emits: ['MaterialPublished'] },
@@ -80,10 +78,10 @@ testStable('automatic trigger cycles are rejected', () => {
   );
 });
 
-testStable(
+test.stable(
   'bounded dispatch persists receipts after official acceptance and survives restart',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = await openContext(location);
     const calls: string[] = [];
     const record = ({ event }: typeof testWorkflow.payloadSchema.Type) =>
@@ -99,8 +97,8 @@ testStable(
       context.transaction(['workflows'], (tx) => {
         for (let index = 0; index < 3; index++) emitEvent(tx, event(String(index)), index);
       });
-      assert.equal(await first.runPromise(dispatchPending(context, [trigger], 10, 2)), 2);
-      assert.equal(context.db.orm.select().from(workflowReceipts).all().length, 2);
+      test.assert.equal(await first.runPromise(dispatchPending(context, [trigger], 10, 2)), 2);
+      test.assert.equal(context.db.orm.select().from(workflowReceipts).all().length, 2);
       await first.runPromise(
         WorkflowEngine.WorkflowEngine.use((engine) =>
           Effect.all(
@@ -117,10 +115,10 @@ testStable(
       const second = ManagedRuntime.make(layer);
 
       try {
-        assert.equal(await second.runPromise(dispatchPending(context, [trigger], 11, 2)), 1);
-        assert.equal(await second.runPromise(dispatchPending(context, [trigger], 12, 2)), 0);
-        assert.equal(context.db.orm.select().from(workflowReceipts).all().length, 3);
-        assert.equal(context.db.orm.select().from(workflow_executions).all().length, 3);
+        test.assert.equal(await second.runPromise(dispatchPending(context, [trigger], 11, 2)), 1);
+        test.assert.equal(await second.runPromise(dispatchPending(context, [trigger], 12, 2)), 0);
+        test.assert.equal(context.db.orm.select().from(workflowReceipts).all().length, 3);
+        test.assert.equal(context.db.orm.select().from(workflow_executions).all().length, 3);
         await second.runPromise(
           WorkflowEngine.WorkflowEngine.use((engine) =>
             engine.execute(testWorkflow, {
@@ -129,7 +127,7 @@ testStable(
             })
           )
         );
-        assert.deepEqual(calls.sort(), ['0', '1', '2']);
+        test.assert.deepEqual(calls.sort(), ['0', '1', '2']);
       } finally {
         await second.dispose();
       }
@@ -141,7 +139,7 @@ testStable(
   }
 );
 
-testStable('material publication events identify a published material version', () => {
+test.stable('material publication events identify a published material version', () => {
   const value = {
     type: 'MaterialPublished',
     eventId: 'material',
@@ -155,9 +153,9 @@ testStable('material publication events identify a published material version', 
   };
   const decoded = Schema.decodeUnknownSync(workflowEventSchema)(value);
 
-  assert.ok(decoded.type === 'MaterialPublished');
-  expect('materialVersionId' in decoded && decoded.materialVersionId).toBe(3n);
-  assert.throws(() =>
+  test.assert.ok(decoded.type === 'MaterialPublished');
+  test.expect('materialVersionId' in decoded && decoded.materialVersionId).toBe(3n);
+  test.assert.throws(() =>
     Schema.decodeUnknownSync(workflowEventSchema)({
       ...value,
       materialVersionId: undefined,
@@ -166,21 +164,21 @@ testStable('material publication events identify a published material version', 
   );
 });
 
-testStable('registered workflows accept canonical failure values', async () => {
+test.stable('registered workflows accept canonical failure values', async () => {
   const { sourceIngestionWorkflow } = await import('#server/features/sources/workflows/index');
   const failure = { kind: 'cancelled', message: 'superseded', retryAfterMs: null };
 
-  expect(Schema.decodeUnknownSync(sourceIngestionWorkflow.errorSchema)(failure)).toStrictEqual(
-    failure
-  );
+  test
+    .expect(Schema.decodeUnknownSync(sourceIngestionWorkflow.errorSchema)(failure))
+    .toStrictEqual(failure);
 });
 
-testStable('trigger graph fanout counts every subscription with the same source event', () => {
+test.stable('trigger graph fanout counts every subscription with the same source event', () => {
   const edges = Array.from({ length: 17 }, () => ({
     event: 'SourceIndexed' as const,
     emits: ['MaterialPublished' as const]
   }));
 
-  assert.throws(() => validateTriggerGraph(edges), /fanout/);
-  expect(() => validateTriggerGraph(edges.slice(0, 16))).not.toThrow();
+  test.assert.throws(() => validateTriggerGraph(edges), /fanout/);
+  test.expect(() => validateTriggerGraph(edges.slice(0, 16))).not.toThrow();
 });

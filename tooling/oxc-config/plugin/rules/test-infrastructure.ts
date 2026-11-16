@@ -5,12 +5,12 @@
  * │ Prevents:                                                                                │
  * │ Prevents local process ownership, sleep-based waiting, temporary shell resources and     │
  * │ runner configuration in tests. Shared testing owners are exempt; runner imports and      │
- * │ custom testStable wrappers are restricted beyond test files too.                         │
+ * │ custom test namespace wrappers are restricted beyond test files too.                     │
  * │                                                                                          │
  * │ Allowed:                                                                                 │
  * │   // example.test.ts                                                                     │
- * │   import { spawnTestProcess } from '@study/testing/vitest';                              │
- * │   spawnTestProcess(['bun', 'server.ts']);                                                │
+ * │   import { test } from '@study/testing';                                                 │
+ * │   test.spawnTestProcess(['bun', 'server.ts']);                                           │
  * │                                                                                          │
  * │ Rejected:                                                                                │
  * │   // example.test.ts                                                                     │
@@ -20,18 +20,19 @@
 
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { moduleEdges } from '../architecture-imports.ts';
-import { imported, memberName } from '../lexical-bindings.ts';
+import { importedValue, moduleEdges } from '../architecture-imports.ts';
+import { imported, memberName, nestedRegistration } from '../lexical-bindings.ts';
 import { bunOperation, namespaceImport } from '../process-operations.ts';
 import { resolveValue } from './module-factories.ts';
 
 function importedCall(context: any, node: any, source: RegExp, name: string): boolean {
   const value = resolveValue(context, node);
 
-  return (
-    imported(context, value, source, name) ||
-    (memberName(value) === name &&
-      namespaceImport(context, resolveValue(context, value.object), source))
+  return Boolean(
+    value &&
+    (imported(context, value, source, name) ||
+      (memberName(value) === name &&
+        namespaceImport(context, resolveValue(context, value.object), source)))
   );
 }
 
@@ -47,52 +48,340 @@ function localPolicy(context: any, node: any): boolean {
   );
 }
 
-function nestedRegistration(node: any): boolean {
-  let owner = node.parent;
-
-  while (owner) {
+function insideLoop(node: any): boolean {
+  for (let parent = node.parent; parent; parent = parent.parent) {
     if (
-      owner.type === 'FunctionDeclaration' ||
-      (['ArrowFunctionExpression', 'FunctionExpression'].includes(owner.type) &&
-        owner.parent.type === 'VariableDeclarator')
+      [
+        'WhileStatement',
+        'DoWhileStatement',
+        'ForStatement',
+        'ForOfStatement',
+        'ForInStatement'
+      ].includes(parent.type)
     )
       return true;
 
-    if (owner.type === 'Program') return false;
-
-    owner = owner.parent;
+    if (
+      ['FunctionExpression', 'ArrowFunctionExpression', 'FunctionDeclaration'].includes(parent.type)
+    )
+      return false;
   }
 
   return false;
+}
+
+function effectServiceCall(context: any, node: any): boolean {
+  const operation = importedValue(context, node);
+
+  return (
+    operation?.source === 'effect' &&
+    ['Effect.runPromise', 'Effect.runSync', 'Effect.provide'].includes(operation.name)
+  );
+}
+
+function fileSystemService(context: any, node: any): boolean {
+  const value = resolveValue(context, node);
+
+  if (['YieldExpression', 'AwaitExpression'].includes(value?.type))
+    return fileSystemService(context, value.argument);
+
+  const reference = importedValue(context, value);
+
+  if (reference?.source === 'effect' && reference.name === 'FileSystem.FileSystem') return true;
+
+  if (value?.type !== 'CallExpression') return false;
+
+  return effectServiceCall(context, value.callee) && fileSystemService(context, value.arguments[0]);
+}
+
+function temporaryStorage(context: any, node: any): boolean {
+  const call = resolveValue(context, node);
+
+  return (
+    ['makeTempDirectory', 'makeTempDirectoryScoped'].includes(memberName(call) ?? '') &&
+    fileSystemService(context, call.object)
+  );
+}
+
+function canonicalTestBody(registration: any): boolean {
+  return (
+    registration?.source === '@study/testing' &&
+    /^test\.(?:stable|regression|migration|characterization)(?:\.|$)/.test(registration.name)
+  );
+}
+
+function callbackOwner(node: any): any {
+  let owner = node.parent;
+
+  while (
+    owner &&
+    !['ArrowFunctionExpression', 'FunctionExpression', 'FunctionDeclaration'].includes(owner.type)
+  )
+    owner = owner.parent;
+
+  return owner;
+}
+
+function registrationCallee(owner: any): any {
+  if (owner?.parent?.type !== 'CallExpression') return undefined;
+
+  let callee = owner.parent.callee;
+  const invokedBuilder = callee?.type === 'CallExpression';
+
+  while (callee?.type === 'CallExpression') callee = callee.callee;
+
+  return invokedBuilder && memberName(callee) === 'extend' ? callee.object : callee;
+}
+
+function directTestBody(context: any, node: any): boolean {
+  const callee = registrationCallee(callbackOwner(node));
+
+  if (!callee) return false;
+
+  const registration = importedValue(context, callee);
+
+  return canonicalTestBody(registration);
+}
+
+function disposableFixture(context: any, node: any): boolean {
+  const value = importedValue(context, node);
+
+  return Boolean(
+    value?.name === 'createTestDatabase' ||
+    ['createServerFixture', 'createRpcFixture', 'createServerTest'].includes(value?.name ?? '') ||
+    (value?.source === '@study/db' && value.name === 'Db.open') ||
+    (value?.source?.includes('server') && value.name === 'App.open')
+  );
+}
+
+function directTestFixtureApi(context: any, node: any): boolean {
+  const value = importedValue(context, node);
+
+  return (
+    value?.source === '@study/testing' &&
+    ['test.createTestDatabase', 'test.createServerFixture', 'test.createRpcFixture'].includes(
+      value.name
+    )
+  );
+}
+
+function fixtureOwnerPath(path: string): boolean {
+  return (
+    /\/(?:packages\/db\/src\/testing\.ts|packages\/testing\/src\/vitest\.ts|apps\/server\/test\/testing\/(?:fixture|scenarios|fixture\.test|automatic-fixture-scenario)\.ts|tooling\/testing\/(?:resources|process)\.ts)$/.test(
+      path
+    ) ||
+    path.endsWith('/packages/db/test/scenarios.ts') ||
+    path.endsWith('/packages/db/test/setup.ts')
+  );
+}
+
+function fixtureSubjectPath(path: string): boolean {
+  return (
+    path.endsWith('/packages/db/test/testing.test.ts') ||
+    path.endsWith('/packages/db/test/db.test.ts') ||
+    path.endsWith('/packages/db/test/snapshot-reference.test.ts') ||
+    path.endsWith('/packages/db/test/pages.test.ts') ||
+    path.endsWith('/apps/server/test/server/database-ownership.test.ts') ||
+    path.endsWith('/packages/testing/test/resources.test.ts') ||
+    path.endsWith('/packages/testing/test/process.test.ts') ||
+    path.endsWith('/packages/testing/test/react.test.ts') ||
+    path.endsWith('/packages/testing/test/vitest.test.ts')
+  );
+}
+
+function testApiOwnerPath(path: string): boolean {
+  return (
+    path.includes('/packages/testing/src/') ||
+    (path.includes('/tooling/testing/') && !actualTestFile(path)) ||
+    path.endsWith('/packages/db/test/scenarios.ts') ||
+    path.endsWith('/packages/db/test/setup.ts') ||
+    path.endsWith('/apps/client/src/test/scenarios.tsx') ||
+    path.endsWith('/apps/client/src/test/setup.ts') ||
+    /\/apps\/client\/test\/e2e\/harness\/(?:index|testing)\.ts$/.test(path) ||
+    /\/apps\/server\/test\/testing\/(?:fixture|scenarios|fixture\.test|automatic-fixture-scenario|setup)\.ts$/.test(
+      path
+    ) ||
+    fixtureSubjectPath(path)
+  );
+}
+
+function actualTestFile(path: string): boolean {
+  return /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(path);
+}
+
+function privateTestFacet(source: string | null): boolean {
+  return (
+    source !== null &&
+    (source.startsWith('@testing-library/') ||
+      /^@study\/[^/]+\/(?:[^/]+\/)*testing(?:\/|$)/.test(source) ||
+      source.startsWith('@study/testing/'))
+  );
+}
+
+function appSourceFixtureFacet(path: string, isTest: boolean, source: string | null): boolean {
+  return (
+    source !== null &&
+    !isTest &&
+    path.includes('/src/') &&
+    /^@study\/(?:contracts\/(?:react\/)?testing|server\/testing|db\/testing)$/.test(source)
+  );
+}
+
+function forbiddenTestHelperImport(
+  isTest: boolean,
+  fixtureOwner: boolean,
+  source: string | null
+): boolean {
+  return (
+    source !== null &&
+    isTest &&
+    !fixtureOwner &&
+    /^(?:@testing-library\/(?:react|dom|user-event)|#client\/test\/(?:render-page|render-in-router)(?:\.[jt]sx?)?)$/.test(
+      source
+    )
+  );
+}
+
+function forbiddenTestFacetImport(
+  isTest: boolean,
+  owner: boolean,
+  typeOnly: boolean,
+  source: string | null
+): boolean {
+  return isTest && !owner && !typeOnly && privateTestFacet(source);
+}
+
+function runnerConfigurationImport(typeOnly: boolean, source: string | null): boolean {
+  return !typeOnly && source !== null && /^(?:vite-plus\/test\/node|vitest\/node)$/.test(source);
+}
+
+function checkFixtureOwnership(context: any, node: any): void {
+  if (!disposableFixture(context, node.callee) || !directTestBody(context, node)) return;
+
+  const declaration = node.parent?.type === 'AwaitExpression' ? node.parent.parent : node.parent;
+
+  if (
+    declaration?.type !== 'VariableDeclarator' ||
+    declaration.parent.type !== 'VariableDeclaration' ||
+    declaration.parent.kind !== 'await using'
+  )
+    context.report({ node, messageId: 'ownership' });
+}
+
+function checkObservation(context: any, node: any, operation: string | undefined): void {
+  const value = importedValue(context, node.callee);
+  const effectSleep = value?.source === 'effect' && value.name === 'Effect.sleep';
+
+  if (operation === 'sleep' || (effectSleep && insideLoop(node)))
+    context.report({ node, messageId: 'polling' });
+}
+
+function checkResources(context: any, node: any): void {
+  const operation = bunOperation(context, node.callee);
+
+  if (operation === 'spawn' || operation === 'spawnSync' || temporaryStorage(context, node.callee))
+    context.report({ node, messageId: 'resource' });
+
+  checkObservation(context, node, operation);
+}
+
+function checkPublicExpectation(context: any, node: any): void {
+  const called = importedValue(context, node.callee);
+
+  if (
+    called?.source === '@study/testing' &&
+    called.name === 'test.expect' &&
+    node.arguments.length > 2
+  )
+    context.report({ node, messageId: 'expectArguments' });
+}
+
+function checkNestedRegistration(context: any, node: any): void {
+  const registration = importedValue(context, node.callee);
+
+  if (
+    registration?.source === '@study/testing' &&
+    registration.name === 'test.stable' &&
+    nestedRegistration(node)
+  )
+    context.report({ node, messageId: 'registration' });
+}
+
+function checkTestCall(context: any, node: any, isTest: boolean, fixtureOwner: boolean): void {
+  if (!isTest) return;
+
+  if (
+    !fixtureOwner &&
+    (disposableFixture(context, node.callee) || directTestFixtureApi(context, node.callee))
+  )
+    context.report({ node, messageId: 'fixtureAcquisition' });
+
+  checkFixtureOwnership(context, node);
+  checkResources(context, node);
+
+  if (localPolicy(context, node.callee)) context.report({ node, messageId: 'policy' });
 }
 
 export default defineRule({
   meta: {
     type: 'problem',
     messages: {
-      resource: 'Use @study/testing/vitest for process and resource test helpers.',
+      resource:
+        'Use @study/testing resource and process helpers; Vitest owns processes through @study/testing/vitest.',
+      fixtureImport:
+        'Use the test namespace for application test setup and helpers; reserve testing facets for their owners.',
+      fixtureAcquisition:
+        'Acquire database and server test resources through lazy test callback fixtures, not direct constructors or namespace helpers.',
+      ownership:
+        'Acquire disposable fixtures with await using so failed setup and assertions release their resources.',
       polling:
         'Use native waitFor or expect.poll through the shared testing policy, not sleep loops.',
       policy:
         'Configure test runners and async budgets in the shared testing tooling, not individual tests.',
-      runner:
-        'Test runners belong in tooling/testing; author ordinary tests with @study/testing/vitest.',
+      runner: 'Test runners belong in tooling/testing; author ordinary tests with @study/testing.',
       registration:
-        'Use the provided test registrations and native each/extend APIs instead of a custom test wrapper.'
+        'Use the provided test registrations and native each/extend APIs instead of a custom test wrapper.',
+      expectArguments:
+        'Pass at most an assertion subject and one diagnostic message to test.expect.'
     }
   },
   create(context) {
     const path = context.filename.replaceAll('\\', '/');
-    const owner = /\/(?:packages\/testing|tooling\/testing)\//.test(path);
+    const actualTest = actualTestFile(path);
+    const owner =
+      /\/packages\/testing\/src\//.test(path) || (/\/tooling\/testing\//.test(path) && !actualTest);
+    const fixtureOwner = fixtureOwnerPath(path);
     const test =
-      /\.(?:test|spec)\.[cm]?[jt]sx?$|\/(?:test|tests)\/(?:testing|support|fixtures)(?:\/|[.])|\/src\/test\/|test-(?:support|utils)/.test(
+      /\.(?:test|spec)\.[cm]?[jt]sx?$|\/(?:test|tests)\/(?:testing|support|fixtures)(?:\/|[.])|\/src\/test\/|\/test\/e2e\/harness\/|test-(?:support|utils)/.test(
         path
       );
 
     if (owner) return {};
 
     const edges = moduleEdges(context, (node, source, typeOnly) => {
-      if (!typeOnly && source && /^(?:vite-plus\/test\/node|vitest\/node)$/.test(source))
+      if (appSourceFixtureFacet(path, test, source))
+        context.report({ node, messageId: 'fixtureImport' });
+
+      if (
+        forbiddenTestHelperImport(
+          actualTest,
+          fixtureOwner || testApiOwnerPath(path) || fixtureSubjectPath(path),
+          source
+        )
+      )
+        context.report({ node, messageId: 'fixtureImport' });
+
+      if (
+        forbiddenTestFacetImport(
+          actualTest,
+          testApiOwnerPath(path) || fixtureSubjectPath(path),
+          typeOnly,
+          source
+        )
+      )
+        context.report({ node, messageId: 'fixtureImport' });
+
+      if (runnerConfigurationImport(typeOnly, source))
         context.report({ node, messageId: 'runner' });
     });
 
@@ -100,23 +389,9 @@ export default defineRule({
       ...edges,
       CallExpression(node) {
         edges.CallExpression(node);
-
-        if (
-          importedCall(context, node.callee, /^@study\/testing\/vitest$/, 'testStable') &&
-          nestedRegistration(node)
-        )
-          context.report({ node, messageId: 'registration' });
-
-        if (!test) return;
-
-        const operation = bunOperation(context, node.callee);
-
-        if (operation === 'spawn' || operation === 'spawnSync')
-          context.report({ node, messageId: 'resource' });
-
-        if (operation === 'sleep') context.report({ node, messageId: 'polling' });
-
-        if (localPolicy(context, node.callee)) context.report({ node, messageId: 'policy' });
+        checkPublicExpectation(context, node);
+        checkNestedRegistration(context, node);
+        checkTestCall(context, node, actualTest, fixtureOwner || fixtureSubjectPath(path));
       },
       TaggedTemplateExpression(node) {
         if (

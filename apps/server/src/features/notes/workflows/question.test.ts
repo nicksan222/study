@@ -1,3 +1,4 @@
+import { noteQuestionRequestedSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises durable question classifier recovery and publication ownership fences.   │
@@ -11,17 +12,12 @@
  * │ services.                                                                                │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { noteQuestionRequestedSchema } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
 import { workflowEvents } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { createAiMock } from '@study/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import type { Context } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
-import { assert, expect } from 'vite-plus/test';
 
 import { questionAgent } from '#server/features/notes/agents/question';
 import { Notes } from '#server/features/notes/index';
@@ -38,13 +34,13 @@ import { withTestAdmission } from '#testing/workflow-admission';
 
 import { noteQuestionHandler, noteQuestionWorkflow } from './question.ts';
 
-testStable(
+test.stable(
   'classifier resumes persisted events and checkpoints generation; opt-out and obsolete work are safe',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     let context = new ServerContext(await location.open());
     let calls = 0;
-    using mock = createAiMock();
+    using mock = test.createAiMock();
     const domain = () =>
       Layer.merge(Notes.layer, Settings.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -54,7 +50,7 @@ testStable(
         domain(),
         agentsLayer({
           model: (tier, call) => {
-            expect(tier).toBe('tiny');
+            test.expect(tier).toBe('tiny');
 
             calls++;
 
@@ -119,12 +115,12 @@ testStable(
       );
 
     try {
-      expect(workflowDefinitions.some((d) => d.name === noteQuestionWorkflow.name)).toBe(true);
-      expect(workflowTriggers.some((t) => t.event === 'NoteQuestionRequested')).toBe(true);
+      test.expect(workflowDefinitions.some((d) => d.name === noteQuestionWorkflow.name)).toBe(true);
+      test.expect(workflowTriggers.some((t) => t.event === 'NoteQuestionRequested')).toBe(true);
       const note = await make();
       const persisted = eventFor(note.id);
 
-      assert.ok(persisted);
+      test.assert.ok(persisted);
       context.close();
       context = new ServerContext(await location.open());
       mock.next(questionAgent, {
@@ -132,13 +128,13 @@ testStable(
         output: { kind: 'question' }
       });
       await execute(eventFor(note.id), 'question-recovered');
-      expect(calls).toBe(1);
+      test.expect(calls).toBe(1);
       await execute(eventFor(note.id), 'question-recovered');
-      expect(calls).toBe(1);
+      test.expect(calls).toBe(1);
       const read = await run(Effect.flatMap(Notes, (c) => c.message(note.id)));
 
-      expect(read.question?.kind).toBe('question');
-      expect(read.question?.answerMessageId).toBeUndefined();
+      test.expect(read.question?.kind).toBe('question');
+      test.expect(read.question?.answerMessageId).toBeUndefined();
       await run(
         Effect.flatMap(Settings, (s) =>
           Effect.flatMap(s.workspacePreferences(), (p) =>
@@ -165,9 +161,11 @@ testStable(
       );
       optoutPlan.release();
       await optoutExecution;
-      expect(
-        (await run(Effect.flatMap(Notes, (c) => c.message(optout.id)))).question?.answerMessageId
-      ).toBeUndefined();
+      test
+        .expect(
+          (await run(Effect.flatMap(Notes, (c) => c.message(optout.id)))).question?.answerMessageId
+        )
+        .toBeUndefined();
       const stale = await make();
 
       await run(
@@ -182,7 +180,7 @@ testStable(
       const before = calls;
 
       await execute(eventFor(stale.id), 'question-stale');
-      expect(calls).toBe(before);
+      test.expect(calls).toBe(before);
       await run(
         Effect.flatMap(Settings, (s) =>
           Effect.flatMap(s.workspacePreferences(), (p) =>
@@ -208,20 +206,22 @@ testStable(
         .map((e) => decodeEvent(e.payload))
         .findLast((e) => e.type === 'NoteQuestionRequested' && e.messageId === manual.id);
 
-      assert.ok(followup);
+      test.assert.ok(followup);
       context.close();
       context = new ServerContext(await location.open());
       const beforeManual = calls;
 
       await execute(followup, 'manual-question-recovered');
-      expect(calls).toBe(beforeManual);
+      test.expect(calls).toBe(beforeManual);
       const answered = await run(Effect.flatMap(Notes, (c) => c.message(manual.id)));
 
-      expect(answered.question?.answerMessageId).toBeDefined();
+      test.expect(answered.question?.answerMessageId).toBeDefined();
       await execute(followup, 'manual-question-recovered');
-      expect(
-        (await run(Effect.flatMap(Notes, (c) => c.message(manual.id)))).question?.answerMessageId
-      ).toBe(answered.question?.answerMessageId);
+      test
+        .expect(
+          (await run(Effect.flatMap(Notes, (c) => c.message(manual.id)))).question?.answerMessageId
+        )
+        .toBe(answered.question?.answerMessageId);
     } finally {
       context.close();
       await location.cleanup();

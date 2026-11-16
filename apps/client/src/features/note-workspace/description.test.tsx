@@ -5,33 +5,29 @@ import {
   sourceKinds
 } from '@study/contracts';
 import { mediaSize } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import {
   createMemoryHistory,
   createRootRoute,
   createRouter,
   RouterProvider
 } from '@tanstack/react-router';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
-
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { Description } from './description';
 import { History } from './history';
 
-const rpc = vi.hoisted(() => ({
-  update: vi.fn(),
-  thread: vi.fn(),
-  citations: vi.fn(),
-  selection: vi.fn(),
-  material: vi.fn(),
-  source: vi.fn()
+const rpc = test.hoisted(() => ({
+  update: test.vi.fn(),
+  thread: test.vi.fn(),
+  citations: test.vi.fn(),
+  selection: test.vi.fn(),
+  material: test.vi.fn(),
+  source: test.vi.fn()
 }));
 
-vi.mock('#client/lib/i18n.tsx', () => ({
+test.mock('#client/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, date: String, locale: 'english' })
 }));
 
@@ -65,7 +61,7 @@ const message = Schema.decodeUnknownSync(chatMessageSchema)({
 });
 
 function mount(children: ReactNode) {
-  const fixture = rpcHandlersTransport({
+  const fixture = test.rpcHandlersTransport({
     'notes.updateMessageDescription': rpc.update,
     'notes.thread': rpc.thread,
     'notes.messageVersionCitations': rpc.citations,
@@ -73,70 +69,70 @@ function mount(children: ReactNode) {
     'sources.source': rpc.source
   });
 
-  return render(children, { wrapper: fixture.wrapper });
+  return test.render(children, { wrapper: fixture.wrapper });
 }
 
 async function openDescription() {
   mount(<Description message={message} />);
-  fireEvent.click(screen.getByRole('button', { name: 'NoteDescriptionTitle' }));
-  const dialog = await screen.findByRole('dialog', { name: 'NoteDescriptionTitle' });
+  test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteDescriptionTitle' }));
+  const dialog = await test.screen.findByRole('dialog', { name: 'NoteDescriptionTitle' });
 
   return {
     dialog,
-    input: within(dialog).getByRole('textbox', { name: 'NoteDescriptionLabel' })
+    input: test.within(dialog).getByRole('textbox', { name: 'NoteDescriptionLabel' })
   };
 }
 
-beforeEach(() => {
-  vi.resetAllMocks();
+test.beforeEach(() => {
+  test.vi.resetAllMocks();
   rpc.update.mockResolvedValue(message);
   rpc.thread.mockResolvedValue({ items: [message], next: null });
   rpc.citations.mockResolvedValue({ citations: [] });
   rpc.selection.mockResolvedValue({ revision: 1n, targets: [] });
 });
 
-afterEach(() => {
-  cleanup();
+test.afterEach(() => {
+  test.cleanup();
 });
 
-testStable(
+test.stable(
   'saves trimmed descriptions against their original value and closes after success',
   async () => {
     const { dialog, input } = await openDescription();
 
-    expect(input).toHaveValue(message.description);
-    fireEvent.change(input, { target: { value: '  Focus on eigenvectors  ' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
-    await waitFor(() =>
-      expect(rpc.update).toHaveBeenCalledExactlyOnceWith({
+    test.expect(input).toHaveValue(message.description);
+    test.fireEvent.change(input, { target: { value: '  Focus on eigenvectors  ' } });
+    test.fireEvent.click(test.within(dialog).getByRole('button', { name: 'Save' }));
+    await test.waitFor(() =>
+      test.expect(rpc.update).toHaveBeenCalledExactlyOnceWith({
         messageId: message.id,
         description: 'Focus on eigenvectors',
         expectedDescription: message.description
       })
     );
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await test.waitFor(() => test.expect(test.screen.queryByRole('dialog')).toBeNull());
   }
 );
 
-testStable('keeps the entered description and shows an error when a save fails', async () => {
+test.stable('keeps the entered description and shows an error when a save fails', async () => {
   rpc.update.mockRejectedValue(new StudyError('transient', 'Save unavailable'));
   const { dialog, input } = await openDescription();
 
-  fireEvent.change(input, { target: { value: 'Keep this draft' } });
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
-  expect(await within(dialog).findByRole('alert')).toBeVisible();
-  expect(input).toHaveValue('Keep this draft');
-  expect(within(dialog).getByRole('button', { name: 'Save' })).toBeEnabled();
-  expect(rpc.update).toHaveBeenCalledTimes(1);
+  test.fireEvent.change(input, { target: { value: 'Keep this draft' } });
+  test.fireEvent.click(test.within(dialog).getByRole('button', { name: 'Save' }));
+  test.expect(await test.within(dialog).findByRole('alert')).toBeVisible();
+  test.expect(input).toHaveValue('Keep this draft');
+  test.expect(test.within(dialog).getByRole('button', { name: 'Save' })).toBeEnabled();
+  test.expect(rpc.update).toHaveBeenCalledTimes(1);
 });
 
-testStable('clears a saved description when the field contains only whitespace', async () => {
+test.stable('clears a saved description when the field contains only whitespace', async () => {
   const { dialog, input } = await openDescription();
 
-  fireEvent.change(input, { target: { value: '   ' } });
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
-  await waitFor(() =>
-    expect(rpc.update).toHaveBeenCalledExactlyOnceWith({
+  test.fireEvent.change(input, { target: { value: '   ' } });
+  test.fireEvent.click(test.within(dialog).getByRole('button', { name: 'Save' }));
+  await test.waitFor(() =>
+    test.expect(rpc.update).toHaveBeenCalledExactlyOnceWith({
       messageId: message.id,
       description: null,
       expectedDescription: message.description
@@ -144,26 +140,26 @@ testStable('clears a saved description when the field contains only whitespace',
   );
 });
 
-testStable(
+test.stable(
   'shows the stored description on the document card and opens the original message',
   async () => {
-    const onOpen = vi.fn();
+    const onOpen = test.vi.fn();
 
     const view = mount(<History id={message.noteId} onOpen={onOpen} />);
-    const description = await screen.findByText('Review before the exam');
+    const description = await test.screen.findByText('Review before the exam');
 
-    expect(description).toBeVisible();
-    expect(screen.queryByText('This body preview is secondary.')).toBeNull();
-    fireEvent.click(
-      within(view.container.querySelector('.note-index-target')!).getByRole('button', {
+    test.expect(description).toBeVisible();
+    test.expect(test.screen.queryByText('This body preview is secondary.')).toBeNull();
+    test.fireEvent.click(
+      test.within(view.container.querySelector('.note-index-target')!).getByRole('button', {
         name: /Linear algebra/
       })
     );
-    expect(onOpen).toHaveBeenCalledExactlyOnceWith(message);
+    test.expect(onOpen).toHaveBeenCalledExactlyOnceWith(message);
   }
 );
 
-testStable.each(['text', undefined] as const)(
+test.stable.each(['text', undefined] as const)(
   'keeps %s quick captures as literal text rather than document cards',
   async (format) => {
     const literal = '# A quick thought **with stars** and [a link](https://example.com)';
@@ -173,23 +169,23 @@ testStable.each(['text', undefined] as const)(
       description: null,
       versions: [{ ...message.versions[0], text: literal }]
     });
-    const onOpen = vi.fn();
+    const onOpen = test.vi.fn();
 
     rpc.thread.mockResolvedValue({ items: [quick], next: null });
     const view = mount(<History id={message.noteId} onOpen={onOpen} />);
 
-    expect(
-      await within(view.container.querySelector('.note-history')!).findByText(literal)
-    ).toBeVisible();
-    expect(screen.queryByRole('heading', { name: 'A quick thought' })).toBeNull();
-    expect(screen.queryByRole('link', { name: 'a link' })).toBeNull();
-    expect(view.container.querySelector('.workspace-desk-page')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'NoteOpenPage' })).toBeNull();
-    expect(onOpen).not.toHaveBeenCalled();
+    test
+      .expect(await test.within(view.container.querySelector('.note-history')!).findByText(literal))
+      .toBeVisible();
+    test.expect(test.screen.queryByRole('heading', { name: 'A quick thought' })).toBeNull();
+    test.expect(test.screen.queryByRole('link', { name: 'a link' })).toBeNull();
+    test.expect(view.container.querySelector('.workspace-desk-page')).toBeNull();
+    test.expect(test.screen.queryByRole('button', { name: 'NoteOpenPage' })).toBeNull();
+    test.expect(onOpen).not.toHaveBeenCalled();
   }
 );
 
-testStable(
+test.stable(
   'shows a linked attachment card with kind and size for every canonical source kind',
   async () => {
     const attached = Schema.decodeUnknownSync(chatMessageSchema)({
@@ -221,7 +217,7 @@ testStable(
       sizeBytes: 2048n
     }));
     const root = createRootRoute({
-      component: () => <History id={message.noteId} onOpen={vi.fn()} />
+      component: () => <History id={message.noteId} onOpen={test.vi.fn()} />
     });
     const router = createRouter({
       routeTree: root,
@@ -231,22 +227,26 @@ testStable(
     mount(<RouterProvider router={router} />);
 
     for (const [index, kind] of sourceKinds.entries()) {
-      const link = await screen.findByRole('link', { name: new RegExp(`Attached ${kind}`) });
+      const link = await test.screen.findByRole('link', { name: new RegExp(`Attached ${kind}`) });
 
-      expect(link).toHaveAttribute('href', `/sources/${index + 100}`);
-      expect(
-        await within(link).findByText(
-          `Source${kind[0]!.toUpperCase()}${kind.slice(1)} · ${mediaSize('english', 2048)}`
+      test.expect(link).toHaveAttribute('href', `/sources/${index + 100}`);
+      test
+        .expect(
+          await test
+            .within(link)
+            .findByText(
+              `Source${kind[0]!.toUpperCase()}${kind.slice(1)} · ${mediaSize('english', 2048)}`
+            )
         )
-      ).toBeVisible();
-      expect(link.querySelector('svg')).not.toBeNull();
+        .toBeVisible();
+      test.expect(link.querySelector('svg')).not.toBeNull();
     }
 
-    expect(screen.getAllByRole('link')).toHaveLength(sourceKinds.length);
+    test.expect(test.screen.getAllByRole('link')).toHaveLength(sourceKinds.length);
   }
 );
 
-testStable(
+test.stable(
   'places real document attachments in time order alongside plain notes and opens their material',
   async () => {
     const material = Schema.decodeUnknownSync(materialSummarySchema)({
@@ -272,21 +272,23 @@ testStable(
     };
 
     rpc.thread.mockResolvedValue({ items: [later, earlier], next: null });
-    const open = vi.fn();
+    const open = test.vi.fn();
     const view = mount(<History id={message.noteId} pages={[material]} onOpenPage={open} />);
 
-    await within(view.container.querySelector('.note-history')!).findByText('Before the document');
+    await test
+      .within(view.container.querySelector('.note-history')!)
+      .findByText('Before the document');
     const items = view.container.querySelectorAll('.note-entry, .workspace-desk-page');
 
-    expect(items).toHaveLength(3);
-    expect(items[0]).toHaveTextContent('Before the document');
-    expect(items[1]).toHaveTextContent('Working page');
-    expect(items[2]).toHaveTextContent('After the document');
-    fireEvent.click(
-      within(items[1]!.closest('.note-index-target')!).getByRole('button', {
+    test.expect(items).toHaveLength(3);
+    test.expect(items[0]).toHaveTextContent('Before the document');
+    test.expect(items[1]).toHaveTextContent('Working page');
+    test.expect(items[2]).toHaveTextContent('After the document');
+    test.fireEvent.click(
+      test.within(items[1]!.closest('.note-index-target')!).getByRole('button', {
         name: /Working page/
       })
     );
-    expect(open).toHaveBeenCalledExactlyOnceWith(material);
+    test.expect(open).toHaveBeenCalledExactlyOnceWith(material);
   }
 );

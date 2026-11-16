@@ -1,46 +1,42 @@
 import { AgentRule, defaultAgentRules } from '@study/contracts';
 import type { AgentRules } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
-import { expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport as settingsTransport } from '#client/test/rpc.tsx';
+import { test } from '@study/testing';
 
 import { useAgentRules } from './use-agent-rules';
 
-const api = vi.hoisted(() => ({
-  read: vi.fn<() => Promise<AgentRules>>(),
-  save: vi.fn<(rules: AgentRules) => Promise<object>>()
+const api = test.hoisted(() => ({
+  read: test.vi.fn<() => Promise<AgentRules>>(),
+  save: test.vi.fn<(rules: AgentRules) => Promise<object>>()
 }));
 
-testStable(
+test.stable(
   'retains local drafts while incorporating refreshed preferences from another window',
   async () => {
     api.read.mockResolvedValue(defaultAgentRules);
-    const fixture = settingsTransport(async (tag) => {
+    const fixture = test.rpcTestTransport(async (tag) => {
       if (tag === 'settings.agentRules') return api.read();
 
       throw new Error(tag);
     });
-    const { result, unmount } = renderHook(useAgentRules, { wrapper: fixture.wrapper });
+    const { result, unmount } = test.renderHook(useAgentRules, { wrapper: fixture.wrapper });
 
     try {
-      await waitFor(() => expect(result.current.query.isSuccess).toBe(true));
-      act(() => result.current.update('Keep examples.'));
+      await test.waitFor(() => test.expect(result.current.query.isSuccess).toBe(true));
+      test.act(() => result.current.update('Keep examples.'));
       api.read.mockResolvedValue({ ...defaultAgentRules, titles: 'Use short titles.' });
-      await act(async () => {
+      await test.act(async () => {
         await fixture.notify();
       });
-      await waitFor(() =>
-        expect(result.current.rules).toEqual({
+      await test.waitFor(() =>
+        test.expect(result.current.rules).toEqual({
           ...defaultAgentRules,
           pages: 'Keep examples.',
           titles: 'Use short titles.'
         })
       );
-      act(() => result.current.select('unsupported-category'));
-      expect(result.current.selected).toBe(AgentRule.Pages);
-      expect(result.current.changed).toBe(true);
+      test.act(() => result.current.select('unsupported-category'));
+      test.expect(result.current.selected).toBe(AgentRule.Pages);
+      test.expect(result.current.changed).toBe(true);
     } finally {
       unmount();
     }

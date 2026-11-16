@@ -1,3 +1,4 @@
+import { plainBlock } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Covers note and message pagination, immutable versions, attachment ownership       │
@@ -13,15 +14,10 @@
  * │ by the feature implementation.                                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { plainBlock } from '@study/contracts';
 import { eq } from '@study/db';
 import { workflow_executions } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/service/index';
 import { Pages } from '#server/features/pages/index';
@@ -43,10 +39,10 @@ const meta = {
   omissions: []
 };
 
-testStable(
+test.stable(
   'sidebar summaries count distinct attached generated documents and report durable work',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Notes.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -60,11 +56,11 @@ testStable(
           const note = yield* notes.createNote({ title: 'Study' });
 
           yield* notes.setNoteSettled({ id: note.id, settled: true });
-          assert.ok((yield* notes.noteSummaries({})).items[0]?.settledOverride === true);
+          test.assert.ok((yield* notes.noteSummaries({})).items[0]?.settledOverride === true);
           yield* notes.setNoteSettled({ id: note.id, settled: true });
-          assert.ok((yield* notes.noteSummaries({})).items[0]?.settledOverride === true);
+          test.assert.ok((yield* notes.noteSummaries({})).items[0]?.settledOverride === true);
           yield* notes.setNoteSettled({ id: note.id, settled: false });
-          assert.ok((yield* notes.noteSummaries({})).items[0]?.settledOverride === false);
+          test.assert.ok((yield* notes.noteSummaries({})).items[0]?.settledOverride === false);
           const missing = yield* Effect.flip(
             notes.setNoteSettled({
               id: (note.id + 1000n) as typeof note.id,
@@ -72,7 +68,7 @@ testStable(
             })
           );
 
-          assert.ok(missing.kind === 'not_found');
+          test.assert.ok(missing.kind === 'not_found');
           const document = {
             blocks: [plainBlock('paragraph', 'Notes', { type: 'authored' })],
             meta
@@ -86,7 +82,10 @@ testStable(
             inputs: [],
             citations: []
           });
-          assert.strictEqual((yield* notes.noteSummaries({})).items[0]?.generatedPageCount, 0n);
+          test.assert.strictEqual(
+            (yield* notes.noteSummaries({})).items[0]?.generatedPageCount,
+            0n
+          );
           yield* withTestPublication(
             context,
             library
@@ -112,10 +111,10 @@ testStable(
             archived: false
           })).items.find((item) => item.title === 'Generated');
 
-          assert.ok(generated);
+          test.assert.ok(generated);
           const summary = (yield* notes.noteSummaries({})).items[0];
 
-          expect(summary).toStrictEqual({
+          test.expect(summary).toStrictEqual({
             id: note.id,
             generatedPageCount: 1n,
             settledOverride: false,
@@ -123,7 +122,10 @@ testStable(
             activity: 'idle'
           });
           yield* library.archive({ id: generated.id, archived: true });
-          assert.strictEqual((yield* notes.noteSummaries({})).items[0]?.generatedPageCount, 0n);
+          test.assert.strictEqual(
+            (yield* notes.noteSummaries({})).items[0]?.generatedPageCount,
+            0n
+          );
           const noteMessage = yield* notes.postMessage({
             noteId: note.id,
             text: 'Question',
@@ -143,13 +145,13 @@ testStable(
               updated_at: noteMessage.createdAt
             })
             .run();
-          assert.ok((yield* notes.noteSummaries({})).items[0]?.activity === 'answering');
+          test.assert.ok((yield* notes.noteSummaries({})).items[0]?.activity === 'answering');
           context.db.orm
             .update(workflow_executions)
             .set({ status: 'completed' })
             .where(eq(workflow_executions.execution_id, 'sidebar-test'))
             .run();
-          assert.ok((yield* notes.noteSummaries({})).items[0]?.running === false);
+          test.assert.ok((yield* notes.noteSummaries({})).items[0]?.running === false);
         }).pipe(Effect.provide(layer))
       );
     } finally {

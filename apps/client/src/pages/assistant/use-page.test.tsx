@@ -1,19 +1,17 @@
-import { testStable } from '@study/testing/vitest';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { mountAssistant as mount } from '#client/test/assistant.tsx';
 
-testStable('does not send during input-method composition or dismiss on Escape', async () => {
+test.stable('does not send during input-method composition or dismiss on Escape', async () => {
   mount();
-  const input = await screen.findByRole('textbox', { name: 'Message' });
+  const input = await test.screen.findByRole('textbox', { name: 'Message' });
 
-  await waitFor(() => expect(input).toBeEnabled());
+  await test.waitFor(() => test.expect(input).toBeEnabled());
 
-  fireEvent.change(input, { target: { value: '日本語' } });
-  fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
-  expect(screen.queryAllByRole('article')).toHaveLength(0);
-  expect(input).toHaveValue('日本語');
-  fireEvent.keyDown(input, { key: 'Escape' });
-  expect(screen.getByRole('heading', { name: 'Assistant' })).toBeInTheDocument();
+  test.fireEvent.change(input, { target: { value: '日本語' } });
+  test.fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+  test.expect(test.screen.queryAllByRole('article')).toHaveLength(0);
+  test.expect(input).toHaveValue('日本語');
+  test.fireEvent.keyDown(input, { key: 'Escape' });
+  test.expect(test.screen.getByRole('heading', { name: 'Assistant' })).toBeInTheDocument();
 });

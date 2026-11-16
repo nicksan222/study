@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Builds exact authored evidence and controlled native learning generation fixtures. │
@@ -9,9 +10,7 @@
  * │ Test callers own isolated SQLite lifetimes and explicitly control provider responses.    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
 import { Effect } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
@@ -35,7 +34,7 @@ export function learningGeneration(f: Fixture) {
         citations: []
       });
 
-      assert.ok(input.version);
+      test.assert.ok(input.version);
       const request = yield* (yield* Materials).requestMaterialGeneration({
         projectId: project.id,
         kind: 'flashcards',

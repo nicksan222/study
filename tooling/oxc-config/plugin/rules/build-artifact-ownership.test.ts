@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRulePaths } from '../test/utils.ts';
 
-testStable(
+test.stable(
   'disposable runners disable disk transforms and contract fixtures own temporary paths',
   async () => {
     const paths = await lintRulePaths('build-artifact-ownership', {
@@ -24,16 +23,18 @@ testStable(
       'apps/client/test/e2e/harness/fixed.test.ts': "const directory = 'test-results/focus';"
     });
 
-    expect(paths).toEqual([
-      'apps/client/test/e2e/harness/cache.test.ts',
-      'apps/client/test/e2e/harness/fixed.test.ts',
-      'apps/client/test/e2e/harness/leak.test.ts',
-      'apps/client/test/e2e/harness/spread.test.ts'
-    ]);
+    test
+      .expect(paths)
+      .toEqual([
+        'apps/client/test/e2e/harness/cache.test.ts',
+        'apps/client/test/e2e/harness/fixed.test.ts',
+        'apps/client/test/e2e/harness/leak.test.ts',
+        'apps/client/test/e2e/harness/spread.test.ts'
+      ]);
   }
 );
 
-testStable('computed runner options cannot hide a later cache override', async () => {
+test.stable('computed runner options cannot hide a later cache override', async () => {
   const header = "import { createVitest } from 'vite-plus/test/node';";
   const paths = await lintRulePaths('build-artifact-ownership', {
     'apps/client/test/e2e/harness/known.test.ts': `${header} const key = 'fsModuleCache'; createVitest('test', {fsModuleCache:false, [key]:true});`,
@@ -42,8 +43,10 @@ testStable('computed runner options cannot hide a later cache override', async (
     'apps/client/test/e2e/harness/earlier.test.ts': `${header} createVitest('test', {[key]:true, fsModuleCache:false});`
   });
 
-  expect(paths).toEqual([
-    'apps/client/test/e2e/harness/known.test.ts',
-    'apps/client/test/e2e/harness/unknown.test.ts'
-  ]);
+  test
+    .expect(paths)
+    .toEqual([
+      'apps/client/test/e2e/harness/known.test.ts',
+      'apps/client/test/e2e/harness/unknown.test.ts'
+    ]);
 });

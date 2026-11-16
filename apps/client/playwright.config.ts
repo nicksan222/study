@@ -1,8 +1,11 @@
+import { installTestApi, testPolicy } from '@study/testing';
 import { defineConfig } from 'playwright/test';
 
 import { assertCapturePlatform } from './test/e2e/harness/environment.ts';
+import { test as browserTestApi } from './test/e2e/harness/index.ts';
 import { workflowSelection } from './test/e2e/harness/preflight.ts';
 
+installTestApi(browserTestApi);
 assertCapturePlatform();
 
 export default defineConfig({
@@ -13,9 +16,9 @@ export default defineConfig({
   updateSnapshots: 'none',
   snapshotPathTemplate: '{testDir}/baselines/{arg}{ext}',
   fullyParallel: true,
-  workers: 2,
-  timeout: 120000,
-  expect: { timeout: 5000 },
+  workers: testPolicy.workers.local,
+  timeout: testPolicy.tests.browser,
+  expect: { timeout: testPolicy.asyncTimeout },
   grep: await workflowSelection(import.meta.filename, process.env.E2E_UPDATE),
   outputDir: './test-results/playwright',
   preserveOutput: process.env.E2E_REVIEW ? 'always' : 'failures-only',

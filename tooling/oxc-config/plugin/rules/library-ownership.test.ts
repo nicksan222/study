@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRulePaths } from '../test/utils.ts';
 
-testStable(
+test.stable(
   'durable library identities cannot acquire collection ownership through schema aliases',
   async () => {
     const imports = `import { sqliteTable as table, integer, foreignKey } from 'drizzle-orm/sqlite-core';
@@ -49,7 +48,7 @@ table('material_versions', { request: integer().references(() => requests.id) })
       )
     );
 
-    expect(diagnostics).toStrictEqual(
+    test.expect(diagnostics).toStrictEqual(
       Object.keys(files)
         .slice(0, 9)
         .map((file) => prefix + file)

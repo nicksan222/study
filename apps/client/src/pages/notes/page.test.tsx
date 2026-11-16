@@ -1,13 +1,14 @@
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { screen } from '@testing-library/react';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
-import { renderPage } from '#client/test/render-page.tsx';
+test.stable.for(['english', 'italian'] as const)(
+  'opens the Notes page in %s',
+  async (locale, { page }) => {
+    const { router } = page.open('/notes?project=9007199254740993', { locale });
 
-testStable.each(['english', 'italian'] as const)('opens the Notes page in %s', async (locale) => {
-  const { router } = renderPage('/notes?project=9007199254740993', locale);
-
-  expect(await screen.findByRole('heading', { name: catalogs[locale].Notes })).toBeInTheDocument();
-  expect(router.state.location.search.project).toBe('9007199254740993');
-});
+    test
+      .expect(await test.screen.findByRole('heading', { name: catalogs[locale].Notes }))
+      .toBeInTheDocument();
+    test.expect(router.state.location.search.project).toBe('9007199254740993');
+  }
+);

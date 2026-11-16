@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('web markup cannot bypass shared presentation with native styles', async () => {
+test.stable('web markup cannot bypass shared presentation with native styles', async () => {
   const diagnostics = await lintRule(
     'web-presentation',
     {
@@ -14,10 +13,10 @@ testStable('web markup cannot bypass shared presentation with native styles', as
     true
   );
 
-  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
-testStable('only the web bootstrap imports approved global stylesheets', async () => {
+test.stable('only the web bootstrap imports approved global stylesheets', async () => {
   const diagnostics = await lintRule(
     'web-presentation',
     {
@@ -28,15 +27,16 @@ testStable('only the web bootstrap imports approved global stylesheets', async (
     true
   );
 
-  assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
-testStable('web composition remains free to use semantic props and unstyled HTML', async () => {
-  expect(
-    await lintRule(
-      'web-presentation',
-      {
-        'apps/client/src/example.tsx': `
+test.stable('web composition remains free to use semantic props and unstyled HTML', async () => {
+  test
+    .expect(
+      await lintRule(
+        'web-presentation',
+        {
+          'apps/client/src/example.tsx': `
         import { Sidebar } from '@study/ui';
         export const view = (
           <Sidebar.Footer trailing={<Sidebar.Utility variant="secondary" />}>
@@ -44,8 +44,9 @@ testStable('web composition remains free to use semantic props and unstyled HTML
           </Sidebar.Footer>
         );
       `
-      },
-      true
+        },
+        true
+      )
     )
-  ).toStrictEqual([]);
+    .toStrictEqual([]);
 });

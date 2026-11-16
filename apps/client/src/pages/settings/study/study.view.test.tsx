@@ -1,6 +1,4 @@
-import { testStable } from '@study/testing/vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { StudySettingsView } from './study.view';
 
@@ -13,39 +11,41 @@ function model() {
     loading: false,
     pending: false,
     error: false,
-    retry: vi.fn(),
-    setDraft: vi.fn(),
-    save: vi.fn()
+    retry: test.vi.fn(),
+    setDraft: test.vi.fn(),
+    save: test.vi.fn()
   };
 }
 
-testStable('exposes the actual integer bounds and leaves unchanged settings unsaved', () => {
+test.stable('exposes the actual integer bounds and leaves unchanged settings unsaved', () => {
   const state = model();
 
-  render(<StudySettingsView model={state} />);
-  const input = screen.getByRole('spinbutton', { name: 'New cards per day' });
+  test.render(<StudySettingsView model={state} />);
+  const input = test.screen.getByRole('spinbutton', { name: 'New cards per day' });
 
-  expect(input).toHaveAttribute('min', '0');
-  expect(input).toHaveAttribute('max', '10000');
-  expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
-  fireEvent.change(input, { target: { value: '0' } });
-  expect(state.setDraft).toHaveBeenCalledWith('0');
+  test.expect(input).toHaveAttribute('min', '0');
+  test.expect(input).toHaveAttribute('max', '10000');
+  test.expect(test.screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+  test.fireEvent.change(input, { target: { value: '0' } });
+  test.expect(state.setDraft).toHaveBeenCalledWith('0');
 });
 
-testStable('shows an actionable validation message and prevents invalid saves', () => {
-  render(<StudySettingsView model={{ ...model(), draft: '1.5', valid: false, changed: true }} />);
-  expect(screen.getByRole('spinbutton')).toHaveAttribute('aria-invalid', 'true');
-  expect(screen.getByRole('alert')).toHaveTextContent('whole number from 0 to 10,000');
-  expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+test.stable('shows an actionable validation message and prevents invalid saves', () => {
+  test.render(
+    <StudySettingsView model={{ ...model(), draft: '1.5', valid: false, changed: true }} />
+  );
+  test.expect(test.screen.getByRole('spinbutton')).toHaveAttribute('aria-invalid', 'true');
+  test.expect(test.screen.getByRole('alert')).toHaveTextContent('whole number from 0 to 10,000');
+  test.expect(test.screen.getByRole('button', { name: 'Save' })).toBeDisabled();
 });
 
-testStable('submits a valid changed value with Enter and links validation to its field', () => {
+test.stable('submits a valid changed value with Enter and links validation to its field', () => {
   const state = { ...model(), draft: '0', changed: true };
-  const { rerender } = render(<StudySettingsView model={state} />);
-  const input = screen.getByRole('spinbutton');
+  const { rerender } = test.render(<StudySettingsView model={state} />);
+  const input = test.screen.getByRole('spinbutton');
 
-  fireEvent.submit(input.closest('form')!);
-  expect(state.save).toHaveBeenCalledOnce();
+  test.fireEvent.submit(input.closest('form')!);
+  test.expect(state.save).toHaveBeenCalledOnce();
   rerender(<StudySettingsView model={{ ...state, valid: false }} />);
-  expect(input).toHaveAttribute('aria-describedby', screen.getByRole('alert').id);
+  test.expect(input).toHaveAttribute('aria-describedby', test.screen.getByRole('alert').id);
 });

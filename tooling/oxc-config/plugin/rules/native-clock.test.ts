@@ -1,10 +1,10 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message = 'Read native clocks only in platform/time; consume testable time elsewhere.';
 
-testStable(
+test.stable(
   'recognizes native clocks and aliases while permitting parsing, owner, tests and shadowing',
   async () => {
     assertDiagnostics(
@@ -32,7 +32,7 @@ function f(Date: any, performance: any) {
     );
   }
 );
-testStable('recognizes node clock imports and destructured clock methods', async () => {
+test.stable('recognizes node clock imports and destructured clock methods', async () => {
   assertDiagnostics(
     'native-clock',
     await lintRule('native-clock', {
@@ -54,7 +54,7 @@ function f(perf: any) {
   );
 });
 
-testStable(
+test.stable(
   'Date function calls read the clock even with arguments, while shadows remain legal',
   async () => {
     assertDiagnostics(
@@ -79,7 +79,7 @@ testStable(
   }
 );
 
-testStable('managed artifact timestamps use the injected native clock', async () => {
+test.stable('managed artifact timestamps use the injected native clock', async () => {
   assertDiagnostics(
     'native-clock',
     await lintRule('native-clock', {

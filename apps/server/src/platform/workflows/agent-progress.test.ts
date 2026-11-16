@@ -14,11 +14,9 @@ import { agentRunIdSchema } from '@study/contracts';
 import { executionIdSchema } from '@study/contracts';
 import { eq } from '@study/db';
 import { workflow_executions } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
 import { Workflow, WorkflowEngine } from 'effect/workflow';
-import { expect } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import {
@@ -31,10 +29,10 @@ const definition = Workflow.make('progress-test', {
   idempotencyKey: ({ id }) => id
 });
 
-testStable(
+test.stable(
   'progress commits before notification and reads durable snapshots without the observer',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const executionId = executionIdSchema.make('stream-run');
 
@@ -68,37 +66,37 @@ testStable(
     try {
       await emit({ type: 'start' });
       await emit({ type: 'text-delta', text: 'Hello' });
-      expect(read()[0]?.text).toBe('Hello');
-      expect(snapshots.at(-1)).toBe('Hello');
+      test.expect(read()[0]?.text).toBe('Hello');
+      test.expect(snapshots.at(-1)).toBe('Hello');
       unsubscribe();
       await emit({ type: 'complete' });
-      expect(read()[0]?.status).toBe('completed');
+      test.expect(read()[0]?.status).toBe('completed');
       await emit({ type: 'start' }, 'next-section');
-      expect(read().map((run) => run.runId)).toEqual(['agent', 'next-section']);
-      expect(read()[0]?.text).toBe('Hello');
+      test.expect(read().map((run) => run.runId)).toEqual(['agent', 'next-section']);
+      test.expect(read()[0]?.text).toBe('Hello');
       await emit({ type: 'complete' }, 'next-section');
 
       for (let index = 0; index <= 100; index++) await emit({ type: 'start' }, `section-${index}`);
 
-      expect(read()).toHaveLength(100);
-      expect(read().at(-1)?.runId).toBe('section-100');
+      test.expect(read()).toHaveLength(100);
+      test.expect(read().at(-1)?.runId).toBe('section-100');
       context.db.orm
         .update(workflow_executions)
         .set({ generation: 2 })
         .where(eq(workflow_executions.execution_id, executionId))
         .run();
-      expect(read()).toEqual([]);
+      test.expect(read()).toEqual([]);
       await emit({ type: 'start' });
       await emit({ type: 'text-delta', text: 'Current' });
-      expect(read()[0]?.text).toBe('Current');
-      expect(read()[0]?.status).toBe('running');
+      test.expect(read()[0]?.text).toBe('Current');
+      test.expect(read()[0]?.status).toBe('running');
       context.db.orm
         .update(workflow_executions)
         .set({ cancellation_mode: 'unsafe', status: 'cancelling' })
         .where(eq(workflow_executions.execution_id, executionId))
         .run();
-      await expect(emit({ type: 'text-delta', text: 'stale' })).rejects.toThrow();
-      expect(read()).toEqual([]);
+      await test.expect(emit({ type: 'text-delta', text: 'stale' })).rejects.toThrow();
+      test.expect(read()).toEqual([]);
     } finally {
       unsubscribe();
       context.close();
@@ -107,63 +105,64 @@ testStable(
   }
 );
 
-testStable.each(['preparing', 'compacting', 'generating', undefined] as const)(
-  'persists semantic phase %s across reconnects and failures',
-  async (phase) => {
-    const location = await createTestDatabase();
-    let context = new ServerContext(await location.open());
-    const executionId = executionIdSchema.make('phase-run');
-    const instance = WorkflowEngine.WorkflowInstance.initial(definition, executionId);
-    const emit = (event: Parameters<ReturnType<typeof observeAgentProgress>>[0]['event']) =>
-      Effect.runPromise(
-        observeAgentProgress(context)({
-          runId: agentRunIdSchema.make('phase-agent'),
-          agentId: 'reply',
-          phase,
-          mode: 'text',
-          event
-        }).pipe(Effect.provideService(WorkflowEngine.WorkflowInstance, instance))
-      );
-    const read = () => agentProgressSnapshot(context, { executionId })[0];
+for (const phase of ['preparing', 'compacting', 'generating', undefined] as const)
+  test.stable(
+    `persists semantic phase ${phase ?? 'default'} across reconnects and failures`,
+    async ({ databases }) => {
+      const location = await databases();
+      let context = new ServerContext(await location.open());
+      const executionId = executionIdSchema.make('phase-run');
+      const instance = WorkflowEngine.WorkflowInstance.initial(definition, executionId);
+      const emit = (event: Parameters<ReturnType<typeof observeAgentProgress>>[0]['event']) =>
+        Effect.runPromise(
+          observeAgentProgress(context)({
+            runId: agentRunIdSchema.make('phase-agent'),
+            agentId: 'reply',
+            phase,
+            mode: 'text',
+            event
+          }).pipe(Effect.provideService(WorkflowEngine.WorkflowInstance, instance))
+        );
+      const read = () => agentProgressSnapshot(context, { executionId })[0];
 
-    try {
-      context.db.orm
-        .insert(workflow_executions)
-        .values({
-          execution_id: executionId,
-          workflow_tag: definition._tag,
-          version: 1,
-          payload: '{}',
+      try {
+        context.db.orm
+          .insert(workflow_executions)
+          .values({
+            execution_id: executionId,
+            workflow_tag: definition._tag,
+            version: 1,
+            payload: '{}',
+            status: 'running',
+            created_at: 0n,
+            updated_at: 0n
+          })
+          .run();
+        await emit({ type: 'start' });
+        await emit({ type: 'text-delta', text: 'Partial' });
+        test.expect(read()).toMatchObject({
+          phase: phase ?? 'generating',
           status: 'running',
-          created_at: 0n,
-          updated_at: 0n
-        })
-        .run();
-      await emit({ type: 'start' });
-      await emit({ type: 'text-delta', text: 'Partial' });
-      expect(read()).toMatchObject({
-        phase: phase ?? 'generating',
-        status: 'running',
-        text: 'Partial'
-      });
-      context.close();
-      context = new ServerContext(await location.open());
-      expect(read()).toMatchObject({
-        phase: phase ?? 'generating',
-        status: 'running',
-        text: 'Partial'
-      });
-      await emit({ type: 'failed', kind: 'transient' });
-      context.close();
-      context = new ServerContext(await location.open());
-      expect(read()).toMatchObject({
-        phase: phase ?? 'generating',
-        status: 'failed',
-        failureKind: 'transient'
-      });
-    } finally {
-      context.close();
-      await location.cleanup();
+          text: 'Partial'
+        });
+        context.close();
+        context = new ServerContext(await location.open());
+        test.expect(read()).toMatchObject({
+          phase: phase ?? 'generating',
+          status: 'running',
+          text: 'Partial'
+        });
+        await emit({ type: 'failed', kind: 'transient' });
+        context.close();
+        context = new ServerContext(await location.open());
+        test.expect(read()).toMatchObject({
+          phase: phase ?? 'generating',
+          status: 'failed',
+          failureKind: 'transient'
+        });
+      } finally {
+        context.close();
+        await location.cleanup();
+      }
     }
-  }
-);
+  );

@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable(
+test.stable(
   'feature writers respect table ownership while reads and shared pages remain available',
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
@@ -26,11 +25,11 @@ testStable(
 `
     });
 
-    assert.strictEqual(diagnostics.length, 3);
+    test.assert.strictEqual(diagnostics.length, 3);
   }
 );
 
-testStable('recognizes aliases and SQL without confusing unrelated APIs or reads', async () => {
+test.stable('recognizes aliases and SQL without confusing unrelated APIs or reads', async () => {
   const diagnostics = await lintRule('feature-persistence-boundary', {
     'src/features/projects/store.ts': `
       import * as schema from '@study/db';
@@ -57,10 +56,10 @@ testStable('recognizes aliases and SQL without confusing unrelated APIs or reads
 `
   });
 
-  assert.strictEqual(diagnostics.length, 4);
+  test.assert.strictEqual(diagnostics.length, 4);
 });
 
-testStable('every exported database table has an explicit ownership policy', async () => {
+test.stable('every exported database table has an explicit ownership policy', async () => {
   const schema = await import('@study/db');
   const { tableOwners } = await import('./feature-persistence-boundary.ts');
   const tables = Object.values(schema)
@@ -70,10 +69,10 @@ testStable('every exported database table has an explicit ownership policy', asy
     .map((table) => (table as unknown as Record<symbol, string>)[Symbol.for('drizzle:Name')])
     .sort();
 
-  expect(Object.keys(tableOwners).sort()).toStrictEqual(tables);
+  test.expect(Object.keys(tableOwners).sort()).toStrictEqual(tables);
 });
 
-testStable('table ownership applies to contextual native factory receivers', async () => {
+test.stable('table ownership applies to contextual native factory receivers', async () => {
   const diagnostics = await lintRule('feature-persistence-boundary', {
     'src/features/projects/store/index.ts': `
       import { defineStore, storeMutation } from '#server/platform/definitions/define-store';
@@ -83,10 +82,10 @@ testStable('table ownership applies to contextual native factory receivers', asy
     `
   });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable(
+test.stable(
   'collection membership writes stay with organization and the identity-creating feature',
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
@@ -125,20 +124,22 @@ testStable(
 `
     });
 
-    expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual(
-      [
-        'Feature materials may not write project_notes.',
-        'Feature notes may not write project_materials.',
-        'Feature sources may not write project_materials.',
-        'Feature sources may not write project_notes.',
-        'Feature learning may not write project_materials.',
-        'Feature learning may not write project_notes.'
-      ].sort()
-    );
+    test
+      .expect(diagnostics.map(({ message }) => message).sort())
+      .toStrictEqual(
+        [
+          'Feature materials may not write project_notes.',
+          'Feature notes may not write project_materials.',
+          'Feature sources may not write project_materials.',
+          'Feature sources may not write project_notes.',
+          'Feature learning may not write project_materials.',
+          'Feature learning may not write project_notes.'
+        ].sort()
+      );
   }
 );
 
-testStable(
+test.stable(
   'source import receipts and extraction revisions remain source-owned across acquisition participants',
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
@@ -160,15 +161,17 @@ testStable(
     `
     });
 
-    expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual([
-      'Feature materials may not write source_extraction_revisions.',
-      'Feature materials may not write source_recording_imports.',
-      'Feature materials may not write source_recording_imports.'
-    ]);
+    test
+      .expect(diagnostics.map(({ message }) => message).sort())
+      .toStrictEqual([
+        'Feature materials may not write source_extraction_revisions.',
+        'Feature materials may not write source_recording_imports.',
+        'Feature materials may not write source_recording_imports.'
+      ]);
   }
 );
 
-testStable(
+test.stable(
   'canonical asset roots are derived from blocks and cannot be written by features',
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
@@ -190,17 +193,19 @@ testStable(
     `
     });
 
-    expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual([
-      'Feature learning may not write blocks.',
-      'Feature learning may not write document_assets.',
-      'Feature materials may not write document_assets.',
-      'Feature materials may not write document_assets.',
-      'Feature sources may not write document_assets.'
-    ]);
+    test
+      .expect(diagnostics.map(({ message }) => message).sort())
+      .toStrictEqual([
+        'Feature learning may not write blocks.',
+        'Feature learning may not write document_assets.',
+        'Feature materials may not write document_assets.',
+        'Feature materials may not write document_assets.',
+        'Feature sources may not write document_assets.'
+      ]);
   }
 );
 
-testStable(
+test.stable(
   'captured note context is note-owned while material selection pins stay material-owned',
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
@@ -225,16 +230,18 @@ testStable(
     `
     });
 
-    expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual([
-      'Feature materials may not write note_run_contexts.',
-      'Feature materials may not write note_run_contexts.',
-      'Feature notes may not write note_materials.',
-      'Feature notes may not write page_versions.'
-    ]);
+    test
+      .expect(diagnostics.map(({ message }) => message).sort())
+      .toStrictEqual([
+        'Feature materials may not write note_run_contexts.',
+        'Feature materials may not write note_run_contexts.',
+        'Feature notes may not write note_materials.',
+        'Feature notes may not write page_versions.'
+      ]);
   }
 );
 
-testStable(
+test.stable(
   'learning generation receipts and citations remain material-owned while coordinators can only read them',
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
@@ -255,15 +262,17 @@ testStable(
     `
     });
 
-    expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual([
-      'Feature notes may not write material_evidence_citations.',
-      'Feature notes may not write material_evidence_inputs.',
-      'Feature notes may not write material_generation_requests.'
-    ]);
+    test
+      .expect(diagnostics.map(({ message }) => message).sort())
+      .toStrictEqual([
+        'Feature notes may not write material_evidence_citations.',
+        'Feature notes may not write material_evidence_inputs.',
+        'Feature notes may not write material_generation_requests.'
+      ]);
   }
 );
 
-testStable(
+test.stable(
   'edit and proposal receipts stay Pages-owned and asset roots stay trigger-derived',
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
@@ -287,16 +296,18 @@ testStable(
     `
     });
 
-    expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual([
-      'Feature notes may not write page_edit_receipts.',
-      'Feature notes may not write page_proposal_receipts.',
-      'Feature notes may not write page_proposals.',
-      'Feature pages may not write document_assets.'
-    ]);
+    test
+      .expect(diagnostics.map(({ message }) => message).sort())
+      .toStrictEqual([
+        'Feature notes may not write page_edit_receipts.',
+        'Feature notes may not write page_proposal_receipts.',
+        'Feature notes may not write page_proposals.',
+        'Feature pages may not write document_assets.'
+      ]);
   }
 );
 
-testStable(
+test.stable(
   'historic annotations and manual judgments stay Pages-owned while message citations stay Notes-owned',
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
@@ -328,20 +339,22 @@ testStable(
     `
     });
 
-    expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual(
-      [
-        'Feature notes may not write page_annotations.',
-        'Feature notes may not write page_annotation_revisions.',
-        'Feature notes may not write page_citation_assessments.',
-        'Feature sources may not write page_citation_assessments.',
-        'Feature sources may not write page_annotation_revisions.',
-        'Feature pages may not write citations.'
-      ].sort()
-    );
+    test
+      .expect(diagnostics.map(({ message }) => message).sort())
+      .toStrictEqual(
+        [
+          'Feature notes may not write page_annotations.',
+          'Feature notes may not write page_annotation_revisions.',
+          'Feature notes may not write page_citation_assessments.',
+          'Feature sources may not write page_citation_assessments.',
+          'Feature sources may not write page_annotation_revisions.',
+          'Feature pages may not write citations.'
+        ].sort()
+      );
   }
 );
 
-testStable(
+test.stable(
   'deletion barriers are Notes-owned and proposal retirement proofs are Pages-owned',
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
@@ -358,16 +371,18 @@ testStable(
     `
     });
 
-    expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual([
-      'Feature notes may not write page_proposal_receipts.',
-      'Feature notes may not write page_transform_requests.',
-      'Feature pages may not write note_deletion_correlations.',
-      'Feature pages may not write note_deletions.'
-    ]);
+    test
+      .expect(diagnostics.map(({ message }) => message).sort())
+      .toStrictEqual([
+        'Feature notes may not write page_proposal_receipts.',
+        'Feature notes may not write page_transform_requests.',
+        'Feature pages may not write note_deletion_correlations.',
+        'Feature pages may not write note_deletions.'
+      ]);
   }
 );
 
-testStable(
+test.stable(
   'Material deletion proofs stay with Materials and exact source extraction revisions stay with Sources',
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
@@ -396,20 +411,22 @@ testStable(
     `
     });
 
-    expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual(
-      [
-        'Feature materials may not write source_extraction_revisions.',
-        'Feature sources may not write material_deletion_members.',
-        'Feature sources may not write material_deletions.',
-        'Feature sources may not write material_deletion_requests.',
-        'Feature notes may not write material_deletion_requests.',
-        'Feature learning may not write source_extraction_revisions.'
-      ].sort()
-    );
+    test
+      .expect(diagnostics.map(({ message }) => message).sort())
+      .toStrictEqual(
+        [
+          'Feature materials may not write source_extraction_revisions.',
+          'Feature sources may not write material_deletion_members.',
+          'Feature sources may not write material_deletions.',
+          'Feature sources may not write material_deletion_requests.',
+          'Feature notes may not write material_deletion_requests.',
+          'Feature learning may not write source_extraction_revisions.'
+        ].sort()
+      );
   }
 );
 
-testStable(
+test.stable(
   'retired intents, exact version barriers and source extraction history have one owning feature',
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
@@ -428,18 +445,20 @@ testStable(
     `
     });
 
-    expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual(
-      [
-        'Feature materials may not write source_extraction_revisions.',
-        'Feature materials may not write note_retired_intents.',
-        'Feature sources may not write material_history_members.',
-        'Feature notes may not write material_history_requests.'
-      ].sort()
-    );
+    test
+      .expect(diagnostics.map(({ message }) => message).sort())
+      .toStrictEqual(
+        [
+          'Feature materials may not write source_extraction_revisions.',
+          'Feature materials may not write note_retired_intents.',
+          'Feature sources may not write material_history_members.',
+          'Feature notes may not write material_history_requests.'
+        ].sort()
+      );
   }
 );
 
-testStable(
+test.stable(
   'history proof ownership survives table aliases and raw SQL across all synchronous participants',
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
@@ -469,18 +488,20 @@ testStable(
     `
     });
 
-    expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual([
-      'Feature learning may not write material_history_members.',
-      'Feature learning may not write material_history_prunes.',
-      'Feature learning may not write material_history_requests.',
-      'Feature learning may not write note_retired_intents.',
-      'Feature learning may not write source_extraction_revisions.',
-      'Feature learning may not write source_snapshots.'
-    ]);
+    test
+      .expect(diagnostics.map(({ message }) => message).sort())
+      .toStrictEqual([
+        'Feature learning may not write material_history_members.',
+        'Feature learning may not write material_history_prunes.',
+        'Feature learning may not write material_history_requests.',
+        'Feature learning may not write note_retired_intents.',
+        'Feature learning may not write source_extraction_revisions.',
+        'Feature learning may not write source_snapshots.'
+      ]);
   }
 );
 
-testStable(
+test.stable(
   'System snapshot policy cannot gain credential, pending-shell or content writer authority',
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
@@ -495,12 +516,12 @@ testStable(
     `
     });
 
-    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
-    assert.ok(diagnostics.every((d) => d.filename.endsWith('/system/store/backup.ts')));
+    test.assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+    test.assert.ok(diagnostics.every((d) => d.filename.endsWith('/system/store/backup.ts')));
   }
 );
 
-testStable(
+test.stable(
   'features cannot advance shared revision metadata outside the transaction boundary',
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
@@ -512,6 +533,6 @@ testStable(
 `
     });
 
-    expect(diagnostics).toHaveLength(2);
+    test.expect(diagnostics).toHaveLength(2);
   }
 );

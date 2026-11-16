@@ -1,12 +1,10 @@
 import { agentProgressPageSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { expect, vi } from 'vite-plus/test';
 
 import { api, message, mountAssistant } from '#client/test/assistant.tsx';
 
-vi.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+test.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
 
 const execution = {
   id: 'run',
@@ -21,7 +19,7 @@ const execution = {
   updatedAtMs: 1n
 };
 
-testStable(
+test.stable(
   'renders streamed snapshots without duplicating text and stops the exact execution',
   async () => {
     api.thread.mockResolvedValue({
@@ -32,7 +30,7 @@ testStable(
     api.cancel.mockResolvedValue(execution);
     const { notify } = mountAssistant();
 
-    await waitFor(() => expect(api.progress).toHaveBeenCalled());
+    await test.waitFor(() => test.expect(api.progress).toHaveBeenCalled());
     const update = (text: string) =>
       Schema.decodeUnknownSync(agentProgressPageSchema)([
         {
@@ -52,23 +50,25 @@ testStable(
       ]);
 
     api.progress.mockResolvedValue(update('First **part**'));
-    await act(async () => {
+    await test.act(async () => {
       await notify();
     });
-    expect(await screen.findByText('part')).toBeInTheDocument();
+    test.expect(await test.screen.findByText('part')).toBeInTheDocument();
     api.progress.mockResolvedValue(update('First **part**, then more.'));
-    await act(async () => {
+    await test.act(async () => {
       await notify();
     });
-    expect(screen.getByRole('article', { name: 'Assistant' })).toHaveTextContent(
-      'First part, then more.'
+    test
+      .expect(test.screen.getByRole('article', { name: 'Assistant' }))
+      .toHaveTextContent('First part, then more.');
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'Stop reply' }));
+    await test.waitFor(() =>
+      test.expect(api.cancel).toHaveBeenCalledWith({ id: 'run', mode: 'safe' })
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Stop reply' }));
-    await waitFor(() => expect(api.cancel).toHaveBeenCalledWith({ id: 'run', mode: 'safe' }));
   }
 );
 
-testStable('explains sign-in failures and retries the same Assistant message', async () => {
+test.stable('explains sign-in failures and retries the same Assistant message', async () => {
   api.thread.mockResolvedValue({
     items: [message('user', 'Explain.', 1n), message('assistant', '', 2n, true)],
     next: null
@@ -92,7 +92,9 @@ testStable('explains sign-in failures and retries the same Assistant message', a
     versionId: 3n
   });
   mountAssistant();
-  expect(await screen.findByText(/Connect a provider under Settings/)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-  await waitFor(() => expect(api.reanswer).toHaveBeenCalledWith({ messageId: 2n }));
+  test
+    .expect(await test.screen.findByText(/Connect a provider under Settings/))
+    .toBeInTheDocument();
+  test.fireEvent.click(test.screen.getByRole('button', { name: 'Retry' }));
+  await test.waitFor(() => test.expect(api.reanswer).toHaveBeenCalledWith({ messageId: 2n }));
 });

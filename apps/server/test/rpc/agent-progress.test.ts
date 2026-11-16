@@ -1,3 +1,4 @@
+import type { LanguageModelV3, LanguageModelV3StreamPart } from '@ai-sdk/provider';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies live generation snapshots cross the real streaming HTTP RPC transport.    │
@@ -10,24 +11,20 @@
  * │ generation cancellation.                                                                 │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { LanguageModelV3, LanguageModelV3StreamPart } from '@ai-sdk/provider';
 import { StudyRpc } from '@study/contracts';
 import { AgentRule } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
 import { executionIdSchema } from '@study/contracts';
 import { workflow_executions } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Deferred, Effect, Fiber, Schema, Stream } from 'effect';
 import { Workflow, WorkflowEngine } from 'effect/workflow';
-import { expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { generateAgent, layer } from '#server/platform/ai/agents';
 import { defineAgent } from '#server/platform/definitions/define-agent';
 import { observeAgentProgress } from '#server/platform/workflows/agent-progress';
-import { App, serve } from '#server/runtime/index';
+import { serve } from '#server/runtime/index';
 
 function controlledModel() {
   let finish!: () => void;
@@ -76,11 +73,10 @@ const definition = defineAgent({
   prompt: (input) => input
 });
 
-testStable(
+test.stable(
   'HTTP streams intermediate agent snapshots, reseeds reconnects, and releases viewers without cancelling work',
-  async () => {
-    const location = await createTestDatabase();
-    const app = await App.open({ path: location.path });
+  async ({ resources: location }) => {
+    const app = await location.openApp({ path: location.path });
     const server = await serve(app);
     const executionId = executionIdSchema.make('rpc-agent');
     const workflow = Workflow.make('rpc-progress', {
@@ -153,28 +149,28 @@ testStable(
               correlationId: 'rpc-request'
             }).pipe(Stream.take(1), Stream.runCollect);
 
-            expect(reseeded[0]?.[0]).toMatchObject({ text: 'first', status: 'running' });
+            test.expect(reseeded[0]?.[0]).toMatchObject({ text: 'first', status: 'running' });
             provider.finish();
-            expect(yield* Fiber.join(generation)).toBe('first second');
+            test.expect(yield* Fiber.join(generation)).toBe('first second');
             const snapshots = yield* Fiber.join(fiber).pipe(Effect.timeout('3 seconds'));
 
-            expect(snapshots[0]).toEqual([]);
-            expect(snapshots.at(-1)?.[0]).toMatchObject({
+            test.expect(snapshots[0]).toEqual([]);
+            test.expect(snapshots.at(-1)?.[0]).toMatchObject({
               text: 'first second',
               status: 'completed'
             });
-            expect(app.store.db.orm.select().from(workflow_executions).get()?.status).toBe(
-              'running'
-            );
+            test
+              .expect(app.store.db.orm.select().from(workflow_executions).get()?.status)
+              .toBe('running');
           })
         )
       );
 
-      await expect.poll(() => listeners, { interval: 10, timeout: 1000 }).toBe(0);
+      await test.expect.poll(() => listeners, { interval: 10, timeout: 1000 }).toBe(0);
     } finally {
       await server.close();
       await app.close();
-      await location.cleanup();
+      await location.close();
     }
   }
 );

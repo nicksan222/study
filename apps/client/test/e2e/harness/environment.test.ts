@@ -1,12 +1,11 @@
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { assertCapturePlatform } from './environment.ts';
 
-testStable(
+test.stable(
   'capture platform accepts Linux x64 and rejects incompatible rendering platforms',
   () => {
-    expect(() => assertCapturePlatform('linux', 'x64')).not.toThrow();
+    test.expect(() => assertCapturePlatform('linux', 'x64')).not.toThrow();
 
     for (const [platform, architecture] of [
       ['darwin', 'x64'],
@@ -14,8 +13,8 @@ testStable(
       ['linux', 'arm64'],
       ['win32', 'x64']
     ])
-      expect(() => assertCapturePlatform(platform, architecture)).toThrow(
-        'E2E screenshots require the Linux x64 devcontainer'
-      );
+      test
+        .expect(() => assertCapturePlatform(platform, architecture))
+        .toThrow('E2E screenshots require the Linux x64 devcontainer');
   }
 );

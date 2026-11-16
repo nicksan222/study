@@ -6,7 +6,7 @@
  * │ Prevents:                                                                                │
  * │ Production client modules importing raw RPC/runtime operations outside lib/effect and    │
  * │ explicit composition exceptions. Consumers use @study/contracts/react; protocol          │
- * │ contracts stay React-free except react.ts/react-state.ts. Only value module edges are    │
+ * │ contracts stay React-free except optional React bindings and their testing adapter.      │
  * │ checked; endpoint constructors own the reactive contract's type enforcement.             │
  * │                                                                                          │
  * │ Allowed:                                                                                 │
@@ -64,7 +64,7 @@ export default defineRule({
 function importsReact(source: string) {
   return (
     /^(?:react|@effect\/atom-react)(?:\/|$)/.test(source) ||
-    /(?:^|\/)react(?:-state)?(?:\.[cm]?[jt]sx?)?$/.test(source)
+    /(?:^|\/)react(?:-state|-testing)?(?:\.[cm]?[jt]sx?)?$/.test(source)
   );
 }
 
@@ -86,6 +86,6 @@ function ownsTransport(current: string, target: string | undefined) {
 function reactFreeProtocol(filename: string) {
   return (
     filename.includes('/packages/contracts/src/') &&
-    !/\/packages\/contracts\/src\/react(?:-state)?\.ts$/.test(filename)
+    !/\/packages\/contracts\/src\/react(?:-state|-testing)?\.ts$/.test(filename)
   );
 }

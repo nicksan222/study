@@ -1,3 +1,4 @@
+import { MaterialsRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Covers SQLite invariants for material versions, links, citations, and membership;  │
@@ -13,16 +14,11 @@
  * │ by the feature implementation.                                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { MaterialsRpc } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { notes, workflowEvents } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Option, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
@@ -37,10 +33,10 @@ const content = {
   cards: [{ front: 'A', back: 'B' }]
 };
 
-testStable(
+test.stable(
   'materials versions, links, citations and note membership preserve SQLite invariants',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const services = Layer.mergeAll(
       Projects.layer,
@@ -63,7 +59,7 @@ testStable(
             bytes: new TextEncoder().encode('Canonical source')
           });
 
-          assert.strictEqual(
+          test.assert.strictEqual(
             (yield* materials.materials({ projectId: project.id, archived: false, limit: 10 }))
               .items.length,
             0
@@ -90,7 +86,7 @@ testStable(
             citations: []
           });
 
-          assert.ok(evidence.version);
+          test.assert.ok(evidence.version);
           const input = { kind: 'page' as const, versionId: evidence.version.id };
           const another = yield* projects.createProject({ name: 'Other' });
           const first = yield* materials.create({
@@ -100,15 +96,15 @@ testStable(
             publish: false
           });
 
-          assert.ok(first.version.status === 'draft');
-          assert.ok(
+          test.assert.ok(first.version.status === 'draft');
+          test.assert.ok(
             (yield* Effect.flip(materials.deleteDraft({ id: first.version.id }))).kind ===
               'invalid_input'
           );
           const published = yield* materials.publishVersion({ id: first.version.id });
 
-          assert.ok(published.status === 'published');
-          assert.ok(
+          test.assert.ok(published.status === 'published');
+          test.assert.ok(
             (yield* Effect.flip(materials.replaceDraft({ id: published.id, content }))).kind ===
               'invalid_input'
           );
@@ -139,12 +135,14 @@ testStable(
           });
           const citations = yield* materials.citations({ id: next.id, limit: 1 });
 
-          assert.strictEqual(citations.nextCursor, 1n);
-          assert.strictEqual(
+          test.assert.strictEqual(citations.nextCursor, 1n);
+          test.assert.strictEqual(
             (yield* materials.citations({ id: next.id, limit: 1, cursor: 1n })).items[0]?.marker,
             2n
           );
-          expect((yield* materials.materialVersion({ id: next.id })).inputs).toStrictEqual([input]);
+          test
+            .expect((yield* materials.materialVersion({ id: next.id })).inputs)
+            .toStrictEqual([input]);
           yield* materials.publishVersion({ id: next.id });
           const foreign = yield* docs.create({
             createKey: crypto.randomUUID(),
@@ -158,7 +156,7 @@ testStable(
             citations: []
           });
 
-          assert.ok(foreign.version);
+          test.assert.ok(foreign.version);
           const foreignInput = { kind: 'page' as const, versionId: foreign.version.id };
           const shared = yield* materials.createVersion({
             materialId: first.id,
@@ -166,7 +164,7 @@ testStable(
             inputs: [foreignInput]
           });
 
-          expect(shared.inputs).toStrictEqual([foreignInput]);
+          test.expect(shared.inputs).toStrictEqual([foreignInput]);
           const note = context.db.orm
             .insert(notes)
             .values({
@@ -179,21 +177,23 @@ testStable(
             .get();
 
           yield* materials.attach({ noteId: note.id, materialId: first.id });
-          expect(
-            (yield* materials.reorder({ noteId: note.id, materialIds: [first.id] })).materialIds
-          ).toStrictEqual([first.id]);
-          assert.ok(
+          test
+            .expect(
+              (yield* materials.reorder({ noteId: note.id, materialIds: [first.id] })).materialIds
+            )
+            .toStrictEqual([first.id]);
+          test.assert.ok(
             (yield* Effect.flip(materials.reorder({ noteId: note.id, materialIds: [] }))).kind ===
               'invalid_input'
           );
           yield* materials.detach({ noteId: note.id, materialId: first.id });
           yield* materials.archive({ id: first.id });
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(materials.rename({ id: first.id, title: 'Rejected' }))).kind ===
               'invalid_input'
           );
           yield* materials.unarchive({ id: first.id });
-          assert.ok(
+          test.assert.ok(
             (yield* materials.rename({ id: first.id, title: '  Renamed  ' })).title === 'Renamed'
           );
           const page = yield* materials.materials({
@@ -202,9 +202,9 @@ testStable(
             limit: 1
           });
 
-          assert.strictEqual(page.items.length, 1);
-          assert.ok(Option.isSome(yield* materials.findMaterial({ id: first.id })));
-          assert.strictEqual(
+          test.assert.strictEqual(page.items.length, 1);
+          test.assert.ok(Option.isSome(yield* materials.findMaterial({ id: first.id })));
+          test.assert.strictEqual(
             context.db.orm
               .select()
               .from(workflowEvents)
@@ -221,46 +221,54 @@ testStable(
   }
 );
 
-testStable('native materials RPC uses the service and maps canonical failures', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const services = Layer.mergeAll(Projects.layer, Sources.layer, Materials.layer, Pages.layer).pipe(
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
-  const handlers = materialRpcHandlers.pipe(Layer.provide(services));
+test.stable(
+  'native materials RPC uses the service and maps canonical failures',
+  async ({ databases }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const services = Layer.mergeAll(
+      Projects.layer,
+      Sources.layer,
+      Materials.layer,
+      Pages.layer
+    ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
+    const handlers = materialRpcHandlers.pipe(Layer.provide(services));
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const projects = yield* Projects;
-        const project = yield* projects.createProject({ name: 'RPC' });
-        const client = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
-        const material = yield* client('materials.create', {
-          projectId: project.id,
-          title: 'Native',
-          content
-        });
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const projects = yield* Projects;
+          const project = yield* projects.createProject({ name: 'RPC' });
+          const client = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
+          const material = yield* client('materials.create', {
+            projectId: project.id,
+            title: 'Native',
+            content
+          });
 
-        assert.ok((yield* client('materials.material', { id: material.id })).title === 'Native');
-        const failure = yield* Effect.flip(
-          client('materials.replaceDraft', { id: material.version.id, content })
-        );
+          test.assert.ok(
+            (yield* client('materials.material', { id: material.id })).title === 'Native'
+          );
+          const failure = yield* Effect.flip(
+            client('materials.replaceDraft', { id: material.version.id, content })
+          );
 
-        assert.ok(failure.kind === 'invalid_input');
-        const exportFailure = yield* Effect.flip(
-          client('materials.exportMaterialVersion', {
-            id: Schema.decodeUnknownSync(
-              (yield* Effect.promise(() => import('@study/contracts'))).materialVersionIdSchema
-            )(999999n),
-            format: 'aid_json'
-          })
-        );
+          test.assert.ok(failure.kind === 'invalid_input');
+          const exportFailure = yield* Effect.flip(
+            client('materials.exportMaterialVersion', {
+              id: Schema.decodeUnknownSync(
+                (yield* Effect.promise(() => import('@study/contracts'))).materialVersionIdSchema
+              )(999999n),
+              format: 'aid_json'
+            })
+          );
 
-        assert.ok(exportFailure.kind === 'not_found');
-      }).pipe(Effect.provide(services), Effect.provide(handlers), Effect.scoped)
-    );
-  } finally {
-    context.close();
-    await location.cleanup();
+          test.assert.ok(exportFailure.kind === 'not_found');
+        }).pipe(Effect.provide(services), Effect.provide(handlers), Effect.scoped)
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);

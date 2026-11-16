@@ -1,27 +1,28 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { integer, text, blob, primaryKey } from '../src/schema-builder.ts';
 import * as schema from '../src/schema.ts';
 import { collectSchemaRegistry, defineTable } from '../src/table.ts';
 
-testStable('schema registry discovers every declared table and all searchable entities', () => {
+test.stable('schema registry discovers every declared table and all searchable entities', () => {
   const registry = collectSchemaRegistry(schema);
 
-  assert.strictEqual(registry.tables.length, Object.keys(schema).length);
-  expect(registry.entities.map(({ metadata }) => metadata.kind).sort()).toStrictEqual([
-    'material',
-    'message',
-    'note',
-    'page',
-    'passage',
-    'project',
-    'question',
-    'source'
-  ]);
+  test.assert.strictEqual(registry.tables.length, Object.keys(schema).length);
+  test
+    .expect(registry.entities.map(({ metadata }) => metadata.kind).sort())
+    .toStrictEqual([
+      'material',
+      'message',
+      'note',
+      'page',
+      'passage',
+      'project',
+      'question',
+      'source'
+    ]);
 });
 
-testStable(
+test.stable(
   'new entities and contributors are discovered without a separate registration list',
   () => {
     const notes = defineTable({
@@ -39,13 +40,13 @@ testStable(
     });
     const registry = collectSchemaRegistry({ notes, tags });
 
-    assert.strictEqual(registry.entities[0]?.table, notes);
-    expect(registry.tables.map(({ name }) => name)).toStrictEqual(['note_tags', 'notes']);
-    assert.strictEqual(registry.entities[0]?.metadata.kind, 'note');
+    test.assert.strictEqual(registry.entities[0]?.table, notes);
+    test.expect(registry.tables.map(({ name }) => name)).toStrictEqual(['note_tags', 'notes']);
+    test.assert.strictEqual(registry.entities[0]?.metadata.kind, 'note');
   }
 );
 
-testStable(
+test.stable(
   'registry rejects missing policies, duplicate entity identities and orphan contributors',
   () => {
     const first = defineTable({
@@ -66,12 +67,12 @@ testStable(
       id: integer()
     });
 
-    assert.throws(() => collectSchemaRegistry({ first, second }), TypeError);
-    assert.throws(() => collectSchemaRegistry({ orphan }), TypeError);
+    test.assert.throws(() => collectSchemaRegistry({ first, second }), TypeError);
+    test.assert.throws(() => collectSchemaRegistry({ orphan }), TypeError);
     const raw = Object.create(first);
 
-    assert.throws(() => collectSchemaRegistry({ raw }), TypeError);
-    assert.throws(
+    test.assert.throws(() => collectSchemaRegistry({ raw }), TypeError);
+    test.assert.throws(
       () =>
         defineTable({
           role: 'entity',
@@ -81,11 +82,11 @@ testStable(
         })('bad_identity', { body: text() }),
       TypeError
     );
-    assert.throws(
+    test.assert.throws(
       () => defineTable({ role: 'internal', reason: ' ' })('internal', { id: integer() }),
       TypeError
     );
-    assert.throws(
+    test.assert.throws(
       () =>
         defineTable({
           role: 'entity',
@@ -99,7 +100,7 @@ testStable(
   }
 );
 
-testStable('automatic entity declarations require explicit scope and visibility policies', () => {
+test.stable('automatic entity declarations require explicit scope and visibility policies', () => {
   const base = {
     role: 'entity',
     kind: 'note',
@@ -136,7 +137,7 @@ testStable('automatic entity declarations require explicit scope and visibility 
     { visibility: { publishedValue: 'published' } },
     { visibility: { publishedColumn: 'project_id', publishedValue: 'published' } }
   ])
-    assert.throws(() => declare({ ...base, ...override }), TypeError);
+    test.assert.throws(() => declare({ ...base, ...override }), TypeError);
 
   const notes = declare({
     ...base,
@@ -150,14 +151,14 @@ testStable('automatic entity declarations require explicit scope and visibility 
   });
   const registry = collectSchemaRegistry({ notes });
 
-  expect(registry.entities[0]?.metadata).toMatchObject({
+  test.expect(registry.entities[0]?.metadata).toMatchObject({
     projection: 'columns',
     scope: { type: 'project', column: 'project_id' },
     visibility: { publishedColumn: 'status', publishedValue: 'published' }
   });
 });
 
-testStable('automatic entity identity must be a single text or integer primary key', () => {
+test.stable('automatic entity identity must be a single text or integer primary key', () => {
   const policy = {
     role: 'entity',
     projection: 'columns',
@@ -169,8 +170,11 @@ testStable('automatic entity identity must be a single text or integer primary k
   } as const;
   const define = defineTable(policy);
 
-  assert.throws(() => define('ordinary_id', { id: integer().notNull(), body: text() }), TypeError);
-  assert.throws(
+  test.assert.throws(
+    () => define('ordinary_id', { id: integer().notNull(), body: text() }),
+    TypeError
+  );
+  test.assert.throws(
     () =>
       define(
         'composite_id',
@@ -179,7 +183,7 @@ testStable('automatic entity identity must be a single text or integer primary k
       ),
     TypeError
   );
-  assert.throws(() => define('blob_id', { id: blob().primaryKey(), body: text() }), TypeError);
+  test.assert.throws(() => define('blob_id', { id: blob().primaryKey(), body: text() }), TypeError);
 
   const inline = define('inline_id', { id: integer().primaryKey(), body: text() });
   const tableKey = define('table_id', { id: text().notNull(), body: text() }, (table) => [
@@ -190,7 +194,7 @@ testStable('automatic entity identity must be a single text or integer primary k
     body: text()
   });
 
-  expect(collectSchemaRegistry({ inline }).entities[0]?.table).toBe(inline);
-  expect(collectSchemaRegistry({ tableKey }).entities[0]?.table).toBe(tableKey);
-  expect(collectSchemaRegistry({ customKey }).entities[0]?.table).toBe(customKey);
+  test.expect(collectSchemaRegistry({ inline }).entities[0]?.table).toBe(inline);
+  test.expect(collectSchemaRegistry({ tableKey }).entities[0]?.table).toBe(tableKey);
+  test.expect(collectSchemaRegistry({ customKey }).entities[0]?.table).toBe(customKey);
 });

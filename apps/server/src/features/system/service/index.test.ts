@@ -1,3 +1,4 @@
+import { healthSchema, searchInputSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks health response shape and search input schema bounds.                       │
@@ -11,29 +12,25 @@
  * │ fixtures stay local to these tests.                                                      │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { healthSchema, searchInputSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { healthData } from './health.ts';
 
-testStable('health reports the lifecycle state in the canonical health shape', () => {
-  expect(Schema.decodeUnknownSync(healthSchema)(healthData(true))).toStrictEqual({
+test.stable('health reports the lifecycle state in the canonical health shape', () => {
+  test.expect(Schema.decodeUnknownSync(healthSchema)(healthData(true))).toStrictEqual({
     protocolVersion: 1,
     workersRunning: true,
     testMode: false
   });
-  assert.ok(healthData(false).workersRunning === false);
+  test.assert.ok(healthData(false).workersRunning === false);
 });
 
-testStable('search input rejects out-of-bounds limits and invalid project IDs', () => {
+test.stable('search input rejects out-of-bounds limits and invalid project IDs', () => {
   const decode = Schema.decodeUnknownSync(searchInputSchema);
 
-  assert.throws(() => decode({ query: 'a', limit: 101 }));
-  assert.throws(() => decode({ query: 'a', limit: 0 }));
-  assert.throws(() => decode({ query: 'a', project: 0n }));
-  assert.strictEqual(decode({ query: '' }).limit, 30);
+  test.assert.throws(() => decode({ query: 'a', limit: 101 }));
+  test.assert.throws(() => decode({ query: 'a', limit: 0 }));
+  test.assert.throws(() => decode({ query: 'a', project: 0n }));
+  test.assert.strictEqual(decode({ query: '' }).limit, 30);
 });

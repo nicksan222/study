@@ -1,28 +1,28 @@
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import type * as UiModule from '@study/ui';
 import { downloadFile } from '@study/ui';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { expect, vi } from 'vite-plus/test';
 
 import { diagnosticLog, hostCapabilities } from '#client/lib/host.ts';
 import { LanguageProvider } from '#client/lib/i18n.tsx';
 
 import { AnalyticsSettings } from './analytics';
 
-vi.mock('#client/lib/host.ts', () => ({ diagnosticLog: vi.fn(), hostCapabilities: vi.fn() }));
-vi.mock('@study/ui', async (load) => {
+test.mock('#client/lib/host.ts', () => ({
+  diagnosticLog: test.vi.fn(),
+  hostCapabilities: test.vi.fn()
+}));
+test.mock('@study/ui', async (load) => {
   const actual = await load<typeof UiModule>();
 
-  return { ...actual, downloadFile: vi.fn() };
+  return { ...actual, downloadFile: test.vi.fn() };
 });
 
 const snapshot =
   '2026-01-01T00:00:00Z ERROR panic\n  stack: Needle\n2026-01-01T00:00:01Z INFO ready\n';
 
 function setup(locale: 'english' | 'italian' = 'english') {
-  const view = render(
+  const view = test.render(
     <LanguageProvider locale={locale}>
       <AnalyticsSettings />
     </LanguageProvider>
@@ -33,53 +33,54 @@ function setup(locale: 'english' | 'italian' = 'english') {
   };
 }
 
-testStable('searches continuation context and exports the entire snapshot', async () => {
-  vi.mocked(hostCapabilities).mockReturnValue({ updates: true, diagnostics: true });
-  vi.mocked(diagnosticLog).mockResolvedValue(snapshot);
+test.stable('searches continuation context and exports the entire snapshot', async () => {
+  test.vi.mocked(hostCapabilities).mockReturnValue({ updates: true, diagnostics: true });
+  test.vi.mocked(diagnosticLog).mockResolvedValue(snapshot);
   const cleanup = setup();
 
   try {
-    const user = userEvent.setup();
+    const user = test.userEvent.setup();
 
-    expect(await screen.findByText(/stack: Needle/)).toBeInTheDocument();
-    await user.click(screen.getByRole('combobox', { name: 'Severity' }));
-    await user.click(await screen.findByRole('option', { name: 'Error' }));
-    expect(screen.queryByText(/INFO ready/)).not.toBeInTheDocument();
-    await user.type(screen.getByRole('searchbox', { name: 'Search logs' }), 'needle');
-    expect(screen.getByText(/ERROR panic/)).toHaveTextContent('stack: Needle');
-    expect(screen.queryByText(/INFO ready/)).not.toBeInTheDocument();
-    expect(screen.getByText('Showing 1 of 2 events')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Export snapshot' }));
-    const [name, blob] = vi.mocked(downloadFile).mock.calls.at(-1)!;
+    test.expect(await test.screen.findByText(/stack: Needle/)).toBeInTheDocument();
+    await user.click(test.screen.getByRole('combobox', { name: 'Severity' }));
+    await user.click(await test.screen.findByRole('option', { name: 'Error' }));
+    test.expect(test.screen.queryByText(/INFO ready/)).not.toBeInTheDocument();
+    await user.type(test.screen.getByRole('searchbox', { name: 'Search logs' }), 'needle');
+    test.expect(test.screen.getByText(/ERROR panic/)).toHaveTextContent('stack: Needle');
+    test.expect(test.screen.queryByText(/INFO ready/)).not.toBeInTheDocument();
+    test.expect(test.screen.getByText('Showing 1 of 2 events')).toBeInTheDocument();
+    await user.click(test.screen.getByRole('button', { name: 'Export snapshot' }));
+    const [name, blob] = test.vi.mocked(downloadFile).mock.calls.at(-1)!;
 
-    expect(name).toBe('diagnostics.log');
-    expect(await (blob as Blob).text()).toBe(snapshot);
-    await user.clear(screen.getByRole('searchbox', { name: 'Search logs' }));
-    await user.type(screen.getByRole('searchbox', { name: 'Search logs' }), 'missing');
-    expect(screen.getByText('No events match these filters.')).toBeInTheDocument();
+    test.expect(name).toBe('diagnostics.log');
+    test.expect(await (blob as Blob).text()).toBe(snapshot);
+    await user.clear(test.screen.getByRole('searchbox', { name: 'Search logs' }));
+    await user.type(test.screen.getByRole('searchbox', { name: 'Search logs' }), 'missing');
+    test.expect(test.screen.getByText('No events match these filters.')).toBeInTheDocument();
   } finally {
     cleanup();
   }
 });
 
-testStable.each(['english', 'italian'] as const)('shows browser fallback in %s', (locale) => {
-  vi.mocked(hostCapabilities).mockReturnValue({ updates: false, diagnostics: false });
-  vi.mocked(diagnosticLog).mockClear();
+test.stable.each(['english', 'italian'] as const)('shows browser fallback in %s', (locale) => {
+  test.vi.mocked(hostCapabilities).mockReturnValue({ updates: false, diagnostics: false });
+  test.vi.mocked(diagnosticLog).mockClear();
   const cleanup = setup(locale);
 
   try {
-    expect(screen.getByText(catalogs[locale].AnalyticsDesktop)).toBeInTheDocument();
-    expect(diagnosticLog).not.toHaveBeenCalled();
+    test.expect(test.screen.getByText(catalogs[locale].AnalyticsDesktop)).toBeInTheDocument();
+    test.expect(diagnosticLog).not.toHaveBeenCalled();
   } finally {
     cleanup();
   }
 });
 
-testStable('shows loading, error and recovers to empty on refresh', async () => {
-  vi.mocked(hostCapabilities).mockReturnValue({ updates: true, diagnostics: true });
+test.stable('shows loading, error and recovers to empty on refresh', async () => {
+  test.vi.mocked(hostCapabilities).mockReturnValue({ updates: true, diagnostics: true });
   let reject!: (reason: Error) => void;
 
-  vi.mocked(diagnosticLog)
+  test.vi
+    .mocked(diagnosticLog)
     .mockImplementationOnce(
       () =>
         new Promise((_, fail) => {
@@ -90,14 +91,18 @@ testStable('shows loading, error and recovers to empty on refresh', async () => 
   const cleanup = setup();
 
   try {
-    expect(screen.getByText('Loading logs…')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Refresh' })).toBeDisabled();
-    await waitFor(() => expect(diagnosticLog).toHaveBeenCalled());
+    test.expect(test.screen.getByText('Loading logs…')).toBeInTheDocument();
+    test.expect(test.screen.getByRole('button', { name: 'Refresh' })).toBeDisabled();
+    await test.waitFor(() => test.expect(diagnosticLog).toHaveBeenCalled());
     reject(new Error('unavailable'));
-    expect(await screen.findByText('Could not load logs. Try refreshing.')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Refresh' }));
-    await waitFor(() => expect(screen.getByText('No diagnostic events yet.')).toBeInTheDocument());
-    expect(screen.getByRole('button', { name: 'Export snapshot' })).toBeDisabled();
+    test
+      .expect(await test.screen.findByText('Could not load logs. Try refreshing.'))
+      .toBeInTheDocument();
+    await test.userEvent.click(test.screen.getByRole('button', { name: 'Refresh' }));
+    await test.waitFor(() =>
+      test.expect(test.screen.getByText('No diagnostic events yet.')).toBeInTheDocument()
+    );
+    test.expect(test.screen.getByRole('button', { name: 'Export snapshot' })).toBeDisabled();
   } finally {
     cleanup();
   }

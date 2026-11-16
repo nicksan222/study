@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks workflow RPC subscriptions emit an initial database snapshot and then       │
@@ -13,23 +14,18 @@
  * │ resources; fixture cleanup closes owned resources.                                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
 import { workflow_executions } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Deferred, Effect, Fiber, Stream } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { makeStudyClient, workflowSnapshots } from '#server/client/index';
-import { App, serve } from '#server/runtime/index';
+import { serve } from '#server/runtime/index';
 
 for (const hinted of [true, false])
-  testStable(
+  test.stable(
     `workflow subscription reseeds, follows ${hinted ? 'commit hints' : 'unhinted commits'}, and releases its listener`,
-    async () => {
-      const location = await createTestDatabase();
-      const app = await App.open({ path: location.path });
+    async ({ resources: location }) => {
+      const app = await location.openApp({ path: location.path });
       const server = await serve(app);
       const subscribe = app.store.subscribe.bind(app.store);
       let listeners = 0;
@@ -84,14 +80,14 @@ for (const hinted of [true, false])
 
               const pages = yield* Fiber.join(fiber).pipe(Effect.timeout('3 seconds'));
 
-              assert.strictEqual(pages[0]?.items.length, 0);
-              assert.ok(pages[1]?.items[0]?.id === 'subscription');
+              test.assert.strictEqual(pages[0]?.items.length, 0);
+              test.assert.ok(pages[1]?.items[0]?.id === 'subscription');
               const reseeded = yield* workflowSnapshots(client, { limit: 10 }).pipe(
                 Stream.take(1),
                 Stream.runCollect
               );
 
-              assert.ok(reseeded[0]?.items[0]?.id === 'subscription');
+              test.assert.ok(reseeded[0]?.items[0]?.id === 'subscription');
             })
           )
         );
@@ -101,11 +97,11 @@ for (const hinted of [true, false])
             setTimeout(() => reject(Error('listener not released')), 2000)
           )
         ]);
-        assert.strictEqual(listeners, 0);
+        test.assert.strictEqual(listeners, 0);
       } finally {
         await server.close();
         await app.close();
-        await location.cleanup();
+        await location.close();
       }
     }
   );

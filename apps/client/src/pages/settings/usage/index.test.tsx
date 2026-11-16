@@ -1,12 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { LanguageProvider } from '#client/lib/i18n.tsx';
-import { rpcTestTransport as settingsTransport } from '#client/test/rpc.tsx';
 
-const request = vi.fn();
+const request = test.vi.fn();
 
 import { UsageSettings } from './index';
 
@@ -21,10 +17,10 @@ const totals = {
   incomplete: 0
 };
 
-testStable(
+test.stable(
   'shows reported totals, switches breakdowns and refreshes the selected time range',
   async () => {
-    const call = vi.mocked(request).mockResolvedValue({
+    const call = test.vi.mocked(request).mockResolvedValue({
       generatedAt: Date.now(),
       totals,
       providers: ['chatgpt'],
@@ -32,9 +28,9 @@ testStable(
       agents: [{ key: 'reply', provider: 'chatgpt', ...totals }],
       days: []
     });
-    const client = settingsTransport((tag, input) => request(tag, input));
-    const user = userEvent.setup();
-    const { unmount } = render(
+    const client = test.rpcTestTransport((tag, input) => request(tag, input));
+    const user = test.userEvent.setup();
+    const { unmount } = test.render(
       <client.wrapper>
         <LanguageProvider locale="english">
           <UsageSettings />
@@ -43,24 +39,26 @@ testStable(
     );
 
     try {
-      expect(await screen.findByText('test-model')).toBeInTheDocument();
-      expect(screen.getByRole('cell', { name: '110' })).toBeInTheDocument();
-      await user.click(screen.getByRole('button', { name: 'Agent / task' }));
-      expect(screen.getByText('reply')).toBeInTheDocument();
-      await user.click(screen.getByRole('button', { name: '7 days' }));
-      await waitFor(() => expect(call).toHaveBeenCalledWith('settings.usage', { days: 7 }));
+      test.expect(await test.screen.findByText('test-model')).toBeInTheDocument();
+      test.expect(test.screen.getByRole('cell', { name: '110' })).toBeInTheDocument();
+      await user.click(test.screen.getByRole('button', { name: 'Agent / task' }));
+      test.expect(test.screen.getByText('reply')).toBeInTheDocument();
+      await user.click(test.screen.getByRole('button', { name: '7 days' }));
+      await test.waitFor(() =>
+        test.expect(call).toHaveBeenCalledWith('settings.usage', { days: 7 })
+      );
       const before = call.mock.calls.length;
 
-      await user.click(screen.getByRole('button', { name: 'Refresh usage' }));
-      await waitFor(() => expect(call.mock.calls.length).toBeGreaterThan(before));
+      await user.click(test.screen.getByRole('button', { name: 'Refresh usage' }));
+      await test.waitFor(() => test.expect(call.mock.calls.length).toBeGreaterThan(before));
     } finally {
       unmount();
     }
   }
 );
 
-testStable('explains empty history in Italian without presenting invented usage', async () => {
-  vi.mocked(request).mockResolvedValue({
+test.stable('explains empty history in Italian without presenting invented usage', async () => {
+  test.vi.mocked(request).mockResolvedValue({
     generatedAt: Date.now(),
     totals: { ...totals, requests: 0 },
     providers: [],
@@ -68,8 +66,8 @@ testStable('explains empty history in Italian without presenting invented usage'
     agents: [],
     days: []
   });
-  const client = settingsTransport((tag, input) => request(tag, input));
-  const { unmount } = render(
+  const client = test.rpcTestTransport((tag, input) => request(tag, input));
+  const { unmount } = test.render(
     <client.wrapper>
       <LanguageProvider locale="italian">
         <UsageSettings />
@@ -78,8 +76,8 @@ testStable('explains empty history in Italian without presenting invented usage'
   );
 
   try {
-    expect(await screen.findByText(/Nessun utilizzo registrato/)).toBeInTheDocument();
-    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    test.expect(await test.screen.findByText(/Nessun utilizzo registrato/)).toBeInTheDocument();
+    test.expect(test.screen.queryByRole('table')).not.toBeInTheDocument();
   } finally {
     unmount();
   }

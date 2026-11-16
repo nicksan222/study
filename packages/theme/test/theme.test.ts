@@ -1,5 +1,4 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import {
   parseTheme,
@@ -9,7 +8,7 @@ import {
   renderThemeCss
 } from '../src/index.ts';
 
-testStable('portable themes round trip and reject unsafe or unknown data', () => {
+test.stable('portable themes round trip and reject unsafe or unknown data', () => {
   const theme = {
     version: 1 as const,
     id: 'ocean',
@@ -18,7 +17,7 @@ testStable('portable themes round trip and reject unsafe or unknown data', () =>
     dark: { primary: 'rgb(1, 2, 3)' }
   };
 
-  expect(parseTheme(serializeTheme(theme))).toStrictEqual(theme);
+  test.expect(parseTheme(serializeTheme(theme))).toStrictEqual(theme);
 
   for (const input of [
     '{',
@@ -33,10 +32,10 @@ testStable('portable themes round trip and reject unsafe or unknown data', () =>
     JSON.stringify({ ...theme, extra: true }),
     '{"version":1,"id":"x","name":"X","colors":{"__proto__":"red"}}'
   ])
-    assert.throws(() => parseTheme(input));
+    test.assert.throws(() => parseTheme(input));
 });
 
-testStable('normalizes metadata and accepts supported CSS color spaces in every variant', () => {
+test.stable('normalizes metadata and accepts supported CSS color spaces in every variant', () => {
   for (const color of [
     '#abc',
     '#12345678',
@@ -57,14 +56,14 @@ testStable('normalizes metadata and accepts supported CSS color spaces in every 
       })
     );
 
-    assert.strictEqual(parsed.name, 'Tema è bello');
-    assert.strictEqual(parsed.colors?.primary, color);
-    assert.strictEqual(parsed.light?.background, color);
-    assert.strictEqual(parsed.dark?.foreground, color);
+    test.assert.strictEqual(parsed.name, 'Tema è bello');
+    test.assert.strictEqual(parsed.colors?.primary, color);
+    test.assert.strictEqual(parsed.light?.background, color);
+    test.assert.strictEqual(parsed.dark?.foreground, color);
   }
 });
 
-testStable(
+test.stable(
   'rejects invalid containers, metadata, palettes, and context-dependent colors with a typed error',
   () => {
     const base = { version: 1, id: 'valid', name: 'Valid' };
@@ -87,7 +86,7 @@ testStable(
     ];
 
     for (const value of invalid)
-      assert.throws(() => parseTheme(JSON.stringify(value)), ThemeFileError);
+      test.assert.throws(() => parseTheme(JSON.stringify(value)), ThemeFileError);
 
     for (const color of [
       'currentColor',
@@ -97,29 +96,29 @@ testStable(
       'rgb(1 2 3); color: red',
       'red blue'
     ]) {
-      assert.throws(
+      test.assert.throws(
         () => parseTheme(JSON.stringify({ ...base, colors: { primary: color } })),
         ThemeFileError
       );
     }
 
-    assert.throws(() => parseTheme(' '.repeat(65537)), ThemeFileError);
+    test.assert.throws(() => parseTheme(' '.repeat(65537)), ThemeFileError);
   }
 );
 
-testStable(
+test.stable(
   'accepts boundary metadata and payload sizes and every registered semantic color role',
   () => {
     const colors = Object.fromEntries(themeColorKeys.map((key) => [key, '#123456']));
     const file = { version: 1 as const, id: 'a'.repeat(128), name: 'A'.repeat(128), colors };
     const json = JSON.stringify(file);
 
-    expect(parseTheme(json.padEnd(65536, ' '))).toStrictEqual(file);
-    assert.throws(() => parseTheme(json.padEnd(65537, ' ')), ThemeFileError);
+    test.expect(parseTheme(json.padEnd(65536, ' '))).toStrictEqual(file);
+    test.assert.throws(() => parseTheme(json.padEnd(65537, ' ')), ThemeFileError);
   }
 );
 
-testStable('export validates, normalizes and round trips without mutating its input', () => {
+test.stable('export validates, normalizes and round trips without mutating its input', () => {
   const file = {
     version: 1 as const,
     id: 'export',
@@ -131,16 +130,16 @@ testStable('export validates, normalizes and round trips without mutating its in
   const before = JSON.stringify(file);
   const exported = serializeTheme(file);
 
-  assert.strictEqual(JSON.stringify(file), before);
-  assert.strictEqual(serializeTheme(parseTheme(exported)), exported);
-  assert.strictEqual(parseTheme(exported).name, 'Export');
-  assert.throws(
+  test.assert.strictEqual(JSON.stringify(file), before);
+  test.assert.strictEqual(serializeTheme(parseTheme(exported)), exported);
+  test.assert.strictEqual(parseTheme(exported).name, 'Export');
+  test.assert.throws(
     () => serializeTheme({ ...file, colors: { primary: 'not-a-color' } }),
     ThemeFileError
   );
 });
 
-testStable('CSS rendering merges common colors before each appearance override', () => {
+test.stable('CSS rendering merges common colors before each appearance override', () => {
   const css = renderThemeCss({
     version: 1,
     id: 'css',
@@ -150,8 +149,8 @@ testStable('CSS rendering merges common colors before each appearance override',
     dark: { background: 'black' }
   });
 
-  expect(css).toMatch(/:root \{\n  --primary: blue;\n  --foreground: white;/);
-  expect(css).toMatch(
-    /:root\.dark \{\n  --primary: red;\n  --foreground: white;\n  --background: black;/
-  );
+  test.expect(css).toMatch(/:root \{\n  --primary: blue;\n  --foreground: white;/);
+  test
+    .expect(css)
+    .toMatch(/:root\.dark \{\n  --primary: red;\n  --foreground: white;\n  --background: black;/);
 });

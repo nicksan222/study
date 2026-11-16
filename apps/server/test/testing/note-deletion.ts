@@ -1,3 +1,4 @@
+import type { pageTransformOutputSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Supplies shared note deletion fixtures and complete logical persistence marker     │
@@ -11,16 +12,15 @@
  * │ guards.                                                                                  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { pageTransformOutputSchema } from '@study/contracts';
 import type { PageVersionId, NoteId } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
+import { test } from '@study/testing';
+import { pollUntil } from '@study/testing/effect';
 import { Effect, Schema } from 'effect';
 import { Workflow } from 'effect/workflow';
 import { WorkflowEngine } from 'effect/workflow';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import {
@@ -32,7 +32,6 @@ import { decodeEvent } from '#server/platform/workflows/events';
 import { workflowStore } from '#server/platform/workflows/store';
 import { workflowDefinitions } from '#server/runtime/workflows';
 import type { pageTransformFixture } from '#testing/page-transform';
-import { pollUntil } from '#testing/poll';
 import { withTestAdmission, refreshTestExecution } from '#testing/workflow-admission';
 
 type DeletionFixture = Awaited<ReturnType<typeof pageTransformFixture>>;
@@ -77,7 +76,7 @@ export function setup(
         document: { blocks: [paragraph('Independent library evidence')], meta }
       });
 
-      assert.ok(library.version);
+      test.assert.ok(library.version);
       yield* chats.postMessage({ noteId: note.id, text: marker, requestReply: false });
 
       yield* chats.requestTitle({ noteId: note.id });
@@ -154,13 +153,13 @@ export function deletionEvent(fixture: DeletionFixture, id: NoteId) {
     .all()
     .at(-1);
 
-  assert.ok(row);
+  test.assert.ok(row);
 
   const event = decodeEvent(row.payload);
 
-  assert.ok(event.type === 'NoteDeletionRequested');
+  test.assert.ok(event.type === 'NoteDeletionRequested');
 
-  assert.strictEqual(event.noteId, id);
+  test.assert.strictEqual(event.noteId, id);
 
   return event;
 }
@@ -229,7 +228,7 @@ export function assertScrubbed(
       (_, value) => (typeof value === 'bigint' ? String(value) : value)
     );
 
-    assert.ok(!content.includes(marker), `Note capture remains in ${table.name}`);
+    test.assert.ok(!content.includes(marker), `Note capture remains in ${table.name}`);
   }
 }
 
@@ -243,7 +242,7 @@ export function annotateLibrary(fixture: DeletionFixture, ids: readonly PageVers
         const version = yield* pages.version({ id });
         const block = version.document.blocks[0];
 
-        assert.ok(block);
+        test.assert.ok(block);
 
         const created = yield* pages.createAnnotation({
           target: {
@@ -260,7 +259,7 @@ export function annotateLibrary(fixture: DeletionFixture, ids: readonly PageVers
           note: 'Independent retained annotation'
         });
 
-        assert.ok(created.outcome === 'saved');
+        test.assert.ok(created.outcome === 'saved');
       }
     }).pipe(Effect.provide(fixture.domain()))
   );

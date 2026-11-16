@@ -1,23 +1,19 @@
+import type { TestEnvironment } from '@study/testing';
 // These public API checks are compiled, never executed.
-import {
-  testStable,
-  testRegression,
-  testMigration,
-  testCharacterization
-} from '@study/testing/vitest';
+import { test } from '@study/testing/vitest';
 
 import type { Migration, Regression, Characterization } from '../src/classification.ts';
 
 function publicContract() {
-  testStable('context inference', async (context) => {
+  test.stable('context inference', async (context) => {
     const name: string = context.task.name;
 
     void name;
   });
-  testStable('options', { timeout: 1000, concurrent: true }, () => {});
-  testRegression({ regression: 'evidence_integrity' })('regression', () => {});
-  testMigration({ migration: 'source_upgrade', retention: 'permanent' })('migration', () => {});
-  testCharacterization({
+  test.stable('options', { timeout: 1000, concurrent: true }, () => {});
+  test.regression({ regression: 'evidence_integrity' })('regression', () => {});
+  test.migration({ migration: 'source_upgrade', retention: 'permanent' })('migration', () => {});
+  test.characterization({
     migration: 'source_upgrade',
     retention: 'temporary',
     removeWhen: 'The old source format is unsupported'
@@ -41,9 +37,9 @@ function publicContract() {
   };
 
   // @ts-expect-error callbacks are required
-  testStable('missing callback');
+  test.stable('missing callback');
   // @ts-expect-error invalid runner option type
-  testStable('invalid timeout', { timeout: 'slow' }, () => {});
+  test.stable('invalid timeout', { timeout: 'slow' }, () => {});
   void [
     unknownRegression,
     unknownMigration,
@@ -54,3 +50,9 @@ function publicContract() {
 }
 
 void publicContract;
+
+function environmentContract(environment: TestEnvironment) {
+  void environment;
+}
+
+void environmentContract;

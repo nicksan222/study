@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises bounded HTTP page fetching and streaming transport against local peers.  │
@@ -12,10 +13,7 @@
  * │ Starts ./index.ts against a local HTTP peer; the test owns and closes that peer.         │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { fetchPage as fetchPageEffect, requestBytes, streamingFetch } from './index.ts';
 
@@ -29,17 +27,19 @@ const fetchPage = (
   } = {}
 ) => Effect.runPromise(fetchPageEffect(url, options), { signal: options.signal });
 
-testStable('HTTP transport failures preserve their private cause', async () => {
-  await expect(fetchPage('http://127.0.0.1:0')).rejects.toSatisfy(
-    (error: unknown) =>
-      error instanceof Error &&
-      'kind' in error &&
-      error.kind === 'transient' &&
-      error.cause !== undefined
-  );
+test.stable('HTTP transport failures preserve their private cause', async () => {
+  await test
+    .expect(fetchPage('http://127.0.0.1:0'))
+    .rejects.toSatisfy(
+      (error: unknown) =>
+        error instanceof Error &&
+        'kind' in error &&
+        error.kind === 'transient' &&
+        error.cause !== undefined
+    );
 });
 
-testStable('HTTP redirects, response size, timeout and cancellation are bounded', async () => {
+test.stable('HTTP redirects, response size, timeout and cancellation are bounded', async () => {
   const server = Bun.serve({
     hostname: '127.0.0.1',
     port: 0,
@@ -81,39 +81,39 @@ testStable('HTTP redirects, response size, timeout and cancellation are bounded'
   });
 
   try {
-    assert.ok(server.port);
+    test.assert.ok(server.port);
     const base = server.url.origin;
     const page = await fetchPage(base + '/redirect');
 
-    assert.ok(new TextDecoder().decode(page.bytes) === '<p>hello</p>');
-    assert.strictEqual(page.url, base + '/page');
-    await expect(fetchPage(base + '/page', { maxBytes: 3 })).rejects.toMatchObject({
+    test.assert.ok(new TextDecoder().decode(page.bytes) === '<p>hello</p>');
+    test.assert.strictEqual(page.url, base + '/page');
+    await test.expect(fetchPage(base + '/page', { maxBytes: 3 })).rejects.toMatchObject({
       kind: 'invalid_input'
     });
-    await expect(fetchPage(base + '/stream', { maxBytes: 3 })).rejects.toMatchObject({
+    await test.expect(fetchPage(base + '/stream', { maxBytes: 3 })).rejects.toMatchObject({
       kind: 'invalid_input'
     });
-    await expect(fetchPage(base + '/redirect', { maxRedirects: 0 })).rejects.toMatchObject({
+    await test.expect(fetchPage(base + '/redirect', { maxRedirects: 0 })).rejects.toMatchObject({
       kind: 'invalid_input'
     });
-    await expect(fetchPage(base + '/slow', { timeoutMs: 20 })).rejects.toMatchObject({
+    await test.expect(fetchPage(base + '/slow', { timeoutMs: 20 })).rejects.toMatchObject({
       kind: 'transient'
     });
-    await expect(fetchPage(base + '/slow-body', { timeoutMs: 20 })).rejects.toMatchObject({
+    await test.expect(fetchPage(base + '/slow-body', { timeoutMs: 20 })).rejects.toMatchObject({
       kind: 'transient'
     });
     const controller = new AbortController();
 
     controller.abort();
-    await expect(fetchPage(base + '/page', { signal: controller.signal })).rejects.toSatisfy(
-      () => true
-    );
+    await test
+      .expect(fetchPage(base + '/page', { signal: controller.signal }))
+      .rejects.toSatisfy(() => true);
   } finally {
     await server.stop(true);
   }
 });
 
-testStable(
+test.stable(
   'HTTP status failures are typed and interruption closes an in-flight request',
   async () => {
     let closed!: () => void;
@@ -147,7 +147,7 @@ testStable(
       }
     });
 
-    assert.ok(server.port, 'missing address');
+    test.assert.ok(server.port, 'missing address');
     const base = server.url.origin;
 
     try {
@@ -156,14 +156,14 @@ testStable(
         ['/server', 'transient'],
         ['/missing', 'invalid_input']
       ])
-        await expect(fetchPage(base + path)).rejects.toMatchObject({ kind });
+        await test.expect(fetchPage(base + path)).rejects.toMatchObject({ kind });
 
       const controller = new AbortController();
       const pending = fetchPage(base + '/slow', { signal: controller.signal });
 
       await startedPromise;
       controller.abort();
-      await expect(pending).rejects.toSatisfy(() => true);
+      await test.expect(pending).rejects.toSatisfy(() => true);
       await closedPromise;
     } finally {
       await server.stop(true);
@@ -171,7 +171,7 @@ testStable(
   }
 );
 
-testStable('bounded POST reads token responses and times out while reading the body', async () => {
+test.stable('bounded POST reads token responses and times out while reading the body', async () => {
   const server = Bun.serve({
     hostname: '127.0.0.1',
     port: 0,
@@ -190,7 +190,7 @@ testStable('bounded POST reads token responses and times out while reading the b
     }
   });
 
-  assert.ok(server.port, 'missing address');
+  test.assert.ok(server.port, 'missing address');
   const base = server.url.origin;
 
   try {
@@ -198,18 +198,20 @@ testStable('bounded POST reads token responses and times out while reading the b
       requestBytes(base, { body: 'form', timeoutMs: 1000, maxBytes: 128 })
     );
 
-    assert.ok(new TextDecoder().decode(response.bytes) === '{"ok":true}');
-    await expect(
-      Effect.runPromise(
-        requestBytes(base + '/slow', { body: 'form', timeoutMs: 20, maxBytes: 128 })
+    test.assert.ok(new TextDecoder().decode(response.bytes) === '{"ok":true}');
+    await test
+      .expect(
+        Effect.runPromise(
+          requestBytes(base + '/slow', { body: 'form', timeoutMs: 20, maxBytes: 128 })
+        )
       )
-    ).rejects.toMatchObject({ kind: 'transient' });
+      .rejects.toMatchObject({ kind: 'transient' });
   } finally {
     await server.stop(true);
   }
 });
 
-testStable('streaming fetch keeps its scoped request alive until cancellation', async () => {
+test.stable('streaming fetch keeps its scoped request alive until cancellation', async () => {
   let closed!: () => void;
   const closedPromise = new Promise<void>((resolve) => {
     closed = resolve;
@@ -231,7 +233,7 @@ testStable('streaming fetch keeps its scoped request alive until cancellation', 
     }
   });
 
-  assert.ok(server.port, 'missing address');
+  test.assert.ok(server.port, 'missing address');
 
   try {
     const response = await streamingFetch(
@@ -241,7 +243,7 @@ testStable('streaming fetch keeps its scoped request alive until cancellation', 
     );
     const reader = response.body!.getReader();
 
-    assert.ok(new TextDecoder().decode((await reader.read()).value) === 'first');
+    test.assert.ok(new TextDecoder().decode((await reader.read()).value) === 'first');
     await reader.cancel();
     await closedPromise;
   } finally {
@@ -249,7 +251,7 @@ testStable('streaming fetch keeps its scoped request alive until cancellation', 
   }
 });
 
-testStable('streaming fetch enforces byte limits without a content length', async () => {
+test.stable('streaming fetch enforces byte limits without a content length', async () => {
   const server = Bun.serve({
     hostname: '127.0.0.1',
     port: 0,
@@ -268,18 +270,18 @@ testStable('streaming fetch enforces byte limits without a content length', asyn
     }
   });
 
-  assert.ok(server.port, 'missing address');
+  test.assert.ok(server.port, 'missing address');
 
   try {
     const response = await streamingFetch(server.url.origin, {}, { timeoutMs: 1000, maxBytes: 7 });
 
-    await expect(response.text()).rejects.toMatchObject({ kind: 'transient' });
+    await test.expect(response.text()).rejects.toMatchObject({ kind: 'transient' });
   } finally {
     await server.stop(true);
   }
 });
 
-testStable('streaming fetch body deadline follows the native clock', async () => {
+test.stable('streaming fetch body deadline follows the native clock', async () => {
   const { Clock } = await import('effect');
   const { TestClock } = await import('effect/testing');
   let closed!: () => void;
@@ -302,7 +304,7 @@ testStable('streaming fetch body deadline follows the native clock', async () =>
     }
   });
 
-  assert.ok(server.port, 'missing address');
+  test.assert.ok(server.port, 'missing address');
 
   try {
     await Effect.runPromise(
@@ -312,7 +314,7 @@ testStable('streaming fetch body deadline follows the native clock', async () =>
           streamingFetch(server.url.origin, {}, { timeoutMs: 1000, maxBytes: 128, clock })
         );
         const result = (async () => {
-          await expect(response.text()).rejects.toMatchObject({ kind: 'transient' });
+          await test.expect(response.text()).rejects.toMatchObject({ kind: 'transient' });
         })();
 
         yield* TestClock.adjust('1 second');

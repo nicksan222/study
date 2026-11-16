@@ -1,7 +1,6 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
-testStable(
+test.stable(
   'every registered native adapter command is granted to the production main window',
   async () => {
     const source = await Bun.file(new URL('../src/lib.rs', import.meta.url)).text();
@@ -25,12 +24,14 @@ testStable(
       await Bun.file(new URL('../capabilities/default.json', import.meta.url)).text()
     );
 
-    assert.ok(capability.windows.includes('main'));
+    test.assert.ok(capability.windows.includes('main'));
     const allowed = new Set(capability.permissions.flatMap((id) => grants.get(id) ?? []));
 
-    expect(
-      registered.filter((command) => !allowed.has(command)),
-      'registered adapters must have an explicit enabled production capability'
-    ).toStrictEqual([]);
+    test
+      .expect(
+        registered.filter((command) => !allowed.has(command)),
+        'registered adapters must have an explicit enabled production capability'
+      )
+      .toStrictEqual([]);
   }
 );

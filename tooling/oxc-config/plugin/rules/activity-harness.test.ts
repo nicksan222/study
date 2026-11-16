@@ -1,11 +1,11 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message =
   'Declare feature checkpoints with defineActivity; the harness owns codecs and generator adaptation.';
 
-testStable(
+test.stable(
   'feature activities cannot bypass the native checkpoint harness through aliases',
   async () => {
     assertDiagnostics(
@@ -33,7 +33,7 @@ function f(Activity: any) {
   }
 );
 
-testStable('publication checkpoints centralize their guard wrapper', async () => {
+test.stable('publication checkpoints centralize their guard wrapper', async () => {
   assertDiagnostics(
     'activity-harness',
     await lintRule('activity-harness', {
@@ -52,7 +52,7 @@ publicationActivity(context, { name: "x", execute: work });`
   );
 });
 
-testStable('durable retries use the checkpoint harness', async () => {
+test.stable('durable retries use the checkpoint harness', async () => {
   assertDiagnostics(
     'activity-harness',
     await lintRule('activity-harness', {

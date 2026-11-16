@@ -1,11 +1,10 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message = 'Yield a typed failure instead of throwing StudyError inside an Effect generator.';
 
-testStable(
+test.stable(
   'reports thrown exceptions in Effect code and accepts typed failure constructors',
   async () => {
     assertDiagnostics(
@@ -35,7 +34,7 @@ E.gen(function* () {
   }
 );
 
-testStable('limits domain throw checks to the nearest imported Effect generator', async () => {
+test.stable('limits domain throw checks to the nearest imported Effect generator', async () => {
   assertDiagnostics(
     'effect-no-throw',
     await lintRule('effect-no-throw', {
@@ -63,7 +62,7 @@ E.gen(function* () {
   );
 });
 
-testStable('canonical server error imports retain typed Effect failure enforcement', async () => {
+test.stable('canonical server error imports retain typed Effect failure enforcement', async () => {
   const diagnostics = await lintRule('effect-no-throw', {
     'src/bad.ts': String.raw`import { Effect } from "effect";
 import { StudyError } from "#server/shared/errors/index";
@@ -72,10 +71,10 @@ const operation = Effect.gen(function* () {
 });`
   });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable(
+test.stable(
   'public contracts error imports preserve the same typed Effect failure boundary',
   async () => {
     const diagnostics = await lintRule('effect-no-throw', {
@@ -86,11 +85,11 @@ Effect.gen(function* () {
 });`
     });
 
-    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   }
 );
 
-testStable('reports thrown browser Effect failures and accepts typed errors', async () => {
+test.stable('reports thrown browser Effect failures and accepts typed errors', async () => {
   const diagnostics = await lintRule(
     'effect-no-throw',
     {
@@ -108,10 +107,10 @@ export const task = Effect.gen(function* () {
     true
   );
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable('keeps typed failures in native untraced generators', async () => {
+test.stable('keeps typed failures in native untraced generators', async () => {
   assertDiagnostics(
     'effect-no-throw',
     await lintRule('effect-no-throw', {

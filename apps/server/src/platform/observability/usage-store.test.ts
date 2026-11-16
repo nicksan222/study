@@ -1,3 +1,4 @@
+import { agentRunIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies durable usage accounting against a real temporary SQLite database.        │
@@ -9,12 +10,8 @@
  * │ Tests own their SQLite connection and remove only isolated temporary data.               │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { agentRunIdSchema } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -22,10 +19,10 @@ import { transaction, useStore } from '#server/platform/definitions/define-store
 
 import { UsageStore } from './usage-store.ts';
 
-testStable(
+test.stable(
   'usage persists across reopen, deduplicates calls and filters by provider and time',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     let context = new ServerContext(await location.open());
     const now = context.clock.currentTimeMillisUnsafe();
     const record = {
@@ -62,7 +59,7 @@ testStable(
       const store = await run(useStore(UsageStore));
       const report = await Effect.runPromise(store.usageReport({ days: 7 }));
 
-      expect(report.totals).toEqual({
+      test.expect(report.totals).toEqual({
         input: 200,
         cacheRead: 160,
         cacheWrite: 0,
@@ -72,18 +69,22 @@ testStable(
         runs: 1,
         incomplete: 1
       });
-      expect(report.providers).toEqual(['chatgpt', 'future-provider']);
-      expect(report.models).toHaveLength(2);
-      expect(report.agents).toHaveLength(2);
-      expect(report.days).toHaveLength(1);
-      expect(
-        (await Effect.runPromise(store.usageReport({ days: 1, provider: 'future-provider' })))
-          .totals.requests
-      ).toBe(1);
-      expect(
-        (await Effect.runPromise(store.usageReport({ days: 1, provider: 'missing' }))).totals
-          .requests
-      ).toBe(0);
+      test.expect(report.providers).toEqual(['chatgpt', 'future-provider']);
+      test.expect(report.models).toHaveLength(2);
+      test.expect(report.agents).toHaveLength(2);
+      test.expect(report.days).toHaveLength(1);
+      test
+        .expect(
+          (await Effect.runPromise(store.usageReport({ days: 1, provider: 'future-provider' })))
+            .totals.requests
+        )
+        .toBe(1);
+      test
+        .expect(
+          (await Effect.runPromise(store.usageReport({ days: 1, provider: 'missing' }))).totals
+            .requests
+        )
+        .toBe(0);
     } finally {
       context.close();
       await location.cleanup();

@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Captures and posts a recording over native RPC, then verifies the worker publishes │
@@ -12,24 +13,17 @@
  * │ resources; fixture cleanup closes owned resources.                                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
-import { App, serve } from '#server/runtime/index';
-import { pollUntil } from '#testing/poll';
+import { serve } from '#server/runtime/index';
 
-testStable(
+test.stable(
   'HTTP recording capture hands durable WAV publication to the native worker',
   { timeout: 10000 },
-  async () => {
-    const location = await createTestDatabase();
-    const app = await App.open({ path: location.path });
+  async ({ resources: location }) => {
+    const app = await location.openApp({ path: location.path });
     const server = await serve(app);
 
     await app.workers.start();
@@ -50,7 +44,7 @@ testStable(
               id: recording.id,
               samples: [-32768, 0, 32767]
             });
-            assert.strictEqual(
+            test.assert.strictEqual(
               (yield* client['recordings.recording']({ id: recording.id })).samples,
               3n
             );
@@ -60,18 +54,18 @@ testStable(
               name: 'Lecture.wav'
             });
 
-            const result = yield* pollUntil(
+            const result = yield* test.pollUntil(
               client['recordings.recordingPost']({ requestId: post.requestId }),
               (value) => value.messageId !== null,
               { attempts: 100, interval: '25 millis', message: 'Recording was not posted' }
             );
 
-            assert.ok(result.messageId !== null);
+            test.assert.ok(result.messageId !== null);
             const message = yield* client['notes.message']({ id: result.messageId });
 
-            assert.strictEqual(message.recordedIn, result.sourceId);
-            assert.strictEqual(message.parts[0]?.sourceId, result.sourceId);
-            assert.strictEqual(
+            test.assert.strictEqual(message.recordedIn, result.sourceId);
+            test.assert.strictEqual(message.parts[0]?.sourceId, result.sourceId);
+            test.assert.strictEqual(
               (yield* client['recordings.recordings']({ limit: 10 })).items.length,
               0
             );
@@ -81,8 +75,8 @@ testStable(
               name: 'Lecture.wav'
             });
 
-            expect(replayed).toStrictEqual(result);
-            assert.strictEqual(
+            test.expect(replayed).toStrictEqual(result);
+            test.assert.strictEqual(
               (yield* client['notes.thread']({ noteId: note.id, limit: 10 })).items.length,
               1
             );
@@ -94,7 +88,7 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      await location.cleanup();
+      await location.close();
     }
   }
 );

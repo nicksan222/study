@@ -1,77 +1,76 @@
-import { testStable } from '@study/testing/vitest';
-import { screen, waitFor } from '@testing-library/react';
-import { expect, vi } from 'vite-plus/test';
+import { noteIdSchema, projectIdSchema } from '@study/contracts';
+import { test } from '@study/testing';
 
-import { renderPage, pageTestTransport } from '#client/test/render-page.tsx';
-
-vi.mock('./page.view', () => ({
+test.mock('./page.view', () => ({
   PageView: ({ id }: { id?: bigint }) => (
     <div data-testid="note-route">{id === undefined ? 'starter' : String(id)}</div>
   )
 }));
 
-function renderNoteRoute(path: string) {
-  return renderPage(
-    path,
-    'english',
-    pageTestTransport('english', {
-      'notes.note': {
-        id: 9007199254740993n,
-        projectIds: [9007199254740995n],
-        title: 'Cell division',
-        titleSource: 'user',
-        archivedAt: null,
-        createdAt: 1n,
-        updatedAt: 1n
-      }
-    })
-  );
-}
-
-testStable('parses a note path without losing precision and keeps the subject search', async () => {
-  const { router } = renderNoteRoute('/notes/9007199254740993?project=9007199254740995');
-
-  expect(await screen.findByTestId('note-route')).toHaveTextContent('9007199254740993');
-  const match = router.state.matches.find((item) => item.routeId === '/notes/$noteId');
-
-  expect(match?.params.noteId).toBe(9007199254740993n);
-  expect(router.state.location.search.project).toBe('9007199254740995');
-  expect(router.state.location.search.id).toBeUndefined();
+test.beforeEach(({ rpc }) => {
+  rpc.given({
+    'notes.note': {
+      id: noteIdSchema.make(9007199254740993n),
+      projectIds: [projectIdSchema.make(9007199254740995n)],
+      title: 'Cell division',
+      titleSource: 'user',
+      archivedAt: null,
+      createdAt: 1n,
+      updatedAt: 1n
+    }
+  });
 });
 
-testStable('keeps the starter at the notes index', async () => {
-  renderNoteRoute('/notes');
-  expect(await screen.findByTestId('note-route')).toHaveTextContent('starter');
-});
+test.stable(
+  'parses a note path without losing precision and keeps the subject search',
+  async ({ page }) => {
+    const { router } = page.open('/notes/9007199254740993?project=9007199254740995');
 
-testStable.each(['0', '-1', '1.5', 'text', '9223372036854775808'])(
-  'rejects an invalid note path identity %s',
-  async (identity) => {
-    const { router } = renderNoteRoute('/notes/' + identity);
+    test.expect(await test.screen.findByTestId('note-route')).toHaveTextContent('9007199254740993');
+    const match = router.state.matches.find((item) => item.routeId === '/notes/$noteId');
 
-    await waitFor(() => expect(router.state.location.pathname).toBe('/notes'));
-    expect(await screen.findByTestId('note-route')).toHaveTextContent('starter');
+    test.expect(match?.params.noteId).toBe(9007199254740993n);
+    test.expect(router.state.location.search.project).toBe('9007199254740995');
+    test.expect(router.state.location.search.id).toBeUndefined();
   }
 );
 
-testStable('canonicalizes an unscoped note URL to its authoritative subject', async () => {
-  const { router } = renderNoteRoute('/notes/9007199254740993');
+test.stable('keeps the starter at the notes index', async ({ page }) => {
+  page.open('/notes');
+  test.expect(await test.screen.findByTestId('note-route')).toHaveTextContent('starter');
+});
 
-  expect(await screen.findByTestId('note-route')).toHaveTextContent('9007199254740993');
-  await waitFor(() =>
-    expect(router.history.location.pathname).toBe(
-      '/projects/9007199254740995/notes/9007199254740993'
-    )
+test.stable.for(['0', '-1', '1.5', 'text', '9223372036854775808'])(
+  'rejects an invalid note path identity %s',
+  async (identity, { page }) => {
+    const { router } = page.open('/notes/' + identity);
+
+    await test.waitFor(() => test.expect(router.state.location.pathname).toBe('/notes'));
+    test.expect(await test.screen.findByTestId('note-route')).toHaveTextContent('starter');
+  }
+);
+
+test.stable('canonicalizes an unscoped note URL to its authoritative subject', async ({ page }) => {
+  const { router } = page.open('/notes/9007199254740993');
+
+  test.expect(await test.screen.findByTestId('note-route')).toHaveTextContent('9007199254740993');
+  await test.waitFor(() =>
+    test
+      .expect(router.history.location.pathname)
+      .toBe('/projects/9007199254740995/notes/9007199254740993')
   );
 });
 
-testStable('corrects a foreign subject prefix instead of exposing a mismatched note', async () => {
-  const { router } = renderNoteRoute('/projects/2/notes/9007199254740993');
+test.stable(
+  'corrects a foreign subject prefix instead of exposing a mismatched note',
+  async ({ page }) => {
+    const { router } = page.open('/projects/2/notes/9007199254740993');
 
-  expect(await screen.findByTestId('note-route')).toHaveTextContent('9007199254740993');
-  await waitFor(() =>
-    expect(router.history.location.pathname).toBe(
-      '/projects/9007199254740995/notes/9007199254740993'
-    )
-  );
-});
+    test.expect(await test.screen.findByTestId('note-route')).toHaveTextContent('9007199254740993');
+    await test.waitFor(() =>
+      test
+        .expect(router.history.location.pathname)
+        .toBe('/projects/9007199254740995/notes/9007199254740993')
+    );
+  }
+);

@@ -1,3 +1,4 @@
+import { createBlock } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises authored Page image retention behavior through real persistence          │
@@ -11,14 +12,9 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { createBlock } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
@@ -27,10 +23,10 @@ import { Sources } from '#server/features/sources/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 
-testStable(
+test.stable(
   'authored images retain exact source bytes through replacement, unrelated draft cleanup and project deletion',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(Pages.layer, Materials.layer, Sources.layer, Projects.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -76,7 +72,7 @@ testStable(
             citations: []
           });
 
-          assert.ok(image.version);
+          test.assert.ok(image.version);
           const content = {
             kind: 'flashcards' as const,
             cards: [{ front: 'A', back: 'B' }]
@@ -93,7 +89,7 @@ testStable(
           });
 
           yield* materials.deleteDraft({ id: draft.id });
-          assert.strictEqual(
+          test.assert.strictEqual(
             context.db.orm.get(
               sql`SELECT count(*) n FROM document_assets WHERE source_id=${source.id}`
             )?.n,
@@ -113,9 +109,14 @@ testStable(
               bytes: new Uint8Array([1, 2, 3])
             })
           );
-          expect(context.db.orm.all(sql`SELECT * FROM source_snapshots`)).toStrictEqual(before);
-          assert.strictEqual(context.db.orm.all(sql`SELECT * FROM workflow_events`).length, events);
-          assert.strictEqual((yield* sources.sourceProcessing(source.id)).revision, 1);
+          test
+            .expect(context.db.orm.all(sql`SELECT * FROM source_snapshots`))
+            .toStrictEqual(before);
+          test.assert.strictEqual(
+            context.db.orm.all(sql`SELECT * FROM workflow_events`).length,
+            events
+          );
+          test.assert.strictEqual((yield* sources.sourceProcessing(source.id)).revision, 1);
           context.db.exec('DROP TRIGGER reject_image_replacement');
           yield* sources.replaceSource({
             id: source.id,
@@ -123,34 +124,40 @@ testStable(
             name: 'new.png',
             bytes: new Uint8Array([1, 2, 3])
           });
-          expect(
-            (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
-          ).toStrictEqual(bytes);
-          expect((yield* docs.version({ id: image.version.id })).document).toStrictEqual(document);
+          test
+            .expect((yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes)
+            .toStrictEqual(bytes);
+          test
+            .expect((yield* docs.version({ id: image.version.id })).document)
+            .toStrictEqual(document);
 
           for (const query of [
             sql`UPDATE source_snapshots SET bytes=X'00' WHERE source_id=${source.id} AND revision=1`,
             sql`UPDATE source_snapshots SET mime='text/plain' WHERE source_id=${source.id} AND revision=1`,
             sql`DELETE FROM source_snapshots WHERE source_id=${source.id} AND revision=1`
           ])
-            assert.throws(() => context.db.orm.run(query));
+            test.assert.throws(() => context.db.orm.run(query));
 
           yield* sources.setSourceProject({ id: source.id, projectId: other.id });
           yield* projects.deleteProject({ id: project.id });
-          expect((yield* docs.version({ id: image.version.id })).document).toStrictEqual(document);
-          assert.ok(
+          test
+            .expect((yield* docs.version({ id: image.version.id })).document)
+            .toStrictEqual(document);
+          test.assert.ok(
             (yield* sources.previewDeletion({ id: source.id })).blockedBy.includes('image_assets')
           );
           const preview = yield* docs.previewDeletion({ id: image.id });
 
           yield* docs.delete({ pageId: image.id, token: preview.token });
-          expect((yield* sources.previewDeletion({ id: source.id })).blockedBy).toStrictEqual([]);
-          assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
-          assert.strictEqual(
+          test
+            .expect((yield* sources.previewDeletion({ id: source.id })).blockedBy)
+            .toStrictEqual([]);
+          test.assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
+          test.assert.strictEqual(
             context.db.orm.get(sql`SELECT 1 FROM source_snapshots WHERE source_id=${source.id}`),
             undefined
           );
-          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+          test.expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(layer))
       );
     } finally {

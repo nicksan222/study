@@ -1,3 +1,4 @@
+import { PagesRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises authored Page reader behavior through real persistence boundaries.       │
@@ -10,17 +11,13 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { PagesRpc } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { SourcesRpc } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import type { Db } from '@study/db';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Pages } from '#server/features/pages/index';
 import { PagesRpcLive } from '#server/features/pages/rpc/index';
@@ -45,8 +42,10 @@ const body = (blocks: ReturnType<typeof createBlock>[]) => ({
   }
 });
 
-async function fixture() {
-  const location = await createTestDatabase();
+type Databases = () => Promise<{ open(): Promise<Db>; cleanup(): Promise<void>; path: string }>;
+
+async function fixture(databases: Databases) {
+  const location = await databases();
   let context = new ServerContext(await location.open());
 
   return {
@@ -72,10 +71,10 @@ async function fixture() {
   };
 }
 
-testStable(
+test.stable(
   'exact authored readers and source-owned image revisions retain independent identities across reopen',
-  async () => {
-    const f = await fixture();
+  async ({ databases }) => {
+    const f = await fixture(databases);
 
     try {
       const saved = await Effect.runPromise(
@@ -94,8 +93,11 @@ testStable(
               bytes: new Uint8Array([...bytes, 1])
             });
 
-            assert.notStrictEqual(source.id, other.id);
-            assert.strictEqual((yield* rpc['sources.source']({ id: source.id })).id, source.id);
+            test.assert.notStrictEqual(source.id, other.id);
+            test.assert.strictEqual(
+              (yield* rpc['sources.source']({ id: source.id })).id,
+              source.id
+            );
             const imageBlock = createBlock({
               type: 'image',
               sourceId: source.id,
@@ -112,10 +114,10 @@ testStable(
               citations: []
             });
 
-            assert.ok(authored.version);
+            test.assert.ok(authored.version);
             const original = yield* rpc['pages.version']({ id: authored.version.id });
 
-            expect(original.document).toStrictEqual(document);
+            test.expect(original.document).toStrictEqual(document);
             const another = yield* rpc['pages.create']({
               createKey: crypto.randomUUID(),
               title: 'Other',
@@ -124,17 +126,17 @@ testStable(
               citations: []
             });
 
-            assert.ok(another.version);
-            assert.notStrictEqual(original.snapshotId, another.version.snapshotId);
-            assert.notStrictEqual(original.pageId, another.id);
-            assert.ok(original.document.blocks[0]?.content.type === 'image');
+            test.assert.ok(another.version);
+            test.assert.notStrictEqual(original.snapshotId, another.version.snapshotId);
+            test.assert.notStrictEqual(original.pageId, another.id);
+            test.assert.ok(original.document.blocks[0]?.content.type === 'image');
             const image = yield* rpc['sources.exportRevision']({
               sourceId: original.document.blocks[0].content.sourceId,
               revision: BigInt(original.document.blocks[0].content.revision)
             });
 
-            assert.ok(image.mime === 'image/png');
-            expect(image.bytes).toStrictEqual(bytes);
+            test.assert.ok(image.mime === 'image/png');
+            test.expect(image.bytes).toStrictEqual(bytes);
             const revised = yield* rpc['pages.save']({
               pageId: authored.id,
               expectedVersionId: original.id,
@@ -143,11 +145,14 @@ testStable(
             });
             const next = yield* rpc['pages.version']({ id: revised.submittedVersionId });
 
-            assert.ok(
+            test.assert.ok(
               next.document.blocks.some((block) => block.content.type === 'image') === false
             );
-            expect(yield* rpc['pages.version']({ id: original.id })).toStrictEqual(original);
-            assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
+            test.expect(yield* rpc['pages.version']({ id: original.id })).toStrictEqual(original);
+            test.assert.strictEqual(
+              f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n,
+              0n
+            );
 
             return { original, image, source };
           }).pipe(Effect.provide(f.handlers()))
@@ -160,13 +165,15 @@ testStable(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(PagesRpc.merge(SourcesRpc));
 
-            expect(yield* rpc['pages.version']({ id: saved.original.id })).toStrictEqual(
-              saved.original
-            );
-            expect(
-              yield* rpc['sources.exportRevision']({ sourceId: saved.source.id, revision: 1n })
-            ).toStrictEqual(saved.image);
-            expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+            test
+              .expect(yield* rpc['pages.version']({ id: saved.original.id }))
+              .toStrictEqual(saved.original);
+            test
+              .expect(
+                yield* rpc['sources.exportRevision']({ sourceId: saved.source.id, revision: 1n })
+              )
+              .toStrictEqual(saved.image);
+            test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
           }).pipe(Effect.provide(f.handlers()))
         )
       );
@@ -176,10 +183,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'authored history retirement removes its exact reader body while an independent version retains image bytes',
-  async () => {
-    const f = await fixture();
+  async ({ databases }) => {
+    const f = await fixture(databases);
 
     try {
       const saved = await Effect.runPromise(
@@ -206,7 +213,7 @@ testStable(
               citations: []
             });
 
-            assert.ok(authored.version);
+            test.assert.ok(authored.version);
             const next = yield* rpc['pages.save']({
               pageId: authored.id,
               expectedVersionId: authored.version.id,
@@ -225,16 +232,16 @@ testStable(
               keepLatest: 1,
               token: preview.token
             });
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(rpc['pages.version']({ id: before.id }))).kind === 'not_found'
             );
-            assert.strictEqual(
+            test.assert.strictEqual(
               f.context.db.orm.get(
                 sql`SELECT 1 FROM document_assets WHERE document_id=${before.snapshotId}`
               ),
               undefined
             );
-            assert.ok(
+            test.assert.ok(
               f.context.db.orm.get(
                 sql`SELECT 1 FROM document_assets WHERE document_id=${after.snapshotId}`
               )
@@ -251,19 +258,21 @@ testStable(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(PagesRpc.merge(SourcesRpc));
 
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(rpc['pages.version']({ id: saved.before.id }))).kind ===
                 'not_found'
             );
-            expect(yield* rpc['pages.version']({ id: saved.after.id })).toStrictEqual(saved.after);
+            test
+              .expect(yield* rpc['pages.version']({ id: saved.after.id }))
+              .toStrictEqual(saved.after);
             const image = yield* rpc['sources.exportRevision']({
               sourceId: saved.source.id,
               revision: 1n
             });
 
-            assert.ok(image.mime === 'image/png');
-            assert.ok(image.bytes.length);
-            expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+            test.assert.ok(image.mime === 'image/png');
+            test.assert.ok(image.bytes.length);
+            test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
           }).pipe(Effect.provide(f.handlers()))
         )
       );

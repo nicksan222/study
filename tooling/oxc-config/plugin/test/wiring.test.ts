@@ -1,5 +1,4 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { checkWiring } from './utils.ts';
 
@@ -7,23 +6,23 @@ const rules = ['alpha'];
 
 const configured = { 'study/alpha': 'error' };
 
-testStable('wiring rejects missing, unknown, disabled and untested rules', () => {
-  assert.throws(() => checkWiring(rules, {}, ['alpha.test.ts']));
-  assert.throws(() =>
+test.stable('wiring rejects missing, unknown, disabled and untested rules', () => {
+  test.assert.throws(() => checkWiring(rules, {}, ['alpha.test.ts']));
+  test.assert.throws(() =>
     checkWiring(rules, { ...configured, 'study/unknown': 'error' }, ['alpha.test.ts'])
   );
-  assert.throws(() => checkWiring(rules, { 'study/alpha': 'off' }, ['alpha.test.ts']));
-  assert.throws(() => checkWiring(rules, configured, []));
-  assert.throws(() =>
+  test.assert.throws(() => checkWiring(rules, { 'study/alpha': 'off' }, ['alpha.test.ts']));
+  test.assert.throws(() => checkWiring(rules, configured, []));
+  test.assert.throws(() =>
     checkWiring(rules, configured, ['alpha.test.ts'], [{ 'study/alpha': 'off' }])
   );
-  assert.throws(() =>
+  test.assert.throws(() =>
     checkWiring(rules, configured, ['alpha.test.ts'], [{ 'study/unknown': 'error' }])
   );
-  assert.doesNotThrow(() => checkWiring(rules, configured, ['alpha.test.ts']));
+  test.assert.doesNotThrow(() => checkWiring(rules, configured, ['alpha.test.ts']));
 });
 
-testStable('production registry, config and sibling test files agree', async () => {
+test.stable('production registry, config and sibling test files agree', async () => {
   const { default: plugin } = await import('../index.ts');
   const { lint } = await import('#tooling/oxc-config/lint');
   const { pluginPath, root } = await import('./utils.ts');

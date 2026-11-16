@@ -1,11 +1,11 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message =
   'Metric attributes must use bounded literal labels or safeMetricLabels from platform/observability.';
 
-testStable('checks Effect metric attributes with aliases and shadowing', async () => {
+test.stable('checks Effect metric attributes with aliases and shadowing', async () => {
   assertDiagnostics(
     'metric-cardinality',
     await lintRule('metric-cardinality', {
@@ -30,7 +30,7 @@ unrelated.withAttributes(labels);`
     ]
   );
 });
-testStable('checks tuple attributes, constructor options and namespace helper', async () => {
+test.stable('checks tuple attributes, constructor options and namespace helper', async () => {
   assertDiagnostics(
     'metric-cardinality',
     await lintRule('metric-cardinality', {
@@ -48,7 +48,7 @@ M.withAttributes(obs.safeMetricLabels(input));`
   );
 });
 
-testStable('allows bounded enum members and rejects computed identifiers', async () => {
+test.stable('allows bounded enum members and rejects computed identifiers', async () => {
   assertDiagnostics(
     'metric-cardinality',
     await lintRule('metric-cardinality', {
@@ -61,7 +61,7 @@ testStable('allows bounded enum members and rejects computed identifiers', async
   );
 });
 
-testStable('checks contextual Effect metric attributes', async () => {
+test.stable('checks contextual Effect metric attributes', async () => {
   assertDiagnostics(
     'metric-cardinality',
     await lintRule('metric-cardinality', {

@@ -1,3 +1,6 @@
+import { StudyRpc } from '@study/contracts';
+import { sql } from '@study/db';
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises integration imports through real SQLite HTTP and Workflow execution.     │
@@ -9,12 +12,7 @@
  * │ Tests use production services and real temporary database ownership and listeners.       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
-import { sql } from '@study/db';
-import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { Integrations } from '#server/features/integrations/index';
@@ -23,8 +21,8 @@ import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
 import { serve } from '#server/runtime/server';
+import { awaitSnapshot } from '#testing/live-queries';
 import { withTestPublication } from '#testing/publication';
-import { createStudyTest } from '#testing/server-test';
 
 const input = (text = '# Cells\n\nSee [[DNA]].') => ({
   providerId: 'obsidian',
@@ -35,10 +33,10 @@ const input = (text = '# Cells\n\nSee [[DNA]].') => ({
   ]
 });
 
-testStable(
+test.stable(
   'imports through real HTTP RPC and native Workflow into editable note documents',
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture }) => {
+    const fixture = serverFixture;
     const server = fixture.manage(await serve(fixture.app));
 
     await fixture.app.workers.start();
@@ -48,32 +46,30 @@ testStable(
           const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
           const preview = yield* client['integrations.previewImport'](input());
 
-          expect(preview.status).toBe('preview');
-          expect((yield* client['notes.notes']({ limit: 100 })).items).toHaveLength(0);
+          test.expect(preview.status).toBe('preview');
+          test.expect((yield* client['notes.notes']({ limit: 100 })).items).toHaveLength(0);
           yield* client['integrations.startImport']({ id: preview.id, excludedKeys: [] });
-          let result = yield* client['integrations.import']({ id: preview.id });
+          const result = yield* test.observeUntil(
+            test.snapshotValues(client['integrations.import.live']({ id: preview.id })),
+            (value) => value.status !== 'running'
+          );
 
-          while (result.status === 'running') {
-            yield* Effect.sleep('20 millis');
-            result = yield* client['integrations.import']({ id: preview.id });
-          }
-
-          expect(result.status).toBe('completed');
-          expect(result.items.map((item) => item.status)).toEqual(['imported', 'imported']);
+          test.expect(result.status).toBe('completed');
+          test.expect(result.items.map((item) => item.status)).toEqual(['imported', 'imported']);
           const notes = yield* client['notes.notes']({ limit: 100 });
 
-          expect(notes.items.map((note) => note.title).sort()).toEqual(['Cells', 'DNA']);
+          test.expect(notes.items.map((note) => note.title).sort()).toEqual(['Cells', 'DNA']);
           const docs = yield* client['pages.pages']({ limit: 100, archived: false });
           const cells = docs.items.find((doc) => doc.title === 'Cells')!;
           const document = yield* client['pages.page']({ id: cells.id });
 
-          expect(document.version?.document.blocks.map((block) => block.text).join('\n')).toContain(
-            'Cells'
-          );
-          expect(document.version?.document.blocks.map((block) => block.text).join('\n')).toContain(
-            'DNA'
-          );
-          expect(JSON.stringify(document.version?.document)).toContain('"type":"link"');
+          test
+            .expect(document.version?.document.blocks.map((block) => block.text).join('\n'))
+            .toContain('Cells');
+          test
+            .expect(document.version?.document.blocks.map((block) => block.text).join('\n'))
+            .toContain('DNA');
+          test.expect(JSON.stringify(document.version?.document)).toContain('"type":"link"');
           const original = document.version!;
 
           const edit = yield* client['pages.save']({
@@ -83,7 +79,7 @@ testStable(
             document: original.document
           });
 
-          expect(edit.outcome).toBe('saved');
+          test.expect(edit.outcome).toBe('saved');
         })
       ),
       { signal: AbortSignal.timeout(20000) }
@@ -91,10 +87,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'resumes a cancelled import after destination reservation without duplicate notes',
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture }) => {
+    const fixture = serverFixture;
     const preview = await fixture.run(
       Effect.flatMap(Integrations, (service) => service.previewImport(input()))
     );
@@ -116,7 +112,7 @@ testStable(
       Effect.flatMap(Integrations, (service) => service.import({ id: preview.id }))
     );
 
-    expect(reserved.items.every((item) => item.noteId !== null)).toBe(true);
+    test.expect(reserved.items.every((item) => item.noteId !== null)).toBe(true);
     await fixture.run(
       Effect.flatMap(Integrations, (service) => service.cancelImport({ id: preview.id }))
     );
@@ -124,37 +120,35 @@ testStable(
       Effect.flatMap(Integrations, (service) => service.retryImport({ id: preview.id }))
     );
 
-    expect(resumed.status).toBe('running');
-    expect(resumed.attempt).toBe(2);
+    test.expect(resumed.status).toBe('running');
+    test.expect(resumed.attempt).toBe(2);
     await fixture.app.workers.start();
     await fixture.run(
       Effect.gen(function* () {
         const service = yield* Integrations;
-        let state = yield* service.import({ id: preview.id });
-
-        while (state.status === 'running') {
-          yield* Effect.sleep('20 millis');
-          state = yield* service.import({ id: preview.id });
-        }
-
-        expect(state.status).toBe('completed');
-        expect(state.items.map((item) => item.noteId)).toEqual(
-          reserved.items.map((item) => item.noteId)
+        let state = yield* awaitSnapshot(
+          service.import({ id: preview.id }),
+          (value) => value.status !== 'running'
         );
-        expect(state.items.every((item) => item.status === 'imported')).toBe(true);
+
+        test.expect(state.status).toBe('completed');
+        test
+          .expect(state.items.map((item) => item.noteId))
+          .toEqual(reserved.items.map((item) => item.noteId));
+        test.expect(state.items.every((item) => item.status === 'imported')).toBe(true);
         const notes = yield* Notes;
 
-        expect((yield* notes.notes({ limit: 100 })).items).toHaveLength(2);
+        test.expect((yield* notes.notes({ limit: 100 })).items).toHaveLength(2);
       }),
       { signal: AbortSignal.timeout(20000) }
     );
   }
 );
 
-testStable(
+test.stable(
   'reports changed link destinations for review when previously excluded notes are included',
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture }) => {
+    const fixture = serverFixture;
 
     await fixture.app.workers.start();
     await fixture.run(
@@ -163,35 +157,31 @@ testStable(
         const first = yield* service.previewImport(input());
 
         yield* service.startImport({ id: first.id, excludedKeys: ['DNA.md'] });
-        let state = yield* service.import({ id: first.id });
+        let state = yield* awaitSnapshot(
+          service.import({ id: first.id }),
+          (value) => value.status !== 'running'
+        );
 
-        while (state.status === 'running') {
-          yield* Effect.sleep('20 millis');
-          state = yield* service.import({ id: first.id });
-        }
-
-        expect(state.items.map((item) => item.status)).toEqual(['imported', 'excluded']);
+        test.expect(state.items.map((item) => item.status)).toEqual(['imported', 'excluded']);
         const second = yield* service.previewImport(input());
 
         yield* service.startImport({ id: second.id, excludedKeys: [] });
-        state = yield* service.import({ id: second.id });
+        state = yield* awaitSnapshot(
+          service.import({ id: second.id }),
+          (value) => value.status !== 'running'
+        );
 
-        while (state.status === 'running') {
-          yield* Effect.sleep('20 millis');
-          state = yield* service.import({ id: second.id });
-        }
-
-        expect(state.items.map((item) => item.status)).toEqual(['conflict', 'imported']);
+        test.expect(state.items.map((item) => item.status)).toEqual(['conflict', 'imported']);
       }),
       { signal: AbortSignal.timeout(20000) }
     );
   }
 );
 
-testStable(
+test.stable(
   'shares one retained attachment Source across notes in the same vault import',
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture }) => {
+    const fixture = serverFixture;
 
     await fixture.app.workers.start();
     await fixture.run(
@@ -211,38 +201,38 @@ testStable(
         });
 
         yield* service.startImport({ id: preview.id, excludedKeys: [] });
-        let state = yield* service.import({ id: preview.id });
+        let state = yield* awaitSnapshot(
+          service.import({ id: preview.id }),
+          (value) => value.status !== 'running'
+        );
 
-        while (state.status === 'running') {
-          yield* Effect.sleep('20 millis');
-          state = yield* service.import({ id: preview.id });
-        }
-
-        expect(state.status).toBe('completed');
+        test.expect(state.status).toBe('completed');
         const sources = yield* Sources;
         const notes = yield* Notes;
 
         for (const item of state.items) {
           const thread = yield* notes.thread({ noteId: item.noteId!, limit: 100 });
 
-          expect(
-            thread.items.flatMap((message) => message.parts).map((part) => part.sourceName)
-          ).toContain('shared.txt');
+          test
+            .expect(thread.items.flatMap((message) => message.parts).map((part) => part.sourceName))
+            .toContain('shared.txt');
         }
 
-        expect(
-          (yield* sources.sources({ limit: 100 })).items.map((source) => source.name).sort()
-        ).toEqual(['A.md', 'B.md', 'shared.txt']);
+        test
+          .expect(
+            (yield* sources.sources({ limit: 100 })).items.map((source) => source.name).sort()
+          )
+          .toEqual(['A.md', 'B.md', 'shared.txt']);
       }),
       { signal: AbortSignal.timeout(20000) }
     );
   }
 );
 
-testStable(
+test.stable(
   'replays a start, resumes after restart, skips unchanged notes and reports changed-note conflicts',
-  async (t) => {
-    const fixture = createStudyTest(t, { app: false });
+  async ({ resources: resourcesFixture }) => {
+    const fixture = resourcesFixture;
     const first = await fixture.openApp();
     const preview = await first.nativeRuntime.runPromise(
       Effect.flatMap(Integrations, (service) => service.previewImport(input()))
@@ -260,41 +250,39 @@ testStable(
     await second.nativeRuntime.runPromise(
       Effect.gen(function* () {
         const service = yield* Integrations;
-        let result = yield* service.import({ id: preview.id });
+        let result = yield* awaitSnapshot(
+          service.import({ id: preview.id }),
+          (value) => value.status !== 'running'
+        );
 
-        while (result.status === 'running') {
-          yield* Effect.sleep('20 millis');
-          result = yield* service.import({ id: preview.id });
-        }
-
-        expect(result.items.every((item) => item.status === 'imported')).toBe(true);
+        test.expect(result.items.every((item) => item.status === 'imported')).toBe(true);
         yield* service.startImport({ id: preview.id, excludedKeys: [] });
         const next = yield* service.previewImport(input('# Changed externally'));
 
         yield* service.startImport({ id: next.id, excludedKeys: [] });
-        let repeated = yield* service.import({ id: next.id });
+        let repeated = yield* awaitSnapshot(
+          service.import({ id: next.id }),
+          (value) => value.status !== 'running'
+        );
 
-        while (repeated.status === 'running') {
-          yield* Effect.sleep('20 millis');
-          repeated = yield* service.import({ id: next.id });
-        }
-
-        expect(repeated.items.map((item) => item.status)).toEqual(['conflict', 'unchanged']);
+        test.expect(repeated.items.map((item) => item.status)).toEqual(['conflict', 'unchanged']);
         const notes = yield* Notes;
         const documents = yield* Pages;
 
-        expect((yield* notes.notes({ limit: 100 })).items).toHaveLength(2);
-        expect((yield* documents.pages({ limit: 100, archived: false })).items).toHaveLength(2);
+        test.expect((yield* notes.notes({ limit: 100 })).items).toHaveLength(2);
+        test
+          .expect((yield* documents.pages({ limit: 100, archived: false })).items)
+          .toHaveLength(2);
       }),
       { signal: AbortSignal.timeout(20000) }
     );
   }
 );
 
-testStable(
+test.stable(
   'cancels before publication and excludes selected notes without creating notes',
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture }) => {
+    const fixture = serverFixture;
 
     await fixture.run(
       Effect.gen(function* () {
@@ -304,20 +292,20 @@ testStable(
         yield* service.startImport({ id: preview.id, excludedKeys: ['DNA.md'] });
         const cancelled = yield* service.cancelImport({ id: preview.id });
 
-        expect(cancelled.status).toBe('cancelled');
-        expect(cancelled.items.find((item) => item.key === 'DNA.md')?.status).toBe('excluded');
+        test.expect(cancelled.status).toBe('cancelled');
+        test.expect(cancelled.items.find((item) => item.key === 'DNA.md')?.status).toBe('excluded');
         const notes = yield* Notes;
 
-        expect((yield* notes.notes({ limit: 100 })).items).toHaveLength(0);
+        test.expect((yield* notes.notes({ limit: 100 })).items).toHaveLength(0);
       })
     );
   }
 );
 
-testStable(
+test.stable(
   'can cancel and settle an import after its destination project is deleted',
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture }) => {
+    const fixture = serverFixture;
     const id = await fixture.run(
       Effect.gen(function* () {
         const projects = yield* Projects;
@@ -331,8 +319,10 @@ testStable(
           excludedKeys: []
         });
         yield* projects.deleteProject({ id: project.id });
-        expect((yield* integrations.cancelImport({ id: preview.id })).status).toBe('cancelled');
-        expect((yield* integrations.retryImport({ id: preview.id })).status).toBe('running');
+        test
+          .expect((yield* integrations.cancelImport({ id: preview.id })).status)
+          .toBe('cancelled');
+        test.expect((yield* integrations.retryImport({ id: preview.id })).status).toBe('running');
 
         return preview.id;
       })
@@ -342,47 +332,48 @@ testStable(
     await fixture.run(
       Effect.gen(function* () {
         const integrations = yield* Integrations;
-        let state = yield* integrations.import({ id });
+        let state = yield* awaitSnapshot(
+          integrations.import({ id }),
+          (value) => value.status !== 'running'
+        );
 
-        while (state.status === 'running') {
-          yield* Effect.sleep('20 millis');
-          state = yield* integrations.import({ id });
-        }
-
-        expect(state.status).toBe('failed');
-        expect(state.errorKind).toBe('not_found');
+        test.expect(state.status).toBe('failed');
+        test.expect(state.errorKind).toBe('not_found');
         const notes = yield* Notes;
 
-        expect((yield* notes.notes({ limit: 100 })).items).toHaveLength(0);
+        test.expect((yield* notes.notes({ limit: 100 })).items).toHaveLength(0);
       }),
       { signal: AbortSignal.timeout(20000) }
     );
   }
 );
 
-testStable('a cancelled preview cannot bypass import confirmation through retry', async (t) => {
-  const fixture = await createStudyTest(t);
+test.stable(
+  'a cancelled preview cannot bypass import confirmation through retry',
+  async ({ server: serverFixture }) => {
+    const fixture = serverFixture;
 
-  await fixture.run(
-    Effect.gen(function* () {
-      const service = yield* Integrations;
-      const preview = yield* service.previewImport(input());
-      const cancelled = yield* service.cancelImport({ id: preview.id });
+    await fixture.run(
+      Effect.gen(function* () {
+        const service = yield* Integrations;
+        const preview = yield* service.previewImport(input());
+        const cancelled = yield* service.cancelImport({ id: preview.id });
 
-      expect(cancelled.attempt).toBe(0);
-      expect((yield* Effect.flip(service.retryImport({ id: preview.id }))).kind).toBe(
-        'invalid_input'
-      );
-      expect((yield* service.import({ id: preview.id })).status).toBe('cancelled');
-      expect((yield* (yield* Notes).notes({ limit: 100 })).items).toHaveLength(0);
-    })
-  );
-});
+        test.expect(cancelled.attempt).toBe(0);
+        test
+          .expect((yield* Effect.flip(service.retryImport({ id: preview.id }))).kind)
+          .toBe('invalid_input');
+        test.expect((yield* service.import({ id: preview.id })).status).toBe('cancelled');
+        test.expect((yield* (yield* Notes).notes({ limit: 100 })).items).toHaveLength(0);
+      })
+    );
+  }
+);
 
-testStable(
+test.stable(
   'a finish failure preserves imported items and retries without republishing documents',
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture }) => {
+    const fixture = serverFixture;
 
     fixture.store.db.orm.run(
       sql`CREATE TRIGGER reject_import_completion BEFORE UPDATE OF state ON integration_imports WHEN json_extract(NEW.state, '$.status') = 'completed' BEGIN SELECT RAISE(ABORT, 'injected finish failure'); END`
@@ -394,32 +385,28 @@ testStable(
         const preview = yield* service.previewImport(input());
 
         yield* service.startImport({ id: preview.id, excludedKeys: [] });
-        let failed = yield* service.import({ id: preview.id });
+        let failed = yield* awaitSnapshot(
+          service.import({ id: preview.id }),
+          (value) => value.status !== 'running'
+        );
 
-        while (failed.status === 'running') {
-          yield* Effect.sleep('20 millis');
-          failed = yield* service.import({ id: preview.id });
-        }
-
-        expect(failed.status).toBe('failed');
-        expect(failed.items.map((item) => item.status)).toEqual(['imported', 'imported']);
+        test.expect(failed.status).toBe('failed');
+        test.expect(failed.items.map((item) => item.status)).toEqual(['imported', 'imported']);
         fixture.store.db.orm.run(sql`DROP TRIGGER reject_import_completion`);
         yield* service.retryImport({ id: preview.id });
-        let retried = yield* service.import({ id: preview.id });
-
-        while (retried.status === 'running') {
-          yield* Effect.sleep('20 millis');
-          retried = yield* service.import({ id: preview.id });
-        }
-
-        expect(retried.status).toBe('completed');
-        expect(retried.items.map((item) => item.noteId)).toEqual(
-          failed.items.map((item) => item.noteId)
+        let retried = yield* awaitSnapshot(
+          service.import({ id: preview.id }),
+          (value) => value.status !== 'running'
         );
-        expect((yield* (yield* Pages).pages({ limit: 100, archived: false })).items).toHaveLength(
-          2
-        );
-        expect((yield* (yield* Notes).notes({ limit: 100 })).items).toHaveLength(2);
+
+        test.expect(retried.status).toBe('completed');
+        test
+          .expect(retried.items.map((item) => item.noteId))
+          .toEqual(failed.items.map((item) => item.noteId));
+        test
+          .expect((yield* (yield* Pages).pages({ limit: 100, archived: false })).items)
+          .toHaveLength(2);
+        test.expect((yield* (yield* Notes).notes({ limit: 100 })).items).toHaveLength(2);
       }),
       { signal: AbortSignal.timeout(20000) }
     );

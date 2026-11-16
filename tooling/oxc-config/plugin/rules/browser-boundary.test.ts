@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable(
+test.stable(
   'browser entrypoints and contracts reject private value edges and contract type edges',
   async () => {
     const diagnostics = await lintRule(
@@ -21,29 +20,29 @@ testStable(
       true
     );
 
-    assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
   }
 );
 
-testStable('browser entrypoints reject private server types', async () => {
+test.stable('browser entrypoints reject private server types', async () => {
   const diagnostics = await lintRule('browser-boundary', {
     'src/client/types.ts':
       "import type { ServerContext } from '../runtime/context'; import type { AppRouter } from '../runtime/router'; import type { Secret } from '../domains/jobs/store';"
   });
 
-  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
-testStable('public root rejects private server types', async () => {
+test.stable('public root rejects private server types', async () => {
   const diagnostics = await lintRule('browser-boundary', {
     'src/index.ts':
       "export type {AppRouter} from './runtime/router'; export type {ServerContext} from './runtime/context';"
   });
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-testStable(
+test.stable(
   'contracts admit Effect RPC but reject workflow engine and browser clients reject router types',
   async () => {
     const diagnostics = await lintRule(
@@ -57,11 +56,11 @@ testStable(
       true
     );
 
-    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );
 
-testStable('browser consumers use only the explicit native client entrypoint', async () => {
+test.stable('browser consumers use only the explicit native client entrypoint', async () => {
   const diagnostics = await lintRule(
     'browser-boundary',
     {
@@ -71,10 +70,10 @@ testStable('browser consumers use only the explicit native client entrypoint', a
     true
   );
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-testStable('only the shared client host boundary can import native APIs', async () => {
+test.stable('only the shared client host boundary can import native APIs', async () => {
   const diagnostics = await lintRule(
     'browser-boundary',
     {
@@ -89,6 +88,6 @@ testStable('only the shared client host boundary can import native APIs', async 
     true
   );
 
-  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/lib/host.ts')));
+  test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+  test.assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/lib/host.ts')));
 });

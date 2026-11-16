@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises authoritative native RPC snapshots and independent concurrent mutation   │
@@ -12,23 +13,18 @@
  * │ files.                                                                                   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { pages } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Deferred, Effect, Fiber, Result, Stream } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
-import { App, serve } from '#server/runtime/index';
+import { serve } from '#server/runtime/index';
 
-testStable(
+test.stable(
   'native live RPC reflects another client mutation and keeps concurrent results separate',
-  async () => {
-    const fixture = await createTestDatabase();
-    const app = await App.open({ path: fixture.path });
+  async ({ resources: fixture }) => {
+    const app = await fixture.openApp({ path: fixture.path });
     const server = await serve(app);
 
     try {
@@ -61,33 +57,34 @@ testStable(
               { concurrency: 2 }
             );
 
-            expect(results.map((result) => result.name)).toEqual(['Biology', 'Chemistry']);
-            expect(results[0]?.id).not.toBe(results[1]?.id);
+            test.expect(results.map((result) => result.name)).toEqual(['Biology', 'Chemistry']);
+            test.expect(results[0]?.id).not.toBe(results[1]?.id);
             yield* Deferred.await(updated);
             const pages = yield* Fiber.join(snapshots);
 
-            expect(
-              pages
-                .at(-1)
-                ?.items.map((project) => project.name)
-                .sort()
-            ).toEqual(['Biology', 'Chemistry']);
+            test
+              .expect(
+                pages
+                  .at(-1)
+                  ?.items.map((project) => project.name)
+                  .sort()
+              )
+              .toEqual(['Biology', 'Chemistry']);
           })
         ).pipe(Effect.timeout('10 seconds'))
       );
     } finally {
       await server.close();
       await app.close();
-      await fixture.cleanup();
+      await fixture.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'navigation counts are not capped by mounted windows and exclude unpublished pages',
-  async () => {
-    const fixture = await createTestDatabase();
-    const app = await App.open({ path: fixture.path });
+  async ({ resources: fixture }) => {
+    const app = await fixture.openApp({ path: fixture.path });
     const server = await serve(app);
 
     try {
@@ -102,7 +99,7 @@ testStable(
           Effect.gen(function* () {
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
 
-            expect(yield* client['pages.count']({ archived: false })).toBe(0n);
+            test.expect(yield* client['pages.count']({ archived: false })).toBe(0n);
             yield* client['pages.create']({
               title: 'Published',
               createKey: crypto.randomUUID(),
@@ -123,7 +120,7 @@ testStable(
                 }
               }
             });
-            expect(yield* client['pages.count']({ archived: false })).toBe(1n);
+            test.expect(yield* client['pages.count']({ archived: false })).toBe(1n);
             yield* Effect.forEach(
               Array.from({ length: 101 }, (_, index) => index),
               (index) => client['notes.createNote']({ title: `Notebook ${index}` }),
@@ -131,16 +128,16 @@ testStable(
             );
             const mounted = yield* client['notes.notes']({ limit: 100 });
 
-            expect(mounted.items).toHaveLength(100);
-            expect(mounted.next).not.toBeNull();
-            expect(yield* client['notes.count']({})).toBe(101n);
+            test.expect(mounted.items).toHaveLength(100);
+            test.expect(mounted.next).not.toBeNull();
+            test.expect(yield* client['notes.count']({})).toBe(101n);
           })
         ).pipe(Effect.timeout('20 seconds'))
       );
     } finally {
       await server.close();
       await app.close();
-      await fixture.cleanup();
+      await fixture.close();
     }
   }
 );

@@ -1,27 +1,28 @@
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { screen, waitFor, within } from '@testing-library/react';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
+import { Option } from 'effect';
 
-import { renderPage } from '#client/test/render-page.tsx';
+test.stable(
+  'redirects Home to the note starter with the selected project',
+  async ({ page, rpc }) => {
+    rpc.given({ 'projects.findProject': Option.none() });
+    const { router } = page.open('/home?project=9007199254740993');
 
-testStable('redirects Home to the note starter with the selected project', async () => {
-  const { router } = renderPage('/home?project=9007199254740993', 'english');
+    await test.waitFor(() => test.expect(router.state.location.pathname).toBe('/notes'));
+    test.expect(router.state.location.search.project).toBe('9007199254740993');
+  }
+);
 
-  await waitFor(() => expect(router.state.location.pathname).toBe('/notes'));
-  expect(router.state.location.search.project).toBe('9007199254740993');
-});
-
-testStable.each(['english', 'italian'] as const)(
+test.stable.for(['english', 'italian'] as const)(
   'opens the note composer immediately in %s',
-  async (locale) => {
-    renderPage('/notes', locale);
+  async (locale, { page }) => {
+    page.open('/notes', { locale });
     const t = catalogs[locale];
 
-    expect(await screen.findByRole('textbox', { name: t.NoteCompose })).toBeVisible();
-    const main = within(screen.getByRole('main'));
+    test.expect(await test.screen.findByRole('textbox', { name: t.NoteCompose })).toBeVisible();
+    const main = test.within(test.screen.getByRole('main'));
 
-    expect(main.getByRole('button', { name: t.NoteSaveNote })).toBeDisabled();
-    expect(main.getByLabelText(t.NoteAttachFiles)).toBeInTheDocument();
+    test.expect(main.getByRole('button', { name: t.NoteSaveNote })).toBeDisabled();
+    test.expect(main.getByLabelText(t.NoteAttachFiles)).toBeInTheDocument();
   }
 );

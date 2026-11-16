@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable(
+test.stable(
   'RPC adapters delegate subscriptions instead of owning database capabilities',
   async () => {
     const diagnostics = await lintRule('server-layer-boundary', {
@@ -17,24 +16,27 @@ testStable(
     `
     });
 
-    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
-testStable('store network calls follow global fetch aliases without matching shadows', async () => {
-  const diagnostics = await lintRule('server-layer-boundary', {
-    'src/features/jobs/jobs.store.ts': `const request = globalThis.fetch;
+test.stable(
+  'store network calls follow global fetch aliases without matching shadows',
+  async () => {
+    const diagnostics = await lintRule('server-layer-boundary', {
+      'src/features/jobs/jobs.store.ts': `const request = globalThis.fetch;
  const run = request;
  run('https://example.com');
  function f(fetch: () => void) { const request = fetch;
  request();
  }`
-  });
+    });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-});
+    test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  }
+);
 
-testStable(
+test.stable(
   'real SQLite tests can inspect persistence and runtime while production adapters cannot',
   async () => {
     const diagnostics = await lintRule('server-layer-boundary', {
@@ -43,12 +45,12 @@ testStable(
       'src/features/projects/rpc/create.ts': "import '@study/db';"
     });
 
-    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-    assert.ok(diagnostics[0].filename.endsWith('/rpc/create.ts'));
+    test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    test.assert.ok(diagnostics[0].filename.endsWith('/rpc/create.ts'));
   }
 );
 
-testStable('feature roles enforce private stores and public cross-feature services', async () => {
+test.stable('feature roles enforce private stores and public cross-feature services', async () => {
   const diagnostics = await lintRule('server-layer-boundary', {
     'src/features/source/source.service.ts': `import '#server/features/project';
  import '#server/features/project/project.service';
@@ -63,10 +65,10 @@ testStable('feature roles enforce private stores and public cross-feature servic
     'src/features/source/source.service.test.ts': "import './source.store'; import '@study/db';"
   });
 
-  assert.strictEqual(diagnostics.length, 8, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 8, JSON.stringify(diagnostics));
 });
 
-testStable(
+test.stable(
   'feature boundaries inspect aliases and loaders without confusing shadowed require',
   async () => {
     const diagnostics = await lintRule('server-layer-boundary', {
@@ -76,11 +78,11 @@ function f(require: (x: string) => void) { require('#server/features/source/sour
 } import('#server/features/source/source.store');`
     });
 
-    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
-testStable(
+test.stable(
   'feature public indexes cannot expose stores and only stores own database access',
   async () => {
     const diagnostics = await lintRule('server-layer-boundary', {
@@ -92,11 +94,11 @@ testStable(
       'src/features/source/source.store.ts': "import '@study/db';"
     });
 
-    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
   }
 );
 
-testStable('feature public exports and adapters retain role boundaries', async () => {
+test.stable('feature public exports and adapters retain role boundaries', async () => {
   const diagnostics = await lintRule('server-layer-boundary', {
     'src/features/a/index.ts':
       "export { helper } from './helper'; export { AService } from './a.service';",
@@ -104,10 +106,10 @@ testStable('feature public exports and adapters retain role boundaries', async (
     'src/features/a/a.workflow.ts': "import type { Db } from '@study/db';"
   });
 
-  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
-testStable('plain role filenames enforce the same boundaries as suffixed filenames', async () => {
+test.stable('plain role filenames enforce the same boundaries as suffixed filenames', async () => {
   const diagnostics = await lintRule('server-layer-boundary', {
     'src/features/sources/store.ts': "import '@study/db'; import './service'; fetch('/');",
     'src/features/sources/service.ts': "import './workflow'; import '@study/db';",
@@ -117,10 +119,10 @@ testStable('plain role filenames enforce the same boundaries as suffixed filenam
       "export { Sources } from './service'; export { SourceStore } from './store';"
   });
 
-  assert.strictEqual(diagnostics.length, 7, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 7, JSON.stringify(diagnostics));
 });
 
-testStable(
+test.stable(
   'platform capabilities are valid service dependencies but private store type exports are not',
   async () => {
     const diagnostics = await lintRule('server-layer-boundary', {
@@ -131,22 +133,22 @@ testStable(
       'src/features/sources/nested/store.ts': "import '@study/db';"
     });
 
-    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-    assert.ok(diagnostics[0].filename.endsWith('/features/materials/service.ts'));
+    test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    test.assert.ok(diagnostics[0].filename.endsWith('/features/materials/service.ts'));
   }
 );
 
-testStable('FSRS has one platform adapter rather than feature-specific copies', async () => {
+test.stable('FSRS has one platform adapter rather than feature-specific copies', async () => {
   const diagnostics = await lintRule('server-layer-boundary', {
     'src/platform/scheduling/fsrs.ts': "import { fsrs } from 'ts-fsrs';",
     'src/features/learning/srs.ts': "import { fsrs } from 'ts-fsrs';",
     'src/features/practice/store.ts': "import type { Card } from 'ts-fsrs';"
   });
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-testStable('preferences are private to settings, auth, and themes stores', async () => {
+test.stable('preferences are private to settings, auth, and themes stores', async () => {
   const diagnostics = await lintRule('server-layer-boundary', {
     'src/features/settings/store.ts': "import { preferences } from '@study/db';",
     'src/features/auth/token.store.ts': "import { preferences as credentials } from '@study/db';",
@@ -164,10 +166,10 @@ testStable('preferences are private to settings, auth, and themes stores', async
     'src/features/learning/store.test.ts': "import { preferences } from '@study/db';"
   });
 
-  assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
 });
 
-testStable('preferences checks respect shadows, type imports, and unrelated tables', async () => {
+test.stable('preferences checks respect shadows, type imports, and unrelated tables', async () => {
   const diagnostics = await lintRule('server-layer-boundary', {
     'src/features/learning/store.ts': `import * as schema from '@study/db';
 import type { preferences } from '@study/db';
@@ -181,10 +183,10 @@ const { preferences } = tables;
       "import type * as schema from '@study/db'; type P = typeof schema.preferences;"
   });
 
-  assert.strictEqual(diagnostics.length, 0, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 0, JSON.stringify(diagnostics));
 });
 
-testStable(
+test.stable(
   'runtime assembles feature workflows only through the dispatch and recovery registry',
   async () => {
     const diagnostics = await lintRule('server-layer-boundary', {
@@ -196,11 +198,11 @@ testStable(
         "import { sourceIngestionWorkflow } from '#server/features/sources/workflow';"
     });
 
-    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
-testStable(
+test.stable(
   'cross-feature capture uses public synchronous participants without exposing private selection stores',
   async () => {
     const diagnostics = await lintRule('server-layer-boundary', {
@@ -219,12 +221,12 @@ testStable(
     `
     });
 
-    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-    assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/capture.ts')));
+    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    test.assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/capture.ts')));
   }
 );
 
-testStable(
+test.stable(
   'note transform coordinators use public participants and cannot import another feature private stores',
   async () => {
     const diagnostics = await lintRule('server-layer-boundary', {
@@ -242,12 +244,12 @@ testStable(
     `
     });
 
-    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/service/bypass.ts')));
+    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/service/bypass.ts')));
   }
 );
 
-testStable(
+test.stable(
   'proposal coordinators compose public Materials participants instead of reaching into private stores',
   async () => {
     const diagnostics = await lintRule('server-layer-boundary', {
@@ -265,12 +267,12 @@ testStable(
     `
     });
 
-    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/service/private.ts')));
+    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/service/private.ts')));
   }
 );
 
-testStable(
+test.stable(
   'note evidence composition consumes the public Materials participant and keeps all evidence stores private',
   async () => {
     const diagnostics = await lintRule('server-layer-boundary', {
@@ -291,12 +293,14 @@ testStable(
     `
     });
 
-    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
-    assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/citations.ts')));
+    test.assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+    test.assert.ok(
+      diagnostics.every(({ filename }) => !filename.endsWith('/service/citations.ts'))
+    );
   }
 );
 
-testStable(
+test.stable(
   'deletion coordinators compose public Materials and Workflows retirement participants',
   async () => {
     const diagnostics = await lintRule('server-layer-boundary', {
@@ -315,13 +319,13 @@ testStable(
     `
     });
 
-    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 
-    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/service/private.ts')));
+    test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/service/private.ts')));
   }
 );
 
-testStable(
+test.stable(
   'Material cleanup composes public synchronous participants and cannot expose or import private retirement stores',
   async () => {
     const diagnostics = await lintRule('server-layer-boundary', {
@@ -345,12 +349,12 @@ testStable(
       'src/features/sources/index.ts': `export { SourceMaterialDeletionStore } from './store/material-deletion';`
     });
 
-    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
-    assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/deletion.ts')));
+    test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    test.assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/deletion.ts')));
   }
 );
 
-testStable(
+test.stable(
   'history pruning composes public participants without exposing private ownership stores',
   async () => {
     const diagnostics = await lintRule('server-layer-boundary', {
@@ -373,13 +377,13 @@ testStable(
       'src/features/sources/index.ts': `export { SourceMaterialHistoryStore } from './store/material-history';`
     });
 
-    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 
-    assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/history.ts')));
+    test.assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/service/history.ts')));
   }
 );
 
-testStable(
+test.stable(
   'backup participants are injected by runtime and feature coordinators cannot acquire runtime or foreign stores',
   async () => {
     const diagnostics = await lintRule('server-layer-boundary', {
@@ -394,7 +398,7 @@ import { transaction } from '#server/platform/definitions/define-store';
 transaction(tx => Sources.validateBackup(tx));`
     });
 
-    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-    assert.ok(diagnostics.every((d) => d.filename.endsWith('/system/service/backup.ts')));
+    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    test.assert.ok(diagnostics.every((d) => d.filename.endsWith('/system/service/backup.ts')));
   }
 );

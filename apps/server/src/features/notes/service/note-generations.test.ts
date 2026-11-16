@@ -1,3 +1,4 @@
+import { NotesRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises durable bounded request discovery after restart and retirement.          │
@@ -11,13 +12,9 @@
  * │ by the feature implementation.                                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { NotesRpc } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { NotesRpcLive } from '#server/features/notes/rpc/index';
@@ -27,10 +24,10 @@ import { deletionDocument } from '#testing/material-deletion';
 import { cleanup } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
-testStable(
+test.stable(
   'note generation RPC discovers bounded exact requests across reopen, cancellation and note retirement',
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases }) => {
+    const fixture = await pageTransformFixture(databases);
 
     try {
       const setup = await Effect.runPromise(
@@ -48,7 +45,7 @@ testStable(
             document: deletionDocument('Retained discovery evidence')
           });
 
-          assert.ok(input.version);
+          test.assert.ok(input.version);
           yield* chats.updateNoteSelection({
             noteId: note.id,
             expectedRevision: 0n,
@@ -101,29 +98,31 @@ testStable(
               limit: 1
             });
 
-            assert.strictEqual(first.items[0]?.requestId, setup.requests[0]!.requestId);
-            assert.strictEqual(
+            test.assert.strictEqual(first.items[0]?.requestId, setup.requests[0]!.requestId);
+            test.assert.strictEqual(
               first.items[0]?.contextRequestId,
               setup.requests[0]!.contextRequestId
             );
-            assert.ok(first.items[0]?.state === 'available');
-            assert.strictEqual(first.next, setup.requests[0]!.requestId);
+            test.assert.ok(first.items[0]?.state === 'available');
+            test.assert.strictEqual(first.next, setup.requests[0]!.requestId);
             const rest = yield* rpc('notes.noteGenerations', {
               noteId: setup.note.id,
               limit: 2,
               before: first.next!
             });
 
-            expect(rest.items.map((i) => i.requestId)).toStrictEqual(
-              setup.requests.slice(1).map((i) => i.requestId)
-            );
-            assert.ok(rest.next === null);
-            expect(
-              (yield* rpc('notes.noteGenerations', {
-                noteId: setup.other.id,
-                limit: 100
-              })).items
-            ).toStrictEqual([]);
+            test
+              .expect(rest.items.map((i) => i.requestId))
+              .toStrictEqual(setup.requests.slice(1).map((i) => i.requestId));
+            test.assert.ok(rest.next === null);
+            test
+              .expect(
+                (yield* rpc('notes.noteGenerations', {
+                  noteId: setup.other.id,
+                  limit: 100
+                })).items
+              )
+              .toStrictEqual([]);
           }).pipe(
             Effect.provide(
               NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
@@ -143,10 +142,10 @@ testStable(
           });
           const page = yield* chats.noteGenerations({ noteId: setup.note.id, limit: 100 });
 
-          assert.ok(page.items.every((item) => item.state === 'available'));
-          expect(page.items.map((item) => item.requestId)).toStrictEqual(
-            setup.requests.map((item) => item.requestId)
-          );
+          test.assert.ok(page.items.every((item) => item.state === 'available'));
+          test
+            .expect(page.items.map((item) => item.requestId))
+            .toStrictEqual(setup.requests.map((item) => item.requestId));
         }).pipe(Effect.provide(fixture.domain()))
       );
       await Effect.runPromise(
@@ -154,12 +153,14 @@ testStable(
           const docs = yield* Pages;
           const chats = yield* Notes;
 
-          assert.ok((yield* docs.previewDeletion({ id: setup.input.id })).blockedVersionIds.length);
+          test.assert.ok(
+            (yield* docs.previewDeletion({ id: setup.input.id })).blockedVersionIds.length
+          );
           yield* docs.cancelTransform({ requestId: setup.requests[0]!.requestId });
           const page = yield* chats.noteGenerations({ noteId: setup.note.id, limit: 100 });
 
-          assert.ok(page.items[0]?.cancelled === true);
-          assert.ok(page.items.every((item) => item.state === 'available'));
+          test.assert.ok(page.items[0]?.cancelled === true);
+          test.assert.ok(page.items.every((item) => item.state === 'available'));
           yield* chats.deleteNote(setup.note.id);
         }).pipe(Effect.provide(fixture.domain()))
       );
@@ -169,15 +170,17 @@ testStable(
         Effect.gen(function* () {
           const chats = yield* Notes;
 
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(chats.noteGenerations({ noteId: setup.note.id, limit: 100 })))
               .kind === 'not_found'
           );
           const docs = yield* Pages;
           const retained = yield* docs.page({ id: setup.input.id });
 
-          assert.ok(retained.version);
-          assert.ok(retained.version.document.blocks[0]?.text === 'Retained discovery evidence');
+          test.assert.ok(retained.version);
+          test.assert.ok(
+            retained.version.document.blocks[0]?.text === 'Retained discovery evidence'
+          );
         }).pipe(Effect.provide(fixture.domain()))
       );
     } finally {

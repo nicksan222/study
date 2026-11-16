@@ -1,6 +1,5 @@
 import { catalogs } from '@study/localization';
-
-import { expect, testE2e } from './harness/index.ts';
+import { test } from '@study/testing';
 
 const copy = catalogs.english;
 
@@ -17,7 +16,7 @@ const original = [
 
 const updated = `${original}\n\nFOLLOW-UP OBSERVATION: the afternoon river gauge rose by two centimetres; compare this changed reading with the retained morning observations before opening the garden tomorrow.`;
 
-testE2e(
+test.stable(
   'Recover a committed creation after losing its receipt',
   async ({ page, expectScreenshot, loseCreationResponse }) => {
     await page.goto('/notes');
@@ -31,82 +30,84 @@ testE2e(
     const savedPath = `/notes/${receipt.note.id}`;
     const savedUrl = new URL(savedPath, page.url()).href;
 
-    await expect(save).toBeDisabled();
-    await expect(save).toHaveAttribute('aria-busy', 'true');
+    await test.expect(save).toBeDisabled();
+    await test.expect(save).toHaveAttribute('aria-busy', 'true');
     // Disabled buttons still receive ordinary keyboard attempts without forced activation.
     await save.press('Enter');
     await composer.press('ControlOrMeta+Enter');
     await composer.press('ControlOrMeta+Enter');
-    await expect(composer).toHaveValue(original);
-    await expect(page).toHaveURL(/\/notes$/);
+    await test.expect(composer).toHaveValue(original);
+    await test.expect(page).toHaveURL(/\/notes$/);
     const committed = page
       .getByRole('navigation', { name: copy.Notes })
       .locator(`a[href="${savedPath}"]`);
 
-    await expect(committed).toHaveCount(1);
+    await test.expect(committed).toHaveCount(1);
     await composer.press('ControlOrMeta+End');
     await composer.press('PageDown');
     await expectScreenshot('pending-save', {
       target: 'viewport',
       ready: async () => {
-        await expect(save).toBeDisabled();
-        await expect(save).toHaveAttribute('aria-busy', 'true');
-        await expect(committed).toHaveCount(1);
-        await expect(composer).toHaveValue(original);
+        await test.expect(save).toBeDisabled();
+        await test.expect(save).toHaveAttribute('aria-busy', 'true');
+        await test.expect(committed).toHaveCount(1);
+        await test.expect(composer).toHaveValue(original);
       }
     });
     await loss.drop();
-    await expect(page.getByText(copy.NoteCreationUncertain, { exact: true })).toBeVisible();
-    await expect(save).toBeDisabled();
-    await expect(composer).toHaveValue(original);
+    await test.expect(page.getByText(copy.NoteCreationUncertain, { exact: true })).toBeVisible();
+    await test.expect(save).toBeDisabled();
+    await test.expect(composer).toHaveValue(original);
     await composer.press('ControlOrMeta+Enter');
 
     // In-app navigation retains the volatile draft and uncertainty fence.
     await page.getByRole('link', { name: copy.SourcePage }).click();
-    await expect(page).toHaveURL(/\/pages\/?$/);
-    await expect(composer).toBeHidden();
+    await test.expect(page).toHaveURL(/\/pages\/?$/);
+    await test.expect(composer).toBeHidden();
     await page.goBack();
-    await expect(page).toHaveURL(/\/notes$/);
-    await expect(page.getByText(copy.NoteCreationUncertain, { exact: true })).toBeVisible();
-    await expect(composer).toHaveValue(original);
-    await expect(save).toBeDisabled();
+    await test.expect(page).toHaveURL(/\/notes$/);
+    await test.expect(page.getByText(copy.NoteCreationUncertain, { exact: true })).toBeVisible();
+    await test.expect(composer).toHaveValue(original);
+    await test.expect(save).toBeDisabled();
     const recovery = page.getByRole('region', { name: copy.NoteRecent });
 
     await recovery.getByRole('button', { name: copy.LibraryRefresh }).click();
-    await expect(recovery.getByRole('button', { name: copy.NoteCreationReviewed })).toBeVisible();
-    await expect(recovery.locator('a[href^="/notes/"]')).toHaveCount(1);
+    await test
+      .expect(recovery.getByRole('button', { name: copy.NoteCreationReviewed }))
+      .toBeVisible();
+    await test.expect(recovery.locator('a[href^="/notes/"]')).toHaveCount(1);
     const recovered = recovery.locator(`a[href="${savedPath}"]`);
 
-    await expect(recovered).toHaveCount(1);
+    await test.expect(recovered).toHaveCount(1);
     await expectScreenshot('recovery-prompt', {
       target: 'viewport',
       ready: async () => {
-        await expect(recovered).toBeVisible();
-        await expect(save).toBeDisabled();
-        await expect(composer).toHaveValue(original);
+        await test.expect(recovered).toBeVisible();
+        await test.expect(save).toBeDisabled();
+        await test.expect(composer).toHaveValue(original);
       }
     });
     await recovered.click();
-    await expect(page).toHaveURL(savedUrl);
+    await test.expect(page).toHaveURL(savedUrl);
     const notebook = page.getByRole('region', { name: copy.NoteNotebook });
     const body = notebook.locator('[data-slot="chat-message-text"]');
     const label = notebook.getByText(copy.NoteEntryNote, { exact: true });
     const entry = notebook.locator('[id*="-message-"]');
 
-    await expect(body).toHaveText(original);
-    await expect(notebook.locator('[data-role="user"]')).toHaveCount(1);
+    await test.expect(body).toHaveText(original);
+    await test.expect(notebook.locator('[data-role="user"]')).toHaveCount(1);
     await entry.focus();
-    await expect(entry).toBeFocused();
+    await test.expect(entry).toBeFocused();
     await label.scrollIntoViewIfNeeded();
-    await expect(label).toBeInViewport({ ratio: 1 });
+    await test.expect(label).toBeInViewport({ ratio: 1 });
     const top = await body.boundingBox();
 
     for (let step = 0; step < 15; step++) await entry.press('ArrowDown');
 
-    await expect.poll(async () => (await body.boundingBox())!.y).toBeLessThan(top!.y);
-    await expect(label).not.toBeInViewport();
+    await test.expect.poll(async () => (await body.boundingBox())!.y).toBeLessThan(top!.y);
+    await test.expect(label).not.toBeInViewport();
     await entry.press('End');
-    await expect
+    await test.expect
       .poll(async () => {
         const end = await entry.boundingBox();
         const dock = await page.locator('.workspace-desk-floating-composer').boundingBox();
@@ -114,42 +115,42 @@ testE2e(
         return !!end && !!dock && end.y + end.height <= dock.y;
       })
       .toBe(true);
-    await expect(composer).toBeInViewport({ ratio: 1 });
-    await expect(save).toBeInViewport({ ratio: 1 });
+    await test.expect(composer).toBeInViewport({ ratio: 1 });
+    await test.expect(save).toBeInViewport({ ratio: 1 });
     await notebook.locator('[data-role="user"]').hover();
     await page.getByRole('button', { name: copy.NoteEditNote }).click();
     const dialog = page.getByRole('dialog', { name: copy.NoteEditNote });
     const editor = dialog.getByRole('textbox', { name: copy.NoteEditNote });
 
-    await expect(editor).toHaveValue(original);
+    await test.expect(editor).toHaveValue(original);
     await editor.fill(updated);
     await dialog.getByRole('button', { name: copy.NoteSaveNote }).click();
-    await expect(dialog).toBeHidden();
-    await expect(page).toHaveURL(savedUrl);
-    await expect(body).toHaveText(updated);
-    expect(await body.textContent()).toBe(updated);
+    await test.expect(dialog).toBeHidden();
+    await test.expect(page).toHaveURL(savedUrl);
+    await test.expect(body).toHaveText(updated);
+    test.expect(await body.textContent()).toBe(updated);
     await page.reload();
-    await expect(page).toHaveURL(savedUrl);
-    await expect(body).toHaveText(updated);
-    expect(await body.textContent()).toBe(updated);
-    await expect(entry).toHaveCount(1);
-    await expect(notebook.locator('[data-role="user"]')).toHaveCount(1);
-    await expect(
-      page.getByRole('navigation', { name: copy.Notes }).locator('a[href^="/notes/"]')
-    ).toHaveCount(1);
+    await test.expect(page).toHaveURL(savedUrl);
+    await test.expect(body).toHaveText(updated);
+    test.expect(await body.textContent()).toBe(updated);
+    await test.expect(entry).toHaveCount(1);
+    await test.expect(notebook.locator('[data-role="user"]')).toHaveCount(1);
+    await test
+      .expect(page.getByRole('navigation', { name: copy.Notes }).locator('a[href^="/notes/"]'))
+      .toHaveCount(1);
     await entry.focus();
     await entry.press('End');
-    await expect(label).not.toBeInViewport();
+    await test.expect(label).not.toBeInViewport();
     await expectScreenshot('reconciled-note', {
       target: 'viewport',
       ready: async () => {
-        await expect(dialog).toBeHidden();
-        await expect(page).toHaveURL(savedUrl);
-        await expect(body).toHaveText(updated);
-        expect(await body.textContent()).toBe(updated);
-        await expect(body).toBeInViewport();
-        await expect(composer).toBeInViewport({ ratio: 1 });
-        await expect(save).toBeInViewport({ ratio: 1 });
+        await test.expect(dialog).toBeHidden();
+        await test.expect(page).toHaveURL(savedUrl);
+        await test.expect(body).toHaveText(updated);
+        test.expect(await body.textContent()).toBe(updated);
+        await test.expect(body).toBeInViewport();
+        await test.expect(composer).toBeInViewport({ ratio: 1 });
+        await test.expect(save).toBeInViewport({ ratio: 1 });
       }
     });
   }

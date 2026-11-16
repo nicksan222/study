@@ -1,3 +1,4 @@
+import { sql } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Source history retires extraction bodies independently from original bytes and     │
@@ -11,12 +12,9 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sql } from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
-import { assert, expect } from 'vite-plus/test';
 
 import { Sources } from '#server/features/sources/index';
 import {
@@ -29,10 +27,10 @@ import { assertScrubbed } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 import { admitTestExecution } from '#testing/workflow-admission';
 
-testStable(
+test.stable(
   'unchanged original bytes survive obsolete extraction pruning while current and in-flight correction roots remain usable',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases }) => {
+    const f = await pageTransformFixture(databases);
 
     try {
       const bytes = new TextEncoder().encode('Original source evidence');
@@ -57,8 +55,8 @@ testStable(
               before: before.document.blocks[0]!.text,
               after
             });
-            assert.strictEqual((yield* sources.sourceProcessing(source.id)).revision, 1);
-            assert.strictEqual(
+            test.assert.strictEqual((yield* sources.sourceProcessing(source.id)).revision, 1);
+            test.assert.strictEqual(
               (yield* sources.extraction({
                 sourceId: source.id,
                 revision: 1n,
@@ -92,22 +90,21 @@ testStable(
           const scope = { sourceId: source.id, keepLatest: 1 };
           const preview = yield* sources.previewHistory(scope);
 
-          expect(preview.candidates.map((item) => item.snapshotId)).toStrictEqual([
-            first.documentId,
-            corrected[0]!.documentId
-          ]);
-          expect(preview.blockedSnapshotIds).toStrictEqual([]);
+          test
+            .expect(preview.candidates.map((item) => item.snapshotId))
+            .toStrictEqual([first.documentId, corrected[0]!.documentId]);
+          test.expect(preview.blockedSnapshotIds).toStrictEqual([]);
           f.context.db.exec(
             "CREATE TRIGGER reject_private_source_retirement BEFORE INSERT ON workflow_events WHEN NEW.type='SourceHistoryPruned' BEGIN SELECT RAISE(ABORT,'injected rollback'); END"
           );
           yield* Effect.flip(sources.retireHistory({ ...scope, token: preview.token }));
-          assert.strictEqual(
+          test.assert.strictEqual(
             f.context.db.orm.get(
               sql`SELECT count(*) n FROM cluster_replies WHERE instr(payload,'First corrected evidence')>0`
             )?.n,
             1n
           );
-          assert.ok(
+          test.assert.ok(
             yield* sources.extraction({
               sourceId: source.id,
               revision: 1n,
@@ -116,19 +113,19 @@ testStable(
           );
           f.context.db.exec('DROP TRIGGER reject_private_source_retirement');
           yield* sources.retireHistory({ ...scope, token: preview.token });
-          assert.strictEqual(
+          test.assert.strictEqual(
             f.context.db.orm.get(
               sql`SELECT count(*) n FROM cluster_replies WHERE instr(payload,'First corrected evidence')>0`
             )?.n,
             0n
           );
-          assert.strictEqual(
+          test.assert.strictEqual(
             f.context.db.orm.get(
               sql`SELECT count(*) n FROM workflow_events WHERE instr(payload,'First corrected evidence')>0`
             )?.n,
             0n
           );
-          assert.strictEqual(
+          test.assert.strictEqual(
             f.context.db.orm.get(
               sql`SELECT count(*) n FROM workflow_executions WHERE instr(payload,'First corrected evidence')>0 OR instr(result,'First corrected evidence')>0`
             )?.n,
@@ -137,18 +134,18 @@ testStable(
           assertScrubbed(f, 'First corrected evidence', false);
           const currentEvent = correctionEvents.at(-1)!;
 
-          assert.strictEqual(
+          test.assert.strictEqual(
             f.context.db.orm.get(
               sql`SELECT count(*) n FROM workflow_retired_correlations WHERE correlation_id=${currentEvent.correlationId} AND event_type='SourceIndexed'`
             )?.n,
             0n
           );
-          assert.ok(
+          test.assert.ok(
             f.context.db.orm.get(
               sql`SELECT 1 FROM workflow_events WHERE correlation_id=${currentEvent.correlationId} AND type='SourceIndexed' AND payload!='{}'`
             )
           );
-          assert.strictEqual(
+          test.assert.strictEqual(
             f.context.db.orm.get(
               sql`SELECT count(*) n FROM cluster_replies WHERE instr(payload,'Current corrected evidence')>0`
             )?.n,
@@ -156,27 +153,27 @@ testStable(
           );
 
           for (const snapshotId of [first.documentId, corrected[0]!.documentId])
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(
                 sources.extraction({ sourceId: source.id, revision: 1n, snapshotId })
               )).kind === 'not_found'
             );
 
-          assert.ok(
+          test.assert.ok(
             (yield* sources.extraction({ sourceId: source.id, revision: 1n, snapshotId: current }))
               .document.blocks[0]?.text === 'Current corrected evidence'
           );
-          expect(
-            (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
-          ).toStrictEqual(bytes);
+          test
+            .expect((yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes)
+            .toStrictEqual(bytes);
         }).pipe(Effect.provide(f.services()))
       );
       await f.reopen();
 
       for (const event of correctionEvents) {
-        assert.ok(event.type === 'SourceCorrectionRequested');
+        test.assert.ok(event.type === 'SourceCorrectionRequested');
 
-        assert.ok(!(event.type !== 'SourceCorrectionRequested'), 'Unexpected fixture event');
+        test.assert.ok(!(event.type !== 'SourceCorrectionRequested'), 'Unexpected fixture event');
 
         const retired = f.context.db.orm.get(sql`
           SELECT 1 FROM workflow_retired_correlations
@@ -184,87 +181,90 @@ testStable(
         `);
 
         if (retired) {
-          expect(() =>
-            admitTestExecution(
-              f.context,
-              sourceCorrectionWorkflow,
-              `retired-replay/${event.eventId}`,
-              { event }
+          test
+            .expect(() =>
+              admitTestExecution(
+                f.context,
+                sourceCorrectionWorkflow,
+                `retired-replay/${event.eventId}`,
+                { event }
+              )
             )
-          ).toThrowError(
-            expect.objectContaining({
-              kind: 'cancelled',
-              message: 'Workflow correlation has been retired'
-            })
-          );
+            .toThrowError(
+              test.expect.objectContaining({
+                kind: 'cancelled',
+                message: 'Workflow correlation has been retired'
+              })
+            );
           continue;
         }
 
-        await expect(
-          Effect.runPromise(
-            Effect.scoped(
-              Effect.gen(function* () {
-                const engine = yield* WorkflowEngine.WorkflowEngine;
+        await test
+          .expect(
+            Effect.runPromise(
+              Effect.scoped(
+                Effect.gen(function* () {
+                  const engine = yield* WorkflowEngine.WorkflowEngine;
 
-                yield* engine.register(sourceCorrectionWorkflow, sourceCorrectionHandler);
+                  yield* engine.register(sourceCorrectionWorkflow, sourceCorrectionHandler);
 
-                admitTestExecution(
-                  f.context,
-                  sourceCorrectionWorkflow,
-                  `retired-replay/${event.eventId}`,
-                  { event }
-                );
+                  admitTestExecution(
+                    f.context,
+                    sourceCorrectionWorkflow,
+                    `retired-replay/${event.eventId}`,
+                    { event }
+                  );
 
-                return yield* engine.execute(sourceCorrectionWorkflow, {
-                  executionId: `retired-replay/${event.eventId}`,
-                  payload: { event }
-                });
-              }).pipe(Effect.provide(f.services()))
+                  return yield* engine.execute(sourceCorrectionWorkflow, {
+                    executionId: `retired-replay/${event.eventId}`,
+                    payload: { event }
+                  });
+                }).pipe(Effect.provide(f.services()))
+              )
             )
           )
-        ).rejects.toMatchObject({ kind: 'not_found' });
+          .rejects.toMatchObject({ kind: 'not_found' });
       }
 
       const pending = await processSource(f, true);
 
-      assert.notStrictEqual(pending.documentId, current);
+      test.assert.notStrictEqual(pending.documentId, current);
       await Effect.runPromise(
         Effect.gen(function* () {
           const sources = yield* Sources;
           const history = yield* sources.extractions({ sourceId: source.id, limit: 10 });
 
-          expect(history.items.map((item) => item.snapshotId)).toStrictEqual([
-            pending.documentId,
-            current
-          ]);
-          assert.ok(
+          test
+            .expect(history.items.map((item) => item.snapshotId))
+            .toStrictEqual([pending.documentId, current]);
+          test.assert.ok(
             (yield* sources.currentExtraction({ id: source.id }))?.document.blocks[0]?.text ===
               'Pending correction completes'
           );
-          expect(
-            (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
-          ).toStrictEqual(bytes);
+          test
+            .expect((yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes)
+            .toStrictEqual(bytes);
           // Retiring a correction input must keep its retained output's ownership identity.
           const scope = { sourceId: source.id, keepLatest: 1 };
           const preview = yield* sources.previewHistory(scope);
 
           yield* sources.retireHistory({ ...scope, token: preview.token });
           assertScrubbed(f, 'Current corrected evidence', false);
-          assert.ok(
+          test.assert.ok(
             (yield* sources.currentExtraction({ id: source.id }))?.document.blocks[0]?.text ===
               'Pending correction completes'
           );
         }).pipe(Effect.provide(f.services()))
       );
-      assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
-      assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);
-      assert.strictEqual(
+      test.assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
+      test.assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);
+      test.assert.strictEqual(
         f.context.db.orm.get(
           sql`SELECT count(*) n FROM source_snapshots WHERE source_id=${source.id}`
         )?.n,
         1n
       );
-      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }

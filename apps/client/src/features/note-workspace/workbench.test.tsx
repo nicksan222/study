@@ -4,23 +4,19 @@ import {
   chatMessageSchema,
   defaultWorkspacePreferences
 } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
 import { AtomRegistry } from 'effect/reactivity';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { useWorkbench, workbenchIdentity } from './workbench.queries';
 
-const preferences = vi.hoisted(() => ({ expandPages: false }));
+const preferences = test.hoisted(() => ({ expandPages: false }));
 
-vi.mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
+test.mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
   useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, ...preferences })
 }));
 
-const api = vi.hoisted(() => ({ thread: vi.fn() }));
+const api = test.hoisted(() => ({ thread: test.vi.fn() }));
 
 const id = noteIdSchema.make(1n);
 
@@ -32,13 +28,13 @@ function mount() {
   const client = AtomRegistry.make();
 
   caches.push(client);
-  const fixture = rpcTestTransport(async () => api.thread(), client);
+  const fixture = test.rpcTestTransport(async () => api.thread(), client);
   const wrapper = fixture.wrapper;
 
   return {
     client,
     notify: fixture.notify,
-    ...renderHook(({ noteId }) => useWorkbench(noteId), {
+    ...test.renderHook(({ noteId }) => useWorkbench(noteId), {
       wrapper,
       initialProps: { noteId: id }
     })
@@ -75,17 +71,17 @@ function persistedPage(captureKey: string) {
   });
 }
 
-beforeEach(() => {
-  vi.resetAllMocks();
+test.beforeEach(() => {
+  test.vi.resetAllMocks();
   api.thread.mockResolvedValue({ items: [], next: null });
 });
 
-afterEach(() => {
-  cleanup();
+test.afterEach(() => {
+  test.cleanup();
   caches.splice(0).forEach((cache) => cache.dispose());
 });
 
-testStable(
+test.stable(
   'opens a persisted material once and refreshes a legacy page without converting a quick note',
   async () => {
     const view = mount();
@@ -95,181 +91,187 @@ testStable(
       title: 'Document'
     };
 
-    await waitFor(() => expect(api.thread).toHaveBeenCalled());
-    act(() => view.result.current.open(target));
-    await waitFor(() => expect(view.result.current.tabs).toEqual([target]));
-    act(() => view.result.current.hide());
-    await waitFor(() => expect(view.result.current.visible).toBe(false));
-    act(() => view.result.current.open(target));
-    await waitFor(() => expect(view.result.current.visible).toBe(true));
-    expect(view.result.current.tabs).toHaveLength(1);
+    await test.waitFor(() => test.expect(api.thread).toHaveBeenCalled());
+    test.act(() => view.result.current.open(target));
+    await test.waitFor(() => test.expect(view.result.current.tabs).toEqual([target]));
+    test.act(() => view.result.current.hide());
+    await test.waitFor(() => test.expect(view.result.current.visible).toBe(false));
+    test.act(() => view.result.current.open(target));
+    await test.waitFor(() => test.expect(view.result.current.visible).toBe(true));
+    test.expect(view.result.current.tabs).toHaveLength(1);
     const message = persistedPage('legacy-page');
 
-    act(() => view.result.current.open({ kind: 'message', message }));
+    test.act(() => view.result.current.open({ kind: 'message', message }));
     api.thread.mockResolvedValue({ items: [{ ...message, description: 'Updated' }], next: null });
-    await act(async () => {
+    await test.act(async () => {
       await view.notify();
     });
-    await waitFor(() =>
-      expect(view.result.current.tabs[1]).toMatchObject({
+    await test.waitFor(() =>
+      test.expect(view.result.current.tabs[1]).toMatchObject({
         kind: 'message',
         message: { description: 'Updated' }
       })
     );
-    expect(view.result.current.tabs[0]).toEqual(target);
+    test.expect(view.result.current.tabs[0]).toEqual(target);
   }
 );
 
-testStable(
+test.stable(
   'keeps tabs while hidden and selects the adjacent document when the active tab closes',
   async () => {
     const view = mount();
     const identities: string[] = [];
 
     for (const title of ['First', 'Second', 'Third']) {
-      act(() =>
+      test.act(() =>
         view.result.current.open({
           kind: 'page',
           pageId: pageIdSchema.make(BigInt(identities.length + 1)),
           title
         })
       );
-      await waitFor(() => expect(view.result.current.tabs).toHaveLength(identities.length + 1));
+      await test.waitFor(() =>
+        test.expect(view.result.current.tabs).toHaveLength(identities.length + 1)
+      );
       identities.push(view.result.current.active!);
     }
 
-    act(() => view.result.current.select(identities[1]!));
-    await waitFor(() => expect(view.result.current.active).toBe(identities[1]));
-    act(() => view.result.current.hide());
-    await waitFor(() => expect(view.result.current.visible).toBe(false));
-    expect(view.result.current.tabs.map(workbenchIdentity)).toEqual(identities);
-    act(() => view.result.current.select(identities[1]!));
-    await waitFor(() => expect(view.result.current.visible).toBe(true));
-    act(() => view.result.current.close(identities[1]!));
-    await waitFor(() => expect(view.result.current.active).toBe(identities[2]));
-    act(() => view.result.current.close(identities[0]!));
-    await waitFor(() => expect(view.result.current.tabs).toHaveLength(1));
-    expect(view.result.current.active).toBe(identities[2]);
-    act(() => view.result.current.close(identities[2]!));
-    await waitFor(() => expect(view.result.current.tabs).toHaveLength(0));
-    expect(view.result.current.visible).toBe(false);
-    expect(view.result.current.active).toBeUndefined();
+    test.act(() => view.result.current.select(identities[1]!));
+    await test.waitFor(() => test.expect(view.result.current.active).toBe(identities[1]));
+    test.act(() => view.result.current.hide());
+    await test.waitFor(() => test.expect(view.result.current.visible).toBe(false));
+    test.expect(view.result.current.tabs.map(workbenchIdentity)).toEqual(identities);
+    test.act(() => view.result.current.select(identities[1]!));
+    await test.waitFor(() => test.expect(view.result.current.visible).toBe(true));
+    test.act(() => view.result.current.close(identities[1]!));
+    await test.waitFor(() => test.expect(view.result.current.active).toBe(identities[2]));
+    test.act(() => view.result.current.close(identities[0]!));
+    await test.waitFor(() => test.expect(view.result.current.tabs).toHaveLength(1));
+    test.expect(view.result.current.active).toBe(identities[2]);
+    test.act(() => view.result.current.close(identities[2]!));
+    await test.waitFor(() => test.expect(view.result.current.tabs).toHaveLength(0));
+    test.expect(view.result.current.visible).toBe(false);
+    test.expect(view.result.current.active).toBeUndefined();
   }
 );
 
-testStable('isolates page tabs by note and restores them when returning to the note', async () => {
+test.stable('isolates page tabs by note and restores them when returning to the note', async () => {
   const view = mount();
 
-  act(() =>
+  test.act(() =>
     view.result.current.open({
       kind: 'page',
       pageId: pageIdSchema.make(1n),
       title: 'First note page'
     })
   );
-  await waitFor(() => expect(view.result.current.tabs).toHaveLength(1));
+  await test.waitFor(() => test.expect(view.result.current.tabs).toHaveLength(1));
   const firstIdentity = view.result.current.active;
 
   view.rerender({ noteId: otherId });
-  expect(view.result.current.tabs).toHaveLength(0);
-  expect(view.result.current.visible).toBe(false);
-  act(() =>
+  test.expect(view.result.current.tabs).toHaveLength(0);
+  test.expect(view.result.current.visible).toBe(false);
+  test.act(() =>
     view.result.current.open({
       kind: 'page',
       pageId: pageIdSchema.make(2n),
       title: 'Second note page'
     })
   );
-  await waitFor(() => expect(view.result.current.tabs).toHaveLength(1));
-  expect(view.result.current.active).not.toBe(firstIdentity);
+  await test.waitFor(() => test.expect(view.result.current.tabs).toHaveLength(1));
+  test.expect(view.result.current.active).not.toBe(firstIdentity);
   view.rerender({ noteId: id });
-  expect(view.result.current.active).toBe(firstIdentity);
-  expect(view.result.current.tabs).toHaveLength(1);
-  expect(view.result.current.visible).toBe(true);
+  test.expect(view.result.current.active).toBe(firstIdentity);
+  test.expect(view.result.current.tabs).toHaveLength(1);
+  test.expect(view.result.current.visible).toBe(true);
 });
 
-testStable('uses the configured initial width until the user manually changes it', async () => {
+test.stable('uses the configured initial width until the user manually changes it', async () => {
   preferences.expandPages = true;
   const view = mount();
 
-  expect(view.result.current.expanded).toBe(true);
-  act(() => view.result.current.expand());
-  await waitFor(() => expect(view.result.current.expanded).toBe(false));
+  test.expect(view.result.current.expanded).toBe(true);
+  test.act(() => view.result.current.expand());
+  await test.waitFor(() => test.expect(view.result.current.expanded).toBe(false));
   preferences.expandPages = false;
   view.rerender({ noteId: id });
   preferences.expandPages = true;
   view.rerender({ noteId: id });
-  expect(view.result.current.expanded).toBe(false);
+  test.expect(view.result.current.expanded).toBe(false);
   preferences.expandPages = false;
 });
 
-testStable(
+test.stable(
   'keeps the action card visible until hidden and docks existing tabs without creating pages',
   async () => {
     const view = mount();
 
-    await waitFor(() => expect(view.result.current.cardVisible).toBe(true));
-    act(() => view.result.current.showEditor('bottom'));
-    await waitFor(() => expect(view.result.current.visible).toBe(false));
-    await waitFor(() => expect(view.result.current.tabs).toHaveLength(0));
-    act(() => view.result.current.toggleCard());
-    await waitFor(() => expect(view.result.current.cardVisible).toBe(false));
+    await test.waitFor(() => test.expect(view.result.current.cardVisible).toBe(true));
+    test.act(() => view.result.current.showEditor('bottom'));
+    await test.waitFor(() => test.expect(view.result.current.visible).toBe(false));
+    await test.waitFor(() => test.expect(view.result.current.tabs).toHaveLength(0));
+    test.act(() => view.result.current.toggleCard());
+    await test.waitFor(() => test.expect(view.result.current.cardVisible).toBe(false));
     const target = {
       kind: 'page' as const,
       pageId: pageIdSchema.make(88n),
       title: 'Existing document'
     };
 
-    act(() => view.result.current.open(target));
-    await waitFor(() => expect(view.result.current.cardVisible).toBe(false));
-    act(() => view.result.current.hide());
-    await waitFor(() => expect(view.result.current.cardVisible).toBe(false));
-    act(() => view.result.current.toggleCard());
-    await waitFor(() => expect(view.result.current.cardVisible).toBe(true));
-    act(() => view.result.current.showEditor('bottom'));
-    await waitFor(() => expect(view.result.current.dock).toBe('bottom'));
-    await waitFor(() => expect(view.result.current.visible).toBe(true));
-    await waitFor(() => expect(view.result.current.cardVisible).toBe(false));
-    await waitFor(() => expect(view.result.current.tabs).toEqual([target]));
-    act(() => view.result.current.showEditor('side'));
-    await waitFor(() => expect(view.result.current.dock).toBe('side'));
-    await waitFor(() => expect(view.result.current.tabs).toEqual([target]));
-    act(() => view.result.current.close(workbenchIdentity(target)));
-    await waitFor(() => expect(view.result.current.cardVisible).toBe(true));
+    test.act(() => view.result.current.open(target));
+    await test.waitFor(() => test.expect(view.result.current.cardVisible).toBe(false));
+    test.act(() => view.result.current.hide());
+    await test.waitFor(() => test.expect(view.result.current.cardVisible).toBe(false));
+    test.act(() => view.result.current.toggleCard());
+    await test.waitFor(() => test.expect(view.result.current.cardVisible).toBe(true));
+    test.act(() => view.result.current.showEditor('bottom'));
+    await test.waitFor(() => test.expect(view.result.current.dock).toBe('bottom'));
+    await test.waitFor(() => test.expect(view.result.current.visible).toBe(true));
+    await test.waitFor(() => test.expect(view.result.current.cardVisible).toBe(false));
+    await test.waitFor(() => test.expect(view.result.current.tabs).toEqual([target]));
+    test.act(() => view.result.current.showEditor('side'));
+    await test.waitFor(() => test.expect(view.result.current.dock).toBe('side'));
+    await test.waitFor(() => test.expect(view.result.current.tabs).toEqual([target]));
+    test.act(() => view.result.current.close(workbenchIdentity(target)));
+    await test.waitFor(() => test.expect(view.result.current.cardVisible).toBe(true));
   }
 );
 
-testStable(
+test.stable(
   'switches from an open editor back to its action card without dropping tabs',
   async () => {
     const view = mount();
 
-    act(() => view.result.current.open({ kind: 'new', captureKey: 'draft-card', text: '' }));
-    await waitFor(() => expect(view.result.current.cardVisible).toBe(false));
-    act(() => view.result.current.toggleCard());
-    await waitFor(() => expect(view.result.current.visible).toBe(false));
-    await waitFor(() => expect(view.result.current.cardVisible).toBe(true));
-    await waitFor(() => expect(view.result.current.tabs).toHaveLength(1));
+    test.act(() => view.result.current.open({ kind: 'new', captureKey: 'draft-card', text: '' }));
+    await test.waitFor(() => test.expect(view.result.current.cardVisible).toBe(false));
+    test.act(() => view.result.current.toggleCard());
+    await test.waitFor(() => test.expect(view.result.current.visible).toBe(false));
+    await test.waitFor(() => test.expect(view.result.current.cardVisible).toBe(true));
+    await test.waitFor(() => test.expect(view.result.current.tabs).toHaveLength(1));
   }
 );
 
-testStable(
+test.stable(
   'the note assistant is one document-style tab, survives hiding and stays scoped across note switches',
   async () => {
     const view = mount();
 
-    act(() => view.result.current.open({ kind: 'assistant' }));
-    act(() => view.result.current.open({ kind: 'assistant' }));
-    await waitFor(() => expect(view.result.current.tabs).toEqual([{ kind: 'assistant' }]));
-    expect(view.result.current.active).toBe('assistant');
-    act(() => view.result.current.hide());
-    act(() => view.result.current.showEditor('side'));
-    await waitFor(() => expect(view.result.current.visible).toBe(true));
+    test.act(() => view.result.current.open({ kind: 'assistant' }));
+    test.act(() => view.result.current.open({ kind: 'assistant' }));
+    await test.waitFor(() =>
+      test.expect(view.result.current.tabs).toEqual([{ kind: 'assistant' }])
+    );
+    test.expect(view.result.current.active).toBe('assistant');
+    test.act(() => view.result.current.hide());
+    test.act(() => view.result.current.showEditor('side'));
+    await test.waitFor(() => test.expect(view.result.current.visible).toBe(true));
     view.rerender({ noteId: otherId });
-    await waitFor(() => expect(view.result.current.tabs).toEqual([]));
+    await test.waitFor(() => test.expect(view.result.current.tabs).toEqual([]));
     view.rerender({ noteId: id });
-    await waitFor(() => expect(view.result.current.tabs).toEqual([{ kind: 'assistant' }]));
-    act(() => view.result.current.close('assistant'));
-    await waitFor(() => expect(view.result.current.tabs).toEqual([]));
+    await test.waitFor(() =>
+      test.expect(view.result.current.tabs).toEqual([{ kind: 'assistant' }])
+    );
+    test.act(() => view.result.current.close('assistant'));
+    await test.waitFor(() => test.expect(view.result.current.tabs).toEqual([]));
   }
 );

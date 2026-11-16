@@ -1,40 +1,39 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('rejects lossy numeric conversions of identifiers while allowing counts', async () => {
+test.stable('rejects lossy numeric conversions of identifiers while allowing counts', async () => {
   const diagnostics = await lintRule('no-lossy-ids', {
     'src/bad.ts': 'Number(item.id); parseInt(projectId, 10);',
     'src/good.ts': 'Number(count); Number(durationMs); function f(Number) { Number(item.id); }',
     'src/fixture.test.ts': 'Number(item.id); parseInt(projectId, 10);'
   });
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
-testStable('no-lossy-ids handles aliases and avoids unrelated bindings', async () => {
+test.stable('no-lossy-ids handles aliases and avoids unrelated bindings', async () => {
   const diagnostics = await lintRule('no-lossy-ids', {
     'src/bad.ts': 'Number(item["id"]); parseFloat(source_id);',
     'src/good.ts': 'function f(JSON) { return JSON.parse(row.body) as Body; } Number(pageCount);'
   });
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
-testStable('no-lossy-ids covers direct unsafe forms', async () => {
+test.stable('no-lossy-ids covers direct unsafe forms', async () => {
   const diagnostics = await lintRule('no-lossy-ids', {
     'src/bad.ts': 'Number.parseInt(row.id, 10);',
     'src/good.ts': 'Number.parseInt(row.duration, 10);'
   });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
-testStable(
+test.stable(
   'editing tokens and captured target identities stay lossless across native prompt and replay boundaries',
   async () => {
     const diagnostics = await lintRule('no-lossy-ids', {
@@ -52,12 +51,12 @@ testStable(
     `
     });
 
-    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
-    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/store/unsafe.ts')));
+    test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/store/unsafe.ts')));
   }
 );
 
-testStable(
+test.stable(
   'annotation and historic source identities stay lossless while SQLite editor offsets become numbers',
   async () => {
     const diagnostics = await lintRule('no-lossy-ids', {
@@ -74,12 +73,12 @@ testStable(
     `
     });
 
-    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
-    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/store/unsafe.ts')));
+    test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/store/unsafe.ts')));
   }
 );
 
-testStable(
+test.stable(
   'deletion and retired receipt identities remain lossless while attempt counters are numeric',
   async () => {
     const diagnostics = await lintRule('no-lossy-ids', {
@@ -91,11 +90,11 @@ testStable(
 `
     });
 
-    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
   }
 );
 
-testStable(
+test.stable(
   'Material cleanup members, original sources and retained candidate identities stay lossless',
   async () => {
     const diagnostics = await lintRule('no-lossy-ids', {
@@ -105,11 +104,11 @@ testStable(
     `
     });
 
-    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );
 
-testStable(
+test.stable(
   'history candidates and exact attachment roots remain lossless across preview and SQL proofs',
   async () => {
     const diagnostics = await lintRule('no-lossy-ids', {
@@ -121,11 +120,11 @@ testStable(
     `
     });
 
-    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );
 
-testStable(
+test.stable(
   'backup inventories keep exact content identities while bounded scope counts remain numeric',
   async () => {
     const diagnostics = await lintRule('no-lossy-ids', {
@@ -135,11 +134,11 @@ testStable(
         'Number(row.note_id); String(row.request_id); Number(row.revision);'
     });
 
-    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );
 
-testStable('workspace project selections and membership identities stay lossless', async () => {
+test.stable('workspace project selections and membership identities stay lossless', async () => {
   const diagnostics = await lintRule(
     'no-lossy-ids',
     {
@@ -150,6 +149,6 @@ testStable('workspace project selections and membership identities stay lossless
     true
   );
 
-  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/identity.ts')));
+  test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+  test.assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/identity.ts')));
 });

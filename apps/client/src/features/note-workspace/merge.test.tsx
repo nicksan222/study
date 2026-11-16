@@ -1,20 +1,16 @@
 import { noteSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { afterEach, expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { NoteMergeDialog } from './merge';
 
-const api = vi.hoisted(() => ({ merge: vi.fn(), navigate: vi.fn() }));
+const api = test.hoisted(() => ({ merge: test.vi.fn(), navigate: test.vi.fn() }));
 
-vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('@tanstack/react-router', () => ({ useNavigate: () => api.navigate }));
-afterEach(cleanup);
+test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+test.mock('@tanstack/react-router', () => ({ useNavigate: () => api.navigate }));
+test.afterEach(test.cleanup);
 
-testStable(
+test.stable(
   'retries the reviewed note set with the same merge identity and opens the committed result',
   async () => {
     const note = Schema.decodeUnknownSync(noteSchema)({
@@ -28,14 +24,14 @@ testStable(
     });
     const first = Schema.decodeUnknownSync(noteSchema)({ ...note, id: 1n, title: 'First' });
     const second = Schema.decodeUnknownSync(noteSchema)({ ...note, id: 2n, title: 'Second' });
-    const { wrapper: Provider } = rpcTestTransport(async (_tag, input) => api.merge(input));
-    const onMerged = vi.fn();
-    const onOpenChange = vi.fn();
+    const { wrapper: Provider } = test.rpcTestTransport(async (_tag, input) => api.merge(input));
+    const onMerged = test.vi.fn();
+    const onOpenChange = test.vi.fn();
 
     api.merge.mockRejectedValueOnce(new Error('Lost response')).mockResolvedValueOnce(note);
 
     try {
-      render(
+      test.render(
         <Provider>
           <NoteMergeDialog
             notes={[first, second]}
@@ -44,22 +40,22 @@ testStable(
           />
         </Provider>
       );
-      fireEvent.click(screen.getByRole('button', { name: 'NoteMerge' }));
-      await screen.findByText('NoteActionErrorTitle');
-      expect(onMerged).not.toHaveBeenCalled();
-      expect(onOpenChange).not.toHaveBeenCalled();
-      fireEvent.click(screen.getByRole('button', { name: 'NoteMerge' }));
-      await waitFor(() => expect(onMerged).toHaveBeenCalledOnce());
-      expect(api.merge).toHaveBeenCalledTimes(2);
-      expect(api.merge.mock.calls[0]![0]).toEqual(api.merge.mock.calls[1]![0]);
-      expect(api.merge.mock.calls[0]![0].noteIds).toEqual([1n, 2n]);
-      expect(api.navigate).toHaveBeenCalledWith({
+      test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteMerge' }));
+      await test.screen.findByText('NoteActionErrorTitle');
+      test.expect(onMerged).not.toHaveBeenCalled();
+      test.expect(onOpenChange).not.toHaveBeenCalled();
+      test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteMerge' }));
+      await test.waitFor(() => test.expect(onMerged).toHaveBeenCalledOnce());
+      test.expect(api.merge).toHaveBeenCalledTimes(2);
+      test.expect(api.merge.mock.calls[0]![0]).toEqual(api.merge.mock.calls[1]![0]);
+      test.expect(api.merge.mock.calls[0]![0].noteIds).toEqual([1n, 2n]);
+      test.expect(api.navigate).toHaveBeenCalledWith({
         to: '/notes/$noteId',
         params: { noteId: note.id },
         search: {}
       });
     } finally {
-      cleanup();
+      test.cleanup();
     }
   }
 );

@@ -1,10 +1,10 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message = 'Pass the generator factory to defineService; the harness owns Effect.gen.';
 
-testStable('service construction keeps generator wrapping in the harness', async () => {
+test.stable('service construction keeps generator wrapping in the harness', async () => {
   assertDiagnostics(
     'definition-generators',
     await lintRule('definition-generators', {
@@ -42,7 +42,7 @@ function other(defineService: any) {
   );
 });
 
-testStable(
+test.stable(
   'RPC wiring uses named dependency binding and preserves shadowed functions',
   async () => {
     assertDiagnostics(

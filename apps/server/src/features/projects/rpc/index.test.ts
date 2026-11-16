@@ -1,3 +1,4 @@
+import type { ProjectId } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises project RPC handlers against a test SQLite database, including           │
@@ -12,15 +13,10 @@
  * │ fixtures stay local to these tests.                                                      │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { ProjectId } from '@study/contracts';
 import { ProjectsRpc } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Option } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Projects } from '#server/features/projects/service/index';
 import { ServerContext } from '#server/platform/database/context';
@@ -29,8 +25,8 @@ import { testLiveQueries } from '#testing/live-queries';
 
 import { ProjectsRpcLive } from './index.ts';
 
-testStable('native RPC handlers return projects and typed failures', async () => {
-  const location = await createTestDatabase();
+test.stable('native RPC handlers return projects and typed failures', async ({ databases }) => {
+  const location = await databases();
   const context = new ServerContext(await location.open());
   const handlers = ProjectsRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
     Layer.provide(Projects.layer),
@@ -44,29 +40,31 @@ testStable('native RPC handlers return projects and typed failures', async () =>
           const client = yield* RpcTest.makeClient(ProjectsRpc, { flatten: true });
           const id = 999n as ProjectId;
 
-          expect((yield* Effect.flip(client('projects.project', { id }))).kind).toStrictEqual(
-            'not_found'
-          );
-          assert.ok(Option.isNone(yield* client('projects.findProject', { id })));
-          expect(
-            (yield* Effect.flip(client('projects.createProject', { name: ' ' }))).kind
-          ).toStrictEqual('invalid_input');
+          test
+            .expect((yield* Effect.flip(client('projects.project', { id }))).kind)
+            .toStrictEqual('not_found');
+          test.assert.ok(Option.isNone(yield* client('projects.findProject', { id })));
+          test
+            .expect((yield* Effect.flip(client('projects.createProject', { name: ' ' }))).kind)
+            .toStrictEqual('invalid_input');
           const created = yield* client('projects.createProject', { name: 'Test' });
 
-          expect(created.icon).toStrictEqual({ kind: 'automatic', color: 'neutral' });
+          test.expect(created.icon).toStrictEqual({ kind: 'automatic', color: 'neutral' });
           const custom = yield* client('projects.setIcon', {
             id: created.id,
             icon: { kind: 'monogram', value: 'BIO', color: 'neutral' }
           });
 
-          expect(custom.icon).toStrictEqual({ kind: 'monogram', value: 'BIO', color: 'neutral' });
-          expect((yield* client('projects.project', { id: created.id })).icon).toStrictEqual({
+          test
+            .expect(custom.icon)
+            .toStrictEqual({ kind: 'monogram', value: 'BIO', color: 'neutral' });
+          test.expect((yield* client('projects.project', { id: created.id })).icon).toStrictEqual({
             kind: 'monogram',
             value: 'BIO',
             color: 'neutral'
           });
           yield* client('projects.renameProject', { id: created.id, name: 'Cell Biology' });
-          expect((yield* client('projects.project', { id: created.id })).icon).toStrictEqual({
+          test.expect((yield* client('projects.project', { id: created.id })).icon).toStrictEqual({
             kind: 'monogram',
             value: 'BIO',
             color: 'neutral'
@@ -76,16 +74,18 @@ testStable('native RPC handlers return projects and typed failures', async () =>
             icon: { kind: 'automatic', color: 'neutral' }
           });
 
-          expect(automatic.icon).toStrictEqual({ kind: 'automatic', color: 'neutral' });
-          expect(automatic.name).toStrictEqual('Cell Biology');
-          expect(
-            (yield* Effect.flip(
-              client('projects.setIcon', {
-                id,
-                icon: { kind: 'monogram', value: 'A', color: 'neutral' }
-              })
-            )).kind
-          ).toStrictEqual('not_found');
+          test.expect(automatic.icon).toStrictEqual({ kind: 'automatic', color: 'neutral' });
+          test.expect(automatic.name).toStrictEqual('Cell Biology');
+          test
+            .expect(
+              (yield* Effect.flip(
+                client('projects.setIcon', {
+                  id,
+                  icon: { kind: 'monogram', value: 'A', color: 'neutral' }
+                })
+              )).kind
+            )
+            .toStrictEqual('not_found');
         }).pipe(Effect.provide(handlers))
       )
     );

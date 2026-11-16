@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable(
+test.stable(
   'no-error-message-matching guards production and accepts safe alternatives',
   async () => {
     const diagnostics = await lintRule('no-error-message-matching', {
@@ -14,12 +13,12 @@ testStable(
         "try { run(); } catch (error) { if (error.message.includes('busy')) retry(); }"
     });
 
-    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+    test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
   }
 );
 
-testStable('no-error-message-matching handles aliases and avoids unrelated bindings', async () => {
+test.stable('no-error-message-matching handles aliases and avoids unrelated bindings', async () => {
   const diagnostics = await lintRule('no-error-message-matching', {
     'src/bad.ts': `try { run();
  } catch (error) { switch (error.message) { case 'missing': break;
@@ -31,11 +30,11 @@ function nested(error) { if (error.message.includes('x')) run();
 } }`
   });
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
-testStable('collection ambiguity and missing receipts branch on typed kinds', async () => {
+test.stable('collection ambiguity and missing receipts branch on typed kinds', async () => {
   const diagnostics = await lintRule(
     'no-error-message-matching',
     {
@@ -52,6 +51,6 @@ testStable('collection ambiguity and missing receipts branch on typed kinds', as
     true
   );
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/unsafe.ts')));
+  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/unsafe.ts')));
 });

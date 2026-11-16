@@ -1,17 +1,12 @@
 import { projectIdSchema, noteIdSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { cleanup, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { afterEach, expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport } from '#client/test/rpc.tsx';
+import { test } from '@study/testing';
 
 import { PagesFromNotes } from './from-notes';
 
-const api = vi.hoisted(() => ({ notes: vi.fn() }));
+const api = test.hoisted(() => ({ notes: test.vi.fn() }));
 
-vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('../note-workspace', () => ({
+test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+test.mock('../note-workspace', () => ({
   NotePageDialog: ({
     id,
     notes,
@@ -28,9 +23,9 @@ vi.mock('../note-workspace', () => ({
     ) : null
 }));
 
-afterEach(cleanup);
+test.afterEach(test.cleanup);
 
-testStable(
+test.stable(
   'selects only scoped notes and hands multiple selections to the existing transform dialog',
   async () => {
     const projectId = projectIdSchema.make(2n);
@@ -49,29 +44,31 @@ testStable(
       note(2n, 'Exercises'),
       note(3n, 'Other subject', projectIdSchema.make(3n))
     ]);
-    const harness = rpcTestTransport(async (tag) => {
+    const harness = test.rpcTestTransport(async (tag) => {
       if (tag === 'notes.notes') return { items: await api.notes(), next: null };
 
       throw new Error(tag);
     });
-    const user = userEvent.setup();
+    const user = test.userEvent.setup();
 
-    render(
+    test.render(
       <harness.wrapper>
         <PagesFromNotes project={projectId} />
       </harness.wrapper>
     );
-    await user.click(screen.getByRole('button', { name: 'PagesFromNotes' }));
-    expect(screen.getByRole('button', { name: 'NoteApplyAction' })).toBeDisabled();
-    await user.click(await screen.findByRole('button', { name: 'Lecture' }));
-    expect(screen.queryByRole('button', { name: 'Other subject' })).not.toBeInTheDocument();
-    await user.type(screen.getByRole('searchbox', { name: 'PagesFindNotes' }), 'Exercises');
-    expect(screen.queryByRole('button', { name: 'Lecture' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Exercises' }));
-    await user.click(screen.getByRole('button', { name: 'NoteApplyAction' }));
-    const transform = await screen.findByRole('region', { name: 'Shared transform' });
+    await user.click(test.screen.getByRole('button', { name: 'PagesFromNotes' }));
+    test.expect(test.screen.getByRole('button', { name: 'NoteApplyAction' })).toBeDisabled();
+    await user.click(await test.screen.findByRole('button', { name: 'Lecture' }));
+    test
+      .expect(test.screen.queryByRole('button', { name: 'Other subject' }))
+      .not.toBeInTheDocument();
+    await user.type(test.screen.getByRole('searchbox', { name: 'PagesFindNotes' }), 'Exercises');
+    test.expect(test.screen.queryByRole('button', { name: 'Lecture' })).not.toBeInTheDocument();
+    await user.click(test.screen.getByRole('button', { name: 'Exercises' }));
+    await user.click(test.screen.getByRole('button', { name: 'NoteApplyAction' }));
+    const transform = await test.screen.findByRole('region', { name: 'Shared transform' });
 
-    expect(transform).toHaveAttribute('data-note', '1');
-    expect(transform).toHaveTextContent('Lecture, Exercises');
+    test.expect(transform).toHaveAttribute('data-note', '1');
+    test.expect(transform).toHaveTextContent('Lecture, Exercises');
   }
 );

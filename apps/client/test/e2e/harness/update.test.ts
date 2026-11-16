@@ -1,10 +1,8 @@
-import { spawnTestProcess } from '@study/testing/vitest';
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { temporaryArtifacts } from './temporary.ts';
 
-testStable(
+test.stable(
   'updates find the selected client capture even when invoked from another directory',
   async () => {
     const root = await temporaryArtifacts();
@@ -23,7 +21,7 @@ testStable(
     await Bun.write('apps/client/test-results/updates/' + process.env.E2E_UPDATE_RUN + '/capture.json', '{}');
   `
     );
-    const child = spawnTestProcess(['bun', `${harness}/update.ts`, 'notes/editing'], {
+    const child = test.spawnTestProcess(['bun', `${harness}/update.ts`, 'notes/editing'], {
       cwd: harness,
       env: { ...process.env, CI: undefined },
       stdout: 'pipe',
@@ -35,11 +33,11 @@ testStable(
       child.exited
     ]);
 
-    expect(code, stdout + stderr).toBe(0);
+    test.expect(code, stdout + stderr).toBe(0);
   }
 );
 
-testStable(
+test.stable(
   'updater accepts shared safe names and rejects unsafe or unscoped selections',
   async () => {
     for (const scope of [
@@ -55,7 +53,7 @@ testStable(
       'notes/../editing',
       'a'.repeat(81)
     ]) {
-      const child = spawnTestProcess(
+      const child = test.spawnTestProcess(
         [process.execPath, Bun.fileURLToPath(new URL('./update.ts', import.meta.url)), scope],
         {
           env: { ...process.env, CI: '1' },
@@ -65,11 +63,11 @@ testStable(
       );
       const error = await new Response(child.stderr).text();
 
-      expect(await child.exited).toBe(1);
+      test.expect(await child.exited).toBe(1);
 
       if (['2-notes-survive-reload/editing_state', '2', 'notes', 'notes/editing'].includes(scope))
-        expect(error).toContain('Baseline updates are forbidden in CI');
-      else expect(error).toMatch(/Supply one workflow|Unsafe screenshot name/);
+        test.expect(error).toContain('Baseline updates are forbidden in CI');
+      else test.expect(error).toMatch(/Supply one workflow|Unsafe screenshot name/);
     }
   }
 );

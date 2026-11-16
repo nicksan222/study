@@ -1,16 +1,14 @@
 import { RegistryContext } from '@effect/atom-react';
 import { noteIdSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { AttachmentPreview, WorkspaceDeskSurface as Desk } from '@study/ui';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AtomRegistry } from 'effect/reactivity';
-import { afterEach, expect, vi } from 'vite-plus/test';
 
 import { AttachmentPicker, AttachmentTray } from './attachments';
 import { attachmentState } from './attachments.queries';
 import type { Attachment } from './attachments.queries';
 
-vi.mock('#client/lib/i18n.tsx', () => ({
+test.mock('#client/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'english' })
 }));
 
@@ -26,7 +24,7 @@ function mount(entry: Attachment) {
 
   return {
     client,
-    ...render(
+    ...test.render(
       <RegistryContext.Provider value={client}>
         <AttachmentTray id={id} blocked={false} />
         <AttachmentPicker id={id} blocked={false} />
@@ -35,58 +33,58 @@ function mount(entry: Attachment) {
   };
 }
 
-afterEach(() => {
-  cleanup();
+test.afterEach(() => {
+  test.cleanup();
   clients.splice(0).forEach((client) => client.dispose());
-  vi.unstubAllGlobals();
+  test.vi.unstubAllGlobals();
 });
 
-testStable(
+test.stable(
   'keeps ready files in a separate compact tray with an accessible icon remove action',
   async () => {
     const file = new File(['notes'], 'A very long document filename.pdf', {
       type: 'application/pdf'
     });
     const view = mount({ key: 'file', file, state: 'ready' });
-    const tray = screen.getByRole('list', { name: 'NoteAttachments' });
+    const tray = test.screen.getByRole('list', { name: 'NoteAttachments' });
 
-    expect(tray).toContainElement(screen.getByText(file.name));
-    expect(screen.getByText(file.name)).toHaveAttribute('title', file.name);
-    expect(screen.getByRole('status')).toHaveTextContent('NoteFileAccepted');
-    expect(tray).not.toContainElement(screen.getByLabelText('NoteAttachFiles'));
-    const remove = screen.getByRole('button', { name: 'NoteRemoveAttachment' });
+    test.expect(tray).toContainElement(test.screen.getByText(file.name));
+    test.expect(test.screen.getByText(file.name)).toHaveAttribute('title', file.name);
+    test.expect(test.screen.getByRole('status')).toHaveTextContent('NoteFileAccepted');
+    test.expect(tray).not.toContainElement(test.screen.getByLabelText('NoteAttachFiles'));
+    const remove = test.screen.getByRole('button', { name: 'NoteRemoveAttachment' });
 
-    expect(remove.textContent).toBe('');
-    fireEvent.click(remove);
-    await waitFor(() => expect(view.client.get(attachmentState(id))).toEqual([]));
-    expect(screen.queryByRole('list')).toBeNull();
+    test.expect(remove.textContent).toBe('');
+    test.fireEvent.click(remove);
+    await test.waitFor(() => test.expect(view.client.get(attachmentState(id))).toEqual([]));
+    test.expect(test.screen.queryByRole('list')).toBeNull();
   }
 );
 
-testStable('shows uploading state without offering an unsafe in-flight removal', () => {
+test.stable('shows uploading state without offering an unsafe in-flight removal', () => {
   mount({ key: 'pending', file: new File(['notes'], 'notes.txt'), state: 'uploading' });
-  expect(screen.getByRole('status')).toHaveTextContent('NoteUploading');
-  expect(screen.queryByRole('button', { name: 'NoteRemoveAttachment' })).toBeNull();
+  test.expect(test.screen.getByRole('status')).toHaveTextContent('NoteUploading');
+  test.expect(test.screen.queryByRole('button', { name: 'NoteRemoveAttachment' })).toBeNull();
 });
 
-testStable(
+test.stable(
   'keeps uncertain upload guidance and requires the acknowledgement action instead of retrying',
   () => {
     mount({ key: 'uncertain', file: new File(['notes'], 'notes.txt'), state: 'uncertain' });
-    expect(screen.getByText('NoteUploadUncertain')).toBeVisible();
-    expect(screen.getByRole('status')).toHaveTextContent('NoteUploadUnconfirmed');
-    expect(screen.getByRole('button', { name: 'NoteUploadAcknowledge' })).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+    test.expect(test.screen.getByText('NoteUploadUncertain')).toBeVisible();
+    test.expect(test.screen.getByRole('status')).toHaveTextContent('NoteUploadUnconfirmed');
+    test.expect(test.screen.getByRole('button', { name: 'NoteUploadAcknowledge' })).toBeVisible();
+    test.expect(test.screen.queryByRole('button', { name: 'Retry' })).toBeNull();
   }
 );
 
-testStable(
+test.stable(
   'uses a local image preview and releases its URL when the attachment is removed',
   async () => {
-    const createObjectURL = vi.fn(() => 'blob:local-preview');
-    const revokeObjectURL = vi.fn();
+    const createObjectURL = test.vi.fn(() => 'blob:local-preview');
+    const revokeObjectURL = test.vi.fn();
 
-    vi.stubGlobal(
+    test.vi.stubGlobal(
       'URL',
       class extends URL {
         static createObjectURL = createObjectURL;
@@ -96,20 +94,22 @@ testStable(
     const file = new File(['image'], 'image.png', { type: 'image/png' });
     const view = mount({ key: 'image', file, state: 'ready' });
 
-    await waitFor(() =>
-      expect(view.container.querySelector('img')).toHaveAttribute('src', 'blob:local-preview')
+    await test.waitFor(() =>
+      test.expect(view.container.querySelector('img')).toHaveAttribute('src', 'blob:local-preview')
     );
-    expect(createObjectURL).toHaveBeenCalledWith(file);
-    fireEvent.click(screen.getByRole('button', { name: 'NoteRemoveAttachment' }));
-    await waitFor(() => expect(revokeObjectURL).toHaveBeenCalledWith('blob:local-preview'));
+    test.expect(createObjectURL).toHaveBeenCalledWith(file);
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteRemoveAttachment' }));
+    await test.waitFor(() =>
+      test.expect(revokeObjectURL).toHaveBeenCalledWith('blob:local-preview')
+    );
   }
 );
 
-testStable.each([
+test.stable.each([
   ['audio', 'audio/mpeg'],
   ['video', 'video/mp4']
 ] as const)('uses native %s controls outside the attachment navigation link', (kind, mime) => {
-  const view = render(
+  const view = test.render(
     <Desk.AttachmentCard
       name="Lecture"
       meta="Attached"
@@ -120,10 +120,12 @@ testStable.each([
   );
   const player = view.container.querySelector(kind);
 
-  expect(player).toHaveAttribute('controls');
-  expect(player).toHaveAttribute('preload', 'metadata');
-  expect(player).not.toHaveAttribute('autoplay');
-  expect(player?.querySelector('source')).toHaveAttribute('src', 'blob:local-media');
-  expect(player?.closest('a,button')).toBeNull();
-  expect(screen.getByRole('link', { name: /Lecture/ })).toHaveAttribute('href', '/reader');
+  test.expect(player).toHaveAttribute('controls');
+  test.expect(player).toHaveAttribute('preload', 'metadata');
+  test.expect(player).not.toHaveAttribute('autoplay');
+  test.expect(player?.querySelector('source')).toHaveAttribute('src', 'blob:local-media');
+  test.expect(player?.closest('a,button')).toBeNull();
+  test
+    .expect(test.screen.getByRole('link', { name: /Lecture/ }))
+    .toHaveAttribute('href', '/reader');
 });

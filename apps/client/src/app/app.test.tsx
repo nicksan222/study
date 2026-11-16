@@ -1,30 +1,25 @@
-import { configureRpcTransport } from '@study/contracts/react';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { render, screen } from '@testing-library/react';
-import { expect } from 'vite-plus/test';
-
-import { pageTestTransport } from '#client/test/render-page.tsx';
+import { test } from '@study/testing';
 
 import { App } from './app';
 
-testStable.each(['/', '/unknown'])('opens the note starter for %s', async (url) => {
+test.stable.for(['/', '/unknown'])('opens the note starter for %s', async (url, { rpc }) => {
   history.replaceState(null, '', url);
-  const fixture = pageTestTransport();
+  rpc.givenWorkspace();
 
-  configureRpcTransport(fixture.transport);
-  render(<App transport={fixture.transport} />);
-  expect(await screen.findByRole('heading', { name: catalogs.english.Notes })).toBeInTheDocument();
+  test.render(<App transport={rpc.transport} />);
+  test
+    .expect(await test.screen.findByRole('heading', { name: catalogs.english.Notes }))
+    .toBeInTheDocument();
 });
 
-testStable('opens a lowercase deep link without hash routing', async () => {
+test.stable('opens a lowercase deep link without hash routing', async ({ rpc }) => {
   history.replaceState(null, '', '/notes?project=9007199254740993');
-  const fixture = pageTestTransport();
+  rpc.givenWorkspace();
 
-  configureRpcTransport(fixture.transport);
-  render(<App transport={fixture.transport} />);
-  await screen.findByRole('heading', { name: catalogs.english.Notes });
-  expect(location.pathname).toBe('/projects/9007199254740993/notes');
-  expect(location.search).toBe('');
-  expect(location.hash).toBe('');
+  test.render(<App transport={rpc.transport} />);
+  await test.screen.findByRole('heading', { name: catalogs.english.Notes });
+  test.expect(location.pathname).toBe('/projects/9007199254740993/notes');
+  test.expect(location.search).toBe('');
+  test.expect(location.hash).toBe('');
 });

@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks that defineWorkflow preserves the versioned native workflow identity and    │
@@ -11,14 +12,11 @@
  * │ application or database fixture is involved.                                             │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 
-testStable('workflow retains versioned identity and native schemas', () => {
+test.stable('workflow retains versioned identity and native schemas', () => {
   const workflow = defineWorkflow({
     name: 'study/test',
     version: 2,
@@ -28,7 +26,7 @@ testStable('workflow retains versioned identity and native schemas', () => {
     idempotencyKey: (p) => p.id
   });
 
-  assert.ok(workflow._tag === 'study/test/v2');
-  assert.strictEqual(workflow.version, 2);
-  assert.ok(workflow.idempotencyKey({ id: 'abc' }) === 'abc');
+  test.assert.ok(workflow._tag === 'study/test/v2');
+  test.assert.strictEqual(workflow.version, 2);
+  test.assert.ok(workflow.idempotencyKey({ id: 'abc' }) === 'abc');
 });

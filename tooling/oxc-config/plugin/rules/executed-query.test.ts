@@ -1,18 +1,17 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('requires database query builders to be executed', async () => {
+test.stable('requires database query builders to be executed', async () => {
   const diagnostics = await lintRule('executed-query', {
     'src/bad.ts':
       "import type { Db } from '@study/db'; function f(db: Db) { db.orm.select().from(items); }"
   });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable('flags discarded query builders on typed database owners', async () => {
+test.stable('flags discarded query builders on typed database owners', async () => {
   const diagnostics = await lintRule('executed-query', {
     'src/bad.ts': `import type { ServerContext as C } from '#server/runtime/context';
 function f(ctx: C) { const db = ctx.db;
@@ -29,10 +28,10 @@ return db.orm.select();
 }`
   });
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-testStable('factory query callbacks must execute discarded builders', async () => {
+test.stable('factory query callbacks must execute discarded builders', async () => {
   const diagnostics = await lintRule('executed-query', {
     'src/features/items/store/index.ts': `
       import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
@@ -40,5 +39,5 @@ testStable('factory query callbacks must execute discarded builders', async () =
     `
   });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

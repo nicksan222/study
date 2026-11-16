@@ -1,10 +1,9 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { projectInitials, projectIconSchema } from '../src/projects/schemas.ts';
 
-testStable('subject initials are deterministic Unicode-aware monograms', () => {
+test.stable('subject initials are deterministic Unicode-aware monograms', () => {
   for (const [name, initials] of [
     ['  Cell   biology ', 'CB'],
     ['Mathematics', 'MA'],
@@ -14,16 +13,16 @@ testStable('subject initials are deterministic Unicode-aware monograms', () => {
     ['123 calculus', '1C'],
     ['😀', 'S']
   ])
-    assert.strictEqual(projectInitials(name!), initials);
+    test.assert.strictEqual(projectInitials(name!), initials);
 });
-testStable('subject icon variants validate their own values and a closed color palette', () => {
+test.stable('subject icon variants validate their own values and a closed color palette', () => {
   for (const icon of [
     { kind: 'automatic', color: 'neutral' },
     { kind: 'monogram', value: 'BIO', color: 'green' },
     { kind: 'symbol', value: 'atom', color: 'violet' },
     { kind: 'emoji', value: '📚', color: 'blue' }
   ])
-    assert.ok(Schema.is(projectIconSchema)(icon));
+    test.assert.ok(Schema.is(projectIconSchema)(icon));
 
   for (const icon of [
     'BIO',
@@ -33,5 +32,5 @@ testStable('subject icon variants validate their own values and a closed color p
     { kind: 'emoji', value: 'hello', color: 'blue' },
     { kind: 'automatic', color: 'url(evil)' }
   ])
-    assert.ok(!Schema.is(projectIconSchema)(icon));
+    test.assert.ok(!Schema.is(projectIconSchema)(icon));
 });

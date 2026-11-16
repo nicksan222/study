@@ -1,13 +1,10 @@
 import { createLocalization } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { AiAccountSettingsView, AiModelSettingsView } from './ai.view';
 import type { AiSettingsModel } from './use-ai-settings';
 
-vi.mock('#client/lib/i18n.tsx', () => ({
+test.mock('#client/lib/i18n.tsx', () => ({
   useI18n: () => createLocalization('italian')
 }));
 
@@ -25,33 +22,33 @@ function settingsModel(): AiSettingsModel {
     cancelling: false,
     attempt: undefined,
     popupBlocked: false,
-    retry: vi.fn(),
-    start: vi.fn(),
-    cancel: vi.fn(),
-    signOut: vi.fn(),
+    retry: test.vi.fn(),
+    start: test.vi.fn(),
+    cancel: test.vi.fn(),
+    signOut: test.vi.fn(),
     credentialProvider: '1',
-    selectCredentialProvider: vi.fn(),
-    setSetup: vi.fn(),
-    saveApiKey: vi.fn()
+    selectCredentialProvider: test.vi.fn(),
+    setSetup: test.vi.fn(),
+    saveApiKey: test.vi.fn()
   };
 }
 
-testStable('keeps account actions separate from localized model controls without requests', () => {
-  const fetch = vi.spyOn(globalThis, 'fetch');
+test.stable('keeps account actions separate from localized model controls without requests', () => {
+  const fetch = test.vi.spyOn(globalThis, 'fetch');
   const model = settingsModel();
 
-  const { rerender, container } = render(<AiAccountSettingsView model={model} />);
+  const { rerender, container } = test.render(<AiAccountSettingsView model={model} />);
 
-  expect(screen.getByText('learner@example.com')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Esci' })).toBeEnabled();
-  expect(screen.getByRole('combobox')).toBeInTheDocument();
+  test.expect(test.screen.getByText('learner@example.com')).toBeInTheDocument();
+  test.expect(test.screen.getByRole('button', { name: 'Esci' })).toBeEnabled();
+  test.expect(test.screen.getByRole('combobox')).toBeInTheDocument();
   rerender(<AiModelSettingsView model={model} />);
-  expect(screen.queryByText('learner@example.com')).not.toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'Esci' })).not.toBeInTheDocument();
-  expect(screen.getAllByRole('combobox')).toHaveLength(3);
-  expect(container.querySelectorAll('.settings-group')).toHaveLength(1);
-  expect(container.querySelector('.settings-group')?.children).toHaveLength(3);
-  expect(fetch).not.toHaveBeenCalled();
+  test.expect(test.screen.queryByText('learner@example.com')).not.toBeInTheDocument();
+  test.expect(test.screen.queryByRole('button', { name: 'Esci' })).not.toBeInTheDocument();
+  test.expect(test.screen.getAllByRole('combobox')).toHaveLength(3);
+  test.expect(container.querySelectorAll('.settings-group')).toHaveLength(1);
+  test.expect(container.querySelector('.settings-group')?.children).toHaveLength(3);
+  test.expect(fetch).not.toHaveBeenCalled();
 });
 
 function withAnthropic() {
@@ -78,60 +75,60 @@ function withAnthropic() {
   return model;
 }
 
-testStable('credential selection renders exactly one provider dropdown and password input', () => {
+test.stable('credential selection renders exactly one provider dropdown and password input', () => {
   const model = withAnthropic();
 
   model.credentialProvider = 'anthropic';
-  render(<AiAccountSettingsView model={model} />);
-  expect(screen.getAllByRole('combobox')).toHaveLength(1);
-  expect(screen.getByLabelText('Chiave API')).toHaveAttribute('type', 'password');
+  test.render(<AiAccountSettingsView model={model} />);
+  test.expect(test.screen.getAllByRole('combobox')).toHaveLength(1);
+  test.expect(test.screen.getByLabelText('Chiave API')).toHaveAttribute('type', 'password');
 });
 
-testStable(
+test.stable(
   'model dropdowns offer registered provider models and commit the selected ID',
   async () => {
     const model = withAnthropic();
 
-    render(<AiModelSettingsView model={model} />);
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('combobox', { name: 'Attività rapide' }));
-    expect(
-      (await screen.findAllByRole('option')).map((option) => option.textContent)
-    ).toStrictEqual([
-      'ChatGPT — Usa predefinito',
-      'ChatGPT — GPT-6 Luna',
-      'ChatGPT — GPT-6.1 Sol',
-      'ChatGPT — GPT-6 Astra',
-      'Anthropic — Usa predefinito',
-      'Anthropic — claude-haiku-5-5',
-      'Anthropic — claude-sonnet-5-5',
-      'Anthropic — claude-opus-5-5'
-    ]);
-    await userEvent.click(
-      await screen.findByRole('option', { name: 'Anthropic — claude-opus-5-5' })
+    test.render(<AiModelSettingsView model={model} />);
+    test.expect(test.screen.queryByRole('textbox')).not.toBeInTheDocument();
+    await test.userEvent.click(test.screen.getByRole('combobox', { name: 'Attività rapide' }));
+    test
+      .expect((await test.screen.findAllByRole('option')).map((option) => option.textContent))
+      .toStrictEqual([
+        'ChatGPT — Usa predefinito',
+        'ChatGPT — GPT-6 Luna',
+        'ChatGPT — GPT-6.1 Sol',
+        'ChatGPT — GPT-6 Astra',
+        'Anthropic — Usa predefinito',
+        'Anthropic — claude-haiku-5-5',
+        'Anthropic — claude-sonnet-5-5',
+        'Anthropic — claude-opus-5-5'
+      ]);
+    await test.userEvent.click(
+      await test.screen.findByRole('option', { name: 'Anthropic — claude-opus-5-5' })
     );
-    expect(model.setSetup).toHaveBeenCalledWith('tiny', {
+    test.expect(model.setSetup).toHaveBeenCalledWith('tiny', {
       provider: 'anthropic',
       model: 'claude-opus-5-5'
     });
   }
 );
 
-testStable('a single choice changes provider and model together', async () => {
+test.stable('a single choice changes provider and model together', async () => {
   const model = withAnthropic();
 
-  render(<AiModelSettingsView model={model} />);
-  await userEvent.click(screen.getByRole('combobox', { name: 'Attività complesse' }));
-  await userEvent.click(
-    await screen.findByRole('option', { name: 'Anthropic — claude-sonnet-5-5' })
+  test.render(<AiModelSettingsView model={model} />);
+  await test.userEvent.click(test.screen.getByRole('combobox', { name: 'Attività complesse' }));
+  await test.userEvent.click(
+    await test.screen.findByRole('option', { name: 'Anthropic — claude-sonnet-5-5' })
   );
-  expect(model.setSetup).toHaveBeenCalledExactlyOnceWith('smart', {
+  test.expect(model.setSetup).toHaveBeenCalledExactlyOnceWith('smart', {
     provider: 'anthropic',
     model: 'claude-sonnet-5-5'
   });
 });
 
-testStable('saved custom models retain their selected provider and label', async () => {
+test.stable('saved custom models retain their selected provider and label', async () => {
   const model = withAnthropic();
 
   model.data = {
@@ -141,38 +138,42 @@ testStable('saved custom models retain their selected provider and label', async
       tiny: { provider: 'anthropic', model: 'custom-model' }
     }
   };
-  render(<AiModelSettingsView model={model} />);
-  expect(screen.getByRole('combobox', { name: 'Attività rapide' })).toHaveTextContent(
-    'Anthropic — custom-model'
+  test.render(<AiModelSettingsView model={model} />);
+  test
+    .expect(test.screen.getByRole('combobox', { name: 'Attività rapide' }))
+    .toHaveTextContent('Anthropic — custom-model');
+  await test.userEvent.click(test.screen.getByRole('combobox', { name: 'Attività rapide' }));
+  await test.userEvent.click(
+    await test.screen.findByRole('option', { name: 'ChatGPT — Usa predefinito' })
   );
-  await userEvent.click(screen.getByRole('combobox', { name: 'Attività rapide' }));
-  await userEvent.click(await screen.findByRole('option', { name: 'ChatGPT — Usa predefinito' }));
-  expect(model.setSetup).toHaveBeenCalledExactlyOnceWith('tiny', { provider: 1 });
+  test.expect(model.setSetup).toHaveBeenCalledExactlyOnceWith('tiny', { provider: 1 });
 });
 
-testStable(
+test.stable(
   'signed-out ChatGPT is absent unless it is the saved choice, which stays disabled',
   async () => {
     const model = withAnthropic();
 
     model.data = { ...model.data!, status: { signedIn: false, email: null, sharing: false } };
-    render(<AiModelSettingsView model={model} />);
-    await userEvent.click(screen.getByRole('combobox', { name: 'Attività rapide' }));
-    expect(
-      await screen.findByRole('option', { name: 'Anthropic — Usa predefinito' })
-    ).toBeEnabled();
-    expect(screen.queryByRole('option', { name: /ChatGPT/ })).not.toBeInTheDocument();
-    await userEvent.keyboard('{Escape}');
-    await userEvent.click(screen.getByRole('combobox', { name: 'Attività quotidiane' }));
-    expect(
-      await screen.findByRole('option', { name: 'ChatGPT — Usa predefinito' })
-    ).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.queryByRole('option', { name: 'ChatGPT — GPT-6 Luna' })).not.toBeInTheDocument();
-    expect(model.setSetup).not.toHaveBeenCalled();
+    test.render(<AiModelSettingsView model={model} />);
+    await test.userEvent.click(test.screen.getByRole('combobox', { name: 'Attività rapide' }));
+    test
+      .expect(await test.screen.findByRole('option', { name: 'Anthropic — Usa predefinito' }))
+      .toBeEnabled();
+    test.expect(test.screen.queryByRole('option', { name: /ChatGPT/ })).not.toBeInTheDocument();
+    await test.userEvent.keyboard('{Escape}');
+    await test.userEvent.click(test.screen.getByRole('combobox', { name: 'Attività quotidiane' }));
+    test
+      .expect(await test.screen.findByRole('option', { name: 'ChatGPT — Usa predefinito' }))
+      .toHaveAttribute('aria-disabled', 'true');
+    test
+      .expect(test.screen.queryByRole('option', { name: 'ChatGPT — GPT-6 Luna' }))
+      .not.toBeInTheDocument();
+    test.expect(model.setSetup).not.toHaveBeenCalled();
   }
 );
 
-testStable('an API provider without a key retains only its disabled saved model', async () => {
+test.stable('an API provider without a key retains only its disabled saved model', async () => {
   const model = withAnthropic();
   const provider = model.data!.providers[0]!;
 
@@ -181,43 +182,48 @@ testStable('an API provider without a key retains only its disabled saved model'
     providers: [{ ...provider, configured: false }],
     settings: { ...model.data!.settings, tiny: { provider: 'anthropic', model: 'claude-opus-5-5' } }
   };
-  render(<AiModelSettingsView model={model} />);
-  expect(screen.getByRole('combobox', { name: 'Attività rapide' })).toHaveTextContent(
-    'Anthropic — claude-opus-5-5'
-  );
-  await userEvent.click(screen.getByRole('combobox', { name: 'Attività rapide' }));
-  const saved = await screen.findByRole('option', { name: 'Anthropic — claude-opus-5-5' });
+  test.render(<AiModelSettingsView model={model} />);
+  test
+    .expect(test.screen.getByRole('combobox', { name: 'Attività rapide' }))
+    .toHaveTextContent('Anthropic — claude-opus-5-5');
+  await test.userEvent.click(test.screen.getByRole('combobox', { name: 'Attività rapide' }));
+  const saved = await test.screen.findByRole('option', { name: 'Anthropic — claude-opus-5-5' });
 
-  expect(saved).toHaveAttribute('aria-disabled', 'true');
-  expect(
-    screen.queryByRole('option', { name: 'Anthropic — Usa predefinito' })
-  ).not.toBeInTheDocument();
-  expect(
-    screen.queryByRole('option', { name: 'Anthropic — claude-sonnet-5-5' })
-  ).not.toBeInTheDocument();
-  await userEvent.click(saved);
-  expect(model.setSetup).not.toHaveBeenCalled();
-  await userEvent.click(await screen.findByRole('option', { name: 'ChatGPT — Usa predefinito' }));
-  expect(model.setSetup).toHaveBeenCalledExactlyOnceWith('tiny', { provider: 1 });
+  test.expect(saved).toHaveAttribute('aria-disabled', 'true');
+  test
+    .expect(test.screen.queryByRole('option', { name: 'Anthropic — Usa predefinito' }))
+    .not.toBeInTheDocument();
+  test
+    .expect(test.screen.queryByRole('option', { name: 'Anthropic — claude-sonnet-5-5' }))
+    .not.toBeInTheDocument();
+  await test.userEvent.click(saved);
+  test.expect(model.setSetup).not.toHaveBeenCalled();
+  await test.userEvent.click(
+    await test.screen.findByRole('option', { name: 'ChatGPT — Usa predefinito' })
+  );
+  test.expect(model.setSetup).toHaveBeenCalledExactlyOnceWith('tiny', { provider: 1 });
 });
 
-testStable('without credentials all saved choices remain visible and controls are disabled', () => {
-  const model = withAnthropic();
+test.stable(
+  'without credentials all saved choices remain visible and controls are disabled',
+  () => {
+    const model = withAnthropic();
 
-  model.data = {
-    ...model.data!,
-    status: { signedIn: false, email: null, sharing: false },
-    providers: model.data!.providers.map((provider) => ({ ...provider, configured: false }))
-  };
-  render(<AiModelSettingsView model={model} />);
+    model.data = {
+      ...model.data!,
+      status: { signedIn: false, email: null, sharing: false },
+      providers: model.data!.providers.map((provider) => ({ ...provider, configured: false }))
+    };
+    test.render(<AiModelSettingsView model={model} />);
 
-  for (const picker of screen.getAllByRole('combobox')) expect(picker).toBeDisabled();
+    for (const picker of test.screen.getAllByRole('combobox')) test.expect(picker).toBeDisabled();
 
-  expect(screen.getByRole('combobox', { name: 'Attività rapide' })).toHaveTextContent(
-    'Anthropic — Usa predefinito'
-  );
-  expect(screen.getByRole('combobox', { name: 'Attività quotidiane' })).toHaveTextContent(
-    'ChatGPT — Usa predefinito'
-  );
-  expect(model.setSetup).not.toHaveBeenCalled();
-});
+    test
+      .expect(test.screen.getByRole('combobox', { name: 'Attività rapide' }))
+      .toHaveTextContent('Anthropic — Usa predefinito');
+    test
+      .expect(test.screen.getByRole('combobox', { name: 'Attività quotidiane' }))
+      .toHaveTextContent('ChatGPT — Usa predefinito');
+    test.expect(model.setSetup).not.toHaveBeenCalled();
+  }
+);

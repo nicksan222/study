@@ -1,7 +1,5 @@
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { code, paragraph, textSource } from './builders/content.ts';
 import {
@@ -44,47 +42,50 @@ function createSmallCourse(seed: SeedHarness) {
   });
 }
 
-testStable('creator sequences reuse library fixtures across any number of notes', async () => {
-  const location = await createTestDatabase();
+test.stable(
+  'creator sequences reuse library fixtures across any number of notes',
+  async ({ databases }) => {
+    const location = await databases();
 
-  try {
     const summary = await seedDatabase(location.path, [createSmallCourse]);
 
-    expect(summary).toEqual({ projects: 1, notes: 2, sources: 1, pages: 1, materials: 1 });
+    test.expect(summary).toEqual({ projects: 1, notes: 2, sources: 1, pages: 1, materials: 1 });
 
     const db = await location.open();
 
     try {
-      expect(db.orm.get(sql`SELECT count(*) n FROM notes`)?.n).toBe(2n);
-      expect(db.orm.get(sql`SELECT count(*) n FROM note_sources`)?.n).toBe(2n);
-      expect(db.orm.get(sql`SELECT count(*) n FROM note_pages`)?.n).toBe(2n);
-      expect(db.orm.get(sql`SELECT count(*) n FROM note_materials`)?.n).toBe(2n);
-      expect(db.orm.get(sql`SELECT count(*) n FROM messages`)?.n).toBe(4n);
-      expect(db.orm.get(sql`SELECT count(*) n FROM material_flashcard_versions`)?.n).toBe(1n);
-      expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toEqual([]);
+      test.expect(db.orm.get(sql`SELECT count(*) n FROM notes`)?.n).toBe(2n);
+      test.expect(db.orm.get(sql`SELECT count(*) n FROM note_sources`)?.n).toBe(2n);
+      test.expect(db.orm.get(sql`SELECT count(*) n FROM note_pages`)?.n).toBe(2n);
+      test.expect(db.orm.get(sql`SELECT count(*) n FROM note_materials`)?.n).toBe(2n);
+      test.expect(db.orm.get(sql`SELECT count(*) n FROM messages`)?.n).toBe(4n);
+      test.expect(db.orm.get(sql`SELECT count(*) n FROM material_flashcard_versions`)?.n).toBe(1n);
+      test.expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toEqual([]);
     } finally {
       db.close();
     }
-  } finally {
-    await location.cleanup();
   }
-});
+);
 
-testStable(
+test.stable(
   'cross-project fixture references abort the candidate and preserve the existing database',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const db = await location.open();
     const before = db.contentIdentity();
 
     db.close();
 
-    try {
-      await expect(
+    await test
+      .expect(
         seedDatabase(location.path, [
           (seed) => {
             const first = createProject(seed, { name: 'First', color: 'blue', examInDays: 21 });
-            const second = createProject(seed, { name: 'Second', color: 'green', examInDays: 28 });
+            const second = createProject(seed, {
+              name: 'Second',
+              color: 'green',
+              examInDays: 28
+            });
             const source = createSource(
               first,
               textSource('private.txt', 'A project-owned source.')
@@ -98,25 +99,24 @@ testStable(
             });
           }
         ])
-      ).rejects.toThrow(RangeError);
+      )
+      .rejects.toThrow(RangeError);
 
-      const retained = await location.open();
+    const retained = await location.open();
 
-      try {
-        expect(retained.contentIdentity()).toBe(before);
-      } finally {
-        retained.close();
-      }
+    try {
+      test.expect(retained.contentIdentity()).toBe(before);
     } finally {
-      await location.cleanup();
+      retained.close();
     }
   }
 );
 
-testStable('notes can mix multiple turns and omit unrelated fixture kinds', async () => {
-  const location = await createTestDatabase();
+test.stable(
+  'notes can mix multiple turns and omit unrelated fixture kinds',
+  async ({ databases }) => {
+    const location = await databases();
 
-  try {
     await seedDatabase(location.path, [
       (seed) => {
         const project = createProject(seed, {
@@ -139,12 +139,10 @@ testStable('notes can mix multiple turns and omit unrelated fixture kinds', asyn
     const db = await location.open();
 
     try {
-      expect(db.orm.get(sql`SELECT count(*) n FROM messages`)?.n).toBe(4n);
-      expect(db.orm.get(sql`SELECT count(*) n FROM sources`)?.n).toBe(0n);
+      test.expect(db.orm.get(sql`SELECT count(*) n FROM messages`)?.n).toBe(4n);
+      test.expect(db.orm.get(sql`SELECT count(*) n FROM sources`)?.n).toBe(0n);
     } finally {
       db.close();
     }
-  } finally {
-    await location.cleanup();
   }
-});
+);

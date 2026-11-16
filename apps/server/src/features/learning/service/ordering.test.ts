@@ -1,3 +1,4 @@
+import { quizOrderingItemIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies ordering practice persistence and deterministic grading behavior.         │
@@ -10,17 +11,13 @@
  * │ Uses feature services and real database records without model execution.                 │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { quizOrderingItemIdSchema } from '@study/contracts';
 import { orderingAnswerJsonSchema } from '@study/contracts';
 import { materialAidExportSchema } from '@study/contracts';
 import { defaultQuizSettings } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
@@ -30,10 +27,10 @@ import { Database } from '#server/platform/database/database';
 
 import { Learning } from './index.ts';
 
-testStable(
+test.stable(
   'ordering attempts hide canonical order, restore permutations and grade exactly',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const domain = Learning.layer.pipe(
       Layer.provideMerge(Settings.layer),
@@ -72,10 +69,10 @@ testStable(
           });
           const version = yield* materials.materialVersion({ id: material.version.id });
 
-          assert.ok(version.content.kind === 'quiz');
+          test.assert.ok(version.content.kind === 'quiz');
           const canonical = version.content.questions[0]!;
 
-          assert.ok(canonical.kind === 'ordering');
+          test.assert.ok(canonical.kind === 'ordering');
 
           for (const format of ['aid_json', 'csv'] as const) {
             const file = yield* materials.exportMaterialVersion({
@@ -84,22 +81,22 @@ testStable(
             });
             const text = new TextDecoder().decode(file.bytes);
 
-            assert.ok(text.includes('ordering'));
-            assert.ok(text.includes('A'));
+            test.assert.ok(text.includes('ordering'));
+            test.assert.ok(text.includes('A'));
 
             if (format === 'aid_json') {
               const exported = Schema.decodeUnknownSync(
                 Schema.fromJsonString(Schema.toCodecJson(materialAidExportSchema))
               )(text);
 
-              assert.deepEqual(exported.version.content, version.content);
+              test.assert.deepEqual(exported.version.content, version.content);
             }
           }
 
           const correct = canonical.items.map((item) => item.id);
           const other = version.content.questions[1]!;
 
-          assert.ok(other.kind === 'ordering');
+          test.assert.ok(other.kind === 'ordering');
 
           const snapshots = [];
 
@@ -119,11 +116,14 @@ testStable(
             });
             const question = attempt.questions[0]!;
 
-            assert.ok(question.kind === 'ordering');
-            assert.ok(!('explanation' in question));
-            assert.ok(!('correctItemIds' in question));
-            assert.deepEqual(Object.keys(question.items[0]!).sort(), ['id', 'text']);
-            assert.deepEqual((yield* learning.attempt(attempt.id)).questions, attempt.questions);
+            test.assert.ok(question.kind === 'ordering');
+            test.assert.ok(!('explanation' in question));
+            test.assert.ok(!('correctItemIds' in question));
+            test.assert.deepEqual(Object.keys(question.items[0]!).sort(), ['id', 'text']);
+            test.assert.deepEqual(
+              (yield* learning.attempt(attempt.id)).questions,
+              attempt.questions
+            );
 
             for (const itemIds of [
               correct.slice(1),
@@ -143,10 +143,10 @@ testStable(
                 })
               );
 
-              assert.equal(error.kind, 'invalid_input');
+              test.assert.equal(error.kind, 'invalid_input');
             }
 
-            assert.equal(
+            test.assert.equal(
               (yield* Effect.flip(
                 learning.answerQuestion({
                   attemptId: attempt.id,
@@ -161,11 +161,11 @@ testStable(
               questionId: question.id,
               answer: { type: 'ordering', itemIds: permutation }
             });
-            assert.deepEqual((yield* learning.attempt(attempt.id)).questions[0]!.answer, {
+            test.assert.deepEqual((yield* learning.attempt(attempt.id)).questions[0]!.answer, {
               type: 'ordering',
               itemIds: permutation
             });
-            assert.throws(() =>
+            test.assert.throws(() =>
               context.db.orm
                 .update(s.material_quiz_responses)
                 .set({ answer: '{"type":"ordering","itemIds":["1","1"]}' })
@@ -174,28 +174,28 @@ testStable(
             );
             const completed = yield* learning.finishQuiz({ attemptId: attempt.id });
 
-            assert.equal(completed.scoring.complete, true);
-            assert.equal(completed.scoring.score, permutation === correct ? 1 : 0);
+            test.assert.equal(completed.scoring.complete, true);
+            test.assert.equal(completed.scoring.score, permutation === correct ? 1 : 0);
             const result = completed.questions[0]!;
 
-            assert.ok(result.kind === 'ordering');
-            assert.deepEqual(result.correctItemIds, correct);
-            assert.equal(result.explanation, canonical.explanation);
-            assert.throws(() =>
+            test.assert.ok(result.kind === 'ordering');
+            test.assert.deepEqual(result.correctItemIds, correct);
+            test.assert.equal(result.explanation, canonical.explanation);
+            test.assert.throws(() =>
               context.db.orm
                 .update(s.material_quiz_responses)
                 .set({ score: 0.5 })
                 .where(eq(s.material_quiz_responses.attempt_id, attempt.id))
                 .run()
             );
-            assert.throws(() =>
+            test.assert.throws(() =>
               context.db.orm
                 .update(s.material_quiz_ordering_items)
                 .set({ text: 'Changed' })
                 .where(eq(s.material_quiz_ordering_items.question_id, question.id))
                 .run()
             );
-            assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+            test.assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
             snapshots.push(completed);
           }
 
@@ -215,14 +215,14 @@ testStable(
             .where(eq(s.material_quiz_responses.attempt_id, attempt.id))
             .get();
 
-          assert.ok(response);
-          assert.deepEqual(
+          test.assert.ok(response);
+          test.assert.deepEqual(
             Schema.decodeUnknownSync(orderingAnswerJsonSchema)(response.answer),
             attempt.questions[0]!.answer
           );
         }
 
-        assert.deepEqual(reopened.orm.all(sql`PRAGMA foreign_key_check`), []);
+        test.assert.deepEqual(reopened.orm.all(sql`PRAGMA foreign_key_check`), []);
       } finally {
         reopened.close();
       }

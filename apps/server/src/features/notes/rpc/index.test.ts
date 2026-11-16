@@ -1,3 +1,4 @@
+import type { NoteId } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises note and message RPC missing-value behavior, versioned message           │
@@ -12,17 +13,12 @@
  * │ handlers retain ownership of request behavior.                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { NoteId } from '@study/contracts';
 import { NotesRpc } from '@study/contracts';
 import { eq } from '@study/db';
 import { messages, note_deletions } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Option } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/service/index';
 import { Settings } from '#server/features/settings/index';
@@ -32,34 +28,37 @@ import { testLiveQueries } from '#testing/live-queries';
 
 import { NotesRpcLive } from './index.ts';
 
-testStable('native note RPC returns typed missing failures and optional reads', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const handlers = NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
-    Layer.provideMerge(Layer.merge(Notes.layer, Settings.layer)),
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
-
-  try {
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const client = yield* RpcTest.makeClient(NotesRpc, { flatten: true });
-          const id = 999n as NoteId;
-
-          assert.ok((yield* Effect.flip(client('notes.note', { id }))).kind === 'not_found');
-          assert.ok(Option.isNone(yield* client('notes.findNote', { id })));
-        }).pipe(Effect.provide(handlers))
-      )
+test.stable(
+  'native note RPC returns typed missing failures and optional reads',
+  async ({ databases }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const handlers = NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
+      Layer.provideMerge(Layer.merge(Notes.layer, Settings.layer)),
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
-  } finally {
-    context.close();
-    await location.cleanup();
-  }
-});
 
-testStable('native message RPC persists and reads a versioned message', async () => {
-  const location = await createTestDatabase();
+    try {
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const client = yield* RpcTest.makeClient(NotesRpc, { flatten: true });
+            const id = 999n as NoteId;
+
+            test.assert.ok((yield* Effect.flip(client('notes.note', { id }))).kind === 'not_found');
+            test.assert.ok(Option.isNone(yield* client('notes.findNote', { id })));
+          }).pipe(Effect.provide(handlers))
+        )
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
+  }
+);
+
+test.stable('native message RPC persists and reads a versioned message', async ({ databases }) => {
+  const location = await databases();
   const context = new ServerContext(await location.open());
   const { projects } = await import('@study/db');
   const project = context.db.orm
@@ -85,9 +84,9 @@ testStable('native message RPC persists and reads a versioned message', async ()
             project: project.id
           });
 
-          assert.ok(untitled.title === 'New note');
-          assert.ok(untitled.titleSource === 'provisional');
-          assert.ok(
+          test.assert.ok(untitled.title === 'New note');
+          test.assert.ok(untitled.titleSource === 'provisional');
+          test.assert.ok(
             (yield* Effect.flip(client('notes.requestTitle', { noteId: untitled.id }))).kind ===
               'invalid_input'
           );
@@ -99,19 +98,19 @@ testStable('native message RPC persists and reads a versioned message', async ()
             noteId: untitled.id
           });
 
-          assert.ok(titleRequest.requestId);
+          test.assert.ok(titleRequest.requestId);
           const rewrite = yield* client('notes.rewriteMessage', {
             messageId: rewriteTarget.id,
             origin: 'improve'
           });
 
-          assert.strictEqual(rewrite.messageId, rewriteTarget.id);
-          assert.ok(
+          test.assert.strictEqual(rewrite.messageId, rewriteTarget.id);
+          test.assert.ok(
             (yield* Effect.flip(client('notes.reanswer', { messageId: rewriteTarget.id }))).kind ===
               'invalid_input'
           );
 
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(client('notes.requestTitle', { noteId: note.id }))).kind ===
               'invalid_input'
           );
@@ -121,8 +120,8 @@ testStable('native message RPC persists and reads a versioned message', async ()
           });
           const request = yield* client('notes.requestReply', { noteId: note.id });
 
-          assert.ok(request.requestId);
-          assert.ok(
+          test.assert.ok(request.requestId);
+          test.assert.ok(
             (yield* Effect.flip(client('notes.requestReply', { noteId: note.id }))).kind ===
               'invalid_input'
           );
@@ -131,16 +130,18 @@ testStable('native message RPC persists and reads a versioned message', async ()
             text: 'edited'
           });
 
-          expect(
-            (yield* client('notes.message', { id: message.id })).versions.map((v) => v.text)
-          ).toStrictEqual(['hello', 'edited']);
-          assert.strictEqual(
+          test
+            .expect(
+              (yield* client('notes.message', { id: message.id })).versions.map((v) => v.text)
+            )
+            .toStrictEqual(['hello', 'edited']);
+          test.assert.strictEqual(
             (yield* client('notes.thread', { noteId: note.id, limit: 2 })).items[0]
               ?.activeVersionId,
             edited.activeVersionId
           );
-          assert.strictEqual(yield* client('notes.deleteMessage', { id: message.id }), true);
-          assert.ok(
+          test.assert.strictEqual(yield* client('notes.deleteMessage', { id: message.id }), true);
+          test.assert.ok(
             (yield* Effect.flip(client('notes.message', { id: message.id }))).kind === 'not_found'
           );
         }).pipe(Effect.provide(handlers))
@@ -152,8 +153,8 @@ testStable('native message RPC persists and reads a versioned message', async ()
   }
 });
 
-testStable('native RPC keeps attachment thread messages isolated', async () => {
-  const location = await createTestDatabase();
+test.stable('native RPC keeps attachment thread messages isolated', async ({ databases }) => {
+  const location = await databases();
   const context = new ServerContext(await location.open());
   const { projects, sources } = await import('@study/db');
   const project = context.db.orm
@@ -201,16 +202,20 @@ testStable('native RPC keeps attachment thread messages isolated', async () => {
             text: 'child'
           });
 
-          expect(
-            (yield* client('notes.thread', { noteId: note.id, limit: 10 })).items.map((m) => m.id)
-          ).toStrictEqual([root.id]);
-          expect(
-            (yield* client('notes.thread', {
-              noteId: note.id,
-              threadRoot: part,
-              limit: 10
-            })).items.map((m) => m.id)
-          ).toStrictEqual([child.id]);
+          test
+            .expect(
+              (yield* client('notes.thread', { noteId: note.id, limit: 10 })).items.map((m) => m.id)
+            )
+            .toStrictEqual([root.id]);
+          test
+            .expect(
+              (yield* client('notes.thread', {
+                noteId: note.id,
+                threadRoot: part,
+                limit: 10
+              })).items.map((m) => m.id)
+            )
+            .toStrictEqual([child.id]);
         }).pipe(Effect.provide(handlers))
       )
     );
@@ -220,10 +225,10 @@ testStable('native RPC keeps attachment thread messages isolated', async () => {
   }
 });
 
-testStable(
+test.stable(
   'native description RPC persists optional metadata with optimistic concurrency',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const handlers = NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
       Layer.provideMerge(Layer.merge(Notes.layer, Settings.layer)),
@@ -248,23 +253,23 @@ testStable(
             };
             const saved = yield* client('notes.updateMessageDescription', input);
 
-            assert.ok(message.description === null);
-            assert.ok(saved.description === 'Eigenvalues and vectors');
-            expect(saved.versions).toStrictEqual(message.versions);
-            assert.strictEqual(saved.activeVersionId, message.activeVersionId);
-            assert.strictEqual(
+            test.assert.ok(message.description === null);
+            test.assert.ok(saved.description === 'Eigenvalues and vectors');
+            test.expect(saved.versions).toStrictEqual(message.versions);
+            test.assert.strictEqual(saved.activeVersionId, message.activeVersionId);
+            test.assert.strictEqual(
               (yield* client('notes.message', { id: message.id })).description,
               saved.description
             );
-            assert.strictEqual(
+            test.assert.strictEqual(
               (yield* client('notes.thread', { noteId: note.id, limit: 10 })).items[0]?.description,
               saved.description
             );
-            assert.strictEqual(
+            test.assert.strictEqual(
               (yield* client('notes.updateMessageDescription', input)).description,
               saved.description
             );
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(
                 client('notes.updateMessageDescription', {
                   ...input,
@@ -278,11 +283,13 @@ testStable(
               expectedDescription: saved.description ?? null
             });
 
-            assert.ok(cleared.description === null);
-            assert.ok((yield* client('notes.message', { id: message.id })).description === null);
+            test.assert.ok(cleared.description === null);
+            test.assert.ok(
+              (yield* client('notes.message', { id: message.id })).description === null
+            );
             const notes = yield* Notes;
 
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(
                 notes.updateMessageDescription({
                   messageId: message.id,
@@ -296,7 +303,7 @@ testStable(
               .set({ role: 'assistant' })
               .where(eq(messages.id, message.id))
               .run();
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(client('notes.updateMessageDescription', input))).kind ===
                 'invalid_input'
             );
@@ -315,7 +322,7 @@ testStable(
                 created_at: 1n
               })
               .run();
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(client('notes.updateMessageDescription', input))).kind ===
                 'invalid_input'
             );
@@ -329,10 +336,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'native message RPC preserves explicit document format independently of capture keys',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const handlers = NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
       Layer.provideMerge(Layer.merge(Notes.layer, Settings.layer)),
@@ -360,11 +367,16 @@ testStable(
             };
             const document = yield* client('notes.postMessage', documentInput);
 
-            assert.ok(quick.format === 'text');
-            assert.ok(document.format === 'document');
-            assert.ok((yield* client('notes.message', { id: document.id })).format === 'document');
-            assert.strictEqual((yield* client('notes.postMessage', documentInput)).id, document.id);
-            assert.ok(
+            test.assert.ok(quick.format === 'text');
+            test.assert.ok(document.format === 'document');
+            test.assert.ok(
+              (yield* client('notes.message', { id: document.id })).format === 'document'
+            );
+            test.assert.strictEqual(
+              (yield* client('notes.postMessage', documentInput)).id,
+              document.id
+            );
+            test.assert.ok(
               (yield* Effect.flip(
                 client('notes.postMessage', {
                   ...documentInput,
@@ -377,13 +389,15 @@ testStable(
               text: '# Revised'
             });
 
-            assert.ok(edited.format === 'document');
-            expect(
-              (yield* client('notes.thread', {
-                noteId: note.id,
-                limit: 10
-              })).items.map((item) => item.format)
-            ).toStrictEqual(['text', 'document']);
+            test.assert.ok(edited.format === 'document');
+            test
+              .expect(
+                (yield* client('notes.thread', {
+                  noteId: note.id,
+                  limit: 10
+                })).items.map((item) => item.format)
+              )
+              .toStrictEqual(['text', 'document']);
           }).pipe(Effect.provide(handlers))
         )
       );

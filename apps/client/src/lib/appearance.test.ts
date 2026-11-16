@@ -1,18 +1,17 @@
 import { defaultAppearancePreferences } from '@study/contracts';
 import { configureRpcTransport } from '@study/contracts/react';
-import { testStable } from '@study/testing/vitest';
-import { waitFor } from '@testing-library/react';
-import { beforeEach } from 'vite-plus/test';
-import { afterEach, expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport } from '#client/test/rpc.tsx';
+import { test } from '@study/testing';
 
 import { initializeAppearance } from './appearance';
 
-const api = vi.hoisted(() => ({ settings: vi.fn(), selected: vi.fn(), themes: vi.fn() }));
+const api = test.hoisted(() => ({
+  settings: test.vi.fn(),
+  selected: test.vi.fn(),
+  themes: test.vi.fn()
+}));
 
-beforeEach(() => {
-  const fixture = rpcTestTransport(async (tag, input) => {
+test.beforeEach(() => {
+  const fixture = test.rpcTestTransport(async (tag, input) => {
     if (tag === 'settings.appSettings')
       return { language: 1, zoomPercent: 100, onboarded: true, ...(await api.settings(input)) };
 
@@ -30,9 +29,9 @@ beforeEach(() => {
 
 let restore: (() => void) | undefined;
 
-afterEach(() => restore?.());
+test.afterEach(() => restore?.());
 
-testStable('applies the saved theme and appearance to the document', async () => {
+test.stable('applies the saved theme and appearance to the document', async () => {
   api.settings.mockResolvedValue({ appearance: 1 });
   api.selected.mockResolvedValue('ocean');
   api.themes.mockResolvedValue({
@@ -49,31 +48,31 @@ testStable('applies the saved theme and appearance to the document', async () =>
     next: null
   });
   restore = initializeAppearance(document);
-  await waitFor(() =>
-    expect(document.documentElement.style.getPropertyValue('--sidebar')).toBe('#eef5ff')
+  await test.waitFor(() =>
+    test.expect(document.documentElement.style.getPropertyValue('--sidebar')).toBe('#eef5ff')
   );
-  expect(document.documentElement).not.toHaveClass('dark');
+  test.expect(document.documentElement).not.toHaveClass('dark');
 });
 
-testStable('keeps the default dark palette available when the server is unavailable', async () => {
+test.stable('keeps the default dark palette available when the server is unavailable', async () => {
   api.settings.mockRejectedValue(new Error('offline'));
   api.selected.mockResolvedValue(null);
   api.themes.mockResolvedValue({ items: [], next: null });
   restore = initializeAppearance(document);
   await Promise.resolve();
-  expect(document.documentElement).toHaveClass('dark');
+  test.expect(document.documentElement).toHaveClass('dark');
 });
 
-testStable('follows system appearance changes and removes the listener on disposal', async () => {
+test.stable('follows system appearance changes and removes the listener on disposal', async () => {
   let change: ((event: { matches: boolean }) => void) | undefined;
-  const remove = vi.fn();
+  const remove = test.vi.fn();
 
-  vi.spyOn(window, 'matchMedia').mockReturnValue({
+  test.vi.spyOn(window, 'matchMedia').mockReturnValue({
     matches: true,
     media: '(prefers-color-scheme: dark)',
     onchange: null,
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
+    addListener: test.vi.fn(),
+    removeListener: test.vi.fn(),
     dispatchEvent: () => true,
     addEventListener: (_name: string, listener: unknown) => {
       change = listener as typeof change;
@@ -84,22 +83,22 @@ testStable('follows system appearance changes and removes the listener on dispos
   api.selected.mockResolvedValue(null);
   api.themes.mockResolvedValue({ items: [], next: null });
   restore = initializeAppearance(document);
-  await waitFor(() => expect(document.documentElement).toHaveClass('dark'));
-  await waitFor(() => expect(change).toBeDefined());
+  await test.waitFor(() => test.expect(document.documentElement).toHaveClass('dark'));
+  await test.waitFor(() => test.expect(change).toBeDefined());
   change?.({ matches: false });
-  await waitFor(() => expect(document.documentElement).not.toHaveClass('dark'));
+  await test.waitFor(() => test.expect(document.documentElement).not.toHaveClass('dark'));
   restore();
   restore = undefined;
-  expect(remove).toHaveBeenCalledWith('change', expect.any(Function));
+  test.expect(remove).toHaveBeenCalledWith('change', test.expect.any(Function));
 });
 
-testStable('skips an active navigation snapshot before changing root zoom', async () => {
+test.stable('skips an active navigation snapshot before changing root zoom', async () => {
   let cancel: () => void = () => {};
   const ready = new Promise<void>((_, reject) => {
     cancel = () => reject(new DOMException('Skipped', 'AbortError'));
   });
-  const skipTransition = vi.fn(() => {
-    expect(document.documentElement.style.zoom).not.toBe('125%');
+  const skipTransition = test.vi.fn(() => {
+    test.expect(document.documentElement.style.zoom).not.toBe('125%');
     cancel();
   });
 
@@ -113,8 +112,8 @@ testStable('skips an active navigation snapshot before changing root zoom', asyn
 
   try {
     restore = initializeAppearance(document);
-    await waitFor(() => expect(document.documentElement.style.zoom).toBe('125%'));
-    expect(skipTransition).toHaveBeenCalledOnce();
+    await test.waitFor(() => test.expect(document.documentElement.style.zoom).toBe('125%'));
+    test.expect(skipTransition).toHaveBeenCalledOnce();
   } finally {
     Reflect.deleteProperty(document, 'activeViewTransition');
   }

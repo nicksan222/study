@@ -1,16 +1,11 @@
 import { StudyError } from '@study/contracts';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { expect, vi } from 'vite-plus/test';
-
-import { renderInRouter } from '#client/test/render-in-router.tsx';
+import { test } from '@study/testing';
 
 import { LibraryListView } from './library-list.view';
 
-testStable('renders loading and empty states from props', async () => {
-  renderInRouter(
+test.stable('renders loading and empty states from props', async () => {
+  test.renderInRouter(
     <LibraryListView
       state={{ status: 'pending' }}
       subjects={[]}
@@ -20,16 +15,18 @@ testStable('renders loading and empty states from props', async () => {
       reload={() => {}}
     />
   );
-  expect(await screen.findByRole('status')).toHaveTextContent(catalogs.english.LoadingStudy);
+  test
+    .expect(await test.screen.findByRole('status'))
+    .toHaveTextContent(catalogs.english.LoadingStudy);
 });
 
-testStable(
+test.stable(
   'retries a failed load through its callback without executing transport work',
   async () => {
-    const reload = vi.fn();
-    const user = userEvent.setup();
+    const reload = test.vi.fn();
+    const user = test.userEvent.setup();
 
-    renderInRouter(
+    test.renderInRouter(
       <LibraryListView
         state={{ status: 'error', error: new StudyError('transient', 'offline') }}
         subjects={[]}
@@ -39,12 +36,14 @@ testStable(
         reload={reload}
       />
     );
-    await user.click(await screen.findByRole('button', { name: catalogs.english.StudyLoadError }));
-    expect(reload).toHaveBeenCalledOnce();
+    await user.click(
+      await test.screen.findByRole('button', { name: catalogs.english.StudyLoadError })
+    );
+    test.expect(reload).toHaveBeenCalledOnce();
   }
 );
 
-testStable(
+test.stable(
   'replaces its loading announcement with the empty practice list after a completed load',
   () => {
     const props = {
@@ -54,11 +53,11 @@ testStable(
       search: {},
       reload: () => {}
     };
-    const { rerender } = render(<LibraryListView {...props} state={{ status: 'pending' }} />);
+    const { rerender } = test.render(<LibraryListView {...props} state={{ status: 'pending' }} />);
 
-    expect(screen.getByRole('status')).toHaveTextContent(catalogs.english.LoadingStudy);
+    test.expect(test.screen.getByRole('status')).toHaveTextContent(catalogs.english.LoadingStudy);
     rerender(<LibraryListView {...props} state={{ status: 'success', data: [] }} />);
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
-    expect(screen.getByText(catalogs.english.SidebarPracticeEmpty)).toBeInTheDocument();
+    test.expect(test.screen.queryByRole('status')).not.toBeInTheDocument();
+    test.expect(test.screen.getByText(catalogs.english.SidebarPracticeEmpty)).toBeInTheDocument();
   }
 );

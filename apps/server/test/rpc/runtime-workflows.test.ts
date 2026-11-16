@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises workflow execution listing, bounded public status, and persisted         │
@@ -14,17 +15,11 @@
  * │ resources; fixture cleanup closes owned resources.                                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Option } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
-import { App, serve } from '#server/runtime/index';
-import { pollUntil } from '#testing/poll';
+import { serve } from '#server/runtime/index';
 
 const isSourceIngestion = (item: { workflow: string }) => item.workflow === 'source-ingestion/v1';
 
@@ -33,12 +28,11 @@ const isCancelledSource = (item: { workflow: string; status: string }) =>
 
 const isCompleted = (item: { status: string }) => item.status === 'completed';
 
-testStable(
+test.stable(
   'native workflow RPC exposes bounded status and persists cancellation while the worker is stopped',
   { timeout: 10000 },
-  async () => {
-    const location = await createTestDatabase();
-    let app = await App.open({ path: location.path });
+  async ({ resources: location }) => {
+    let app = await location.openApp({ path: location.path });
     let server = await serve(app);
 
     try {
@@ -47,7 +41,9 @@ testStable(
           Effect.gen(function* () {
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
 
-            expect((yield* client['workflows.executions']({ limit: 10 })).items).toStrictEqual([]);
+            test
+              .expect((yield* client['workflows.executions']({ limit: 10 })).items)
+              .toStrictEqual([]);
             const source = yield* client['sources.createSource']({
               name: 'waiting.png',
               bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
@@ -57,7 +53,7 @@ testStable(
 
             yield* client['system.startWorkers']({});
 
-            const execution = yield* pollUntil(
+            const execution = yield* test.pollUntil(
               Effect.gen(function* () {
                 const page = yield* client['workflows.executions']({
                   limit: 10,
@@ -74,31 +70,31 @@ testStable(
               }
             );
 
-            assert.ok(execution?.status === 'suspended');
-            assert.ok(execution.canCancel === true);
-            assert.ok(execution.outcome === null);
-            expect((yield* client['workflows.execution']({ id: execution.id })).id).toStrictEqual(
-              execution.id
-            );
+            test.assert.ok(execution?.status === 'suspended');
+            test.assert.ok(execution.canCancel === true);
+            test.assert.ok(execution.outcome === null);
+            test
+              .expect((yield* client['workflows.execution']({ id: execution.id })).id)
+              .toStrictEqual(execution.id);
             yield* client['system.stopWorkers']({});
             const cancelled = yield* client['workflows.cancelExecution']({
               id: execution.id,
               mode: 'unsafe'
             });
 
-            assert.ok(['cancelling', 'cancelled'].includes(cancelled.status));
-            assert.ok(cancelled.canCancel === false);
+            test.assert.ok(['cancelling', 'cancelled'].includes(cancelled.status));
+            test.assert.ok(cancelled.canCancel === false);
             const repeated = yield* client['workflows.cancelExecution']({
               id: execution.id,
               mode: 'safe'
             });
 
-            assert.ok(['cancelling', 'cancelled'].includes(repeated.status));
-            assert.ok('payload' in repeated === false);
-            assert.ok('ownerToken' in repeated === false);
+            test.assert.ok(['cancelling', 'cancelled'].includes(repeated.status));
+            test.assert.ok('payload' in repeated === false);
+            test.assert.ok('ownerToken' in repeated === false);
 
             for (const createdAtMs of [-1n, 9223372036854775808n])
-              assert.ok(
+              test.assert.ok(
                 (yield* Effect.exit(
                   client['workflows.executions']({
                     limit: 1,
@@ -113,7 +109,7 @@ testStable(
       );
       await server.close();
       await app.close();
-      app = await App.open({ path: location.path });
+      app = await location.openApp({ path: location.path });
       server = await serve(app);
       await app.workers.start();
       await Effect.runPromise(
@@ -121,7 +117,7 @@ testStable(
           Effect.gen(function* () {
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
 
-            const page = yield* pollUntil(
+            const page = yield* test.pollUntil(
               client['workflows.executions']({ limit: 10 }),
               (value) => value.items.some(isCancelledSource),
               {
@@ -132,16 +128,16 @@ testStable(
             );
             const execution = page.items.find(isSourceIngestion);
 
-            assert.ok(execution?.status === 'cancelled');
-            assert.ok(
+            test.assert.ok(execution?.status === 'cancelled');
+            test.assert.ok(
               (yield* client['sources.sourceProcessing']({
                 id: (yield* client['sources.sources']({ limit: 1 })).items[0]!.id
               })).documentId === null
             );
-            assert.ok(
+            test.assert.ok(
               Option.isSome(yield* client['workflows.findExecution']({ id: execution.id }))
             );
-            assert.ok(page.next === null);
+            test.assert.ok(page.next === null);
 
             return;
           })
@@ -150,17 +146,16 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      await location.cleanup();
+      await location.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'workflow status distinguishes terminal failures and paginates without exposing checkpoints',
   { timeout: 10000 },
-  async () => {
-    const location = await createTestDatabase();
-    const app = await App.open({ path: location.path });
+  async ({ resources: location }) => {
+    const app = await location.openApp({ path: location.path });
     const server = await serve(app);
 
     await app.workers.start();
@@ -182,7 +177,7 @@ testStable(
               projectId: null
             });
 
-            const { page, ingestions } = yield* pollUntil(
+            const { page, ingestions } = yield* test.pollUntil(
               Effect.gen(function* () {
                 const page = yield* client['workflows.executions']({ limit: 100 });
                 const ingestions = page.items.filter(isSourceIngestion);
@@ -197,26 +192,28 @@ testStable(
               }
             );
 
-            expect(
-              ingestions
-                .map((execution) => execution.outcome)
-                .sort((a, b) => (a ?? '').localeCompare(b ?? ''))
-            ).toStrictEqual(['failure', 'success']);
-            assert.ok(
+            test
+              .expect(
+                ingestions
+                  .map((execution) => execution.outcome)
+                  .sort((a, b) => (a ?? '').localeCompare(b ?? ''))
+              )
+              .toStrictEqual(['failure', 'success']);
+            test.assert.ok(
               ingestions.find((execution) => execution.outcome === 'failure')?.failureKind ===
                 'unsupported'
             );
-            assert.ok(page.items.every((execution) => !execution.canCancel));
+            test.assert.ok(page.items.every((execution) => !execution.canCancel));
             const first = yield* client['workflows.executions']({ limit: 1 });
 
-            assert.ok(first.next);
+            test.assert.ok(first.next);
             const second = yield* client['workflows.executions']({
               limit: 1,
               before: first.next
             });
 
-            assert.strictEqual(second.items.length, 1);
-            assert.notStrictEqual(first.items[0]?.id, second.items[0]?.id);
+            test.assert.strictEqual(second.items.length, 1);
+            test.assert.notStrictEqual(first.items[0]?.id, second.items[0]?.id);
             const seen = [first.items[0]!.id, second.items[0]!.id];
             let cursor = second.next;
 
@@ -227,28 +224,30 @@ testStable(
               cursor = next.next;
             }
 
-            assert.strictEqual(new Set(seen).size, seen.length);
-            assert.ok(ingestions.every((execution) => seen.includes(execution.id)));
+            test.assert.strictEqual(new Set(seen).size, seen.length);
+            test.assert.ok(ingestions.every((execution) => seen.includes(execution.id)));
             const target = ingestions[0]!;
 
-            expect(
-              yield* client['workflows.cancelExecution']({ id: target.id, mode: 'unsafe' })
-            ).toStrictEqual(target);
-            expect(Object.keys(target).sort()).toStrictEqual(
-              [
-                'id',
-                'workflow',
-                'correlationId',
-                'status',
-                'outcome',
-                'failureKind',
-                'configurationWaitReason',
-                'canCancel',
-                'createdAtMs',
-                'updatedAtMs'
-              ].sort()
-            );
-            assert.ok(
+            test
+              .expect(yield* client['workflows.cancelExecution']({ id: target.id, mode: 'unsafe' }))
+              .toStrictEqual(target);
+            test
+              .expect(Object.keys(target).sort())
+              .toStrictEqual(
+                [
+                  'id',
+                  'workflow',
+                  'correlationId',
+                  'status',
+                  'outcome',
+                  'failureKind',
+                  'configurationWaitReason',
+                  'canCancel',
+                  'createdAtMs',
+                  'updatedAtMs'
+                ].sort()
+              );
+            test.assert.ok(
               (yield* Effect.exit(client['workflows.executions']({ limit: 0 })))._tag === 'Failure'
             );
 
@@ -259,15 +258,15 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      await location.cleanup();
+      await location.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'unsafe workflow cancellation aborts an active real HTTP fetch',
   { timeout: 10000 },
-  async (t) => {
+  async ({ resources: location, onTestFinished }) => {
     let entered!: () => void;
     let aborted!: () => void;
     const requested = new Promise<void>((resolve) => {
@@ -295,10 +294,9 @@ testStable(
       }
     });
 
-    t.onTestFinished(() => peer.stop(true));
+    onTestFinished(() => peer.stop(true));
 
-    const location = await createTestDatabase();
-    const app = await App.open({ path: location.path });
+    const app = await location.openApp({ path: location.path });
     const server = await serve(app);
 
     await app.workers.start();
@@ -320,15 +318,15 @@ testStable(
               correlationId: processing.requestId!
             })).items.find(isSourceIngestion);
 
-            assert.ok(execution);
+            test.assert.ok(execution);
             const result = yield* client['workflows.cancelExecution']({
               id: execution.id,
               mode: 'unsafe'
             });
 
-            assert.ok(['cancelled', 'cancelling'].includes(result.status));
+            test.assert.ok(['cancelled', 'cancelling'].includes(result.status));
             yield* Effect.promise(() => closed).pipe(Effect.timeout('2 seconds'));
-            assert.ok(
+            test.assert.ok(
               (yield* client['sources.sourceProcessing']({ id: source.id })).documentId === null
             );
           })
@@ -338,7 +336,7 @@ testStable(
       await server.close();
       await app.close();
       await peer.stop(true);
-      await location.cleanup();
+      await location.close();
     }
   }
 );

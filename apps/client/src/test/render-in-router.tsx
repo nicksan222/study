@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 import {
   createMemoryHistory,
   stringifySearchWith,
@@ -8,7 +9,7 @@ import {
 import { render } from '@testing-library/react';
 import type { ReactNode } from 'react';
 
-export function renderInRouter(children: ReactNode) {
+export function renderInRouter(children: ReactNode): ReturnType<typeof render> {
   const routeTree = createRootRoute({ component: () => children });
   const router = createRouter({
     stringifySearch: stringifySearchWith(String),
@@ -16,5 +17,12 @@ export function renderInRouter(children: ReactNode) {
     history: createMemoryHistory({ initialEntries: ['/'] })
   });
 
-  return render(<RouterProvider router={router} />);
+  const view = render(<RouterProvider router={router} />);
+
+  test.onTestFinished(() => {
+    view.unmount();
+    router.history.destroy();
+  });
+
+  return view;
 }

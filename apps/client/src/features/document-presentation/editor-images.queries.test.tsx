@@ -4,28 +4,24 @@ import {
   sourceIdSchema,
   createBlock
 } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, cleanup, render, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { createRef, useImperativeHandle } from 'react';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { blankDocument } from '../document-editing/block-editor';
 import { importedSource } from '../material-library/test/support';
 import { useDocumentEditorImages } from './editor-images.queries';
 
-const rpc = vi.hoisted(() => ({ create: vi.fn(), export: vi.fn() }));
+const rpc = test.hoisted(() => ({ create: test.vi.fn(), export: test.vi.fn() }));
 
-const createUrl = vi.fn(() => 'blob:exact-image');
+const createUrl = test.vi.fn(() => 'blob:exact-image');
 
-const revokeUrl = vi.fn();
+const revokeUrl = test.vi.fn();
 
-beforeEach(() => {
-  vi.resetAllMocks();
+test.beforeEach(() => {
+  test.vi.resetAllMocks();
   const NativeURL = URL;
 
-  vi.stubGlobal(
+  test.vi.stubGlobal(
     'URL',
     class extends NativeURL {
       static createObjectURL = createUrl;
@@ -34,13 +30,13 @@ beforeEach(() => {
   );
   createUrl.mockReturnValue('blob:exact-image');
 });
-afterEach(() => {
-  cleanup();
-  vi.unstubAllGlobals();
+test.afterEach(() => {
+  test.cleanup();
+  test.vi.unstubAllGlobals();
 });
 
 function mount(document = blankDocument()) {
-  const fixture = rpcTestTransport(async (tag, input) => {
+  const fixture = test.rpcTestTransport(async (tag, input) => {
     if (tag === 'sources.createSource') return rpc.create(input);
 
     if (tag === 'sources.exportRevision') return rpc.export(input);
@@ -61,7 +57,7 @@ function mount(document = blankDocument()) {
     return <>{latest.subscriptions}</>;
   }
 
-  const view = render(<Probe />, { wrapper: fixture.wrapper });
+  const view = test.render(<Probe />, { wrapper: fixture.wrapper });
 
   return {
     ...view,
@@ -84,7 +80,7 @@ function file(name: string, type: string, bytes: Uint8Array) {
   return value;
 }
 
-testStable(
+test.stable(
   'retains uploaded image bytes in the document subject before returning a canonical reference',
   async () => {
     rpc.create.mockResolvedValue({
@@ -98,28 +94,30 @@ testStable(
     const image = file('diagram.png', 'image/png', bytes);
     const reference = await view.result.current.upload(image);
 
-    expect(rpc.create).toHaveBeenCalledExactlyOnceWith({
+    test.expect(rpc.create).toHaveBeenCalledExactlyOnceWith({
       name: 'diagram.png',
       bytes,
       projectId: projectIdSchema.make(5n)
     });
-    expect(reference).toEqual({ sourceId: '17', revision: 1, alt: 'diagram.png' });
-    expect(reference).not.toHaveProperty('src');
+    test.expect(reference).toEqual({ sourceId: '17', revision: 1, alt: 'diagram.png' });
+    test.expect(reference).not.toHaveProperty('src');
   }
 );
 
-testStable('rejects non-image files before creating a source', async () => {
+test.stable('rejects non-image files before creating a source', async () => {
   const view = mount();
 
-  await expect(
-    view.result.current.upload(
-      file('note.txt', 'text/plain', new TextEncoder().encode('Not an image'))
+  await test
+    .expect(
+      view.result.current.upload(
+        file('note.txt', 'text/plain', new TextEncoder().encode('Not an image'))
+      )
     )
-  ).rejects.toMatchObject({ kind: 'invalid_input' });
-  expect(rpc.create).not.toHaveBeenCalled();
+    .rejects.toMatchObject({ kind: 'invalid_input' });
+  test.expect(rpc.create).not.toHaveBeenCalled();
 });
 
-testStable(
+test.stable(
   'resolves the exact revision and revokes its preview after availability fails',
   async () => {
     const sourceId = sourceIdSchema.make(17n);
@@ -137,14 +135,16 @@ testStable(
     };
     const view = mount(document);
 
-    await waitFor(() => expect(view.result.current.urls['17:1']).toBe('blob:exact-image'));
-    expect(rpc.export).toHaveBeenCalledWith({ sourceId, revision: 1n });
+    await test.waitFor(() =>
+      test.expect(view.result.current.urls['17:1']).toBe('blob:exact-image')
+    );
+    test.expect(rpc.export).toHaveBeenCalledWith({ sourceId, revision: 1n });
     rpc.export.mockRejectedValue(new Error('Unavailable revision'));
-    await act(async () => {
+    await test.act(async () => {
       await view.notify();
     });
-    await waitFor(() => expect(view.result.current.urls['17:1']).toBeUndefined());
-    expect(revokeUrl).toHaveBeenCalledWith('blob:exact-image');
-    expect(view.result.current.error).toBeDefined();
+    await test.waitFor(() => test.expect(view.result.current.urls['17:1']).toBeUndefined());
+    test.expect(revokeUrl).toHaveBeenCalledWith('blob:exact-image');
+    test.expect(view.result.current.error).toBeDefined();
   }
 );

@@ -1,14 +1,13 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
-import { afterEach, expect, vi } from 'vite-plus/test';
 
 import { copyEditorSelection } from './structured-editor-clipboard';
 
 const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
 
-afterEach(() => {
-  vi.unstubAllGlobals();
+test.afterEach(() => {
+  test.vi.unstubAllGlobals();
 
   if (originalClipboard) Object.defineProperty(navigator, 'clipboard', originalClipboard);
   else Reflect.deleteProperty(navigator, 'clipboard');
@@ -16,10 +15,10 @@ afterEach(() => {
 
 function clipboard(writeText: (text: string) => Promise<void>) {
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
-  vi.stubGlobal('ClipboardItem', undefined);
+  test.vi.stubGlobal('ClipboardItem', undefined);
 }
 
-testStable(
+test.stable(
   'cuts only after the clipboard accepts the selected content and keeps native undo',
   async () => {
     const editor = new Editor({ extensions: [StarterKit], content: '<p>Selected neighbor</p>' });
@@ -29,16 +28,16 @@ testStable(
     try {
       editor.commands.setTextSelection({ from: 1, to: 9 });
       await copyEditorSelection(editor, true);
-      expect(editor.getText()).toBe(' neighbor');
+      test.expect(editor.getText()).toBe(' neighbor');
       editor.commands.undo();
-      expect(editor.getText()).toBe('Selected neighbor');
+      test.expect(editor.getText()).toBe('Selected neighbor');
     } finally {
       editor.destroy();
     }
   }
 );
 
-testStable('retains selected content when clipboard permission is denied', async () => {
+test.stable('retains selected content when clipboard permission is denied', async () => {
   const editor = new Editor({ extensions: [StarterKit], content: '<p>Keep this text</p>' });
 
   clipboard(async () => {
@@ -47,14 +46,14 @@ testStable('retains selected content when clipboard permission is denied', async
 
   try {
     editor.commands.selectAll();
-    await expect(copyEditorSelection(editor, true)).rejects.toThrow();
-    expect(editor.getText()).toBe('Keep this text');
+    await test.expect(copyEditorSelection(editor, true)).rejects.toThrow();
+    test.expect(editor.getText()).toBe('Keep this text');
   } finally {
     editor.destroy();
   }
 });
 
-testStable(
+test.stable(
   'keeps content when editing is disabled while clipboard permission is pending',
   async () => {
     const editor = new Editor({ extensions: [StarterKit], content: '<p>Keep this text</p>' });
@@ -74,7 +73,7 @@ testStable(
       editor.setEditable(false);
       accept();
       await cutting;
-      expect(editor.getText()).toBe('Keep this text');
+      test.expect(editor.getText()).toBe('Keep this text');
     } finally {
       editor.destroy();
     }

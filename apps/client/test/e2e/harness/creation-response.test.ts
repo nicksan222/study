@@ -1,12 +1,9 @@
 import { projectIdSchema, StudyRpc } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
 import { makeStudyClient } from '@study/server/client';
-import { App, serve } from '@study/server/runtime';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { studyRpcProxy } from '@study/tooling/development/rpc-proxy';
 import { Effect, Exit, Schema } from 'effect';
 import { createServer } from 'vite-plus';
-import { assert, expect, onTestFinished } from 'vite-plus/test';
 
 import { CreationFrames, creationResponse } from './creation-response.ts';
 
@@ -28,7 +25,7 @@ const note = {
 const success = (requestId: string | number = '42') =>
   bytes({ _tag: 'Exit', requestId, exit: { _tag: 'Success', value: note } });
 
-testStable(
+test.stable(
   'creation proof requires the exact operation and request id, never reads or uploads',
   () => {
     for (const tag of [
@@ -40,15 +37,15 @@ testStable(
       const frames = new CreationFrames();
 
       frames.request(request(tag));
-      assert.strictEqual(frames.response(success()), undefined);
+      test.assert.strictEqual(frames.response(success()), undefined);
     }
 
     const frames = new CreationFrames();
 
     frames.request(request('notes.createUntitledNote'));
-    assert.strictEqual(frames.response(success('different')), undefined);
-    assert.strictEqual(frames.response(success(42)), undefined);
-    assert.strictEqual(
+    test.assert.strictEqual(frames.response(success('different')), undefined);
+    test.assert.strictEqual(frames.response(success(42)), undefined);
+    test.assert.strictEqual(
       frames.response(
         bytes({
           _tag: 'Exit',
@@ -58,15 +55,15 @@ testStable(
       ),
       undefined
     );
-    assert.strictEqual(
+    test.assert.strictEqual(
       frames.response(bytes({ _tag: 'Chunk', requestId: '42', values: [note] })),
       undefined
     );
-    assert.strictEqual(frames.response(success())?.note.id, 7n);
+    test.assert.strictEqual(frames.response(success())?.note.id, 7n);
   }
 );
 
-testStable(
+test.stable(
   'every byte split, including UTF-8 and the final newline, preserves complete Exit framing',
   () => {
     const encoded = success();
@@ -77,23 +74,23 @@ testStable(
 
       for (const byte of encodedRequest) frames.request(Buffer.from([byte]));
 
-      assert.strictEqual(frames.response(encoded.subarray(0, split)), undefined);
-      assert.strictEqual(frames.response(encoded.subarray(split))?.note.title, note.title);
+      test.assert.strictEqual(frames.response(encoded.subarray(0, split)), undefined);
+      test.assert.strictEqual(frames.response(encoded.subarray(split))?.note.title, note.title);
     }
   }
 );
 
-testStable('unarmed teardown rejects waiters and repeated arming is forbidden', async () => {
+test.stable('unarmed teardown rejects waiters and repeated arming is forbidden', async () => {
   const fault = creationResponse();
   const loss = fault.arm();
 
-  assert.throws(() => fault.arm());
+  test.assert.throws(() => fault.arm());
   await fault.close();
-  await expect(loss.held).rejects.toBeDefined();
+  await test.expect(loss.held).rejects.toBeDefined();
   await fault.close();
 });
 
-testStable('owner teardown terminates a creation response that arrives later', async () => {
+test.stable('owner teardown terminates a creation response that arrives later', async () => {
   const entered = Promise.withResolvers<void>();
   const respond = Promise.withResolvers<void>();
   const upstream = Bun.serve({
@@ -124,7 +121,7 @@ testStable('owner teardown terminates a creation response that arrives later', a
     await web.listen();
     const address = web.httpServer?.address();
 
-    assert.ok(address && typeof address !== 'string');
+    test.assert.ok(address && typeof address !== 'string');
     const signal = AbortSignal.timeout(5000);
     const pending = fetch(`http://127.0.0.1:${address.port}/rpc`, {
       method: 'POST',
@@ -140,12 +137,12 @@ testStable('owner teardown terminates a creation response that arrives later', a
 
     await entered.promise;
     await fault.close();
-    await expect(loss.held).rejects.toThrow('Creation response owner closed before commit');
+    await test.expect(loss.held).rejects.toThrow('Creation response owner closed before commit');
     respond.resolve();
     const body = await pending.then((response) => response.text()).catch(() => null);
 
-    assert.ok(body === null || body === '', 'closed exchange must not deliver its receipt');
-    assert.strictEqual(
+    test.assert.ok(body === null || body === '', 'closed exchange must not deliver its receipt');
+    test.assert.strictEqual(
       signal.aborted,
       false,
       'owner teardown must close before the safety timeout'
@@ -164,24 +161,18 @@ for (const cleanup of [
   'owner disposal',
   'failed Exit'
 ] as const) {
-  testStable(
+  test.stable(
     `real committed creation loses only its receipt and drains on ${cleanup}`,
     async () => {
       let pending: Promise<Exit.Exit<unknown, unknown>> | undefined;
       let failed = false;
       const run = (async () => {
-        await using resources = new AsyncDisposableStack();
+        await using resources = test.createTestResources();
 
-        onTestFinished(() => resources.disposeAsync());
-        const database = await createTestDatabase();
+        test.onTestFinished(() => resources.close());
+        const fixture = await resources.acquire(test.createServerFixture);
+        const { server } = await fixture.openRpc();
 
-        resources.defer(() => database.cleanup());
-        const app = await App.open({ path: await database.prepare() });
-
-        resources.defer(() => app.close());
-        const server = await serve(app);
-
-        resources.defer(() => server.close());
         const fault = creationResponse();
         const proxy = studyRpcProxy(server.url);
 
@@ -200,7 +191,7 @@ for (const cleanup of [
         await web.listen();
         const address = web.httpServer?.address();
 
-        assert.ok(address && typeof address !== 'string');
+        test.assert.ok(address && typeof address !== 'string');
         const baseUrl = `http://127.0.0.1:${address.port}`;
         const loss = fault.arm();
         const load = (url: string) =>
@@ -215,7 +206,7 @@ for (const cleanup of [
           );
         const before = await load(baseUrl);
 
-        assert.strictEqual(before.items.length, 0);
+        test.assert.strictEqual(before.items.length, 0);
         pending = Effect.runPromise(
           Effect.scoped(
             Effect.gen(function* () {
@@ -237,20 +228,20 @@ for (const cleanup of [
         });
 
         if (cleanup === 'failed Exit') {
-          assert.ok(Exit.isFailure(await pending));
-          await expect(loss.held).rejects.toBeDefined();
-          assert.strictEqual((await load(baseUrl)).items.length, 0);
+          test.assert.ok(Exit.isFailure(await pending));
+          await test.expect(loss.held).rejects.toBeDefined();
+          test.assert.strictEqual((await load(baseUrl)).items.length, 0);
 
           return;
         }
 
         const receipt = await loss.held;
 
-        assert.strictEqual(failed, false, 'receipt must still be withheld');
+        test.assert.strictEqual(failed, false, 'receipt must still be withheld');
         const committed = await load(server.url);
 
-        assert.strictEqual(committed.items.length, 1);
-        assert.strictEqual(committed.items[0]?.id, receipt.note.id);
+        test.assert.strictEqual(committed.items.length, 1);
+        test.assert.strictEqual(committed.items[0]?.id, receipt.note.id);
         const thread = await Effect.runPromise(
           Effect.scoped(
             Effect.gen(function* () {
@@ -261,21 +252,21 @@ for (const cleanup of [
           )
         );
 
-        assert.strictEqual(thread.items.length, 1);
+        test.assert.strictEqual(thread.items.length, 1);
         const message = thread.items[0]!;
 
-        assert.strictEqual(
+        test.assert.strictEqual(
           message.versions.find((v) => v.id === message.activeVersionId)?.text,
           'Exact committed draft'
         );
-        assert.deepStrictEqual(
+        test.assert.deepStrictEqual(
           await load(baseUrl),
           committed,
           'unrelated responses forward faithfully while held'
         );
 
         if (cleanup === 'owner disposal') {
-          await resources.disposeAsync();
+          await resources.close();
 
           return;
         }
@@ -283,7 +274,7 @@ for (const cleanup of [
         if (cleanup === 'journey failure') throw new Error('Deliberate journey failure');
 
         await loss.drop();
-        assert.ok(Exit.isFailure(await pending!));
+        test.assert.ok(Exit.isFailure(await pending!));
         // The one-shot fault is consumed: a later real creation must reply normally.
         await Effect.runPromise(
           Effect.scoped(
@@ -291,18 +282,18 @@ for (const cleanup of [
               const client = yield* makeStudyClient(StudyRpc, { baseUrl });
               const second = yield* client['notes.createUntitledNote']({});
 
-              assert.notStrictEqual(second.id, receipt.note.id);
+              test.assert.notStrictEqual(second.id, receipt.note.id);
             })
           )
         );
-        assert.strictEqual((await load(baseUrl)).items.length, 2);
+        test.assert.strictEqual((await load(baseUrl)).items.length, 2);
       })();
 
       if (cleanup === 'journey failure')
-        await expect(run).rejects.toThrow('Deliberate journey failure');
+        await test.expect(run).rejects.toThrow('Deliberate journey failure');
       else await run;
 
-      assert.strictEqual(failed, true, 'cleanup must await termination of the held exchange');
+      test.assert.strictEqual(failed, true, 'cleanup must await termination of the held exchange');
     }
   );
 }

@@ -1,3 +1,4 @@
+import { sourceIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies the native Node RPC listener reaches source SQLite transactions,          │
@@ -14,14 +15,10 @@
  * │ fixture cleanup closes owned resources.                                                  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sourceIdSchema } from '@study/contracts';
 import { SourcesRpc } from '@study/contracts';
 import { workflowEvents } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Option, Schema } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { SourcesRpcLive } from '#server/features/sources/rpc/index';
@@ -31,10 +28,10 @@ import { Database } from '#server/platform/database/database';
 import { serveRpc } from '#server/platform/rpc/bun';
 import { testLiveQueries } from '#testing/live-queries';
 
-testStable(
+test.stable(
   'native scoped HTTP RPC reaches Source SQLite transactions and closes its listener',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const handlers = SourcesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
       Layer.provide(Sources.layer),
@@ -52,21 +49,21 @@ testStable(
             const client = yield* makeStudyClient(SourcesRpc, { baseUrl: url });
             const missing = Schema.decodeUnknownSync(sourceIdSchema)(9223372036854775807n);
 
-            assert.ok(Option.isNone(yield* client['sources.findSource']({ id: missing })));
+            test.assert.ok(Option.isNone(yield* client['sources.findSource']({ id: missing })));
             const absent = yield* Effect.flip(client['sources.source']({ id: missing }));
 
-            assert.ok('kind' in absent);
-            assert.ok(absent.kind === 'not_found');
+            test.assert.ok('kind' in absent);
+            test.assert.ok(absent.kind === 'not_found');
             const created = yield* client['sources.createSource']({
               name: 'notes.txt',
               bytes: new TextEncoder().encode('Study notes'),
               projectId: null
             });
 
-            assert.ok(typeof created.id === 'bigint');
-            assert.ok(created.sha256 instanceof Uint8Array);
-            assert.strictEqual(created.sha256.length, 32);
-            expect(yield* client['sources.source']({ id: created.id })).toStrictEqual(created);
+            test.assert.ok(typeof created.id === 'bigint');
+            test.assert.ok(created.sha256 instanceof Uint8Array);
+            test.assert.strictEqual(created.sha256.length, 32);
+            test.expect(yield* client['sources.source']({ id: created.id })).toStrictEqual(created);
             const state = yield* client['sources.sourceProcessing']({ id: created.id });
             const stale = yield* Effect.flip(
               client['sources.requestSourceProcessing']({
@@ -75,16 +72,16 @@ testStable(
               })
             );
 
-            assert.ok('kind' in stale);
-            assert.ok(stale.kind === 'invalid_input');
-            assert.strictEqual(context.db.orm.select().from(workflowEvents).all().length, 1);
+            test.assert.ok('kind' in stale);
+            test.assert.ok(stale.kind === 'invalid_input');
+            test.assert.strictEqual(context.db.orm.select().from(workflowEvents).all().length, 1);
             const renewed = yield* client['sources.requestSourceProcessing']({
               id: created.id,
               expectedRevision: state.revision
             });
 
-            assert.notStrictEqual(renewed.requestId, state.requestId);
-            assert.strictEqual(context.db.orm.select().from(workflowEvents).all().length, 2);
+            test.assert.notStrictEqual(renewed.requestId, state.requestId);
+            test.assert.strictEqual(context.db.orm.select().from(workflowEvents).all().length, 2);
             const response = yield* Effect.promise(() =>
               fetch(`${url}/rpc`, {
                 method: 'POST',
@@ -92,12 +89,12 @@ testStable(
               })
             );
 
-            assert.strictEqual(response.status, 403);
+            test.assert.strictEqual(response.status, 403);
           })
         )
       );
 
-      await expect(fetch(`${url}/rpc`)).rejects.toSatisfy(() => true);
+      await test.expect(fetch(`${url}/rpc`)).rejects.toSatisfy(() => true);
     } finally {
       context.close();
       await location.cleanup();

@@ -3,15 +3,10 @@ import { projectIdSchema } from '@study/contracts';
 import { materialGenerationSnapshotSchema } from '@study/contracts';
 import { executionIdSchema } from '@study/contracts';
 import type { executionSchema } from '@study/contracts';
+import type { StudyClient } from '@study/contracts/react/testing';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { expect, vi } from 'vite-plus/test';
-
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
-import type { StudyClient } from '#client/test/rpc.tsx';
 
 import { PracticeSidebarGenerations } from './sidebar-generations';
 
@@ -34,20 +29,22 @@ function mount(fail = false, failed = false) {
   const current = failed ? { ...generation, errorKind: 'invalid_input' as const } : generation;
   let executions: readonly (typeof executionSchema.Type)[] = [];
   let active = true;
-  const stop = vi.fn<StudyClient['materials.cancelMaterialGeneration']>().mockImplementation(() => {
-    if (fail) return Effect.fail(new StudyError('transient', 'Offline'));
+  const stop = test.vi
+    .fn<StudyClient['materials.cancelMaterialGeneration']>()
+    .mockImplementation(() => {
+      if (fail) return Effect.fail(new StudyError('transient', 'Offline'));
 
-    active = false;
+      active = false;
 
-    return Effect.succeed({ ...generation, cancelled: true });
-  });
-  const list = vi
+      return Effect.succeed({ ...generation, cancelled: true });
+    });
+  const list = test.vi
     .fn<StudyClient['materials.activeMaterialGenerations']>()
     .mockImplementation(() => Effect.succeed(active ? [current] : []));
-  const retry = vi
+  const retry = test.vi
     .fn<StudyClient['materials.retryMaterialGeneration']>()
     .mockImplementation(() => Effect.succeed(current));
-  const runs = vi
+  const runs = test.vi
     .fn<StudyClient['workflows.executions']>()
     .mockImplementation(() => Effect.succeed({ items: executions, next: null }));
   const rpc = {
@@ -58,9 +55,9 @@ function mount(fail = false, failed = false) {
     'materials.cancelMaterialGeneration': stop
   };
 
-  const fixture = rpcHandlersTransport(rpc);
+  const fixture = test.rpcHandlersTransport(rpc);
 
-  const mounted = render(
+  const mounted = test.render(
     <PracticeSidebarGenerations project={project} subjects={[]} query="" enabled />,
     {
       wrapper: fixture.wrapper
@@ -80,101 +77,105 @@ function mount(fail = false, failed = false) {
   };
 }
 
-testStable('recovers a running request and stops it from its sidebar card', async () => {
-  const user = userEvent.setup();
+test.stable('recovers a running request and stops it from its sidebar card', async () => {
+  const user = test.userEvent.setup();
   const { stop, list } = mount();
 
-  expect(await screen.findByText(generation.title)).toBeVisible();
-  expect(list).toHaveBeenCalledWith({ projectId: project });
-  await user.click(screen.getByRole('button', { name: 'Stop generating Cell division quiz' }));
-  await waitFor(() => expect(stop).toHaveBeenCalledWith({ requestId: generation.id }));
-  await waitFor(() => expect(screen.queryByText(generation.title)).not.toBeInTheDocument());
+  test.expect(await test.screen.findByText(generation.title)).toBeVisible();
+  test.expect(list).toHaveBeenCalledWith({ projectId: project });
+  await user.click(test.screen.getByRole('button', { name: 'Stop generating Cell division quiz' }));
+  await test.waitFor(() => test.expect(stop).toHaveBeenCalledWith({ requestId: generation.id }));
+  await test.waitFor(() =>
+    test.expect(test.screen.queryByText(generation.title)).not.toBeInTheDocument()
+  );
 });
 
-testStable(
+test.stable(
   'keeps a failed stop visible and offers the stop again in its context menu',
   async () => {
-    const user = userEvent.setup();
+    const user = test.userEvent.setup();
 
     mount(true);
     await user.click(
-      await screen.findByRole('button', { name: 'Stop generating Cell division quiz' })
+      await test.screen.findByRole('button', { name: 'Stop generating Cell division quiz' })
     );
-    expect(
-      await screen.findByRole('status', { name: en.PracticeGenerationStopStatus })
-    ).toBeVisible();
-    expect(screen.getByText(generation.title)).toBeVisible();
-    await user.pointer({ target: screen.getByText(generation.title), keys: '[MouseRight]' });
-    expect(
-      await screen.findByRole('menuitem', { name: en.PracticeGenerationStopAction })
-    ).toBeEnabled();
+    test
+      .expect(await test.screen.findByRole('status', { name: en.PracticeGenerationStopStatus }))
+      .toBeVisible();
+    test.expect(test.screen.getByText(generation.title)).toBeVisible();
+    await user.pointer({ target: test.screen.getByText(generation.title), keys: '[MouseRight]' });
+    test
+      .expect(await test.screen.findByRole('menuitem', { name: en.PracticeGenerationStopAction }))
+      .toBeEnabled();
   }
 );
 
-testStable('replaces a failed stop with the current retry status', async () => {
-  const user = userEvent.setup();
+test.stable('replaces a failed stop with the current retry status', async () => {
+  const user = test.userEvent.setup();
 
   mount(true, true);
 
   await user.click(
-    await screen.findByRole('button', { name: 'Stop generating Cell division quiz' })
+    await test.screen.findByRole('button', { name: 'Stop generating Cell division quiz' })
   );
-  await screen.findByRole('status', { name: en.PracticeGenerationStopStatus });
-  await user.click(screen.getByRole('button', { name: en.Retry }));
+  await test.screen.findByRole('status', { name: en.PracticeGenerationStopStatus });
+  await user.click(test.screen.getByRole('button', { name: en.Retry }));
 
-  expect(await screen.findByRole('status', { name: en.PracticeGenerationRetrying })).toBeVisible();
-  expect(
-    screen.queryByRole('status', { name: en.PracticeGenerationStopStatus })
-  ).not.toBeInTheDocument();
+  test
+    .expect(await test.screen.findByRole('status', { name: en.PracticeGenerationRetrying }))
+    .toBeVisible();
+  test
+    .expect(test.screen.queryByRole('status', { name: en.PracticeGenerationStopStatus }))
+    .not.toBeInTheDocument();
 });
 
-testStable(
+test.stable(
   'retains failed work with recovery actions and keeps history out of the sidebar',
   async () => {
     mount(false, true);
-    expect(await screen.findByText(generation.title)).toBeVisible();
-    expect(
-      await screen.findByRole('status', { name: en.PracticeGenerationFailedStatus })
-    ).toBeVisible();
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    test.expect(await test.screen.findByText(generation.title)).toBeVisible();
+    test
+      .expect(await test.screen.findByRole('status', { name: en.PracticeGenerationFailedStatus }))
+      .toBeVisible();
+    test.expect(test.screen.queryByRole('alert')).not.toBeInTheDocument();
 
-    expect(screen.getByRole('button', { name: en.Retry })).toBeEnabled();
-    expect(
-      screen.getByRole('button', { name: 'Stop generating Cell division quiz' })
-    ).toBeEnabled();
-    expect(screen.queryByLabelText(en.AgentActivitySteps)).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('status', { name: en.PracticeGenerationRunning })
-    ).not.toBeInTheDocument();
+    test.expect(test.screen.getByRole('button', { name: en.Retry })).toBeEnabled();
+    test
+      .expect(test.screen.getByRole('button', { name: 'Stop generating Cell division quiz' }))
+      .toBeEnabled();
+    test.expect(test.screen.queryByLabelText(en.AgentActivitySteps)).not.toBeInTheDocument();
+    test
+      .expect(test.screen.queryByRole('status', { name: en.PracticeGenerationRunning }))
+      .not.toBeInTheDocument();
   }
 );
 
-testStable(
+test.stable(
   'reuses an uncertain retry identity and waits for that exact admitted attempt',
   async () => {
-    const user = userEvent.setup();
+    const user = test.userEvent.setup();
     const fixture = mount(false, true);
 
     fixture.retry.mockImplementationOnce(() =>
       Effect.fail(new StudyError('transient', 'Lost receipt'))
     );
-    await user.click(await screen.findByRole('button', { name: en.Retry }));
-    expect(
-      await screen.findByRole('status', { name: en.PracticeGenerationRetryStatus })
-    ).toBeVisible();
+    await user.click(await test.screen.findByRole('button', { name: en.Retry }));
+    test
+      .expect(await test.screen.findByRole('status', { name: en.PracticeGenerationRetryStatus }))
+      .toBeVisible();
     const first = fixture.retry.mock.calls[0]![0];
 
-    await waitFor(() =>
-      expect(fixture.runs).toHaveBeenCalledWith({
+    await test.waitFor(() =>
+      test.expect(fixture.runs).toHaveBeenCalledWith({
         correlationId: generation.id,
         eventId: first.retryId,
         limit: 30
       })
     );
-    await user.click(screen.getByRole('button', { name: en.Retry }));
-    await waitFor(() => expect(fixture.retry).toHaveBeenCalledTimes(2));
-    expect(fixture.retry.mock.calls[1]![0]).toEqual(first);
-    expect(screen.queryByRole('button', { name: en.Retry })).not.toBeInTheDocument();
+    await user.click(test.screen.getByRole('button', { name: en.Retry }));
+    await test.waitFor(() => test.expect(fixture.retry).toHaveBeenCalledTimes(2));
+    test.expect(fixture.retry.mock.calls[1]![0]).toEqual(first);
+    test.expect(test.screen.queryByRole('button', { name: en.Retry })).not.toBeInTheDocument();
     fixture.setExecutions([
       {
         id: executionIdSchema.make('retry-run'),
@@ -190,24 +191,26 @@ testStable(
       }
     ]);
     await fixture.notify();
-    await waitFor(() => expect(screen.getByRole('button', { name: en.Retry })).toBeEnabled());
-    await user.click(screen.getByRole('button', { name: en.Retry }));
-    await waitFor(() => expect(fixture.retry).toHaveBeenCalledTimes(3));
-    expect(fixture.retry.mock.calls[2]![0].retryId).not.toBe(first.retryId);
+    await test.waitFor(() =>
+      test.expect(test.screen.getByRole('button', { name: en.Retry })).toBeEnabled()
+    );
+    await user.click(test.screen.getByRole('button', { name: en.Retry }));
+    await test.waitFor(() => test.expect(fixture.retry).toHaveBeenCalledTimes(3));
+    test.expect(fixture.retry.mock.calls[2]![0].retryId).not.toBe(first.retryId);
   }
 );
 
-testStable(
+test.stable(
   'recovers a lost retry receipt after remount without creating another attempt',
   async () => {
-    const user = userEvent.setup();
+    const user = test.userEvent.setup();
     const fixture = mount(false, true);
 
     fixture.retry.mockImplementationOnce(() =>
       Effect.fail(new StudyError('transient', 'Lost receipt'))
     );
-    await user.click(await screen.findByRole('button', { name: en.Retry }));
-    await screen.findByRole('status', { name: en.PracticeGenerationRetryStatus });
+    await user.click(await test.screen.findByRole('button', { name: en.Retry }));
+    await test.screen.findByRole('status', { name: en.PracticeGenerationRetryStatus });
     const first = fixture.retry.mock.calls[0]![0];
 
     fixture.mounted.rerender(<></>);
@@ -229,27 +232,27 @@ testStable(
       <PracticeSidebarGenerations project={project} subjects={[]} query="" enabled />
     );
     await fixture.notify();
-    await screen.findByRole('status', { name: en.PracticeGenerationRetrying });
-    expect(screen.queryByRole('button', { name: en.Retry })).not.toBeInTheDocument();
-    expect(fixture.runs).toHaveBeenCalledWith({
+    await test.screen.findByRole('status', { name: en.PracticeGenerationRetrying });
+    test.expect(test.screen.queryByRole('button', { name: en.Retry })).not.toBeInTheDocument();
+    test.expect(fixture.runs).toHaveBeenCalledWith({
       correlationId: generation.id,
       eventId: first.retryId,
       limit: 30
     });
-    expect(fixture.retry).toHaveBeenCalledTimes(1);
+    test.expect(fixture.retry).toHaveBeenCalledTimes(1);
   }
 );
 
-testStable(
+test.stable(
   'preserves a newer uncertain retry when an older receipt arrives after remount',
   async () => {
-    const user = userEvent.setup();
+    const user = test.userEvent.setup();
     const fixture = mount(false, true);
     const receipt = Promise.withResolvers<typeof generation>();
 
     fixture.retry.mockImplementationOnce(() => Effect.promise(() => receipt.promise));
-    await user.click(await screen.findByRole('button', { name: en.Retry }));
-    await waitFor(() => expect(fixture.retry).toHaveBeenCalledTimes(1));
+    await user.click(await test.screen.findByRole('button', { name: en.Retry }));
+    await test.waitFor(() => test.expect(fixture.retry).toHaveBeenCalledTimes(1));
     const first = fixture.retry.mock.calls[0]![0];
 
     fixture.runs.mockImplementation(({ eventId }) =>
@@ -282,34 +285,36 @@ testStable(
     fixture.retry.mockImplementationOnce(() =>
       Effect.fail(new StudyError('transient', 'Lost newer receipt'))
     );
-    await user.click(await screen.findByRole('button', { name: en.Retry }));
-    await screen.findByRole('status', { name: en.PracticeGenerationRetryStatus });
+    await user.click(await test.screen.findByRole('button', { name: en.Retry }));
+    await test.screen.findByRole('status', { name: en.PracticeGenerationRetryStatus });
     const second = fixture.retry.mock.calls[1]![0];
 
-    expect(second.retryId).not.toBe(first.retryId);
-    await act(async () => {
+    test.expect(second.retryId).not.toBe(first.retryId);
+    await test.act(async () => {
       receipt.resolve(generation);
       await receipt.promise;
     });
-    await user.click(await screen.findByRole('button', { name: en.Retry }));
-    await waitFor(() => expect(fixture.retry).toHaveBeenCalledTimes(3));
-    expect(fixture.retry.mock.calls[2]![0]).toEqual(second);
+    await user.click(await test.screen.findByRole('button', { name: en.Retry }));
+    await test.waitFor(() => test.expect(fixture.retry).toHaveBeenCalledTimes(3));
+    test.expect(fixture.retry.mock.calls[2]![0]).toEqual(second);
   }
 );
 
-testStable('opens work details on demand from the current status context menu', async () => {
-  const user = userEvent.setup();
+test.stable('opens work details on demand from the current status context menu', async () => {
+  const user = test.userEvent.setup();
 
   mount();
-  const status = await screen.findByRole('status', { name: en.PracticeGenerationRunning });
+  const status = await test.screen.findByRole('status', { name: en.PracticeGenerationRunning });
 
-  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  test.expect(test.screen.queryByRole('dialog')).not.toBeInTheDocument();
   await user.pointer({ target: status, keys: '[MouseRight]' });
-  await user.click(await screen.findByRole('menuitem', { name: en.AgentActivityDetails }));
-  const dialog = await screen.findByRole('dialog', { name: en.AgentActivityDetails });
+  await user.click(await test.screen.findByRole('menuitem', { name: en.AgentActivityDetails }));
+  const dialog = await test.screen.findByRole('dialog', { name: en.AgentActivityDetails });
 
-  expect(within(dialog).getByText(en.AgentActivityWaiting)).toBeVisible();
-  await user.click(within(dialog).getByRole('button', { name: en.Close }));
-  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-  expect(screen.getByRole('status', { name: en.PracticeGenerationRunning })).toBeVisible();
+  test.expect(test.within(dialog).getByText(en.AgentActivityWaiting)).toBeVisible();
+  await user.click(test.within(dialog).getByRole('button', { name: en.Close }));
+  await test.waitFor(() => test.expect(test.screen.queryByRole('dialog')).not.toBeInTheDocument());
+  test
+    .expect(test.screen.getByRole('status', { name: en.PracticeGenerationRunning }))
+    .toBeVisible();
 });

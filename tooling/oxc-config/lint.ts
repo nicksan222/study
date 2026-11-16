@@ -18,6 +18,17 @@ const declarations = [
   { selector: 'Program > VariableDeclaration' }
 ];
 
+const classifiedTestBlocks = [
+  'test.stable',
+  'test.stable.extend',
+  'test.stable.each',
+  'test.stable.for',
+  'test.stable.concurrent',
+  'test.regression',
+  'test.migration',
+  'test.characterization'
+];
+
 export const lint = {
   plugins: [
     'eslint',
@@ -198,18 +209,7 @@ export const lint = {
     'vitest/padding-around-test-blocks': 'error',
     'vitest/no-standalone-expect': [
       'error',
-      {
-        additionalTestBlockFunctions: [
-          'testStable',
-          'testE2e',
-          'testHarness',
-          'testStable.each',
-          'testStable.for',
-          'testRegression',
-          'testMigration',
-          'testCharacterization'
-        ]
-      }
+      { additionalTestBlockFunctions: classifiedTestBlocks }
     ],
     'vitest/valid-expect': ['error', { maxArgs: 2 }],
     'vitest/no-focused-tests': 'error',
@@ -224,10 +224,25 @@ export const lint = {
     'vitest/require-to-throw-message': 'off',
     // Ref-backed shared controls need a separate React Compiler compatibility audit.
     'react/refs': 'off',
-    // Oxlint does not recognize classified registrations such as testStable for this rule.
+    // Oxlint does not recognize classified registrations such as test.stable for this rule.
     'vitest/no-conditional-expect': 'off'
   },
   overrides: [
+    {
+      files: ['**/packages/testing/test/vitest.test.ts'],
+      rules: {
+        'vitest/no-standalone-expect': [
+          'error',
+          {
+            additionalTestBlockFunctions: [
+              ...classifiedTestBlocks,
+              'prepared.stable',
+              'prepared.regression'
+            ]
+          }
+        ]
+      }
+    },
     {
       files: ['**/apps/server/**/*.{ts,tsx}'],
       rules: {

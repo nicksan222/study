@@ -1,37 +1,32 @@
 import { defaultWorkspacePreferences } from '@study/contracts';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import type { ReactNode } from 'react';
-import { expect, vi } from 'vite-plus/test';
 
-import { renderInRouter } from '#client/test/render-in-router.tsx';
-import { rpcTestTransport } from '#client/test/rpc.tsx';
 import { sidebarModel } from '#client/test/sidebar-model.ts';
 
 import { SidebarView } from './sidebar.view';
 
 function renderSidebar(children: ReactNode) {
-  const fixture = rpcTestTransport(async () => defaultWorkspacePreferences);
+  const fixture = test.rpcTestTransport(async () => defaultWorkspacePreferences);
 
-  return renderInRouter(<fixture.wrapper>{children}</fixture.wrapper>);
+  return test.renderInRouter(<fixture.wrapper>{children}</fixture.wrapper>);
 }
 
-vi.mock('./rich-sidebar.queries', () => ({
+test.mock('./rich-sidebar.queries', () => ({
   useSidebarProgress: () => ({
     settings: { data: { settledPageThreshold: 1 } },
     progress: { data: { items: [] } }
   }),
-  useNoteSettlement: () => ({ mutate: vi.fn(), isPending: false })
+  useNoteSettlement: () => ({ mutate: test.vi.fn(), isPending: false })
 }));
 
-testStable(
+test.stable(
   'renders invalid subjects and invokes retry callbacks without fetching data',
   async () => {
-    const user = userEvent.setup();
-    const reloadSubjects = vi.fn();
-    const fetch = vi.spyOn(globalThis, 'fetch');
+    const user = test.userEvent.setup();
+    const reloadSubjects = test.vi.fn();
+    const fetch = test.vi.spyOn(globalThis, 'fetch');
 
     renderSidebar(
       <SidebarView
@@ -42,64 +37,66 @@ testStable(
         collection={null}
       />
     );
-    expect(await screen.findByText(catalogs.english.SubjectNotFound)).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: catalogs.english.SubjectsLoadError }));
-    expect(reloadSubjects).toHaveBeenCalledOnce();
-    expect(fetch).not.toHaveBeenCalled();
+    test.expect(await test.screen.findByText(catalogs.english.SubjectNotFound)).toBeInTheDocument();
+    await user.click(test.screen.getByRole('button', { name: catalogs.english.SubjectsLoadError }));
+    test.expect(reloadSubjects).toHaveBeenCalledOnce();
+    test.expect(fetch).not.toHaveBeenCalled();
   }
 );
 
-testStable('allows creating an unfiled note from an empty note list', async () => {
-  const user = userEvent.setup();
-  const createNote = vi.fn();
+test.stable('allows creating an unfiled note from an empty note list', async () => {
+  const user = test.userEvent.setup();
+  const createNote = test.vi.fn();
 
   renderSidebar(<SidebarView {...sidebarModel()} createNote={createNote} collection={null} />);
-  expect(await screen.findByText(catalogs.english.DashboardNoNotes)).toBeInTheDocument();
-  const create = screen.getByRole('button', { name: catalogs.english.NewNote });
+  test.expect(await test.screen.findByText(catalogs.english.DashboardNoNotes)).toBeInTheDocument();
+  const create = test.screen.getByRole('button', { name: catalogs.english.NewNote });
 
-  expect(create).toBeEnabled();
+  test.expect(create).toBeEnabled();
   await user.click(create);
-  expect(createNote).toHaveBeenCalledOnce();
+  test.expect(createNote).toHaveBeenCalledOnce();
 });
 
-testStable('announces note loading once through the shared indicator', async () => {
+test.stable('announces note loading once through the shared indicator', async () => {
   renderSidebar(<SidebarView {...sidebarModel()} noteState="loading" collection={null} />);
 
-  expect(await screen.findByRole('status')).toHaveTextContent(catalogs.english.LoadingNotes);
-  expect(screen.getAllByRole('status')).toHaveLength(1);
+  test
+    .expect(await test.screen.findByRole('status'))
+    .toHaveTextContent(catalogs.english.LoadingNotes);
+  test.expect(test.screen.getAllByRole('status')).toHaveLength(1);
 });
 
-testStable('shows the shared search indicator while search results are pending', async () => {
+test.stable('shows the shared search indicator while search results are pending', async () => {
   renderSidebar(<SidebarView {...sidebarModel()} query="biology" collection={null} />);
 
-  expect(await screen.findByRole('status')).toHaveTextContent(catalogs.english.Searching);
-  expect(screen.getAllByRole('status')).toHaveLength(1);
+  test.expect(await test.screen.findByRole('status')).toHaveTextContent(catalogs.english.Searching);
+  test.expect(test.screen.getAllByRole('status')).toHaveLength(1);
 });
 
-testStable('shows localized loading in the subject picker', async () => {
+test.stable('shows localized loading in the subject picker', async () => {
   renderSidebar(
     <SidebarView {...sidebarModel()} pickerOpen subjectState="loading" collection={null} />
   );
 
-  expect(await screen.findByText(catalogs.english.LoadingSubjects)).toBeInTheDocument();
+  test.expect(await test.screen.findByText(catalogs.english.LoadingSubjects)).toBeInTheDocument();
 });
 
-testStable(
+test.stable(
   'keeps a saving subject disabled with one loading announcement in the dialog',
   async () => {
     renderSidebar(
       <SidebarView {...sidebarModel()} newSubjectOpen creating name="Biology" collection={null} />
     );
-    const dialog = await screen.findByRole('dialog');
-    const saving = within(dialog).getByRole('button', { name: catalogs.english.Saving });
+    const dialog = await test.screen.findByRole('dialog');
+    const saving = test.within(dialog).getByRole('button', { name: catalogs.english.Saving });
 
-    expect(saving).toBeDisabled();
-    expect(within(dialog).getAllByRole('status')).toHaveLength(1);
-    expect(within(dialog).getByRole('status')).toHaveTextContent(catalogs.english.Saving);
+    test.expect(saving).toBeDisabled();
+    test.expect(test.within(dialog).getAllByRole('status')).toHaveLength(1);
+    test.expect(test.within(dialog).getByRole('status')).toHaveTextContent(catalogs.english.Saving);
   }
 );
 
-testStable('offers page creation instead of note creation in Pages', async () => {
+test.stable('offers page creation instead of note creation in Pages', async () => {
   renderSidebar(
     <SidebarView
       {...sidebarModel()}
@@ -109,13 +106,15 @@ testStable('offers page creation instead of note creation in Pages', async () =>
     />
   );
 
-  expect(
-    await screen.findByRole('button', { name: catalogs.english.NoteCreatePage })
-  ).toBeEnabled();
-  expect(screen.queryByRole('button', { name: catalogs.english.NewNote })).not.toBeInTheDocument();
+  test
+    .expect(await test.screen.findByRole('button', { name: catalogs.english.NoteCreatePage }))
+    .toBeEnabled();
+  test
+    .expect(test.screen.queryByRole('button', { name: catalogs.english.NewNote }))
+    .not.toBeInTheDocument();
 });
 
-testStable('does not offer note creation on unrelated pages', async () => {
+test.stable('does not offer note creation on unrelated pages', async () => {
   renderSidebar(
     <SidebarView
       {...sidebarModel()}
@@ -124,6 +123,8 @@ testStable('does not offer note creation on unrelated pages', async () => {
     />
   );
 
-  await screen.findByRole('button', { name: catalogs.english.NewProject });
-  expect(screen.queryByRole('button', { name: catalogs.english.NewNote })).not.toBeInTheDocument();
+  await test.screen.findByRole('button', { name: catalogs.english.NewProject });
+  test
+    .expect(test.screen.queryByRole('button', { name: catalogs.english.NewNote }))
+    .not.toBeInTheDocument();
 });

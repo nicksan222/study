@@ -1,18 +1,32 @@
 import { noteIdSchema } from '@study/contracts';
+import type { Note } from '@study/contracts';
+import { endpoints } from '@study/contracts';
 import type { ProtocolTransport } from '@study/contracts/react';
 import { rpc, RpcProvider, useIndependentMutation } from '@study/contracts/react';
-import { testStable } from '@study/testing/vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { expect } from 'vite-plus/test';
 
-import { rpcTestTransport } from './rpc.tsx';
+test.stable(
+  'snapshot fixtures reject unplanned endpoints instead of inventing empty data',
+  async () => {
+    const fixture = test.rpcValuesTransport({});
+    const result = await Effect.runPromise(
+      fixture.transport
+        .execute(endpoints.notes.get.rpc, {
+          id: noteIdSchema.make(91n)
+        })
+        .pipe(Effect.result)
+    );
+
+    test.expect(result).toMatchObject({ failure: { kind: 'unsupported' } });
+  }
+);
 
 const id = noteIdSchema.make(9007199254740993n);
 
-const note = (title: string) => ({
+const note = (title: string): Note => ({
   id,
   title,
   titleSource: 'user',
@@ -22,12 +36,89 @@ const note = (title: string) => ({
   updatedAt: 2n
 });
 
-testStable(
+test.stable(
+  'RPC scenarios use typed snapshots and handlers and refresh mounted queries',
+  async () => {
+    const scenario = test.createRpcScenario();
+
+    scenario.given({ 'notes.note': note('Original') });
+    scenario.handle({
+      'notes.renameNote': ({ title }) => {
+        const renamed = note(title);
+
+        scenario.given({ 'notes.note': renamed });
+
+        return renamed;
+      }
+    });
+    const view = test.renderHook(
+      () => ({
+        query: rpc.notes.get.useQuery({ id }),
+        rename: rpc.notes.rename.useMutation()
+      }),
+      { wrapper: scenario.wrapper }
+    );
+
+    await test.waitFor(() => test.expect(view.result.current.query.data?.title).toBe('Original'));
+    await test.act(async () => {
+      await view.result.current.rename.mutateAsync({ id, title: 'Saved' });
+    });
+    await test.waitFor(() => test.expect(view.result.current.query.data?.title).toBe('Saved'));
+    await test.act(async () => {
+      await scenario.update({ 'notes.note': note('External change') });
+    });
+    test.expect(view.result.current.query.data?.title).toBe('External change');
+    scenario.verify();
+  }
+);
+
+test.stable(
+  'RPC scenarios report undeclared requests even if a view handles their errors',
+  async () => {
+    const scenario = test.createRpcScenario();
+
+    await Effect.runPromise(
+      scenario.transport.execute(endpoints.notes.get.rpc, { id }).pipe(Effect.result)
+    );
+    test.expect(() => scenario.verify()).toThrow('Unplanned test RPC');
+  }
+);
+
+test.stable('notifications during a pending snapshot retain the latest refresh', async () => {
+  const entered = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  let title = 'Before';
+  let first = true;
+  const fixture = test.rpcTestTransport(async () => {
+    const value = note(title);
+
+    if (first) {
+      first = false;
+      entered.resolve();
+      await release.promise;
+    }
+
+    return value;
+  });
+  const view = test.renderHook(() => rpc.notes.get.useQuery({ id }), { wrapper: fixture.wrapper });
+
+  await entered.promise;
+  title = 'After';
+  await test.act(async () => {
+    const notification = fixture.notify();
+
+    release.resolve();
+    await notification;
+  });
+  await test.waitFor(() => test.expect(view.result.current.data?.title).toBe('After'));
+});
+
+test.stable(
   'canonical bigint inputs share one subscription and context replacement releases it',
   async () => {
-    const first = rpcTestTransport(async () => note('First'));
-    const second = rpcTestTransport(async () => note('Second'));
-    const view = renderHook(
+    const first = test.rpcTestTransport(async () => note('First'));
+    const second = test.rpcTestTransport(async () => note('Second'));
+    const view = test.renderHook(
       () => {
         const a = rpc.notes.get.useQuery({ id });
         const b = rpc.notes.get.useQuery({ id });
@@ -37,34 +128,36 @@ testStable(
       { wrapper: first.wrapper }
     );
 
-    await waitFor(() => expect(view.result.current.a.data?.title).toBe('First'));
-    expect(view.result.current.b.data?.title).toBe('First');
-    expect(first.activeSubscriptions()).toBe(1);
+    await test.waitFor(() => test.expect(view.result.current.a.data?.title).toBe('First'));
+    test.expect(view.result.current.b.data?.title).toBe('First');
+    test.expect(first.activeSubscriptions()).toBe(1);
     view.unmount();
-    await waitFor(() => expect(first.activeSubscriptions()).toBe(0));
-    const replacement = renderHook(() => rpc.notes.get.useQuery({ id }), {
+    await test.waitFor(() => test.expect(first.activeSubscriptions()).toBe(0));
+    const replacement = test.renderHook(() => rpc.notes.get.useQuery({ id }), {
       wrapper: second.wrapper
     });
 
-    await waitFor(() => expect(replacement.result.current.data?.title).toBe('Second'));
-    expect(second.activeSubscriptions()).toBe(1);
+    await test.waitFor(() => test.expect(replacement.result.current.data?.title).toBe('Second'));
+    test.expect(second.activeSubscriptions()).toBe(1);
     replacement.unmount();
-    await waitFor(() => expect(second.activeSubscriptions()).toBe(0));
+    await test.waitFor(() => test.expect(second.activeSubscriptions()).toBe(0));
   }
 );
 
-testStable('disabled absent input does not manufacture a snapshot or open transport', () => {
-  const fixture = rpcTestTransport(async () => {
+test.stable('disabled absent input does not manufacture a snapshot or open transport', () => {
+  const fixture = test.rpcTestTransport(async () => {
     throw new Error('must remain disabled');
   });
-  const view = renderHook(() => rpc.notes.get.useQuery(undefined), { wrapper: fixture.wrapper });
+  const view = test.renderHook(() => rpc.notes.get.useQuery(undefined), {
+    wrapper: fixture.wrapper
+  });
 
-  expect(view.result.current.data).toBeUndefined();
-  expect(view.result.current.isPending).toBe(true);
-  expect(fixture.activeSubscriptions()).toBe(0);
+  test.expect(view.result.current.data).toBeUndefined();
+  test.expect(view.result.current.isPending).toBe(true);
+  test.expect(fixture.activeSubscriptions()).toBe(0);
 });
 
-testStable(
+test.stable(
   'concurrent mutation calls retain their own results and never replay on recovery',
   async () => {
     const completions = new Map<number, (value: string) => void>();
@@ -78,30 +171,30 @@ testStable(
 
         return task.promise;
       });
-    const view = renderHook(() => useIndependentMutation(invoke));
+    const view = test.renderHook(() => useIndependentMutation(invoke));
     let first!: Promise<string>;
     let second!: Promise<string>;
 
-    act(() => {
+    test.act(() => {
       first = view.result.current.mutate(1);
       second = view.result.current.mutate(2);
     });
-    await waitFor(() => expect(completions.size).toBe(2));
-    await act(async () => {
+    await test.waitFor(() => test.expect(completions.size).toBe(2));
+    await test.act(async () => {
       completions.get(2)?.('second');
       await second;
     });
-    expect(view.result.current.data).toBe('second');
-    expect(view.result.current.pending).toBe(1);
-    await act(async () => {
+    test.expect(view.result.current.data).toBe('second');
+    test.expect(view.result.current.pending).toBe(1);
+    await test.act(async () => {
       completions.get(1)?.('first');
       await first;
     });
-    expect(await first).toBe('first');
-    expect(await second).toBe('second');
-    expect(view.result.current.data).toBe('second');
-    expect(view.result.current.pending).toBe(0);
-    expect(calls).toBe(2);
+    test.expect(await first).toBe('first');
+    test.expect(await second).toBe('second');
+    test.expect(view.result.current.data).toBe('second');
+    test.expect(view.result.current.pending).toBe(0);
+    test.expect(calls).toBe(2);
   }
 );
 
@@ -117,39 +210,39 @@ function invalidHooks() {
   rpc.notes.rename.call({ id });
 }
 
-testStable(
+test.stable(
   'mutation reset clears submitted variables without cancelling the caller result',
   async () => {
     const task = deferred<string>();
     const effect = Effect.promise(() => task.promise);
     const invoke = (_secret: string) => effect;
-    const view = renderHook(() => useIndependentMutation(invoke));
+    const view = test.renderHook(() => useIndependentMutation(invoke));
     let result!: Promise<string>;
 
-    act(() => {
+    test.act(() => {
       result = view.result.current.mutate('private-token');
     });
-    await waitFor(() => expect(view.result.current.variables).toBe('private-token'));
-    act(() => view.result.current.reset());
-    expect(view.result.current.variables).toBeUndefined();
-    expect(view.result.current.data).toBeUndefined();
-    await act(async () => {
+    await test.waitFor(() => test.expect(view.result.current.variables).toBe('private-token'));
+    test.act(() => view.result.current.reset());
+    test.expect(view.result.current.variables).toBeUndefined();
+    test.expect(view.result.current.data).toBeUndefined();
+    await test.act(async () => {
       task.resolve('accepted');
       await result;
     });
-    expect(await result).toBe('accepted');
-    expect(view.result.current.data).toBeUndefined();
+    test.expect(await result).toBe('accepted');
+    test.expect(view.result.current.data).toBeUndefined();
   }
 );
 
-testStable(
+test.stable(
   'late mutation completion cannot publish into a replacement transport context',
   async () => {
     const task = deferred<string>();
     const effect = Effect.promise(() => task.promise);
     const invoke = (_input: string) => effect;
-    const first = rpcTestTransport(async () => undefined);
-    const second = rpcTestTransport(async () => undefined);
+    const first = test.rpcTestTransport(async () => undefined);
+    const second = test.rpcTestTransport(async () => undefined);
     let replace!: () => void;
 
     function Provider({ children }: { children: ReactNode }) {
@@ -162,30 +255,30 @@ testStable(
       return <RpcProvider transport={transport}>{children}</RpcProvider>;
     }
 
-    const view = renderHook(() => useIndependentMutation(invoke), { wrapper: Provider });
+    const view = test.renderHook(() => useIndependentMutation(invoke), { wrapper: Provider });
     let result!: Promise<string>;
 
-    act(() => {
+    test.act(() => {
       result = view.result.current.mutate('old-context');
     });
-    await waitFor(() => expect(view.result.current.isPending).toBe(true));
-    act(() => replace());
-    expect(view.result.current.isPending).toBe(false);
-    expect(view.result.current.variables).toBeUndefined();
-    await act(async () => {
+    await test.waitFor(() => test.expect(view.result.current.isPending).toBe(true));
+    test.act(() => replace());
+    test.expect(view.result.current.isPending).toBe(false);
+    test.expect(view.result.current.variables).toBeUndefined();
+    await test.act(async () => {
       task.resolve('old-result');
       await result;
     });
-    expect(await result).toBe('old-result');
-    expect(view.result.current.data).toBeUndefined();
-    expect(view.result.current.pending).toBe(0);
+    test.expect(await result).toBe('old-result');
+    test.expect(view.result.current.data).toBeUndefined();
+    test.expect(view.result.current.pending).toBe(0);
   }
 );
 
-testStable(
+test.stable(
   'omitted and undefined optional payload fields share an immutable canonical input',
   async () => {
-    const fixture = rpcTestTransport(async () => ({ items: [], next: null }));
+    const fixture = test.rpcTestTransport(async () => ({ items: [], next: null }));
     const captured: unknown[] = [];
     const transport: ProtocolTransport = {
       execute: fixture.transport.execute,
@@ -196,7 +289,7 @@ testStable(
       }
     };
     const input = { limit: 30 };
-    const view = renderHook(
+    const view = test.renderHook(
       () => ({
         first: rpc.notes.list.useQuery(input),
         second: rpc.notes.list.useQuery({ limit: 30, project: undefined })
@@ -208,13 +301,15 @@ testStable(
       }
     );
 
-    await waitFor(() =>
-      expect(view.result.current.first.isSuccess && view.result.current.second.isSuccess).toBe(true)
+    await test.waitFor(() =>
+      test
+        .expect(view.result.current.first.isSuccess && view.result.current.second.isSuccess)
+        .toBe(true)
     );
-    expect(captured).toHaveLength(1);
+    test.expect(captured).toHaveLength(1);
     input.limit = 60;
-    expect(captured[0]).toEqual({ limit: 30 });
-    expect(captured[0]).not.toBe(input);
+    test.expect(captured[0]).toEqual({ limit: 30 });
+    test.expect(captured[0]).not.toBe(input);
   }
 );
 
@@ -229,10 +324,10 @@ function deferred<A>() {
 
 void invalidHooks;
 
-testStable('an uncertain mutation defect remains visible without replay', async () => {
+test.stable('an uncertain mutation defect remains visible without replay', async () => {
   const defect = new Error('Remote mutation defect');
   let calls = 0;
-  const fixture = rpcTestTransport(async () => undefined);
+  const fixture = test.rpcTestTransport(async () => undefined);
   const transport: ProtocolTransport = {
     ...fixture.transport,
     execute: () =>
@@ -242,25 +337,26 @@ testStable('an uncertain mutation defect remains visible without replay', async 
         return Effect.die(defect);
       })
   };
-  const view = renderHook(() => rpc.notes.rename.useMutation(), {
+  const view = test.renderHook(() => rpc.notes.rename.useMutation(), {
     wrapper: ({ children }) => <RpcProvider transport={transport}>{children}</RpcProvider>
   });
 
-  await act(async () => {
-    await expect(view.result.current.mutateAsync({ id, title: 'Uncertain' })).rejects.toMatchObject(
-      {
+  await test.act(async () => {
+    await test
+      .expect(view.result.current.mutateAsync({ id, title: 'Uncertain' }))
+      .rejects.toMatchObject({
         _tag: 'MutationDefect',
         cause: defect
-      }
-    );
+      });
   });
-  expect(view.result.current.isError).toBe(true);
+  test.expect(view.result.current.isError).toBe(true);
   const error = view.result.current.error;
 
-  if (error && '_tag' in error && error._tag === 'MutationDefect') expect(error.cause).toBe(defect);
+  if (error && '_tag' in error && error._tag === 'MutationDefect')
+    test.expect(error.cause).toBe(defect);
   else throw new Error('Expected a typed mutation defect');
 
-  expect(view.result.current.pending).toBe(0);
+  test.expect(view.result.current.pending).toBe(0);
   view.rerender();
-  expect(calls).toBe(1);
+  test.expect(calls).toBe(1);
 });

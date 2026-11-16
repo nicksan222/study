@@ -1,3 +1,4 @@
+import { sourceIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises authored Page rich document behavior through real persistence            │
@@ -11,20 +12,15 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sourceIdSchema } from '@study/contracts';
 import { MaterialsRpc } from '@study/contracts';
 import { NotesRpc } from '@study/contracts';
 import { PagesRpc } from '@study/contracts';
 import { createBlock, validBlockTextRange } from '@study/contracts';
 import { documentSchema } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { Notes } from '#server/features/notes/index';
@@ -41,10 +37,10 @@ import { materialRpcHandlers } from '#testing/material-rpc';
 
 const text = (value: string) => [{ type: 'text' as const, text: value, marks: [] }];
 
-testStable(
+test.stable(
   'rich authored pages round-trip native RPC and reopen with independent identities, exact assets and Unicode ranges',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     let context = new ServerContext(await location.open());
     const services = () =>
       Layer.mergeAll(
@@ -154,11 +150,11 @@ testStable(
               projectId: setup.collection.id
             });
 
-            assert.ok(original.version);
-            expect(original.version.document).toStrictEqual(content);
+            test.assert.ok(original.version);
+            test.expect(original.version.document).toStrictEqual(content);
             const copy = yield* create('Retained copy', copyContent);
 
-            assert.ok(copy.version);
+            test.assert.ok(copy.version);
             const inserted = createBlock({ type: 'paragraph', inlines: text('Inserted') });
             const edit = yield* rpc['pages.save']({
               pageId: original.id,
@@ -168,10 +164,12 @@ testStable(
             });
             const revised = yield* rpc['pages.version']({ id: edit.submittedVersionId });
 
-            expect(revised.document.blocks.map((block) => block.id)).toStrictEqual([
-              inserted.id,
-              ...content.blocks.toReversed().map((block) => block.id)
-            ]);
+            test
+              .expect(revised.document.blocks.map((block) => block.id))
+              .toStrictEqual([
+                inserted.id,
+                ...content.blocks.toReversed().map((block) => block.id)
+              ]);
 
             for (const image of [
               createBlock({ type: 'image', sourceId: setup.image.id, revision: 999, alt: '' }),
@@ -182,7 +180,7 @@ testStable(
                 alt: ''
               })
             ])
-              assert.ok(
+              test.assert.ok(
                 (yield* Effect.flip(
                   create('Missing image revision', { ...content, blocks: [image] })
                 )).kind === 'invalid_input'
@@ -210,9 +208,9 @@ testStable(
               const emptyContent = { ...content, blocks: [createBlock({ type: 'table', rows })] };
               const empty = yield* create('Empty structure', emptyContent);
 
-              assert.ok(empty.version);
-              expect(empty.version.document).toStrictEqual(emptyContent);
-              assert.ok(
+              test.assert.ok(empty.version);
+              test.expect(empty.version.document).toStrictEqual(emptyContent);
+              test.assert.ok(
                 (yield* Effect.flip(
                   rpc['materials.requestMaterialGeneration']({
                     projectId: setup.collection.id,
@@ -241,7 +239,7 @@ testStable(
               ]
             });
 
-            assert.ok(table.version);
+            test.assert.ok(table.version);
             const request = yield* rpc['materials.requestMaterialGeneration']({
               projectId: setup.collection.id,
               title: 'Actual cell text',
@@ -261,8 +259,8 @@ testStable(
         )
       );
 
-      assert.ok(saved.original.version);
-      assert.ok(saved.copy.version);
+      test.assert.ok(saved.original.version);
+      test.assert.ok(saved.copy.version);
 
       for (const invalid of [
         { ...content, blocks: [content.blocks[0]!, content.blocks[0]!] },
@@ -277,7 +275,7 @@ testStable(
           ]
         }
       ])
-        assert.ok(Schema.is(documentSchema)(invalid) === false);
+        test.assert.ok(Schema.is(documentSchema)(invalid) === false);
 
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -288,7 +286,7 @@ testStable(
             blocks: [{ ...content.blocks[0]!, anchor: { type: 'page' as const, page: 1 } }]
           };
 
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(
               docs.create({
                 createKey: crypto.randomUUID(),
@@ -305,7 +303,7 @@ testStable(
             name: 'replacement.txt',
             bytes: new TextEncoder().encode('Different current bytes')
           });
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(
               docs.create({
                 createKey: crypto.randomUUID(),
@@ -325,10 +323,10 @@ testStable(
       );
       const range = { blockId: content.blocks[0]!.id, start: 6, end: 8 };
 
-      assert.ok(validBlockTextRange(content, range) === true);
-      assert.ok(validBlockTextRange(content, { ...range, start: 7 }) === false);
-      assert.ok(validBlockTextRange(content, { ...range, end: 100 }) === false);
-      assert.ok(
+      test.assert.ok(validBlockTextRange(content, range) === true);
+      test.assert.ok(validBlockTextRange(content, { ...range, start: 7 }) === false);
+      test.assert.ok(validBlockTextRange(content, { ...range, end: 100 }) === false);
+      test.assert.ok(
         validBlockTextRange({ ...content, blocks: content.blocks.toReversed() }, range) === true
       );
       const snapshotId = saved.original.version.snapshotId;
@@ -339,7 +337,7 @@ testStable(
         sql`UPDATE blocks SET content='{}' WHERE document_id=${snapshotId}`,
         sql`DELETE FROM document_assets WHERE document_id=${snapshotId}`
       ])
-        assert.throws(() => context.db.orm.run(statement));
+        test.assert.throws(() => context.db.orm.run(statement));
 
       context.close();
       context = new ServerContext(await location.open());
@@ -350,22 +348,22 @@ testStable(
           const sources = yield* Sources;
 
           yield* projects.deleteProject({ id: setup.collection.id });
-          expect((yield* docs.version({ id: saved.original.version!.id })).document).toStrictEqual(
-            content
-          );
-          expect((yield* docs.version({ id: saved.copy.version!.id })).document).toStrictEqual(
-            copyContent
-          );
-          expect(
-            (yield* sources.sourceSnapshot({ id: setup.image.id, revision: 1 })).bytes
-          ).toStrictEqual(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
-          assert.strictEqual(
+          test
+            .expect((yield* docs.version({ id: saved.original.version!.id })).document)
+            .toStrictEqual(content);
+          test
+            .expect((yield* docs.version({ id: saved.copy.version!.id })).document)
+            .toStrictEqual(copyContent);
+          test
+            .expect((yield* sources.sourceSnapshot({ id: setup.image.id, revision: 1 })).bytes)
+            .toStrictEqual(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
+          test.assert.strictEqual(
             context.db.orm.get(
               sql`SELECT count(*) n FROM document_assets WHERE source_id=${setup.image.id}`
             )?.n,
             3n
           );
-          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+          test.expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(services()))
       );
     } finally {

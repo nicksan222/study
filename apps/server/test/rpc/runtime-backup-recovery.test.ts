@@ -1,23 +1,20 @@
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Injects real filesystem failures at staging, recovery retention and settlement.    │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Reopens repeatedly to assert old-or-new activation and truthful recovery inventory.    │
+ * │ - Reopens repeatedly to test.assert old-or-new activation and truthful recovery inventory.    │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
  * │ Only temporary fixture paths are blocked; production integrity and ownership stay        │
  * │ active.                                                                                  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { Db, sql } from '@study/db';
 import * as s from '@study/db';
-import { spawnTestProcess } from '@study/testing/vitest';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, FileSystem, Path } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { ManagedBackups } from '#server/platform/database/backups';
 import { acquireDatabaseOwnership } from '#server/platform/database/ownership';
@@ -52,7 +49,7 @@ async function stagedFixture() {
   }
 }
 
-testStable(
+test.stable(
   'failed staging write keeps the exact preview retryable and preserves the active target',
   async () => {
     const { f, api, before, preview, root } = await stagedFixture();
@@ -61,18 +58,20 @@ testStable(
       const blocker = path.join(root, 'restore.sqlite.writing');
 
       await Effect.runPromise(fs.makeDirectory(blocker));
-      await expect(
-        f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)))
-      ).rejects.toSatisfy(() => true);
-      assert.strictEqual(f.app.store.db.contentIdentity(), before);
-      assert.ok((await f.app.nativeRuntime.runPromise(api.restoreStatus())).state === 'idle');
-      assert.ok((await Effect.runPromise(fs.exists(path.join(root, 'scratch.sqlite')))) === false);
+      await test
+        .expect(f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview))))
+        .rejects.toSatisfy(() => true);
+      test.assert.strictEqual(f.app.store.db.contentIdentity(), before);
+      test.assert.ok((await f.app.nativeRuntime.runPromise(api.restoreStatus())).state === 'idle');
+      test.assert.ok(
+        (await Effect.runPromise(fs.exists(path.join(root, 'scratch.sqlite')))) === false
+      );
       await Effect.runPromise(fs.remove(blocker, { recursive: true }));
       await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)));
       await f.reopen();
       await f.reopen();
-      assert.strictEqual(f.app.store.db.orm.select().from(s.pages).all().length, 1);
-      assert.ok(
+      test.assert.strictEqual(f.app.store.db.orm.select().from(s.pages).all().length, 1);
+      test.assert.ok(
         (await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())).state === 'applied'
       );
     } finally {
@@ -81,7 +80,7 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'recovery-copy preparation failure preserves old state and failed discard remains retryable',
   async () => {
     const { f, api, before, preview, root } = await stagedFixture();
@@ -97,19 +96,21 @@ testStable(
 
       const reopened = await f.api();
 
-      assert.strictEqual(f.app.store.db.contentIdentity(), before);
-      expect(await f.app.nativeRuntime.runPromise(reopened.restoreStatus())).toStrictEqual({
+      test.assert.strictEqual(f.app.store.db.contentIdentity(), before);
+      test.expect(await f.app.nativeRuntime.runPromise(reopened.restoreStatus())).toStrictEqual({
         state: 'activation-failed',
         backupId: preview.backup.id,
         recoveryCopy: true
       });
-      await expect(
-        f.app.nativeRuntime.runPromise(reopened.discardRestoreRecovery())
-      ).rejects.toSatisfy(() => true);
-      assert.ok((await Effect.runPromise(fs.exists(path.join(root, 'restore.json')))) === true);
+      await test
+        .expect(f.app.nativeRuntime.runPromise(reopened.discardRestoreRecovery()))
+        .rejects.toSatisfy(() => true);
+      test.assert.ok(
+        (await Effect.runPromise(fs.exists(path.join(root, 'restore.json')))) === true
+      );
       await Effect.runPromise(fs.remove(blocker, { recursive: true }));
       await f.app.nativeRuntime.runPromise(reopened.discardRestoreRecovery());
-      expect(await f.app.nativeRuntime.runPromise(reopened.restoreStatus())).toStrictEqual({
+      test.expect(await f.app.nativeRuntime.runPromise(reopened.restoreStatus())).toStrictEqual({
         state: 'idle',
         backupId: null,
         recoveryCopy: false
@@ -121,14 +122,14 @@ testStable(
 
       await f.app.nativeRuntime.runPromise(reopened.acceptRestore(acceptance(retry)));
       await f.reopen();
-      assert.strictEqual(f.app.store.db.orm.select().from(s.pages).all().length, 1);
+      test.assert.strictEqual(f.app.store.db.orm.select().from(s.pages).all().length, 1);
     } finally {
       await f.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'post-rename journal failure aborts startup and reconciles the applied identity on later restarts',
   async () => {
     const { f, api, preview, root } = await stagedFixture();
@@ -142,21 +143,23 @@ testStable(
       const blocker = path.join(root, 'restore.json.writing');
 
       try {
-        await expect(
-          ManagedBackups.activate(ownership.path, {
-            ...backupPolicy,
-            async validate(db) {
-              await backupPolicy.validate(db);
-              // The validated candidate is still staged. A real OS error will occur only when
-              // durable journal settlement tries to remove this directory after replacement.
-              await Effect.runPromise(fs.makeDirectory(blocker));
-            }
-          })
-        ).rejects.toSatisfy(() => true);
-        assert.ok(
+        await test
+          .expect(
+            ManagedBackups.activate(ownership.path, {
+              ...backupPolicy,
+              async validate(db) {
+                await backupPolicy.validate(db);
+                // The validated candidate is still staged. A real OS error will occur only when
+                // durable journal settlement tries to remove this directory after replacement.
+                await Effect.runPromise(fs.makeDirectory(blocker));
+              }
+            })
+          )
+          .rejects.toSatisfy(() => true);
+        test.assert.ok(
           (await Effect.runPromise(fs.exists(path.join(root, 'previous.sqlite')))) === true
         );
-        assert.ok(
+        test.assert.ok(
           (await Effect.runPromise(fs.exists(path.join(root, 'restore.sqlite')))) === false
         );
       } finally {
@@ -168,13 +171,13 @@ testStable(
 
       const identity = f.app.store.db.contentIdentity();
 
-      assert.strictEqual(f.app.store.db.orm.select().from(s.pages).all().length, 1);
+      test.assert.strictEqual(f.app.store.db.orm.select().from(s.pages).all().length, 1);
       await f.reopen();
-      assert.strictEqual(f.app.store.db.contentIdentity(), identity);
+      test.assert.strictEqual(f.app.store.db.contentIdentity(), identity);
 
       const reopened = await f.api();
 
-      assert.ok(
+      test.assert.ok(
         (await f.app.nativeRuntime.runPromise(reopened.restoreStatus())).state === 'applied'
       );
 
@@ -184,18 +187,18 @@ testStable(
         reopened.previewRestore({ id: next.id })
       );
 
-      await expect(
-        f.app.nativeRuntime.runPromise(reopened.acceptRestore(acceptance(another)))
-      ).rejects.toSatisfy(() => true);
+      await test
+        .expect(f.app.nativeRuntime.runPromise(reopened.acceptRestore(acceptance(another))))
+        .rejects.toSatisfy(() => true);
       await f.app.nativeRuntime.runPromise(reopened.discardRestoreRecovery());
-      assert.strictEqual(f.app.store.db.contentIdentity(), identity);
+      test.assert.strictEqual(f.app.store.db.contentIdentity(), identity);
     } finally {
       await f.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'startup cleans interrupted private scratch and known writing files without removing artifacts',
   async () => {
     const f = await backupFixture();
@@ -224,10 +227,10 @@ testStable(
 
       await Bun.write(path.join(root, unrelated), 'unrelated file');
       await f.reopen();
-      expect((await Effect.runPromise(fs.readDirectory(root))).sort()).toStrictEqual(
-        [backup.id + '.studybackup', unrelated].sort()
-      );
-      assert.strictEqual(
+      test
+        .expect((await Effect.runPromise(fs.readDirectory(root))).sort())
+        .toStrictEqual([backup.id + '.studybackup', unrelated].sort());
+      test.assert.strictEqual(
         (await f.app.nativeRuntime.runPromise((await f.api()).backups()))[0]?.id,
         backup.id
       );
@@ -237,7 +240,7 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'a real SQLite read lock prevents the journal transition without replacing the current target',
   async () => {
     const { f, api, before, preview } = await stagedFixture();
@@ -266,20 +269,20 @@ testStable(
       }
 
       await f.reopen();
-      assert.strictEqual(f.app.store.db.contentIdentity(), before);
-      assert.ok(
+      test.assert.strictEqual(f.app.store.db.contentIdentity(), before);
+      test.assert.ok(
         (await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())).state ===
           'activation-failed'
       );
       await f.reopen();
-      assert.strictEqual(f.app.store.db.contentIdentity(), before);
+      test.assert.strictEqual(f.app.store.db.contentIdentity(), before);
     } finally {
       await f.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'failed atomic rename leaves old data and pending intent for an explicit filesystem retry',
   async () => {
     const { f, api, before, preview, root } = await stagedFixture();
@@ -295,22 +298,24 @@ testStable(
       const ownership = await acquireDatabaseOwnership(f.location.path);
 
       try {
-        await expect(
-          ManagedBackups.activate(ownership.path, {
-            ...backupPolicy,
-            async validate(db) {
-              await backupPolicy.validate(db);
-              await Effect.runPromise(fs.rename(staged, saved));
-              await Effect.runPromise(fs.makeDirectory(staged));
-            }
-          })
-        ).rejects.toSatisfy(() => true);
+        await test
+          .expect(
+            ManagedBackups.activate(ownership.path, {
+              ...backupPolicy,
+              async validate(db) {
+                await backupPolicy.validate(db);
+                await Effect.runPromise(fs.rename(staged, saved));
+                await Effect.runPromise(fs.makeDirectory(staged));
+              }
+            })
+          )
+          .rejects.toSatisfy(() => true);
 
         const current = await Db.openSnapshot(ownership.path);
 
         try {
-          assert.strictEqual(current.contentIdentity(), before);
-          assert.strictEqual(
+          test.assert.strictEqual(current.contentIdentity(), before);
+          test.assert.strictEqual(
             current.orm.get<{ n: bigint }>(sql`SELECT count(*) n FROM pages`)!.n,
             2n
           );
@@ -326,9 +331,9 @@ testStable(
       }
 
       await f.reopen();
-      assert.strictEqual(f.app.store.db.orm.select().from(s.pages).all().length, 1);
+      test.assert.strictEqual(f.app.store.db.orm.select().from(s.pages).all().length, 1);
       await f.reopen();
-      assert.ok(
+      test.assert.ok(
         (await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())).state === 'applied'
       );
     } finally {
@@ -339,7 +344,7 @@ testStable(
 );
 
 if (process.platform === 'darwin')
-  testStable(
+  test.stable(
     'SQLite runtime setup failure preserves accepted restore bytes for the next startup',
     async () => {
       const { f, api, preview, root } = await stagedFixture();
@@ -355,7 +360,7 @@ if (process.platform === 'darwin')
         await Effect.runPromise(fs.makeDirectory(directory));
         await Effect.runPromise(fs.copyFile(process.execPath, executable));
         await Effect.runPromise(fs.chmod(executable, 0o700));
-        const child = spawnTestProcess(
+        const child = test.spawnTestProcess(
           [
             executable,
             '--eval',
@@ -375,15 +380,15 @@ if (process.platform === 'darwin')
           new Response(child.stderr).text()
         ]);
 
-        assert.strictEqual(await Bun.file(path.join(root, 'restore.json')).text(), journal);
-        assert.notStrictEqual(status, 0, `${stdout}\n${stderr}`);
-        assert.deepStrictEqual(
+        test.assert.strictEqual(await Bun.file(path.join(root, 'restore.json')).text(), journal);
+        test.assert.notStrictEqual(status, 0, `${stdout}\n${stderr}`);
+        test.assert.deepStrictEqual(
           await Bun.file(path.join(root, 'restore.sqlite')).arrayBuffer(),
           staged
         );
         await f.reopen();
-        assert.strictEqual(f.app.store.db.orm.select().from(s.pages).all().length, 1);
-        assert.strictEqual(
+        test.assert.strictEqual(f.app.store.db.orm.select().from(s.pages).all().length, 1);
+        test.assert.strictEqual(
           (await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())).state,
           'applied'
         );

@@ -1,10 +1,9 @@
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { workflowLabel } from './workflow-label';
 
-testStable('labels versioned workflow identities from the runtime', () => {
-  expect(workflowLabel('conversation-reply/v1')).toBe('workspace.task.conversation-reply');
-  expect(workflowLabel('document-transform/v2')).toBe('workspace.task.document-transform');
-  expect(workflowLabel('unknown/v1')).toBe('workspace.task.other');
+test.stable('labels versioned workflow identities from the runtime', () => {
+  test.expect(workflowLabel('conversation-reply/v1')).toBe('workspace.task.conversation-reply');
+  test.expect(workflowLabel('document-transform/v2')).toBe('workspace.task.document-transform');
+  test.expect(workflowLabel('unknown/v1')).toBe('workspace.task.other');
 });

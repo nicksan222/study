@@ -1,13 +1,8 @@
 import { StudyError, editOutcomeSchema, saveSchema, restoreSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
 import { useState } from 'react';
-import { expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { PageActions } from './page-actions';
 import { authoredPage } from './test-support';
@@ -25,18 +20,18 @@ const receipt = (expected = 101n, submitted = 103n) =>
     submittedVersionId: submitted
   });
 
-async function edit(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole('button', { name: copy.PageEdit }));
-  const textbox = screen.getByRole('textbox', { name: `${copy.PageText} 1` });
+async function edit(user: ReturnType<typeof test.userEvent.setup>) {
+  await user.click(await test.screen.findByRole('button', { name: copy.PageEdit }));
+  const textbox = test.screen.getByRole('textbox', { name: `${copy.PageText} 1` });
 
   await user.clear(textbox);
   await user.type(textbox, 'My unsaved correction');
 }
 
-testStable(
+test.stable(
   'authored draft survives route absence and is removed only by explicit discard',
   async () => {
-    const fixture = rpcTestTransport(async (tag) => {
+    const fixture = test.rpcTestTransport(async (tag) => {
       throw new Error(`Unexpected ${tag}`);
     });
 
@@ -52,29 +47,29 @@ testStable(
       );
     }
 
-    render(<Route />, { wrapper: fixture.wrapper });
-    const user = userEvent.setup();
+    test.render(<Route />, { wrapper: fixture.wrapper });
+    const user = test.userEvent.setup();
 
     await edit(user);
-    await user.click(screen.getByRole('button', { name: 'Route' }));
-    await user.click(screen.getByRole('button', { name: 'Route' }));
-    expect(screen.getByRole('textbox', { name: `${copy.PageText} 1` })).toHaveValue(
-      'My unsaved correction'
-    );
-    await user.click(screen.getByRole('button', { name: copy.PageCloseDraft }));
-    await user.click(screen.getByRole('button', { name: copy.PageEdit }));
-    expect(screen.getByRole('textbox', { name: `${copy.PageText} 1` })).toHaveValue(
-      'Historical extraction'
-    );
+    await user.click(test.screen.getByRole('button', { name: 'Route' }));
+    await user.click(test.screen.getByRole('button', { name: 'Route' }));
+    test
+      .expect(test.screen.getByRole('textbox', { name: `${copy.PageText} 1` }))
+      .toHaveValue('My unsaved correction');
+    await user.click(test.screen.getByRole('button', { name: copy.PageCloseDraft }));
+    await user.click(test.screen.getByRole('button', { name: copy.PageEdit }));
+    test
+      .expect(test.screen.getByRole('textbox', { name: `${copy.PageText} 1` }))
+      .toHaveValue('Historical extraction');
   }
 );
 
-testStable(
+test.stable(
   'explicit save and undo retries retain exact payload identities after lost responses',
   async () => {
     const saves: (typeof saveSchema.Type)[] = [];
     const restores: (typeof restoreSchema.Type)[] = [];
-    const fixture = rpcTestTransport(async (tag, input) => {
+    const fixture = test.rpcTestTransport(async (tag, input) => {
       if (tag === 'pages.save') {
         saves.push(Schema.decodeUnknownSync(saveSchema)(input));
 
@@ -95,42 +90,44 @@ testStable(
     });
     const version = page().version!;
 
-    render(<PageActions version={version} current={version.id} />, { wrapper: fixture.wrapper });
-    const user = userEvent.setup();
+    test.render(<PageActions version={version} current={version.id} />, {
+      wrapper: fixture.wrapper
+    });
+    const user = test.userEvent.setup();
 
     await edit(user);
-    await user.click(screen.getByRole('button', { name: copy.PageSave }));
-    await screen.findByText(copy.PageActionFailed);
-    await user.click(screen.getByRole('button', { name: copy.PageSave }));
-    await screen.findByText(copy.PageSaved);
-    expect(saves).toHaveLength(2);
-    expect(saves[1]).toEqual(saves[0]);
-    await user.click(screen.getByRole('button', { name: copy.PageUndo }));
-    await waitFor(() => expect(restores).toHaveLength(1));
-    await user.click(screen.getByRole('button', { name: copy.PageUndo }));
-    await screen.findByText(copy.PageUndone);
-    expect(restores[1]).toEqual(restores[0]);
+    await user.click(test.screen.getByRole('button', { name: copy.PageSave }));
+    await test.screen.findByText(copy.PageActionFailed);
+    await user.click(test.screen.getByRole('button', { name: copy.PageSave }));
+    await test.screen.findByText(copy.PageSaved);
+    test.expect(saves).toHaveLength(2);
+    test.expect(saves[1]).toEqual(saves[0]);
+    await user.click(test.screen.getByRole('button', { name: copy.PageUndo }));
+    await test.waitFor(() => test.expect(restores).toHaveLength(1));
+    await user.click(test.screen.getByRole('button', { name: copy.PageUndo }));
+    await test.screen.findByText(copy.PageUndone);
+    test.expect(restores[1]).toEqual(restores[0]);
   }
 );
 
-testStable('rapid repeated save activation cannot start a concurrent write', async () => {
+test.stable('rapid repeated save activation cannot start a concurrent write', async () => {
   let complete!: (value: unknown) => void;
-  const save = vi.fn(
+  const save = test.vi.fn(
     () =>
       new Promise((resolve) => {
         complete = resolve;
       })
   );
-  const fixture = rpcTestTransport(async (tag) => (tag === 'pages.save' ? save() : undefined));
+  const fixture = test.rpcTestTransport(async (tag) => (tag === 'pages.save' ? save() : undefined));
   const version = page().version!;
 
-  render(<PageActions version={version} current={version.id} />, { wrapper: fixture.wrapper });
-  await edit(userEvent.setup());
-  const button = screen.getByRole('button', { name: copy.PageSave });
+  test.render(<PageActions version={version} current={version.id} />, { wrapper: fixture.wrapper });
+  await edit(test.userEvent.setup());
+  const button = test.screen.getByRole('button', { name: copy.PageSave });
 
-  fireEvent.click(button);
-  fireEvent.click(button);
-  await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+  test.fireEvent.click(button);
+  test.fireEvent.click(button);
+  await test.waitFor(() => test.expect(save).toHaveBeenCalledTimes(1));
   complete(receipt());
-  await screen.findByText(copy.PageSaved);
+  await test.screen.findByText(copy.PageSaved);
 });

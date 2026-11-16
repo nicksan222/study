@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises HTTP practice generation across normal, invalid-model, archived-request, │
@@ -14,13 +15,9 @@
  * │ cleanup closes owned resources.                                                          │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { AuthStore } from '#server/features/auth/store/index';
@@ -29,8 +26,6 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
 import { serve } from '#server/runtime/index';
-import { pollUntil } from '#testing/poll';
-import { createStudyTest } from '#testing/server-test';
 
 const isReady = (slot: { status: string }) => slot.status === 'ready';
 
@@ -45,11 +40,11 @@ for (const mode of [
   'archived-before-request',
   'transient-exhausted'
 ] as const)
-  testStable(
+  test.stable(
     `HTTP practice ${mode} recovers, replenishes and stops without further provider work`,
     { timeout: 20000 },
-    async (t) => {
-      const resources = createStudyTest(t, { app: false });
+    async ({ resources: resourcesFixture }) => {
+      const resources = resourcesFixture;
       let generations = 0;
       let failedCalls = 0;
       let healthyStarts = 0;
@@ -151,7 +146,7 @@ for (const mode of [
       resources.dispose(async () => {
         await peer.stop(true);
       });
-      assert.ok(peer.port, 'missing peer address');
+      test.assert.ok(peer.port, 'missing peer address');
       const base = peer.url.origin;
       const context = new ServerContext(await resources.openDb());
 
@@ -216,14 +211,14 @@ for (const mode of [
               inputs: [{ kind: 'page', versionId: document.version!.id }]
             });
 
-            assert.strictEqual(initial.slots.length, 2);
-            expect(initial.slots.map((slot) => slot.kind)).toStrictEqual(['choice', 'choice']);
+            test.assert.strictEqual(initial.slots.length, 2);
+            test.expect(initial.slots.map((slot) => slot.kind)).toStrictEqual(['choice', 'choice']);
 
             if (mode === 'archived-before-request')
               yield* client['pages.archive']({ id: document.id, archived: true });
 
             yield* client['system.startWorkers']({});
-            let ready = yield* pollUntil(
+            let ready = yield* test.pollUntil(
               client['learning.practice']({ projectId: project.id }),
               (value) => value.slots.every(isSettled),
               {
@@ -244,10 +239,10 @@ for (const mode of [
                 transient = false;
                 const failed = ready.slots.filter((slot) => slot.status === 'failed');
 
-                assert.strictEqual(failed.length, mode === 'invalid-model' ? 1 : 2);
+                test.assert.strictEqual(failed.length, mode === 'invalid-model' ? 1 : 2);
 
                 if (mode === 'transient-exhausted')
-                  assert.strictEqual(failedCalls, 8, JSON.stringify({ healthyStarts, trace }));
+                  test.assert.strictEqual(failedCalls, 8, JSON.stringify({ healthyStarts, trace }));
 
                 if (mode === 'invalid-model') {
                   const settings = yield* client['settings.appSettings']({});
@@ -261,13 +256,13 @@ for (const mode of [
                     slotId: slot.slotId
                   });
 
-                  assert.strictEqual(retried.slotId, slot.slotId);
-                  assert.strictEqual(retried.kind, slot.kind);
+                  test.assert.strictEqual(retried.slotId, slot.slotId);
+                  test.assert.strictEqual(retried.kind, slot.kind);
                   mark('duplicate-manual-retry');
                   yield* client['learning.retryPracticeQuestion']({ slotId: slot.slotId });
                 }
 
-                ready = yield* pollUntil(
+                ready = yield* test.pollUntil(
                   client['learning.practice']({ projectId: project.id }),
                   (value) => value.slots.every(isReady),
                   {
@@ -279,7 +274,7 @@ for (const mode of [
               }
             }
 
-            assert.ok(
+            test.assert.ok(
               ready.slots.every(isReady),
               JSON.stringify(
                 {
@@ -293,22 +288,22 @@ for (const mode of [
                 (_, value) => (typeof value === 'bigint' ? String(value) : value)
               )
             );
-            assert.strictEqual(
+            test.assert.strictEqual(
               generations,
               mode === 'invalid-model' ? 3 : mode === 'transient-exhausted' ? 10 : 2,
               JSON.stringify({ failedCalls, healthyStarts, trace })
             );
 
             if (mode === 'transient-exhausted')
-              assert.strictEqual(healthyStarts, 2, JSON.stringify({ failedCalls, trace }));
+              test.assert.strictEqual(healthyStarts, 2, JSON.stringify({ failedCalls, trace }));
 
             const first = ready.slots[0]!;
 
-            assert.ok(first.attemptId);
+            test.assert.ok(first.attemptId);
             const attempt = yield* client['learning.attempt']({ attemptId: first.attemptId });
             const question = attempt.questions[0]!;
 
-            assert.ok('choices' in question, 'expected choice');
+            test.assert.ok('choices' in question, 'expected choice');
 
             const input = {
               slotId: first.slotId,
@@ -325,16 +320,16 @@ for (const mode of [
               })
             );
 
-            assert.ok('kind' in rejected);
-            assert.ok(rejected.kind === 'invalid_input');
+            test.assert.ok('kind' in rejected);
+            test.assert.ok(rejected.kind === 'invalid_input');
             yield* client['learning.answerPracticeQuestion'](input);
             const refill = yield* client['learning.practice']({ projectId: project.id });
 
-            expect(refill.slots.map((slot) => slot.kind)).toStrictEqual(['choice', 'open']);
+            test.expect(refill.slots.map((slot) => slot.kind)).toStrictEqual(['choice', 'open']);
             const stopped = yield* client['learning.stopPractice']({ projectId: project.id });
 
-            assert.ok(stopped.enabled === false);
-            assert.strictEqual(stopped.slots.length, 0);
+            test.assert.ok(stopped.enabled === false);
+            test.assert.strictEqual(stopped.slots.length, 0);
             const count = generations;
 
             yield* client['system.stopWorkers']({});
@@ -344,16 +339,19 @@ for (const mode of [
             function* assertRefillDrained() {
               const refillSlot = refill.slots.find((slot) => slot.kind === 'open')!;
 
-              yield* pollUntil(
+              yield* test.pollUntil(
                 client['workflows.executions']({ limit: 100, correlationId: refillSlot.slotId }),
                 (value) => value.items.length > 0 && value.items.every(isDrained),
                 { attempts: 100, interval: '25 millis', message: 'Practice refill did not drain' }
               );
             }
 
-            assert.strictEqual(generations, count);
-            assert.strictEqual(yield* client['projects.deleteProject']({ id: project.id }), true);
-            expect(app.store.db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
+            test.assert.strictEqual(generations, count);
+            test.assert.strictEqual(
+              yield* client['projects.deleteProject']({ id: project.id }),
+              true
+            );
+            test.expect(app.store.db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
           })
         )
       );

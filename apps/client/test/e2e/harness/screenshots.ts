@@ -1,5 +1,5 @@
+import { expect } from '@study/testing/playwright';
 import type { Locator, Page } from 'playwright';
-import { expect } from 'playwright/test';
 import type { TestInfo } from 'playwright/test';
 
 import { safeName } from './identity.ts';

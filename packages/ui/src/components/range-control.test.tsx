@@ -1,13 +1,11 @@
-import { testStable } from '@study/testing/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { RangeControl } from './range-control';
 
-testStable('keeps slider movement local until release and does not save twice on blur', () => {
-  const onCommit = vi.fn();
+test.stable('keeps slider movement local until release and does not save twice on blur', () => {
+  const onCommit = test.vi.fn();
 
-  render(
+  test.render(
     <RangeControl
       label="Contrast"
       resetLabel="Reset contrast"
@@ -18,12 +16,12 @@ testStable('keeps slider movement local until release and does not save twice on
       onCommit={onCommit}
     />
   );
-  const slider = screen.getByRole('slider', { name: 'Contrast' });
+  const slider = test.screen.getByRole('slider', { name: 'Contrast' });
 
-  fireEvent.change(slider, { target: { value: '120' } });
-  expect(screen.getByText('120%')).toBeInTheDocument();
-  expect(onCommit).not.toHaveBeenCalled();
-  fireEvent.pointerUp(slider);
-  fireEvent.blur(slider);
-  expect(onCommit).toHaveBeenCalledExactlyOnceWith(120);
+  test.fireEvent.change(slider, { target: { value: '120' } });
+  test.expect(test.screen.getByText('120%')).toBeInTheDocument();
+  test.expect(onCommit).not.toHaveBeenCalled();
+  test.fireEvent.pointerUp(slider);
+  test.fireEvent.blur(slider);
+  test.expect(onCommit).toHaveBeenCalledExactlyOnceWith(120);
 });

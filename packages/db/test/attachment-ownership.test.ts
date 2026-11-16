@@ -1,16 +1,15 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { sql } from 'drizzle-orm';
-import { assert, expect } from 'vite-plus/test';
 
-import { createTestDatabase } from '../src/testing.ts';
+import type { Db } from '../src/index.ts';
 
-async function fixture(
-  run: (db: Awaited<ReturnType<Awaited<ReturnType<typeof createTestDatabase>>['open']>>) => void
-) {
-  const location = await createTestDatabase();
+type Databases = (migrationsFolder?: string) => Promise<{ open(): Promise<Db> }>;
+
+async function fixture(databases: Databases, run: (db: Db) => void) {
+  const location = await databases();
   const db = await location.open();
 
-  try {
+  {
     db.exec(`
       INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'One',1,1),(2,'Two',1,1);
       INSERT INTO notes(id,title,title_source,created_at,updated_at)
@@ -24,48 +23,49 @@ async function fixture(
         VALUES(1,1,0,1,'One','text');
     `);
     run(db);
-  } finally {
-    db.close();
-    await location.cleanup();
   }
 }
 
-testStable(
+test.stable(
   'explicit attachment selection crosses collections and still rejects missing sources',
-  async () =>
-    await fixture((db) => {
+  async ({ databases }) =>
+    await fixture(databases, (db) => {
       db.exec(
         "INSERT INTO message_parts(message_id,ordinal,source_id,source_name,source_kind) VALUES(1,1,2,'Shared','text')"
       );
-      assert.throws(() =>
+      test.assert.throws(() =>
         db.exec(
           "INSERT INTO message_parts(message_id,ordinal,source_id,source_name,source_kind) VALUES(1,2,999,'Missing','text')"
         )
       );
       db.exec('UPDATE sources SET project_id=NULL WHERE id=1');
-      assert.strictEqual(
+      test.assert.strictEqual(
         db.orm.get(sql`SELECT source_id FROM message_parts WHERE id=1`)?.source_id,
         1n
       );
     })
 );
 
-testStable('source cleanup and note or project cascades remain possible', async () => {
-  await fixture((db) => {
-    db.exec('DELETE FROM sources WHERE id=1');
-    assert.strictEqual(
-      db.orm.get<{ source_id: bigint | null }>(sql`SELECT source_id FROM message_parts WHERE id=1`)
-        ?.source_id,
-      null
-    );
-  });
-  await fixture((db) => {
-    db.exec('DELETE FROM notes WHERE id=1');
-    assert.strictEqual(db.orm.get(sql`SELECT id FROM message_parts WHERE id=1`), undefined);
-  });
-  await fixture((db) => {
-    db.exec('DELETE FROM projects WHERE id=1');
-    assert.strictEqual(db.orm.get(sql`SELECT id FROM message_parts WHERE id=1`)?.id, 1n);
-    expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
-  });
-});
+test.stable(
+  'source cleanup and note or project cascades remain possible',
+  async ({ databases }) => {
+    await fixture(databases, (db) => {
+      db.exec('DELETE FROM sources WHERE id=1');
+      test.assert.strictEqual(
+        db.orm.get<{ source_id: bigint | null }>(
+          sql`SELECT source_id FROM message_parts WHERE id=1`
+        )?.source_id,
+        null
+      );
+    });
+    await fixture(databases, (db) => {
+      db.exec('DELETE FROM notes WHERE id=1');
+      test.assert.strictEqual(db.orm.get(sql`SELECT id FROM message_parts WHERE id=1`), undefined);
+    });
+    await fixture(databases, (db) => {
+      db.exec('DELETE FROM projects WHERE id=1');
+      test.assert.strictEqual(db.orm.get(sql`SELECT id FROM message_parts WHERE id=1`)?.id, 1n);
+      test.expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+    });
+  }
+);

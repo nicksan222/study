@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('native service identity cannot be overwritten through aliases', async () => {
+test.stable('native service identity cannot be overwritten through aliases', async () => {
   const diagnostics = await lintRule('context-identity', {
     'src/platform/definitions/define-service.ts': String.raw`import { Context } from "effect";
 const tag = Context.Service("study/X");
@@ -16,5 +15,5 @@ function f(tag: any) {
 }`
   });
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });

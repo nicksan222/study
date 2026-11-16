@@ -1,3 +1,4 @@
+import { materialVersionIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks retained export barriers, exact byte budgets and conservative import        │
@@ -11,8 +12,6 @@
  * │ All fixtures own cleanup and never invoke external providers or background workflows.    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { materialVersionIdSchema } from '@study/contracts';
 import { contentInputSchema } from '@study/contracts';
 import { materialAidExportSchema, MAX_EXPORT_BYTES } from '@study/contracts';
 import { MaterialsRpc } from '@study/contracts';
@@ -22,12 +21,10 @@ import { PagesRpc } from '@study/contracts';
 import { SourcesRpc } from '@study/contracts';
 import { eq, and } from '@study/db';
 import { material_flashcard_entries } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import type { Db } from '@study/db';
+import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { makeCitations } from '#server/features/materials/store/citations';
@@ -46,8 +43,10 @@ import { materialRpcHandlers } from '#testing/material-rpc';
 
 import { serializeMaterialVersion } from './export-serializer.ts';
 
-async function fixture() {
-  const location = await createTestDatabase();
+type Databases = () => Promise<{ open(): Promise<Db>; cleanup(): Promise<void> }>;
+
+async function fixture(databases: Databases) {
+  const location = await databases();
   const context = new ServerContext(await location.open());
   const database = Layer.succeed(Database, { store: context });
   const services = Layer.mergeAll(Materials.layer, Sources.layer, Pages.layer).pipe(
@@ -70,10 +69,10 @@ async function fixture() {
 }
 
 for (const retirement of ['deletion', 'prune'] as const) {
-  testStable(
+  test.stable(
     `exact authored export and ancestor ${retirement} honor retained descendant pins`,
-    async () => {
-      const f = await fixture();
+    async ({ databases }) => {
+      const f = await fixture(databases);
 
       try {
         await Effect.runPromise(
@@ -87,7 +86,7 @@ for (const retirement of ['deletion', 'prune'] as const) {
               citations: []
             });
 
-            assert.ok(ancestor.version);
+            test.assert.ok(ancestor.version);
             const chain = [ancestor];
             let input = ancestor.version.id;
 
@@ -100,7 +99,7 @@ for (const retirement of ['deletion', 'prune'] as const) {
                 citations: []
               });
 
-              assert.ok(next.version);
+              test.assert.ok(next.version);
               chain.push(next);
               input = next.version.id;
             }
@@ -108,7 +107,7 @@ for (const retirement of ['deletion', 'prune'] as const) {
             const key = { id: input, format: 'markdown' as const };
             const before = yield* rpc('pages.exportFile', key);
 
-            assert.ok(new TextDecoder().decode(before.bytes).includes('Derived 3'));
+            test.assert.ok(new TextDecoder().decode(before.bytes).includes('Derived 3'));
 
             if (retirement === 'prune')
               yield* rpc('pages.save', {
@@ -124,19 +123,19 @@ for (const retirement of ['deletion', 'prune'] as const) {
                 ? yield* rpc('pages.previewHistory', scope)
                 : yield* rpc('pages.previewDeletion', { id: ancestor.id });
 
-            expect(preview.blockedVersionIds).toStrictEqual([ancestor.version.id]);
+            test.expect(preview.blockedVersionIds).toStrictEqual([ancestor.version.id]);
             const attempted =
               retirement === 'prune'
                 ? rpc('pages.retireHistory', { ...scope, token: preview.token })
                 : rpc('pages.delete', { pageId: ancestor.id, token: preview.token });
 
-            assert.ok((yield* Effect.flip(attempted)).kind === 'invalid_input');
-            expect(yield* rpc('pages.exportFile', key)).toStrictEqual(before);
+            test.assert.ok((yield* Effect.flip(attempted)).kind === 'invalid_input');
+            test.expect(yield* rpc('pages.exportFile', key)).toStrictEqual(before);
 
             for (const descendant of chain.slice(1).reverse()) {
               const selected = yield* rpc('pages.previewDeletion', { id: descendant.id });
 
-              expect(selected.blockedVersionIds).toStrictEqual([]);
+              test.expect(selected.blockedVersionIds).toStrictEqual([]);
               yield* rpc('pages.delete', { pageId: descendant.id, token: selected.token });
             }
 
@@ -145,13 +144,13 @@ for (const retirement of ['deletion', 'prune'] as const) {
                 ? yield* rpc('pages.previewHistory', scope)
                 : yield* rpc('pages.previewDeletion', { id: ancestor.id });
 
-            expect(released.blockedVersionIds).toStrictEqual([]);
+            test.expect(released.blockedVersionIds).toStrictEqual([]);
 
             if (retirement === 'prune')
               yield* rpc('pages.retireHistory', { ...scope, token: released.token });
             else yield* rpc('pages.delete', { pageId: ancestor.id, token: released.token });
 
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(
                 rpc('pages.exportFile', { id: ancestor.version.id, format: 'markdown' })
               )).kind === 'not_found'
@@ -165,10 +164,10 @@ for (const retirement of ['deletion', 'prune'] as const) {
   );
 }
 
-testStable(
+test.stable(
   'native aid JSON decodes complete canonical versions and exact citations for every aid kind',
-  async () => {
-    const f = await fixture();
+  async ({ databases }) => {
+    const f = await fixture(databases);
 
     try {
       await Effect.runPromise(
@@ -252,17 +251,17 @@ testStable(
               const text = new TextDecoder().decode(file.bytes);
               const decoded = Schema.decodeUnknownSync(codec)(text);
 
-              expect(decoded).toStrictEqual({ schemaVersion: 1, version, citations });
-              expect(
-                Schema.decodeUnknownSync(codec)(Schema.encodeSync(codec)(decoded))
-              ).toStrictEqual(decoded);
-              assert.strictEqual(JSON.parse(text).version.id, String(version.id));
-              expect(decoded.citations[0]!.target).toStrictEqual({
+              test.expect(decoded).toStrictEqual({ schemaVersion: 1, version, citations });
+              test
+                .expect(Schema.decodeUnknownSync(codec)(Schema.encodeSync(codec)(decoded)))
+                .toStrictEqual(decoded);
+              test.assert.strictEqual(JSON.parse(text).version.id, String(version.id));
+              test.expect(decoded.citations[0]!.target).toStrictEqual({
                 blockId: document.blocks[0]!.id,
                 start: 0,
                 end: 8
               });
-              assert.ok(file.mediaType === 'application/json');
+              test.assert.ok(file.mediaType === 'application/json');
               // Exercise a legal identity beyond Number's exact range without changing SQLite rows.
               const wide = {
                 ...version,
@@ -270,7 +269,7 @@ testStable(
               };
               const wideFile = serializeMaterialVersion(wide, 'aid_json', citations);
 
-              assert.strictEqual(
+              test.assert.strictEqual(
                 Schema.decodeUnknownSync(codec)(new TextDecoder().decode(wideFile.bytes)).version
                   .id,
                 wide.id
@@ -282,23 +281,25 @@ testStable(
               );
               const columns = content.kind === 'flashcards' ? 3 : 5;
 
-              expect(cells.slice(columns, columns + 3)).toStrictEqual([
-                'versionId',
-                'inputs',
-                'citations'
-              ]);
-              assert.strictEqual(cells[columns * 2 + 3], String(wide.id));
-              expect(
-                Schema.decodeUnknownSync(
-                  Schema.fromJsonString(Schema.toCodecJson(Schema.Array(contentInputSchema)))
-                )(cells[columns * 2 + 4])
-              ).toStrictEqual(version.inputs);
-              expect(
-                Schema.decodeUnknownSync(
-                  Schema.fromJsonString(Schema.toCodecJson(Schema.Array(materialCitationSchema)))
-                )(cells[columns * 2 + 5])
-              ).toEqual(citations);
-              assert.strictEqual(citations[1]!.target, undefined);
+              test
+                .expect(cells.slice(columns, columns + 3))
+                .toStrictEqual(['versionId', 'inputs', 'citations']);
+              test.assert.strictEqual(cells[columns * 2 + 3], String(wide.id));
+              test
+                .expect(
+                  Schema.decodeUnknownSync(
+                    Schema.fromJsonString(Schema.toCodecJson(Schema.Array(contentInputSchema)))
+                  )(cells[columns * 2 + 4])
+                )
+                .toStrictEqual(version.inputs);
+              test
+                .expect(
+                  Schema.decodeUnknownSync(
+                    Schema.fromJsonString(Schema.toCodecJson(Schema.Array(materialCitationSchema)))
+                  )(cells[columns * 2 + 5])
+                )
+                .toEqual(citations);
+              test.assert.strictEqual(citations[1]!.target, undefined);
             }
           })
         ).pipe(Effect.provide(f.handlers))
@@ -309,10 +310,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'native CSV preserves quoted multiline text and neutralizes formula prefixes without altering ordinary text',
-  async () => {
-    const f = await fixture();
+  async ({ databases }) => {
+    const f = await fixture(databases);
 
     try {
       await Effect.runPromise(
@@ -363,14 +364,14 @@ testStable(
             const text = new TextDecoder().decode(file.bytes);
 
             for (const front of cells.slice(0, 7))
-              assert.ok(text.includes('"\'' + front + '"'), front);
+              test.assert.ok(text.includes('"\'' + front + '"'), front);
 
-            assert.ok(text.includes('"safe, ""quoted""\r\nnext"'));
-            assert.ok(text.includes('"a=b"'));
-            assert.ok(text.includes('"é😀"'));
-            assert.ok(file.omissions.some((o) => o.code === 'csv_structure'));
-            assert.ok(file.mediaType === 'text/csv; charset=utf-8');
-            assert.ok(text.endsWith('\r\n'));
+            test.assert.ok(text.includes('"safe, ""quoted""\r\nnext"'));
+            test.assert.ok(text.includes('"a=b"'));
+            test.assert.ok(text.includes('"é😀"'));
+            test.assert.ok(file.omissions.some((o) => o.code === 'csv_structure'));
+            test.assert.ok(file.mediaType === 'text/csv; charset=utf-8');
+            test.assert.ok(text.endsWith('\r\n'));
           })
         ).pipe(Effect.provide(f.handlers))
       );
@@ -380,10 +381,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'citation snapshot accepts its exact UTF-8 budget without expanding retained evidence bodies',
-  async () => {
-    const f = await fixture();
+  async ({ databases }) => {
+    const f = await fixture(databases);
 
     try {
       await Effect.runPromise(
@@ -446,8 +447,8 @@ testStable(
             // Each resolved citation reserves four bytes in addition to its encoded JSON.
             const exact = new TextEncoder().encode(serialized).length + 4;
 
-            expect(yield* snapshot(exact)).toStrictEqual(single);
-            assert.ok((yield* Effect.flip(snapshot(exact - 1))).kind === 'invalid_input');
+            test.expect(yield* snapshot(exact)).toStrictEqual(single);
+            test.assert.ok((yield* Effect.flip(snapshot(exact - 1))).kind === 'invalid_input');
             yield* rpc('materials.setCitations', {
               id: claim.version.id,
               citations: [
@@ -470,19 +471,19 @@ testStable(
               makeCitations(tx).readCitations(claim.version.id)
             );
 
-            expect(actual).toStrictEqual(expected);
+            test.expect(actual).toStrictEqual(expected);
             const preview = yield* docs('pages.previewDeletion', { id: later.id });
 
-            expect(preview.blockedVersionIds).toStrictEqual([later.version!.id]);
-            assert.ok(
+            test.expect(preview.blockedVersionIds).toStrictEqual([later.version!.id]);
+            test.assert.ok(
               (yield* Effect.flip(docs('pages.delete', { pageId: later.id, token: preview.token })))
                 .kind === 'invalid_input'
             );
-            assert.ok((yield* Effect.flip(snapshot(exact))).kind === 'invalid_input');
+            test.assert.ok((yield* Effect.flip(snapshot(exact))).kind === 'invalid_input');
             const bounded = yield* snapshot(MAX_EXPORT_BYTES);
 
-            assert.strictEqual(bounded.citations.length, 3);
-            assert.ok(
+            test.assert.strictEqual(bounded.citations.length, 3);
+            test.assert.ok(
               JSON.stringify(bounded, (_, value) =>
                 typeof value === 'bigint' ? String(value) : value
               ).length < 8192
@@ -496,10 +497,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'native capability reports local routes and keeps vision and absent-provider support conservative',
-  async () => {
-    const f = await fixture();
+  async ({ databases }) => {
+    const f = await fixture(databases);
 
     try {
       await Effect.runPromise(
@@ -559,7 +560,7 @@ testStable(
             ] as const;
 
             for (const { kind, mime, path, status, reason } of cases) {
-              expect(yield* rpc('sources.importCapability', { kind, mime })).toStrictEqual({
+              test.expect(yield* rpc('sources.importCapability', { kind, mime })).toStrictEqual({
                 kind,
                 recognized: kind !== 'other',
                 path,
@@ -577,7 +578,7 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'JSON export budget matches UTF-8 at the public limit across controls, surrogates and cumulative values',
   () => {
     const values = [
@@ -598,13 +599,15 @@ testStable(
     const budget = exportBudget(lengths.reduce((total, bytes) => total + bytes, 0));
 
     values.forEach((value) => budget.consume(value));
-    assert.strictEqual(budget.remaining(), 0);
-    expect(() => budget.consume(null)).toThrow(expect.objectContaining({ kind: 'invalid_input' }));
+    test.assert.strictEqual(budget.remaining(), 0);
+    test
+      .expect(() => budget.consume(null))
+      .toThrow(test.expect.objectContaining({ kind: 'invalid_input' }));
     const exact = 'é'.repeat((MAX_EXPORT_BYTES - 2) / 2);
 
     exportBudget().consume(exact);
-    expect(() => exportBudget().consume(exact + 'a')).toThrow(
-      expect.objectContaining({ kind: 'invalid_input' })
-    );
+    test
+      .expect(() => exportBudget().consume(exact + 'a'))
+      .toThrow(test.expect.objectContaining({ kind: 'invalid_input' }));
   }
 );

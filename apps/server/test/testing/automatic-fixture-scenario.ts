@@ -1,3 +1,4 @@
+import { Db, sql } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Defines child-process scenarios used to exercise automatic test fixture setup,     │
@@ -13,24 +14,26 @@
  * │ the parent test can verify cleanup.                                                      │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { Db, sql } from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { assert, expect, afterAll } from 'vite-plus/test';
-import { beforeEach } from 'vite-plus/test';
-import type { TestContext } from 'vite-plus/test';
 
 import { Projects } from '#server/features/projects/index';
-import { App } from '#server/runtime/service';
-
-import { createServerTest } from './server-test.ts';
 
 const mode = process.env.STUDY_TEST_SCENARIO;
 
+if (mode === 'unused') {
+  test.stable('pure tests do not allocate database fixtures', async () => {
+    const fixtures = await Array.fromAsync(
+      new Bun.Glob('study-test-*').scan({ cwd: process.env.TMPDIR!, onlyFiles: false })
+    );
+
+    test.expect(fixtures).toEqual([]);
+  });
+}
+
 if (mode === 'setup-failure') {
-  beforeEach(async (t) => {
-    const { path } = createServerTest(t as TestContext, { app: false });
+  test.stable('fails after fixture setup', async ({ resources }) => {
+    const { path } = resources;
 
     await Bun.write(path, 'setup failed');
     console.log('FIXTURE_PATH', JSON.stringify(path));
@@ -40,17 +43,20 @@ if (mode === 'setup-failure') {
 }
 
 if (
+  mode !== 'setup-failure' &&
   mode !== 'concurrent' &&
   mode !== 'retry-sync' &&
   mode !== 'retry-async' &&
-  mode !== 'api-reuse'
+  mode !== 'api-reuse' &&
+  mode !== 'unused'
 )
-  void testStable('first isolated database', async (t) => {
-    const f = await createServerTest(t);
-
+  void test.stable('first isolated database', async ({ server: f }) => {
     console.log('FIXTURE_PATH', JSON.stringify(f.path));
     f.dispose(() => {
-      assert.strictEqual(f.store.db.orm.get<{ value: bigint }>(sql`SELECT 1 AS value`)?.value, 1n);
+      test.assert.strictEqual(
+        f.store.db.orm.get<{ value: bigint }>(sql`SELECT 1 AS value`)?.value,
+        1n
+      );
       console.log('LIVE_SQL_DURING_DISPOSAL');
     });
 
@@ -67,17 +73,17 @@ if (
       Effect.flatMap(Projects, (projects) => projects.createProject({ name: 'First' }))
     );
 
-    assert.strictEqual(project.name, 'First');
+    test.assert.strictEqual(project.name, 'First');
     let reopened: Db;
 
     f.dispose(() => {
-      assert.throws(() => reopened.exec('SELECT 1'));
+      test.assert.throws(() => reopened.exec('SELECT 1'));
       console.log('EXTRA_CONNECTION_CLOSED');
     });
     reopened = f.manage(await Db.open(f.path));
 
     try {
-      assert.strictEqual(
+      test.assert.strictEqual(
         reopened.orm.get<{ name: string }>(sql`SELECT name FROM projects`)?.name,
         'First'
       );
@@ -86,21 +92,21 @@ if (
     }
 
     if (mode === 'failure' || mode === 'failure-cleanup-throw')
-      assert.fail('intentional test failure');
+      test.assert.fail('intentional test failure');
   });
 
 if (mode === 'success') {
-  void testStable('second isolated database', async (t) => {
-    const f = await createServerTest(t);
-
+  void test.stable('second isolated database', async ({ server: f }) => {
     console.log('FIXTURE_PATH', JSON.stringify(f.path));
-    expect(
-      (
-        await f.app.nativeRuntime.runPromise(
-          Effect.flatMap(Projects, (projects) => projects.projects({ limit: 10 }))
-        )
-      ).items
-    ).toStrictEqual([]);
+    test
+      .expect(
+        (
+          await f.app.nativeRuntime.runPromise(
+            Effect.flatMap(Projects, (projects) => projects.projects({ limit: 10 }))
+          )
+        ).items
+      )
+      .toStrictEqual([]);
   });
 }
 
@@ -112,8 +118,8 @@ if (mode === 'concurrent') {
   });
   const paths: string[] = [];
 
-  testStable.concurrent.for(['a', 'b'])('concurrent database %s', async (name, context) => {
-    const { path, manage } = createServerTest(context, { app: false });
+  test.stable.concurrent.for(['a', 'b'])('concurrent database %s', async (name, { resources }) => {
+    const { path, manage } = resources;
     const db = manage(await Db.open(path));
 
     paths.push(path);
@@ -125,25 +131,27 @@ if (mode === 'concurrent') {
       if (++arrived === 2) release();
 
       await ready;
-      assert.strictEqual(db.orm.get<{ name: string }>(sql`SELECT name FROM projects`)?.name, name);
+      test.assert.strictEqual(
+        db.orm.get<{ name: string }>(sql`SELECT name FROM projects`)?.name,
+        name
+      );
     } finally {
       db.close();
     }
   });
-  afterAll(() => {
-    assert.strictEqual(new Set(paths).size, 2);
+  test.afterAll(() => {
+    test.assert.strictEqual(new Set(paths).size, 2);
   });
 }
 
 if (mode === 'retry-sync' || mode === 'retry-async') {
-  void testStable('failed close is retried by teardown', async (t) => {
-    const database = createServerTest(t, { app: false });
+  void test.stable('failed close is retried by teardown', async ({ resources: database }) => {
     let attempts = 0;
 
     await Bun.write(database.path, 'resource exists');
     console.log('FIXTURE_PATH', JSON.stringify(database.path));
     database.dispose(() => {
-      assert.strictEqual(attempts, 2);
+      test.assert.strictEqual(attempts, 2);
       console.log('RETRIED_CLOSE_BEFORE_FILE_CLEANUP');
     });
 
@@ -156,7 +164,7 @@ if (mode === 'retry-sync' || mode === 'retry-async') {
         }
       });
 
-      assert.throws(() => resource.close(), /first close fails/);
+      test.assert.throws(() => resource.close(), /first close fails/);
     } else {
       const resource = database.manage({
         async close() {
@@ -168,32 +176,25 @@ if (mode === 'retry-sync' || mode === 'retry-async') {
       const first = resource.close();
       const concurrent = resource.close();
 
-      assert.strictEqual(concurrent, first);
-      await expect(first).rejects.toThrow(/first close fails/);
+      test.assert.strictEqual(concurrent, first);
+      await test.expect(first).rejects.toThrow(/first close fails/);
     }
   });
 }
 
 if (mode === 'api-reuse') {
-  void testStable(
+  void test.stable(
     'canonical test helper reuses the app and supports low-level access',
-    async (t) => {
-      const low = createServerTest(t, { app: false });
-      const extra = low.manage(await App.open({ path: low.path }));
-
-      await extra.close();
-
-      const first = await createServerTest(t);
-      const again = await createServerTest(t);
-
-      assert.strictEqual(first, again);
-      assert.strictEqual(first.app, again.app);
-      assert.strictEqual(first.app.nativeRuntime, again.app.nativeRuntime);
+    async ({ server: first, rpc, resources: low }) => {
+      test.assert.strictEqual(rpc.app, first.app);
+      test.assert.strictEqual(first.store, rpc.app.store);
+      test.assert.strictEqual(first.fixture, low);
       console.log('FIXTURE_PATH', JSON.stringify(first.path));
 
-      assert.strictEqual(low.path, first.path);
-      assert.strictEqual(low.dir, first.dir);
-      assert.strictEqual('app' in low, false);
+      test.assert.strictEqual(low.path, first.path);
+      test.assert.strictEqual(rpc.fixture, low);
+      test.assert.strictEqual(low.dir, first.dir);
+      test.assert.strictEqual('app' in low, false);
     }
   );
 }

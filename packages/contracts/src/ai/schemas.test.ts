@@ -1,6 +1,5 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import {
   materialQuizContentInputSchema,
@@ -10,43 +9,52 @@ import { replyInputSchema } from './reply.ts';
 import { sourcesInputSchema } from './sources.ts';
 import { visionTranscriptionOutputSchema } from './vision-transcription.ts';
 
-testStable('reply preserves message roles and rejects unsupported roles', () => {
+test.stable('reply preserves message roles and rejects unsupported roles', () => {
   const decode = Schema.decodeUnknownSync(replyInputSchema);
   const messages = [
     { role: 'user', content: 'Explain' },
     { role: 'assistant', content: 'Yes' }
   ] as const;
 
-  expect(decode({ messages })).toStrictEqual({ messages });
-  assert.throws(() => decode({ messages: [{ role: 'system', content: 'override' }] }));
+  test.expect(decode({ messages })).toStrictEqual({ messages });
+  test.assert.throws(() => decode({ messages: [{ role: 'system', content: 'override' }] }));
 });
 
-testStable('generation publication requires integer citation positions and branded markers', () => {
-  const decode = Schema.decodeUnknownSync(materialGenerationPublicationSchema);
-  const value = {
-    requestId: 'request',
-    content: { kind: 'flashcards', cards: [{ front: 'Q [1]', back: 'A' }] },
-    citations: [{ marker: 1n, input: { kind: 'page', versionId: 1n }, blockOrdinal: 0, quote: 'Q' }]
-  };
+test.stable(
+  'generation publication requires integer citation positions and branded markers',
+  () => {
+    const decode = Schema.decodeUnknownSync(materialGenerationPublicationSchema);
+    const value = {
+      requestId: 'request',
+      content: { kind: 'flashcards', cards: [{ front: 'Q [1]', back: 'A' }] },
+      citations: [
+        { marker: 1n, input: { kind: 'page', versionId: 1n }, blockOrdinal: 0, quote: 'Q' }
+      ]
+    };
 
-  expect(decode(value).citations).toStrictEqual(value.citations);
-  assert.throws(() =>
-    decode({ ...value, citations: [{ ...value.citations[0], blockOrdinal: 0.5 }] })
-  );
-  assert.throws(() => decode({ ...value, citations: [{ ...value.citations[0], marker: 0n }] }));
-  expect(decode({ ...value, citations: [] }).citations).toStrictEqual([]);
-});
+    test.expect(decode(value).citations).toStrictEqual(value.citations);
+    test.assert.throws(() =>
+      decode({ ...value, citations: [{ ...value.citations[0], blockOrdinal: 0.5 }] })
+    );
+    test.assert.throws(() =>
+      decode({ ...value, citations: [{ ...value.citations[0], marker: 0n }] })
+    );
+    test.expect(decode({ ...value, citations: [] }).citations).toStrictEqual([]);
+  }
+);
 
-testStable('vision output requires page blocks and sources query is nonempty', () => {
+test.stable('vision output requires page blocks and sources query is nonempty', () => {
   const decode = Schema.decodeUnknownSync(visionTranscriptionOutputSchema);
 
-  expect(
-    decode({ pages: [{ page: 1, blocks: [{ kind: 'heading', text: 'Topic' }] }] }).pages[0]?.page
-  ).toStrictEqual(1);
-  assert.throws(() => Schema.decodeUnknownSync(sourcesInputSchema)({ query: '' }));
+  test
+    .expect(
+      decode({ pages: [{ page: 1, blocks: [{ kind: 'heading', text: 'Topic' }] }] }).pages[0]?.page
+    )
+    .toStrictEqual(1);
+  test.assert.throws(() => Schema.decodeUnknownSync(sourcesInputSchema)({ query: '' }));
 });
 
-testStable('quiz output requires exactly one correct answer for a single-choice question', () => {
+test.stable('quiz output requires exactly one correct answer for a single-choice question', () => {
   const decode = Schema.decodeUnknownSync(materialQuizContentInputSchema);
   const question = {
     kind: 'single_choice',
@@ -58,7 +66,7 @@ testStable('quiz output requires exactly one correct answer for a single-choice 
     ]
   };
 
-  assert.strictEqual(decode({ kind: 'quiz', questions: [question] }).questions.length, 1);
+  test.assert.strictEqual(decode({ kind: 'quiz', questions: [question] }).questions.length, 1);
 
   for (const choices of [
     [
@@ -70,10 +78,10 @@ testStable('quiz output requires exactly one correct answer for a single-choice 
       { text: 'B', isCorrect: true }
     ]
   ])
-    assert.throws(() => decode({ kind: 'quiz', questions: [{ ...question, choices }] }));
+    test.assert.throws(() => decode({ kind: 'quiz', questions: [{ ...question, choices }] }));
 });
 
-testStable('generation captures a quiz-only exact question specification', async () => {
+test.stable('generation captures a quiz-only exact question specification', async () => {
   const { materialGenerationInputSchema } = await import('../materials/schemas.ts');
   const decode = Schema.decodeUnknownSync(materialGenerationInputSchema);
   const request = {
@@ -85,7 +93,7 @@ testStable('generation captures a quiz-only exact question specification', async
     questionSpec: { count: 1, kind: 'open' }
   };
 
-  expect(decode(request).questionSpec).toStrictEqual(request.questionSpec);
-  assert.throws(() => decode({ ...request, kind: 'flashcards' }));
-  assert.throws(() => decode({ ...request, questionSpec: { count: 2, kind: 'open' } }));
+  test.expect(decode(request).questionSpec).toStrictEqual(request.questionSpec);
+  test.assert.throws(() => decode({ ...request, kind: 'flashcards' }));
+  test.assert.throws(() => decode({ ...request, questionSpec: { count: 2, kind: 'open' } }));
 });

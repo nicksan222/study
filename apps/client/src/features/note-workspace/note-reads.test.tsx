@@ -1,15 +1,11 @@
 import { noteIdSchema, projectIdSchema, notePageInputSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { expect } from 'vite-plus/test';
-
-import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { useNoteList } from './note-reads';
 
 /** Interaction-level coverage; authoritative membership and transaction races are server tests. */
-testStable(
+test.stable(
   'keeps loaded note windows bounded, navigates beyond one hundred and resets on owner changes',
   async () => {
     const items = Array.from({ length: 150 }, (_, index) => {
@@ -26,7 +22,7 @@ testStable(
       };
     });
     const reads: (typeof notePageInputSchema.Type)[] = [];
-    const fixture = rpcTestTransport(async (_tag, input) => {
+    const fixture = test.rpcTestTransport(async (_tag, input) => {
       const request = Schema.decodeUnknownSync(notePageInputSchema)(input);
 
       reads.push(request);
@@ -42,31 +38,31 @@ testStable(
             : null
       };
     });
-    const view = renderHook(({ project }) => useNoteList(project), {
+    const view = test.renderHook(({ project }) => useNoteList(project), {
       wrapper: fixture.wrapper,
       initialProps: { project: projectIdSchema.make(1n) }
     });
 
-    await waitFor(() => expect(view.result.current.data?.items).toHaveLength(30));
+    await test.waitFor(() => test.expect(view.result.current.data?.items).toHaveLength(30));
 
     for (const limit of [60, 90, 100]) {
-      act(() => view.result.current.fetchNextPage());
-      await waitFor(() => expect(view.result.current.data?.items).toHaveLength(limit));
+      test.act(() => view.result.current.fetchNextPage());
+      await test.waitFor(() => test.expect(view.result.current.data?.items).toHaveLength(limit));
     }
 
-    act(() => view.result.current.fetchNextPage());
-    await waitFor(() =>
-      expect(view.result.current.data?.items[0]?.id).toBe(noteIdSchema.make(50n))
+    test.act(() => view.result.current.fetchNextPage());
+    await test.waitFor(() =>
+      test.expect(view.result.current.data?.items[0]?.id).toBe(noteIdSchema.make(50n))
     );
-    expect(view.result.current.pagination.hasPrevious).toBe(true);
-    act(() => view.result.current.pagination.previous());
-    await waitFor(() =>
-      expect(view.result.current.data?.items[0]?.id).toBe(noteIdSchema.make(150n))
+    test.expect(view.result.current.pagination.hasPrevious).toBe(true);
+    test.act(() => view.result.current.pagination.previous());
+    await test.waitFor(() =>
+      test.expect(view.result.current.data?.items[0]?.id).toBe(noteIdSchema.make(150n))
     );
     view.rerender({ project: projectIdSchema.make(2n) });
-    await waitFor(() => expect(reads.at(-1)?.project).toBe(projectIdSchema.make(2n)));
-    expect(reads.at(-1)?.before).toBeUndefined();
-    expect(reads.at(-1)?.limit).toBe(30);
-    expect(reads.every((request) => request.limit <= 100)).toBe(true);
+    await test.waitFor(() => test.expect(reads.at(-1)?.project).toBe(projectIdSchema.make(2n)));
+    test.expect(reads.at(-1)?.before).toBeUndefined();
+    test.expect(reads.at(-1)?.limit).toBe(30);
+    test.expect(reads.every((request) => request.limit <= 100)).toBe(true);
   }
 );

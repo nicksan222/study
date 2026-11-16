@@ -1,3 +1,4 @@
+import { failureSchema, StudyError } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies configuration waits persist across SQLite reopen and retry only after the │
@@ -15,16 +16,12 @@
  * │ fixture cleanup closes owned resources.                                                  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { failureSchema, StudyError } from '@study/contracts';
 import { executionIdSchema } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import { workflow_configuration_waits, workflow_executions } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Option, Schema, Schedule } from 'effect';
 import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
-import { assert } from 'vite-plus/test';
 
 import { ExecutionStore } from '#server/features/workflows/store/index';
 import { ServerContext } from '#server/platform/database/context';
@@ -54,10 +51,10 @@ function admit(context: ServerContext, tag: string, id: string) {
 }
 
 for (const kind of ['auth', 'config', 'model_unavailable'] as const)
-  testStable(
+  test.stable(
     `${kind} configuration waits survive reopening and retry only when the fingerprint changes`,
-    async () => {
-      const location = await createTestDatabase();
+    async ({ databases }) => {
+      const location = await databases();
       let context = new ServerContext(await location.open());
       let revision = 'before';
       let calls = 0;
@@ -95,17 +92,13 @@ for (const kind of ['auth', 'config', 'model_unavailable'] as const)
         engine: WorkflowEngine.WorkflowEngine['Service'],
         expected: 'Suspended' | 'Complete'
       ) =>
-        Effect.gen(function* () {
-          for (let i = 0; i < 1000; i++) {
-            const state = yield* engine.poll(workflow, 'configuration-run');
-
-            if (Option.isSome(state) && state.value._tag === expected) return state.value;
-
-            yield* Effect.sleep('5 millis');
-          }
-
-          throw new Error(`Workflow did not reach ${expected}`);
-        });
+        test
+          .pollUntil(
+            engine.poll(workflow, 'configuration-run'),
+            (state) => Option.isSome(state) && state.value._tag === expected,
+            { attempts: 1000, interval: '5 millis', message: `Workflow did not reach ${expected}` }
+          )
+          .pipe(Effect.map((state) => Option.getOrThrow(state)));
 
       try {
         await Effect.runPromise(
@@ -121,19 +114,22 @@ for (const kind of ['auth', 'config', 'model_unavailable'] as const)
             });
             yield* awaitStatus(engine, 'Suspended');
             context.db.orm.update(workflow_executions).set({ status: 'suspended' }).run();
-            assert.strictEqual(calls, 1);
-            assert.throws(() =>
+            test.assert.strictEqual(calls, 1);
+            test.assert.throws(() =>
               context.db.orm.run(
                 sql`UPDATE workflow_configuration_waits SET reason = ${'unknown-reason'}`
               )
             );
-            assert.strictEqual(
+            test.assert.strictEqual(
               context.db.orm.select().from(workflow_configuration_waits).get()?.reason,
               kind
             );
-            assert.strictEqual(yield* notifyConfigurationChanged(context, engine, revision), 0);
-            assert.strictEqual(calls, 1);
-            assert.strictEqual(
+            test.assert.strictEqual(
+              yield* notifyConfigurationChanged(context, engine, revision),
+              0
+            );
+            test.assert.strictEqual(calls, 1);
+            test.assert.strictEqual(
               context.db.orm.select().from(workflow_configuration_waits).all().length,
               1
             );
@@ -149,31 +145,34 @@ for (const kind of ['auth', 'config', 'model_unavailable'] as const)
             const id = Schema.decodeUnknownSync(executionIdSchema)('configuration-run');
 
             context.db.orm.update(workflow_configuration_waits).set({ reason: null }).run();
-            assert.strictEqual((yield* store.execution(id)).configurationWaitReason, null);
+            test.assert.strictEqual((yield* store.execution(id)).configurationWaitReason, null);
             context.db.orm.update(workflow_configuration_waits).set({ reason: kind }).run();
             context.db.orm
               .insert(workflow_configuration_waits)
               .values({ execution_id: id, deferred_name: 'legacy', observed_revision: 'before' })
               .run();
-            assert.strictEqual((yield* store.execution(id)).configurationWaitReason, kind);
+            test.assert.strictEqual((yield* store.execution(id)).configurationWaitReason, kind);
             context.db.orm
               .delete(workflow_configuration_waits)
               .where(eq(workflow_configuration_waits.deferred_name, 'legacy'))
               .run();
-            assert.strictEqual((yield* store.execution(id)).configurationWaitReason, kind);
-            assert.strictEqual(
+            test.assert.strictEqual((yield* store.execution(id)).configurationWaitReason, kind);
+            test.assert.strictEqual(
               (yield* store.executions({ limit: 10 }))[0]?.configurationWaitReason,
               kind
             );
 
             yield* engine.register(workflow, () => retryResumableActivity(activity));
-            assert.strictEqual(yield* notifyConfigurationChanged(context, engine, revision), 1);
+            test.assert.strictEqual(
+              yield* notifyConfigurationChanged(context, engine, revision),
+              1
+            );
             const complete = yield* awaitStatus(engine, 'Complete');
 
-            assert.ok(complete._tag === 'Complete');
-            assert.strictEqual(calls, 2);
-            assert.strictEqual((yield* store.execution(id)).configurationWaitReason, null);
-            assert.strictEqual(
+            test.assert.ok(complete._tag === 'Complete');
+            test.assert.strictEqual(calls, 2);
+            test.assert.strictEqual((yield* store.execution(id)).configurationWaitReason, null);
+            test.assert.strictEqual(
               context.db.orm.select().from(workflow_configuration_waits).all().length,
               0
             );
@@ -186,10 +185,10 @@ for (const kind of ['auth', 'config', 'model_unavailable'] as const)
     }
   );
 
-testStable(
+test.stable(
   'configuration changes during a failed call are retained, and cancelled waits never retry',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     let revision = 'before';
     let calls = 0;
@@ -230,17 +229,13 @@ testStable(
         Effect.gen(function* () {
           const engine = yield* WorkflowEngine.WorkflowEngine;
           const wait = (id: string, expected: 'Complete' | 'Suspended') =>
-            Effect.gen(function* () {
-              for (let i = 0; i < 1000; i++) {
-                const state = yield* engine.poll(workflow, id);
-
-                if (Option.isSome(state) && state.value._tag === expected) return;
-
-                yield* Effect.sleep('5 millis');
-              }
-
-              throw new Error('Workflow did not settle');
-            });
+            test
+              .pollUntil(
+                engine.poll(workflow, id),
+                (state) => Option.isSome(state) && state.value._tag === expected,
+                { attempts: 1000, interval: '5 millis', message: 'Workflow did not settle' }
+              )
+              .pipe(Effect.asVoid);
 
           yield* engine.register(workflow, () => retryResumableActivity(activity));
           admit(context, workflow._tag, 'race');
@@ -251,9 +246,9 @@ testStable(
           });
           yield* wait('race', 'Suspended');
           ready = true;
-          assert.strictEqual(yield* notifyConfigurationChanged(context, engine, revision), 1);
+          test.assert.strictEqual(yield* notifyConfigurationChanged(context, engine, revision), 1);
           yield* wait('race', 'Complete');
-          assert.strictEqual(calls, 2);
+          test.assert.strictEqual(calls, 2);
 
           ready = false;
           admit(context, workflow._tag, 'cancel');
@@ -268,12 +263,12 @@ testStable(
           revision = 'after-cancellation';
           yield* notifyConfigurationChanged(context, engine, revision);
           yield* wait('cancel', 'Complete');
-          assert.strictEqual(calls, 3);
-          assert.strictEqual(
+          test.assert.strictEqual(calls, 3);
+          test.assert.strictEqual(
             context.db.orm.select().from(workflow_configuration_waits).all().length,
             0
           );
-          assert.ok(
+          test.assert.ok(
             context.db.orm
               .select()
               .from(workflow_executions)
@@ -290,10 +285,10 @@ testStable(
 );
 
 for (const kind of ['invalid_input', 'transient'] as const) {
-  testStable(
+  test.stable(
     `${kind} failures respect terminal classification and durable retry limits`,
-    async () => {
-      const location = await createTestDatabase();
+    async ({ databases }) => {
+      const location = await databases();
       const context = new ServerContext(await location.open());
       let calls = 0;
       const workflow = Workflow.make(`retry-limit-${kind}`, {
@@ -331,19 +326,12 @@ for (const kind of ['invalid_input', 'transient'] as const) {
               discard: true
             });
 
-            for (let i = 0; i < 1000; i++) {
-              const state = yield* engine.poll(workflow, 'limit');
-
-              if (Option.isSome(state) && state.value._tag === 'Complete') {
-                assert.strictEqual(calls, kind === 'transient' ? 3 : 1);
-
-                return;
-              }
-
-              yield* Effect.sleep('5 millis');
-            }
-
-            throw new Error('Workflow did not complete');
+            yield* test.pollUntil(
+              engine.poll(workflow, 'limit'),
+              (state) => Option.isSome(state) && state.value._tag === 'Complete',
+              { attempts: 1000, interval: '5 millis', message: 'Workflow did not complete' }
+            );
+            test.assert.strictEqual(calls, kind === 'transient' ? 3 : 1);
           }).pipe(Effect.provide(services), Effect.scoped)
         );
       } finally {
@@ -354,10 +342,10 @@ for (const kind of ['invalid_input', 'transient'] as const) {
   );
 }
 
-testStable(
+test.stable(
   'configuration reasons stay correlated to their own execution in detail and lists',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const first = executionIdSchema.make('configuration-first');
     const second = executionIdSchema.make('configuration-second');
@@ -391,11 +379,11 @@ testStable(
         Effect.gen(function* () {
           const store = yield* useStore(ExecutionStore);
 
-          assert.strictEqual((yield* store.execution(first)).configurationWaitReason, 'auth');
-          assert.strictEqual((yield* store.execution(second)).configurationWaitReason, null);
+          test.assert.strictEqual((yield* store.execution(first)).configurationWaitReason, 'auth');
+          test.assert.strictEqual((yield* store.execution(second)).configurationWaitReason, null);
           let listed = yield* store.executions({ limit: 10 });
 
-          assert.strictEqual(
+          test.assert.strictEqual(
             listed.find((row) => row.id === second)?.configurationWaitReason,
             null
           );
@@ -408,14 +396,17 @@ testStable(
               reason: 'config'
             })
             .run();
-          assert.strictEqual((yield* store.execution(first)).configurationWaitReason, 'auth');
-          assert.strictEqual((yield* store.execution(second)).configurationWaitReason, 'config');
+          test.assert.strictEqual((yield* store.execution(first)).configurationWaitReason, 'auth');
+          test.assert.strictEqual(
+            (yield* store.execution(second)).configurationWaitReason,
+            'config'
+          );
           listed = yield* store.executions({ limit: 10 });
-          assert.strictEqual(
+          test.assert.strictEqual(
             listed.find((row) => row.id === first)?.configurationWaitReason,
             'auth'
           );
-          assert.strictEqual(
+          test.assert.strictEqual(
             listed.find((row) => row.id === second)?.configurationWaitReason,
             'config'
           );
@@ -428,177 +419,188 @@ testStable(
   }
 );
 
-testStable('configuration revisions cannot exceed the total activity attempt bound', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  let revision = '0';
-  let calls = 0;
-  const workflow = Workflow.make('configuration-attempt-bound', {
-    payload: { id: Schema.String },
-    error: failureSchema,
-    idempotencyKey: ({ id }) => id
-  });
+test.stable(
+  'configuration revisions cannot exceed the total activity attempt bound',
+  async ({ databases }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    let revision = '0';
+    let calls = 0;
+    const workflow = Workflow.make('configuration-attempt-bound', {
+      payload: { id: Schema.String },
+      error: failureSchema,
+      idempotencyKey: ({ id }) => id
+    });
 
-  context.db.orm
-    .insert(workflow_executions)
-    .values({
-      execution_id: 'bounded-config',
-      workflow_tag: workflow._tag,
-      version: 1,
-      payload: '{}',
-      status: 'running',
-      created_at: 0n,
-      updated_at: 0n
-    })
-    .run();
-  const activity = Activity.make({
-    name: 'always-needs-setup',
-    error: failureSchema,
-    execute: Effect.suspend(() => {
-      calls++;
+    context.db.orm
+      .insert(workflow_executions)
+      .values({
+        execution_id: 'bounded-config',
+        workflow_tag: workflow._tag,
+        version: 1,
+        payload: '{}',
+        status: 'running',
+        created_at: 0n,
+        updated_at: 0n
+      })
+      .run();
+    const activity = Activity.make({
+      name: 'always-needs-setup',
+      error: failureSchema,
+      execute: Effect.suspend(() => {
+        calls++;
 
-      return Effect.fail(new StudyError('config', 'Setup required'));
-    })
-  });
+        return Effect.fail(new StudyError('config', 'Setup required'));
+      })
+    });
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const engine = yield* WorkflowEngine.WorkflowEngine;
-
-        yield* engine.register(workflow, () => retryResumableActivity(activity, { maxRetries: 2 }));
-        yield* engine.execute(workflow, {
-          executionId: 'bounded-config',
-          payload: { id: 'bounded' },
-          discard: true
-        });
-
-        for (let next = 1; next <= 2; next++) {
-          yield* Effect.sync(
-            () => context.db.orm.select().from(workflow_configuration_waits).all().length
-          ).pipe(
-            Effect.repeat({ while: (count) => count === 0, schedule: Schedule.spaced('5 millis') })
-          );
-          revision = String(next);
-          yield* notifyConfigurationChanged(context, engine, revision);
-        }
-
-        const reply = yield* engine.poll(workflow, 'bounded-config').pipe(
-          Effect.repeat({
-            while: (value) => Option.isNone(value) || value.value._tag !== 'Complete',
-            schedule: Schedule.spaced('5 millis')
-          })
-        );
-
-        assert.ok(Option.isSome(reply) && reply.value._tag === 'Complete');
-        assert.strictEqual(calls, 3);
-      }).pipe(
-        Effect.provide(
-          Layer.mergeAll(
-            workflowEngineLayer(context),
-            Layer.succeed(Database, { store: context }),
-            Layer.succeed(WorkflowConfiguration, { revision: Effect.sync(() => revision) })
-          )
-        ),
-        Effect.scoped,
-        Effect.timeout('5 seconds')
-      )
-    );
-  } finally {
-    context.close();
-    await location.cleanup();
-  }
-});
-
-testStable('configuration revision changes exhaust the bounded total attempt budget', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  let calls = 0;
-  let revision = 'initial';
-  const workflow = Workflow.make('bounded-configuration-retries', {
-    payload: { id: Schema.String },
-    error: failureSchema,
-    idempotencyKey: ({ id }) => id
-  });
-
-  context.db.orm
-    .insert(workflow_executions)
-    .values({
-      execution_id: 'bounded',
-      workflow_tag: workflow._tag,
-      version: 1,
-      payload: '{}',
-      status: 'running',
-      created_at: 0n,
-      updated_at: 0n
-    })
-    .run();
-
-  const needsSettings = Effect.suspend(() => {
-    calls++;
-
-    return Effect.fail(new StudyError('config', 'Settings needed'));
-  });
-
-  try {
-    await Effect.runPromise(
-      Effect.scoped(
+    try {
+      await Effect.runPromise(
         Effect.gen(function* () {
           const engine = yield* WorkflowEngine.WorkflowEngine;
 
           yield* engine.register(workflow, () =>
-            retryResumableActivity(
-              Activity.make({
-                name: 'needs-settings',
-                error: failureSchema,
-                execute: needsSettings
-              }),
-              { maxRetries: 1 }
-            )
+            retryResumableActivity(activity, { maxRetries: 2 })
           );
           yield* engine.execute(workflow, {
-            executionId: 'bounded',
+            executionId: 'bounded-config',
             payload: { id: 'bounded' },
             discard: true
           });
-          yield* Effect.sync(() =>
-            context.db.orm.select().from(workflow_configuration_waits).get()
-          ).pipe(Effect.repeat({ while: (row) => !row, schedule: Schedule.spaced('5 millis') }));
-          revision = 'changed';
-          yield* notifyConfigurationChanged(context, engine, revision);
-          const terminal = yield* engine.poll(workflow, 'bounded').pipe(
+
+          for (let next = 1; next <= 2; next++) {
+            yield* Effect.sync(
+              () => context.db.orm.select().from(workflow_configuration_waits).all().length
+            ).pipe(
+              Effect.repeat({
+                while: (count) => count === 0,
+                schedule: Schedule.spaced('5 millis')
+              })
+            );
+            revision = String(next);
+            yield* notifyConfigurationChanged(context, engine, revision);
+          }
+
+          const reply = yield* engine.poll(workflow, 'bounded-config').pipe(
             Effect.repeat({
-              while: (result) => Option.isNone(result) || result.value._tag !== 'Complete',
+              while: (value) => Option.isNone(value) || value.value._tag !== 'Complete',
               schedule: Schedule.spaced('5 millis')
             })
           );
 
-          assert.ok(Option.isSome(terminal) && terminal.value._tag === 'Complete');
-          assert.strictEqual(calls, 2);
-          yield* notifyConfigurationChanged(context, engine, 'changed-again');
-          assert.strictEqual(calls, 2);
-        })
-      ).pipe(
-        Effect.provide(
-          Layer.mergeAll(
-            workflowEngineLayer(context),
-            Layer.succeed(Database, { store: context }),
-            Layer.succeed(WorkflowConfiguration, { revision: Effect.sync(() => revision) })
-          )
-        ),
-        Effect.timeout('5 seconds')
-      )
-    );
-  } finally {
-    context.close();
-    await location.cleanup();
+          test.assert.ok(Option.isSome(reply) && reply.value._tag === 'Complete');
+          test.assert.strictEqual(calls, 3);
+        }).pipe(
+          Effect.provide(
+            Layer.mergeAll(
+              workflowEngineLayer(context),
+              Layer.succeed(Database, { store: context }),
+              Layer.succeed(WorkflowConfiguration, { revision: Effect.sync(() => revision) })
+            )
+          ),
+          Effect.scoped,
+          Effect.timeout('5 seconds')
+        )
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
-testStable(
+test.stable(
+  'configuration revision changes exhaust the bounded total attempt budget',
+  async ({ databases }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    let calls = 0;
+    let revision = 'initial';
+    const workflow = Workflow.make('bounded-configuration-retries', {
+      payload: { id: Schema.String },
+      error: failureSchema,
+      idempotencyKey: ({ id }) => id
+    });
+
+    context.db.orm
+      .insert(workflow_executions)
+      .values({
+        execution_id: 'bounded',
+        workflow_tag: workflow._tag,
+        version: 1,
+        payload: '{}',
+        status: 'running',
+        created_at: 0n,
+        updated_at: 0n
+      })
+      .run();
+
+    const needsSettings = Effect.suspend(() => {
+      calls++;
+
+      return Effect.fail(new StudyError('config', 'Settings needed'));
+    });
+
+    try {
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const engine = yield* WorkflowEngine.WorkflowEngine;
+
+            yield* engine.register(workflow, () =>
+              retryResumableActivity(
+                Activity.make({
+                  name: 'needs-settings',
+                  error: failureSchema,
+                  execute: needsSettings
+                }),
+                { maxRetries: 1 }
+              )
+            );
+            yield* engine.execute(workflow, {
+              executionId: 'bounded',
+              payload: { id: 'bounded' },
+              discard: true
+            });
+            yield* Effect.sync(() =>
+              context.db.orm.select().from(workflow_configuration_waits).get()
+            ).pipe(Effect.repeat({ while: (row) => !row, schedule: Schedule.spaced('5 millis') }));
+            revision = 'changed';
+            yield* notifyConfigurationChanged(context, engine, revision);
+            const terminal = yield* engine.poll(workflow, 'bounded').pipe(
+              Effect.repeat({
+                while: (result) => Option.isNone(result) || result.value._tag !== 'Complete',
+                schedule: Schedule.spaced('5 millis')
+              })
+            );
+
+            test.assert.ok(Option.isSome(terminal) && terminal.value._tag === 'Complete');
+            test.assert.strictEqual(calls, 2);
+            yield* notifyConfigurationChanged(context, engine, 'changed-again');
+            test.assert.strictEqual(calls, 2);
+          })
+        ).pipe(
+          Effect.provide(
+            Layer.mergeAll(
+              workflowEngineLayer(context),
+              Layer.succeed(Database, { store: context }),
+              Layer.succeed(WorkflowConfiguration, { revision: Effect.sync(() => revision) })
+            )
+          ),
+          Effect.timeout('5 seconds')
+        )
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
+  }
+);
+
+test.stable(
   'local AI saturation uses durable waits without exhausting provider retry budget',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     let attempts = 0;
     const workflow = Workflow.make('capacity-wait-test', {
@@ -641,8 +643,8 @@ testStable(
         )
       );
 
-      assert.strictEqual(result, 6);
-      assert.strictEqual(attempts, 6);
+      test.assert.strictEqual(result, 6);
+      test.assert.strictEqual(attempts, 6);
     } finally {
       await runtime.dispose();
       context.close();

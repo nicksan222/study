@@ -1,20 +1,16 @@
 import { llmSettingsSchema, apiKeyInputSchema } from '@study/contracts';
 import { configureRpcTransport } from '@study/contracts/react';
 import { catalogs, createLocalization } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { beforeEach, expect, vi } from 'vite-plus/test';
 
 import type * as Host from '#client/lib/host.ts';
-import { rpcTestTransport as settingsTransport } from '#client/test/rpc.tsx';
 
 import { AiAccountSettings, AiModelSettings } from './index';
 
-const runtime = vi.hoisted(() => ({ native: false, openUrl: vi.fn() }));
+const runtime = test.hoisted(() => ({ native: false, openUrl: test.vi.fn() }));
 
-vi.mock('#client/lib/host.ts', async (importOriginal) => {
+test.mock('#client/lib/host.ts', async (importOriginal) => {
   const host = await importOriginal<typeof Host>();
 
   return {
@@ -32,23 +28,23 @@ vi.mock('#client/lib/host.ts', async (importOriginal) => {
         : host.prepareSignInBrowser()
   };
 });
-beforeEach(() => {
+test.beforeEach(() => {
   runtime.native = false;
   runtime.openUrl.mockReset().mockResolvedValue(undefined);
 });
 
-vi.mock('#client/lib/i18n.tsx', () => ({
+test.mock('#client/lib/i18n.tsx', () => ({
   useI18n: () => createLocalization('english')
 }));
 
-const operations = vi.hoisted(() => ({
-  loadAiSettings: vi.fn(),
-  startChatGptSignIn: vi.fn(),
-  finishChatGptSignIn: vi.fn(),
-  cancelChatGptSignIn: vi.fn(),
-  signOutChatGpt: vi.fn(),
-  saveAiSettings: vi.fn(),
-  saveProviderApiKey: vi.fn()
+const operations = test.hoisted(() => ({
+  loadAiSettings: test.vi.fn(),
+  startChatGptSignIn: test.vi.fn(),
+  finishChatGptSignIn: test.vi.fn(),
+  cancelChatGptSignIn: test.vi.fn(),
+  signOutChatGpt: test.vi.fn(),
+  saveAiSettings: test.vi.fn(),
+  saveProviderApiKey: test.vi.fn()
 }));
 
 const settings = {
@@ -58,12 +54,12 @@ const settings = {
 } as const;
 
 function mount(Section = AiAccountSettings) {
-  vi.mocked(operations.loadAiSettings).mockResolvedValue({
+  test.vi.mocked(operations.loadAiSettings).mockResolvedValue({
     settings,
     providers: [],
     status: { signedIn: Section === AiModelSettings, email: null, sharing: false }
   });
-  const fixture = settingsTransport(async (tag, input) => {
+  const fixture = test.rpcTestTransport(async (tag, input) => {
     if (tag === 'auth.status') return (await operations.loadAiSettings()).status;
 
     if (tag === 'auth.providers') return (await operations.loadAiSettings()).providers;
@@ -100,105 +96,121 @@ function mount(Section = AiAccountSettings) {
 
   configureRpcTransport(fixture.transport);
 
-  return render(<Section />, { wrapper: fixture.wrapper });
+  return test.render(<Section />, { wrapper: fixture.wrapper });
 }
 
-testStable('saves a canonical model change while preserving the other tiers', async () => {
-  vi.mocked(operations.saveAiSettings).mockResolvedValue({});
+test.stable('saves a canonical model change while preserving the other tiers', async () => {
+  test.vi.mocked(operations.saveAiSettings).mockResolvedValue({});
   mount(AiModelSettings);
-  const user = userEvent.setup();
+  const user = test.userEvent.setup();
 
   await user.click(
-    await screen.findByRole('combobox', { name: catalogs.english.AiSettingsMedium })
+    await test.screen.findByRole('combobox', { name: catalogs.english.AiSettingsMedium })
   );
-  await user.click(await screen.findByRole('option', { name: 'ChatGPT — GPT-6 Astra' }));
-  await waitFor(() =>
-    expect(operations.saveAiSettings).toHaveBeenCalledWith({
+  await user.click(await test.screen.findByRole('option', { name: 'ChatGPT — GPT-6 Astra' }));
+  await test.waitFor(() =>
+    test.expect(operations.saveAiSettings).toHaveBeenCalledWith({
       ...settings,
       medium: { provider: 1, model: 3 }
     })
   );
-  expect(operations.startChatGptSignIn).not.toHaveBeenCalled();
+  test.expect(operations.startChatGptSignIn).not.toHaveBeenCalled();
 });
 
 function browserWindow() {
-  const popup = { location: { replace: vi.fn() }, close: vi.fn(), closed: false, opener: window };
-  const open = vi.spyOn(window, 'open').mockReturnValue(popup as unknown as Window);
+  const popup = {
+    location: { replace: test.vi.fn() },
+    close: test.vi.fn(),
+    closed: false,
+    opener: window
+  };
+  const open = test.vi.spyOn(window, 'open').mockReturnValue(popup as unknown as Window);
 
   return { popup, open };
 }
 
 function pendingSignIn(attemptId: string) {
-  vi.mocked(operations.startChatGptSignIn).mockResolvedValue({
+  test.vi.mocked(operations.startChatGptSignIn).mockResolvedValue({
     url: 'https://auth.openai.com/test',
     attemptId
   });
-  vi.mocked(operations.finishChatGptSignIn).mockImplementation(
+  test.vi.mocked(operations.finishChatGptSignIn).mockImplementation(
     (_id, signal) =>
       new Promise((_resolve, reject) => {
         signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
       })
   );
-  vi.mocked(operations.cancelChatGptSignIn).mockResolvedValue(true);
+  test.vi.mocked(operations.cancelChatGptSignIn).mockResolvedValue(true);
 }
 
-testStable('opens ChatGPT immediately and waits automatically with only a spinner', async () => {
+test.stable('opens ChatGPT immediately and waits automatically with only a spinner', async () => {
   const { popup, open } = browserWindow();
 
   pendingSignIn('owned-attempt');
   const view = mount();
 
-  fireEvent.click(await screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
-  expect(open).toHaveBeenCalledWith('about:blank', '_blank');
-  await waitFor(() =>
-    expect(popup.location.replace).toHaveBeenCalledWith('https://auth.openai.com/test')
+  test.fireEvent.click(await test.screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
+  test.expect(open).toHaveBeenCalledWith('about:blank', '_blank');
+  await test.waitFor(() =>
+    test.expect(popup.location.replace).toHaveBeenCalledWith('https://auth.openai.com/test')
   );
-  await waitFor(() => expect(operations.finishChatGptSignIn).toHaveBeenCalledWith('owned-attempt'));
-  expect(
-    screen.getByRole('status', { name: catalogs.english.AiSettingsWaiting }).tagName.toLowerCase()
-  ).toBe('svg');
-  expect(screen.queryByRole('link', { name: 'Open ChatGPT sign-in' })).not.toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'I completed sign-in' })).not.toBeInTheDocument();
-  expect(screen.queryByText(catalogs.english.AiSettingsWaiting)).not.toBeInTheDocument();
+  await test.waitFor(() =>
+    test.expect(operations.finishChatGptSignIn).toHaveBeenCalledWith('owned-attempt')
+  );
+  test
+    .expect(
+      test.screen
+        .getByRole('status', { name: catalogs.english.AiSettingsWaiting })
+        .tagName.toLowerCase()
+    )
+    .toBe('svg');
+  test
+    .expect(test.screen.queryByRole('link', { name: 'Open ChatGPT sign-in' }))
+    .not.toBeInTheDocument();
+  test
+    .expect(test.screen.queryByRole('button', { name: 'I completed sign-in' }))
+    .not.toBeInTheDocument();
+  test.expect(test.screen.queryByText(catalogs.english.AiSettingsWaiting)).not.toBeInTheDocument();
   view.unmount();
-  await waitFor(() => expect(operations.cancelChatGptSignIn).toHaveBeenCalledWith('owned-attempt'));
-  expect(popup.close).toHaveBeenCalled();
+  await test.waitFor(() =>
+    test.expect(operations.cancelChatGptSignIn).toHaveBeenCalledWith('owned-attempt')
+  );
+  test.expect(popup.close).toHaveBeenCalled();
 });
 
-testStable('offers a recovery link when the browser blocks the sign-in tab', async () => {
-  vi.spyOn(window, 'open').mockReturnValue(null);
+test.stable('offers a recovery link when the browser blocks the sign-in tab', async () => {
+  test.vi.spyOn(window, 'open').mockReturnValue(null);
   pendingSignIn('blocked-attempt');
   mount();
-  fireEvent.click(await screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
-  expect(await screen.findByRole('link', { name: 'Open ChatGPT sign-in' })).toHaveAttribute(
-    'href',
-    'https://auth.openai.com/test'
+  test.fireEvent.click(await test.screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
+  test
+    .expect(await test.screen.findByRole('link', { name: 'Open ChatGPT sign-in' }))
+    .toHaveAttribute('href', 'https://auth.openai.com/test');
+  test.fireEvent.click(test.screen.getByRole('button', { name: 'Cancel sign-in' }));
+  await test.waitFor(() =>
+    test.expect(operations.cancelChatGptSignIn).toHaveBeenCalledWith('blocked-attempt')
   );
-  fireEvent.click(screen.getByRole('button', { name: 'Cancel sign-in' }));
-  await waitFor(() =>
-    expect(operations.cancelChatGptSignIn).toHaveBeenCalledWith('blocked-attempt')
-  );
-  expect(await screen.findByRole('button', { name: 'Sign in to ChatGPT' })).toBeEnabled();
+  test.expect(await test.screen.findByRole('button', { name: 'Sign in to ChatGPT' })).toBeEnabled();
 });
 
-testStable('closes the sign-in tab when starting authorization fails', async () => {
+test.stable('closes the sign-in tab when starting authorization fails', async () => {
   const { popup } = browserWindow();
 
-  vi.mocked(operations.startChatGptSignIn).mockRejectedValue(new Error('Unavailable'));
+  test.vi.mocked(operations.startChatGptSignIn).mockRejectedValue(new Error('Unavailable'));
   mount();
-  fireEvent.click(await screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
-  await waitFor(() => expect(popup.close).toHaveBeenCalled());
-  expect(await screen.findByRole('button', { name: 'Sign in to ChatGPT' })).toBeEnabled();
+  test.fireEvent.click(await test.screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
+  await test.waitFor(() => test.expect(popup.close).toHaveBeenCalled());
+  test.expect(await test.screen.findByRole('button', { name: 'Sign in to ChatGPT' })).toBeEnabled();
 });
 
-testStable(
+test.stable(
   'finishes automatically, refreshes the account, and closes the browser tab',
   async () => {
     const { popup } = browserWindow();
 
     pendingSignIn('completed-attempt');
-    vi.mocked(operations.finishChatGptSignIn).mockImplementation(async () => {
-      vi.mocked(operations.loadAiSettings).mockResolvedValue({
+    test.vi.mocked(operations.finishChatGptSignIn).mockImplementation(async () => {
+      test.vi.mocked(operations.loadAiSettings).mockResolvedValue({
         settings,
         providers: [],
         status: { signedIn: true, email: 'learner@example.com', sharing: true }
@@ -207,107 +219,113 @@ testStable(
       return { signedIn: true, email: 'learner@example.com', sharing: true };
     });
     mount();
-    fireEvent.click(await screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
-    expect(await screen.findByRole('button', { name: 'Sign out' })).toBeEnabled();
-    expect(screen.getByText('learner@example.com')).toBeInTheDocument();
-    expect(popup.close).toHaveBeenCalled();
+    test.fireEvent.click(await test.screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
+    test.expect(await test.screen.findByRole('button', { name: 'Sign out' })).toBeEnabled();
+    test.expect(test.screen.getByText('learner@example.com')).toBeInTheDocument();
+    test.expect(popup.close).toHaveBeenCalled();
   }
 );
 
-testStable('a failed sign-in clears the spinner and allows another attempt', async () => {
+test.stable('a failed sign-in clears the spinner and allows another attempt', async () => {
   const { popup } = browserWindow();
 
   pendingSignIn('failed-attempt');
-  vi.mocked(operations.finishChatGptSignIn).mockRejectedValue(new Error('Declined'));
+  test.vi.mocked(operations.finishChatGptSignIn).mockRejectedValue(new Error('Declined'));
   mount();
-  fireEvent.click(await screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
-  await waitFor(() => expect(popup.close).toHaveBeenCalled());
-  expect(await screen.findByRole('button', { name: 'Sign in to ChatGPT' })).toBeEnabled();
-  expect(
-    screen.queryByRole('status', { name: catalogs.english.AiSettingsWaiting })
-  ).not.toBeInTheDocument();
+  test.fireEvent.click(await test.screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
+  await test.waitFor(() => test.expect(popup.close).toHaveBeenCalled());
+  test.expect(await test.screen.findByRole('button', { name: 'Sign in to ChatGPT' })).toBeEnabled();
+  test
+    .expect(test.screen.queryByRole('status', { name: catalogs.english.AiSettingsWaiting }))
+    .not.toBeInTheDocument();
 });
 
-testStable('a cancelled completion cannot clear or close its replacement sign-in', async () => {
+test.stable('a cancelled completion cannot clear or close its replacement sign-in', async () => {
   const { popup, open } = browserWindow();
 
   open.mockReturnValueOnce(null);
   pendingSignIn('replacement-attempt');
-  vi.mocked(operations.startChatGptSignIn).mockResolvedValueOnce({
+  test.vi.mocked(operations.startChatGptSignIn).mockResolvedValueOnce({
     url: 'https://auth.openai.com/test',
     attemptId: 'old-attempt'
   });
   let rejectOld!: (error: Error) => void;
 
-  vi.mocked(operations.finishChatGptSignIn).mockImplementationOnce(
+  test.vi.mocked(operations.finishChatGptSignIn).mockImplementationOnce(
     () =>
       new Promise((_resolve, reject) => {
         rejectOld = reject;
       })
   );
   mount();
-  fireEvent.click(await screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
-  fireEvent.click(await screen.findByRole('button', { name: 'Cancel sign-in' }));
-  fireEvent.click(await screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
-  await waitFor(() =>
-    expect(operations.finishChatGptSignIn).toHaveBeenLastCalledWith('replacement-attempt')
+  test.fireEvent.click(await test.screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
+  test.fireEvent.click(await test.screen.findByRole('button', { name: 'Cancel sign-in' }));
+  test.fireEvent.click(await test.screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
+  await test.waitFor(() =>
+    test.expect(operations.finishChatGptSignIn).toHaveBeenLastCalledWith('replacement-attempt')
   );
-  await act(async () => {
+  await test.act(async () => {
     rejectOld(new Error('Cancelled'));
   });
-  expect(
-    screen.getByRole('status', { name: catalogs.english.AiSettingsWaiting })
-  ).toBeInTheDocument();
-  expect(popup.close).not.toHaveBeenCalled();
+  test
+    .expect(test.screen.getByRole('status', { name: catalogs.english.AiSettingsWaiting }))
+    .toBeInTheDocument();
+  test.expect(popup.close).not.toHaveBeenCalled();
 });
 
-testStable(
+test.stable(
   'unsupported browser origins show localized sign-in guidance and close the blank tab',
   async () => {
     const { popup } = browserWindow();
 
-    vi.mocked(operations.startChatGptSignIn).mockRejectedValue({
+    test.vi.mocked(operations.startChatGptSignIn).mockRejectedValue({
       kind: 'unsupported',
       message: 'Loopback required',
       retryAfterMs: null
     });
     mount();
-    fireEvent.click(await screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
-    expect(await screen.findByText(catalogs.english.AiSettingsSignInLocalOnly)).toBeInTheDocument();
-    expect(popup.close).toHaveBeenCalled();
+    test.fireEvent.click(await test.screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
+    test
+      .expect(await test.screen.findByText(catalogs.english.AiSettingsSignInLocalOnly))
+      .toBeInTheDocument();
+    test.expect(popup.close).toHaveBeenCalled();
   }
 );
 
-testStable('native sign-in opens the system browser without a webview popup', async () => {
+test.stable('native sign-in opens the system browser without a webview popup', async () => {
   runtime.native = true;
   const { open } = browserWindow();
 
   pendingSignIn('native-attempt');
   const view = mount();
 
-  fireEvent.click(await screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
-  await waitFor(() => expect(runtime.openUrl).toHaveBeenCalledWith('https://auth.openai.com/test'));
-  expect(open).not.toHaveBeenCalled();
-  expect(
-    screen.getByRole('status', { name: catalogs.english.AiSettingsWaiting })
-  ).toBeInTheDocument();
+  test.fireEvent.click(await test.screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
+  await test.waitFor(() =>
+    test.expect(runtime.openUrl).toHaveBeenCalledWith('https://auth.openai.com/test')
+  );
+  test.expect(open).not.toHaveBeenCalled();
+  test
+    .expect(test.screen.getByRole('status', { name: catalogs.english.AiSettingsWaiting }))
+    .toBeInTheDocument();
   view.unmount();
-  await waitFor(() =>
-    expect(operations.cancelChatGptSignIn).toHaveBeenCalledWith('native-attempt')
+  await test.waitFor(() =>
+    test.expect(operations.cancelChatGptSignIn).toHaveBeenCalledWith('native-attempt')
   );
 });
 
-testStable(
+test.stable(
   'a native browser launch failure cancels its attempt instead of waiting forever',
   async () => {
     runtime.native = true;
     runtime.openUrl.mockRejectedValue(new Error('No browser'));
     pendingSignIn('native-failed-attempt');
     mount();
-    fireEvent.click(await screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
-    await waitFor(() =>
-      expect(operations.cancelChatGptSignIn).toHaveBeenCalledWith('native-failed-attempt')
+    test.fireEvent.click(await test.screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
+    await test.waitFor(() =>
+      test.expect(operations.cancelChatGptSignIn).toHaveBeenCalledWith('native-failed-attempt')
     );
-    expect(await screen.findByRole('button', { name: 'Sign in to ChatGPT' })).toBeEnabled();
+    test
+      .expect(await test.screen.findByRole('button', { name: 'Sign in to ChatGPT' }))
+      .toBeEnabled();
   }
 );

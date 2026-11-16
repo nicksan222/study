@@ -1,3 +1,4 @@
+import { plainBlock } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Tests durable document creation and guarded material description updates.          │
@@ -9,12 +10,8 @@
  * │ Uses public feature services and the shared server test harness.                         │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { plainBlock } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { Pages } from '#server/features/pages/index';
 import { ServerContext } from '#server/platform/database/context';
@@ -35,10 +32,10 @@ const document = {
   }
 };
 
-testStable(
+test.stable(
   'empty document creation replays its exact key and descriptions use guarded independent metadata',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Pages.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
@@ -56,12 +53,12 @@ testStable(
           const original = yield* pages.create(input);
           const replay = yield* pages.create(input);
 
-          assert.strictEqual(replay.id, original.id);
-          assert.ok(original.version);
-          assert.ok(replay.version);
-          assert.strictEqual(replay.version.id, original.version.id);
-          assert.strictEqual(original.version.pageId, original.id);
-          assert.ok(
+          test.assert.strictEqual(replay.id, original.id);
+          test.assert.ok(original.version);
+          test.assert.ok(replay.version);
+          test.assert.strictEqual(replay.version.id, original.version.id);
+          test.assert.strictEqual(original.version.pageId, original.id);
+          test.assert.ok(
             (yield* Effect.flip(pages.create({ ...input, title: 'Different intent' }))).kind ===
               'invalid_input'
           );
@@ -73,9 +70,9 @@ testStable(
             expectedDescription: null
           });
 
-          assert.ok(description.description === 'A short summary');
-          assert.strictEqual(description.headVersionId, original.version.id);
-          assert.ok(
+          test.assert.ok(description.description === 'A short summary');
+          test.assert.strictEqual(description.headVersionId, original.version.id);
+          test.assert.ok(
             (yield* Effect.flip(
               pages.updateMetadata({
                 id: original.id,
@@ -86,7 +83,7 @@ testStable(
               })
             )).kind === 'invalid_input'
           );
-          assert.ok(
+          test.assert.ok(
             (yield* pages.updateMetadata({
               id: original.id,
               title: original.title,

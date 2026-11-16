@@ -1,10 +1,7 @@
 import { StudyError } from '@study/contracts';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { act, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { authoredPage } from '../document-editing/test-support';
 import {
@@ -16,7 +13,7 @@ import {
 
 const t = catalogs.english;
 
-testStable(
+test.stable(
   'opens an exact authored history version and explicitly returns to its independent current head',
   async () => {
     const rpc = materialRpc();
@@ -25,7 +22,7 @@ testStable(
 
     const history = { items: [current.version!, old], nextCursor: null };
     const versions = deferred<typeof history>();
-    const user = userEvent.setup();
+    const user = test.userEvent.setup();
 
     rpc['pages.page'].mockReturnValue(Effect.succeed(current));
     rpc['pages.versions'].mockReturnValue(Effect.promise(() => versions.promise));
@@ -33,29 +30,31 @@ testStable(
       Effect.succeed(id === old.id ? old : current.version!)
     );
     mountLibraryRoute('/pages/41', rpc);
-    const main = within(await screen.findByRole('main'));
+    const main = test.within(await test.screen.findByRole('main'));
 
-    expect(await main.findByText('Current authored body')).toBeVisible();
+    test.expect(await main.findByText('Current authored body')).toBeVisible();
     const previous = await main.findByRole('button', { name: t.NotePreviousVersion });
 
-    expect(previous).toBeDisabled();
-    await act(async () => versions.resolve(history));
-    await waitFor(() => expect(previous).toBeEnabled());
+    test.expect(previous).toBeDisabled();
+    await test.act(async () => versions.resolve(history));
+    await test.waitFor(() => test.expect(previous).toBeEnabled());
     await user.click(previous);
-    expect(await main.findByText('Historical authored body')).toBeVisible();
-    expect(main.queryByText('Current authored body')).toBeNull();
-    await waitFor(() => expect(rpc['pages.version']).toHaveBeenCalledWith({ id: old.id }));
-    expect(rpc['sources.currentExtraction']).not.toHaveBeenCalled();
-    expect(rpc['materials.materialVersion']).not.toHaveBeenCalled();
+    test.expect(await main.findByText('Historical authored body')).toBeVisible();
+    test.expect(main.queryByText('Current authored body')).toBeNull();
+    await test.waitFor(() =>
+      test.expect(rpc['pages.version']).toHaveBeenCalledWith({ id: old.id })
+    );
+    test.expect(rpc['sources.currentExtraction']).not.toHaveBeenCalled();
+    test.expect(rpc['materials.materialVersion']).not.toHaveBeenCalled();
     const next = main.getByRole('button', { name: t.NoteNextVersion });
 
-    await waitFor(() => expect(next).toBeEnabled());
+    await test.waitFor(() => test.expect(next).toBeEnabled());
     await user.click(next);
-    expect(await main.findByText('Current authored body')).toBeVisible();
+    test.expect(await main.findByText('Current authored body')).toBeVisible();
   }
 );
 
-testStable(
+test.stable(
   'selects distinct source extractions within one original revision without following the latest extraction',
   async () => {
     const rpc = materialRpc();
@@ -91,20 +90,20 @@ testStable(
       })
     );
     mountLibraryRoute('/sources/7', rpc);
-    const main = within(await screen.findByRole('main'));
-    const user = userEvent.setup();
+    const main = test.within(await test.screen.findByRole('main'));
+    const user = test.userEvent.setup();
 
-    expect(await main.findByText('Replacement extraction')).toBeVisible();
+    test.expect(await main.findByText('Replacement extraction')).toBeVisible();
     await user.click(main.getByText(t.ReaderHistory, { selector: 'summary' }));
     await user.click(
       await main.findByRole('button', {
         name: `${t.ReaderVersion} 1 · ${oldest.snapshotId}`
       })
     );
-    expect(await main.findByText('First extraction')).toBeVisible();
-    expect(main.queryByText('Replacement extraction')).toBeNull();
-    await waitFor(() =>
-      expect(rpc['sources.extraction']).toHaveBeenLastCalledWith({
+    test.expect(await main.findByText('First extraction')).toBeVisible();
+    test.expect(main.queryByText('Replacement extraction')).toBeNull();
+    await test.waitFor(() =>
+      test.expect(rpc['sources.extraction']).toHaveBeenLastCalledWith({
         sourceId,
         revision: 1n,
         snapshotId: oldest.snapshotId
@@ -115,20 +114,20 @@ testStable(
         name: `${t.ReaderVersion} 1 · ${corrected.snapshotId}`
       })
     );
-    expect(await main.findByText('Corrected extraction')).toBeVisible();
-    expect(rpc['sources.extraction']).toHaveBeenLastCalledWith({
+    test.expect(await main.findByText('Corrected extraction')).toBeVisible();
+    test.expect(rpc['sources.extraction']).toHaveBeenLastCalledWith({
       sourceId,
       revision: 1n,
       snapshotId: corrected.snapshotId
     });
-    expect(rpc['pages.create']).not.toHaveBeenCalled();
-    expect(rpc['materials.materialVersion']).not.toHaveBeenCalled();
+    test.expect(rpc['pages.create']).not.toHaveBeenCalled();
+    test.expect(rpc['materials.materialVersion']).not.toHaveBeenCalled();
     await user.click(main.getByRole('button', { name: t.ReaderCurrent }));
-    expect(await main.findByText('Replacement extraction')).toBeVisible();
+    test.expect(await main.findByText('Replacement extraction')).toBeVisible();
   }
 );
 
-testStable(
+test.stable(
   'follows same-owner exact URL changes, current selection and browser history without falling back from missing versions',
   async () => {
     const rpc = materialRpc();
@@ -148,9 +147,9 @@ testStable(
     );
     const view = mountLibraryRoute('/pages/41?pageVersion=91', rpc);
 
-    await screen.findByText('URL exact A');
+    await test.screen.findByText('URL exact A');
     const go = async (pageVersion?: string) =>
-      act(async () => {
+      test.act(async () => {
         await view.router.navigate({
           to: '/pages/$pageId',
           params: { pageId: '41' },
@@ -159,22 +158,22 @@ testStable(
       });
 
     await go('92');
-    expect(await screen.findByText('URL exact B')).toBeVisible();
-    await act(async () => {
+    test.expect(await test.screen.findByText('URL exact B')).toBeVisible();
+    await test.act(async () => {
       view.history.back();
     });
-    expect(await screen.findByText('URL exact A')).toBeVisible();
-    await act(async () => {
+    test.expect(await test.screen.findByText('URL exact A')).toBeVisible();
+    await test.act(async () => {
       view.history.forward();
     });
-    expect(await screen.findByText('URL exact B')).toBeVisible();
+    test.expect(await test.screen.findByText('URL exact B')).toBeVisible();
     await go();
-    expect(await screen.findByText('URL current body')).toBeVisible();
+    test.expect(await test.screen.findByText('URL current body')).toBeVisible();
     await go('91');
-    expect(await screen.findByText('URL exact A')).toBeVisible();
+    test.expect(await test.screen.findByText('URL exact A')).toBeVisible();
     await go('999');
-    expect(await screen.findByText(t.NoteReadUnavailable)).toBeVisible();
-    expect(screen.queryByText('URL current body')).toBeNull();
-    expect(screen.queryByText('URL exact A')).toBeNull();
+    test.expect(await test.screen.findByText(t.NoteReadUnavailable)).toBeVisible();
+    test.expect(test.screen.queryByText('URL current body')).toBeNull();
+    test.expect(test.screen.queryByText('URL exact A')).toBeNull();
   }
 );

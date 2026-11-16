@@ -1,11 +1,10 @@
 import { StudyError } from '@study/contracts';
 import { Appearance, Language, defaultQuizSettings } from '@study/contracts';
 import { catalogs } from '@study/localization';
+import { test } from '@study/testing';
 import type { Locator } from 'playwright';
 
-import { expect, testE2e } from './harness/index.ts';
-
-testE2e.use({ aiEnabled: true, video: { mode: 'on', size: { width: 2560, height: 1440 } } });
+test.stable.use({ aiEnabled: true, video: { mode: 'on', size: { width: 2560, height: 1440 } } });
 
 const copy = catalogs.english;
 
@@ -28,7 +27,7 @@ async function itemSize(sidebar: Locator, title: string) {
   return { width: box.width, height: box.height };
 }
 
-testE2e(
+test.stable(
   'Material generation progress and recovery',
   async ({ page, study, ai, expectScreenshot, expectAccessibility }) => {
     const fixture = await study.seed();
@@ -49,15 +48,15 @@ testE2e(
     const practice = `/practice?project=${fixture.project.id}`;
 
     await page.goto(practice);
-    await expect(page.getByText(title, { exact: true })).toBeVisible();
+    await test.expect(page.getByText(title, { exact: true })).toBeVisible();
     await expectScreenshot('running', {
       target: page.locator('aside.study-sidebar'),
-      ready: () => expect(page.getByText(title, { exact: true })).toBeVisible()
+      ready: () => test.expect(page.getByText(title, { exact: true })).toBeVisible()
     });
     const sidebar = page.locator('aside.study-sidebar');
     const workingSize = await itemSize(sidebar, title);
 
-    await expect(sidebar.getByText('Step 1', { exact: true })).toHaveCount(0);
+    await test.expect(sidebar.getByText('Step 1', { exact: true })).toHaveCount(0);
     await page
       .getByRole('status', { name: copy.PracticeGenerationRunning })
       .click({ button: 'right' });
@@ -66,32 +65,32 @@ testE2e(
 
     await expectScreenshot('running-details', {
       target: details,
-      ready: () => expect(details.getByText('Step 1', { exact: true })).toBeVisible()
+      ready: () => test.expect(details.getByText('Step 1', { exact: true })).toBeVisible()
     });
     await expectAccessibility('generation-details');
     await details.getByRole('button', { name: copy.Close }).click();
-    await expect(details).toHaveCount(0);
+    await test.expect(details).toHaveCount(0);
     const stopAction = sidebar.getByRole('button', {
       name: copy.PracticeGenerationStop.replace('{title}', title)
     });
 
     await stopAction.press('Shift+F10');
     await page.getByRole('menuitem', { name: copy.AgentActivityDetails }).press('Enter');
-    await expect(details).toBeVisible();
-    await expect(details.getByRole('button', { name: copy.Close })).toBeFocused();
-    await expect(page.getByRole('menu')).toHaveCount(0);
-    await expect(page.getByRole('tooltip')).toHaveCount(0);
+    await test.expect(details).toBeVisible();
+    await test.expect(details.getByRole('button', { name: copy.Close })).toBeFocused();
+    await test.expect(page.getByRole('menu')).toHaveCount(0);
+    await test.expect(page.getByRole('tooltip')).toHaveCount(0);
     await page.keyboard.press('Escape');
-    await expect(details).toHaveCount(0);
+    await test.expect(details).toHaveCount(0);
 
     await page.goto(`/notes/${fixture.note.id}`);
     await expectScreenshot('notes-work-running', {
       target: 'viewport',
-      ready: () => expect(page.getByRole('region', { name: copy.NoteNotebook })).toBeVisible()
+      ready: () => test.expect(page.getByRole('region', { name: copy.NoteNotebook })).toBeVisible()
     });
     await page.goto(practice);
     expected.release();
-    await expect
+    await test.expect
       .poll(async () => (await study.snapshot(request.id)).resultVersionId)
       .not.toBeNull();
     const version = await study.published(request.id);
@@ -100,7 +99,7 @@ testE2e(
     await expectScreenshot('flashcards-ready', {
       target: 'viewport',
       ready: () =>
-        expect(page.getByText('What does mitosis produce?', { exact: true })).toBeVisible()
+        test.expect(page.getByText('What does mitosis produce?', { exact: true })).toBeVisible()
     });
 
     const failedTitle = 'Cell division review';
@@ -116,26 +115,28 @@ testE2e(
       inputs: [fixture.input]
     });
 
-    await expect
+    await test.expect
       .poll(async () => (await study.snapshot(failed.id)).errorKind)
       .toBe('invalid_input');
     await page.goto(practice);
-    await expect(
-      page.getByRole('status', { name: copy.PracticeGenerationFailedStatus })
-    ).toBeVisible();
-    await expect(page.getByRole('button', { name: copy.Retry, exact: true })).toBeEnabled();
+    await test
+      .expect(page.getByRole('status', { name: copy.PracticeGenerationFailedStatus }))
+      .toBeVisible();
+    await test.expect(page.getByRole('button', { name: copy.Retry, exact: true })).toBeEnabled();
     await expectScreenshot('failed', {
       target: page.locator('aside.study-sidebar'),
       ready: () =>
-        expect(page.getByRole('button', { name: copy.PracticeGenerate, exact: true })).toBeVisible()
+        test
+          .expect(page.getByRole('button', { name: copy.PracticeGenerate, exact: true }))
+          .toBeVisible()
     });
-    expect(await itemSize(sidebar, failedTitle)).toEqual(workingSize);
-    expect(await itemSize(sidebar, title)).toEqual(workingSize);
+    test.expect(await itemSize(sidebar, failedTitle)).toEqual(workingSize);
+    test.expect(await itemSize(sidebar, title)).toEqual(workingSize);
     await page.getByText(failedTitle, { exact: true }).click({ button: 'right' });
     await page.getByRole('menuitem', { name: copy.AgentActivityDetails }).click();
     await expectScreenshot('failed-details', {
       target: details,
-      ready: () => expect(details.getByLabel(copy.AgentActivitySteps)).toBeVisible()
+      ready: () => test.expect(details.getByLabel(copy.AgentActivitySteps)).toBeVisible()
     });
     await expectAccessibility('generation-recovery-details');
     await details.getByRole('button', { name: copy.Close }).click();
@@ -144,17 +145,17 @@ testE2e(
     await expectScreenshot('failed-light', {
       target: sidebar,
       ready: () =>
-        expect(
-          page.getByRole('status', { name: copy.PracticeGenerationFailedStatus })
-        ).toBeVisible()
+        test
+          .expect(page.getByRole('status', { name: copy.PracticeGenerationFailedStatus }))
+          .toBeVisible()
     });
-    expect(await itemSize(sidebar, failedTitle)).toEqual(workingSize);
+    test.expect(await itemSize(sidebar, failedTitle)).toEqual(workingSize);
     await expectAccessibility('generation-recovery-light');
     await page.getByText(failedTitle, { exact: true }).click({ button: 'right' });
     await page.getByRole('menuitem', { name: copy.AgentActivityDetails }).click();
     await expectScreenshot('failed-details-light', {
       target: details,
-      ready: () => expect(details.getByLabel(copy.AgentActivitySteps)).toBeVisible()
+      ready: () => test.expect(details.getByLabel(copy.AgentActivitySteps)).toBeVisible()
     });
     await expectAccessibility('generation-recovery-details-light');
     await details.getByRole('button', { name: copy.Close }).click();
@@ -163,11 +164,13 @@ testE2e(
     await expectScreenshot('failed-italian', {
       target: sidebar,
       ready: () =>
-        expect(
-          page.getByRole('status', { name: catalogs.italian.PracticeGenerationFailedStatus })
-        ).toBeVisible()
+        test
+          .expect(
+            page.getByRole('status', { name: catalogs.italian.PracticeGenerationFailedStatus })
+          )
+          .toBeVisible()
     });
-    expect(await itemSize(sidebar, failedTitle)).toEqual(workingSize);
+    test.expect(await itemSize(sidebar, failedTitle)).toEqual(workingSize);
     await expectAccessibility('generation-recovery-italian');
     await study.settings({ appearance: Appearance.DARK, language: Language.ENGLISH });
     await page.reload();
@@ -179,26 +182,30 @@ testE2e(
 
     await page.getByRole('button', { name: copy.Retry, exact: true }).click();
     await retry.called;
-    await expect(page.getByRole('button', { name: copy.Retry, exact: true })).toHaveCount(0);
+    await test.expect(page.getByRole('button', { name: copy.Retry, exact: true })).toHaveCount(0);
     await expectScreenshot('retrying', {
       target: page.locator('aside.study-sidebar'),
       ready: () =>
-        expect(page.getByRole('status', { name: copy.PracticeGenerationRetrying })).toBeVisible()
+        test
+          .expect(page.getByRole('status', { name: copy.PracticeGenerationRetrying }))
+          .toBeVisible()
     });
-    expect(await itemSize(sidebar, failedTitle)).toEqual(workingSize);
+    test.expect(await itemSize(sidebar, failedTitle)).toEqual(workingSize);
     await expectAccessibility('generation-retrying');
     retry.release();
-    await expect.poll(async () => (await study.snapshot(failed.id)).resultVersionId).not.toBeNull();
-    await expect(page.getByRole('status', { name: copy.PracticeGenerationRetrying })).toHaveCount(
-      0
-    );
+    await test.expect
+      .poll(async () => (await study.snapshot(failed.id)).resultVersionId)
+      .not.toBeNull();
+    await test
+      .expect(page.getByRole('status', { name: copy.PracticeGenerationRetrying }))
+      .toHaveCount(0);
     const retryVersion = await study.published(failed.id);
 
     await page.goto(`/flashcards/${retryVersion.material_id}?project=${fixture.project.id}`);
     await expectScreenshot('retry-ready', {
       target: 'viewport',
       ready: () =>
-        expect(page.getByText('What does mitosis produce?', { exact: true })).toBeVisible()
+        test.expect(page.getByText('What does mitosis produce?', { exact: true })).toBeVisible()
     });
     const stoppedTitle = 'Cell division extra practice';
     const stopping = ai.next(study.agents.flashcards, {
@@ -218,23 +225,23 @@ testE2e(
     await page
       .getByRole('button', { name: copy.PracticeGenerationStop.replace('{title}', stoppedTitle) })
       .click();
-    await expect.poll(async () => (await study.snapshot(stopped.id)).cancelled).toBe(true);
-    await expect(page.getByText(stoppedTitle, { exact: true })).toHaveCount(0);
+    await test.expect.poll(async () => (await study.snapshot(stopped.id)).cancelled).toBe(true);
+    await test.expect(page.getByText(stoppedTitle, { exact: true })).toHaveCount(0);
     await expectScreenshot('stopped', {
       target: page.locator('aside.study-sidebar'),
-      ready: () => expect(page.getByText(stoppedTitle, { exact: true })).toHaveCount(0)
+      ready: () => test.expect(page.getByText(stoppedTitle, { exact: true })).toHaveCount(0)
     });
     stopping.release();
-    await expect
+    await test.expect
       .poll(async () =>
         (await study.executions(stopped.id)).items.some((run) => run.status === 'cancelled')
       )
       .toBe(true);
-    expect((await study.snapshot(stopped.id)).resultVersionId).toBeNull();
+    test.expect((await study.snapshot(stopped.id)).resultVersionId).toBeNull();
   }
 );
 
-testE2e(
+test.stable(
   'Long study notes prepare every section before final material',
   async ({ page, study, ai, expectScreenshot, expectAccessibility }) => {
     const fixture = await study.seed(`${study.lecture}\n\n`.repeat(180));
@@ -271,11 +278,13 @@ testE2e(
     await page.goto(`/practice?project=${fixture.project.id}`);
     const sidebar = page.locator('aside.study-sidebar');
 
-    await expect(page.getByRole('status', { name: copy.AgentActivityPreparing })).toBeVisible();
+    await test
+      .expect(page.getByRole('status', { name: copy.AgentActivityPreparing }))
+      .toBeVisible();
     await expectScreenshot('preparing-section', {
       target: sidebar,
       ready: () =>
-        expect(page.getByRole('status', { name: copy.AgentActivityPreparing })).toBeVisible()
+        test.expect(page.getByRole('status', { name: copy.AgentActivityPreparing })).toBeVisible()
     });
     const preparingSize = await itemSize(sidebar, title);
 
@@ -284,26 +293,28 @@ testE2e(
     await expectScreenshot('next-section', {
       target: sidebar,
       ready: () =>
-        expect(page.getByRole('status', { name: copy.AgentActivityPreparing })).toBeVisible()
+        test.expect(page.getByRole('status', { name: copy.AgentActivityPreparing })).toBeVisible()
     });
     maps[1]!.release();
     await reduction.called;
     await expectScreenshot('combining-context', {
       target: sidebar,
       ready: () =>
-        expect(page.getByRole('status', { name: copy.AgentActivityCompacting })).toBeVisible()
+        test.expect(page.getByRole('status', { name: copy.AgentActivityCompacting })).toBeVisible()
     });
-    expect(await itemSize(sidebar, title)).toEqual(preparingSize);
+    test.expect(await itemSize(sidebar, title)).toEqual(preparingSize);
     reduction.release();
     await final.called;
     await expectScreenshot('final-generation', {
       target: sidebar,
       ready: () =>
-        expect(page.getByRole('status', { name: copy.PracticeGenerationRunning })).toBeVisible()
+        test
+          .expect(page.getByRole('status', { name: copy.PracticeGenerationRunning }))
+          .toBeVisible()
     });
-    expect(await itemSize(sidebar, title)).toEqual(preparingSize);
+    test.expect(await itemSize(sidebar, title)).toEqual(preparingSize);
     await expectAccessibility('generation-current-phase');
-    await expect(sidebar.getByText('Step 1', { exact: true })).toHaveCount(0);
+    await test.expect(sidebar.getByText('Step 1', { exact: true })).toHaveCount(0);
     await page
       .getByRole('status', { name: copy.PracticeGenerationRunning })
       .click({ button: 'right' });
@@ -312,7 +323,7 @@ testE2e(
 
     await expectScreenshot('preparation-details', {
       target: details,
-      ready: () => expect(details.getByText('Step 4', { exact: true })).toBeVisible()
+      ready: () => test.expect(details.getByText('Step 4', { exact: true })).toBeVisible()
     });
     await details.getByRole('button', { name: copy.Close }).click();
     await page.setViewportSize({ width: 1280, height: 900 });
@@ -323,43 +334,47 @@ testE2e(
     await expectScreenshot('italian-narrow', {
       target: 'viewport',
       ready: () =>
-        expect(page.getByRole('status', { name: italian.PracticeGenerationRunning })).toBeVisible()
+        test
+          .expect(page.getByRole('status', { name: italian.PracticeGenerationRunning }))
+          .toBeVisible()
     });
-    expect(await itemSize(sidebar, title)).toEqual(preparingSize);
+    test.expect(await itemSize(sidebar, title)).toEqual(preparingSize);
     await expectAccessibility('generation-italian-narrow');
-    await expect(sidebar.getByText(italian.AgentActivityStepComplete, { exact: true })).toHaveCount(
-      0
-    );
+    await test
+      .expect(sidebar.getByText(italian.AgentActivityStepComplete, { exact: true }))
+      .toHaveCount(0);
     await page.setViewportSize({ width: 820, height: 540 });
     await expectScreenshot('italian-compact', {
       target: 'viewport',
       ready: () =>
-        expect(
-          page.getByRole('button', {
-            name: italian.PracticeGenerationStop.replace('{title}', title)
-          })
-        ).toBeVisible()
+        test
+          .expect(
+            page.getByRole('button', {
+              name: italian.PracticeGenerationStop.replace('{title}', title)
+            })
+          )
+          .toBeVisible()
     });
-    expect(await itemSize(sidebar, title)).toEqual(preparingSize);
+    test.expect(await itemSize(sidebar, title)).toEqual(preparingSize);
     await expectAccessibility('generation-italian-compact');
     await page.setViewportSize({ width: 1280, height: 900 });
     final.release();
-    await expect
+    await test.expect
       .poll(async () => (await study.snapshot(request.id)).resultVersionId)
       .not.toBeNull();
     const version = await study.published(request.id);
     const citations = await study.citations(version.id);
 
-    expect(citations.items.map((citation) => Number(citation.marker))).toContain(tail);
+    test.expect(citations.items.map((citation) => Number(citation.marker))).toContain(tail);
     await page.goto(`/flashcards/${version.material_id}?project=${fixture.project.id}`);
     await expectScreenshot('long-input-ready', {
       target: 'viewport',
-      ready: () => expect(page.getByText(cards.cards[0]!.front, { exact: true })).toBeVisible()
+      ready: () => test.expect(page.getByText(cards.cards[0]!.front, { exact: true })).toBeVisible()
     });
   }
 );
 
-testE2e(
+test.stable(
   'Quiz generation uses the selected notes and saved question settings',
   async ({ page, study, ai, expectScreenshot, expectAccessibility }) => {
     const fixture = await study.seed();
@@ -403,39 +418,41 @@ testE2e(
     const dialog = page.getByRole('dialog', { name: copy.PracticeGenerate });
     const start = dialog.getByRole('button', { name: copy.PracticeGenerateStart, exact: true });
 
-    await expect(start).toBeEnabled();
+    await test.expect(start).toBeEnabled();
     await expectScreenshot('quiz-request', {
       target: dialog,
-      ready: () => expect(start).toBeEnabled()
+      ready: () => test.expect(start).toBeEnabled()
     });
     await start.click();
     await generated.called;
-    await expect(dialog).toBeHidden();
+    await test.expect(dialog).toBeHidden();
     const active = await study.active(fixture.project.id);
 
-    expect(active).toHaveLength(1);
+    test.expect(active).toHaveLength(1);
     await expectScreenshot('quiz-running', {
       target: page.locator('aside.study-sidebar'),
       ready: () =>
-        expect(page.getByRole('status', { name: copy.PracticeGenerationRunning })).toBeVisible()
+        test
+          .expect(page.getByRole('status', { name: copy.PracticeGenerationRunning }))
+          .toBeVisible()
     });
     generated.release();
-    await expect
+    await test.expect
       .poll(async () => (await study.snapshot(active[0]!.id)).resultVersionId)
       .not.toBeNull();
     const version = await study.published(active[0]!.id);
 
-    expect(version.content.kind).toBe('quiz');
+    test.expect(version.content.kind).toBe('quiz');
 
-    if (version.content.kind === 'quiz') expect(version.content.questions).toHaveLength(2);
+    if (version.content.kind === 'quiz') test.expect(version.content.questions).toHaveLength(2);
 
     await page.goto(`/practice/${version.material_id}?project=${fixture.project.id}`);
     await expectScreenshot('quiz-ready', {
       target: 'viewport',
       ready: () =>
-        expect(
-          page.getByRole('button', { name: copy.PracticeStartQuiz, exact: true })
-        ).toBeVisible()
+        test
+          .expect(page.getByRole('button', { name: copy.PracticeStartQuiz, exact: true }))
+          .toBeVisible()
     });
     await expectAccessibility('generated-quiz');
   }

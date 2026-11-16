@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('views cannot fetch, run page hooks or own application state', async () => {
+test.stable('views cannot fetch, run page hooks or own application state', async () => {
   const diagnostics = await lintRule(
     'web-presentation-purity',
     {
@@ -21,17 +20,18 @@ testStable('views cannot fetch, run page hooks or own application state', async 
     true
   );
 
-  assert.strictEqual(diagnostics.length, 9, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 9, JSON.stringify(diagnostics));
 });
 
-testStable(
+test.stable(
   'views accept presentation hooks, declarative links and type-only contracts',
   async () => {
-    expect(
-      await lintRule(
-        'web-presentation-purity',
-        {
-          'apps/client/src/pages/home/page.view.tsx': `
+    test
+      .expect(
+        await lintRule(
+          'web-presentation-purity',
+          {
+            'apps/client/src/pages/home/page.view.tsx': `
         import { useNowMinute } from '@study/ui';
         import { Link } from '@tanstack/react-router';
 
@@ -39,15 +39,16 @@ testStable(
         import type { Model } from './use-page';
         export const PageView = () => <Link to="/Home" />;
       `,
-          'apps/client/src/pages/home/page.logic.ts': `import { Effect } from 'effect'; import type { ReactNode } from 'react'; export const load = Effect.succeed(1);`
-        },
-        true
+            'apps/client/src/pages/home/page.logic.ts': `import { Effect } from 'effect'; import type { ReactNode } from 'react'; export const load = Effect.succeed(1);`
+          },
+          true
+        )
       )
-    ).toStrictEqual([]);
+      .toStrictEqual([]);
   }
 );
 
-testStable(
+test.stable(
   'presentation cannot access browser globals or hide DOM mutations behind aliases',
   async () => {
     const diagnostics = await lintRule(
@@ -67,27 +68,29 @@ testStable(
       true
     );
 
-    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
   }
 );
 
-testStable('presentation permits shadowed names and prop callbacks', async () => {
-  expect(
-    await lintRule(
-      'web-presentation-purity',
-      {
-        'apps/client/src/pages/home/page.view.tsx': `
+test.stable('presentation permits shadowed names and prop callbacks', async () => {
+  test
+    .expect(
+      await lintRule(
+        'web-presentation-purity',
+        {
+          'apps/client/src/pages/home/page.view.tsx': `
       export function PageView({ document, onClick }) {
         return <button onClick={onClick}>{document.title}</button>;
       }
     `
-      },
-      true
+        },
+        true
+      )
     )
-  ).toStrictEqual([]);
+    .toStrictEqual([]);
 });
 
-testStable('extension-correct localization aliases remain presentation-safe', async () => {
+test.stable('extension-correct localization aliases remain presentation-safe', async () => {
   const diagnostics = await lintRule(
     'web-presentation-purity',
     {
@@ -98,5 +101,5 @@ testStable('extension-correct localization aliases remain presentation-safe', as
     true
   );
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

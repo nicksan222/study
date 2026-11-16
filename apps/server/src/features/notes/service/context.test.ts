@@ -1,3 +1,4 @@
+import type { PageVersionId, SourceId } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises exact note context capture through native RPC and migrated SQLite.       │
@@ -10,20 +11,15 @@
  * │ Uses public feature services and real persistence without replacing workflow ownership.  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { PageVersionId, SourceId } from '@study/contracts';
 import { pageVersionIdSchema } from '@study/contracts';
 import { NotesRpc } from '@study/contracts';
 import type { chatMessageSchema } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { NotesRpcLive } from '#server/features/notes/rpc/index';
@@ -52,10 +48,10 @@ const content = (value: string) => ({
   }
 });
 
-testStable(
+test.stable(
   'native selection guards exact historic ranges, captures once and survives edits and reopen',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     let context = new ServerContext(await location.open());
     const services = () =>
       Layer.mergeAll(Notes.layer, Pages.layer, Settings.layer).pipe(
@@ -97,7 +93,7 @@ testStable(
               expectedRevision: 0n,
               targets: [target]
             });
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(
                 client('notes.updateNoteSelection', {
                   noteId: first.id,
@@ -106,15 +102,15 @@ testStable(
                 })
               )).kind === 'invalid_input'
             );
-            expect(
-              (yield* client('notes.noteSelection', { noteId: second.id })).targets
-            ).toStrictEqual([]);
+            test
+              .expect((yield* client('notes.noteSelection', { noteId: second.id })).targets)
+              .toStrictEqual([]);
             const bad = {
               ...target,
               scope: { kind: 'ranges' as const, ranges: [{ ...range, start: 8 }] }
             };
 
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(
                 client('notes.updateNoteSelection', {
                   noteId: second.id,
@@ -123,7 +119,7 @@ testStable(
                 })
               )).kind === 'invalid_input'
             );
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(
                 client('notes.updateNoteSelection', {
                   noteId: second.id,
@@ -148,25 +144,27 @@ testStable(
             };
             const snapshot = yield* client('notes.captureNoteContext', intent);
 
-            assert.ok(snapshot.inputs[0]!.excerpts[0]!.text === body.blocks[0]!.text);
-            expect(snapshot.messages).toStrictEqual([]);
+            test.assert.ok(snapshot.inputs[0]!.excerpts[0]!.text === body.blocks[0]!.text);
+            test.expect(snapshot.messages).toStrictEqual([]);
             yield* client('notes.updateNoteSelection', {
               noteId: first.id,
               expectedRevision: 1n,
               targets: []
             });
-            expect(yield* client('notes.captureNoteContext', intent)).toStrictEqual(snapshot);
-            expect(
-              yield* client('notes.captureNoteContext', {
-                preferences: { language: 'english', detail: 'brief' },
-                instruction: intent.instruction,
-                intentKey: intent.intentKey,
-                noteId: intent.noteId,
-                threadRoot: undefined,
-                throughMessageId: undefined
-              })
-            ).toStrictEqual(snapshot);
-            assert.ok(
+            test.expect(yield* client('notes.captureNoteContext', intent)).toStrictEqual(snapshot);
+            test
+              .expect(
+                yield* client('notes.captureNoteContext', {
+                  preferences: { language: 'english', detail: 'brief' },
+                  instruction: intent.instruction,
+                  intentKey: intent.intentKey,
+                  noteId: intent.noteId,
+                  threadRoot: undefined,
+                  throughMessageId: undefined
+                })
+              )
+              .toStrictEqual(snapshot);
+            test.assert.ok(
               (yield* Effect.flip(
                 client('notes.captureNoteContext', {
                   ...intent,
@@ -174,7 +172,7 @@ testStable(
                 })
               )).kind === 'invalid_input'
             );
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(
                 client('notes.captureNoteContext', {
                   ...intent,
@@ -216,19 +214,21 @@ testStable(
               expectedRevision: 3n,
               targets: []
             });
-            expect(
-              yield* client('notes.replySnapshot', { requestId: request.requestId })
-            ).toStrictEqual(before);
-            expect(
-              yield* client('notes.requestReply', {
-                noteId: first.id,
-                intentKey: 'reply',
-                instruction: 'Use selected passage'
-              })
-            ).toStrictEqual(request);
+            test
+              .expect(yield* client('notes.replySnapshot', { requestId: request.requestId }))
+              .toStrictEqual(before);
+            test
+              .expect(
+                yield* client('notes.requestReply', {
+                  noteId: first.id,
+                  intentKey: 'reply',
+                  instruction: 'Use selected passage'
+                })
+              )
+              .toStrictEqual(request);
             const notes = yield* Notes;
 
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(
                 withTestPublication(
                   context,
@@ -290,7 +290,7 @@ testStable(
             };
 
             for (const selectedRange of [undefined, range, { ...range, start: range.start - 1 }])
-              assert.ok(
+              test.assert.ok(
                 (yield* Effect.flip(
                   withTestPublication(
                     context,
@@ -315,22 +315,22 @@ testStable(
 
             const answer = yield* client('notes.message', { id: request.messageId });
 
-            expect(answer.citations[0]!.input).toStrictEqual({
+            test.expect(answer.citations[0]!.input).toStrictEqual({
               kind: 'page',
               versionId: material.version!.id
             });
-            assert.strictEqual(answer.citations[0]!.rangeStart, 0);
-            assert.strictEqual(answer.citations[0]!.rangeEnd, body.blocks[0]!.text.length);
-            assert.ok(answer.citations[0]!.origin === 'agent');
-            assert.ok(answer.citations[0]!.precision === 'exact');
+            test.assert.strictEqual(answer.citations[0]!.rangeStart, 0);
+            test.assert.strictEqual(answer.citations[0]!.rangeEnd, body.blocks[0]!.text.length);
+            test.assert.ok(answer.citations[0]!.origin === 'agent');
+            test.assert.ok(answer.citations[0]!.precision === 'exact');
             const evidence = answer.citations[0]!.evidence;
 
-            assert.ok(evidence?.availability === 'available');
+            test.assert.ok(evidence?.availability === 'available');
 
             if (evidence?.availability === 'available') {
-              assert.ok(evidence.precision === 'exact');
-              assert.ok(evidence.excerpt === body.blocks[0]!.text);
-              assert.strictEqual(evidence.snapshotId, documentId);
+              test.assert.ok(evidence.precision === 'exact');
+              test.assert.ok(evidence.excerpt === body.blocks[0]!.text);
+              test.assert.strictEqual(evidence.snapshotId, documentId);
             }
 
             const thread = yield* client('notes.thread', {
@@ -338,28 +338,28 @@ testStable(
               limit: 20
             });
 
-            expect(
-              thread.items.find((message) => message.id === answer.id)?.citations
-            ).toStrictEqual(answer.citations);
+            test
+              .expect(thread.items.find((message) => message.id === answer.id)?.citations)
+              .toStrictEqual(answer.citations);
             const edited = yield* client('notes.editMessage', {
               messageId: request.messageId,
               text: 'Edited wording [2]'
             });
 
-            expect(edited.citations).toStrictEqual([{ ...answer.citations[1]!, marker: 1 }]);
-            assert.ok(edited.versions.at(-1)?.text === 'Edited wording [1]');
-            expect(edited.citations[0]!.support).toStrictEqual({ state: 'unassessed' });
-            assert.strictEqual(edited.citations[0]!.rangeStart, 0);
-            assert.strictEqual(edited.citations[0]!.rangeEnd, body.blocks[0]!.text.length);
+            test.expect(edited.citations).toStrictEqual([{ ...answer.citations[1]!, marker: 1 }]);
+            test.assert.ok(edited.versions.at(-1)?.text === 'Edited wording [1]');
+            test.expect(edited.citations[0]!.support).toStrictEqual({ state: 'unassessed' });
+            test.assert.strictEqual(edited.citations[0]!.rangeStart, 0);
+            test.assert.strictEqual(edited.citations[0]!.rangeEnd, body.blocks[0]!.text.length);
             yield* client('notes.setActiveVersion', {
               messageId: request.messageId,
               versionId: answer.activeVersionId!
             });
-            expect(
-              (yield* client('notes.message', { id: request.messageId })).citations
-            ).toStrictEqual(answer.citations);
+            test
+              .expect((yield* client('notes.message', { id: request.messageId })).citations)
+              .toStrictEqual(answer.citations);
             yield* client('notes.deleteMessage', { id: request.messageId });
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(
                 client('notes.requestReply', {
                   noteId: first.id,
@@ -373,13 +373,13 @@ testStable(
               intentKey: 'regenerated'
             });
 
-            assert.notStrictEqual(regenerated.requestId, request.requestId);
+            test.assert.notStrictEqual(regenerated.requestId, request.requestId);
             const regeneratedSnapshot = yield* client('notes.replySnapshot', {
               requestId: regenerated.requestId
             });
 
-            assert.ok(regeneratedSnapshot.messages[0]!.text === 'Changed later');
-            assert.strictEqual(
+            test.assert.ok(regeneratedSnapshot.messages[0]!.text === 'Changed later');
+            test.assert.strictEqual(
               regeneratedSnapshot.context!.inputs[0]!.excerpts[0]!.text,
               'new content'
             );
@@ -397,7 +397,7 @@ testStable(
         )
       );
 
-      expect(reopened).toStrictEqual(captured);
+      test.expect(reopened).toStrictEqual(captured);
     } finally {
       context.close();
       await location.cleanup();
@@ -405,10 +405,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'reply outbox rejection rolls back the logical context and retry uses original message versions',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Notes.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
@@ -423,15 +423,21 @@ testStable(
             sql`CREATE TRIGGER reject_context_event BEFORE INSERT ON workflow_events BEGIN SELECT RAISE(ABORT, 'rejected'); END`
           );
           yield* Effect.flip(notes.requestReply({ noteId: note.id, intentKey: 'retry' }));
-          assert.strictEqual(context.db.orm.select().from(s.note_run_contexts).all().length, 0);
-          assert.strictEqual(context.db.orm.select().from(s.note_reply_requests).all().length, 0);
+          test.assert.strictEqual(
+            context.db.orm.select().from(s.note_run_contexts).all().length,
+            0
+          );
+          test.assert.strictEqual(
+            context.db.orm.select().from(s.note_reply_requests).all().length,
+            0
+          );
           context.db.orm.run(sql`DROP TRIGGER reject_context_event`);
           const request = yield* notes.requestReply({
             noteId: note.id,
             intentKey: 'retry'
           });
 
-          assert.ok((yield* notes.noteContext(request)).messages[0]!.text === 'Original');
+          test.assert.ok((yield* notes.noteContext(request)).messages[0]!.text === 'Original');
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -441,10 +447,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'active membership controls capture independently of selection and all notes are retained',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(Notes.layer, Pages.layer, Settings.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -458,7 +464,7 @@ testStable(
           const first = yield* notes.createNote({ title: 'One' });
           const second = yield* notes.createNote({ title: 'Two' });
 
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(
               notes.captureNoteContext({
                 noteId: first.id,
@@ -484,7 +490,7 @@ testStable(
             document: content('Beta')
           });
 
-          expect((yield* notes.noteSelection({ noteId: first.id })).targets).toStrictEqual([]);
+          test.expect((yield* notes.noteSelection({ noteId: first.id })).targets).toStrictEqual([]);
           yield* documents.detach({ noteId: first.id, pageId: a.id });
           yield* documents.attach({ noteId: first.id, pageId: b.id });
           const targets = [a, b].map((item) => ({
@@ -514,10 +520,13 @@ testStable(
             preferences: {}
           });
 
-          expect(ordered.inputs.map((item) => item.input)).toStrictEqual([
-            { kind: 'page', versionId: b.version!.id }
-          ]);
-          assert.strictEqual((yield* notes.noteSelection({ noteId: second.id })).targets.length, 1);
+          test
+            .expect(ordered.inputs.map((item) => item.input))
+            .toStrictEqual([{ kind: 'page', versionId: b.version!.id }]);
+          test.assert.strictEqual(
+            (yield* notes.noteSelection({ noteId: second.id })).targets.length,
+            1
+          );
           const draftOwner = yield* documents.create({
             createKey: crypto.randomUUID(),
             inputs: [],
@@ -539,7 +548,7 @@ testStable(
             document: content('Retained alternative')
           });
 
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(
               notes.updateNoteSelection({
                 noteId: second.id,
@@ -553,7 +562,7 @@ testStable(
               })
             )).kind === 'invalid_input'
           );
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(
               notes.updateNoteSelection({
                 noteId: second.id,
@@ -573,25 +582,25 @@ testStable(
             preferences: {}
           });
 
-          assert.throws(() =>
+          test.assert.throws(() =>
             context.db.orm
               .update(s.note_run_contexts)
               .set({ snapshot: '{}' })
               .where(eq(s.note_run_contexts.request_id, history.requestId))
               .run()
           );
-          assert.strictEqual(history.messages.length, 55);
-          assert.strictEqual(history.excludedMessages, 0);
-          assert.ok(history.messages[0]!.text === 'Message 0');
+          test.assert.strictEqual(history.messages.length, 55);
+          test.assert.strictEqual(history.excludedMessages, 0);
+          test.assert.ok(history.messages[0]!.text === 'Message 0');
           yield* notes.deleteMessage(history.messages[0]!.messageId);
-          expect(yield* notes.inspectNoteContext({ requestId: history.requestId })).toStrictEqual(
-            history
-          );
-          assert.ok(
+          test
+            .expect(yield* notes.inspectNoteContext({ requestId: history.requestId }))
+            .toStrictEqual(history);
+          test.assert.ok(
             (yield* Effect.flip(notes.noteContext({ requestId: history.requestId }))).kind ===
               'not_found'
           );
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(
               notes.captureNoteContext({
                 noteId: first.id,
@@ -601,7 +610,7 @@ testStable(
               })
             )).kind === 'not_found'
           );
-          assert.ok(
+          test.assert.ok(
             (yield* notes.noteContext({ requestId: ordered.requestId })).inputs[0]!.excerpts[0]!
               .text === 'Beta'
           );
@@ -614,10 +623,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'active image documents retain whole bodies and exact asset revisions despite manual range selection',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     let context = new ServerContext(await location.open());
     const services = () =>
       Layer.mergeAll(Notes.layer, Pages.layer, Sources.layer, Settings.layer).pipe(
@@ -680,11 +689,11 @@ testStable(
             const snapshot = yield* client('notes.captureNoteContext', intent);
             const input = snapshot.inputs[0]!;
 
-            assert.ok(input.document);
-            assert.strictEqual(input.excerpts.length, 2);
-            assert.strictEqual(input.excerpts[1]!.blockOrdinal, 1);
-            expect(input.excerpts[1]!.content).toStrictEqual(block.content);
-            assert.ok(input.excerpts[1]!.text === 'Selected figure caption');
+            test.assert.ok(input.document);
+            test.assert.strictEqual(input.excerpts.length, 2);
+            test.assert.strictEqual(input.excerpts[1]!.blockOrdinal, 1);
+            test.expect(input.excerpts[1]!.content).toStrictEqual(block.content);
+            test.assert.ok(input.excerpts[1]!.text === 'Selected figure caption');
             yield* client('notes.updateNoteSelection', {
               noteId: note.id,
               expectedRevision: 1n,
@@ -709,7 +718,7 @@ testStable(
               intentKey: 'alt-text-only'
             });
 
-            expect(range.inputs).toStrictEqual(snapshot.inputs);
+            test.expect(range.inputs).toStrictEqual(snapshot.inputs);
             yield* sources.replaceSource({
               id: image.id,
               expectedRevision: 1,
@@ -733,10 +742,10 @@ testStable(
               }
             });
 
-            expect(yield* client('notes.captureNoteContext', intent)).toStrictEqual(snapshot);
-            expect(
-              (yield* sources.sourceSnapshot({ id: image.id, revision: 1 })).bytes
-            ).toStrictEqual(bytes);
+            test.expect(yield* client('notes.captureNoteContext', intent)).toStrictEqual(snapshot);
+            test
+              .expect((yield* sources.sourceSnapshot({ id: image.id, revision: 1 })).bytes)
+              .toStrictEqual(bytes);
 
             return { snapshot, range, material, note, image };
           }).pipe(Effect.provide(handlers()))
@@ -751,27 +760,27 @@ testStable(
           const documents = yield* Pages;
           const sources = yield* Sources;
 
-          expect(yield* notes.noteContext({ requestId: saved.snapshot.requestId })).toStrictEqual(
-            saved.snapshot
-          );
-          expect(yield* notes.noteContext({ requestId: saved.range.requestId })).toStrictEqual(
-            saved.range
-          );
+          test
+            .expect(yield* notes.noteContext({ requestId: saved.snapshot.requestId }))
+            .toStrictEqual(saved.snapshot);
+          test
+            .expect(yield* notes.noteContext({ requestId: saved.range.requestId }))
+            .toStrictEqual(saved.range);
           yield* notes.deleteNote(saved.note.id);
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(
               notes.inspectNoteContext({
                 requestId: saved.snapshot.requestId
               })
             )).kind === 'not_found'
           );
-          assert.strictEqual(
+          test.assert.strictEqual(
             (yield* documents.page({ id: saved.material.id })).id,
             saved.material.id
           );
-          expect(
-            (yield* sources.sourceSnapshot({ id: saved.image.id, revision: 1 })).bytes
-          ).toStrictEqual(bytes);
+          test
+            .expect((yield* sources.sourceSnapshot({ id: saved.image.id, revision: 1 })).bytes)
+            .toStrictEqual(bytes);
         }).pipe(Effect.provide(services()))
       );
     } finally {
@@ -792,27 +801,27 @@ function assertRetainedCitationShapes(
   const [incomplete, mismatch, unpublished, attachment] = read.citations;
 
   for (const citation of read.citations) {
-    assert.ok(citation.precision === 'unavailable');
-    expect(citation.evidence).toStrictEqual({
+    test.assert.ok(citation.precision === 'unavailable');
+    test.expect(citation.evidence).toStrictEqual({
       availability: 'unavailable',
       precision: 'unavailable',
       reason: 'captured_input_unavailable'
     });
-    expect(citation.anchor).toStrictEqual(anchor);
+    test.expect(citation.anchor).toStrictEqual(anchor);
   }
 
-  expect(incomplete!.input).toStrictEqual({ kind: 'page', versionId });
-  assert.ok(incomplete!.documentId === null);
-  expect(mismatch!.input).toStrictEqual({ kind: 'page', versionId });
-  expect(unpublished!.input).toStrictEqual({ kind: 'page', versionId: draftVersionId });
-  assert.strictEqual(attachment!.sourceId, sourceId);
-  assert.ok(attachment!.quote === 'Retained attachment');
+  test.expect(incomplete!.input).toStrictEqual({ kind: 'page', versionId });
+  test.assert.ok(incomplete!.documentId === null);
+  test.expect(mismatch!.input).toStrictEqual({ kind: 'page', versionId });
+  test.expect(unpublished!.input).toStrictEqual({ kind: 'page', versionId: draftVersionId });
+  test.assert.strictEqual(attachment!.sourceId, sourceId);
+  test.assert.ok(attachment!.quote === 'Retained attachment');
 }
 
-testStable(
+test.stable(
   'retained legacy and attachment citations keep bounded precision; wrong exact identities never use latest content',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     let context = new ServerContext(await location.open());
     const handlers = () =>
       NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
@@ -923,35 +932,41 @@ testStable(
               source.id
             );
 
-            expect(
-              (yield* rpc('notes.thread', { noteId: note.id, limit: 10 })).items[0]!.citations
-            ).toStrictEqual(read.citations);
+            test
+              .expect(
+                (yield* rpc('notes.thread', { noteId: note.id, limit: 10 })).items[0]!.citations
+              )
+              .toStrictEqual(read.citations);
             const edited = yield* rpc('notes.editMessage', {
               messageId: message.id,
               text: 'Reordered [4] [2] [1] [3]'
             });
 
-            expect(edited.citations).toStrictEqual(read.citations);
+            test.expect(edited.citations).toStrictEqual(read.citations);
             const exactVersion = yield* rpc('notes.messageVersionCitations', {
               noteId: note.id,
               messageId: message.id,
               versionId: message.activeVersionId!
             });
 
-            expect(exactVersion.citations).toStrictEqual(read.citations);
-            expect(
-              (yield* rpc('notes.setActiveVersion', {
-                messageId: message.id,
-                versionId: message.activeVersionId!
-              })).citations
-            ).toStrictEqual(read.citations);
-            expect(
-              context.db.orm
-                .select()
-                .from(s.citations)
-                .where(eq(s.citations.version_id, message.activeVersionId!))
-                .all()
-            ).toStrictEqual(rows);
+            test.expect(exactVersion.citations).toStrictEqual(read.citations);
+            test
+              .expect(
+                (yield* rpc('notes.setActiveVersion', {
+                  messageId: message.id,
+                  versionId: message.activeVersionId!
+                })).citations
+              )
+              .toStrictEqual(read.citations);
+            test
+              .expect(
+                context.db.orm
+                  .select()
+                  .from(s.citations)
+                  .where(eq(s.citations.version_id, message.activeVersionId!))
+                  .all()
+              )
+              .toStrictEqual(rows);
 
             return {
               id: message.id,
@@ -970,16 +985,18 @@ testStable(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(NotesRpc, { flatten: true });
 
-            expect((yield* rpc('notes.message', { id: retained.id })).citations).toStrictEqual(
-              retained.citations
-            );
-            expect(
-              (yield* rpc('notes.messageVersionCitations', {
-                noteId: retained.noteId,
-                messageId: retained.id,
-                versionId: retained.versionId
-              })).citations
-            ).toStrictEqual(retained.citations);
+            test
+              .expect((yield* rpc('notes.message', { id: retained.id })).citations)
+              .toStrictEqual(retained.citations);
+            test
+              .expect(
+                (yield* rpc('notes.messageVersionCitations', {
+                  noteId: retained.noteId,
+                  messageId: retained.id,
+                  versionId: retained.versionId
+                })).citations
+              )
+              .toStrictEqual(retained.citations);
           }).pipe(Effect.provide(handlers()))
         )
       );
@@ -990,10 +1007,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'native capture rejects foreign or deleted boundaries and preserves exact bounded replay',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const handlers = NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
       Layer.provideMerge(
@@ -1075,7 +1092,7 @@ testStable(
             { threadRoot, throughMessageId: sibling.id },
             { threadRoot, throughMessageId: siblingRoot.id }
           ].entries()) {
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(
                 client('notes.captureNoteContext', {
                   ...intent,
@@ -1086,10 +1103,15 @@ testStable(
             );
           }
 
-          assert.strictEqual(context.db.orm.select().from(s.note_run_contexts).all().length, 0);
+          test.assert.strictEqual(
+            context.db.orm.select().from(s.note_run_contexts).all().length,
+            0
+          );
           const captured = yield* client('notes.captureNoteContext', intent);
 
-          expect(captured.messages.map((message) => message.messageId)).toStrictEqual([first.id]);
+          test
+            .expect(captured.messages.map((message) => message.messageId))
+            .toStrictEqual([first.id]);
           const rootOnly = yield* client('notes.captureNoteContext', {
             ...intent,
             intentKey: 'root-only',
@@ -1097,7 +1119,9 @@ testStable(
             throughMessageId: root.id
           });
 
-          expect(rootOnly.messages.map((message) => message.messageId)).toStrictEqual([root.id]);
+          test
+            .expect(rootOnly.messages.map((message) => message.messageId))
+            .toStrictEqual([root.id]);
           const threaded = yield* client('notes.captureNoteContext', {
             ...intent,
             intentKey: 'threaded',
@@ -1105,16 +1129,15 @@ testStable(
             throughMessageId: child.id
           });
 
-          expect(threaded.messages.map((message) => message.messageId)).toStrictEqual([
-            root.id,
-            child.id
-          ]);
+          test
+            .expect(threaded.messages.map((message) => message.messageId))
+            .toStrictEqual([root.id, child.id]);
           yield* client('notes.editMessage', {
             messageId: first.id,
             text: 'Changed afterwards'
           });
           yield* client('notes.postMessage', { noteId: note.id, text: 'Later' });
-          expect(yield* client('notes.captureNoteContext', intent)).toStrictEqual(captured);
+          test.expect(yield* client('notes.captureNoteContext', intent)).toStrictEqual(captured);
 
           for (let index = 0; index < 3; index++)
             yield* client('notes.postMessage', {
@@ -1123,7 +1146,7 @@ testStable(
               text: String(index).repeat(80000)
             });
 
-          assert.strictEqual(
+          test.assert.strictEqual(
             (yield* Effect.flip(
               client('notes.captureNoteContext', {
                 noteId: note.id,

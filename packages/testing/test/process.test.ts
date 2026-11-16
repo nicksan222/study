@@ -1,18 +1,15 @@
-import { spawnTestProcess, spawnTestProcessSync } from '@study/testing/vitest';
-import { temporaryDirectory } from '@study/testing/vitest';
-import { testStable } from '@study/testing/vitest';
-import { afterAll, assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 const owned: number[] = [];
 
-afterAll(() => {
-  for (const pid of owned) assert.throws(() => process.kill(pid, 0));
+test.afterAll(() => {
+  for (const pid of owned) test.assert.throws(() => process.kill(pid, 0));
 });
 
-testStable(
+test.stable(
   'shared process ownership stops commands still running when their test ends',
   async () => {
-    const child = spawnTestProcess(
+    const child = test.spawnTestProcess(
       [process.execPath, '-e', "console.log('ready'); setInterval(() => {}, 1000)"],
       {
         stdout: 'pipe',
@@ -24,42 +21,44 @@ testStable(
     const reader = child.stdout.getReader();
 
     try {
-      expect(new TextDecoder().decode((await reader.read()).value)).toContain('ready');
-      expect(child.exitCode).toBeNull();
+      test.expect(new TextDecoder().decode((await reader.read()).value)).toContain('ready');
+      test.expect(child.exitCode).toBeNull();
     } finally {
       reader.releaseLock();
     }
   }
 );
 
-testStable('shared synchronous command execution preserves exit status and output', () => {
-  const result = spawnTestProcessSync([
+test.stable('shared synchronous command execution preserves exit status and output', () => {
+  const result = test.spawnTestProcessSync([
     process.execPath,
     '-e',
     "console.log('observed'); process.exit(7)"
   ]);
 
-  expect(result.exitCode).toBe(7);
-  expect(result.stdout.toString()).toContain('observed');
+  test.expect(result.exitCode).toBe(7);
+  test.expect(result.stdout.toString()).toContain('observed');
 });
 
-testStable('shared fixture directories are removed after failures', async () => {
+test.stable('shared fixture directories are removed after failures', async () => {
   let path = '';
 
-  await expect(
-    (async () => {
-      await using directory = await temporaryDirectory({ executable: true });
+  await test
+    .expect(
+      (async () => {
+        await using directory = await test.temporaryDirectory({ executable: true });
 
-      path = directory.path;
-      await Bun.write(`${path}/fixture`, 'owned');
+        path = directory.path;
+        await Bun.write(`${path}/fixture`, 'owned');
 
-      throw new Error('fixture failure');
-    })()
-  ).rejects.toThrow('fixture failure');
-  expect(await Bun.file(`${path}/fixture`).exists()).toBe(false);
+        throw new Error('fixture failure');
+      })()
+    )
+    .rejects.toThrow('fixture failure');
+  test.expect(await Bun.file(`${path}/fixture`).exists()).toBe(false);
 });
 
-testStable.each(['array', 'object'])(
+test.stable.each(['array', 'object'])(
   'synchronous commands cannot ignore the shared timeout (%s options)',
   (form) => {
     const cmd = [
@@ -69,9 +68,9 @@ testStable.each(['array', 'object'])(
     ];
     const result =
       form === 'array'
-        ? spawnTestProcessSync(cmd, { timeout: 500 })
-        : spawnTestProcessSync({ cmd, timeout: 500 });
+        ? test.spawnTestProcessSync(cmd, { timeout: 500 })
+        : test.spawnTestProcessSync({ cmd, timeout: 500 });
 
-    expect(result.signalCode).toBe('SIGKILL');
+    test.expect(result.signalCode).toBe('SIGKILL');
   }
 );

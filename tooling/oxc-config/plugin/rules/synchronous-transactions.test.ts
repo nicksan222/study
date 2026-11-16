@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('rejects asynchronous database transaction callbacks in production', async () => {
+test.stable('rejects asynchronous database transaction callbacks in production', async () => {
   const diagnostics = await lintRule('synchronous-transactions', {
     'src/bad.ts': `import { Db } from '@study/db';
  const db = Db.open(':memory:');
@@ -19,11 +18,11 @@ testStable('rejects asynchronous database transaction callbacks in production', 
 `
   });
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
-testStable('synchronous-transactions handles aliases and avoids unrelated bindings', async () => {
+test.stable('synchronous-transactions handles aliases and avoids unrelated bindings', async () => {
   const diagnostics = await lintRule('synchronous-transactions', {
     'src/bad.ts': `import { Db as Database } from '@study/db';
  import { Effect as E } from 'effect';
@@ -36,11 +35,11 @@ testStable('synchronous-transactions handles aliases and avoids unrelated bindin
  }`
   });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
-testStable(
+test.stable(
   'transactions recognize Effect namespace, const aliases and named async callbacks',
   async () => {
     const diagnostics = await lintRule('synchronous-transactions', {
@@ -61,12 +60,12 @@ function f(E) { db.transaction(() => E.succeed(1));
 }`
     });
 
-    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
-    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+    test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
   }
 );
 
-testStable('named block callbacks and constant database aliases stay synchronous', async () => {
+test.stable('named block callbacks and constant database aliases stay synchronous', async () => {
   const diagnostics = await lintRule('synchronous-transactions', {
     'src/bad.ts': `import type { ServerContext } from '#server/runtime/context';
 function operation(ctx: ServerContext) { const db = ctx.db;
@@ -80,10 +79,10 @@ function next() { return Promise.resolve(2);
       'const db = { transaction: f => f() }; const work = () => Promise.resolve(1); db.transaction(work);'
   });
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-testStable('factory-owned database callbacks cannot start asynchronous transactions', async () => {
+test.stable('factory-owned database callbacks cannot start asynchronous transactions', async () => {
   const diagnostics = await lintRule('synchronous-transactions', {
     'src/features/items/store/index.ts': `import { defineStore, storeMutation as command } from '#server/platform/definitions/define-store';
  defineStore({ make: ({db}) => ({queries: {}, mutations: {save: command({ run(input) { db.transaction(async () => 1);
@@ -91,5 +90,5 @@ testStable('factory-owned database callbacks cannot start asynchronous transacti
 `
   });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });

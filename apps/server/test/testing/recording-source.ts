@@ -1,3 +1,4 @@
+import { eq } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Publishes a real recording Source while preserving independently owned note        │
@@ -10,12 +11,10 @@
  * │ Test callers own isolated SQLite lifetimes and explicitly control provider responses.    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { eq } from '@study/db';
 import * as s from '@study/db';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Recordings } from '#server/features/recordings/index';
@@ -54,7 +53,7 @@ export async function recordingSource(f: SourceFixture) {
     .where(eq(s.workflowEvents.eventId, post.requestId))
     .get();
 
-  assert.ok(row);
+  test.assert.ok(row);
 
   const event = decodeEvent(row.payload);
 
@@ -87,7 +86,7 @@ export async function recordingSource(f: SourceFixture) {
     )
   );
 
-  assert.ok(snapshot.sourceId !== null);
+  test.assert.ok(snapshot.sourceId !== null);
 
   return snapshot.sourceId;
 }

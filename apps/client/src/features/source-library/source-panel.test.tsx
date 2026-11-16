@@ -6,15 +6,11 @@ import {
   executionIdSchema
 } from '@study/contracts';
 import type { executionSchema } from '@study/contracts';
+import type { StudyClient } from '@study/contracts/react/testing';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { act, cleanup, render, renderHook, screen, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
 import { useLayoutEffect } from 'react';
-import { afterEach, expect, vi } from 'vite-plus/test';
-
-import type { StudyClient } from '#client/test/rpc.tsx';
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { authoredPage } from '../document-editing/test-support';
 import { importedSource, materialRpc, mountLibraryRoute } from '../material-library/test/support';
@@ -23,14 +19,14 @@ import { useSourceProcessingExecution, useSourceCopy } from './source-panel.quer
 const source = sourceIdSchema.make(7n);
 
 const rpc = {
-  copy: vi.fn<StudyClient['pages.copySource']>(),
-  processing: vi.fn<StudyClient['sources.sourceProcessing']>(),
-  executions: vi.fn<StudyClient['workflows.executions']>()
+  copy: test.vi.fn<StudyClient['pages.copySource']>(),
+  processing: test.vi.fn<StudyClient['sources.sourceProcessing']>(),
+  executions: test.vi.fn<StudyClient['workflows.executions']>()
 };
 
-afterEach(() => {
-  cleanup();
-  vi.resetAllMocks();
+test.afterEach(() => {
+  test.cleanup();
+  test.vi.resetAllMocks();
 });
 
 function execution(
@@ -55,11 +51,11 @@ function processing(requestId: string | null) {
   return Effect.succeed({ sourceId: source, revision: 1, requestId, documentId: null });
 }
 
-testStable(
+test.stable(
   'keeps an uncertain exact copy request across caller remount and newer source extraction',
   async () => {
     const note = noteIdSchema.make(8n);
-    const harness = rpcHandlersTransport({ 'pages.copySource': rpc.copy });
+    const harness = test.rpcHandlersTransport({ 'pages.copySource': rpc.copy });
     let current: ReturnType<typeof useSourceCopy> | undefined;
 
     function Probe() {
@@ -87,57 +83,57 @@ testStable(
     rpc.copy
       .mockReturnValueOnce(Effect.fail(new StudyError('transient', 'Lost copy response')))
       .mockReturnValueOnce(Effect.succeed(authoredPage(20n)));
-    const view = render(
+    const view = test.render(
       <harness.wrapper>
         <Probe />
       </harness.wrapper>
     );
 
-    await act(() => state().copy(exact));
+    await test.act(() => state().copy(exact));
     const attempt = rpc.copy.mock.calls[0]?.[0];
 
-    expect(attempt).toMatchObject({
+    test.expect(attempt).toMatchObject({
       sourceId: source,
       noteId: note,
       revision: 1n,
       snapshotId: 11n
     });
-    act(() => state().acknowledge());
+    test.act(() => state().acknowledge());
     view.rerender(<harness.wrapper>{null}</harness.wrapper>);
     view.rerender(
       <harness.wrapper>
         <Probe />
       </harness.wrapper>
     );
-    await act(() =>
+    await test.act(() =>
       state().copy({
         name: 'Replacement',
         revision: 2n,
         snapshotId: contentSnapshotIdSchema.make(12n)
       })
     );
-    expect(rpc.copy.mock.calls[1]?.[0]).toEqual(attempt);
-    await waitFor(() => expect(state().page?.id).toBe(20n));
-    await act(() => state().copy(exact));
-    expect(rpc.copy).toHaveBeenCalledTimes(2);
-    act(() => state().acknowledge());
+    test.expect(rpc.copy.mock.calls[1]?.[0]).toEqual(attempt);
+    await test.waitFor(() => test.expect(state().page?.id).toBe(20n));
+    await test.act(() => state().copy(exact));
+    test.expect(rpc.copy).toHaveBeenCalledTimes(2);
+    test.act(() => state().acknowledge());
     rpc.copy.mockReturnValueOnce(Effect.succeed(authoredPage(21n)));
-    await act(() =>
+    await test.act(() =>
       state().copy({
         name: 'Replacement',
         revision: 2n,
         snapshotId: contentSnapshotIdSchema.make(12n)
       })
     );
-    expect(rpc.copy.mock.calls[2]?.[0]).toMatchObject({ revision: 2n, snapshotId: 12n });
-    expect(rpc.copy.mock.calls[2]?.[0].createKey).not.toBe(attempt?.createKey);
+    test.expect(rpc.copy.mock.calls[2]?.[0]).toMatchObject({ revision: 2n, snapshotId: 12n });
+    test.expect(rpc.copy.mock.calls[2]?.[0].createKey).not.toBe(attempt?.createKey);
   }
 );
 
-testStable(
+test.stable(
   'live processing follows the current request and never presents an unrelated workflow outcome',
   async () => {
-    const harness = rpcHandlersTransport({
+    const harness = test.rpcHandlersTransport({
       'sources.sourceProcessing': rpc.processing,
       'workflows.executions': rpc.executions
     });
@@ -149,88 +145,105 @@ testStable(
         next: null
       })
     );
-    const view = renderHook(() => useSourceProcessingExecution(source), {
+    const view = test.renderHook(() => useSourceProcessingExecution(source), {
       wrapper: harness.wrapper
     });
 
-    await waitFor(() => expect(rpc.executions).toHaveBeenCalled());
-    expect(view.result.current.data).toBeUndefined();
+    await test.waitFor(() => test.expect(rpc.executions).toHaveBeenCalled());
+    test.expect(view.result.current.data).toBeUndefined();
     rpc.executions.mockReturnValue(Effect.succeed({ items: [execution()], next: null }));
-    await act(() => harness.notify());
-    await waitFor(() => expect(view.result.current.data?.failureKind).toBe('unsupported'));
+    await test.act(() => harness.notify());
+    await test.waitFor(() =>
+      test.expect(view.result.current.data?.failureKind).toBe('unsupported')
+    );
     rpc.processing.mockReturnValue(processing(null));
-    await act(() => harness.notify());
-    await waitFor(() => expect(view.result.current.data).toBeUndefined());
+    await test.act(() => harness.notify());
+    await test.waitFor(() => test.expect(view.result.current.data).toBeUndefined());
   }
 );
-testStable(
-  'renders canonical failure and configuration waits, then recovers to extracted content',
-  async () => {
-    const copy = catalogs.english;
 
-    for (const [overrides, label] of [
-      [{ failureKind: 'unsupported' }, copy.SourceExtractionUnsupported],
-      [{ failureKind: 'internal' }, copy.SourceExtractionFailed],
-      [{ status: 'cancelled', failureKind: 'cancelled' }, copy.SourceExtractionFailed],
-      ...(['auth', 'config', 'model_unavailable'] as const).map(
-        (reason) =>
-          [
-            {
-              status: 'suspended',
-              outcome: null,
-              failureKind: null,
-              configurationWaitReason: reason
-            },
-            reason === 'auth'
-              ? copy.NoteWaitAuth
-              : reason === 'config'
-                ? copy.NoteWaitConfig
-                : copy.NoteWaitModel
-          ] as const
-      )
-    ] as const) {
-      const client = {
-        ...materialRpc(),
-        'sources.sourceProcessing': rpc.processing,
-        'workflows.executions': rpc.executions
-      };
-
-      rpc.processing.mockReturnValue(processing('request-1'));
-      rpc.executions.mockReturnValue(Effect.succeed({ items: [execution(overrides)], next: null }));
-      client['sources.currentExtraction'].mockReturnValue(Effect.succeed(null));
-      const view = mountLibraryRoute('/sources/7', client);
-
-      try {
-        expect(await screen.findByText(label)).toBeInTheDocument();
-        expect(screen.queryByText(copy.NotePending)).toBeNull();
-
-        if ('configurationWaitReason' in overrides)
-          expect(screen.getByRole('link', { name: copy.Settings })).toHaveAttribute(
-            'href',
-            '/settings'
-          );
-
-        rpc.processing.mockReturnValue(processing(null));
-        await act(async () => {
-          await view.notify();
-        });
-        expect(await screen.findByText(copy.NotePending)).toBeInTheDocument();
-        expect(screen.queryByText(label)).toBeNull();
-        client['sources.currentExtraction'].mockReturnValue(
-          client['sources.extraction']({
-            sourceId: importedSource.id,
-            revision: 1n,
-            snapshotId: contentSnapshotIdSchema.make(101n)
-          })
-        );
-        await act(async () => {
-          await view.notify();
-        });
-        expect(await screen.findByText('Historical extraction')).toBeInTheDocument();
-        expect(screen.queryByText(copy.NotePending)).toBeNull();
-      } finally {
-        view.unmount();
-      }
+const failureScenarios = [
+  [
+    'unsupported',
+    {
+      overrides: { failureKind: 'unsupported' },
+      label: catalogs.english.SourceExtractionUnsupported
     }
+  ],
+  [
+    'internal',
+    { overrides: { failureKind: 'internal' }, label: catalogs.english.SourceExtractionFailed }
+  ],
+  [
+    'cancelled',
+    {
+      overrides: { status: 'cancelled', failureKind: 'cancelled' },
+      label: catalogs.english.SourceExtractionFailed
+    }
+  ],
+  ...(['auth', 'config', 'model_unavailable'] as const).map(
+    (reason) =>
+      [
+        `${reason}-wait`,
+        {
+          overrides: {
+            status: 'suspended',
+            outcome: null,
+            failureKind: null,
+            configurationWaitReason: reason
+          },
+          label:
+            reason === 'auth'
+              ? catalogs.english.NoteWaitAuth
+              : reason === 'config'
+                ? catalogs.english.NoteWaitConfig
+                : catalogs.english.NoteWaitModel
+        }
+      ] as const
+  )
+] as const;
+
+test.stable.for(failureScenarios)(
+  'renders canonical failure and configuration waits for %s, then recovers to extracted content',
+  async ([_scenarioName, scenario]) => {
+    const copy = catalogs.english;
+    const { overrides, label } = scenario;
+    const client = {
+      ...materialRpc(),
+      'sources.sourceProcessing': rpc.processing,
+      'workflows.executions': rpc.executions
+    };
+
+    rpc.processing.mockReturnValue(processing('request-1'));
+    rpc.executions.mockReturnValue(Effect.succeed({ items: [execution(overrides)], next: null }));
+    client['sources.currentExtraction'].mockReturnValue(Effect.succeed(null));
+    const view = mountLibraryRoute('/sources/7', client);
+
+    test.expect(await test.screen.findByText(label)).toBeInTheDocument();
+    test.expect(test.screen.queryByText(copy.NotePending)).toBeNull();
+
+    if ('configurationWaitReason' in overrides)
+      test
+        .expect(test.screen.getByRole('link', { name: copy.Settings }))
+        .toHaveAttribute('href', '/settings');
+
+    rpc.processing.mockReturnValue(processing(null));
+    await test.act(async () => {
+      await view.notify();
+    });
+    test.expect(await test.screen.findByText(copy.NotePending)).toBeInTheDocument();
+    test.expect(test.screen.queryByText(label)).toBeNull();
+    client['sources.currentExtraction'].mockReturnValue(
+      client['sources.extraction']({
+        sourceId: importedSource.id,
+        revision: 1n,
+        snapshotId: contentSnapshotIdSchema.make(101n)
+      })
+    );
+    await test.act(async () => {
+      await view.notify();
+    });
+    test.expect(await test.screen.findByText('Historical extraction')).toBeInTheDocument();
+    test.expect(test.screen.queryByText(copy.NotePending)).toBeNull();
   }
 );

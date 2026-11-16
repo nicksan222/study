@@ -1,3 +1,4 @@
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises managed backup privacy, integrity, native transport and controlled       │
@@ -10,16 +11,13 @@
  * │ All fixtures use isolated SQLite locations and native services without real user data.   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { StudyRpc } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { backupIdSchema, restoreTokenSchema } from '@study/contracts';
 import { Db, eq, sql } from '@study/db';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, FileSystem, Path, Schema } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { Auth } from '#server/features/auth/index';
@@ -45,7 +43,7 @@ const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFile
 
 const path = await Effect.runPromise(Effect.provide(Path.Path, BunPath.layer));
 
-testStable(
+test.stable(
   'native RPC creates, inspects and exports a backup without changing live content',
   async () => {
     const f = await backupFixture();
@@ -64,20 +62,23 @@ testStable(
 
             const backup = yield* client['system.createBackup']({});
 
-            assert.strictEqual(backup.scope.pages, 1);
-            assert.ok(backup.credentials === 'excluded');
+            test.assert.strictEqual(backup.scope.pages, 1);
+            test.assert.ok(backup.credentials === 'excluded');
 
             const list = yield* client['system.listBackups']({});
 
-            assert.strictEqual(list[0]?.id, backup.id);
+            test.assert.strictEqual(list[0]?.id, backup.id);
 
             const bytes = yield* client['system.readBackup']({ id: backup.id });
 
-            assert.strictEqual(packet(Buffer.from(bytes, 'base64')).manifest.sha256, backup.sha256);
+            test.assert.strictEqual(
+              packet(Buffer.from(bytes, 'base64')).manifest.sha256,
+              backup.sha256
+            );
           })
         )
       );
-      assert.strictEqual(f.app.store.db.contentIdentity(), before);
+      test.assert.strictEqual(f.app.store.db.contentIdentity(), before);
     } finally {
       await server.close();
       await f.close();
@@ -85,7 +86,7 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'backup compaction removes private auth markers from all exported bytes; restore requires fresh sign-in',
   async () => {
     const f = await backupFixture();
@@ -120,9 +121,9 @@ testStable(
 
       const bytes = await f.app.nativeRuntime.runPromise(api.readBackup({ id: backup.id }));
 
-      assert.ok(Buffer.from(bytes, 'base64').includes(Buffer.from(marker)) === false);
-      assert.ok(Buffer.from(bytes, 'base64').includes(Buffer.from(previousMarker)) === false);
-      assert.ok(
+      test.assert.ok(Buffer.from(bytes, 'base64').includes(Buffer.from(marker)) === false);
+      test.assert.ok(Buffer.from(bytes, 'base64').includes(Buffer.from(previousMarker)) === false);
+      test.assert.ok(
         f.app.store.db.orm
           .select()
           .from(s.preferences)
@@ -132,7 +133,7 @@ testStable(
 
       const preview = await f.app.nativeRuntime.runPromise(api.previewRestore({ id: backup.id }));
 
-      assert.ok(
+      test.assert.ok(
         (await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)))).state ===
           'restart-required'
       );
@@ -142,15 +143,15 @@ testStable(
         Effect.flatMap(Auth, (auth) => auth.status())
       );
 
-      assert.ok(status.signedIn === false);
-      assert.ok(
+      test.assert.ok(status.signedIn === false);
+      test.assert.ok(
         (await f.app.nativeRuntime.runPromise((await f.api()).acceptRestore(acceptance(preview))))
           .state === 'applied'
       );
-      assert.ok(
+      test.assert.ok(
         (await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())).state === 'applied'
       );
-      assert.ok(
+      test.assert.ok(
         Buffer.from(
           await Bun.file(f.location.path + '.backups/previous.sqlite').arrayBuffer()
         ).includes(Buffer.from(marker)) === true
@@ -161,7 +162,7 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'Materials, Pages, managed BLOBs, collections, notes and annotations roundtrip on startup',
   async () => {
     const f = await backupFixture();
@@ -295,49 +296,53 @@ testStable(
       const preview = await f.app.nativeRuntime.runPromise(api.previewRestore({ id: backup.id }));
 
       await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)));
-      assert.ok(db.select().from(s.projects).get()!.name === 'Replaced content');
+      test.assert.ok(db.select().from(s.projects).get()!.name === 'Replaced content');
       await f.reopen();
 
       const restored = f.app.store.db.orm;
 
-      assert.ok(restored.select().from(s.projects).get()!.name === 'Collection');
-      assert.ok(restored.select().from(s.notes).get()!.title === 'Note');
-      expect(restored.select().from(s.material_quiz_questions).all()).toStrictEqual(
-        expected.questions
-      );
-      expect(restored.select().from(s.material_quiz_attempts).all()).toStrictEqual(
-        expected.attempts
-      );
-      expect(restored.select().from(s.document_assets).all()).toStrictEqual(expected.imageRoots);
-      assert.ok(restored.select().from(s.learning_practice_controls).get()!.enabled === true);
-      assert.ok(restored.select().from(s.learning_practice_slots).get()!.status === 'pending');
-      expect(restored.select().from(s.content_snapshots).all()).toStrictEqual(expected.documents);
-      expect(restored.select().from(s.blocks).all()).toStrictEqual(expected.blocks);
-      expect(restored.select().from(s.source_snapshots).all()).toStrictEqual(expected.assets);
-      expect(restored.select().from(s.source_blobs).all()).toStrictEqual(expected.originals);
-      expect(restored.select().from(s.page_annotation_revisions).all()).toStrictEqual(
-        expected.annotations
-      );
-      assert.ok(
+      test.assert.ok(restored.select().from(s.projects).get()!.name === 'Collection');
+      test.assert.ok(restored.select().from(s.notes).get()!.title === 'Note');
+      test
+        .expect(restored.select().from(s.material_quiz_questions).all())
+        .toStrictEqual(expected.questions);
+      test
+        .expect(restored.select().from(s.material_quiz_attempts).all())
+        .toStrictEqual(expected.attempts);
+      test
+        .expect(restored.select().from(s.document_assets).all())
+        .toStrictEqual(expected.imageRoots);
+      test.assert.ok(restored.select().from(s.learning_practice_controls).get()!.enabled === true);
+      test.assert.ok(restored.select().from(s.learning_practice_slots).get()!.status === 'pending');
+      test
+        .expect(restored.select().from(s.content_snapshots).all())
+        .toStrictEqual(expected.documents);
+      test.expect(restored.select().from(s.blocks).all()).toStrictEqual(expected.blocks);
+      test.expect(restored.select().from(s.source_snapshots).all()).toStrictEqual(expected.assets);
+      test.expect(restored.select().from(s.source_blobs).all()).toStrictEqual(expected.originals);
+      test
+        .expect(restored.select().from(s.page_annotation_revisions).all())
+        .toStrictEqual(expected.annotations);
+      test.assert.ok(
         restored.select().from(s.sources).where(eq(s.sources.id, source.id)).get()!.name ===
           'notes.txt'
       );
 
       const status = await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus());
 
-      assert.ok(status.recoveryCopy === true);
+      test.assert.ok(status.recoveryCopy === true);
       await f.app.nativeRuntime.runPromise((await f.api()).discardRestoreRecovery());
-      assert.ok(
+      test.assert.ok(
         (await Effect.runPromise(fs.exists(f.location.path + '.backups/previous.sqlite'))) === false
       );
-      assert.ok(restored.select().from(s.projects).get()!.name === 'Collection');
+      test.assert.ok(restored.select().from(s.projects).get()!.name === 'Collection');
     } finally {
       await f.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'corrupt checksum, unsupported schema, missing original BLOB and malformed canonical Document never touch live data',
   async () => {
     const f = await backupFixture();
@@ -389,20 +394,20 @@ testStable(
       ];
 
       for (const bytes of variants) {
-        await expect(f.app.nativeRuntime.runPromise(api.importBackup({ bytes }))).rejects.toSatisfy(
-          () => true
-        );
-        assert.strictEqual(f.app.store.db.contentIdentity(), target);
+        await test
+          .expect(f.app.nativeRuntime.runPromise(api.importBackup({ bytes })))
+          .rejects.toSatisfy(() => true);
+        test.assert.strictEqual(f.app.store.db.contentIdentity(), target);
       }
 
-      assert.strictEqual((await f.app.nativeRuntime.runPromise(api.backups())).length, 1);
+      test.assert.strictEqual((await f.app.nativeRuntime.runPromise(api.backups())).length, 1);
     } finally {
       await f.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'acceptance is exact and idempotent; stale target/token and overlapping backup work are rejected',
   async () => {
     const f = await backupFixture();
@@ -412,47 +417,49 @@ testStable(
 
       const creating = f.app.nativeRuntime.runPromise(api.createBackup());
 
-      await expect(f.app.nativeRuntime.runPromise(api.createBackup())).rejects.toSatisfy(
-        () => true
-      );
+      await test
+        .expect(f.app.nativeRuntime.runPromise(api.createBackup()))
+        .rejects.toSatisfy(() => true);
 
       const backup = await creating;
 
       const preview = await f.app.nativeRuntime.runPromise(api.previewRestore({ id: backup.id }));
 
-      await expect(
-        f.app.nativeRuntime.runPromise(
-          api.acceptRestore({
-            ...acceptance(preview),
-            token: Schema.decodeUnknownSync(restoreTokenSchema)(crypto.randomUUID())
-          })
+      await test
+        .expect(
+          f.app.nativeRuntime.runPromise(
+            api.acceptRestore({
+              ...acceptance(preview),
+              token: Schema.decodeUnknownSync(restoreTokenSchema)(crypto.randomUUID())
+            })
+          )
         )
-      ).rejects.toSatisfy(() => true);
+        .rejects.toSatisfy(() => true);
       await createPage(f.app, 'Changed target');
-      await expect(
-        f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)))
-      ).rejects.toSatisfy(() => true);
+      await test
+        .expect(f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview))))
+        .rejects.toSatisfy(() => true);
 
       const fresh = await f.app.nativeRuntime.runPromise(api.previewRestore({ id: backup.id }));
 
       const accepted = await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(fresh)));
 
-      expect(
-        await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(fresh)))
-      ).toStrictEqual(accepted);
-      await expect(f.app.nativeRuntime.runPromise(api.createBackup())).rejects.toSatisfy(
-        () => true
-      );
-      await expect(
-        f.app.nativeRuntime.runPromise(api.deleteBackup({ id: backup.id }))
-      ).rejects.toSatisfy(() => true);
+      test
+        .expect(await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(fresh))))
+        .toStrictEqual(accepted);
+      await test
+        .expect(f.app.nativeRuntime.runPromise(api.createBackup()))
+        .rejects.toSatisfy(() => true);
+      await test
+        .expect(f.app.nativeRuntime.runPromise(api.deleteBackup({ id: backup.id })))
+        .rejects.toSatisfy(() => true);
       await createPage(f.app, 'Changed after acceptance');
 
       const before = f.app.store.db.contentIdentity();
 
       await f.reopen();
-      assert.strictEqual(f.app.store.db.contentIdentity(), before);
-      assert.ok(
+      test.assert.strictEqual(f.app.store.db.contentIdentity(), before);
+      test.assert.ok(
         (await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())).state ===
           'target-changed'
       );
@@ -462,7 +469,7 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'later deletion barriers block old backup acceptance; fresh-machine import retains existing tombstones',
   async () => {
     const f = await backupFixture();
@@ -480,10 +487,10 @@ testStable(
 
       const preview = await f.app.nativeRuntime.runPromise(api.previewRestore({ id: old.id }));
 
-      assert.ok(preview.blockedByCurrentBarriers === true);
-      await expect(
-        f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)))
-      ).rejects.toSatisfy(() => true);
+      test.assert.ok(preview.blockedByCurrentBarriers === true);
+      await test
+        .expect(f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview))))
+        .rejects.toSatisfy(() => true);
 
       const retained = await f.app.nativeRuntime.runPromise(api.createBackup());
 
@@ -500,10 +507,10 @@ testStable(
         freshApi.previewRestore({ id: imported.id })
       );
 
-      assert.ok(newPreview.blockedByCurrentBarriers === false);
+      test.assert.ok(newPreview.blockedByCurrentBarriers === false);
       await fresh.app.nativeRuntime.runPromise(freshApi.acceptRestore(acceptance(newPreview)));
       await fresh.reopen();
-      assert.ok(
+      test.assert.ok(
         fresh.app.store.db.orm.select().from(s.note_deletions).get()!.operation_id === 'del-note'
       );
     } finally {
@@ -513,7 +520,7 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'unfinished cleanup rejects backup creation and is preserved for its owning retry',
   async () => {
     const f = await backupFixture();
@@ -527,21 +534,21 @@ testStable(
 
       const api = await f.api();
 
-      await expect(f.app.nativeRuntime.runPromise(api.createBackup())).rejects.toSatisfy(
-        () => true
-      );
-      assert.strictEqual(f.app.store.db.contentIdentity(), before);
-      assert.ok(
+      await test
+        .expect(f.app.nativeRuntime.runPromise(api.createBackup()))
+        .rejects.toSatisfy(() => true);
+      test.assert.strictEqual(f.app.store.db.contentIdentity(), before);
+      test.assert.ok(
         (await Effect.runPromise(fs.exists(f.location.path + '.backups/scratch.sqlite'))) === false
       );
-      assert.ok(f.app.store.db.orm.select().from(s.note_deletions).get()!.status === 'failed');
+      test.assert.ok(f.app.store.db.orm.select().from(s.note_deletions).get()!.status === 'failed');
     } finally {
       await f.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'staged corruption reports activation failure, preserves old target and permits an explicit retry',
   async () => {
     const f = await backupFixture();
@@ -563,11 +570,11 @@ testStable(
         Buffer.from('interrupted staging')
       );
       await f.reopen();
-      assert.strictEqual(f.app.store.db.contentIdentity(), before);
+      test.assert.strictEqual(f.app.store.db.contentIdentity(), before);
 
       const reopenedApi = await f.api();
 
-      assert.ok(
+      test.assert.ok(
         (await f.app.nativeRuntime.runPromise(reopenedApi.restoreStatus())).state ===
           'activation-failed'
       );
@@ -579,21 +586,21 @@ testStable(
 
       await f.app.nativeRuntime.runPromise(reopenedApi.acceptRestore(acceptance(retry)));
       await f.reopen();
-      assert.strictEqual(f.app.store.db.orm.select().from(s.pages).all().length, 0);
+      test.assert.strictEqual(f.app.store.db.orm.select().from(s.pages).all().length, 0);
     } finally {
       await f.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'crash after replacement reconciles to new state before workers start; captured durable intent remains available',
   { timeout: 60000 },
-  async (t) => {
-    const f = await backupFixture(t);
+  async ({ task: _task }) => {
+    const f = await backupFixture();
 
     try {
-      const source = await inTestPhase(t, 'source-create', () =>
+      const source = await inTestPhase(undefined, 'source-create', () =>
         f.app.nativeRuntime.runPromise(
           Effect.flatMap(Sources, (sources) =>
             sources.createSource({
@@ -616,28 +623,28 @@ testStable(
         sql`INSERT INTO workflow_configuration_waits(execution_id,deferred_name,observed_revision) VALUES('captured','config','old-revision')`
       );
 
-      const api = await inTestPhase(t, 'system-service', () => f.api());
+      const api = await inTestPhase(undefined, 'system-service', () => f.api());
 
-      const backup = await inTestPhase(t, 'backup-create', () =>
+      const backup = await inTestPhase(undefined, 'backup-create', () =>
         f.app.nativeRuntime.runPromise(api.createBackup())
       );
 
       // Live captured work remains owned and unchanged by backup preparation.
-      assert.ok(db.select().from(s.workflow_executions).get()!.status === 'suspended');
+      test.assert.ok(db.select().from(s.workflow_executions).get()!.status === 'suspended');
 
-      const preview = await inTestPhase(t, 'restore-preview', () =>
+      const preview = await inTestPhase(undefined, 'restore-preview', () =>
         f.app.nativeRuntime.runPromise(api.previewRestore({ id: backup.id }))
       );
 
-      await inTestPhase(t, 'restore-accept', () =>
+      await inTestPhase(undefined, 'restore-accept', () =>
         f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)))
       );
-      await inTestPhase(t, 'app-close-before-replacement', () => f.app.close());
+      await inTestPhase(undefined, 'app-close-before-replacement', () => f.app.close());
       // Simulate process loss after atomic rename, before journal settlement.
 
       const old = await Db.openSnapshot(f.location.path);
 
-      await inTestPhase(t, 'previous-snapshot', () =>
+      await inTestPhase(undefined, 'previous-snapshot', () =>
         old.snapshot(f.location.path + '.backups/previous.sqlite')
       );
       console.debug('study-test-phase:replacement-sync:start');
@@ -647,41 +654,50 @@ testStable(
         fs.rename(f.location.path + '.backups/restore.sqlite', f.location.path)
       );
       console.debug('study-test-phase:replacement-sync:complete');
-      await inTestPhase(t, 'reopen-after-replacement', () => f.reopen());
+      await inTestPhase(undefined, 'reopen-after-replacement', () => f.reopen());
 
       const restored = f.app.store.db.orm;
 
-      assert.strictEqual(restored.select().from(s.workflow_executions).get()!.status, 'suspended');
-      assert.strictEqual(restored.select().from(s.workflow_configuration_waits).all().length, 1);
-      assert.strictEqual(restored.select().from(s.workflow_retired_executions).all().length, 0);
-      await inTestPhase(t, 'workers-start', () => f.app.workers.start());
-      await inTestPhase(t, 'workers-stop', () => f.app.workers.stop());
-      expect(f.requests).toStrictEqual([]);
-      assert.ok(
+      test.assert.strictEqual(
+        restored.select().from(s.workflow_executions).get()!.status,
+        'suspended'
+      );
+      test.assert.strictEqual(
+        restored.select().from(s.workflow_configuration_waits).all().length,
+        1
+      );
+      test.assert.strictEqual(
+        restored.select().from(s.workflow_retired_executions).all().length,
+        0
+      );
+      await inTestPhase(undefined, 'workers-start', () => f.app.workers.start());
+      await inTestPhase(undefined, 'workers-stop', () => f.app.workers.stop());
+      test.expect(f.requests).toStrictEqual([]);
+      test.assert.ok(
         restored
           .select()
           .from(s.workflow_executions)
           .where(eq(s.workflow_executions.execution_id, 'captured'))
           .get()
       );
-      assert.ok(
+      test.assert.ok(
         restored.select().from(s.sources).where(eq(s.sources.id, source.id)).get()!.name ===
           'work.txt'
       );
-      assert.ok(
+      test.assert.ok(
         (
-          await inTestPhase(t, 'restore-status', async () =>
+          await inTestPhase(undefined, 'restore-status', async () =>
             f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())
           )
         ).state === 'applied'
       );
     } finally {
-      await inTestPhase(t, 'test-finally', () => f.close());
+      await inTestPhase(undefined, 'test-finally', () => f.close());
     }
   }
 );
 
-testStable(
+test.stable(
   'artifact deletion is bounded to an opaque managed identity and never removes live or external files',
   async () => {
     const f = await backupFixture();
@@ -694,21 +710,21 @@ testStable(
       const external = path.join(f.location.dir, 'user-saved.studybackup');
 
       await Bun.write(external, 'External copy');
-      assert.throws(() => Schema.decodeUnknownSync(backupIdSchema)('../user-saved'));
+      test.assert.throws(() => Schema.decodeUnknownSync(backupIdSchema)('../user-saved'));
 
       const before = f.app.store.db.contentIdentity();
 
       await f.app.nativeRuntime.runPromise(api.deleteBackup({ id: backup.id }));
-      assert.ok((await Bun.file(external).text()) === 'External copy');
-      assert.strictEqual(f.app.store.db.contentIdentity(), before);
-      assert.strictEqual((await f.app.nativeRuntime.runPromise(api.backups())).length, 0);
+      test.assert.ok((await Bun.file(external).text()) === 'External copy');
+      test.assert.strictEqual(f.app.store.db.contentIdentity(), before);
+      test.assert.strictEqual((await f.app.nativeRuntime.runPromise(api.backups())).length, 0);
     } finally {
       await f.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'restored databases receive a durable revision generation before RPC acquisition',
   async () => {
     const fixture = await backupFixture();
@@ -728,14 +744,14 @@ testStable(
       await fixture.reopen();
       const restored = fixture.app.store.revisions();
 
-      expect(restored.generation).not.toBe(originalGeneration);
-      expect(restored.generation).toBe(preview.token);
+      test.expect(restored.generation).not.toBe(originalGeneration);
+      test.expect(restored.generation).toBe(preview.token);
       await createPage(fixture.app, 'After restore');
       const committed = fixture.app.store.revisions();
 
       await fixture.reopen();
-      expect(fixture.app.store.revisions().generation).toBe(restored.generation);
-      expect(fixture.app.store.revisions().scopes.pages).toBe(committed.scopes.pages);
+      test.expect(fixture.app.store.revisions().generation).toBe(restored.generation);
+      test.expect(fixture.app.store.revisions().scopes.pages).toBe(committed.scopes.pages);
     } finally {
       await fixture.close();
     }

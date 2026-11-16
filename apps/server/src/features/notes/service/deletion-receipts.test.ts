@@ -1,3 +1,4 @@
+import { sql } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises note deletion receipts behavior through real persistence                 │
@@ -11,14 +12,10 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sql } from '@study/db';
 import * as s from '@study/db';
+import { test } from '@study/testing';
 /** Authored proposal receipts survive note cleanup without retired Material tombstones. */
-import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import {
@@ -31,10 +28,10 @@ import {
 } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
-testStable(
+test.stable(
   'exact authored apply and keep receipts reject substituted intent across note deletion and reopen',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases }) => {
+    const f = await pageTransformFixture(databases);
     const marker = 'EXACT_RECEIPT_SESSION_PRIVATE_8';
 
     try {
@@ -61,9 +58,9 @@ testStable(
           const keep = yield* chats.keepPageProposal(keepValue);
           const apply = yield* chats.applyPageProposal(applyValue);
 
-          assert.ok(apply.outcome === 'applied');
-          assert.ok(keep.resultVersionId);
-          assert.ok(apply.resultVersionId);
+          test.assert.ok(apply.outcome === 'applied');
+          test.assert.ok(keep.resultVersionId);
+          test.assert.ok(apply.resultVersionId);
 
           return {
             keep,
@@ -77,11 +74,11 @@ testStable(
           Effect.gen(function* () {
             const chats = yield* Notes;
 
-            expect(yield* chats.keepPageProposal(keepValue)).toStrictEqual({
+            test.expect(yield* chats.keepPageProposal(keepValue)).toStrictEqual({
               ...retained.keep,
               replayed: true
             });
-            expect(yield* chats.applyPageProposal(applyValue)).toStrictEqual({
+            test.expect(yield* chats.applyPageProposal(applyValue)).toStrictEqual({
               ...retained.apply,
               replayed: true
             });
@@ -95,7 +92,7 @@ testStable(
               chats.applyPageProposal({ ...applyValue, requestId: 'different' }),
               chats.applyPageProposal({ ...applyValue, key: keepValue.key })
             ])
-              assert.ok((yield* Effect.flip(action)).kind === 'invalid_input');
+              test.assert.ok((yield* Effect.flip(action)).kind === 'invalid_input');
           }).pipe(Effect.provide(f.domain()))
         );
       const receipts = () => f.context.db.orm.select().from(s.page_proposal_receipts).all();
@@ -108,9 +105,9 @@ testStable(
           sql`DELETE FROM page_proposal_receipts`,
           sql`INSERT OR IGNORE INTO page_proposal_receipts(key,request_id,operation,intent,outcome,current_version_id,result_version_id) SELECT key,request_id,operation,'{}',outcome,current_version_id,result_version_id FROM page_proposal_receipts`
         ])
-          assert.throws(() => f.context.db.orm.run(mutation));
+          test.assert.throws(() => f.context.db.orm.run(mutation));
 
-        expect(receipts()).toStrictEqual(beforeReceipts);
+        test.expect(receipts()).toStrictEqual(beforeReceipts);
       };
 
       await checkReplay();
@@ -135,12 +132,12 @@ testStable(
       await cleanup(f, saved.note.id);
       await checkReplay();
       rejectForged();
-      expect(await libraryState(f, retained.ids)).toStrictEqual(after);
+      test.expect(await libraryState(f, retained.ids)).toStrictEqual(after);
       assertScrubbed(f, marker);
       await f.reopen();
       await checkReplay();
       rejectForged();
-      expect(await libraryState(f, retained.ids)).toStrictEqual(after);
+      test.expect(await libraryState(f, retained.ids)).toStrictEqual(after);
       assertScrubbed(f, marker);
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -150,10 +147,10 @@ testStable(
             chats.keepPageProposal({ ...keepValue, key: 'brand-new' }),
             chats.applyPageProposal({ ...applyValue, key: 'brand-new' })
           ])
-            assert.ok((yield* Effect.flip(action)).kind === 'not_found');
+            test.assert.ok((yield* Effect.flip(action)).kind === 'not_found');
         }).pipe(Effect.provide(f.domain()))
       );
-      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }

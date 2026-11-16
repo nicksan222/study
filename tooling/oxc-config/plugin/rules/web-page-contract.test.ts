@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('requires page presentation and behavioral tests beside each page', async () => {
+test.stable('requires page presentation and behavioral tests beside each page', async () => {
   const diagnostics = await lintRule(
     'web-page-contract',
     {
@@ -14,25 +13,27 @@ testStable('requires page presentation and behavioral tests beside each page', a
     true
   );
 
-  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
-testStable('accepts tested static pages without inventing asynchronous logic', async () => {
-  expect(
-    await lintRule(
-      'web-page-contract',
-      {
-        'apps/client/src/pages/home/page.tsx': `import { PageView } from './page.view'; export function Page() { return <PageView />; }`,
-        'apps/client/src/pages/home/page.view.tsx': `export function PageView() { return null; }`,
-        'apps/client/src/pages/home/page.test.tsx': `export {};`,
-        'apps/client/src/pages/home/page.view.test.tsx': `export {};`
-      },
-      true
+test.stable('accepts tested static pages without inventing asynchronous logic', async () => {
+  test
+    .expect(
+      await lintRule(
+        'web-page-contract',
+        {
+          'apps/client/src/pages/home/page.tsx': `import { PageView } from './page.view'; export function Page() { return <PageView />; }`,
+          'apps/client/src/pages/home/page.view.tsx': `export function PageView() { return null; }`,
+          'apps/client/src/pages/home/page.test.tsx': `export {};`,
+          'apps/client/src/pages/home/page.view.test.tsx': `export {};`
+        },
+        true
+      )
     )
-  ).toStrictEqual([]);
+    .toStrictEqual([]);
 });
 
-testStable('keeps route modules declarative and page composition free of state', async () => {
+test.stable('keeps route modules declarative and page composition free of state', async () => {
   const diagnostics = await lintRule(
     'web-page-contract',
     {
@@ -45,10 +46,10 @@ testStable('keeps route modules declarative and page composition free of state',
     true
   );
 
-  assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
-testStable(
+test.stable(
   'route components cannot hide lifecycle ownership behind imported hooks or inline functions',
   async () => {
     const diagnostics = await lintRule(
@@ -65,27 +66,29 @@ testStable(
       true
     );
 
-    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
-testStable(
+test.stable(
   'route boundaries reference imported components and may validate or redirect inline',
   async () => {
-    expect(
-      await lintRule(
-        'web-page-contract',
-        {
-          'apps/client/src/routes/Home.tsx': `
+    test
+      .expect(
+        await lintRule(
+          'web-page-contract',
+          {
+            'apps/client/src/routes/Home.tsx': `
       import { createFileRoute, redirect } from '@tanstack/react-router';
       import { Page } from '../pages/home/page';
       export const Route = createFileRoute('/Home')({
         component: Page, beforeLoad: () => { throw redirect({ to: '/Settings' }); }
       });
     `
-        },
-        true
+          },
+          true
+        )
       )
-    ).toStrictEqual([]);
+      .toStrictEqual([]);
   }
 );

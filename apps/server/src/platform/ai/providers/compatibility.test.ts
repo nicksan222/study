@@ -1,3 +1,4 @@
+import { StudyError } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks provider registration, public metadata and SDK model construction without   │
@@ -10,11 +11,8 @@
  * │ Tests use production provider factories; no external provider calls are required here.   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyError } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { jsonSchema, Output, streamText } from 'ai';
-import { expect } from 'vite-plus/test';
 
 import { webSearchTool } from '#server/platform/ai/web-search-tool';
 
@@ -22,7 +20,7 @@ import { createApiKeyModel } from './api-key-model.ts';
 import { apiKeyProviders, getApiKeyProvider } from './registry.ts';
 import { adaptProviderTool } from './tools.ts';
 
-testStable(
+test.stable(
   'compatible providers stream schema-validated JSON without requiring strict JSON Schema',
   async () => {
     let body: { response_format?: unknown; messages: unknown[]; tools: unknown[] } | undefined;
@@ -51,7 +49,7 @@ testStable(
     });
     const address = { port: server.port };
 
-    expect(address).not.toBeNull();
+    test.expect(address).not.toBeNull();
     const base = `http://127.0.0.1:${(address as { port: number }).port}`;
     const schema = jsonSchema<{ answer: string }>({
       type: 'object',
@@ -81,11 +79,11 @@ testStable(
           }
         });
 
-        expect(await result.output).toStrictEqual({ answer: 'Hello' });
-        expect(body?.response_format).toStrictEqual({ type: 'json_object' });
-        expect(JSON.stringify(body?.messages)).toContain('JSON Schema');
-        expect(JSON.stringify(body?.messages)).toContain('answer');
-        expect(body?.tools).toHaveLength(1);
+        test.expect(await result.output).toStrictEqual({ answer: 'Hello' });
+        test.expect(body?.response_format).toStrictEqual({ type: 'json_object' });
+        test.expect(JSON.stringify(body?.messages)).toContain('JSON Schema');
+        test.expect(JSON.stringify(body?.messages)).toContain('answer');
+        test.expect(body?.tools).toHaveLength(1);
       }
     } finally {
       await server.stop(true);
@@ -93,7 +91,7 @@ testStable(
   }
 );
 
-testStable('Gemini 2 keeps function tools without mixing incompatible grounding tools', () => {
+test.stable('Gemini 2 keeps function tools without mixing incompatible grounding tools', () => {
   const legacy = getApiKeyProvider('google').createModel({
     apiKey: 'test-key',
     modelId: 'gemini-2.5-flash'
@@ -103,12 +101,12 @@ testStable('Gemini 2 keeps function tools without mixing incompatible grounding 
     modelId: 'gemini-3.6-flash'
   });
 
-  expect(adaptProviderTool(legacy, webSearchTool)).toBeDefined();
-  expect(adaptProviderTool(legacy, webSearchTool, true)).toBeUndefined();
-  expect(adaptProviderTool(current, webSearchTool, true)).toBeDefined();
+  test.expect(adaptProviderTool(legacy, webSearchTool)).toBeDefined();
+  test.expect(adaptProviderTool(legacy, webSearchTool, true)).toBeUndefined();
+  test.expect(adaptProviderTool(current, webSearchTool, true)).toBeDefined();
 });
 
-testStable(
+test.stable(
   'queued models resolve replacement keys on each call and reject removed keys before transport',
   async () => {
     let key: string | undefined = 'first-key';
@@ -129,15 +127,17 @@ testStable(
     );
 
     key = 'replacement-key';
-    await expect(model.doGenerate({ prompt: [] })).rejects.toMatchObject({ kind: 'transient' });
-    expect(seen).toStrictEqual(['Bearer replacement-key']);
+    await test
+      .expect(model.doGenerate({ prompt: [] }))
+      .rejects.toMatchObject({ kind: 'transient' });
+    test.expect(seen).toStrictEqual(['Bearer replacement-key']);
     key = undefined;
-    await expect(model.doStream({ prompt: [] })).rejects.toThrow('Key removed');
-    expect(seen).toHaveLength(1);
+    await test.expect(model.doStream({ prompt: [] })).rejects.toThrow('Key removed');
+    test.expect(seen).toHaveLength(1);
   }
 );
 
-testStable('API-key models use bounded HTTP bodies and reject redirects', async () => {
+test.stable('API-key models use bounded HTTP bodies and reject redirects', async () => {
   let redirect: RequestRedirect | undefined;
   const model = createApiKeyModel(
     getApiKeyProvider('deepseek'),
@@ -155,6 +155,6 @@ testStable('API-key models use bounded HTTP bodies and reject redirects', async 
     }
   );
 
-  await expect(model.doGenerate({ prompt: [] })).rejects.toMatchObject({ kind: 'transient' });
-  expect(redirect).toBe('error');
+  await test.expect(model.doGenerate({ prompt: [] })).rejects.toMatchObject({ kind: 'transient' });
+  test.expect(redirect).toBe('error');
 });

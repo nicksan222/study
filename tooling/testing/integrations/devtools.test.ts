@@ -1,9 +1,8 @@
-import { testStable, withinTestDeadline } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { connectDevTools } from './devtools.ts';
 
-testStable('a DevTools disconnect rejects pending and future evaluations', async () => {
+test.stable('a DevTools disconnect rejects pending and future evaluations', async () => {
   const server = Bun.serve({
     hostname: '127.0.0.1',
     port: 0,
@@ -24,12 +23,14 @@ testStable('a DevTools disconnect rejects pending and future evaluations', async
     const first = connection.evaluate('pending');
     const second = connection.evaluate('also pending');
 
-    await expect(withinTestDeadline(Promise.all([first, second]))).rejects.toThrow(
-      'DevTools connection closed'
-    );
-    await expect(first).rejects.toThrow('DevTools connection closed');
-    await expect(second).rejects.toThrow('DevTools connection closed');
-    await expect(connection.evaluate('after close')).rejects.toThrow('DevTools connection closed');
+    await test
+      .expect(test.withinTestDeadline(Promise.all([first, second])))
+      .rejects.toThrow('DevTools connection closed');
+    await test.expect(first).rejects.toThrow('DevTools connection closed');
+    await test.expect(second).rejects.toThrow('DevTools connection closed');
+    await test
+      .expect(connection.evaluate('after close'))
+      .rejects.toThrow('DevTools connection closed');
     connection.close();
   } finally {
     await server.stop(true);

@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable(
+test.stable(
   'rejects network requests inside database transactions while allowing tests',
   async () => {
     const diagnostics = await lintRule('transaction-no-io', {
@@ -15,12 +14,12 @@ testStable(
         "import { Db } from '@study/db'; const db = Db.open(':memory:'); db.transaction(() => fetch(url));"
     });
 
-    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+    test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
   }
 );
 
-testStable('transaction-no-io handles aliases and avoids unrelated bindings', async () => {
+test.stable('transaction-no-io handles aliases and avoids unrelated bindings', async () => {
   const diagnostics = await lintRule('transaction-no-io', {
     'src/bad.ts': `import { Db } from '@study/db';
  import { readFileSync as read } from 'node:fs';
@@ -31,11 +30,11 @@ testStable('transaction-no-io handles aliases and avoids unrelated bindings', as
       "import { Db } from '@study/db'; function f(db: Db, fetch) { db.transaction(() => fetch(url)); }"
   });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
-testStable(
+test.stable(
   'named transaction callbacks cannot hide external I/O behind database aliases',
   async () => {
     const diagnostics = await lintRule('transaction-no-io', {
@@ -55,6 +54,6 @@ ctx.transaction(work);
 }`
     });
 
-    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   }
 );

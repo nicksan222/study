@@ -1,3 +1,4 @@
+import { SourcesRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises source acquisition behavior through real persistence boundaries.         │
@@ -10,15 +11,10 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { SourcesRpc } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Sources } from '#server/features/sources/index';
 import { SourcesRpcLive } from '#server/features/sources/rpc/index';
@@ -26,10 +22,10 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { testLiveQueries } from '#testing/live-queries';
 
-testStable(
+test.stable(
   'acquisition atomically retains independent originals without authoring documents or source Materials',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const domain = SourcesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
       Layer.provideMerge(Sources.layer),
@@ -54,31 +50,36 @@ testStable(
               projectId: null
             });
 
-            assert.notStrictEqual(first.id, second.id);
-            assert.strictEqual((yield* rpc['sources.sources']({ limit: 10 })).items.length, 2);
+            test.assert.notStrictEqual(first.id, second.id);
+            test.assert.strictEqual((yield* rpc['sources.sources']({ limit: 10 })).items.length, 2);
 
             for (const source of [first, second]) {
-              expect(
-                (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
-              ).toStrictEqual(bytes);
-              assert.ok((yield* sources.sourceProcessing(source.id)).requestId);
-              assert.strictEqual(yield* sources.currentExtraction({ id: source.id }), null);
+              test
+                .expect(
+                  (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
+                )
+                .toStrictEqual(bytes);
+              test.assert.ok((yield* sources.sourceProcessing(source.id)).requestId);
+              test.assert.strictEqual(yield* sources.currentExtraction({ id: source.id }), null);
             }
 
-            assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
-            assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);
+            test.assert.strictEqual(
+              context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n,
+              0n
+            );
+            test.assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);
             context.db.exec(
               "CREATE TRIGGER reject_acquisition BEFORE INSERT ON workflow_events WHEN NEW.type='SourceProcessingRequested' BEGIN SELECT RAISE(ABORT,'injected acquisition failure'); END"
             );
             yield* Effect.flip(
               rpc['sources.createSource']({ name: 'rollback.txt', bytes, projectId: null })
             );
-            assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM sources`)?.n, 2n);
-            assert.strictEqual(
+            test.assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM sources`)?.n, 2n);
+            test.assert.strictEqual(
               context.db.orm.get(sql`SELECT count(*) n FROM source_snapshots`)?.n,
               2n
             );
-            assert.strictEqual((yield* sources.source(first.id)).id, first.id);
+            test.assert.strictEqual((yield* sources.source(first.id)).id, first.id);
           })
         ).pipe(Effect.provide(domain))
       );
@@ -99,10 +100,10 @@ const originalFixtures = {
 };
 
 for (const kind of ['image', 'audio', 'video', 'link'] as const)
-  testStable(
+  test.stable(
     `replacement from ${kind} retains original revision exports with independent source identity`,
-    async () => {
-      const location = await createTestDatabase();
+    async ({ databases }) => {
+      const location = await databases();
       const context = new ServerContext(await location.open());
       const domain = SourcesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
         Layer.provideMerge(Sources.layer),
@@ -127,7 +128,7 @@ for (const kind of ['image', 'audio', 'video', 'link'] as const)
                     });
               const original = yield* sources.sourceSnapshot({ id: source.id, revision: 1 });
 
-              assert.strictEqual(original.kind, kind);
+              test.assert.strictEqual(original.kind, kind);
               const bytes = new TextEncoder().encode('Replacement text');
 
               yield* rpc['sources.replaceSource']({
@@ -136,33 +137,40 @@ for (const kind of ['image', 'audio', 'video', 'link'] as const)
                 name: 'replacement.txt',
                 bytes
               });
-              assert.strictEqual((yield* sources.source(source.id)).id, source.id);
-              assert.strictEqual((yield* sources.sources({ limit: 10 })).items.length, 1);
+              test.assert.strictEqual((yield* sources.source(source.id)).id, source.id);
+              test.assert.strictEqual((yield* sources.sources({ limit: 10 })).items.length, 1);
               const replacement = yield* sources.sourceSnapshot({ id: source.id, revision: 2 });
 
-              assert.ok(replacement.kind === 'text');
-              assert.ok(replacement.mime === 'text/plain');
-              expect(replacement.bytes).toStrictEqual(bytes);
-              expect(yield* sources.sourceSnapshot({ id: source.id, revision: 1 })).toStrictEqual(
-                original
-              );
-              expect(
-                (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
-              ).toStrictEqual(original.bytes);
-              expect(
-                (yield* sources.exportRevision({ sourceId: source.id, revision: 2n })).bytes
-              ).toStrictEqual(bytes);
-              assert.strictEqual(
+              test.assert.ok(replacement.kind === 'text');
+              test.assert.ok(replacement.mime === 'text/plain');
+              test.expect(replacement.bytes).toStrictEqual(bytes);
+              test
+                .expect(yield* sources.sourceSnapshot({ id: source.id, revision: 1 }))
+                .toStrictEqual(original);
+              test
+                .expect(
+                  (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
+                )
+                .toStrictEqual(original.bytes);
+              test
+                .expect(
+                  (yield* sources.exportRevision({ sourceId: source.id, revision: 2n })).bytes
+                )
+                .toStrictEqual(bytes);
+              test.assert.strictEqual(
                 (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).name,
                 `source-${source.id}-revision-1`
               );
-              assert.ok(
+              test.assert.ok(
                 (yield* sources.exportRevision({ sourceId: source.id, revision: 2n })).name ===
                   'replacement.txt'
               );
-              assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
-              assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);
-              expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+              test.assert.strictEqual(
+                context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n,
+                0n
+              );
+              test.assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);
+              test.expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
             })
           ).pipe(Effect.provide(domain))
         );

@@ -1,18 +1,14 @@
 import { catalogs, createLocalization } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { render, screen, within } from '@testing-library/react';
-import { expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport } from '#client/test/rpc.tsx';
+import { test } from '@study/testing';
 
 import { ExecutionStatus } from './status';
 
-const api = vi.hoisted(() => ({ executions: vi.fn() }));
+const api = test.hoisted(() => ({ executions: test.vi.fn() }));
 
-vi.mock('#client/lib/i18n.tsx', () => ({
+test.mock('#client/lib/i18n.tsx', () => ({
   useI18n: () => createLocalization('english')
 }));
-vi.mock('@tanstack/react-router', () => ({
+test.mock('@tanstack/react-router', () => ({
   Link: ({ children, to, ...props }: React.ComponentProps<'a'> & { to: string }) => (
     <a href={to} {...props}>
       {children}
@@ -21,7 +17,7 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 function mount() {
-  const fixture = rpcTestTransport(async () => {
+  const fixture = test.rpcTestTransport(async () => {
     const page = await api.executions();
 
     return {
@@ -36,10 +32,10 @@ function mount() {
     };
   });
 
-  return render(<ExecutionStatus requestId="prompt" />, { wrapper: fixture.wrapper });
+  return test.render(<ExecutionStatus requestId="prompt" />, { wrapper: fixture.wrapper });
 }
 
-testStable('shows real request work in chronological muted rows', async () => {
+test.stable('shows real request work in chronological muted rows', async () => {
   api.executions.mockResolvedValue({
     items: [
       {
@@ -62,14 +58,14 @@ testStable('shows real request work in chronological muted rows', async () => {
     next: null
   });
   mount();
-  await screen.findByText('Generate reply');
-  const work = screen.getByRole('status', { name: 'Work for this prompt' });
+  await test.screen.findByText('Generate reply');
+  const work = test.screen.getByRole('status', { name: 'Work for this prompt' });
 
-  expect(work.textContent).toMatch(/Import material.*Completed.*Generate reply.*Working/s);
-  expect(within(work).queryByRole('button')).not.toBeInTheDocument();
+  test.expect(work.textContent).toMatch(/Import material.*Completed.*Generate reply.*Working/s);
+  test.expect(test.within(work).queryByRole('button')).not.toBeInTheDocument();
 });
 
-testStable('keeps actionable authentication errors below the work row', async () => {
+test.stable('keeps actionable authentication errors below the work row', async () => {
   api.executions.mockResolvedValue({
     items: [
       {
@@ -85,11 +81,11 @@ testStable('keeps actionable authentication errors below the work row', async ()
     next: null
   });
   mount();
-  expect(await screen.findByText(catalogs.english.NoteAuthError)).toBeInTheDocument();
-  expect(screen.getByText('Generate reply')).toBeInTheDocument();
+  test.expect(await test.screen.findByText(catalogs.english.NoteAuthError)).toBeInTheDocument();
+  test.expect(test.screen.getByText('Generate reply')).toBeInTheDocument();
 });
 
-testStable('explains a configuration wait and offers settings', async () => {
+test.stable('explains a configuration wait and offers settings', async () => {
   api.executions.mockResolvedValue({
     items: [
       {
@@ -105,16 +101,15 @@ testStable('explains a configuration wait and offers settings', async () => {
     next: null
   });
   mount();
-  await screen.findByText('Rewrite page');
-  screen.getByText('Rewrite page').click();
-  expect(await screen.findByText(catalogs.english.NoteWaitAuth)).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: catalogs.english.Settings })).toHaveAttribute(
-    'href',
-    '/settings'
-  );
+  await test.screen.findByText('Rewrite page');
+  test.screen.getByText('Rewrite page').click();
+  test.expect(await test.screen.findByText(catalogs.english.NoteWaitAuth)).toBeInTheDocument();
+  test
+    .expect(test.screen.getByRole('link', { name: catalogs.english.Settings }))
+    .toHaveAttribute('href', '/settings');
 });
 
-testStable('labels unsupported persisted work as blocked with its typed error', async () => {
+test.stable('labels unsupported persisted work as blocked with its typed error', async () => {
   api.executions.mockResolvedValue({
     items: [
       {
@@ -130,6 +125,10 @@ testStable('labels unsupported persisted work as blocked with its typed error', 
     next: null
   });
   mount();
-  expect(await screen.findByText(catalogs.english['workspace.state.blocked'])).toBeInTheDocument();
-  expect(screen.queryByText(catalogs.english['workspace.state.failure'])).not.toBeInTheDocument();
+  test
+    .expect(await test.screen.findByText(catalogs.english['workspace.state.blocked']))
+    .toBeInTheDocument();
+  test
+    .expect(test.screen.queryByText(catalogs.english['workspace.state.failure']))
+    .not.toBeInTheDocument();
 });

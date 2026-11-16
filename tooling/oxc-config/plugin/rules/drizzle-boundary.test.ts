@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('Drizzle imports and exports belong exclusively to the database package', async () => {
+test.stable('Drizzle imports and exports belong exclusively to the database package', async () => {
   const diagnostics = await lintRule(
     'drizzle-boundary',
     {
@@ -26,39 +25,44 @@ type Query = import('drizzle-orm').SQL;`,
     true
   );
 
-  assert.strictEqual(diagnostics.length, 9, JSON.stringify(diagnostics));
-  assert.ok(
+  test.assert.strictEqual(diagnostics.length, 9, JSON.stringify(diagnostics));
+  test.assert.ok(
     diagnostics.some(({ filename }) => filename.endsWith('/packages/db/src/schema/items.ts'))
   );
 });
 
-testStable('Drizzle require calls respect lexical bindings and createRequire aliases', async () => {
-  const diagnostics = await lintRule(
-    'drizzle-boundary',
-    {
-      'apps/server/src/bad.ts': `import { createRequire as makeRequire } from 'node:module';
+test.stable(
+  'Drizzle require calls respect lexical bindings and createRequire aliases',
+  async () => {
+    const diagnostics = await lintRule(
+      'drizzle-boundary',
+      {
+        'apps/server/src/bad.ts': `import { createRequire as makeRequire } from 'node:module';
 const load = makeRequire(import.meta.url);
 require('drizzle-orm');
 load('drizzle-kit');
 makeRequire(import.meta.url)('drizzle-orm/sql');`,
-      'apps/server/src/good.ts': `function f(require) { require('drizzle-orm');
+        'apps/server/src/good.ts': `function f(require) { require('drizzle-orm');
 } function g(makeRequire) { const load = makeRequire(url);
 load('drizzle-orm');
 } const load = customLoader();
 load('drizzle-kit');`,
-      'packages/db/src/require.ts': `import { createRequire } from 'node:module';
+        'packages/db/src/require.ts': `import { createRequire } from 'node:module';
  const load = createRequire(import.meta.url);
  load('drizzle-orm');
 `
-    },
-    true
-  );
+      },
+      true
+    );
 
-  assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.some(({ filename }) => filename.endsWith('/packages/db/src/require.ts')));
-});
+    test.assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+    test.assert.ok(
+      diagnostics.some(({ filename }) => filename.endsWith('/packages/db/src/require.ts'))
+    );
+  }
+);
 
-testStable(
+test.stable(
   'Drizzle namespace createRequire and global loader forms stay behind the facade',
   async () => {
     const diagnostics = await lintRule(
@@ -80,12 +84,14 @@ module.require('drizzle-orm');
       true
     );
 
-    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
-    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/apps/desktop/src/bad.ts')));
+    test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    test.assert.ok(
+      diagnostics.every(({ filename }) => filename.endsWith('/apps/desktop/src/bad.ts'))
+    );
   }
 );
 
-testStable(
+test.stable(
   'TypeScript CommonJS import declarations cannot bypass the database facade',
   async () => {
     const diagnostics = await lintRule(
@@ -97,12 +103,14 @@ testStable(
       true
     );
 
-    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-    assert.ok(diagnostics.some(({ filename }) => filename.endsWith('/packages/db/src/driver.cts')));
+    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    test.assert.ok(
+      diagnostics.some(({ filename }) => filename.endsWith('/packages/db/src/driver.cts'))
+    );
   }
 );
 
-testStable(
+test.stable(
   'schema declarations cannot bypass mandatory table metadata through raw Drizzle imports',
   async () => {
     const diagnostics = await lintRule(
@@ -126,8 +134,8 @@ testStable(
       true
     );
 
-    assert.strictEqual(diagnostics.length, 7, JSON.stringify(diagnostics));
-    assert.ok(
+    test.assert.strictEqual(diagnostics.length, 7, JSON.stringify(diagnostics));
+    test.assert.ok(
       diagnostics.every(
         ({ filename }) => filename.endsWith('/bypass.ts') || filename.endsWith('/escape.ts')
       )

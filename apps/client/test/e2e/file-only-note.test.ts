@@ -1,6 +1,5 @@
 import { catalogs } from '@study/localization';
-
-import { expect, testE2e } from './harness/index.ts';
+import { test } from '@study/testing';
 
 const copy = catalogs.english;
 
@@ -36,7 +35,7 @@ const observations = Array.from(
     '- Record the time and water level.\n- Preserve the location of the marked post.'
 );
 
-testE2e('Create and reopen three file-only notes', async ({ page, expectScreenshot }) => {
+test.stable('Create and reopen three file-only notes', async ({ page, expectScreenshot }) => {
   const composer = page.getByRole('textbox', { name: copy.NoteCompose });
   const save = page.getByRole('button', { name: copy.NoteSaveNote, exact: true });
   const noteLinks = page.locator('a[href^="/notes/"]');
@@ -45,18 +44,22 @@ testE2e('Create and reopen three file-only notes', async ({ page, expectScreensh
   const urls: string[] = [];
 
   async function sourceReady(file: (typeof files)[number]) {
-    await expect(panel.getByRole('heading', { name: file.name, exact: true })).toBeVisible();
-    await expect(preview).toBeVisible();
-    await expect(preview).toHaveAttribute('contenteditable', 'false');
-    await expect(preview.getByRole('heading', { name: file.title, exact: true })).toBeVisible();
-    await expect(preview.getByText(file.first, { exact: true })).toBeVisible();
-    await expect(preview.getByText(file.last, { exact: true })).toBeVisible();
-    await expect(panel.getByText(copy.NotePending, { exact: true })).toHaveCount(0);
-    await expect(panel.getByRole('button', { name: copy.PageEditCopy, exact: true })).toBeEnabled();
+    await test.expect(panel.getByRole('heading', { name: file.name, exact: true })).toBeVisible();
+    await test.expect(preview).toBeVisible();
+    await test.expect(preview).toHaveAttribute('contenteditable', 'false');
+    await test
+      .expect(preview.getByRole('heading', { name: file.title, exact: true }))
+      .toBeVisible();
+    await test.expect(preview.getByText(file.first, { exact: true })).toBeVisible();
+    await test.expect(preview.getByText(file.last, { exact: true })).toBeVisible();
+    await test.expect(panel.getByText(copy.NotePending, { exact: true })).toHaveCount(0);
+    await test
+      .expect(panel.getByRole('button', { name: copy.PageEditCopy, exact: true }))
+      .toBeEnabled();
 
     for (const other of files.filter((entry) => entry !== file)) {
-      await expect(preview.getByText(other.first, { exact: true })).toHaveCount(0);
-      await expect(page.getByRole('button', { name: other.name, exact: true })).toHaveCount(0);
+      await test.expect(preview.getByText(other.first, { exact: true })).toHaveCount(0);
+      await test.expect(page.getByRole('button', { name: other.name, exact: true })).toHaveCount(0);
     }
   }
 
@@ -65,7 +68,7 @@ testE2e('Create and reopen three file-only notes', async ({ page, expectScreensh
     const expand = page.getByRole('button', { name: copy.NoteExpandEditor, exact: true });
 
     for (const control of [close, expand]) {
-      await expect(control).toBeInViewport({ ratio: 1 });
+      await test.expect(control).toBeInViewport({ ratio: 1 });
       await control.click({ trial: true });
     }
   }
@@ -78,15 +81,15 @@ testE2e('Create and reopen three file-only notes', async ({ page, expectScreensh
 
     if (!topBox) throw new Error('Source beginning has no layout box');
 
-    await expect(last).not.toBeInViewport();
+    await test.expect(last).not.toBeInViewport();
     await center.scrollIntoViewIfNeeded();
-    await expect(center).toBeInViewport({ ratio: 1 });
-    await expect(first).not.toBeInViewport();
-    await expect.poll(async () => (await first.boundingBox())?.y).toBeLessThan(topBox.y);
+    await test.expect(center).toBeInViewport({ ratio: 1 });
+    await test.expect(first).not.toBeInViewport();
+    await test.expect.poll(async () => (await first.boundingBox())?.y).toBeLessThan(topBox.y);
     await previewControls();
     await expectScreenshot('long-source-middle', {
       target: 'viewport',
-      ready: () => expect(center).toBeInViewport({ ratio: 1 })
+      ready: () => test.expect(center).toBeInViewport({ ratio: 1 })
     });
 
     const middleBox = await center.boundingBox();
@@ -94,23 +97,23 @@ testE2e('Create and reopen three file-only notes', async ({ page, expectScreensh
     if (!middleBox) throw new Error('Source middle has no layout box');
 
     await last.scrollIntoViewIfNeeded();
-    await expect(last).toBeInViewport({ ratio: 1 });
-    await expect(center).not.toBeInViewport();
-    await expect.poll(async () => (await center.boundingBox())?.y).toBeLessThan(middleBox.y);
-    await expect(preview.locator('pre')).toContainText('survey_completed = true');
+    await test.expect(last).toBeInViewport({ ratio: 1 });
+    await test.expect(center).not.toBeInViewport();
+    await test.expect.poll(async () => (await center.boundingBox())?.y).toBeLessThan(middleBox.y);
+    await test.expect(preview.locator('pre')).toContainText('survey_completed = true');
     await previewControls();
     await last.click({ trial: true });
     await expectScreenshot('long-source-bottom', {
       target: 'viewport',
-      ready: () => expect(last).toBeInViewport({ ratio: 1 })
+      ready: () => test.expect(last).toBeInViewport({ ratio: 1 })
     });
   }
 
   for (const [index, file] of files.entries()) {
     await page.goto('/notes');
-    await expect(noteLinks).toHaveCount(index);
-    await expect(composer).toHaveValue('');
-    await expect(save).toBeDisabled();
+    await test.expect(noteLinks).toHaveCount(index);
+    await test.expect(composer).toHaveValue('');
+    await test.expect(save).toBeDisabled();
 
     const markdown = [
       `# ${file.title}`,
@@ -125,46 +128,50 @@ testE2e('Create and reopen three file-only notes', async ({ page, expectScreensh
       mimeType: 'text/markdown',
       buffer: Buffer.from(markdown)
     });
-    await expect(composer).toHaveValue('');
-    await expect(
-      page
-        .getByRole('region', { name: copy.NoteCompose, exact: true })
-        .getByText(file.name, { exact: true })
-    ).toBeVisible();
-    await expect(save).toBeEnabled();
-    await expect(save).toBeInViewport({ ratio: 1 });
+    await test.expect(composer).toHaveValue('');
+    await test
+      .expect(
+        page
+          .getByRole('region', { name: copy.NoteCompose, exact: true })
+          .getByText(file.name, { exact: true })
+      )
+      .toBeVisible();
+    await test.expect(save).toBeEnabled();
+    await test.expect(save).toBeInViewport({ ratio: 1 });
     await save.click({ trial: true });
 
     if (index === 0) {
       await expectScreenshot('file-draft', {
         target: 'viewport',
         ready: async () => {
-          await expect(composer).toHaveValue('');
-          await expect(save).toBeEnabled();
-          await expect(
-            page
-              .getByRole('region', { name: copy.NoteCompose, exact: true })
-              .getByText(file.name, { exact: true })
-          ).toBeVisible();
+          await test.expect(composer).toHaveValue('');
+          await test.expect(save).toBeEnabled();
+          await test
+            .expect(
+              page
+                .getByRole('region', { name: copy.NoteCompose, exact: true })
+                .getByText(file.name, { exact: true })
+            )
+            .toBeVisible();
         }
       });
     }
 
     await save.click();
-    await expect(page).toHaveURL(/\/notes\/[^/?]+$/);
-    expect(urls).not.toContain(page.url());
+    await test.expect(page).toHaveURL(/\/notes\/[^/?]+$/);
+    test.expect(urls).not.toContain(page.url());
     urls.push(page.url());
-    await expect(noteLinks).toHaveCount(index + 1);
-    await expect(composer).toHaveValue('');
-    await expect(page.locator('[data-slot="chat-message-text"]')).toHaveCount(1);
-    await expect(page.locator('[data-slot="chat-message-text"]')).toHaveText('');
+    await test.expect(noteLinks).toHaveCount(index + 1);
+    await test.expect(composer).toHaveValue('');
+    await test.expect(page.locator('[data-slot="chat-message-text"]')).toHaveCount(1);
+    await test.expect(page.locator('[data-slot="chat-message-text"]')).toHaveText('');
 
     const attachment = page.locator('[data-role="user"]').getByRole('button', {
       name: file.name,
       exact: true
     });
 
-    await expect(attachment).toBeEnabled();
+    await test.expect(attachment).toBeEnabled();
     await attachment.click();
     await sourceReady(file);
     await previewControls();
@@ -172,18 +179,18 @@ testE2e('Create and reopen three file-only notes', async ({ page, expectScreensh
     const first = preview.getByText(file.first, { exact: true });
 
     await first.scrollIntoViewIfNeeded();
-    await expect(first).toBeInViewport({ ratio: 1 });
+    await test.expect(first).toBeInViewport({ ratio: 1 });
     await first.click();
     await first.press('x');
-    await expect(first).toHaveText(file.first);
-    await expect(preview).toHaveAttribute('contenteditable', 'false');
+    await test.expect(first).toHaveText(file.first);
+    await test.expect(preview).toHaveAttribute('contenteditable', 'false');
 
     if (index === 0) {
       await expectScreenshot('created-attachment', {
         target: 'viewport',
         ready: async () => {
           await sourceReady(file);
-          await expect(preview).toHaveAttribute('contenteditable', 'false');
+          await test.expect(preview).toHaveAttribute('contenteditable', 'false');
         }
       });
     }
@@ -195,17 +202,17 @@ testE2e('Create and reopen three file-only notes', async ({ page, expectScreensh
 
     for (const control of [original, editCopy]) {
       await control.scrollIntoViewIfNeeded();
-      await expect(control).toBeInViewport({ ratio: 0.999 });
+      await test.expect(control).toBeInViewport({ ratio: 0.999 });
 
       const box = await control.boundingBox();
 
       if (!box) throw new Error('Source control has no layout box');
 
       // App zoom can round the full-width control's outer border by a physical pixel.
-      expect(box.x).toBeGreaterThanOrEqual(-1);
-      expect(box.y).toBeGreaterThanOrEqual(-1);
-      expect(box.x + box.width).toBeLessThanOrEqual(2561);
-      expect(box.y + box.height).toBeLessThanOrEqual(1441);
+      test.expect(box.x).toBeGreaterThanOrEqual(-1);
+      test.expect(box.y).toBeGreaterThanOrEqual(-1);
+      test.expect(box.x + box.width).toBeLessThanOrEqual(2561);
+      test.expect(box.y + box.height).toBeLessThanOrEqual(1441);
       await control.click({ trial: true });
     }
   }
@@ -213,18 +220,18 @@ testE2e('Create and reopen three file-only notes', async ({ page, expectScreensh
   const oldest = files[0]!;
 
   await page.goto('/notes');
-  await expect(noteLinks).toHaveCount(3);
+  await test.expect(noteLinks).toHaveCount(3);
   await page.locator(`a[href="${new URL(urls[0]!).pathname}"]`).click();
-  await expect(page).toHaveURL(urls[0]!);
+  await test.expect(page).toHaveURL(urls[0]!);
   await page.locator('[data-role="user"]').getByRole('button', { name: oldest.name }).click();
   await sourceReady(oldest);
   await page.reload();
-  await expect(page).toHaveURL(urls[0]!);
-  await expect(noteLinks).toHaveCount(3);
+  await test.expect(page).toHaveURL(urls[0]!);
+  await test.expect(noteLinks).toHaveCount(3);
   await page.locator('[data-role="user"]').getByRole('button', { name: oldest.name }).click();
   await sourceReady(oldest);
   await previewControls();
   await page.goto('/notes');
   await page.reload();
-  await expect(noteLinks).toHaveCount(3);
+  await test.expect(noteLinks).toHaveCount(3);
 });

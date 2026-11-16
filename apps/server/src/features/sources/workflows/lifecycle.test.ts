@@ -1,3 +1,4 @@
+import { sql } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises source lifecycle behavior through real persistence boundaries.           │
@@ -10,12 +11,9 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sql } from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
-import { assert, expect } from 'vite-plus/test';
 
 import { Learning } from '#server/features/learning/index';
 import { Materials } from '#server/features/materials/index';
@@ -32,20 +30,20 @@ import {
   sourceCorrectionHandler
 } from './index.ts';
 
-testStable(
+test.stable(
   'native source ingestion, correction and reprocessing retain independent exact history across reopen without projections',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases }) => {
+    const f = await pageTransformFixture(databases);
     const domain = () => Learning.layer.pipe(Layer.provideMerge(f.domain()));
     const event = (requestId: string) => {
       const row = f.context.db.orm.get(
         sql`SELECT payload FROM workflow_events WHERE correlation_id=${requestId} AND type IN ('SourceProcessingRequested','SourceCorrectionRequested') ORDER BY rowid DESC LIMIT 1`
       );
 
-      assert.ok(row);
+      test.assert.ok(row);
       const decoded = decodeEvent(String(row.payload));
 
-      assert.ok(
+      test.assert.ok(
         decoded.type === 'SourceProcessingRequested' || decoded.type === 'SourceCorrectionRequested'
       );
 
@@ -96,7 +94,7 @@ testStable(
           });
           const state = yield* sources.sourceProcessing(source.id);
 
-          assert.ok(state.requestId);
+          test.assert.ok(state.requestId);
 
           return { source, project, other, request: event(state.requestId) };
         }).pipe(Effect.provide(domain()))
@@ -105,26 +103,26 @@ testStable(
       f.context.db.exec(
         "CREATE TRIGGER reject_indexed BEFORE INSERT ON workflow_events WHEN NEW.type='SourceIndexed' BEGIN SELECT RAISE(ABORT,'injected publication failure'); END"
       );
-      await expect(execute(setup.request, 'rollback-ingestion')).rejects.toSatisfy(() => true);
-      assert.strictEqual(
+      await test.expect(execute(setup.request, 'rollback-ingestion')).rejects.toSatisfy(() => true);
+      test.assert.strictEqual(
         f.context.db.orm.get(sql`SELECT count(*) n FROM source_extraction_revisions`)?.n,
         0n
       );
-      assert.strictEqual(
+      test.assert.strictEqual(
         f.context.db.orm.get(sql`SELECT count(*) n FROM content_snapshots`)?.n,
         0n
       );
       f.context.db.exec('DROP TRIGGER reject_indexed');
       const first = await execute(setup.request, 'first-ingestion');
 
-      assert.strictEqual(await execute(setup.request, 'first-ingestion'), first);
-      assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
-      assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);
-      assert.throws(() =>
+      test.assert.strictEqual(await execute(setup.request, 'first-ingestion'), first);
+      test.assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
+      test.assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);
+      test.assert.throws(() =>
         f.context.db.orm.run(sql`UPDATE blocks SET text='tampered' WHERE document_id=${first}`)
       );
       await f.reopen();
-      assert.strictEqual(await execute(setup.request, 'first-ingestion'), first);
+      test.assert.strictEqual(await execute(setup.request, 'first-ingestion'), first);
       const correction = await Effect.runPromise(
         Effect.gen(function* () {
           const sources = yield* Sources;
@@ -154,21 +152,21 @@ testStable(
             after: 'Corrected'
           });
 
-          assert.ok(state.requestId);
-          assert.strictEqual(yield* sources.currentExtraction({ id: setup.source.id }), null);
-          assert.ok((yield* sources.extraction(input)).document.blocks[0]?.text === 'Hello');
+          test.assert.ok(state.requestId);
+          test.assert.strictEqual(yield* sources.currentExtraction({ id: setup.source.id }), null);
+          test.assert.ok((yield* sources.extraction(input)).document.blocks[0]?.text === 'Hello');
           const capture = yield* materials.materialGeneration({ requestId: request.id });
 
-          expect(capture.inputs).toStrictEqual([input]);
+          test.expect(capture.inputs).toStrictEqual([input]);
 
           return event(state.requestId);
         }).pipe(Effect.provide(domain()))
       );
 
-      await expect(execute(setup.request, 'stale-ingestion')).rejects.toSatisfy(() => true);
+      await test.expect(execute(setup.request, 'stale-ingestion')).rejects.toSatisfy(() => true);
       const corrected = await execute(correction, 'correction');
 
-      assert.notStrictEqual(corrected, first);
+      test.assert.notStrictEqual(corrected, first);
       const fresh = await Effect.runPromise(
         Effect.gen(function* () {
           const sources = yield* Sources;
@@ -179,21 +177,24 @@ testStable(
             expectedRevision: 1
           });
 
-          assert.ok(state.requestId);
+          test.assert.ok(state.requestId);
 
           return event(state.requestId);
         }).pipe(Effect.provide(domain()))
       );
       const reprocessed = await execute(fresh, 'reprocessed');
 
-      assert.notStrictEqual(reprocessed, corrected);
+      test.assert.notStrictEqual(reprocessed, corrected);
       await Effect.runPromise(
         Effect.gen(function* () {
           const sources = yield* Sources;
 
-          assert.ok((yield* sources.source(setup.source.id)).projectId === null);
+          test.assert.ok((yield* sources.source(setup.source.id)).projectId === null);
           yield* sources.setSourceProject({ id: setup.source.id, projectId: setup.other.id });
-          assert.strictEqual((yield* sources.source(setup.source.id)).projectId, setup.other.id);
+          test.assert.strictEqual(
+            (yield* sources.source(setup.source.id)).projectId,
+            setup.other.id
+          );
         }).pipe(Effect.provide(domain()))
       );
       await f.reopen();
@@ -202,7 +203,10 @@ testStable(
         Effect.gen(function* () {
           const sources = yield* Sources;
 
-          assert.strictEqual((yield* sources.source(setup.source.id)).projectId, setup.other.id);
+          test.assert.strictEqual(
+            (yield* sources.source(setup.source.id)).projectId,
+            setup.other.id
+          );
           const state = yield* sources.replaceSource({
             id: setup.source.id,
             expectedRevision: 1,
@@ -210,50 +214,53 @@ testStable(
             bytes: new TextEncoder().encode('Replacement')
           });
 
-          assert.ok(state.requestId);
+          test.assert.ok(state.requestId);
 
           return event(state.requestId);
         }).pipe(Effect.provide(domain()))
       );
       const replaced = await execute(replacement, 'replacement');
 
-      assert.notStrictEqual(replaced, reprocessed);
+      test.assert.notStrictEqual(replaced, reprocessed);
       await Effect.runPromise(
         Effect.gen(function* () {
           const sources = yield* Sources;
           const projects = yield* Projects;
           const history = yield* sources.extractions({ sourceId: setup.source.id, limit: 10 });
 
-          assert.strictEqual(history.items.length, 4);
-          expect(new Set(history.items.map((item) => item.snapshotId))).toStrictEqual(
-            new Set([first, corrected, reprocessed, replaced])
-          );
-          assert.ok(
+          test.assert.strictEqual(history.items.length, 4);
+          test
+            .expect(new Set(history.items.map((item) => item.snapshotId)))
+            .toStrictEqual(new Set([first, corrected, reprocessed, replaced]));
+          test.assert.ok(
             (yield* sources.extraction({
               sourceId: setup.source.id,
               revision: 1n,
               snapshotId: corrected
             })).document.blocks[0]?.text === 'Corrected'
           );
-          assert.ok(
+          test.assert.ok(
             new TextDecoder().decode(
               (yield* sources.exportRevision({ sourceId: setup.source.id, revision: 1n })).bytes
             ) === 'Hello'
           );
-          assert.ok(
+          test.assert.ok(
             new TextDecoder().decode(
               (yield* sources.exportRevision({ sourceId: setup.source.id, revision: 2n })).bytes
             ) === 'Replacement'
           );
           yield* projects.deleteProject({ id: setup.other.id });
-          assert.ok((yield* sources.source(setup.source.id)).projectId === null);
-          assert.strictEqual(
+          test.assert.ok((yield* sources.source(setup.source.id)).projectId === null);
+          test.assert.strictEqual(
             (yield* sources.currentExtraction({ id: setup.source.id }))?.snapshotId,
             replaced
           );
-          assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
-          assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);
-          expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+          test.assert.strictEqual(
+            f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n,
+            0n
+          );
+          test.assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);
+          test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(domain()))
       );
     } finally {
@@ -262,10 +269,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'unsupported native extraction keeps the original bytes and creates no fake source material',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases }) => {
+    const f = await pageTransformFixture(databases);
 
     try {
       await Effect.runPromise(
@@ -280,7 +287,7 @@ testStable(
             });
             const state = yield* sources.sourceProcessing(source.id);
 
-            assert.ok(state.requestId);
+            test.assert.ok(state.requestId);
             const engine = yield* WorkflowEngine.WorkflowEngine;
 
             yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
@@ -302,17 +309,20 @@ testStable(
                 }
               })
             );
-            assert.strictEqual(yield* sources.currentExtraction({ id: source.id }), null);
-            expect(
-              (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
-            ).toStrictEqual(bytes);
-            assert.ok(
+            test.assert.strictEqual(yield* sources.currentExtraction({ id: source.id }), null);
+            test
+              .expect((yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes)
+              .toStrictEqual(bytes);
+            test.assert.ok(
               f.context.db.orm.get(
                 sql`SELECT 1 FROM workflow_events WHERE type='SourceProcessingFailed'`
               )
             );
-            assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
-            assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);
+            test.assert.strictEqual(
+              f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n,
+              0n
+            );
+            test.assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);
           })
         ).pipe(Effect.provide(f.services()))
       );

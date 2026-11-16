@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Creates a project and source through native services, reopens the application, and │
@@ -12,19 +13,15 @@
  * │ and application resources; fixture cleanup closes owned resources.                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
-import { createStudyTest } from '#testing/server-test';
 
-testStable(
+test.stable(
   'native projects and source inputs persist after reopening the real application',
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture }) => {
+    const fixture = serverFixture;
     const app = fixture.app;
     const source = await fixture.run(
       Effect.gen(function* () {
@@ -45,10 +42,10 @@ testStable(
       Effect.gen(function* () {
         const projects = yield* (yield* Projects).projects({ limit: 10 });
 
-        assert.ok(projects.items[0]?.name === 'Physics');
+        test.assert.ok(projects.items[0]?.name === 'Physics');
         const snapshot = yield* (yield* Sources).sourceSnapshot({ id: source.id, revision: 1 });
 
-        assert.ok(new TextDecoder().decode(snapshot.bytes) === 'Hello');
+        test.assert.ok(new TextDecoder().decode(snapshot.bytes) === 'Hello');
       })
     );
   }

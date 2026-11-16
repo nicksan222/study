@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies durable private chat identities for individual notebook notes.            │
@@ -10,20 +11,16 @@
  * │ database.                                                                                │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 
-testStable(
+test.stable(
   'note chats are distinct, durable, excluded from global chats and scoped to a notebook',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     try {
@@ -37,15 +34,15 @@ testStable(
           const second = yield* service.noteAssistant({ noteId: b.id });
           const global = yield* service.assistantNote();
 
-          expect(repeated.id).toBe(first.id);
-          expect(second.id).not.toBe(first.id);
-          expect(global.id).not.toBe(first.id);
-          expect(
-            (yield* service.assistantChats({ limit: 100 })).items.map((item) => item.id)
-          ).toEqual([global.id]);
-          expect((yield* Effect.result(service.noteAssistant({ noteId: first.id })))._tag).toBe(
-            'Failure'
-          );
+          test.expect(repeated.id).toBe(first.id);
+          test.expect(second.id).not.toBe(first.id);
+          test.expect(global.id).not.toBe(first.id);
+          test
+            .expect((yield* service.assistantChats({ limit: 100 })).items.map((item) => item.id))
+            .toEqual([global.id]);
+          test
+            .expect((yield* Effect.result(service.noteAssistant({ noteId: first.id })))._tag)
+            .toBe('Failure');
         }).pipe(Effect.provide(Notes.layer), Effect.provideService(Database, { store: context }))
       );
     } finally {

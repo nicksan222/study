@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises open-answer grading over RPC while signed out or with sharing disabled.  │
@@ -14,13 +15,9 @@
  * │ cleanup closes owned resources.                                                          │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { AuthStore } from '#server/features/auth/store/index';
@@ -28,18 +25,15 @@ import { encodeAccount } from '#server/platform/ai/auth/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
-import { App, serve } from '#server/runtime/index';
-import { pollUntil } from '#testing/poll';
+import { serve } from '#server/runtime/index';
 
 for (const accountState of ['signed-out', 'not-shared'] as const)
-  testStable(
+  test.stable(
     `an RPC open answer waits durably when ${accountState} and keeps a manual grade`,
     { timeout: 10000 },
-    async () => {
-      const location = await createTestDatabase();
-
+    async ({ resources: location }) => {
       if (accountState === 'not-shared') {
-        const context = new ServerContext(await location.open());
+        const context = new ServerContext(await location.openDb());
 
         try {
           await Effect.runPromise(
@@ -59,7 +53,7 @@ for (const accountState of ['signed-out', 'not-shared'] as const)
         }
       }
 
-      const app = await App.open({ path: location.path });
+      const app = await location.openApp({ path: location.path });
       const server = await serve(app);
 
       await app.workers.start();
@@ -95,7 +89,7 @@ for (const accountState of ['signed-out', 'not-shared'] as const)
                 questionId,
                 answer: { type: 'open', answer: 'Mitochondria' }
               });
-              yield* pollUntil(
+              yield* test.pollUntil(
                 Effect.sync(
                   () =>
                     app.store.db.orm.all(sql`SELECT * FROM workflow_configuration_waits`).length ===
@@ -116,16 +110,16 @@ for (const accountState of ['signed-out', 'not-shared'] as const)
               });
               const completed = yield* client['learning.finishQuiz']({ attemptId: attempt.id });
 
-              assert.ok(completed.status === 'completed');
-              assert.strictEqual(completed.questions[0]?.score, 1);
-              assert.ok(completed.questions[0]?.feedback === 'Reviewed manually');
+              test.assert.ok(completed.status === 'completed');
+              test.assert.strictEqual(completed.questions[0]?.score, 1);
+              test.assert.ok(completed.questions[0]?.feedback === 'Reviewed manually');
             })
           )
         );
       } finally {
         await server.close();
         await app.close();
-        await location.cleanup();
+        await location.close();
       }
     }
   );

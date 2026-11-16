@@ -1,3 +1,4 @@
+import { StudyError } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies transactional publication authorization and scoped guard lifetime.        │
@@ -9,15 +10,11 @@
  * │ Uses real SQLite domain records and native workflow identities.                          │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyError } from '@study/contracts';
 import { eq } from '@study/db';
 import { workflow_executions, workflow_retired_executions } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
 import { Workflow, WorkflowEngine } from 'effect/workflow';
-import { expect } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { PublicationGuard, withPublicationGuard } from '#server/platform/workflows/publication';
@@ -27,10 +24,10 @@ const definition = Workflow.make('publication-test', {
   idempotencyKey: ({ id }) => id
 });
 
-testStable(
+test.stable(
   'publication fences cancellation, supersession, retirement and escaped guards',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     context.db.orm
@@ -60,20 +57,20 @@ testStable(
             escaped = guard;
             const closed = yield* withPublicationGuard(context, PublicationGuard);
 
-            expect(() => assertGuard(closed)).toThrow(StudyError);
+            test.expect(() => assertGuard(closed)).toThrow(StudyError);
             assertGuard(guard);
             context.db.orm
               .update(workflow_executions)
               .set({ generation: 2 })
               .where(eq(workflow_executions.execution_id, 'publication'))
               .run();
-            expect(() => assertGuard(guard)).toThrow(StudyError);
+            test.expect(() => assertGuard(guard)).toThrow(StudyError);
             context.db.orm
               .update(workflow_executions)
               .set({ generation: 1, cancellation_mode: 'safe', status: 'cancelling' })
               .where(eq(workflow_executions.execution_id, 'publication'))
               .run();
-            expect(() => assertGuard(guard)).toThrow(StudyError);
+            test.expect(() => assertGuard(guard)).toThrow(StudyError);
             context.db.orm
               .update(workflow_executions)
               .set({ cancellation_mode: null, status: 'running' })
@@ -83,18 +80,20 @@ testStable(
               .insert(workflow_retired_executions)
               .values({ execution_id: 'publication', correlation_id: 'deleted' })
               .run();
-            expect(() => assertGuard(guard)).toThrow(StudyError);
+            test.expect(() => assertGuard(guard)).toThrow(StudyError);
           })
         ).pipe(Effect.provideService(WorkflowEngine.WorkflowInstance, instance))
       );
-      expect(() =>
-        context.transaction(['workflows'], (transaction) => escaped!.assert(transaction))
-      ).toThrow(StudyError);
+      test
+        .expect(() =>
+          context.transaction(['workflows'], (transaction) => escaped!.assert(transaction))
+        )
+        .toThrow(StudyError);
       const failure = await Effect.runPromise(
         Effect.flip(withPublicationGuard(context, Effect.void))
       );
 
-      expect(failure.kind).toBe('internal');
+      test.expect(failure.kind).toBe('internal');
     } finally {
       context.close();
       await location.cleanup();

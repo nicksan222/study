@@ -1,6 +1,5 @@
 import { catalogs } from '@study/localization';
-
-import { expect, testE2e } from './harness/index.ts';
+import { test } from '@study/testing';
 
 const copy = catalogs.english;
 
@@ -62,7 +61,7 @@ const fixtureDirectory = new URL(
   import.meta.url
 );
 
-testE2e(
+test.stable(
   'Mixed lecture retains ten attachments through extraction failures',
   async ({ page, expectScreenshot }) => {
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
@@ -91,26 +90,28 @@ testE2e(
     ];
 
     async function identities() {
-      await expect(entry).toHaveCount(1);
-      await expect(
-        entry.getByRole('button').filter({ hasText: /\.md|\.txt|\.pptx|\.docx|\.pdf|\.bin/ })
-      ).toHaveCount(10);
+      await test.expect(entry).toHaveCount(1);
+      await test
+        .expect(
+          entry.getByRole('button').filter({ hasText: /\.md|\.txt|\.pptx|\.docx|\.pdf|\.bin/ })
+        )
+        .toHaveCount(10);
 
       for (const name of new Set(names))
-        await expect(entry.getByRole('button', { name, exact: true })).toHaveCount(
-          name === 'duplicate.txt' ? 2 : 1
-        );
+        await test
+          .expect(entry.getByRole('button', { name, exact: true }))
+          .toHaveCount(name === 'duplicate.txt' ? 2 : 1);
     }
 
     async function controls() {
       for (const label of [copy.NoteClosePage, copy.NoteExpandEditor]) {
         const control = page.getByRole('button', { name: label, exact: true });
 
-        await expect(control).toBeInViewport({ ratio: 1 });
+        await test.expect(control).toBeInViewport({ ratio: 1 });
         await control.click({ trial: true });
       }
 
-      await expect(composer).toBeInViewport({ ratio: 1 });
+      await test.expect(composer).toBeInViewport({ ratio: 1 });
       await composer.click({ trial: true });
     }
 
@@ -119,14 +120,14 @@ testE2e(
 
       await attachment.scrollIntoViewIfNeeded();
       await attachment.click();
-      await expect(panel.getByRole('heading', { name, exact: true })).toBeVisible();
-      await expect(preview).toHaveAttribute('contenteditable', 'false');
-      await expect(preview.getByText(expected, { exact: true })).toBeVisible();
-      await expect(panel.getByText(copy.NotePending, { exact: true })).toHaveCount(0);
+      await test.expect(panel.getByRole('heading', { name, exact: true })).toBeVisible();
+      await test.expect(preview).toHaveAttribute('contenteditable', 'false');
+      await test.expect(preview.getByText(expected, { exact: true })).toBeVisible();
+      await test.expect(panel.getByText(copy.NotePending, { exact: true })).toHaveCount(0);
     }
 
     await page.goto('/notes');
-    await expect(noteLinks).toHaveCount(0);
+    await test.expect(noteLinks).toHaveCount(0);
     await composer.fill(original);
     await page.getByLabel(copy.NoteAttachFiles, { exact: true }).setInputFiles([
       ...localFiles.map((file) => ({
@@ -150,35 +151,37 @@ testE2e(
 
     const queue = page.getByRole('region', { name: copy.NoteCompose, exact: true });
 
-    await expect(queue.getByRole('button', { name: copy.NoteRemoveAttachment })).toHaveCount(10);
-    await expect(queue.getByText('duplicate.txt', { exact: true })).toHaveCount(2);
-    await expect(composer).toHaveValue(original);
-    await expect(save).toBeEnabled();
+    await test
+      .expect(queue.getByRole('button', { name: copy.NoteRemoveAttachment }))
+      .toHaveCount(10);
+    await test.expect(queue.getByText('duplicate.txt', { exact: true })).toHaveCount(2);
+    await test.expect(composer).toHaveValue(original);
+    await test.expect(save).toBeEnabled();
     await composer.press('ControlOrMeta+Home');
     await composer.press('PageUp');
-    await expect(composer).toHaveJSProperty('scrollTop', 0);
+    await test.expect(composer).toHaveJSProperty('scrollTop', 0);
     await queue.getByText('coastal-evidence.md', { exact: true }).scrollIntoViewIfNeeded();
     await expectScreenshot('mixed-queue', {
       target: 'viewport',
       ready: async () => {
         for (const name of new Set(names))
           for (const item of await queue.getByText(name, { exact: true }).all())
-            await expect(item).toBeInViewport({ ratio: 1 });
+            await test.expect(item).toBeInViewport({ ratio: 1 });
 
-        await expect(composer).toHaveValue(original);
-        await expect(save).toBeEnabled();
+        await test.expect(composer).toHaveValue(original);
+        await test.expect(save).toBeEnabled();
       }
     });
     await save.scrollIntoViewIfNeeded();
-    await expect(save).toBeInViewport({ ratio: 1 });
+    await test.expect(save).toBeInViewport({ ratio: 1 });
     await save.click({ trial: true });
     await save.click();
-    await expect(page).toHaveURL(/\/notes\/[^/?]+$/);
+    await test.expect(page).toHaveURL(/\/notes\/[^/?]+$/);
 
     const noteUrl = page.url();
 
-    await expect(noteLinks).toHaveCount(1);
-    await expect(body).toHaveText(original);
+    await test.expect(noteLinks).toHaveCount(1);
+    await test.expect(body).toHaveText(original);
     await identities();
 
     // Edit immediately after the committed save; no artificial decoder delay is introduced.
@@ -191,20 +194,20 @@ testE2e(
       .replace('Mixed attachment field lecture', 'Mixed attachment field lecture — corrected')
       .replace(last, correctedLast);
 
-    await expect(dialog.getByRole('textbox')).toHaveValue(original);
+    await test.expect(dialog.getByRole('textbox')).toHaveValue(original);
     await dialog.getByRole('textbox').fill(edited);
     await dialog.getByRole('button', { name: copy.NoteSaveNote }).click();
-    await expect(dialog).toBeHidden();
-    await expect(body).toHaveText(edited);
+    await test.expect(dialog).toBeHidden();
+    await test.expect(body).toHaveText(edited);
     await identities();
 
     for (const [index, file] of localFiles.entries()) {
       await openSource(file.name, file.expected, index === 3 ? 1 : 0);
 
       if (file.name === 'duplicate.txt') {
-        await expect(
-          preview.getByText(localFiles[index === 2 ? 3 : 2]!.expected, { exact: true })
-        ).toHaveCount(0);
+        await test
+          .expect(preview.getByText(localFiles[index === 2 ? 3 : 2]!.expected, { exact: true }))
+          .toHaveCount(0);
       }
     }
 
@@ -216,32 +219,36 @@ testE2e(
       await openSource(name, text);
 
     await entry.getByRole('button', { name: 'unsupported.bin', exact: true }).click();
-    await expect(
-      panel.getByRole('heading', { name: 'unsupported.bin', exact: true })
-    ).toBeVisible();
-    await expect(panel.getByText(copy.SourceExtractionUnsupported, { exact: true })).toBeVisible();
-    await expect(panel.getByText(copy.NotePending, { exact: true })).toHaveCount(0);
+    await test
+      .expect(panel.getByRole('heading', { name: 'unsupported.bin', exact: true }))
+      .toBeVisible();
+    await test
+      .expect(panel.getByText(copy.SourceExtractionUnsupported, { exact: true }))
+      .toBeVisible();
+    await test.expect(panel.getByText(copy.NotePending, { exact: true })).toHaveCount(0);
     await expectScreenshot('partial-extraction-failure', {
       target: 'viewport',
       ready: async () => {
-        await expect(
-          panel.getByText(copy.SourceExtractionUnsupported, { exact: true })
-        ).toBeVisible();
-        await expect(body).toHaveText(edited);
+        await test
+          .expect(panel.getByText(copy.SourceExtractionUnsupported, { exact: true }))
+          .toBeVisible();
+        await test.expect(body).toHaveText(edited);
       }
     });
     await entry.getByRole('button', { name: 'two-pages.pdf', exact: true }).click();
-    await expect(panel.getByRole('heading', { name: 'two-pages.pdf', exact: true })).toBeVisible();
-    await expect(panel.getByText(copy.NoteWaitAuth, { exact: true })).toBeVisible();
-    await expect(panel.getByText(copy.NotePending, { exact: true })).toHaveCount(0);
+    await test
+      .expect(panel.getByRole('heading', { name: 'two-pages.pdf', exact: true }))
+      .toBeVisible();
+    await test.expect(panel.getByText(copy.NoteWaitAuth, { exact: true })).toBeVisible();
+    await test.expect(panel.getByText(copy.NotePending, { exact: true })).toHaveCount(0);
     await panel.getByRole('link', { name: copy.Settings, exact: true }).click({ trial: true });
     await expectScreenshot('pdf-awaits-sign-in', {
       target: 'viewport',
       ready: async () => {
-        await expect(panel.getByText(copy.NoteWaitAuth, { exact: true })).toBeVisible();
-        await expect(
-          panel.getByRole('heading', { name: 'two-pages.pdf', exact: true })
-        ).toBeVisible();
+        await test.expect(panel.getByText(copy.NoteWaitAuth, { exact: true })).toBeVisible();
+        await test
+          .expect(panel.getByRole('heading', { name: 'two-pages.pdf', exact: true }))
+          .toBeVisible();
       }
     });
     await openSource('summary.md', localFiles[4]!.expected);
@@ -249,15 +256,15 @@ testE2e(
     await page.goto('/projects');
     await page.goto(noteUrl);
     await page.reload();
-    await expect(noteLinks).toHaveCount(1);
-    await expect(body).toHaveText(edited);
+    await test.expect(noteLinks).toHaveCount(1);
+    await test.expect(body).toHaveText(edited);
     await identities();
 
     async function inspectLecture() {
       const label = entry.getByText(copy.NoteEntryNote, { exact: true });
 
       await label.scrollIntoViewIfNeeded();
-      await expect(label).toBeInViewport({ ratio: 1 });
+      await test.expect(label).toBeInViewport({ ratio: 1 });
 
       const scrollHost = page.locator('[data-notebook-scroll-host]');
 
@@ -265,37 +272,43 @@ testE2e(
 
       if (!top) throw new Error('Lecture has no layout box');
 
-      await expect(body).toHaveVisibleText('Mixed attachment field lecture — corrected');
-      await expect(body).not.toHaveVisibleText(middle);
-      await expect(body).not.toHaveVisibleText(correctedLast);
+      await test.expect(body).toHaveVisibleText('Mixed attachment field lecture — corrected');
+      await test.expect(body).not.toHaveVisibleText(middle);
+      await test.expect(body).not.toHaveVisibleText(correctedLast);
       await scrollHost.click();
 
       // Ordinary keyboard scrolling; the harness assertion only reads the exact rendered range.
       for (const text of [middle, correctedLast]) {
-        await expect(async () => {
-          for (let step = 0; step < 4; step++) await scrollHost.press('ArrowDown');
+        await test
+          .expect(async () => {
+            for (let step = 0; step < 4; step++) await scrollHost.press('ArrowDown');
 
-          await expect(body).toHaveVisibleText(text, { timeout: 250 });
+            await test.expect(body).toHaveVisibleText(text, { timeout: 250 });
 
-          if (text === correctedLast) {
-            const lecture = await body.boundingBox();
-            const floating = await page.locator('.workspace-desk-floating-composer').boundingBox();
+            if (text === correctedLast) {
+              const lecture = await body.boundingBox();
+              const floating = await page
+                .locator('.workspace-desk-floating-composer')
+                .boundingBox();
 
-            expect(!!lecture && !!floating && lecture.y + lecture.height <= floating.y).toBe(true);
-          }
-        }).toPass({ timeout: 30_000, intervals: [0] });
-        await expect.poll(async () => (await body.boundingBox())?.y).toBeLessThan(top.y);
-        await expect(composer).toBeInViewport({ ratio: 1 });
+              test
+                .expect(!!lecture && !!floating && lecture.y + lecture.height <= floating.y)
+                .toBe(true);
+            }
+          })
+          .toPass({ timeout: 30_000, intervals: [0] });
+        await test.expect.poll(async () => (await body.boundingBox())?.y).toBeLessThan(top.y);
+        await test.expect(composer).toBeInViewport({ ratio: 1 });
         await composer.click({ trial: true });
         // Return keyboard ownership to the scroll host after checking the composer.
         await scrollHost.click();
       }
 
-      await expect(label).not.toBeInViewport();
-      await expect(body).not.toHaveVisibleText('Mixed attachment field lecture — corrected');
-      await expect(body).not.toHaveVisibleText(middle);
-      await expect(body).toHaveVisibleText(correctedLast);
-      await expect
+      await test.expect(label).not.toBeInViewport();
+      await test.expect(body).not.toHaveVisibleText('Mixed attachment field lecture — corrected');
+      await test.expect(body).not.toHaveVisibleText(middle);
+      await test.expect(body).toHaveVisibleText(correctedLast);
+      await test.expect
         .poll(async () => {
           const lecture = await body.boundingBox();
           const floating = await page.locator('.workspace-desk-floating-composer').boundingBox();
@@ -303,7 +316,7 @@ testE2e(
           return !!lecture && !!floating && lecture.y + lecture.height <= floating.y;
         })
         .toBe(true);
-      await expect(body).toHaveText(edited);
+      await test.expect(body).toHaveText(edited);
       await composer.click({ trial: true });
     }
 
@@ -315,12 +328,14 @@ testE2e(
       target: 'viewport',
       center: entry.getByRole('button', { name: 'coastal-evidence.md', exact: true }),
       ready: async () => {
-        await expect(
-          preview.getByText('Source beginning: the lighthouse marks the first observation.', {
-            exact: true
-          })
-        ).toBeInViewport({ ratio: 1 });
-        await expect(body).toHaveText(edited);
+        await test
+          .expect(
+            preview.getByText('Source beginning: the lighthouse marks the first observation.', {
+              exact: true
+            })
+          )
+          .toBeInViewport({ ratio: 1 });
+        await test.expect(body).toHaveText(edited);
       }
     });
 
@@ -337,30 +352,30 @@ testE2e(
 
     if (!firstBox) throw new Error('Source beginning has no layout box');
 
-    await expect(bottom).not.toBeInViewport();
+    await test.expect(bottom).not.toBeInViewport();
     await center.scrollIntoViewIfNeeded();
-    await expect(center).toBeInViewport({ ratio: 1 });
-    await expect(first).not.toBeInViewport();
-    await expect.poll(async () => (await first.boundingBox())?.y).toBeLessThan(firstBox.y);
+    await test.expect(center).toBeInViewport({ ratio: 1 });
+    await test.expect(first).not.toBeInViewport();
+    await test.expect.poll(async () => (await first.boundingBox())?.y).toBeLessThan(firstBox.y);
     await controls();
     await expectScreenshot('long-source-middle', {
       target: 'viewport',
-      ready: () => expect(center).toBeInViewport({ ratio: 1 })
+      ready: () => test.expect(center).toBeInViewport({ ratio: 1 })
     });
     await bottom.scrollIntoViewIfNeeded();
-    await expect(bottom).toBeInViewport({ ratio: 1 });
-    await expect(center).not.toBeInViewport();
+    await test.expect(bottom).toBeInViewport({ ratio: 1 });
+    await test.expect(center).not.toBeInViewport();
     await bottom.click({ trial: true });
     await controls();
     await expectScreenshot('long-source-bottom', {
       target: 'viewport',
-      ready: () => expect(bottom).toBeInViewport({ ratio: 1 })
+      ready: () => test.expect(bottom).toBeInViewport({ ratio: 1 })
     });
 
     for (const file of localFiles.filter((file) => file.name === 'duplicate.txt'))
       await openSource(file.name, file.expected, file === localFiles[2] ? 0 : 1);
 
-    await expect(body).toHaveText(edited);
+    await test.expect(body).toHaveText(edited);
     await identities();
   }
 );

@@ -1,13 +1,10 @@
 import { createBlock, canonicalText } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { useState } from 'react';
-import { expect } from 'vite-plus/test';
 
 import { BlockEditor, authoredCopy, blankDocument } from './block-editor';
 
-testStable(
+test.stable(
   'edits a text run without flattening marks, links or neighboring structures',
   async () => {
     const paragraph = createBlock({
@@ -54,26 +51,26 @@ testStable(
       );
     }
 
-    render(<Harness />);
-    const input = screen.getAllByRole('textbox')[0]!;
-    const user = userEvent.setup();
+    test.render(<Harness />);
+    const input = test.screen.getAllByRole('textbox')[0]!;
+    const user = test.userEvent.setup();
 
     await user.clear(input);
     await user.type(input, 'Changed');
-    expect(latest.blocks[0]!.id).toBe(paragraph.id);
-    expect(latest.blocks[0]!.content).toEqual({
+    test.expect(latest.blocks[0]!.id).toBe(paragraph.id);
+    test.expect(latest.blocks[0]!.content).toEqual({
       type: 'paragraph',
       inlines: [
         { type: 'text', text: 'Changed', marks: ['strong'] },
         { type: 'link', text: 'Reference', href: 'https://example.com' }
       ]
     });
-    expect(latest.blocks[0]!.text).toBe(canonicalText(latest.blocks[0]!.content));
-    expect(latest.blocks.slice(1)).toEqual([table, list]);
+    test.expect(latest.blocks[0]!.text).toBe(canonicalText(latest.blocks[0]!.content));
+    test.expect(latest.blocks.slice(1)).toEqual([table, list]);
   }
 );
 
-testStable(
+test.stable(
   'gives independent copies fresh authored identities while preserving rich content',
   () => {
     const block = createBlock(
@@ -83,9 +80,9 @@ testStable(
     const document = { ...blankDocument(), blocks: [block] };
     const copy = authoredCopy(document);
 
-    expect(copy.blocks[0]!.id).not.toBe(block.id);
-    expect(copy.blocks[0]!.content).toEqual(block.content);
-    expect(copy.blocks[0]!.anchor).toEqual({ type: 'authored' });
-    expect(document.blocks[0]!.id).toBe(block.id);
+    test.expect(copy.blocks[0]!.id).not.toBe(block.id);
+    test.expect(copy.blocks[0]!.content).toEqual(block.content);
+    test.expect(copy.blocks[0]!.anchor).toEqual({ type: 'authored' });
+    test.expect(document.blocks[0]!.id).toBe(block.id);
   }
 );

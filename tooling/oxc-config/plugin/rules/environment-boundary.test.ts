@@ -1,19 +1,18 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('rejects process.env reads outside startup configuration', async () => {
+test.stable('rejects process.env reads outside startup configuration', async () => {
   const diagnostics = await lintRule(
     'environment-boundary',
     { 'src/domain.ts': 'const key = process.env.KEY;' },
     false
   );
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable('recognizes aliases and destructuring without confusing shadowed process', async () => {
+test.stable('recognizes aliases and destructuring without confusing shadowed process', async () => {
   const diagnostics = await lintRule('environment-boundary', {
     'src/a.ts': `const p = process;
  const { env } = p;
@@ -24,10 +23,10 @@ testStable('recognizes aliases and destructuring without confusing shadowed proc
     'src/a.test.ts': 'const value = process.env.KEY;'
   });
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-testStable(
+test.stable(
   'traces process imports, global aliases and nested destructuring at startup boundaries',
   async () => {
     const diagnostics = await lintRule('environment-boundary', {
@@ -42,6 +41,6 @@ function f(globalThis: any) { return globalThis.process.env.X;
       'src/runtime/main.ts': 'const x = process.env.X;'
     });
 
-    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
   }
 );

@@ -1,3 +1,4 @@
+import { defaultQuizSettings } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Tests matching persistence and grading using the real SQLite service boundary.     │
@@ -9,14 +10,10 @@
  * │ Private learning stores own matching behavior inside caller transactions.                │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { defaultQuizSettings } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
@@ -26,10 +23,10 @@ import { Database } from '#server/platform/database/database';
 
 import { Learning } from './index.ts';
 
-testStable(
+test.stable(
   'matching saves associations, hides mappings, grades each pair and rejects foreign permutations',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const domain = Learning.layer.pipe(
       Layer.provideMerge(Settings.layer),
@@ -63,16 +60,16 @@ testStable(
             }
           });
 
-          assert.ok(material.version.content.kind === 'quiz');
+          test.assert.ok(material.version.content.kind === 'quiz');
           const canonical = material.version.content.questions[0]!;
 
-          assert.ok(canonical.kind === 'matching');
+          test.assert.ok(canonical.kind === 'matching');
           const csv = yield* materials.exportMaterialVersion({
             id: material.version.id,
             format: 'csv'
           });
 
-          assert.ok(new TextDecoder().decode(csv.bytes).includes('Stores DNA'));
+          test.assert.ok(new TextDecoder().decode(csv.bytes).includes('Stores DNA'));
           const configuration = {
             ...defaultQuizSettings,
             questionKind: 'matching' as const,
@@ -84,24 +81,24 @@ testStable(
           });
           const question = attempt.questions[0]!;
 
-          assert.ok(question.kind === 'matching');
-          assert.ok(!('pairs' in question));
-          assert.ok(!('explanation' in question));
-          assert.deepEqual(
+          test.assert.ok(question.kind === 'matching');
+          test.assert.ok(!('pairs' in question));
+          test.assert.ok(!('explanation' in question));
+          test.assert.deepEqual(
             question.terms.map((t) => Object.keys(t).sort()),
             Array(3).fill(['id', 'text'])
           );
-          assert.deepEqual(
+          test.assert.deepEqual(
             question.definitions.map((t) => Object.keys(t).sort()),
             Array(3).fill(['id', 'text'])
           );
           const definitionIds = new Set(question.definitions.map((d) => String(d.id)));
 
-          assert.ok(question.terms.every((t) => !definitionIds.has(t.id)));
+          test.assert.ok(question.terms.every((t) => !definitionIds.has(t.id)));
 
           const restored = yield* learning.attempt(attempt.id);
 
-          assert.deepEqual(restored, attempt);
+          test.assert.deepEqual(restored, attempt);
           const associations = canonical.pairs.map((p) => ({
             termId: p.termId,
             definitionId: p.definitionId
@@ -125,10 +122,10 @@ testStable(
             }
           });
 
-          assert.ok(otherMaterial.version.content.kind === 'quiz');
+          test.assert.ok(otherMaterial.version.content.kind === 'quiz');
           const other = otherMaterial.version.content.questions[0]!;
 
-          assert.ok(other.kind === 'matching');
+          test.assert.ok(other.kind === 'matching');
 
           for (const invalid of [
             associations.slice(1),
@@ -148,7 +145,7 @@ testStable(
               })
             );
 
-            assert.equal(error.kind, 'invalid_input');
+            test.assert.equal(error.kind, 'invalid_input');
           }
 
           const pending = yield* learning.startQuiz({
@@ -161,7 +158,7 @@ testStable(
             answer: { type: 'matching', associations }
           });
 
-          assert.ok(valid.status === 'in_progress');
+          test.assert.ok(valid.status === 'in_progress');
 
           for (const malicious of [
             associations.slice(1),
@@ -171,7 +168,7 @@ testStable(
               ...associations.slice(1)
             ]
           ])
-            assert.throws(() =>
+            test.assert.throws(() =>
               context.db.orm
                 .update(s.material_quiz_responses)
                 .set({ answer: JSON.stringify(malicious) })
@@ -179,7 +176,7 @@ testStable(
                 .run()
             );
 
-          assert.throws(() =>
+          test.assert.throws(() =>
             context.db.orm
               .update(s.material_quiz_attempt_questions)
               .set({ matching_order: [associations[0]!.definitionId] })
@@ -196,22 +193,22 @@ testStable(
             questionId: question.id,
             answer: { type: 'matching', associations: partial }
           });
-          assert.deepEqual((yield* learning.attempt(attempt.id)).questions[0]?.answer, {
+          test.assert.deepEqual((yield* learning.attempt(attempt.id)).questions[0]?.answer, {
             type: 'matching',
             associations: partial
           });
           const completed = yield* learning.finishQuiz({ attemptId: attempt.id });
 
-          assert.equal(completed.scoring.score, 1 / 3);
+          test.assert.equal(completed.scoring.score, 1 / 3);
           const result = completed.questions[0]!;
 
-          assert.ok(result.kind === 'matching');
-          assert.deepEqual(
+          test.assert.ok(result.kind === 'matching');
+          test.assert.deepEqual(
             result.pairs.map((p) => p.score),
             [0, 0, 1]
           );
-          assert.equal(result.explanation, canonical.explanation);
-          assert.throws(() =>
+          test.assert.equal(result.explanation, canonical.explanation);
+          test.assert.throws(() =>
             context.db.orm
               .update(s.material_quiz_responses)
               .set({ answer: '[]' })
@@ -239,10 +236,13 @@ testStable(
                 }))
               }
             });
-            assert.equal((yield* learning.finishQuiz({ attemptId: next.id })).scoring.score, score);
+            test.assert.equal(
+              (yield* learning.finishQuiz({ attemptId: next.id })).scoring.score,
+              score
+            );
           }
 
-          assert.equal(
+          test.assert.equal(
             context.db.orm
               .select()
               .from(s.workflowEvents)
@@ -250,24 +250,24 @@ testStable(
               .filter((e) => e.type === 'QuizAnswerSubmitted').length,
             0
           );
-          assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+          test.assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
         }).pipe(Effect.provide(domain))
       );
       const reopened = await location.open();
 
       try {
-        assert.equal(
+        test.assert.equal(
           reopened.orm.select().from(s.material_quiz_questions).all()[0]?.matching_pairs?.length,
           3
         );
-        assert.ok(
+        test.assert.ok(
           reopened.orm
             .select()
             .from(s.material_quiz_attempt_questions)
             .all()
             .every((q) => q.matching_order?.length === 3)
         );
-        assert.deepEqual(reopened.orm.all(sql`PRAGMA foreign_key_check`), []);
+        test.assert.deepEqual(reopened.orm.all(sql`PRAGMA foreign_key_check`), []);
       } finally {
         reopened.close();
       }

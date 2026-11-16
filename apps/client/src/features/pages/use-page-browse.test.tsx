@@ -1,15 +1,11 @@
 import { projectIdSchema, summarySchema } from '@study/contracts';
 import type { rpc } from '@study/contracts/react';
-import { testStable } from '@study/testing/vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { expect, vi } from 'vite-plus/test';
-
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { usePageBrowse } from './use-page-browse';
 
-testStable(
+test.stable(
   'changing the page browser owner discards a slower previous-owner snapshot',
   async () => {
     const first = projectIdSchema.make(1n);
@@ -29,28 +25,30 @@ testStable(
     const slow = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const read = vi.fn(async (input: Parameters<typeof rpc.pages.list.read>[0]) => {
+    const read = test.vi.fn(async (input: Parameters<typeof rpc.pages.list.read>[0]) => {
       if (input.projectId === first) await slow;
 
       return { items: [page(input.projectId ?? second)], nextCursor: null };
     });
-    const harness = rpcHandlersTransport({ 'pages.pages': read });
-    const view = renderHook(({ project }) => usePageBrowse(project), {
+    const harness = test.rpcHandlersTransport({ 'pages.pages': read });
+    const view = test.renderHook(({ project }) => usePageBrowse(project), {
       initialProps: { project: first },
       wrapper: harness.wrapper
     });
 
-    await waitFor(() =>
-      expect(read).toHaveBeenCalledWith(expect.objectContaining({ projectId: first }))
+    await test.waitFor(() =>
+      test.expect(read).toHaveBeenCalledWith(test.expect.objectContaining({ projectId: first }))
     );
     view.rerender({ project: second });
-    await waitFor(() => expect(view.result.current.query.data?.items[0]?.title).toBe('Page 2'));
-    await act(async () => {
+    await test.waitFor(() =>
+      test.expect(view.result.current.query.data?.items[0]?.title).toBe('Page 2')
+    );
+    await test.act(async () => {
       release();
       await slow;
     });
-    expect(view.result.current.query.data?.items[0]?.title).toBe('Page 2');
-    expect(view.result.current.navigation.cursor).toBeUndefined();
-    expect(view.result.current.navigation.limit).toBe(30);
+    test.expect(view.result.current.query.data?.items[0]?.title).toBe('Page 2');
+    test.expect(view.result.current.navigation.cursor).toBeUndefined();
+    test.expect(view.result.current.navigation.limit).toBe(30);
   }
 );

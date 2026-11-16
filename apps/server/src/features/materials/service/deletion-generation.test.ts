@@ -1,3 +1,4 @@
+import { eq, sql } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises learning deletion generation behavior through real persistence           │
@@ -11,13 +12,10 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { eq, sql } from '@study/db';
 import * as s from '@study/db';
+import { test } from '@study/testing';
 /** Generated learning output deletion releases evidence pins and retires only its original native ownership. */
-import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
@@ -27,10 +25,10 @@ import { acceptMaterialDeletion, cleanupMaterial } from '#testing/material-delet
 import { assertScrubbed } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
-testStable(
+test.stable(
   'generated learning deletion fences replay, releases exact authored evidence and never reassigns cleanup ownership',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases }) => {
+    const f = await pageTransformFixture(databases);
 
     try {
       const saved = await learningGeneration(f);
@@ -44,13 +42,13 @@ testStable(
           const docs = yield* Pages;
           const output = yield* m.materialVersion({ id: versionId });
 
-          expect(output.inputs).toStrictEqual([
-            { kind: 'page', versionId: saved.input.version.id }
-          ]);
+          test
+            .expect(output.inputs)
+            .toStrictEqual([{ kind: 'page', versionId: saved.input.version.id }]);
           const preview = yield* docs.previewDeletion({ id: saved.input.id });
 
-          expect(preview.blockedVersionIds).toStrictEqual([saved.input.version.id]);
-          assert.ok(
+          test.expect(preview.blockedVersionIds).toStrictEqual([saved.input.version.id]);
+          test.assert.ok(
             (yield* Effect.flip(docs.delete({ pageId: saved.input.id, token: preview.token })))
               .kind === 'invalid_input'
           );
@@ -65,30 +63,34 @@ testStable(
         .where(eq(s.material_deletion_requests.request_id, saved.request.id))
         .get();
 
-      assert.ok(owner);
-      assert.strictEqual(owner.deletion_id, output.material_id);
-      assert.ok(owner.kind === 'generation');
+      test.assert.ok(owner);
+      test.assert.strictEqual(owner.deletion_id, output.material_id);
+      test.assert.ok(owner.kind === 'generation');
       f.context.db.exec(
         "CREATE TRIGGER reject_generation_cleanup BEFORE DELETE ON material_flashcard_versions BEGIN SELECT RAISE(ABORT,'injected'); END"
       );
-      await expect(cleanupMaterial(f, output.material_id)).rejects.toSatisfy(() => true);
+      await test.expect(cleanupMaterial(f, output.material_id)).rejects.toSatisfy(() => true);
       await Effect.runPromise(
         Effect.gen(function* () {
           const m = yield* Materials;
 
-          assert.ok((yield* m.deletion({ materialId: output.material_id })).status === 'failed');
-          assert.ok(
+          test.assert.ok(
+            (yield* m.deletion({ materialId: output.material_id })).status === 'failed'
+          );
+          test.assert.ok(
             (yield* Effect.flip(m.materialVersion({ id: versionId }))).kind === 'not_found'
           );
         }).pipe(Effect.provide(f.domain()))
       );
-      expect(
-        f.context.db.orm
-          .select()
-          .from(s.material_deletion_requests)
-          .where(eq(s.material_deletion_requests.request_id, saved.request.id))
-          .get()
-      ).toStrictEqual(owner);
+      test
+        .expect(
+          f.context.db.orm
+            .select()
+            .from(s.material_deletion_requests)
+            .where(eq(s.material_deletion_requests.request_id, saved.request.id))
+            .get()
+        )
+        .toStrictEqual(owner);
       f.context.db.exec('DROP TRIGGER reject_generation_cleanup');
       await f.reopen();
       await Effect.runPromise(
@@ -104,19 +106,19 @@ testStable(
         .where(eq(s.material_generation_requests.id, saved.request.id))
         .get();
 
-      assert.ok(retired);
-      assert.ok(retired.payload === '{}');
-      assert.ok(retired.cancelled === true);
-      assert.ok(retired.result_version_id === null);
-      assert.ok(retired.result_hash === null);
+      test.assert.ok(retired);
+      test.assert.ok(retired.payload === '{}');
+      test.assert.ok(retired.cancelled === true);
+      test.assert.ok(retired.result_version_id === null);
+      test.assert.ok(retired.result_hash === null);
       assertScrubbed(f, 'HISTORY_PRIVATE_GENERATION');
       assertScrubbed(f, 'GENERATED_HISTORICAL_BODY');
       const native = workflowStore(f.context).execution('completed-generation');
 
-      assert.ok(native?.status === 'completed');
-      assert.ok(native.payload === '{}');
-      assert.ok(native.result === null);
-      assert.ok(
+      test.assert.ok(native?.status === 'completed');
+      test.assert.ok(native.payload === '{}');
+      test.assert.ok(native.result === null);
+      test.assert.ok(
         f.context.db.orm
           .select()
           .from(s.workflow_retired_correlations)
@@ -129,44 +131,50 @@ testStable(
       );
       const calls = f.bodies.length;
 
-      await expect(f.execute(event, 'replay-retired-generation')).rejects.toSatisfy(() => true);
-      assert.strictEqual(f.bodies.length, calls);
+      await test
+        .expect(f.execute(event, 'replay-retired-generation'))
+        .rejects.toSatisfy(() => true);
+      test.assert.strictEqual(f.bodies.length, calls);
       await Effect.runPromise(
         Effect.gen(function* () {
           const m = yield* Materials;
           const docs = yield* Pages;
 
-          assert.strictEqual(
+          test.assert.strictEqual(
             (yield* m.deletion({ materialId: output.material_id })).operationId,
             accepted.operationId
           );
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(
               m.materialGeneration({ requestId: saved.request.id, verifyOnly: true })
             )).kind === 'not_found'
           );
           const preview = yield* docs.previewDeletion({ id: saved.input.id });
 
-          expect(preview.blockedVersionIds).toStrictEqual([]);
+          test.expect(preview.blockedVersionIds).toStrictEqual([]);
           yield* docs.delete({ pageId: saved.input.id, token: preview.token });
         }).pipe(Effect.provide(f.domain()))
       );
       await f.reopen();
-      expect(
-        f.context.db.orm
-          .select()
-          .from(s.material_generation_requests)
-          .where(eq(s.material_generation_requests.id, saved.request.id))
-          .get()
-      ).toStrictEqual(retired);
-      expect(
-        f.context.db.orm
-          .select()
-          .from(s.material_deletion_requests)
-          .where(eq(s.material_deletion_requests.request_id, saved.request.id))
-          .get()
-      ).toStrictEqual(owner);
-      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      test
+        .expect(
+          f.context.db.orm
+            .select()
+            .from(s.material_generation_requests)
+            .where(eq(s.material_generation_requests.id, saved.request.id))
+            .get()
+        )
+        .toStrictEqual(retired);
+      test
+        .expect(
+          f.context.db.orm
+            .select()
+            .from(s.material_deletion_requests)
+            .where(eq(s.material_deletion_requests.request_id, saved.request.id))
+            .get()
+        )
+        .toStrictEqual(owner);
+      test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }

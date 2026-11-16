@@ -1,3 +1,4 @@
+import { plainBlock } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises source extraction integrity behavior through real persistence            │
@@ -11,14 +12,9 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { plainBlock } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Sources } from '#server/features/sources/index';
 import { SourceStore } from '#server/features/sources/store/index';
@@ -26,10 +22,10 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
 
-testStable(
+test.stable(
   'an unpinned published source extraction is immutable until its retained identity is released',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     try {
@@ -74,15 +70,18 @@ testStable(
             sql`DELETE FROM content_snapshots WHERE id=${id}`,
             sql`UPDATE source_extraction_revisions SET revision=revision WHERE snapshot_id=${id}`
           ])
-            assert.throws(() => context.db.orm.run(statement));
+            test.assert.throws(() => context.db.orm.run(statement));
 
-          assert.strictEqual((yield* sources.currentExtraction({ id: source.id }))?.snapshotId, id);
-          assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
-          assert.strictEqual(
+          test.assert.strictEqual(
+            (yield* sources.currentExtraction({ id: source.id }))?.snapshotId,
+            id
+          );
+          test.assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
+          test.assert.strictEqual(
             context.db.orm.get(sql`SELECT 1 FROM content_snapshots WHERE id=${id}`),
             undefined
           );
-          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+          test.expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(
           Effect.provide(Sources.layer),
           Effect.provide(Layer.succeed(Database, { store: context }))

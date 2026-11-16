@@ -1,18 +1,14 @@
 import { agentRunIdSchema, executionIdSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport } from '#client/test/rpc.tsx';
+import { test } from '@study/testing';
 
 import { AgentProgress } from './index';
 
-vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-afterEach(() => {
-  cleanup();
+test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+test.afterEach(() => {
+  test.cleanup();
 });
 
-testStable(
+test.stable(
   'renders intermediate text and tool activity, replaces reconnect snapshots, and releases the viewer',
   async () => {
     const run = {
@@ -33,8 +29,8 @@ testStable(
     };
 
     let snapshots: unknown = [run];
-    const fixture = rpcTestTransport(async () => snapshots);
-    const mounted = render(<AgentProgress executionId={executionIdSchema.make('run')} />, {
+    const fixture = test.rpcTestTransport(async () => snapshots);
+    const mounted = test.render(<AgentProgress executionId={executionIdSchema.make('run')} />, {
       wrapper: fixture.wrapper
     });
     const receive = async (value: unknown) => {
@@ -42,19 +38,21 @@ testStable(
       await fixture.notify();
     };
 
-    await screen.findByText('First');
-    expect(screen.getByText('First')).toBeInTheDocument();
-    expect(screen.getByText('AssistantToolWorking')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'AssistantCallReadSettings AssistantToolDone' })
-    ).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getAllByRole('button')).toHaveLength(2);
-    await act(() => receive([{ ...run, text: 'First second', revision: 2n }]));
-    expect(screen.getByRole('region', { name: 'AgentStreamingPreview' })).toHaveTextContent(
-      'First second'
-    );
-    expect(screen.queryByText('FirstFirst second')).not.toBeInTheDocument();
-    await act(() =>
+    await test.screen.findByText('First');
+    test.expect(test.screen.getByText('First')).toBeInTheDocument();
+    test.expect(test.screen.getByText('AssistantToolWorking')).toBeInTheDocument();
+    test
+      .expect(
+        test.screen.getByRole('button', { name: 'AssistantCallReadSettings AssistantToolDone' })
+      )
+      .toHaveAttribute('aria-expanded', 'false');
+    test.expect(test.screen.getAllByRole('button')).toHaveLength(2);
+    await test.act(() => receive([{ ...run, text: 'First second', revision: 2n }]));
+    test
+      .expect(test.screen.getByRole('region', { name: 'AgentStreamingPreview' }))
+      .toHaveTextContent('First second');
+    test.expect(test.screen.queryByText('FirstFirst second')).not.toBeInTheDocument();
+    await test.act(() =>
       receive([
         {
           ...run,
@@ -65,14 +63,16 @@ testStable(
         }
       ])
     );
-    expect(screen.getByRole('region', { name: 'workspace.state.completed' })).toBeInTheDocument();
-    expect(screen.queryByText('AgentStreamingPreview')).not.toBeInTheDocument();
+    test
+      .expect(test.screen.getByRole('region', { name: 'workspace.state.completed' }))
+      .toBeInTheDocument();
+    test.expect(test.screen.queryByText('AgentStreamingPreview')).not.toBeInTheDocument();
     mounted.unmount();
   }
 );
 
-testStable('does not expose raw structured output as a finished document', async () => {
-  const fixture = rpcTestTransport(async () => [
+test.stable('does not expose raw structured output as a finished document', async () => {
+  const fixture = test.rpcTestTransport(async () => [
     {
       runId: agentRunIdSchema.make('structured'),
       executionId: executionIdSchema.make('run'),
@@ -88,8 +88,10 @@ testStable('does not expose raw structured output as a finished document', async
     }
   ]);
 
-  render(<AgentProgress executionId={executionIdSchema.make('run')} />, {
+  test.render(<AgentProgress executionId={executionIdSchema.make('run')} />, {
     wrapper: fixture.wrapper
   });
-  await waitFor(() => expect(screen.queryByText('{"unfinished":')).not.toBeInTheDocument());
+  await test.waitFor(() =>
+    test.expect(test.screen.queryByText('{"unfinished":')).not.toBeInTheDocument()
+  );
 });

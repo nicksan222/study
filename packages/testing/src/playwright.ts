@@ -1,5 +1,9 @@
+import AxeBuilder from '@axe-core/playwright';
 import type { Locator } from 'playwright';
+import { test } from 'playwright/test';
 import { expect as base } from 'playwright/test';
+
+import { testPolicy } from './config.ts';
 
 /** A substring of a prewrapped paragraph needs its own rendered range, not the paragraph's box. */
 export const expect = base.extend({
@@ -98,7 +102,7 @@ export const expect = base.extend({
                 })
               );
             }, text),
-          { timeout: options.timeout ?? 5000 }
+          { timeout: options.timeout ?? testPolicy.asyncTimeout }
         )
         .toBe(!this.isNot);
     } catch {
@@ -111,4 +115,47 @@ export const expect = base.extend({
         `Expected unique substring ${JSON.stringify(text)} ${this.isNot ? 'not ' : ''}to be fully visible, unclipped and unobscured in ${locator}`
     };
   }
+});
+
+/** Playwright owns browser lifetimes and artifacts; every journey checks errors and exposes accessibility evidence. */
+export const testBrowser = test.extend<{
+  expectAccessibility: (name: string) => Promise<void>;
+  browserErrors: void;
+}>({
+  expectAccessibility: async ({ page }, provide, info) => {
+    await provide(async (name) => {
+      if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(name))
+        throw new Error('Unsafe accessibility evidence name');
+
+      const result = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+        .analyze();
+
+      await info.attach(`accessibility-${name}`, {
+        body: JSON.stringify(result, null, 2),
+        contentType: 'application/json'
+      });
+      expect.soft(result.violations).toEqual([]);
+    });
+  },
+  browserErrors: [
+    async ({ page }, provide, info) => {
+      const errors: Error[] = [];
+      const record = (error: Error) => {
+        errors.push(error);
+      };
+
+      page.on('pageerror', record);
+
+      try {
+        await provide();
+
+        if (info.status === info.expectedStatus && errors.length)
+          throw new AggregateError(errors, 'Browser errors');
+      } finally {
+        page.off('pageerror', record);
+      }
+    },
+    { auto: true }
+  ]
 });

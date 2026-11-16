@@ -1,26 +1,21 @@
 import { StudyError } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import type { ReactNode } from 'react';
-import { expect, vi } from 'vite-plus/test';
-
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { authoredPage } from '../document-editing/test-support';
 import { TargetPicker, EvidenceTarget } from './annotation-target';
-vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
 
-function setup(handlers: Parameters<typeof rpcHandlersTransport>[0], child: ReactNode) {
-  const harness = rpcHandlersTransport(handlers);
+function setup(handlers: Parameters<typeof test.rpcHandlersTransport>[0], child: ReactNode) {
+  const harness = test.rpcHandlersTransport(handlers);
 
-  return { ...render(<harness.wrapper>{child}</harness.wrapper>), ...harness };
+  return { ...test.render(<harness.wrapper>{child}</harness.wrapper>), ...harness };
 }
 
-testStable('selects one canonical block and rejects a split UTF-16 surrogate pair', async () => {
+test.stable('selects one canonical block and rejects a split UTF-16 surrogate pair', async () => {
   const owner = authoredPage(41n, 'A😀BC', 101n);
   const doc = owner.version!;
-  const pick = vi.fn();
+  const pick = test.vi.fn();
 
   setup(
     {
@@ -29,16 +24,16 @@ testStable('selects one canonical block and rejects a split UTF-16 surrogate pai
     },
     <TargetPicker pageId={owner.id} initialVersion={doc.id} onPick={pick} />
   );
-  await userEvent.setup().click(await screen.findByLabelText('PageBlock'));
-  await userEvent.setup().click(await screen.findByRole('option', { name: '1 · A😀BC' }));
-  const field = screen.getByLabelText<HTMLTextAreaElement>('PageSelectPassage');
+  await test.userEvent.setup().click(await test.screen.findByLabelText('PageBlock'));
+  await test.userEvent.setup().click(await test.screen.findByRole('option', { name: '1 · A😀BC' }));
+  const field = test.screen.getByLabelText<HTMLTextAreaElement>('PageSelectPassage');
 
   field.setSelectionRange(1, 2);
-  fireEvent.select(field);
-  expect(pick).toHaveBeenLastCalledWith(undefined);
+  test.fireEvent.select(field);
+  test.expect(pick).toHaveBeenLastCalledWith(undefined);
   field.setSelectionRange(1, 3);
-  fireEvent.select(field);
-  expect(pick).toHaveBeenLastCalledWith({
+  test.fireEvent.select(field);
+  test.expect(pick).toHaveBeenLastCalledWith({
     pageId: owner.id,
     range: {
       versionId: doc.id,
@@ -48,7 +43,7 @@ testStable('selects one canonical block and rejects a split UTF-16 surrogate pai
       end: 3
     }
   });
-  expect(screen.getByLabelText('AnnotationPreview')).toHaveTextContent('😀');
+  test.expect(test.screen.getByLabelText('AnnotationPreview')).toHaveTextContent('😀');
 });
 
 function retainedTarget() {
@@ -68,7 +63,7 @@ function retainedTarget() {
   return { owner, version, target };
 }
 
-testStable('a retained reference never follows a different document identity', async () => {
+test.stable('a retained reference never follows a different document identity', async () => {
   const { version, target } = retainedTarget();
 
   setup(
@@ -80,24 +75,24 @@ testStable('a retained reference never follows a different document identity', a
     },
     <EvidenceTarget preview reference={{ kind: 'range', target }} />
   );
-  expect(await screen.findByText('ReaderUnavailable')).toBeVisible();
-  expect(screen.queryByText('Retained private evidence')).toBeNull();
+  test.expect(await test.screen.findByText('ReaderUnavailable')).toBeVisible();
+  test.expect(test.screen.queryByText('Retained private evidence')).toBeNull();
 });
 
-testStable(
+test.stable(
   'a mounted retained reference discards its body after a committed retirement hint',
   async () => {
     const { version, target } = retainedTarget();
-    const read = vi.fn().mockResolvedValue(version);
+    const read = test.vi.fn().mockResolvedValue(version);
     const view = setup(
       { 'pages.version': read },
       <EvidenceTarget preview reference={{ kind: 'range', target }} />
     );
 
-    await screen.findByText('Retained');
+    await test.screen.findByText('Retained');
     read.mockRejectedValue(new StudyError('not_found', 'Retired'));
-    await act(() => view.notify());
-    await waitFor(() => expect(screen.queryByText('Retained')).toBeNull());
-    expect(await screen.findByText('ReaderUnavailable')).toBeVisible();
+    await test.act(() => view.notify());
+    await test.waitFor(() => test.expect(test.screen.queryByText('Retained')).toBeNull());
+    test.expect(await test.screen.findByText('ReaderUnavailable')).toBeVisible();
   }
 );

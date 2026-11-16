@@ -494,13 +494,70 @@ Affected checks do not establish that the entire repository passes. `bun run che
 full CI gates remain required; native launchers and desktop lifecycle commands keep their
 existing interface. The standalone landing workspace is checked as an uncached root task.
 
-Tests use the native Vite+ runner and classified registrations from `@study/testing/vitest`.
-Shared waiting and worker budgets live in `@study/testing/config`; React setup lives in
-`@study/testing/react/setup`. CI uses one worker per runner so concurrent Turbo tasks do
-not multiply test workers. Use `waitFor` or `withinTestDeadline` from the shared package,
-`@study/testing/process` for bounded subprocesses with automatic test cleanup, and
-`await using` with `temporaryDirectory` from `@study/testing/resources` for fixture storage.
-Oxlint rejects local subprocess management, sleep polling, temporary-directory shell
-commands, test wrappers and runner configuration in test cases. Add reusable infrastructure
-to `packages/testing` or `tooling/testing`; integration environment setup and diagnostics
-live in `tooling/testing/integrations`, separate from native provider test reports.
+Tests import one facade. Runner configuration supplies the native fixture graph for that
+environment, so the test author does not choose a setup package or compose providers.
+
+```tsx
+import { test } from '@study/testing';
+
+import { useGeneralSettings } from '#client/pages/settings/general/use-general.ts';
+
+test.stable('renders the saved settings', async ({ react, rpc }) => {
+  rpc.given({
+    'settings.appSettings': { language: 1, appearance: 3, zoomPercent: 100, onboarded: true }
+  });
+  const { result } = react.renderHook(useGeneralSettings);
+  await react.waitFor(() => test.expect(result.current.data?.zoomPercent).toBe(100));
+});
+```
+
+`test.expect`, `test.assert`, `test.expectTypeOf`, suite hooks and `test.vi` expose the native
+assertion and mock APIs. Use `test.mock` and `test.hoisted` for module mocking: the shared
+Vite plugin preserves native hoisting while keeping the single import. Browser tests use
+the same import and their native Playwright assertions and page fixtures.
+
+Fixtures initialize when requested through callback parameters, share their dependencies
+within that test, and release consumers before their backing resources. Pure tests open
+no database or application. Parameterized cases that need fixtures use native `.for`:
+
+```ts
+import { test } from '@study/testing';
+
+test.stable.for(['english', 'italian'] as const)('opens Notes in %s', async (locale, { page }) => {
+  page.open('/notes', { locale });
+  test.expect(await page.screen.findByRole('main')).toBeVisible();
+});
+```
+
+| Fixture       | Prepared resources                                                                                 |
+| ------------- | -------------------------------------------------------------------------------------------------- |
+| `react`       | Component/hook rendering, memory router context, localization, UI providers and user interaction.  |
+| Client `rpc`  | Schema-validated `given`, `handle` and `update`; unplanned calls fail teardown.                    |
+| Client `page` | Real app routes with explicit empty-workspace snapshots and owned router histories.                |
+| `db`          | One isolated SQLite connection, opened only when requested.                                        |
+| `databases`   | An owned factory for tests requiring several independent databases or migration inputs.            |
+| `server`      | Real application, store and bound Effect service runtime; workers start explicitly.                |
+| Server `rpc`  | Real HTTP endpoint and scoped client, sharing the requested server; `reopen()` preserves its data. |
+
+Stable, regression, migration and characterization classifications share the prepared
+runner: `test.regression({ regression: 'evidence_integrity' })(name, callback)` receives
+the same fixtures. Keep catalog metadata literal. For a localized React case, use
+`test.stable.extend('locale', 'italian')(name, callback)`.
+
+Use `test.runTestEffect` for scoped Effect execution and `test.observeUntil` for observable
+state. `test.pollUntil` is reserved for external engines without subscriptions and needs
+an explicit observation budget. Process and temporary-resource helpers register ownership
+with the native runner; fixture implementations and standalone scripts retain internal
+facets for composing their owners.
+
+Oxlint requires the public namespace in ordinary tests, keeps classifications visible,
+rejects direct assertion/helper imports, and prevents manual database/application
+construction and local setup wrappers. The narrow fixture-lifecycle tests exercise the
+constructors themselves. Domain database tests use their own runner environment so merely
+loading a test never configures server workflow schema. Native RPC and browser checks use
+real services and isolated data.
+
+Generic mechanisms live in `packages/testing`; database, protocol and application
+fixtures stay with their owners. Integration drivers and disposable environment assembly
+live in `tooling/testing/integrations`. `testPolicy` remains a pure export for runner
+configuration; importing the public package from configuration never loads a test runner.

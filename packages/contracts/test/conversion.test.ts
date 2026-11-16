@@ -1,10 +1,9 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { replySnapshotSchema } from '../src/notes/schemas.ts';
 
-testStable(
+test.stable(
   'conversion provenance requires its captured target and cannot decorate other operations',
   () => {
     const decode = Schema.decodeUnknownSync(replySnapshotSchema);
@@ -22,7 +21,7 @@ testStable(
       }
     };
 
-    expect(decode(snapshot).generation?.origin).toBe('convert');
+    test.expect(decode(snapshot).generation?.origin).toBe('convert');
 
     for (const generation of [
       { ...snapshot.generation, conversion: undefined },
@@ -30,6 +29,6 @@ testStable(
       { ...snapshot.generation, questionVersionId: 3n },
       { ...snapshot.generation, conversion: { strategyId: 'chatgpt', baseVersionId: 9n } }
     ])
-      expect(() => decode({ ...snapshot, generation })).toThrow();
+      test.expect(() => decode({ ...snapshot, generation })).toThrow();
   }
 );

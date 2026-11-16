@@ -1,24 +1,26 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('rejects chained type assertions that bypass type checking', async () => {
+test.stable('rejects chained type assertions that bypass type checking', async () => {
   const diagnostics = await lintRule(
     'no-double-assertion',
     { 'src/domain.ts': 'const value = input as unknown as string;' },
     false
   );
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable('allows single assertions and skips tests while catching angle assertions', async () => {
-  const diagnostics = await lintRule('no-double-assertion', {
-    'src/a.ts':
-      'const a = <string><any>value; const b = value as string; const c = value as const;',
-    'src/a.test.ts': 'const a = value as unknown as string;'
-  });
+test.stable(
+  'allows single assertions and skips tests while catching angle assertions',
+  async () => {
+    const diagnostics = await lintRule('no-double-assertion', {
+      'src/a.ts':
+        'const a = <string><any>value; const b = value as string; const c = value as const;',
+      'src/a.test.ts': 'const a = value as unknown as string;'
+    });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-});
+    test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  }
+);

@@ -1,3 +1,4 @@
+import { workflow_executions, workflow_retired_executions } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Reconciles durable cancellation against official persisted execution state.        │
@@ -9,10 +10,7 @@
  * │ This serializes admission; official Effect services own execution and recovery.          │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { workflow_executions, workflow_retired_executions } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, ManagedRuntime, Schema, Option, Context, Scope, Exit } from 'effect';
 import {
   ClusterSchema,
@@ -23,7 +21,6 @@ import {
   Sharding
 } from 'effect/cluster';
 import { DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';
-import { expect } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { reconcileCancellation } from '#server/platform/workflows/cancellation';
@@ -37,10 +34,10 @@ const workflow = Workflow.make('cancel-recovery-test', {
 });
 
 for (const accepted of [false, true, 'completed'] as const)
-  testStable(
+  test.stable(
     `cancel intent survives restart with accepted=${accepted} and retirement clears official messages`,
-    async () => {
-      const location = await createTestDatabase();
+    async ({ databases }) => {
+      const location = await databases();
       const context = new ServerContext(await location.open());
       let runtime = ManagedRuntime.make(workflowEngineLayer(context));
       const id = 'cancel-recovery';
@@ -105,19 +102,23 @@ for (const accepted of [false, true, 'completed'] as const)
               )
             });
 
-            expect(
-              Option.isNone(yield* storage.requestIdForPrimaryKey({ address, tag: 'run', id: '' }))
-            ).toBe(true);
+            test
+              .expect(
+                Option.isNone(
+                  yield* storage.requestIdForPrimaryKey({ address, tag: 'run', id: '' })
+                )
+              )
+              .toBe(true);
           }).pipe(Effect.timeout('5 seconds'), Effect.provideService(Scope.Scope, scope))
         );
-        expect(context.db.orm.select().from(workflow_executions).get()?.status).toBe(
-          accepted === 'completed' ? 'completed' : 'cancelled'
-        );
+        test
+          .expect(context.db.orm.select().from(workflow_executions).get()?.status)
+          .toBe(accepted === 'completed' ? 'completed' : 'cancelled');
         scrubRetiredExecution(context.db, id);
         scrubRetiredExecution(context.db, id);
-        expect(workflowStore(context).execution(id)?.status).toBe(
-          accepted === 'completed' ? 'completed' : 'cancelled'
-        );
+        test
+          .expect(workflowStore(context).execution(id)?.status)
+          .toBe(accepted === 'completed' ? 'completed' : 'cancelled');
       } finally {
         await Effect.runPromise(Scope.close(scope, Exit.void));
         await runtime.dispose();

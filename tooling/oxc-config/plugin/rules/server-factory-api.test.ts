@@ -1,11 +1,10 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintFiles } from '../test/utils.ts';
 
 const store = "import * as api from '#server/platform/definitions/define-store';";
 
-testStable(
+test.stable(
   'RPC exports require canonical imported factories including aliases and nested paths',
   async () => {
     const results = await lintFiles(
@@ -23,11 +22,11 @@ testStable(
       'module-factories'
     );
 
-    assert.strictEqual(results.length, 3, JSON.stringify(results));
+    test.assert.strictEqual(results.length, 3, JSON.stringify(results));
   }
 );
 
-testStable('workflow exports require canonical definitions and registrations', async () => {
+test.stable('workflow exports require canonical definitions and registrations', async () => {
   const results = await lintFiles(
     {
       'src/features/a/workflows/index.ts': `
@@ -47,10 +46,10 @@ testStable('workflow exports require canonical definitions and registrations', a
     'module-factories'
   );
 
-  assert.strictEqual(results.length, 3, JSON.stringify(results));
+  test.assert.strictEqual(results.length, 3, JSON.stringify(results));
 });
 
-testStable(
+test.stable(
   'store operations require the correct canonical branded descriptor constructor',
   async () => {
     const files: Record<string, string> = {};
@@ -64,11 +63,11 @@ testStable(
       files[`src/features/${name}/store/index.ts`] =
         `${store} const {storeQuery:q,storeMutation:m} = api; const fake = x => x; api.defineStore({entity:{singular:'item',plural:'items'},make:()=>({queries:{item:${query}},mutations:{save:${mutation}}})});`;
 
-    assert.strictEqual((await lintFiles(files, 'operation-conventions')).length, 4);
+    test.assert.strictEqual((await lintFiles(files, 'operation-conventions')).length, 4);
   }
 );
 
-testStable(
+test.stable(
   'services reject raw Database and obsolete imported store bindings without property bans',
   async () => {
     const results = await lintFiles(
@@ -88,11 +87,11 @@ testStable(
       'server-layer-boundary'
     );
 
-    assert.strictEqual(results.length, 3, JSON.stringify(results));
+    test.assert.strictEqual(results.length, 3, JSON.stringify(results));
   }
 );
 
-testStable('transaction aliases reject asynchronous callbacks', async () => {
+test.stable('transaction aliases reject asynchronous callbacks', async () => {
   const results = await lintFiles(
     {
       'src/features/a/service/index.ts': `${store} const {transaction: run} = api; run(async tx => tx.store(Store));`,
@@ -103,10 +102,10 @@ testStable('transaction aliases reject asynchronous callbacks', async () => {
     'synchronous-transactions'
   );
 
-  assert.strictEqual(results.length, 1);
+  test.assert.strictEqual(results.length, 1);
 });
 
-testStable('publication transaction aliases cannot perform I/O', async () => {
+test.stable('publication transaction aliases cannot perform I/O', async () => {
   const results = await lintFiles(
     {
       'src/features/a/service/index.ts': `${store} const {transaction: run} = api; run(async tx => tx.store(Store));`,
@@ -117,10 +116,10 @@ testStable('publication transaction aliases cannot perform I/O', async () => {
     'transaction-no-io'
   );
 
-  assert.strictEqual(results.length, 1);
+  test.assert.strictEqual(results.length, 1);
 });
 
-testStable('native feature conversion stays behind canonical factories', async () => {
+test.stable('native feature conversion stays behind canonical factories', async () => {
   const results = await lintFiles(
     {
       'src/features/a/rpc/index.ts':
@@ -134,10 +133,10 @@ testStable('native feature conversion stays behind canonical factories', async (
     'workflow-boundary'
   );
 
-  assert.strictEqual(results.length, 3, JSON.stringify(results));
+  test.assert.strictEqual(results.length, 3, JSON.stringify(results));
 });
 
-testStable(
+test.stable(
   'backend useStore is not a React hook and frontend hook rules stay enforced',
   async () => {
     const results = (
@@ -153,12 +152,12 @@ testStable(
       )
     ).filter(({ code }) => code.includes('rules-of-hooks'));
 
-    assert.strictEqual(results.length, 1, JSON.stringify(results));
-    assert.ok(results[0]?.filename.includes('/apps/client/'));
+    test.assert.strictEqual(results.length, 1, JSON.stringify(results));
+    test.assert.ok(results[0]?.filename.includes('/apps/client/'));
   }
 );
 
-testStable(
+test.stable(
   'canonical bindings resist fake modules, type imports, cyclic aliases and nested namespace destructuring',
   async () => {
     const results = await lintFiles(
@@ -186,11 +185,11 @@ testStable(
       'module-factories'
     );
 
-    assert.strictEqual(results.length, 5, JSON.stringify(results));
+    test.assert.strictEqual(results.length, 5, JSON.stringify(results));
   }
 );
 
-testStable(
+test.stable(
   'Database namespace reads and default store imports retain precise boundaries',
   async () => {
     const results = await lintFiles(
@@ -209,11 +208,11 @@ testStable(
       'server-layer-boundary'
     );
 
-    assert.strictEqual(results.length, 3, JSON.stringify(results));
+    test.assert.strictEqual(results.length, 3, JSON.stringify(results));
   }
 );
 
-testStable(
+test.stable(
   'local native conversion aliases cannot bypass factories while shadowed imports stay unrelated',
   async () => {
     const results = await lintFiles(
@@ -230,11 +229,11 @@ testStable(
       'workflow-boundary'
     );
 
-    assert.strictEqual(results.length, 2, JSON.stringify(results));
+    test.assert.strictEqual(results.length, 2, JSON.stringify(results));
   }
 );
 
-testStable(
+test.stable(
   'unregistered workflow factories cannot publish an alternate registration API',
   async () => {
     const results = await lintFiles(
@@ -253,11 +252,11 @@ testStable(
       'module-factories'
     );
 
-    assert.strictEqual(results.length, 1);
+    test.assert.strictEqual(results.length, 1);
   }
 );
 
-testStable('spreading query descriptors cannot bypass required literal roles', async () => {
+test.stable('spreading query descriptors cannot bypass required literal roles', async () => {
   const results = await lintFiles(
     {
       'src/features/a/store/index.ts': `${store} const operations = { item: {role:'required'} }; const queries = {...operations}; api.defineStore({entity:{singular:'item',plural:'items'},make:()=>({queries,mutations:{}})});`
@@ -265,10 +264,10 @@ testStable('spreading query descriptors cannot bypass required literal roles', a
     'operation-conventions'
   );
 
-  assert.strictEqual(results.length, 1);
+  test.assert.strictEqual(results.length, 1);
 });
 
-testStable(
+test.stable(
   'nested store destructuring enforces obsolete bindings without trusting shadows or type imports',
   async () => {
     const results = await lintFiles(
@@ -285,12 +284,12 @@ testStable(
       'server-layer-boundary'
     );
 
-    assert.strictEqual(results.length, 3, JSON.stringify(results));
-    assert.ok(results.every(({ filename }) => filename.includes('/features/a/')));
+    test.assert.strictEqual(results.length, 3, JSON.stringify(results));
+    test.assert.ok(results.every(({ filename }) => filename.includes('/features/a/')));
   }
 );
 
-testStable(
+test.stable(
   'const aliases preserve local destructured native conversion provenance and cycle protection',
   async () => {
     const results = await lintFiles(
@@ -316,6 +315,6 @@ testStable(
       'workflow-boundary'
     );
 
-    assert.strictEqual(results.length, 2, JSON.stringify(results));
+    test.assert.strictEqual(results.length, 2, JSON.stringify(results));
   }
 );

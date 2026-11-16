@@ -1,18 +1,25 @@
+import { projectIdSchema, automaticProjectIcon } from '@study/contracts';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { screen } from '@testing-library/react';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
-import { renderPage } from '#client/test/render-page.tsx';
-
-testStable.each(['english', 'italian'] as const)(
+test.stable.for(['english', 'italian'] as const)(
   'opens the Projects page in %s',
-  async (locale) => {
-    const { router } = renderPage('/projects?project=9007199254740993', locale);
+  async (locale, { page, rpc }) => {
+    rpc.given({
+      'projects.project': {
+        id: projectIdSchema.make(9007199254740993n),
+        name: 'Biology',
+        icon: automaticProjectIcon,
+        examOn: null,
+        createdAt: 1n,
+        updatedAt: 1n
+      }
+    });
+    const { router } = page.open('/projects?project=9007199254740993', { locale });
 
-    expect(
-      await screen.findByRole('heading', { name: catalogs[locale].Projects })
-    ).toBeInTheDocument();
-    expect(router.state.location.search.project).toBe('9007199254740993');
+    test
+      .expect(await test.screen.findByRole('heading', { name: catalogs[locale].Projects }))
+      .toBeInTheDocument();
+    test.expect(router.state.location.search.project).toBe('9007199254740993');
   }
 );

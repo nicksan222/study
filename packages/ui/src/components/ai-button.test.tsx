@@ -1,18 +1,15 @@
-import { testStable } from '@study/testing/vitest';
-import { render, screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { AiButton, AiActivity } from './ai-button';
 import { TooltipProvider } from './tooltip';
 
-testStable(
+test.stable(
   'keeps a pending AI action disabled while exposing its task on hover and keyboard focus',
   async () => {
-    const clicked = vi.fn();
-    const user = userEvent.setup();
+    const clicked = test.vi.fn();
+    const user = test.userEvent.setup();
 
-    render(
+    test.render(
       <TooltipProvider delay={0}>
         <AiButton
           label="Suggest title"
@@ -23,42 +20,42 @@ testStable(
         />
       </TooltipProvider>
     );
-    const button = screen.getByRole('button', { name: 'Suggest title' });
+    const button = test.screen.getByRole('button', { name: 'Suggest title' });
 
-    expect(button).toBeDisabled();
-    expect(button).toHaveAttribute('aria-busy', 'true');
-    expect(screen.getByRole('status')).toHaveClass('sr-only');
+    test.expect(button).toBeDisabled();
+    test.expect(button).toHaveAttribute('aria-busy', 'true');
+    test.expect(test.screen.getByRole('status')).toHaveClass('sr-only');
     await user.hover(button.parentElement!);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Writing a title');
+    test.expect(await test.screen.findByRole('tooltip')).toHaveTextContent('Writing a title');
     await user.unhover(button.parentElement!);
     await user.tab();
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Writing a title');
+    test.expect(await test.screen.findByRole('tooltip')).toHaveTextContent('Writing a title');
     await user.click(button);
-    expect(clicked).not.toHaveBeenCalled();
+    test.expect(clicked).not.toHaveBeenCalled();
   }
 );
 
-testStable('shows the current task without requiring hover or keyboard discovery', async () => {
-  render(
+test.stable('shows the current task without requiring hover or keyboard discovery', async () => {
+  test.render(
     <TooltipProvider delay={0}>
       <AiActivity label="Reading your pages" />
     </TooltipProvider>
   );
-  const status = screen.getByRole('status');
+  const status = test.screen.getByRole('status');
 
-  expect(status).toHaveAccessibleName('Reading your pages');
-  expect(within(status).getByText('Reading your pages')).toBeVisible();
-  expect(status).toHaveAttribute('data-state', 'running');
+  test.expect(status).toHaveAccessibleName('Reading your pages');
+  test.expect(test.within(status).getByText('Reading your pages')).toBeVisible();
+  test.expect(status).toHaveAttribute('data-state', 'running');
 });
 
-testStable.each(['waiting', 'stopping', 'attention'] as const)(
+test.stable.each(['waiting', 'stopping', 'attention'] as const)(
   'keeps %s work visible without an active-generation animation',
   (state) => {
-    render(<AiActivity label="Current work" state={state} />);
-    const status = screen.getByRole('status', { name: 'Current work' });
+    test.render(<AiActivity label="Current work" state={state} />);
+    const status = test.screen.getByRole('status', { name: 'Current work' });
 
-    expect(status).toHaveAttribute('data-state', state);
-    expect(within(status).getByText('Current work')).toBeVisible();
-    expect(status.querySelector('[data-working="true"]')).toBeNull();
+    test.expect(status).toHaveAttribute('data-state', state);
+    test.expect(test.within(status).getByText('Current work')).toBeVisible();
+    test.expect(status.querySelector('[data-working="true"]')).toBeNull();
   }
 );

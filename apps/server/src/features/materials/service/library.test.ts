@@ -1,3 +1,4 @@
+import { projectIdSchema, materialIdSchema, noteIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies library identities survive collection and note organization changes.      │
@@ -10,20 +11,15 @@
  * │ Uses migrated temporary databases and public feature services without provider access.   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { projectIdSchema, materialIdSchema, noteIdSchema } from '@study/contracts';
 import { MaterialsRpc } from '@study/contracts';
 import type { MaterialContentInput } from '@study/contracts';
 import { NotesRpc } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { sql } from '@study/db';
 import { workflowEvents } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { NotesRpcLive } from '#server/features/notes/rpc/index';
@@ -69,17 +65,17 @@ function createAuthored(projectId: typeof projectIdSchema.Type, title: string) {
     })
   ).pipe(
     Effect.map((value) => {
-      assert.ok(value.version);
+      test.assert.ok(value.version);
 
       return { ...value, version: value.version };
     })
   );
 }
 
-testStable(
+test.stable(
   'native RPC creates an uncollected material shared by quick notes and preserves it after note deletion',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     let context = new ServerContext(await location.open());
     const handlers = () =>
       Layer.mergeAll(materialRpcHandlers, NotesRpcLive.pipe(Layer.provide(testLiveQueries))).pipe(
@@ -104,7 +100,7 @@ testStable(
               });
 
             yield* materials('materials.detach', { noteId: first.id, materialId: material.id });
-            assert.strictEqual(
+            test.assert.strictEqual(
               (yield* materials('materials.materials', {
                 noteId: second.id,
                 limit: 10,
@@ -112,7 +108,7 @@ testStable(
               })).items[0]?.id,
               material.id
             );
-            assert.strictEqual(
+            test.assert.strictEqual(
               (yield* materials('materials.materials', {
                 noteId: first.id,
                 limit: 10,
@@ -135,9 +131,9 @@ testStable(
             const materials = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
             const reopened = yield* materials('materials.material', { id: saved.id });
 
-            assert.strictEqual(reopened.version.id, saved.version.id);
-            expect(reopened.version.content).toStrictEqual(saved.version.content);
-            assert.strictEqual(
+            test.assert.strictEqual(reopened.version.id, saved.version.id);
+            test.expect(reopened.version.content).toStrictEqual(saved.version.content);
+            test.assert.strictEqual(
               (yield* materials('materials.materials', { limit: 10, archived: false })).items[0]
                 ?.id,
               saved.id
@@ -152,10 +148,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'flat collections organize shared materials and notes without owning source bytes or lineage',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     let context = new ServerContext(await location.open());
     const services = () =>
       Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer, Sources.layer, Notes.layer).pipe(
@@ -196,22 +192,30 @@ testStable(
 
           yield* projects.addMaterial({ projectId: a.id, materialId: original.id });
           yield* projects.addMaterial({ projectId: a.id, materialId: material.id });
-          assert.strictEqual(
+          test.assert.strictEqual(
             (yield* materials.materials({ projectId: a.id, archived: false, limit: 10 })).items
               .length,
             2
           );
           yield* projects.removeMaterial({ projectId: a.id, materialId: material.id });
-          expect(
-            (yield* materials.materials({ projectId: a.id, archived: false, limit: 10 })).items.map(
-              (m) => m.id
+          test
+            .expect(
+              (yield* materials.materials({
+                projectId: a.id,
+                archived: false,
+                limit: 10
+              })).items.map((m) => m.id)
             )
-          ).toStrictEqual([original.id]);
-          expect(
-            (yield* materials.materials({ projectId: b.id, archived: false, limit: 10 })).items.map(
-              (m) => m.id
+            .toStrictEqual([original.id]);
+          test
+            .expect(
+              (yield* materials.materials({
+                projectId: b.id,
+                archived: false,
+                limit: 10
+              })).items.map((m) => m.id)
             )
-          ).toStrictEqual([material.id]);
+            .toStrictEqual([material.id]);
           const outboxBefore = context.db.orm.select().from(workflowEvents).all().length;
           const missingProject = Schema.decodeUnknownSync(projectIdSchema)(999n);
           const missingMaterial = Schema.decodeUnknownSync(materialIdSchema)(999n);
@@ -228,13 +232,13 @@ testStable(
               content
             })
           ])
-            assert.ok((yield* Effect.flip(mutation)).kind === 'not_found');
+            test.assert.ok((yield* Effect.flip(mutation)).kind === 'not_found');
 
-          assert.strictEqual(
+          test.assert.strictEqual(
             context.db.orm.select().from(workflowEvents).all().length,
             outboxBefore
           );
-          assert.strictEqual(
+          test.assert.strictEqual(
             (yield* materials.materials({ archived: false, limit: 10 })).items.length,
             2
           );
@@ -253,19 +257,19 @@ testStable(
             sources = yield* Sources;
           const material = yield* materials.material({ id: saved.material.id });
 
-          assert.strictEqual(material.version.id, saved.material.version.id);
-          expect(material.version.inputs).toStrictEqual([
-            { kind: 'page', versionId: saved.evidence.version.id }
-          ]);
-          expect(material.projectIds).toStrictEqual([saved.b.id]);
-          expect((yield* notes.note(saved.note.id)).projectIds).toStrictEqual([saved.b.id]);
-          assert.strictEqual((yield* sources.source(saved.source.id)).id, saved.source.id);
-          assert.ok(
+          test.assert.strictEqual(material.version.id, saved.material.version.id);
+          test
+            .expect(material.version.inputs)
+            .toStrictEqual([{ kind: 'page', versionId: saved.evidence.version.id }]);
+          test.expect(material.projectIds).toStrictEqual([saved.b.id]);
+          test.expect((yield* notes.note(saved.note.id)).projectIds).toStrictEqual([saved.b.id]);
+          test.assert.strictEqual((yield* sources.source(saved.source.id)).id, saved.source.id);
+          test.assert.ok(
             new TextDecoder().decode(
               (yield* sources.exportRevision({ sourceId: saved.source.id, revision: 1n })).bytes
             ) === 'Original bytes'
           );
-          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+          test.expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(services()))
       );
     } finally {
@@ -275,10 +279,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'generation scope stays exact across shared membership removal, reopen and last collection deletion',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     let context = new ServerContext(await location.open());
     const services = () =>
       Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer, Notes.layer).pipe(
@@ -322,11 +326,11 @@ testStable(
           const events = context.db.orm.select().from(workflowEvents).all();
           const requests = context.db.orm.all(sql`SELECT * FROM material_generation_requests`);
 
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(materials.materialGeneration({ requestId: request.id }))).kind ===
               'invalid_input'
           );
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(
               materials.requestMaterialGeneration({
                 projectId: a.id,
@@ -336,10 +340,10 @@ testStable(
               })
             )).kind === 'invalid_input'
           );
-          expect(context.db.orm.select().from(workflowEvents).all()).toStrictEqual(events);
-          expect(context.db.orm.all(sql`SELECT * FROM material_generation_requests`)).toStrictEqual(
-            requests
-          );
+          test.expect(context.db.orm.select().from(workflowEvents).all()).toStrictEqual(events);
+          test
+            .expect(context.db.orm.all(sql`SELECT * FROM material_generation_requests`))
+            .toStrictEqual(requests);
 
           return { a, b, input, unrelated, note, request };
         }).pipe(Effect.provide(services()))
@@ -355,23 +359,23 @@ testStable(
           const docs = yield* Pages;
           const notes = yield* Notes;
 
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(materials.materialGeneration({ requestId: saved.request.id })))
               .kind === 'invalid_input'
           );
           yield* docs.attachProject({ projectId: saved.a.id, pageId: saved.input.id });
-          expect(
-            (yield* materials.materialGeneration({ requestId: saved.request.id })).inputs
-          ).toStrictEqual([{ kind: 'page', versionId: saved.input.version.id }]);
+          test
+            .expect((yield* materials.materialGeneration({ requestId: saved.request.id })).inputs)
+            .toStrictEqual([{ kind: 'page', versionId: saved.input.version.id }]);
           yield* projects.removeNote({ projectId: saved.a.id, noteId: saved.note.id });
-          expect((yield* notes.note(saved.note.id)).projectIds).toStrictEqual([]);
-          assert.strictEqual(
+          test.expect((yield* notes.note(saved.note.id)).projectIds).toStrictEqual([]);
+          test.assert.strictEqual(
             (yield* docs.pages({ noteId: saved.note.id, archived: false, limit: 10 })).items.length,
             2
           );
           yield* projects.deleteProject({ id: saved.a.id });
           yield* projects.deleteProject({ id: saved.b.id });
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(materials.materialGeneration({ requestId: saved.request.id })))
               .kind === 'not_found'
           );
@@ -386,18 +390,18 @@ testStable(
           const notes = yield* Notes;
 
           for (const original of [saved.input, saved.unrelated]) {
-            expect((yield* docs.page({ id: original.id })).projectIds).toStrictEqual([]);
-            expect((yield* docs.version({ id: original.version.id })).document).toStrictEqual(
-              original.version.document
-            );
+            test.expect((yield* docs.page({ id: original.id })).projectIds).toStrictEqual([]);
+            test
+              .expect((yield* docs.version({ id: original.version.id })).document)
+              .toStrictEqual(original.version.document);
           }
 
-          expect((yield* notes.note(saved.note.id)).projectIds).toStrictEqual([]);
-          assert.strictEqual(
+          test.expect((yield* notes.note(saved.note.id)).projectIds).toStrictEqual([]);
+          test.assert.strictEqual(
             (yield* docs.pages({ noteId: saved.note.id, archived: false, limit: 10 })).items.length,
             2
           );
-          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+          test.expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(services()))
       );
     } finally {

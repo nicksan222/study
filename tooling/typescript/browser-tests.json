@@ -1,0 +1,11 @@
+{
+  "extends": "./frontend.json",
+  "compilerOptions": {
+    "types": ["bun"]
+  },
+  "include": [
+    "../../apps/client/test/e2e/*.test.ts",
+    "../../apps/client/test/e2e/harness/*.browser.test.ts",
+    "../../apps/client/test/e2e/environment.d.ts"
+  ]
+}

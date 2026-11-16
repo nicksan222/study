@@ -1,23 +1,47 @@
 import { BunFileSystem } from '@effect/platform-bun';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { sql } from 'drizzle-orm';
 import { Effect, FileSystem } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { Db } from '../src/db.ts';
-import { createTestDatabase } from '../src/testing.ts';
 
 const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
 
-testStable('fixture preparation is explicit and supports direct connections', async () => {
-  const fixture = await createTestDatabase();
+test.stable(
+  'fixture disposal closes owned connections and removes files after an exception',
+  async () => {
+    let directory = '';
+    let connection: Db | undefined;
 
-  assert.strictEqual(await Effect.runPromise(fs.exists(fixture.path)), false);
-  assert.strictEqual(await fixture.prepare(), fixture.path);
+    await test
+      .expect(
+        (async () => {
+          await using fixture = await test.createTestDatabase();
+
+          directory = fixture.dir;
+          connection = await fixture.open();
+          connection.orm.run(
+            sql`INSERT INTO projects (name, created_at, updated_at) VALUES ('owned', 0, 0)`
+          );
+
+          throw new Error('scenario failed');
+        })()
+      )
+      .rejects.toThrow('scenario failed');
+    test.assert.throws(() => connection!.exec('SELECT 1'));
+    test.expect(await Effect.runPromise(fs.exists(directory))).toBe(false);
+  }
+);
+
+test.stable('fixture preparation is explicit and supports direct connections', async () => {
+  await using fixture = await test.createTestDatabase();
+
+  test.assert.strictEqual(await Effect.runPromise(fs.exists(fixture.path)), false);
+  test.assert.strictEqual(await fixture.prepare(), fixture.path);
   const db = await Db.open(fixture.path);
 
   try {
-    assert.strictEqual(
+    test.assert.strictEqual(
       db.orm.get<{ count: bigint }>(sql`SELECT count(*) AS count FROM projects`)!.count,
       0n
     );
@@ -27,20 +51,20 @@ testStable('fixture preparation is explicit and supports direct connections', as
   }
 });
 
-testStable('isolated fixtures use real migrated databases and remove their files', async () => {
-  const first = await createTestDatabase();
-  const second = await createTestDatabase();
+test.stable('isolated fixtures use real migrated databases and remove their files', async () => {
+  await using first = await test.createTestDatabase();
+  await using second = await test.createTestDatabase();
   const db = await first.open();
   const other = await second.open();
 
   try {
-    assert.notStrictEqual(first.path, second.path);
+    test.assert.notStrictEqual(first.path, second.path);
     db.orm.run(sql`INSERT INTO projects (name, created_at, updated_at) VALUES ('first', 0, 0)`);
-    assert.strictEqual(
+    test.assert.strictEqual(
       db.orm.get<{ count: bigint }>(sql`SELECT count(*) AS count FROM projects`)!.count,
       1n
     );
-    assert.strictEqual(
+    test.assert.strictEqual(
       other.orm.get<{ count: bigint }>(sql`SELECT count(*) AS count FROM projects`)!.count,
       0n
     );
@@ -51,14 +75,14 @@ testStable('isolated fixtures use real migrated databases and remove their files
     await second.cleanup();
   }
 
-  assert.strictEqual(await Effect.runPromise(fs.exists(first.dir)), false);
-  assert.strictEqual(await Effect.runPromise(fs.exists(second.dir)), false);
+  test.assert.strictEqual(await Effect.runPromise(fs.exists(first.dir)), false);
+  test.assert.strictEqual(await Effect.runPromise(fs.exists(second.dir)), false);
 });
 
-testStable(
+test.stable(
   'reopening a fixture preserves writes instead of restoring the empty template',
   async () => {
-    const fixture = await createTestDatabase();
+    await using fixture = await test.createTestDatabase();
     const first = await fixture.open();
 
     first.orm.run(
@@ -68,13 +92,16 @@ testStable(
     const reopened = await fixture.open();
 
     try {
-      assert.strictEqual(
+      test.assert.strictEqual(
         reopened.orm.get<{ name: string }>(sql`SELECT name FROM projects`)!.name,
         'retained'
       );
-      assert.strictEqual(reopened.orm.get(sql`PRAGMA journal_mode`)!.journal_mode, 'wal');
-      assert.strictEqual(reopened.orm.get(sql`PRAGMA foreign_keys`)!.foreign_keys, 1n);
-      assert.strictEqual(reopened.orm.get(sql`PRAGMA recursive_triggers`)!.recursive_triggers, 1n);
+      test.assert.strictEqual(reopened.orm.get(sql`PRAGMA journal_mode`)!.journal_mode, 'wal');
+      test.assert.strictEqual(reopened.orm.get(sql`PRAGMA foreign_keys`)!.foreign_keys, 1n);
+      test.assert.strictEqual(
+        reopened.orm.get(sql`PRAGMA recursive_triggers`)!.recursive_triggers,
+        1n
+      );
     } finally {
       reopened.close();
       await fixture.cleanup();
@@ -82,12 +109,12 @@ testStable(
   }
 );
 
-testStable('custom migration folders bypass the default database template', async () => {
-  const fixture = await createTestDatabase('/missing-study-test-migrations');
+test.stable('custom migration folders bypass the default database template', async () => {
+  await using fixture = await test.createTestDatabase('/missing-study-test-migrations');
 
   try {
-    assert.strictEqual(await Effect.runPromise(fs.exists(fixture.path)), false);
-    await expect(fixture.open()).rejects.toThrow();
+    test.assert.strictEqual(await Effect.runPromise(fs.exists(fixture.path)), false);
+    await test.expect(fixture.open()).rejects.toThrow();
   } finally {
     await fixture.cleanup();
   }

@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintFiles } from './utils.ts';
 
-testStable('production config rejects four nested control-flow blocks', async () => {
+test.stable('production config rejects four nested control-flow blocks', async () => {
   const diagnostics = await lintFiles(
     {
       'apps/client/src/lib/nesting.ts': `
@@ -26,14 +25,14 @@ testStable('production config rejects four nested control-flow blocks', async ()
     true
   );
 
-  assert.strictEqual(
+  test.assert.strictEqual(
     diagnostics.filter(({ code }) => code === 'eslint(max-depth)').length,
     1,
     JSON.stringify(diagnostics)
   );
 });
 
-testStable('production config rejects four nested callbacks', async () => {
+test.stable('production config rejects four nested callbacks', async () => {
   const diagnostics = await lintFiles(
     {
       'apps/client/src/lib/callbacks.ts': `
@@ -52,14 +51,14 @@ testStable('production config rejects four nested callbacks', async () => {
     true
   );
 
-  assert.strictEqual(
+  test.assert.strictEqual(
     diagnostics.filter(({ code }) => code === 'eslint(max-nested-callbacks)').length,
     1,
     JSON.stringify(diagnostics)
   );
 });
 
-testStable('production config accepts guard clauses and three callback levels', async () => {
+test.stable('production config accepts guard clauses and three callback levels', async () => {
   const diagnostics = await lintFiles(
     {
       'apps/client/src/lib/shallow.ts': `
@@ -82,5 +81,5 @@ testStable('production config accepts guard clauses and three callback levels', 
     true
   );
 
-  expect(diagnostics).toStrictEqual([]);
+  test.expect(diagnostics).toStrictEqual([]);
 });

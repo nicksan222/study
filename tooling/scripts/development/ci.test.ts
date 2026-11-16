@@ -1,7 +1,4 @@
-import { spawnTestProcess } from '@study/testing/vitest';
-import { temporaryDirectory } from '@study/testing/vitest';
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 type Workflow = {
   jobs: Record<
@@ -34,25 +31,25 @@ const lanes = [
   'landing'
 ];
 
-testStable('all CI lanes start independently and feed the required merge gate', () => {
-  assert.sameMembers(workflow.jobs.check!.needs as string[], lanes);
-  assert.equal(workflow.jobs.check!.name, 'Test and build');
+test.stable('all CI lanes start independently and feed the required merge gate', () => {
+  test.assert.sameMembers(workflow.jobs.check!.needs as string[], lanes);
+  test.assert.equal(workflow.jobs.check!.name, 'Test and build');
 
   for (const name of lanes) {
     const job = workflow.jobs[name]!;
 
-    assert.isDefined(job);
-    assert.isUndefined(job.needs);
-    assert.isUndefined(job.if);
+    test.assert.isDefined(job);
+    test.assert.isUndefined(job.needs);
+    test.assert.isUndefined(job.if);
 
-    if (name !== 'browser') assert.isUndefined(job.strategy);
+    if (name !== 'browser') test.assert.isUndefined(job.strategy);
   }
 });
 
-testStable('browser shards run the full catalog without cancelling sibling diagnostics', () => {
+test.stable('browser shards run the full catalog without cancelling sibling diagnostics', () => {
   const browser = workflow.jobs.browser!;
 
-  assert.deepEqual(browser.strategy, {
+  test.assert.deepEqual(browser.strategy, {
     'fail-fast': false,
     'max-parallel': 3,
     matrix: { shard: [1, 2, 3] }
@@ -62,15 +59,15 @@ testStable('browser shards run the full catalog without cancelling sibling diagn
     step.uses?.startsWith('actions/upload-artifact@')
   );
 
-  assert.equal(runner?.with?.runCmd, 'bun run web:e2e:compare --shard=${{ matrix.shard }}/3');
-  assert.equal(artifacts?.if, '${{ always() }}');
-  assert.equal(artifacts?.with?.name, 'web-e2e-diagnostics-${{ matrix.shard }}');
+  test.assert.equal(runner?.with?.runCmd, 'bun run web:e2e:compare --shard=${{ matrix.shard }}/3');
+  test.assert.equal(artifacts?.if, '${{ always() }}');
+  test.assert.equal(artifacts?.with?.name, 'web-e2e-diagnostics-${{ matrix.shard }}');
 });
 
-testStable.each(['success', 'failure', 'cancelled', 'skipped', 'missing'])(
+test.stable.each(['success', 'failure', 'cancelled', 'skipped', 'missing'])(
   'the required gate handles a %s lane result without allowing an unsafe merge',
   async (status) => {
-    await using temporary = await temporaryDirectory();
+    await using temporary = await test.temporaryDirectory();
     const directory = temporary.path;
 
     {
@@ -80,7 +77,7 @@ testStable.each(['success', 'failure', 'cancelled', 'skipped', 'missing'])(
       else results.browser!.result = status;
 
       const script = workflow.jobs.check!.steps![0]!.run!;
-      const child = spawnTestProcess(['bash', '-c', script], {
+      const child = test.spawnTestProcess(['bash', '-c', script], {
         env: {
           ...process.env,
           RESULTS: JSON.stringify(results),
@@ -91,13 +88,13 @@ testStable.each(['success', 'failure', 'cancelled', 'skipped', 'missing'])(
       });
       const [code, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()]);
 
-      assert.equal(code, status === 'success' ? 0 : 1, stderr);
-      assert.include(await Bun.file(`${directory}/summary.md`).text(), 'Study CI');
+      test.assert.equal(code, status === 'success' ? 0 : 1, stderr);
+      test.assert.include(await Bun.file(`${directory}/summary.md`).text(), 'Study CI');
     }
   }
 );
 
-testStable(
+test.stable(
   'release publication waits for four independent platform builds without a matrix',
   async () => {
     const release = Bun.YAML.parse(
@@ -105,16 +102,16 @@ testStable(
     ) as Workflow;
     const platforms = ['linux_x64', 'linux_arm64', 'macos', 'windows'];
 
-    assert.sameMembers(release.jobs.publish!.needs as string[], ['version', ...platforms]);
+    test.assert.sameMembers(release.jobs.publish!.needs as string[], ['version', ...platforms]);
 
     for (const name of platforms) {
       const job = release.jobs[name]!;
 
-      assert.equal(job.needs, 'version');
-      assert.equal(job.uses, './.github/workflows/release-platform.yml');
-      assert.isUndefined(job.if);
+      test.assert.equal(job.needs, 'version');
+      test.assert.equal(job.uses, './.github/workflows/release-platform.yml');
+      test.assert.isUndefined(job.if);
 
-      assert.isUndefined(job.strategy);
+      test.assert.isUndefined(job.strategy);
     }
   }
 );

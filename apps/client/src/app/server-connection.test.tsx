@@ -1,13 +1,10 @@
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { expect, vi } from 'vite-plus/test';
 
 import { useNativeAction } from '#client/lib/effect/native.ts';
 import { LanguageProvider } from '#client/lib/i18n.tsx';
-import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { ServerConnection } from './server-connection';
 
@@ -30,15 +27,15 @@ function Draft({ save }: { save: () => Promise<void> }) {
   );
 }
 
-testStable.each(['english', 'italian'] as const)(
+test.stable.each(['english', 'italian'] as const)(
   'live outage recovery in %s preserves drafts and portals without replaying writes',
   async (locale) => {
-    const health = vi.fn().mockResolvedValue(healthy);
-    const save = vi.fn().mockRejectedValue(new Error('Offline'));
-    const fixture = rpcTestTransport(async () => health());
-    const reconnect = vi.fn();
+    const health = test.vi.fn().mockResolvedValue(healthy);
+    const save = test.vi.fn().mockRejectedValue(new Error('Offline'));
+    const fixture = test.rpcTestTransport(async () => health());
+    const reconnect = test.vi.fn();
 
-    render(
+    test.render(
       <LanguageProvider locale={locale}>
         <fixture.wrapper>
           <ServerConnection onReconnect={reconnect}>
@@ -47,31 +44,33 @@ testStable.each(['english', 'italian'] as const)(
         </fixture.wrapper>
       </LanguageProvider>
     );
-    await waitFor(() => expect(health).toHaveBeenCalledOnce());
-    const input = screen.getByRole('textbox', { name: 'Draft' });
+    await test.waitFor(() => test.expect(health).toHaveBeenCalledOnce());
+    const input = test.screen.getByRole('textbox', { name: 'Draft' });
 
-    fireEvent.change(input, { target: { value: 'My unsent question' } });
-    const portal = screen.getByRole('dialog');
+    test.fireEvent.change(input, { target: { value: 'My unsent question' } });
+    const portal = test.screen.getByRole('dialog');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
-    await waitFor(() => expect(save).toHaveBeenCalledOnce());
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'Save draft' }));
+    await test.waitFor(() => test.expect(save).toHaveBeenCalledOnce());
     health.mockRejectedValue(new Error('Offline'));
-    await act(async () => {
+    await test.act(async () => {
       await fixture.notify();
     });
-    expect(
-      await screen.findByRole('heading', { name: catalogs[locale].ServerConnectionTitle })
-    ).toBeVisible();
-    expect(input).not.toBeVisible();
-    expect(portal).not.toBeVisible();
+    test
+      .expect(
+        await test.screen.findByRole('heading', { name: catalogs[locale].ServerConnectionTitle })
+      )
+      .toBeVisible();
+    test.expect(input).not.toBeVisible();
+    test.expect(portal).not.toBeVisible();
     health.mockResolvedValue(healthy);
-    await act(async () => {
+    await test.act(async () => {
       await fixture.notify();
     });
-    await waitFor(() => expect(input).toBeVisible());
-    expect(input).toHaveValue('My unsent question');
-    expect(portal).toBeVisible();
-    expect(reconnect).toHaveBeenCalledOnce();
-    expect(save).toHaveBeenCalledOnce();
+    await test.waitFor(() => test.expect(input).toBeVisible());
+    test.expect(input).toHaveValue('My unsent question');
+    test.expect(portal).toBeVisible();
+    test.expect(reconnect).toHaveBeenCalledOnce();
+    test.expect(save).toHaveBeenCalledOnce();
   }
 );

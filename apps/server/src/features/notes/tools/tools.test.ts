@@ -1,3 +1,4 @@
+import { defaultAgentRules } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exposes schema-checked settings capabilities and their agent-facing usage          │
@@ -11,12 +12,8 @@
  * │ tool execution.                                                                          │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { defaultAgentRules } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -26,10 +23,10 @@ import { subjectTools } from './subjects.ts';
 
 const environment = { language: 'en', searchSources: () => Effect.succeed([]) };
 
-testStable(
+test.stable(
   'settings patches preserve unrelated preferences and reject values outside canonical bounds',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     try {
@@ -41,7 +38,7 @@ testStable(
             environment
           );
 
-          expect(updated).toStrictEqual({ ...before.general, appearance: 1 });
+          test.expect(updated).toStrictEqual({ ...before.general, appearance: 1 });
           yield* settingsTools.update_custom_instructions.execute(
             {
               pages: 'Include worked examples.'
@@ -50,20 +47,24 @@ testStable(
           );
           const after = yield* settingsTools.read_settings.execute({}, environment);
 
-          expect(after.general).toStrictEqual(updated);
-          expect(after.instructions).toStrictEqual({
+          test.expect(after.general).toStrictEqual(updated);
+          test.expect(after.instructions).toStrictEqual({
             ...defaultAgentRules,
             pages: 'Include worked examples.'
           });
-          expect(Schema.is(settingsTools.update_general_settings.input)({ zoomPercent: 999 })).toBe(
-            false
-          );
-          expect(
-            Schema.is(settingsTools.update_general_settings.input)({ appearance: 'dark' })
-          ).toBe(false);
-          expect(
-            Schema.is(settingsTools.update_custom_instructions.input)({ replies: 'a'.repeat(8001) })
-          ).toBe(false);
+          test
+            .expect(Schema.is(settingsTools.update_general_settings.input)({ zoomPercent: 999 }))
+            .toBe(false);
+          test
+            .expect(Schema.is(settingsTools.update_general_settings.input)({ appearance: 'dark' }))
+            .toBe(false);
+          test
+            .expect(
+              Schema.is(settingsTools.update_custom_instructions.input)({
+                replies: 'a'.repeat(8001)
+              })
+            )
+            .toBe(false);
         }).pipe(Effect.provideService(Database, { store: context }))
       );
     } finally {
@@ -73,10 +74,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'subject creation reuses exact names and branded IDs round-trip through JSON tool schemas',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     try {
@@ -91,28 +92,30 @@ testStable(
             environment
           );
 
-          expect(repeated.id).toBe(subject.id);
-          expect(
-            (yield* subjectTools.list_subjects.execute({ limit: 100 }, environment)).items
-          ).toHaveLength(1);
+          test.expect(repeated.id).toBe(subject.id);
+          test
+            .expect((yield* subjectTools.list_subjects.execute({ limit: 100 }, environment)).items)
+            .toHaveLength(1);
           const codec = Schema.toCodecJson(subjectTools.read_subject.input);
           const decoded = yield* Schema.decodeUnknownEffect(codec)({ id: String(subject.id) });
 
-          expect(decoded.id).toBe(subject.id);
-          expect(
-            yield* subjectTools.set_subject_exam.execute(
-              { id: decoded.id, examOn: '2027-01-20' },
-              environment
+          test.expect(decoded.id).toBe(subject.id);
+          test
+            .expect(
+              yield* subjectTools.set_subject_exam.execute(
+                { id: decoded.id, examOn: '2027-01-20' },
+                environment
+              )
             )
-          ).toBe(true);
-          expect((yield* subjectTools.read_subject.execute(decoded, environment)).examOn).toBe(
-            '2027-01-20'
-          );
+            .toBe(true);
+          test
+            .expect((yield* subjectTools.read_subject.execute(decoded, environment)).examOn)
+            .toBe('2027-01-20');
           const encoded = yield* Schema.encodeUnknownEffect(
             Schema.toCodecJson(subjectTools.create_subject.output)
           )(subject);
 
-          expect(JSON.stringify(encoded)).toContain(String(subject.id));
+          test.expect(JSON.stringify(encoded)).toContain(String(subject.id));
           // @ts-expect-error tool inputs retain canonical branded IDs
           subjectTools.read_subject.execute({ id: '1' }, environment);
         }).pipe(Effect.provideService(Database, { store: context }))

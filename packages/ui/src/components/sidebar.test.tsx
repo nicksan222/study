@@ -1,15 +1,12 @@
-import { testStable } from '@study/testing/vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { useState } from 'react';
-import { beforeEach, expect, vi } from 'vite-plus/test';
 
 import { Sidebar } from './sidebar';
 
-beforeEach(() => localStorage.clear());
+test.beforeEach(() => localStorage.clear());
 
-testStable('resizes by dragging its edge and remembers the committed width', () => {
-  const { container } = render(
+test.stable('resizes by dragging its edge and remembers the committed width', () => {
+  const { container } = test.render(
     <Sidebar.Frame
       collapsed={false}
       defaultWidth={320}
@@ -23,22 +20,25 @@ testStable('resizes by dragging its edge and remembers the committed width', () 
       <main />
     </Sidebar.Frame>
   );
-  const separator = screen.getByRole('separator', { name: 'Resize sidebar' });
+  const separator = test.screen.getByRole('separator', { name: 'Resize sidebar' });
 
-  fireEvent(separator, new MouseEvent('pointerdown', { bubbles: true, button: 0, clientX: 320 }));
-  fireEvent(separator, new MouseEvent('pointermove', { bubbles: true, clientX: 420 }));
-  fireEvent(separator, new MouseEvent('pointerup', { bubbles: true, clientX: 420 }));
-  expect(separator).toHaveAttribute('aria-valuenow', '420');
-  expect((container.firstChild as HTMLElement).style.getPropertyValue('--sidebar-width')).toBe(
-    '420px'
+  test.fireEvent(
+    separator,
+    new MouseEvent('pointerdown', { bubbles: true, button: 0, clientX: 320 })
   );
-  expect(localStorage.getItem('sidebar-test')).toBe('420');
+  test.fireEvent(separator, new MouseEvent('pointermove', { bubbles: true, clientX: 420 }));
+  test.fireEvent(separator, new MouseEvent('pointerup', { bubbles: true, clientX: 420 }));
+  test.expect(separator).toHaveAttribute('aria-valuenow', '420');
+  test
+    .expect((container.firstChild as HTMLElement).style.getPropertyValue('--sidebar-width'))
+    .toBe('420px');
+  test.expect(localStorage.getItem('sidebar-test')).toBe('420');
 });
 
-testStable('supports keyboard resizing and resets with a double click', async () => {
-  const user = userEvent.setup();
+test.stable('supports keyboard resizing and resets with a double click', async () => {
+  const user = test.userEvent.setup();
 
-  render(
+  test.render(
     <Sidebar.Frame
       collapsed={false}
       defaultWidth={320}
@@ -51,35 +51,35 @@ testStable('supports keyboard resizing and resets with a double click', async ()
       <main />
     </Sidebar.Frame>
   );
-  const separator = screen.getByRole('separator');
+  const separator = test.screen.getByRole('separator');
 
   separator.focus();
   await user.keyboard('{ArrowRight}');
-  expect(separator).toHaveAttribute('aria-valuenow', '336');
+  test.expect(separator).toHaveAttribute('aria-valuenow', '336');
   await user.keyboard('{Home}');
-  expect(separator).toHaveAttribute('aria-valuenow', '208');
-  fireEvent.doubleClick(separator);
-  expect(separator).toHaveAttribute('aria-valuenow', '320');
+  test.expect(separator).toHaveAttribute('aria-valuenow', '208');
+  test.fireEvent.doubleClick(separator);
+  test.expect(separator).toHaveAttribute('aria-valuenow', '320');
 });
 
-testStable('removes the resize rail when collapsed', () => {
-  render(
+test.stable('removes the resize rail when collapsed', () => {
+  test.render(
     <Sidebar.Frame collapsed resizeLabel="Resize sidebar" resizeHint="Drag to resize">
       <aside />
       <main />
     </Sidebar.Frame>
   );
-  expect(screen.queryByRole('separator')).not.toBeInTheDocument();
+  test.expect(test.screen.queryByRole('separator')).not.toBeInTheDocument();
 });
 
-testStable(
+test.stable(
   'clamps a restored width and tracks smaller viewports without losing the preference',
   () => {
     localStorage.setItem('sidebar-test', '900');
     const originalWidth = window.innerWidth;
 
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1000 });
-    const { container } = render(
+    const { container } = test.render(
       <Sidebar.Frame
         collapsed={false}
         minWidth={208}
@@ -93,47 +93,47 @@ testStable(
       </Sidebar.Frame>
     );
 
-    expect(screen.getByRole('separator')).toHaveAttribute('aria-valuenow', '640');
+    test.expect(test.screen.getByRole('separator')).toHaveAttribute('aria-valuenow', '640');
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 820 });
-    fireEvent(window, new Event('resize'));
-    expect(screen.getByRole('separator')).toHaveAttribute('aria-valuenow', '460');
-    expect((container.firstChild as HTMLElement).style.getPropertyValue('--sidebar-width')).toBe(
-      '460px'
-    );
-    expect(localStorage.getItem('sidebar-test')).toBe('900');
+    test.fireEvent(window, new Event('resize'));
+    test.expect(test.screen.getByRole('separator')).toHaveAttribute('aria-valuenow', '460');
+    test
+      .expect((container.firstChild as HTMLElement).style.getPropertyValue('--sidebar-width'))
+      .toBe('460px');
+    test.expect(localStorage.getItem('sidebar-test')).toBe('900');
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalWidth });
   }
 );
 
-testStable(
+test.stable(
   'places trailing footer actions in a dedicated slot and respects utility variants',
   () => {
-    render(
+    test.render(
       <Sidebar.Footer trailing={<Sidebar.Utility title="Settings" variant="secondary" />}>
         <Sidebar.Utility title="Notes" />
       </Sidebar.Footer>
     );
-    const settings = screen.getByRole('button', { name: 'Settings' });
+    const settings = test.screen.getByRole('button', { name: 'Settings' });
 
-    expect(settings.parentElement).toHaveClass('study-sidebar-footer-trailing');
-    expect(settings).toHaveClass('bg-secondary');
-    expect(screen.getByRole('button', { name: 'Notes' }).parentElement).toHaveClass(
-      'study-sidebar-footer'
-    );
+    test.expect(settings.parentElement).toHaveClass('study-sidebar-footer-trailing');
+    test.expect(settings).toHaveClass('bg-secondary');
+    test
+      .expect(test.screen.getByRole('button', { name: 'Notes' }).parentElement)
+      .toHaveClass('study-sidebar-footer');
   }
 );
 
-testStable(
+test.stable(
   'searches subject identities while preserving their metadata and current selection',
   async () => {
-    const user = userEvent.setup();
+    const user = test.userEvent.setup();
     const subjects = [
       { id: 'biology', name: 'Biology', description: 'Exam 12 Dec 2026' },
       { id: 'history', name: 'History', description: 'Updated 1 Nov 2026' }
     ];
-    const onValueChange = vi.fn();
+    const onValueChange = test.vi.fn();
 
-    render(
+    test.render(
       <Sidebar.Picker
         items={subjects}
         value={subjects[0]!}
@@ -150,27 +150,26 @@ testStable(
         empty="No matches"
       />
     );
-    expect(screen.getByRole('option', { name: /Biology/ })).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
-    expect(screen.getByRole('option', { name: 'Biology' })).toHaveAccessibleDescription(
-      'Exam 12 Dec 2026'
-    );
-    expect(screen.getByText('Exam 12 Dec 2026')).toBeInTheDocument();
-    await user.type(screen.getByRole('combobox', { name: 'Find subject' }), 'History');
-    expect(screen.queryByRole('option', { name: /Biology/ })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('option', { name: /History/ }));
-    expect(onValueChange).toHaveBeenCalledWith(subjects[1]);
+    test
+      .expect(test.screen.getByRole('option', { name: /Biology/ }))
+      .toHaveAttribute('aria-selected', 'true');
+    test
+      .expect(test.screen.getByRole('option', { name: 'Biology' }))
+      .toHaveAccessibleDescription('Exam 12 Dec 2026');
+    test.expect(test.screen.getByText('Exam 12 Dec 2026')).toBeInTheDocument();
+    await user.type(test.screen.getByRole('combobox', { name: 'Find subject' }), 'History');
+    test.expect(test.screen.queryByRole('option', { name: /Biology/ })).not.toBeInTheDocument();
+    await user.click(test.screen.getByRole('option', { name: /History/ }));
+    test.expect(onValueChange).toHaveBeenCalledWith(subjects[1]);
   }
 );
 
-testStable(
+test.stable(
   'supports keyboard selection and returns focus when the subject picker closes',
   async () => {
-    const user = userEvent.setup();
+    const user = test.userEvent.setup();
     const subjects = ['Biology', 'History'];
-    const selected = vi.fn();
+    const selected = test.vi.fn();
 
     function SubjectPicker() {
       const [open, setOpen] = useState(false);
@@ -196,45 +195,51 @@ testStable(
       );
     }
 
-    render(<SubjectPicker />);
-    await user.click(screen.getByRole('combobox', { name: 'Biology' }));
-    const search = await screen.findByRole('combobox', { name: 'Find subject' });
+    test.render(<SubjectPicker />);
+    await user.click(test.screen.getByRole('combobox', { name: 'Biology' }));
+    const search = await test.screen.findByRole('combobox', { name: 'Find subject' });
 
     await user.type(search, 'History');
     await user.keyboard('{ArrowDown}{Enter}');
-    expect(selected).toHaveBeenCalledWith('History');
-    await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
-    await waitFor(() => expect(screen.getByRole('combobox', { name: 'History' })).toHaveFocus());
+    test.expect(selected).toHaveBeenCalledWith('History');
+    await test.waitFor(() =>
+      test.expect(test.screen.queryByRole('listbox')).not.toBeInTheDocument()
+    );
+    await test.waitFor(() =>
+      test.expect(test.screen.getByRole('combobox', { name: 'History' })).toHaveFocus()
+    );
     await user.keyboard('{Enter}');
-    expect(await screen.findByRole('option', { name: 'Biology' })).toBeInTheDocument();
+    test.expect(await test.screen.findByRole('option', { name: 'Biology' })).toBeInTheDocument();
     await user.keyboard('{Escape}');
-    await waitFor(() => expect(screen.getByRole('combobox', { name: 'History' })).toHaveFocus());
+    await test.waitFor(() =>
+      test.expect(test.screen.getByRole('combobox', { name: 'History' })).toHaveFocus()
+    );
   }
 );
 
-testStable('keeps settled-group disclosure usable in the collapsed rail', async () => {
-  const user = userEvent.setup();
+test.stable('keeps settled-group disclosure usable in the collapsed rail', async () => {
+  const user = test.userEvent.setup();
 
-  render(
+  test.render(
     <Sidebar.Frame collapsed resizeLabel="Resize sidebar" resizeHint="Drag to resize">
       <Sidebar.NoteGroup title="Settled" count={1}>
         <a href="/notes/42">Settled note</a>
       </Sidebar.NoteGroup>
     </Sidebar.Frame>
   );
-  const summary = screen.getByText('Settled').closest('summary')!;
+  const summary = test.screen.getByText('Settled').closest('summary')!;
   const group = summary.closest('details')!;
 
-  expect(group).not.toHaveAttribute('open');
+  test.expect(group).not.toHaveAttribute('open');
   await user.click(summary);
-  expect(group).toHaveAttribute('open');
-  expect(screen.getByRole('link', { name: 'Settled note' })).toBeVisible();
+  test.expect(group).toHaveAttribute('open');
+  test.expect(test.screen.getByRole('link', { name: 'Settled note' })).toBeVisible();
   await user.click(summary);
-  expect(group).not.toHaveAttribute('open');
+  test.expect(group).not.toHaveAttribute('open');
 });
 
-testStable('preserves supporting activity and counts in compact note rows', () => {
-  render(
+test.stable('preserves supporting activity and counts in compact note rows', () => {
+  test.render(
     <Sidebar.Item
       layout="compact"
       label="Note"
@@ -248,88 +253,92 @@ testStable('preserves supporting activity and counts in compact note rows', () =
       }
     />
   );
-  const row = screen.getByRole('button', { name: /Note/ });
+  const row = test.screen.getByRole('button', { name: /Note/ });
 
-  expect(row).toHaveAttribute('data-layout', 'compact');
-  expect(screen.getByText('Writing')).toBeInTheDocument();
-  expect(screen.getByText('3')).toBeInTheDocument();
+  test.expect(row).toHaveAttribute('data-layout', 'compact');
+  test.expect(test.screen.getByText('Writing')).toBeInTheDocument();
+  test.expect(test.screen.getByText('3')).toBeInTheDocument();
 });
 
-testStable(
+test.stable(
   'slides settled content closed before removing the native open state and restores it on reopening',
   async () => {
-    render(
+    test.render(
       <Sidebar.NoteGroup title="Settled" count={1} defaultOpen variant="settled">
         <a href="/notes/42">Settled note</a>
       </Sidebar.NoteGroup>
     );
-    const summary = screen.getByText('Settled').closest('summary')!;
+    const summary = test.screen.getByText('Settled').closest('summary')!;
     const group = summary.closest('details')!;
 
-    fireEvent.click(summary);
-    expect(summary).toHaveAttribute('aria-expanded', 'false');
-    expect(group).toHaveAttribute('open');
+    test.fireEvent.click(summary);
+    test.expect(summary).toHaveAttribute('aria-expanded', 'false');
+    test.expect(group).toHaveAttribute('open');
     const body = group.querySelector('.study-note-group-body')!;
 
-    expect(body).toHaveAttribute('aria-hidden', 'true');
-    expect(body).toHaveAttribute('inert');
-    fireEvent.transitionEnd(group.querySelector('.study-note-group-slide')!);
-    expect(group).not.toHaveAttribute('open');
-    fireEvent.click(summary);
-    expect(group).toHaveAttribute('open');
-    await waitFor(() => expect(summary).toHaveAttribute('aria-expanded', 'true'));
-    expect(screen.getByRole('link', { name: 'Settled note' })).toBeVisible();
+    test.expect(body).toHaveAttribute('aria-hidden', 'true');
+    test.expect(body).toHaveAttribute('inert');
+    test.fireEvent.transitionEnd(group.querySelector('.study-note-group-slide')!);
+    test.expect(group).not.toHaveAttribute('open');
+    test.fireEvent.click(summary);
+    test.expect(group).toHaveAttribute('open');
+    await test.waitFor(() => test.expect(summary).toHaveAttribute('aria-expanded', 'true'));
+    test.expect(test.screen.getByRole('link', { name: 'Settled note' })).toBeVisible();
   }
 );
 
-testStable(
+test.stable(
   'keeps a reopened settled group open when the previous close transition finishes',
   async () => {
-    render(
+    test.render(
       <Sidebar.NoteGroup title="Settled" count={1} defaultOpen variant="settled">
         <a href="/notes/42">Settled note</a>
       </Sidebar.NoteGroup>
     );
-    const summary = screen.getByText('Settled').closest('summary')!;
+    const summary = test.screen.getByText('Settled').closest('summary')!;
 
-    fireEvent.click(summary);
-    fireEvent.click(summary);
-    await waitFor(() => expect(summary).toHaveAttribute('aria-expanded', 'true'));
-    fireEvent.transitionEnd(summary.closest('details')!.querySelector('.study-note-group-slide')!);
-    expect(summary.closest('details')).toHaveAttribute('open');
+    test.fireEvent.click(summary);
+    test.fireEvent.click(summary);
+    await test.waitFor(() => test.expect(summary).toHaveAttribute('aria-expanded', 'true'));
+    test.fireEvent.transitionEnd(
+      summary.closest('details')!.querySelector('.study-note-group-slide')!
+    );
+    test.expect(summary.closest('details')).toHaveAttribute('open');
   }
 );
 
-testStable('closes settled content immediately when reduced motion is enabled', () => {
-  const media = vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList);
+test.stable('closes settled content immediately when reduced motion is enabled', () => {
+  const media = test.vi
+    .spyOn(window, 'matchMedia')
+    .mockReturnValue({ matches: true } as MediaQueryList);
 
   try {
-    render(
+    test.render(
       <Sidebar.NoteGroup title="Settled" count={1} defaultOpen variant="settled">
         <a href="/notes/42">Settled note</a>
       </Sidebar.NoteGroup>
     );
-    const summary = screen.getByText('Settled').closest('summary')!;
+    const summary = test.screen.getByText('Settled').closest('summary')!;
 
-    fireEvent.click(summary);
-    expect(summary).toHaveAttribute('aria-expanded', 'false');
-    expect(summary.closest('details')).not.toHaveAttribute('open');
+    test.fireEvent.click(summary);
+    test.expect(summary).toHaveAttribute('aria-expanded', 'false');
+    test.expect(summary.closest('details')).not.toHaveAttribute('open');
   } finally {
     media.mockRestore();
   }
 });
 
-testStable(
+test.stable(
   'caps populated sections without reserving a share for empty sections or draft cards',
   async () => {
-    const geometry = vi
+    const geometry = test.vi
       .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
       .mockImplementation(function (this: HTMLElement) {
         return new DOMRect(0, 0, 280, this.tagName === 'SUMMARY' ? 38 : 64);
       });
-    const height = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(400);
+    const height = test.vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(400);
 
-    vi.stubGlobal(
+    test.vi.stubGlobal(
       'ResizeObserver',
       class {
         observe() {}
@@ -350,32 +359,32 @@ testStable(
         </Sidebar.NoteGroups>
       </Sidebar.Content>
     );
-    const view = render(layout(0));
+    const view = test.render(layout(0));
 
     try {
-      const open = screen.getByText('Open').closest('details')!;
-      const settled = screen.getByText('Settled').closest('details')!;
+      const open = test.screen.getByText('Open').closest('details')!;
+      const settled = test.screen.getByText('Settled').closest('details')!;
 
-      expect(settled).toHaveAttribute('data-empty');
-      expect(settled.style.getPropertyValue('--sidebar-group-content-max')).toBe('0px');
-      expect(open.style.getPropertyValue('--sidebar-group-content-max')).toBe('236px');
+      test.expect(settled).toHaveAttribute('data-empty');
+      test.expect(settled.style.getPropertyValue('--sidebar-group-content-max')).toBe('0px');
+      test.expect(open.style.getPropertyValue('--sidebar-group-content-max')).toBe('236px');
       view.rerender(layout(1));
-      await waitFor(() => expect(settled).not.toHaveAttribute('data-empty'));
-      await waitFor(() =>
-        expect(open.style.getPropertyValue('--sidebar-group-content-max')).toBe('118px')
+      await test.waitFor(() => test.expect(settled).not.toHaveAttribute('data-empty'));
+      await test.waitFor(() =>
+        test.expect(open.style.getPropertyValue('--sidebar-group-content-max')).toBe('118px')
       );
-      expect(settled.style.getPropertyValue('--sidebar-group-content-max')).toBe('118px');
+      test.expect(settled.style.getPropertyValue('--sidebar-group-content-max')).toBe('118px');
     } finally {
       view.unmount();
       geometry.mockRestore();
       height.mockRestore();
-      vi.unstubAllGlobals();
+      test.vi.unstubAllGlobals();
     }
   }
 );
 
-testStable('sidebar names include the visible navigation count and note metadata', () => {
-  render(
+test.stable('sidebar names include the visible navigation count and note metadata', () => {
+  test.render(
     <>
       <Sidebar.NavigationItem label="Pages" count={3}>
         <svg aria-hidden="true" />
@@ -389,6 +398,8 @@ testStable('sidebar names include the visible navigation count and note metadata
     </>
   );
 
-  expect(screen.getByRole('button', { name: 'Pages 3' })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Biology Cell notes Draft' })).toBeInTheDocument();
+  test.expect(test.screen.getByRole('button', { name: 'Pages 3' })).toBeInTheDocument();
+  test
+    .expect(test.screen.getByRole('button', { name: 'Biology Cell notes Draft' }))
+    .toBeInTheDocument();
 });

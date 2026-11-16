@@ -1,28 +1,27 @@
 import { StudyError } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { runRequest } from './runtime';
 
-testStable('preserves expected failures and their retry metadata', async () => {
+test.stable('preserves expected failures and their retry metadata', async () => {
   const error = new StudyError('rate_limited', 'limited', { retryAfterMs: 300 });
 
-  await expect(runRequest(Effect.fail(error))).rejects.toBe(error);
+  await test.expect(runRequest(Effect.fail(error))).rejects.toBe(error);
 });
 
-testStable('returns successful values', async () => {
-  expect(await runRequest(Effect.succeed(42))).toBe(42);
+test.stable('returns successful values', async () => {
+  test.expect(await runRequest(Effect.succeed(42))).toBe(42);
 });
 
-testStable('keeps unexpected defects as internal failures with their cause', async () => {
-  await expect(runRequest(Effect.die(new Error('defect')))).rejects.toMatchObject({
+test.stable('keeps unexpected defects as internal failures with their cause', async () => {
+  await test.expect(runRequest(Effect.die(new Error('defect')))).rejects.toMatchObject({
     kind: 'internal',
-    cause: expect.anything()
+    cause: test.expect.anything()
   });
 });
 
-testStable('forwards interruption to the transport without presenting an error', async () => {
+test.stable('forwards interruption to the transport without presenting an error', async () => {
   const controller = new AbortController();
   let started!: () => void;
   const ready = new Promise<void>((resolve) => {
@@ -44,23 +43,25 @@ testStable('forwards interruption to the transport without presenting an error',
 
   await ready;
   controller.abort();
-  await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
-  expect(aborted).toBe(true);
+  await test.expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+  test.expect(aborted).toBe(true);
 });
 
-testStable('does not start an operation when its owner is already aborted', async () => {
+test.stable('does not start an operation when its owner is already aborted', async () => {
   const controller = new AbortController();
 
   controller.abort();
   let started = false;
 
-  await expect(
-    runRequest(
-      Effect.sync(() => {
-        started = true;
-      }),
-      controller.signal
+  await test
+    .expect(
+      runRequest(
+        Effect.sync(() => {
+          started = true;
+        }),
+        controller.signal
+      )
     )
-  ).rejects.toMatchObject({ name: 'AbortError' });
-  expect(started).toBe(false);
+    .rejects.toMatchObject({ name: 'AbortError' });
+  test.expect(started).toBe(false);
 });

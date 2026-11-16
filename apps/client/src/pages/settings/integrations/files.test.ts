@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { vaultFiles } from './files';
 
-testStable(
+test.stable(
   'strips only the selected root and excludes private vault configuration before reading',
   async () => {
     const note = new File(['# Cells'], 'Cells.md');
@@ -22,7 +21,7 @@ testStable(
       }
     });
 
-    expect(await vaultFiles([note, privateFile])).toEqual({
+    test.expect(await vaultFiles([note, privateFile])).toEqual({
       sourceKey: 'Biology',
       files: [{ path: 'Notes/Cells.md', content: 'IyBDZWxscw==' }]
     });

@@ -1,11 +1,11 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message =
   'Use cleanupActivity for unsafe workflow retirement so cancellation precedes guarded cleanup and failure settlement.';
 
-testStable('workflow cleanup cannot duplicate unsafe cancellation orchestration', async () => {
+test.stable('workflow cleanup cannot duplicate unsafe cancellation orchestration', async () => {
   assertDiagnostics(
     'cleanup-harness',
     await lintRule('cleanup-harness', {

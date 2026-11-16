@@ -1,3 +1,4 @@
+import type { pageGenerationRequestedSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises authored Page proposals behavior through real persistence                │
@@ -10,16 +11,13 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { pageGenerationRequestedSchema } from '@study/contracts';
 import type { messageIdSchema, noteIdSchema } from '@study/contracts';
 import type { PageVersion } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { sql } from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
 import type { Context } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
@@ -51,10 +49,10 @@ function generationEvent(f: Fixture, requestId: string): typeof pageGenerationRe
     sql`SELECT payload FROM workflow_events WHERE type='PageGenerationRequested' AND correlation_id=${requestId} ORDER BY rowid DESC LIMIT 1`
   );
 
-  assert.ok(row);
+  test.assert.ok(row);
   const event = decodeEvent(String(row.payload));
 
-  assert.ok(event.type === 'PageGenerationRequested');
+  test.assert.ok(event.type === 'PageGenerationRequested');
 
   return event;
 }
@@ -70,7 +68,7 @@ function create(title: string, blocks = [paragraph('alpha evidence')]) {
     })
   ).pipe(
     Effect.map((value) => {
-      assert.ok(value.version);
+      test.assert.ok(value.version);
 
       return { ...value, version: value.version };
     })
@@ -78,11 +76,11 @@ function create(title: string, blocks = [paragraph('alpha evidence')]) {
 }
 
 function assertIndependentImage(independent: PageVersion, proposal: PageVersion) {
-  assert.notStrictEqual(independent.pageId, proposal.pageId);
-  expect(independent.document.blocks[1]!.content).toStrictEqual(
-    proposal.document.blocks[1]!.content
-  );
-  assert.notStrictEqual(independent.document.blocks[1]!.id, proposal.document.blocks[1]!.id);
+  test.assert.notStrictEqual(independent.pageId, proposal.pageId);
+  test
+    .expect(independent.document.blocks[1]!.content)
+    .toStrictEqual(proposal.document.blocks[1]!.content);
+  test.assert.notStrictEqual(independent.document.blocks[1]!.id, proposal.document.blocks[1]!.id);
 }
 
 function assessApplied(version: PageVersion) {
@@ -90,7 +88,7 @@ function assessApplied(version: PageVersion) {
     const docs = yield* Pages;
     const cited = version.citations[0];
 
-    assert.ok(cited?.target);
+    test.assert.ok(cited?.target);
     const claimBlock = version.document.blocks[0]!;
     const assessment = yield* docs.assessCitation({
       claim: {
@@ -110,8 +108,8 @@ function assessApplied(version: PageVersion) {
       note: 'Manual judgment'
     });
 
-    assert.ok(assessment.assessment.suppliedBy === 'user');
-    assert.ok(assessment.assessment.independentVerification === false);
+    test.assert.ok(assessment.assessment.suppliedBy === 'user');
+    test.assert.ok(assessment.assessment.independentVerification === false);
 
     return assessment;
   });
@@ -124,7 +122,7 @@ function assertSupport(
 ) {
   return docs
     .assessments({ versionId, marker: 1, limit: 10 })
-    .pipe(Effect.map((page) => assert.strictEqual(page.items[0]?.state, state)));
+    .pipe(Effect.map((page) => test.assert.strictEqual(page.items[0]?.state, state)));
 }
 
 type Scenario =
@@ -178,10 +176,10 @@ for (const scenario of [
   'selection_changed',
   'message_changed'
 ] as const)
-  testStable(
+  test.stable(
     `native authored proposal ${scenario} preserves exact receipts, alternatives, citations and independent retention`,
-    async () => {
-      const f = await pageTransformFixture();
+    async ({ databases }) => {
+      const f = await pageTransformFixture(databases);
 
       try {
         const setup = await Effect.runPromise(
@@ -260,30 +258,30 @@ for (const scenario of [
         const event = generationEvent(f, setup.request.id);
         const proposalId = await f.executeAuthored(event, `proposal-${scenario}`);
 
-        assert.strictEqual(
+        test.assert.strictEqual(
           f.context.db.orm.get(
             sql`SELECT result_version_id FROM page_transform_requests WHERE id=${setup.request.id}`
           )?.result_version_id,
           proposalId
         );
-        assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
-        assert.ok(f.bodies[0]!.includes('editable_target'));
-        assert.ok(f.bodies[0]!.includes('supporting_evidence'));
+        test.assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
+        test.assert.ok(f.bodies[0]!.includes('editable_target'));
+        test.assert.ok(f.bodies[0]!.includes('supporting_evidence'));
         const outcomes = await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Pages;
             const chats = yield* Notes;
             const proposal = yield* docs.version({ id: proposalId });
 
-            assert.ok(proposal.status === 'draft');
-            assert.strictEqual(proposal.pageId, setup.target.id);
-            assert.strictEqual(proposal.document.blocks[1]!.id, setup.imageBlock.id);
-            assert.strictEqual(
+            test.assert.ok(proposal.status === 'draft');
+            test.assert.strictEqual(proposal.pageId, setup.target.id);
+            test.assert.strictEqual(proposal.document.blocks[1]!.id, setup.imageBlock.id);
+            test.assert.strictEqual(
               (yield* docs.page({ id: setup.target.id })).headVersionId,
               setup.target.version.id
             );
-            assert.ok(proposal.citations.length > 0);
-            expect(proposal.citations[0]!.input).toStrictEqual({
+            test.assert.ok(proposal.citations.length > 0);
+            test.expect(proposal.citations[0]!.input).toStrictEqual({
               kind: 'page',
               versionId: setup.target.version.id
             });
@@ -293,7 +291,7 @@ for (const scenario of [
               sql`DELETE FROM page_citations WHERE version_id=${proposalId}`,
               sql`UPDATE blocks SET text='forged' WHERE document_id=${proposal.snapshotId}`
             ])
-              assert.throws(() => f.context.db.orm.run(mutation));
+              test.assert.throws(() => f.context.db.orm.run(mutation));
 
             yield* changeRelevantContext(scenario, setup.target.version, setup.input.version, {
               noteId: setup.note.id,
@@ -311,10 +309,10 @@ for (const scenario of [
             for (const invalid of [
               { ...value, key: 'wrong-expected', expectedVersionId: setup.input.version.id }
             ]) {
-              assert.ok(
+              test.assert.ok(
                 (yield* Effect.flip(chats.applyPageProposal(invalid))).kind === 'invalid_input'
               );
-              expect(output()).toStrictEqual(before);
+              test.expect(output()).toStrictEqual(before);
             }
 
             if (scenario === 'apply') {
@@ -322,18 +320,18 @@ for (const scenario of [
                 "CREATE TRIGGER reject_proposal_event BEFORE INSERT ON workflow_events WHEN NEW.type='PagePublished' BEGIN SELECT RAISE(ABORT,'injected apply failure'); END"
               );
               yield* Effect.flip(chats.applyPageProposal(value));
-              expect(output()).toStrictEqual(before);
+              test.expect(output()).toStrictEqual(before);
               f.context.db.exec('DROP TRIGGER reject_proposal_event');
             }
 
             const result = yield* chats.applyPageProposal(value);
 
-            assert.strictEqual(result.outcome, scenario === 'apply' ? 'applied' : 'conflict');
+            test.assert.strictEqual(result.outcome, scenario === 'apply' ? 'applied' : 'conflict');
             const after = output();
 
-            assert.ok((yield* chats.applyPageProposal(value)).replayed === true);
-            expect(output()).toStrictEqual(after);
-            assert.ok(
+            test.assert.ok((yield* chats.applyPageProposal(value)).replayed === true);
+            test.expect(output()).toStrictEqual(after);
+            test.assert.ok(
               (yield* Effect.flip(
                 chats.keepPageProposal({
                   requestId: value.requestId,
@@ -342,7 +340,7 @@ for (const scenario of [
                 })
               )).kind === 'invalid_input'
             );
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(
                 chats.applyPageProposal({
                   ...value,
@@ -352,9 +350,9 @@ for (const scenario of [
             );
             const compare = yield* docs.compareProposal({ requestId: setup.request.id });
 
-            assert.strictEqual(compare.beforeVersionId, setup.target.version.id);
-            assert.strictEqual(compare.proposedVersionId, proposalId);
-            assert.ok(compare.evidence === 'structural_only');
+            test.assert.strictEqual(compare.beforeVersionId, setup.target.version.id);
+            test.assert.strictEqual(compare.proposedVersionId, proposalId);
+            test.assert.ok(compare.evidence === 'structural_only');
 
             if (scenario === 'apply') {
               const beforeKeep = output();
@@ -369,9 +367,9 @@ for (const scenario of [
                   title: 'Independent'
                 })
               );
-              expect(output()).toStrictEqual(beforeKeep);
+              test.expect(output()).toStrictEqual(beforeKeep);
               f.context.db.exec('DROP TRIGGER reject_keep_event');
-              assert.ok(
+              test.assert.ok(
                 (yield* Effect.flip(chats.applyPageProposal({ ...value, key: 'second-apply' })))
                   .kind === 'invalid_input'
               );
@@ -383,14 +381,14 @@ for (const scenario of [
               title: 'Independent'
             });
 
-            assert.ok(kept.outcome === 'kept');
-            assert.ok(kept.resultVersionId);
+            test.assert.ok(kept.outcome === 'kept');
+            test.assert.ok(kept.resultVersionId);
             const independent = yield* docs.version({ id: kept.resultVersionId });
 
             assertIndependentImage(independent, proposal);
-            expect(independent.inputs).toStrictEqual(proposal.inputs);
-            expect(independent.citations).toStrictEqual(proposal.citations);
-            assert.ok(
+            test.expect(independent.inputs).toStrictEqual(proposal.inputs);
+            test.expect(independent.citations).toStrictEqual(proposal.citations);
+            test.assert.ok(
               (yield* chats.keepPageProposal({
                 requestId: setup.request.id,
                 key: 'keep',
@@ -398,7 +396,7 @@ for (const scenario of [
               })).replayed === true
             );
             yield* assertSupport(docs, independent.id, undefined);
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(
                 chats.keepPageProposal({
                   requestId: setup.request.id,
@@ -407,24 +405,24 @@ for (const scenario of [
                 })
               )).kind === 'invalid_input'
             );
-            assert.throws(() =>
+            test.assert.throws(() =>
               f.context.db.orm.run(
                 sql`UPDATE page_generation_requests SET intent_hash='forged' WHERE id=${setup.request.id}`
               )
             );
             const cited = independent.citations[0]!;
 
-            assert.ok(cited.input.kind === 'page');
+            test.assert.ok(cited.input.kind === 'page');
             const exact = yield* docs.version({ id: cited.input.versionId });
 
-            assert.ok(exact.document.blocks.some((block) => block.text.includes(cited.quote)));
+            test.assert.ok(exact.document.blocks.some((block) => block.text.includes(cited.quote)));
 
             if (result.resultVersionId) {
               const applied = yield* docs.version({ id: result.resultVersionId });
 
-              assert.strictEqual(applied.document.blocks[1]!.id, setup.imageBlock.id);
-              expect(applied.citations).toStrictEqual(proposal.citations);
-              expect(applied.parents).toStrictEqual([setup.target.version.id]);
+              test.assert.strictEqual(applied.document.blocks[1]!.id, setup.imageBlock.id);
+              test.expect(applied.citations).toStrictEqual(proposal.citations);
+              test.expect(applied.parents).toStrictEqual([setup.target.version.id]);
               yield* assessApplied(applied);
               yield* assertSupport(docs, applied.id, 'stale');
               const restore = {
@@ -435,10 +433,10 @@ for (const scenario of [
               };
               const restored = yield* docs.restore(restore);
 
-              assert.ok(restored.outcome === 'saved');
+              test.assert.ok(restored.outcome === 'saved');
               yield* assertSupport(docs, restored.submittedVersionId, undefined);
               yield* assertSupport(docs, applied.id, 'stale');
-              assert.ok((yield* docs.restore(restore)).replayed === true);
+              test.assert.ok((yield* docs.restore(restore)).replayed === true);
             }
 
             return { independentId: independent.id, resultVersionId: result.resultVersionId };
@@ -451,8 +449,10 @@ for (const scenario of [
             const docs = yield* Pages;
             const chats = yield* Notes;
 
-            assert.ok((yield* docs.version({ id: outcomes.independentId })).status === 'published');
-            assert.ok(
+            test.assert.ok(
+              (yield* docs.version({ id: outcomes.independentId })).status === 'published'
+            );
+            test.assert.ok(
               (yield* chats.keepPageProposal({
                 requestId: setup.request.id,
                 key: 'keep',
@@ -472,16 +472,20 @@ for (const scenario of [
         await cleanup(f, setup.note.id);
         const calls = f.bodies.length;
 
-        await expect(f.executeAuthored(event, `retired-${scenario}`)).rejects.toSatisfy(() => true);
-        assert.strictEqual(f.bodies.length, calls);
+        await test
+          .expect(f.executeAuthored(event, `retired-${scenario}`))
+          .rejects.toSatisfy(() => true);
+        test.assert.strictEqual(f.bodies.length, calls);
         await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Pages;
 
-            assert.ok((yield* docs.version({ id: outcomes.independentId })).status === 'published');
+            test.assert.ok(
+              (yield* docs.version({ id: outcomes.independentId })).status === 'published'
+            );
           }).pipe(Effect.provide(f.domain()))
         );
-        expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+        test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         await f.close();
       }
@@ -489,10 +493,10 @@ for (const scenario of [
   );
 
 for (const barrier of ['cancel', 'delete'] as const)
-  testStable(
+  test.stable(
     `authored proposal ${barrier} before native execution fences late publication`,
-    async () => {
-      const f = await pageTransformFixture();
+    async ({ databases }) => {
+      const f = await pageTransformFixture(databases);
 
       try {
         const request = await Effect.runPromise(
@@ -534,23 +538,26 @@ for (const barrier of ['cancel', 'delete'] as const)
           }).pipe(Effect.provide(f.domain()))
         );
 
-        await expect(
-          f.executeAuthored(generationEvent(f, request.id), `barrier-${barrier}`)
-        ).rejects.toSatisfy(() => true);
-        assert.strictEqual(f.bodies.length, 0);
-        assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM page_proposals`)?.n, 0n);
-        assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 1n);
-        assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
+        await test
+          .expect(f.executeAuthored(generationEvent(f, request.id), `barrier-${barrier}`))
+          .rejects.toSatisfy(() => true);
+        test.assert.strictEqual(f.bodies.length, 0);
+        test.assert.strictEqual(
+          f.context.db.orm.get(sql`SELECT count(*) n FROM page_proposals`)?.n,
+          0n
+        );
+        test.assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 1n);
+        test.assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
       } finally {
         await f.close();
       }
     }
   );
 
-testStable(
+test.stable(
   'stored block and passage selection does not narrow automatic whole-document target captures',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases }) => {
+    const f = await pageTransformFixture(databases);
 
     try {
       await Effect.runPromise(
@@ -586,8 +593,10 @@ testStable(
               preferences: {}
             });
 
-            expect(context.inputs[0]?.scope).toStrictEqual({ kind: 'document' });
-            expect(context.inputs[0]?.excerpts.map(({ text }) => text)).toStrictEqual([block.text]);
+            test.expect(context.inputs[0]?.scope).toStrictEqual({ kind: 'document' });
+            test
+              .expect(context.inputs[0]?.excerpts.map(({ text }) => text))
+              .toStrictEqual([block.text]);
             const request = yield* chats.requestPageTransform({
               title: 'Whole-document target',
               contextRequestId: context.requestId,
@@ -595,14 +604,14 @@ testStable(
               editTargetVersionId: target.version.id
             });
 
-            assert.strictEqual(request.editTargetVersionId, target.version.id);
+            test.assert.strictEqual(request.editTargetVersionId, target.version.id);
           }
 
-          assert.strictEqual(
+          test.assert.strictEqual(
             f.context.db.orm.get(sql`SELECT count(*) n FROM page_transform_requests`)?.n,
             2n
           );
-          assert.strictEqual(f.bodies.length, 0);
+          test.assert.strictEqual(f.bodies.length, 0);
         }).pipe(Effect.provide(f.domain()))
       );
     } finally {

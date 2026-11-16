@@ -1,0 +1,4 @@
+{
+  "extends": "./server.json",
+  "include": ["../../packages/db/src/**/*.ts", "../../packages/db/test/**/*.ts"]
+}

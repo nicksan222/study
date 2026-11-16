@@ -1,3 +1,4 @@
+import type { ContentSnapshotId, SourceId } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks that citations resolve only searched excerpts, evidence is bounded and      │
@@ -13,15 +14,11 @@
  * │ provider requests.                                                                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { ContentSnapshotId, SourceId } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
 
-testStable('citations only resolve excerpts exposed by search', () => {
+test.stable('citations only resolve excerpts exposed by search', () => {
   const catalog = createEvidenceCatalog([
     {
       key: '1:2',
@@ -31,9 +28,9 @@ testStable('citations only resolve excerpts exposed by search', () => {
     }
   ]);
 
-  assert.throws(() => catalog.citations('Answer [1]'));
-  assert.ok(catalog.search('alpha')[0]?.text === '[1] alpha beta');
-  expect(catalog.citations('Answer [1]')).toStrictEqual([
+  test.assert.throws(() => catalog.citations('Answer [1]'));
+  test.assert.ok(catalog.search('alpha')[0]?.text === '[1] alpha beta');
+  test.expect(catalog.citations('Answer [1]')).toStrictEqual([
     {
       marker: 1,
       reference: { sourceId: 1n, documentId: 2n },
@@ -41,11 +38,11 @@ testStable('citations only resolve excerpts exposed by search', () => {
       quote: 'alpha beta'
     }
   ]);
-  assert.throws(() => catalog.citations('Answer [2]'));
-  expect(catalog.citations('Plain answer')).toStrictEqual([]);
+  test.assert.throws(() => catalog.citations('Answer [2]'));
+  test.expect(catalog.citations('Plain answer')).toStrictEqual([]);
 });
 
-testStable('bounds excerpts and deduplicates captured documents', () => {
+test.stable('bounds excerpts and deduplicates captured documents', () => {
   const catalog = createEvidenceCatalog([]);
   const document = {
     key: '1:2',
@@ -58,12 +55,12 @@ testStable('bounds excerpts and deduplicates captured documents', () => {
   catalog.addDocument(document);
   const hits = catalog.search('a');
 
-  assert.strictEqual(hits.length, 10);
-  assert.strictEqual(hits[0]!.text.length, 1004);
-  assert.throws(() => catalog.citations('Answer [101]'));
+  test.assert.strictEqual(hits.length, 10);
+  test.assert.strictEqual(hits[0]!.text.length, 1004);
+  test.assert.throws(() => catalog.citations('Answer [101]'));
 });
 
-testStable('shared catalog preserves opaque material references', async () => {
+test.stable('shared catalog preserves opaque material references', async () => {
   const { createEvidenceCatalog: createSharedCatalog } =
     await import('#server/platform/ai/evidence');
   const catalog = createSharedCatalog([
@@ -75,14 +72,16 @@ testStable('shared catalog preserves opaque material references', async () => {
     }
   ]);
 
-  assert.throws(() => catalog.citations('[1]'));
+  test.assert.throws(() => catalog.citations('[1]'));
   catalog.search('captured');
-  expect(catalog.citations('[1]')).toStrictEqual([
-    { marker: 1, reference: { inputVersionId: 9n }, blockOrdinal: 0, quote: 'captured evidence' }
-  ]);
+  test
+    .expect(catalog.citations('[1]'))
+    .toStrictEqual([
+      { marker: 1, reference: { inputVersionId: 9n }, blockOrdinal: 0, quote: 'captured evidence' }
+    ]);
 });
 
-testStable(
+test.stable(
   'evidence ranking preserves case-insensitive scores, marker ties and empty queries',
   () => {
     const catalog = createEvidenceCatalog([
@@ -94,11 +93,11 @@ testStable(
       }
     ]);
 
-    expect(catalog.search('  ')).toStrictEqual([]);
-    assert.throws(() => catalog.citations('[2]'));
-    expect(catalog.search(' alpha BETA ').map((hit) => hit.id)).toStrictEqual(['2', '3', '1']);
-    expect(catalog.citations('[2]')).toStrictEqual([
-      { marker: 2, reference: 'version', blockOrdinal: 1, quote: 'beta alpha' }
-    ]);
+    test.expect(catalog.search('  ')).toStrictEqual([]);
+    test.assert.throws(() => catalog.citations('[2]'));
+    test.expect(catalog.search(' alpha BETA ').map((hit) => hit.id)).toStrictEqual(['2', '3', '1']);
+    test
+      .expect(catalog.citations('[2]'))
+      .toStrictEqual([{ marker: 2, reference: 'version', blockOrdinal: 1, quote: 'beta alpha' }]);
   }
 );

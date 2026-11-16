@@ -1,3 +1,4 @@
+import { createBlock } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Hardens retained autosave assets and exact editing ancestry in migrated SQLite.    │
@@ -11,15 +12,11 @@
  * │ disabled.                                                                                │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { createBlock } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import type { Db } from '@study/db';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
@@ -43,8 +40,10 @@ const meta = {
   omissions: []
 };
 
-async function fixture() {
-  const location = await createTestDatabase();
+type Databases = () => Promise<{ open(): Promise<Db>; cleanup(): Promise<void>; path: string }>;
+
+async function fixture(databases: Databases) {
+  const location = await databases();
   let context = new ServerContext(await location.open());
 
   return {
@@ -66,10 +65,10 @@ async function fixture() {
   };
 }
 
-testStable(
+test.stable(
   'an image exclusive to a losing autosave retains its association and exact snapshot after reopen',
-  async () => {
-    const f = await fixture();
+  async ({ databases }) => {
+    const f = await fixture(databases);
     const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 
     try {
@@ -108,9 +107,11 @@ testStable(
             document: { blocks: [paragraph('Alternative'), block], meta }
           });
 
-          assert.ok(winner.outcome === 'saved');
-          assert.ok(loser.outcome === 'conflict');
-          assert.ok((yield* pages.version({ id: loser.submittedVersionId })).status === 'draft');
+          test.assert.ok(winner.outcome === 'saved');
+          test.assert.ok(loser.outcome === 'conflict');
+          test.assert.ok(
+            (yield* pages.version({ id: loser.submittedVersionId })).status === 'draft'
+          );
 
           return { image, block, target, winner, loser };
         }).pipe(Effect.provide(f.services()))
@@ -123,18 +124,20 @@ testStable(
         .where(eq(s.document_assets.source_id, setup.image.id))
         .all();
 
-      assert.strictEqual(associations.length, 1);
-      assert.strictEqual(associations[0]!.block_id, setup.block.id);
-      assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
-      expect(
-        f.context.db.orm
-          .select()
-          .from(s.page_versions)
-          .where(eq(s.page_versions.content_snapshot_id, associations[0]!.document_id))
-          .all()
-          .map((row) => row.id)
-      ).toStrictEqual([setup.loser.submittedVersionId]);
-      assert.strictEqual(f.context.db.orm.select().from(s.page_proposals).all().length, 0);
+      test.assert.strictEqual(associations.length, 1);
+      test.assert.strictEqual(associations[0]!.block_id, setup.block.id);
+      test.assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
+      test
+        .expect(
+          f.context.db.orm
+            .select()
+            .from(s.page_versions)
+            .where(eq(s.page_versions.content_snapshot_id, associations[0]!.document_id))
+            .all()
+            .map((row) => row.id)
+        )
+        .toStrictEqual([setup.loser.submittedVersionId]);
+      test.assert.strictEqual(f.context.db.orm.select().from(s.page_proposals).all().length, 0);
 
       const before = makeMaterialOutput(f.context);
       const retained = before();
@@ -146,8 +149,8 @@ testStable(
         sql`UPDATE source_snapshots SET mime='text/plain' WHERE source_id=${setup.image.id} AND revision=1`,
         sql`DELETE FROM source_snapshots WHERE source_id=${setup.image.id} AND revision=1`
       ]) {
-        assert.throws(() => f.context.db.orm.run(mutation));
-        expect(before()).toStrictEqual(retained);
+        test.assert.throws(() => f.context.db.orm.run(mutation));
+        test.expect(before()).toStrictEqual(retained);
       }
 
       await Effect.runPromise(
@@ -155,30 +158,32 @@ testStable(
           const pages = yield* Pages;
           const version = yield* pages.version({ id: setup.loser.submittedVersionId });
 
-          expect(version.document.blocks[1]).toStrictEqual(setup.block);
-          assert.strictEqual(
+          test.expect(version.document.blocks[1]).toStrictEqual(setup.block);
+          test.assert.strictEqual(
             (yield* pages.page({ id: setup.target.id })).headVersionId,
             setup.winner.submittedVersionId
           );
-          expect(
-            (yield* (yield* Sources).sourceSnapshot({ id: setup.image.id, revision: 1 })).bytes
-          ).toStrictEqual(bytes);
-          assert.throws(() =>
+          test
+            .expect(
+              (yield* (yield* Sources).sourceSnapshot({ id: setup.image.id, revision: 1 })).bytes
+            )
+            .toStrictEqual(bytes);
+          test.assert.throws(() =>
             f.context.db.orm.run(sql`DELETE FROM page_versions WHERE id=${version.id}`)
           );
         }).pipe(Effect.provide(f.services()))
       );
-      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }
   }
 );
 
-testStable(
+test.stable(
   'authored restoration keeps its exact source revision after replacement without following the mutable source head',
-  async () => {
-    const f = await fixture();
+  async ({ databases }) => {
+    const f = await fixture(databases);
 
     try {
       await Effect.runPromise(
@@ -238,12 +243,12 @@ testStable(
             pageId: save.pageId
           });
 
-          assert.ok(replay.replayed === true);
-          assert.strictEqual(replay.submittedVersionId, saved.submittedVersionId);
-          expect(output()).toStrictEqual(before);
-          expect((yield* pages.version({ id: saved.submittedVersionId })).inputs).toStrictEqual([
-            input
-          ]);
+          test.assert.ok(replay.replayed === true);
+          test.assert.strictEqual(replay.submittedVersionId, saved.submittedVersionId);
+          test.expect(output()).toStrictEqual(before);
+          test
+            .expect((yield* pages.version({ id: saved.submittedVersionId })).inputs)
+            .toStrictEqual([input]);
 
           for (const value of [
             {
@@ -261,9 +266,9 @@ testStable(
               }
             }
           ])
-            assert.ok((yield* Effect.flip(pages.save(value))).kind === 'invalid_input');
+            test.assert.ok((yield* Effect.flip(pages.save(value))).kind === 'invalid_input');
 
-          expect(output()).toStrictEqual(before);
+          test.expect(output()).toStrictEqual(before);
           yield* sources.replaceSource({
             id: source.id,
             expectedRevision: 1,
@@ -278,31 +283,33 @@ testStable(
           };
           const undo = yield* pages.restore(undoValue);
 
-          assert.ok(undo.outcome === 'saved');
-          assert.strictEqual(undo.currentVersionId, saved.submittedVersionId);
-          assert.strictEqual(
+          test.assert.ok(undo.outcome === 'saved');
+          test.assert.strictEqual(undo.currentVersionId, saved.submittedVersionId);
+          test.assert.strictEqual(
             (yield* pages.page({ id: derivative.id })).headVersionId,
             undo.submittedVersionId
           );
-          assert.ok((yield* pages.version({ id: undo.submittedVersionId })).status === 'published');
-          assert.strictEqual(
+          test.assert.ok(
+            (yield* pages.version({ id: undo.submittedVersionId })).status === 'published'
+          );
+          test.assert.strictEqual(
             (yield* pages.restore(undoValue)).submittedVersionId,
             undo.submittedVersionId
           );
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(
               pages.restore({ ...undoValue, restoreVersionId: saved.submittedVersionId })
             )).kind === 'invalid_input'
           );
           const oldRevision = yield* sources.exportRevision({ sourceId: source.id, revision: 1n });
 
-          expect(oldRevision.bytes).toStrictEqual(exported.bytes);
-          expect((yield* pages.version({ id: undo.submittedVersionId })).inputs).toStrictEqual([
-            input
-          ]);
+          test.expect(oldRevision.bytes).toStrictEqual(exported.bytes);
+          test
+            .expect((yield* pages.version({ id: undo.submittedVersionId })).inputs)
+            .toStrictEqual([input]);
         }).pipe(Effect.provide(f.services()))
       );
-      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }

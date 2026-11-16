@@ -1,7 +1,5 @@
-import { createAiMock } from '@study/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Fiber, Schema } from 'effect';
-import { expect } from 'vite-plus/test';
 
 const agent = {
   id: 'counter',
@@ -13,69 +11,75 @@ const agent = {
 const tool = { input: Schema.Struct({ id: Schema.Int }), output: Schema.String };
 
 const resolveModel = (
-  mock: ReturnType<typeof createAiMock>,
+  mock: ReturnType<typeof test.createAiMock>,
   definition: typeof agent,
   input = { text: 'one' }
 ) => Effect.runPromise(mock.runtime.model('tiny', { definition, input }));
 
-testStable('agent definitions infer and validate exact one-shot inputs and outputs', async () => {
-  const mock = createAiMock();
+test.stable('agent definitions infer and validate exact one-shot inputs and outputs', async () => {
+  const mock = test.createAiMock();
   const output = { count: 1 };
   const expected = mock.next(agent, { input: { text: 'one' }, output });
 
   output.count = 99;
   const model = await resolveModel(mock, agent);
 
-  expect(() => mock.verify()).toThrow('AI mock verification failed');
+  test.expect(() => mock.verify()).toThrow('AI mock verification failed');
   const result = await model.doGenerate({ prompt: [] });
 
-  expect(result.content).toEqual([{ type: 'text', text: '{"count":1}' }]);
-  expect((await expected.called).input.text).toBe('one');
+  test.expect(result.content).toEqual([{ type: 'text', text: '{"count":1}' }]);
+  test.expect((await expected.called).input.text).toBe('one');
   mock.verify();
-  expect((await model.doGenerate({ prompt: [] })).content).toEqual(result.content);
-  await expect(resolveModel(mock, agent)).rejects.toThrow('unplanned');
-  expect(() => mock.verify()).toThrow('AI mock verification failed');
+  test.expect((await model.doGenerate({ prompt: [] })).content).toEqual(result.content);
+  await test.expect(resolveModel(mock, agent)).rejects.toThrow('unplanned');
+  test.expect(() => mock.verify()).toThrow('AI mock verification failed');
 });
 
-testStable('schema violations are rejected before registering an expectation', () => {
-  const mock = createAiMock();
+test.stable('schema violations are rejected before registering an expectation', () => {
+  const mock = test.createAiMock();
 
-  expect(() => mock.next(agent, { input: { text: 3 } as never, output: { count: 1 } })).toThrow();
-  expect(() =>
-    mock.next(agent, { input: { text: 'one' }, output: { count: '1' } as never })
-  ).toThrow();
-  expect(() =>
-    mock.next(agent, { input: { text: 'one', extra: true } as never, output: { count: 1 } })
-  ).toThrow();
-  expect(() =>
-    mock.next(agent, { input: { text: 'one' }, output: { count: 1, extra: true } as never })
-  ).toThrow();
+  test
+    .expect(() => mock.next(agent, { input: { text: 3 } as never, output: { count: 1 } }))
+    .toThrow();
+  test
+    .expect(() => mock.next(agent, { input: { text: 'one' }, output: { count: '1' } as never }))
+    .toThrow();
+  test
+    .expect(() =>
+      mock.next(agent, { input: { text: 'one', extra: true } as never, output: { count: 1 } })
+    )
+    .toThrow();
+  test
+    .expect(() =>
+      mock.next(agent, { input: { text: 'one' }, output: { count: 1, extra: true } as never })
+    )
+    .toThrow();
   mock.verify();
 });
 
-testStable(
+test.stable(
   'input mismatch cannot consume a later expectation or disappear from verification',
   async () => {
-    const mock = createAiMock();
+    const mock = test.createAiMock();
 
     mock.next(agent, { input: { text: 'first' }, output: { count: 1 } });
     mock.next(agent, { input: { text: 'second' }, output: { count: 2 } });
     const wrong = await resolveModel(mock, agent, { text: 'second' });
 
-    await expect(wrong.doGenerate({ prompt: [] })).rejects.toThrow('unexpected input');
+    await test.expect(wrong.doGenerate({ prompt: [] })).rejects.toThrow('unexpected input');
     const second = await resolveModel(mock, agent, { text: 'second' });
 
-    expect((await second.doGenerate({ prompt: [] })).content).toEqual([
-      { type: 'text', text: '{"count":2}' }
-    ]);
-    expect(() => mock.verify()).toThrow('AI mock verification failed');
+    test
+      .expect((await second.doGenerate({ prompt: [] })).content)
+      .toEqual([{ type: 'text', text: '{"count":2}' }]);
+    test.expect(() => mock.verify()).toThrow('AI mock verification failed');
   }
 );
 
-testStable(
+test.stable(
   'concurrent calls consume separate plans and each held call has its own gate',
   async () => {
-    const mock = createAiMock();
+    const mock = test.createAiMock();
     const first = mock.next(agent, { input: { text: 'one' }, output: { count: 1 }, hold: true });
     const second = mock.next(agent, { input: { text: 'two' }, output: { count: 2 }, hold: true });
     const one = await resolveModel(mock, agent);
@@ -83,21 +87,21 @@ testStable(
     const oneResult = one.doGenerate({ prompt: [] });
     const twoResult = two.doGenerate({ prompt: [] });
 
-    expect((await first.called).input).toEqual({ text: 'one' });
-    expect((await second.called).input).toEqual({ text: 'two' });
+    test.expect((await first.called).input).toEqual({ text: 'one' });
+    test.expect((await second.called).input).toEqual({ text: 'two' });
     second.release();
-    expect((await twoResult).content).toEqual([{ type: 'text', text: '{"count":2}' }]);
-    expect(() => mock.verify()).toThrow();
+    test.expect((await twoResult).content).toEqual([{ type: 'text', text: '{"count":2}' }]);
+    test.expect(() => mock.verify()).toThrow();
     first.release();
     await oneResult;
     mock.verify();
   }
 );
 
-testStable(
+test.stable(
   'cancelled provider calls settle their expectation without returning a success',
   async () => {
-    const mock = createAiMock();
+    const mock = test.createAiMock();
     const expected = mock.next(agent, { input: { text: 'one' }, output: { count: 1 }, hold: true });
     const model = await resolveModel(mock, agent);
     const controller = new AbortController();
@@ -109,13 +113,13 @@ testStable(
     await expected.called;
     controller.abort();
     await expected.aborted;
-    expect(await result).toMatchObject({ name: 'AbortError' });
+    test.expect(await result).toMatchObject({ name: 'AbortError' });
     mock.verify();
   }
 );
 
-testStable('tool mocks return decoded schema values and never invoke an actual tool', async () => {
-  const mock = createAiMock();
+test.stable('tool mocks return decoded schema values and never invoke an actual tool', async () => {
+  const mock = test.createAiMock();
   const bigintTool = {
     input: Schema.BigIntFromString,
     output: Schema.Struct({ id: Schema.BigIntFromString })
@@ -131,8 +135,8 @@ testStable('tool mocks return decoded schema values and never invoke an actual t
     })
   );
 
-  expect(result).toEqual({ id: 2n });
-  expect(actualCalls).toBe(0);
+  test.expect(result).toEqual({ id: 2n });
+  test.expect(actualCalls).toBe(0);
   mock.verify();
   const unexpected = await Effect.runPromise(
     Effect.flip(
@@ -144,15 +148,15 @@ testStable('tool mocks return decoded schema values and never invoke an actual t
     )
   );
 
-  expect(unexpected).toBeInstanceOf(Error);
-  expect(actualCalls).toBe(0);
-  expect(() => mock.verify()).toThrow();
+  test.expect(unexpected).toBeInstanceOf(Error);
+  test.expect(actualCalls).toBe(0);
+  test.expect(() => mock.verify()).toThrow();
 });
 
-testStable(
+test.stable(
   'Effect interruption cancels a held tool expectation without executing its thunk',
   async () => {
-    const mock = createAiMock();
+    const mock = test.createAiMock();
     const held = mock.next(tool, { input: { id: 1 }, output: 'done', hold: true });
     let actual = false;
     const fiber = await Effect.runPromise(
@@ -168,15 +172,15 @@ testStable(
     await held.called;
     await Effect.runPromise(Fiber.interrupt(fiber));
     await held.aborted;
-    expect(actual).toBe(false);
+    test.expect(actual).toBe(false);
     mock.verify();
   }
 );
 
-testStable(
+test.stable(
   'same agent id with distinct contracts stays isolated while prompt clones keep identity',
   async () => {
-    const mock = createAiMock();
+    const mock = test.createAiMock();
     const other = {
       ...agent,
       input: Schema.Struct({ text: Schema.String }),
@@ -188,20 +192,20 @@ testStable(
     const otherModel = await resolveModel(mock, other);
     const cloneModel = await resolveModel(mock, { ...agent });
 
-    expect((await otherModel.doGenerate({ prompt: [] })).content).toEqual([
-      { type: 'text', text: '{"count":2}' }
-    ]);
-    expect((await cloneModel.doGenerate({ prompt: [] })).content).toEqual([
-      { type: 'text', text: '{"count":1}' }
-    ]);
+    test
+      .expect((await otherModel.doGenerate({ prompt: [] })).content)
+      .toEqual([{ type: 'text', text: '{"count":2}' }]);
+    test
+      .expect((await cloneModel.doGenerate({ prompt: [] })).content)
+      .toEqual([{ type: 'text', text: '{"count":1}' }]);
     mock.verify();
   }
 );
 
-testStable(
+test.stable(
   'bigint agent outputs cross the JSON codec boundary and stream through model events',
   async () => {
-    const mock = createAiMock();
+    const mock = test.createAiMock();
     const definition = { ...agent, output: Schema.Struct({ count: Schema.BigIntFromString }) };
 
     mock.next(definition, { input: { text: 'one' }, output: { count: 3n } });
@@ -215,18 +219,18 @@ testStable(
       .map((part) => part.delta)
       .join('');
 
-    expect(
-      Schema.decodeUnknownSync(Schema.toCodecJson(definition.output))(JSON.parse(text))
-    ).toEqual({ count: 3n });
-    expect(parts.at(-1)?.type).toBe('finish');
+    test
+      .expect(Schema.decodeUnknownSync(Schema.toCodecJson(definition.output))(JSON.parse(text)))
+      .toEqual({ count: 3n });
+    test.expect(parts.at(-1)?.type).toBe('finish');
     mock.verify();
   }
 );
 
-testStable(
+test.stable(
   'one explicit failure preserves the supplied error and later success needs a new plan',
   async () => {
-    const mock = createAiMock();
+    const mock = test.createAiMock();
     const failure = new Error('controlled');
 
     mock.failNext(agent, { input: { text: 'one' }, error: failure });
@@ -235,26 +239,28 @@ testStable(
       (error: unknown) => error
     );
 
-    expect(rejected).toBe(failure);
+    test.expect(rejected).toBe(failure);
     mock.next(agent, { input: { text: 'one' }, output: { count: 5 } });
-    await expect(model.doGenerate({ prompt: [] })).rejects.toBe(failure);
+    await test.expect(model.doGenerate({ prompt: [] })).rejects.toBe(failure);
     const later = await resolveModel(mock, agent);
 
-    expect((await later.doGenerate({ prompt: [] })).content).toEqual([
-      { type: 'text', text: '{"count":5}' }
-    ]);
+    test
+      .expect((await later.doGenerate({ prompt: [] })).content)
+      .toEqual([{ type: 'text', text: '{"count":5}' }]);
     mock.verify();
   }
 );
 
-testStable('using scopes verify unused expectations automatically', () => {
-  expect(() => {
-    using mock = createAiMock();
+test.stable('using scopes verify unused expectations automatically', () => {
+  test
+    .expect(() => {
+      using mock = test.createAiMock();
 
-    mock.next(agent, { input: { text: 'one' }, output: { count: 1 } });
-  }).toThrow('AI mock verification failed');
+      mock.next(agent, { input: { text: 'one' }, output: { count: 1 } });
+    })
+    .toThrow('AI mock verification failed');
 
-  using empty = createAiMock();
+  using empty = test.createAiMock();
 
   empty.verify();
 });

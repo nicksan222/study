@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises an HTTP note reply with a source still downloading. It verifies          │
@@ -13,24 +14,19 @@
  * │ with real SQLite and application resources; fixture cleanup closes owned resources.      │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
 import { sql } from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { Notes } from '#server/features/notes/index';
 import { serve } from '#server/runtime/index';
-import { pollUntil } from '#testing/poll';
-import { createStudyTest } from '#testing/server-test';
 
-testStable(
+test.stable(
   'HTTP attachment replies wake through registered source subscriptions before waiting for authentication',
   { timeout: 15000 },
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture }) => {
+    const fixture = serverFixture;
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
       release = resolve;
@@ -51,7 +47,7 @@ testStable(
       release();
       await peer.stop(true);
     });
-    assert.ok(peer.port, 'missing source peer address');
+    test.assert.ok(peer.port, 'missing source peer address');
     const evidenceUrl = new URL('/evidence.txt', peer.url).href;
     const server = fixture.manage(await serve(fixture.app));
 
@@ -75,7 +71,7 @@ testStable(
       const request = yield* client['notes.requestReply']({ noteId: note.id });
 
       yield* client['system.startWorkers']({});
-      yield* pollUntil(
+      yield* test.pollUntil(
         Effect.gen(function* () {
           const executions = yield* client['workflows.executions']({
             correlationId: request.requestId,
@@ -90,7 +86,7 @@ testStable(
         (value) => value,
         { attempts: 100, interval: '25 millis', message: 'Expected durable workflow wait' }
       );
-      assert.strictEqual(
+      test.assert.strictEqual(
         fixture.store.db.orm.all(
           sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id = w.execution_id WHERE e.workflow_tag = 'conversation-reply/v1'`
         ).length,
@@ -102,9 +98,9 @@ testStable(
         )
       );
 
-      assert.strictEqual(before.pendingAttachments?.length, 1);
+      test.assert.strictEqual(before.pendingAttachments?.length, 1);
       release();
-      yield* pollUntil(
+      yield* test.pollUntil(
         Effect.sync(
           () =>
             fixture.store.db.orm.all(
@@ -124,9 +120,9 @@ testStable(
         )
       );
 
-      assert.strictEqual(after.pendingAttachments, undefined);
-      assert.strictEqual(after.messages[0]?.attachments[0]?.sourceId, source.id);
-      assert.strictEqual(
+      test.assert.strictEqual(after.pendingAttachments, undefined);
+      test.assert.strictEqual(after.messages[0]?.attachments[0]?.sourceId, source.id);
+      test.assert.strictEqual(
         after.messages[0]?.attachments[0]?.snapshotId,
         (yield* client['sources.sourceProcessing']({ id: source.id })).documentId
       );

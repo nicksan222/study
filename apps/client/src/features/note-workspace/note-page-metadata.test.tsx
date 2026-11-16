@@ -1,40 +1,39 @@
-import { testStable } from '@study/testing/vitest';
-import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport } from '#client/test/rpc.tsx';
+import { test } from '@study/testing';
 
 import { authoredPage as material } from '../document-editing/test-support';
 import { usePageMetadata } from './note-page-metadata.queries';
 
-const api = vi.hoisted(() => ({ description: vi.fn() }));
+const api = test.hoisted(() => ({ description: test.vi.fn() }));
 
 function mount() {
-  const fixture = rpcTestTransport(async (_tag, input) => api.description(input));
+  const fixture = test.rpcTestTransport(async (_tag, input) => api.description(input));
   const original = { ...material(), description: 'Original summary' };
 
-  return { original, ...renderHook(() => usePageMetadata(original), { wrapper: fixture.wrapper }) };
+  return {
+    original,
+    ...test.renderHook(() => usePageMetadata(original), { wrapper: fixture.wrapper })
+  };
 }
 
-beforeEach(() => {
-  vi.resetAllMocks();
+test.beforeEach(() => {
+  test.vi.resetAllMocks();
   api.description.mockResolvedValue(material());
 });
-afterEach(() => {
-  cleanup();
+test.afterEach(() => {
+  test.cleanup();
 });
 
-testStable(
+test.stable(
   'updates document metadata with the expected stored description and trimmed title',
   async () => {
     const view = mount();
 
-    act(() => {
+    test.act(() => {
       view.result.current.setTitle('  Lecture notes  ');
       view.result.current.setDescription('  Study this tomorrow  ');
     });
-    await act(() => view.result.current.mutation.mutateAsync());
-    expect(api.description).toHaveBeenCalledWith({
+    await test.act(() => view.result.current.mutation.mutateAsync());
+    test.expect(api.description).toHaveBeenCalledWith({
       id: view.original.id,
       expectedDescription: 'Original summary',
       description: 'Study this tomorrow',
@@ -44,15 +43,15 @@ testStable(
   }
 );
 
-testStable('keeps edits on a description conflict and does not rename the material', async () => {
+test.stable('keeps edits on a description conflict and does not rename the material', async () => {
   const view = mount();
 
   api.description.mockRejectedValue(new Error('conflict'));
-  act(() => {
+  test.act(() => {
     view.result.current.setDescription('My summary');
     view.result.current.mutation.mutate();
   });
-  await waitFor(() => expect(view.result.current.mutation.isError).toBe(true));
-  expect(view.result.current.description).toBe('My summary');
-  expect(view.result.current.title).toBe(view.original.title);
+  await test.waitFor(() => test.expect(view.result.current.mutation.isError).toBe(true));
+  test.expect(view.result.current.description).toBe('My summary');
+  test.expect(view.result.current.title).toBe(view.original.title);
 });

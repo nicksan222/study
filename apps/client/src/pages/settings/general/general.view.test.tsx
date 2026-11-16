@@ -1,6 +1,4 @@
-import { testStable } from '@study/testing/vitest';
-import { render, screen } from '@testing-library/react';
-import { expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { LanguageProvider } from '#client/lib/i18n.tsx';
 
@@ -12,26 +10,26 @@ function model() {
     loading: false,
     pending: false,
     error: false,
-    retry: vi.fn(),
-    setLanguage: vi.fn()
+    retry: test.vi.fn(),
+    setLanguage: test.vi.fn()
   };
 }
 
-testStable('labels the language selector and disables it while saving', () => {
-  render(<GeneralSettingsView model={{ ...model(), pending: true }} />);
-  expect(screen.getByRole('combobox', { name: 'Language' })).toBeDisabled();
-  expect(screen.getByRole('status')).toHaveTextContent('Saving');
+test.stable('labels the language selector and disables it while saving', () => {
+  test.render(<GeneralSettingsView model={{ ...model(), pending: true }} />);
+  test.expect(test.screen.getByRole('combobox', { name: 'Language' })).toBeDisabled();
+  test.expect(test.screen.getByRole('status')).toHaveTextContent('Saving');
 });
 
-testStable('localizes the preferences and offers retry after a failed load', () => {
+test.stable('localizes the preferences and offers retry after a failed load', () => {
   const state = { ...model(), data: undefined, error: true };
 
-  render(
+  test.render(
     <LanguageProvider locale="italian">
       <GeneralSettingsView model={state} />
     </LanguageProvider>
   );
-  expect(screen.getByRole('heading', { name: 'Generali' })).toBeInTheDocument();
-  expect(screen.getByRole('alert')).toHaveTextContent('Impossibile');
-  expect(screen.getByRole('button', { name: 'Riprova' })).toBeEnabled();
+  test.expect(test.screen.getByRole('heading', { name: 'Generali' })).toBeInTheDocument();
+  test.expect(test.screen.getByRole('alert')).toHaveTextContent('Impossibile');
+  test.expect(test.screen.getByRole('button', { name: 'Riprova' })).toBeEnabled();
 });

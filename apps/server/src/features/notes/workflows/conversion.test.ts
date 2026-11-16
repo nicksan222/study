@@ -1,3 +1,4 @@
+import { sourceProcessingRequestedSchema, noteGenerationRequestedSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Tests durable text conversion and exact PDF attachment extraction reuse.           │
@@ -10,17 +11,12 @@
  * │ Tests use real SQLite and workflow services with a controlled model transport.           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sourceProcessingRequestedSchema, noteGenerationRequestedSchema } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { workflowEvents } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { createAiMock } from '@study/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
-import { afterEach, beforeEach, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Settings } from '#server/features/settings/index';
@@ -41,14 +37,13 @@ import { withTestAdmission } from '#testing/workflow-admission';
 
 import { noteReplyHandler, noteReplyWorkflow } from './index.ts';
 
-let location: Awaited<ReturnType<typeof createTestDatabase>>;
-
 let context: ServerContext;
 
 let auth: AuthManager;
 
-beforeEach(async () => {
-  location = await createTestDatabase();
+test.beforeEach(async ({ databases }) => {
+  const location = await databases();
+
   context = new ServerContext(await location.open());
   auth = new AuthManager({ issuer: 'http://test.invalid', saveRefresh: async () => {} });
 
@@ -58,10 +53,9 @@ beforeEach(async () => {
   );
 });
 
-afterEach(async () => {
+test.afterEach(async () => {
   await auth.dispose();
   context.close();
-  await location.cleanup();
 });
 
 function workflowServices(model: AgentsConfig['model']) {
@@ -78,7 +72,7 @@ function workflowServices(model: AgentsConfig['model']) {
       rules: Effect.succeed(defaultAgentRules),
       searchSources: () => Effect.succeed([]),
       model: (tier, call) => {
-        expect(tier).toBe('tiny');
+        test.expect(tier).toBe('tiny');
 
         return model(tier, call);
       }
@@ -86,10 +80,10 @@ function workflowServices(model: AgentsConfig['model']) {
   );
 }
 
-testStable(
+test.stable(
   'conversion executes on the small tier, captures only its target and checkpoints publication',
   async () => {
-    using mock = createAiMock();
+    using mock = test.createAiMock();
     const conversion = mock.next(textConversionAgent, {
       input: { text: 'A complete\nparagraph.' },
       output: 'A complete paragraph.'
@@ -130,7 +124,7 @@ testStable(
                 event.type === 'NoteGenerationRequested' && event.requestId === receipt.requestId
             );
 
-          expect(events).toHaveLength(1);
+          test.expect(events).toHaveLength(1);
           const event = Schema.decodeUnknownSync(noteGenerationRequestedSchema)(events[0]);
           const engine = yield* WorkflowEngine.WorkflowEngine;
 
@@ -150,12 +144,12 @@ testStable(
 
           const completed = yield* c.message(noteMessage.id);
 
-          expect(completed.activeVersionId).toBe(receipt.versionId);
-          expect(completed.versions).toHaveLength(2);
-          expect(completed.versions.at(-1)?.text).toBe('A complete paragraph.');
-          expect((yield* Effect.promise(() => conversion.called)).input.text).toBe(
-            'A complete\nparagraph.'
-          );
+          test.expect(completed.activeVersionId).toBe(receipt.versionId);
+          test.expect(completed.versions).toHaveLength(2);
+          test.expect(completed.versions.at(-1)?.text).toBe('A complete paragraph.');
+          test
+            .expect((yield* Effect.promise(() => conversion.called)).input.text)
+            .toBe('A complete\nparagraph.');
           const sources = yield* Sources;
           const bytes = yield* Effect.promise(() =>
             Bun.file(
@@ -240,12 +234,12 @@ testStable(
           );
           const pdf = yield* c.message(attachment.id);
 
-          expect(pdf.parts).toEqual(attachment.parts);
-          expect(pdf.versions.at(-1)?.text).toBe('First page\n\nSecond page');
+          test.expect(pdf.parts).toEqual(attachment.parts);
+          test.expect(pdf.versions.at(-1)?.text).toBe('First page\n\nSecond page');
           mock.verify();
-          expect(
-            (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
-          ).toEqual(bytes);
+          test
+            .expect((yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes)
+            .toEqual(bytes);
           const threaded = yield* c.postMessage({
             noteId: note.id,
             threadRoot: attachment.parts[0].id,
@@ -281,9 +275,9 @@ testStable(
               payload: { event: threadEvent }
             })
           );
-          expect((yield* c.message(threaded.id)).versions.at(-1)?.text).toBe(
-            'First page\n\nSecond page'
-          );
+          test
+            .expect((yield* c.message(threaded.id)).versions.at(-1)?.text)
+            .toBe('First page\n\nSecond page');
         }).pipe(
           Effect.provide(
             workflowServices((tier, call) =>
@@ -296,7 +290,7 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'exhausted automatic conversions unblock replies and retry their captured input',
   async () => {
     let calls = 0;
@@ -371,16 +365,18 @@ testStable(
             )
           );
 
-          expect(result._tag).toBe('Failure');
-          expect(calls).toBe(4);
+          test.expect(result._tag).toBe('Failure');
+          test.expect(calls).toBe(4);
           const failed = yield* c.message(noteMessage.id);
 
-          expect(failed.activeVersionId).toBe(noteMessage.activeVersionId);
-          expect(failed.versions.at(-1)?.status).toBe('failed');
-          expect(
-            (yield* c.inspectReplySnapshot({ requestId: event.requestId })).messages[0].text
-          ).toBe('Saved\ntext.');
-          expect((yield* c.requestReply({ noteId: note.id })).requestId).toBeTruthy();
+          test.expect(failed.activeVersionId).toBe(noteMessage.activeVersionId);
+          test.expect(failed.versions.at(-1)?.status).toBe('failed');
+          test
+            .expect(
+              (yield* c.inspectReplySnapshot({ requestId: event.requestId })).messages[0].text
+            )
+            .toBe('Saved\ntext.');
+          test.expect((yield* c.requestReply({ noteId: note.id })).requestId).toBeTruthy();
           available = true;
           const retry = yield* c.convertMessage({
             messageId: noteMessage.id,
@@ -411,8 +407,8 @@ testStable(
               payload: { event: retryEvent }
             })
           );
-          expect(calls).toBe(5);
-          expect((yield* c.message(noteMessage.id)).versions.at(-1)).toMatchObject({
+          test.expect(calls).toBe(5);
+          test.expect((yield* c.message(noteMessage.id)).versions.at(-1)).toMatchObject({
             id: event.versionId,
             status: 'complete',
             text: 'Saved text.'

@@ -1,13 +1,10 @@
 import { StudyError } from '@study/contracts';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { assert, expect, vi } from 'vite-plus/test';
 
 import { materialRpc, mountLibraryRoute, importedSource } from '../material-library/test/support';
-testStable(
+test.stable(
   'keeps unavailable historical extraction unavailable without falling back to current content or bytes',
   async () => {
     const rpc = materialRpc();
@@ -16,24 +13,26 @@ testStable(
       Effect.fail(new StudyError('not_found', 'Revision unavailable'))
     );
     mountLibraryRoute('/sources/7?sourceRevision=1&sourceSnapshot=1101', rpc);
-    expect(await within(await screen.findByRole('main')).findByRole('alert')).toHaveTextContent(
-      catalogs.english.ReaderUnavailable
-    );
-    expect(screen.queryByText('Current extraction 41')).toBeNull();
-    expect(screen.getByRole('button', { name: catalogs.english.ReaderOriginal })).toBeEnabled();
-    expect(rpc['sources.extraction']).toHaveBeenCalledExactlyOnceWith({
+    test
+      .expect(await test.within(await test.screen.findByRole('main')).findByRole('alert'))
+      .toHaveTextContent(catalogs.english.ReaderUnavailable);
+    test.expect(test.screen.queryByText('Current extraction 41')).toBeNull();
+    test
+      .expect(test.screen.getByRole('button', { name: catalogs.english.ReaderOriginal }))
+      .toBeEnabled();
+    test.expect(rpc['sources.extraction']).toHaveBeenCalledExactlyOnceWith({
       sourceId: importedSource.id,
       revision: 1n,
       snapshotId: 1101n
     });
-    expect(rpc['materials.materialVersion']).not.toHaveBeenCalled();
-    expect(rpc['sources.currentExtraction']).not.toHaveBeenCalled();
-    expect(rpc['sources.exportRevision']).not.toHaveBeenCalled();
-    expect(rpc['sources.sourceExport']).not.toHaveBeenCalled();
+    test.expect(rpc['materials.materialVersion']).not.toHaveBeenCalled();
+    test.expect(rpc['sources.currentExtraction']).not.toHaveBeenCalled();
+    test.expect(rpc['sources.exportRevision']).not.toHaveBeenCalled();
+    test.expect(rpc['sources.sourceExport']).not.toHaveBeenCalled();
   }
 );
 
-testStable(
+test.stable(
   'exports the selected historical version with its exact retained bytes, MIME and filename',
   async () => {
     const rpc = materialRpc();
@@ -48,13 +47,13 @@ testStable(
         bytes
       })
     );
-    const createObjectURL = vi
+    const createObjectURL = test.vi
       .fn<(blob: Blob) => string>()
       .mockReturnValue('blob:historical-original');
-    const revokeObjectURL = vi.fn();
-    const timers = vi.spyOn(globalThis, 'setTimeout');
+    const revokeObjectURL = test.vi.fn();
+    const timers = test.vi.spyOn(globalThis, 'setTimeout');
 
-    vi.stubGlobal(
+    test.vi.stubGlobal(
       'URL',
       class extends URL {
         static createObjectURL = createObjectURL;
@@ -62,7 +61,7 @@ testStable(
       }
     );
     let delivery: { href: string; filename: string } | undefined;
-    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+    const click = test.vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
       this: HTMLAnchorElement
     ) {
       delivery = { href: this.href, filename: this.download };
@@ -70,15 +69,15 @@ testStable(
 
     try {
       mountLibraryRoute('/sources/7?sourceRevision=1&sourceSnapshot=1101', rpc);
-      await screen.findByText('Historical extraction');
-      expect(screen.queryByText('Current extraction 41')).toBeNull();
-      const original = screen.getByRole('button', { name: catalogs.english.ReaderOriginal });
+      await test.screen.findByText('Historical extraction');
+      test.expect(test.screen.queryByText('Current extraction 41')).toBeNull();
+      const original = test.screen.getByRole('button', { name: catalogs.english.ReaderOriginal });
 
-      await userEvent.setup().click(original);
-      await waitFor(() => expect(createObjectURL).toHaveBeenCalledTimes(1));
+      await test.userEvent.setup().click(original);
+      await test.waitFor(() => test.expect(createObjectURL).toHaveBeenCalledTimes(1));
       const blob = createObjectURL.mock.calls[0]![0];
 
-      expect(blob.type).toBe(importedSource.mime);
+      test.expect(blob.type).toBe(importedSource.mime);
       const retained = await new Promise<ArrayBuffer>((resolve, reject) => {
         const reader = new FileReader();
 
@@ -87,34 +86,36 @@ testStable(
         reader.readAsArrayBuffer(blob);
       });
 
-      expect(new Uint8Array(retained)).toEqual(bytes);
-      expect(delivery).toEqual({ href: 'blob:historical-original', filename: importedSource.name });
-      expect(rpc['sources.exportRevision']).toHaveBeenCalledExactlyOnceWith({
+      test.expect(new Uint8Array(retained)).toEqual(bytes);
+      test
+        .expect(delivery)
+        .toEqual({ href: 'blob:historical-original', filename: importedSource.name });
+      test.expect(rpc['sources.exportRevision']).toHaveBeenCalledExactlyOnceWith({
         sourceId: importedSource.id,
         revision: 1n
       });
-      expect(rpc['sources.sourceExport']).not.toHaveBeenCalled();
-      await waitFor(() => expect(original).toBeEnabled(), { timeout: 2500 });
+      test.expect(rpc['sources.sourceExport']).not.toHaveBeenCalled();
+      await test.waitFor(() => test.expect(original).toBeEnabled(), { timeout: 2500 });
       const scheduled = timers.mock.calls.findLastIndex(([, delay]) => delay === 30000);
 
-      expect(scheduled).toBeGreaterThanOrEqual(0);
+      test.expect(scheduled).toBeGreaterThanOrEqual(0);
       const callback = timers.mock.calls[scheduled]![0];
 
       clearTimeout(timers.mock.results[scheduled]!.value);
 
-      assert(typeof callback === 'function', 'Expected a download cleanup callback');
+      test.assert(typeof callback === 'function', 'Expected a download cleanup callback');
 
       callback();
-      expect(revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:historical-original');
+      test.expect(revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:historical-original');
     } finally {
       timers.mockRestore();
       click.mockRestore();
-      vi.unstubAllGlobals();
+      test.vi.unstubAllGlobals();
     }
   }
 );
 
-testStable(
+test.stable(
   'reports an unavailable historical original without requesting a current-version or Source fallback',
   async () => {
     const rpc = materialRpc();
@@ -123,17 +124,19 @@ testStable(
       Effect.fail(new StudyError('not_found', 'Original unavailable'))
     );
     mountLibraryRoute('/sources/7?sourceRevision=1&sourceSnapshot=1101', rpc);
-    const original = await screen.findByRole('button', { name: catalogs.english.ReaderOriginal });
+    const original = await test.screen.findByRole('button', {
+      name: catalogs.english.ReaderOriginal
+    });
 
-    await userEvent.setup().click(original);
-    expect(await within(await screen.findByRole('main')).findByRole('alert')).toHaveTextContent(
-      catalogs.english.ReaderOriginalUnavailable
-    );
-    expect(rpc['sources.exportRevision']).toHaveBeenCalledExactlyOnceWith({
+    await test.userEvent.setup().click(original);
+    test
+      .expect(await test.within(await test.screen.findByRole('main')).findByRole('alert'))
+      .toHaveTextContent(catalogs.english.ReaderOriginalUnavailable);
+    test.expect(rpc['sources.exportRevision']).toHaveBeenCalledExactlyOnceWith({
       sourceId: importedSource.id,
       revision: 1n
     });
-    expect(rpc['sources.sourceExport']).not.toHaveBeenCalled();
-    expect(screen.getByText('Historical extraction')).toBeInTheDocument();
+    test.expect(rpc['sources.sourceExport']).not.toHaveBeenCalled();
+    test.expect(test.screen.getByText('Historical extraction')).toBeInTheDocument();
   }
 );

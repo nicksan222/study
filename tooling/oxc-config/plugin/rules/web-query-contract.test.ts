@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('keeps protocol execution in the application composition boundary', async () => {
+test.stable('keeps protocol execution in the application composition boundary', async () => {
   const diagnostics = await lintRule(
     'web-query-contract',
     {
@@ -15,26 +14,28 @@ testStable('keeps protocol execution in the application composition boundary', a
     true
   );
 
-  expect(diagnostics).toHaveLength(4);
+  test.expect(diagnostics).toHaveLength(4);
 });
 
-testStable('allows canonical facade, local atoms, schemas and runtime composition', async () => {
-  expect(
-    await lintRule(
-      'web-query-contract',
-      {
-        'apps/client/src/routes/home.tsx': `import {rpc} from '@study/contracts/react'; import {Atom} from 'effect/unstable/reactivity';`,
-        'apps/client/src/features/editor/draft.ts': `import {Atom} from 'effect/reactivity'; import {useAtomValue} from '@effect/atom-react';`,
-        'apps/client/src/lib/navigation/input.ts': `import {Schema} from 'effect';`,
-        'apps/client/src/lib/effect/runtime.ts': `import {RpcClient} from 'effect/rpc';`,
-        'packages/contracts/src/react.ts': `import {RpcClient} from 'effect/rpc'; import {useAtomValue} from '@effect/atom-react';`
-      },
-      true
+test.stable('allows canonical facade, local atoms, schemas and runtime composition', async () => {
+  test
+    .expect(
+      await lintRule(
+        'web-query-contract',
+        {
+          'apps/client/src/routes/home.tsx': `import {rpc} from '@study/contracts/react'; import {Atom} from 'effect/unstable/reactivity';`,
+          'apps/client/src/features/editor/draft.ts': `import {Atom} from 'effect/reactivity'; import {useAtomValue} from '@effect/atom-react';`,
+          'apps/client/src/lib/navigation/input.ts': `import {Schema} from 'effect';`,
+          'apps/client/src/lib/effect/runtime.ts': `import {RpcClient} from 'effect/rpc';`,
+          'packages/contracts/src/react.ts': `import {RpcClient} from 'effect/rpc'; import {useAtomValue} from '@effect/atom-react';`
+        },
+        true
+      )
     )
-  ).toStrictEqual([]);
+    .toStrictEqual([]);
 });
 
-testStable('keeps React out of React-free protocol contracts', async () => {
+test.stable('keeps React out of React-free protocol contracts', async () => {
   const diagnostics = await lintRule(
     'web-query-contract',
     {
@@ -45,10 +46,10 @@ testStable('keeps React out of React-free protocol contracts', async () => {
     true
   );
 
-  expect(diagnostics).toHaveLength(3);
+  test.expect(diagnostics).toHaveLength(3);
 });
 
-testStable(
+test.stable(
   'permits only the actual optional React modules and approved composition imports',
   async () => {
     const diagnostics = await lintRule(
@@ -64,6 +65,6 @@ testStable(
       true
     );
 
-    expect(diagnostics).toHaveLength(3);
+    test.expect(diagnostics).toHaveLength(3);
   }
 );

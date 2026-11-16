@@ -1,3 +1,4 @@
+import type { NoteId } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies source lifecycle, processing, export, correction, and project assignment  │
@@ -13,17 +14,12 @@
  * │ fixtures stay local to these tests.                                                      │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { NoteId } from '@study/contracts';
 import { projectIdSchema } from '@study/contracts';
 import type { ProjectId, SourceId } from '@study/contracts';
 import { correctBlockText, plainBlock } from '@study/contracts';
 import { sql } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Option } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Pages } from '#server/features/pages/index';
 import { SourceStore } from '#server/features/sources/store/index';
@@ -36,10 +32,10 @@ import { withTestAdmission } from '#testing/workflow-admission';
 
 import { Sources } from './index.ts';
 
-testStable(
+test.stable(
   'sources service persists requests and pages, and rolls back invalid requests',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Sources.layer.pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -51,8 +47,8 @@ testStable(
           const sources = yield* Sources;
           const absent = 99999n as SourceId;
 
-          assert.ok(Option.isNone(yield* sources.findSource(absent)));
-          assert.ok((yield* Effect.flip(sources.source(absent))).kind === 'not_found');
+          test.assert.ok(Option.isNone(yield* sources.findSource(absent)));
+          test.assert.ok((yield* Effect.flip(sources.source(absent))).kind === 'not_found');
           const input = {
             name: 'test.txt',
             bytes: new TextEncoder().encode('hello'),
@@ -62,18 +58,18 @@ testStable(
           const second = yield* sources.createSource(input);
           const page = yield* sources.sources({ limit: 1 });
 
-          assert.strictEqual(page.next, second.id);
-          assert.ok((yield* sources.sources({ limit: 1, before: page.next! })).next === null);
+          test.assert.strictEqual(page.next, second.id);
+          test.assert.ok((yield* sources.sources({ limit: 1, before: page.next! })).next === null);
           const state = yield* sources.sourceProcessing(first.id);
 
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(
               sources.requestSourceProcessing({ id: first.id, expectedRevision: 2 })
             )).kind === 'invalid_input'
           );
-          expect(yield* sources.sourceProcessing(first.id)).toStrictEqual(state);
-          assert.strictEqual(context.db.orm.all(sql`SELECT * FROM workflow_events`).length, 2);
-          assert.ok(
+          test.expect(yield* sources.sourceProcessing(first.id)).toStrictEqual(state);
+          test.assert.strictEqual(context.db.orm.all(sql`SELECT * FROM workflow_events`).length, 2);
+          test.assert.ok(
             (yield* Effect.flip(
               sources.replaceSource({
                 id: first.id,
@@ -83,7 +79,7 @@ testStable(
               })
             )).kind === 'invalid_input'
           );
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(
               sources.replaceSource({
                 id: first.id,
@@ -93,15 +89,17 @@ testStable(
               })
             )).kind === 'invalid_input'
           );
-          expect(yield* sources.sourceProcessing(first.id)).toStrictEqual(state);
+          test.expect(yield* sources.sourceProcessing(first.id)).toStrictEqual(state);
           const next = yield* sources.requestSourceProcessing({
             id: first.id,
             expectedRevision: 1
           });
 
-          assert.notStrictEqual(next.requestId, state.requestId);
-          assert.strictEqual(context.db.orm.all(sql`SELECT * FROM workflow_events`).length, 3);
-          assert.ok((yield* sources.sourceSnapshot({ id: first.id, revision: 1 })).kind === 'text');
+          test.assert.notStrictEqual(next.requestId, state.requestId);
+          test.assert.strictEqual(context.db.orm.all(sql`SELECT * FROM workflow_events`).length, 3);
+          test.assert.ok(
+            (yield* sources.sourceSnapshot({ id: first.id, revision: 1 })).kind === 'text'
+          );
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -111,8 +109,8 @@ testStable(
   }
 );
 
-testStable('a failed event insertion rolls back source creation', async () => {
-  const location = await createTestDatabase();
+test.stable('a failed event insertion rolls back source creation', async ({ databases }) => {
+  const location = await databases();
   const context = new ServerContext(await location.open());
   const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
@@ -153,26 +151,28 @@ testStable('a failed event insertion rolls back source creation', async () => {
             bytes: new Uint8Array([2])
           })
         );
-        assert.ok((yield* sources.source(existing.id)).name === 'before.txt');
-        assert.strictEqual((yield* sources.sourceProcessing(existing.id)).revision, 1);
-        assert.strictEqual(context.db.orm.all(sql`SELECT * FROM source_snapshots`).length, 1);
+        test.assert.ok((yield* sources.source(existing.id)).name === 'before.txt');
+        test.assert.strictEqual((yield* sources.sourceProcessing(existing.id)).revision, 1);
+        test.assert.strictEqual(context.db.orm.all(sql`SELECT * FROM source_snapshots`).length, 1);
       }).pipe(Effect.provide(layer))
     );
-    assert.strictEqual(context.db.orm.all(sql`SELECT * FROM sources`).length, 1);
-    assert.strictEqual(context.db.orm.all(sql`SELECT * FROM source_processing`).length, 1);
-    expect(
-      context.db.orm.get(
-        sql`SELECT request_id FROM source_processing WHERE source_id = ${existing.id}`
+    test.assert.strictEqual(context.db.orm.all(sql`SELECT * FROM sources`).length, 1);
+    test.assert.strictEqual(context.db.orm.all(sql`SELECT * FROM source_processing`).length, 1);
+    test
+      .expect(
+        context.db.orm.get(
+          sql`SELECT request_id FROM source_processing WHERE source_id = ${existing.id}`
+        )
       )
-    ).toStrictEqual(before);
+      .toStrictEqual(before);
   } finally {
     context.close();
     await location.cleanup();
   }
 });
 
-testStable('publication requires a real active workflow grant', async () => {
-  const location = await createTestDatabase();
+test.stable('publication requires a real active workflow grant', async ({ databases }) => {
+  const location = await databases();
   const context = new ServerContext(await location.open());
   const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
   const { Activity, Workflow, WorkflowEngine } = await import('effect/workflow');
@@ -224,8 +224,8 @@ testStable('publication requires a real active workflow grant', async () => {
         withPublicationGuard(context, sources.publishSourceDocument(input))
       );
 
-      assert.ok(denied.kind === 'internal');
-      assert.strictEqual(context.db.orm.all(sql`SELECT * FROM content_snapshots`).length, 0);
+      test.assert.ok(denied.kind === 'internal');
+      test.assert.strictEqual(context.db.orm.all(sql`SELECT * FROM content_snapshots`).length, 0);
       const workflow = Workflow.make('source-publication-test', {
         payload: { id: Schema.String },
         idempotencyKey: ({ id }) => id
@@ -249,12 +249,12 @@ testStable('publication requires a real active workflow grant', async () => {
                   sql`CREATE TRIGGER reject_index_event BEFORE INSERT ON workflow_events WHEN NEW.type = 'SourceIndexed' BEGIN SELECT RAISE(ABORT, 'rejected'); END`
                 );
                 yield* Effect.flip(sources.publishSourceDocument(input));
-                assert.strictEqual(
+                test.assert.strictEqual(
                   context.db.orm.all(sql`SELECT * FROM content_snapshots`).length,
                   0
                 );
-                assert.strictEqual(context.db.orm.all(sql`SELECT * FROM chunks`).length, 0);
-                assert.strictEqual(
+                test.assert.strictEqual(context.db.orm.all(sql`SELECT * FROM chunks`).length, 0);
+                test.assert.strictEqual(
                   context.db.orm.all(sql`SELECT * FROM chunks_fts WHERE chunks_fts MATCH 'hello'`)
                     .length,
                   0
@@ -271,7 +271,7 @@ testStable('publication requires a real active workflow grant', async () => {
             )
           });
 
-          assert.strictEqual(replayed, first);
+          test.assert.strictEqual(replayed, first);
           const previousDocumentId = (yield* sources.sourceProcessing(source.id)).documentId;
           const replacement = yield* sources.replaceSource({
             id: source.id,
@@ -280,17 +280,17 @@ testStable('publication requires a real active workflow grant', async () => {
             bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])
           });
 
-          assert.strictEqual(replacement.revision, 2);
-          assert.strictEqual(replacement.documentId, previousDocumentId);
-          expect((yield* sources.sourceDocument(source.id)).document).toStrictEqual(document);
-          assert.ok(
+          test.assert.strictEqual(replacement.revision, 2);
+          test.assert.strictEqual(replacement.documentId, previousDocumentId);
+          test.expect((yield* sources.sourceDocument(source.id)).document).toStrictEqual(document);
+          test.assert.ok(
             (yield* sources.sourceSnapshot({ id: source.id, revision: 1 })).kind === 'text'
           );
-          assert.ok(
+          test.assert.ok(
             (yield* sources.sourceSnapshot({ id: source.id, revision: 2 })).mime === 'image/png'
           );
-          assert.ok((yield* sources.source(source.id)).name === 'image.png');
-          assert.ok(
+          test.assert.ok((yield* sources.source(source.id)).name === 'image.png');
+          test.assert.ok(
             (yield* Effect.flip(
               sources.replaceSource({
                 id: source.id,
@@ -300,13 +300,13 @@ testStable('publication requires a real active workflow grant', async () => {
               })
             )).kind === 'invalid_input'
           );
-          assert.ok((yield* sources.source(source.id)).name === 'image.png');
+          test.assert.ok((yield* sources.source(source.id)).name === 'image.png');
           yield* Activity.make({
             name: 'stale-publication',
             execute: withPublicationGuard(
               context,
               Effect.gen(function* () {
-                assert.ok(
+                test.assert.ok(
                   (yield* Effect.flip(sources.publishSourceDocument(input))).kind ===
                     'invalid_input'
                 );
@@ -339,12 +339,12 @@ testStable('publication requires a real active workflow grant', async () => {
           payload: { id: 'one' }
         })
       );
-      assert.notStrictEqual((yield* sources.sourceProcessing(source.id)).documentId, null);
+      test.assert.notStrictEqual((yield* sources.sourceProcessing(source.id)).documentId, null);
       const hits = context.db.orm.all(
         sql`SELECT c.text, c.anchor, c.first_block, c.last_block FROM chunks_fts JOIN chunks c ON c.id = chunks_fts.rowid WHERE chunks_fts MATCH 'hello'`
       );
 
-      expect(yield* sources.sourceDocument(source.id)).toStrictEqual({
+      test.expect(yield* sources.sourceDocument(source.id)).toStrictEqual({
         id: (yield* sources.sourceProcessing(source.id)).documentId,
         document
       });
@@ -352,17 +352,17 @@ testStable('publication requires a real active workflow grant', async () => {
         sql`SELECT causation_id, correlation_id, depth FROM workflow_events WHERE type = 'SourceIndexed'`
       )[0]!;
 
-      assert.strictEqual(indexed.causation_id, input.event.eventId);
-      assert.strictEqual(indexed.correlation_id, input.event.correlationId);
-      assert.strictEqual(indexed.depth, 3n);
-      assert.strictEqual(hits.length, 2);
-      assert.ok(hits[0]!.text === 'hello');
-      expect(JSON.parse(hits[0]!.anchor as string)).toStrictEqual({ type: 'page', page: 1 });
-      assert.strictEqual(hits[0]!.first_block, 0n);
-      assert.strictEqual(hits[0]!.last_block, 0n);
-      assert.strictEqual(context.db.orm.all(sql`SELECT * FROM chunks`).length, 2);
-      assert.strictEqual(context.db.orm.all(sql`SELECT * FROM content_snapshots`).length, 2);
-      assert.strictEqual(
+      test.assert.strictEqual(indexed.causation_id, input.event.eventId);
+      test.assert.strictEqual(indexed.correlation_id, input.event.correlationId);
+      test.assert.strictEqual(indexed.depth, 3n);
+      test.assert.strictEqual(hits.length, 2);
+      test.assert.ok(hits[0]!.text === 'hello');
+      test.expect(JSON.parse(hits[0]!.anchor as string)).toStrictEqual({ type: 'page', page: 1 });
+      test.assert.strictEqual(hits[0]!.first_block, 0n);
+      test.assert.strictEqual(hits[0]!.last_block, 0n);
+      test.assert.strictEqual(context.db.orm.all(sql`SELECT * FROM chunks`).length, 2);
+      test.assert.strictEqual(context.db.orm.all(sql`SELECT * FROM content_snapshots`).length, 2);
+      test.assert.strictEqual(
         context.db.orm.all(sql`SELECT * FROM workflow_events WHERE type = 'SourceIndexed'`).length,
         2
       );
@@ -382,10 +382,10 @@ testStable('publication requires a real active workflow grant', async () => {
   }
 });
 
-testStable(
+test.stable(
   'replacement fences stale publication and search follows the current source project',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Sources.layer.pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -441,17 +441,19 @@ testStable(
             projectId: 1n as ProjectId
           };
 
-          expect((yield* sources.document(documentKey)).document).toStrictEqual(document);
-          assert.ok(
+          test.expect((yield* sources.document(documentKey)).document).toStrictEqual(document);
+          test.assert.ok(
             (yield* Effect.flip(sources.document({ ...documentKey, projectId: 2n as ProjectId })))
               .kind === 'not_found'
           );
-          assert.strictEqual(search('firstword', 1n).length, 1);
+          test.assert.strictEqual(search('firstword', 1n).length, 1);
           const rows = context.db.orm.all(sql`SELECT first_block, last_block, anchor FROM chunks`);
 
-          assert.strictEqual(rows.length, 1);
-          assert.strictEqual(rows[0]!.first_block, 1n);
-          expect(JSON.parse(rows[0]!.anchor as string)).toStrictEqual({ type: 'page', page: 2 });
+          test.assert.strictEqual(rows.length, 1);
+          test.assert.strictEqual(rows[0]!.first_block, 1n);
+          test
+            .expect(JSON.parse(rows[0]!.anchor as string))
+            .toStrictEqual({ type: 'page', page: 2 });
           yield* transaction((tx) =>
             tx.store(SourceStore).replaceSourceInput({
               id: source.id,
@@ -460,14 +462,17 @@ testStable(
               bytes: new Uint8Array([2])
             })
           ).pipe(Effect.provideService(Database, { store: context }));
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(
               transaction((tx) => tx.store(SourceStore).publishSourceDocument(first)).pipe(
                 Effect.provideService(Database, { store: context })
               )
             )).kind === 'invalid_input'
           );
-          assert.strictEqual(context.db.orm.all(sql`SELECT * FROM content_snapshots`).length, 1);
+          test.assert.strictEqual(
+            context.db.orm.all(sql`SELECT * FROM content_snapshots`).length,
+            1
+          );
           const replacement = {
             ...document,
             blocks: [
@@ -483,21 +488,25 @@ testStable(
               document: replacement
             })
           ).pipe(Effect.provideService(Database, { store: context }));
-          expect((yield* sources.sourceDocument(source.id)).document).toStrictEqual(replacement);
-          expect((yield* sources.document(documentKey)).document).toStrictEqual(document);
-          assert.strictEqual(search('firstword', 1n).length, 0);
-          assert.strictEqual(search('secondword', 1n).length, 1);
+          test
+            .expect((yield* sources.sourceDocument(source.id)).document)
+            .toStrictEqual(replacement);
+          test.expect((yield* sources.document(documentKey)).document).toStrictEqual(document);
+          test.assert.strictEqual(search('firstword', 1n).length, 0);
+          test.assert.strictEqual(search('secondword', 1n).length, 1);
           context.db.orm.run(sql`UPDATE sources SET project_id = 2 WHERE id = ${source.id}`);
-          assert.strictEqual(search('secondword', 1n).length, 0);
-          assert.strictEqual(search('secondword', 2n).length, 1);
+          test.assert.strictEqual(search('secondword', 1n).length, 0);
+          test.assert.strictEqual(search('secondword', 2n).length, 1);
           context.db.orm.run(sql`DELETE FROM projects WHERE id = 2`);
-          assert.strictEqual(search('secondword', 2n).length, 0);
-          assert.strictEqual(
+          test.assert.strictEqual(search('secondword', 2n).length, 0);
+          test.assert.strictEqual(
             context.db.orm.all(sql`SELECT * FROM chunks_fts WHERE chunks_fts MATCH 'secondword'`)
               .length,
             1
           );
-          expect((yield* sources.sourceDocument(source.id)).document).toStrictEqual(replacement);
+          test
+            .expect((yield* sources.sourceDocument(source.id)).document)
+            .toStrictEqual(replacement);
           const unassigned = yield* sources.createSource({
             name: 'unassigned.txt',
             bytes: new Uint8Array([1]),
@@ -513,8 +522,10 @@ testStable(
               document
             })
           ).pipe(Effect.provideService(Database, { store: context }));
-          expect((yield* sources.sourceDocument(unassigned.id)).document).toStrictEqual(document);
-          assert.strictEqual(
+          test
+            .expect((yield* sources.sourceDocument(unassigned.id)).document)
+            .toStrictEqual(document);
+          test.assert.strictEqual(
             context.db.orm.all(sql`SELECT * FROM chunks_fts WHERE chunks_fts MATCH 'firstword'`)
               .length,
             2
@@ -528,137 +539,142 @@ testStable(
   }
 );
 
-testStable('deleting a pending source fences publication and removes indexed content', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
-  const { Activity, Workflow, WorkflowEngine } = await import('effect/workflow');
-  const { Schema } = await import('effect');
-  const { withPublicationGuard } = await import('#server/platform/workflows/publication');
-  const { workflowEngineLayer } = await import('#server/platform/workflows/engine');
-  const document = {
-    blocks: [plainBlock('paragraph' as const, 'fencedword', { type: 'page' as const, page: 1 })],
-    meta: {
-      extractor: null,
-      extractorVersion: 1,
-      provider: null,
-      durationMs: null,
-      pageCount: null,
-      refiners: [],
-      waitingFor: [],
-      corrected: false,
-      omissions: []
-    }
-  };
-
-  try {
-    function* verifyDeletedSourceFencing() {
-      const sources = yield* Sources;
-      const source = yield* createUnregisteredSource({
-        name: 'test.txt',
-        bytes: new Uint8Array([1]),
-        projectId: null
-      });
-      const state = yield* sources.sourceProcessing(source.id);
-      const event = {
-        type: 'SourceProcessingRequested' as const,
-        sourceId: source.id,
-        inputVersion: 1,
-        requestId: state.requestId!,
-        eventId: 'event',
-        causationId: null,
-        correlationId: 'correlation',
-        depth: 0
-      };
-      const workflow = Workflow.make('source-delete-test', {
-        payload: { id: Schema.String },
-        idempotencyKey: ({ id }) => id
-      });
-      const engine = yield* WorkflowEngine.WorkflowEngine;
-
-      function runWorkflow() {
-        return Effect.gen(function* () {
-          yield* Activity.make({
-            name: 'publish',
-            execute: withPublicationGuard(
-              context,
-              sources.publishSourceDocument({ event, document })
-            ).pipe(Effect.orDie)
-          });
-          const pending = yield* sources.requestSourceProcessing({
-            id: source.id,
-            expectedRevision: 1
-          });
-
-          assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
-          assert.strictEqual(yield* sources.deleteSource({ id: source.id }), false);
-          yield* Activity.make({
-            name: 'publish-deleted',
-            execute: withPublicationGuard(
-              context,
-              Effect.gen(function* () {
-                assert.ok(
-                  (yield* Effect.flip(
-                    sources.publishSourceDocument({
-                      event: { ...event, requestId: pending.requestId! },
-                      document
-                    })
-                  )).kind === 'not_found'
-                );
-              })
-            ).pipe(Effect.orDie)
-          });
-        }).pipe(Effect.orDie);
-      }
-
-      yield* engine.register(workflow, runWorkflow);
-      yield* withTestAdmission(
-        context,
-        workflow,
-        'source-delete-test',
-        { id: 'one' },
-        engine.execute(workflow, {
-          executionId: 'source-delete-test',
-          payload: { id: 'one' }
-        })
-      );
-      assert.strictEqual(
-        context.db.orm.all(sql`SELECT * FROM chunks_fts WHERE chunks_fts MATCH 'fencedword'`)
-          .length,
-        0
-      );
-
-      for (const table of [
-        'sources',
-        'source_blobs',
-        'source_snapshots',
-        'source_processing',
-        'content_snapshots',
-        'blocks',
-        'chunks'
-      ]) {
-        assert.strictEqual(context.db.orm.all(sql.raw(`SELECT * FROM ${table}`)).length, 0);
-      }
-    }
-
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(verifyDeletedSourceFencing).pipe(
-          Effect.provide(layer),
-          Effect.provide(workflowEngineLayer(context))
-        )
-      )
+test.stable(
+  'deleting a pending source fences publication and removes indexed content',
+  async ({ databases }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const layer = Sources.layer.pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
-  } finally {
-    context.close();
-    await location.cleanup();
-  }
-});
+    const { Activity, Workflow, WorkflowEngine } = await import('effect/workflow');
+    const { Schema } = await import('effect');
+    const { withPublicationGuard } = await import('#server/platform/workflows/publication');
+    const { workflowEngineLayer } = await import('#server/platform/workflows/engine');
+    const document = {
+      blocks: [plainBlock('paragraph' as const, 'fencedword', { type: 'page' as const, page: 1 })],
+      meta: {
+        extractor: null,
+        extractorVersion: 1,
+        provider: null,
+        durationMs: null,
+        pageCount: null,
+        refiners: [],
+        waitingFor: [],
+        corrected: false,
+        omissions: []
+      }
+    };
 
-testStable(
+    try {
+      function* verifyDeletedSourceFencing() {
+        const sources = yield* Sources;
+        const source = yield* createUnregisteredSource({
+          name: 'test.txt',
+          bytes: new Uint8Array([1]),
+          projectId: null
+        });
+        const state = yield* sources.sourceProcessing(source.id);
+        const event = {
+          type: 'SourceProcessingRequested' as const,
+          sourceId: source.id,
+          inputVersion: 1,
+          requestId: state.requestId!,
+          eventId: 'event',
+          causationId: null,
+          correlationId: 'correlation',
+          depth: 0
+        };
+        const workflow = Workflow.make('source-delete-test', {
+          payload: { id: Schema.String },
+          idempotencyKey: ({ id }) => id
+        });
+        const engine = yield* WorkflowEngine.WorkflowEngine;
+
+        function runWorkflow() {
+          return Effect.gen(function* () {
+            yield* Activity.make({
+              name: 'publish',
+              execute: withPublicationGuard(
+                context,
+                sources.publishSourceDocument({ event, document })
+              ).pipe(Effect.orDie)
+            });
+            const pending = yield* sources.requestSourceProcessing({
+              id: source.id,
+              expectedRevision: 1
+            });
+
+            test.assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
+            test.assert.strictEqual(yield* sources.deleteSource({ id: source.id }), false);
+            yield* Activity.make({
+              name: 'publish-deleted',
+              execute: withPublicationGuard(
+                context,
+                Effect.gen(function* () {
+                  test.assert.ok(
+                    (yield* Effect.flip(
+                      sources.publishSourceDocument({
+                        event: { ...event, requestId: pending.requestId! },
+                        document
+                      })
+                    )).kind === 'not_found'
+                  );
+                })
+              ).pipe(Effect.orDie)
+            });
+          }).pipe(Effect.orDie);
+        }
+
+        yield* engine.register(workflow, runWorkflow);
+        yield* withTestAdmission(
+          context,
+          workflow,
+          'source-delete-test',
+          { id: 'one' },
+          engine.execute(workflow, {
+            executionId: 'source-delete-test',
+            payload: { id: 'one' }
+          })
+        );
+        test.assert.strictEqual(
+          context.db.orm.all(sql`SELECT * FROM chunks_fts WHERE chunks_fts MATCH 'fencedword'`)
+            .length,
+          0
+        );
+
+        for (const table of [
+          'sources',
+          'source_blobs',
+          'source_snapshots',
+          'source_processing',
+          'content_snapshots',
+          'blocks',
+          'chunks'
+        ]) {
+          test.assert.strictEqual(context.db.orm.all(sql.raw(`SELECT * FROM ${table}`)).length, 0);
+        }
+      }
+
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(verifyDeletedSourceFencing).pipe(
+            Effect.provide(layer),
+            Effect.provide(workflowEngineLayer(context))
+          )
+        )
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
+  }
+);
+
+test.stable(
   'uploads remain Sources and only an explicit authored copy pins source history, even when archived',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(Sources.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -678,11 +694,11 @@ testStable(
             projectId: projectIdSchema.make(1n)
           });
 
-          assert.strictEqual(
+          test.assert.strictEqual(
             context.db.orm.get<{ n: bigint }>(sql`SELECT count(*) n FROM materials`)!.n,
             0n
           );
-          assert.strictEqual(
+          test.assert.strictEqual(
             context.db.orm.get<{ n: bigint }>(sql`SELECT count(*) n FROM pages`)!.n,
             0n
           );
@@ -707,14 +723,14 @@ testStable(
           });
 
           yield* documents.archive({ id: copy.id, archived: true });
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind === 'invalid_input'
           );
-          assert.strictEqual((yield* sources.source(source.id)).id, source.id);
-          assert.ok(
+          test.assert.strictEqual((yield* sources.source(source.id)).id, source.id);
+          test.assert.ok(
             (yield* sources.setSourceProject({ id: source.id, projectId: null })).projectId === null
           );
-          assert.strictEqual(
+          test.assert.strictEqual(
             context.db.orm.get<{ n: bigint }>(sql`SELECT count(*) n FROM materials`)!.n,
             0n
           );
@@ -727,153 +743,168 @@ testStable(
   }
 );
 
-testStable('source export returns the stored bytes and canonical link URI', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
-
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const sources = yield* Sources;
-        const bytes = new TextEncoder().encode('original');
-        const source = yield* sources.createSource({
-          name: 'original.txt',
-          bytes,
-          projectId: null
-        });
-        const exported = yield* sources.sourceExport(source.id);
-
-        expect(exported).toStrictEqual({ source, bytes });
-        const link = yield* sources.addLink({ url: 'https://example.com/path', projectId: null });
-        const exportedLink = yield* sources.sourceExport(link.id);
-
-        assert.ok(exportedLink.source.uri === 'https://example.com/path');
-        assert.strictEqual(new TextDecoder().decode(exportedLink.bytes), link.uri);
-        assert.ok(
-          (yield* Effect.flip(sources.sourceExport(99999n as SourceId))).kind === 'not_found'
-        );
-      }).pipe(Effect.provide(layer))
+test.stable(
+  'source export returns the stored bytes and canonical link URI',
+  async ({ databases }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const layer = Sources.layer.pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
-  } finally {
-    context.close();
-    await location.cleanup();
-  }
-});
 
-testStable('correction compares the current document and fences previous requests', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
-  const document = {
-    blocks: [plainBlock('paragraph' as const, 'before', { type: 'page' as const, page: 1 })],
-    meta: {
-      extractor: null,
-      extractorVersion: 1,
-      provider: null,
-      durationMs: null,
-      pageCount: null,
-      refiners: [],
-      waitingFor: [],
-      corrected: false,
-      omissions: []
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const sources = yield* Sources;
+          const bytes = new TextEncoder().encode('original');
+          const source = yield* sources.createSource({
+            name: 'original.txt',
+            bytes,
+            projectId: null
+          });
+          const exported = yield* sources.sourceExport(source.id);
+
+          test.expect(exported).toStrictEqual({ source, bytes });
+          const link = yield* sources.addLink({ url: 'https://example.com/path', projectId: null });
+          const exportedLink = yield* sources.sourceExport(link.id);
+
+          test.assert.ok(exportedLink.source.uri === 'https://example.com/path');
+          test.assert.strictEqual(new TextDecoder().decode(exportedLink.bytes), link.uri);
+          test.assert.ok(
+            (yield* Effect.flip(sources.sourceExport(99999n as SourceId))).kind === 'not_found'
+          );
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
     }
-  };
+  }
+);
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const sources = yield* Sources;
-        const source = yield* sources.createSource({
-          name: 'a.txt',
-          bytes: new Uint8Array([1]),
-          projectId: null
-        });
-        const state = yield* sources.sourceProcessing(source.id);
-        const published = yield* transaction((tx) =>
-          tx.store(SourceStore).publishSourceDocument({
+test.stable(
+  'correction compares the current document and fences previous requests',
+  async ({ databases }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const layer = Sources.layer.pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
+    const document = {
+      blocks: [plainBlock('paragraph' as const, 'before', { type: 'page' as const, page: 1 })],
+      meta: {
+        extractor: null,
+        extractorVersion: 1,
+        provider: null,
+        durationMs: null,
+        pageCount: null,
+        refiners: [],
+        waitingFor: [],
+        corrected: false,
+        omissions: []
+      }
+    };
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const sources = yield* Sources;
+          const source = yield* sources.createSource({
+            name: 'a.txt',
+            bytes: new Uint8Array([1]),
+            projectId: null
+          });
+          const state = yield* sources.sourceProcessing(source.id);
+          const published = yield* transaction((tx) =>
+            tx.store(SourceStore).publishSourceDocument({
+              id: source.id,
+              expectedRevision: 1,
+              requestId: state.requestId!,
+              document
+            })
+          ).pipe(Effect.provideService(Database, { store: context }));
+          const input = {
+            id: source.id,
+            documentId: published.documentId,
+            ordinal: 0,
+            before: 'before',
+            after: 'after'
+          };
+
+          test.assert.ok(
+            (yield* Effect.flip(sources.correctBlock({ ...input, before: 'wrong' }))).kind ===
+              'invalid_input'
+          );
+          const next = yield* sources.correctBlock(input);
+
+          test.assert.notStrictEqual(next.requestId, state.requestId);
+          test.assert.strictEqual(next.documentId, published.documentId);
+          test.expect((yield* sources.sourceDocument(source.id)).document).toStrictEqual(document);
+          test.assert.ok(
+            (yield* Effect.flip(
+              transaction((tx) =>
+                tx.store(SourceStore).publishSourceDocument({
+                  id: source.id,
+                  expectedRevision: 1,
+                  requestId: state.requestId!,
+                  document
+                })
+              ).pipe(Effect.provideService(Database, { store: context }))
+            )).kind === 'invalid_input'
+          );
+          test.assert.strictEqual(
+            context.db.orm.all(
+              sql`SELECT * FROM workflow_events WHERE type = 'SourceCorrectionRequested'`
+            ).length,
+            1
+          );
+          const replacement = yield* sources.replaceSource({
             id: source.id,
             expectedRevision: 1,
-            requestId: state.requestId!,
-            document
-          })
-        ).pipe(Effect.provideService(Database, { store: context }));
-        const input = {
-          id: source.id,
-          documentId: published.documentId,
-          ordinal: 0,
-          before: 'before',
-          after: 'after'
-        };
+            name: 'replacement.txt',
+            bytes: new TextEncoder().encode('new input')
+          });
 
-        assert.ok(
-          (yield* Effect.flip(sources.correctBlock({ ...input, before: 'wrong' }))).kind ===
-            'invalid_input'
-        );
-        const next = yield* sources.correctBlock(input);
-
-        assert.notStrictEqual(next.requestId, state.requestId);
-        assert.strictEqual(next.documentId, published.documentId);
-        expect((yield* sources.sourceDocument(source.id)).document).toStrictEqual(document);
-        assert.ok(
-          (yield* Effect.flip(
-            transaction((tx) =>
-              tx.store(SourceStore).publishSourceDocument({
-                id: source.id,
-                expectedRevision: 1,
-                requestId: state.requestId!,
-                document
-              })
-            ).pipe(Effect.provideService(Database, { store: context }))
-          )).kind === 'invalid_input'
-        );
-        assert.strictEqual(
-          context.db.orm.all(
-            sql`SELECT * FROM workflow_events WHERE type = 'SourceCorrectionRequested'`
-          ).length,
-          1
-        );
-        const replacement = yield* sources.replaceSource({
-          id: source.id,
-          expectedRevision: 1,
-          name: 'replacement.txt',
-          bytes: new TextEncoder().encode('new input')
-        });
-
-        assert.ok((yield* Effect.flip(sources.correctBlock(input))).kind === 'invalid_input');
-        assert.strictEqual(
-          (yield* sources.sourceProcessing(source.id)).requestId,
-          replacement.requestId
-        );
-        assert.strictEqual(
-          context.db.orm.all(
-            sql`SELECT * FROM workflow_events WHERE type = 'SourceCorrectionRequested'`
-          ).length,
-          1
-        );
-        yield* transaction((tx) =>
-          tx.store(SourceStore).publishSourceDocument({
-            id: source.id,
-            expectedRevision: 2,
-            requestId: replacement.requestId!,
-            document: { ...document, blocks: [correctBlockText(document.blocks[0]!, 'new input')] }
-          })
-        ).pipe(Effect.provideService(Database, { store: context }));
-        assert.ok(
-          (yield* sources.sourceDocument(source.id)).document.blocks[0]?.text === 'new input'
-        );
-      }).pipe(Effect.provide(layer))
-    );
-  } finally {
-    context.close();
-    await location.cleanup();
+          test.assert.ok(
+            (yield* Effect.flip(sources.correctBlock(input))).kind === 'invalid_input'
+          );
+          test.assert.strictEqual(
+            (yield* sources.sourceProcessing(source.id)).requestId,
+            replacement.requestId
+          );
+          test.assert.strictEqual(
+            context.db.orm.all(
+              sql`SELECT * FROM workflow_events WHERE type = 'SourceCorrectionRequested'`
+            ).length,
+            1
+          );
+          yield* transaction((tx) =>
+            tx.store(SourceStore).publishSourceDocument({
+              id: source.id,
+              expectedRevision: 2,
+              requestId: replacement.requestId!,
+              document: {
+                ...document,
+                blocks: [correctBlockText(document.blocks[0]!, 'new input')]
+              }
+            })
+          ).pipe(Effect.provideService(Database, { store: context }));
+          test.assert.ok(
+            (yield* sources.sourceDocument(source.id)).document.blocks[0]?.text === 'new input'
+          );
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
-testStable(
+test.stable(
   'assigning a ready unowned source emits an index event without reprocessing',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Sources.layer.pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -919,18 +950,18 @@ testStable(
             projectId: 1n as ProjectId
           });
 
-          assert.strictEqual(assigned.projectId, 1n);
-          assert.strictEqual(
+          test.assert.strictEqual(assigned.projectId, 1n);
+          test.assert.strictEqual(
             (yield* sources.sourceProcessing(source.id)).documentId,
             published.documentId
           );
           yield* sources.setSourceProject({ id: source.id, projectId: 1n as ProjectId });
-          assert.strictEqual(
+          test.assert.strictEqual(
             context.db.orm.all(sql`SELECT * FROM workflow_events WHERE type = 'SourceIndexed'`)
               .length,
             1
           );
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(
               sources.setSourceProject({ id: source.id, projectId: 999n as ProjectId })
             )).kind === 'not_found'
@@ -944,8 +975,8 @@ testStable(
   }
 );
 
-testStable('correction request rolls back when outbox insertion fails', async () => {
-  const location = await createTestDatabase();
+test.stable('correction request rolls back when outbox insertion fails', async ({ databases }) => {
+  const location = await databases();
   const context = new ServerContext(await location.open());
   const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
@@ -994,11 +1025,11 @@ testStable('correction request rolls back when outbox insertion fails', async ()
             after: 'after'
           })
         );
-        expect(yield* sources.sourceProcessing(source.id)).toStrictEqual({
+        test.expect(yield* sources.sourceProcessing(source.id)).toStrictEqual({
           ...state,
           documentId: old.documentId
         });
-        assert.strictEqual(
+        test.assert.strictEqual(
           context.db.orm.all(
             sql`SELECT * FROM workflow_events WHERE type = 'SourceCorrectionRequested'`
           ).length,
@@ -1012,47 +1043,52 @@ testStable('correction request rolls back when outbox insertion fails', async ()
   }
 });
 
-testStable('project reassignment preserves an explicit message attachment', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
+test.stable(
+  'project reassignment preserves an explicit message attachment',
+  async ({ databases }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const layer = Sources.layer.pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
 
-  try {
-    context.db.orm.run(
-      sql`INSERT INTO projects (id, name, created_at, updated_at) VALUES (1, 'One', 1, 1), (2, 'Two', 1, 1)`
-    );
-    context.db.orm.run(
-      sql`INSERT INTO notes (id,title,title_source,created_at,updated_at) VALUES (1, 'Note', 'user', 1, 1)`
-    );
-    context.db.orm.run(
-      sql`INSERT INTO messages (id, note_id, role, created_at) VALUES (1, 1, 'user', 1)`
-    );
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const sources = yield* Sources;
-        const source = yield* sources.createSource({
-          name: 'a.txt',
-          bytes: new Uint8Array([1]),
-          projectId: 1n as ProjectId
-        });
+    try {
+      context.db.orm.run(
+        sql`INSERT INTO projects (id, name, created_at, updated_at) VALUES (1, 'One', 1, 1), (2, 'Two', 1, 1)`
+      );
+      context.db.orm.run(
+        sql`INSERT INTO notes (id,title,title_source,created_at,updated_at) VALUES (1, 'Note', 'user', 1, 1)`
+      );
+      context.db.orm.run(
+        sql`INSERT INTO messages (id, note_id, role, created_at) VALUES (1, 1, 'user', 1)`
+      );
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const sources = yield* Sources;
+          const source = yield* sources.createSource({
+            name: 'a.txt',
+            bytes: new Uint8Array([1]),
+            projectId: 1n as ProjectId
+          });
 
-        context.db.orm.run(
-          sql`INSERT INTO message_parts (message_id, ordinal, source_id, source_name, source_kind) VALUES (1, 0, ${source.id}, 'a.txt', 'text')`
-        );
-        yield* sources.setSourceProject({ id: source.id, projectId: 2n as ProjectId });
-        assert.strictEqual((yield* sources.source(source.id)).projectId, 2n);
-      }).pipe(Effect.provide(layer))
-    );
-  } finally {
-    context.close();
-    await location.cleanup();
+          context.db.orm.run(
+            sql`INSERT INTO message_parts (message_id, ordinal, source_id, source_name, source_kind) VALUES (1, 0, ${source.id}, 'a.txt', 'text')`
+          );
+          yield* sources.setSourceProject({ id: source.id, projectId: 2n as ProjectId });
+          test.assert.strictEqual((yield* sources.source(source.id)).projectId, 2n);
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
-testStable(
+test.stable(
   'exact source extractions and note links never substitute a pending revision or author a document',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Sources.layer.pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -1093,10 +1129,10 @@ testStable(
           );
           const exact = { sourceId: source.id, revision: 1n, snapshotId: published.documentId };
 
-          assert.ok(
+          test.assert.ok(
             (yield* sources.extraction(exact)).document.blocks[0].text === 'Exact old extraction'
           );
-          assert.strictEqual(
+          test.assert.strictEqual(
             (yield* sources.currentExtraction({ id: source.id }))?.snapshotId,
             published.documentId
           );
@@ -1112,7 +1148,7 @@ testStable(
             noteId: note.id as NoteId,
             sourceId: source.id
           });
-          assert.strictEqual(
+          test.assert.strictEqual(
             (yield* sources.noteSources({
               noteId: note.id as NoteId,
               limit: 100
@@ -1125,23 +1161,23 @@ testStable(
             name: 'exact.txt',
             bytes: new TextEncoder().encode('new')
           });
-          assert.ok(
+          test.assert.ok(
             new TextDecoder().decode(
               (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
             ) === 'old'
           );
-          assert.ok(
+          test.assert.ok(
             new TextDecoder().decode(
               (yield* sources.exportRevision({ sourceId: source.id, revision: 2n })).bytes
             ) === 'new'
           );
           const history = yield* sources.extractions({ sourceId: source.id, limit: 1 });
 
-          expect(history.items.map((item) => [item.revision, item.snapshotId])).toStrictEqual([
-            [1n, published.documentId]
-          ]);
-          assert.ok(history.next === null);
-          assert.ok(
+          test
+            .expect(history.items.map((item) => [item.revision, item.snapshotId]))
+            .toStrictEqual([[1n, published.documentId]]);
+          test.assert.ok(history.next === null);
+          test.assert.ok(
             (yield* Effect.flip(sources.exportRevision({ sourceId: source.id, revision: 999n })))
               .kind === 'not_found'
           );
@@ -1150,29 +1186,36 @@ testStable(
             limit: 100
           });
 
-          assert.strictEqual(links[0].revision, 2n);
-          assert.ok(links[0].pending === true);
-          assert.ok(links[0].snapshotId === null);
-          assert.strictEqual(yield* sources.currentExtraction({ id: source.id }), null);
-          assert.ok(
+          test.assert.strictEqual(links[0].revision, 2n);
+          test.assert.ok(links[0].pending === true);
+          test.assert.ok(links[0].snapshotId === null);
+          test.assert.strictEqual(yield* sources.currentExtraction({ id: source.id }), null);
+          test.assert.ok(
             (yield* sources.extraction(exact)).document.blocks[0].text === 'Exact old extraction'
           );
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(sources.extraction({ ...exact, revision: 2n }))).kind ===
               'not_found'
           );
-          expect(context.db.orm.get<{ n: number }>(sql`SELECT count(*) n FROM pages`)!.n).toBe(0n);
+          test
+            .expect(context.db.orm.get<{ n: number }>(sql`SELECT count(*) n FROM pages`)!.n)
+            .toBe(0n);
           yield* sources.detachSource({
             noteId: note.id as NoteId,
             sourceId: source.id
           });
-          expect(
-            yield* sources.noteSources({
-              noteId: note.id as NoteId,
-              limit: 100
-            })
-          ).toStrictEqual([]);
-          assert.strictEqual((yield* sources.extraction(exact)).snapshotId, published.documentId);
+          test
+            .expect(
+              yield* sources.noteSources({
+                noteId: note.id as NoteId,
+                limit: 100
+              })
+            )
+            .toStrictEqual([]);
+          test.assert.strictEqual(
+            (yield* sources.extraction(exact)).snapshotId,
+            published.documentId
+          );
         }).pipe(Effect.provide(layer))
       );
     } finally {

@@ -7,16 +7,16 @@ import {
   sourceSchema
 } from '@study/contracts';
 import { configureRpcTransport } from '@study/contracts/react';
+import { rpcHandlersTransport } from '@study/contracts/react/testing';
+import type { StudyClient } from '@study/contracts/react/testing';
+import { test } from '@study/testing';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import { render, waitFor } from '@testing-library/react';
 import { Effect, Option, Schema } from 'effect';
-import { vi } from 'vite-plus/test';
 
 import { Providers } from '#client/app/providers.tsx';
 import { createAppRouter } from '#client/app/router.ts';
 import { authoredPage } from '#client/features/document-editing/test-support.ts';
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
-import type { StudyClient } from '#client/test/rpc.tsx';
 
 export function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -90,66 +90,68 @@ export function summary(id = 41n) {
 
 export function materialRpc() {
   return {
-    'pages.count': vi.fn<StudyClient['pages.count']>().mockReturnValue(Effect.succeed(0n)),
-    'materials.count': vi.fn<StudyClient['materials.count']>().mockReturnValue(Effect.succeed(1n)),
-    'pages.create': vi.fn<StudyClient['pages.create']>(),
-    'pages.pages': vi
+    'pages.count': test.vi.fn<StudyClient['pages.count']>().mockReturnValue(Effect.succeed(0n)),
+    'materials.count': test.vi
+      .fn<StudyClient['materials.count']>()
+      .mockReturnValue(Effect.succeed(1n)),
+    'pages.create': test.vi.fn<StudyClient['pages.create']>(),
+    'pages.pages': test.vi
       .fn<StudyClient['pages.pages']>()
       .mockReturnValue(Effect.succeed({ items: [], nextCursor: null })),
-    'pages.page': vi.fn<StudyClient['pages.page']>().mockReturnValue(
+    'pages.page': test.vi.fn<StudyClient['pages.page']>().mockReturnValue(
       Effect.succeed({
         ...authoredPage(41n, 'Historical extraction', 101n),
         title: 'Material 41'
       })
     ),
-    'pages.version': vi
+    'pages.version': test.vi
       .fn<StudyClient['pages.version']>()
       .mockImplementation(({ id }) =>
         Effect.succeed(authoredPage(41n, 'Historical extraction', id).version!)
       ),
-    'pages.versions': vi
+    'pages.versions': test.vi
       .fn<StudyClient['pages.versions']>()
       .mockReturnValue(Effect.succeed({ items: [], nextCursor: null })),
-    'pages.updateMetadata': vi.fn<StudyClient['pages.updateMetadata']>(),
-    'pages.annotations': vi
+    'pages.updateMetadata': test.vi.fn<StudyClient['pages.updateMetadata']>(),
+    'pages.annotations': test.vi
       .fn<StudyClient['pages.annotations']>()
       .mockReturnValue(Effect.succeed({ items: [], nextCursor: null })),
-    'pages.assessments': vi
+    'pages.assessments': test.vi
       .fn<StudyClient['pages.assessments']>()
       .mockReturnValue(Effect.succeed({ items: [], nextCursor: null })),
-    'pages.exportFile': vi.fn<StudyClient['pages.exportFile']>(),
-    'pages.exportVersion': vi.fn<StudyClient['pages.exportVersion']>(),
-    'materials.activeMaterialGenerations': vi
+    'pages.exportFile': test.vi.fn<StudyClient['pages.exportFile']>(),
+    'pages.exportVersion': test.vi.fn<StudyClient['pages.exportVersion']>(),
+    'materials.activeMaterialGenerations': test.vi
       .fn<StudyClient['materials.activeMaterialGenerations']>()
       .mockReturnValue(Effect.succeed([])),
-    'materials.materials': vi
+    'materials.materials': test.vi
       .fn<StudyClient['materials.materials']>()
       .mockReturnValue(Effect.succeed({ items: [summary()], nextCursor: null })),
-    'materials.material': vi
+    'materials.material': test.vi
       .fn<StudyClient['materials.material']>()
       .mockReturnValue(Effect.succeed(material())),
-    'materials.materialVersion': vi
+    'materials.materialVersion': test.vi
       .fn<StudyClient['materials.materialVersion']>()
       .mockImplementation(({ id }) =>
         Effect.succeed(
           learningVersion(id, 41n, id === 101n ? 'Historical extraction' : 'Current extraction 41')
         )
       ),
-    'materials.deletion': vi
+    'materials.deletion': test.vi
       .fn<StudyClient['materials.deletion']>()
       .mockReturnValue(Effect.fail(new StudyError('not_found', 'No deletion'))),
-    'materials.retryDeletion': vi.fn<StudyClient['materials.retryDeletion']>(),
-    'system.search': vi
+    'materials.retryDeletion': test.vi.fn<StudyClient['materials.retryDeletion']>(),
+    'system.search': test.vi
       .fn<StudyClient['system.search']>()
       .mockReturnValue(Effect.succeed({ hits: [] })),
-    'materials.materialVersions': vi
+    'materials.materialVersions': test.vi
       .fn<StudyClient['materials.materialVersions']>()
       .mockReturnValue(Effect.succeed({ items: [], nextCursor: null })),
-    'materials.exportMaterialVersion': vi.fn<StudyClient['materials.exportMaterialVersion']>(),
-    'settings.workspacePreferences': vi
+    'materials.exportMaterialVersion': test.vi.fn<StudyClient['materials.exportMaterialVersion']>(),
+    'settings.workspacePreferences': test.vi
       .fn<StudyClient['settings.workspacePreferences']>()
       .mockReturnValue(Effect.succeed(defaultWorkspacePreferences)),
-    'sources.previewHistory': vi.fn<StudyClient['sources.previewHistory']>().mockReturnValue(
+    'sources.previewHistory': test.vi.fn<StudyClient['sources.previewHistory']>().mockReturnValue(
       Effect.succeed({
         sourceId: importedSource.id,
         name: importedSource.name,
@@ -160,8 +162,8 @@ export function materialRpc() {
         semantics: 'retire_extractions_keep_original_revisions'
       })
     ),
-    'sources.retireHistory': vi.fn<StudyClient['sources.retireHistory']>(),
-    'sources.previewDeletion': vi.fn<StudyClient['sources.previewDeletion']>().mockReturnValue(
+    'sources.retireHistory': test.vi.fn<StudyClient['sources.retireHistory']>(),
+    'sources.previewDeletion': test.vi.fn<StudyClient['sources.previewDeletion']>().mockReturnValue(
       Effect.succeed({
         sourceId: importedSource.id,
         name: importedSource.name,
@@ -171,23 +173,23 @@ export function materialRpc() {
         retainedCopies: 'authored_outputs_and_raw_note_records'
       })
     ),
-    'sources.deleteSource': vi.fn<StudyClient['sources.deleteSource']>(),
-    'sources.findSource': vi.fn<StudyClient['sources.findSource']>(),
-    'sources.sources': vi
+    'sources.deleteSource': test.vi.fn<StudyClient['sources.deleteSource']>(),
+    'sources.findSource': test.vi.fn<StudyClient['sources.findSource']>(),
+    'sources.sources': test.vi
       .fn<StudyClient['sources.sources']>()
       .mockReturnValue(Effect.succeed({ items: [], next: null })),
-    'sources.addLink': vi
+    'sources.addLink': test.vi
       .fn<StudyClient['sources.addLink']>()
       .mockReturnValue(Effect.succeed(importedSource)),
-    'sources.createSource': vi.fn<StudyClient['sources.createSource']>(),
-    'sources.source': vi
+    'sources.createSource': test.vi.fn<StudyClient['sources.createSource']>(),
+    'sources.source': test.vi
       .fn<StudyClient['sources.source']>()
       .mockReturnValue(Effect.succeed(importedSource)),
-    'sources.extractions': vi
+    'sources.extractions': test.vi
       .fn<StudyClient['sources.extractions']>()
       .mockReturnValue(Effect.succeed({ items: [], next: null })),
-    'sources.currentExtraction': vi.fn<StudyClient['sources.currentExtraction']>(),
-    'sources.extraction': vi
+    'sources.currentExtraction': test.vi.fn<StudyClient['sources.currentExtraction']>(),
+    'sources.extraction': test.vi
       .fn<StudyClient['sources.extraction']>()
       .mockImplementation(({ sourceId, revision, snapshotId }) =>
         Effect.succeed({
@@ -198,18 +200,18 @@ export function materialRpc() {
           document: exactDocument(101n).document
         })
       ),
-    'sources.exportRevision': vi.fn<StudyClient['sources.exportRevision']>(),
-    'sources.sourceExport': vi.fn<StudyClient['sources.sourceExport']>(),
-    'projects.findProject': vi
+    'sources.exportRevision': test.vi.fn<StudyClient['sources.exportRevision']>(),
+    'sources.sourceExport': test.vi.fn<StudyClient['sources.sourceExport']>(),
+    'projects.findProject': test.vi
       .fn<StudyClient['projects.findProject']>()
       .mockReturnValue(Effect.succeed(Option.none())),
-    'projects.projects': vi
+    'projects.projects': test.vi
       .fn<StudyClient['projects.projects']>()
       .mockReturnValue(Effect.succeed({ items: [], next: null })),
     // Settings remains the production route; leave its unrelated appearance request pending.
-    'settings.appSettings': vi.fn().mockReturnValue(Effect.never),
-    'themes.selectedTheme': vi.fn().mockReturnValue(Effect.never),
-    'settings.appearancePreferences': vi.fn().mockReturnValue(Effect.never)
+    'settings.appSettings': test.vi.fn().mockReturnValue(Effect.never),
+    'themes.selectedTheme': test.vi.fn().mockReturnValue(Effect.never),
+    'settings.appearancePreferences': test.vi.fn().mockReturnValue(Effect.never)
   };
 }
 

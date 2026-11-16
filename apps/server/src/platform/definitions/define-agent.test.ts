@@ -1,3 +1,4 @@
+import { assistantToolNameSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks that defineAgent retains its input schema and rejects invalid agent         │
@@ -11,20 +12,17 @@
  * │ application or database fixture is involved.                                             │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { assistantToolNameSchema } from '@study/contracts';
 import type { AssistantToolName } from '@study/contracts';
 import { noteIdSchema } from '@study/contracts';
 import { AgentRule } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { assert, expect, expectTypeOf } from 'vite-plus/test';
 
 import { assistantAgent } from '#server/features/notes/agents/assistant';
 import { noteAssistantAgent } from '#server/features/notes/agents/note-assistant';
 import { defineAgent, defineTool } from '#server/platform/definitions/define-agent';
 
-testStable('defineAgent preserves schemas and rejects invalid identifiers', () => {
+test.stable('defineAgent preserves schemas and rejects invalid identifiers', () => {
   const input = Schema.Struct({ prompt: Schema.String });
   const definition = defineAgent({
     id: 'reply',
@@ -36,11 +34,11 @@ testStable('defineAgent preserves schemas and rejects invalid identifiers', () =
     prompt: ({ prompt }) => prompt
   });
 
-  assert.strictEqual(definition.input, input);
-  assert.throws(() => defineAgent({ ...definition, id: '' }), RangeError);
+  test.assert.strictEqual(definition.input, input);
+  test.assert.throws(() => defineAgent({ ...definition, id: '' }), RangeError);
 });
 
-testStable('agent declarations require a nonempty selection of known user rules', () => {
+test.stable('agent declarations require a nonempty selection of known user rules', () => {
   const valid = {
     id: 'test',
     input: Schema.String,
@@ -57,13 +55,13 @@ testStable('agent declarations require a nonempty selection of known user rules'
   // @ts-expect-error raw strings cannot stand in for typed rule selections
   defineAgent({ ...valid, customRules: ['replies'] });
 
-  assert.deepEqual(
+  test.assert.deepEqual(
     defineAgent({ ...valid, customRules: [AgentRule.Quizzes, AgentRule.Titles] }).customRules,
     [AgentRule.Quizzes, AgentRule.Titles]
   );
 });
 
-testStable('tool declarations require a wiki and bind execution to canonical schemas', () => {
+test.stable('tool declarations require a wiki and bind execution to canonical schemas', () => {
   const valid = {
     description: 'Read a count',
     input: Schema.Struct({ count: Schema.Int }),
@@ -90,16 +88,16 @@ testStable('tool declarations require a wiki and bind execution to canonical sch
 
   const tool = defineTool({ ...valid, wiki });
 
-  assert.strictEqual(tool.input, valid.input);
+  test.assert.strictEqual(tool.input, valid.input);
 });
 
-testStable('Assistant tool names and localized capability catalog stay exhaustive', () => {
+test.stable('Assistant tool names and localized capability catalog stay exhaustive', () => {
   const scoped = noteAssistantAgent(noteIdSchema.make(1n));
 
-  expectTypeOf<
-    keyof typeof assistantAgent.tools | keyof typeof scoped.tools
-  >().toEqualTypeOf<AssistantToolName>();
-  expect(Object.keys({ ...assistantAgent.tools, ...scoped.tools }).sort()).toEqual(
-    [...assistantToolNameSchema.literals].sort()
-  );
+  test
+    .expectTypeOf<keyof typeof assistantAgent.tools | keyof typeof scoped.tools>()
+    .toEqualTypeOf<AssistantToolName>();
+  test
+    .expect(Object.keys({ ...assistantAgent.tools, ...scoped.tools }).sort())
+    .toEqual([...assistantToolNameSchema.literals].sort());
 });

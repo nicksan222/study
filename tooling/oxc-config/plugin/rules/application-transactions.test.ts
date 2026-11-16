@@ -1,18 +1,17 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('rejects nested ORM transactions in application code', async () => {
+test.stable('rejects nested ORM transactions in application code', async () => {
   const diagnostics = await lintRule('application-transactions', {
     'src/bad.ts':
       "import type { Db } from '@study/db'; function f(db: Db) { db.orm.transaction(() => {}); }"
   });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable(
+test.stable(
   'recognizes database aliases and preserves context and unrelated transactions',
   async () => {
     const diagnostics = await lintRule('application-transactions', {
@@ -33,6 +32,6 @@ database.orm.transaction(() => {});
         "import type { Db } from '@study/db'; function f(db: Db) { db.transaction(() => {}); }"
     });
 
-    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );

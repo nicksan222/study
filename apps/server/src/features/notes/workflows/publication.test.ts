@@ -1,3 +1,4 @@
+import { blockIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies guarded note publication validates captured citations and replays         │
@@ -12,8 +13,6 @@
  * │ replace production activities.                                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { blockIdSchema } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import {
   blocks,
@@ -24,12 +23,9 @@ import {
   source_snapshots,
   source_extraction_revisions
 } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/service/index';
 import { Projects } from '#server/features/projects/index';
@@ -39,10 +35,10 @@ import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { withTestAdmission } from '#testing/workflow-admission';
 
-testStable(
+test.stable(
   'guarded publication validates captured citations and replays without writes',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -156,7 +152,7 @@ testStable(
           ]
         };
 
-        assert.ok(
+        test.assert.ok(
           (yield* Effect.flip(withPublicationGuard(context, notes.publishReply(input)))).kind ===
             'internal'
         );
@@ -200,10 +196,13 @@ testStable(
                   { ...input, requestId: 'missing' }
                 ]) {
                   yield* Effect.flip(notes.publishReply(bad));
-                  assert.ok(
+                  test.assert.ok(
                     (yield* notes.message(request.messageId)).versions[0]?.status === 'pending'
                   );
-                  assert.strictEqual(context.db.orm.all(sql`SELECT * FROM citations`).length, 0);
+                  test.assert.strictEqual(
+                    context.db.orm.all(sql`SELECT * FROM citations`).length,
+                    0
+                  );
                 }
 
                 const historicNote = yield* notes.createNote({
@@ -219,11 +218,11 @@ testStable(
                 });
 
                 yield* notes.editMessage({ messageId: historicQuestion.id, text: 'new' });
-                assert.ok(
+                test.assert.ok(
                   (yield* notes.replySnapshot({ requestId: historic.requestId })).messages[0]
                     ?.text === 'old'
                 );
-                assert.strictEqual(
+                test.assert.strictEqual(
                   yield* notes.publishReply({
                     requestId: historic.requestId,
                     text: 'answer',
@@ -231,11 +230,11 @@ testStable(
                   }),
                   historic.versionId
                 );
-                assert.ok(
+                test.assert.ok(
                   (yield* notes.message(historic.messageId)).versions[0]?.status === 'complete'
                 );
                 yield* notes.deleteMessage(historic.messageId);
-                assert.ok(
+                test.assert.ok(
                   (yield* Effect.flip(
                     notes.publishReply({
                       requestId: historic.requestId,
@@ -250,12 +249,12 @@ testStable(
                   .where(eq(noteTable.id, note.id))
                   .get()!.context_revision;
 
-                assert.strictEqual(yield* notes.publishReply(input), request.versionId);
+                test.assert.strictEqual(yield* notes.publishReply(input), request.versionId);
                 const message = yield* notes.message(request.messageId);
 
-                assert.strictEqual(message.activeVersionId, request.versionId);
-                assert.ok(message.versions[0]?.text === 'Answer [1]');
-                expect(message.citations).toStrictEqual([
+                test.assert.strictEqual(message.activeVersionId, request.versionId);
+                test.assert.ok(message.versions[0]?.text === 'Answer [1]');
+                test.expect(message.citations).toStrictEqual([
                   {
                     origin: 'agent',
                     support: { state: 'unassessed' },
@@ -287,7 +286,7 @@ testStable(
                     quote: 'quoted passage'
                   }
                 ]);
-                assert.strictEqual(yield* notes.publishReply(input), request.versionId);
+                test.assert.strictEqual(yield* notes.publishReply(input), request.versionId);
                 yield* Effect.flip(notes.publishReply({ ...input, text: 'Changed [1]' }));
                 yield* Effect.flip(
                   notes.publishReply({
@@ -295,13 +294,13 @@ testStable(
                     citations: [{ ...input.citations[0]!, quote: 'quoted' }]
                   })
                 );
-                assert.strictEqual(
+                test.assert.strictEqual(
                   context.db.orm.select().from(noteTable).where(eq(noteTable.id, note.id)).get()!
                     .context_revision,
                   revision + 1n
                 );
-                assert.strictEqual(context.db.orm.all(sql`SELECT * FROM citations`).length, 1);
-                assert.strictEqual(
+                test.assert.strictEqual(context.db.orm.all(sql`SELECT * FROM citations`).length, 1);
+                test.assert.strictEqual(
                   context.db.orm.all(
                     sql`SELECT * FROM workflow_events WHERE type = 'NoteGenerationRequested'`
                   ).length,

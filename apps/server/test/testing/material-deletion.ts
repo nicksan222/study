@@ -1,3 +1,4 @@
+import type { MaterialId } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Real native deletion execution helpers; all callers own fixture lifetime.          │
@@ -11,14 +12,12 @@
  * │ transactions.                                                                            │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { MaterialId } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { eq } from '@study/db';
 import * as s from '@study/db';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import {
@@ -55,7 +54,7 @@ export function materialDeletionEvent(fixture: MaterialDeletionFixture, material
     (e) => e.type === 'MaterialDeletionRequested' && e.materialId === materialId
   );
 
-  assert.ok(event?.type === 'MaterialDeletionRequested');
+  test.assert.ok(event?.type === 'MaterialDeletionRequested');
 
   return event;
 }

@@ -1,7 +1,4 @@
-import { testStable } from '@study/testing/vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { ProviderKeyRow } from './provider-settings';
 
@@ -13,34 +10,34 @@ const provider = {
   defaults: { tiny: 'claude-sonnet-4-6', medium: 'claude-sonnet-4-6', smart: 'claude-sonnet-4-6' }
 };
 
-testStable(
+test.stable(
   'provider keys are password inputs, saved explicitly, and cleared after success',
   async () => {
-    const save = vi.fn().mockResolvedValue(undefined);
+    const save = test.vi.fn().mockResolvedValue(undefined);
 
-    render(<ProviderKeyRow provider={provider} pending={false} save={save} />);
-    const input = screen.getByLabelText('API key');
+    test.render(<ProviderKeyRow provider={provider} pending={false} save={save} />);
+    const input = test.screen.getByLabelText('API key');
 
-    expect(input).toHaveAttribute('type', 'password');
-    expect(input).toHaveValue('');
-    expect(screen.getByRole('button', { name: 'Save key' })).toBeDisabled();
-    await userEvent.type(input, 'test-secret');
-    await userEvent.click(screen.getByRole('button', { name: 'Save key' }));
-    expect(save).toHaveBeenCalledWith('anthropic', 'test-secret');
-    await waitFor(() => expect(input).toHaveValue(''));
-    await userEvent.click(screen.getByRole('button', { name: 'Remove key' }));
-    expect(save).toHaveBeenLastCalledWith('anthropic', null);
+    test.expect(input).toHaveAttribute('type', 'password');
+    test.expect(input).toHaveValue('');
+    test.expect(test.screen.getByRole('button', { name: 'Save key' })).toBeDisabled();
+    await test.userEvent.type(input, 'test-secret');
+    await test.userEvent.click(test.screen.getByRole('button', { name: 'Save key' }));
+    test.expect(save).toHaveBeenCalledWith('anthropic', 'test-secret');
+    await test.waitFor(() => test.expect(input).toHaveValue(''));
+    await test.userEvent.click(test.screen.getByRole('button', { name: 'Remove key' }));
+    test.expect(save).toHaveBeenLastCalledWith('anthropic', null);
   }
 );
 
-testStable('a failed key save preserves the draft for retry', async () => {
-  const save = vi.fn().mockRejectedValue(new Error('offline'));
+test.stable('a failed key save preserves the draft for retry', async () => {
+  const save = test.vi.fn().mockRejectedValue(new Error('offline'));
 
-  render(<ProviderKeyRow provider={provider} pending={false} save={save} />);
-  const input = screen.getByLabelText('API key');
+  test.render(<ProviderKeyRow provider={provider} pending={false} save={save} />);
+  const input = test.screen.getByLabelText('API key');
 
-  await userEvent.type(input, 'test-secret');
-  await userEvent.click(screen.getByRole('button', { name: 'Save key' }));
-  await waitFor(() => expect(save).toHaveBeenCalledOnce());
-  expect(input).toHaveValue('test-secret');
+  await test.userEvent.type(input, 'test-secret');
+  await test.userEvent.click(test.screen.getByRole('button', { name: 'Save key' }));
+  await test.waitFor(() => test.expect(save).toHaveBeenCalledOnce());
+  test.expect(input).toHaveValue('test-secret');
 });

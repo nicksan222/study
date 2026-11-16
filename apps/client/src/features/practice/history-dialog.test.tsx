@@ -6,19 +6,16 @@ import {
   defaultQuizSettings
 } from '@study/contracts';
 import type { quizAttemptSchema } from '@study/contracts';
+import type { StudyClient } from '@study/contracts/react/testing';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { expect, vi } from 'vite-plus/test';
 
 import {
   learningVersion,
   materialRpc,
   mountLibraryRoute
 } from '#client/features/material-library/test/support.tsx';
-import type { StudyClient } from '#client/test/rpc.tsx';
 
 const en = catalogs.english;
 
@@ -119,117 +116,131 @@ function mount(empty = false, italian = false) {
   rpc['materials.material'].mockReturnValue(Effect.succeed(material));
   const transport = {
     ...rpc,
-    'settings.quizSettings': vi
+    'settings.quizSettings': test.vi
       .fn<StudyClient['settings.quizSettings']>()
       .mockReturnValue(Effect.succeed(defaultQuizSettings)),
-    'learning.attempts': vi.fn<StudyClient['learning.attempts']>().mockReturnValue(
+    'learning.attempts': test.vi.fn<StudyClient['learning.attempts']>().mockReturnValue(
       Effect.succeed({
         items: empty ? [] : [summary(initial), summary(completed)],
         nextCursor: null
       })
     ),
-    'learning.attempt': vi
+    'learning.attempt': test.vi
       .fn<StudyClient['learning.attempt']>()
       .mockImplementation(({ attemptId }) =>
         Effect.succeed(attemptId === completed.id ? completed : initial)
       ),
-    'learning.startQuiz': vi.fn<StudyClient['learning.startQuiz']>(),
-    'learning.answerQuestion': vi.fn<StudyClient['learning.answerQuestion']>(),
-    'learning.finishQuiz': vi.fn<StudyClient['learning.finishQuiz']>()
+    'learning.startQuiz': test.vi.fn<StudyClient['learning.startQuiz']>(),
+    'learning.answerQuestion': test.vi.fn<StudyClient['learning.answerQuestion']>(),
+    'learning.finishQuiz': test.vi.fn<StudyClient['learning.finishQuiz']>()
   };
 
   return { ...mountLibraryRoute('/practice/41', transport), rpc: transport };
 }
 
-async function openHistory(user: ReturnType<typeof userEvent.setup>, italian = false) {
+async function openHistory(user: ReturnType<typeof test.userEvent.setup>, italian = false) {
   const copy = italian ? catalogs.italian : en;
 
-  await user.click(await screen.findByRole('button', { name: copy.PracticeActions }));
-  await user.click(screen.getByRole('button', { name: copy.PracticeAttempts }));
+  await user.click(await test.screen.findByRole('button', { name: copy.PracticeActions }));
+  await user.click(test.screen.getByRole('button', { name: copy.PracticeAttempts }));
 
-  return screen.findByRole('dialog', { name: copy.PracticeAttempts });
+  return test.screen.findByRole('dialog', { name: copy.PracticeAttempts });
 }
 
-testStable(
+test.stable(
   'automatically previews saved answers and resumes the same attempt without creating or changing one',
   async () => {
     const { rpc, router } = mount();
-    const user = userEvent.setup();
+    const user = test.userEvent.setup();
     const dialog = await openHistory(user);
 
-    expect(await within(dialog).findByText(en.PracticeResumeHelp)).toBeInTheDocument();
-    expect(within(dialog).getByRole('radio', { name: /Two/ })).toBeChecked();
-    expect(within(dialog).getByRole('radio', { name: /Two/ })).toBeDisabled();
-    expect(within(dialog).queryByRole('textbox', { name: en.YourAnswer })).toBeNull();
-    await user.click(within(dialog).getByRole('button', { name: en.NextQuestion }));
-    expect(within(dialog).getByRole('textbox', { name: en.YourAnswer })).toHaveAttribute(
-      'readonly'
-    );
-    expect(within(dialog).queryByRole('radio', { name: /Two/ })).toBeNull();
-    await user.click(within(dialog).getByRole('button', { name: en.QuizPrevious }));
-    expect(within(dialog).getByRole('radio', { name: /Two/ })).toBeChecked();
-    expect(within(dialog).getByRole('progressbar')).toHaveAttribute('value', '1');
-    expect(within(dialog).queryByText('A prime number has exactly two divisors.')).toBeNull();
-    const resume = within(dialog).getByRole('link', { name: en.PracticeResume });
+    test.expect(await test.within(dialog).findByText(en.PracticeResumeHelp)).toBeInTheDocument();
+    test.expect(test.within(dialog).getByRole('radio', { name: /Two/ })).toBeChecked();
+    test.expect(test.within(dialog).getByRole('radio', { name: /Two/ })).toBeDisabled();
+    test.expect(test.within(dialog).queryByRole('textbox', { name: en.YourAnswer })).toBeNull();
+    await user.click(test.within(dialog).getByRole('button', { name: en.NextQuestion }));
+    test
+      .expect(test.within(dialog).getByRole('textbox', { name: en.YourAnswer }))
+      .toHaveAttribute('readonly');
+    test.expect(test.within(dialog).queryByRole('radio', { name: /Two/ })).toBeNull();
+    await user.click(test.within(dialog).getByRole('button', { name: en.QuizPrevious }));
+    test.expect(test.within(dialog).getByRole('radio', { name: /Two/ })).toBeChecked();
+    test.expect(test.within(dialog).getByRole('progressbar')).toHaveAttribute('value', '1');
+    test
+      .expect(test.within(dialog).queryByText('A prime number has exactly two divisors.'))
+      .toBeNull();
+    const resume = test.within(dialog).getByRole('link', { name: en.PracticeResume });
 
-    expect(resume).toHaveAttribute('href', '/practice/41?attempt=70');
+    test.expect(resume).toHaveAttribute('href', '/practice/41?attempt=70');
     await user.click(resume);
-    await waitFor(() => expect(router.state.location.search.attempt).toBe('70'));
-    expect(rpc['learning.startQuiz']).not.toHaveBeenCalled();
-    expect(rpc['learning.answerQuestion']).not.toHaveBeenCalled();
-    expect(rpc['learning.finishQuiz']).not.toHaveBeenCalled();
+    await test.waitFor(() => test.expect(router.state.location.search.attempt).toBe('70'));
+    test.expect(rpc['learning.startQuiz']).not.toHaveBeenCalled();
+    test.expect(rpc['learning.answerQuestion']).not.toHaveBeenCalled();
+    test.expect(rpc['learning.finishQuiz']).not.toHaveBeenCalled();
   }
 );
 
-testStable(
+test.stable(
   'searches statuses and automatically renders completed attempts with the existing results view',
   async () => {
     const { rpc } = mount();
-    const user = userEvent.setup();
+    const user = test.userEvent.setup();
     const dialog = await openHistory(user);
 
-    await within(dialog).findByText(en.PracticeResumeHelp);
+    await test.within(dialog).findByText(en.PracticeResumeHelp);
     await user.type(
-      within(dialog).getByRole('searchbox', { name: en.PracticeSearchAttempts }),
+      test.within(dialog).getByRole('searchbox', { name: en.PracticeSearchAttempts }),
       en.PracticeAttemptCompleted
     );
-    expect(
-      await within(dialog).findByRole('heading', { name: en.PracticeOverallResults })
-    ).toBeInTheDocument();
-    expect(within(within(dialog).getByRole('banner')).getByText('100%')).toBeInTheDocument();
-    expect(
-      within(dialog).getByText('A prime number has exactly two divisors.')
-    ).toBeInTheDocument();
-    await user.click(within(dialog).getByRole('button', { name: en.PracticeNextQuestion }));
-    expect(within(dialog).getByRole('group', { name: en.YourAnswer })).toHaveTextContent('prime');
-    expect(within(dialog).getByRole('group', { name: en.RightAnswer })).toHaveTextContent('prime');
-    expect(within(dialog).queryByRole('textbox', { name: en.YourAnswer })).toBeNull();
-    expect(within(dialog).queryByRole('link', { name: en.PracticeResume })).toBeNull();
-    expect(rpc['learning.attempt']).toHaveBeenLastCalledWith({ attemptId: completed.id });
-    await user.clear(within(dialog).getByRole('searchbox', { name: en.PracticeSearchAttempts }));
+    test
+      .expect(await test.within(dialog).findByRole('heading', { name: en.PracticeOverallResults }))
+      .toBeInTheDocument();
+    test
+      .expect(test.within(test.within(dialog).getByRole('banner')).getByText('100%'))
+      .toBeInTheDocument();
+    test
+      .expect(test.within(dialog).getByText('A prime number has exactly two divisors.'))
+      .toBeInTheDocument();
+    await user.click(test.within(dialog).getByRole('button', { name: en.PracticeNextQuestion }));
+    test
+      .expect(test.within(dialog).getByRole('group', { name: en.YourAnswer }))
+      .toHaveTextContent('prime');
+    test
+      .expect(test.within(dialog).getByRole('group', { name: en.RightAnswer }))
+      .toHaveTextContent('prime');
+    test.expect(test.within(dialog).queryByRole('textbox', { name: en.YourAnswer })).toBeNull();
+    test.expect(test.within(dialog).queryByRole('link', { name: en.PracticeResume })).toBeNull();
+    test.expect(rpc['learning.attempt']).toHaveBeenLastCalledWith({ attemptId: completed.id });
+    await user.clear(
+      test.within(dialog).getByRole('searchbox', { name: en.PracticeSearchAttempts })
+    );
     await user.type(
-      within(dialog).getByRole('searchbox', { name: en.PracticeSearchAttempts }),
+      test.within(dialog).getByRole('searchbox', { name: en.PracticeSearchAttempts }),
       'no matching attempt'
     );
-    expect(await within(dialog).findByRole('status')).toHaveTextContent(en.SearchNoResults);
-    expect(within(dialog).getByRole('status')).toHaveClass('ui-selection-empty');
+    test
+      .expect(await test.within(dialog).findByRole('status'))
+      .toHaveTextContent(en.SearchNoResults);
+    test.expect(test.within(dialog).getByRole('status')).toHaveClass('ui-selection-empty');
   }
 );
 
-testStable(
+test.stable(
   'shows the shared empty state when no attempts exist without requesting an attempt',
   async () => {
     const { rpc } = mount(true);
-    const user = userEvent.setup();
+    const user = test.userEvent.setup();
     const dialog = await openHistory(user);
 
-    expect(await within(dialog).findByRole('status')).toHaveTextContent(en.PracticeNoAttempts);
-    expect(within(dialog).queryByRole('link', { name: en.PracticeResume })).toBeNull();
-    expect(rpc['learning.attempt']).not.toHaveBeenCalled();
+    test
+      .expect(await test.within(dialog).findByRole('status'))
+      .toHaveTextContent(en.PracticeNoAttempts);
+    test.expect(test.within(dialog).queryByRole('link', { name: en.PracticeResume })).toBeNull();
+    test.expect(rpc['learning.attempt']).not.toHaveBeenCalled();
   }
 );
 
-testStable('saved true or false history uses localized radio controls', async () => {
+test.stable('saved true or false history uses localized radio controls', async () => {
   const { rpc } = mount();
 
   rpc['learning.attempt'].mockReturnValue(
@@ -250,14 +261,14 @@ testStable('saved true or false history uses localized radio controls', async ()
       })
     )
   );
-  const dialog = await openHistory(userEvent.setup());
+  const dialog = await openHistory(test.userEvent.setup());
 
-  expect(await within(dialog).findByRole('radio', { name: /True/ })).toBeChecked();
-  expect(within(dialog).getByRole('radio', { name: /False/ })).toBeDisabled();
-  expect(within(dialog).queryByRole('checkbox')).toBeNull();
+  test.expect(await test.within(dialog).findByRole('radio', { name: /True/ })).toBeChecked();
+  test.expect(test.within(dialog).getByRole('radio', { name: /False/ })).toBeDisabled();
+  test.expect(test.within(dialog).queryByRole('checkbox')).toBeNull();
 });
 
-testStable('saved true or false history uses Italian radio controls', async () => {
+test.stable('saved true or false history uses Italian radio controls', async () => {
   const { rpc } = mount(false, true);
 
   rpc['learning.attempt'].mockReturnValue(
@@ -278,9 +289,9 @@ testStable('saved true or false history uses Italian radio controls', async () =
       })
     )
   );
-  const dialog = await openHistory(userEvent.setup(), true);
+  const dialog = await openHistory(test.userEvent.setup(), true);
 
-  expect(await within(dialog).findByRole('radio', { name: /Vero/ })).toBeChecked();
-  expect(within(dialog).getByRole('radio', { name: /Falso/ })).toBeDisabled();
-  expect(within(dialog).queryByRole('checkbox')).toBeNull();
+  test.expect(await test.within(dialog).findByRole('radio', { name: /Vero/ })).toBeChecked();
+  test.expect(test.within(dialog).getByRole('radio', { name: /Falso/ })).toBeDisabled();
+  test.expect(test.within(dialog).queryByRole('checkbox')).toBeNull();
 });

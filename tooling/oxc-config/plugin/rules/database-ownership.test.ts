@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('database connection and schema factories stay with their owners', async () => {
+test.stable('database connection and schema factories stay with their owners', async () => {
   const diagnostics = await lintRule(
     'database-ownership',
     {
@@ -61,58 +60,60 @@ const object = { sqliteTable };
     true
   );
 
-  expect(
-    diagnostics
-      .map(({ filename, message }) => [filename.split(/\/(?:apps|packages)\//)[1], message])
-      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
-  ).toStrictEqual(
-    [
+  test
+    .expect(
+      diagnostics
+        .map(({ filename, message }) => [filename.split(/\/(?:apps|packages)\//)[1], message])
+        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+    )
+    .toStrictEqual(
       [
-        'server/src/core-migrate.ts',
-        'SQLite connections and migrations belong in packages/db/src/db.ts.'
-      ],
-      [
-        'server/src/driver.ts',
-        'SQLite connections and migrations belong in packages/db/src/db.ts.'
-      ],
-      [
-        'server/src/dynamic.ts',
-        'SQLite connections and migrations belong in packages/db/src/db.ts.'
-      ],
-      ['server/src/dynamic.ts', 'SQLite schema factories belong in packages/db/src/schema/.'],
-      [
-        'server/src/migrator.ts',
-        'SQLite connections and migrations belong in packages/db/src/db.ts.'
-      ],
-      ['server/src/namespace.ts', 'SQLite schema factories belong in packages/db/src/schema/.'],
-      ['server/src/reexport.ts', 'SQLite schema factories belong in packages/db/src/schema/.'],
-      ['server/src/schema.ts', 'SQLite schema factories belong in packages/db/src/schema/.'],
-      [
-        'server/test/raw.test.ts',
-        'SQLite connections and migrations belong in packages/db/src/db.ts.'
-      ],
-      ['db/src/db.ts', 'SQLite connections and migrations belong in packages/db/src/db.ts.'],
-      ['db/src/db.ts', 'SQLite connections and migrations belong in packages/db/src/db.ts.'],
-      ['db/src/db.ts', 'SQLite connections and migrations belong in packages/db/src/db.ts.'],
-      [
-        'db/src/schema/namespace.ts',
-        'SQLite connections and migrations belong in packages/db/src/db.ts.'
-      ],
-      [
-        'db/src/schema/dynamic.ts',
-        'SQLite connections and migrations belong in packages/db/src/db.ts.'
-      ],
-      [
-        'db/src/schema/migrate.ts',
-        'SQLite connections and migrations belong in packages/db/src/db.ts.'
-      ],
-      ['db/src/schema/leak.ts', 'SQLite schema factories belong in packages/db/src/schema/.'],
-      ['db/src/not-schema.ts', 'SQLite schema factories belong in packages/db/src/schema/.']
-    ].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
-  );
+        [
+          'server/src/core-migrate.ts',
+          'SQLite connections and migrations belong in packages/db/src/db.ts.'
+        ],
+        [
+          'server/src/driver.ts',
+          'SQLite connections and migrations belong in packages/db/src/db.ts.'
+        ],
+        [
+          'server/src/dynamic.ts',
+          'SQLite connections and migrations belong in packages/db/src/db.ts.'
+        ],
+        ['server/src/dynamic.ts', 'SQLite schema factories belong in packages/db/src/schema/.'],
+        [
+          'server/src/migrator.ts',
+          'SQLite connections and migrations belong in packages/db/src/db.ts.'
+        ],
+        ['server/src/namespace.ts', 'SQLite schema factories belong in packages/db/src/schema/.'],
+        ['server/src/reexport.ts', 'SQLite schema factories belong in packages/db/src/schema/.'],
+        ['server/src/schema.ts', 'SQLite schema factories belong in packages/db/src/schema/.'],
+        [
+          'server/test/raw.test.ts',
+          'SQLite connections and migrations belong in packages/db/src/db.ts.'
+        ],
+        ['db/src/db.ts', 'SQLite connections and migrations belong in packages/db/src/db.ts.'],
+        ['db/src/db.ts', 'SQLite connections and migrations belong in packages/db/src/db.ts.'],
+        ['db/src/db.ts', 'SQLite connections and migrations belong in packages/db/src/db.ts.'],
+        [
+          'db/src/schema/namespace.ts',
+          'SQLite connections and migrations belong in packages/db/src/db.ts.'
+        ],
+        [
+          'db/src/schema/dynamic.ts',
+          'SQLite connections and migrations belong in packages/db/src/db.ts.'
+        ],
+        [
+          'db/src/schema/migrate.ts',
+          'SQLite connections and migrations belong in packages/db/src/db.ts.'
+        ],
+        ['db/src/schema/leak.ts', 'SQLite schema factories belong in packages/db/src/schema/.'],
+        ['db/src/not-schema.ts', 'SQLite schema factories belong in packages/db/src/schema/.']
+      ].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+    );
 });
 
-testStable('owner reexports cannot evade ownership by preceding imports', async () => {
+test.stable('owner reexports cannot evade ownership by preceding imports', async () => {
   const diagnostics = await lintRule(
     'database-ownership',
     {
@@ -142,25 +143,27 @@ export type { table };
     true
   );
 
-  expect(
-    diagnostics
-      .map(({ filename, message }) => [filename.split(/\/(?:apps|packages)\//)[1], message])
-      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
-  ).toStrictEqual(
-    [
-      ...Array.from({ length: 3 }, () => [
-        'db/src/db.ts',
-        'SQLite connections and migrations belong in packages/db/src/db.ts.'
-      ]),
-      ...Array.from({ length: 2 }, () => [
-        'db/src/schema/example.ts',
-        'SQLite schema factories belong in packages/db/src/schema/.'
-      ])
-    ].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
-  );
+  test
+    .expect(
+      diagnostics
+        .map(({ filename, message }) => [filename.split(/\/(?:apps|packages)\//)[1], message])
+        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+    )
+    .toStrictEqual(
+      [
+        ...Array.from({ length: 3 }, () => [
+          'db/src/db.ts',
+          'SQLite connections and migrations belong in packages/db/src/db.ts.'
+        ]),
+        ...Array.from({ length: 2 }, () => [
+          'db/src/schema/example.ts',
+          'SQLite schema factories belong in packages/db/src/schema/.'
+        ])
+      ].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+    );
 });
 
-testStable(
+test.stable(
   'snapshot machinery uses Db primitives without acquiring a second raw driver in runtime or storage',
   async () => {
     const diagnostics = await lintRule('database-ownership', {
@@ -169,23 +172,26 @@ testStable(
       'src/runtime/composition.ts': "import { Db } from '@study/db'; Db.openSnapshot(path);"
     });
 
-    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
-testStable('the metadata wrapper may construct tables without exposing raw factories', async () => {
-  const diagnostics = await lintRule(
-    'database-ownership',
-    {
-      'packages/db/src/table.ts':
-        "import { sqliteTable, SQLiteTable } from 'drizzle-orm/sqlite-core';",
-      'packages/db/src/schema-builder.ts':
-        "export { integer, text } from 'drizzle-orm/sqlite-core';",
-      'packages/db/src/unwrapped.ts': "import { sqliteTable } from 'drizzle-orm/sqlite-core';"
-    },
-    true
-  );
+test.stable(
+  'the metadata wrapper may construct tables without exposing raw factories',
+  async () => {
+    const diagnostics = await lintRule(
+      'database-ownership',
+      {
+        'packages/db/src/table.ts':
+          "import { sqliteTable, SQLiteTable } from 'drizzle-orm/sqlite-core';",
+        'packages/db/src/schema-builder.ts':
+          "export { integer, text } from 'drizzle-orm/sqlite-core';",
+        'packages/db/src/unwrapped.ts': "import { sqliteTable } from 'drizzle-orm/sqlite-core';"
+      },
+      true
+    );
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-  assert.ok(diagnostics[0]?.filename.endsWith('/unwrapped.ts'));
-});
+    test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    test.assert.ok(diagnostics[0]?.filename.endsWith('/unwrapped.ts'));
+  }
+);

@@ -1,17 +1,15 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { ChatNote, ChatMessage, ChatMessageText, ChatMessageActionToolbar } from '@study/ui';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { expect } from 'vite-plus/test';
 
-testStable(
+test.stable(
   'keeps the reading anchor on older-page insertion and follows new arrivals only at the end',
   () => {
-    const view = render(
+    const view = test.render(
       <ChatNote label="Note" jumpLabel="Latest" itemCount={3} firstItemKey="b">
         <p>Notes</p>
       </ChatNote>
     );
-    const viewport = screen.getByRole('log', { name: 'Note' });
+    const viewport = test.screen.getByRole('log', { name: 'Note' });
     let height = 2000;
 
     Object.defineProperties(viewport, {
@@ -19,37 +17,37 @@ testStable(
       clientHeight: { value: 500 }
     });
     viewport.scrollTop = 100;
-    fireEvent.scroll(viewport);
-    expect(screen.getByRole('button', { name: 'Latest' })).toBeInTheDocument();
+    test.fireEvent.scroll(viewport);
+    test.expect(test.screen.getByRole('button', { name: 'Latest' })).toBeInTheDocument();
     height = 2400;
     view.rerender(
       <ChatNote label="Note" jumpLabel="Latest" itemCount={4} firstItemKey="a">
         <p>Older notes</p>
       </ChatNote>
     );
-    expect(viewport.scrollTop).toBe(500);
+    test.expect(viewport.scrollTop).toBe(500);
     height = 2600;
     view.rerender(
       <ChatNote label="Note" jumpLabel="Latest" itemCount={5} firstItemKey="a">
         <p>New note</p>
       </ChatNote>
     );
-    expect(viewport.scrollTop).toBe(500);
+    test.expect(viewport.scrollTop).toBe(500);
     viewport.scrollTop = 2100;
-    fireEvent.scroll(viewport);
-    expect(screen.queryByRole('button', { name: 'Latest' })).not.toBeInTheDocument();
+    test.fireEvent.scroll(viewport);
+    test.expect(test.screen.queryByRole('button', { name: 'Latest' })).not.toBeInTheDocument();
     height = 2900;
     view.rerender(
       <ChatNote label="Note" jumpLabel="Latest" itemCount={6} firstItemKey="a">
         <p>Another note</p>
       </ChatNote>
     );
-    expect(viewport.scrollTop).toBe(2900);
+    test.expect(viewport.scrollTop).toBe(2900);
   }
 );
 
-testStable('keeps quick notes literal and exposes their actions to keyboard users', () => {
-  render(
+test.stable('keeps quick notes literal and exposes their actions to keyboard users', () => {
+  test.render(
     <ChatMessage>
       <ChatMessageText text={'**Literal note**\nSecond line'} />
       <ChatMessageActionToolbar aria-label="Note actions">
@@ -57,8 +55,10 @@ testStable('keeps quick notes literal and exposes their actions to keyboard user
       </ChatMessageActionToolbar>
     </ChatMessage>
   );
-  expect(screen.getByText('**Literal note** Second line')).toHaveTextContent('**Literal note**');
-  expect(screen.getByRole('group', { name: 'Note actions' })).toContainElement(
-    screen.getByRole('button', { name: 'Edit' })
-  );
+  test
+    .expect(test.screen.getByText('**Literal note** Second line'))
+    .toHaveTextContent('**Literal note**');
+  test
+    .expect(test.screen.getByRole('group', { name: 'Note actions' }))
+    .toContainElement(test.screen.getByRole('button', { name: 'Edit' }));
 });

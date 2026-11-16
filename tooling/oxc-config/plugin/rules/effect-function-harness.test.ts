@@ -1,11 +1,11 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message =
   'Use Effect.fnUntraced for generator-backed functions instead of an arrow wrapping Effect.gen.';
 
-testStable(
+test.stable(
   'feature generator functions use the native function harness without extra wrappers',
   async () => {
     assertDiagnostics(

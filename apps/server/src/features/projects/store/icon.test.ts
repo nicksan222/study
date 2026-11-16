@@ -1,3 +1,4 @@
+import { projectIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises structured project icons across SQLite reopen and missing-subject        │
@@ -11,13 +12,9 @@
  * │ Uses the project store and real database without replacing the persistence boundary.     │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { projectIdSchema } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Clock, Effect } from 'effect';
 import { Schema } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -25,10 +22,10 @@ import { transaction, useStore } from '#server/platform/definitions/define-store
 
 import { ProjectsStore } from './index.ts';
 
-testStable(
+test.stable(
   'custom subject icon persists across SQLite reopen and automatic mode restores title-derived identity',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const clock = Effect.runSync(Clock.Clock);
     let context = new ServerContext(await location.open(), clock);
     const provide = <A, E>(effect: Effect.Effect<A, E, Database>) =>
@@ -51,7 +48,7 @@ testStable(
       context = new ServerContext(await location.open(), clock);
       const store = await provide(useStore(ProjectsStore));
 
-      expect((await Effect.runPromise(store.project(created.id))).icon).toStrictEqual({
+      test.expect((await Effect.runPromise(store.project(created.id))).icon).toStrictEqual({
         kind: 'monogram',
         value: 'BIO',
         color: 'neutral'
@@ -61,7 +58,7 @@ testStable(
           tx.store(ProjectsStore).renameProject({ id: created.id, name: 'Advanced Biology' })
         )
       );
-      expect((await Effect.runPromise(store.project(created.id))).icon).toStrictEqual({
+      test.expect((await Effect.runPromise(store.project(created.id))).icon).toStrictEqual({
         kind: 'monogram',
         value: 'BIO',
         color: 'neutral'
@@ -73,7 +70,7 @@ testStable(
             .setIcon({ id: created.id, icon: { kind: 'automatic', color: 'neutral' } })
         )
       );
-      expect((await Effect.runPromise(store.project(created.id))).icon).toStrictEqual({
+      test.expect((await Effect.runPromise(store.project(created.id))).icon).toStrictEqual({
         kind: 'automatic',
         color: 'neutral'
       });
@@ -88,7 +85,7 @@ testStable(
         )
       );
 
-      expect(error.kind).toStrictEqual('not_found');
+      test.expect(error.kind).toStrictEqual('not_found');
     } finally {
       context.close();
       await location.cleanup();
@@ -96,32 +93,37 @@ testStable(
   }
 );
 
-testStable('rich icons persist their typed variant and color across SQLite reopen', async () => {
-  const location = await createTestDatabase();
-  const clock = Effect.runSync(Clock.Clock);
-  let context = new ServerContext(await location.open(), clock);
-  const provide = <A, E>(effect: Effect.Effect<A, E, Database>) =>
-    Effect.runPromise(effect.pipe(Effect.provideService(Database, { store: context })));
+test.stable(
+  'rich icons persist their typed variant and color across SQLite reopen',
+  async ({ databases }) => {
+    const location = await databases();
+    const clock = Effect.runSync(Clock.Clock);
+    let context = new ServerContext(await location.open(), clock);
+    const provide = <A, E>(effect: Effect.Effect<A, E, Database>) =>
+      Effect.runPromise(effect.pipe(Effect.provideService(Database, { store: context })));
 
-  try {
-    const created = await provide(
-      transaction((tx) => tx.store(ProjectsStore).createProject({ name: 'Biology' }))
-    );
+    try {
+      const created = await provide(
+        transaction((tx) => tx.store(ProjectsStore).createProject({ name: 'Biology' }))
+      );
 
-    for (const icon of [
-      { kind: 'symbol', value: 'atom', color: 'violet' },
-      { kind: 'emoji', value: '📚', color: 'blue' },
-      { kind: 'automatic', color: 'green' }
-    ] as const) {
-      await provide(transaction((tx) => tx.store(ProjectsStore).setIcon({ id: created.id, icon })));
+      for (const icon of [
+        { kind: 'symbol', value: 'atom', color: 'violet' },
+        { kind: 'emoji', value: '📚', color: 'blue' },
+        { kind: 'automatic', color: 'green' }
+      ] as const) {
+        await provide(
+          transaction((tx) => tx.store(ProjectsStore).setIcon({ id: created.id, icon }))
+        );
+        context.close();
+        context = new ServerContext(await location.open(), clock);
+        const store = await provide(useStore(ProjectsStore));
+
+        test.expect((await Effect.runPromise(store.project(created.id))).icon).toStrictEqual(icon);
+      }
+    } finally {
       context.close();
-      context = new ServerContext(await location.open(), clock);
-      const store = await provide(useStore(ProjectsStore));
-
-      expect((await Effect.runPromise(store.project(created.id))).icon).toStrictEqual(icon);
+      await location.cleanup();
     }
-  } finally {
-    context.close();
-    await location.cleanup();
   }
-});
+);

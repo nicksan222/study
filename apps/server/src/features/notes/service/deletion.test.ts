@@ -1,3 +1,4 @@
+import { NotesRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Covers durable deletion with migrated SQLite, native RPC and Workflow cleanup.     │
@@ -9,15 +10,12 @@
  * │ Feature policy uses public participants; native Workflow owns execution.                 │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { NotesRpc } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Exit, Layer, Option, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
 import { Activity, DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';
-import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { NotesRpcLive } from '#server/features/notes/rpc/index';
@@ -43,10 +41,10 @@ import {
 import { pageTransformFixture } from '#testing/page-transform';
 import { withTestAdmission } from '#testing/workflow-admission';
 
-testStable(
+test.stable(
   'native deletion RPC commits an idempotent unavailable barrier and scrubs queued captures after reopen',
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases }) => {
+    const fixture = await pageTransformFixture(databases);
     const marker = 'SESSION_ONLY_DELETE_RPC_8';
 
     try {
@@ -65,14 +63,14 @@ testStable(
             const client = yield* RpcTest.makeClient(NotesRpc, { flatten: true });
             const status = yield* client('notes.deleteNote', { id: saved.note.id });
 
-            assert.ok(status.status === 'pending');
+            test.assert.ok(status.status === 'pending');
 
-            expect(yield* client('notes.noteDeletion', { id: saved.note.id })).toStrictEqual(
-              status
-            );
-            expect(yield* client('notes.retryNoteDeletion', { id: saved.note.id })).toStrictEqual(
-              status
-            );
+            test
+              .expect(yield* client('notes.noteDeletion', { id: saved.note.id }))
+              .toStrictEqual(status);
+            test
+              .expect(yield* client('notes.retryNoteDeletion', { id: saved.note.id }))
+              .toStrictEqual(status);
             const rejected = [
               client('notes.renameNote', {
                 id: saved.note.id,
@@ -92,12 +90,14 @@ testStable(
             ];
 
             for (const action of rejected)
-              assert.ok((yield* Effect.flip(action)).kind === 'not_found');
+              test.assert.ok((yield* Effect.flip(action)).kind === 'not_found');
 
-            expect(yield* client('notes.deleteNote', { id: saved.note.id })).toStrictEqual(status);
-            assert.ok(Option.isNone(yield* client('notes.findNote', { id: saved.note.id })));
-            assert.strictEqual((yield* client('notes.notes', { limit: 10 })).items.length, 1);
-            assert.ok(
+            test
+              .expect(yield* client('notes.deleteNote', { id: saved.note.id }))
+              .toStrictEqual(status);
+            test.assert.ok(Option.isNone(yield* client('notes.findNote', { id: saved.note.id })));
+            test.assert.strictEqual((yield* client('notes.notes', { limit: 10 })).items.length, 1);
+            test.assert.ok(
               (yield* Effect.flip(
                 client('notes.postMessage', {
                   noteId: saved.note.id,
@@ -106,7 +106,7 @@ testStable(
                 })
               )).kind === 'not_found'
             );
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(
                 client('notes.captureNoteContext', {
                   noteId: saved.note.id,
@@ -123,7 +123,7 @@ testStable(
       );
       // The original generation event is still queued, but may never start after acceptance.
 
-      assert.strictEqual(
+      test.assert.strictEqual(
         admitPending(
           fixture.context,
           [
@@ -147,21 +147,21 @@ testStable(
           const chats = yield* Notes;
           const status = yield* chats.noteDeletion(saved.note.id);
 
-          assert.ok(status.status === 'completed');
-          assert.strictEqual(status.operationId, accepted.operationId);
-          assert.ok(status.completedAt !== null);
-          expect(yield* chats.deleteNote(saved.note.id)).toStrictEqual(status);
-          assert.ok(
+          test.assert.ok(status.status === 'completed');
+          test.assert.strictEqual(status.operationId, accepted.operationId);
+          test.assert.ok(status.completedAt !== null);
+          test.expect(yield* chats.deleteNote(saved.note.id)).toStrictEqual(status);
+          test.assert.ok(
             (yield* (yield* Pages).version({ id: saved.library.version.id })).status === 'published'
           );
           const retainedThread = yield* chats.thread({ noteId: saved.other.id, limit: 10 });
           const otherMessage = retainedThread.items[0];
 
-          expect(retainedThread).toStrictEqual(otherThread);
+          test.expect(retainedThread).toStrictEqual(otherThread);
 
-          assert.ok(otherMessage);
-          assert.strictEqual(otherMessage.noteId, saved.other.id);
-          assert.ok(
+          test.assert.ok(otherMessage);
+          test.assert.strictEqual(otherMessage.noteId, saved.other.id);
+          test.assert.ok(
             otherMessage.versions.find((version) => version.id === otherMessage.activeVersionId)
               ?.text === 'Other note'
           );
@@ -172,14 +172,16 @@ testStable(
 
       assertScrubbed(fixture, marker, true);
       await fixture.reopen();
-      expect(
-        await Effect.runPromise(
-          Effect.flatMap(Notes, (chats) => chats.noteDeletion(saved.note.id)).pipe(
-            Effect.provide(fixture.domain())
+      test
+        .expect(
+          await Effect.runPromise(
+            Effect.flatMap(Notes, (chats) => chats.noteDeletion(saved.note.id)).pipe(
+              Effect.provide(fixture.domain())
+            )
           )
         )
-      ).toStrictEqual(done);
-      assert.strictEqual(
+        .toStrictEqual(done);
+      test.assert.strictEqual(
         admitPending(
           fixture.context,
           [
@@ -203,47 +205,53 @@ testStable(
   }
 );
 
-testStable('deletion intent/outbox failure rolls back the barrier and note removal', async () => {
-  const fixture = await pageTransformFixture();
+test.stable(
+  'deletion intent/outbox failure rolls back the barrier and note removal',
+  async ({ databases }) => {
+    const fixture = await pageTransformFixture(databases);
 
-  try {
-    const saved = await setup(fixture, 'ROLLBACK_DELETE_8');
+    try {
+      const saved = await setup(fixture, 'ROLLBACK_DELETE_8');
 
-    fixture.context.db.orm.run(
-      sql.raw(`CREATE TRIGGER reject_deletion_event BEFORE INSERT ON workflow_events
+      fixture.context.db.orm.run(
+        sql.raw(`CREATE TRIGGER reject_deletion_event BEFORE INSERT ON workflow_events
       WHEN NEW.type='NoteDeletionRequested' BEGIN SELECT RAISE(ABORT, 'injected'); END`)
-    );
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const chats = yield* Notes;
+      );
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const chats = yield* Notes;
 
-        yield* Effect.flip(chats.deleteNote(saved.note.id));
-        assert.strictEqual((yield* chats.note(saved.note.id)).id, saved.note.id);
-        assert.ok(
-          (yield* chats.noteContext({ requestId: saved.capture.requestId })).instruction ===
-            'ROLLBACK_DELETE_8-instruction'
-        );
-      }).pipe(Effect.provide(fixture.domain()))
-    );
-    assert.strictEqual(fixture.context.db.orm.select().from(s.note_deletions).all().length, 0);
-    assert.strictEqual(
-      fixture.context.db.orm.select().from(s.workflow_retired_correlations).all().length,
-      0
-    );
-    assert.strictEqual(
-      fixture.context.db.orm.select().from(s.workflow_retired_correlations).all().length,
-      0
-    );
-    fixture.context.db.orm.run(sql.raw('DROP TRIGGER reject_deletion_event'));
-  } finally {
-    await fixture.close();
+          yield* Effect.flip(chats.deleteNote(saved.note.id));
+          test.assert.strictEqual((yield* chats.note(saved.note.id)).id, saved.note.id);
+          test.assert.ok(
+            (yield* chats.noteContext({ requestId: saved.capture.requestId })).instruction ===
+              'ROLLBACK_DELETE_8-instruction'
+          );
+        }).pipe(Effect.provide(fixture.domain()))
+      );
+      test.assert.strictEqual(
+        fixture.context.db.orm.select().from(s.note_deletions).all().length,
+        0
+      );
+      test.assert.strictEqual(
+        fixture.context.db.orm.select().from(s.workflow_retired_correlations).all().length,
+        0
+      );
+      test.assert.strictEqual(
+        fixture.context.db.orm.select().from(s.workflow_retired_correlations).all().length,
+        0
+      );
+      fixture.context.db.orm.run(sql.raw('DROP TRIGGER reject_deletion_event'));
+    } finally {
+      await fixture.close();
+    }
   }
-});
+);
 
-testStable(
+test.stable(
   'failed cleanup remains inspectable and retries the same logical deletion after restart',
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases }) => {
+    const fixture = await pageTransformFixture(databases);
     const marker = 'RETRY_DELETE_8';
 
     try {
@@ -264,10 +272,10 @@ testStable(
           const chats = yield* Notes;
           const failed = yield* chats.noteDeletion(saved.note.id);
 
-          assert.ok(failed.status === 'failed');
-          assert.ok(failed.completedAt === null);
-          assert.ok(failed.errorKind === 'internal');
-          assert.ok(
+          test.assert.ok(failed.status === 'failed');
+          test.assert.ok(failed.completedAt === null);
+          test.assert.ok(failed.errorKind === 'internal');
+          test.assert.ok(
             !JSON.stringify(failed, (_, value) =>
               typeof value === 'bigint' ? String(value) : value
             ).includes('private content')
@@ -281,15 +289,15 @@ testStable(
           const chats = yield* Notes;
           const retry = yield* chats.retryNoteDeletion(saved.note.id);
 
-          assert.strictEqual(retry.operationId, accepted.operationId);
-          assert.strictEqual(retry.attempt, 2);
-          assert.ok(retry.status === 'pending');
-          expect(yield* chats.retryNoteDeletion(saved.note.id)).toStrictEqual(retry);
+          test.assert.strictEqual(retry.operationId, accepted.operationId);
+          test.assert.strictEqual(retry.attempt, 2);
+          test.assert.ok(retry.status === 'pending');
+          test.expect(yield* chats.retryNoteDeletion(saved.note.id)).toStrictEqual(retry);
         }).pipe(Effect.provide(fixture.domain()))
       );
       await cleanup(fixture, saved.note.id);
       assertScrubbed(fixture, marker, true);
-      assert.ok(
+      test.assert.ok(
         (await Effect.runPromise(
           Effect.flatMap(Notes, (chats) => chats.noteDeletion(saved.note.id)).pipe(
             Effect.map((value) => value.status),
@@ -303,10 +311,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'pending deletion can retry its terminal attempt after cleanup and failure settlement both fail',
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases }) => {
+    const fixture = await pageTransformFixture(databases);
     const marker = 'DOUBLE_FAILURE_SESSION_ONLY_8';
 
     try {
@@ -328,11 +336,13 @@ testStable(
         )
       );
       await cleanup(fixture, saved.note.id).catch(() => undefined);
-      assert.ok(
+      test.assert.ok(
         workflowStore(fixture.context).execution(`cleanup/${accepted.operationId}/1`)?.status ===
           'completed'
       );
-      assert.ok(fixture.context.db.orm.select().from(s.note_deletions).get()?.status === 'pending');
+      test.assert.ok(
+        fixture.context.db.orm.select().from(s.note_deletions).get()?.status === 'pending'
+      );
       fixture.context.db.orm.run(sql.raw('DROP TRIGGER reject_private_retirement'));
       fixture.context.db.orm.run(sql.raw('DROP TRIGGER reject_failure_settlement'));
       await fixture.reopen();
@@ -341,15 +351,15 @@ testStable(
           const chats = yield* Notes;
           const retry = yield* chats.retryNoteDeletion(saved.note.id);
 
-          assert.strictEqual(retry.operationId, accepted.operationId);
-          assert.strictEqual(retry.attempt, 2);
-          assert.ok(retry.status === 'pending');
-          expect(yield* chats.retryNoteDeletion(saved.note.id)).toStrictEqual(retry);
+          test.assert.strictEqual(retry.operationId, accepted.operationId);
+          test.assert.strictEqual(retry.attempt, 2);
+          test.assert.ok(retry.status === 'pending');
+          test.expect(yield* chats.retryNoteDeletion(saved.note.id)).toStrictEqual(retry);
         }).pipe(Effect.provide(fixture.domain()))
       );
       await cleanup(fixture, saved.note.id);
       assertScrubbed(fixture, marker, true);
-      assert.ok(
+      test.assert.ok(
         fixture.context.db.orm.select().from(s.note_deletions).get()?.status === 'completed'
       );
     } finally {
@@ -358,10 +368,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'completed library publication wins deletion while native payload copies are fenced and scrubbed',
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases }) => {
+    const fixture = await pageTransformFixture(databases);
     const marker = 'COMPLETED_SESSION_ONLY_8';
 
     try {
@@ -384,8 +394,8 @@ testStable(
         .where(eq(s.page_transform_requests.id, saved.request.id))
         .get()!;
 
-      assert.ok(receipt.result_version_id);
-      assert.strictEqual(
+      test.assert.ok(receipt.result_version_id);
+      test.assert.strictEqual(
         fixture.context.db.orm
           .select()
           .from(s.page_versions)
@@ -414,7 +424,7 @@ testStable(
       );
       await cleanup(fixture, saved.note.id);
       assertScrubbed(fixture, marker, true);
-      assert.strictEqual(
+      test.assert.strictEqual(
         fixture.context.db.orm
           .select()
           .from(s.page_transform_requests)
@@ -428,8 +438,8 @@ testStable(
             id: receipt.result_version_id!
           });
 
-          assert.ok(result.status === 'published');
-          assert.ok(
+          test.assert.ok(result.status === 'published');
+          test.assert.ok(
             JSON.stringify(result.document, (_, value) =>
               typeof value === 'bigint' ? String(value) : value
             ).includes('INTENTIONAL_PUBLISHED_COPY_8')
@@ -443,14 +453,14 @@ testStable(
         .all()
         .find((row) => row.correlationId === saved.request.id);
 
-      assert.ok(libraryEvent);
-      assert.ok(libraryEvent.payload === '{}');
+      test.assert.ok(libraryEvent);
+      test.assert.ok(libraryEvent.payload === '{}');
 
-      expect(await libraryState(fixture, retainedIds)).toStrictEqual(afterDeletion);
+      test.expect(await libraryState(fixture, retainedIds)).toStrictEqual(afterDeletion);
 
       await fixture.reopen();
 
-      expect(await libraryState(fixture, retainedIds)).toStrictEqual(afterDeletion);
+      test.expect(await libraryState(fixture, retainedIds)).toStrictEqual(afterDeletion);
 
       const native = workflowStore(fixture.context);
 
@@ -468,8 +478,8 @@ testStable(
           updated_at: 0n
         })
         .run();
-      assert.ok(native.execution('independent-library-consumer')?.status === 'running');
-      assert.throws(() => native.assertPublication('completed-before-delete', 1));
+      test.assert.ok(native.execution('independent-library-consumer')?.status === 'running');
+      test.assert.throws(() => native.assertPublication('completed-before-delete', 1));
       assertScrubbed(fixture, marker, true);
     } finally {
       await fixture.close();
@@ -477,10 +487,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'late provider response after acceptance cannot publish or repopulate native checkpoints',
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases }) => {
+    const fixture = await pageTransformFixture(databases);
     const marker = 'LATE_PROVIDER_SESSION_8';
 
     try {
@@ -502,10 +512,10 @@ testStable(
           )
         )
       );
-      await expect(fixture.executeAuthored(event, 'late-provider-delete')).rejects.toSatisfy(
-        () => true
-      );
-      assert.strictEqual(fixture.bodies.length, 2);
+      await test
+        .expect(fixture.executeAuthored(event, 'late-provider-delete'))
+        .rejects.toSatisfy(() => true);
+      test.assert.strictEqual(fixture.bodies.length, 2);
       await cleanup(fixture, saved.note.id);
       const request = fixture.context.db.orm
         .select()
@@ -513,8 +523,8 @@ testStable(
         .where(eq(s.page_transform_requests.id, saved.request.id))
         .get();
 
-      assert.ok(request?.result_version_id === null);
-      assert.strictEqual(fixture.context.db.orm.select().from(s.pages).all().length, 1);
+      test.assert.ok(request?.result_version_id === null);
+      test.assert.strictEqual(fixture.context.db.orm.select().from(s.pages).all().length, 1);
       assertScrubbed(fixture, marker, true);
 
       assertScrubbed(fixture, 'Late unpublished response');
@@ -527,10 +537,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'native suspended Activity state is retired without cancelling an independent library execution',
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases }) => {
+    const fixture = await pageTransformFixture(databases);
     const marker = 'SUSPENDED_PRIVATE_PARTIAL_8';
 
     try {
@@ -605,11 +615,11 @@ testStable(
                 payload: { event: deletion }
               })
             );
-            assert.ok((yield* chats.noteDeletion(saved.note.id)).status === 'completed');
-            assert.ok(
+            test.assert.ok((yield* chats.noteDeletion(saved.note.id)).status === 'completed');
+            test.assert.ok(
               workflowStore(fixture.context).execution('suspended-note-run')?.status === 'cancelled'
             );
-            assert.ok(
+            test.assert.ok(
               workflowStore(fixture.context).execution('independent-run')?.status === 'suspended'
             );
             yield* engine.deferredDone(gate, {
@@ -618,7 +628,10 @@ testStable(
               deferredName: gate.name,
               exit: Exit.void
             });
-            assert.strictEqual(workflowStore(fixture.context).retired('suspended-note-run'), true);
+            test.assert.strictEqual(
+              workflowStore(fixture.context).retired('suspended-note-run'),
+              true
+            );
             yield* engine.deferredDone(independentGate, {
               workflowName: independent._tag,
               executionId: 'independent-run',
@@ -640,10 +653,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'kept and applied authored results preserve independent proposals and receipts after raw note deletion',
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases }) => {
+    const fixture = await pageTransformFixture(databases);
     const marker = 'PROPOSAL_ONLY_SESSION_8';
 
     try {
@@ -675,7 +688,7 @@ testStable(
           };
           const apply = yield* chats.applyPageProposal(applyValue);
 
-          assert.ok(apply.outcome === 'applied');
+          test.assert.ok(apply.outcome === 'applied');
           yield* chats.deleteNote(saved.note.id);
 
           return { keep, apply, applyValue };
@@ -686,13 +699,13 @@ testStable(
       const retainedReceipts = fixture.context.db.orm.select().from(s.page_proposal_receipts).all();
 
       await cleanup(fixture, saved.note.id);
-      expect(fixture.context.db.orm.select().from(s.page_proposals).all()).toStrictEqual(
-        retainedProposal
-      );
-      expect(fixture.context.db.orm.select().from(s.page_proposal_receipts).all()).toStrictEqual(
-        retainedReceipts
-      );
-      assert.ok(
+      test
+        .expect(fixture.context.db.orm.select().from(s.page_proposals).all())
+        .toStrictEqual(retainedProposal);
+      test
+        .expect(fixture.context.db.orm.select().from(s.page_proposal_receipts).all())
+        .toStrictEqual(retainedReceipts);
+      test.assert.ok(
         fixture.context.db.orm
           .select()
           .from(s.page_versions)
@@ -711,7 +724,7 @@ testStable(
             retained.apply.resultVersionId!,
             saved.library.version.id
           ])
-            assert.ok((yield* documents.version({ id })).status === 'published');
+            test.assert.ok((yield* documents.version({ id })).status === 'published');
 
           const kept = yield* chats.keepPageProposal({
             requestId: saved.request.id,
@@ -720,9 +733,9 @@ testStable(
           });
           const applied = yield* chats.applyPageProposal(retained.applyValue);
 
-          expect(kept).toStrictEqual({ ...retained.keep, replayed: true });
-          expect(applied).toStrictEqual({ ...retained.apply, replayed: true });
-          assert.ok(
+          test.expect(kept).toStrictEqual({ ...retained.keep, replayed: true });
+          test.expect(applied).toStrictEqual({ ...retained.apply, replayed: true });
+          test.assert.ok(
             (yield* Effect.flip(
               chats.keepPageProposal({
                 requestId: saved.request.id,
@@ -731,7 +744,7 @@ testStable(
               })
             )).kind === 'not_found'
           );
-          assert.strictEqual(
+          test.assert.strictEqual(
             (yield* documents.version({ id: applied.resultVersionId! })).citations.length,
             1
           );

@@ -1,3 +1,4 @@
+import { StudyError } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks provider registration, public metadata and SDK model construction without   │
@@ -10,37 +11,34 @@
  * │ Tests use production provider factories; no external provider calls are required here.   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyError } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { expect, expectTypeOf } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { anthropic } from './anthropic.ts';
 import { apiKeyProviders, getApiKeyProvider, providerCatalog } from './registry.ts';
 
-testStable('the provider registry exposes ten API-key providers without credentials', () => {
-  expect(apiKeyProviders).toHaveLength(10);
-  expect(new Set(apiKeyProviders.map((provider) => provider.id)).size).toBe(10);
-  expect(providerCatalog().map((provider) => provider.id)).toContain('anthropic');
-  expect(providerCatalog().map((provider) => provider.id)).toContain('openrouter');
-  expect(providerCatalog().map((provider) => provider.id)).toContain('deepseek');
-  expect(JSON.stringify(providerCatalog())).not.toContain('apiKey');
+test.stable('the provider registry exposes ten API-key providers without credentials', () => {
+  test.expect(apiKeyProviders).toHaveLength(10);
+  test.expect(new Set(apiKeyProviders.map((provider) => provider.id)).size).toBe(10);
+  test.expect(providerCatalog().map((provider) => provider.id)).toContain('anthropic');
+  test.expect(providerCatalog().map((provider) => provider.id)).toContain('openrouter');
+  test.expect(providerCatalog().map((provider) => provider.id)).toContain('deepseek');
+  test.expect(JSON.stringify(providerCatalog())).not.toContain('apiKey');
 });
 
-testStable('unknown providers fail before a request can be constructed', () => {
-  expect(() => getApiKeyProvider('unknown')).toThrow(StudyError);
+test.stable('unknown providers fail before a request can be constructed', () => {
+  test.expect(() => getApiKeyProvider('unknown')).toThrow(StudyError);
 });
 
-testStable('each registry entry constructs an AI SDK v3 model with the requested id', () => {
+test.stable('each registry entry constructs an AI SDK v3 model with the requested id', () => {
   for (const provider of apiKeyProviders) {
     const model = provider.createModel({ apiKey: 'test-key', modelId: 'test-model' });
 
-    expect(model.specificationVersion).toBe('v3');
-    expect(model.modelId).toBe('test-model');
+    test.expect(model.specificationVersion).toBe('v3');
+    test.expect(model.modelId).toBe('test-model');
   }
 });
 
-testStable(
+test.stable(
   'all providers serialize credentials and parse their native protocol over HTTP',
   async () => {
     const expectedOrigins: Record<string, string> = {
@@ -115,8 +113,8 @@ testStable(
     });
     const address = { port: server.port };
 
-    expect(address).not.toBeNull();
-    expect(typeof address).toBe('object');
+    test.expect(address).not.toBeNull();
+    test.expect(typeof address).toBe('object');
 
     const base = `http://127.0.0.1:${(address as { port: number }).port}`;
 
@@ -137,17 +135,19 @@ testStable(
           prompt: [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }]
         });
 
-        expect(result.content).toContainEqual({ type: 'text', text: 'Hello' });
-        expect(target?.origin).toBe(expectedOrigins[provider.id]);
-        expect(authorization).toBe(
-          provider.id === 'anthropic' || provider.id === 'google'
-            ? 'test-secret'
-            : 'Bearer test-secret'
-        );
+        test.expect(result.content).toContainEqual({ type: 'text', text: 'Hello' });
+        test.expect(target?.origin).toBe(expectedOrigins[provider.id]);
+        test
+          .expect(authorization)
+          .toBe(
+            provider.id === 'anthropic' || provider.id === 'google'
+              ? 'test-secret'
+              : 'Bearer test-secret'
+          );
 
-        if (provider.id !== 'google') expect(requestedModel).toBe('test-model');
+        if (provider.id !== 'google') test.expect(requestedModel).toBe('test-model');
 
-        expect(result.finishReason.unified).toBe('stop');
+        test.expect(result.finishReason.unified).toBe('stop');
       }
     } finally {
       await server.stop(true);
@@ -155,17 +155,17 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'provider model options retain literal types and every tier default is selectable',
   () => {
-    expectTypeOf(anthropic.models).toEqualTypeOf<
-      readonly ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5']
-    >();
+    test
+      .expectTypeOf(anthropic.models)
+      .toEqualTypeOf<readonly ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5']>();
 
     for (const provider of apiKeyProviders) {
       const models: readonly string[] = provider.models;
 
-      for (const model of Object.values(provider.defaults)) expect(models).toContain(model);
+      for (const model of Object.values(provider.defaults)) test.expect(models).toContain(model);
     }
   }
 );

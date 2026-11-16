@@ -1,8 +1,7 @@
 import { validDocumentHref } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
-testStable.each([
+test.stable.each([
   ['/note/1', true],
   ['/note/42#Cell%20division', true],
   ['https://example.org/note', true],
@@ -15,5 +14,5 @@ testStable.each([
   ['javascript:alert(1)', false],
   ['data:text/html,test', false]
 ])('validates imported document href %s', (value, allowed) => {
-  expect(validDocumentHref(value as string)).toBe(allowed);
+  test.expect(validDocumentHref(value as string)).toBe(allowed);
 });

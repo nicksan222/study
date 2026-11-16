@@ -1,3 +1,4 @@
+import { projectIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Project and note memberships never own an authored document's lifetime.            │
@@ -10,15 +11,11 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { projectIdSchema } from '@study/contracts';
 import { PagesRpc } from '@study/contracts';
 import { sql } from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { PagesRpcLive } from '#server/features/pages/rpc/index';
@@ -28,10 +25,10 @@ import { deletionDocument } from '#testing/material-deletion';
 import { cleanup } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
-testStable(
+test.stable(
   'native authored project links are idempotent and project/note deletion preserves independent versions',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases }) => {
+    const f = await pageTransformFixture(databases);
 
     try {
       const saved = await Effect.runPromise(
@@ -53,34 +50,35 @@ testStable(
               noteId: note.id
             });
 
-            assert.ok(document.version);
+            test.assert.ok(document.version);
             const link = { pageId: document.id, projectId: b.id };
 
             yield* rpc['pages.attachProject'](link);
             yield* rpc['pages.attachProject'](link);
-            expect((yield* rpc['pages.page']({ id: document.id })).projectIds).toStrictEqual([
-              a.id,
-              b.id
-            ]);
+            test
+              .expect((yield* rpc['pages.page']({ id: document.id })).projectIds)
+              .toStrictEqual([a.id, b.id]);
             const missing = {
               ...link,
               projectId: Schema.decodeUnknownSync(projectIdSchema)(b.id + 999n)
             };
 
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(rpc['pages.attachProject'](missing))).kind === 'not_found'
             );
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(rpc['pages.detachProject'](missing))).kind === 'not_found'
             );
             yield* rpc['pages.detachProject']({ pageId: document.id, projectId: a.id });
             yield* rpc['pages.detachProject']({ pageId: document.id, projectId: a.id });
             yield* projects.deleteProject({ id: a.id });
             yield* projects.deleteProject({ id: b.id });
-            expect((yield* rpc['pages.page']({ id: document.id })).projectIds).toStrictEqual([]);
-            expect(yield* rpc['pages.version']({ id: document.version.id })).toStrictEqual(
-              document.version
-            );
+            test
+              .expect((yield* rpc['pages.page']({ id: document.id })).projectIds)
+              .toStrictEqual([]);
+            test
+              .expect(yield* rpc['pages.version']({ id: document.version.id }))
+              .toStrictEqual(document.version);
             yield* chats.deleteNote(note.id);
 
             return { noteId: note.id, document, version: document.version };
@@ -99,18 +97,24 @@ testStable(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(PagesRpc);
 
-            expect(yield* rpc['pages.version']({ id: saved.version.id })).toStrictEqual(
-              saved.version
-            );
+            test
+              .expect(yield* rpc['pages.version']({ id: saved.version.id }))
+              .toStrictEqual(saved.version);
             const all = yield* rpc['pages.pages']({ limit: 10, archived: false });
 
-            assert.strictEqual(all.items[0]?.id, saved.document.id);
-            assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM note_pages`)?.n, 0n);
-            assert.strictEqual(
+            test.assert.strictEqual(all.items[0]?.id, saved.document.id);
+            test.assert.strictEqual(
+              f.context.db.orm.get(sql`SELECT count(*) n FROM note_pages`)?.n,
+              0n
+            );
+            test.assert.strictEqual(
               f.context.db.orm.get(sql`SELECT count(*) n FROM project_pages`)?.n,
               0n
             );
-            assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
+            test.assert.strictEqual(
+              f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n,
+              0n
+            );
           })
         ).pipe(
           Effect.provide(
@@ -118,7 +122,7 @@ testStable(
           )
         )
       );
-      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }

@@ -1,3 +1,4 @@
+import { sourceIdSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Source deletion and authored image acquisition use exact original byte revisions   │
@@ -11,15 +12,11 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sourceIdSchema } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
@@ -29,10 +26,10 @@ import { pageTransformFixture } from '#testing/page-transform';
 const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 
 for (const owner of ['none', 'draft', 'published'] as const)
-  testStable(
+  test.stable(
     `image source deletion respects ${owner} authored ownership and rejects every acquisition after final release`,
-    async () => {
-      const f = await pageTransformFixture();
+    async ({ databases }) => {
+      const f = await pageTransformFixture(databases);
 
       try {
         const saved = await Effect.runPromise(
@@ -74,7 +71,7 @@ for (const owner of ['none', 'draft', 'published'] as const)
                     citations: []
                   });
 
-            if (original) assert.ok(original.version);
+            if (original) test.assert.ok(original.version);
 
             let draftId = null;
 
@@ -92,39 +89,43 @@ for (const owner of ['none', 'draft', 'published'] as const)
                 document: image()
               });
 
-              assert.ok(alternative.outcome === 'conflict');
+              test.assert.ok(alternative.outcome === 'conflict');
               draftId = alternative.submittedVersionId;
             }
 
             const preview = yield* sources.previewDeletion({ id: source.id });
 
-            if (owner === 'none') expect(preview.blockedBy).toStrictEqual([]);
+            if (owner === 'none') test.expect(preview.blockedBy).toStrictEqual([]);
             else {
-              assert.ok(preview.blockedBy.includes('image_assets'));
-              assert.ok(
+              test.assert.ok(preview.blockedBy.includes('image_assets'));
+              test.assert.ok(
                 (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind ===
                   'invalid_input'
               );
               const independent = yield* create();
 
-              assert.ok(independent.version);
+              test.assert.ok(independent.version);
               const originalPreview = yield* docs.previewDeletion({ id: original!.id });
 
               yield* docs.delete({ pageId: original!.id, token: originalPreview.token });
-              assert.ok(
+              test.assert.ok(
                 (yield* sources.previewDeletion({ id: source.id })).blockedBy.includes(
                   'image_assets'
                 )
               );
-              expect(
-                (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
-              ).toStrictEqual(bytes);
+              test
+                .expect(
+                  (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
+                )
+                .toStrictEqual(bytes);
               const independentPreview = yield* docs.previewDeletion({ id: independent.id });
 
               yield* docs.delete({ pageId: independent.id, token: independentPreview.token });
 
               if (draftId)
-                assert.ok((yield* Effect.flip(docs.version({ id: draftId }))).kind === 'not_found');
+                test.assert.ok(
+                  (yield* Effect.flip(docs.version({ id: draftId }))).kind === 'not_found'
+                );
             }
 
             yield* sources.deleteSource({ id: source.id });
@@ -139,7 +140,7 @@ for (const owner of ['none', 'draft', 'published'] as const)
             const docs = yield* Pages;
             const sources = yield* Sources;
 
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(
                 docs.create({
                   createKey: crypto.randomUUID(),
@@ -150,34 +151,34 @@ for (const owner of ['none', 'draft', 'published'] as const)
                 })
               )).kind === 'invalid_input'
             );
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(
                 sources.exportRevision({ sourceId: saved.source.id, revision: 1n })
               )).kind === 'not_found'
             );
           }).pipe(Effect.provide(f.domain()))
         );
-        assert.strictEqual(
+        test.assert.strictEqual(
           f.context.db.orm.get(sql`SELECT count(*) n FROM document_assets`)?.n,
           0n
         );
-        assert.strictEqual(
+        test.assert.strictEqual(
           f.context.db.orm.get(
             sql`SELECT count(*) n FROM source_snapshots WHERE source_id=${saved.source.id}`
           )?.n,
           0n
         );
-        expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+        test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         await f.close();
       }
     }
   );
 
-testStable(
+test.stable(
   'image saves validate the submitted exact image revision and retained editing identity before any write',
-  async () => {
-    const f = await pageTransformFixture();
+  async ({ databases }) => {
+    const f = await pageTransformFixture(databases);
 
     try {
       const saved = await Effect.runPromise(
@@ -204,7 +205,7 @@ testStable(
             citations: []
           });
 
-          assert.ok(document.version);
+          test.assert.ok(document.version);
           const unrelated = yield* docs.create({
             createKey: crypto.randomUUID(),
             title: 'Unrelated',
@@ -213,7 +214,7 @@ testStable(
             citations: []
           });
 
-          assert.ok(unrelated.version);
+          test.assert.ok(unrelated.version);
 
           return {
             source,
@@ -249,7 +250,7 @@ testStable(
               alt: 'Fake revision'
             }
           ])
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(
                 docs.save({
                   pageId: saved.document.id,
@@ -260,7 +261,7 @@ testStable(
               )).kind === 'invalid_input'
             );
 
-          assert.ok(
+          test.assert.ok(
             (yield* Effect.flip(
               docs.save({
                 pageId: saved.document.id,
@@ -272,12 +273,14 @@ testStable(
           );
         }).pipe(Effect.provide(f.domain()))
       );
-      expect({
-        assets: f.context.db.orm.select().from(s.document_assets).all(),
-        versions: f.context.db.orm.select().from(s.page_versions).all(),
-        blocks: f.context.db.orm.select().from(s.blocks).all()
-      }).toStrictEqual(before);
-      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      test
+        .expect({
+          assets: f.context.db.orm.select().from(s.document_assets).all(),
+          versions: f.context.db.orm.select().from(s.page_versions).all(),
+          blocks: f.context.db.orm.select().from(s.blocks).all()
+        })
+        .toStrictEqual(before);
+      test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }

@@ -1,3 +1,4 @@
+import { NoteMode } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies exact named notebook reuse against real SQLite.                           │
@@ -9,14 +10,10 @@
  * │ Uses production stores and transactions with an isolated database.                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { NoteMode } from '@study/contracts';
 import { eq } from '@study/db';
 import { notes, projects, project_notes } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Option } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { NoteStore } from '#server/features/notes/store/index';
 import { ServerContext } from '#server/platform/database/context';
@@ -25,10 +22,10 @@ import { transaction } from '#server/platform/definitions/define-store';
 
 import { ensureNote } from './ensure-note.ts';
 
-testStable(
+test.stable(
   'named notebook lookup uses exact titles, active notebooks, earliest IDs and collection scope',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const run = <A, E>(effect: Effect.Effect<A, E, Database>) =>
       Effect.runPromise(effect.pipe(Effect.provideService(Database, { store: context })));
@@ -43,8 +40,8 @@ testStable(
         .returning()
         .all();
 
-      assert.ok(firstProject);
-      assert.ok(secondProject);
+      test.assert.ok(firstProject);
+      test.assert.ok(secondProject);
 
       const insert = (title: string, extra: Partial<typeof notes.$inferInsert> = {}) =>
         context.db.orm
@@ -81,54 +78,62 @@ testStable(
         transaction((tx) => {
           const store = tx.store(NoteStore);
 
-          expect(Option.getOrUndefined(store.findNotebookByTitle({ title: 'Biology' }))?.id).toBe(
-            earliest.id
-          );
-          expect(
-            Option.getOrUndefined(
-              store.findNotebookByTitle({ title: 'Biology', project: firstProject.id })
-            )?.id
-          ).toBe(firstOnly.id);
-          expect(
-            Option.getOrUndefined(
-              store.findNotebookByTitle({ title: 'Biology', project: secondProject.id })
-            )?.projectIds
-          ).toEqual([firstProject.id, secondProject.id]);
-          expect(Option.getOrUndefined(store.findNotebookByTitle({ title: 'biology' }))?.id).toBe(
-            lowerCase.id
-          );
-          expect(Option.isNone(store.findNotebookByTitle({ title: 'BIOLOGY' }))).toBe(true);
-          expect(
-            store
-              .notes({ limit: 100, before: { updatedAt: 999n, id: lowerCase.id } })
-              .some((note) => note.id === collected.id)
-          ).toBe(true);
-          expect(
-            store
-              .notes({ limit: 100, before: { updatedAt: 999n, id: lowerCase.id }, project: null })
-              .some((note) => note.id === collected.id)
-          ).toBe(false);
+          test
+            .expect(Option.getOrUndefined(store.findNotebookByTitle({ title: 'Biology' }))?.id)
+            .toBe(earliest.id);
+          test
+            .expect(
+              Option.getOrUndefined(
+                store.findNotebookByTitle({ title: 'Biology', project: firstProject.id })
+              )?.id
+            )
+            .toBe(firstOnly.id);
+          test
+            .expect(
+              Option.getOrUndefined(
+                store.findNotebookByTitle({ title: 'Biology', project: secondProject.id })
+              )?.projectIds
+            )
+            .toEqual([firstProject.id, secondProject.id]);
+          test
+            .expect(Option.getOrUndefined(store.findNotebookByTitle({ title: 'biology' }))?.id)
+            .toBe(lowerCase.id);
+          test.expect(Option.isNone(store.findNotebookByTitle({ title: 'BIOLOGY' }))).toBe(true);
+          test
+            .expect(
+              store
+                .notes({ limit: 100, before: { updatedAt: 999n, id: lowerCase.id } })
+                .some((note) => note.id === collected.id)
+            )
+            .toBe(true);
+          test
+            .expect(
+              store
+                .notes({ limit: 100, before: { updatedAt: 999n, id: lowerCase.id }, project: null })
+                .some((note) => note.id === collected.id)
+            )
+            .toBe(false);
         })
       );
 
-      expect((await run(ensureNote({ title: '  Biology  ' }))).id).toBe(earliest.id);
-      expect((await run(ensureNote({ title: 'Biology', project: firstProject.id }))).id).toBe(
-        firstOnly.id
-      );
-      expect((await run(ensureNote({ title: 'Biology', project: secondProject.id }))).id).toBe(
-        collected.id
-      );
+      test.expect((await run(ensureNote({ title: '  Biology  ' }))).id).toBe(earliest.id);
+      test
+        .expect((await run(ensureNote({ title: 'Biology', project: firstProject.id }))).id)
+        .toBe(firstOnly.id);
+      test
+        .expect((await run(ensureNote({ title: 'Biology', project: secondProject.id }))).id)
+        .toBe(collected.id);
       const created = await run(ensureNote({ title: '  New title  ', project: secondProject.id }));
 
-      expect(created.title).toBe('New title');
-      expect(created.titleSource).toBe('user');
-      expect((await run(ensureNote({ title: 'New title', project: secondProject.id }))).id).toBe(
-        created.id
-      );
-      expect(
-        context.db.orm.select().from(notes).where(eq(notes.title, 'New title')).all()
-      ).toHaveLength(1);
-      await expect(run(ensureNote({ title: '   ' }))).rejects.toMatchObject({
+      test.expect(created.title).toBe('New title');
+      test.expect(created.titleSource).toBe('user');
+      test
+        .expect((await run(ensureNote({ title: 'New title', project: secondProject.id }))).id)
+        .toBe(created.id);
+      test
+        .expect(context.db.orm.select().from(notes).where(eq(notes.title, 'New title')).all())
+        .toHaveLength(1);
+      await test.expect(run(ensureNote({ title: '   ' }))).rejects.toMatchObject({
         kind: 'invalid_input'
       });
     } finally {

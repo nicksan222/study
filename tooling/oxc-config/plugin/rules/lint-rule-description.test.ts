@@ -1,5 +1,4 @@
-import { testStable } from '@study/testing/vitest';
-import { assert, expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintFiles, lintRulePaths } from '../test/utils.ts';
 
@@ -33,17 +32,17 @@ function frame(contents: string): string {
 
 const guide = frame(contents);
 
-testStable('production config rejects undocumented custom lint implementations', async () => {
+test.stable('production config rejects undocumented custom lint implementations', async () => {
   const diagnostics = await lintFiles(
     { [`${directory}/missing.ts`]: implementation },
     undefined,
     true
   );
 
-  assert.ok(diagnostics.some(({ code }) => code === 'study(lint-rule-description)'));
+  test.assert.ok(diagnostics.some(({ code }) => code === 'study(lint-rule-description)'));
 });
 
-testStable('requires a purpose, prevented failure and both examples before imports', async () => {
+test.stable('requires a purpose, prevented failure and both examples before imports', async () => {
   const variants = {
     missing: '',
     'purpose-only': '@file Checks imports.',
@@ -74,48 +73,52 @@ testStable('requires a purpose, prevented failure and both examples before impor
   files[`${directory}/split.ts`] =
     `/** @file Checks imports. */\n${frame(contents.replace('@file Keeps feature imports on their public boundaries.', ''))}\n${implementation}`;
 
-  expect(await lintRulePaths('lint-rule-description', files)).toStrictEqual(
-    Object.keys(files).sort()
-  );
+  test
+    .expect(await lintRulePaths('lint-rule-description', files))
+    .toStrictEqual(Object.keys(files).sort());
 });
 
-testStable(
+test.stable(
   'allows framed guides, licenses, CRLF and helpers without a lint implementation',
   async () => {
-    expect(
-      await lintRulePaths('lint-rule-description', {
-        [`${directory}/documented.ts`]: `${guide}\n\n${implementation}`,
-        [`${directory}/license.ts`]: `/* Copyright Study */\n${guide}\n\n${implementation}`,
-        [`${directory}/windows.ts`]: `${guide}\n\n${implementation}`.replaceAll('\n', '\r\n'),
-        [`${directory}/helper.ts`]: 'export function helper() { return 1; }',
-        [`${directory}/example.test.ts`]: implementation,
-        [`${directory}/example.spec.ts`]: implementation,
-        'apps/server/src/example.ts': implementation,
-        [`${directory}/unrelated.ts`]:
-          'function defineRule(value) { return value; } export default defineRule({});'
-      })
-    ).toStrictEqual([]);
+    test
+      .expect(
+        await lintRulePaths('lint-rule-description', {
+          [`${directory}/documented.ts`]: `${guide}\n\n${implementation}`,
+          [`${directory}/license.ts`]: `/* Copyright Study */\n${guide}\n\n${implementation}`,
+          [`${directory}/windows.ts`]: `${guide}\n\n${implementation}`.replaceAll('\n', '\r\n'),
+          [`${directory}/helper.ts`]: 'export function helper() { return 1; }',
+          [`${directory}/example.test.ts`]: implementation,
+          [`${directory}/example.spec.ts`]: implementation,
+          'apps/server/src/example.ts': implementation,
+          [`${directory}/unrelated.ts`]:
+            'function defineRule(value) { return value; } export default defineRule({});'
+        })
+      )
+      .toStrictEqual([]);
   }
 );
 
-testStable(
+test.stable(
   'recognizes imported aliases and namespaces without confusing shadowed bindings',
   async () => {
-    expect(
-      await lintRulePaths('lint-rule-description', {
-        [`${directory}/alias.ts`]:
-          "import { defineRule as rule } from 'vite-plus/lint/plugins'; export default rule({});",
-        [`${directory}/namespace.ts`]:
-          "import * as lint from 'vite-plus/lint/plugins'; export default lint.defineRule({});",
-        [`${directory}/shadowed.ts`]: `import { defineRule } from 'vite-plus/lint/plugins';
+    test
+      .expect(
+        await lintRulePaths('lint-rule-description', {
+          [`${directory}/alias.ts`]:
+            "import { defineRule as rule } from 'vite-plus/lint/plugins'; export default rule({});",
+          [`${directory}/namespace.ts`]:
+            "import * as lint from 'vite-plus/lint/plugins'; export default lint.defineRule({});",
+          [`${directory}/shadowed.ts`]: `import { defineRule } from 'vite-plus/lint/plugins';
  function make(defineRule) { return defineRule({});
  }`
-      })
-    ).toStrictEqual([`${directory}/alias.ts`, `${directory}/namespace.ts`]);
+        })
+      )
+      .toStrictEqual([`${directory}/alias.ts`, `${directory}/namespace.ts`]);
   }
 );
 
-testStable('requires the padded frame around rule explanations', async () => {
+test.stable('requires the padded frame around rule explanations', async () => {
   const variants = {
     plain:
       '/**\n' +
@@ -136,7 +139,7 @@ testStable('requires the padded frame around rule explanations', async () => {
     ])
   );
 
-  expect(await lintRulePaths('lint-rule-description', files)).toStrictEqual(
-    Object.keys(files).sort()
-  );
+  test
+    .expect(await lintRulePaths('lint-rule-description', files))
+    .toStrictEqual(Object.keys(files).sort());
 });

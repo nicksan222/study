@@ -1,20 +1,15 @@
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { expect, vi } from 'vite-plus/test';
-
-import { renderInRouter } from '#client/test/render-in-router.tsx';
+import { test } from '@study/testing';
 
 import { SidebarNavigation } from './sidebar-navigation.view';
 
-testStable(
+test.stable(
   'builds typed section links retaining the selected project and invokes navigation callbacks',
   async () => {
-    const onNavigate = vi.fn();
-    const user = userEvent.setup();
+    const onNavigate = test.vi.fn();
+    const user = test.userEvent.setup();
 
-    renderInRouter(
+    test.renderInRouter(
       <SidebarNavigation
         section="pages"
         settings={false}
@@ -22,20 +17,20 @@ testStable(
         onNavigate={onNavigate}
       />
     );
-    const pages = await screen.findByRole('link', { name: catalogs.english.SourcePage });
+    const pages = await test.screen.findByRole('link', { name: catalogs.english.SourcePage });
 
-    expect(pages).toHaveAttribute('href', '/pages?project=9007199254740993');
-    expect(pages).toHaveAttribute('aria-current', 'page');
-    expect(
-      screen.queryByRole('link', { name: catalogs.english.SidebarLibrary })
-    ).not.toBeInTheDocument();
+    test.expect(pages).toHaveAttribute('href', '/pages?project=9007199254740993');
+    test.expect(pages).toHaveAttribute('aria-current', 'page');
+    test
+      .expect(test.screen.queryByRole('link', { name: catalogs.english.SidebarLibrary }))
+      .not.toBeInTheDocument();
     await user.click(pages);
-    expect(onNavigate).toHaveBeenCalledOnce();
+    test.expect(onNavigate).toHaveBeenCalledOnce();
   }
 );
 
-testStable('shows section totals and emphasizes only the number for open work', async () => {
-  renderInRouter(
+test.stable('shows section totals and emphasizes only the number for open work', async () => {
+  test.renderInRouter(
     <SidebarNavigation
       section="pages"
       settings={false}
@@ -48,14 +43,14 @@ testStable('shows section totals and emphasizes only the number for open work', 
       onNavigate={() => {}}
     />
   );
-  const notes = await screen.findByRole('link', { name: `${catalogs.english.Notes} 12` });
-  const pages = screen.getByRole('link', { name: `${catalogs.english.SourcePage} 34` });
-  const practice = screen.getByRole('link', { name: `${catalogs.english.Practice} 0` });
+  const notes = await test.screen.findByRole('link', { name: `${catalogs.english.Notes} 12` });
+  const pages = test.screen.getByRole('link', { name: `${catalogs.english.SourcePage} 34` });
+  const practice = test.screen.getByRole('link', { name: `${catalogs.english.Practice} 0` });
 
-  expect(notes).toHaveTextContent('12');
-  expect(notes.querySelector('[data-unresolved]')).toHaveTextContent('12');
-  expect(notes).not.toHaveAttribute('data-unresolved');
-  expect(pages).toHaveTextContent('34');
-  expect(pages.querySelector('[data-unresolved]')).toBeNull();
-  expect(practice).toHaveTextContent('0');
+  test.expect(notes).toHaveTextContent('12');
+  test.expect(notes.querySelector('[data-unresolved]')).toHaveTextContent('12');
+  test.expect(notes).not.toHaveAttribute('data-unresolved');
+  test.expect(pages).toHaveTextContent('34');
+  test.expect(pages.querySelector('[data-unresolved]')).toBeNull();
+  test.expect(practice).toHaveTextContent('0');
 });

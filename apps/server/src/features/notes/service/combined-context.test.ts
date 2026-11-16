@@ -1,3 +1,4 @@
+import { NotesRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises note combined context behavior through real persistence                  │
@@ -11,15 +12,11 @@
  * │ Uses isolated SQLite fixtures and real service dependencies; never opens live user data. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { NotesRpc } from '@study/contracts';
 import { sql } from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
 import { Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { NotesRpcLive } from '#server/features/notes/rpc/index';
@@ -28,10 +25,10 @@ import { testLiveQueries } from '#testing/live-queries';
 import { deletionDocument } from '#testing/material-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
-testStable(
+test.stable(
   'combined capture pins selected notes and shared sources, replays exactly and retires on source-note deletion',
-  async () => {
-    const fixture = await pageTransformFixture();
+  async ({ databases }) => {
+    const fixture = await pageTransformFixture(databases);
 
     try {
       await Effect.runPromise(
@@ -94,13 +91,13 @@ testStable(
           };
           const capture = yield* client('notes.captureNoteContext', intent);
 
-          expect(capture.messages.map((item) => item.text)).toStrictEqual(['First', 'Second']);
-          assert.strictEqual(capture.inputs.length, 2);
-          assert.ok(capture.inputs[1]!.scope.kind === 'document');
-          expect(capture.inputs[1]!.excerpts[0]!.content).toStrictEqual(
-            structuredContent.blocks[0]!.content
-          );
-          expect(capture.inputs[0]!.input).toStrictEqual({
+          test.expect(capture.messages.map((item) => item.text)).toStrictEqual(['First', 'Second']);
+          test.assert.strictEqual(capture.inputs.length, 2);
+          test.assert.ok(capture.inputs[1]!.scope.kind === 'document');
+          test
+            .expect(capture.inputs[1]!.excerpts[0]!.content)
+            .toStrictEqual(structuredContent.blocks[0]!.content);
+          test.expect(capture.inputs[0]!.input).toStrictEqual({
             kind: 'page',
             versionId: material.version!.id
           });
@@ -111,7 +108,7 @@ testStable(
           });
 
           yield* client('notes.postMessage', { noteId: second.id, text: 'Later' });
-          expect(yield* client('notes.captureNoteContext', intent)).toStrictEqual(capture);
+          test.expect(yield* client('notes.captureNoteContext', intent)).toStrictEqual(capture);
           const changed = yield* Effect.flip(
             client('notes.captureNoteContext', {
               ...intent,
@@ -119,7 +116,7 @@ testStable(
             })
           );
 
-          assert.ok(changed.kind === 'invalid_input');
+          test.assert.ok(changed.kind === 'invalid_input');
           const duplicate = yield* Effect.flip(
             client('notes.captureNoteContext', {
               ...intent,
@@ -128,7 +125,7 @@ testStable(
             })
           );
 
-          assert.ok(duplicate.kind === 'invalid_input');
+          test.assert.ok(duplicate.kind === 'invalid_input');
           const large = yield* client('notes.createNote', { title: 'Large context' });
 
           for (let index = 0; index < 2; index++)
@@ -145,7 +142,7 @@ testStable(
             })
           );
 
-          assert.strictEqual(oversized.kind, 'not_enough');
+          test.assert.strictEqual(oversized.kind, 'not_enough');
           const sourceOnly = yield* client('notes.createNote', {
             title: 'Sources only'
           });
@@ -169,32 +166,34 @@ testStable(
             })
           );
 
-          assert.ok(deletedInput.kind === 'not_found');
+          test.assert.ok(deletedInput.kind === 'not_found');
           yield* client('notes.deleteNote', { id: second.id });
-          assert.strictEqual(
+          test.assert.strictEqual(
             fixture.context.db.orm.get(
               sql`SELECT 1 FROM note_run_contexts WHERE request_id=${capture.requestId}`
             ),
             undefined
           );
-          assert.strictEqual(
+          test.assert.strictEqual(
             fixture.context.db.orm.get(
               sql`SELECT 1 FROM note_context_pages WHERE request_id=${capture.requestId}`
             ),
             undefined
           );
-          assert.ok(
+          test.assert.ok(
             fixture.context.db.orm.get(
               sql`SELECT 1 FROM note_retired_intents WHERE request_id=${capture.requestId}`
             )
           );
-          assert.ok((yield* materials.transform({ requestId: generation.id })).cancelled === true);
+          test.assert.ok(
+            (yield* materials.transform({ requestId: generation.id })).cancelled === true
+          );
 
           const unavailable = yield* Effect.flip(
             client('notes.noteContext', { requestId: capture.requestId })
           );
 
-          assert.ok(unavailable.kind === 'not_found');
+          test.assert.ok(unavailable.kind === 'not_found');
           const retry = yield* Effect.flip(
             notes.retryPageTransform({
               requestId: generation.id,
@@ -202,7 +201,7 @@ testStable(
             })
           );
 
-          assert.ok(retry.kind === 'not_found');
+          test.assert.ok(retry.kind === 'not_found');
         }).pipe(
           Effect.scoped,
           Effect.provide(

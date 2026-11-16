@@ -1,12 +1,11 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message =
   'Handle or propagate Effect failures explicitly instead of silently discarding them.';
 
-testStable('reports swallowed Effect failures and accepts explicit recovery', async () => {
+test.stable('reports swallowed Effect failures and accepts explicit recovery', async () => {
   assertDiagnostics(
     'effect-no-swallowed-failures',
     await lintRule('effect-no-swallowed-failures', {
@@ -32,11 +31,13 @@ E.catchCause(() => E.succeed(undefined));`
     ]
   );
 });
-testStable('resolves imported namespaces, named imports, const aliases and shadowing', async () => {
-  assertDiagnostics(
-    'effect-no-swallowed-failures',
-    await lintRule('effect-no-swallowed-failures', {
-      'src/procedures/aliases.ts': String.raw`import * as E from "effect/Effect";
+test.stable(
+  'resolves imported namespaces, named imports, const aliases and shadowing',
+  async () => {
+    assertDiagnostics(
+      'effect-no-swallowed-failures',
+      await lintRule('effect-no-swallowed-failures', {
+        'src/procedures/aliases.ts': String.raw`import * as E from "effect/Effect";
 import { ignore as operation } from "effect/Effect";
 const alias = E;
 alias.ignore(E.void);
@@ -45,15 +46,16 @@ function f(E: any, operation: any) {
   E.ignore(E.void);
   operation(E.void);
 }`
-    }),
-    [
-      ['src/procedures/aliases.ts', message],
-      ['src/procedures/aliases.ts', message]
-    ]
-  );
-});
+      }),
+      [
+        ['src/procedures/aliases.ts', message],
+        ['src/procedures/aliases.ts', message]
+      ]
+    );
+  }
+);
 
-testStable(
+test.stable(
   'rejects silent statement blocks and allows explicit propagation and tagged recovery',
   async () => {
     assertDiagnostics(
@@ -83,7 +85,7 @@ E.catchTag("Missing", () => E.succeed(null));`
   }
 );
 
-testStable('reports swallowed browser Effect failures and accepts explicit recovery', async () => {
+test.stable('reports swallowed browser Effect failures and accepts explicit recovery', async () => {
   const diagnostics = await lintRule(
     'effect-no-swallowed-failures',
     {
@@ -95,10 +97,10 @@ testStable('reports swallowed browser Effect failures and accepts explicit recov
     true
   );
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable(
+test.stable(
   'checks extracted recovery handlers without following mutable or shadowed functions',
   async () => {
     assertDiagnostics(
@@ -133,7 +135,7 @@ function same(same: any) {
   }
 );
 
-testStable('accepts explicit recovery values while rejecting discarded failures', async () => {
+test.stable('accepts explicit recovery values while rejecting discarded failures', async () => {
   assertDiagnostics(
     'effect-no-swallowed-failures',
     await lintRule('effect-no-swallowed-failures', {

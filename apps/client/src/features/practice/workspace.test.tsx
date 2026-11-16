@@ -1,8 +1,5 @@
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { expect, vi } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { PracticeWorkspace } from './workspace';
 
@@ -11,32 +8,35 @@ for (const [width, initiallyOpen] of [
   [960, true],
   [992, true]
 ] as const) {
-  testStable(`uses the available ${width}px container to initialize practice actions`, async () => {
-    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(width);
-    const user = userEvent.setup();
+  test.stable(
+    `uses the available ${width}px container to initialize practice actions`,
+    async () => {
+      test.vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(width);
+      const user = test.userEvent.setup();
 
-    render(
-      <div>
-        <PracticeWorkspace title="Recall" actions={<button>Source action</button>}>
-          <h2>Core question</h2>
-        </PracticeWorkspace>
-      </div>
-    );
-    const toggle = screen.getByRole('button', { name: catalogs.english.PracticeActions });
-    const panel = document.getElementById(toggle.getAttribute('aria-controls')!)!;
+      test.render(
+        <div>
+          <PracticeWorkspace title="Recall" actions={<button>Source action</button>}>
+            <h2>Core question</h2>
+          </PracticeWorkspace>
+        </div>
+      );
+      const toggle = test.screen.getByRole('button', { name: catalogs.english.PracticeActions });
+      const panel = document.getElementById(toggle.getAttribute('aria-controls')!)!;
 
-    expect(toggle).toHaveAttribute('aria-expanded', String(initiallyOpen));
-    expect(panel.hidden).toBe(!initiallyOpen);
-    await user.click(toggle);
-    expect(panel.hidden).toBe(initiallyOpen);
-    expect(screen.getByRole('heading', { name: 'Core question' })).toBeInTheDocument();
+      test.expect(toggle).toHaveAttribute('aria-expanded', String(initiallyOpen));
+      test.expect(panel.hidden).toBe(!initiallyOpen);
+      await user.click(toggle);
+      test.expect(panel.hidden).toBe(initiallyOpen);
+      test.expect(test.screen.getByRole('heading', { name: 'Core question' })).toBeInTheDocument();
 
-    if (initiallyOpen) await user.click(toggle);
+      if (initiallyOpen) await user.click(toggle);
 
-    screen.getByRole('button', { name: 'Source action' }).focus();
-    await user.keyboard('{Escape}');
-    expect(panel.hidden).toBe(true);
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
-    expect(toggle).toHaveFocus();
-  });
+      test.screen.getByRole('button', { name: 'Source action' }).focus();
+      await user.keyboard('{Escape}');
+      test.expect(panel.hidden).toBe(true);
+      test.expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      test.expect(toggle).toHaveFocus();
+    }
+  );
 }

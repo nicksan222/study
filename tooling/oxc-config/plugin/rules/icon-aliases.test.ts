@@ -1,9 +1,8 @@
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintRulePaths } from '../test/utils.ts';
 
-testStable('icon library bindings require explicit purpose aliases', async () => {
+test.stable('icon library bindings require explicit purpose aliases', async () => {
   const prefix = 'packages/icons/src/';
   const invalid = {
     'export.ts': "export { FileText } from 'lucide-react';",
@@ -34,7 +33,7 @@ testStable('icon library bindings require explicit purpose aliases', async () =>
     ['apps/client/src/example.ts', "import { NoteIcon } from '@study/icons';"]
   ]);
 
-  expect(await lintRulePaths('icon-aliases', files)).toStrictEqual(
+  test.expect(await lintRulePaths('icon-aliases', files)).toStrictEqual(
     Object.keys(invalid)
       .map((file) => prefix + 'invalid/' + file)
       .sort()

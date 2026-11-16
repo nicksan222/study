@@ -1,6 +1,5 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import {
   materialGenerationInputSchema,
@@ -8,7 +7,7 @@ import {
   titledFlashcardsGenerationOutputSchema
 } from './schemas.ts';
 
-testStable(
+test.stable(
   'quiz generation settings are bounded, quiz-only and separate from slot specifications',
   () => {
     const decode = Schema.decodeUnknownSync(materialGenerationInputSchema);
@@ -26,7 +25,7 @@ testStable(
       quizConfig
     };
 
-    expect(decode(request).quizConfig).toStrictEqual(quizConfig);
+    test.expect(decode(request).quizConfig).toStrictEqual(quizConfig);
 
     for (const change of [
       { questionCount: 0 },
@@ -38,14 +37,14 @@ testStable(
       { questionKind: 'unknown' },
       { difficulty: 'unknown' }
     ])
-      assert.throws(() => decode({ ...request, quizConfig: { ...quizConfig, ...change } }));
+      test.assert.throws(() => decode({ ...request, quizConfig: { ...quizConfig, ...change } }));
 
-    assert.throws(() => decode({ ...request, kind: 'flashcards' }));
-    assert.throws(() => decode({ ...request, questionSpec: { count: 1, kind: 'open' } }));
+    test.assert.throws(() => decode({ ...request, kind: 'flashcards' }));
+    test.assert.throws(() => decode({ ...request, questionSpec: { count: 1, kind: 'open' } }));
   }
 );
 
-testStable(
+test.stable(
   'automatic titles retain explicit request titles and require bounded generated output titles',
   () => {
     const decode = Schema.decodeUnknownSync(materialGenerationInputSchema);
@@ -57,9 +56,9 @@ testStable(
       inputs: [{ kind: 'page', versionId: 1n }]
     };
 
-    assert.strictEqual(decode(request).autoTitle, true);
-    assert.throws(() => decode({ ...request, title: undefined }));
-    assert.throws(() => decode({ ...request, autoTitle: 1 }));
+    test.assert.strictEqual(decode(request).autoTitle, true);
+    test.assert.throws(() => decode({ ...request, title: undefined }));
+    test.assert.throws(() => decode({ ...request, autoTitle: 1 }));
 
     for (const [schema, content] of [
       [
@@ -76,13 +75,13 @@ testStable(
     ] as const) {
       const output = Schema.decodeUnknownSync(schema);
 
-      assert.strictEqual(
+      test.assert.strictEqual(
         output({ title: 'Cellular respiration', content }).title,
         'Cellular respiration'
       );
 
       for (const title of [undefined, '', ' ', 'x'.repeat(201)])
-        assert.throws(() => output({ title, content }));
+        test.assert.throws(() => output({ title, content }));
     }
   }
 );

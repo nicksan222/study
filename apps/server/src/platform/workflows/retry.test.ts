@@ -1,3 +1,4 @@
+import { StudyError } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks workflow failures map to configuration waits, delayed retries, or terminal  │
@@ -11,19 +12,16 @@
  * │ database fixture is involved.                                                            │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyError } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { retryDisposition } from '#server/platform/workflows/retry';
 
-testStable('classifies workflow failures without retrying terminal errors', () => {
+test.stable('classifies workflow failures without retrying terminal errors', () => {
   for (const kind of ['auth', 'config', 'model_unavailable'] as const)
-    assert.ok(retryDisposition(new StudyError(kind, 'test')) === 'configuration');
+    test.assert.ok(retryDisposition(new StudyError(kind, 'test')) === 'configuration');
 
   for (const kind of ['transient', 'rate_limited'] as const)
-    assert.ok(retryDisposition(new StudyError(kind, 'test')) === 'delayed');
+    test.assert.ok(retryDisposition(new StudyError(kind, 'test')) === 'delayed');
 
   for (const kind of [
     'invalid_input',
@@ -33,10 +31,10 @@ testStable('classifies workflow failures without retrying terminal errors', () =
     'not_found',
     'not_enough'
   ] as const)
-    assert.ok(retryDisposition(new StudyError(kind, 'test')) === 'terminal');
+    test.assert.ok(retryDisposition(new StudyError(kind, 'test')) === 'terminal');
 });
 
-testStable('shutdown interruption does not settle a terminal domain failure', async () => {
+test.stable('shutdown interruption does not settle a terminal domain failure', async () => {
   const { Cause, Effect, Exit } = await import('effect');
   const { settleWorkflowFailure } = await import('#server/platform/workflows/retry');
   let settled = false;
@@ -44,7 +42,7 @@ testStable('shutdown interruption does not settle a terminal domain failure', as
 
   const interruption = Exit.match(interrupted, {
     onFailure: (cause) => cause,
-    onSuccess: () => assert.fail('Expected interruption')
+    onSuccess: () => test.assert.fail('Expected interruption')
   });
   const outcome = await Effect.runPromiseExit(
     settleWorkflowFailure(interruption, 'failed', () =>
@@ -54,6 +52,6 @@ testStable('shutdown interruption does not settle a terminal domain failure', as
     )
   );
 
-  assert.ok(Exit.isFailure(outcome) && Cause.hasInterrupts(outcome.cause));
-  assert.ok(!settled);
+  test.assert.ok(Exit.isFailure(outcome) && Cause.hasInterrupts(outcome.cause));
+  test.assert.ok(!settled);
 });

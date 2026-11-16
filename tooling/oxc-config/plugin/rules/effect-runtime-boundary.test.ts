@@ -1,12 +1,11 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message =
   'Run Effects and construct ManagedRuntime only at approved application runtime boundaries.';
 
-testStable('limits runtime execution to the approved scoped adapters', async () => {
+test.stable('limits runtime execution to the approved scoped adapters', async () => {
   assertDiagnostics(
     'effect-runtime-boundary',
     await lintRule('effect-runtime-boundary', {
@@ -26,11 +25,13 @@ E.runPromise(E.void);`
     [['src/procedures/bad.ts', message]]
   );
 });
-testStable('resolves imported namespaces, named imports, const aliases and shadowing', async () => {
-  assertDiagnostics(
-    'effect-runtime-boundary',
-    await lintRule('effect-runtime-boundary', {
-      'src/procedures/aliases.ts': String.raw`import * as E from "effect/Effect";
+test.stable(
+  'resolves imported namespaces, named imports, const aliases and shadowing',
+  async () => {
+    assertDiagnostics(
+      'effect-runtime-boundary',
+      await lintRule('effect-runtime-boundary', {
+        'src/procedures/aliases.ts': String.raw`import * as E from "effect/Effect";
 import { runSync as operation } from "effect/Effect";
 const alias = E;
 alias.runSync(E.void);
@@ -39,15 +40,16 @@ function f(E: any, operation: any) {
   E.runSync(E.void);
   operation(E.void);
 }`
-    }),
-    [
-      ['src/procedures/aliases.ts', message],
-      ['src/procedures/aliases.ts', message]
-    ]
-  );
-});
+      }),
+      [
+        ['src/procedures/aliases.ts', message],
+        ['src/procedures/aliases.ts', message]
+      ]
+    );
+  }
+);
 
-testStable('permits runtime adapters and tests but checks domain fixtures', async () => {
+test.stable('permits runtime adapters and tests but checks domain fixtures', async () => {
   const code =
     "import { Effect as E, ManagedRuntime as M } from 'effect'; E.runPromise(E.void); M.make(layer);";
 
@@ -65,7 +67,7 @@ testStable('permits runtime adapters and tests but checks domain fixtures', asyn
   );
 });
 
-testStable(
+test.stable(
   'requires the durable worker to use scoped fibers rather than execute a detached runtime',
   async () => {
     assertDiagnostics(
@@ -83,7 +85,7 @@ await Effect.runPromise(Fiber.interrupt(fiber));`
   }
 );
 
-testStable(
+test.stable(
   'target architecture limits execution and runtime construction to their explicit owners',
   async () => {
     const diagnostics = await lintRule('effect-runtime-boundary', {
@@ -105,7 +107,7 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'context-taking runners stay at the scoped callback or synchronous observation bridge',
   async () => {
     const diagnostics = await lintRule('effect-runtime-boundary', {
@@ -127,7 +129,7 @@ Effect.runPromise(task);`,
   }
 );
 
-testStable('only the exported HTTP Promise bridge can execute an HTTP Effect', async () => {
+test.stable('only the exported HTTP Promise bridge can execute an HTTP Effect', async () => {
   const diagnostics = await lintRule('effect-runtime-boundary', {
     'src/platform/http/index.ts': `
       import { Effect as E } from 'effect';
@@ -151,7 +153,7 @@ testStable('only the exported HTTP Promise bridge can execute an HTTP Effect', a
   ]);
 });
 
-testStable('only the browser runtime adapter may execute browser operations', async () => {
+test.stable('only the browser runtime adapter may execute browser operations', async () => {
   const code =
     "import { Effect as E, ManagedRuntime as M } from 'effect'; E.runPromise(E.void); E.runPromiseExitWith(context)(E.void); M.make(layer);";
   const diagnostics = await lintRule(
@@ -164,10 +166,10 @@ testStable('only the browser runtime adapter may execute browser operations', as
     true
   );
 
-  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
-testStable(
+test.stable(
   'backup policy composition reuses the managed runtime instead of adding a synchronous runner',
   async () => {
     const diagnostics = await lintRule('effect-runtime-boundary', {
@@ -183,7 +185,7 @@ testStable(
   }
 );
 
-testStable('only named filesystem bridges may run their corresponding Effects', async () => {
+test.stable('only named filesystem bridges may run their corresponding Effects', async () => {
   const diagnostics = await lintRule('effect-runtime-boundary', {
     'src/platform/filesystem/index.ts': `
       import { Effect as E, ManagedRuntime } from 'effect';
@@ -229,7 +231,7 @@ testStable('only named filesystem bridges may run their corresponding Effects', 
   ]);
 });
 
-testStable('filesystem sync acquisition remains private', async () => {
+test.stable('filesystem sync acquisition remains private', async () => {
   const diagnostics = await lintRule('effect-runtime-boundary', {
     'src/platform/filesystem/index.ts': String.raw`import { Effect } from "effect";
 export function runFileSystemSync(task) {

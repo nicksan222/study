@@ -1,10 +1,5 @@
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { afterEach, expect, vi } from 'vite-plus/test';
-
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import { test } from '@study/testing';
 
 import { authoredPage } from '../document-editing/test-support';
 import { importedSource } from '../material-library/test/support';
@@ -14,13 +9,13 @@ import { SourceVersionDeletion } from './version-deletion';
 
 const en = catalogs.english;
 
-afterEach(() => {
-  cleanup();
+test.afterEach(() => {
+  test.cleanup();
 
-  vi.clearAllMocks();
+  test.vi.clearAllMocks();
 });
 
-testStable('reviews and deletes only the chosen attachment version', async () => {
+test.stable('reviews and deletes only the chosen attachment version', async () => {
   const snapshotId = authoredPage(41n, 'Old extraction', 1101n).version!.snapshotId;
   const candidate = { sourceId: importedSource.id, revision: 1n, snapshotId, createdAt: 1n };
   const impact = {
@@ -33,8 +28,8 @@ testStable('reviews and deletes only the chosen attachment version', async () =>
     blockedSnapshotIds: [],
     semantics: 'retire_extractions_keep_original_revisions' as const
   };
-  const preview = vi.fn().mockResolvedValue(impact);
-  const remove = vi.fn().mockResolvedValue(impact);
+  const preview = test.vi.fn().mockResolvedValue(impact);
+  const remove = test.vi.fn().mockResolvedValue(impact);
   const rpc = {
     'sources.extractions': async () => ({
       items: [
@@ -51,11 +46,11 @@ testStable('reviews and deletes only the chosen attachment version', async () =>
     'sources.retireHistory': remove
   };
 
-  const harness = rpcHandlersTransport(rpc);
+  const harness = test.rpcHandlersTransport(rpc);
 
-  const removed = vi.fn();
+  const removed = test.vi.fn();
 
-  render(
+  test.render(
     <harness.wrapper>
       <SourceVersionDeletion
         source={importedSource}
@@ -67,7 +62,7 @@ testStable('reviews and deletes only the chosen attachment version', async () =>
             dialogOpen={open}
             actions={
               <ItemDeletionMenu
-                onDeleteItem={vi.fn()}
+                onDeleteItem={test.vi.fn()}
                 onDeleteVersion={onDeleteVersion}
                 open={open}
               />
@@ -79,46 +74,48 @@ testStable('reviews and deletes only the chosen attachment version', async () =>
       />
     </harness.wrapper>
   );
-  const user = userEvent.setup();
+  const user = test.userEvent.setup();
 
-  expect(screen.queryByRole('button', { name: en.NoteDeleteVersion })).not.toBeInTheDocument();
-  fireEvent.contextMenu(screen.getByRole('button', { name: 'Attachment' }), {
+  test
+    .expect(test.screen.queryByRole('button', { name: en.NoteDeleteVersion }))
+    .not.toBeInTheDocument();
+  test.fireEvent.contextMenu(test.screen.getByRole('button', { name: 'Attachment' }), {
     button: 2,
     clientX: 80,
     clientY: 80
   });
-  await user.click(await screen.findByRole('menuitem', { name: en.NoteDeleteVersion }));
-  const dialog = await screen.findByRole('alertdialog');
+  await user.click(await test.screen.findByRole('menuitem', { name: en.NoteDeleteVersion }));
+  const dialog = await test.screen.findByRole('alertdialog');
 
-  expect(within(dialog).queryByRole('textbox')).not.toBeInTheDocument();
-  expect(
-    within(dialog).queryByRole('button', { name: en.NoteDeleteVersion })
-  ).not.toBeInTheDocument();
-  const versions = await within(dialog).findAllByRole('button', {
+  test.expect(test.within(dialog).queryByRole('textbox')).not.toBeInTheDocument();
+  test
+    .expect(test.within(dialog).queryByRole('button', { name: en.NoteDeleteVersion }))
+    .not.toBeInTheDocument();
+  const versions = await test.within(dialog).findAllByRole('button', {
     name: new RegExp(en.ReaderVersion)
   });
 
   await user.click(versions.at(-1)!);
-  await waitFor(() =>
-    expect(preview).toHaveBeenLastCalledWith({
+  await test.waitFor(() =>
+    test.expect(preview).toHaveBeenLastCalledWith({
       sourceId: importedSource.id,
       keepLatest: 1,
       snapshotId
     })
   );
-  const input = within(dialog).getByRole('textbox');
+  const input = test.within(dialog).getByRole('textbox');
 
-  await waitFor(() => expect(input).toBeEnabled());
-  expect(remove).not.toHaveBeenCalled();
+  await test.waitFor(() => test.expect(input).toBeEnabled());
+  test.expect(remove).not.toHaveBeenCalled();
   await user.type(input, importedSource.name);
-  await user.click(within(dialog).getByRole('button', { name: en.NoteDeleteVersion }));
-  await waitFor(() =>
-    expect(remove).toHaveBeenCalledExactlyOnceWith({
+  await user.click(test.within(dialog).getByRole('button', { name: en.NoteDeleteVersion }));
+  await test.waitFor(() =>
+    test.expect(remove).toHaveBeenCalledExactlyOnceWith({
       sourceId: importedSource.id,
       keepLatest: 1,
       snapshotId,
       token: impact.token
     })
   );
-  await waitFor(() => expect(removed).toHaveBeenCalledOnce());
+  await test.waitFor(() => test.expect(removed).toHaveBeenCalledOnce());
 });

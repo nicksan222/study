@@ -1,23 +1,22 @@
 import { catalogs } from '@study/localization';
-
-import { expect, testE2e } from './harness/index.ts';
+import { test } from '@study/testing';
 
 const copy = catalogs.english;
 
-testE2e(
+test.stable(
   'Home navigation reaches Projects',
   async ({ page, expectScreenshot, expectAccessibility }) => {
     await page.goto('/home');
-    await expect(page).toHaveURL(/\/notes$/);
+    await test.expect(page).toHaveURL(/\/notes$/);
     await page.getByRole('combobox', { name: copy.ChooseProject }).click();
     await page.getByRole('link', { name: copy.Projects, exact: true }).click();
-    await expect(page).toHaveURL(/\/projects$/);
+    await test.expect(page).toHaveURL(/\/projects$/);
     await page.getByRole('heading', { name: copy.Projects }).hover();
-    await expect(page.getByRole('heading', { name: copy.Projects })).toBeVisible();
+    await test.expect(page.getByRole('heading', { name: copy.Projects })).toBeVisible();
     await expectAccessibility('projects');
     await expectScreenshot('projects', {
       target: 'viewport',
-      ready: () => expect(page.getByRole('heading', { name: copy.Projects })).toBeVisible()
+      ready: () => test.expect(page.getByRole('heading', { name: copy.Projects })).toBeVisible()
     });
   }
 );

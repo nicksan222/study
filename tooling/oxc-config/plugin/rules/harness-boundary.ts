@@ -9,7 +9,7 @@
  * │                                                                                          │
  * │ Allowed:                                                                                 │
  * │   // apps/server/src/features/notes/service.test.ts                                      │
- * │   import { createStudyTest } from '#testing/study-test';                                 │
+ * │   import { createServerTest } from '#testing/server-test';                               │
  * │                                                                                          │
  * │ Rejected:                                                                                │
  * │   // apps/server/src/features/notes/service.test.ts                                      │
@@ -20,14 +20,7 @@
 
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { moduleEdges, serverPath, targetPath } from '../architecture-imports.ts';
-import {
-  binding,
-  imported,
-  memberName as property,
-  constantDeclarator,
-  enterNode
-} from '../lexical-bindings.ts';
+import { importedValue, moduleEdges, serverPath } from '../architecture-imports.ts';
 
 export default defineRule({
   meta: { type: 'problem' },
@@ -40,53 +33,25 @@ export default defineRule({
       if (
         production &&
         source &&
-        (/^#testing(?:\/|$)/.test(source) || /(?:^|\/)test\/testing(?:\/|$)/.test(source))
+        (/^#testing(?:\/|$)|^@study\/server\/testing$/.test(source) ||
+          /(?:^|\/)test\/testing(?:\/|$)/.test(source))
       )
         context.report({ node, message: 'Production modules cannot depend on the test harness.' });
     });
 
-    function resourceOwner(node: any, seen = new Set<any>()): boolean {
-      if (!enterNode(node, seen)) return false;
+    function resourceAcquisition(node: any): boolean {
+      const value = importedValue(context, node);
 
-      const importedApp = (value: any, namespace = false): boolean => {
-        const definition = binding(context, value)?.defs[0]?.node;
+      if (!value) return false;
 
-        return (
-          definition?.parent?.type === 'ImportDeclaration' &&
-          targetPath(context.filename, definition.parent.source.value) === 'runtime/service' &&
-          (namespace
-            ? definition.type === 'ImportNamespaceSpecifier'
-            : definition.imported?.name === 'App')
-        );
-      };
+      if (value.source === '@study/db' && value.name === 'Db.open') return true;
 
-      if (importedApp(node)) return true;
-
-      if (
-        imported(context, node, /^@study\/db$/, 'Db') ||
-        imported(context, node, /(?:^#server\/runtime\/service$|^\.\/service\.ts$)/, 'App')
-      )
-        return true;
-
-      if (memberOwner(node, importedApp)) return true;
-
-      const definition = binding(context, node)?.defs[0]?.node;
-
-      return constantDeclarator(definition) && resourceOwner(definition.init, seen);
-    }
-
-    function memberOwner(
-      node: any,
-      importedApp: (value: any, namespace?: boolean) => boolean
-    ): boolean {
-      if (
-        node.type === 'MemberExpression' &&
-        ((property(node) === 'Db' && imported(context, node.object, /^@study\/db$/)) ||
-          (property(node) === 'App' && importedApp(node.object, true)))
-      )
-        return true;
-
-      return false;
+      return (
+        value.name === 'App.open' &&
+        (value.source === '@study/server/runtime' ||
+          value.target === 'runtime/index' ||
+          value.target === 'runtime/service')
+      );
     }
 
     return {
@@ -94,11 +59,7 @@ export default defineRule({
       CallExpression(node: any) {
         edges.CallExpression(node);
 
-        if (!serverTest || property(node.callee) !== 'open') return;
-
-        const owner = node.callee.object;
-
-        if (resourceOwner(owner))
+        if (serverTest && resourceAcquisition(node.callee))
           context.report({
             node,
             message: 'Acquire application and database resources through the server test harness.'

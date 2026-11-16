@@ -1,3 +1,4 @@
+import type { MessageId, NoteId, VersionId } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises persisted Assistant notes through the native workflow and                │
@@ -10,16 +11,12 @@
  * │ Uses real SQLite and a local provider peer without accessing external accounts.          │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import type { MessageId, NoteId, VersionId } from '@study/contracts';
 import { NoteMode } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
 import * as s from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
-import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { settingsTools } from '#server/features/notes/tools/settings';
@@ -68,10 +65,10 @@ function scriptedCall(
   ][step];
 }
 
-testStable(
+test.stable(
   'Assistant uses durable capability-guided replies, retains history across reopen and stays out of notebooks',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     let context = new ServerContext(await location.open());
     const bodies: string[] = [];
     const agents: string[] = [];
@@ -134,7 +131,7 @@ testStable(
       }
     });
 
-    assert.ok(peer.port, 'missing address');
+    test.assert.ok(peer.port, 'missing address');
     const base = peer.url.origin;
     const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
@@ -162,7 +159,7 @@ testStable(
             : c.reanswer({ messageId: retryMessageId });
 
           if (retryMessageId === undefined)
-            expect(yield* c.assistantAsk(input)).toStrictEqual(asked);
+            test.expect(yield* c.assistantAsk(input)).toStrictEqual(asked);
 
           return asked;
         }).pipe(Effect.provide(domain()))
@@ -176,7 +173,7 @@ testStable(
           .payload
       );
 
-      assert.ok(event.type === 'NoteGenerationRequested');
+      test.assert.ok(event.type === 'NoteGenerationRequested');
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
@@ -228,9 +225,9 @@ testStable(
           const c = yield* Notes;
           const assistant = yield* c.assistantNote();
 
-          expect(yield* c.assistantNote()).toStrictEqual(assistant);
-          expect(yield* c.noteMode(assistant.id)).toBe(NoteMode.Assistant);
-          expect((yield* c.notes({ limit: 10 })).items).toHaveLength(0);
+          test.expect(yield* c.assistantNote()).toStrictEqual(assistant);
+          test.expect(yield* c.noteMode(assistant.id)).toBe(NoteMode.Assistant);
+          test.expect((yield* c.notes({ limit: 10 })).items).toHaveLength(0);
 
           return assistant;
         }).pipe(Effect.provide(domain()))
@@ -239,43 +236,49 @@ testStable(
       const firstReply = await execute('Explain gravity.', 'assistant-first');
 
       await execute('What did I ask?', 'assistant-second');
-      expect(new Set(agents)).toStrictEqual(new Set(['assistant']));
+      test.expect(new Set(agents)).toStrictEqual(new Set(['assistant']));
 
       for (const body of bodies) {
-        expect(JSON.parse(body).tools ?? []).toHaveLength(43);
+        test.expect(JSON.parse(body).tools ?? []).toHaveLength(43);
 
-        for (const tool of JSON.parse(body).tools) expect(tool.parameters.type).toBe('object');
+        for (const tool of JSON.parse(body).tools) test.expect(tool.parameters.type).toBe('object');
 
-        expect(body).toContain('Use concrete examples.');
-        expect(body).toContain('Available capabilities');
-        expect(body).toContain('create_subject');
+        test.expect(body).toContain('Use concrete examples.');
+        test.expect(body).toContain('Available capabilities');
+        test.expect(body).toContain('create_subject');
       }
 
       const environment = { language: 'en', searchSources: () => Effect.succeed([]) };
 
       await Effect.runPromise(
         Effect.gen(function* () {
-          expect(
-            (yield* subjectTools.list_subjects.execute({ limit: 100 }, environment)).items.map(
-              (subject) => subject.name
+          test
+            .expect(
+              (yield* subjectTools.list_subjects.execute({ limit: 100 }, environment)).items.map(
+                (subject) => subject.name
+              )
             )
-          ).toStrictEqual(['Biology']);
-          expect(
-            (yield* settingsTools.read_settings.execute({}, environment)).review.newCardsPerDay
-          ).toBe(12);
+            .toStrictEqual(['Biology']);
+          test
+            .expect(
+              (yield* settingsTools.read_settings.execute({}, environment)).review.newCardsPerDay
+            )
+            .toBe(12);
         }).pipe(Effect.provideService(Database, { store: context }))
       );
-      expect(bodies[2]).toContain('function_call_output');
-      expect(bodies.at(-1)).toContain('Explain gravity.');
-      expect(bodies.at(-1)).toContain('Hello **learner**. Index array[0], then consider [1].');
-      expect(bodies.at(-1)).toContain('What did I ask?');
-      expect(
-        context.db.orm
-          .select()
-          .from(s.workflowEvents)
-          .all()
-          .some((event) => decodeEvent(event.payload).type === 'NoteQuestionRequested')
-      ).toBe(false);
+      test.expect(bodies[2]).toContain('function_call_output');
+      test.expect(bodies.at(-1)).toContain('Explain gravity.');
+      test.expect(bodies.at(-1)).toContain('Hello **learner**. Index array[0], then consider [1].');
+      test.expect(bodies.at(-1)).toContain('What did I ask?');
+      test
+        .expect(
+          context.db.orm
+            .select()
+            .from(s.workflowEvents)
+            .all()
+            .some((event) => decodeEvent(event.payload).type === 'NoteQuestionRequested')
+        )
+        .toBe(false);
       await Effect.runPromise(
         settingsTools.update_review_settings
           .execute({ newCardsPerDay: 20 }, environment)
@@ -292,13 +295,15 @@ testStable(
         }).pipe(Effect.provideService(Database, { store: context }))
       );
       await execute('unused', 'assistant-retried', firstReply.messageId);
-      expect(context.db.orm.select().from(s.assistant_tool_receipts).all()).toHaveLength(4);
-      expect(bodies.at(-1)).toContain('Updated biology');
+      test.expect(context.db.orm.select().from(s.assistant_tool_receipts).all()).toHaveLength(4);
+      test.expect(bodies.at(-1)).toContain('Updated biology');
       await Effect.runPromise(
         Effect.gen(function* () {
-          expect(
-            (yield* settingsTools.read_settings.execute({}, environment)).review.newCardsPerDay
-          ).toBe(20);
+          test
+            .expect(
+              (yield* settingsTools.read_settings.execute({}, environment)).review.newCardsPerDay
+            )
+            .toBe(20);
         }).pipe(Effect.provideService(Database, { store: context }))
       );
       await Effect.runPromise(
@@ -311,18 +316,18 @@ testStable(
       );
       const compactedReply = await execute('Continue after compaction.', 'assistant-compacted');
 
-      expect(agents).toContain('assistant-compaction');
-      expect(bodies.some((body) => body.includes('a'.repeat(90000)))).toBe(true);
-      expect(bodies.at(-1)).toContain('Summary of earlier note');
-      expect(bodies.at(-1)).not.toContain('a'.repeat(90000));
+      test.expect(agents).toContain('assistant-compaction');
+      test.expect(bodies.some((body) => body.includes('a'.repeat(90000)))).toBe(true);
+      test.expect(bodies.at(-1)).toContain('Summary of earlier note');
+      test.expect(bodies.at(-1)).not.toContain('a'.repeat(90000));
       await Effect.runPromise(
         Effect.gen(function* () {
           const c = yield* Notes;
 
-          expect((yield* c.assistantContext({ noteId: note.id })).estimatedTokens).toBeLessThan(
-            21000
-          );
-          expect(yield* c.assistantMemory(note.id)).not.toBeNull();
+          test
+            .expect((yield* c.assistantContext({ noteId: note.id })).estimatedTokens)
+            .toBeLessThan(21000);
+          test.expect(yield* c.assistantMemory(note.id)).not.toBeNull();
         }).pipe(Effect.provide(domain()))
       );
       await Effect.runPromise(
@@ -337,31 +342,33 @@ testStable(
       const compactedRuns = agents.filter((id) => id === 'assistant-compaction').length;
 
       await execute('unused', 'assistant-retrospective', compactedReply.messageId);
-      expect(agents.filter((id) => id === 'assistant-compaction')).toHaveLength(compactedRuns);
+      test.expect(agents.filter((id) => id === 'assistant-compaction')).toHaveLength(compactedRuns);
       context.close();
       context = new ServerContext(await location.open());
       await Effect.runPromise(
         Effect.gen(function* () {
           const c = yield* Notes;
 
-          expect((yield* c.assistantNote()).id).toBe(note.id);
-          expect((yield* c.thread({ noteId: note.id, limit: 30 })).items).toHaveLength(13);
+          test.expect((yield* c.assistantNote()).id).toBe(note.id);
+          test.expect((yield* c.thread({ noteId: note.id, limit: 30 })).items).toHaveLength(13);
         }).pipe(Effect.provide(domain()))
       );
       failTool = true;
-      await expect(
-        execute('Read the missing subject.', 'assistant-missing-subject')
-      ).rejects.toBeDefined();
+      await test
+        .expect(execute('Read the missing subject.', 'assistant-missing-subject'))
+        .rejects.toBeDefined();
       await Effect.runPromise(
         Effect.gen(function* () {
           const c = yield* Notes;
           const history = (yield* c.thread({ noteId: note.id, limit: 30 })).items;
           const failed = history.at(-1)!;
 
-          expect(failed.role).toBe('assistant');
-          expect(
-            failed.versions.find((version) => version.id === failed.activeVersionId)?.status
-          ).toBe('pending');
+          test.expect(failed.role).toBe('assistant');
+          test
+            .expect(
+              failed.versions.find((version) => version.id === failed.activeVersionId)?.status
+            )
+            .toBe('pending');
         }).pipe(Effect.provide(domain()))
       );
       const scoped = await Effect.runPromise(
@@ -388,22 +395,22 @@ testStable(
         undefined,
         scoped.chat.id
       );
-      expect(agents).toContain('note-assistant');
+      test.expect(agents).toContain('note-assistant');
       const scopedRequest = bodies.at(-1)!;
 
       for (const tool of JSON.parse(scopedRequest).tools)
-        expect(tool.parameters.type).toBe('object');
+        test.expect(tool.parameters.type).toBe('object');
 
       const capabilities = JSON.parse(scopedRequest).tools.map(
         (tool: { name: string }) => tool.name
       );
 
-      expect(capabilities).toHaveLength(8);
-      expect(capabilities).toContain('edit_note_message');
-      expect(capabilities).not.toContain('read_settings');
-      expect(capabilities).not.toContain('list_notes');
-      expect(scopedRequest).toContain('SESSION_SCOPE_ORIGINAL_NOTE');
-      expect(scopedRequest).not.toContain('PRIVATE_OTHER_NOTE');
+      test.expect(capabilities).toHaveLength(8);
+      test.expect(capabilities).toContain('edit_note_message');
+      test.expect(capabilities).not.toContain('read_settings');
+      test.expect(capabilities).not.toContain('list_notes');
+      test.expect(scopedRequest).toContain('SESSION_SCOPE_ORIGINAL_NOTE');
+      test.expect(scopedRequest).not.toContain('PRIVATE_OTHER_NOTE');
       context.close();
       context = new ServerContext(await location.open());
       await Effect.runPromise(
@@ -411,13 +418,17 @@ testStable(
           const c = yield* Notes;
           const edited = yield* c.message(scoped.note.id);
 
-          expect(
-            edited.versions.find((version) => version.id === edited.activeVersionId)?.text
-          ).toBe('Improved by the note assistant');
-          expect(
-            edited.versions.some((version) => version.text === 'SESSION_SCOPE_ORIGINAL_NOTE')
-          ).toBe(true);
-          expect((yield* c.noteAssistant({ noteId: scoped.notebook.id })).id).toBe(scoped.chat.id);
+          test
+            .expect(edited.versions.find((version) => version.id === edited.activeVersionId)?.text)
+            .toBe('Improved by the note assistant');
+          test
+            .expect(
+              edited.versions.some((version) => version.text === 'SESSION_SCOPE_ORIGINAL_NOTE')
+            )
+            .toBe(true);
+          test
+            .expect((yield* c.noteAssistant({ noteId: scoped.notebook.id })).id)
+            .toBe(scoped.chat.id);
         }).pipe(Effect.provide(domain()))
       );
     } finally {
@@ -429,10 +440,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'Assistant can send a new turn after a cancelled reply without an unfinished shell',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const domain = Layer.mergeAll(Notes.layer, Sources.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -452,7 +463,7 @@ testStable(
             .all()
             .findLast((row) => decodeEvent(row.payload).type === 'NoteGenerationRequested');
 
-          assert.ok(event);
+          test.assert.ok(event);
           context.db.orm
             .insert(s.workflow_executions)
             .values({
@@ -470,11 +481,11 @@ testStable(
             intentKey: 'cancel-second'
           });
 
-          expect(second.messageId).not.toBe(first.messageId);
+          test.expect(second.messageId).not.toBe(first.messageId);
           const history = (yield* c.thread({ noteId: first.noteId, limit: 30 })).items;
 
-          expect(history.some((message) => message.id === first.messageId)).toBe(false);
-          expect(history).toHaveLength(3);
+          test.expect(history.some((message) => message.id === first.messageId)).toBe(false);
+          test.expect(history).toHaveLength(3);
         }).pipe(Effect.provide(domain))
       );
     } finally {
@@ -484,95 +495,103 @@ testStable(
   }
 );
 
-testStable('Assistant bounds model context while retaining older persisted messages', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const domain = Layer.mergeAll(Notes.layer, Sources.layer, Pages.layer).pipe(
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
+test.stable(
+  'Assistant bounds model context while retaining older persisted messages',
+  async ({ databases }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const domain = Layer.mergeAll(Notes.layer, Sources.layer, Pages.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const c = yield* Notes;
-        const note = yield* c.assistantNote();
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const c = yield* Notes;
+          const note = yield* c.assistantNote();
 
-        for (const text of ['a', 'b', 'c'])
-          yield* c.postMessage({
-            noteId: note.id,
-            text: text.repeat(90000),
-            requestReply: false
+          for (const text of ['a', 'b', 'c'])
+            yield* c.postMessage({
+              noteId: note.id,
+              text: text.repeat(90000),
+              requestReply: false
+            });
+
+          const reply = yield* c.assistantAsk({
+            text: 'What are we discussing?',
+            intentKey: 'bounded-history'
           });
+          const snapshot = yield* c.replySnapshot({ requestId: reply.requestId });
 
-        const reply = yield* c.assistantAsk({
-          text: 'What are we discussing?',
-          intentKey: 'bounded-history'
-        });
-        const snapshot = yield* c.replySnapshot({ requestId: reply.requestId });
-
-        expect(
-          snapshot.messages.reduce((size, message) => size + message.text.length, 0)
-        ).toBeLessThanOrEqual(200000);
-        expect(snapshot.messages.at(-1)?.text).toBe('What are we discussing?');
-        expect((yield* c.thread({ noteId: note.id, limit: 30 })).items).toHaveLength(5);
-      }).pipe(Effect.provide(domain))
-    );
-  } finally {
-    context.close();
-    await location.cleanup();
+          test
+            .expect(snapshot.messages.reduce((size, message) => size + message.text.length, 0))
+            .toBeLessThanOrEqual(200000);
+          test.expect(snapshot.messages.at(-1)?.text).toBe('What are we discussing?');
+          test.expect((yield* c.thread({ noteId: note.id, limit: 30 })).items).toHaveLength(5);
+        }).pipe(Effect.provide(domain))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
-testStable('Assistant chats retain separate histories and replay new-chat intents', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  const domain = Notes.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
-
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const c = yield* Notes;
-        const first = yield* c.assistantNote();
-        const second = yield* c.newAssistantNote({ key: 'new-chat' });
-
-        expect(second.id).not.toBe(first.id);
-        expect(yield* c.newAssistantNote({ key: 'new-chat' })).toStrictEqual(second);
-        expect((yield* c.assistantNote()).id).toBe(second.id);
-        yield* c.assistantAsk({
-          noteId: first.id,
-          text: 'First chat only',
-          intentKey: 'first-only'
-        });
-        yield* c.assistantAsk({
-          noteId: second.id,
-          text: 'Second chat only',
-          intentKey: 'second-only'
-        });
-        expect((yield* c.thread({ noteId: first.id, limit: 30 })).items[0]?.versions[0]?.text).toBe(
-          'First chat only'
-        );
-        expect(
-          (yield* c.thread({ noteId: second.id, limit: 30 })).items[0]?.versions[0]?.text
-        ).toBe('Second chat only');
-        const page = yield* c.assistantChats({ limit: 1 });
-
-        expect(page.items[0]?.id).toBe(second.id);
-        expect((yield* c.assistantChats({ limit: 1, before: page.next! })).items[0]?.id).toBe(
-          first.id
-        );
-        expect((yield* c.notes({ limit: 100 })).items).toHaveLength(0);
-      }).pipe(Effect.provide(domain))
+test.stable(
+  'Assistant chats retain separate histories and replay new-chat intents',
+  async ({ databases }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const domain = Notes.layer.pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
-  } finally {
-    context.close();
-    await location.cleanup();
-  }
-});
 
-testStable(
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const c = yield* Notes;
+          const first = yield* c.assistantNote();
+          const second = yield* c.newAssistantNote({ key: 'new-chat' });
+
+          test.expect(second.id).not.toBe(first.id);
+          test.expect(yield* c.newAssistantNote({ key: 'new-chat' })).toStrictEqual(second);
+          test.expect((yield* c.assistantNote()).id).toBe(second.id);
+          yield* c.assistantAsk({
+            noteId: first.id,
+            text: 'First chat only',
+            intentKey: 'first-only'
+          });
+          yield* c.assistantAsk({
+            noteId: second.id,
+            text: 'Second chat only',
+            intentKey: 'second-only'
+          });
+          test
+            .expect((yield* c.thread({ noteId: first.id, limit: 30 })).items[0]?.versions[0]?.text)
+            .toBe('First chat only');
+          test
+            .expect((yield* c.thread({ noteId: second.id, limit: 30 })).items[0]?.versions[0]?.text)
+            .toBe('Second chat only');
+          const page = yield* c.assistantChats({ limit: 1 });
+
+          test.expect(page.items[0]?.id).toBe(second.id);
+          test
+            .expect((yield* c.assistantChats({ limit: 1, before: page.next! })).items[0]?.id)
+            .toBe(first.id);
+          test.expect((yield* c.notes({ limit: 100 })).items).toHaveLength(0);
+        }).pipe(Effect.provide(domain))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
+  }
+);
+
+test.stable(
   'Assistant retries an unfinished first reply while retaining its message identity',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
 
     try {
@@ -585,9 +604,9 @@ testStable(
           });
           const retried = yield* c.reanswer({ messageId: first.messageId });
 
-          expect(retried.messageId).toBe(first.messageId);
-          expect(retried.requestId).not.toBe(first.requestId);
-          expect((yield* c.thread({ noteId: first.noteId, limit: 30 })).items).toHaveLength(2);
+          test.expect(retried.messageId).toBe(first.messageId);
+          test.expect(retried.requestId).not.toBe(first.requestId);
+          test.expect((yield* c.thread({ noteId: first.noteId, limit: 30 })).items).toHaveLength(2);
         }).pipe(Effect.provide(Notes.layer), Effect.provideService(Database, { store: context }))
       );
     } finally {

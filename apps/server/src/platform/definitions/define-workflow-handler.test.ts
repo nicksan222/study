@@ -1,3 +1,4 @@
+import { sourceIndexedSchema, sourceDeletedSchema, workflowEventSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Tests typed workflow registration, event subscriptions, and native execution       │
@@ -15,17 +16,12 @@
  * │ resources; fixture cleanup closes owned resources.                                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { sourceIndexedSchema, sourceDeletedSchema, workflowEventSchema } from '@study/contracts';
 import { workflowReceipts } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Context, Effect, Schema } from 'effect';
 import type { Scope, Layer } from 'effect';
 import type { Workflow } from 'effect/workflow';
 import type { WorkflowEngine } from 'effect/workflow';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -43,7 +39,7 @@ const workflow = defineWorkflow({
   idempotencyKey: ({ event }) => event.eventId
 });
 
-testStable(
+test.stable(
   'registration retains native definition, derived version and independent subscriptions',
   () => {
     let enabled = false;
@@ -61,18 +57,18 @@ testStable(
       ]
     });
 
-    assert.strictEqual(registration.definition, workflow);
-    assert.strictEqual(calls, 0);
-    assert.strictEqual(registration.triggers[0]!.workflow, workflow);
-    assert.strictEqual(registration.triggers[0]!.workflowVersion, 3);
-    assert.ok(registration.triggers[0]!.subscription === 'test-a');
-    assert.ok(registration.triggers[1]!.subscription === 'test-b');
-    expect(registration.triggers[1]!.emits).toStrictEqual(['SourceIndexed']);
-    assert.ok(registration.triggers[0]!.enabled() === false);
+    test.assert.strictEqual(registration.definition, workflow);
+    test.assert.strictEqual(calls, 0);
+    test.assert.strictEqual(registration.triggers[0]!.workflow, workflow);
+    test.assert.strictEqual(registration.triggers[0]!.workflowVersion, 3);
+    test.assert.ok(registration.triggers[0]!.subscription === 'test-a');
+    test.assert.ok(registration.triggers[1]!.subscription === 'test-b');
+    test.expect(registration.triggers[1]!.emits).toStrictEqual(['SourceIndexed']);
+    test.assert.ok(registration.triggers[0]!.enabled() === false);
     enabled = true;
-    assert.ok(registration.triggers[0]!.enabled() === true);
-    assert.strictEqual(calls, 2);
-    assert.ok(registration.triggers[1]!.enabled() === true);
+    test.assert.ok(registration.triggers[0]!.enabled() === true);
+    test.assert.strictEqual(calls, 2);
+    test.assert.ok(registration.triggers[1]!.enabled() === true);
   }
 );
 
@@ -239,10 +235,10 @@ const event = (id: string) =>
     documentId: 3n
   });
 
-testStable(
+test.stable(
   'registration preserves dispatch duplicate subscription and synchronous policy validation',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const subscription = { subscription: 'duplicate', event: 'SourceIndexed', emits: [] } as const;
     const duplicates = defineWorkflowHandler(workflow, {
@@ -260,21 +256,25 @@ testStable(
     });
 
     try {
-      await expect(
-        Effect.runPromise(
-          dispatchPending(context, duplicates.triggers, 1).pipe(
-            Effect.provide(workflowEngineLayer(context))
+      await test
+        .expect(
+          Effect.runPromise(
+            dispatchPending(context, duplicates.triggers, 1).pipe(
+              Effect.provide(workflowEngineLayer(context))
+            )
           )
         )
-      ).rejects.toThrow('duplicate subscription');
-      await expect(
-        Effect.runPromise(
-          dispatchPending(context, asynchronous.triggers, 1).pipe(
-            Effect.provide(workflowEngineLayer(context))
+        .rejects.toThrow('duplicate subscription');
+      await test
+        .expect(
+          Effect.runPromise(
+            dispatchPending(context, asynchronous.triggers, 1).pipe(
+              Effect.provide(workflowEngineLayer(context))
+            )
           )
         )
-      ).rejects.toThrow('boolean synchronously');
-      assert.strictEqual(context.db.orm.select().from(workflowReceipts).all().length, 0);
+        .rejects.toThrow('boolean synchronously');
+      test.assert.strictEqual(context.db.orm.select().from(workflowReceipts).all().length, 0);
     } finally {
       context.close();
       await location.cleanup();
@@ -282,9 +282,9 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'reused registrations resolve each engine environment and preserve execution scopes',
-  async () => {
+  async ({ databases }) => {
     const observed: string[] = [];
     let releases = 0;
     const release = Effect.sync(() => {
@@ -302,7 +302,7 @@ testStable(
     });
 
     for (const value of ['first', 'second']) {
-      const location = await createTestDatabase();
+      const location = await databases();
       const context = new ServerContext(await location.open());
 
       try {
@@ -324,7 +324,7 @@ testStable(
       }
     }
 
-    expect(observed).toStrictEqual(['first', 'second']);
-    assert.strictEqual(releases, 2);
+    test.expect(observed).toStrictEqual(['first', 'second']);
+    test.assert.strictEqual(releases, 2);
   }
 );

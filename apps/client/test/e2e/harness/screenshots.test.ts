@@ -1,6 +1,5 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import type { Locator, Page } from 'playwright';
-import { expect } from 'vite-plus/test';
 
 import { safeName } from './identity.ts';
 import { updateAllowed, requireScreenshots } from './screenshots.ts';
@@ -11,30 +10,36 @@ const snapshotPolicy = {
   project: { ignoreSnapshots: false }
 };
 
-testStable('screenshot paths and scoped baseline updates fail closed', () => {
+test.stable('screenshot paths and scoped baseline updates fail closed', () => {
   for (const name of ['../escape', '/absolute', '', 'a/b', 'x'.repeat(81)])
-    expect(() => safeName(name)).toThrow();
+    test.expect(() => safeName(name)).toThrow();
 
-  expect(safeName('editing-middle')).toBe('editing-middle');
-  expect(
-    updateAllowed('notes-edit-and-reopen', 'editing', {
-      E2E_UPDATE: 'notes-edit-and-reopen/editing'
-    })
-  ).toBe(true);
-  expect(
-    updateAllowed('home-to-projects', 'editing', { E2E_UPDATE: 'notes-edit-and-reopen/editing' })
-  ).toBe(false);
-  expect(() =>
-    updateAllowed('notes-edit-and-reopen', 'editing', {
-      E2E_UPDATE: 'notes-edit-and-reopen',
-      CI: 'true'
-    })
-  ).toThrow();
-  expect(() => requireScreenshots(0)).toThrow('screenshot');
-  expect(() => requireScreenshots(1)).not.toThrow();
+  test.expect(safeName('editing-middle')).toBe('editing-middle');
+  test
+    .expect(
+      updateAllowed('notes-edit-and-reopen', 'editing', {
+        E2E_UPDATE: 'notes-edit-and-reopen/editing'
+      })
+    )
+    .toBe(true);
+  test
+    .expect(
+      updateAllowed('home-to-projects', 'editing', { E2E_UPDATE: 'notes-edit-and-reopen/editing' })
+    )
+    .toBe(false);
+  test
+    .expect(() =>
+      updateAllowed('notes-edit-and-reopen', 'editing', {
+        E2E_UPDATE: 'notes-edit-and-reopen',
+        CI: 'true'
+      })
+    )
+    .toThrow();
+  test.expect(() => requireScreenshots(0)).toThrow('screenshot');
+  test.expect(() => requireScreenshots(1)).not.toThrow();
 });
 
-testStable('expired readiness stages cannot resume screenshot browser work', async () => {
+test.stable('expired readiness stages cannot resume screenshot browser work', async () => {
   const { screenshotAssertions } = await import('./screenshots.ts');
 
   for (const stage of ['ready', 'fonts', 'images', 'center', 'render']) {
@@ -82,8 +87,8 @@ testStable('expired readiness stages cannot resume screenshot browser work', asy
     });
 
     await reached.promise;
-    await expect(pending).rejects.toThrow('timed out');
-    expect(screenshots.captureMs).toBeGreaterThan(0);
+    await test.expect(pending).rejects.toThrow('timed out');
+    test.expect(screenshots.captureMs).toBeGreaterThan(0);
     const atDeadline = [...calls];
 
     delayed.resolve();
@@ -91,11 +96,11 @@ testStable('expired readiness stages cannot resume screenshot browser work', asy
     // Drain the finite harness continuation after the delayed promise resolves.
     for (let turn = 0; turn < 20; turn++) await Promise.resolve();
 
-    expect(calls).toEqual(atDeadline);
+    test.expect(calls).toEqual(atDeadline);
   }
 });
 
-testStable(
+test.stable(
   'canonical capture blurs only the passive focused entry after readiness unless preserved',
   async () => {
     const { screenshotAssertions } = await import('./screenshots.ts');
@@ -132,25 +137,28 @@ testStable(
           snapshotPolicy
         );
 
-        await expect(
-          screenshots.expectScreenshot('entry', {
-            target: 'viewport',
-            focus,
-            ready: async () => {
-              calls.push('ready');
-            }
-          })
-        ).rejects.toThrow();
-        expect(calls.slice(0, 3)).toEqual(['ready', 'fonts', 'images']);
-        expect(calls.includes('blur')).toBe(focusedEntry && focus !== 'preserve');
+        await test
+          .expect(
+            screenshots.expectScreenshot('entry', {
+              target: 'viewport',
+              focus,
+              ready: async () => {
+                calls.push('ready');
+              }
+            })
+          )
+          .rejects.toThrow();
+        test.expect(calls.slice(0, 3)).toEqual(['ready', 'fonts', 'images']);
+        test.expect(calls.includes('blur')).toBe(focusedEntry && focus !== 'preserve');
 
-        if (focus !== 'preserve') expect(calls[3]).toBe('.note-index-target[tabindex="-1"]:focus');
+        if (focus !== 'preserve')
+          test.expect(calls[3]).toBe('.note-index-target[tabindex="-1"]:focus');
       }
     }
   }
 );
 
-testStable.each(['all', 'changed'] as const)(
+test.stable.each(['all', 'changed'] as const)(
   'comparison rejects a native UI policy changed after fixture creation: %s',
   async (mode) => {
     const { screenshotAssertions } = await import('./screenshots.ts');
@@ -177,10 +185,12 @@ testStable.each(['all', 'changed'] as const)(
     );
 
     policy.config.updateSnapshots = mode;
-    await expect(
-      screenshots.expectScreenshot('blocked', { target: 'viewport', ready: async () => {} })
-    ).rejects.toThrow('native snapshot overrides are forbidden');
-    expect(calls).toEqual(['diagnostic']);
-    expect(() => screenshots.verify()).toThrow('screenshot');
+    await test
+      .expect(
+        screenshots.expectScreenshot('blocked', { target: 'viewport', ready: async () => {} })
+      )
+      .rejects.toThrow('native snapshot overrides are forbidden');
+    test.expect(calls).toEqual(['diagnostic']);
+    test.expect(() => screenshots.verify()).toThrow('screenshot');
   }
 );

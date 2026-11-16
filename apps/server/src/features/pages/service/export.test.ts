@@ -1,3 +1,4 @@
+import { MaterialsRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises exact native exports and their retained content availability barriers.   │
@@ -10,17 +11,12 @@
  * │ Tests use real temporary SQLite state and native RPC without external provider calls.    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { MaterialsRpc } from '@study/contracts';
 import { PagesRpc } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { SourcesRpc } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
@@ -36,7 +32,7 @@ import { materialRpcHandlers } from '#testing/material-rpc';
 
 import { safeExportLink, escapeHtml } from './export-serializer.ts';
 
-testStable('export primitives reject active protocols and escape text and attributes', () => {
+test.stable('export primitives reject active protocols and escape text and attributes', () => {
   for (const link of [
     'javascript:alert(1)',
     'data:text/html,x',
@@ -44,16 +40,16 @@ testStable('export primitives reject active protocols and escape text and attrib
     '//example.com',
     'file:///tmp/x'
   ])
-    assert.ok(safeExportLink(link) === false);
+    test.assert.ok(safeExportLink(link) === false);
 
-  assert.ok(safeExportLink('https://example.com/a') === true);
-  assert.ok(escapeHtml('<script a="x">&') === '&lt;script a=&quot;x&quot;&gt;&amp;');
+  test.assert.ok(safeExportLink('https://example.com/a') === true);
+  test.assert.ok(escapeHtml('<script a="x">&') === '&lt;script a=&quot;x&quot;&gt;&amp;');
 });
 
-testStable(
+test.stable(
   'native export is deterministic, exact, escaped and fenced by deletion acceptance',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const services = Layer.mergeAll(Materials.layer, Sources.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -125,19 +121,19 @@ testStable(
             const key = { id: material.version!.id, format: 'html' as const };
             const first = yield* rpc('pages.exportFile', key);
 
-            expect(first.filename).toBe(`page-${material.version!.id}.html`);
-            expect(first).toStrictEqual(yield* rpc('pages.exportFile', key));
+            test.expect(first.filename).toBe(`page-${material.version!.id}.html`);
+            test.expect(first).toStrictEqual(yield* rpc('pages.exportFile', key));
             const text = new TextDecoder().decode(first.bytes);
 
-            assert.ok(text.includes('<th colspan="2" rowspan="2">'));
-            assert.ok(
+            test.assert.ok(text.includes('<th colspan="2" rowspan="2">'));
+            test.assert.ok(
               text.includes('<a href="https://example.com"><strong>Reference</strong></a>')
             );
 
-            assert.ok(!text.includes('<script>'));
-            assert.ok(text.includes('&lt;script&gt;'));
-            assert.ok(first.omissions.some((o) => o.code === 'math_not_rendered'));
-            assert.strictEqual(first.versionId, material.version!.id);
+            test.assert.ok(!text.includes('<script>'));
+            test.assert.ok(text.includes('&lt;script&gt;'));
+            test.assert.ok(first.omissions.some((o) => o.code === 'math_not_rendered'));
+            test.assert.strictEqual(first.versionId, material.version!.id);
 
             for (const kind of ['audio', 'video'] as const) {
               const capability = yield* sourceRpc('sources.importCapability', {
@@ -145,8 +141,8 @@ testStable(
                 mime: kind + '/test'
               });
 
-              assert.ok(capability.status === 'unavailable');
-              assert.ok(capability.provider.capability === 'unverified');
+              test.assert.ok(capability.status === 'unavailable');
+              test.assert.ok(capability.provider.capability === 'unverified');
             }
 
             const literal =
@@ -202,14 +198,14 @@ testStable(
             );
             const visible = markdown.split('\n\n~~~')[0]!;
 
-            assert.ok(!visible.includes('![pixel]'));
-            assert.ok(!visible.includes('[open]'));
-            assert.ok(visible.includes('&#33;&#91;pixel&#93;'));
-            assert.ok(visible.includes('&#96;code&#96;'));
-            assert.ok(visible.includes('&#42;word&#42;'));
-            assert.ok(visible.includes('>100. Restart</div>'));
-            assert.ok(visible.includes('margin-left:2em'));
-            assert.ok(visible.includes('data-continuation="true">After child</div>'));
+            test.assert.ok(!visible.includes('![pixel]'));
+            test.assert.ok(!visible.includes('[open]'));
+            test.assert.ok(visible.includes('&#33;&#91;pixel&#93;'));
+            test.assert.ok(visible.includes('&#96;code&#96;'));
+            test.assert.ok(visible.includes('&#42;word&#42;'));
+            test.assert.ok(visible.includes('>100. Restart</div>'));
+            test.assert.ok(visible.includes('margin-left:2em'));
+            test.assert.ok(visible.includes('data-continuation="true">After child</div>'));
 
             const largeBody = deletionDocument('x'.repeat(128 * 1024));
             const large = yield* rpc('pages.create', {
@@ -220,7 +216,7 @@ testStable(
               citations: []
             });
 
-            assert.ok(large.version);
+            test.assert.ok(large.version);
             const input = { kind: 'page' as const, versionId: large.version.id };
             const cited = yield* rpc('pages.create', {
               createKey: 'cited-export',
@@ -236,13 +232,13 @@ testStable(
               }))
             });
 
-            assert.ok(cited.version);
+            test.assert.ok(cited.version);
             const references = yield* rpc('pages.exportFile', {
               id: cited.version.id,
               format: 'markdown'
             });
 
-            assert.ok(
+            test.assert.ok(
               references.bytes.length < 64 * 1024,
               'Referenced source bodies are never expanded into another export'
             );
@@ -259,13 +255,13 @@ testStable(
               format: 'csv'
             });
 
-            assert.ok(new TextDecoder().decode(csv.bytes).includes("'=1+1"));
+            test.assert.ok(new TextDecoder().decode(csv.bytes).includes("'=1+1"));
             const aidJson = yield* aidRpc('materials.exportMaterialVersion', {
               id: aid.version.id,
               format: 'aid_json'
             });
 
-            assert.ok(
+            test.assert.ok(
               JSON.parse(new TextDecoder().decode(aidJson.bytes)).version.content.kind ===
                 'flashcards'
             );
@@ -277,7 +273,7 @@ testStable(
               citations: []
             });
 
-            assert.ok(historical.version);
+            test.assert.ok(historical.version);
             yield* rpc('pages.save', {
               pageId: historical.id,
               expectedVersionId: historical.version.id,
@@ -289,13 +285,13 @@ testStable(
               format: 'markdown'
             });
 
-            assert.ok(new TextDecoder().decode(exact.bytes).includes('BEFORE_EXACT'));
-            assert.ok(!new TextDecoder().decode(exact.bytes).includes('AFTER_CURRENT'));
+            test.assert.ok(new TextDecoder().decode(exact.bytes).includes('BEFORE_EXACT'));
+            test.assert.ok(!new TextDecoder().decode(exact.bytes).includes('AFTER_CURRENT'));
             const scope = { pageId: historical.id, keepLatest: 1 };
             const history = yield* rpc('pages.previewHistory', scope);
 
             yield* rpc('pages.retireHistory', { ...scope, token: history.token });
-            assert.ok(
+            test.assert.ok(
               (yield* Effect.flip(
                 rpc('pages.exportFile', { id: historical.version.id, format: 'markdown' })
               )).kind === 'not_found'
@@ -303,14 +299,16 @@ testStable(
             const preview = yield* rpc('pages.previewDeletion', { id: material.id });
 
             yield* rpc('pages.delete', { pageId: material.id, token: preview.token });
-            assert.ok((yield* Effect.flip(rpc('pages.exportFile', key))).kind === 'not_found');
-            expect(
-              yield* aidRpc('materials.exportMaterialVersion', {
-                id: aid.version.id,
-                format: 'aid_json'
-              }),
-              'Independent learning artifacts keep their own export lifetime'
-            ).toStrictEqual(aidJson);
+            test.assert.ok((yield* Effect.flip(rpc('pages.exportFile', key))).kind === 'not_found');
+            test
+              .expect(
+                yield* aidRpc('materials.exportMaterialVersion', {
+                  id: aid.version.id,
+                  format: 'aid_json'
+                }),
+                'Independent learning artifacts keep their own export lifetime'
+              )
+              .toStrictEqual(aidJson);
           })
         ).pipe(Effect.provide(handlers))
       );
@@ -321,7 +319,7 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'export budget counts escaped UTF-8 exactly and rejects before reading later evidence',
   () => {
     for (const value of [
@@ -336,10 +334,10 @@ testStable(
       const exact = exportBudget(bytes);
 
       exact.consume(value);
-      assert.strictEqual(exact.remaining(), 0);
-      expect(() => exportBudget(bytes - 1).consume(value)).toThrow(
-        expect.objectContaining({ kind: 'invalid_input' })
-      );
+      test.assert.strictEqual(exact.remaining(), 0);
+      test
+        .expect(() => exportBudget(bytes - 1).consume(value))
+        .toThrow(test.expect.objectContaining({ kind: 'invalid_input' }));
     }
 
     let readLater = false;
@@ -352,9 +350,9 @@ testStable(
       }
     };
 
-    expect(() => exportBudget(20).consume(evidence)).toThrow(
-      expect.objectContaining({ kind: 'invalid_input' })
-    );
-    assert.ok(readLater === false);
+    test
+      .expect(() => exportBudget(20).consume(evidence))
+      .toThrow(test.expect.objectContaining({ kind: 'invalid_input' }));
+    test.assert.ok(readLater === false);
   }
 );

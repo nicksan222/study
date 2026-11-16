@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises loopback OAuth sign-in with PKCE, callback validation, expiry, disposal, │
@@ -13,14 +14,11 @@
  * │ owns and closes that peer.                                                               │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { testStable, withinTestDeadline } from '@study/testing/vitest';
 import { Effect } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 import { SignIn, acquireSignIn } from '#server/platform/ai/providers/chatgpt/signin';
 
-testStable('PKCE sign-in verifies identity and returns the issued account', async () => {
+test.stable('PKCE sign-in verifies identity and returns the issued account', async () => {
   let nonce = '';
   const signIn = await SignIn.start({
     issuer: 'https://auth.example',
@@ -28,8 +26,8 @@ testStable('PKCE sign-in verifies identity and returns the issued account', asyn
     fetch: async (_url, init) => {
       const form = new URLSearchParams(init?.body as string);
 
-      assert.ok(form.get('grant_type') === 'authorization_code');
-      assert.ok(form.get('code_verifier'));
+      test.assert.ok(form.get('grant_type') === 'authorization_code');
+      test.assert.ok(form.get('code_verifier'));
       const claims = {
         iss: 'https://auth.example',
         aud: 'issued',
@@ -49,22 +47,22 @@ testStable('PKCE sign-in verifies identity and returns the issued account', asyn
   const url = new URL(signIn.url);
 
   nonce = url.searchParams.get('nonce')!;
-  assert.ok(url.searchParams.get('code_challenge_method') === 'S256');
+  test.assert.ok(url.searchParams.get('code_challenge_method') === 'S256');
   const finish = signIn.finish(5000);
   const callback = new URL(url.searchParams.get('redirect_uri')!);
 
   callback.searchParams.set('state', url.searchParams.get('state')!);
   callback.searchParams.set('code', 'code');
   callback.searchParams.set('client_id', 'issued');
-  assert.strictEqual((await fetch(callback)).status, 200);
+  test.assert.strictEqual((await fetch(callback)).status, 200);
   const result = await finish;
 
-  assert.ok(result.account.subject === 'user');
-  assert.ok(result.account.sharing === true);
-  assert.ok(result.account.refreshToken === 'refresh');
+  test.assert.ok(result.account.subject === 'user');
+  test.assert.ok(result.account.sharing === true);
+  test.assert.ok(result.account.refreshToken === 'refresh');
 });
 
-testStable('abandoned sign-in expires and closes its listener', async () => {
+test.stable('abandoned sign-in expires and closes its listener', async () => {
   await Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
@@ -76,14 +74,16 @@ testStable('abandoned sign-in expires and closes its listener', async () => {
         const callback = new URL(new URL(signIn.url).searchParams.get('redirect_uri')!);
 
         yield* Effect.sleep(60);
-        yield* Effect.promise(() => expect(fetch(callback)).rejects.toThrow());
-        yield* Effect.promise(() => expect(signIn.finish(1000)).rejects.toThrow(/expired|cancel/i));
+        yield* Effect.promise(() => test.expect(fetch(callback)).rejects.toThrow());
+        yield* Effect.promise(() =>
+          test.expect(signIn.finish(1000)).rejects.toThrow(/expired|cancel/i)
+        );
       })
     )
   );
 });
 
-testStable('disposing sign-in cancels a waiting finish and closes the listener', async () => {
+test.stable('disposing sign-in cancels a waiting finish and closes the listener', async () => {
   const signIn = await SignIn.start({
     issuer: 'https://auth.example',
     hostId: 'host'
@@ -92,28 +92,28 @@ testStable('disposing sign-in cancels a waiting finish and closes the listener',
   const finishing = signIn.finish(5000);
 
   signIn.dispose();
-  await expect(finishing).rejects.toThrow(/cancel/i);
-  await expect(fetch(callback)).rejects.toThrow();
+  await test.expect(finishing).rejects.toThrow(/cancel/i);
+  await test.expect(fetch(callback)).rejects.toThrow();
 });
 
-testStable('callback failure shows both localized messages', async () => {
+test.stable('callback failure shows both localized messages', async () => {
   const signIn = await SignIn.start({
     issuer: 'https://auth.example',
     hostId: 'host'
   });
   const finishing = (async () => {
-    await expect(signIn.finish(5000)).rejects.toThrow(/mismatch/i);
+    await test.expect(signIn.finish(5000)).rejects.toThrow(/mismatch/i);
   })();
   const callback = new URL(new URL(signIn.url).searchParams.get('redirect_uri')!);
   const response = await fetch(callback);
   const page = await response.text();
 
-  expect(page).toMatch(/The sign-in did not complete/);
-  expect(page).toMatch(/accesso non è riuscito/);
+  test.expect(page).toMatch(/The sign-in did not complete/);
+  test.expect(page).toMatch(/accesso non è riuscito/);
   await finishing;
 });
 
-testStable('malformed token response and ID claims do not leak their contents', async () => {
+test.stable('malformed token response and ID claims do not leak their contents', async () => {
   for (const body of [
     'secret-token-body',
     JSON.stringify({
@@ -133,13 +133,15 @@ testStable('malformed token response and ID claims do not leak their contents', 
     callback.searchParams.set('state', url.searchParams.get('state')!);
     callback.searchParams.set('code', 'code');
     const failure = (async () => {
-      await expect(signIn.finish(5000)).rejects.toSatisfy(
-        (error) =>
-          !String(error).includes('secret-token-body') &&
-          !String(error).includes('secret-identity') &&
-          error instanceof Error &&
-          error.cause === undefined
-      );
+      await test
+        .expect(signIn.finish(5000))
+        .rejects.toSatisfy(
+          (error) =>
+            !String(error).includes('secret-token-body') &&
+            !String(error).includes('secret-identity') &&
+            error instanceof Error &&
+            error.cause === undefined
+        );
     })();
 
     await fetch(callback);
@@ -147,7 +149,7 @@ testStable('malformed token response and ID claims do not leak their contents', 
   }
 });
 
-testStable(
+test.stable(
   'sign-in deadline interrupts a stalled loopback token body and releases both connections',
   async () => {
     const { Clock } = await import('effect');
@@ -178,7 +180,7 @@ testStable(
       }
     });
 
-    assert.ok(server.port, 'No loopback address');
+    test.assert.ok(server.port, 'No loopback address');
 
     try {
       await Effect.runPromise(
@@ -199,7 +201,7 @@ testStable(
           callback.searchParams.set('code', 'code');
           const finishing = signIn.finish(5000);
           const rejected = (async () => {
-            await expect(finishing).rejects.toThrow(/timed out/);
+            await test.expect(finishing).rejects.toThrow(/timed out/);
           })();
 
           yield* Effect.promise(() => fetch(callback));
@@ -207,7 +209,7 @@ testStable(
           yield* TestClock.adjust('5 seconds');
           yield* Effect.promise(() => rejected);
           yield* Effect.promise(() => bodyClosed);
-          yield* Effect.promise(() => expect(fetch(callback)).rejects.toThrow());
+          yield* Effect.promise(() => test.expect(fetch(callback)).rejects.toThrow());
         }).pipe(Effect.provide(TestClock.layer()))
       );
     } finally {
@@ -216,7 +218,7 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'browser callback bridge rejects stale states, replays, and cancelled attempts',
   async () => {
     const signin = await SignIn.start({
@@ -228,7 +230,7 @@ testStable(
     try {
       const authorization = new URL(signin.url);
 
-      assert.strictEqual(
+      test.assert.strictEqual(
         authorization.searchParams.get('redirect_uri'),
         'http://127.0.0.1:5173/auth/callback'
       );
@@ -238,19 +240,19 @@ testStable(
         client_id: 'issued'
       });
 
-      assert.strictEqual(signin.acceptCallback(params), false);
+      test.assert.strictEqual(signin.acceptCallback(params), false);
       params.set('state', authorization.searchParams.get('state')!);
-      assert.strictEqual(signin.acceptCallback(params), true);
-      assert.strictEqual(signin.acceptCallback(params), false);
+      test.assert.strictEqual(signin.acceptCallback(params), true);
+      test.assert.strictEqual(signin.acceptCallback(params), false);
       signin.dispose();
-      assert.strictEqual(signin.acceptCallback(params), false);
+      test.assert.strictEqual(signin.acceptCallback(params), false);
     } finally {
       signin.dispose();
     }
   }
 );
 
-testStable('browser callback denial fails completion and releases the attempt', async () => {
+test.stable('browser callback denial fails completion and releases the attempt', async () => {
   const signin = await SignIn.start({
     issuer: 'https://auth.example',
     hostId: 'host',
@@ -261,9 +263,9 @@ testStable('browser callback denial fails completion and releases the attempt', 
     error: 'access_denied'
   });
 
-  assert.strictEqual(signin.acceptCallback(params), false);
-  await expect(signin.finish(1000)).rejects.toThrow(/declined/);
-  assert.strictEqual(signin.acceptCallback(params), false);
+  test.assert.strictEqual(signin.acceptCallback(params), false);
+  await test.expect(signin.finish(1000)).rejects.toThrow(/declined/);
+  test.assert.strictEqual(signin.acceptCallback(params), false);
 });
 
 for (const callbackUrl of [
@@ -273,13 +275,13 @@ for (const callbackUrl of [
   'http://user@127.0.0.1:5173/auth/callback',
   'http://127.0.0.1:5173/auth/callback?code=x'
 ])
-  testStable(`OAuth rejects an unsafe callback URL: ${callbackUrl}`, async () => {
-    await expect(
-      SignIn.start({ issuer: 'https://auth.example', hostId: 'host', callbackUrl })
-    ).rejects.toThrow();
+  test.stable(`OAuth rejects an unsafe callback URL: ${callbackUrl}`, async () => {
+    await test
+      .expect(SignIn.start({ issuer: 'https://auth.example', hostId: 'host', callbackUrl }))
+      .rejects.toThrow();
   });
 
-testStable('disposing sign-in closes a stalled callback connection', async () => {
+test.stable('disposing sign-in closes a stalled callback connection', async () => {
   const signIn = await SignIn.start({ issuer: 'https://auth.example', hostId: 'host' });
   const callback = new URL(new URL(signIn.url).searchParams.get('redirect_uri')!);
   let closed!: () => void;
@@ -300,7 +302,7 @@ testStable('disposing sign-in closes a stalled callback connection', async () =>
 
   try {
     signIn.dispose();
-    await withinTestDeadline(closure);
+    await test.withinTestDeadline(closure);
   } finally {
     signIn.dispose();
     socket.end();

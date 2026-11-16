@@ -1,15 +1,16 @@
-import { onTestFinished } from 'vite-plus/test';
+import type { spawn as nativeSpawn, spawnSync as nativeSpawnSync } from 'bun';
 
 import { testPolicy } from './config.ts';
 
 /** Native Bun subprocesses with a test-owned lifetime and a bounded shutdown. */
-export const spawnTestProcess: typeof Bun.spawn = ((...args: any[]) => {
+export const spawnScopedProcess: typeof nativeSpawn = ((...args: any[]) => {
   const [input, options] = args;
   const child = Array.isArray(input)
     ? Bun.spawn(input, { timeout: testPolicy.processTimeout, killSignal: 'SIGKILL', ...options })
     : Bun.spawn({ timeout: testPolicy.processTimeout, killSignal: 'SIGKILL', ...input });
 
-  onTestFinished(async () => {
+  let closing: Promise<void> | undefined;
+  const close = async () => {
     if (child.exitCode !== null) return;
 
     child.kill('SIGTERM');
@@ -22,13 +23,15 @@ export const spawnTestProcess: typeof Bun.spawn = ((...args: any[]) => {
     } finally {
       clearTimeout(timer);
     }
-  });
+  };
+
+  Object.defineProperty(child, Symbol.asyncDispose, { value: () => (closing ??= close()) });
 
   return child;
-}) as typeof Bun.spawn;
+}) as typeof nativeSpawn;
 
 /** Sync command checks use the same bounded execution budget as async commands. */
-export const spawnTestProcessSync: typeof Bun.spawnSync = ((...args: any[]) => {
+export const spawnTestProcessSync: typeof nativeSpawnSync = ((...args: any[]) => {
   const [input, options] = args;
 
   return Array.isArray(input)
@@ -38,4 +41,4 @@ export const spawnTestProcessSync: typeof Bun.spawnSync = ((...args: any[]) => {
         ...options
       })
     : Bun.spawnSync({ timeout: testPolicy.processTimeout, killSignal: 'SIGKILL', ...input });
-}) as typeof Bun.spawnSync;
+}) as typeof nativeSpawnSync;

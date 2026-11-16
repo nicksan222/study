@@ -1,3 +1,4 @@
+import { StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises the scoped Study RPC client against a real application and HTTP server.  │
@@ -13,22 +14,16 @@
  * │ resources; fixture cleanup closes owned resources.                                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyRpc } from '@study/contracts';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Option } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
-import { App, serve } from '#server/runtime/index';
+import { serve } from '#server/runtime/index';
 
-testStable(
+test.stable(
   'scoped native client exchanges projects, settings, bytes and typed errors over HTTP',
-  async () => {
-    const database = await createTestDatabase();
-    const app = await App.open({ path: database.path });
+  async ({ resources: database }) => {
+    const app = await database.openApp({ path: database.path });
     const server = await serve(app);
     let discoveries = 0;
 
@@ -44,20 +39,22 @@ testStable(
               }
             });
 
-            assert.strictEqual(discoveries, 0);
-            assert.ok((yield* client['system.health']({})).workersRunning === false);
+            test.assert.strictEqual(discoveries, 0);
+            test.assert.ok((yield* client['system.health']({})).workersRunning === false);
             yield* client['system.startWorkers']({});
-            assert.ok((yield* client['system.health']({})).workersRunning === true);
+            test.assert.ok((yield* client['system.health']({})).workersRunning === true);
             yield* client['system.stopWorkers']({});
-            assert.ok((yield* client['system.health']({})).workersRunning === false);
+            test.assert.ok((yield* client['system.health']({})).workersRunning === false);
             const project = yield* client['projects.createProject']({ name: 'Biology' });
 
-            assert.ok(typeof project.id === 'bigint');
-            assert.ok((yield* client['projects.project']({ id: project.id })).name === 'Biology');
+            test.assert.ok(typeof project.id === 'bigint');
+            test.assert.ok(
+              (yield* client['projects.project']({ id: project.id })).name === 'Biology'
+            );
             const settings = yield* client['settings.appSettings']({});
 
             yield* client['settings.saveAppSettings']({ ...settings, onboarded: true });
-            assert.ok((yield* client['settings.appSettings']({})).onboarded === true);
+            test.assert.ok((yield* client['settings.appSettings']({})).onboarded === true);
             const theme = yield* client['themes.importTheme']({
               json: JSON.stringify({
                 version: 1,
@@ -68,9 +65,9 @@ testStable(
             });
 
             yield* client['themes.selectTheme']({ id: theme.id });
-            assert.strictEqual(yield* client['themes.selectedTheme']({}), theme.id);
+            test.assert.strictEqual(yield* client['themes.selectedTheme']({}), theme.id);
             yield* client['themes.deleteTheme']({ id: theme.id });
-            assert.strictEqual(yield* client['themes.selectedTheme']({}), null);
+            test.assert.strictEqual(yield* client['themes.selectedTheme']({}), null);
             const bytes = new Uint8Array([0, 255, 17]);
             const source = yield* client['sources.createSource']({
               name: 'notes.txt',
@@ -78,22 +75,22 @@ testStable(
               projectId: project.id
             });
 
-            expect((yield* client['sources.source']({ id: source.id })).sha256).toStrictEqual(
-              source.sha256
-            );
-            assert.ok(Option.isSome(yield* client['sources.findSource']({ id: source.id })));
+            test
+              .expect((yield* client['sources.source']({ id: source.id })).sha256)
+              .toStrictEqual(source.sha256);
+            test.assert.ok(Option.isSome(yield* client['sources.findSource']({ id: source.id })));
             const error = yield* Effect.flip(client['projects.createProject']({ name: '' }));
 
-            assert.ok('kind' in error);
-            assert.ok(error.kind === 'invalid_input');
-            assert.strictEqual(discoveries, 1);
+            test.assert.ok('kind' in error);
+            test.assert.ok(error.kind === 'invalid_input');
+            test.assert.strictEqual(discoveries, 1);
           })
         )
       );
     } finally {
       await server.close();
       await app.close();
-      await database.cleanup();
+      await database.close();
     }
   }
 );

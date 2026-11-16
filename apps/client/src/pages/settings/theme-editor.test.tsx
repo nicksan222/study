@@ -1,63 +1,60 @@
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import type * as UiModule from '@study/ui';
 import { toastManager } from '@study/ui';
-import { render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { expect, vi } from 'vite-plus/test';
 
 import { ThemeEditor } from './theme-editor';
 import type { AppearanceModel } from './use-page';
 
-vi.mock('@study/ui', async (load) => {
+test.mock('@study/ui', async (load) => {
   const actual = await load<typeof UiModule>();
 
-  return { ...actual, toastManager: { ...actual.toastManager, add: vi.fn() } };
+  return { ...actual, toastManager: { ...actual.toastManager, add: test.vi.fn() } };
 });
 
-testStable(
+test.stable(
   'requires the deletion phrase before deleting the selected theme and announcing success',
   async () => {
-    const remove = vi.fn().mockResolvedValue(undefined);
-    const close = vi.fn();
+    const remove = test.vi.fn().mockResolvedValue(undefined);
+    const close = test.vi.fn();
     const model: AppearanceModel = {
       loading: false,
       error: false,
       pending: false,
-      retry: vi.fn(),
-      setPreferences: vi.fn(),
-      setZoom: vi.fn(),
-      setAppearance: vi.fn(),
-      selectTheme: vi.fn(),
-      importTheme: vi.fn(),
-      saveTheme: vi.fn(),
+      retry: test.vi.fn(),
+      setPreferences: test.vi.fn(),
+      setZoom: test.vi.fn(),
+      setAppearance: test.vi.fn(),
+      selectTheme: test.vi.fn(),
+      importTheme: test.vi.fn(),
+      saveTheme: test.vi.fn(),
       deleteTheme: remove
     };
 
-    render(
+    test.render(
       <ThemeEditor.Delete
         theme={{ version: 1, id: 'ocean', name: 'Ocean' }}
         model={model}
         onClose={close}
       />
     );
-    const dialog = await screen.findByRole('alertdialog');
-    const confirm = within(dialog).getByRole('button', { name: catalogs.english.DeleteTheme });
-    const field = within(dialog).getByRole('textbox');
-    const user = userEvent.setup();
+    const dialog = await test.screen.findByRole('alertdialog');
+    const confirm = test.within(dialog).getByRole('button', { name: catalogs.english.DeleteTheme });
+    const field = test.within(dialog).getByRole('textbox');
+    const user = test.userEvent.setup();
 
-    expect(confirm).toBeDisabled();
+    test.expect(confirm).toBeDisabled();
     await user.type(field, 'wrong');
-    expect(confirm).toBeDisabled();
-    expect(remove).not.toHaveBeenCalled();
+    test.expect(confirm).toBeDisabled();
+    test.expect(remove).not.toHaveBeenCalled();
     await user.clear(field);
     await user.type(field, catalogs.english.DeleteConfirmationWord);
     await user.click(confirm);
-    await waitFor(() => expect(remove).toHaveBeenCalledExactlyOnceWith('ocean'));
-    expect(toastManager.add).toHaveBeenCalledExactlyOnceWith({
+    await test.waitFor(() => test.expect(remove).toHaveBeenCalledExactlyOnceWith('ocean'));
+    test.expect(toastManager.add).toHaveBeenCalledExactlyOnceWith({
       title: catalogs.english.ThemeDeleted,
       type: 'success'
     });
-    expect(close).toHaveBeenCalledOnce();
+    test.expect(close).toHaveBeenCalledOnce();
   }
 );

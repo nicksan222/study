@@ -1,5 +1,4 @@
-import { testStable } from '@study/testing/vitest';
-import { expect } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { lintFiles } from '../test/utils.ts';
 
@@ -19,10 +18,10 @@ function fixture(overrides: Record<string, string> = {}): Record<string, string>
   };
 }
 
-testStable(
+test.stable(
   'integration providers require tests and an installation in the shared image',
   async () => {
-    expect(await lintFiles(fixture(), 'integration-test-environment', true)).toHaveLength(0);
+    test.expect(await lintFiles(fixture(), 'integration-test-environment', true)).toHaveLength(0);
     const diagnostics = await lintFiles(
       fixture({
         'packages/integrations/src/providers/next/index.ts': 'export const provider = {};',
@@ -32,16 +31,18 @@ testStable(
       true
     );
 
-    expect(diagnostics.map((item) => item.message)).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining('Provider next must have'),
-        expect.stringContaining('Install obsidian in stage')
-      ])
-    );
+    test
+      .expect(diagnostics.map((item) => item.message))
+      .toEqual(
+        test.expect.arrayContaining([
+          test.expect.stringContaining('Provider next must have'),
+          test.expect.stringContaining('Install obsidian in stage')
+        ])
+      );
   }
 );
 
-testStable('provider tests cannot create a separate Docker runtime', async () => {
+test.stable('provider tests cannot create a separate Docker runtime', async () => {
   const diagnostics = await lintFiles(
     fixture({
       [`${directory}/providers/obsidian/import.integration.test.ts`]:
@@ -52,11 +53,11 @@ testStable('provider tests cannot create a separate Docker runtime', async () =>
     true
   );
 
-  expect(diagnostics).toHaveLength(1);
-  expect(diagnostics[0]?.message).toContain('Only testing/integrations/environment.ts');
+  test.expect(diagnostics).toHaveLength(1);
+  test.expect(diagnostics[0]?.message).toContain('Only testing/integrations/environment.ts');
 });
 
-testStable(
+test.stable(
   'integration fixtures reject invalid installation paths and private Dockerfiles',
   async () => {
     const diagnostics = await lintFiles(
@@ -71,16 +72,18 @@ testStable(
       true
     );
 
-    expect(diagnostics.map((item) => item.message)).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining('provider-specific Dockerfiles are forbidden'),
-        expect.stringContaining('needs an executable installed below /opt/obsidian/')
-      ])
-    );
+    test
+      .expect(diagnostics.map((item) => item.message))
+      .toEqual(
+        test.expect.arrayContaining([
+          test.expect.stringContaining('provider-specific Dockerfiles are forbidden'),
+          test.expect.stringContaining('needs an executable installed below /opt/obsidian/')
+        ])
+      );
   }
 );
 
-testStable.each([
+test.stable.each([
   "const docker = (_args: string[]) => {}; docker(['build', '--file', 'private/Dockerfile']);",
   "Bun.spawn(['docker', 'build', '--file', 'private/Dockerfile', '.']);",
   "Bun.spawn({cmd: ['docker', 'build', '--file', 'private/Dockerfile', '.']});"
@@ -93,22 +96,22 @@ testStable.each([
     true
   );
 
-  expect(diagnostics).toHaveLength(1);
-  expect(diagnostics[0]?.message).toContain('tooling/testing/integrations/Dockerfile');
+  test.expect(diagnostics).toHaveLength(1);
+  test.expect(diagnostics[0]?.message).toContain('tooling/testing/integrations/Dockerfile');
 });
 
-testStable('every provider must have discoverable integration tests', async () => {
+test.stable('every provider must have discoverable integration tests', async () => {
   const files = fixture();
 
   delete files[`${directory}/providers/obsidian/import.integration.test.ts`];
   const diagnostics = await lintFiles(files, 'integration-test-environment', true);
 
-  expect(diagnostics.map((item) => item.message)).toContain(
-    'Provider obsidian needs ordinary *.integration.test.ts files.'
-  );
+  test
+    .expect(diagnostics.map((item) => item.message))
+    .toContain('Provider obsidian needs ordinary *.integration.test.ts files.');
 });
 
-testStable.each([
+test.stable.each([
   "Bun.spawn({ cmd: ['docker', 'run', 'other'] });",
   "const command = ['docker', 'run', 'other']; Bun.spawn(command);",
   'Bun.$`docker run other`;'
@@ -121,12 +124,14 @@ testStable.each([
     true
   );
 
-  expect(diagnostics.map((item) => item.message)).toContain(
-    'Only testing/integrations/environment.ts may launch Docker; use the shared integration environment.'
-  );
+  test
+    .expect(diagnostics.map((item) => item.message))
+    .toContain(
+      'Only testing/integrations/environment.ts may launch Docker; use the shared integration environment.'
+    );
 });
 
-testStable('Docker command data and ordinary templates are not process launches', async () => {
+test.stable('Docker command data and ordinary templates are not process launches', async () => {
   const diagnostics = await lintFiles(
     fixture({
       [`${directory}/providers/obsidian/import.integration.test.ts`]:
@@ -136,5 +141,5 @@ testStable('Docker command data and ordinary templates are not process launches'
     true
   );
 
-  expect(diagnostics).toHaveLength(0);
+  test.expect(diagnostics).toHaveLength(0);
 });

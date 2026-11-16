@@ -9,21 +9,18 @@ import {
   materialVersionDetailSchema,
   defaultQuizSettings
 } from '@study/contracts';
+import type { StudyClient } from '@study/contracts/react/testing';
 import { catalogs } from '@study/localization';
-import { testStable } from '@study/testing/vitest';
-import { screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { expect, vi } from 'vite-plus/test';
 
 import {
   learningVersion,
   materialRpc,
   mountLibraryRoute
 } from '#client/features/material-library/test/support.tsx';
-import type { StudyClient } from '#client/test/rpc.tsx';
 
-vi.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+test.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
 
 const en = catalogs.english;
 
@@ -125,31 +122,31 @@ function practiceRpc(kind: 'quiz' | 'flashcards' = 'quiz', scoped = false) {
   const handlers = {
     ...rpc,
     fixture: material,
-    'settings.quizSettings': vi
+    'settings.quizSettings': test.vi
       .fn<StudyClient['settings.quizSettings']>()
       .mockReturnValue(Effect.succeed(defaultQuizSettings)),
-    'settings.saveQuizSettings': vi
+    'settings.saveQuizSettings': test.vi
       .fn<StudyClient['settings.saveQuizSettings']>()
       .mockImplementation((input) => Effect.succeed(input)),
-    'materials.archive': vi
+    'materials.archive': test.vi
       .fn<StudyClient['materials.archive']>()
       .mockReturnValue(Effect.succeed({ ...material, archived_at: 2n })),
-    'materials.unarchive': vi
+    'materials.unarchive': test.vi
       .fn<StudyClient['materials.unarchive']>()
       .mockReturnValue(Effect.succeed(material)),
-    'learning.dueCards': vi
+    'learning.dueCards': test.vi
       .fn<StudyClient['learning.dueCards']>()
       .mockReturnValue(Effect.succeed({ items: [], nextCursor: null })),
-    'learning.attempts': vi
+    'learning.attempts': test.vi
       .fn<StudyClient['learning.attempts']>()
       .mockReturnValue(Effect.succeed({ items: [], nextCursor: null })),
-    'learning.startQuiz': vi
+    'learning.startQuiz': test.vi
       .fn<StudyClient['learning.startQuiz']>()
       .mockReturnValue(Effect.succeed(initial)),
-    'learning.attempt': vi
+    'learning.attempt': test.vi
       .fn<StudyClient['learning.attempt']>()
       .mockImplementation(() => Effect.succeed(persistedAttempt)),
-    'learning.answerQuestion': vi
+    'learning.answerQuestion': test.vi
       .fn<StudyClient['learning.answerQuestion']>()
       .mockImplementation(() =>
         Effect.sync(() => {
@@ -159,7 +156,7 @@ function practiceRpc(kind: 'quiz' | 'flashcards' = 'quiz', scoped = false) {
           return answered;
         })
       ),
-    'learning.finishQuiz': vi.fn<StudyClient['learning.finishQuiz']>().mockImplementation(() =>
+    'learning.finishQuiz': test.vi.fn<StudyClient['learning.finishQuiz']>().mockImplementation(() =>
       Effect.sync(() => {
         persistedAttempt = completed;
         handlers['learning.attempt'].mockReturnValue(Effect.succeed(completed));
@@ -167,7 +164,7 @@ function practiceRpc(kind: 'quiz' | 'flashcards' = 'quiz', scoped = false) {
         return completed;
       })
     ),
-    'learning.answerPracticeQuestion': vi
+    'learning.answerPracticeQuestion': test.vi
       .fn<StudyClient['learning.answerPracticeQuestion']>()
       .mockImplementation(() =>
         Effect.sync(() => {
@@ -177,32 +174,32 @@ function practiceRpc(kind: 'quiz' | 'flashcards' = 'quiz', scoped = false) {
           return answered;
         })
       ),
-    'learning.reviewCard': vi.fn<StudyClient['learning.reviewCard']>()
+    'learning.reviewCard': test.vi.fn<StudyClient['learning.reviewCard']>()
   };
 
   return handlers;
 }
 
-testStable(
+test.stable(
   'starts a quiz at its material path, saves an answer, and displays completed results',
   async () => {
     const rpc = practiceRpc();
-    const user = userEvent.setup();
+    const user = test.userEvent.setup();
     const { router } = mountLibraryRoute('/practice/41', rpc);
 
-    const start = await screen.findByRole('button', { name: en.PracticeStartQuiz });
+    const start = await test.screen.findByRole('button', { name: en.PracticeStartQuiz });
 
-    await waitFor(() => expect(start).toBeEnabled());
+    await test.waitFor(() => test.expect(start).toBeEnabled());
     await user.click(start);
-    await screen.findByRole('heading', { name: question.prompt });
-    expect(router.state.location.pathname).toBe('/practice/41');
-    expect(router.state.location.search.attempt).toBe('70');
-    await user.click(screen.getByRole('radio', { name: /Two/ }));
-    await user.click(screen.getByRole('button', { name: en.SubmitAnswer }));
-    await user.click(await screen.findByRole('button', { name: en.PracticeFinishQuiz }));
-    expect(await screen.findByText('100%')).toBeInTheDocument();
-    expect(screen.getByText('Two has exactly two divisors.')).toBeInTheDocument();
-    expect(rpc['learning.answerQuestion']).toHaveBeenCalledExactlyOnceWith({
+    await test.screen.findByRole('heading', { name: question.prompt });
+    test.expect(router.state.location.pathname).toBe('/practice/41');
+    test.expect(router.state.location.search.attempt).toBe('70');
+    await user.click(test.screen.getByRole('radio', { name: /Two/ }));
+    await user.click(test.screen.getByRole('button', { name: en.SubmitAnswer }));
+    await user.click(await test.screen.findByRole('button', { name: en.PracticeFinishQuiz }));
+    test.expect(await test.screen.findByText('100%')).toBeInTheDocument();
+    test.expect(test.screen.getByText('Two has exactly two divisors.')).toBeInTheDocument();
+    test.expect(rpc['learning.answerQuestion']).toHaveBeenCalledExactlyOnceWith({
       attemptId: initial.id,
       questionId: question.id,
       answer: { type: 'choice', choiceIds: [5n] }
@@ -210,7 +207,7 @@ testStable(
   }
 );
 
-testStable('rejects a foreign attempt without exposing its questions', async () => {
+test.stable('rejects a foreign attempt without exposing its questions', async () => {
   const rpc = practiceRpc();
 
   rpc['learning.attempt'].mockReturnValue(
@@ -218,14 +215,14 @@ testStable('rejects a foreign attempt without exposing its questions', async () 
   );
   mountLibraryRoute('/practice/41?attempt=70', rpc);
 
-  expect(await within(await screen.findByRole('main')).findByRole('alert')).toHaveTextContent(
-    en.ReaderUnavailable
-  );
-  expect(screen.queryByText(question.prompt)).not.toBeInTheDocument();
-  expect(rpc['learning.startQuiz']).not.toHaveBeenCalled();
+  test
+    .expect(await test.within(await test.screen.findByRole('main')).findByRole('alert'))
+    .toHaveTextContent(en.ReaderUnavailable);
+  test.expect(test.screen.queryByText(question.prompt)).not.toBeInTheDocument();
+  test.expect(rpc['learning.startQuiz']).not.toHaveBeenCalled();
 });
 
-testStable(
+test.stable(
   'keeps a failed card rating on the revealed card and leaves successful ratings to the scheduler',
   async () => {
     const rpc = practiceRpc('flashcards');
@@ -264,23 +261,27 @@ testStable(
     rpc['learning.reviewCard']
       .mockReturnValueOnce(Effect.fail(new StudyError('transient', 'temporarily unavailable')))
       .mockReturnValue(Effect.succeed(review));
-    const user = userEvent.setup();
+    const user = test.userEvent.setup();
 
     mountLibraryRoute('/flashcards/41', rpc);
 
-    expect(await screen.findByText('What is a prime number?')).toBeInTheDocument();
-    expect(screen.queryByText('A whole number with exactly two divisors.')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: en.ShowAnswer }));
-    await user.click(screen.getByRole('button', { name: en.RateAgain }));
-    expect(await screen.findByRole('alert')).toHaveTextContent(en.PracticeActionError);
-    expect(screen.getByText('A whole number with exactly two divisors.')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: en.RateAgain }));
-    await screen.findByText('Name the smallest prime.');
-    await user.click(screen.getByRole('button', { name: en.ShowAnswer }));
-    await user.click(screen.getByRole('button', { name: en.RateGood }));
-    expect(await screen.findByText(en.PracticeReviewComplete)).toBeInTheDocument();
-    await waitFor(() =>
-      expect(rpc['learning.reviewCard']).toHaveBeenLastCalledWith({
+    test.expect(await test.screen.findByText('What is a prime number?')).toBeInTheDocument();
+    test
+      .expect(test.screen.queryByText('A whole number with exactly two divisors.'))
+      .not.toBeInTheDocument();
+    await user.click(test.screen.getByRole('button', { name: en.ShowAnswer }));
+    await user.click(test.screen.getByRole('button', { name: en.RateAgain }));
+    test.expect(await test.screen.findByRole('alert')).toHaveTextContent(en.PracticeActionError);
+    test
+      .expect(test.screen.getByText('A whole number with exactly two divisors.'))
+      .toBeInTheDocument();
+    await user.click(test.screen.getByRole('button', { name: en.RateAgain }));
+    await test.screen.findByText('Name the smallest prime.');
+    await user.click(test.screen.getByRole('button', { name: en.ShowAnswer }));
+    await user.click(test.screen.getByRole('button', { name: en.RateGood }));
+    test.expect(await test.screen.findByText(en.PracticeReviewComplete)).toBeInTheDocument();
+    await test.waitFor(() =>
+      test.expect(rpc['learning.reviewCard']).toHaveBeenLastCalledWith({
         versionId: initial.versionId,
         cardId: 12n,
         rating: 'good'
@@ -289,60 +290,63 @@ testStable(
   }
 );
 
-testStable('resumes a saved attempt directly without creating another', async () => {
+test.stable('resumes a saved attempt directly without creating another', async () => {
   const rpc = practiceRpc();
 
   mountLibraryRoute('/practice/41?attempt=70', rpc);
 
-  expect(await screen.findByRole('heading', { name: question.prompt })).toBeInTheDocument();
-  expect(rpc['learning.startQuiz']).not.toHaveBeenCalled();
+  test
+    .expect(await test.screen.findByRole('heading', { name: question.prompt }))
+    .toBeInTheDocument();
+  test.expect(rpc['learning.startQuiz']).not.toHaveBeenCalled();
 });
 
-testStable('rejects a flashcard material opened through a quiz path', async () => {
+test.stable('rejects a flashcard material opened through a quiz path', async () => {
   const rpc = practiceRpc('flashcards');
 
   mountLibraryRoute('/practice/41', rpc);
 
-  expect(await within(await screen.findByRole('main')).findByRole('alert')).toHaveTextContent(
-    en.PracticeUnavailable
-  );
-  expect(screen.queryByText('What is a prime number?')).not.toBeInTheDocument();
+  test
+    .expect(await test.within(await test.screen.findByRole('main')).findByRole('alert'))
+    .toHaveTextContent(en.PracticeUnavailable);
+  test.expect(test.screen.queryByText('What is a prime number?')).not.toBeInTheDocument();
 });
 
-testStable('answers a generated practice attempt through its owning slot', async () => {
+test.stable('answers a generated practice attempt through its owning slot', async () => {
   const rpc = practiceRpc();
   const slotId = '123e4567-e89b-42d3-a456-426614174000';
 
   rpc['learning.attempt'].mockReturnValue(Effect.succeed({ ...initial, practiceSlotId: slotId }));
-  const user = userEvent.setup();
+  const user = test.userEvent.setup();
 
   mountLibraryRoute('/practice/41?attempt=70', rpc);
 
-  await user.click(await screen.findByRole('radio', { name: /Two/ }));
-  await user.click(screen.getByRole('button', { name: en.SubmitAnswer }));
-  await screen.findByRole('button', { name: en.PracticeFinishQuiz });
-  expect(rpc['learning.answerPracticeQuestion']).toHaveBeenCalledExactlyOnceWith({
+  await user.click(await test.screen.findByRole('radio', { name: /Two/ }));
+  await user.click(test.screen.getByRole('button', { name: en.SubmitAnswer }));
+  await test.screen.findByRole('button', { name: en.PracticeFinishQuiz });
+  test.expect(rpc['learning.answerPracticeQuestion']).toHaveBeenCalledExactlyOnceWith({
     slotId,
     answer: { type: 'choice', choiceIds: [5n] }
   });
-  expect(rpc['learning.answerQuestion']).not.toHaveBeenCalled();
+  test.expect(rpc['learning.answerQuestion']).not.toHaveBeenCalled();
 });
 
-testStable('opens the immutable version used by a saved quiz attempt', async () => {
+test.stable('opens the immutable version used by a saved quiz attempt', async () => {
   const rpc = practiceRpc();
 
   mountLibraryRoute('/practice/41?attempt=70', rpc);
 
-  await userEvent.setup().click(await screen.findByRole('button', { name: en.PracticeActions }));
-  await waitFor(() =>
-    expect(screen.getByRole('link', { name: en.PracticeViewMaterial })).toHaveAttribute(
-      'href',
-      '/materials/41?version=102'
-    )
+  await test.userEvent
+    .setup()
+    .click(await test.screen.findByRole('button', { name: en.PracticeActions }));
+  await test.waitFor(() =>
+    test
+      .expect(test.screen.getByRole('link', { name: en.PracticeViewMaterial }))
+      .toHaveAttribute('href', '/materials/41?version=102')
   );
 });
 
-testStable('reviews only cards returned by the persisted due-card queue', async () => {
+test.stable('reviews only cards returned by the persisted due-card queue', async () => {
   const rpc = practiceRpc('flashcards', true);
   const card = Schema.decodeUnknownSync(dueCardSchema)({
     snapshot: {
@@ -360,25 +364,28 @@ testStable('reviews only cards returned by the persisted due-card queue', async 
   rpc['learning.dueCards'].mockReturnValue(Effect.succeed({ items: [card], nextCursor: null }));
   mountLibraryRoute('/flashcards/41', rpc);
 
-  expect(await screen.findByText('Name the smallest prime.')).toBeInTheDocument();
-  expect(screen.queryByText('What is a prime number?')).not.toBeInTheDocument();
-  expect(rpc['learning.dueCards']).toHaveBeenCalledExactlyOnceWith({
+  test.expect(await test.screen.findByText('Name the smallest prime.')).toBeInTheDocument();
+  test.expect(test.screen.queryByText('What is a prime number?')).not.toBeInTheDocument();
+  test.expect(rpc['learning.dueCards']).toHaveBeenCalledExactlyOnceWith({
     projectId: 1n,
     limit: 100,
     cursor: undefined
   });
 });
 
-testStable('shows that no review is due instead of replaying already scheduled cards', async () => {
-  const rpc = practiceRpc('flashcards', true);
+test.stable(
+  'shows that no review is due instead of replaying already scheduled cards',
+  async () => {
+    const rpc = practiceRpc('flashcards', true);
 
-  mountLibraryRoute('/flashcards/41', rpc);
+    mountLibraryRoute('/flashcards/41', rpc);
 
-  expect(await screen.findByText(en.PracticeNothingDue)).toBeInTheDocument();
-  expect(screen.queryByText('What is a prime number?')).not.toBeInTheDocument();
-});
+    test.expect(await test.screen.findByText(en.PracticeNothingDue)).toBeInTheDocument();
+    test.expect(test.screen.queryByText('What is a prime number?')).not.toBeInTheDocument();
+  }
+);
 
-testStable(
+test.stable(
   'uses the shared actions card and keeps the current answer when reviewing attempts',
   async () => {
     const rpc = practiceRpc();
@@ -400,31 +407,33 @@ testStable(
         nextCursor: null
       })
     );
-    const user = userEvent.setup();
+    const user = test.userEvent.setup();
 
     mountLibraryRoute('/practice/41?attempt=70', rpc);
 
-    await user.click(await screen.findByRole('radio', { name: /Two/ }));
-    const toggle = screen.getByRole('button', { name: en.PracticeActions });
+    await user.click(await test.screen.findByRole('radio', { name: /Two/ }));
+    const toggle = test.screen.getByRole('button', { name: en.PracticeActions });
 
     await user.click(toggle);
-    await user.click(screen.getByRole('button', { name: en.PracticeAttempts }));
-    const dialog = await screen.findByRole('dialog', { name: en.PracticeAttempts });
+    await user.click(test.screen.getByRole('button', { name: en.PracticeAttempts }));
+    const dialog = await test.screen.findByRole('dialog', { name: en.PracticeAttempts });
 
-    expect(await within(dialog).findByText(en.PracticeResumeHelp)).toBeInTheDocument();
-    await user.click(within(dialog).getByRole('button', { name: en.Close }));
-    await waitFor(() =>
-      expect(screen.queryByRole('dialog', { name: en.PracticeAttempts })).not.toBeInTheDocument()
+    test.expect(await test.within(dialog).findByText(en.PracticeResumeHelp)).toBeInTheDocument();
+    await user.click(test.within(dialog).getByRole('button', { name: en.Close }));
+    await test.waitFor(() =>
+      test
+        .expect(test.screen.queryByRole('dialog', { name: en.PracticeAttempts }))
+        .not.toBeInTheDocument()
     );
-    expect(screen.getByRole('radio', { name: /Two/ })).toBeChecked();
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: en.PracticeAttempts })).toHaveFocus()
+    test.expect(test.screen.getByRole('radio', { name: /Two/ })).toBeChecked();
+    await test.waitFor(() =>
+      test.expect(test.screen.getByRole('button', { name: en.PracticeAttempts })).toHaveFocus()
     );
-    expect(rpc['learning.startQuiz']).not.toHaveBeenCalled();
+    test.expect(rpc['learning.startQuiz']).not.toHaveBeenCalled();
   }
 );
 
-testStable(
+test.stable(
   'keeps the selected subject after archiving material shared by multiple subjects',
   async () => {
     const rpc = practiceRpc();
@@ -435,46 +444,46 @@ testStable(
 
     rpc['materials.material'].mockReturnValue(Effect.succeed(material));
     rpc['materials.archive'].mockReturnValue(Effect.succeed({ ...material, archived_at: 2n }));
-    const user = userEvent.setup();
+    const user = test.userEvent.setup();
     const { router } = mountLibraryRoute('/practice/41?project=2', rpc);
 
-    await user.click(await screen.findByRole('button', { name: en.PracticeActions }));
-    await user.click(screen.getByRole('button', { name: en.PracticeArchiveMaterial }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/practice'));
-    expect(router.state.location.search.project).toBe('2');
+    await user.click(await test.screen.findByRole('button', { name: en.PracticeActions }));
+    await user.click(test.screen.getByRole('button', { name: en.PracticeArchiveMaterial }));
+    await test.waitFor(() => test.expect(router.state.location.pathname).toBe('/practice'));
+    test.expect(router.state.location.search.project).toBe('2');
   }
 );
 
-testStable(
+test.stable(
   'reviews saved answers and edits them before finishing in the same action footer',
   async () => {
     const rpc = practiceRpc();
 
     rpc['learning.attempt'].mockReturnValue(Effect.succeed(answered));
-    const user = userEvent.setup();
+    const user = test.userEvent.setup();
 
     mountLibraryRoute('/practice/41?attempt=70', rpc);
-    await screen.findByRole('heading', { name: en.QuizReviewAnswers });
-    const finish = screen.getByRole('button', { name: en.PracticeFinishQuiz });
+    await test.screen.findByRole('heading', { name: en.QuizReviewAnswers });
+    const finish = test.screen.getByRole('button', { name: en.PracticeFinishQuiz });
 
-    expect(finish.parentElement).toHaveClass('study-practice-stage-footer');
-    expect(screen.getByText('Two')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /Edit answer/ }));
-    expect(await screen.findByRole('radio', { name: /Two/ })).toBeChecked();
-    expect(screen.getByRole('button', { name: en.SubmitAnswer }).parentElement).toHaveClass(
-      'study-practice-stage-footer'
-    );
-    await user.click(screen.getByRole('button', { name: en.QuizBackToReview }));
-    await user.click(screen.getByRole('button', { name: en.PracticeFinishQuiz }));
-    await screen.findByText('100%');
-    expect(screen.getByRole('link', { name: en.PracticeTryAgain }).parentElement).toHaveClass(
-      'study-practice-stage-footer'
-    );
-    expect(rpc['learning.startQuiz']).not.toHaveBeenCalled();
+    test.expect(finish.parentElement).toHaveClass('study-practice-stage-footer');
+    test.expect(test.screen.getByText('Two')).toBeInTheDocument();
+    await user.click(test.screen.getByRole('button', { name: /Edit answer/ }));
+    test.expect(await test.screen.findByRole('radio', { name: /Two/ })).toBeChecked();
+    test
+      .expect(test.screen.getByRole('button', { name: en.SubmitAnswer }).parentElement)
+      .toHaveClass('study-practice-stage-footer');
+    await user.click(test.screen.getByRole('button', { name: en.QuizBackToReview }));
+    await user.click(test.screen.getByRole('button', { name: en.PracticeFinishQuiz }));
+    await test.screen.findByText('100%');
+    test
+      .expect(test.screen.getByRole('link', { name: en.PracticeTryAgain }).parentElement)
+      .toHaveClass('study-practice-stage-footer');
+    test.expect(rpc['learning.startQuiz']).not.toHaveBeenCalled();
   }
 );
 
-testStable(
+test.stable(
   'keeps preferences in Settings and shows exact document sources without Archived',
   async () => {
     const rpc = practiceRpc();
@@ -487,47 +496,53 @@ testStable(
     });
 
     rpc['materials.materialVersion'].mockReturnValue(Effect.succeed(version));
-    const user = userEvent.setup();
+    const user = test.userEvent.setup();
 
     mountLibraryRoute('/practice/41', rpc);
-    await screen.findByRole('button', { name: en.PracticeStartQuiz });
-    expect(screen.queryByRole('combobox', { name: en.QuizQuestionCount })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: en.PracticeActions }));
-    expect(await screen.findByText(en.PracticeSourcePages)).toBeInTheDocument();
-    expect(
-      await within(screen.getByRole('complementary', { name: en.PracticeActions })).findByRole(
-        'link',
-        { name: 'Material 41' }
+    await test.screen.findByRole('button', { name: en.PracticeStartQuiz });
+    test
+      .expect(test.screen.queryByRole('combobox', { name: en.QuizQuestionCount }))
+      .not.toBeInTheDocument();
+    await user.click(test.screen.getByRole('button', { name: en.PracticeActions }));
+    test.expect(await test.screen.findByText(en.PracticeSourcePages)).toBeInTheDocument();
+    test
+      .expect(
+        await test
+          .within(test.screen.getByRole('complementary', { name: en.PracticeActions }))
+          .findByRole('link', { name: 'Material 41' })
       )
-    ).toHaveAttribute('href', '/pages/41?pageVersion=8');
-    expect(
-      within(screen.getByRole('complementary', { name: en.PracticeActions })).queryByRole(
-        'button',
-        { name: en.PracticeArchived }
+      .toHaveAttribute('href', '/pages/41?pageVersion=8');
+    test
+      .expect(
+        test
+          .within(test.screen.getByRole('complementary', { name: en.PracticeActions }))
+          .queryByRole('button', { name: en.PracticeArchived })
       )
-    ).not.toBeInTheDocument();
-    expect(rpc['pages.version']).toHaveBeenCalledWith({ id: 8n });
-    expect(rpc['sources.source']).not.toHaveBeenCalled();
+      .not.toBeInTheDocument();
+    test.expect(rpc['pages.version']).toHaveBeenCalledWith({ id: 8n });
+    test.expect(rpc['sources.source']).not.toHaveBeenCalled();
   }
 );
 
-testStable(
+test.stable(
   'explicitly replays the full flashcard deck when no scheduled review is due',
   async () => {
     const rpc = practiceRpc('flashcards', true);
-    const user = userEvent.setup();
+    const user = test.userEvent.setup();
 
     mountLibraryRoute('/flashcards/41', rpc);
-    await screen.findByText(en.PracticeNothingDue);
-    await user.click(screen.getByRole('button', { name: en.PracticeReplayFlashcards }));
-    expect(await screen.findByText('What is a prime number?')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: new RegExp(en.ShowAnswer) }));
-    expect(screen.getByText('A whole number with exactly two divisors.')).toBeInTheDocument();
-    expect(rpc['learning.reviewCard']).not.toHaveBeenCalled();
+    await test.screen.findByText(en.PracticeNothingDue);
+    await user.click(test.screen.getByRole('button', { name: en.PracticeReplayFlashcards }));
+    test.expect(await test.screen.findByText('What is a prime number?')).toBeInTheDocument();
+    await user.click(test.screen.getByRole('button', { name: new RegExp(en.ShowAnswer) }));
+    test
+      .expect(test.screen.getByText('A whole number with exactly two divisors.'))
+      .toBeInTheDocument();
+    test.expect(rpc['learning.reviewCard']).not.toHaveBeenCalled();
   }
 );
 
-testStable(
+test.stable(
   'reviews text answers as labeled read-only content and keeps multiline feedback separate',
   async () => {
     const rpc = practiceRpc();
@@ -557,25 +572,27 @@ testStable(
     rpc['learning.attempt'].mockReturnValue(Effect.succeed(result));
     mountLibraryRoute('/practice/41?attempt=70', rpc);
 
-    const review = await screen.findByRole('region', { name: en.PracticeResults });
+    const review = await test.screen.findByRole('region', { name: en.PracticeResults });
 
-    expect(within(review).getByRole('group', { name: en.YourAnswer })).toHaveTextContent(
-      learnerAnswer.replace('\n', ' ')
-    );
-    expect(within(review).getByRole('group', { name: en.RightAnswer })).toHaveTextContent(
-      referenceAnswer.replace('\n', ' ')
-    );
-    expect(within(review).queryByRole('textbox')).toBeNull();
-    expect(within(review).getByText(en.VerdictPartly)).toBeInTheDocument();
-    expect(within(review).getByRole('heading', { name: en.PracticeFeedback })).toBeInTheDocument();
-    expect(
-      within(review).getByRole('heading', { name: en.PracticeArchiveExplanation })
-    ).toBeInTheDocument();
-    expect(rpc['learning.answerQuestion']).not.toHaveBeenCalled();
+    test
+      .expect(test.within(review).getByRole('group', { name: en.YourAnswer }))
+      .toHaveTextContent(learnerAnswer.replace('\n', ' '));
+    test
+      .expect(test.within(review).getByRole('group', { name: en.RightAnswer }))
+      .toHaveTextContent(referenceAnswer.replace('\n', ' '));
+    test.expect(test.within(review).queryByRole('textbox')).toBeNull();
+    test.expect(test.within(review).getByText(en.VerdictPartly)).toBeInTheDocument();
+    test
+      .expect(test.within(review).getByRole('heading', { name: en.PracticeFeedback }))
+      .toBeInTheDocument();
+    test
+      .expect(test.within(review).getByRole('heading', { name: en.PracticeArchiveExplanation }))
+      .toBeInTheDocument();
+    test.expect(rpc['learning.answerQuestion']).not.toHaveBeenCalled();
   }
 );
 
-testStable(
+test.stable(
   'distinguishes pending grading from unanswered text and preserves result navigation',
   async () => {
     const rpc = practiceRpc();
@@ -612,24 +629,26 @@ testStable(
 
     rpc['learning.attempt'].mockReturnValue(Effect.succeed(result));
     mountLibraryRoute('/practice/41?attempt=70', rpc);
-    const review = await screen.findByRole('region', { name: en.PracticeResults });
+    const review = await test.screen.findByRole('region', { name: en.PracticeResults });
 
-    expect(within(review).getByRole('group', { name: en.YourAnswer })).toHaveTextContent(
-      'ribosomes'
-    );
-    expect(within(review).getByText(en.PracticeUngraded)).toBeInTheDocument();
-    expect(within(review).queryByText('100%')).toBeNull();
-    expect(within(review).getByText(en.PracticeScorePending)).toBeInTheDocument();
-    await userEvent
+    test
+      .expect(test.within(review).getByRole('group', { name: en.YourAnswer }))
+      .toHaveTextContent('ribosomes');
+    test.expect(test.within(review).getByText(en.PracticeUngraded)).toBeInTheDocument();
+    test.expect(test.within(review).queryByText('100%')).toBeNull();
+    test.expect(test.within(review).getByText(en.PracticeScorePending)).toBeInTheDocument();
+    await test.userEvent
       .setup()
-      .click(within(review).getByRole('button', { name: en.PracticeNextQuestion }));
-    expect(within(review).getByRole('group', { name: en.YourAnswer })).toHaveTextContent(
-      en.PracticeUnanswered
-    );
-    expect(within(review).getByRole('group', { name: en.RightAnswer })).toHaveTextContent(
-      en.PracticeUngraded
-    );
-    expect(within(review).getByRole('button', { name: en.PracticeNextQuestion })).toBeDisabled();
-    expect(within(review).getByRole('button', { name: en.QuizPrevious })).toBeEnabled();
+      .click(test.within(review).getByRole('button', { name: en.PracticeNextQuestion }));
+    test
+      .expect(test.within(review).getByRole('group', { name: en.YourAnswer }))
+      .toHaveTextContent(en.PracticeUnanswered);
+    test
+      .expect(test.within(review).getByRole('group', { name: en.RightAnswer }))
+      .toHaveTextContent(en.PracticeUngraded);
+    test
+      .expect(test.within(review).getByRole('button', { name: en.PracticeNextQuestion }))
+      .toBeDisabled();
+    test.expect(test.within(review).getByRole('button', { name: en.QuizPrevious })).toBeEnabled();
   }
 );

@@ -1,25 +1,26 @@
 import { chatMessageSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import type * as Router from '@tanstack/react-router';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { FailedMessageConversion } from './failed-conversion';
 
-vi.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: vi.fn(() => 'ready') }));
-vi.mock('@tanstack/react-router', async (load) => ({
+test.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: test.vi.fn(() => 'ready') }));
+test.mock('@tanstack/react-router', async (load) => ({
   ...(await load<typeof Router>()),
   Link: ({ to, children }: { to: string; children?: ReactNode }) => <a href={to}>{children}</a>
 }));
 
-const api = vi.hoisted(() => ({ snapshot: vi.fn(), convert: vi.fn(), discard: vi.fn() }));
+const api = test.hoisted(() => ({
+  snapshot: test.vi.fn(),
+  convert: test.vi.fn(),
+  discard: test.vi.fn()
+}));
 
-vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
 
 const message = Schema.decodeUnknownSync(chatMessageSchema)({
   id: 2n,
@@ -59,16 +60,16 @@ const message = Schema.decodeUnknownSync(chatMessageSchema)({
   ]
 });
 
-let fixture: ReturnType<typeof rpcHandlersTransport>;
+let fixture: ReturnType<typeof test.rpcHandlersTransport>;
 
 function Provider({ children }: { children: ReactNode }) {
   return <fixture.wrapper>{children}</fixture.wrapper>;
 }
 
-beforeEach(() => {
-  vi.resetAllMocks();
-  vi.mocked(useAiReadiness).mockReturnValue('ready');
-  fixture = rpcHandlersTransport({
+test.beforeEach(() => {
+  test.vi.resetAllMocks();
+  test.vi.mocked(useAiReadiness).mockReturnValue('ready');
+  fixture = test.rpcHandlersTransport({
     'notes.replySnapshot': api.snapshot,
     'notes.convertMessage': api.convert,
     'notes.deleteMessageVersion': api.discard
@@ -94,38 +95,40 @@ beforeEach(() => {
   });
   api.discard.mockResolvedValue(message);
 });
-afterEach(() => {
-  cleanup();
+test.afterEach(() => {
+  test.cleanup();
 });
 
-testStable.each(['retry', 'discard'] as const)(
+test.stable.each(['retry', 'discard'] as const)(
   'exposes %s for a failed conversion without changing its original input',
   async (action) => {
-    render(
+    test.render(
       <Provider>
         <FailedMessageConversion message={message} version={message.versions[1]} />
       </Provider>
     );
-    expect(screen.getByText('NoteConversionFailed')).toBeVisible();
-    const retry = screen.getByRole('button', { name: 'Retry' });
+    test.expect(test.screen.getByText('NoteConversionFailed')).toBeVisible();
+    const retry = test.screen.getByRole('button', { name: 'Retry' });
 
-    await waitFor(() => expect(retry).toBeEnabled());
-    fireEvent.click(
-      action === 'retry' ? retry : screen.getByRole('button', { name: 'NoteDiscardConversion' })
+    await test.waitFor(() => test.expect(retry).toBeEnabled());
+    test.fireEvent.click(
+      action === 'retry'
+        ? retry
+        : test.screen.getByRole('button', { name: 'NoteDiscardConversion' })
     );
-    await waitFor(() => {
+    await test.waitFor(() => {
       if (action === 'retry')
-        expect(api.convert).toHaveBeenCalledWith({
+        test.expect(api.convert).toHaveBeenCalledWith({
           messageId: 2n,
           expectedActiveVersionId: 3n,
           strategyId: 'saved-strategy'
         });
-      else expect(api.discard).toHaveBeenCalledWith({ messageId: 2n, versionId: 4n });
+      else test.expect(api.discard).toHaveBeenCalledWith({ messageId: 2n, versionId: 4n });
     });
   }
 );
 
-testStable('keeps recovery retries blocked while another version has active work', async () => {
+test.stable('keeps recovery retries blocked while another version has active work', async () => {
   const busy = Schema.decodeUnknownSync(chatMessageSchema)({
     ...message,
     versions: [
@@ -143,28 +146,30 @@ testStable('keeps recovery retries blocked while another version has active work
     ]
   });
 
-  render(
+  test.render(
     <Provider>
       <FailedMessageConversion message={busy} version={busy.versions[1]} />
     </Provider>
   );
-  await waitFor(() => expect(api.snapshot).toHaveBeenCalled());
-  expect(screen.getByRole('button', { name: 'Retry' })).toBeDisabled();
-  expect(screen.getByRole('button', { name: 'NoteDiscardConversion' })).toBeEnabled();
+  await test.waitFor(() => test.expect(api.snapshot).toHaveBeenCalled());
+  test.expect(test.screen.getByRole('button', { name: 'Retry' })).toBeDisabled();
+  test.expect(test.screen.getByRole('button', { name: 'NoteDiscardConversion' })).toBeEnabled();
 });
 
-testStable('blocks AI conversion recovery without setup while preserving discard', async () => {
-  vi.mocked(useAiReadiness).mockReturnValue('setup');
-  render(
+test.stable('blocks AI conversion recovery without setup while preserving discard', async () => {
+  test.vi.mocked(useAiReadiness).mockReturnValue('setup');
+  test.render(
     <Provider>
       <FailedMessageConversion message={message} version={message.versions[1]} />
     </Provider>
   );
-  await waitFor(() => expect(api.snapshot).toHaveBeenCalled());
-  expect(screen.getByRole('button', { name: 'Retry' })).toBeDisabled();
-  expect(screen.getByText('AiReadinessSetup')).toBeVisible();
-  fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-  expect(api.convert).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole('button', { name: 'NoteDiscardConversion' }));
-  await waitFor(() => expect(api.discard).toHaveBeenCalledWith({ messageId: 2n, versionId: 4n }));
+  await test.waitFor(() => test.expect(api.snapshot).toHaveBeenCalled());
+  test.expect(test.screen.getByRole('button', { name: 'Retry' })).toBeDisabled();
+  test.expect(test.screen.getByText('AiReadinessSetup')).toBeVisible();
+  test.fireEvent.click(test.screen.getByRole('button', { name: 'Retry' }));
+  test.expect(api.convert).not.toHaveBeenCalled();
+  test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteDiscardConversion' }));
+  await test.waitFor(() =>
+    test.expect(api.discard).toHaveBeenCalledWith({ messageId: 2n, versionId: 4n })
+  );
 });

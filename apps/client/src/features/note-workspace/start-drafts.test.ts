@@ -1,6 +1,5 @@
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { AtomRegistry } from 'effect/reactivity';
-import { expect } from 'vite-plus/test';
 
 import {
   openStartDraft,
@@ -12,7 +11,7 @@ import {
   startFiles
 } from './start-drafts.queries';
 
-testStable('reuses one draft per subject and retains independent unassigned content', () => {
+test.stable('reuses one draft per subject and retains independent unassigned content', () => {
   const cache = AtomRegistry.make();
 
   openStartDraft(cache, '1');
@@ -21,17 +20,17 @@ testStable('reuses one draft per subject and retains independent unassigned cont
   cache.set(startDraft(startDraftKey('2')), 'History notes');
   openStartDraft(cache);
   openStartDraft(cache, '1');
-  expect(cache.get(startDrafts)).toEqual(['unassigned', '2', '1']);
-  expect(cache.get(startDraft(startDraftKey('1')))).toBe('Math notes');
-  expect(cache.get(startDraft(startDraftKey('2')))).toBe('History notes');
+  test.expect(cache.get(startDrafts)).toEqual(['unassigned', '2', '1']);
+  test.expect(cache.get(startDraft(startDraftKey('1')))).toBe('Math notes');
+  test.expect(cache.get(startDraft(startDraftKey('2')))).toBe('History notes');
   dismissStartDraft(cache, '1');
-  expect(cache.get(startDraft(startDraftKey('1')))).toBe('');
-  expect(cache.get(startDraft(startDraftKey('2')))).toBe('History notes');
-  expect(cache.get(startDrafts)).toEqual(['unassigned', '2']);
+  test.expect(cache.get(startDraft(startDraftKey('1')))).toBe('');
+  test.expect(cache.get(startDraft(startDraftKey('2')))).toBe('History notes');
+  test.expect(cache.get(startDrafts)).toEqual(['unassigned', '2']);
   cache.dispose();
 });
 
-testStable(
+test.stable(
   'confirmation clears only submitted text and file occurrences, preserving newer work',
   () => {
     const cache = AtomRegistry.make();
@@ -47,16 +46,16 @@ testStable(
       text: 'Original notes',
       files: [submitted]
     });
-    expect(cache.get(startDraft(startDraftKey('1')))).toBe('Newer notes');
-    expect(cache.get(startFiles(startDraftKey('1')))).toEqual([submitted, later]);
-    expect(cache.get(startDrafts)).toEqual(['1']);
+    test.expect(cache.get(startDraft(startDraftKey('1')))).toBe('Newer notes');
+    test.expect(cache.get(startFiles(startDraftKey('1')))).toEqual([submitted, later]);
+    test.expect(cache.get(startDrafts)).toEqual(['1']);
     finishStartDraft(cache, {
       draftKey: startDraftKey('1'),
       filesKey: startDraftKey('1'),
       text: 'Newer notes',
       files: [submitted, later]
     });
-    expect(cache.get(startDrafts)).toEqual([]);
+    test.expect(cache.get(startDrafts)).toEqual([]);
     cache.dispose();
   }
 );

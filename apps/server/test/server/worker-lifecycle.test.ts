@@ -16,62 +16,65 @@
 
 import { executionIdSchema } from '@study/contracts';
 import { workflow_executions, workflow_agent_progress } from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
-import { createServerTest } from '#testing/server-test';
-
-testStable('a start queued behind stop restarts the worker', async (t) => {
-  const { app } = await createServerTest(t);
+test.stable('a start queued behind stop restarts the worker', async ({ server: serverFixture }) => {
+  const { app } = serverFixture;
 
   await app.workers.start();
   const stopping = app.workers.stop();
   const starting = app.workers.start();
 
   await Promise.all([stopping, starting]);
-  assert.isTrue(app.workers.started);
+  test.assert.isTrue(app.workers.started);
   await Promise.all([app.workers.stop(), app.workers.stop()]);
-  assert.isFalse(app.workers.started);
+  test.assert.isFalse(app.workers.started);
 });
 
-testStable('close rejects a queued start and leaves the worker stopped', async (t) => {
-  const { app } = await createServerTest(t);
+test.stable(
+  'close rejects a queued start and leaves the worker stopped',
+  async ({ server: serverFixture }) => {
+    const { app } = serverFixture;
 
-  await app.workers.start();
-  const stopping = app.workers.stop();
-  const starting = app.workers.start();
-  const closing = app.workers.close();
+    await app.workers.start();
+    const stopping = app.workers.stop();
+    const starting = app.workers.start();
+    const closing = app.workers.close();
 
-  await expect(starting).rejects.toSatisfy(() => true);
-  await Promise.all([stopping, closing, app.workers.close()]);
-  assert.isFalse(app.workers.started);
-  await expect(app.workers.start()).rejects.toSatisfy(() => true);
-});
-
-testStable('concurrent native fibers share one worker and stop idempotently', async (t) => {
-  const { app } = await createServerTest(t);
-
-  function* verifySharedWorkerLifecycle() {
-    yield* Effect.all(
-      Array.from({ length: 8 }, () => Effect.promise(() => app.workers.start())),
-      { concurrency: 'unbounded' }
-    );
-    assert.isTrue(app.workers.started);
-    yield* Effect.all(
-      Array.from({ length: 8 }, () => Effect.promise(() => app.workers.stop())),
-      { concurrency: 'unbounded' }
-    );
-    assert.isFalse(app.workers.started);
+    await test.expect(starting).rejects.toSatisfy(() => true);
+    await Promise.all([stopping, closing, app.workers.close()]);
+    test.assert.isFalse(app.workers.started);
+    await test.expect(app.workers.start()).rejects.toSatisfy(() => true);
   }
+);
 
-  await Effect.runPromise(Effect.gen(verifySharedWorkerLifecycle));
-});
+test.stable(
+  'concurrent native fibers share one worker and stop idempotently',
+  async ({ server: serverFixture }) => {
+    const { app } = serverFixture;
 
-testStable(
+    function* verifySharedWorkerLifecycle() {
+      yield* Effect.all(
+        Array.from({ length: 8 }, () => Effect.promise(() => app.workers.start())),
+        { concurrency: 'unbounded' }
+      );
+      test.assert.isTrue(app.workers.started);
+      yield* Effect.all(
+        Array.from({ length: 8 }, () => Effect.promise(() => app.workers.stop())),
+        { concurrency: 'unbounded' }
+      );
+      test.assert.isFalse(app.workers.started);
+    }
+
+    await Effect.runPromise(Effect.gen(verifySharedWorkerLifecycle));
+  }
+);
+
+test.stable(
   'shutdown interrupts safe cancellation waiting for an active provider',
   { timeout: 10000 },
-  async (t) => {
+  async ({ server: serverFixture, onTestFinished }) => {
     const { Sources } = await import('#server/features/sources/index');
     const { workflow_executions } = await import('@study/db');
     const { executionIdSchema } = await import('@study/contracts');
@@ -100,8 +103,8 @@ testStable(
         )
     });
 
-    t.onTestFinished(() => peer.stop(true));
-    const { app } = await createServerTest(t);
+    onTestFinished(() => peer.stop(true));
+    const { app } = serverFixture;
 
     app.native.workflows = Layer.effect(
       WorkflowEngine.WorkflowEngine,
@@ -125,7 +128,7 @@ testStable(
       .all()
       .find((row) => row.workflow_tag === 'source-ingestion/v1');
 
-    assert.ok(execution);
+    test.assert.ok(execution);
     let settled = false;
     const cancelling = app.workers
       .cancelExecution({ id: executionIdSchema.make(execution.execution_id), mode: 'safe' })
@@ -143,7 +146,7 @@ testStable(
       );
 
     await waiting;
-    expect(settled).toBe(false);
+    test.expect(settled).toBe(false);
     await Effect.runPromise(
       Effect.promise(() => app.close()).pipe(
         Effect.timeout('5 seconds'),
@@ -152,47 +155,50 @@ testStable(
         )
       )
     );
-    expect(await cancelling).toBeInstanceOf(Error);
+    test.expect(await cancelling).toBeInstanceOf(Error);
   }
 );
 
-testStable('stopped concurrent cancellations and start share one embedded runtime', async (t) => {
-  const { Layer } = await import('effect');
-  const { executionIdSchema } = await import('@study/contracts');
-  const { app } = await createServerTest(t);
-  let acquisitions = 0;
+test.stable(
+  'stopped concurrent cancellations and start share one embedded runtime',
+  async ({ server: serverFixture }) => {
+    const { Layer } = await import('effect');
+    const { executionIdSchema } = await import('@study/contracts');
+    const { app } = serverFixture;
+    let acquisitions = 0;
 
-  app.native.workflows = app.native.workflows.pipe(
-    Layer.tap(() =>
-      Effect.sync(() => {
-        acquisitions++;
-      })
-    )
-  );
-  const first = app.workers
-    .cancelExecution({ id: executionIdSchema.make('absent-first'), mode: 'safe' })
-    .catch(() => undefined);
-  const second = app.workers
-    .cancelExecution({ id: executionIdSchema.make('absent-second'), mode: 'safe' })
-    .catch(() => undefined);
+    app.native.workflows = app.native.workflows.pipe(
+      Layer.tap(() =>
+        Effect.sync(() => {
+          acquisitions++;
+        })
+      )
+    );
+    const first = app.workers
+      .cancelExecution({ id: executionIdSchema.make('absent-first'), mode: 'safe' })
+      .catch(() => undefined);
+    const second = app.workers
+      .cancelExecution({ id: executionIdSchema.make('absent-second'), mode: 'safe' })
+      .catch(() => undefined);
 
-  await app.workers.start();
-  await Promise.all([first, second]);
-  await app.workers.runWorkflow(Effect.void);
-  expect(acquisitions).toBe(1);
-  await app.workers.stop();
-  await app.workers.runWorkflow(Effect.void);
-  expect(acquisitions).toBe(2);
-  await app.workers.stop();
-});
+    await app.workers.start();
+    await Promise.all([first, second]);
+    await app.workers.runWorkflow(Effect.void);
+    test.expect(acquisitions).toBe(1);
+    await app.workers.stop();
+    await app.workers.runWorkflow(Effect.void);
+    test.expect(acquisitions).toBe(2);
+    await app.workers.stop();
+  }
+);
 
-testStable(
+test.stable(
   'stopped cancellation persists intent without acquiring the embedded runner',
-  async (t) => {
+  async ({ server: serverFixture }) => {
     const { Layer } = await import('effect');
     const { workflow_executions } = await import('@study/db');
     const { executionIdSchema } = await import('@study/contracts');
-    const { app } = await createServerTest(t);
+    const { app } = serverFixture;
     let acquisitions = 0;
 
     app.native.workflows = app.native.workflows.pipe(
@@ -218,18 +224,18 @@ testStable(
       id: executionIdSchema.make('stopped-cancel'),
       mode: 'unsafe'
     });
-    expect(acquisitions).toBe(0);
-    expect(app.workers.started).toBe(false);
-    expect(app.store.db.orm.select().from(workflow_executions).get()?.cancellation_mode).toBe(
-      'unsafe'
-    );
+    test.expect(acquisitions).toBe(0);
+    test.expect(app.workers.started).toBe(false);
+    test
+      .expect(app.store.db.orm.select().from(workflow_executions).get()?.cancellation_mode)
+      .toBe('unsafe');
   }
 );
 
-testStable(
+test.stable(
   'restart after failed disposal preserves previews owned by the retained runtime',
-  async (t) => {
-    const { app } = await createServerTest(t);
+  async ({ server: serverFixture }) => {
+    const { app } = serverFixture;
 
     app.native.workflows = app.native.workflows.pipe(
       Layer.tap(() => Effect.addFinalizer(() => Effect.die(new Error('Disposal failed'))))
@@ -277,10 +283,12 @@ testStable(
 
     try {
       await entered.promise;
-      await expect(app.workers.stop()).rejects.toSatisfy(() => true);
-      expect(app.workers.started).toBe(false);
+      await test.expect(app.workers.stop()).rejects.toSatisfy(() => true);
+      test.expect(app.workers.started).toBe(false);
       await app.workers.start();
-      expect(app.store.db.orm.select().from(workflow_agent_progress).get()?.run_id).toBe('active');
+      test
+        .expect(app.store.db.orm.select().from(workflow_agent_progress).get()?.run_id)
+        .toBe('active');
       resume.resolve();
       await running;
       await app.workers.stop();
@@ -291,10 +299,10 @@ testStable(
   }
 );
 
-testStable(
+test.stable(
   'recovery discards interrupted previews but preserves completed and concurrent steps',
-  async (t) => {
-    const { app } = await createServerTest(t);
+  async ({ server: serverFixture }) => {
+    const { app } = serverFixture;
     const executionId = executionIdSchema.make('progress-recovery');
 
     app.store.db.orm
@@ -330,14 +338,14 @@ testStable(
     seed('finished', 'completed');
     seed('interrupted');
     await app.workers.start();
-    expect(read().map((run) => run.run_id)).toEqual(['finished']);
+    test.expect(read().map((run) => run.run_id)).toEqual(['finished']);
 
     seed('parallel-a');
     seed('parallel-b');
     await app.workers.start();
-    expect(read().map((run) => run.run_id)).toEqual(['finished', 'parallel-a', 'parallel-b']);
+    test.expect(read().map((run) => run.run_id)).toEqual(['finished', 'parallel-a', 'parallel-b']);
     await app.workers.stop();
     await app.workers.start();
-    expect(read().map((run) => run.run_id)).toEqual(['finished']);
+    test.expect(read().map((run) => run.run_id)).toEqual(['finished']);
   }
 );

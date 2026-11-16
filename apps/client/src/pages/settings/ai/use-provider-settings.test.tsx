@@ -1,16 +1,12 @@
 import { llmSettingsSchema, apiKeyInputSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport as settingsTransport } from '#client/test/rpc.tsx';
 
 import { useProviderSettings } from './use-provider-settings';
 
-const operations = vi.hoisted(() => ({
-  saveAiSettings: vi.fn().mockResolvedValue({}),
-  saveProviderApiKey: vi.fn().mockResolvedValue(undefined)
+const operations = test.hoisted(() => ({
+  saveAiSettings: test.vi.fn().mockResolvedValue({}),
+  saveProviderApiKey: test.vi.fn().mockResolvedValue(undefined)
 }));
 
 const data = {
@@ -32,7 +28,7 @@ const data = {
 };
 
 function mount() {
-  const fixture = settingsTransport(async (tag, input) => {
+  const fixture = test.rpcTestTransport(async (tag, input) => {
     if (tag === 'settings.saveLlmSettings')
       return operations.saveAiSettings(Schema.decodeUnknownSync(llmSettingsSchema)(input));
 
@@ -42,25 +38,25 @@ function mount() {
     throw new Error(tag);
   });
 
-  return renderHook(() => useProviderSettings(data), { wrapper: fixture.wrapper });
+  return test.renderHook(() => useProviderSettings(data), { wrapper: fixture.wrapper });
 }
 
-testStable(
+test.stable(
   'a combined selection saves its provider and model together and preserves other tiers',
   async () => {
     const { result } = mount();
 
-    act(() => result.current.setSetup('tiny', { provider: 'anthropic', model: 'new-model' }));
-    await waitFor(() =>
-      expect(operations.saveAiSettings).toHaveBeenCalledWith({
+    test.act(() => result.current.setSetup('tiny', { provider: 'anthropic', model: 'new-model' }));
+    await test.waitFor(() =>
+      test.expect(operations.saveAiSettings).toHaveBeenCalledWith({
         ...data.settings,
         tiny: { provider: 'anthropic', model: 'new-model' }
       })
     );
-    expect(operations.saveAiSettings).toHaveBeenCalledTimes(1);
-    act(() => result.current.setSetup('medium', { provider: 1 }));
-    await waitFor(() =>
-      expect(operations.saveAiSettings).toHaveBeenCalledWith({
+    test.expect(operations.saveAiSettings).toHaveBeenCalledTimes(1);
+    test.act(() => result.current.setSetup('medium', { provider: 1 }));
+    await test.waitFor(() =>
+      test.expect(operations.saveAiSettings).toHaveBeenCalledWith({
         ...data.settings,
         medium: { provider: 1 }
       })
@@ -68,16 +64,16 @@ testStable(
   }
 );
 
-testStable('submits write-only credentials once and clears mutation presentation', async () => {
+test.stable('submits write-only credentials once and clears mutation presentation', async () => {
   const { result } = mount();
 
-  await act(async () => {
+  await test.act(async () => {
     await result.current.saveApiKey('anthropic', 'temporary-secret');
   });
-  expect(operations.saveProviderApiKey).toHaveBeenCalledWith({
+  test.expect(operations.saveProviderApiKey).toHaveBeenCalledWith({
     provider: 'anthropic',
     apiKey: 'temporary-secret'
   });
-  expect(result.current.pending).toBe(false);
-  expect(result.current.error).toBe(false);
+  test.expect(result.current.pending).toBe(false);
+  test.expect(result.current.error).toBe(false);
 });

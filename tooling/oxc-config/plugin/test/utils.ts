@@ -1,6 +1,7 @@
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
+import { test } from '@study/testing';
+import { temporaryDirectory } from '@study/testing/resources';
 import { Effect, FileSystem, Path } from 'effect';
-import { assert, expect } from 'vite-plus/test';
 
 const { dirname, join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
@@ -126,7 +127,7 @@ async function runLint(
   assertLintStatus(result.exitCode, stderr, stdout);
   const output = JSON.parse(stdout) as { diagnostics: Diagnostic[] };
 
-  assert.strictEqual(result.exitCode, output.diagnostics.length ? 1 : 0, stderr);
+  test.assert.strictEqual(result.exitCode, output.diagnostics.length ? 1 : 0, stderr);
 
   return output.diagnostics;
 }
@@ -137,24 +138,21 @@ export async function lintFiles(
   workspace = false,
   manifests?: Record<string, unknown>
 ): Promise<Diagnostic[]> {
-  const directory = await Effect.runPromise(fs.makeTempDirectory({ prefix: 'oxlint-quality-' }));
+  await using temporary = await temporaryDirectory({ prefix: 'oxlint-quality-' });
+  const directory = temporary.path;
   const server = join(directory, 'apps/server');
 
-  try {
-    await writeSources(files, workspace ? directory : server);
-    const plugin = await preparePlugin(directory, manifests);
+  await writeSources(files, workspace ? directory : server);
+  const plugin = await preparePlugin(directory, manifests);
 
-    return await runLint(
-      directory,
-      server,
-      plugin,
-      rule,
-      workspace,
-      Object.keys(files).filter((name) => name.startsWith('tooling/'))
-    );
-  } finally {
-    await Effect.runPromise(fs.remove(directory, { recursive: true, force: true }));
-  }
+  return await runLint(
+    directory,
+    server,
+    plugin,
+    rule,
+    workspace,
+    Object.keys(files).filter((name) => name.startsWith('tooling/'))
+  );
 }
 
 export function lintRule(
@@ -177,7 +175,7 @@ export async function lintRulePaths(
     .map(({ filename }) => {
       const path = paths.find((candidate) => filename.endsWith(`/${candidate}`));
 
-      assert.ok(path, filename);
+      test.assert.ok(path, filename);
 
       return path;
     })
@@ -191,20 +189,20 @@ export function checkWiring(
   overrides: Record<string, unknown>[] = []
 ): void {
   for (const rule of rules) {
-    assert.strictEqual(
+    test.assert.strictEqual(
       configured[`study/${rule}`],
       'error',
       `study/${rule} must be enabled as an error`
     );
-    assert.ok(testFiles.includes(`${rule}.test.ts`), `missing test for study/${rule}`);
+    test.assert.ok(testFiles.includes(`${rule}.test.ts`), `missing test for study/${rule}`);
   }
 
   for (const entries of [configured, ...overrides]) {
     for (const [name, severity] of Object.entries(entries)) {
       if (!name.startsWith('study/')) continue;
 
-      assert.ok(rules.includes(name.slice('study/'.length)), `unknown rule ${name}`);
-      assert.strictEqual(
+      test.assert.ok(rules.includes(name.slice('study/'.length)), `unknown rule ${name}`);
+      test.assert.strictEqual(
         Array.isArray(severity) ? severity[0] : severity,
         'error',
         `${name} must remain an error`
@@ -218,20 +216,22 @@ export function assertDiagnostics(
   diagnostics: Diagnostic[],
   expected: [string, string][]
 ): void {
-  expect(
-    diagnostics
-      .map(({ code, filename, message }) => {
-        assert.strictEqual(code, `study(${rule})`);
-        const marker = '/apps/server/';
+  test
+    .expect(
+      diagnostics
+        .map(({ code, filename, message }) => {
+          test.assert.strictEqual(code, `study(${rule})`);
+          const marker = '/apps/server/';
 
-        assert.ok(filename.includes(marker), filename);
+          test.assert.ok(filename.includes(marker), filename);
 
-        return [filename.split(marker)[1], message];
-      })
-      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
-  ).toStrictEqual(expected.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))));
+          return [filename.split(marker)[1], message];
+        })
+        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+    )
+    .toStrictEqual(expected.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))));
 }
 
 function assertLintStatus(status: number | null, stderr: string, stdout: string): void {
-  assert.ok(status === 0 || status === 1, stderr || stdout);
+  test.assert.ok(status === 0 || status === 1, stderr || stdout);
 }

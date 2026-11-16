@@ -1,17 +1,13 @@
 import { StudyError, noteIdSchema } from '@study/contracts';
 import type { NoteId } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { afterEach, expect, vi } from 'vite-plus/test';
-
-import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { NoteBatchDeleteDialog } from './deletion';
 
-const rpc = vi.hoisted(() => ({ remove: vi.fn(), retry: vi.fn(), read: vi.fn() }));
+const rpc = test.hoisted(() => ({ remove: test.vi.fn(), retry: test.vi.fn(), read: test.vi.fn() }));
 
-vi.mock('#client/lib/i18n.tsx', () => ({
+test.mock('#client/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'english' })
 }));
 
@@ -26,16 +22,16 @@ const notes = [
   { id: second, title: 'Second note' }
 ];
 
-afterEach(() => {
-  cleanup();
-  vi.resetAllMocks();
+test.afterEach(() => {
+  test.cleanup();
+  test.vi.resetAllMocks();
 });
 
-function mount(onDeleted = vi.fn()) {
+function mount(onDeleted = test.vi.fn()) {
   if (!rpc.read.getMockImplementation()) rpc.read.mockResolvedValue(null);
 
   const receipts = new Map<NoteId, unknown>();
-  const fixture = rpcHandlersTransport({
+  const fixture = test.rpcHandlersTransport({
     'notes.noteDeletion': async ({ id }) => {
       const value = receipts.get(id) ?? (await rpc.read(id));
 
@@ -59,22 +55,22 @@ function mount(onDeleted = vi.fn()) {
     }
   });
   const Provider = fixture.wrapper;
-  const close = vi.fn();
+  const close = test.vi.fn();
   const node = (selected = notes) => (
     <Provider>
       <NoteBatchDeleteDialog notes={selected} open onOpenChange={close} onDeleted={onDeleted} />
     </Provider>
   );
 
-  return { ...render(node()), node, close, onDeleted };
+  return { ...test.render(node()), node, close, onDeleted };
 }
 
-testStable('does not delete anything when batch confirmation is cancelled', async () => {
+test.stable('does not delete anything when batch confirmation is cancelled', async () => {
   mount();
-  fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
-  expect(rpc.remove).not.toHaveBeenCalled();
+  test.fireEvent.click(await test.screen.findByRole('button', { name: 'Cancel' }));
+  test.expect(rpc.remove).not.toHaveBeenCalled();
 });
-testStable(
+test.stable(
   'keeps the reviewed selection fixed and retries only a failed note after a partial success',
   async () => {
     const receipt = (id: NoteId) => ({
@@ -97,27 +93,27 @@ testStable(
     });
     const view = mount();
 
-    fireEvent.change(await screen.findByRole('textbox'), {
+    test.fireEvent.change(await test.screen.findByRole('textbox'), {
       target: { value: 'DeleteConfirmationWord' }
     });
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'NoteBatchConfirmDelete' })).toBeEnabled()
+    await test.waitFor(() =>
+      test.expect(test.screen.getByRole('button', { name: 'NoteBatchConfirmDelete' })).toBeEnabled()
     );
-    fireEvent.click(screen.getByRole('button', { name: 'NoteBatchConfirmDelete' }));
-    await waitFor(() => expect(rpc.remove).toHaveBeenCalledTimes(2));
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteBatchConfirmDelete' }));
+    await test.waitFor(() => test.expect(rpc.remove).toHaveBeenCalledTimes(2));
     view.rerender(view.node([{ id: third, title: 'Another note' }]));
-    expect(screen.getByText('Second note')).toBeVisible();
-    expect(screen.queryByText('Another note')).toBeNull();
-    await waitFor(() => expect(view.onDeleted).toHaveBeenCalledExactlyOnceWith([first]));
-    expect(rpc.remove).not.toHaveBeenCalledWith(third);
-    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
-    await waitFor(() => expect(rpc.remove).toHaveBeenCalledTimes(3));
-    expect(rpc.remove.mock.calls.map(([id]) => id)).toEqual([first, second, second]);
-    await waitFor(() => expect(view.close).toHaveBeenCalledWith(false));
+    test.expect(test.screen.getByText('Second note')).toBeVisible();
+    test.expect(test.screen.queryByText('Another note')).toBeNull();
+    await test.waitFor(() => test.expect(view.onDeleted).toHaveBeenCalledExactlyOnceWith([first]));
+    test.expect(rpc.remove).not.toHaveBeenCalledWith(third);
+    test.fireEvent.click(await test.screen.findByRole('button', { name: 'Retry' }));
+    await test.waitFor(() => test.expect(rpc.remove).toHaveBeenCalledTimes(3));
+    test.expect(rpc.remove.mock.calls.map(([id]) => id)).toEqual([first, second, second]);
+    await test.waitFor(() => test.expect(view.close).toHaveBeenCalledWith(false));
   }
 );
 
-testStable(
+test.stable(
   'treats an already completed target as satisfied and deletes only the remaining target',
   async () => {
     const receipt = {
@@ -132,17 +128,17 @@ testStable(
     rpc.read.mockImplementation(async (id: NoteId) => (id === first ? receipt : null));
     rpc.remove.mockResolvedValue({ ...receipt, noteId: second, operationId: 'second' });
     mount();
-    fireEvent.change(await screen.findByRole('textbox'), {
+    test.fireEvent.change(await test.screen.findByRole('textbox'), {
       target: { value: 'DeleteConfirmationWord' }
     });
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'NoteBatchConfirmDelete' })).toBeEnabled()
+    await test.waitFor(() =>
+      test.expect(test.screen.getByRole('button', { name: 'NoteBatchConfirmDelete' })).toBeEnabled()
     );
-    fireEvent.click(screen.getByRole('button', { name: 'NoteBatchConfirmDelete' }));
-    await waitFor(() => expect(rpc.remove).toHaveBeenCalledExactlyOnceWith(second));
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteBatchConfirmDelete' }));
+    await test.waitFor(() => test.expect(rpc.remove).toHaveBeenCalledExactlyOnceWith(second));
   }
 );
-testStable(
+test.stable(
   'allows cancelling before confirmation when another deletion is already pending',
   async () => {
     rpc.read.mockResolvedValue({
@@ -155,10 +151,10 @@ testStable(
     });
     const view = mount();
 
-    await screen.findAllByText('NoteDeleting');
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(view.close).toHaveBeenCalledWith(false);
-    expect(rpc.remove).not.toHaveBeenCalled();
+    await test.screen.findAllByText('NoteDeleting');
+    test.expect(test.screen.getByRole('button', { name: 'Cancel' })).toBeEnabled();
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'Cancel' }));
+    test.expect(view.close).toHaveBeenCalledWith(false);
+    test.expect(rpc.remove).not.toHaveBeenCalled();
   }
 );

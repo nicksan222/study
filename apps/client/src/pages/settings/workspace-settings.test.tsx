@@ -1,25 +1,20 @@
 import { workspacePreferencesSchema, defaultWorkspacePreferences } from '@study/contracts';
 import type { WorkspacePreferences } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
-import { assert, beforeEach, expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport as settingsTransport } from '#client/test/rpc.tsx';
 
 import { AiWritingSettings, WritingSettings } from './workspace-settings';
 
-const api = vi.hoisted(() => ({
-  strategies: vi.fn<() => Promise<unknown[]>>(),
-  read: vi.fn<() => Promise<WorkspacePreferences>>(),
-  save: vi.fn<(value: WorkspacePreferences) => Promise<WorkspacePreferences>>()
+const api = test.hoisted(() => ({
+  strategies: test.vi.fn<() => Promise<unknown[]>>(),
+  read: test.vi.fn<() => Promise<WorkspacePreferences>>(),
+  save: test.vi.fn<(value: WorkspacePreferences) => Promise<WorkspacePreferences>>()
 }));
 
-vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
 
-beforeEach(() => {
-  vi.clearAllMocks();
+test.beforeEach(() => {
+  test.vi.clearAllMocks();
   api.read.mockResolvedValue(defaultWorkspacePreferences);
   api.strategies.mockResolvedValue([
     { id: 'chatgpt', name: 'ChatGPT', supportedInputs: ['text', 'pdf'] }
@@ -27,7 +22,7 @@ beforeEach(() => {
 });
 
 function mount(ai = false) {
-  const fixture = settingsTransport(async (tag, input) => {
+  const fixture = test.rpcTestTransport(async (tag, input) => {
     if (tag === 'settings.workspacePreferences') return api.read();
 
     if (tag === 'sources.conversionStrategies') return api.strategies();
@@ -46,12 +41,12 @@ function mount(ai = false) {
     throw new Error(`Unexpected endpoint ${tag}`);
   });
 
-  render(ai ? <AiWritingSettings /> : <WritingSettings />, { wrapper: fixture.wrapper });
+  test.render(ai ? <AiWritingSettings /> : <WritingSettings />, { wrapper: fixture.wrapper });
 
   return fixture;
 }
 
-testStable(
+test.stable(
   'retains a rejected numeric draft through recovery and retries the exact value',
   async () => {
     api.save
@@ -62,101 +57,109 @@ testStable(
         return value;
       });
     mount();
-    const input = await screen.findByRole('spinbutton', { name: 'WorkspaceAutosave' });
+    const input = await test.screen.findByRole('spinbutton', { name: 'WorkspaceAutosave' });
 
-    fireEvent.change(input, { target: { value: '8' } });
+    test.fireEvent.change(input, { target: { value: '8' } });
     const form = input.closest('form');
 
-    assert.ok(form, 'Autosave controls require a form');
+    test.assert.ok(form, 'Autosave controls require a form');
 
-    fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
-    expect(await screen.findByText('WorkspaceSettingsFailed')).toBeInTheDocument();
-    expect(input).toHaveValue(8);
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    await waitFor(() => expect(screen.queryByText('WorkspaceSettingsFailed')).toBeNull());
-    expect(input).toHaveValue(8);
-    fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
-    await screen.findByText('WorkspaceSettingsSaved');
-    expect(api.save).toHaveBeenNthCalledWith(2, {
+    test.fireEvent.click(test.within(form).getByRole('button', { name: 'Save' }));
+    test.expect(await test.screen.findByText('WorkspaceSettingsFailed')).toBeInTheDocument();
+    test.expect(input).toHaveValue(8);
+    test.fireEvent.click(test.screen.getByRole('button', { name: 'Retry' }));
+    await test.waitFor(() =>
+      test.expect(test.screen.queryByText('WorkspaceSettingsFailed')).toBeNull()
+    );
+    test.expect(input).toHaveValue(8);
+    test.fireEvent.click(test.within(form).getByRole('button', { name: 'Save' }));
+    await test.screen.findByText('WorkspaceSettingsSaved');
+    test.expect(api.save).toHaveBeenNthCalledWith(2, {
       ...defaultWorkspacePreferences,
       autosaveIntervalSeconds: 8
     });
-    expect(input).toHaveValue(8);
-    await waitFor(() => expect(within(form).getByRole('button', { name: 'Save' })).toBeDisabled());
+    test.expect(input).toHaveValue(8);
+    await test.waitFor(() =>
+      test.expect(test.within(form).getByRole('button', { name: 'Save' })).toBeDisabled()
+    );
   }
 );
 
-testStable('saves a switch and reflects the confirmed persisted value', async () => {
+test.stable('saves a switch and reflects the confirmed persisted value', async () => {
   api.save.mockImplementation(async (value) => {
     api.read.mockResolvedValue(value);
 
     return value;
   });
   mount();
-  const toggle = await screen.findByRole('switch', { name: 'WorkspaceSpellcheck' });
+  const toggle = await test.screen.findByRole('switch', { name: 'WorkspaceSpellcheck' });
 
-  expect(toggle).toBeChecked();
-  fireEvent.click(toggle);
-  await waitFor(() =>
-    expect(api.save).toHaveBeenCalledWith({ ...defaultWorkspacePreferences, spellcheck: false })
+  test.expect(toggle).toBeChecked();
+  test.fireEvent.click(toggle);
+  await test.waitFor(() =>
+    test
+      .expect(api.save)
+      .toHaveBeenCalledWith({ ...defaultWorkspacePreferences, spellcheck: false })
   );
-  await waitFor(() => expect(toggle).not.toBeChecked());
-  expect(await screen.findByText('WorkspaceSettingsSaved')).toBeInTheDocument();
+  await test.waitFor(() => test.expect(toggle).not.toBeChecked());
+  test.expect(await test.screen.findByText('WorkspaceSettingsSaved')).toBeInTheDocument();
 });
 
-testStable('keeps automatic answers opt-in and persists the confirmed preference', async () => {
+test.stable('keeps automatic answers opt-in and persists the confirmed preference', async () => {
   api.save.mockImplementation(async (value) => {
     api.read.mockResolvedValue(value);
 
     return value;
   });
   mount(true);
-  const toggle = await screen.findByRole('switch', { name: 'WorkspaceAutoAnswerQuestions' });
+  const toggle = await test.screen.findByRole('switch', { name: 'WorkspaceAutoAnswerQuestions' });
 
-  expect(toggle).not.toBeChecked();
-  fireEvent.click(toggle);
-  await waitFor(() =>
-    expect(api.save).toHaveBeenCalledWith({
+  test.expect(toggle).not.toBeChecked();
+  test.fireEvent.click(toggle);
+  await test.waitFor(() =>
+    test.expect(api.save).toHaveBeenCalledWith({
       ...defaultWorkspacePreferences,
       autoAnswerQuestions: true
     })
   );
-  await waitFor(() => expect(toggle).toBeChecked());
+  await test.waitFor(() => test.expect(toggle).toBeChecked());
 });
 
-testStable('offers manual conversion by default and discovers the available method', async () => {
+test.stable('offers manual conversion by default and discovers the available method', async () => {
   mount(true);
-  expect(
-    await screen.findByRole('combobox', { name: 'WorkspaceConversionMode' })
-  ).toHaveTextContent('WorkspaceConversionManual');
-  expect(await screen.findByText('ChatGPT')).toBeVisible();
+  test
+    .expect(await test.screen.findByRole('combobox', { name: 'WorkspaceConversionMode' }))
+    .toHaveTextContent('WorkspaceConversionManual');
+  test.expect(await test.screen.findByText('ChatGPT')).toBeVisible();
 });
 
-testStable('persists automatic conversion only after an explicit mode selection', async () => {
+test.stable('persists automatic conversion only after an explicit mode selection', async () => {
   api.save.mockImplementation(async (value) => {
     api.read.mockResolvedValue(value);
 
     return value;
   });
-  const user = userEvent.setup();
+  const user = test.userEvent.setup();
 
   mount(true);
-  await user.click(await screen.findByRole('combobox', { name: 'WorkspaceConversionMode' }));
-  await user.click(await screen.findByRole('option', { name: 'WorkspaceConversionAutomatic' }));
-  await waitFor(() =>
-    expect(api.save).toHaveBeenCalledWith({
+  await user.click(await test.screen.findByRole('combobox', { name: 'WorkspaceConversionMode' }));
+  await user.click(
+    await test.screen.findByRole('option', { name: 'WorkspaceConversionAutomatic' })
+  );
+  await test.waitFor(() =>
+    test.expect(api.save).toHaveBeenCalledWith({
       ...defaultWorkspacePreferences,
       textConversionMode: 'automatic'
     })
   );
-  await waitFor(() =>
-    expect(screen.getByRole('combobox', { name: 'WorkspaceConversionMode' })).toHaveTextContent(
-      'WorkspaceConversionAutomatic'
-    )
+  await test.waitFor(() =>
+    test
+      .expect(test.screen.getByRole('combobox', { name: 'WorkspaceConversionMode' }))
+      .toHaveTextContent('WorkspaceConversionAutomatic')
   );
 });
 
-testStable(
+test.stable(
   'replaces an unavailable saved strategy even when only one method is available',
   async () => {
     api.read.mockResolvedValue({
@@ -168,34 +171,34 @@ testStable(
 
       return value;
     });
-    const user = userEvent.setup();
+    const user = test.userEvent.setup();
 
     mount(true);
-    expect(await screen.findByText('WorkspaceConversionUnavailable')).toBeVisible();
-    const select = screen.getByRole('combobox', { name: 'WorkspaceConversionStrategy' });
+    test.expect(await test.screen.findByText('WorkspaceConversionUnavailable')).toBeVisible();
+    const select = test.screen.getByRole('combobox', { name: 'WorkspaceConversionStrategy' });
 
-    expect(select).toBeEnabled();
+    test.expect(select).toBeEnabled();
     await user.click(select);
-    await user.click(await screen.findByRole('option', { name: 'ChatGPT' }));
-    await waitFor(() =>
-      expect(api.save).toHaveBeenCalledWith({
+    await user.click(await test.screen.findByRole('option', { name: 'ChatGPT' }));
+    await test.waitFor(() =>
+      test.expect(api.save).toHaveBeenCalledWith({
         ...defaultWorkspacePreferences,
         textConversionStrategy: 'chatgpt'
       })
     );
-    await waitFor(() =>
-      expect(screen.queryByText('WorkspaceConversionUnavailable')).not.toBeInTheDocument()
+    await test.waitFor(() =>
+      test.expect(test.screen.queryByText('WorkspaceConversionUnavailable')).not.toBeInTheDocument()
     );
   }
 );
 
-testStable('recovers strategy discovery through its retry action', async () => {
+test.stable('recovers strategy discovery through its retry action', async () => {
   api.strategies.mockRejectedValueOnce(new Error('Disconnected'));
-  const user = userEvent.setup();
+  const user = test.userEvent.setup();
 
   mount(true);
-  expect(await screen.findByText('WorkspaceSettingsFailed')).toBeVisible();
-  await user.click(screen.getByRole('button', { name: 'Retry' }));
-  expect(await screen.findByText('ChatGPT')).toBeVisible();
-  expect(api.strategies).toHaveBeenCalledTimes(2);
+  test.expect(await test.screen.findByText('WorkspaceSettingsFailed')).toBeVisible();
+  await user.click(test.screen.getByRole('button', { name: 'Retry' }));
+  test.expect(await test.screen.findByText('ChatGPT')).toBeVisible();
+  test.expect(api.strategies).toHaveBeenCalledTimes(2);
 });

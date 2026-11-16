@@ -1,11 +1,10 @@
-import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { test } from '@study/testing';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message = 'Use Effect.forkScoped so background fibers have an owning scope.';
 
-testStable('requires server fibers to stay under an explicit owner', async () => {
+test.stable('requires server fibers to stay under an explicit owner', async () => {
   const diagnostics = await lintRule('effect-scoped-fibers', {
     'src/workers/unsafe.ts': "import { Effect as E } from 'effect'; E.forkDetach(work);",
     'src/workers/safe.ts': String.raw`import * as E from "effect/Effect";
@@ -20,7 +19,7 @@ function f(E) {
   assertDiagnostics('effect-scoped-fibers', diagnostics, [['src/workers/unsafe.ts', message]]);
 });
 
-testStable('tracks namespace, named and const aliases', async () => {
+test.stable('tracks namespace, named and const aliases', async () => {
   const diagnostics = await lintRule('effect-scoped-fibers', {
     'src/workers/example.ts': String.raw`import * as E from "effect/Effect";
 import { forkDetach as detach } from "effect/Effect";
@@ -35,7 +34,7 @@ detach(work);`
   ]);
 });
 
-testStable('permits only the explicit application root', async () => {
+test.stable('permits only the explicit application root', async () => {
   const diagnostics = await lintRule('effect-scoped-fibers', {
     'src/runtime/main.ts': "import { Effect } from 'effect'; Effect.forkDetach(work);"
   });
@@ -43,7 +42,7 @@ testStable('permits only the explicit application root', async () => {
   assertDiagnostics('effect-scoped-fibers', diagnostics, []);
 });
 
-testStable('retains enforcement in other runtime modules', async () => {
+test.stable('retains enforcement in other runtime modules', async () => {
   const diagnostics = await lintRule('effect-scoped-fibers', {
     'src/runtime/service.ts': "import { Effect } from 'effect'; Effect.forkDetach(work);"
   });
@@ -51,7 +50,7 @@ testStable('retains enforcement in other runtime modules', async () => {
   assertDiagnostics('effect-scoped-fibers', diagnostics, [['src/runtime/service.ts', message]]);
 });
 
-testStable('tracks destructured aliases and ignores their local shadows', async () => {
+test.stable('tracks destructured aliases and ignores their local shadows', async () => {
   const diagnostics = await lintRule('effect-scoped-fibers', {
     'src/workers/destructure.ts': String.raw`import { Effect as E } from "effect";
 const { forkDetach: detach } = E;
@@ -64,7 +63,7 @@ function f(detach) {
   assertDiagnostics('effect-scoped-fibers', diagnostics, [['src/workers/destructure.ts', message]]);
 });
 
-testStable('requires browser fibers to stay under an explicit owner', async () => {
+test.stable('requires browser fibers to stay under an explicit owner', async () => {
   const diagnostics = await lintRule(
     'effect-scoped-fibers',
     {
@@ -76,10 +75,10 @@ testStable('requires browser fibers to stay under an explicit owner', async () =
     true
   );
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable('rejects inline scopes without a retained owner in both forkIn forms', async () => {
+test.stable('rejects inline scopes without a retained owner in both forkIn forms', async () => {
   const diagnostics = await lintRule('effect-scoped-fibers', {
     'src/bad.ts': String.raw`import { Effect, Scope } from "effect";
 Effect.forkIn(work, Scope.makeUnsafe());

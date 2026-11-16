@@ -5,20 +5,16 @@ import {
   applyProposalSchema,
   keepProposalSchema
 } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { ProposalReview } from './proposal-review';
 import { authoredPage } from './test-support';
 
-vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('@tanstack/react-router', () => ({
+test.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
+test.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children: ReactNode }) => <span>{children}</span>
 }));
 
@@ -49,12 +45,12 @@ const receipt = (outcome: 'applied' | 'kept' | 'conflict') =>
   });
 
 for (const kind of ['apply', 'keep'] as const) {
-  testStable(
+  test.stable(
     `explicit ${kind} retry keeps the uncertain payload through live refresh and route remount`,
     async () => {
       const attempts: unknown[] = [];
       let current = 101n;
-      const fixture = rpcTestTransport(async (tag, input) => {
+      const fixture = test.rpcTestTransport(async (tag, input) => {
         if (tag === 'pages.compareProposal') return comparison(current);
 
         if (tag === 'pages.version') return version(103n);
@@ -85,27 +81,29 @@ for (const kind of ['apply', 'keep'] as const) {
         );
       }
 
-      render(<Route />, { wrapper: fixture.wrapper });
-      fireEvent.click(
-        await screen.findByRole('button', { name: kind === 'apply' ? 'PageApply' : 'PageKeepNew' })
+      test.render(<Route />, { wrapper: fixture.wrapper });
+      test.fireEvent.click(
+        await test.screen.findByRole('button', {
+          name: kind === 'apply' ? 'PageApply' : 'PageKeepNew'
+        })
       );
-      await screen.findByText('PageActionFailed');
+      await test.screen.findByText('PageActionFailed');
       current = 104n;
-      await act(() => fixture.notify());
-      fireEvent.click(screen.getByRole('button', { name: 'Route' }));
-      fireEvent.click(screen.getByRole('button', { name: 'Route' }));
-      fireEvent.click(await screen.findByRole('button', { name: 'PageRetryProposal' }));
-      await screen.findByText('PageProposalSaved');
-      expect(attempts).toHaveLength(2);
-      expect(attempts[1]).toEqual(attempts[0]);
+      await test.act(() => fixture.notify());
+      test.fireEvent.click(test.screen.getByRole('button', { name: 'Route' }));
+      test.fireEvent.click(test.screen.getByRole('button', { name: 'Route' }));
+      test.fireEvent.click(await test.screen.findByRole('button', { name: 'PageRetryProposal' }));
+      await test.screen.findByText('PageProposalSaved');
+      test.expect(attempts).toHaveLength(2);
+      test.expect(attempts[1]).toEqual(attempts[0]);
     }
   );
 }
 
-testStable('two rendered proposal controls share write ownership', async () => {
+test.stable('two rendered proposal controls share write ownership', async () => {
   let resolve!: (value: unknown) => void;
   const calls: unknown[] = [];
-  const fixture = rpcTestTransport(async (tag, input) => {
+  const fixture = test.rpcTestTransport(async (tag, input) => {
     if (tag === 'pages.compareProposal') return comparison();
 
     if (tag === 'pages.version') return version(103n);
@@ -119,18 +117,18 @@ testStable('two rendered proposal controls share write ownership', async () => {
     });
   });
 
-  render(
+  test.render(
     <>
       <ProposalReview requestId="proposal-1" />
       <ProposalReview requestId="proposal-1" />
     </>,
     { wrapper: fixture.wrapper }
   );
-  const buttons = await screen.findAllByRole('button', { name: 'PageApply' });
+  const buttons = await test.screen.findAllByRole('button', { name: 'PageApply' });
 
-  fireEvent.click(buttons[0]!);
-  fireEvent.click(buttons[1]!);
-  await waitFor(() => expect(calls).toHaveLength(1));
-  await act(async () => resolve(receipt('applied')));
-  await screen.findAllByText('PageProposalSaved');
+  test.fireEvent.click(buttons[0]!);
+  test.fireEvent.click(buttons[1]!);
+  await test.waitFor(() => test.expect(calls).toHaveLength(1));
+  await test.act(async () => resolve(receipt('applied')));
+  await test.screen.findAllByText('PageProposalSaved');
 });

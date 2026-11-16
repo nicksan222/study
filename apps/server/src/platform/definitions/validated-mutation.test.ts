@@ -1,3 +1,4 @@
+import { StudyError } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies schema validation and rollback in the shared mutation harness.            │
@@ -9,13 +10,9 @@
  * │ Exercises real typed stores and SQLite transactions without feature services.            │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyError } from '@study/contracts';
 import { preferences } from '@study/db';
-import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-import { assert } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -43,10 +40,10 @@ const probe = defineStore({
   })
 });
 
-testStable(
+test.stable(
   'validated mutation rejects inputs and rolls back a typed store write on failure',
-  async () => {
-    const location = await createTestDatabase();
+  async ({ databases }) => {
+    const location = await databases();
     const context = new ServerContext(await location.open());
     const failure = new StudyError('internal', 'write failed');
     const save = validatedMutation({
@@ -64,13 +61,13 @@ testStable(
       Effect.runPromise(effect.pipe(Effect.provideService(Database, { store: context })));
 
     try {
-      assert.deepStrictEqual(await run(save(1)), { value: 1 });
+      test.assert.deepStrictEqual(await run(save(1)), { value: 1 });
       const invalid = await run(Effect.flip(save(1.5)));
 
-      assert.strictEqual(invalid.kind, 'invalid_input');
-      assert.strictEqual(invalid.message, 'Expected an integer');
-      assert.strictEqual(await run(Effect.flip(save(2))), failure);
-      assert.deepStrictEqual(
+      test.assert.strictEqual(invalid.kind, 'invalid_input');
+      test.assert.strictEqual(invalid.message, 'Expected an integer');
+      test.assert.strictEqual(await run(Effect.flip(save(2))), failure);
+      test.assert.deepStrictEqual(
         context.db.orm
           .select()
           .from(preferences)

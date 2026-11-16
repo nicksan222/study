@@ -1,3 +1,4 @@
+import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies durable receipt digests across renamed page operation inputs.             │
@@ -9,15 +10,12 @@
  * │ Pure digest regressions exercise typed codecs without database or provider access.       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { testStable } from '@study/testing/vitest';
 import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
-import { expect } from 'vite-plus/test';
 
 import { intentHash } from './intent.ts';
 
-testStable('page intents retain persisted receipt digests across renamed identities', () => {
+test.stable('page intents retain persisted receipt digests across renamed identities', () => {
   const schema = Schema.Struct({
     pageId: Schema.BigInt,
     noteId: Schema.BigInt,
@@ -34,18 +32,20 @@ testStable('page intents retain persisted receipt digests across renamed identit
   };
   const expected = new CryptoHasher('sha256').update(JSON.stringify(historical)).digest('hex');
 
-  expect(
-    intentHash(schema, {
-      pageId: 3n,
-      noteId: 7n,
-      additionalNoteIds: [9n],
-      input: { kind: 'page', versionId: 5n },
-      document: { text: 'A note about pages' }
-    })
-  ).toBe(expected);
+  test
+    .expect(
+      intentHash(schema, {
+        pageId: 3n,
+        noteId: 7n,
+        additionalNoteIds: [9n],
+        input: { kind: 'page', versionId: 5n },
+        document: { text: 'A note about pages' }
+      })
+    )
+    .toBe(expected);
 });
 
-testStable('historical intent encoding preserves annotation notes and canonical body keys', () => {
+test.stable('historical intent encoding preserves annotation notes and canonical body keys', () => {
   const document = {
     blocks: [],
     meta: { footnote: 'original', note: 'annotation', pageId: 'metadata', noteId: 'metadata owner' }
@@ -73,13 +73,15 @@ testStable('historical intent encoding preserves annotation notes and canonical 
     notes: ['An existing report note']
   };
 
-  expect(
-    intentHash(schema, {
-      pageId: 3n,
-      note: historical.note,
-      notes: historical.notes,
-      document,
-      input: { kind: 'page', versionId: 5n }
-    })
-  ).toBe(new CryptoHasher('sha256').update(JSON.stringify(historical)).digest('hex'));
+  test
+    .expect(
+      intentHash(schema, {
+        pageId: 3n,
+        note: historical.note,
+        notes: historical.notes,
+        document,
+        input: { kind: 'page', versionId: 5n }
+      })
+    )
+    .toBe(new CryptoHasher('sha256').update(JSON.stringify(historical)).digest('hex'));
 });

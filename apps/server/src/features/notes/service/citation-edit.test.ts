@@ -1,3 +1,4 @@
+import { citations } from '@study/db';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies edits retain and renumber surviving citation evidence while leaving       │
@@ -12,22 +13,17 @@
  * │ by the feature implementation.                                                           │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { citations } from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { test } from '@study/testing';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
-import { assert } from 'vite-plus/test';
 
 import { Projects } from '#server/features/projects/index';
-import { createStudyTest } from '#testing/server-test';
 
 import { Notes } from './index.ts';
 
-testStable(
+test.stable(
   'edits preserve and renumber surviving citation evidence without changing historical versions',
-  async (t) => {
-    const fixture = await createStudyTest(t);
+  async ({ server: serverFixture }) => {
+    const fixture = serverFixture;
 
     await fixture.run(
       Effect.gen(function* () {
@@ -42,7 +38,7 @@ testStable(
           text: 'First [1], second [2], third [3].'
         });
 
-        assert.ok(original.activeVersionId);
+        test.assert.ok(original.activeVersionId);
 
         for (const marker of [1, 2, 3])
           fixture.store.db.orm
@@ -62,53 +58,57 @@ testStable(
           text: 'Keep [3] and [1, 3].'
         });
 
-        assert.ok(
+        test.assert.ok(
           edited.versions.find((version) => version.id === edited.activeVersionId)?.text ===
             'Keep [2] and [1, 2].'
         );
-        expect(
-          edited.citations.map(({ marker, sourceName, anchor, quote }) => ({
-            marker,
-            sourceName,
-            anchor,
-            quote
-          }))
-        ).toStrictEqual([
-          {
-            marker: 1,
-            sourceName: 'Source 1',
-            anchor: { type: 'page', page: 1 },
-            quote: 'Evidence 1'
-          },
-          {
-            marker: 2,
-            sourceName: 'Source 3',
-            anchor: { type: 'page', page: 3 },
-            quote: 'Evidence 3'
-          }
-        ]);
+        test
+          .expect(
+            edited.citations.map(({ marker, sourceName, anchor, quote }) => ({
+              marker,
+              sourceName,
+              anchor,
+              quote
+            }))
+          )
+          .toStrictEqual([
+            {
+              marker: 1,
+              sourceName: 'Source 1',
+              anchor: { type: 'page', page: 1 },
+              quote: 'Evidence 1'
+            },
+            {
+              marker: 2,
+              sourceName: 'Source 3',
+              anchor: { type: 'page', page: 3 },
+              quote: 'Evidence 3'
+            }
+          ]);
         const exact = yield* notes.messageVersionCitations({
           noteId: note.id,
           messageId: original.id,
           versionId: original.activeVersionId
         });
 
-        expect(exact.citations.map((c) => c.marker)).toStrictEqual([1, 2, 3]);
-        assert.ok(exact.citations.every((c) => c.evidence?.availability === 'unavailable'));
-        assert.strictEqual(
+        test.expect(exact.citations.map((c) => c.marker)).toStrictEqual([1, 2, 3]);
+        test.assert.ok(exact.citations.every((c) => c.evidence?.availability === 'unavailable'));
+        test.assert.strictEqual(
           (yield* notes.message(original.id)).activeVersionId,
           edited.activeVersionId
         );
-        expect(
-          (yield* notes.messageVersionCitations({
-            noteId: note.id,
-            messageId: original.id,
-            versionId: edited.activeVersionId!
-          })).citations
-        ).toStrictEqual(edited.citations);
+        test
+          .expect(
+            (yield* notes.messageVersionCitations({
+              noteId: note.id,
+              messageId: original.id,
+              versionId: edited.activeVersionId!
+            })).citations
+          )
+          .toStrictEqual(edited.citations);
         const other = yield* notes.createNote({ title: 'Other' });
 
-        assert.ok(
+        test.assert.ok(
           (yield* Effect.flip(
             notes.messageVersionCitations({
               noteId: other.id,
@@ -122,7 +122,7 @@ testStable(
           text: 'No evidence'
         });
 
-        assert.ok(
+        test.assert.ok(
           (yield* Effect.flip(
             notes.messageVersionCitations({
               noteId: note.id,
@@ -131,21 +131,23 @@ testStable(
             })
           )).kind === 'not_found'
         );
-        expect(
-          (yield* notes.messageVersionCitations({
-            noteId: note.id,
-            messageId: noteMessage.id,
-            versionId: noteMessage.activeVersionId!
-          })).citations
-        ).toStrictEqual([]);
+        test
+          .expect(
+            (yield* notes.messageVersionCitations({
+              noteId: note.id,
+              messageId: noteMessage.id,
+              versionId: noteMessage.activeVersionId!
+            })).citations
+          )
+          .toStrictEqual([]);
         const historical = yield* notes.setActiveVersion({
           messageId: original.id,
           versionId: original.activeVersionId
         });
 
-        assert.strictEqual(historical.citations.length, 3);
+        test.assert.strictEqual(historical.citations.length, 3);
         yield* notes.deleteMessage(noteMessage.id);
-        assert.ok(
+        test.assert.ok(
           (yield* Effect.flip(
             notes.messageVersionCitations({
               noteId: note.id,
@@ -154,7 +156,7 @@ testStable(
             })
           )).kind === 'not_found'
         );
-        assert.strictEqual(
+        test.assert.strictEqual(
           historical.versions.find((version) => version.id === historical.activeVersionId)?.text,
           original.versions[0]?.text
         );

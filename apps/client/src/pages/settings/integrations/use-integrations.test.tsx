@@ -1,27 +1,23 @@
 import { integrationImportIdSchema } from '@study/contracts';
 import type { integrationImportSchema } from '@study/contracts';
-import { testStable } from '@study/testing/vitest';
-import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
+import { test } from '@study/testing';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
-import { expect, vi } from 'vite-plus/test';
-
-import { rpcTestTransport as settingsTransport } from '#client/test/rpc.tsx';
 
 import { IntegrationsSettings } from './index';
 import { useIntegrations } from './use-integrations';
 
-const api = vi.hoisted(() => ({
-  imports: vi.fn(),
-  providers: vi.fn(),
-  projects: vi.fn(),
-  start: vi.fn(),
-  cancel: vi.fn(),
-  preview: vi.fn()
+const api = test.hoisted(() => ({
+  imports: test.vi.fn(),
+  providers: test.vi.fn(),
+  projects: test.vi.fn(),
+  start: test.vi.fn(),
+  cancel: test.vi.fn(),
+  preview: test.vi.fn()
 }));
 
 function fixture() {
-  return settingsTransport(async (tag, input) => {
+  return test.rpcTestTransport(async (tag, input) => {
     if (tag === 'integrations.imports') return api.imports();
 
     if (tag === 'integrations.providers') return api.providers();
@@ -55,7 +51,7 @@ function previewState(): typeof integrationImportSchema.Type {
   };
 }
 
-testStable(
+test.stable(
   'retains the reviewed import identity and exclusions when a start response is lost',
   async () => {
     const state = previewState();
@@ -65,35 +61,35 @@ testStable(
     api.projects.mockResolvedValue({ items: [], next: null });
     api.start.mockRejectedValue(new Error('Response lost'));
     const client = fixture();
-    const { result, unmount } = renderHook(useIntegrations, {
+    const { result, unmount } = test.renderHook(useIntegrations, {
       wrapper: ({ children }: { children: ReactNode }) => (
         <client.wrapper>{children}</client.wrapper>
       )
     });
 
     try {
-      await waitFor(() => expect(result.current.imports.isSuccess).toBe(true));
-      act(() => {
+      await test.waitFor(() => test.expect(result.current.imports.isSuccess).toBe(true));
+      test.act(() => {
         result.current.setSelected(state.id);
         result.current.setExcluded(['B.md']);
       });
-      act(() => result.current.act(state, 'start'));
-      await waitFor(() => expect(result.current.action.isError).toBe(true));
-      expect(result.current.current?.id).toBe(state.id);
-      expect(result.current.excluded).toEqual(['B.md']);
-      expect(api.start).toHaveBeenCalledWith({
+      test.act(() => result.current.act(state, 'start'));
+      await test.waitFor(() => test.expect(result.current.action.isError).toBe(true));
+      test.expect(result.current.current?.id).toBe(state.id);
+      test.expect(result.current.excluded).toEqual(['B.md']);
+      test.expect(api.start).toHaveBeenCalledWith({
         id: state.id,
         excludedKeys: ['B.md'],
         projectId: undefined
       });
-      expect(api.preview).not.toHaveBeenCalled();
+      test.expect(api.preview).not.toHaveBeenCalled();
     } finally {
       unmount();
     }
   }
 );
 
-testStable.each([
+test.stable.each([
   { attempt: 0, resumable: false },
   { attempt: 1, resumable: true }
 ])(
@@ -105,21 +101,25 @@ testStable.each([
     api.providers.mockResolvedValue([{ id: 'obsidian', capabilities: ['import'] }]);
     api.projects.mockResolvedValue({ items: [], next: null });
     const client = fixture();
-    const view = render(
+    const view = test.render(
       <client.wrapper>
         <IntegrationsSettings />
       </client.wrapper>
     );
 
     try {
-      fireEvent.click(await screen.findByRole('button', { name: /^Biology/ }));
-      await screen.findByRole('heading', { name: 'Biology' });
-      expect(screen.queryByRole('button', { name: 'Resume import' }) !== null).toBe(resumable);
-      expect(
-        screen.queryByText(
-          'Completed notes are kept. Resume this import to continue the remaining notes.'
-        ) !== null
-      ).toBe(resumable);
+      test.fireEvent.click(await test.screen.findByRole('button', { name: /^Biology/ }));
+      await test.screen.findByRole('heading', { name: 'Biology' });
+      test
+        .expect(test.screen.queryByRole('button', { name: 'Resume import' }) !== null)
+        .toBe(resumable);
+      test
+        .expect(
+          test.screen.queryByText(
+            'Completed notes are kept. Resume this import to continue the remaining notes.'
+          ) !== null
+        )
+        .toBe(resumable);
     } finally {
       view.unmount();
     }
