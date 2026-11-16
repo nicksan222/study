@@ -1,182 +1,25 @@
-/**
- * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Persists theme definitions and selected-theme preference state in SQLite with      │
- * │ typed catalog queries and mutations.                                                     │
- * │                                                                                          │
- * │ Responsibilities:                                                                        │
- * │ - Feature stores own SQLite access and map rows to typed contracts.                      │
- * │ - Queries or mutates feature-owned database records.                                     │
- * │                                                                                          │
- * │ Boundaries:                                                                              │
- * │ Keeps SQL and schema mapping behind typed store operations.                              │
- * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
- */
+/** @file Composes themes persistence with canonical typed store declarations. */
 
-import { StudyError } from '@study/contracts';
-import { themePageInputSchema } from '@study/contracts';
-import { themeFileSchema, themeCatalogEntrySchema } from '@study/contracts';
-import { and, eq, gt, sql } from '@study/db';
-import { preferences, themes } from '@study/db';
-import { Option, Schema } from 'effect';
+import { defineStore } from '#server/platform/definitions/define-store';
 
-import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
-import type { StoreResources } from '#server/platform/definitions/define-store';
+import { makeThemeBackupStore } from './backup.ts';
+import { makeThemeSelectionStore } from './selection.ts';
+import { makeThemeStore } from './themes.ts';
 
-function makeHelpers({ db }: StoreResources) {
-  const find = (id: string) => db.orm.select().from(themes).where(eq(themes.id, id)).get();
-
-  return { find };
-}
-
-export const ThemeStore = defineStore({
-  name: 'study/ThemeStore',
-  entity: { singular: 'theme', plural: 'themes' },
-  make: ({ db, clock, timestampClock }) => {
-    const { find } = makeHelpers({ db, clock, timestampClock });
-
-    return {
-      queries: {
-        theme: storeQuery({
-          role: 'required',
-          input: Schema.String,
-          output: themeFileSchema,
-          run: (id) => {
-            const row = find(id);
-
-            if (!row) throw new StudyError('not_found', 'Theme not found');
-
-            return row.definition;
-          }
-        }),
-        findTheme: storeQuery({
-          role: 'optional',
-          input: Schema.String,
-          output: Schema.Option(themeFileSchema),
-          run: (id) => Option.fromNullishOr(find(id)?.definition)
-        }),
-        themes: storeQuery({
-          role: 'collection',
-          input: themePageInputSchema,
-          output: Schema.Array(themeCatalogEntrySchema),
-          run: ({ limit, before }) =>
-            db.orm
-              .select()
-              .from(themes)
-              .where(before === undefined ? undefined : gt(themes.id, before))
-              .orderBy(themes.id)
-              .limit(limit)
-              .all()
-              .map((row) => ({ ...row.definition, builtin: row.builtin }))
-        })
-      },
-      mutations: {
-        saveTheme: storeMutation({
-          changes: ['themes'],
-          input: Schema.Struct({ theme: themeFileSchema, replace: Schema.Boolean }),
-          output: themeFileSchema,
-          run: ({ theme, replace }) => {
-            const insert = db.orm.insert(themes).values({ id: theme.id, definition: theme });
-
-            const row = replace
-              ? insert
-                  .onConflictDoUpdate({
-                    target: themes.id,
-                    set: { definition: theme },
-                    setWhere: sql`${themes.builtin}=0`
-                  })
-                  .returning()
-                  .get()
-              : insert.onConflictDoNothing().returning().get();
-
-            if (!row) throw new StudyError('invalid_input', 'Theme already exists or is protected');
-
-            return row.definition;
-          }
-        }),
-        deleteTheme: storeMutation({
-          changes: ['themes'],
-          input: Schema.String,
-          output: Schema.Void,
-          run: (id) => {
-            const row = find(id);
-
-            if (!row) throw new StudyError('not_found', 'Theme not found');
-
-            if (row.builtin) throw new StudyError('invalid_input', 'Built-in theme is read-only');
-
-            db.orm.delete(themes).where(eq(themes.id, id)).run();
-          }
-        })
-      }
-    };
-  }
+export const ThemeBackupStore = defineStore({
+  name: 'study/ThemeBackupStore',
+  entity: { singular: 'backupTheme', plural: 'backupThemes' },
+  make: (resources) => makeThemeBackupStore(resources)
 });
 
 export const ThemeSelectionStore = defineStore({
   name: 'study/ThemeSelectionStore',
   entity: { singular: 'selection', plural: 'selections' },
-  make: ({ db }) => ({
-    queries: {
-      selection: storeQuery({
-        role: 'required',
-        input: Schema.Void,
-        output: Schema.Struct({ selected: Schema.NullOr(Schema.String) }),
-        run: () => {
-          const row = db.orm
-            .select()
-            .from(preferences)
-            .where(and(eq(preferences.scope, 'theme'), eq(preferences.key, 'selected')))
-            .get();
-
-          if (!row) return { selected: null };
-
-          const value: unknown = JSON.parse(row.value);
-
-          return { selected: typeof value === 'string' ? value : null };
-        }
-      })
-    },
-    mutations: {
-      setSelection: storeMutation({
-        changes: ['themes'],
-        input: Schema.NullOr(Schema.String),
-        output: Schema.Void,
-        run: (value) => {
-          db.orm
-            .insert(preferences)
-            .values({ scope: 'theme', key: 'selected', value: JSON.stringify(value) })
-            .onConflictDoUpdate({
-              target: [preferences.scope, preferences.key],
-              set: { value: JSON.stringify(value) }
-            })
-            .run();
-        }
-      })
-    }
-  })
+  make: (resources) => makeThemeSelectionStore(resources)
 });
 
-export const ThemeBackupStore = defineStore({
-  name: 'study/ThemeBackupStore',
-  entity: { singular: 'backupTheme', plural: 'backupThemes' },
-  make: ({ db }) => ({
-    queries: {
-      backupTheme: storeQuery({
-        role: 'required',
-        input: Schema.Void,
-        output: Schema.Boolean,
-        run: () => {
-          for (const row of db.orm.select().from(themes).all()) {
-            const theme = Schema.decodeUnknownSync(themeFileSchema)(row.definition);
-
-            if (theme.id !== row.id)
-              throw new StudyError('invalid_input', 'Backup theme identity is invalid');
-          }
-
-          return true;
-        }
-      })
-    },
-    mutations: {}
-  })
+export const ThemeStore = defineStore({
+  name: 'study/ThemeStore',
+  entity: { singular: 'theme', plural: 'themes' },
+  make: (resources) => makeThemeStore(resources)
 });

@@ -460,3 +460,18 @@ transaction(tx => Sources.validateBackup(tx));`
     assert.ok(diagnostics.every((d) => d.filename.endsWith('/system/service/backup.ts')));
   }
 );
+
+test.unit.stable(
+  'runtime workflow composition cannot reach private workflow implementation helpers',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+    const diagnostics = await lintRule({ assert }, 'server-layer-boundary', {
+      'src/runtime/workflows.ts': `import { registration } from '#server/features/notes/workflows/index';
+import { prepareContext } from '#server/features/notes/workflows/internal/context';`,
+      'src/features/notes/workflows/reply.ts': `import { prepareContext } from './internal/context';`
+    });
+
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.ok(diagnostics[0].filename.endsWith('/runtime/workflows.ts'));
+  }
+);

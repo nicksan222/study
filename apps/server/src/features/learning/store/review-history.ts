@@ -13,13 +13,13 @@
  */
 
 import type { reviewHistoryInputSchema } from '@study/contracts';
-import { and, desc, eq, lt } from '@study/db';
 import * as s from '@study/db';
+import { and, desc, eq, lt } from '@study/db';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { cursorPage } from '#server/platform/pagination';
 
-import { makeCards } from './cards.ts';
+import { makeCards } from './card-operations.ts';
 
 type Input = typeof reviewHistoryInputSchema.Type;
 

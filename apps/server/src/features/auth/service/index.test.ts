@@ -118,6 +118,8 @@ test.server.stable(
           Effect.gen(function* () {
             const auth = yield* Auth;
 
+            expect(manager.sessionConfigured).toBe(true);
+
             expect(yield* auth.publicAccount()).toStrictEqual({
               subject: 'person',
               email: 'p@example.test',

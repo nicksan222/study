@@ -361,8 +361,8 @@ function siblingRpc(role: any, feature: any, targetFeature: any, targetRole: any
 function runtimeWorkflow(current: string, feature: any, role: any): boolean {
   return (
     current.startsWith('runtime/') &&
-    current !== 'runtime/workflows.ts' &&
     !!feature &&
-    role === 'workflow'
+    role === 'workflow' &&
+    (current !== 'runtime/workflows.ts' || (feature[2] ?? '').startsWith('workflows/internal/'))
   );
 }

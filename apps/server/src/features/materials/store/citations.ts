@@ -1,22 +1,51 @@
-/**
- * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Binds exact learning citation reads and writes to retained input persistence.      │
- * │                                                                                          │
- * │ Responsibilities:                                                                        │
- * │ - Binds exact learning citation reads and writes to retained input persistence.          │
- * │                                                                                          │
- * │ Boundaries:                                                                              │
- * │ Private synchronous persistence stays inside its feature; callers own transaction scope. │
- * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
- */
+/** @file Builds materials citations queries and mutations with bound store resources. */
+
+import * as input from '@study/contracts';
+import * as tables from '@study/db';
+import { and, asc, eq, gt } from '@study/db';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
+import { storeQuery } from '#server/platform/definitions/define-store';
 
-import { makeExactInputs } from './exact-inputs.ts';
+import { makeCitations } from './citation-operations.ts';
+import { makeReads } from './reads.ts';
 
-/** Learning citations retain typed exact owners without projecting them into Materials. */
-export function makeCitations(resources: StoreResources) {
-  const exact = makeExactInputs(resources);
+export function makeMaterialCitationsStore(resources: StoreResources) {
+  const { db } = resources;
+  const { readCitationDetails } = makeCitations(resources);
 
-  return { readCitations: exact.citations, readCitationDetails: exact.citationValue };
+  const { versionRow } = makeReads(resources);
+
+  return {
+    queries: {
+      citations: storeQuery({
+        role: 'collection',
+        input: input.citationsInputSchema,
+        output: input.citationPageSchema,
+        run: (value) => {
+          versionRow(value.id);
+
+          const rows = db.orm
+            .select()
+            .from(tables.material_evidence_citations)
+            .where(
+              and(
+                eq(tables.material_evidence_citations.version_id, value.id),
+                value.cursor === undefined
+                  ? undefined
+                  : gt(tables.material_evidence_citations.marker, value.cursor)
+              )
+            )
+            .orderBy(asc(tables.material_evidence_citations.marker))
+            .limit(value.limit + 1)
+            .all();
+
+          const items = rows.slice(0, value.limit).map(readCitationDetails);
+
+          return { items, nextCursor: rows.length > value.limit ? items.at(-1)!.marker : null };
+        }
+      })
+    },
+    mutations: {}
+  };
 }

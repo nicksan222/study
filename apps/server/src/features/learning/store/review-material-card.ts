@@ -12,8 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { MaterialVersionId, MaterialCardId } from '@study/contracts';
-import type { reviewCardInputSchema } from '@study/contracts';
+import type { MaterialCardId, MaterialVersionId, reviewCardInputSchema } from '@study/contracts';
 import * as s from '@study/db';
 
 import { requireRow } from '#server/platform/database/rows';
@@ -21,7 +20,7 @@ import type { StoreResources } from '#server/platform/definitions/define-store';
 import { invalid } from '#server/platform/errors/domain-error';
 import { reviewMemory } from '#server/platform/scheduling/fsrs';
 
-import { makeCards } from './cards.ts';
+import { makeCards } from './card-operations.ts';
 
 const states = ['new', 'learning', 'review', 'relearning'] as const;
 

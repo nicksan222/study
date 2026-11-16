@@ -1,438 +1,39 @@
-/**
- * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Coordinates persistence for practice notes and responses.                          │
- * │                                                                                          │
- * │ Responsibilities:                                                                        │
- * │ - Persists practice notes and their captured question slots.                             │
- * │ - Keeps persistence inputs and results typed for service-layer composition.              │
- * │                                                                                          │
- * │ Boundaries:                                                                              │
- * │ Typed store helpers own database access; the learning service applies policy and         │
- * │ composes these private operations.                                                       │
- * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
- */
+/** @file Owns practice within this feature. */
 
-import { errorKindSchema, failureSchema } from '@study/contracts';
-import type { ErrorKind } from '@study/contracts';
-import { projectIdSchema, quizQuestionIdSchema } from '@study/contracts';
-import type { MaterialVersionId, ProjectId } from '@study/contracts';
-import { contentInputSchema, contentInputKey } from '@study/contracts';
-import type { ContentInput } from '@study/contracts';
 import {
-  practiceInputSchema,
-  startPracticeInputSchema,
   answerPracticeQuestionInputSchema,
-  publishPracticeSlotInputSchema,
+  errorKindSchema,
+  practiceInputSchema,
   practiceSchema,
   practiceSlotSchema,
-  retryPracticeQuestionInputSchema
+  projectIdSchema,
+  publishPracticeSlotInputSchema,
+  quizAttemptSchema,
+  quizQuestionIdSchema,
+  retryPracticeQuestionInputSchema,
+  startPracticeInputSchema
 } from '@study/contracts';
-import { quizAttemptSchema } from '@study/contracts';
-import { materialGenerationPayloadSchema } from '@study/contracts';
-import { and, desc, eq, inArray, sql } from '@study/db';
 import * as s from '@study/db';
-import { Cause, Exit, Schema, Option } from 'effect';
-import { Workflow } from 'effect/workflow';
+import { eq } from '@study/db';
+import { Schema } from 'effect';
 
-import { contentInputColumns } from '#server/platform/database/content-input';
 import { requireRow } from '#server/platform/database/rows';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 import { invalid } from '#server/platform/errors/domain-error';
 
-import { makeAnswerQuestion } from './answer-question.ts';
-import { makeQuiz } from './quiz.ts';
-import { makeStartQuiz } from './start-quiz.ts';
-
-const controls = s.learning_practice_controls;
-
-const slots = s.learning_practice_slots;
-
-type Slot = typeof slots.$inferSelect;
-
-const generationEventId = (row: Slot) =>
-  row.generation_attempt === 0n ? row.id : `${row.id}/retry/${row.generation_attempt}`;
-
-const resultCodec = Schema.toCodecJson(
-  Workflow.Result({ success: Schema.Unknown, error: failureSchema })
-);
-
-function makePractice(resources: StoreResources) {
-  const { db } = resources;
-
-  const { answerQuestion } = makeAnswerQuestion(resources);
-
-  const { attemptView } = makeQuiz(resources);
-
-  const { startQuiz } = makeStartQuiz(resources);
-
-  function receiptExecutions() {
-    return db.orm
-      .select({ status: s.workflow_executions.status, result: s.workflow_executions.result })
-      .from(s.workflowReceipts)
-      .innerJoin(
-        s.workflow_executions,
-        eq(s.workflow_executions.execution_id, s.workflowReceipts.executionId)
-      );
-  }
-
-  function failureKind(row: Slot): ErrorKind | null {
-    if (row.status !== 'pending') return null;
-
-    if (row.failure_kind) return row.failure_kind;
-
-    const execution = receiptExecutions()
-      .where(
-        and(
-          eq(s.workflowReceipts.eventId, generationEventId(row)),
-          eq(s.workflowReceipts.subscription, 'material-generation')
-        )
-      )
-      .get();
-
-    if (!execution) {
-      // A committed child event is still durable work even before dispatcher delivery.
-
-      const queued = db.orm
-        .select({ id: s.workflowEvents.eventId })
-        .from(s.workflowEvents)
-        .where(eq(s.workflowEvents.eventId, generationEventId(row)))
-        .get();
-
-      if (queued) return null;
-
-      const preparation = receiptExecutions()
-        .innerJoin(s.workflowEvents, eq(s.workflowEvents.eventId, s.workflowReceipts.eventId))
-        .where(
-          and(
-            eq(s.workflowReceipts.subscription, 'practice-slot'),
-            eq(s.workflowEvents.correlationId, row.id),
-            sql`COALESCE(json_extract(${s.workflowEvents.payload}, '$.generationAttempt'), 0) = ${row.generation_attempt}`
-          )
-        )
-        .orderBy(desc(s.workflowEvents.createdAt), desc(s.workflowEvents.eventId))
-        .limit(1)
-        .get();
-
-      return terminalFailure(preparation);
-    }
-
-    return terminalFailure(execution);
-  }
-
-  function terminalFailure(
-    execution: { status: string; result: string | null } | undefined
-  ): ErrorKind | null {
-    if (!execution) return null;
-
-    if (execution.status === 'cancelled') return 'cancelled';
-
-    if (execution.status !== 'completed' || !execution.result) return null;
-
-    const result = Schema.decodeUnknownSync(resultCodec)(JSON.parse(execution.result));
-
-    if (result._tag !== 'Complete' || !Exit.isFailure(result.exit)) return null;
-
-    const failure = Cause.findErrorOption(result.exit.cause);
-
-    return Option.isSome(failure) && Schema.is(errorKindSchema)(failure.value.kind)
-      ? failure.value.kind
-      : 'internal';
-  }
-
-  const view = (row: Slot, failure: ErrorKind | null = row.failure_kind) => ({
-    slotId: row.id,
-    projectId: row.project_id,
-    epoch: row.epoch,
-    ordinal: row.ordinal,
-    kind: row.kind,
-    status: row.status === 'pending' && failure ? ('failed' as const) : row.status,
-    generationAttempt: row.generation_attempt,
-    failureKind: row.status === 'pending' ? failure : null,
-    inputs: Schema.decodeUnknownSync(
-      Schema.fromJsonString(Schema.toCodecJson(Schema.mutable(Schema.Array(contentInputSchema))))
-    )(row.inputs),
-    versionId: row.version_id,
-    attemptId: row.attempt_id
-  });
-
-  const control = (projectId: ProjectId) =>
-    db.orm.select().from(controls).where(eq(controls.project_id, projectId)).get();
-
-  function practice(projectId: ProjectId) {
-    const current = control(projectId);
-
-    const rows = current
-      ? db.orm
-          .select()
-          .from(slots)
-          .where(
-            and(
-              eq(slots.project_id, projectId),
-              eq(slots.epoch, current.epoch),
-              inArray(slots.status, ['pending', 'ready'])
-            )
-          )
-          .orderBy(slots.ordinal)
-          .limit(2)
-          .all()
-      : [];
-
-    return {
-      projectId,
-      enabled: current?.enabled ?? false,
-      epoch: current?.epoch ?? null,
-      slots: rows.map((row) => view(row, failureKind(row)))
-    };
-  }
-
-  function activeSlot(id: string) {
-    const row = db.orm.select().from(slots).where(eq(slots.id, id)).get();
-
-    if (!row) return null;
-
-    const current = control(row.project_id);
-
-    return current?.enabled && current.epoch === row.epoch && row.status === 'pending'
-      ? view(row, failureKind(row))
-      : null;
-  }
-
-  function reserve(
-    projectId: ProjectId,
-    epoch: string,
-    ordinal: bigint,
-    inputs: readonly ContentInput[]
-  ) {
-    const id = crypto.randomUUID();
-
-    db.orm
-      .insert(slots)
-      .values({
-        id,
-        project_id: projectId,
-        epoch,
-        ordinal,
-        kind: ordinal % 3n === 2n ? 'open' : 'choice',
-        status: 'pending',
-        inputs: Schema.encodeSync(
-          Schema.fromJsonString(Schema.toCodecJson(Schema.Array(contentInputSchema)))
-        )(inputs)
-      })
-      .run();
-
-    for (const [position, input] of inputs.entries())
-      db.orm
-        .insert(s.learning_practice_inputs)
-        .values({
-          slot_id: id,
-          position: BigInt(position),
-          ...contentInputColumns(input)
-        })
-        .run();
-
-    return id;
-  }
-
-  function start(projectId: ProjectId, inputs: readonly ContentInput[]) {
-    const existing = control(projectId);
-
-    if (existing?.enabled) return [];
-
-    if (
-      !inputs.length ||
-      inputs.length > 20 ||
-      new Set(inputs.map(contentInputKey)).size !== inputs.length
-    )
-      invalid('invalid practice inputs');
-
-    const epoch = crypto.randomUUID();
-
-    db.orm
-      .insert(controls)
-      .values({ project_id: projectId, epoch, enabled: true })
-      .onConflictDoUpdate({ target: controls.project_id, set: { epoch, enabled: true } })
-      .run();
-
-    return [reserve(projectId, epoch, 0n, inputs), reserve(projectId, epoch, 1n, inputs)];
-  }
-
-  function stop(projectId: ProjectId, epoch: string) {
-    db.orm
-      .update(controls)
-      .set({ enabled: false })
-      .where(and(eq(controls.project_id, projectId), eq(controls.epoch, epoch)))
-      .run();
-
-    db.orm
-      .update(slots)
-      .set({ status: 'cancelled' })
-      .where(
-        and(
-          eq(slots.project_id, projectId),
-          eq(slots.epoch, epoch),
-          inArray(slots.status, ['pending', 'ready'])
-        )
-      )
-      .run();
-    db.orm
-      .delete(s.learning_practice_inputs)
-      .where(
-        inArray(
-          s.learning_practice_inputs.slot_id,
-          db.orm
-            .select({ id: slots.id })
-            .from(slots)
-            .where(
-              and(
-                eq(slots.project_id, projectId),
-                eq(slots.epoch, epoch),
-                eq(slots.status, 'cancelled')
-              )
-            )
-        )
-      )
-      .run();
-  }
-
-  function assertPublicationIntent(row: typeof slots.$inferSelect, slotId: string) {
-    const request = db.orm
-      .select()
-      .from(s.material_generation_requests)
-      .where(eq(s.material_generation_requests.id, slotId))
-      .get();
-
-    if (!request || request.project_id !== row.project_id)
-      invalid('invalid practice generation intent');
-
-    const intent = Schema.decodeUnknownSync(
-      Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayloadSchema))
-    )(request.payload);
-
-    const captured = view(row).inputs;
-
-    if (
-      intent.kind !== 'quiz' ||
-      intent.scopeId !== row.epoch ||
-      intent.questionSpec?.count !== 1 ||
-      intent.questionSpec.kind !== row.kind ||
-      intent.inputs.length !== captured.length ||
-      intent.inputs.some((input, i) => contentInputKey(input) !== contentInputKey(captured[i]!))
-    )
-      invalid('invalid practice generation intent');
-  }
-
-  function assertRetrySlot(row: typeof slots.$inferSelect | undefined) {
-    if (
-      !row ||
-      !control(row.project_id)?.enabled ||
-      control(row.project_id)?.epoch !== row.epoch ||
-      row.status !== 'pending'
-    )
-      invalid('practice slot is inactive');
-
-    return row;
-  }
-
-  /** Accept only the exact choice or open question kind requested by an endless practice slot. */
-  function publish(slotId: string, versionId: MaterialVersionId) {
-    const row = db.orm.select().from(slots).where(eq(slots.id, slotId)).get();
-
-    if (!row) return null;
-
-    if (row.version_id !== null) {
-      if (row.version_id !== versionId || row.attempt_id === null)
-        invalid('practice publication conflict');
-
-      return attemptView(row.attempt_id);
-    }
-
-    if (!activeSlot(slotId)) return null;
-
-    const version = db.orm
-      .select()
-      .from(s.material_versions)
-      .where(
-        and(
-          eq(s.material_versions.id, versionId),
-          inArray(
-            s.material_versions.material_id,
-            db.orm
-              .select({ id: s.project_materials.material_id })
-              .from(s.project_materials)
-              .where(eq(s.project_materials.project_id, row.project_id))
-          ),
-          eq(s.material_versions.kind, 'quiz'),
-          eq(s.material_versions.status, 'published'),
-          eq(s.material_versions.generation_request_id, slotId)
-        )
-      )
-      .get();
-
-    assertPublicationIntent(row, slotId);
-
-    const questions = db.orm
-      .select()
-      .from(s.material_quiz_questions)
-      .where(eq(s.material_quiz_questions.version_id, versionId))
-      .all();
-
-    if (
-      !version ||
-      questions.length !== 1 ||
-      (row.kind === 'open'
-        ? questions[0]!.kind !== 'open'
-        : !['single_choice', 'multiple_choice'].includes(questions[0]!.kind))
-    )
-      invalid('invalid practice quiz publication');
-
-    const attempt = startQuiz({ versionId });
-
-    db.orm
-      .update(slots)
-      .set({ status: 'ready', version_id: versionId, attempt_id: attempt.id })
-      .where(eq(slots.id, slotId))
-      .run();
-
-    return attempt;
-  }
-
-  function answerSlot(id: string) {
-    const row = db.orm.select().from(slots).where(eq(slots.id, id)).get();
-
-    if (!row || row.attempt_id === null || row.version_id === null)
-      invalid('practice slot is not ready');
-
-    const current = control(row.project_id);
-
-    if (
-      row.status !== 'answered' &&
-      (!current?.enabled || current.epoch !== row.epoch || row.status !== 'ready')
-    )
-      invalid('practice slot is inactive');
-
-    return row;
-  }
-
-  function refill(row: Slot) {
-    db.orm.update(slots).set({ status: 'answered' }).where(eq(slots.id, row.id)).run();
-    db.orm
-      .delete(s.learning_practice_inputs)
-      .where(eq(s.learning_practice_inputs.slot_id, row.id))
-      .run();
-
-    const last = requireRow(
-      db.orm
-        .select()
-        .from(slots)
-        .where(and(eq(slots.project_id, row.project_id), eq(slots.epoch, row.epoch)))
-        .orderBy(desc(slots.ordinal))
-        .limit(1)
-        .get()
-    );
-
-    return reserve(row.project_id, row.epoch, last.ordinal + 1n, view(row).inputs);
-  }
+import { makePracticeFailures } from './practice-failures.ts';
+import { makePracticePublication } from './practice-publication.ts';
+import { makePracticeQueries } from './practice-queries.ts';
+import { makePracticeReservations } from './practice-reservations.ts';
+import { generationEventId, slots } from './practice-schemas.ts';
+
+export function makePractice(resources: StoreResources) {
+  const { failureKind } = makePracticeFailures(resources);
+  const { control, view, activeSlot, practice, answerSlot } = makePracticeQueries(resources);
+  const { start, stop, refill } = makePracticeReservations(resources);
+  const { publish, assertRetrySlot, attemptView, answerQuestion } =
+    makePracticePublication(resources);
 
   return {
     practice,
@@ -450,14 +51,6 @@ function makePractice(resources: StoreResources) {
     view
   };
 }
-
-const controlSchema = Schema.Struct({
-  projectId: projectIdSchema,
-  epoch: Schema.String,
-  enabled: Schema.Boolean
-});
-
-const practiceSlotLookupSchema = Schema.Struct({ slotId: Schema.String });
 
 export const PracticeStore = defineStore({
   name: 'study/LearningPracticeStore',
@@ -640,52 +233,6 @@ export const PracticeStore = defineStore({
   }
 });
 
-export const PracticeSlotStore = defineStore({
-  name: 'study/LearningPracticeSlotStore',
-  entity: { singular: 'practiceSlot', plural: 'practiceSlots' },
-  make: (resources) => {
-    const { activeSlot } = makePractice(resources);
-
-    return {
-      queries: {
-        findPracticeSlot: storeQuery({
-          role: 'optional',
-          input: practiceSlotLookupSchema,
-          output: Schema.Option(practiceSlotSchema),
-          run: (input) => Option.fromNullishOr(activeSlot(input.slotId))
-        })
-      },
-      mutations: {}
-    };
-  }
-});
-
-export const PracticeControlStore = defineStore({
-  name: 'study/LearningPracticeControlStore',
-  entity: { singular: 'practiceControl', plural: 'practiceControls' },
-  make: (resources) => {
-    const { control } = makePractice(resources);
-
-    return {
-      queries: {
-        findPracticeControl: storeQuery({
-          role: 'optional',
-          input: practiceInputSchema,
-          output: Schema.Option(controlSchema),
-          run: (input) => {
-            const row = control(input.projectId);
-
-            return row
-              ? Option.some({ projectId: row.project_id, epoch: row.epoch, enabled: row.enabled })
-              : Option.none();
-          }
-        })
-      },
-      mutations: {}
-    };
-  }
-});
-
 /** Compares retry payloads with the committed answer, treating choice selections as an unordered set. */
 function sameAnswer(
   previous: (typeof quizAttemptSchema.Type)['questions'][number]['answer'],
@@ -698,27 +245,3 @@ function sameAnswer(
         previous.choiceIds.every((id) => answer.type === 'choice' && answer.choiceIds.includes(id))
       : false;
 }
-
-export const PracticeBackupStore = defineStore({
-  name: 'study/PracticeBackupStore',
-  entity: { singular: 'backupQuiescent', plural: 'backupPractices' },
-  make: ({ db }) => ({
-    queries: {
-      backupQuiescent: storeQuery({
-        role: 'required',
-        input: Schema.Void,
-        output: Schema.Boolean,
-        run: () => {
-          const ids = Schema.decodeUnknownSync(
-            Schema.fromJsonString(Schema.toCodecJson(Schema.Array(contentInputSchema)))
-          );
-
-          for (const row of db.orm.select().from(slots).all()) ids(row.inputs);
-
-          return true;
-        }
-      })
-    },
-    mutations: {}
-  })
-});

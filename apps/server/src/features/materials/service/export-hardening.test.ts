@@ -12,22 +12,24 @@ import { materialVersionIdSchema } from '@study/contracts';
  * │ All fixtures own cleanup and never invoke external providers or background workflows.    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-import { contentInputSchema } from '@study/contracts';
-import { materialAidExportSchema, MAX_EXPORT_BYTES } from '@study/contracts';
-import { MaterialsRpc } from '@study/contracts';
-import { materialCitationSchema } from '@study/contracts';
 import type { materialContentInputSchema } from '@study/contracts';
-import { PagesRpc } from '@study/contracts';
-import { SourcesRpc } from '@study/contracts';
-import { eq, and } from '@study/db';
-import { material_flashcard_entries } from '@study/db';
+import {
+  MAX_EXPORT_BYTES,
+  MaterialsRpc,
+  PagesRpc,
+  SourcesRpc,
+  contentInputSchema,
+  materialAidExportSchema,
+  materialCitationSchema
+} from '@study/contracts';
 import type { Db } from '@study/db';
+import { and, eq, material_flashcard_entries } from '@study/db';
 import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
 import { Materials } from '#server/features/materials/index';
-import { makeCitations } from '#server/features/materials/store/citations';
+import { makeCitations } from '#server/features/materials/store/citation-operations';
 import { MaterialExportCitationsStore } from '#server/features/materials/store/export';
 import { Pages } from '#server/features/pages/index';
 import { PagesRpcLive } from '#server/features/pages/rpc/index';

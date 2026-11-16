@@ -18,26 +18,30 @@ import { Layer } from 'effect';
 
 import { integrationImportRegistration } from '#server/features/integrations/workflows/index';
 import {
-  quizGradingRegistration,
-  practiceSlotRegistration,
+  practiceFailureRegistration,
   practicePublicationRegistration,
-  practiceFailureRegistration
+  practiceSlotRegistration,
+  quizGradingRegistration
 } from '#server/features/learning/workflows/index';
-import { materialDeletionRegistration } from '#server/features/materials/workflows/deletion';
-import { materialGenerationRegistration } from '#server/features/materials/workflows/generation';
-import { materialHistoryRegistration } from '#server/features/materials/workflows/history';
-import { noteDeletionRegistration } from '#server/features/notes/workflows/deletion';
 import {
+  materialDeletionRegistration,
+  materialGenerationRegistration,
+  materialHistoryRegistration
+} from '#server/features/materials/workflows/index';
+import {
+  noteAttachmentWakeRegistration,
+  noteDeletionRegistration,
+  noteQuestionRegistration,
   noteReplyRegistration,
-  noteAttachmentWakeRegistration
+  noteTitleRegistration,
+  transformSuggestionRegistration
 } from '#server/features/notes/workflows/index';
-import { noteQuestionRegistration } from '#server/features/notes/workflows/question';
-import { noteTitleRegistration } from '#server/features/notes/workflows/title';
-import { transformSuggestionRegistration } from '#server/features/notes/workflows/transform-suggestion';
-import { pageTransformRegistration } from '#server/features/pages/workflows/transform';
+import { pageTransformRegistration } from '#server/features/pages/workflows/index';
 import { recordingPostRegistration } from '#server/features/recordings/workflows/index';
-import { sourceCorrectionRegistration } from '#server/features/sources/workflows/index';
-import { sourceIngestionRegistration } from '#server/features/sources/workflows/index';
+import {
+  sourceCorrectionRegistration,
+  sourceIngestionRegistration
+} from '#server/features/sources/workflows/index';
 
 /** Each workflow is registered once with its durable event subscriptions. */
 const entries = [

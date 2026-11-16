@@ -1,0 +1,31 @@
+/** @file Owns backups within this feature. */
+
+import type { BackupId, acceptRestoreSchema } from '@study/contracts';
+import { Effect } from 'effect';
+
+import type { ManagedBackups } from '#server/platform/database/backups';
+import { BackupStorage } from '#server/platform/database/backups';
+import { normalizeError } from '#server/platform/errors/classify-error';
+
+export function* systemBackupOperations() {
+  const storage = yield* BackupStorage;
+
+  const backups: ManagedBackups = storage.owner;
+
+  const backupOperation = <A>(tryOperation: () => Promise<A>) =>
+    Effect.tryPromise({ try: tryOperation, catch: normalizeError });
+
+  return {
+    createBackup: () => backupOperation(() => backups.create()),
+    backups: () => backupOperation(() => backups.list()),
+    readBackup: (input: { id: BackupId }) => backupOperation(() => backups.read(input.id)),
+    importBackup: (input: { bytes: string }) => backupOperation(() => backups.import(input.bytes)),
+    deleteBackup: (input: { id: BackupId }) => backupOperation(() => backups.delete(input.id)),
+    previewRestore: (input: { id: BackupId }) =>
+      backupOperation(() => backups.previewRestore(input.id)),
+    acceptRestore: (input: typeof acceptRestoreSchema.Type) =>
+      backupOperation(() => backups.accept(input)),
+    restoreStatus: () => backupOperation(() => backups.status()),
+    discardRestoreRecovery: () => backupOperation(() => backups.discardRecovery())
+  };
+}
