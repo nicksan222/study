@@ -32,7 +32,7 @@ test.beforeEach(({ assistant, mock }) => {
 
 test.stable(
   'renders streamed snapshots without duplicating text and stops the exact execution',
-  async () => {
+  async ({ waitFor, expect, act, screen, fireEvent }) => {
     api.thread.mockResolvedValue({
       items: [message('user', 'Explain.', 1n), message('assistant', '', 2n, true)],
       next: null
@@ -41,7 +41,7 @@ test.stable(
     api.cancel.mockResolvedValue(execution);
     const { notify } = await mountAssistant();
 
-    await test.waitFor(() => test.expect(api.progress).toHaveBeenCalled());
+    await waitFor(() => expect(api.progress).toHaveBeenCalled());
     const update = (text: string) =>
       Schema.decodeUnknownSync(agentProgressPageSchema)([
         {
@@ -61,51 +61,50 @@ test.stable(
       ]);
 
     api.progress.mockResolvedValue(update('First **part**'));
-    await test.act(async () => {
+    await act(async () => {
       await notify();
     });
-    test.expect(await test.screen.findByText('part')).toBeInTheDocument();
+    expect(await screen.findByText('part')).toBeInTheDocument();
     api.progress.mockResolvedValue(update('First **part**, then more.'));
-    await test.act(async () => {
+    await act(async () => {
       await notify();
     });
-    test
-      .expect(test.screen.getByRole('article', { name: 'Assistant' }))
-      .toHaveTextContent('First part, then more.');
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'Stop reply' }));
-    await test.waitFor(() =>
-      test.expect(api.cancel).toHaveBeenCalledWith({ id: 'run', mode: 'safe' })
+    expect(screen.getByRole('article', { name: 'Assistant' })).toHaveTextContent(
+      'First part, then more.'
     );
+    fireEvent.click(screen.getByRole('button', { name: 'Stop reply' }));
+    await waitFor(() => expect(api.cancel).toHaveBeenCalledWith({ id: 'run', mode: 'safe' }));
   }
 );
 
-test.stable('explains sign-in failures and retries the same Assistant message', async () => {
-  api.thread.mockResolvedValue({
-    items: [message('user', 'Explain.', 1n), message('assistant', '', 2n, true)],
-    next: null
-  });
-  api.executions.mockResolvedValue({
-    items: [
-      {
-        ...execution,
-        status: 'completed',
-        outcome: 'failure',
-        failureKind: 'auth',
-        canCancel: false
-      }
-    ],
-    next: null
-  });
-  api.reanswer.mockResolvedValue({
-    requestId: 'retry',
-    noteId: 91n,
-    messageId: 2n,
-    versionId: 3n
-  });
-  await mountAssistant();
-  test
-    .expect(await test.screen.findByText(/Connect a provider under Settings/))
-    .toBeInTheDocument();
-  test.fireEvent.click(test.screen.getByRole('button', { name: 'Retry' }));
-  await test.waitFor(() => test.expect(api.reanswer).toHaveBeenCalledWith({ messageId: 2n }));
-});
+test.stable(
+  'explains sign-in failures and retries the same Assistant message',
+  async ({ expect, screen, fireEvent, waitFor }) => {
+    api.thread.mockResolvedValue({
+      items: [message('user', 'Explain.', 1n), message('assistant', '', 2n, true)],
+      next: null
+    });
+    api.executions.mockResolvedValue({
+      items: [
+        {
+          ...execution,
+          status: 'completed',
+          outcome: 'failure',
+          failureKind: 'auth',
+          canCancel: false
+        }
+      ],
+      next: null
+    });
+    api.reanswer.mockResolvedValue({
+      requestId: 'retry',
+      noteId: 91n,
+      messageId: 2n,
+      versionId: 3n
+    });
+    await mountAssistant();
+    expect(await screen.findByText(/Connect a provider under Settings/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(api.reanswer).toHaveBeenCalledWith({ messageId: 2n }));
+  }
+);

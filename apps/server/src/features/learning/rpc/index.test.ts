@@ -31,7 +31,9 @@ import { LearningRpcLive } from './index.ts';
 
 test.stable(
   'native learning RPC maps missing attempts to typed failures',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const handlers = LearningRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
@@ -52,10 +54,10 @@ test.stable(
             const client = yield* RpcTest.makeClient(LearningRpc, { flatten: true });
             const attemptId = 999n as QuizAttemptId;
 
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(client('learning.attempt', { attemptId }))).kind === 'not_found'
             );
-            test.assert.ok(Option.isNone(yield* client('learning.findAttempt', { attemptId })));
+            assert.ok(Option.isNone(yield* client('learning.findAttempt', { attemptId })));
           }).pipe(Effect.provide(handlers))
         )
       );
@@ -68,7 +70,9 @@ test.stable(
 
 test.stable(
   'native practice RPC starts, reads, and stops project practice',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const s = await import('@study/db');
     const location = await databases();
     const context = new ServerContext(await location.open());
@@ -121,12 +125,12 @@ test.stable(
               inputs: [{ kind: 'page', versionId: doc.version!.id }]
             });
 
-            test.assert.strictEqual(started.slots.length, 2);
-            test.assert.strictEqual(
+            assert.strictEqual(started.slots.length, 2);
+            assert.strictEqual(
               (yield* client('learning.practice', { projectId: project.id })).epoch,
               started.epoch
             );
-            test.assert.ok(
+            assert.ok(
               (yield* client('learning.stopPractice', { projectId: project.id })).enabled === false
             );
           }).pipe(Effect.provide(handlers), Effect.provide(services))
@@ -141,7 +145,9 @@ test.stable(
 
 test.stable(
   'native ordering RPC keeps answers private and restores the committed sequence',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const services = Learning.layer.pipe(
@@ -177,8 +183,8 @@ test.stable(
             const attempt = yield* client('learning.startQuiz', { versionId: material.version.id });
             const question = attempt.questions[0]!;
 
-            test.assert.ok(question.kind === 'ordering');
-            test.assert.ok(!('correctItemIds' in question));
+            assert.ok(question.kind === 'ordering');
+            assert.ok(!('correctItemIds' in question));
             const itemIds = question.items.map((item) => item.id).reverse();
 
             yield* client('learning.answerQuestion', {
@@ -188,11 +194,11 @@ test.stable(
             });
             const saved = yield* client('learning.attempt', { attemptId: attempt.id });
 
-            test.assert.deepEqual(saved.questions[0]!.answer, { type: 'ordering', itemIds });
+            assert.deepEqual(saved.questions[0]!.answer, { type: 'ordering', itemIds });
             const completed = yield* client('learning.finishQuiz', { attemptId: attempt.id });
 
-            test.assert.ok(completed.questions[0]!.kind === 'ordering');
-            test.assert.equal(completed.questions[0]!.correctItemIds.length, 2);
+            assert.ok(completed.questions[0]!.kind === 'ordering');
+            assert.equal(completed.questions[0]!.correctItemIds.length, 2);
           }).pipe(Effect.provide(handlers))
         )
       );

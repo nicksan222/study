@@ -1,7 +1,7 @@
 import { validDocumentHref } from '@study/contracts';
 import { test } from '@study/testing';
 
-test.stable.each([
+test.stable.for([
   ['/note/1', true],
   ['/note/42#Cell%20division', true],
   ['https://example.org/note', true],
@@ -13,6 +13,6 @@ test.stable.each([
   ['/note/1?redirect=https://example.org', false],
   ['javascript:alert(1)', false],
   ['data:text/html,test', false]
-])('validates imported document href %s', (value, allowed) => {
-  test.expect(validDocumentHref(value as string)).toBe(allowed);
+])('validates imported document href %s', ([value, allowed], { expect }) => {
+  expect(validDocumentHref(value as string)).toBe(allowed);
 });

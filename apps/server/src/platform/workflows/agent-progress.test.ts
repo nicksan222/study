@@ -31,7 +31,7 @@ const definition = Workflow.make('progress-test', {
 
 test.stable(
   'progress commits before notification and reads durable snapshots without the observer',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const location = await databases();
     const context = new ServerContext(await location.open());
     const executionId = executionIdSchema.make('stream-run');
@@ -66,37 +66,37 @@ test.stable(
     try {
       await emit({ type: 'start' });
       await emit({ type: 'text-delta', text: 'Hello' });
-      test.expect(read()[0]?.text).toBe('Hello');
-      test.expect(snapshots.at(-1)).toBe('Hello');
+      expect(read()[0]?.text).toBe('Hello');
+      expect(snapshots.at(-1)).toBe('Hello');
       unsubscribe();
       await emit({ type: 'complete' });
-      test.expect(read()[0]?.status).toBe('completed');
+      expect(read()[0]?.status).toBe('completed');
       await emit({ type: 'start' }, 'next-section');
-      test.expect(read().map((run) => run.runId)).toEqual(['agent', 'next-section']);
-      test.expect(read()[0]?.text).toBe('Hello');
+      expect(read().map((run) => run.runId)).toEqual(['agent', 'next-section']);
+      expect(read()[0]?.text).toBe('Hello');
       await emit({ type: 'complete' }, 'next-section');
 
       for (let index = 0; index <= 100; index++) await emit({ type: 'start' }, `section-${index}`);
 
-      test.expect(read()).toHaveLength(100);
-      test.expect(read().at(-1)?.runId).toBe('section-100');
+      expect(read()).toHaveLength(100);
+      expect(read().at(-1)?.runId).toBe('section-100');
       context.db.orm
         .update(workflow_executions)
         .set({ generation: 2 })
         .where(eq(workflow_executions.execution_id, executionId))
         .run();
-      test.expect(read()).toEqual([]);
+      expect(read()).toEqual([]);
       await emit({ type: 'start' });
       await emit({ type: 'text-delta', text: 'Current' });
-      test.expect(read()[0]?.text).toBe('Current');
-      test.expect(read()[0]?.status).toBe('running');
+      expect(read()[0]?.text).toBe('Current');
+      expect(read()[0]?.status).toBe('running');
       context.db.orm
         .update(workflow_executions)
         .set({ cancellation_mode: 'unsafe', status: 'cancelling' })
         .where(eq(workflow_executions.execution_id, executionId))
         .run();
-      await test.expect(emit({ type: 'text-delta', text: 'stale' })).rejects.toThrow();
-      test.expect(read()).toEqual([]);
+      await expect(emit({ type: 'text-delta', text: 'stale' })).rejects.toThrow();
+      expect(read()).toEqual([]);
     } finally {
       unsubscribe();
       context.close();
@@ -108,7 +108,7 @@ test.stable(
 for (const phase of ['preparing', 'compacting', 'generating', undefined] as const)
   test.stable(
     `persists semantic phase ${phase ?? 'default'} across reconnects and failures`,
-    async ({ databases }) => {
+    async ({ databases, expect }) => {
       const location = await databases();
       let context = new ServerContext(await location.open());
       const executionId = executionIdSchema.make('phase-run');
@@ -140,14 +140,14 @@ for (const phase of ['preparing', 'compacting', 'generating', undefined] as cons
           .run();
         await emit({ type: 'start' });
         await emit({ type: 'text-delta', text: 'Partial' });
-        test.expect(read()).toMatchObject({
+        expect(read()).toMatchObject({
           phase: phase ?? 'generating',
           status: 'running',
           text: 'Partial'
         });
         context.close();
         context = new ServerContext(await location.open());
-        test.expect(read()).toMatchObject({
+        expect(read()).toMatchObject({
           phase: phase ?? 'generating',
           status: 'running',
           text: 'Partial'
@@ -155,7 +155,7 @@ for (const phase of ['preparing', 'compacting', 'generating', undefined] as cons
         await emit({ type: 'failed', kind: 'transient' });
         context.close();
         context = new ServerContext(await location.open());
-        test.expect(read()).toMatchObject({
+        expect(read()).toMatchObject({
           phase: phase ?? 'generating',
           status: 'failed',
           failureKind: 'transient'

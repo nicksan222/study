@@ -58,7 +58,7 @@ test.afterEach(async () => {
   context.close();
 });
 
-function workflowServices(model: AgentsConfig['model']) {
+function workflowServices({ expect }: Pick<test.Context, 'expect'>, model: AgentsConfig['model']) {
   const domain = Layer.mergeAll(Notes.layer, Sources.layer, Settings.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -72,7 +72,7 @@ function workflowServices(model: AgentsConfig['model']) {
       rules: Effect.succeed(defaultAgentRules),
       searchSources: () => Effect.succeed([]),
       model: (tier, call) => {
-        test.expect(tier).toBe('tiny');
+        expect(tier).toBe('tiny');
 
         return model(tier, call);
       }
@@ -82,8 +82,8 @@ function workflowServices(model: AgentsConfig['model']) {
 
 test.stable(
   'conversion executes on the small tier, captures only its target and checkpoints publication',
-  async () => {
-    using mock = test.createAiMock();
+  async ({ createAiMock, expect }) => {
+    using mock = createAiMock();
     const conversion = mock.next(textConversionAgent, {
       input: { text: 'A complete\nparagraph.' },
       output: 'A complete paragraph.'
@@ -124,7 +124,7 @@ test.stable(
                 event.type === 'NoteGenerationRequested' && event.requestId === receipt.requestId
             );
 
-          test.expect(events).toHaveLength(1);
+          expect(events).toHaveLength(1);
           const event = Schema.decodeUnknownSync(noteGenerationRequestedSchema)(events[0]);
           const engine = yield* WorkflowEngine.WorkflowEngine;
 
@@ -144,12 +144,12 @@ test.stable(
 
           const completed = yield* c.message(noteMessage.id);
 
-          test.expect(completed.activeVersionId).toBe(receipt.versionId);
-          test.expect(completed.versions).toHaveLength(2);
-          test.expect(completed.versions.at(-1)?.text).toBe('A complete paragraph.');
-          test
-            .expect((yield* Effect.promise(() => conversion.called)).input.text)
-            .toBe('A complete\nparagraph.');
+          expect(completed.activeVersionId).toBe(receipt.versionId);
+          expect(completed.versions).toHaveLength(2);
+          expect(completed.versions.at(-1)?.text).toBe('A complete paragraph.');
+          expect((yield* Effect.promise(() => conversion.called)).input.text).toBe(
+            'A complete\nparagraph.'
+          );
           const sources = yield* Sources;
           const bytes = yield* Effect.promise(() =>
             Bun.file(
@@ -234,12 +234,12 @@ test.stable(
           );
           const pdf = yield* c.message(attachment.id);
 
-          test.expect(pdf.parts).toEqual(attachment.parts);
-          test.expect(pdf.versions.at(-1)?.text).toBe('First page\n\nSecond page');
+          expect(pdf.parts).toEqual(attachment.parts);
+          expect(pdf.versions.at(-1)?.text).toBe('First page\n\nSecond page');
           mock.verify();
-          test
-            .expect((yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes)
-            .toEqual(bytes);
+          expect(
+            (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
+          ).toEqual(bytes);
           const threaded = yield* c.postMessage({
             noteId: note.id,
             threadRoot: attachment.parts[0].id,
@@ -275,12 +275,12 @@ test.stable(
               payload: { event: threadEvent }
             })
           );
-          test
-            .expect((yield* c.message(threaded.id)).versions.at(-1)?.text)
-            .toBe('First page\n\nSecond page');
+          expect((yield* c.message(threaded.id)).versions.at(-1)?.text).toBe(
+            'First page\n\nSecond page'
+          );
         }).pipe(
           Effect.provide(
-            workflowServices((tier, call) =>
+            workflowServices({ expect }, (tier, call) =>
               mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError))
             )
           )
@@ -292,7 +292,7 @@ test.stable(
 
 test.stable(
   'exhausted automatic conversions unblock replies and retry their captured input',
-  async () => {
+  async ({ expect }) => {
     let calls = 0;
     let available = false;
     const model = createChatGptModel({
@@ -365,18 +365,16 @@ test.stable(
             )
           );
 
-          test.expect(result._tag).toBe('Failure');
-          test.expect(calls).toBe(4);
+          expect(result._tag).toBe('Failure');
+          expect(calls).toBe(4);
           const failed = yield* c.message(noteMessage.id);
 
-          test.expect(failed.activeVersionId).toBe(noteMessage.activeVersionId);
-          test.expect(failed.versions.at(-1)?.status).toBe('failed');
-          test
-            .expect(
-              (yield* c.inspectReplySnapshot({ requestId: event.requestId })).messages[0].text
-            )
-            .toBe('Saved\ntext.');
-          test.expect((yield* c.requestReply({ noteId: note.id })).requestId).toBeTruthy();
+          expect(failed.activeVersionId).toBe(noteMessage.activeVersionId);
+          expect(failed.versions.at(-1)?.status).toBe('failed');
+          expect(
+            (yield* c.inspectReplySnapshot({ requestId: event.requestId })).messages[0].text
+          ).toBe('Saved\ntext.');
+          expect((yield* c.requestReply({ noteId: note.id })).requestId).toBeTruthy();
           available = true;
           const retry = yield* c.convertMessage({
             messageId: noteMessage.id,
@@ -407,13 +405,13 @@ test.stable(
               payload: { event: retryEvent }
             })
           );
-          test.expect(calls).toBe(5);
-          test.expect((yield* c.message(noteMessage.id)).versions.at(-1)).toMatchObject({
+          expect(calls).toBe(5);
+          expect((yield* c.message(noteMessage.id)).versions.at(-1)).toMatchObject({
             id: event.versionId,
             status: 'complete',
             text: 'Saved text.'
           });
-        }).pipe(Effect.provide(workflowServices(() => Effect.succeed(model))))
+        }).pipe(Effect.provide(workflowServices({ expect }, () => Effect.succeed(model))))
       )
     );
   }

@@ -19,22 +19,29 @@ import { workflow_executions, workflow_agent_progress } from '@study/db';
 import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 
-test.stable('a start queued behind stop restarts the worker', async ({ server: serverFixture }) => {
-  const { app } = serverFixture;
+test.stable(
+  'a start queued behind stop restarts the worker',
+  async ({ server: serverFixture, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  await app.workers.start();
-  const stopping = app.workers.stop();
-  const starting = app.workers.start();
+    const { app } = serverFixture;
 
-  await Promise.all([stopping, starting]);
-  test.assert.isTrue(app.workers.started);
-  await Promise.all([app.workers.stop(), app.workers.stop()]);
-  test.assert.isFalse(app.workers.started);
-});
+    await app.workers.start();
+    const stopping = app.workers.stop();
+    const starting = app.workers.start();
+
+    await Promise.all([stopping, starting]);
+    assert.isTrue(app.workers.started);
+    await Promise.all([app.workers.stop(), app.workers.stop()]);
+    assert.isFalse(app.workers.started);
+  }
+);
 
 test.stable(
   'close rejects a queued start and leaves the worker stopped',
-  async ({ server: serverFixture }) => {
+  async ({ server: serverFixture, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { app } = serverFixture;
 
     await app.workers.start();
@@ -42,39 +49,45 @@ test.stable(
     const starting = app.workers.start();
     const closing = app.workers.close();
 
-    await test.expect(starting).rejects.toSatisfy(() => true);
+    await expect(starting).rejects.toSatisfy(() => true);
     await Promise.all([stopping, closing, app.workers.close()]);
-    test.assert.isFalse(app.workers.started);
-    await test.expect(app.workers.start()).rejects.toSatisfy(() => true);
+    assert.isFalse(app.workers.started);
+    await expect(app.workers.start()).rejects.toSatisfy(() => true);
   }
 );
 
 test.stable(
   'concurrent native fibers share one worker and stop idempotently',
-  async ({ server: serverFixture }) => {
+  async ({ server: serverFixture, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { app } = serverFixture;
 
-    function* verifySharedWorkerLifecycle() {
+    function* verifySharedWorkerLifecycle({ assert: assertions }: Pick<test.Context, 'assert'>) {
+      const assert: test.Assert = assertions;
+
       yield* Effect.all(
         Array.from({ length: 8 }, () => Effect.promise(() => app.workers.start())),
         { concurrency: 'unbounded' }
       );
-      test.assert.isTrue(app.workers.started);
+      assert.isTrue(app.workers.started);
       yield* Effect.all(
         Array.from({ length: 8 }, () => Effect.promise(() => app.workers.stop())),
         { concurrency: 'unbounded' }
       );
-      test.assert.isFalse(app.workers.started);
+      assert.isFalse(app.workers.started);
     }
 
-    await Effect.runPromise(Effect.gen(verifySharedWorkerLifecycle));
+    await Effect.runPromise(Effect.gen(() => verifySharedWorkerLifecycle({ assert })));
   }
 );
 
 test.stable(
   'shutdown interrupts safe cancellation waiting for an active provider',
   { timeout: 10000 },
-  async ({ server: serverFixture, onTestFinished }) => {
+  async ({ server: serverFixture, onTestFinished, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const { Sources } = await import('#server/features/sources/index');
     const { workflow_executions } = await import('@study/db');
     const { executionIdSchema } = await import('@study/contracts');
@@ -128,7 +141,7 @@ test.stable(
       .all()
       .find((row) => row.workflow_tag === 'source-ingestion/v1');
 
-    test.assert.ok(execution);
+    assert.ok(execution);
     let settled = false;
     const cancelling = app.workers
       .cancelExecution({ id: executionIdSchema.make(execution.execution_id), mode: 'safe' })
@@ -146,7 +159,7 @@ test.stable(
       );
 
     await waiting;
-    test.expect(settled).toBe(false);
+    expect(settled).toBe(false);
     await Effect.runPromise(
       Effect.promise(() => app.close()).pipe(
         Effect.timeout('5 seconds'),
@@ -155,13 +168,13 @@ test.stable(
         )
       )
     );
-    test.expect(await cancelling).toBeInstanceOf(Error);
+    expect(await cancelling).toBeInstanceOf(Error);
   }
 );
 
 test.stable(
   'stopped concurrent cancellations and start share one embedded runtime',
-  async ({ server: serverFixture }) => {
+  async ({ server: serverFixture, expect }) => {
     const { Layer } = await import('effect');
     const { executionIdSchema } = await import('@study/contracts');
     const { app } = serverFixture;
@@ -184,17 +197,17 @@ test.stable(
     await app.workers.start();
     await Promise.all([first, second]);
     await app.workers.runWorkflow(Effect.void);
-    test.expect(acquisitions).toBe(1);
+    expect(acquisitions).toBe(1);
     await app.workers.stop();
     await app.workers.runWorkflow(Effect.void);
-    test.expect(acquisitions).toBe(2);
+    expect(acquisitions).toBe(2);
     await app.workers.stop();
   }
 );
 
 test.stable(
   'stopped cancellation persists intent without acquiring the embedded runner',
-  async ({ server: serverFixture }) => {
+  async ({ server: serverFixture, expect }) => {
     const { Layer } = await import('effect');
     const { workflow_executions } = await import('@study/db');
     const { executionIdSchema } = await import('@study/contracts');
@@ -224,17 +237,17 @@ test.stable(
       id: executionIdSchema.make('stopped-cancel'),
       mode: 'unsafe'
     });
-    test.expect(acquisitions).toBe(0);
-    test.expect(app.workers.started).toBe(false);
-    test
-      .expect(app.store.db.orm.select().from(workflow_executions).get()?.cancellation_mode)
-      .toBe('unsafe');
+    expect(acquisitions).toBe(0);
+    expect(app.workers.started).toBe(false);
+    expect(app.store.db.orm.select().from(workflow_executions).get()?.cancellation_mode).toBe(
+      'unsafe'
+    );
   }
 );
 
 test.stable(
   'restart after failed disposal preserves previews owned by the retained runtime',
-  async ({ server: serverFixture }) => {
+  async ({ server: serverFixture, expect }) => {
     const { app } = serverFixture;
 
     app.native.workflows = app.native.workflows.pipe(
@@ -283,12 +296,10 @@ test.stable(
 
     try {
       await entered.promise;
-      await test.expect(app.workers.stop()).rejects.toSatisfy(() => true);
-      test.expect(app.workers.started).toBe(false);
+      await expect(app.workers.stop()).rejects.toSatisfy(() => true);
+      expect(app.workers.started).toBe(false);
       await app.workers.start();
-      test
-        .expect(app.store.db.orm.select().from(workflow_agent_progress).get()?.run_id)
-        .toBe('active');
+      expect(app.store.db.orm.select().from(workflow_agent_progress).get()?.run_id).toBe('active');
       resume.resolve();
       await running;
       await app.workers.stop();
@@ -301,7 +312,7 @@ test.stable(
 
 test.stable(
   'recovery discards interrupted previews but preserves completed and concurrent steps',
-  async ({ server: serverFixture }) => {
+  async ({ server: serverFixture, expect }) => {
     const { app } = serverFixture;
     const executionId = executionIdSchema.make('progress-recovery');
 
@@ -338,14 +349,14 @@ test.stable(
     seed('finished', 'completed');
     seed('interrupted');
     await app.workers.start();
-    test.expect(read().map((run) => run.run_id)).toEqual(['finished']);
+    expect(read().map((run) => run.run_id)).toEqual(['finished']);
 
     seed('parallel-a');
     seed('parallel-b');
     await app.workers.start();
-    test.expect(read().map((run) => run.run_id)).toEqual(['finished', 'parallel-a', 'parallel-b']);
+    expect(read().map((run) => run.run_id)).toEqual(['finished', 'parallel-a', 'parallel-b']);
     await app.workers.stop();
     await app.workers.start();
-    test.expect(read().map((run) => run.run_id)).toEqual(['finished']);
+    expect(read().map((run) => run.run_id)).toEqual(['finished']);
   }
 );

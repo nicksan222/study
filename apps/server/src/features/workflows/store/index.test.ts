@@ -22,7 +22,7 @@ import { ExecutionStore } from './index.ts';
 
 test.stable(
   'workflow filters find a source outcome behind unrelated newer wake executions in one bounded read',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const fixture = await databases();
     const context = new ServerContext(await fixture.open());
 
@@ -57,8 +57,8 @@ test.stable(
         }).pipe(Effect.provideService(Database, { store: context }))
       );
 
-      test.expect(items).toHaveLength(1);
-      test.expect(items[0]).toMatchObject({
+      expect(items).toHaveLength(1);
+      expect(items[0]).toMatchObject({
         id: '0',
         workflow: 'source-correction/v1',
         correlationId: 'source-request',

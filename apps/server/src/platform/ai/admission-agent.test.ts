@@ -27,7 +27,9 @@ import { defineAgent } from '#server/platform/definitions/define-agent';
 
 test.stable(
   'queued agents cannot preflight or dispatch until admitted and cancelled waiters never dispatch',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const entered = Effect.runSync(Deferred.make<void>());
     const responses: ((response: Response) => void)[] = [];
     const server = Bun.serve({
@@ -41,7 +43,7 @@ test.stable(
         })
     });
 
-    test.assert.ok(server.port, 'missing address');
+    assert.ok(server.port, 'missing address');
     const base = server.url.origin;
     const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
@@ -86,8 +88,8 @@ test.stable(
 
           yield* Effect.yieldNow;
           yield* Fiber.interrupt(queued);
-          test.assert.strictEqual(queuedChecks, 0);
-          test.assert.strictEqual(responses.length, 2);
+          assert.strictEqual(queuedChecks, 0);
+          assert.strictEqual(responses.length, 2);
           const rejected = yield* Effect.forkChild(
             run(
               Effect.sync(() => {
@@ -97,7 +99,7 @@ test.stable(
           );
 
           yield* Effect.yieldNow;
-          test.assert.strictEqual(queuedChecks, 0);
+          assert.strictEqual(queuedChecks, 0);
 
           for (const resolve of responses) {
             const events = [
@@ -115,11 +117,11 @@ test.stable(
             resolve(new Response(events, { headers: { 'content-type': 'text/event-stream' } }));
           }
 
-          test.assert.strictEqual(yield* Fiber.join(first), 'ok');
-          test.assert.strictEqual(yield* Fiber.join(second), 'ok');
-          test.assert.ok((yield* Effect.flip(Fiber.join(rejected))).kind === 'cancelled');
-          test.assert.strictEqual(queuedChecks, 1);
-          test.assert.strictEqual(responses.length, 2);
+          assert.strictEqual(yield* Fiber.join(first), 'ok');
+          assert.strictEqual(yield* Fiber.join(second), 'ok');
+          assert.ok((yield* Effect.flip(Fiber.join(rejected))).kind === 'cancelled');
+          assert.strictEqual(queuedChecks, 1);
+          assert.strictEqual(responses.length, 2);
         })
       );
     } finally {

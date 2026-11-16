@@ -22,19 +22,21 @@ import { App } from '#server/runtime/service';
 
 test.stable(
   'application close is safe to call repeatedly',
-  async ({ resources: resourcesFixture }) => {
+  async ({ resources: resourcesFixture, expect }) => {
     const resources = resourcesFixture;
 
     const app = await resources.openApp();
 
     await app.close();
-    await test.expect(App.prototype.close.call(app)).resolves.toSatisfy(() => true);
+    await expect(App.prototype.close.call(app)).resolves.toSatisfy(() => true);
   }
 );
 
 test.stable(
   'worker stop and start are ordered, and application close rejects new starts',
-  async ({ resources: resourcesFixture }) => {
+  async ({ resources: resourcesFixture, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const resources = resourcesFixture;
 
     const app = await resources.openApp();
@@ -46,29 +48,29 @@ test.stable(
     const restart = Promise.resolve(app.workers.start());
 
     await Promise.all([stop, restart]);
-    test.assert.ok(app.workers.started === true);
+    assert.ok(app.workers.started === true);
 
     const closing = app.close();
 
-    await test
-      .expect(Promise.resolve().then(() => app.workers.start()))
-      .rejects.toSatisfy(() => true);
+    await expect(Promise.resolve().then(() => app.workers.start())).rejects.toSatisfy(() => true);
     await closing;
   }
 );
 
 test.stable(
   'a rejected second application open never acquires another database',
-  async ({ resources: resourcesFixture }) => {
+  async ({ resources: resourcesFixture, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const resources = resourcesFixture;
 
     const app = await resources.openApp();
 
     const second = `${resources.path}.second`;
 
-    test.assert.ok((await Bun.file(second).exists()) === false);
-    await test.expect(resources.openApp({ path: second })).rejects.toSatisfy(() => true);
-    test.assert.ok((await Bun.file(second).exists()) === false);
+    assert.ok((await Bun.file(second).exists()) === false);
+    await expect(resources.openApp({ path: second })).rejects.toSatisfy(() => true);
+    assert.ok((await Bun.file(second).exists()) === false);
     await app.close();
   }
 );
@@ -76,7 +78,9 @@ test.stable(
 for (const failPersistence of [false, true])
   test.stable(
     `shutdown ${failPersistence ? 'can retry' : 'persists'} an in-flight credential rotation before releasing Auth and SQLite`,
-    async ({ resources: resourcesFixture, onTestFinished }) => {
+    async ({ resources: resourcesFixture, onTestFinished, expect, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+
       const { Effect, Option } = await import('effect');
 
       const { AuthStore } = await import('#server/features/auth/store/index');
@@ -164,16 +168,16 @@ for (const failPersistence of [false, true])
         await token;
 
         if (failPersistence) {
-          await test.expect(closing).rejects.toSatisfy(() => true);
+          await expect(closing).rejects.toSatisfy(() => true);
 
           const retained = await app.nativeRuntime.runPromise(
             useStore(AuthStore).pipe(Effect.flatMap((store) => store.findAccount(undefined)))
           );
 
-          test.assert.ok(Option.isSome(retained));
-          test.assert.ok(decodeAccount(retained.value).refreshToken === 'original');
+          assert.ok(Option.isSome(retained));
+          assert.ok(decodeAccount(retained.value).refreshToken === 'original');
           // A retryable auth close still owns the path: no second startup cleanup may run.
-          await test.expect(resources.openApp(options)).rejects.toSatisfy(() => true);
+          await expect(resources.openApp(options)).rejects.toSatisfy(() => true);
           app.store.db.orm.run(sql`DROP TRIGGER fail_credential_save`);
           await app.close();
         } else await closing;
@@ -184,8 +188,8 @@ for (const failPersistence of [false, true])
           useStore(AuthStore).pipe(Effect.flatMap((store) => store.findAccount(undefined)))
         );
 
-        test.assert.ok(Option.isSome(account));
-        test.assert.ok(decodeAccount(account.value).refreshToken === 'rotated');
+        assert.ok(Option.isSome(account));
+        assert.ok(decodeAccount(account.value).refreshToken === 'rotated');
       } finally {
         release();
 
@@ -200,12 +204,12 @@ for (const failPersistence of [false, true])
 
 test.stable(
   'failed database acquisition releases the process-wide auth owner',
-  async ({ resources: resourcesFixture }) => {
+  async ({ resources: resourcesFixture, expect }) => {
     const resources = resourcesFixture;
 
-    await test
-      .expect(resources.openApp({ path: `${resources.dir}/missing/database.sqlite` }))
-      .rejects.toSatisfy(() => true);
+    await expect(
+      resources.openApp({ path: `${resources.dir}/missing/database.sqlite` })
+    ).rejects.toSatisfy(() => true);
 
     const app = await resources.openApp();
 

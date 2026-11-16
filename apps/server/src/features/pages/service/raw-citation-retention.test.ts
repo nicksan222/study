@@ -25,7 +25,9 @@ import { withTestPublication } from '#testing/publication';
 for (const mode of ['history', 'delete'] as const)
   test.stable(
     `raw exact authored citation blocks ${mode} after private capture retirement until its raw message is deleted`,
-    async ({ databases }) => {
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
       const f = await pageTransformFixture(databases);
 
       try {
@@ -41,7 +43,7 @@ for (const mode of ['history', 'delete'] as const)
               citations: []
             });
 
-            test.assert.ok(document.version);
+            assert.ok(document.version);
             const input = { kind: 'page' as const, versionId: document.version.id };
             const note = yield* chats.createUntitledNote({});
 
@@ -86,11 +88,11 @@ for (const mode of ['history', 'delete'] as const)
             f.context.db.orm.run(
               sql`DELETE FROM note_run_contexts WHERE request_id=${request.requestId}`
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               f.context.db.orm.get(sql`SELECT count(*) n FROM note_context_pages`)?.n,
               0n
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               f.context.db.orm.get(sql`SELECT count(*) n FROM note_run_contexts`)?.n,
               0n
             );
@@ -120,22 +122,22 @@ for (const mode of ['history', 'delete'] as const)
                 ? yield* docs.previewHistory({ pageId: saved.document.id, keepLatest: 1 })
                 : yield* docs.previewDeletion({ id: saved.document.id });
 
-            test.assert.ok(preview.blockedVersionIds.includes(saved.document.version.id));
-            test.assert.throws(() =>
+            assert.ok(preview.blockedVersionIds.includes(saved.document.version.id));
+            assert.throws(() =>
               f.context.db.orm.run(
                 sql`INSERT INTO page_retirements(version_id,reason,created_at) VALUES(${saved.document.version.id},'history',1)`
               )
             );
             const raw = yield* chats.message(saved.messageId);
 
-            test.assert.ok(raw.citations[0]?.evidence?.availability === 'available');
+            assert.ok(raw.citations[0]?.evidence?.availability === 'available');
             yield* chats.deleteMessage(saved.messageId);
             const released =
               mode === 'history'
                 ? yield* docs.previewHistory({ pageId: saved.document.id, keepLatest: 1 })
                 : yield* docs.previewDeletion({ id: saved.document.id });
 
-            test.expect(released.blockedVersionIds).toStrictEqual([]);
+            expect(released.blockedVersionIds).toStrictEqual([]);
 
             if (mode === 'history')
               yield* docs.retireHistory({
@@ -145,13 +147,13 @@ for (const mode of ['history', 'delete'] as const)
               });
             else yield* docs.delete({ pageId: saved.document.id, token: released.token });
 
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(docs.version({ id: saved.document.version.id }))).kind ===
                 'not_found'
             );
           }).pipe(Effect.provide(f.domain()))
         );
-        test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+        expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         await f.close();
       }

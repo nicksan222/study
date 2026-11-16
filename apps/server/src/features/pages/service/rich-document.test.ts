@@ -39,7 +39,9 @@ const text = (value: string) => [{ type: 'text' as const, text: value, marks: []
 
 test.stable(
   'rich authored pages round-trip native RPC and reopen with independent identities, exact assets and Unicode ranges',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     let context = new ServerContext(await location.open());
     const services = () =>
@@ -150,11 +152,11 @@ test.stable(
               projectId: setup.collection.id
             });
 
-            test.assert.ok(original.version);
-            test.expect(original.version.document).toStrictEqual(content);
+            assert.ok(original.version);
+            expect(original.version.document).toStrictEqual(content);
             const copy = yield* create('Retained copy', copyContent);
 
-            test.assert.ok(copy.version);
+            assert.ok(copy.version);
             const inserted = createBlock({ type: 'paragraph', inlines: text('Inserted') });
             const edit = yield* rpc['pages.save']({
               pageId: original.id,
@@ -164,12 +166,10 @@ test.stable(
             });
             const revised = yield* rpc['pages.version']({ id: edit.submittedVersionId });
 
-            test
-              .expect(revised.document.blocks.map((block) => block.id))
-              .toStrictEqual([
-                inserted.id,
-                ...content.blocks.toReversed().map((block) => block.id)
-              ]);
+            expect(revised.document.blocks.map((block) => block.id)).toStrictEqual([
+              inserted.id,
+              ...content.blocks.toReversed().map((block) => block.id)
+            ]);
 
             for (const image of [
               createBlock({ type: 'image', sourceId: setup.image.id, revision: 999, alt: '' }),
@@ -180,7 +180,7 @@ test.stable(
                 alt: ''
               })
             ])
-              test.assert.ok(
+              assert.ok(
                 (yield* Effect.flip(
                   create('Missing image revision', { ...content, blocks: [image] })
                 )).kind === 'invalid_input'
@@ -208,9 +208,9 @@ test.stable(
               const emptyContent = { ...content, blocks: [createBlock({ type: 'table', rows })] };
               const empty = yield* create('Empty structure', emptyContent);
 
-              test.assert.ok(empty.version);
-              test.expect(empty.version.document).toStrictEqual(emptyContent);
-              test.assert.ok(
+              assert.ok(empty.version);
+              expect(empty.version.document).toStrictEqual(emptyContent);
+              assert.ok(
                 (yield* Effect.flip(
                   rpc['materials.requestMaterialGeneration']({
                     projectId: setup.collection.id,
@@ -239,7 +239,7 @@ test.stable(
               ]
             });
 
-            test.assert.ok(table.version);
+            assert.ok(table.version);
             const request = yield* rpc['materials.requestMaterialGeneration']({
               projectId: setup.collection.id,
               title: 'Actual cell text',
@@ -259,8 +259,8 @@ test.stable(
         )
       );
 
-      test.assert.ok(saved.original.version);
-      test.assert.ok(saved.copy.version);
+      assert.ok(saved.original.version);
+      assert.ok(saved.copy.version);
 
       for (const invalid of [
         { ...content, blocks: [content.blocks[0]!, content.blocks[0]!] },
@@ -275,7 +275,7 @@ test.stable(
           ]
         }
       ])
-        test.assert.ok(Schema.is(documentSchema)(invalid) === false);
+        assert.ok(Schema.is(documentSchema)(invalid) === false);
 
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -286,7 +286,7 @@ test.stable(
             blocks: [{ ...content.blocks[0]!, anchor: { type: 'page' as const, page: 1 } }]
           };
 
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               docs.create({
                 createKey: crypto.randomUUID(),
@@ -303,7 +303,7 @@ test.stable(
             name: 'replacement.txt',
             bytes: new TextEncoder().encode('Different current bytes')
           });
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               docs.create({
                 createKey: crypto.randomUUID(),
@@ -323,10 +323,10 @@ test.stable(
       );
       const range = { blockId: content.blocks[0]!.id, start: 6, end: 8 };
 
-      test.assert.ok(validBlockTextRange(content, range) === true);
-      test.assert.ok(validBlockTextRange(content, { ...range, start: 7 }) === false);
-      test.assert.ok(validBlockTextRange(content, { ...range, end: 100 }) === false);
-      test.assert.ok(
+      assert.ok(validBlockTextRange(content, range) === true);
+      assert.ok(validBlockTextRange(content, { ...range, start: 7 }) === false);
+      assert.ok(validBlockTextRange(content, { ...range, end: 100 }) === false);
+      assert.ok(
         validBlockTextRange({ ...content, blocks: content.blocks.toReversed() }, range) === true
       );
       const snapshotId = saved.original.version.snapshotId;
@@ -337,7 +337,7 @@ test.stable(
         sql`UPDATE blocks SET content='{}' WHERE document_id=${snapshotId}`,
         sql`DELETE FROM document_assets WHERE document_id=${snapshotId}`
       ])
-        test.assert.throws(() => context.db.orm.run(statement));
+        assert.throws(() => context.db.orm.run(statement));
 
       context.close();
       context = new ServerContext(await location.open());
@@ -348,22 +348,22 @@ test.stable(
           const sources = yield* Sources;
 
           yield* projects.deleteProject({ id: setup.collection.id });
-          test
-            .expect((yield* docs.version({ id: saved.original.version!.id })).document)
-            .toStrictEqual(content);
-          test
-            .expect((yield* docs.version({ id: saved.copy.version!.id })).document)
-            .toStrictEqual(copyContent);
-          test
-            .expect((yield* sources.sourceSnapshot({ id: setup.image.id, revision: 1 })).bytes)
-            .toStrictEqual(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
-          test.assert.strictEqual(
+          expect((yield* docs.version({ id: saved.original.version!.id })).document).toStrictEqual(
+            content
+          );
+          expect((yield* docs.version({ id: saved.copy.version!.id })).document).toStrictEqual(
+            copyContent
+          );
+          expect(
+            (yield* sources.sourceSnapshot({ id: setup.image.id, revision: 1 })).bytes
+          ).toStrictEqual(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
+          assert.strictEqual(
             context.db.orm.get(
               sql`SELECT count(*) n FROM document_assets WHERE source_id=${setup.image.id}`
             )?.n,
             3n
           );
-          test.expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(services()))
       );
     } finally {

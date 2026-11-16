@@ -6,7 +6,7 @@ import { sql } from '@study/db';
  * │ persistence fails.                                                                       │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Uses a test database and managed auth session to test.assert rollback and cleanup behavior. │
+ * │ - Uses a test database and managed auth session to assert rollback and cleanup behavior. │
  * │ - Uses database fixtures to verify service-visible invariants and failures.              │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
@@ -27,7 +27,9 @@ import { transaction } from '#server/platform/definitions/define-store';
 
 test.stable(
   'auth uses private SQLite account and guards refresh rotation',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
@@ -46,12 +48,12 @@ test.stable(
           Effect.gen(function* () {
             const auth = yield* Auth;
 
-            test.expect(yield* auth.status()).toStrictEqual({
+            expect(yield* auth.status()).toStrictEqual({
               signedIn: false,
               email: null,
               sharing: false
             });
-            test.assert.strictEqual(yield* auth.publicAccount(), undefined);
+            assert.strictEqual(yield* auth.publicAccount(), undefined);
             const account = {
               subject: 'person',
               clientId: 'client',
@@ -59,14 +61,14 @@ test.stable(
               sharing: true
             };
 
-            test.assert.ok(
+            assert.ok(
               yield* Effect.flip(auth.rotateRefreshToken({ previous: account, token: 'new' }))
             );
             const first = yield* auth.startSignIn({});
 
-            test.assert.strictEqual(yield* auth.cancelSignIn({ attemptId: 'stale' }), false);
-            test.assert.strictEqual(yield* auth.cancelSignIn({ attemptId: first.attemptId }), true);
-            test.assert.ok(
+            assert.strictEqual(yield* auth.cancelSignIn({ attemptId: 'stale' }), false);
+            assert.strictEqual(yield* auth.cancelSignIn({ attemptId: first.attemptId }), true);
+            assert.ok(
               (yield* Effect.flip(auth.finishSignIn({ attemptId: first.attemptId }))).kind ===
                 'invalid_input'
             );
@@ -83,7 +85,9 @@ test.stable(
 
 test.stable(
   'persisted account is public-safe and refresh rotation is atomic',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const account = {
@@ -114,21 +118,21 @@ test.stable(
           Effect.gen(function* () {
             const auth = yield* Auth;
 
-            test.expect(yield* auth.publicAccount()).toStrictEqual({
+            expect(yield* auth.publicAccount()).toStrictEqual({
               subject: 'person',
               email: 'p@example.test',
               sharing: true
             });
             yield* auth.rotateRefreshToken({ previous: account, token: 'rotated' });
             yield* auth.rotateRefreshToken({ previous: account, token: 'rotated' });
-            test.assert.ok(
+            assert.ok(
               yield* Effect.flip(auth.rotateRefreshToken({ previous: account, token: 'other' }))
             );
             const row = context.db.orm.select().from(preferences).get();
 
-            test.assert.ok(JSON.parse(row!.value).refreshToken === 'rotated');
+            assert.ok(JSON.parse(row!.value).refreshToken === 'rotated');
             yield* auth.signOut();
-            test.assert.ok((yield* auth.status()).signedIn === false);
+            assert.ok((yield* auth.status()).signedIn === false);
           }).pipe(Effect.provide(layer))
         )
       );
@@ -142,7 +146,9 @@ test.stable(
 
 test.stable(
   'concurrent finish rejects and cancelling closes the real listener',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
@@ -167,17 +173,14 @@ test.stable(
             );
 
             yield* Effect.yieldNow;
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(auth.finishSignIn({ attemptId: attempt.attemptId }))).kind ===
                 'invalid_input'
             );
-            test.assert.strictEqual(
-              yield* auth.cancelSignIn({ attemptId: attempt.attemptId }),
-              true
-            );
+            assert.strictEqual(yield* auth.cancelSignIn({ attemptId: attempt.attemptId }), true);
             yield* Fiber.await(pending);
             yield* Effect.promise(async () => {
-              await test.expect(fetch(callback)).rejects.toThrow();
+              await expect(fetch(callback)).rejects.toThrow();
             });
           }).pipe(Effect.provide(layer))
         )
@@ -192,7 +195,9 @@ test.stable(
 
 test.stable(
   'failed sign-out persistence restores the account and session',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const account = {
@@ -225,9 +230,9 @@ test.stable(
             context.db.orm.run(
               sql`CREATE TRIGGER reject_auth_delete BEFORE DELETE ON preferences WHEN OLD.scope = 'private.chatgpt' BEGIN SELECT RAISE(ABORT, 'rejected'); END`
             );
-            test.assert.ok(yield* Effect.flip(auth.signOut()));
-            test.assert.ok((yield* auth.status()).signedIn === true);
-            test.assert.ok(
+            assert.ok(yield* Effect.flip(auth.signOut()));
+            assert.ok((yield* auth.status()).signedIn === true);
+            assert.ok(
               JSON.parse(context.db.orm.select().from(preferences).get()!.value).refreshToken ===
                 'secret'
             );
@@ -242,42 +247,45 @@ test.stable(
   }
 );
 
-test.stable('closing the service scope closes an unfinished listener', async ({ databases }) => {
-  const location = await databases();
-  const context = new ServerContext(await location.open());
-  const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
-  const layer = Auth.layer.pipe(
-    Layer.provideMerge(
-      Layer.merge(
-        Layer.succeed(Database, { store: context }),
-        Layer.succeed(ChatGptSession, { manager, issuer: 'http://localhost', hostId: 'test' })
-      )
-    )
-  );
-
-  try {
-    const url = await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const auth = yield* Auth;
-          const attempt = yield* auth.startSignIn({});
-
-          return new URL(new URL(attempt.url).searchParams.get('redirect_uri')!);
-        }).pipe(Effect.provide(layer))
+test.stable(
+  'closing the service scope closes an unfinished listener',
+  async ({ databases, expect }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
+    const layer = Auth.layer.pipe(
+      Layer.provideMerge(
+        Layer.merge(
+          Layer.succeed(Database, { store: context }),
+          Layer.succeed(ChatGptSession, { manager, issuer: 'http://localhost', hostId: 'test' })
+        )
       )
     );
 
-    await test.expect(fetch(url)).rejects.toThrow();
-  } finally {
-    await manager.dispose();
-    context.close();
-    await location.cleanup();
+    try {
+      const url = await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const auth = yield* Auth;
+            const attempt = yield* auth.startSignIn({});
+
+            return new URL(new URL(attempt.url).searchParams.get('redirect_uri')!);
+          }).pipe(Effect.provide(layer))
+        )
+      );
+
+      await expect(fetch(url)).rejects.toThrow();
+    } finally {
+      await manager.dispose();
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
 test.stable(
   'cancelling during listener acquisition releases the acquired listener',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const location = await databases();
     const context = new ServerContext(await location.open());
     const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
@@ -320,7 +328,7 @@ test.stable(
             yield* auth.cancelSignIn({});
             release();
             yield* Fiber.await(starting);
-            yield* Effect.promise(() => test.expect(fetch(callback)).rejects.toThrow());
+            yield* Effect.promise(() => expect(fetch(callback)).rejects.toThrow());
           }).pipe(Effect.provide(layer))
         )
       );
@@ -334,7 +342,7 @@ test.stable(
   }
 );
 
-test.stable('API keys stay private and persist independently', async ({ databases }) => {
+test.stable('API keys stay private and persist independently', async ({ databases, expect }) => {
   const location = await databases();
   const context = new ServerContext(await location.open());
   const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
@@ -350,29 +358,25 @@ test.stable('API keys stay private and persist independently', async ({ database
         const before = yield* auth.credentialGeneration();
 
         yield* auth.saveApiKey({ provider: 'anthropic', apiKey: 'test-secret' });
-        test.expect(yield* auth.apiKey('anthropic')).toBe('test-secret');
-        test.expect(yield* auth.credentialGeneration()).not.toBe(before);
+        expect(yield* auth.apiKey('anthropic')).toBe('test-secret');
+        expect(yield* auth.credentialGeneration()).not.toBe(before);
         const catalog = yield* auth.providers();
 
-        test.expect(catalog.find((provider) => provider.id === 'anthropic')?.configured).toBe(true);
-        test.expect(JSON.stringify(catalog)).not.toContain('test-secret');
-        test
-          .expect(
-            (yield* Effect.flip(auth.saveApiKey({ provider: 'unknown', apiKey: 'test' }))).kind
-          )
-          .toBe('invalid_input');
-        test
-          .expect(
-            (yield* Effect.flip(auth.saveApiKey({ provider: 'anthropic', apiKey: ' ' }))).kind
-          )
-          .toBe('invalid_input');
-        test.expect(yield* transaction(Auth.validateBackup)).toBe(false);
+        expect(catalog.find((provider) => provider.id === 'anthropic')?.configured).toBe(true);
+        expect(JSON.stringify(catalog)).not.toContain('test-secret');
+        expect(
+          (yield* Effect.flip(auth.saveApiKey({ provider: 'unknown', apiKey: 'test' }))).kind
+        ).toBe('invalid_input');
+        expect(
+          (yield* Effect.flip(auth.saveApiKey({ provider: 'anthropic', apiKey: ' ' }))).kind
+        ).toBe('invalid_input');
+        expect(yield* transaction(Auth.validateBackup)).toBe(false);
         yield* transaction(Auth.sanitizeBackup);
-        test.expect(yield* transaction(Auth.validateBackup)).toBe(true);
-        test.expect((yield* auth.providers()).every((provider) => !provider.configured)).toBe(true);
+        expect(yield* transaction(Auth.validateBackup)).toBe(true);
+        expect((yield* auth.providers()).every((provider) => !provider.configured)).toBe(true);
         yield* auth.saveApiKey({ provider: 'anthropic', apiKey: 'replacement-secret' });
         yield* auth.saveApiKey({ provider: 'anthropic', apiKey: null });
-        test.expect((yield* Effect.flip(auth.apiKey('anthropic'))).kind).toBe('auth');
+        expect((yield* Effect.flip(auth.apiKey('anthropic'))).kind).toBe('auth');
       }).pipe(Effect.provide(layer), Effect.scoped)
     );
   } finally {

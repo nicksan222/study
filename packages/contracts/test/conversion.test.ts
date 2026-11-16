@@ -5,7 +5,7 @@ import { replySnapshotSchema } from '../src/notes/schemas.ts';
 
 test.stable(
   'conversion provenance requires its captured target and cannot decorate other operations',
-  () => {
+  ({ expect }) => {
     const decode = Schema.decodeUnknownSync(replySnapshotSchema);
     const snapshot = {
       requestId: 'conversion',
@@ -21,7 +21,7 @@ test.stable(
       }
     };
 
-    test.expect(decode(snapshot).generation?.origin).toBe('convert');
+    expect(decode(snapshot).generation?.origin).toBe('convert');
 
     for (const generation of [
       { ...snapshot.generation, conversion: undefined },
@@ -29,6 +29,6 @@ test.stable(
       { ...snapshot.generation, questionVersionId: 3n },
       { ...snapshot.generation, conversion: { strategyId: 'chatgpt', baseVersionId: 9n } }
     ])
-      test.expect(() => decode({ ...snapshot, generation })).toThrow();
+      expect(() => decode({ ...snapshot, generation })).toThrow();
   }
 );

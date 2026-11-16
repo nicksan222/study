@@ -14,69 +14,66 @@ const x = '33333333-3333-4333-8333-333333333333';
 
 const y = '44444444-4444-4444-8444-444444444444';
 
-test.stable('matching review labels selected and correct associations for each term', () => {
-  const attempt = Schema.decodeUnknownSync(quizAttemptCompletedSchema)({
-    id: 1n,
-    versionId: 2n,
-    materialId: 3n,
-    startedAt: 1n,
-    finishedAt: 2n,
-    status: 'completed',
-    scoring: { complete: true, questionCount: 1, gradedCount: 1, earned: 0, score: 0 },
-    questions: [
-      {
-        id: 4n,
-        position: 0n,
-        kind: 'matching',
-        prompt: 'Match',
-        explanation: 'Cell functions.',
-        score: 0,
-        feedback: null,
-        grading: 'graded',
-        terms: [
-          { id: a, text: 'Nucleus' },
-          { id: b, text: 'Ribosome' }
-        ],
-        definitions: [
-          { id: y, text: 'Builds proteins' },
-          { id: x, text: 'Stores DNA' }
-        ],
-        answer: {
-          type: 'matching',
-          associations: [
-            { termId: a, definitionId: y },
-            { termId: b, definitionId: x }
+test.stable(
+  'matching review labels selected and correct associations for each term',
+  ({ expect, render, screen, within }) => {
+    const attempt = Schema.decodeUnknownSync(quizAttemptCompletedSchema)({
+      id: 1n,
+      versionId: 2n,
+      materialId: 3n,
+      startedAt: 1n,
+      finishedAt: 2n,
+      status: 'completed',
+      scoring: { complete: true, questionCount: 1, gradedCount: 1, earned: 0, score: 0 },
+      questions: [
+        {
+          id: 4n,
+          position: 0n,
+          kind: 'matching',
+          prompt: 'Match',
+          explanation: 'Cell functions.',
+          score: 0,
+          feedback: null,
+          grading: 'graded',
+          terms: [
+            { id: a, text: 'Nucleus' },
+            { id: b, text: 'Ribosome' }
+          ],
+          definitions: [
+            { id: y, text: 'Builds proteins' },
+            { id: x, text: 'Stores DNA' }
+          ],
+          answer: {
+            type: 'matching',
+            associations: [
+              { termId: a, definitionId: y },
+              { termId: b, definitionId: x }
+            ]
+          },
+          pairs: [
+            { termId: a, definitionId: x, score: 0 },
+            { termId: b, definitionId: y, score: 0 }
           ]
-        },
-        pairs: [
-          { termId: a, definitionId: x, score: 0 },
-          { termId: b, definitionId: y, score: 0 }
-        ]
-      }
-    ]
-  });
-  const question = attempt.questions[0]!;
+        }
+      ]
+    });
+    const question = attempt.questions[0]!;
 
-  test.expect(question.kind).toBe('matching');
+    expect(question.kind).toBe('matching');
 
-  if (question.kind !== 'matching') throw Error('wrong fixture');
+    if (question.kind !== 'matching') throw Error('wrong fixture');
 
-  test.render(
-    <ClientPracticePresentation>
-      <MatchingReview question={question} />
-    </ClientPracticePresentation>
-  );
-  const nucleus = test.screen.getByText('Nucleus').parentElement!;
+    render(
+      <ClientPracticePresentation>
+        <MatchingReview question={question} />
+      </ClientPracticePresentation>
+    );
+    const nucleus = screen.getByText('Nucleus').parentElement!;
 
-  test
-    .expect(test.within(nucleus).getByText(catalogs.english.YourAnswer + ':'))
-    .toBeInTheDocument();
-  test
-    .expect(test.within(nucleus).getByText(catalogs.english.RightAnswer + ':'))
-    .toBeInTheDocument();
-  test.expect(test.within(nucleus).getByText('Builds proteins')).toBeInTheDocument();
-  test.expect(test.within(nucleus).getByText('Stores DNA')).toBeInTheDocument();
-  test
-    .expect(test.within(nucleus).getByText(catalogs.english.VerdictIncorrect))
-    .toBeInTheDocument();
-});
+    expect(within(nucleus).getByText(catalogs.english.YourAnswer + ':')).toBeInTheDocument();
+    expect(within(nucleus).getByText(catalogs.english.RightAnswer + ':')).toBeInTheDocument();
+    expect(within(nucleus).getByText('Builds proteins')).toBeInTheDocument();
+    expect(within(nucleus).getByText('Stores DNA')).toBeInTheDocument();
+    expect(within(nucleus).getByText(catalogs.english.VerdictIncorrect)).toBeInTheDocument();
+  }
+);

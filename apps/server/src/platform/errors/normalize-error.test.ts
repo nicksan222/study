@@ -17,20 +17,30 @@ import { test } from '@study/testing';
 
 import { normalizeError } from '#server/platform/errors/classify-error';
 
-test.stable('normalization preserves domain failure identity and retry metadata', () => {
-  const cause = new Error('provider');
-  const failure = new StudyError('rate_limited', 'slow down', { cause, retryAfterMs: 42 });
+test.stable(
+  'normalization preserves domain failure identity and retry metadata',
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test.assert.strictEqual(normalizeError(failure), failure);
-  test.assert.strictEqual(normalizeError(failure).cause, cause);
-});
+    const cause = new Error('provider');
+    const failure = new StudyError('rate_limited', 'slow down', { cause, retryAfterMs: 42 });
 
-test.stable('normalization classifies unknown causes without exposing their messages', () => {
-  const cause = Object.assign(new Error('private path'), { code: 'EACCES' });
-  const failure = normalizeError(cause);
+    assert.strictEqual(normalizeError(failure), failure);
+    assert.strictEqual(normalizeError(failure).cause, cause);
+  }
+);
 
-  test.assert.ok(failure.kind === 'config');
-  test.assert.ok(failure.message === 'Required resource is not accessible');
-  test.assert.strictEqual(failure.cause, cause);
-  test.assert.ok(failure.retryAfterMs === null);
-});
+test.stable(
+  'normalization classifies unknown causes without exposing their messages',
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const cause = Object.assign(new Error('private path'), { code: 'EACCES' });
+    const failure = normalizeError(cause);
+
+    assert.ok(failure.kind === 'config');
+    assert.ok(failure.message === 'Required resource is not accessible');
+    assert.strictEqual(failure.cause, cause);
+    assert.ok(failure.retryAfterMs === null);
+  }
+);

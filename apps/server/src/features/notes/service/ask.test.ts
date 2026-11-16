@@ -33,7 +33,9 @@ import { withTestPublication } from '#testing/publication';
 // No workers or providers are started: publication is controlled through the existing test fence.
 test.stable(
   'Ask fences stale windows, replays full intent once, rolls back outbox failure and reopens exact versions',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     let context = new ServerContext(await location.open());
     const handlers = () =>
@@ -99,18 +101,18 @@ test.stable(
               ].map((table) => context.db.orm.select().from(table).all().length);
             const empty = counts();
 
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(rpc('notes.ask', { ...input, expectedSelectionRevision: 0n })))
                 .kind === 'invalid_input'
             );
-            test.expect(counts()).toStrictEqual(empty);
+            expect(counts()).toStrictEqual(empty);
 
             // Abort at the final outbox insert, after note, capture and pending reply writes.
             context.db.orm.run(
               sql`CREATE TRIGGER reject_ask_outbox BEFORE INSERT ON workflow_events WHEN NEW.type='NoteGenerationRequested' BEGIN SELECT RAISE(ABORT,'injected Ask commit failure'); END`
             );
             yield* Effect.flip(rpc('notes.ask', input));
-            test.expect(counts()).toStrictEqual(empty);
+            expect(counts()).toStrictEqual(empty);
             context.db.orm.run(sql`DROP TRIGGER reject_ask_outbox`);
             // An uncommitted key still has to match the displayed selection revision.
             yield* rpc('notes.updateNoteSelection', {
@@ -118,8 +120,8 @@ test.stable(
               expectedRevision: 1n,
               targets: []
             });
-            test.assert.ok((yield* Effect.flip(rpc('notes.ask', input))).kind === 'invalid_input');
-            test.expect(counts()).toStrictEqual(empty);
+            assert.ok((yield* Effect.flip(rpc('notes.ask', input))).kind === 'invalid_input');
+            expect(counts()).toStrictEqual(empty);
             const submitted = { ...input, expectedSelectionRevision: 2n };
             const duplicates = yield* Effect.all(
               [rpc('notes.ask', submitted), rpc('notes.ask', submitted)],
@@ -127,16 +129,16 @@ test.stable(
             );
             const result = duplicates[0]!;
 
-            test.expect(duplicates[1]).toStrictEqual(result);
-            test.expect(counts().map((n, i) => n - empty[i]!)).toStrictEqual([2, 2, 1, 1, 2]);
+            expect(duplicates[1]).toStrictEqual(result);
+            expect(counts().map((n, i) => n - empty[i]!)).toStrictEqual([2, 2, 1, 1, 2]);
             const captured = yield* rpc('notes.inspectNoteContext', {
               requestId: result.requestId
             });
 
-            test.assert.strictEqual(captured.throughMessageId, result.userMessageId);
-            test.assert.strictEqual(captured.messages.at(-1)?.versionId, result.userVersionId);
-            test.assert.ok(captured.messages.at(-1)?.text === 'Explain this');
-            test.assert.strictEqual(
+            assert.strictEqual(captured.throughMessageId, result.userMessageId);
+            assert.strictEqual(captured.messages.at(-1)?.versionId, result.userVersionId);
+            assert.ok(captured.messages.at(-1)?.text === 'Explain this');
+            assert.strictEqual(
               (yield* rpc('notes.message', { id: result.messageId })).replyTo,
               result.userMessageId
             );
@@ -149,11 +151,9 @@ test.stable(
               { ...submitted, sourceIds: [source.id] },
               { ...submitted, threadRoot: root.parts[0]!.id }
             ])
-              test.assert.ok(
-                (yield* Effect.flip(rpc('notes.ask', changed))).kind === 'invalid_input'
-              );
+              assert.ok((yield* Effect.flip(rpc('notes.ask', changed))).kind === 'invalid_input');
 
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(
                 rpc('notes.requestReply', {
                   noteId: note.id,
@@ -182,29 +182,27 @@ test.stable(
                 }
               ]
             });
-            test
-              .expect(
-                yield* rpc('notes.ask', {
-                  ...submitted,
-                  text: 'Explain this',
-                  sourceIds: []
-                })
-              )
-              .toStrictEqual(result);
-            test
-              .expect(yield* rpc('notes.inspectNoteContext', { requestId: result.requestId }))
-              .toStrictEqual(captured);
+            expect(
+              yield* rpc('notes.ask', {
+                ...submitted,
+                text: 'Explain this',
+                sourceIds: []
+              })
+            ).toStrictEqual(result);
+            expect(
+              yield* rpc('notes.inspectNoteContext', { requestId: result.requestId })
+            ).toStrictEqual(captured);
             // Replay must retain the captured user version even after its note is edited.
             const editedNote = yield* rpc('notes.editMessage', {
               messageId: result.userMessageId,
               text: 'Edited after capture'
             });
 
-            test.assert.notStrictEqual(editedNote.activeVersionId, result.userVersionId);
-            test.expect(yield* rpc('notes.ask', submitted)).toStrictEqual(result);
-            test
-              .expect(yield* rpc('notes.inspectNoteContext', { requestId: result.requestId }))
-              .toStrictEqual(captured);
+            assert.notStrictEqual(editedNote.activeVersionId, result.userVersionId);
+            expect(yield* rpc('notes.ask', submitted)).toStrictEqual(result);
+            expect(
+              yield* rpc('notes.inspectNoteContext', { requestId: result.requestId })
+            ).toStrictEqual(captured);
             const rewrite = yield* rpc('notes.rewriteMessage', {
               messageId: result.messageId,
               origin: 'improve'
@@ -238,29 +236,27 @@ test.stable(
               versionId: result.versionId
             };
 
-            test.expect(yield* rpc('notes.replyVersion', key)).toStrictEqual({
+            expect(yield* rpc('notes.replyVersion', key)).toStrictEqual({
               state: 'available',
               requestId: result.requestId
             });
-            test
-              .expect(yield* rpc('notes.replyVersion', { ...key, versionId: rewrite.versionId }))
-              .toStrictEqual({ state: 'available', requestId: rewrite.requestId });
-            test
-              .expect(yield* rpc('notes.replyVersion', { ...key, versionId: reanswer.versionId }))
-              .toStrictEqual({ state: 'available', requestId: reanswer.requestId });
-            test
-              .expect(
-                yield* rpc('notes.replyVersion', {
-                  ...key,
-                  versionId: edited.activeVersionId!
-                })
-              )
-              .toStrictEqual({ state: 'manual' });
-            test.assert.ok(
+            expect(
+              yield* rpc('notes.replyVersion', { ...key, versionId: rewrite.versionId })
+            ).toStrictEqual({ state: 'available', requestId: rewrite.requestId });
+            expect(
+              yield* rpc('notes.replyVersion', { ...key, versionId: reanswer.versionId })
+            ).toStrictEqual({ state: 'available', requestId: reanswer.requestId });
+            expect(
+              yield* rpc('notes.replyVersion', {
+                ...key,
+                versionId: edited.activeVersionId!
+              })
+            ).toStrictEqual({ state: 'manual' });
+            assert.ok(
               (yield* Effect.flip(rpc('notes.replyVersion', { ...key, noteId: other.id }))).kind ===
                 'not_found'
             );
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(
                 rpc('notes.replyVersion', { ...key, versionId: result.userVersionId })
               )).kind === 'not_found'
@@ -276,18 +272,18 @@ test.stable(
             const threaded = yield* rpc('notes.ask', attachmentInput);
             const attached = yield* rpc('notes.message', { id: threaded.userMessageId });
 
-            test.assert.strictEqual(attached.threadRoot, root.parts[0]!.id);
-            test.assert.strictEqual(attached.parts[0]?.sourceId, source.id);
+            assert.strictEqual(attached.threadRoot, root.parts[0]!.id);
+            assert.strictEqual(attached.parts[0]?.sourceId, source.id);
             const attachmentSnapshot = yield* rpc('notes.replySnapshot', {
               requestId: threaded.requestId
             });
 
-            test.assert.ok(
+            assert.ok(
               attachmentSnapshot.pendingAttachments?.some(
                 (part) => part.sourceId === source.id && part.messageId === threaded.userMessageId
               )
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               attachmentSnapshot.context?.messages.at(-1)?.versionId,
               threaded.userVersionId
             );
@@ -302,16 +298,14 @@ test.stable(
               .get();
 
             yield* (yield* Sources).setSourceProject({ id: source.id, projectId: movedProject.id });
-            test.expect(yield* rpc('notes.ask', attachmentInput)).toStrictEqual(threaded);
-            test
-              .expect(
-                yield* rpc('notes.replyVersion', {
-                  noteId: other.id,
-                  messageId: threaded.messageId,
-                  versionId: threaded.versionId
-                })
-              )
-              .toStrictEqual({ state: 'available', requestId: threaded.requestId });
+            expect(yield* rpc('notes.ask', attachmentInput)).toStrictEqual(threaded);
+            expect(
+              yield* rpc('notes.replyVersion', {
+                noteId: other.id,
+                messageId: threaded.messageId,
+                versionId: threaded.versionId
+              })
+            ).toStrictEqual({ state: 'available', requestId: threaded.requestId });
 
             return {
               submitted,
@@ -333,42 +327,34 @@ test.stable(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(NotesRpc, { flatten: true });
 
-            test.expect(yield* rpc('notes.ask', saved.submitted)).toStrictEqual(saved.result);
-            test
-              .expect(
-                yield* rpc('notes.inspectNoteContext', {
-                  requestId: saved.result.requestId
-                })
-              )
-              .toStrictEqual(saved.captured);
-            test.expect(yield* rpc('notes.replyVersion', saved.key)).toStrictEqual({
+            expect(yield* rpc('notes.ask', saved.submitted)).toStrictEqual(saved.result);
+            expect(
+              yield* rpc('notes.inspectNoteContext', {
+                requestId: saved.result.requestId
+              })
+            ).toStrictEqual(saved.captured);
+            expect(yield* rpc('notes.replyVersion', saved.key)).toStrictEqual({
               state: 'available',
               requestId: saved.result.requestId
             });
-            test
-              .expect(
-                yield* rpc('notes.replyVersion', {
-                  ...saved.key,
-                  versionId: saved.rewrite.versionId
-                })
-              )
-              .toStrictEqual({ state: 'available', requestId: saved.rewrite.requestId });
-            test
-              .expect(
-                yield* rpc('notes.replyVersion', {
-                  ...saved.key,
-                  versionId: saved.reanswer.versionId
-                })
-              )
-              .toStrictEqual({ state: 'available', requestId: saved.reanswer.requestId });
-            test
-              .expect(
-                yield* rpc('notes.replyVersion', {
-                  ...saved.key,
-                  versionId: saved.manualVersionId
-                })
-              )
-              .toStrictEqual({ state: 'manual' });
+            expect(
+              yield* rpc('notes.replyVersion', {
+                ...saved.key,
+                versionId: saved.rewrite.versionId
+              })
+            ).toStrictEqual({ state: 'available', requestId: saved.rewrite.requestId });
+            expect(
+              yield* rpc('notes.replyVersion', {
+                ...saved.key,
+                versionId: saved.reanswer.versionId
+              })
+            ).toStrictEqual({ state: 'available', requestId: saved.reanswer.requestId });
+            expect(
+              yield* rpc('notes.replyVersion', {
+                ...saved.key,
+                versionId: saved.manualVersionId
+              })
+            ).toStrictEqual({ state: 'manual' });
           }).pipe(Effect.provide(handlers()))
         )
       );
@@ -381,7 +367,9 @@ test.stable(
 
 test.stable(
   'Ask binds ordered attachments to its intent and rejects changed order without writes',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const f = await pageTransformFixture(databases);
 
     try {
@@ -410,9 +398,10 @@ test.stable(
           const result = yield* c.ask(input);
           const noteMessage = yield* c.message(result.userMessageId);
 
-          test
-            .expect(noteMessage.parts.map((part) => part.sourceId))
-            .toStrictEqual([first.id, second.id]);
+          expect(noteMessage.parts.map((part) => part.sourceId)).toStrictEqual([
+            first.id,
+            second.id
+          ]);
           const counts = () => [
             f.context.db.orm.select().from(s.messages).all().length,
             f.context.db.orm.select().from(s.note_run_contexts).all().length,
@@ -421,13 +410,13 @@ test.stable(
           ];
           const committed = counts();
 
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(c.ask({ ...input, sourceIds: [second.id, first.id] }))).kind ===
               'invalid_input'
           );
-          test.expect(counts()).toStrictEqual(committed);
-          test.expect(yield* c.ask(input)).toStrictEqual(result);
-          test.expect(counts()).toStrictEqual(committed);
+          expect(counts()).toStrictEqual(committed);
+          expect(yield* c.ask(input)).toStrictEqual(result);
+          expect(counts()).toStrictEqual(committed);
         }).pipe(Effect.provide(f.domain()))
       );
     } finally {
@@ -439,7 +428,9 @@ test.stable(
 for (const mode of ['history', 'material', 'note'] as const) {
   test.stable(
     `Ask cannot resurrect after note cleanup and exact pins protect ${mode} retirement`,
-    async ({ databases }) => {
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
       const f = await pageTransformFixture(databases);
 
       try {
@@ -478,12 +469,12 @@ for (const mode of ['history', 'material', 'note'] as const) {
             const result = yield* c.ask(input);
             const captured = yield* c.inspectNoteContext({ requestId: result.requestId });
 
-            test.assert.strictEqual(captured.selectionRevision, 1n);
-            test.expect(captured.inputs[0]?.input).toStrictEqual({
+            assert.strictEqual(captured.selectionRevision, 1n);
+            expect(captured.inputs[0]?.input).toStrictEqual({
               kind: 'page',
               versionId: material.version!.id
             });
-            test.assert.strictEqual(captured.messages.at(-1)?.versionId, result.userVersionId);
+            assert.strictEqual(captured.messages.at(-1)?.versionId, result.userVersionId);
             yield* withTestPublication(
               f.context,
               c
@@ -521,8 +512,8 @@ for (const mode of ['history', 'material', 'note'] as const) {
                 keepLatest: 1
               });
 
-              test.assert.ok(preview.blockedVersionIds.includes(saved.material.version!.id));
-              test.assert.ok(
+              assert.ok(preview.blockedVersionIds.includes(saved.material.version!.id));
+              assert.ok(
                 (yield* Effect.flip(
                   docs.retireHistory({
                     pageId: saved.material.id,
@@ -534,8 +525,8 @@ for (const mode of ['history', 'material', 'note'] as const) {
             } else if (mode === 'material') {
               const preview = yield* docs.previewDeletion({ id: saved.material.id });
 
-              test.assert.ok(preview.blockedVersionIds.includes(saved.material.version!.id));
-              test.assert.ok(
+              assert.ok(preview.blockedVersionIds.includes(saved.material.version!.id));
+              assert.ok(
                 (yield* Effect.flip(
                   docs.delete({ pageId: saved.material.id, token: preview.token })
                 )).kind === 'invalid_input'
@@ -544,33 +535,30 @@ for (const mode of ['history', 'material', 'note'] as const) {
 
             const chats = yield* Notes;
 
-            test.expect(yield* chats.ask(saved.input)).toStrictEqual(saved.result);
+            expect(yield* chats.ask(saved.input)).toStrictEqual(saved.result);
             yield* chats.deleteNote(saved.note.id);
           }).pipe(Effect.provide(f.domain()))
         );
-        await cleanup(f, saved.note.id);
+        await cleanup(f, saved.note.id, assert);
 
         await Effect.runPromise(
           Effect.gen(function* () {
             const c = yield* Notes;
             const count = f.context.db.orm.select().from(s.messages).all().length;
 
-            test.assert.ok((yield* Effect.flip(c.ask(saved.input))).kind === 'not_found');
-            test.assert.strictEqual(f.context.db.orm.select().from(s.messages).all().length, count);
+            assert.ok((yield* Effect.flip(c.ask(saved.input))).kind === 'not_found');
+            assert.strictEqual(f.context.db.orm.select().from(s.messages).all().length, count);
             const key = {
               noteId: saved.note.id,
               messageId: saved.result.messageId,
               versionId: saved.result.versionId
             };
 
-            test.assert.ok((yield* Effect.flip(c.replyVersion(key))).kind === 'not_found');
+            assert.ok((yield* Effect.flip(c.replyVersion(key))).kind === 'not_found');
             const docs = yield* Pages;
 
-            test.assert.strictEqual(
-              (yield* docs.page({ id: saved.material.id })).id,
-              saved.material.id
-            );
-            test.assert.strictEqual(
+            assert.strictEqual((yield* docs.page({ id: saved.material.id })).id, saved.material.id);
+            assert.strictEqual(
               f.context.db.orm
                 .select()
                 .from(s.note_run_contexts)

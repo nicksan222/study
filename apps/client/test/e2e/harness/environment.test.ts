@@ -4,8 +4,8 @@ import { assertCapturePlatform } from './environment.ts';
 
 test.stable(
   'capture platform accepts Linux x64 and rejects incompatible rendering platforms',
-  () => {
-    test.expect(() => assertCapturePlatform('linux', 'x64')).not.toThrow();
+  ({ expect }) => {
+    expect(() => assertCapturePlatform('linux', 'x64')).not.toThrow();
 
     for (const [platform, architecture] of [
       ['darwin', 'x64'],
@@ -13,8 +13,8 @@ test.stable(
       ['linux', 'arm64'],
       ['win32', 'x64']
     ])
-      test
-        .expect(() => assertCapturePlatform(platform, architecture))
-        .toThrow('E2E screenshots require the Linux x64 devcontainer');
+      expect(() => assertCapturePlatform(platform, architecture)).toThrow(
+        'E2E screenshots require the Linux x64 devcontainer'
+      );
   }
 );

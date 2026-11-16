@@ -18,7 +18,7 @@ import { TestClock } from 'effect/testing';
 
 test.stable(
   'App store timestamps remain fixed while the runtime clock advances',
-  async ({ resources: database }) => {
+  async ({ resources: database, expect }) => {
     const timestampClock = await Effect.runPromise(
       Effect.gen(function* () {
         yield* TestClock.setTime(100_000);
@@ -42,20 +42,20 @@ test.stable(
                 const note = yield* client['notes.createNote']({ title: 'Canonical timestamp' });
                 const backup = yield* client['system.createBackup']({});
 
-                test.expect(backup.createdAtMs).toBe(100_000);
+                expect(backup.createdAtMs).toBe(100_000);
 
                 return note;
               })
             )
           );
 
-          test.expect(note.createdAt).toBe(100n);
-          test.expect(app.store.clock).toBe(Context.get(Context.empty(), Clock.Clock));
+          expect(note.createdAt).toBe(100n);
+          expect(app.store.clock).toBe(Context.get(Context.empty(), Clock.Clock));
           const before = app.store.clock.currentTimeMillisUnsafe();
 
           await Effect.runPromise(Effect.sleep('25 millis'));
-          test.expect(app.store.clock.currentTimeMillisUnsafe()).toBeGreaterThan(before);
-          test.expect(timestampClock.currentTimeMillisUnsafe()).toBe(100_000);
+          expect(app.store.clock.currentTimeMillisUnsafe()).toBeGreaterThan(before);
+          expect(timestampClock.currentTimeMillisUnsafe()).toBe(100_000);
         } finally {
           await server.close();
         }

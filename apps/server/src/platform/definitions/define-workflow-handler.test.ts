@@ -41,7 +41,9 @@ const workflow = defineWorkflow({
 
 test.stable(
   'registration retains native definition, derived version and independent subscriptions',
-  () => {
+  ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     let enabled = false;
     let calls = 0;
     const policy = () => {
@@ -57,18 +59,18 @@ test.stable(
       ]
     });
 
-    test.assert.strictEqual(registration.definition, workflow);
-    test.assert.strictEqual(calls, 0);
-    test.assert.strictEqual(registration.triggers[0]!.workflow, workflow);
-    test.assert.strictEqual(registration.triggers[0]!.workflowVersion, 3);
-    test.assert.ok(registration.triggers[0]!.subscription === 'test-a');
-    test.assert.ok(registration.triggers[1]!.subscription === 'test-b');
-    test.expect(registration.triggers[1]!.emits).toStrictEqual(['SourceIndexed']);
-    test.assert.ok(registration.triggers[0]!.enabled() === false);
+    assert.strictEqual(registration.definition, workflow);
+    assert.strictEqual(calls, 0);
+    assert.strictEqual(registration.triggers[0]!.workflow, workflow);
+    assert.strictEqual(registration.triggers[0]!.workflowVersion, 3);
+    assert.ok(registration.triggers[0]!.subscription === 'test-a');
+    assert.ok(registration.triggers[1]!.subscription === 'test-b');
+    expect(registration.triggers[1]!.emits).toStrictEqual(['SourceIndexed']);
+    assert.ok(registration.triggers[0]!.enabled() === false);
     enabled = true;
-    test.assert.ok(registration.triggers[0]!.enabled() === true);
-    test.assert.strictEqual(calls, 2);
-    test.assert.ok(registration.triggers[1]!.enabled() === true);
+    assert.ok(registration.triggers[0]!.enabled() === true);
+    assert.strictEqual(calls, 2);
+    assert.ok(registration.triggers[1]!.enabled() === true);
   }
 );
 
@@ -237,7 +239,9 @@ const event = (id: string) =>
 
 test.stable(
   'registration preserves dispatch duplicate subscription and synchronous policy validation',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const subscription = { subscription: 'duplicate', event: 'SourceIndexed', emits: [] } as const;
@@ -256,25 +260,21 @@ test.stable(
     });
 
     try {
-      await test
-        .expect(
-          Effect.runPromise(
-            dispatchPending(context, duplicates.triggers, 1).pipe(
-              Effect.provide(workflowEngineLayer(context))
-            )
+      await expect(
+        Effect.runPromise(
+          dispatchPending(context, duplicates.triggers, 1).pipe(
+            Effect.provide(workflowEngineLayer(context))
           )
         )
-        .rejects.toThrow('duplicate subscription');
-      await test
-        .expect(
-          Effect.runPromise(
-            dispatchPending(context, asynchronous.triggers, 1).pipe(
-              Effect.provide(workflowEngineLayer(context))
-            )
+      ).rejects.toThrow('duplicate subscription');
+      await expect(
+        Effect.runPromise(
+          dispatchPending(context, asynchronous.triggers, 1).pipe(
+            Effect.provide(workflowEngineLayer(context))
           )
         )
-        .rejects.toThrow('boolean synchronously');
-      test.assert.strictEqual(context.db.orm.select().from(workflowReceipts).all().length, 0);
+      ).rejects.toThrow('boolean synchronously');
+      assert.strictEqual(context.db.orm.select().from(workflowReceipts).all().length, 0);
     } finally {
       context.close();
       await location.cleanup();
@@ -284,7 +284,9 @@ test.stable(
 
 test.stable(
   'reused registrations resolve each engine environment and preserve execution scopes',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const observed: string[] = [];
     let releases = 0;
     const release = Effect.sync(() => {
@@ -324,7 +326,7 @@ test.stable(
       }
     }
 
-    test.expect(observed).toStrictEqual(['first', 'second']);
-    test.assert.strictEqual(releases, 2);
+    expect(observed).toStrictEqual(['first', 'second']);
+    assert.strictEqual(releases, 2);
   }
 );

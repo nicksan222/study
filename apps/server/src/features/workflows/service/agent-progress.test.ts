@@ -27,7 +27,7 @@ import { WorkflowControl } from '#server/platform/workflows/control';
 
 test.stable(
   'coalesces commit bursts before rereading the latest preview',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const location = await databases();
     const context = new ServerContext(await location.open());
     const executionId = executionIdSchema.make('burst');
@@ -70,19 +70,19 @@ test.stable(
             Effect.forkChild
           );
 
-          test.expect((yield* Queue.take(pages))[0]?.text).toBe('');
+          expect((yield* Queue.take(pages))[0]?.text).toBe('');
 
           yield* emit({ type: 'text-delta', text: 'a' });
           yield* TestClock.adjust('50 millis');
-          test.expect(yield* Queue.size(pages)).toBe(0);
+          expect(yield* Queue.size(pages)).toBe(0);
           yield* emit({ type: 'text-delta', text: 'b' });
           yield* TestClock.adjust('50 millis');
-          test.expect((yield* Queue.take(pages))[0]?.text).toBe('ab');
+          expect((yield* Queue.take(pages))[0]?.text).toBe('ab');
 
           yield* emit({ type: 'text-delta', text: 'tail' });
           yield* emit({ type: 'complete' });
           yield* TestClock.adjust('100 millis');
-          test.expect((yield* Queue.take(pages))[0]).toMatchObject({
+          expect((yield* Queue.take(pages))[0]).toMatchObject({
             text: 'abtail',
             status: 'completed'
           });

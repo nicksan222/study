@@ -24,7 +24,9 @@ import { serve } from '#server/runtime/index';
 test.stable(
   'source workflow survives restart and makes its content discoverable',
   { timeout: 15000 },
-  async ({ resources: location }) => {
+  async ({ resources: location, assert: assertions, pollUntil }) => {
+    const assert: test.Assert = assertions;
+
     let app = await location.openApp({ path: location.path });
     let server = await serve(app);
 
@@ -44,7 +46,7 @@ test.stable(
         )
       );
 
-      test.assert.strictEqual(app.store.db.orm.all(sql`SELECT * FROM workflow_events`).length, 1);
+      assert.strictEqual(app.store.db.orm.all(sql`SELECT * FROM workflow_events`).length, 1);
       await server.close();
       await app.close();
       app = await location.openApp({ path: location.path });
@@ -55,9 +57,9 @@ test.stable(
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
 
             yield* client['system.startWorkers']({});
-            test.assert.ok((yield* client['system.health']({})).workersRunning === true);
+            assert.ok((yield* client['system.health']({})).workersRunning === true);
 
-            yield* test.pollUntil(
+            yield* pollUntil(
               client['sources.sourceProcessing']({ id: source.id }),
               (value) => value.documentId !== null,
               { attempts: 100, interval: '50 millis', message: 'source workflow did not recover' }
@@ -65,20 +67,20 @@ test.stable(
 
             const search = yield* client['system.search']({ query: 'gravity', limit: 10 });
 
-            test.assert.ok(
+            assert.ok(
               search.hits.some(
                 (hit) => hit.target.type === 'source' && hit.target.sourceId === source.id
               )
             );
             yield* client['system.stopWorkers']({});
-            test.assert.ok((yield* client['system.health']({})).workersRunning === false);
+            assert.ok((yield* client['system.health']({})).workersRunning === false);
 
             return;
           })
         )
       );
-      test.assert.ok(app.store.db.orm.all(sql`SELECT * FROM workflow_receipts`).length > 0);
-      test.assert.ok(
+      assert.ok(app.store.db.orm.all(sql`SELECT * FROM workflow_receipts`).length > 0);
+      assert.ok(
         app.store.db.orm.all(sql`SELECT * FROM workflow_executions WHERE status = 'completed'`)
           .length > 0
       );
@@ -93,7 +95,9 @@ test.stable(
 test.stable(
   'reply workflow records a durable sign-in wait across restart',
   { timeout: 15000 },
-  async ({ resources: location }) => {
+  async ({ resources: location, pollUntil, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     let app = await location.openApp({ path: location.path });
     let server = await serve(app);
 
@@ -116,7 +120,7 @@ test.stable(
 
             yield* client['system.startWorkers']({});
 
-            yield* test.pollUntil(
+            yield* pollUntil(
               Effect.sync(
                 () =>
                   app.store.db.orm.all(
@@ -133,7 +137,7 @@ test.stable(
 
             const message = yield* client['notes.message']({ id: request.messageId });
 
-            test.assert.ok(
+            assert.ok(
               message.versions.find((version) => version.id === request.versionId)?.status ===
                 'pending'
             );
@@ -146,7 +150,7 @@ test.stable(
       await app.close();
       app = await location.openApp({ path: location.path });
       server = await serve(app);
-      test.assert.strictEqual(
+      assert.strictEqual(
         app.store.db.orm.all(
           sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id = w.execution_id WHERE e.workflow_tag = 'conversation-reply/v1'`
         ).length,
@@ -157,7 +161,7 @@ test.stable(
           Effect.gen(function* () {
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
 
-            test.assert.strictEqual(yield* client['auth.publicAccount']({}), undefined);
+            assert.strictEqual(yield* client['auth.publicAccount']({}), undefined);
           })
         )
       );

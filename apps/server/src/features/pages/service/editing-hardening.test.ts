@@ -67,7 +67,9 @@ async function fixture(databases: Databases) {
 
 test.stable(
   'an image exclusive to a losing autosave retains its association and exact snapshot after reopen',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await fixture(databases);
     const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 
@@ -107,11 +109,9 @@ test.stable(
             document: { blocks: [paragraph('Alternative'), block], meta }
           });
 
-          test.assert.ok(winner.outcome === 'saved');
-          test.assert.ok(loser.outcome === 'conflict');
-          test.assert.ok(
-            (yield* pages.version({ id: loser.submittedVersionId })).status === 'draft'
-          );
+          assert.ok(winner.outcome === 'saved');
+          assert.ok(loser.outcome === 'conflict');
+          assert.ok((yield* pages.version({ id: loser.submittedVersionId })).status === 'draft');
 
           return { image, block, target, winner, loser };
         }).pipe(Effect.provide(f.services()))
@@ -124,20 +124,18 @@ test.stable(
         .where(eq(s.document_assets.source_id, setup.image.id))
         .all();
 
-      test.assert.strictEqual(associations.length, 1);
-      test.assert.strictEqual(associations[0]!.block_id, setup.block.id);
-      test.assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
-      test
-        .expect(
-          f.context.db.orm
-            .select()
-            .from(s.page_versions)
-            .where(eq(s.page_versions.content_snapshot_id, associations[0]!.document_id))
-            .all()
-            .map((row) => row.id)
-        )
-        .toStrictEqual([setup.loser.submittedVersionId]);
-      test.assert.strictEqual(f.context.db.orm.select().from(s.page_proposals).all().length, 0);
+      assert.strictEqual(associations.length, 1);
+      assert.strictEqual(associations[0]!.block_id, setup.block.id);
+      assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
+      expect(
+        f.context.db.orm
+          .select()
+          .from(s.page_versions)
+          .where(eq(s.page_versions.content_snapshot_id, associations[0]!.document_id))
+          .all()
+          .map((row) => row.id)
+      ).toStrictEqual([setup.loser.submittedVersionId]);
+      assert.strictEqual(f.context.db.orm.select().from(s.page_proposals).all().length, 0);
 
       const before = makeMaterialOutput(f.context);
       const retained = before();
@@ -149,8 +147,8 @@ test.stable(
         sql`UPDATE source_snapshots SET mime='text/plain' WHERE source_id=${setup.image.id} AND revision=1`,
         sql`DELETE FROM source_snapshots WHERE source_id=${setup.image.id} AND revision=1`
       ]) {
-        test.assert.throws(() => f.context.db.orm.run(mutation));
-        test.expect(before()).toStrictEqual(retained);
+        assert.throws(() => f.context.db.orm.run(mutation));
+        expect(before()).toStrictEqual(retained);
       }
 
       await Effect.runPromise(
@@ -158,22 +156,20 @@ test.stable(
           const pages = yield* Pages;
           const version = yield* pages.version({ id: setup.loser.submittedVersionId });
 
-          test.expect(version.document.blocks[1]).toStrictEqual(setup.block);
-          test.assert.strictEqual(
+          expect(version.document.blocks[1]).toStrictEqual(setup.block);
+          assert.strictEqual(
             (yield* pages.page({ id: setup.target.id })).headVersionId,
             setup.winner.submittedVersionId
           );
-          test
-            .expect(
-              (yield* (yield* Sources).sourceSnapshot({ id: setup.image.id, revision: 1 })).bytes
-            )
-            .toStrictEqual(bytes);
-          test.assert.throws(() =>
+          expect(
+            (yield* (yield* Sources).sourceSnapshot({ id: setup.image.id, revision: 1 })).bytes
+          ).toStrictEqual(bytes);
+          assert.throws(() =>
             f.context.db.orm.run(sql`DELETE FROM page_versions WHERE id=${version.id}`)
           );
         }).pipe(Effect.provide(f.services()))
       );
-      test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }
@@ -182,7 +178,9 @@ test.stable(
 
 test.stable(
   'authored restoration keeps its exact source revision after replacement without following the mutable source head',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await fixture(databases);
 
     try {
@@ -243,12 +241,12 @@ test.stable(
             pageId: save.pageId
           });
 
-          test.assert.ok(replay.replayed === true);
-          test.assert.strictEqual(replay.submittedVersionId, saved.submittedVersionId);
-          test.expect(output()).toStrictEqual(before);
-          test
-            .expect((yield* pages.version({ id: saved.submittedVersionId })).inputs)
-            .toStrictEqual([input]);
+          assert.ok(replay.replayed === true);
+          assert.strictEqual(replay.submittedVersionId, saved.submittedVersionId);
+          expect(output()).toStrictEqual(before);
+          expect((yield* pages.version({ id: saved.submittedVersionId })).inputs).toStrictEqual([
+            input
+          ]);
 
           for (const value of [
             {
@@ -266,9 +264,9 @@ test.stable(
               }
             }
           ])
-            test.assert.ok((yield* Effect.flip(pages.save(value))).kind === 'invalid_input');
+            assert.ok((yield* Effect.flip(pages.save(value))).kind === 'invalid_input');
 
-          test.expect(output()).toStrictEqual(before);
+          expect(output()).toStrictEqual(before);
           yield* sources.replaceSource({
             id: source.id,
             expectedRevision: 1,
@@ -283,33 +281,31 @@ test.stable(
           };
           const undo = yield* pages.restore(undoValue);
 
-          test.assert.ok(undo.outcome === 'saved');
-          test.assert.strictEqual(undo.currentVersionId, saved.submittedVersionId);
-          test.assert.strictEqual(
+          assert.ok(undo.outcome === 'saved');
+          assert.strictEqual(undo.currentVersionId, saved.submittedVersionId);
+          assert.strictEqual(
             (yield* pages.page({ id: derivative.id })).headVersionId,
             undo.submittedVersionId
           );
-          test.assert.ok(
-            (yield* pages.version({ id: undo.submittedVersionId })).status === 'published'
-          );
-          test.assert.strictEqual(
+          assert.ok((yield* pages.version({ id: undo.submittedVersionId })).status === 'published');
+          assert.strictEqual(
             (yield* pages.restore(undoValue)).submittedVersionId,
             undo.submittedVersionId
           );
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               pages.restore({ ...undoValue, restoreVersionId: saved.submittedVersionId })
             )).kind === 'invalid_input'
           );
           const oldRevision = yield* sources.exportRevision({ sourceId: source.id, revision: 1n });
 
-          test.expect(oldRevision.bytes).toStrictEqual(exported.bytes);
-          test
-            .expect((yield* pages.version({ id: undo.submittedVersionId })).inputs)
-            .toStrictEqual([input]);
+          expect(oldRevision.bytes).toStrictEqual(exported.bytes);
+          expect((yield* pages.version({ id: undo.submittedVersionId })).inputs).toStrictEqual([
+            input
+          ]);
         }).pipe(Effect.provide(f.services()))
       );
-      test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }

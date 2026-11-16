@@ -31,43 +31,55 @@ const lanes = [
   'landing'
 ];
 
-test.stable('all CI lanes start independently and feed the required merge gate', () => {
-  test.assert.sameMembers(workflow.jobs.check!.needs as string[], lanes);
-  test.assert.equal(workflow.jobs.check!.name, 'Test and build');
+test.stable(
+  'all CI lanes start independently and feed the required merge gate',
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  for (const name of lanes) {
-    const job = workflow.jobs[name]!;
+    assert.sameMembers(workflow.jobs.check!.needs as string[], lanes);
+    assert.equal(workflow.jobs.check!.name, 'Test and build');
 
-    test.assert.isDefined(job);
-    test.assert.isUndefined(job.needs);
-    test.assert.isUndefined(job.if);
+    for (const name of lanes) {
+      const job = workflow.jobs[name]!;
 
-    if (name !== 'browser') test.assert.isUndefined(job.strategy);
+      assert.isDefined(job);
+      assert.isUndefined(job.needs);
+      assert.isUndefined(job.if);
+
+      if (name !== 'browser') assert.isUndefined(job.strategy);
+    }
   }
-});
+);
 
-test.stable('browser shards run the full catalog without cancelling sibling diagnostics', () => {
-  const browser = workflow.jobs.browser!;
+test.stable(
+  'browser shards run the full catalog without cancelling sibling diagnostics',
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test.assert.deepEqual(browser.strategy, {
-    'fail-fast': false,
-    'max-parallel': 3,
-    matrix: { shard: [1, 2, 3] }
-  });
-  const runner = browser.steps!.find((step) => step.with?.runCmd);
-  const artifacts = browser.steps!.find((step) =>
-    step.uses?.startsWith('actions/upload-artifact@')
-  );
+    const browser = workflow.jobs.browser!;
 
-  test.assert.equal(runner?.with?.runCmd, 'bun run web:e2e:compare --shard=${{ matrix.shard }}/3');
-  test.assert.equal(artifacts?.if, '${{ always() }}');
-  test.assert.equal(artifacts?.with?.name, 'web-e2e-diagnostics-${{ matrix.shard }}');
-});
+    assert.deepEqual(browser.strategy, {
+      'fail-fast': false,
+      'max-parallel': 3,
+      matrix: { shard: [1, 2, 3] }
+    });
+    const runner = browser.steps!.find((step) => step.with?.runCmd);
+    const artifacts = browser.steps!.find((step) =>
+      step.uses?.startsWith('actions/upload-artifact@')
+    );
 
-test.stable.each(['success', 'failure', 'cancelled', 'skipped', 'missing'])(
+    assert.equal(runner?.with?.runCmd, 'bun run web:e2e:compare --shard=${{ matrix.shard }}/3');
+    assert.equal(artifacts?.if, '${{ always() }}');
+    assert.equal(artifacts?.with?.name, 'web-e2e-diagnostics-${{ matrix.shard }}');
+  }
+);
+
+test.stable.for(['success', 'failure', 'cancelled', 'skipped', 'missing'])(
   'the required gate handles a %s lane result without allowing an unsafe merge',
-  async (status) => {
-    await using temporary = await test.temporaryDirectory();
+  async (status, { temporaryDirectory, spawnTestProcess, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    await using temporary = await temporaryDirectory();
     const directory = temporary.path;
 
     {
@@ -77,7 +89,7 @@ test.stable.each(['success', 'failure', 'cancelled', 'skipped', 'missing'])(
       else results.browser!.result = status;
 
       const script = workflow.jobs.check!.steps![0]!.run!;
-      const child = test.spawnTestProcess(['bash', '-c', script], {
+      const child = spawnTestProcess(['bash', '-c', script], {
         env: {
           ...process.env,
           RESULTS: JSON.stringify(results),
@@ -88,30 +100,32 @@ test.stable.each(['success', 'failure', 'cancelled', 'skipped', 'missing'])(
       });
       const [code, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()]);
 
-      test.assert.equal(code, status === 'success' ? 0 : 1, stderr);
-      test.assert.include(await Bun.file(`${directory}/summary.md`).text(), 'Study CI');
+      assert.equal(code, status === 'success' ? 0 : 1, stderr);
+      assert.include(await Bun.file(`${directory}/summary.md`).text(), 'Study CI');
     }
   }
 );
 
 test.stable(
   'release publication waits for four independent platform builds without a matrix',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const release = Bun.YAML.parse(
       await Bun.file(new URL('.github/workflows/release.yml', root)).text()
     ) as Workflow;
     const platforms = ['linux_x64', 'linux_arm64', 'macos', 'windows'];
 
-    test.assert.sameMembers(release.jobs.publish!.needs as string[], ['version', ...platforms]);
+    assert.sameMembers(release.jobs.publish!.needs as string[], ['version', ...platforms]);
 
     for (const name of platforms) {
       const job = release.jobs[name]!;
 
-      test.assert.equal(job.needs, 'version');
-      test.assert.equal(job.uses, './.github/workflows/release-platform.yml');
-      test.assert.isUndefined(job.if);
+      assert.equal(job.needs, 'version');
+      assert.equal(job.uses, './.github/workflows/release-platform.yml');
+      assert.isUndefined(job.if);
 
-      test.assert.isUndefined(job.strategy);
+      assert.isUndefined(job.strategy);
     }
   }
 );

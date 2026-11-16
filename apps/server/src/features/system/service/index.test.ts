@@ -17,20 +17,30 @@ import { Schema } from 'effect';
 
 import { healthData } from './health.ts';
 
-test.stable('health reports the lifecycle state in the canonical health shape', () => {
-  test.expect(Schema.decodeUnknownSync(healthSchema)(healthData(true))).toStrictEqual({
-    protocolVersion: 1,
-    workersRunning: true,
-    testMode: false
-  });
-  test.assert.ok(healthData(false).workersRunning === false);
-});
+test.stable(
+  'health reports the lifecycle state in the canonical health shape',
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-test.stable('search input rejects out-of-bounds limits and invalid project IDs', () => {
-  const decode = Schema.decodeUnknownSync(searchInputSchema);
+    expect(Schema.decodeUnknownSync(healthSchema)(healthData(true))).toStrictEqual({
+      protocolVersion: 1,
+      workersRunning: true,
+      testMode: false
+    });
+    assert.ok(healthData(false).workersRunning === false);
+  }
+);
 
-  test.assert.throws(() => decode({ query: 'a', limit: 101 }));
-  test.assert.throws(() => decode({ query: 'a', limit: 0 }));
-  test.assert.throws(() => decode({ query: 'a', project: 0n }));
-  test.assert.strictEqual(decode({ query: '' }).limit, 30);
-});
+test.stable(
+  'search input rejects out-of-bounds limits and invalid project IDs',
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const decode = Schema.decodeUnknownSync(searchInputSchema);
+
+    assert.throws(() => decode({ query: 'a', limit: 101 }));
+    assert.throws(() => decode({ query: 'a', limit: 0 }));
+    assert.throws(() => decode({ query: 'a', project: 0n }));
+    assert.strictEqual(decode({ query: '' }).limit, 30);
+  }
+);

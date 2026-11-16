@@ -34,8 +34,8 @@ test.beforeEach(async ({ mock }) => {
 
 let preferences = defaultWorkspacePreferences;
 
-function fixture() {
-  return test.rpcTestTransport(async (tag, input) => {
+function fixture({ rpcTestTransport }: Pick<test.Context, 'rpcTestTransport'>) {
+  return rpcTestTransport(async (tag, input) => {
     if (tag === 'settings.sidebarSettings') return api.settings(input);
 
     if (tag === 'notes.noteSummaries') return api.summaries(input);
@@ -60,14 +60,14 @@ const notes = [1n, 2n, 3n].map((id) =>
   })
 );
 
-test.afterEach(() => {
-  test.cleanup();
+test.afterEach(({ cleanup }) => {
+  cleanup();
   preferences = defaultWorkspacePreferences;
 });
 
 test.stable(
   'settles only notes meeting the saved document threshold and keeps running work open',
-  async () => {
+  async ({ render, screen, expect, within, fireEvent, act, waitFor, rpcTestTransport }) => {
     api.settings.mockResolvedValue({ settledPageThreshold: 2 });
     api.summaries.mockResolvedValue({
       items: [
@@ -76,7 +76,7 @@ test.stable(
         { id: 3n, generatedPageCount: 5n, running: true, activity: 'generating' }
       ]
     });
-    const cache = fixture();
+    const cache = fixture({ rpcTestTransport });
 
     const route = createRootRoute({
       component: () => (
@@ -87,85 +87,67 @@ test.stable(
       routeTree: route,
       history: createMemoryHistory({ initialEntries: ['/'] })
     });
-    const view = test.render(
+    const view = render(
       <cache.wrapper>
         <RouterProvider router={router} />
       </cache.wrapper>
     );
 
-    await test.screen.findByText('SidebarGenerating');
-    const generatingRow = test.screen
+    await screen.findByText('SidebarGenerating');
+    const generatingRow = screen
       .getByRole('link', { name: /\bNote 3\b/ })
       .closest('.study-note-entry') as HTMLElement;
-    const idleRow = test.screen
+    const idleRow = screen
       .getByRole('link', { name: /\bNote 1\b/ })
       .closest('.study-note-entry') as HTMLElement;
 
-    test
-      .expect(test.within(generatingRow).queryByRole('button', { name: 'SidebarTurnIntoPage' }))
-      .toBeNull();
-    const generatingSettle = test
-      .within(generatingRow)
-      .getByRole('button', { name: 'SidebarSettle' });
+    expect(within(generatingRow).queryByRole('button', { name: 'SidebarTurnIntoPage' })).toBeNull();
+    const generatingSettle = within(generatingRow).getByRole('button', { name: 'SidebarSettle' });
 
-    test.expect(generatingSettle).toBeDisabled();
-    test.expect(generatingSettle.parentElement).toHaveAttribute('data-placement', 'top');
-    test
-      .expect(
-        test.within(idleRow).getByRole('button', { name: 'SidebarTurnIntoPage' }).parentElement
-      )
-      .toHaveAttribute('data-placement', 'bottom');
-    test
-      .expect(test.within(idleRow).getByRole('button', { name: 'SidebarSettle' }).parentElement)
-      .toHaveAttribute('data-placement', 'top');
+    expect(generatingSettle).toBeDisabled();
+    expect(generatingSettle.parentElement).toHaveAttribute('data-placement', 'top');
+    expect(
+      within(idleRow).getByRole('button', { name: 'SidebarTurnIntoPage' }).parentElement
+    ).toHaveAttribute('data-placement', 'bottom');
+    expect(
+      within(idleRow).getByRole('button', { name: 'SidebarSettle' }).parentElement
+    ).toHaveAttribute('data-placement', 'top');
     const groups = view.container.querySelectorAll('details');
 
-    test.expect(groups[0]).toHaveAttribute('open');
-    test
-      .expect(test.within(groups[0] as HTMLElement).getByRole('link', { name: /\bNote 1\b/ }))
-      .toBeVisible();
-    test
-      .expect(test.within(groups[0] as HTMLElement).getByRole('link', { name: /\bNote 3\b/ }))
-      .toBeVisible();
-    test
-      .expect(test.within(groups[0] as HTMLElement).queryByRole('link', { name: /\bNote 2\b/ }))
-      .toBeNull();
-    test.expect(groups[1]).not.toHaveAttribute('open');
-    test.fireEvent.click(test.within(groups[1] as HTMLElement).getByText('SidebarSettled'));
-    test
-      .expect(
-        await test.within(groups[1] as HTMLElement).findByRole('link', { name: /\bNote 2\b/ })
-      )
-      .toBeInTheDocument();
-    test.expect(api.summaries).toHaveBeenCalledTimes(1);
-    await test.act(async () => {
+    expect(groups[0]).toHaveAttribute('open');
+    expect(
+      within(groups[0] as HTMLElement).getByRole('link', { name: /\bNote 1\b/ })
+    ).toBeVisible();
+    expect(
+      within(groups[0] as HTMLElement).getByRole('link', { name: /\bNote 3\b/ })
+    ).toBeVisible();
+    expect(within(groups[0] as HTMLElement).queryByRole('link', { name: /\bNote 2\b/ })).toBeNull();
+    expect(groups[1]).not.toHaveAttribute('open');
+    fireEvent.click(within(groups[1] as HTMLElement).getByText('SidebarSettled'));
+    expect(
+      await within(groups[1] as HTMLElement).findByRole('link', { name: /\bNote 2\b/ })
+    ).toBeInTheDocument();
+    expect(api.summaries).toHaveBeenCalledTimes(1);
+    await act(async () => {
       preferences = {
         ...defaultWorkspacePreferences,
         sidebarDensity: 'compact'
       };
       await cache.notify();
     });
-    const compact = test.screen.getByRole('link', { name: /\bNote 1\b/ });
+    const compact = screen.getByRole('link', { name: /\bNote 1\b/ });
 
-    await test.waitFor(() => test.expect(compact).toHaveAttribute('data-layout', 'compact'));
-    test.expect(test.within(compact).getByTitle('SidebarGeneratedPages')).toHaveTextContent('1');
-    test.expect(test.within(compact).getByText('SidebarReady')).toBeInTheDocument();
-    test
-      .expect(
-        test.within(idleRow).getByRole('button', { name: 'SidebarTurnIntoPage' }).parentElement
-      )
-      .toBe(test.within(idleRow).getByRole('button', { name: 'SidebarSettle' }).parentElement);
-    test
-      .expect(test.within(generatingRow).queryByRole('button', { name: 'SidebarTurnIntoPage' }))
-      .toBeNull();
-    test
-      .expect(
-        test
-          .within(test.screen.getByRole('link', { name: /\bNote 3\b/ }))
-          .getByText('SidebarGenerating')
-      )
-      .toBeInTheDocument();
-    await test.act(async () => {
+    await waitFor(() => expect(compact).toHaveAttribute('data-layout', 'compact'));
+    expect(within(compact).getByTitle('SidebarGeneratedPages')).toHaveTextContent('1');
+    expect(within(compact).getByText('SidebarReady')).toBeInTheDocument();
+    expect(within(idleRow).getByRole('button', { name: 'SidebarTurnIntoPage' }).parentElement).toBe(
+      within(idleRow).getByRole('button', { name: 'SidebarSettle' }).parentElement
+    );
+    expect(within(generatingRow).queryByRole('button', { name: 'SidebarTurnIntoPage' })).toBeNull();
+    expect(
+      within(screen.getByRole('link', { name: /\bNote 3\b/ })).getByText('SidebarGenerating')
+    ).toBeInTheDocument();
+    await act(async () => {
       preferences = {
         ...defaultWorkspacePreferences,
         sidebarDensity: 'compact',
@@ -173,17 +155,15 @@ test.stable(
       };
       await cache.notify();
     });
-    await test.waitFor(() =>
-      test
-        .expect(test.within(compact).queryByTitle('SidebarGeneratedPages'))
-        .not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(within(compact).queryByTitle('SidebarGeneratedPages')).not.toBeInTheDocument()
     );
   }
 );
 
 test.stable(
   'settles a row without navigating and persists an explicit reopen over the automatic threshold',
-  async () => {
+  async ({ render, screen, fireEvent, waitFor, expect, within, rpcTestTransport }) => {
     let override: boolean | null = null;
 
     api.settings.mockResolvedValue({ settledPageThreshold: 2 });
@@ -205,7 +185,7 @@ test.stable(
 
       return Promise.resolve({});
     });
-    const cache = fixture();
+    const cache = fixture({ rpcTestTransport });
 
     const route = createRootRoute({
       component: () => (
@@ -221,47 +201,43 @@ test.stable(
       routeTree: route,
       history: createMemoryHistory({ initialEntries: ['/'] })
     });
-    const view = test.render(
+    const view = render(
       <cache.wrapper>
         <RouterProvider router={router} />
       </cache.wrapper>
     );
-    const settle = await test.screen.findByRole('button', { name: 'SidebarSettle' });
+    const settle = await screen.findByRole('button', { name: 'SidebarSettle' });
 
-    test.fireEvent.click(settle);
-    await test.waitFor(() =>
-      test.expect(api.settle).toHaveBeenCalledWith({ id: 1n, settled: true })
-    );
-    await test.waitFor(() =>
-      test
-        .expect(view.container.querySelector('.study-note-group:last-child .study-note-title'))
-        .toHaveTextContent('Note 1')
+    fireEvent.click(settle);
+    await waitFor(() => expect(api.settle).toHaveBeenCalledWith({ id: 1n, settled: true }));
+    await waitFor(() =>
+      expect(
+        view.container.querySelector('.study-note-group:last-child .study-note-title')
+      ).toHaveTextContent('Note 1')
     );
     const group = view.container.querySelector('.study-note-group:last-child') as HTMLElement;
 
-    test.fireEvent.click(test.within(group).getByText('SidebarSettled'));
-    await test.waitFor(() =>
-      test.expect(test.within(group).getByRole('button', { name: 'SidebarReopen' })).toBeVisible()
+    fireEvent.click(within(group).getByText('SidebarSettled'));
+    await waitFor(() =>
+      expect(within(group).getByRole('button', { name: 'SidebarReopen' })).toBeVisible()
     );
-    test
-      .expect(test.within(group).queryByRole('button', { name: 'SidebarTurnIntoPage' }))
-      .not.toBeInTheDocument();
-    test.fireEvent.click(test.within(group).getByRole('button', { name: 'SidebarReopen' }));
-    await test.waitFor(() =>
-      test.expect(api.settle).toHaveBeenLastCalledWith({ id: 1n, settled: false })
+    expect(
+      within(group).queryByRole('button', { name: 'SidebarTurnIntoPage' })
+    ).not.toBeInTheDocument();
+    fireEvent.click(within(group).getByRole('button', { name: 'SidebarReopen' }));
+    await waitFor(() => expect(api.settle).toHaveBeenLastCalledWith({ id: 1n, settled: false }));
+    await waitFor(() =>
+      expect(
+        view.container.querySelector('.study-note-group:first-child .study-note-title')
+      ).toHaveTextContent('Note 1')
     );
-    await test.waitFor(() =>
-      test
-        .expect(view.container.querySelector('.study-note-group:first-child .study-note-title'))
-        .toHaveTextContent('Note 1')
-    );
-    test.expect(router.state.location.pathname).toBe('/');
+    expect(router.state.location.pathname).toBe('/');
   }
 );
 
 test.stable(
   'shows settled notes as compact recent rows with ten initially and twenty-five more per click',
-  async () => {
+  async ({ render, screen, expect, fireEvent, waitFor, within, rpcTestTransport }) => {
     const many = Array.from({ length: 40 }, (_, index) => ({
       ...notes[0]!,
       id: BigInt(index + 1) as (typeof notes)[number]['id'],
@@ -279,7 +255,7 @@ test.stable(
         settledOverride: true
       }))
     });
-    const cache = fixture();
+    const cache = fixture({ rpcTestTransport });
 
     const route = createRootRoute({
       component: () => (
@@ -290,43 +266,47 @@ test.stable(
       routeTree: route,
       history: createMemoryHistory({ initialEntries: ['/'] })
     });
-    const view = test.render(
+    const view = render(
       <cache.wrapper>
         <RouterProvider router={router} />
       </cache.wrapper>
     );
 
-    const summary = await test.screen.findByText('SidebarSettled');
+    const summary = await screen.findByText('SidebarSettled');
     const group = summary.closest('details')!;
 
-    test.expect(group).not.toHaveAttribute('open');
-    test.fireEvent.click(summary);
-    await test.waitFor(() =>
-      test
-        .expect(test.screen.getByRole('link', { name: /\bSettled 1\b/ }))
-        .toHaveAttribute('data-layout', 'summary')
+    expect(group).not.toHaveAttribute('open');
+    fireEvent.click(summary);
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: /\bSettled 1\b/ })).toHaveAttribute(
+        'data-layout',
+        'summary'
+      )
     );
-    const first = test.screen.getByRole('link', { name: /\bSettled 1\b/ });
+    const first = screen.getByRole('link', { name: /\bSettled 1\b/ });
 
-    test.expect(group).toHaveAttribute('open');
-    test.expect(group).toHaveAttribute('data-variant', 'settled');
-    test.expect(test.within(group).getAllByRole('link')).toHaveLength(10);
-    test.expect(first).toHaveAttribute('data-layout', 'summary');
-    test.expect(first.querySelector('time')).toBeInTheDocument();
-    test.expect(test.within(first).queryByText('SidebarReady')).not.toBeInTheDocument();
-    test.expect(group.querySelector('summary')).toHaveTextContent('40');
-    test.fireEvent.click(test.within(group).getByRole('button', { name: 'SidebarShowMore' }));
-    test.expect(test.within(group).getAllByRole('link')).toHaveLength(35);
-    test.fireEvent.click(test.within(group).getByRole('button', { name: 'SidebarShowMore' }));
-    test.expect(test.within(group).getAllByRole('link')).toHaveLength(40);
-    test
-      .expect(test.within(group).queryByRole('button', { name: 'SidebarShowMore' }))
-      .not.toBeInTheDocument();
+    expect(group).toHaveAttribute('open');
+    expect(group).toHaveAttribute('data-variant', 'settled');
+    expect(within(group).getAllByRole('link')).toHaveLength(10);
+    expect(first).toHaveAttribute('data-layout', 'summary');
+    expect(first.querySelector('time')).toBeInTheDocument();
+    expect(within(first).queryByText('SidebarReady')).not.toBeInTheDocument();
+    expect(group.querySelector('summary')).toHaveTextContent('40');
+    fireEvent.click(within(group).getByRole('button', { name: 'SidebarShowMore' }));
+    expect(within(group).getAllByRole('link')).toHaveLength(35);
+    fireEvent.click(within(group).getByRole('button', { name: 'SidebarShowMore' }));
+    expect(within(group).getAllByRole('link')).toHaveLength(40);
+    expect(
+      within(group).queryByRole('button', { name: 'SidebarShowMore' })
+    ).not.toBeInTheDocument();
     view.unmount();
   }
 );
 
-function mountSelectionSidebar() {
+function mountSelectionSidebar({
+  render,
+  rpcTestTransport
+}: Pick<test.Context, 'render' | 'rpcTestTransport'>) {
   api.settings.mockResolvedValue({ settledPageThreshold: 1 });
   api.summaries.mockResolvedValue({
     items: notes.map((note) => ({
@@ -336,7 +316,7 @@ function mountSelectionSidebar() {
       activity: 'idle'
     }))
   });
-  const cache = fixture();
+  const cache = fixture({ rpcTestTransport });
 
   const route = createRootRoute({
     component: () => (
@@ -348,7 +328,7 @@ function mountSelectionSidebar() {
     history: createMemoryHistory({ initialEntries: ['/'] })
   });
 
-  test.render(
+  render(
     <cache.wrapper>
       <RouterProvider router={router} />
     </cache.wrapper>
@@ -359,152 +339,232 @@ function mountSelectionSidebar() {
 
 test.stable(
   'starts selection from a row context menu and creates one document from the selected rows without navigating',
-  async () => {
-    const router = mountSelectionSidebar();
+  async ({ fireEvent, screen, expect, within, render, rpcTestTransport }) => {
+    const router = mountSelectionSidebar({ render, rpcTestTransport });
 
-    test.fireEvent.contextMenu(await test.screen.findByRole('link', { name: /\bNote 1\b/ }), {
+    fireEvent.contextMenu(await screen.findByRole('link', { name: /\bNote 1\b/ }), {
       button: 2,
       clientX: 80,
       clientY: 80
     });
-    test.fireEvent.click(await test.screen.findByRole('menuitem', { name: 'SidebarSelectNotes' }));
-    test
-      .expect(await test.screen.findByRole('button', { name: /\bNote 1\b/ }))
-      .toHaveAttribute('aria-pressed', 'true');
-    test.fireEvent.click(test.screen.getByRole('button', { name: /\bNote 2\b/ }));
-    test
-      .expect(test.screen.getByRole('button', { name: /\bNote 2\b/ }))
-      .toHaveAttribute('aria-pressed', 'true');
-    const row = test.screen.getByRole('button', { name: /\bNote 1\b/ });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectNotes' }));
+    expect(await screen.findByRole('button', { name: /\bNote 1\b/ })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    fireEvent.click(screen.getByRole('button', { name: /\bNote 2\b/ }));
+    expect(screen.getByRole('button', { name: /\bNote 2\b/ })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    const row = screen.getByRole('button', { name: /\bNote 1\b/ });
 
-    test.expect(row).toHaveAttribute('data-layout', 'detailed');
-    test.expect(await test.within(row).findByText('SidebarReady')).toBeVisible();
-    test.expect(test.within(row).getByTitle('SidebarGeneratedPages')).toBeVisible();
-    test.expect(test.screen.queryByRole('checkbox')).not.toBeInTheDocument();
-    test.expect(router.state.location.pathname).toBe('/');
-    const toolbar = test.screen.getByRole('toolbar', { name: 'SidebarSelectionActions' });
+    expect(row).toHaveAttribute('data-layout', 'detailed');
+    expect(await within(row).findByText('SidebarReady')).toBeVisible();
+    expect(within(row).getByTitle('SidebarGeneratedPages')).toBeVisible();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/');
+    const toolbar = screen.getByRole('toolbar', { name: 'SidebarSelectionActions' });
 
-    test.expect(toolbar.parentElement).toBe(document.body);
-    test.fireEvent.click(test.within(toolbar).getByRole('button', { name: 'NoteCreatePage' }));
-    const dialog = await test.screen.findByRole('dialog', { name: 'NoteTransform' });
+    expect(toolbar.parentElement).toBe(document.body);
+    fireEvent.click(within(toolbar).getByRole('button', { name: 'NoteCreatePage' }));
+    const dialog = await screen.findByRole('dialog', { name: 'NoteTransform' });
 
-    test.expect(test.within(dialog).getByText('Note 1')).toBeVisible();
-    test.expect(test.within(dialog).getByText('Note 2')).toBeVisible();
-    test.expect(test.within(dialog).queryByRole('checkbox')).not.toBeInTheDocument();
-    test.expect(test.within(dialog).queryByRole('searchbox')).not.toBeInTheDocument();
+    expect(within(dialog).getByText('Note 1')).toBeVisible();
+    expect(within(dialog).getByText('Note 2')).toBeVisible();
+    expect(within(dialog).queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('searchbox')).not.toBeInTheDocument();
   }
 );
 
 test.stable(
   'disables batch actions for zero selected rows and cancel returns to navigation',
-  async () => {
-    mountSelectionSidebar();
-    test.fireEvent.contextMenu(await test.screen.findByRole('link', { name: /\bNote 1\b/ }), {
+  async ({ fireEvent, screen, expect, within, render, rpcTestTransport }) => {
+    mountSelectionSidebar({ render, rpcTestTransport });
+    fireEvent.contextMenu(await screen.findByRole('link', { name: /\bNote 1\b/ }), {
       button: 2,
       clientX: 80,
       clientY: 80
     });
-    test.fireEvent.click(await test.screen.findByRole('menuitem', { name: 'SidebarSelectNotes' }));
-    test.fireEvent.click(await test.screen.findByRole('button', { name: /\bNote 1\b/ }));
-    const toolbar = test.screen.getByRole('toolbar', { name: 'SidebarSelectionActions' });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectNotes' }));
+    fireEvent.click(await screen.findByRole('button', { name: /\bNote 1\b/ }));
+    const toolbar = screen.getByRole('toolbar', { name: 'SidebarSelectionActions' });
 
-    test.expect(toolbar).toHaveFocus();
-    test
-      .expect(test.within(toolbar).getByRole('button', { name: 'NoteCreatePage' }))
-      .toBeDisabled();
-    test
-      .expect(test.within(toolbar).getByRole('button', { name: 'SidebarDeleteSelected' }))
-      .toBeDisabled();
-    test.fireEvent.click(test.within(toolbar).getByRole('button', { name: 'Cancel' }));
-    test.expect(await test.screen.findByRole('link', { name: /\bNote 1\b/ })).toBeVisible();
-    test.expect(test.screen.getByRole('link', { name: /\bNote 1\b/ })).toHaveFocus();
-    test.expect(test.screen.queryByRole('checkbox')).not.toBeInTheDocument();
-    test
-      .expect(test.screen.queryByRole('toolbar', { name: 'SidebarSelectionActions' }))
-      .not.toBeInTheDocument();
+    expect(toolbar).toHaveFocus();
+    expect(within(toolbar).getByRole('button', { name: 'NoteCreatePage' })).toBeDisabled();
+    expect(within(toolbar).getByRole('button', { name: 'SidebarDeleteSelected' })).toBeDisabled();
+    fireEvent.click(within(toolbar).getByRole('button', { name: 'Cancel' }));
+    expect(await screen.findByRole('link', { name: /\bNote 1\b/ })).toBeVisible();
+    expect(screen.getByRole('link', { name: /\bNote 1\b/ })).toHaveFocus();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('toolbar', { name: 'SidebarSelectionActions' })
+    ).not.toBeInTheDocument();
   }
 );
 
 test.stable(
   'opens deletion review for the selected notes without deleting on selection',
-  async () => {
-    mountSelectionSidebar();
-    test.fireEvent.contextMenu(await test.screen.findByRole('link', { name: /\bNote 1\b/ }), {
+  async ({ fireEvent, screen, within, expect, render, rpcTestTransport }) => {
+    mountSelectionSidebar({ render, rpcTestTransport });
+    fireEvent.contextMenu(await screen.findByRole('link', { name: /\bNote 1\b/ }), {
       button: 2,
       clientX: 80,
       clientY: 80
     });
-    test.fireEvent.click(await test.screen.findByRole('menuitem', { name: 'SidebarSelectNotes' }));
-    test.fireEvent.click(await test.screen.findByRole('button', { name: /\bNote 3\b/ }));
-    test.fireEvent.click(
-      test
-        .within(test.screen.getByRole('toolbar'))
-        .getByRole('button', { name: 'SidebarDeleteSelected' })
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectNotes' }));
+    fireEvent.click(await screen.findByRole('button', { name: /\bNote 3\b/ }));
+    fireEvent.click(
+      within(screen.getByRole('toolbar')).getByRole('button', { name: 'SidebarDeleteSelected' })
     );
-    const dialog = await test.screen.findByRole('alertdialog');
+    const dialog = await screen.findByRole('alertdialog');
 
-    test.expect(test.within(dialog).getByText('Note 1')).toBeVisible();
-    test.expect(test.within(dialog).getByText('Note 3')).toBeVisible();
-    test.expect(test.within(dialog).queryByText('Note 2')).not.toBeInTheDocument();
+    expect(within(dialog).getByText('Note 1')).toBeVisible();
+    expect(within(dialog).getByText('Note 3')).toBeVisible();
+    expect(within(dialog).queryByText('Note 2')).not.toBeInTheDocument();
   }
 );
 
-test.stable('keeps loaded settled rows available regardless of the sidebar height', async () => {
-  const many = Array.from({ length: 7 }, (_, index) => ({
-    ...notes[0]!,
-    id: BigInt(index + 1) as (typeof notes)[number]['id'],
-    title: 'Recent ' + (index + 1)
-  }));
+test.stable(
+  'keeps loaded settled rows available regardless of the sidebar height',
+  async ({ vi, render, fireEvent, screen, waitFor, expect, within, rpcTestTransport }) => {
+    const many = Array.from({ length: 7 }, (_, index) => ({
+      ...notes[0]!,
+      id: BigInt(index + 1) as (typeof notes)[number]['id'],
+      title: 'Recent ' + (index + 1)
+    }));
 
-  api.settings.mockResolvedValue({ settledPageThreshold: 1 });
-  api.summaries.mockResolvedValue({
-    items: many.map((note) => ({
-      id: note.id,
-      generatedPageCount: 1n,
-      running: false,
-      activity: 'idle'
-    }))
-  });
-  const geometry = test.vi
-    .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
-    .mockImplementation(function (this: HTMLElement) {
-      const height = this.classList.contains('study-sidebar-scroll')
-        ? 400
-        : this.tagName === 'SUMMARY'
-          ? 38
-          : this.classList.contains('study-note-entry')
-            ? 36
-            : 0;
-
-      return {
-        x: 0,
-        y: 0,
-        top: 0,
-        left: 0,
-        right: 280,
-        bottom: height,
-        width: 280,
-        height,
-        toJSON: () => ({})
-      };
+    api.settings.mockResolvedValue({ settledPageThreshold: 1 });
+    api.summaries.mockResolvedValue({
+      items: many.map((note) => ({
+        id: note.id,
+        generatedPageCount: 1n,
+        running: false,
+        activity: 'idle'
+      }))
     });
+    const geometry = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function (this: HTMLElement) {
+        const height = this.classList.contains('study-sidebar-scroll')
+          ? 400
+          : this.tagName === 'SUMMARY'
+            ? 38
+            : this.classList.contains('study-note-entry')
+              ? 36
+              : 0;
 
-  test.vi.stubGlobal(
-    'ResizeObserver',
-    class {
-      observe() {}
+        return {
+          x: 0,
+          y: 0,
+          top: 0,
+          left: 0,
+          right: 280,
+          bottom: height,
+          width: 280,
+          height,
+          toJSON: () => ({})
+        };
+      });
 
-      disconnect() {}
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {}
+
+        disconnect() {}
+      }
+    );
+    const cache = fixture({ rpcTestTransport });
+
+    try {
+      const route = createRootRoute({
+        component: () => (
+          <div className="study-sidebar-scroll">
+            <RichSidebarNotes notes={many} subjects={[]} project={undefined} selectedNote={null} />
+          </div>
+        )
+      });
+      const router = createRouter({
+        routeTree: route,
+        history: createMemoryHistory({ initialEntries: ['/'] })
+      });
+
+      render(
+        <cache.wrapper>
+          <RouterProvider router={router} />
+        </cache.wrapper>
+      );
+      fireEvent.click(await screen.findByText('SidebarSettled'));
+      await waitFor(() =>
+        expect(screen.getByRole('link', { name: /\bRecent 1\b/ })).toHaveAttribute(
+          'data-layout',
+          'summary'
+        )
+      );
+      const group = screen.getByRole('link', { name: /\bRecent 1\b/ }).closest('details')!;
+
+      expect(within(group).getAllByRole('link')).toHaveLength(7);
+      expect(
+        within(group).queryByRole('button', { name: 'SidebarShowMore' })
+      ).not.toBeInTheDocument();
+    } finally {
+      geometry.mockRestore();
+      vi.unstubAllGlobals();
     }
-  );
-  const cache = fixture();
+  }
+);
 
-  try {
+test.stable(
+  'uses keyboard row toggles without changing the sidebar density or navigating',
+  async ({ screen, expect, fireEvent, userEvent, within, render, rpcTestTransport }) => {
+    const router = mountSelectionSidebar({ render, rpcTestTransport });
+    const original = await screen.findByRole('link', { name: /\bNote 1\b/ });
+
+    expect(original).toHaveAttribute('data-layout', 'detailed');
+    fireEvent.contextMenu(original, { button: 2, clientX: 80, clientY: 80 });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectNotes' }));
+    const row = await screen.findByRole('button', { name: /\bNote 2\b/ });
+
+    expect(row).toHaveAttribute('data-layout', 'detailed');
+    expect(row).toHaveAttribute('aria-pressed', 'false');
+    row.focus();
+    await userEvent.setup().keyboard(' ');
+    expect(row).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.setup().keyboard('{Enter}');
+    expect(row).toHaveAttribute('aria-pressed', 'false');
+    expect(await within(row).findByText('SidebarReady')).toBeVisible();
+    expect(router.state.location.pathname).toBe('/');
+  }
+);
+
+test.stable(
+  'opens the conversion dialog from a row without navigating or settling it',
+  async ({ screen, expect, within, fireEvent, render, rpcTestTransport }) => {
+    const router = mountSelectionSidebar({ render, rpcTestTransport });
+    const link = await screen.findByRole('link', { name: /\bNote 1\b/ });
+    const row = link.closest('.study-note-entry') as HTMLElement;
+
+    expect(within(row).getByRole('button', { name: 'SidebarSettle' })).toBeInTheDocument();
+    fireEvent.click(within(row).getByRole('button', { name: 'SidebarTurnIntoPage' }));
+    const dialog = await screen.findByRole('dialog', { name: 'NoteTransform' });
+
+    expect(within(dialog).getByText('Note 1')).toBeVisible();
+    expect(within(dialog).queryByText('Note 2')).not.toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/');
+  }
+);
+
+test.stable(
+  'offers merge only after selecting at least two notes',
+  async ({ render, fireEvent, screen, expect, within, rpcTestTransport }) => {
+    api.settings.mockResolvedValue({ settledPageThreshold: 1 });
+    api.summaries.mockResolvedValue({ items: [] });
+    const cache = fixture({ rpcTestTransport });
+
     const route = createRootRoute({
       component: () => (
-        <div className="study-sidebar-scroll">
-          <RichSidebarNotes notes={many} subjects={[]} project={undefined} selectedNote={null} />
-        </div>
+        <RichSidebarNotes notes={notes} subjects={[]} project={undefined} selectedNote={null} />
       )
     });
     const router = createRouter({
@@ -512,100 +572,21 @@ test.stable('keeps loaded settled rows available regardless of the sidebar heigh
       history: createMemoryHistory({ initialEntries: ['/'] })
     });
 
-    test.render(
+    render(
       <cache.wrapper>
         <RouterProvider router={router} />
       </cache.wrapper>
     );
-    test.fireEvent.click(await test.screen.findByText('SidebarSettled'));
-    await test.waitFor(() =>
-      test
-        .expect(test.screen.getByRole('link', { name: /\bRecent 1\b/ }))
-        .toHaveAttribute('data-layout', 'summary')
-    );
-    const group = test.screen.getByRole('link', { name: /\bRecent 1\b/ }).closest('details')!;
+    fireEvent.contextMenu(await screen.findByRole('link', { name: /\bNote 1\b/ }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectNotes' }));
+    expect(screen.getByRole('button', { name: 'NoteMerge' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: /\bNote 2\b/ }));
+    expect(screen.getByRole('button', { name: 'NoteMerge' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'NoteMerge' }));
+    const dialog = await screen.findByRole('dialog');
 
-    test.expect(test.within(group).getAllByRole('link')).toHaveLength(7);
-    test
-      .expect(test.within(group).queryByRole('button', { name: 'SidebarShowMore' }))
-      .not.toBeInTheDocument();
-  } finally {
-    geometry.mockRestore();
-    test.vi.unstubAllGlobals();
-  }
-});
-
-test.stable(
-  'uses keyboard row toggles without changing the sidebar density or navigating',
-  async () => {
-    const router = mountSelectionSidebar();
-    const original = await test.screen.findByRole('link', { name: /\bNote 1\b/ });
-
-    test.expect(original).toHaveAttribute('data-layout', 'detailed');
-    test.fireEvent.contextMenu(original, { button: 2, clientX: 80, clientY: 80 });
-    test.fireEvent.click(await test.screen.findByRole('menuitem', { name: 'SidebarSelectNotes' }));
-    const row = await test.screen.findByRole('button', { name: /\bNote 2\b/ });
-
-    test.expect(row).toHaveAttribute('data-layout', 'detailed');
-    test.expect(row).toHaveAttribute('aria-pressed', 'false');
-    row.focus();
-    await test.userEvent.setup().keyboard(' ');
-    test.expect(row).toHaveAttribute('aria-pressed', 'true');
-    await test.userEvent.setup().keyboard('{Enter}');
-    test.expect(row).toHaveAttribute('aria-pressed', 'false');
-    test.expect(await test.within(row).findByText('SidebarReady')).toBeVisible();
-    test.expect(router.state.location.pathname).toBe('/');
+    expect(within(dialog).getByText('NoteMergeHelp')).toBeInTheDocument();
+    expect(within(dialog).getByText('Note 1')).toBeInTheDocument();
+    expect(within(dialog).getByText('Note 2')).toBeInTheDocument();
   }
 );
-
-test.stable(
-  'opens the conversion dialog from a row without navigating or settling it',
-  async () => {
-    const router = mountSelectionSidebar();
-    const link = await test.screen.findByRole('link', { name: /\bNote 1\b/ });
-    const row = link.closest('.study-note-entry') as HTMLElement;
-
-    test
-      .expect(test.within(row).getByRole('button', { name: 'SidebarSettle' }))
-      .toBeInTheDocument();
-    test.fireEvent.click(test.within(row).getByRole('button', { name: 'SidebarTurnIntoPage' }));
-    const dialog = await test.screen.findByRole('dialog', { name: 'NoteTransform' });
-
-    test.expect(test.within(dialog).getByText('Note 1')).toBeVisible();
-    test.expect(test.within(dialog).queryByText('Note 2')).not.toBeInTheDocument();
-    test.expect(router.state.location.pathname).toBe('/');
-  }
-);
-
-test.stable('offers merge only after selecting at least two notes', async () => {
-  api.settings.mockResolvedValue({ settledPageThreshold: 1 });
-  api.summaries.mockResolvedValue({ items: [] });
-  const cache = fixture();
-
-  const route = createRootRoute({
-    component: () => (
-      <RichSidebarNotes notes={notes} subjects={[]} project={undefined} selectedNote={null} />
-    )
-  });
-  const router = createRouter({
-    routeTree: route,
-    history: createMemoryHistory({ initialEntries: ['/'] })
-  });
-
-  test.render(
-    <cache.wrapper>
-      <RouterProvider router={router} />
-    </cache.wrapper>
-  );
-  test.fireEvent.contextMenu(await test.screen.findByRole('link', { name: /\bNote 1\b/ }));
-  test.fireEvent.click(await test.screen.findByRole('menuitem', { name: 'SidebarSelectNotes' }));
-  test.expect(test.screen.getByRole('button', { name: 'NoteMerge' })).toBeDisabled();
-  test.fireEvent.click(test.screen.getByRole('button', { name: /\bNote 2\b/ }));
-  test.expect(test.screen.getByRole('button', { name: 'NoteMerge' })).toBeEnabled();
-  test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteMerge' }));
-  const dialog = await test.screen.findByRole('dialog');
-
-  test.expect(test.within(dialog).getByText('NoteMergeHelp')).toBeInTheDocument();
-  test.expect(test.within(dialog).getByText('Note 1')).toBeInTheDocument();
-  test.expect(test.within(dialog).getByText('Note 2')).toBeInTheDocument();
-});

@@ -64,10 +64,12 @@ function admitted(database: { readonly orm: Db['orm'] }, tag: string, id: string
 
 test.stable(
   'native ingestion lets quick notes capture a historic exact source extraction without projections',
-  async ({ databases }) => {
+  async ({ databases, createAiMock, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     let context = new ServerContext(await location.open());
-    using mock = test.createAiMock();
+    using mock = createAiMock();
     const domain = () =>
       Layer.mergeAll(Sources.layer, Notes.layer, Settings.layer, Projects.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -109,10 +111,15 @@ test.stable(
 
             yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
 
-            function* ingest(revision: number) {
+            function* ingest(
+              { assert: assertions }: Pick<test.Context, 'assert'>,
+              revision: number
+            ) {
+              const assert: test.Assert = assertions;
+
               const state = yield* sources.sourceProcessing(source.id);
 
-              test.assert.ok(state.requestId);
+              assert.ok(state.requestId);
               const event = {
                 type: 'SourceProcessingRequested' as const,
                 sourceId: source.id,
@@ -134,29 +141,26 @@ test.stable(
                 .map((row) => decodeEvent(row.payload))
                 .find((item) => item.type === 'SourceIndexed' && item.documentId === documentId);
 
-              test.assert.ok(indexed?.type === 'SourceIndexed');
+              assert.ok(indexed?.type === 'SourceIndexed');
 
               if (revision === 1) {
-                test.assert.strictEqual(indexed.projectId, collection.id);
+                assert.strictEqual(indexed.projectId, collection.id);
                 yield* projects.deleteProject({ id: collection.id });
               }
 
-              test.assert.strictEqual(
+              assert.strictEqual(
                 (yield* sources.currentExtraction({ id: source.id }))?.snapshotId,
                 documentId
               );
-              test.assert.strictEqual(
-                context.db.orm.select().from(tables.materials).all().length,
-                0
-              );
-              test.assert.strictEqual(context.db.orm.select().from(tables.pages).all().length, 0);
+              assert.strictEqual(context.db.orm.select().from(tables.materials).all().length, 0);
+              assert.strictEqual(context.db.orm.select().from(tables.pages).all().length, 0);
 
               return { documentId };
             }
 
-            const first = yield* ingest(1);
+            const first = yield* ingest({ assert }, 1);
 
-            test.assert.strictEqual(
+            assert.strictEqual(
               (yield* sources.sourceProcessing(source.id)).documentId,
               first.documentId
             );
@@ -165,7 +169,7 @@ test.stable(
             });
 
             // Original bytes are not authority for a future extraction.
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(
                 client('notes.updateNoteSelection', {
                   noteId: note.id,
@@ -203,9 +207,9 @@ test.stable(
               name: 'test.txt',
               bytes: new TextEncoder().encode('Replacement must stay outside historic context')
             });
-            const latest = yield* ingest(2);
+            const latest = yield* ingest({ assert }, 2);
 
-            test.assert.notStrictEqual(latest.documentId, first.documentId);
+            assert.notStrictEqual(latest.documentId, first.documentId);
             // Historical selection changes cannot replace the already captured source body.
             yield* client('notes.updateNoteSelection', {
               noteId: note.id,
@@ -226,10 +230,10 @@ test.stable(
               requestId: captured.requestId
             });
 
-            test.expect(snapshot.messages.map((message) => message.text)).toStrictEqual(['']);
-            test.assert.strictEqual(snapshot.inputs[0]!.snapshotId, first.documentId);
-            test.assert.ok(snapshot.inputs[0]!.excerpts[0]!.text === 'Hello historic extraction');
-            test.expect(snapshot.inputs[0]!.document).toStrictEqual(
+            expect(snapshot.messages.map((message) => message.text)).toStrictEqual(['']);
+            assert.strictEqual(snapshot.inputs[0]!.snapshotId, first.documentId);
+            assert.ok(snapshot.inputs[0]!.excerpts[0]!.text === 'Hello historic extraction');
+            expect(snapshot.inputs[0]!.document).toStrictEqual(
               (yield* sources.extraction({
                 sourceId: source.id,
                 revision: 1n,
@@ -250,7 +254,7 @@ test.stable(
         )
       );
 
-      test.expect(reopened).toStrictEqual(captured);
+      expect(reopened).toStrictEqual(captured);
     } finally {
       context.close();
       await location.cleanup();
@@ -260,7 +264,9 @@ test.stable(
 
 test.stable(
   'superseded requests cannot publish and a cancelled pending execution stays unpublished',
-  async ({ databases }) => {
+  async ({ databases, createAiMock, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { dispatchPending } = await import('#server/platform/workflows/triggers');
     const { reconcileCancellation } = await import('#server/platform/workflows/cancellation');
     const { sourceIngestionRegistration } =
@@ -271,7 +277,7 @@ test.stable(
     const { transaction } = await import('#server/platform/definitions/define-store');
     const location = await databases();
     const context = new ServerContext(await location.open());
-    using mock = test.createAiMock();
+    using mock = createAiMock();
     const services = Layer.mergeAll(
       Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
       Layer.succeed(Database, { store: context }),
@@ -297,7 +303,7 @@ test.stable(
             });
             const old = yield* sources.sourceProcessing(source.id);
 
-            test.assert.ok(old.requestId);
+            assert.ok(old.requestId);
             yield* sources.requestSourceProcessing({ id: source.id, expectedRevision: 1 });
             const engine = yield* WorkflowEngine.WorkflowEngine;
 
@@ -327,8 +333,8 @@ test.stable(
               })
             );
 
-            test.assert.ok(failure.kind === 'invalid_input');
-            test.assert.ok((yield* sources.sourceProcessing(source.id)).documentId === null);
+            assert.ok(failure.kind === 'invalid_input');
+            assert.ok((yield* sources.sourceProcessing(source.id)).documentId === null);
             const revisionSource = yield* sources.createSource({
               name: 'revision.txt',
               bytes: new TextEncoder().encode('first'),
@@ -336,7 +342,7 @@ test.stable(
             });
             const revisionState = yield* sources.sourceProcessing(revisionSource.id);
 
-            test.assert.ok(revisionState.requestId);
+            assert.ok(revisionState.requestId);
             yield* transaction((tx) =>
               tx.store(SourceStore).replaceSourceInput({
                 id: revisionSource.id,
@@ -359,11 +365,9 @@ test.stable(
               })
             );
 
-            test.assert.ok(revisionFailure.kind === 'invalid_input');
-            test.assert.ok(
-              (yield* sources.sourceProcessing(revisionSource.id)).documentId === null
-            );
-            test.assert.strictEqual(
+            assert.ok(revisionFailure.kind === 'invalid_input');
+            assert.ok((yield* sources.sourceProcessing(revisionSource.id)).documentId === null);
+            assert.strictEqual(
               yield* dispatchPending(context, sourceIngestionRegistration.triggers, Date.now()),
               3
             );
@@ -386,13 +390,13 @@ test.stable(
                 'safe',
                 true
               );
-              test.assert.strictEqual(
+              assert.strictEqual(
                 workflowStore(context).execution(row.execution_id)?.status,
                 'cancelled'
               );
             }
 
-            test.assert.ok((yield* sources.sourceProcessing(source.id)).documentId === null);
+            assert.ok((yield* sources.sourceProcessing(source.id)).documentId === null);
           }).pipe(Effect.provide(services))
         )
       );
@@ -406,7 +410,9 @@ test.stable(
 for (const input of ['attachment', 'link'] as const)
   test.stable(
     `${input} PDF transcription is checkpointed and replayed after reopening SQLite`,
-    async ({ databases }) => {
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
       let calls = 0;
       let fetches = 0;
       const fixture = await Bun.file(
@@ -456,7 +462,7 @@ for (const input of ['attachment', 'link'] as const)
         }
       });
 
-      test.assert.ok(peer.port, 'missing peer address');
+      assert.ok(peer.port, 'missing peer address');
       const base = peer.url.origin;
       const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
@@ -492,7 +498,7 @@ for (const input of ['attachment', 'link'] as const)
                 : sources.addLink({ url: `${base}/two.pdf`, projectId: null });
               const state = yield* sources.sourceProcessing(source.id);
 
-              test.assert.ok(state.requestId);
+              assert.ok(state.requestId);
               const event = {
                 type: 'SourceProcessingRequested' as const,
                 sourceId: source.id,
@@ -515,8 +521,8 @@ for (const input of ['attachment', 'link'] as const)
                 })
               );
 
-              test.assert.ok(stale.kind === 'invalid_input');
-              test.assert.strictEqual(calls, 0);
+              assert.ok(stale.kind === 'invalid_input');
+              assert.strictEqual(calls, 0);
               const exit = yield* Effect.exit(
                 engine.execute(sourceIngestionWorkflow, {
                   executionId: admitted(context.db, sourceIngestionWorkflow._tag, 'pdf'),
@@ -524,16 +530,16 @@ for (const input of ['attachment', 'link'] as const)
                 })
               );
 
-              test.assert.ok(exit._tag === 'Success');
+              assert.ok(exit._tag === 'Success');
 
               return { event };
             }).pipe(Effect.provide(services()))
           )
         );
 
-        test.assert.strictEqual(calls, 1);
-        test.assert.strictEqual(fetches, input === 'link' ? 1 : 0);
-        test.expect(String(requestBody.instructions)).toMatch(/Transcribe all pages in order/);
+        assert.strictEqual(calls, 1);
+        assert.strictEqual(fetches, input === 'link' ? 1 : 0);
+        expect(String(requestBody.instructions)).toMatch(/Transcribe all pages in order/);
         context.close();
         context = new ServerContext(await location.open());
         await Effect.runPromise(
@@ -549,15 +555,13 @@ for (const input of ['attachment', 'link'] as const)
             }).pipe(Effect.provide(services()))
           )
         );
-        test.assert.strictEqual(calls, 1);
-        test.assert.strictEqual(fetches, input === 'link' ? 1 : 0);
-        test
-          .expect(
-            context.db.orm
-              .all<{ text: string }>(sql`SELECT text FROM blocks ORDER BY ordinal`)
-              .map((row) => row.text)
-          )
-          .toStrictEqual(['One', 'Two']);
+        assert.strictEqual(calls, 1);
+        assert.strictEqual(fetches, input === 'link' ? 1 : 0);
+        expect(
+          context.db.orm
+            .all<{ text: string }>(sql`SELECT text FROM blocks ORDER BY ordinal`)
+            .map((row) => row.text)
+        ).toStrictEqual(['One', 'Two']);
       } finally {
         await auth.dispose();
         context.close();
@@ -569,10 +573,12 @@ for (const input of ['attachment', 'link'] as const)
 
 test.stable(
   'ingestion publishes visible HTML, delimited text and Office documents',
-  async ({ databases }) => {
+  async ({ databases, createAiMock, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
-    using mock = test.createAiMock();
+    using mock = createAiMock();
     const services = Layer.mergeAll(
       Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
       Layer.succeed(Database, { store: context }),
@@ -634,7 +640,7 @@ test.stable(
               });
               const state = yield* sources.sourceProcessing(source.id);
 
-              test.assert.ok(state.requestId);
+              assert.ok(state.requestId);
               const event = {
                 type: 'SourceProcessingRequested' as const,
                 sourceId: source.id,
@@ -650,17 +656,15 @@ test.stable(
                 payload: { event }
               });
 
-              test.assert.strictEqual((yield* sources.sourceProcessing(source.id)).documentId, id);
+              assert.strictEqual((yield* sources.sourceProcessing(source.id)).documentId, id);
               const rows = context.db.orm.all<{ text: string }>(
                 'SELECT text FROM blocks ORDER BY rowid'
               );
 
-              test
-                .expect(
-                  rows.slice(-sample.expected.length).map((row) => row.text),
-                  sample.name
-                )
-                .toStrictEqual(sample.expected);
+              expect(
+                rows.slice(-sample.expected.length).map((row) => row.text),
+                sample.name
+              ).toStrictEqual(sample.expected);
             }
 
             const { SourceStore } = yield* Effect.promise(
@@ -700,7 +704,7 @@ test.stable(
               'SELECT anchor FROM blocks ORDER BY rowid DESC LIMIT 1'
             )[0].anchor;
 
-            test.expect(JSON.parse(anchor)).toStrictEqual({
+            expect(JSON.parse(anchor)).toStrictEqual({
               type: 'url',
               url: 'https://example.test/original',
               fragment: 'chapter'
@@ -719,7 +723,7 @@ test.stable(
               const source = yield* sources.createSource({ name, bytes, projectId: null });
               const state = yield* sources.sourceProcessing(source.id);
 
-              test.assert.ok(state.requestId);
+              assert.ok(state.requestId);
               const event = {
                 type: 'SourceProcessingRequested' as const,
                 sourceId: source.id,
@@ -741,7 +745,7 @@ test.stable(
                 })
               );
 
-              test.assert.ok(failure.kind === 'unsupported', name);
+              assert.ok(failure.kind === 'unsupported', name);
             }
           }).pipe(Effect.provide(services))
         )
@@ -755,7 +759,9 @@ test.stable(
 
 test.stable(
   'link ingestion follows redirects and anchors HTML to the final URI',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, createAiMock }) => {
+    const assert: test.Assert = assertions;
+
     let calls = 0;
     const peer = Bun.serve({
       hostname: '127.0.0.1',
@@ -772,11 +778,11 @@ test.stable(
       }
     });
 
-    test.assert.ok(peer.port, 'missing address');
+    assert.ok(peer.port, 'missing address');
     const base = peer.url.origin;
     const location = await databases();
     const context = new ServerContext(await location.open());
-    using mock = test.createAiMock();
+    using mock = createAiMock();
     const services = Layer.mergeAll(
       Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
       Layer.succeed(Database, { store: context }),
@@ -798,7 +804,7 @@ test.stable(
             const source = yield* sources.addLink({ url: `${base}/start`, projectId: null });
             const state = yield* sources.sourceProcessing(source.id);
 
-            test.assert.ok(state.requestId);
+            assert.ok(state.requestId);
             const event = {
               type: 'SourceProcessingRequested' as const,
               sourceId: source.id,
@@ -820,10 +826,10 @@ test.stable(
               'SELECT text, anchor FROM blocks'
             );
 
-            test.assert.ok(rows[0].text === 'Hello');
-            test.assert.strictEqual(JSON.parse(rows[0].anchor).url, `${base}/final`);
-            test.assert.strictEqual((yield* sources.source(source.id)).uri, `${base}/start`);
-            test.assert.strictEqual(calls, 2);
+            assert.ok(rows[0].text === 'Hello');
+            assert.strictEqual(JSON.parse(rows[0].anchor).url, `${base}/final`);
+            assert.strictEqual((yield* sources.source(source.id)).uri, `${base}/start`);
+            assert.strictEqual(calls, 2);
           }).pipe(Effect.provide(services))
         )
       );
@@ -837,7 +843,9 @@ test.stable(
 
 test.stable(
   'link fetch checkpoint survives SQLite reopen without another request',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, createAiMock }) => {
+    const assert: test.Assert = assertions;
+
     let calls = 0;
     const peer = Bun.serve({
       hostname: '127.0.0.1',
@@ -849,11 +857,11 @@ test.stable(
       }
     });
 
-    test.assert.ok(peer.port, 'missing address');
+    assert.ok(peer.port, 'missing address');
     const base = peer.url.origin;
     const location = await databases();
     let context = new ServerContext(await location.open());
-    using mock = test.createAiMock();
+    using mock = createAiMock();
     const services = () =>
       Layer.mergeAll(
         Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
@@ -877,7 +885,7 @@ test.stable(
             const source = yield* sources.addLink({ url: base, projectId: null });
             const state = yield* sources.sourceProcessing(source.id);
 
-            test.assert.ok(state.requestId);
+            assert.ok(state.requestId);
             const event = {
               type: 'SourceProcessingRequested' as const,
               sourceId: source.id,
@@ -898,9 +906,9 @@ test.stable(
               })
             );
 
-            test.assert.ok(stale.kind === 'invalid_input');
-            test.assert.strictEqual(calls, 0);
-            test.assert.ok(
+            assert.ok(stale.kind === 'invalid_input');
+            assert.strictEqual(calls, 0);
+            assert.ok(
               (yield* Effect.exit(
                 engine.execute(sourceIngestionWorkflow, {
                   executionId: admitted(context.db, sourceIngestionWorkflow._tag, 'replay-link'),
@@ -914,7 +922,7 @@ test.stable(
         )
       );
 
-      test.assert.strictEqual(calls, 1);
+      assert.strictEqual(calls, 1);
       context.close();
       context = new ServerContext(await location.open());
       await Effect.runPromise(
@@ -930,8 +938,8 @@ test.stable(
           }).pipe(Effect.provide(services()))
         )
       );
-      test.assert.strictEqual(calls, 1);
-      test.assert.ok(
+      assert.strictEqual(calls, 1);
+      assert.ok(
         context.db.orm.all<{ text: string }>(sql`SELECT text FROM blocks`)[0].text === 'captured'
       );
     } finally {
@@ -942,90 +950,99 @@ test.stable(
   }
 );
 
-test.stable('interrupting link ingestion closes the active HTTP request', async ({ databases }) => {
-  let started!: () => void;
-  let closed!: () => void;
-  const startedPromise = new Promise<void>((resolve) => {
-    started = resolve;
-  });
-  const closedPromise = new Promise<void>((resolve) => {
-    closed = resolve;
-  });
-  const peer = Bun.serve({
-    hostname: '127.0.0.1',
-    port: 0,
-    fetch(request) {
-      request.signal.addEventListener('abort', closed, { once: true });
-      started();
+test.stable(
+  'interrupting link ingestion closes the active HTTP request',
+  async ({ databases, assert: assertions, createAiMock }) => {
+    const assert: test.Assert = assertions;
 
-      return new Promise<Response>((resolve) =>
-        request.signal.addEventListener('abort', () => resolve(new Response(null)), { once: true })
-      );
-    }
-  });
+    let started!: () => void;
+    let closed!: () => void;
+    const startedPromise = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const closedPromise = new Promise<void>((resolve) => {
+      closed = resolve;
+    });
+    const peer = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      fetch(request) {
+        request.signal.addEventListener('abort', closed, { once: true });
+        started();
 
-  test.assert.ok(peer.port, 'missing address');
-  const base = peer.url.origin;
-  const location = await databases();
-  const context = new ServerContext(await location.open());
-  using mock = test.createAiMock();
-  const services = Layer.mergeAll(
-    Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
-    Layer.succeed(Database, { store: context }),
-    Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context }))),
-    agentsLayer({
-      model: (tier, call) => mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError)),
-      language: 'en',
-      rules: Effect.succeed(defaultAgentRules),
-      searchSources: () => Effect.succeed([])
-    }),
-    workflowEngineLayer(context)
-  );
+        return new Promise<Response>((resolve) =>
+          request.signal.addEventListener('abort', () => resolve(new Response(null)), {
+            once: true
+          })
+        );
+      }
+    });
 
-  try {
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const sources = yield* Sources;
-          const source = yield* sources.addLink({ url: base, projectId: null });
-          const state = yield* sources.sourceProcessing(source.id);
-
-          test.assert.ok(state.requestId);
-          const event = {
-            type: 'SourceProcessingRequested' as const,
-            sourceId: source.id,
-            requestId: state.requestId,
-            inputVersion: 1,
-            eventId: 'interrupt-link',
-            causationId: null,
-            correlationId: state.requestId,
-            depth: 0
-          };
-          const engine = yield* WorkflowEngine.WorkflowEngine;
-
-          yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
-          yield* engine.execute(sourceIngestionWorkflow, {
-            executionId: admitted(context.db, sourceIngestionWorkflow._tag, 'interrupt-link'),
-            payload: { event },
-            discard: true
-          });
-          yield* Effect.promise(() => startedPromise);
-          yield* engine.interruptUnsafe(sourceIngestionWorkflow, 'interrupt-link');
-          yield* Effect.promise(() => closedPromise);
-          test.assert.ok((yield* sources.sourceProcessing(source.id)).documentId === null);
-        }).pipe(Effect.provide(services))
-      )
+    assert.ok(peer.port, 'missing address');
+    const base = peer.url.origin;
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    using mock = createAiMock();
+    const services = Layer.mergeAll(
+      Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
+      Layer.succeed(Database, { store: context }),
+      Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context }))),
+      agentsLayer({
+        model: (tier, call) => mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError)),
+        language: 'en',
+        rules: Effect.succeed(defaultAgentRules),
+        searchSources: () => Effect.succeed([])
+      }),
+      workflowEngineLayer(context)
     );
-  } finally {
-    context.close();
-    await location.cleanup();
-    await peer.stop(true);
+
+    try {
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const sources = yield* Sources;
+            const source = yield* sources.addLink({ url: base, projectId: null });
+            const state = yield* sources.sourceProcessing(source.id);
+
+            assert.ok(state.requestId);
+            const event = {
+              type: 'SourceProcessingRequested' as const,
+              sourceId: source.id,
+              requestId: state.requestId,
+              inputVersion: 1,
+              eventId: 'interrupt-link',
+              causationId: null,
+              correlationId: state.requestId,
+              depth: 0
+            };
+            const engine = yield* WorkflowEngine.WorkflowEngine;
+
+            yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
+            yield* engine.execute(sourceIngestionWorkflow, {
+              executionId: admitted(context.db, sourceIngestionWorkflow._tag, 'interrupt-link'),
+              payload: { event },
+              discard: true
+            });
+            yield* Effect.promise(() => startedPromise);
+            yield* engine.interruptUnsafe(sourceIngestionWorkflow, 'interrupt-link');
+            yield* Effect.promise(() => closedPromise);
+            assert.ok((yield* sources.sourceProcessing(source.id)).documentId === null);
+          }).pipe(Effect.provide(services))
+        )
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+      await peer.stop(true);
+    }
   }
-});
+);
 
 test.stable(
   'correction workflow publishes a new anchored document without changing history',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const { sourceCorrectionWorkflow, sourceCorrectionHandler } = await import('./index.ts');
     const { sql } = await import('@study/db');
     const { SourceStore } = await import('#server/features/sources/store/index');
@@ -1106,44 +1123,41 @@ test.stable(
               payload: { event }
             });
 
-            test.assert.notStrictEqual(id, old.documentId);
+            assert.notStrictEqual(id, old.documentId);
             const current = yield* sources.sourceDocument(source.id);
 
-            test.assert.ok(current.document.blocks[0].text === 'after');
-            test.assert.strictEqual(current.document.blocks[0].id, document.blocks[0].id);
+            assert.ok(current.document.blocks[0].text === 'after');
+            assert.strictEqual(current.document.blocks[0].id, document.blocks[0].id);
             const historical = yield* sources.document({
               id: old.documentId,
               sourceId: source.id,
               projectId: 1n as ProjectId
             });
 
-            test.expect(historical.document).toStrictEqual(document);
-            test.expect(current.document.blocks[0].anchor).toStrictEqual(document.blocks[0].anchor);
-            test.assert.ok(current.document.meta.corrected === true);
+            expect(historical.document).toStrictEqual(document);
+            expect(current.document.blocks[0].anchor).toStrictEqual(document.blocks[0].anchor);
+            assert.ok(current.document.meta.corrected === true);
             const indexed = context.db.orm.all<{ causation_id: string; correlation_id: string }>(
               sql`SELECT causation_id, correlation_id FROM workflow_events WHERE type = 'SourceIndexed'`
             );
 
-            test.assert.strictEqual(indexed.length, 1);
-            test.assert.strictEqual(indexed[0].causation_id, event.eventId);
-            test.assert.strictEqual(indexed[0].correlation_id, event.correlationId);
-            test.assert.strictEqual(
+            assert.strictEqual(indexed.length, 1);
+            assert.strictEqual(indexed[0].causation_id, event.eventId);
+            assert.strictEqual(indexed[0].correlation_id, event.correlationId);
+            assert.strictEqual(
               yield* engine.execute(sourceCorrectionWorkflow, {
                 executionId: admitted(context.db, sourceCorrectionWorkflow._tag, 'correct'),
                 payload: { event }
               }),
               id
             );
-            test.assert.strictEqual(
-              context.db.orm.all(sql`SELECT * FROM content_snapshots`).length,
-              2
-            );
-            test.assert.strictEqual(
+            assert.strictEqual(context.db.orm.all(sql`SELECT * FROM content_snapshots`).length, 2);
+            assert.strictEqual(
               context.db.orm.all(sql`SELECT * FROM workflow_events WHERE type = 'SourceIndexed'`)
                 .length,
               1
             );
-            test.assert.ok(
+            assert.ok(
               context.db.orm.all<{ text: string }>(
                 'SELECT text FROM blocks ORDER BY document_id'
               )[0].text === 'before'
@@ -1164,21 +1178,18 @@ test.stable(
             const sources = yield* Sources;
 
             yield* engine.register(sourceCorrectionWorkflow, sourceCorrectionHandler);
-            test.assert.strictEqual(
+            assert.strictEqual(
               yield* engine.execute(sourceCorrectionWorkflow, {
                 executionId: admitted(context.db, sourceCorrectionWorkflow._tag, 'correct'),
                 payload: { event: captured.event }
               }),
               captured.id
             );
-            test.assert.ok(
+            assert.ok(
               (yield* sources.sourceDocument(captured.sourceId)).document.blocks[0].text === 'after'
             );
-            test.assert.strictEqual(
-              context.db.orm.all(sql`SELECT * FROM content_snapshots`).length,
-              2
-            );
-            test.assert.strictEqual(
+            assert.strictEqual(context.db.orm.all(sql`SELECT * FROM content_snapshots`).length, 2);
+            assert.strictEqual(
               context.db.orm.all(sql`SELECT * FROM workflow_events WHERE type = 'SourceIndexed'`)
                 .length,
               1

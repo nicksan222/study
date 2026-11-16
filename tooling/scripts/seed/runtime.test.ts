@@ -8,7 +8,7 @@ import { seedDatabase } from './seed.ts';
 
 test.stable(
   'seeded coursework opens through the real application RPC without workers or external requests',
-  async ({ databases, resources }) => {
+  async ({ databases, resources, expect }) => {
     const location = await databases();
 
     await seedDatabase(location.path);
@@ -28,20 +28,20 @@ test.stable(
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
             const sources = yield* client['sources.sources']({ limit: 100 });
 
-            test.expect(sources.items).toHaveLength(15);
+            expect(sources.items).toHaveLength(15);
 
             for (const source of sources.items) {
               const exported = yield* client['sources.sourceExport']({ id: source.id });
               const extraction = yield* client['sources.currentExtraction']({ id: source.id });
 
-              test.expect(exported.bytes.length).toBeGreaterThan(0);
-              test.expect(extraction?.document.blocks.length).toBeGreaterThan(0);
-              test.expect(source.createdAt).toBeLessThan(BigInt(Math.floor(Date.now() / 1000)));
+              expect(exported.bytes.length).toBeGreaterThan(0);
+              expect(extraction?.document.blocks.length).toBeGreaterThan(0);
+              expect(source.createdAt).toBeLessThan(BigInt(Math.floor(Date.now() / 1000)));
             }
 
             const projects = yield* client['projects.projects']({ limit: 100 });
 
-            test.expect(projects.items).toHaveLength(5);
+            expect(projects.items).toHaveLength(5);
 
             for (const project of projects.items) {
               const notes = yield* client['notes.notes']({
@@ -49,30 +49,30 @@ test.stable(
                 project: project.id
               });
 
-              test.expect(notes.items).toHaveLength(10);
-              test.expect(new Set(notes.items.map((note) => note.title)).size).toBe(10);
+              expect(notes.items).toHaveLength(10);
+              expect(new Set(notes.items.map((note) => note.title)).size).toBe(10);
             }
 
             const pages = yield* client['pages.pages']({ limit: 100, archived: false });
 
-            test.expect(pages.items).toHaveLength(10);
+            expect(pages.items).toHaveLength(10);
 
             for (const note of pages.items) {
               const detail = yield* client['pages.page']({ id: note.id });
 
-              test.expect(detail.version?.document.blocks.length).toBeGreaterThan(0);
-              test.expect(detail.projectIds).toHaveLength(1);
+              expect(detail.version?.document.blocks.length).toBeGreaterThan(0);
+              expect(detail.projectIds).toHaveLength(1);
             }
 
             const materials = yield* client['materials.materials']({ limit: 100, archived: false });
 
-            test.expect(materials.items).toHaveLength(10);
+            expect(materials.items).toHaveLength(10);
 
             for (const material of materials.items) {
               const detail = yield* client['materials.material']({ id: material.id });
 
-              test.expect(detail.version.status).toBe('published');
-              test.expect(detail.projectIds).toHaveLength(1);
+              expect(detail.version.status).toBe('published');
+              expect(detail.projectIds).toHaveLength(1);
             }
           })
         )

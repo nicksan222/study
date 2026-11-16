@@ -2,11 +2,16 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable('views cannot fetch, run page hooks or own application state', async () => {
-  const diagnostics = await lintRule(
-    'web-presentation-purity',
-    {
-      'apps/client/src/pages/home/page.view.tsx': `
+test.stable(
+  'views cannot fetch, run page hooks or own application state',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule(
+      { assert },
+      'web-presentation-purity',
+      {
+        'apps/client/src/pages/home/page.view.tsx': `
         import { useNavigate } from '@tanstack/react-router';
         import { Effect } from 'effect';
         import { useState as state } from 'react';
@@ -14,24 +19,27 @@ test.stable('views cannot fetch, run page hooks or own application state', async
         import { load } from './page.logic';
         import { usePage } from './use-page';
       `,
-      'apps/client/src/pages/home/page.logic.ts': `import { useState } from 'react'; import { Button } from '@study/ui'; import { Link } from '@tanstack/react-router';`,
-      'apps/client/src/pages/home/other.logic.tsx': `export const element = <div />;`
-    },
-    true
-  );
+        'apps/client/src/pages/home/page.logic.ts': `import { useState } from 'react'; import { Button } from '@study/ui'; import { Link } from '@tanstack/react-router';`,
+        'apps/client/src/pages/home/other.logic.tsx': `export const element = <div />;`
+      },
+      true
+    );
 
-  test.assert.strictEqual(diagnostics.length, 9, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 9, JSON.stringify(diagnostics));
+  }
+);
 
 test.stable(
   'views accept presentation hooks, declarative links and type-only contracts',
-  async () => {
-    test
-      .expect(
-        await lintRule(
-          'web-presentation-purity',
-          {
-            'apps/client/src/pages/home/page.view.tsx': `
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lintRule(
+        { assert },
+        'web-presentation-purity',
+        {
+          'apps/client/src/pages/home/page.view.tsx': `
         import { useNowMinute } from '@study/ui';
         import { Link } from '@tanstack/react-router';
 
@@ -39,19 +47,21 @@ test.stable(
         import type { Model } from './use-page';
         export const PageView = () => <Link to="/Home" />;
       `,
-            'apps/client/src/pages/home/page.logic.ts': `import { Effect } from 'effect'; import type { ReactNode } from 'react'; export const load = Effect.succeed(1);`
-          },
-          true
-        )
+          'apps/client/src/pages/home/page.logic.ts': `import { Effect } from 'effect'; import type { ReactNode } from 'react'; export const load = Effect.succeed(1);`
+        },
+        true
       )
-      .toStrictEqual([]);
+    ).toStrictEqual([]);
   }
 );
 
 test.stable(
   'presentation cannot access browser globals or hide DOM mutations behind aliases',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'web-presentation-purity',
       {
         'apps/client/src/pages/home/page.view.tsx': `
@@ -68,14 +78,18 @@ test.stable(
       true
     );
 
-    test.assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
   }
 );
 
-test.stable('presentation permits shadowed names and prop callbacks', async () => {
-  test
-    .expect(
+test.stable(
+  'presentation permits shadowed names and prop callbacks',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
       await lintRule(
+        { assert },
         'web-presentation-purity',
         {
           'apps/client/src/pages/home/page.view.tsx': `
@@ -86,20 +100,26 @@ test.stable('presentation permits shadowed names and prop callbacks', async () =
         },
         true
       )
-    )
-    .toStrictEqual([]);
-});
+    ).toStrictEqual([]);
+  }
+);
 
-test.stable('extension-correct localization aliases remain presentation-safe', async () => {
-  const diagnostics = await lintRule(
-    'web-presentation-purity',
-    {
-      'apps/client/src/pages/home/page.view.tsx': "import {useI18n} from '#client/lib/i18n.tsx';",
-      'apps/client/src/pages/settings/page.view.tsx':
-        "import {useSettings} from '#client/lib/use-settings.ts';"
-    },
-    true
-  );
+test.stable(
+  'extension-correct localization aliases remain presentation-safe',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-});
+    const diagnostics = await lintRule(
+      { assert },
+      'web-presentation-purity',
+      {
+        'apps/client/src/pages/home/page.view.tsx': "import {useI18n} from '#client/lib/i18n.tsx';",
+        'apps/client/src/pages/settings/page.view.tsx':
+          "import {useSettings} from '#client/lib/use-settings.ts';"
+      },
+      true
+    );
+
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  }
+);

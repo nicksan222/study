@@ -1,10 +1,15 @@
 import { test } from '@study/testing';
 import { NotebookRail } from '@study/ui';
 
-test.afterEach(() => test.vi.restoreAllMocks());
+test.afterEach(({ vi }) => vi.restoreAllMocks());
 
-function mount() {
-  test.render(
+function mount({
+  render,
+  screen,
+  within,
+  vi
+}: Pick<test.Context, 'render' | 'screen' | 'within' | 'vi'>) {
+  render(
     <>
       <NotebookRail.Root label="Notebook navigation">
         {(
@@ -29,13 +34,11 @@ function mount() {
       <button type="button">Outside rail</button>
     </>
   );
-  const rail = test.screen.getByRole('navigation', { name: 'Notebook navigation' });
-  const markers = test.within(rail).getAllByRole('button');
+  const rail = screen.getByRole('navigation', { name: 'Notebook navigation' });
+  const markers = within(rail).getAllByRole('button');
 
   markers.forEach((marker, index) => {
-    test.vi
-      .spyOn(marker, 'getBoundingClientRect')
-      .mockReturnValue(new DOMRect(0, index * 10, 20, 8));
+    vi.spyOn(marker, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, index * 10, 20, 8));
   });
 
   return { rail, markers };
@@ -46,40 +49,40 @@ const scale = (marker: HTMLElement) =>
 
 test.stable(
   'starts every marker at rest and magnifies a smooth symmetric neighborhood without moving hitboxes',
-  () => {
-    const { rail, markers } = mount();
+  ({ expect, fireEvent, render, screen, within, vi }) => {
+    const { rail, markers } = mount({ render, screen, within, vi });
 
-    test.expect(markers.map(scale)).toEqual([1, 1, 1, 1, 1]);
-    test.fireEvent(rail, new MouseEvent('pointermove', { bubbles: true, clientY: 24 }));
+    expect(markers.map(scale)).toEqual([1, 1, 1, 1, 1]);
+    fireEvent(rail, new MouseEvent('pointermove', { bubbles: true, clientY: 24 }));
     const scales = markers.map(scale);
 
-    test.expect(scales[2]).toBeGreaterThan(scales[1]!);
-    test.expect(scales[1]).toBeGreaterThan(scales[0]!);
-    test.expect(scales[0]).toBeGreaterThan(1);
-    test.expect(scales[1]).toBe(scales[3]);
-    test.fireEvent(rail, new MouseEvent('pointermove', { bubbles: true, clientY: 29 }));
-    test.expect(scale(markers[2]!)).toBe(scale(markers[3]!));
-    test
-      .expect(markers.every((marker) => marker.style.height === '' && marker.style.width === ''))
-      .toBe(true);
-    test.fireEvent.pointerLeave(rail);
-    test.expect(markers.map(scale)).toEqual([1, 1, 1, 1, 1]);
+    expect(scales[2]).toBeGreaterThan(scales[1]!);
+    expect(scales[1]).toBeGreaterThan(scales[0]!);
+    expect(scales[0]).toBeGreaterThan(1);
+    expect(scales[1]).toBe(scales[3]);
+    fireEvent(rail, new MouseEvent('pointermove', { bubbles: true, clientY: 29 }));
+    expect(scale(markers[2]!)).toBe(scale(markers[3]!));
+    expect(markers.every((marker) => marker.style.height === '' && marker.style.width === '')).toBe(
+      true
+    );
+    fireEvent.pointerLeave(rail);
+    expect(markers.map(scale)).toEqual([1, 1, 1, 1, 1]);
   }
 );
 
 test.stable(
   'uses the same tapered wave for keyboard focus, keeps it on pointer leave, and resets after blur',
-  () => {
-    const { rail, markers } = mount();
+  ({ act, expect, fireEvent, screen, render, within, vi }) => {
+    const { rail, markers } = mount({ render, screen, within, vi });
 
-    test.act(() => markers[3]!.focus());
-    test.expect(scale(markers[3]!)).toBeGreaterThan(scale(markers[2]!));
-    test.expect(scale(markers[2]!)).toBeGreaterThan(scale(markers[0]!));
+    act(() => markers[3]!.focus());
+    expect(scale(markers[3]!)).toBeGreaterThan(scale(markers[2]!));
+    expect(scale(markers[2]!)).toBeGreaterThan(scale(markers[0]!));
     const focused = markers.map(scale);
 
-    test.fireEvent.pointerLeave(rail);
-    test.expect(markers.map(scale)).toEqual(focused);
-    test.act(() => test.screen.getByRole('button', { name: 'Outside rail' }).focus());
-    test.expect(markers.map(scale)).toEqual([1, 1, 1, 1, 1]);
+    fireEvent.pointerLeave(rail);
+    expect(markers.map(scale)).toEqual(focused);
+    act(() => screen.getByRole('button', { name: 'Outside rail' }).focus());
+    expect(markers.map(scale)).toEqual([1, 1, 1, 1, 1]);
   }
 );

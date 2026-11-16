@@ -23,66 +23,69 @@ test.beforeEach(({ assistant, mock }) => {
 
 test.stable(
   'reuses the same intent after an uncertain send failure and preserves the draft',
-  async () => {
+  async ({ screen, waitFor, expect, fireEvent }) => {
     api.ask.mockRejectedValueOnce(new Error('Connection lost'));
     await mountAssistant();
-    const input = await test.screen.findByRole('textbox', { name: 'Message' });
+    const input = await screen.findByRole('textbox', { name: 'Message' });
 
-    await test.waitFor(() => test.expect(input).toBeEnabled());
-    test.fireEvent.change(input, { target: { value: 'Keep this request' } });
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'Send message' }));
-    await test.screen.findByText(/Could not load or send/);
-    test.expect(input).toHaveValue('Keep this request');
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'Retry' }));
-    await test.waitFor(() =>
-      test.expect(test.screen.queryByText(/Could not load or send/)).not.toBeInTheDocument()
+    await waitFor(() => expect(input).toBeEnabled());
+    fireEvent.change(input, { target: { value: 'Keep this request' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    await screen.findByText(/Could not load or send/);
+    expect(input).toHaveValue('Keep this request');
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() =>
+      expect(screen.queryByText(/Could not load or send/)).not.toBeInTheDocument()
     );
-    test.expect(input).toHaveValue('Keep this request');
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'Send message' }));
-    await test.waitFor(() => test.expect(api.ask).toHaveBeenCalledTimes(2));
-    test.expect(api.ask.mock.calls[1][0]).toEqual(api.ask.mock.calls[0][0]);
+    expect(input).toHaveValue('Keep this request');
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    await waitFor(() => expect(api.ask).toHaveBeenCalledTimes(2));
+    expect(api.ask.mock.calls[1][0]).toEqual(api.ask.mock.calls[0][0]);
   }
 );
 
 test.stable(
   'editing the next draft cannot detach an in-flight send or allow a second send',
-  async () => {
+  async ({ screen, waitFor, expect, fireEvent }) => {
     api.ask.mockImplementation(() => new Promise(() => {}));
     await mountAssistant();
-    const input = await test.screen.findByRole('textbox', { name: 'Message' });
+    const input = await screen.findByRole('textbox', { name: 'Message' });
 
-    await test.waitFor(() => test.expect(input).toBeEnabled());
-    test.fireEvent.change(input, { target: { value: 'First request' } });
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'Send message' }));
-    await test.waitFor(() => test.expect(api.ask).toHaveBeenCalledTimes(1));
-    test.fireEvent.change(input, { target: { value: 'Next draft' } });
-    test.expect(test.screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
-    test.fireEvent.keyDown(input, { key: 'Enter' });
-    test.expect(api.ask).toHaveBeenCalledTimes(1);
-    test.expect(input).toHaveValue('Next draft');
+    await waitFor(() => expect(input).toBeEnabled());
+    fireEvent.change(input, { target: { value: 'First request' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    await waitFor(() => expect(api.ask).toHaveBeenCalledTimes(1));
+    fireEvent.change(input, { target: { value: 'Next draft' } });
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(api.ask).toHaveBeenCalledTimes(1);
+    expect(input).toHaveValue('Next draft');
   }
 );
 
-test.stable('renders saved user and Assistant messages separately with safe Markdown', async () => {
-  api.thread.mockResolvedValue({
-    items: [
-      message('user', 'Explain gravity.', 1n),
-      message('assistant', '**Gravity** attracts mass.', 2n)
-    ],
-    next: null
-  });
-  await mountAssistant();
-  const user = await test.screen.findByRole('article', { name: 'You' });
-  const assistant = await test.screen.findByRole('article', { name: 'Assistant' });
+test.stable(
+  'renders saved user and Assistant messages separately with safe Markdown',
+  async ({ screen, expect }) => {
+    api.thread.mockResolvedValue({
+      items: [
+        message('user', 'Explain gravity.', 1n),
+        message('assistant', '**Gravity** attracts mass.', 2n)
+      ],
+      next: null
+    });
+    await mountAssistant();
+    const user = await screen.findByRole('article', { name: 'You' });
+    const assistant = await screen.findByRole('article', { name: 'Assistant' });
 
-  test.expect(user).toHaveAttribute('data-role', 'user');
-  test.expect(assistant).toHaveAttribute('data-role', 'assistant');
-  test.expect(assistant.querySelector('strong')).toHaveTextContent('Gravity');
-});
+    expect(user).toHaveAttribute('data-role', 'user');
+    expect(assistant).toHaveAttribute('data-role', 'assistant');
+    expect(assistant.querySelector('strong')).toHaveTextContent('Gravity');
+  }
+);
 
 test.stable(
   'creates a separate chat and restores the earlier chat draft from the history card',
-  async () => {
+  async ({ screen, waitFor, expect, fireEvent }) => {
     api.chats.mockResolvedValue({
       items: [
         {
@@ -98,68 +101,72 @@ test.stable(
       next: null
     });
     await mountAssistant();
-    const input = await test.screen.findByRole('textbox', { name: 'Message' });
+    const input = await screen.findByRole('textbox', { name: 'Message' });
 
-    await test.waitFor(() => test.expect(input).toBeEnabled());
-    test.fireEvent.change(input, { target: { value: 'Draft for the earlier chat' } });
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'Chat history' }));
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'New chat' }));
-    await test.waitFor(() => test.expect(api.newChat).toHaveBeenCalledTimes(1));
-    await test.waitFor(() => test.expect(api.note).toHaveBeenCalledWith({ id: 92n }));
-    await test.waitFor(() => test.expect(input).toBeEnabled());
-    test.expect(input).toHaveValue('');
-    test.fireEvent.change(input, { target: { value: 'Draft for the new chat' } });
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'Earlier note' }));
-    await test.waitFor(() => test.expect(input).toHaveValue('Draft for the earlier chat'));
-    const send = test.screen.getByRole('button', { name: 'Send message' });
+    await waitFor(() => expect(input).toBeEnabled());
+    fireEvent.change(input, { target: { value: 'Draft for the earlier chat' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Chat history' }));
+    fireEvent.click(screen.getByRole('button', { name: 'New chat' }));
+    await waitFor(() => expect(api.newChat).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(api.note).toHaveBeenCalledWith({ id: 92n }));
+    await waitFor(() => expect(input).toBeEnabled());
+    expect(input).toHaveValue('');
+    fireEvent.change(input, { target: { value: 'Draft for the new chat' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Earlier note' }));
+    await waitFor(() => expect(input).toHaveValue('Draft for the earlier chat'));
+    const send = screen.getByRole('button', { name: 'Send message' });
 
-    await test.waitFor(() => test.expect(send).toBeEnabled());
-    test.fireEvent.click(send);
-    await test.waitFor(() =>
-      test
-        .expect(api.ask)
-        .toHaveBeenCalledWith(
-          test.expect.objectContaining({ noteId: 91n, text: 'Draft for the earlier chat' })
-        )
+    await waitFor(() => expect(send).toBeEnabled());
+    fireEvent.click(send);
+    await waitFor(() =>
+      expect(api.ask).toHaveBeenCalledWith(
+        expect.objectContaining({ noteId: 91n, text: 'Draft for the earlier chat' })
+      )
     );
   }
 );
 
-test.stable('shows an estimated context ring that includes the unsent draft', async () => {
-  await mountAssistant();
-  const meter = await test.screen.findByRole('meter');
+test.stable(
+  'shows an estimated context ring that includes the unsent draft',
+  async ({ screen, expect, fireEvent }) => {
+    await mountAssistant();
+    const meter = await screen.findByRole('meter');
 
-  test.expect(meter).toHaveAttribute('aria-valuenow', '16');
-  test.fireEvent.change(test.screen.getByRole('textbox', { name: 'Message' }), {
-    target: { value: 'a'.repeat(4000) }
-  });
-  test.expect(meter).toHaveAttribute('aria-valuenow', '18');
-  test.expect(meter).toHaveAccessibleName(/Auto compact is on/);
-});
-
-test.stable('an idle chat does not keep polling its history and context', async () => {
-  await mountAssistant();
-  await test.screen.findByRole('meter');
-  await test.waitFor(() => test.expect(api.thread).toHaveBeenCalled());
-  const threadCalls = api.thread.mock.calls.length;
-  const contextCalls = api.context.mock.calls.length;
-
-  test.vi.useFakeTimers();
-
-  try {
-    await test.act(async () => {
-      await test.vi.advanceTimersByTimeAsync(3500);
+    expect(meter).toHaveAttribute('aria-valuenow', '16');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Message' }), {
+      target: { value: 'a'.repeat(4000) }
     });
-    test.expect(api.thread).toHaveBeenCalledTimes(threadCalls);
-    test.expect(api.context).toHaveBeenCalledTimes(contextCalls);
-  } finally {
-    test.vi.useRealTimers();
+    expect(meter).toHaveAttribute('aria-valuenow', '18');
+    expect(meter).toHaveAccessibleName(/Auto compact is on/);
   }
-});
+);
+
+test.stable(
+  'an idle chat does not keep polling its history and context',
+  async ({ screen, waitFor, expect, vi, act }) => {
+    await mountAssistant();
+    await screen.findByRole('meter');
+    await waitFor(() => expect(api.thread).toHaveBeenCalled());
+    const threadCalls = api.thread.mock.calls.length;
+    const contextCalls = api.context.mock.calls.length;
+
+    vi.useFakeTimers();
+
+    try {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3500);
+      });
+      expect(api.thread).toHaveBeenCalledTimes(threadCalls);
+      expect(api.context).toHaveBeenCalledTimes(contextCalls);
+    } finally {
+      vi.useRealTimers();
+    }
+  }
+);
 
 test.stable(
   'a delayed send only clears its original chat draft after creating another chat',
-  async () => {
+  async ({ screen, waitFor, expect, fireEvent, act }) => {
     let finish!: (value: Awaited<ReturnType<typeof api.ask>>) => void;
 
     api.ask.mockImplementation(
@@ -169,18 +176,18 @@ test.stable(
         })
     );
     await mountAssistant();
-    const input = await test.screen.findByRole('textbox', { name: 'Message' });
+    const input = await screen.findByRole('textbox', { name: 'Message' });
 
-    await test.waitFor(() => test.expect(input).toBeEnabled());
-    test.fireEvent.change(input, { target: { value: 'Same text' } });
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'Send message' }));
-    await test.waitFor(() => test.expect(api.ask).toHaveBeenCalledTimes(1));
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'Chat history' }));
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'New chat' }));
-    await test.waitFor(() => test.expect(api.note).toHaveBeenCalledWith({ id: 92n }));
-    await test.waitFor(() => test.expect(input).toBeEnabled());
-    test.fireEvent.change(input, { target: { value: 'Same text' } });
-    await test.act(async () => {
+    await waitFor(() => expect(input).toBeEnabled());
+    fireEvent.change(input, { target: { value: 'Same text' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    await waitFor(() => expect(api.ask).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Chat history' }));
+    fireEvent.click(screen.getByRole('button', { name: 'New chat' }));
+    await waitFor(() => expect(api.note).toHaveBeenCalledWith({ id: 92n }));
+    await waitFor(() => expect(input).toBeEnabled());
+    fireEvent.change(input, { target: { value: 'Same text' } });
+    await act(async () => {
       finish(
         Schema.decodeUnknownSync(askResultSchema)({
           noteId: 91n,
@@ -192,44 +199,47 @@ test.stable(
         })
       );
     });
-    await test.waitFor(() => test.expect(input).toHaveValue('Same text'));
+    await waitFor(() => expect(input).toHaveValue('Same text'));
   }
 );
 
-test.stable('blocks new sends while setup is needed and keeps the draft editable', async () => {
-  readiness.state = 'setup';
+test.stable(
+  'blocks new sends while setup is needed and keeps the draft editable',
+  async ({ screen, waitFor, expect, fireEvent }) => {
+    readiness.state = 'setup';
 
-  try {
-    await mountAssistant();
-    const input = await test.screen.findByRole('textbox', { name: 'Message' });
+    try {
+      await mountAssistant();
+      const input = await screen.findByRole('textbox', { name: 'Message' });
 
-    await test.waitFor(() => test.expect(input).toBeEnabled());
-    test.fireEvent.change(input, { target: { value: 'Keep this draft' } });
-    test.expect(test.screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
-    test.fireEvent.keyDown(input, { key: 'Enter' });
-    test.expect(api.ask).not.toHaveBeenCalled();
-    test.expect(input).toHaveValue('Keep this draft');
-  } finally {
-    readiness.state = 'ready';
+      await waitFor(() => expect(input).toBeEnabled());
+      fireEvent.change(input, { target: { value: 'Keep this draft' } });
+      expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(api.ask).not.toHaveBeenCalled();
+      expect(input).toHaveValue('Keep this draft');
+    } finally {
+      readiness.state = 'ready';
+    }
   }
-});
+);
 
 test.stable(
   'server snapshots refresh committed content while the local question draft survives',
-  async () => {
+  async ({ screen, waitFor, expect, fireEvent, act }) => {
     const { notify } = await mountAssistant();
-    const input = await test.screen.findByRole('textbox', { name: 'Message' });
+    const input = await screen.findByRole('textbox', { name: 'Message' });
 
-    await test.waitFor(() => test.expect(input).toBeEnabled());
-    test.fireEvent.change(input, { target: { value: 'Keep this question' } });
+    await waitFor(() => expect(input).toBeEnabled());
+    fireEvent.change(input, { target: { value: 'Keep this question' } });
     api.thread.mockResolvedValue({
       items: [message('assistant', 'Updated from another window.', 2n)],
       next: null
     });
-    await test.act(async () => {
+    await act(async () => {
       await notify();
     });
-    test.expect(await test.screen.findByText('Updated from another window.')).toBeInTheDocument();
-    test.expect(input).toHaveValue('Keep this question');
+    expect(await screen.findByText('Updated from another window.')).toBeInTheDocument();
+    expect(input).toHaveValue('Keep this question');
   }
 );

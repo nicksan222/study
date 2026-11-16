@@ -11,28 +11,37 @@ const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFile
 
 const { dirname, join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
-function assertThrowsMatching(run: () => unknown, matches: (error: unknown) => boolean) {
+function assertThrowsMatching(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  run: () => unknown,
+  matches: (error: unknown) => boolean
+) {
+  const assert: test.Assert = assertions;
+
   try {
     run();
   } catch (error) {
-    test.assert.ok(matches(error), 'Thrown error did not match');
+    assert.ok(matches(error), 'Thrown error did not match');
 
     return;
   }
 
-  test.assert.fail('Expected function to throw');
+  assert.fail('Expected function to throw');
 }
 
-async function fixture(run: (path: string) => Promise<void>) {
-  await using folder = await test.temporaryDirectory({ prefix: 'study-schema-' });
+async function fixture(
+  { temporaryDirectory }: Pick<test.Context, 'temporaryDirectory'>,
+  run: (path: string) => Promise<void>
+) {
+  await using folder = await temporaryDirectory({ prefix: 'study-schema-' });
 
   await run(join(folder.path, 'study.db'));
 }
 
 test.stable(
   'the Drizzle baseline initializes every modeled table and current code vocabulary',
-  () =>
-    fixture(async (path) => {
+  ({ expect, temporaryDirectory }) =>
+    fixture({ temporaryDirectory }, async (path) => {
       const connection = await Db.open(path);
       const db = connection.orm;
 
@@ -45,7 +54,7 @@ test.stable(
           )
           .map((row) => row.name);
 
-        test.expect(tables).toStrictEqual(Object.values(schema).map(getTableName).sort());
+        expect(tables).toStrictEqual(Object.values(schema).map(getTableName).sort());
 
         for (const [name, table] of Object.entries(schema))
           if (name.startsWith('codes_')) {
@@ -53,12 +62,10 @@ test.stable(
               .all(sql.raw(`SELECT code FROM "${name}" ORDER BY code`))
               .map((row) => row.code);
 
-            test
-              .expect(codes)
-              .toStrictEqual('code' in table ? [...table.code.enumValues!].sort() : []);
+            expect(codes).toStrictEqual('code' in table ? [...table.code.enumValues!].sort() : []);
           }
 
-        test.expect(db.all(sql.raw('PRAGMA foreign_key_check'))).toStrictEqual([]);
+        expect(db.all(sql.raw('PRAGMA foreign_key_check'))).toStrictEqual([]);
       } finally {
         connection.close();
       }
@@ -71,8 +78,10 @@ test.stable(
 
 test.stable(
   'Drizzle reads and writes identities beyond Number precision without losing references',
-  () =>
-    fixture(async (path) => {
+  ({ assert: assertions, temporaryDirectory }: test.Context) => {
+    const assert: test.Assert = assertions;
+
+    return fixture({ temporaryDirectory }, async (path) => {
       const connection = await Db.open(path);
       const db = connection.orm;
       const id = Schema.decodeUnknownSync(projectIdSchema)(9007199254740993n);
@@ -87,7 +96,7 @@ test.stable(
           .returning()
           .get();
 
-        test.assert.strictEqual(next.id, id + 1n);
+        assert.strictEqual(next.id, id + 1n);
         const note = db
           .insert(schema.notes)
           .values({
@@ -100,8 +109,9 @@ test.stable(
           .get();
 
         db.insert(schema.project_notes).values({ project_id: id, note_id: note.id }).run();
-        test.assert.strictEqual(db.select().from(schema.project_notes).get()?.project_id, id);
+        assert.strictEqual(db.select().from(schema.project_notes).get()?.project_id, id);
         assertThrowsMatching(
+          { assert },
           () =>
             db
               .insert(schema.project_notes)
@@ -117,7 +127,7 @@ test.stable(
             error.cause.errno === 787
         );
         db.delete(schema.projects).where(eq(schema.projects.id, id)).run();
-        test.assert.strictEqual(db.select().from(schema.notes).get()?.id, note.id);
+        assert.strictEqual(db.select().from(schema.notes).get()?.id, note.id);
         db.insert(schema.projects)
           .values({
             id,
@@ -126,20 +136,23 @@ test.stable(
             updated_at: 1n
           })
           .run();
-        test.assert.strictEqual(
+        assert.strictEqual(
           db.select().from(schema.projects).where(eq(schema.projects.id, id)).get()?.id,
           id
         );
       } finally {
         connection.close();
       }
-    })
+    });
+  }
 );
 
 test.stable(
   'Drizzle generation is stable and leaves SQL-managed FTS outside schema diffs',
-  async () => {
-    await using folder = await test.temporaryDirectory({ prefix: 'study-drizzle-generate-' });
+  async ({ temporaryDirectory, spawnTestProcess, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    await using folder = await temporaryDirectory({ prefix: 'study-drizzle-generate-' });
 
     const output = join(folder.path, 'drizzle');
 
@@ -153,7 +166,7 @@ test.stable(
       config,
       `export default ${JSON.stringify({ dialect: 'sqlite', schema: Bun.fileURLToPath(new URL('../src/schema.ts', import.meta.url)), out: output })};`
     );
-    const child = test.spawnTestProcess(
+    const child = spawnTestProcess(
       [
         process.execPath,
         join(
@@ -177,9 +190,9 @@ test.stable(
       new Response(child.stderr).text()
     ]);
 
-    test.assert.strictEqual(status, 0, stderr);
+    assert.strictEqual(status, 0, stderr);
 
-    test.expect(result).toMatch(/No schema changes/);
-    test.expect(await Effect.runPromise(fs.readDirectory(output))).toStrictEqual(before);
+    expect(result).toMatch(/No schema changes/);
+    expect(await Effect.runPromise(fs.readDirectory(output))).toStrictEqual(before);
   }
 );

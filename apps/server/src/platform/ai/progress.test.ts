@@ -18,13 +18,13 @@ import { batchAgentProgress } from '#server/platform/ai/progress';
 
 type Event = (typeof agentObservationSchema.Type)['event'];
 
-test.stable.each<Event>([
+test.stable.for<Event>([
   { type: 'tool-start', toolCallId: 'call', toolName: 'sources' },
   { type: 'tool-finish', toolCallId: 'call', toolName: 'sources', outcome: 'success' },
   { type: 'complete' },
   { type: 'failed', kind: 'cancelled' },
   { type: 'failed', kind: 'transient' }
-])('flushes pending text before %j', async (event) => {
+])('flushes pending text before %j', async (event, { expect }) => {
   const written: Event[] = [];
   const progress = batchAgentProgress((value) =>
     Effect.sync(() => {
@@ -36,22 +36,20 @@ test.stable.each<Event>([
     Effect.gen(function* () {
       yield* progress.observe({ type: 'text-delta', text: 'first' });
       yield* progress.observe({ type: 'text-delta', text: 'pending' });
-      test.expect(written).toEqual([{ type: 'text-delta', text: 'first' }]);
+      expect(written).toEqual([{ type: 'text-delta', text: 'first' }]);
       yield* progress.observe(event);
       yield* progress.flush;
     })
   );
 
-  test
-    .expect(written)
-    .toEqual([
-      { type: 'text-delta', text: 'first' },
-      { type: 'text-delta', text: 'pending' },
-      event
-    ]);
+  expect(written).toEqual([
+    { type: 'text-delta', text: 'first' },
+    { type: 'text-delta', text: 'pending' },
+    event
+  ]);
 });
 
-test.stable('flushes large pending text without waiting for the timer', async () => {
+test.stable('flushes large pending text without waiting for the timer', async ({ expect }) => {
   const written: string[] = [];
   const progress = batchAgentProgress((event) =>
     Effect.sync(() => {
@@ -68,40 +66,43 @@ test.stable('flushes large pending text without waiting for the timer', async ()
     })
   );
 
-  test.expect(written).toEqual(['first', 'x'.repeat(4096), 'x'.repeat(4096)]);
-});
-
-test.stable('a failed write cannot leak abandoned text into a later attempt', async () => {
-  const written: Event[] = [];
-  let reject = true;
-  const progress = batchAgentProgress((event) =>
-    Effect.suspend(() => {
-      if (reject) {
-        reject = false;
-
-        return Effect.fail(new StudyError('transient', 'Preview unavailable'));
-      }
-
-      written.push(event);
-
-      return Effect.void;
-    })
-  );
-
-  await Effect.runPromise(
-    Effect.gen(function* () {
-      yield* Effect.flip(progress.observe({ type: 'text-delta', text: 'abandoned' }));
-      yield* progress.observe({ type: 'text-delta', text: 'replacement' });
-      yield* progress.observe({ type: 'complete' });
-    })
-  );
-
-  test.expect(written).toEqual([{ type: 'text-delta', text: 'replacement' }, { type: 'complete' }]);
+  expect(written).toEqual(['first', 'x'.repeat(4096), 'x'.repeat(4096)]);
 });
 
 test.stable(
+  'a failed write cannot leak abandoned text into a later attempt',
+  async ({ expect }) => {
+    const written: Event[] = [];
+    let reject = true;
+    const progress = batchAgentProgress((event) =>
+      Effect.suspend(() => {
+        if (reject) {
+          reject = false;
+
+          return Effect.fail(new StudyError('transient', 'Preview unavailable'));
+        }
+
+        written.push(event);
+
+        return Effect.void;
+      })
+    );
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* Effect.flip(progress.observe({ type: 'text-delta', text: 'abandoned' }));
+        yield* progress.observe({ type: 'text-delta', text: 'replacement' });
+        yield* progress.observe({ type: 'complete' });
+      })
+    );
+
+    expect(written).toEqual([{ type: 'text-delta', text: 'replacement' }, { type: 'complete' }]);
+  }
+);
+
+test.stable(
   'durable progress commits outside the provider permit owner before acknowledging delivery',
-  async () => {
+  async ({ expect }) => {
     const { Context } = await import('effect');
     const { Db, sql } = await import('@study/db');
     const { scopedAgentProgress } = await import('#server/platform/ai/progress');
@@ -114,7 +115,7 @@ test.stable(
       db.exec('CREATE TABLE progress_probe(event TEXT NOT NULL)');
       const write = (event: Event) =>
         Effect.gen(function* () {
-          test.expect(yield* ProviderPermit).toBe(false);
+          expect(yield* ProviderPermit).toBe(false);
           db.transaction((tx) =>
             tx.orm.run(sql`INSERT INTO progress_probe(event) VALUES(${event.type})`)
           );
@@ -128,15 +129,14 @@ test.stable(
             yield* progress
               .observe({ type: 'start' })
               .pipe(Effect.provideService(ProviderPermit, true));
-            test
-              .expect(db.orm.all(sql`SELECT event FROM progress_probe`))
-              .toEqual([{ event: 'start' }]);
+            expect(db.orm.all(sql`SELECT event FROM progress_probe`)).toEqual([{ event: 'start' }]);
             yield* progress
               .observe({ type: 'complete' })
               .pipe(Effect.provideService(ProviderPermit, true));
-            test
-              .expect(db.orm.all(sql`SELECT event FROM progress_probe`))
-              .toEqual([{ event: 'start' }, { event: 'complete' }]);
+            expect(db.orm.all(sql`SELECT event FROM progress_probe`)).toEqual([
+              { event: 'start' },
+              { event: 'complete' }
+            ]);
           })
         )
       );

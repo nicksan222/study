@@ -26,12 +26,12 @@ for (const mode of ['pass', 'fail', 'imported-fail']) {
 
   test.stable(
     `progress keeps test results and filters diagnostics for ${mode}`,
-    async ({ task: _task }) => {
+    async ({ task: _task, temporaryDirectory, spawnTestProcess, expect }) => {
       const fs = await Effect.runPromise(
         Effect.provide(FileSystem.FileSystem, BunFileSystem.layer)
       );
       const paths = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
-      await using temporary = await test.temporaryDirectory({ prefix: 'study-reporter-' });
+      await using temporary = await temporaryDirectory({ prefix: 'study-reporter-' });
       const directory = temporary.path;
       const fixture = paths.join(directory, 'fixture.test.mjs');
       const definition =
@@ -60,7 +60,7 @@ for (const mode of ['pass', 'fail', 'imported-fail']) {
 
       if (definition !== fixture) await Bun.write(fixture, `import './definition.mjs';`);
 
-      const child = test.spawnTestProcess(
+      const child = spawnTestProcess(
         [process.execPath, '--bun', runner, 'run', '--root', directory, '--config', config],
         { stdout: 'pipe', stderr: 'pipe' }
       );
@@ -71,32 +71,30 @@ for (const mode of ['pass', 'fail', 'imported-fail']) {
       ]);
       const output = stdout + stderr;
 
-      test.expect(status, output).toBe(fails ? 1 : 0);
-      test.expect(output).toMatch(/visible test result/);
-      test.expect(output).toMatch(/other passing result/);
-      test.expect(output).not.toMatch(/other passing output/);
+      expect(status, output).toBe(fails ? 1 : 0);
+      expect(output).toMatch(/visible test result/);
+      expect(output).toMatch(/other passing result/);
+      expect(output).not.toMatch(/other passing output/);
 
       for (const message of ['fixture stdout', 'fixture stderr', 'fixture phase']) {
-        test.expect(output.includes(message), output).toBe(fails);
+        expect(output.includes(message), output).toBe(fails);
       }
 
-      if (fails) test.expect(output).toMatch(/intentional failure/);
+      if (fails) expect(output).toMatch(/intentional failure/);
     }
   );
 }
 
 test.stable(
   'phase diagnostics preserve operation results and failures',
-  async ({ task: _task }) => {
-    await test.expect(inTestPhase(undefined, 'success', async () => 42)).resolves.toBe(42);
+  async ({ task: _task, expect }) => {
+    await expect(inTestPhase(undefined, 'success', async () => 42)).resolves.toBe(42);
     const failure = new Error('operation failure');
 
-    await test
-      .expect(
-        inTestPhase(undefined, 'failure', () => {
-          throw failure;
-        })
-      )
-      .rejects.toBe(failure);
+    await expect(
+      inTestPhase(undefined, 'failure', () => {
+        throw failure;
+      })
+    ).rejects.toBe(failure);
   }
 );

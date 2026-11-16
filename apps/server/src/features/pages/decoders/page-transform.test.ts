@@ -101,10 +101,12 @@ function fixture() {
 
 test.stable(
   'managed images require captured structured authorization; an alt-text range grants only text',
-  () => {
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { context, publication, image } = fixture();
 
-    test.assert.strictEqual(authorizedTransformAssets(context).length, 1);
+    assert.strictEqual(authorizedTransformAssets(context).length, 1);
     const copied = createBlock(image.content);
     const withImage = {
       ...publication,
@@ -138,9 +140,9 @@ test.stable(
       }))
     });
 
-    test.assert.strictEqual(authorizedTransformAssets(range).length, 0);
-    test.assert.throws(() => validatePageTransform(range, withImage));
-    test.assert.throws(() =>
+    assert.strictEqual(authorizedTransformAssets(range).length, 0);
+    assert.throws(() => validatePageTransform(range, withImage));
+    assert.throws(() =>
       validatePageTransform(context, {
         ...withImage,
         document: {
@@ -156,7 +158,7 @@ test.stable(
         }
       })
     );
-    test.assert.throws(() =>
+    assert.throws(() =>
       validatePageTransform(context, {
         ...withImage,
         document: {
@@ -172,7 +174,7 @@ test.stable(
         }
       })
     );
-    test.assert.throws(() =>
+    assert.throws(() =>
       validatePageTransform(range, {
         ...publication,
         citations: [{ ...publication.citations[0]!, quote: 'image' }]
@@ -183,7 +185,9 @@ test.stable(
 
 test.stable(
   'empty, malformed, reused identity, fabricated source anchor and unscoped citations reject',
-  () => {
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { context, publication, image, output } = fixture();
 
     validatePageTransform(context, publication);
@@ -195,7 +199,7 @@ test.stable(
       [{ ...output, text: 'mismatched projection' }],
       [{ ...output, anchor: { type: 'page', page: 1 } }]
     ]) {
-      test.assert.throws(() =>
+      assert.throws(() =>
         validatePageTransform(
           context,
           Schema.decodeUnknownSync(transformPublicationSchema)({
@@ -206,11 +210,11 @@ test.stable(
       );
     }
 
-    test.assert.throws(() => validatePageTransform(context, { ...publication, citations: [] }));
-    test.assert.throws(() =>
+    assert.throws(() => validatePageTransform(context, { ...publication, citations: [] }));
+    assert.throws(() =>
       Schema.decodeUnknownSync(transformPublicationSchema)({ ...publication, report: undefined })
     );
-    test.assert.throws(() =>
+    assert.throws(() =>
       validatePageTransform(context, {
         ...publication,
         report: { notes: [{ kind: 'limit', explanation: 'Unknown block', blockIds: [image.id] }] }
@@ -221,17 +225,17 @@ test.stable(
 
 test.stable(
   'learning generation requires a project while authored execution requires captured intent and unique operations',
-  () => {
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const learning = Schema.decodeUnknownSync(materialGenerationInputSchema);
     const authored = Schema.decodeUnknownSync(transformRequestSchema);
 
-    test.assert.throws(() =>
-      learning({ title: 'Cards', kind: 'flashcards', inputVersionIds: [1n] })
-    );
-    test.assert.throws(() =>
+    assert.throws(() => learning({ title: 'Cards', kind: 'flashcards', inputVersionIds: [1n] }));
+    assert.throws(() =>
       learning({ title: 'Doc', kind: 'document', inputVersionIds: [1n], projectId: 1n })
     );
-    test.assert.throws(() =>
+    assert.throws(() =>
       authored({ title: 'Doc', contextRequestId: 'capture', operations: ['clarity', 'clarity'] })
     );
     const result = authored({
@@ -251,13 +255,15 @@ test.stable(
       ]
     });
 
-    test.assert.ok(result.contextRequestId === 'capture');
+    assert.ok(result.contextRequestId === 'capture');
   }
 );
 
 test.stable(
   'provider JSON accepts authorized image identifiers without native bigint values',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const output = {
       blocks: [{ type: 'image', sourceId: '1', revision: 1, alt: 'alpha image' }],
       notes: [{ kind: 'limit', explanation: 'No external verification', blockOrdinals: [] }]
@@ -266,11 +272,13 @@ test.stable(
       JSON.parse(JSON.stringify(output))
     );
 
-    test.assert.strictEqual(result.issues, undefined);
+    assert.strictEqual(result.issues, undefined);
   }
 );
 
-test.stable('separator-only tables are not completed note-only Pages', () => {
+test.stable('separator-only tables are not completed note-only Pages', ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const { context, publication } = fixture();
   const table = createBlock({
     type: 'table',
@@ -284,8 +292,8 @@ test.stable('separator-only tables are not completed note-only Pages', () => {
     ]
   });
 
-  test.assert.ok(table.text.trim());
-  test.assert.throws(() =>
+  assert.ok(table.text.trim());
+  assert.throws(() =>
     validatePageTransform(
       { ...context, inputs: [] },
       {
@@ -300,7 +308,9 @@ test.stable('separator-only tables are not completed note-only Pages', () => {
 
 test.stable(
   'report-only evidence markers and captured target locations obey the same scope barrier',
-  () => {
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { context, publication, output } = fixture();
     const note = {
       kind: 'correction_proposal' as const,
@@ -309,13 +319,13 @@ test.stable(
     };
 
     validatePageTransform(context, { ...publication, report: { notes: [note] } });
-    test.assert.throws(() =>
+    assert.throws(() =>
       validatePageTransform(context, {
         ...publication,
         report: { notes: [{ ...note, explanation: 'Fabricated evidence [2]' }] }
       })
     );
-    test.assert.throws(() =>
+    assert.throws(() =>
       validatePageTransform(context, {
         ...publication,
         report: { notes: [note] },

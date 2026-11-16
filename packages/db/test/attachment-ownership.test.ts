@@ -28,30 +28,35 @@ async function fixture(databases: Databases, run: (db: Db) => void) {
 
 test.stable(
   'explicit attachment selection crosses collections and still rejects missing sources',
-  async ({ databases }) =>
-    await fixture(databases, (db) => {
+  async ({ databases, assert: assertions }: test.Context) => {
+    const assert: test.Assert = assertions;
+
+    return await fixture(databases, (db) => {
       db.exec(
         "INSERT INTO message_parts(message_id,ordinal,source_id,source_name,source_kind) VALUES(1,1,2,'Shared','text')"
       );
-      test.assert.throws(() =>
+      assert.throws(() =>
         db.exec(
           "INSERT INTO message_parts(message_id,ordinal,source_id,source_name,source_kind) VALUES(1,2,999,'Missing','text')"
         )
       );
       db.exec('UPDATE sources SET project_id=NULL WHERE id=1');
-      test.assert.strictEqual(
+      assert.strictEqual(
         db.orm.get(sql`SELECT source_id FROM message_parts WHERE id=1`)?.source_id,
         1n
       );
-    })
+    });
+  }
 );
 
 test.stable(
   'source cleanup and note or project cascades remain possible',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     await fixture(databases, (db) => {
       db.exec('DELETE FROM sources WHERE id=1');
-      test.assert.strictEqual(
+      assert.strictEqual(
         db.orm.get<{ source_id: bigint | null }>(
           sql`SELECT source_id FROM message_parts WHERE id=1`
         )?.source_id,
@@ -60,12 +65,12 @@ test.stable(
     });
     await fixture(databases, (db) => {
       db.exec('DELETE FROM notes WHERE id=1');
-      test.assert.strictEqual(db.orm.get(sql`SELECT id FROM message_parts WHERE id=1`), undefined);
+      assert.strictEqual(db.orm.get(sql`SELECT id FROM message_parts WHERE id=1`), undefined);
     });
     await fixture(databases, (db) => {
       db.exec('DELETE FROM projects WHERE id=1');
-      test.assert.strictEqual(db.orm.get(sql`SELECT id FROM message_parts WHERE id=1`)?.id, 1n);
-      test.expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      assert.strictEqual(db.orm.get(sql`SELECT id FROM message_parts WHERE id=1`)?.id, 1n);
+      expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     });
   }
 );

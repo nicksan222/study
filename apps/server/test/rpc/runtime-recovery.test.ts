@@ -23,7 +23,9 @@ import { serve } from '#server/runtime/index';
 test.stable(
   'a failed dispatcher tick recovers without restarting the application',
   { timeout: 5000 },
-  async ({ resources: location }) => {
+  async ({ resources: location, pollUntil, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const app = await location.openApp({ path: location.path });
     const server = await serve(app);
 
@@ -45,7 +47,7 @@ test.stable(
           app.store.db.orm.run(sql`DROP TRIGGER fail_dispatch`);
           app.workers.wake();
 
-          yield* test.pollUntil(
+          yield* pollUntil(
             client['sources.sourceProcessing']({ id: source.id }),
             (value) => value.documentId !== null,
             {
@@ -54,7 +56,7 @@ test.stable(
               message: 'Worker did not recover after dispatch became available'
             }
           );
-          test.assert.ok(app.workers.started);
+          assert.ok(app.workers.started);
         }).pipe(Effect.scoped)
       );
     } finally {

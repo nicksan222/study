@@ -11,9 +11,9 @@ const options = [
 
 test.stable(
   'shows option labels and commits string values through keyboard selection',
-  async () => {
-    const user = test.userEvent.setup();
-    const changed = test.vi.fn();
+  async ({ userEvent, vi, render, screen, expect, waitFor }) => {
+    const user = userEvent.setup();
+    const changed = vi.fn();
 
     function Example() {
       const [value, setValue] = useState('system');
@@ -31,89 +31,85 @@ test.stable(
       );
     }
 
-    test.render(<Example />);
-    const trigger = test.screen.getByRole('combobox', { name: 'Appearance' });
+    render(<Example />);
+    const trigger = screen.getByRole('combobox', { name: 'Appearance' });
 
-    test.expect(trigger).toHaveTextContent('System');
+    expect(trigger).toHaveTextContent('System');
     trigger.focus();
     await user.keyboard('{Enter}');
-    test
-      .expect(await test.screen.findByRole('listbox', { name: 'Appearance' }))
-      .toBeInTheDocument();
-    test
-      .expect(await test.screen.findByRole('option', { name: 'System' }))
-      .toHaveAttribute('aria-selected', 'true');
-    await user.keyboard('{ArrowDown}{Enter}');
-    test.expect(changed).toHaveBeenCalledWith('light');
-    await test.waitFor(() =>
-      test.expect(test.screen.queryByRole('listbox')).not.toBeInTheDocument()
+    expect(await screen.findByRole('listbox', { name: 'Appearance' })).toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: 'System' })).toHaveAttribute(
+      'aria-selected',
+      'true'
     );
-    test.expect(trigger).toHaveTextContent('Light');
-    test.expect(trigger).toHaveFocus();
+    await user.keyboard('{ArrowDown}{Enter}');
+    expect(changed).toHaveBeenCalledWith('light');
+    await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
+    expect(trigger).toHaveTextContent('Light');
+    expect(trigger).toHaveFocus();
   }
 );
 
 test.stable(
   'dismisses with Escape and outside click without changing the selected value',
-  async () => {
-    const user = test.userEvent.setup();
-    const changed = test.vi.fn();
+  async ({ userEvent, vi, render, screen, expect, waitFor }) => {
+    const user = userEvent.setup();
+    const changed = vi.fn();
 
-    test.render(
+    render(
       <>
         <SelectControl label="Appearance" value="light" options={options} onValueChange={changed} />
         <button type="button">Elsewhere</button>
       </>
     );
-    const trigger = test.screen.getByRole('combobox', { name: 'Appearance' });
+    const trigger = screen.getByRole('combobox', { name: 'Appearance' });
 
     await user.click(trigger);
-    test.expect(await test.screen.findByRole('listbox')).toBeInTheDocument();
+    expect(await screen.findByRole('listbox')).toBeInTheDocument();
     await user.keyboard('{ArrowDown}{Escape}');
-    await test.waitFor(() =>
-      test.expect(test.screen.queryByRole('listbox')).not.toBeInTheDocument()
-    );
-    test.expect(trigger).toHaveFocus();
+    await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
+    expect(trigger).toHaveFocus();
     await user.click(trigger);
-    test.expect(await test.screen.findByRole('listbox')).toBeInTheDocument();
-    await user.click(test.screen.getByRole('button', { name: 'Elsewhere' }));
-    await test.waitFor(() =>
-      test.expect(test.screen.queryByRole('listbox')).not.toBeInTheDocument()
-    );
-    test.expect(changed).not.toHaveBeenCalled();
+    expect(await screen.findByRole('listbox')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Elsewhere' }));
+    await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument());
+    expect(changed).not.toHaveBeenCalled();
   }
 );
 
-test.stable('does not open or change when disabled', async () => {
-  const user = test.userEvent.setup();
-  const changed = test.vi.fn();
+test.stable(
+  'does not open or change when disabled',
+  async ({ userEvent, vi, render, screen, expect }) => {
+    const user = userEvent.setup();
+    const changed = vi.fn();
 
-  test.render(
-    <SelectControl
-      label="Appearance"
-      value="dark"
-      options={options}
-      onValueChange={changed}
-      disabled
-    />
-  );
-  const trigger = test.screen.getByRole('combobox', { name: 'Appearance' });
+    render(
+      <SelectControl
+        label="Appearance"
+        value="dark"
+        options={options}
+        onValueChange={changed}
+        disabled
+      />
+    );
+    const trigger = screen.getByRole('combobox', { name: 'Appearance' });
 
-  test.expect(trigger).toBeDisabled();
-  test.expect(trigger).toHaveTextContent('Dark');
-  await user.click(trigger);
-  await user.keyboard('{Enter}{ArrowDown}');
-  test.expect(test.screen.queryByRole('listbox')).not.toBeInTheDocument();
-  test.expect(changed).not.toHaveBeenCalled();
-});
+    expect(trigger).toBeDisabled();
+    expect(trigger).toHaveTextContent('Dark');
+    await user.click(trigger);
+    await user.keyboard('{Enter}{ArrowDown}');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(changed).not.toHaveBeenCalled();
+  }
+);
 
 test.stable(
   'keeps disabled options visible while skipping them during keyboard selection',
-  async () => {
-    const user = test.userEvent.setup();
-    const changed = test.vi.fn();
+  async ({ userEvent, vi, render, screen, expect }) => {
+    const user = userEvent.setup();
+    const changed = vi.fn();
 
-    test.render(
+    render(
       <SelectControl
         label="Appearance"
         value="system"
@@ -121,13 +117,13 @@ test.stable(
         onValueChange={changed}
       />
     );
-    await user.click(test.screen.getByRole('combobox', { name: 'Appearance' }));
-    const unavailable = await test.screen.findByRole('option', { name: 'Light' });
+    await user.click(screen.getByRole('combobox', { name: 'Appearance' }));
+    const unavailable = await screen.findByRole('option', { name: 'Light' });
 
-    test.expect(unavailable).toHaveAttribute('aria-disabled', 'true');
+    expect(unavailable).toHaveAttribute('aria-disabled', 'true');
     await user.click(unavailable);
-    test.expect(changed).not.toHaveBeenCalled();
+    expect(changed).not.toHaveBeenCalled();
     await user.keyboard('{ArrowDown}{Enter}');
-    test.expect(changed).toHaveBeenCalledExactlyOnceWith('dark');
+    expect(changed).toHaveBeenCalledExactlyOnceWith('dark');
   }
 );

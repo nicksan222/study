@@ -44,7 +44,9 @@ const body = (text: string) => ({
 
 test.stable(
   'document tools retain retries and conflicts while updating metadata and links',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
 
@@ -60,10 +62,8 @@ test.stable(
           };
           const first = yield* pageTools.create_page.execute(creation, environment);
 
-          test.assert.ok(first.version);
-          test
-            .expect((yield* pageTools.create_page.execute(creation, environment)).id)
-            .toBe(first.id);
+          assert.ok(first.version);
+          expect((yield* pageTools.create_page.execute(creation, environment)).id).toBe(first.id);
           const edit = {
             pageId: first.id,
             expectedVersionId: first.version.id,
@@ -72,27 +72,23 @@ test.stable(
           };
           const saved = yield* pageTools.save_page.execute(edit, environment);
 
-          test.expect(saved.outcome).toBe('saved');
-          test.expect((yield* pageTools.save_page.execute(edit, environment)).replayed).toBe(true);
+          expect(saved.outcome).toBe('saved');
+          expect((yield* pageTools.save_page.execute(edit, environment)).replayed).toBe(true);
           const conflict = yield* pageTools.save_page.execute(
             { ...edit, key: 'edit-stale', document: body('Conflict body') },
             environment
           );
 
-          test.expect(conflict.outcome).toBe('conflict');
-          test
-            .expect(
-              (yield* pageTools.read_page_version.execute(
-                { id: conflict.submittedVersionId },
-                environment
-              )).document.blocks[0].text
-            )
-            .toBe('Conflict body');
-          test
-            .expect(
-              (yield* pageTools.read_page.execute({ id: first.id }, environment)).headVersionId
-            )
-            .toBe(saved.submittedVersionId);
+          expect(conflict.outcome).toBe('conflict');
+          expect(
+            (yield* pageTools.read_page_version.execute(
+              { id: conflict.submittedVersionId },
+              environment
+            )).document.blocks[0].text
+          ).toBe('Conflict body');
+          expect(
+            (yield* pageTools.read_page.execute({ id: first.id }, environment)).headVersionId
+          ).toBe(saved.submittedVersionId);
           const updated = yield* pageTools.update_page_metadata.execute(
             {
               id: first.id,
@@ -104,23 +100,21 @@ test.stable(
             environment
           );
 
-          test.expect(updated.title).toBe('Revised');
-          test
-            .expect(
-              (yield* Effect.flip(
-                pageTools.update_page_metadata.execute(
-                  {
-                    id: first.id,
-                    title: 'Stale',
-                    expectedTitle: first.title,
-                    description: null,
-                    expectedDescription: null
-                  },
-                  environment
-                )
-              )).kind
-            )
-            .toBe('invalid_input');
+          expect(updated.title).toBe('Revised');
+          expect(
+            (yield* Effect.flip(
+              pageTools.update_page_metadata.execute(
+                {
+                  id: first.id,
+                  title: 'Stale',
+                  expectedTitle: first.title,
+                  description: null,
+                  expectedDescription: null
+                },
+                environment
+              )
+            )).kind
+          ).toBe('invalid_input');
           const subject = yield* subjectTools.create_subject.execute(
             { name: 'Biology' },
             environment
@@ -135,14 +129,12 @@ test.stable(
             { pageId: first.id, noteId: note.id },
             environment
           );
-          test
-            .expect(
-              (yield* pageTools.list_pages.execute(
-                { limit: 10, archived: false, projectId: subject.id, noteId: note.id },
-                environment
-              )).items.map((item) => item.id)
-            )
-            .toStrictEqual([first.id]);
+          expect(
+            (yield* pageTools.list_pages.execute(
+              { limit: 10, archived: false, projectId: subject.id, noteId: note.id },
+              environment
+            )).items.map((item) => item.id)
+          ).toStrictEqual([first.id]);
           yield* pageTools.unlink_page_subject.execute(
             { pageId: first.id, projectId: subject.id },
             environment
@@ -152,18 +144,12 @@ test.stable(
             environment
           );
           yield* pageTools.archive_page.execute({ id: first.id, archived: true }, environment);
-          test
-            .expect(
-              (yield* pageTools.list_pages.execute({ limit: 10, archived: false }, environment))
-                .items
-            )
-            .toHaveLength(0);
-          test
-            .expect(
-              (yield* pageTools.list_pages.execute({ limit: 10, archived: true }, environment))
-                .items
-            )
-            .toHaveLength(1);
+          expect(
+            (yield* pageTools.list_pages.execute({ limit: 10, archived: false }, environment)).items
+          ).toHaveLength(0);
+          expect(
+            (yield* pageTools.list_pages.execute({ limit: 10, archived: true }, environment)).items
+          ).toHaveLength(1);
           yield* pageTools.archive_page.execute({ id: first.id, archived: false }, environment);
           const restored = yield* pageTools.restore_page_version.execute(
             {
@@ -175,23 +161,23 @@ test.stable(
             environment
           );
 
-          test.expect(restored.outcome).toBe('saved');
+          expect(restored.outcome).toBe('saved');
           const history = yield* pageTools.list_page_versions.execute(
             { pageId: first.id, limit: 1 },
             environment
           );
 
-          test.assert.ok(history.nextCursor);
+          assert.ok(history.nextCursor);
           const inputCodec = Schema.toCodecJson(pageTools.read_page.input);
 
-          test
-            .expect((yield* Schema.decodeUnknownEffect(inputCodec)({ id: String(first.id) })).id)
-            .toBe(first.id);
+          expect((yield* Schema.decodeUnknownEffect(inputCodec)({ id: String(first.id) })).id).toBe(
+            first.id
+          );
           const encoded = yield* Schema.encodeUnknownEffect(
             Schema.toCodecJson(pageTools.read_page.output)
           )(yield* pageTools.read_page.execute({ id: first.id }, environment));
 
-          test.expect(() => JSON.stringify(encoded)).not.toThrow();
+          expect(() => JSON.stringify(encoded)).not.toThrow();
         }).pipe(Effect.provideService(Database, { store: context }))
       );
     } finally {

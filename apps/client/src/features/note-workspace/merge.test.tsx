@@ -26,11 +26,11 @@ test.beforeEach(async ({ mock }) => {
   NoteMergeDialog = __mockModule0.NoteMergeDialog;
 });
 
-test.afterEach(test.cleanup);
+test.afterEach(({ cleanup }) => cleanup());
 
 test.stable(
   'retries the reviewed note set with the same merge identity and opens the committed result',
-  async () => {
+  async ({ rpcTestTransport, vi, render, fireEvent, screen, expect, waitFor, cleanup }) => {
     const note = Schema.decodeUnknownSync(noteSchema)({
       id: 3n,
       title: 'Combined',
@@ -42,14 +42,14 @@ test.stable(
     });
     const first = Schema.decodeUnknownSync(noteSchema)({ ...note, id: 1n, title: 'First' });
     const second = Schema.decodeUnknownSync(noteSchema)({ ...note, id: 2n, title: 'Second' });
-    const { wrapper: Provider } = test.rpcTestTransport(async (_tag, input) => api.merge(input));
-    const onMerged = test.vi.fn();
-    const onOpenChange = test.vi.fn();
+    const { wrapper: Provider } = rpcTestTransport(async (_tag, input) => api.merge(input));
+    const onMerged = vi.fn();
+    const onOpenChange = vi.fn();
 
     api.merge.mockRejectedValueOnce(new Error('Lost response')).mockResolvedValueOnce(note);
 
     try {
-      test.render(
+      render(
         <Provider>
           <NoteMergeDialog
             notes={[first, second]}
@@ -58,22 +58,22 @@ test.stable(
           />
         </Provider>
       );
-      test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteMerge' }));
-      await test.screen.findByText('NoteActionErrorTitle');
-      test.expect(onMerged).not.toHaveBeenCalled();
-      test.expect(onOpenChange).not.toHaveBeenCalled();
-      test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteMerge' }));
-      await test.waitFor(() => test.expect(onMerged).toHaveBeenCalledOnce());
-      test.expect(api.merge).toHaveBeenCalledTimes(2);
-      test.expect(api.merge.mock.calls[0]![0]).toEqual(api.merge.mock.calls[1]![0]);
-      test.expect(api.merge.mock.calls[0]![0].noteIds).toEqual([1n, 2n]);
-      test.expect(api.navigate).toHaveBeenCalledWith({
+      fireEvent.click(screen.getByRole('button', { name: 'NoteMerge' }));
+      await screen.findByText('NoteActionErrorTitle');
+      expect(onMerged).not.toHaveBeenCalled();
+      expect(onOpenChange).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole('button', { name: 'NoteMerge' }));
+      await waitFor(() => expect(onMerged).toHaveBeenCalledOnce());
+      expect(api.merge).toHaveBeenCalledTimes(2);
+      expect(api.merge.mock.calls[0]![0]).toEqual(api.merge.mock.calls[1]![0]);
+      expect(api.merge.mock.calls[0]![0].noteIds).toEqual([1n, 2n]);
+      expect(api.navigate).toHaveBeenCalledWith({
         to: '/notes/$noteId',
         params: { noteId: note.id },
         search: {}
       });
     } finally {
-      test.cleanup();
+      cleanup();
     }
   }
 );

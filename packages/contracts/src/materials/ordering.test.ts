@@ -11,27 +11,34 @@ const question = {
   items: [{ text: 'Evaporation' }, { text: 'Condensation' }, { text: 'Precipitation' }]
 };
 
-test.stable('ordering requires distinct nonempty steps in canonical order', () => {
-  const decode = Schema.decodeUnknownSync(materialQuestionInputSchema);
+test.stable(
+  'ordering requires distinct nonempty steps in canonical order',
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test.assert.deepEqual(decode(question), question);
+    const decode = Schema.decodeUnknownSync(materialQuestionInputSchema);
 
-  for (const items of [
-    [],
-    [{ text: 'One' }],
-    [{ text: 'Same' }, { text: 'Same' }],
-    [{ text: ' ' }, { text: 'Two' }]
-  ])
-    test.assert.throws(() => decode({ ...question, items }));
-});
+    assert.deepEqual(decode(question), question);
 
-test.stable('ordering answers use unique positive branded item IDs', () => {
+    for (const items of [
+      [],
+      [{ text: 'One' }],
+      [{ text: 'Same' }, { text: 'Same' }],
+      [{ text: ' ' }, { text: 'Two' }]
+    ])
+      assert.throws(() => decode({ ...question, items }));
+  }
+);
+
+test.stable('ordering answers use unique positive branded item IDs', ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const decode = Schema.decodeUnknownSync(quizAnswerSchema);
   const answer = decode({ type: 'ordering', itemIds: [3n, 1n, 2n] });
 
-  test.assert.ok(answer.type === 'ordering');
-  test.assert.deepEqual(answer.itemIds.map(String), ['3', '1', '2']);
+  assert.ok(answer.type === 'ordering');
+  assert.deepEqual(answer.itemIds.map(String), ['3', '1', '2']);
 
   for (const itemIds of [[], [1n, 1n], [0n, 2n], [-1n, 2n]])
-    test.assert.throws(() => decode({ type: 'ordering', itemIds }));
+    assert.throws(() => decode({ type: 'ordering', itemIds }));
 });

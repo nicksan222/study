@@ -26,7 +26,9 @@ import { Learning } from './index.ts';
 for (const truth of [true, false])
   test.stable(
     `${truth ? 'True' : 'False'} statement attempts validate responses, resume and review both verdicts`,
-    async ({ databases }) => {
+    async ({ databases, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+
       const location = await databases();
       const context = new ServerContext(await location.open());
       const domain = Learning.layer.pipe(
@@ -70,7 +72,7 @@ for (const truth of [true, false])
                 format
               });
 
-              test.assert.ok(new TextDecoder().decode(exported.bytes).includes('true_false'));
+              assert.ok(new TextDecoder().decode(exported.bytes).includes('true_false'));
             }
 
             for (const correct of [true, false]) {
@@ -79,13 +81,13 @@ for (const truth of [true, false])
                 configuration: { ...defaultQuizSettings, questionKind: 'true_false' }
               });
 
-              test.assert.equal(attempt.questions.length, 1);
+              assert.equal(attempt.questions.length, 1);
               const question = attempt.questions[0]!;
 
-              test.assert.ok(question.kind === 'true_false');
-              test.assert.ok(!('explanation' in question));
-              test.assert.ok(!('score' in question));
-              test.assert.ok(question.choices.every((c) => !('isCorrect' in c)));
+              assert.ok(question.kind === 'true_false');
+              assert.ok(!('explanation' in question));
+              assert.ok(!('score' in question));
+              assert.ok(question.choices.every((c) => !('isCorrect' in c)));
 
               for (const answer of [
                 { type: 'open' as const, answer: 'true' },
@@ -107,7 +109,7 @@ for (const truth of [true, false])
                   })
                 );
 
-                test.assert.equal(failure.kind, 'invalid_input');
+                assert.equal(failure.kind, 'invalid_input');
               }
 
               const choiceIds = [
@@ -119,25 +121,22 @@ for (const truth of [true, false])
                 questionId: question.id,
                 answer: { type: 'choice', choiceIds }
               });
-              test.assert.deepEqual((yield* learning.attempt(attempt.id)).questions[0]?.answer, {
+              assert.deepEqual((yield* learning.attempt(attempt.id)).questions[0]?.answer, {
                 type: 'choice',
                 choiceIds
               });
               const finished = yield* learning.finishQuiz({ attemptId: attempt.id });
 
-              test.assert.equal(finished.scoring.score, correct ? 1 : 0);
+              assert.equal(finished.scoring.score, correct ? 1 : 0);
               const result = finished.questions[0]!;
 
-              test.assert.ok(result.kind === 'true_false');
-              test.assert.equal(
-                result.choices.find((c) => c.isCorrect)?.text,
-                truth ? 'true' : 'false'
-              );
-              test.assert.equal(result.explanation, 'ATP is an energy carrier.');
-              test.assert.deepEqual(yield* learning.attempt(attempt.id), finished);
+              assert.ok(result.kind === 'true_false');
+              assert.equal(result.choices.find((c) => c.isCorrect)?.text, truth ? 'true' : 'false');
+              assert.equal(result.explanation, 'ATP is an energy carrier.');
+              assert.deepEqual(yield* learning.attempt(attempt.id), finished);
               const history = yield* learning.attempts({ materialId: material.id, limit: 50 });
 
-              test.assert.ok(
+              assert.ok(
                 history.items.some(
                   (item) => item.attempt.id === attempt.id && item.attempt.status === 'completed'
                 )

@@ -15,32 +15,35 @@ import { test } from '@study/testing';
 import { buildContext } from './environment.ts';
 import { fs, path, run } from './filesystem.ts';
 
-test.stable('default build context resolves the workspace from the server package', async () => {
-  const serverRoot = path.resolve(import.meta.dirname, '../../../apps/server');
-  const previousDirectory = process.cwd();
+test.stable(
+  'default build context resolves the workspace from the server package',
+  async ({ expect }) => {
+    const serverRoot = path.resolve(import.meta.dirname, '../../../apps/server');
+    const previousDirectory = process.cwd();
 
-  try {
-    process.chdir(serverRoot);
-    await using context = await buildContext();
+    try {
+      process.chdir(serverRoot);
+      await using context = await buildContext();
 
-    test.expect(await Bun.file(path.join(context.path, 'package.json')).json()).toMatchObject({
-      name: 'study-workspace'
-    });
-    test
-      .expect(await Bun.file(path.join(context.path, 'apps/client/package.json')).json())
-      .toMatchObject({
+      expect(await Bun.file(path.join(context.path, 'package.json')).json()).toMatchObject({
+        name: 'study-workspace'
+      });
+      expect(
+        await Bun.file(path.join(context.path, 'apps/client/package.json')).json()
+      ).toMatchObject({
         name: '@study/client'
       });
-    test.expect(await run(fs.exists(path.join(context.path, 'bun.lock')))).toBe(true);
-  } finally {
-    process.chdir(previousDirectory);
+      expect(await run(fs.exists(path.join(context.path, 'bun.lock')))).toBe(true);
+    } finally {
+      process.chdir(previousDirectory);
+    }
   }
-});
+);
 
 test.stable(
   'build contexts preserve sources below a dist parent and omit secrets and dependencies',
-  async () => {
-    await using temporary = await test.temporaryDirectory({ prefix: 'study-build-context-' });
+  async ({ temporaryDirectory, expect }) => {
+    await using temporary = await temporaryDirectory({ prefix: 'study-build-context-' });
     const root = path.join(temporary.path, 'dist', 'checkout');
 
     for (const file of [
@@ -68,17 +71,15 @@ test.stable(
 
     await using context = await buildContext(root);
 
-    test
-      .expect(
-        await Bun.file(path.join(context.path, 'packages/integrations/src/provider.ts')).text()
-      )
-      .toBe('packages/integrations/src/provider.ts');
-    test
-      .expect(await run(fs.exists(path.join(context.path, 'packages/integrations/.env.secret'))))
-      .toBe(false);
-    test
-      .expect(await run(fs.exists(path.join(context.path, 'packages/integrations/node_modules'))))
-      .toBe(false);
+    expect(
+      await Bun.file(path.join(context.path, 'packages/integrations/src/provider.ts')).text()
+    ).toBe('packages/integrations/src/provider.ts');
+    expect(await run(fs.exists(path.join(context.path, 'packages/integrations/.env.secret')))).toBe(
+      false
+    );
+    expect(
+      await run(fs.exists(path.join(context.path, 'packages/integrations/node_modules')))
+    ).toBe(false);
 
     for (const generated of [
       'tooling/.turbo',
@@ -87,30 +88,31 @@ test.stable(
       'packages/db/.fallow',
       'packages/db/__pycache__'
     ])
-      test.expect(await run(fs.exists(path.join(context.path, generated)))).toBe(false);
+      expect(await run(fs.exists(path.join(context.path, generated)))).toBe(false);
 
-    test.expect(await run(fs.exists(path.join(context.path, 'bun.lock')))).toBe(true);
+    expect(await run(fs.exists(path.join(context.path, 'bun.lock')))).toBe(true);
   }
 );
 
-test.stable('the integration install layer contains every locked workspace manifest', async () => {
-  const root = new URL('../../../', import.meta.url);
-  const lock = Bun.JSON5.parse(await Bun.file(new URL('bun.lock', root)).text()) as {
-    workspaces: Record<string, unknown>;
-  };
-  const dockerfile = await Bun.file(new URL('Dockerfile', import.meta.url)).text();
-  const installLayer = dockerfile.split('RUN bun install')[0]!;
-  const inputs = [...installLayer.matchAll(/^COPY(?: --\S+)* (.+)$/gm)].flatMap((match) =>
-    match[1]!.split(/\s+/).slice(0, -1)
-  );
+test.stable(
+  'the integration install layer contains every locked workspace manifest',
+  async ({ expect }) => {
+    const root = new URL('../../../', import.meta.url);
+    const lock = Bun.JSON5.parse(await Bun.file(new URL('bun.lock', root)).text()) as {
+      workspaces: Record<string, unknown>;
+    };
+    const dockerfile = await Bun.file(new URL('Dockerfile', import.meta.url)).text();
+    const installLayer = dockerfile.split('RUN bun install')[0]!;
+    const inputs = [...installLayer.matchAll(/^COPY(?: --\S+)* (.+)$/gm)].flatMap((match) =>
+      match[1]!.split(/\s+/).slice(0, -1)
+    );
 
-  test
-    .expect(inputs)
-    .toEqual(
-      test.expect.arrayContaining(
+    expect(inputs).toEqual(
+      expect.arrayContaining(
         Object.keys(lock.workspaces).map((workspace) =>
           workspace ? `${workspace}/package.json` : 'package.json'
         )
       )
     );
-});
+  }
+);

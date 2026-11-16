@@ -53,8 +53,11 @@ const message = Schema.decodeUnknownSync(chatMessageSchema)({
   citations: []
 });
 
-function mount(children: ReactNode) {
-  const fixture = test.rpcHandlersTransport({
+function mount(
+  { rpcHandlersTransport, render }: Pick<test.Context, 'rpcHandlersTransport' | 'render'>,
+  children: ReactNode
+) {
+  const fixture = rpcHandlersTransport({
     'notes.updateMessageDescription': rpc.update,
     'notes.thread': rpc.thread,
     'notes.messageVersionCitations': rpc.citations,
@@ -62,17 +65,23 @@ function mount(children: ReactNode) {
     'sources.source': rpc.source
   });
 
-  return test.render(children, { wrapper: fixture.wrapper });
+  return render(children, { wrapper: fixture.wrapper });
 }
 
-async function openDescription() {
-  mount(<Description message={message} />);
-  test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteDescriptionTitle' }));
-  const dialog = await test.screen.findByRole('dialog', { name: 'NoteDescriptionTitle' });
+async function openDescription({
+  fireEvent,
+  screen,
+  within,
+  rpcHandlersTransport,
+  render
+}: Pick<test.Context, 'fireEvent' | 'screen' | 'within' | 'rpcHandlersTransport' | 'render'>) {
+  mount({ rpcHandlersTransport, render }, <Description message={message} />);
+  fireEvent.click(screen.getByRole('button', { name: 'NoteDescriptionTitle' }));
+  const dialog = await screen.findByRole('dialog', { name: 'NoteDescriptionTitle' });
 
   return {
     dialog,
-    input: test.within(dialog).getByRole('textbox', { name: 'NoteDescriptionLabel' })
+    input: within(dialog).getByRole('textbox', { name: 'NoteDescriptionLabel' })
   };
 }
 
@@ -105,85 +114,112 @@ test.beforeEach(async ({ mock }) => {
   History = __mockModule1.History;
 });
 
-test.beforeEach(() => {
-  test.vi.resetAllMocks();
+test.beforeEach(({ vi }) => {
+  vi.resetAllMocks();
   rpc.update.mockResolvedValue(message);
   rpc.thread.mockResolvedValue({ items: [message], next: null });
   rpc.citations.mockResolvedValue({ citations: [] });
   rpc.selection.mockResolvedValue({ revision: 1n, targets: [] });
 });
 
-test.afterEach(() => {
-  test.cleanup();
+test.afterEach(({ cleanup }) => {
+  cleanup();
 });
 
 test.stable(
   'saves trimmed descriptions against their original value and closes after success',
-  async () => {
-    const { dialog, input } = await openDescription();
+  async ({ expect, fireEvent, within, waitFor, screen, rpcHandlersTransport, render }) => {
+    const { dialog, input } = await openDescription({
+      fireEvent,
+      screen,
+      within,
+      rpcHandlersTransport,
+      render
+    });
 
-    test.expect(input).toHaveValue(message.description);
-    test.fireEvent.change(input, { target: { value: '  Focus on eigenvectors  ' } });
-    test.fireEvent.click(test.within(dialog).getByRole('button', { name: 'Save' }));
-    await test.waitFor(() =>
-      test.expect(rpc.update).toHaveBeenCalledExactlyOnceWith({
+    expect(input).toHaveValue(message.description);
+    fireEvent.change(input, { target: { value: '  Focus on eigenvectors  ' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(rpc.update).toHaveBeenCalledExactlyOnceWith({
         messageId: message.id,
         description: 'Focus on eigenvectors',
         expectedDescription: message.description
       })
     );
-    await test.waitFor(() => test.expect(test.screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   }
 );
 
-test.stable('keeps the entered description and shows an error when a save fails', async () => {
-  rpc.update.mockRejectedValue(new StudyError('transient', 'Save unavailable'));
-  const { dialog, input } = await openDescription();
+test.stable(
+  'keeps the entered description and shows an error when a save fails',
+  async ({ fireEvent, within, expect, screen, rpcHandlersTransport, render }) => {
+    rpc.update.mockRejectedValue(new StudyError('transient', 'Save unavailable'));
+    const { dialog, input } = await openDescription({
+      fireEvent,
+      screen,
+      within,
+      rpcHandlersTransport,
+      render
+    });
 
-  test.fireEvent.change(input, { target: { value: 'Keep this draft' } });
-  test.fireEvent.click(test.within(dialog).getByRole('button', { name: 'Save' }));
-  test.expect(await test.within(dialog).findByRole('alert')).toBeVisible();
-  test.expect(input).toHaveValue('Keep this draft');
-  test.expect(test.within(dialog).getByRole('button', { name: 'Save' })).toBeEnabled();
-  test.expect(rpc.update).toHaveBeenCalledTimes(1);
-});
+    fireEvent.change(input, { target: { value: 'Keep this draft' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(await within(dialog).findByRole('alert')).toBeVisible();
+    expect(input).toHaveValue('Keep this draft');
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeEnabled();
+    expect(rpc.update).toHaveBeenCalledTimes(1);
+  }
+);
 
-test.stable('clears a saved description when the field contains only whitespace', async () => {
-  const { dialog, input } = await openDescription();
+test.stable(
+  'clears a saved description when the field contains only whitespace',
+  async ({ fireEvent, within, waitFor, expect, screen, rpcHandlersTransport, render }) => {
+    const { dialog, input } = await openDescription({
+      fireEvent,
+      screen,
+      within,
+      rpcHandlersTransport,
+      render
+    });
 
-  test.fireEvent.change(input, { target: { value: '   ' } });
-  test.fireEvent.click(test.within(dialog).getByRole('button', { name: 'Save' }));
-  await test.waitFor(() =>
-    test.expect(rpc.update).toHaveBeenCalledExactlyOnceWith({
-      messageId: message.id,
-      description: null,
-      expectedDescription: message.description
-    })
-  );
-});
+    fireEvent.change(input, { target: { value: '   ' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(rpc.update).toHaveBeenCalledExactlyOnceWith({
+        messageId: message.id,
+        description: null,
+        expectedDescription: message.description
+      })
+    );
+  }
+);
 
 test.stable(
   'shows the stored description on the document card and opens the original message',
-  async () => {
-    const onOpen = test.vi.fn();
+  async ({ vi, screen, expect, fireEvent, within, rpcHandlersTransport, render }) => {
+    const onOpen = vi.fn();
 
-    const view = mount(<History id={message.noteId} onOpen={onOpen} />);
-    const description = await test.screen.findByText('Review before the exam');
+    const view = mount(
+      { rpcHandlersTransport, render },
+      <History id={message.noteId} onOpen={onOpen} />
+    );
+    const description = await screen.findByText('Review before the exam');
 
-    test.expect(description).toBeVisible();
-    test.expect(test.screen.queryByText('This body preview is secondary.')).toBeNull();
-    test.fireEvent.click(
-      test.within(view.container.querySelector('.note-index-target')!).getByRole('button', {
+    expect(description).toBeVisible();
+    expect(screen.queryByText('This body preview is secondary.')).toBeNull();
+    fireEvent.click(
+      within(view.container.querySelector('.note-index-target')!).getByRole('button', {
         name: /Linear algebra/
       })
     );
-    test.expect(onOpen).toHaveBeenCalledExactlyOnceWith(message);
+    expect(onOpen).toHaveBeenCalledExactlyOnceWith(message);
   }
 );
 
-test.stable.each(['text', undefined] as const)(
+test.stable.for(['text', undefined] as const)(
   'keeps %s quick captures as literal text rather than document cards',
-  async (format) => {
+  async (format, { vi, expect, within, screen, rpcHandlersTransport, render }) => {
     const literal = '# A quick thought **with stars** and [a link](https://example.com)';
     const quick = Schema.decodeUnknownSync(chatMessageSchema)({
       ...message,
@@ -191,25 +227,28 @@ test.stable.each(['text', undefined] as const)(
       description: null,
       versions: [{ ...message.versions[0], text: literal }]
     });
-    const onOpen = test.vi.fn();
+    const onOpen = vi.fn();
 
     rpc.thread.mockResolvedValue({ items: [quick], next: null });
-    const view = mount(<History id={message.noteId} onOpen={onOpen} />);
+    const view = mount(
+      { rpcHandlersTransport, render },
+      <History id={message.noteId} onOpen={onOpen} />
+    );
 
-    test
-      .expect(await test.within(view.container.querySelector('.note-history')!).findByText(literal))
-      .toBeVisible();
-    test.expect(test.screen.queryByRole('heading', { name: 'A quick thought' })).toBeNull();
-    test.expect(test.screen.queryByRole('link', { name: 'a link' })).toBeNull();
-    test.expect(view.container.querySelector('.workspace-desk-page')).toBeNull();
-    test.expect(test.screen.queryByRole('button', { name: 'NoteOpenPage' })).toBeNull();
-    test.expect(onOpen).not.toHaveBeenCalled();
+    expect(
+      await within(view.container.querySelector('.note-history')!).findByText(literal)
+    ).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'A quick thought' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'a link' })).toBeNull();
+    expect(view.container.querySelector('.workspace-desk-page')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'NoteOpenPage' })).toBeNull();
+    expect(onOpen).not.toHaveBeenCalled();
   }
 );
 
 test.stable(
   'shows a linked attachment card with kind and size for every canonical source kind',
-  async () => {
+  async ({ vi, screen, expect, within, rpcHandlersTransport, render }) => {
     const attached = Schema.decodeUnknownSync(chatMessageSchema)({
       ...message,
       format: 'text',
@@ -239,38 +278,34 @@ test.stable(
       sizeBytes: 2048n
     }));
     const root = createRootRoute({
-      component: () => <History id={message.noteId} onOpen={test.vi.fn()} />
+      component: () => <History id={message.noteId} onOpen={vi.fn()} />
     });
     const router = createRouter({
       routeTree: root,
       history: createMemoryHistory({ initialEntries: ['/'] })
     });
 
-    mount(<RouterProvider router={router} />);
+    mount({ rpcHandlersTransport, render }, <RouterProvider router={router} />);
 
     for (const [index, kind] of sourceKinds.entries()) {
-      const link = await test.screen.findByRole('link', { name: new RegExp(`Attached ${kind}`) });
+      const link = await screen.findByRole('link', { name: new RegExp(`Attached ${kind}`) });
 
-      test.expect(link).toHaveAttribute('href', `/sources/${index + 100}`);
-      test
-        .expect(
-          await test
-            .within(link)
-            .findByText(
-              `Source${kind[0]!.toUpperCase()}${kind.slice(1)} · ${mediaSize('english', 2048)}`
-            )
+      expect(link).toHaveAttribute('href', `/sources/${index + 100}`);
+      expect(
+        await within(link).findByText(
+          `Source${kind[0]!.toUpperCase()}${kind.slice(1)} · ${mediaSize('english', 2048)}`
         )
-        .toBeVisible();
-      test.expect(link.querySelector('svg')).not.toBeNull();
+      ).toBeVisible();
+      expect(link.querySelector('svg')).not.toBeNull();
     }
 
-    test.expect(test.screen.getAllByRole('link')).toHaveLength(sourceKinds.length);
+    expect(screen.getAllByRole('link')).toHaveLength(sourceKinds.length);
   }
 );
 
 test.stable(
   'places real document attachments in time order alongside plain notes and opens their material',
-  async () => {
+  async ({ vi, within, expect, fireEvent, rpcHandlersTransport, render }) => {
     const material = Schema.decodeUnknownSync(materialSummarySchema)({
       id: 90n,
       projectIds: [],
@@ -294,23 +329,24 @@ test.stable(
     };
 
     rpc.thread.mockResolvedValue({ items: [later, earlier], next: null });
-    const open = test.vi.fn();
-    const view = mount(<History id={message.noteId} pages={[material]} onOpenPage={open} />);
+    const open = vi.fn();
+    const view = mount(
+      { rpcHandlersTransport, render },
+      <History id={message.noteId} pages={[material]} onOpenPage={open} />
+    );
 
-    await test
-      .within(view.container.querySelector('.note-history')!)
-      .findByText('Before the document');
+    await within(view.container.querySelector('.note-history')!).findByText('Before the document');
     const items = view.container.querySelectorAll('.note-entry, .workspace-desk-page');
 
-    test.expect(items).toHaveLength(3);
-    test.expect(items[0]).toHaveTextContent('Before the document');
-    test.expect(items[1]).toHaveTextContent('Working page');
-    test.expect(items[2]).toHaveTextContent('After the document');
-    test.fireEvent.click(
-      test.within(items[1]!.closest('.note-index-target')!).getByRole('button', {
+    expect(items).toHaveLength(3);
+    expect(items[0]).toHaveTextContent('Before the document');
+    expect(items[1]).toHaveTextContent('Working page');
+    expect(items[2]).toHaveTextContent('After the document');
+    fireEvent.click(
+      within(items[1]!.closest('.note-index-target')!).getByRole('button', {
         name: /Working page/
       })
     );
-    test.expect(open).toHaveBeenCalledExactlyOnceWith(material);
+    expect(open).toHaveBeenCalledExactlyOnceWith(material);
   }
 );

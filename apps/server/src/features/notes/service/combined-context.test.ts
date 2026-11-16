@@ -27,7 +27,9 @@ import { pageTransformFixture } from '#testing/page-transform';
 
 test.stable(
   'combined capture pins selected notes and shared sources, replays exactly and retires on source-note deletion',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const fixture = await pageTransformFixture(databases);
 
     try {
@@ -91,13 +93,13 @@ test.stable(
           };
           const capture = yield* client('notes.captureNoteContext', intent);
 
-          test.expect(capture.messages.map((item) => item.text)).toStrictEqual(['First', 'Second']);
-          test.assert.strictEqual(capture.inputs.length, 2);
-          test.assert.ok(capture.inputs[1]!.scope.kind === 'document');
-          test
-            .expect(capture.inputs[1]!.excerpts[0]!.content)
-            .toStrictEqual(structuredContent.blocks[0]!.content);
-          test.expect(capture.inputs[0]!.input).toStrictEqual({
+          expect(capture.messages.map((item) => item.text)).toStrictEqual(['First', 'Second']);
+          assert.strictEqual(capture.inputs.length, 2);
+          assert.ok(capture.inputs[1]!.scope.kind === 'document');
+          expect(capture.inputs[1]!.excerpts[0]!.content).toStrictEqual(
+            structuredContent.blocks[0]!.content
+          );
+          expect(capture.inputs[0]!.input).toStrictEqual({
             kind: 'page',
             versionId: material.version!.id
           });
@@ -108,7 +110,7 @@ test.stable(
           });
 
           yield* client('notes.postMessage', { noteId: second.id, text: 'Later' });
-          test.expect(yield* client('notes.captureNoteContext', intent)).toStrictEqual(capture);
+          expect(yield* client('notes.captureNoteContext', intent)).toStrictEqual(capture);
           const changed = yield* Effect.flip(
             client('notes.captureNoteContext', {
               ...intent,
@@ -116,7 +118,7 @@ test.stable(
             })
           );
 
-          test.assert.ok(changed.kind === 'invalid_input');
+          assert.ok(changed.kind === 'invalid_input');
           const duplicate = yield* Effect.flip(
             client('notes.captureNoteContext', {
               ...intent,
@@ -125,7 +127,7 @@ test.stable(
             })
           );
 
-          test.assert.ok(duplicate.kind === 'invalid_input');
+          assert.ok(duplicate.kind === 'invalid_input');
           const large = yield* client('notes.createNote', { title: 'Large context' });
 
           for (let index = 0; index < 2; index++)
@@ -142,7 +144,7 @@ test.stable(
             })
           );
 
-          test.assert.strictEqual(oversized.kind, 'not_enough');
+          assert.strictEqual(oversized.kind, 'not_enough');
           const sourceOnly = yield* client('notes.createNote', {
             title: 'Sources only'
           });
@@ -166,34 +168,32 @@ test.stable(
             })
           );
 
-          test.assert.ok(deletedInput.kind === 'not_found');
+          assert.ok(deletedInput.kind === 'not_found');
           yield* client('notes.deleteNote', { id: second.id });
-          test.assert.strictEqual(
+          assert.strictEqual(
             fixture.context.db.orm.get(
               sql`SELECT 1 FROM note_run_contexts WHERE request_id=${capture.requestId}`
             ),
             undefined
           );
-          test.assert.strictEqual(
+          assert.strictEqual(
             fixture.context.db.orm.get(
               sql`SELECT 1 FROM note_context_pages WHERE request_id=${capture.requestId}`
             ),
             undefined
           );
-          test.assert.ok(
+          assert.ok(
             fixture.context.db.orm.get(
               sql`SELECT 1 FROM note_retired_intents WHERE request_id=${capture.requestId}`
             )
           );
-          test.assert.ok(
-            (yield* materials.transform({ requestId: generation.id })).cancelled === true
-          );
+          assert.ok((yield* materials.transform({ requestId: generation.id })).cancelled === true);
 
           const unavailable = yield* Effect.flip(
             client('notes.noteContext', { requestId: capture.requestId })
           );
 
-          test.assert.ok(unavailable.kind === 'not_found');
+          assert.ok(unavailable.kind === 'not_found');
           const retry = yield* Effect.flip(
             notes.retryPageTransform({
               requestId: generation.id,
@@ -201,7 +201,7 @@ test.stable(
             })
           );
 
-          test.assert.ok(retry.kind === 'not_found');
+          assert.ok(retry.kind === 'not_found');
         }).pipe(
           Effect.scoped,
           Effect.provide(

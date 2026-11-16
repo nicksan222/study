@@ -24,7 +24,9 @@ import { transaction } from '#server/platform/definitions/define-store';
 
 test.stable(
   'an unpinned published source extraction is immutable until its retained identity is released',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
 
@@ -70,18 +72,15 @@ test.stable(
             sql`DELETE FROM content_snapshots WHERE id=${id}`,
             sql`UPDATE source_extraction_revisions SET revision=revision WHERE snapshot_id=${id}`
           ])
-            test.assert.throws(() => context.db.orm.run(statement));
+            assert.throws(() => context.db.orm.run(statement));
 
-          test.assert.strictEqual(
-            (yield* sources.currentExtraction({ id: source.id }))?.snapshotId,
-            id
-          );
-          test.assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
-          test.assert.strictEqual(
+          assert.strictEqual((yield* sources.currentExtraction({ id: source.id }))?.snapshotId, id);
+          assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
+          assert.strictEqual(
             context.db.orm.get(sql`SELECT 1 FROM content_snapshots WHERE id=${id}`),
             undefined
           );
-          test.expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(
           Effect.provide(Sources.layer),
           Effect.provide(Layer.succeed(Database, { store: context }))

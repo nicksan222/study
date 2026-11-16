@@ -71,19 +71,19 @@ const backup = {
   compatibility: 'exact-schema' as const
 };
 
-function model() {
+function model({ vi }: Pick<test.Context, 'vi'>) {
   const owner = dataOwner(AtomRegistry.make());
 
-  test.vi.spyOn(owner, 'refresh').mockResolvedValue(undefined);
-  test.vi.spyOn(owner, 'create').mockResolvedValue(undefined);
-  test.vi.spyOn(owner, 'importFile').mockResolvedValue(undefined);
-  test.vi.spyOn(owner, 'download').mockResolvedValue(undefined);
-  test.vi.spyOn(owner, 'preview').mockResolvedValue(undefined);
-  test.vi.spyOn(owner, 'delete').mockResolvedValue(undefined);
-  test.vi.spyOn(owner, 'discard').mockResolvedValue(undefined);
-  test.vi.spyOn(owner, 'accept').mockResolvedValue(undefined);
-  test.vi.spyOn(owner, 'clearPreview').mockImplementation(() => {});
-  test.vi.spyOn(owner, 'acknowledgeUncertain').mockImplementation(() => {});
+  vi.spyOn(owner, 'refresh').mockResolvedValue(undefined);
+  vi.spyOn(owner, 'create').mockResolvedValue(undefined);
+  vi.spyOn(owner, 'importFile').mockResolvedValue(undefined);
+  vi.spyOn(owner, 'download').mockResolvedValue(undefined);
+  vi.spyOn(owner, 'preview').mockResolvedValue(undefined);
+  vi.spyOn(owner, 'delete').mockResolvedValue(undefined);
+  vi.spyOn(owner, 'discard').mockResolvedValue(undefined);
+  vi.spyOn(owner, 'accept').mockResolvedValue(undefined);
+  vi.spyOn(owner, 'clearPreview').mockImplementation(() => {});
+  vi.spyOn(owner, 'acknowledgeUncertain').mockImplementation(() => {});
   const state: ReturnType<typeof useDataSettings>['state'] = {
     busy: false,
     loaded: true,
@@ -108,164 +108,148 @@ function model() {
   return { state, owner };
 }
 
-function supply(value: ReturnType<typeof model>) {
-  test.vi.mocked(useDataSettings).mockReturnValue(value);
+function supply({ vi }: Pick<test.Context, 'vi'>, value: ReturnType<typeof model>) {
+  vi.mocked(useDataSettings).mockReturnValue(value);
 }
 
-test.beforeEach(() => test.vi.clearAllMocks());
+test.beforeEach(({ vi }) => vi.clearAllMocks());
 
 test.stable(
   'shows complete scopes and requires deliberate acceptance of the exact reviewed backup',
-  () => {
-    const value = model();
+  ({ render, expect, screen, fireEvent, vi }) => {
+    const value = model({ vi });
 
-    supply(value);
-    test.render(<DataSettings />);
-    test.expect(test.screen.getByText('DataRestoreWarning')).toBeInTheDocument();
+    supply({ vi }, value);
+    render(<DataSettings />);
+    expect(screen.getByText('DataRestoreWarning')).toBeInTheDocument();
     Object.keys(scope).forEach((key) =>
-      test.expect(test.screen.getByText(`DataScope${key}`)).toBeInTheDocument()
+      expect(screen.getByText(`DataScope${key}`)).toBeInTheDocument()
     );
-    test.expect(test.screen.queryByText(backup.schema)).toBeNull();
-    const accept = test.screen.getByRole('button', { name: 'DataAccept' });
+    expect(screen.queryByText(backup.schema)).toBeNull();
+    const accept = screen.getByRole('button', { name: 'DataAccept' });
 
-    test.expect(accept).toBeDisabled();
-    test.fireEvent.change(
-      test.screen.getByRole('textbox', { name: 'DataRestoreConfirmationInstruction' }),
-      {
-        target: { value: 'DataRestoreConfirmationWord' }
-      }
-    );
-    test.fireEvent.click(accept);
-    test.expect(value.owner.accept).toHaveBeenCalledWith(value.state.preview);
+    expect(accept).toBeDisabled();
+    fireEvent.change(screen.getByRole('textbox', { name: 'DataRestoreConfirmationInstruction' }), {
+      target: { value: 'DataRestoreConfirmationWord' }
+    });
+    fireEvent.click(accept);
+    expect(value.owner.accept).toHaveBeenCalledWith(value.state.preview);
   }
 );
 
-test.stable('resets deliberate intent when the preview token changes and blocks barriers', () => {
-  const value = model();
+test.stable(
+  'resets deliberate intent when the preview token changes and blocks barriers',
+  ({ render, fireEvent, screen, expect, vi }) => {
+    const value = model({ vi });
 
-  supply(value);
-  const { rerender } = test.render(<DataSettings />);
+    supply({ vi }, value);
+    const { rerender } = render(<DataSettings />);
 
-  test.fireEvent.change(
-    test.screen.getByRole('textbox', { name: 'DataRestoreConfirmationInstruction' }),
-    {
+    fireEvent.change(screen.getByRole('textbox', { name: 'DataRestoreConfirmationInstruction' }), {
       target: { value: 'DataRestoreConfirmationWord' }
-    }
-  );
-  value.state.preview = {
-    ...value.state.preview!,
-    token: Schema.decodeUnknownSync(restoreTokenSchema)('22222222-2222-4222-8222-222222222222')
-  };
-  supply(value);
-  rerender(<DataSettings />);
-  test.expect(test.screen.getByRole('button', { name: 'DataAccept' })).toBeDisabled();
-  test
-    .expect(test.screen.getByRole('textbox', { name: 'DataRestoreConfirmationInstruction' }))
-    .toHaveValue('');
-  test.fireEvent.change(
-    test.screen.getByRole('textbox', { name: 'DataRestoreConfirmationInstruction' }),
-    {
+    });
+    value.state.preview = {
+      ...value.state.preview!,
+      token: Schema.decodeUnknownSync(restoreTokenSchema)('22222222-2222-4222-8222-222222222222')
+    };
+    supply({ vi }, value);
+    rerender(<DataSettings />);
+    expect(screen.getByRole('button', { name: 'DataAccept' })).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: 'DataRestoreConfirmationInstruction' })).toHaveValue(
+      ''
+    );
+    fireEvent.change(screen.getByRole('textbox', { name: 'DataRestoreConfirmationInstruction' }), {
       target: { value: 'DataRestoreConfirmationWord' }
-    }
-  );
-  test.expect(test.screen.getByRole('button', { name: 'DataAccept' })).toBeEnabled();
-  value.state.preview = { ...value.state.preview!, blockedByCurrentBarriers: true };
-  supply(value);
-  rerender(<DataSettings />);
-  test.expect(test.screen.getByText('DataBlocked')).toBeInTheDocument();
-  test
-    .expect(test.screen.getByRole('textbox', { name: 'DataRestoreConfirmationInstruction' }))
-    .toBeDisabled();
-  test.expect(value.owner.accept).not.toHaveBeenCalled();
-  value.state.preview = { ...value.state.preview!, blockedByCurrentBarriers: false };
-  supply(value);
-  rerender(<DataSettings />);
-  test.fireEvent.click(test.screen.getByRole('button', { name: 'DataAccept' }));
-  test.expect(value.owner.accept).toHaveBeenCalledWith(value.state.preview);
-});
+    });
+    expect(screen.getByRole('button', { name: 'DataAccept' })).toBeEnabled();
+    value.state.preview = { ...value.state.preview!, blockedByCurrentBarriers: true };
+    supply({ vi }, value);
+    rerender(<DataSettings />);
+    expect(screen.getByText('DataBlocked')).toBeInTheDocument();
+    expect(
+      screen.getByRole('textbox', { name: 'DataRestoreConfirmationInstruction' })
+    ).toBeDisabled();
+    expect(value.owner.accept).not.toHaveBeenCalled();
+    value.state.preview = { ...value.state.preview!, blockedByCurrentBarriers: false };
+    supply({ vi }, value);
+    rerender(<DataSettings />);
+    fireEvent.click(screen.getByRole('button', { name: 'DataAccept' }));
+    expect(value.owner.accept).toHaveBeenCalledWith(value.state.preview);
+  }
+);
 
-test.stable('requires deliberate recovery discard', () => {
-  const value = model();
+test.stable('requires deliberate recovery discard', ({ render, expect, screen, fireEvent, vi }) => {
+  const value = model({ vi });
 
   value.state.preview = undefined;
   value.state.status = { ...value.state.status!, recoveryCopy: true };
-  supply(value);
-  test.render(<DataSettings />);
-  test.expect(test.screen.getByText('DataRecovery')).toBeInTheDocument();
-  test.fireEvent.click(test.screen.getByRole('button', { name: 'DataDiscard' }));
-  const buttons = test.screen.getAllByRole('button', { name: 'DataDiscard' });
+  supply({ vi }, value);
+  render(<DataSettings />);
+  expect(screen.getByText('DataRecovery')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'DataDiscard' }));
+  const buttons = screen.getAllByRole('button', { name: 'DataDiscard' });
 
-  test.expect(buttons.at(-1)).toBeDisabled();
-  test.fireEvent.change(
-    test.screen.getByRole('textbox', { name: 'DeleteConfirmationInstruction' }),
-    {
-      target: { value: 'DeleteConfirmationWord' }
-    }
-  );
-  test.fireEvent.click(buttons.at(-1)!);
-  test.expect(value.owner.discard).toHaveBeenCalledOnce();
+  expect(buttons.at(-1)).toBeDisabled();
+  fireEvent.change(screen.getByRole('textbox', { name: 'DeleteConfirmationInstruction' }), {
+    target: { value: 'DeleteConfirmationWord' }
+  });
+  fireEvent.click(buttons.at(-1)!);
+  expect(value.owner.discard).toHaveBeenCalledOnce();
 });
 
 test.stable(
   'keeps implementation identities out while replacement scope and consent stay visible',
-  () => {
-    supply(model());
-    test.render(<DataSettings />);
-    test.expect(test.screen.queryByText(backup.schema)).toBeNull();
-    test.expect(test.screen.queryByText(backup.sha256)).toBeNull();
-    test.expect(test.screen.queryByText('workspace.details')).toBeNull();
-    test.expect(test.screen.getByText('DataRestoreWarning')).toBeVisible();
-    test.expect(test.screen.getByRole('table')).toBeVisible();
-    test
-      .expect(test.screen.getByRole('textbox', { name: 'DataRestoreConfirmationInstruction' }))
-      .toBeVisible();
-    test.expect(test.screen.getByRole('button', { name: 'DataAccept' })).toBeDisabled();
+  ({ render, expect, screen, vi }) => {
+    supply({ vi }, model({ vi }));
+    render(<DataSettings />);
+    expect(screen.queryByText(backup.schema)).toBeNull();
+    expect(screen.queryByText(backup.sha256)).toBeNull();
+    expect(screen.queryByText('workspace.details')).toBeNull();
+    expect(screen.getByText('DataRestoreWarning')).toBeVisible();
+    expect(screen.getByRole('table')).toBeVisible();
+    expect(
+      screen.getByRole('textbox', { name: 'DataRestoreConfirmationInstruction' })
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'DataAccept' })).toBeDisabled();
   }
 );
 
 test.stable(
   'keeps known downloads and deliberate recovery available when only the list is unavailable',
-  () => {
-    const value = model();
+  ({ render, expect, screen, fireEvent, within, vi }) => {
+    const value = model({ vi });
 
     value.state.preview = undefined;
     value.state.listReady = false;
     value.state.error = 'read';
     value.state.status = { ...value.state.status!, recoveryCopy: true };
-    supply(value);
-    test.render(<DataSettings />);
-    test.expect(test.screen.getByText('DataListError')).toBeVisible();
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'DataDownload' }));
-    test.expect(value.owner.download).toHaveBeenCalledWith(id);
-    test
-      .expect(
-        test
-          .within(test.screen.getByRole('group', { name: 'DataImport' }))
-          .getByLabelText('DataImport')
-      )
-      .toBeDisabled();
-    test.expect(test.screen.getByRole('button', { name: 'DataDelete' })).toBeDisabled();
-    test.expect(test.screen.getByRole('button', { name: 'DataCreate' })).toBeDisabled();
-    test.expect(test.screen.getByRole('button', { name: 'DataPreview' })).toBeDisabled();
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'DataDiscard' }));
-    const confirmation = test.screen.getAllByRole('button', { name: 'DataDiscard' }).at(-1)!;
+    supply({ vi }, value);
+    render(<DataSettings />);
+    expect(screen.getByText('DataListError')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'DataDownload' }));
+    expect(value.owner.download).toHaveBeenCalledWith(id);
+    expect(
+      within(screen.getByRole('group', { name: 'DataImport' })).getByLabelText('DataImport')
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'DataDelete' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'DataCreate' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'DataPreview' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'DataDiscard' }));
+    const confirmation = screen.getAllByRole('button', { name: 'DataDiscard' }).at(-1)!;
 
-    test.expect(confirmation).toBeDisabled();
-    test.fireEvent.change(
-      test.screen.getByRole('textbox', { name: 'DeleteConfirmationInstruction' }),
-      {
-        target: { value: 'DeleteConfirmationWord' }
-      }
-    );
-    test.fireEvent.click(confirmation);
-    test.expect(value.owner.discard).toHaveBeenCalledOnce();
+    expect(confirmation).toBeDisabled();
+    fireEvent.change(screen.getByRole('textbox', { name: 'DeleteConfirmationInstruction' }), {
+      target: { value: 'DeleteConfirmationWord' }
+    });
+    fireEvent.click(confirmation);
+    expect(value.owner.discard).toHaveBeenCalledOnce();
   }
 );
 
 test.stable(
   'renders distinct current and backup counts for every scope outside diagnostics',
-  () => {
-    const value = model();
+  ({ render, screen, within, expect, vi }) => {
+    const value = model({ vi });
 
     value.state.preview = {
       ...value.state.preview!,
@@ -277,9 +261,9 @@ test.stable(
       blockedByCurrentBarriers: true
     };
     value.state.status = { ...value.state.status!, recoveryCopy: true };
-    supply(value);
-    test.render(<DataSettings />);
-    const table = test.screen.getByRole('table');
+    supply({ vi }, value);
+    render(<DataSettings />);
+    const table = screen.getByRole('table');
 
     for (const [key, current, archived] of [
       ['materials', '1', '1'],
@@ -296,35 +280,31 @@ test.stable(
       ['historyPrunes', '12', '22'],
       ['prunedVersions', '13', '23']
     ]) {
-      const row = test
-        .within(table)
+      const row = within(table)
         .getByRole('rowheader', { name: `DataScope${key}` })
         .closest('tr')!;
 
-      test.expect(row).toBeVisible();
-      test
-        .expect(
-          test
-            .within(row)
-            .getAllByRole('cell')
-            .map((cell) => cell.textContent)
-        )
-        .toEqual([current, archived]);
+      expect(row).toBeVisible();
+      expect(
+        within(row)
+          .getAllByRole('cell')
+          .map((cell) => cell.textContent)
+      ).toEqual([current, archived]);
     }
 
     for (const warning of ['DataRestoreWarning', 'DataBlocked', 'DataRecoveryBlocked']) {
-      test.expect(test.screen.getByText(warning)).toBeVisible();
-      test.expect(test.screen.getByText(warning).closest('details')).toBeNull();
+      expect(screen.getByText(warning)).toBeVisible();
+      expect(screen.getByText(warning).closest('details')).toBeNull();
     }
 
-    test.expect(test.screen.getByRole('button', { name: 'DataAccept' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'DataAccept' })).toBeDisabled();
   }
 );
 
-test.stable.each(['busy', 'uncertain', 'status-error', 'restart-required'])(
+test.stable.for(['busy', 'uncertain', 'status-error', 'restart-required'])(
   'keeps recovery controls fenced for %s',
-  (mode) => {
-    const value = model();
+  (mode, { render, expect, screen, vi }) => {
+    const value = model({ vi });
 
     value.state.preview = undefined;
     value.state.status = { state: 'activation-failed', backupId: id, recoveryCopy: true };
@@ -341,240 +321,239 @@ test.stable.each(['busy', 'uncertain', 'status-error', 'restart-required'])(
     if (mode === 'restart-required')
       value.state.status = { ...value.state.status, state: 'restart-required' };
 
-    supply(value);
-    test.render(<DataSettings />);
-    test.expect(test.screen.getByRole('button', { name: 'DataDiscard' })).toBeDisabled();
-    test.expect(test.screen.getByRole('button', { name: 'DataCreate' })).toBeDisabled();
+    supply({ vi }, value);
+    render(<DataSettings />);
+    expect(screen.getByRole('button', { name: 'DataDiscard' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'DataCreate' })).toBeDisabled();
 
-    if (mode === 'status-error')
-      test.expect(test.screen.getByText('DataStatusError')).toBeVisible();
+    if (mode === 'status-error') expect(screen.getByText('DataStatusError')).toBeVisible();
 
     if (mode === 'busy' || mode === 'uncertain')
-      test.expect(test.screen.getByRole('button', { name: 'DataDownload' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'DataDownload' })).toBeDisabled();
   }
 );
 
 test.stable(
   'requires a fresh deliberate confirmation each time snapshot deletion is opened',
-  async () => {
-    const value = model();
+  async ({ render, fireEvent, screen, expect, within, waitFor, vi }) => {
+    const value = model({ vi });
 
     value.state.preview = undefined;
-    supply(value);
-    test.render(<DataSettings />);
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'DataDelete' }));
-    let dialog = test.screen.getByRole('alertdialog');
+    supply({ vi }, value);
+    render(<DataSettings />);
+    fireEvent.click(screen.getByRole('button', { name: 'DataDelete' }));
+    let dialog = screen.getByRole('alertdialog');
 
-    test.expect(test.within(dialog).getByText(/date:0.001/)).toBeVisible();
-    test.expect(test.within(dialog).getByText('DataDeleteWarning')).toBeVisible();
-    test.expect(test.within(dialog).getByRole('button', { name: 'DataDelete' })).toBeDisabled();
-    test.fireEvent.change(
-      test.within(dialog).getByRole('textbox', { name: 'DeleteConfirmationInstruction' }),
+    expect(within(dialog).getByText(/date:0.001/)).toBeVisible();
+    expect(within(dialog).getByText('DataDeleteWarning')).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: 'DataDelete' })).toBeDisabled();
+    fireEvent.change(
+      within(dialog).getByRole('textbox', { name: 'DeleteConfirmationInstruction' }),
       {
         target: { value: 'DeleteConfirmationWord' }
       }
     );
-    test.fireEvent.click(test.within(dialog).getByRole('button', { name: 'Cancel' }));
-    await test.waitFor(() => test.expect(test.screen.queryByRole('alertdialog')).toBeNull());
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'DataDelete' }));
-    dialog = test.screen.getByRole('alertdialog');
-    test
-      .expect(test.within(dialog).getByRole('textbox', { name: 'DeleteConfirmationInstruction' }))
-      .toHaveValue('');
-    test.fireEvent.change(
-      test.within(dialog).getByRole('textbox', { name: 'DeleteConfirmationInstruction' }),
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    fireEvent.click(screen.getByRole('button', { name: 'DataDelete' }));
+    dialog = screen.getByRole('alertdialog');
+    expect(
+      within(dialog).getByRole('textbox', { name: 'DeleteConfirmationInstruction' })
+    ).toHaveValue('');
+    fireEvent.change(
+      within(dialog).getByRole('textbox', { name: 'DeleteConfirmationInstruction' }),
       {
         target: { value: 'DeleteConfirmationWord' }
       }
     );
-    test.fireEvent.click(test.within(dialog).getByRole('button', { name: 'DataDelete' }));
-    test.expect(value.owner.delete).toHaveBeenCalledWith(id);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'DataDelete' }));
+    expect(value.owner.delete).toHaveBeenCalledWith(id);
   }
 );
 
 test.stable(
   'keeps uncertainty visible and acknowledgment disabled until canonical discovery completes',
-  () => {
-    const value = model();
+  ({ render, expect, screen, fireEvent, vi }) => {
+    const value = model({ vi });
 
     value.state.preview = undefined;
     value.state.uncertain = { kind: 'delete', id };
     value.state.reconciled = false;
     value.state.error = 'read';
     value.state.listReady = false;
-    supply(value);
-    const { rerender } = test.render(<DataSettings />);
+    supply({ vi }, value);
+    const { rerender } = render(<DataSettings />);
 
-    test.expect(test.screen.getByText('DataUncertain')).toBeVisible();
-    test.expect(test.screen.getByRole('button', { name: 'DataAcknowledge' })).toBeDisabled();
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'DataRefresh' }));
-    test.expect(value.owner.refresh).toHaveBeenCalledOnce();
-    test.expect(value.owner.acknowledgeUncertain).not.toHaveBeenCalled();
+    expect(screen.getByText('DataUncertain')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'DataAcknowledge' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'DataRefresh' }));
+    expect(value.owner.refresh).toHaveBeenCalledOnce();
+    expect(value.owner.acknowledgeUncertain).not.toHaveBeenCalled();
     value.state.reconciled = true;
-    supply(value);
+    supply({ vi }, value);
     rerender(<DataSettings />);
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'DataAcknowledge' }));
-    test.expect(value.owner.acknowledgeUncertain).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole('button', { name: 'DataAcknowledge' }));
+    expect(value.owner.acknowledgeUncertain).toHaveBeenCalledOnce();
   }
 );
 
-test.stable('opens the native backup picker from the shared choose-file button', () => {
-  const value = model();
+test.stable(
+  'opens the native backup picker from the shared choose-file button',
+  ({ render, within, screen, vi, expect, fireEvent }) => {
+    const value = model({ vi });
 
-  value.state.preview = undefined;
-  supply(value);
-  test.render(<DataSettings />);
-  const input = test
-    .within(test.screen.getByRole('group', { name: 'DataImport' }))
-    .getByLabelText('DataImport') as HTMLInputElement;
-  const choose = test.vi.spyOn(input, 'click').mockImplementation(() => {});
+    value.state.preview = undefined;
+    supply({ vi }, value);
+    render(<DataSettings />);
+    const input = within(screen.getByRole('group', { name: 'DataImport' })).getByLabelText(
+      'DataImport'
+    ) as HTMLInputElement;
+    const choose = vi.spyOn(input, 'click').mockImplementation(() => {});
 
-  test.expect(input).toHaveAttribute('accept', '.studybackup');
-  test.expect(input).toHaveAttribute('tabindex', '-1');
-  test.fireEvent.click(test.screen.getByRole('button', { name: 'DataChooseFile' }));
-  test.expect(choose).toHaveBeenCalledOnce();
-  test.expect(value.owner.importFile).not.toHaveBeenCalled();
-});
+    expect(input).toHaveAttribute('accept', '.studybackup');
+    expect(input).toHaveAttribute('tabindex', '-1');
+    fireEvent.click(screen.getByRole('button', { name: 'DataChooseFile' }));
+    expect(choose).toHaveBeenCalledOnce();
+    expect(value.owner.importFile).not.toHaveBeenCalled();
+  }
+);
 
-test.stable('does not replay a retained receipt as inline operation feedback', () => {
-  const value = model();
+test.stable(
+  'does not replay a retained receipt as inline operation feedback',
+  ({ render, expect, screen, vi }) => {
+    const value = model({ vi });
 
-  value.state.preview = undefined;
-  value.state.submitted = { kind: 'create' };
-  value.state.receipt = backup;
-  supply(value);
-  test.render(<DataSettings />);
-  test.expect(test.screen.queryByText('DataBackupCreated')).toBeNull();
-  test.expect(test.screen.queryByText('DataSubmitted')).toBeNull();
-  test.expect(test.screen.queryByText('DataReceipt')).toBeNull();
-  test.expect(test.screen.queryByText(id)).toBeNull();
-  test.expect(test.screen.queryByText('workspace.details')).toBeNull();
-});
+    value.state.preview = undefined;
+    value.state.submitted = { kind: 'create' };
+    value.state.receipt = backup;
+    supply({ vi }, value);
+    render(<DataSettings />);
+    expect(screen.queryByText('DataBackupCreated')).toBeNull();
+    expect(screen.queryByText('DataSubmitted')).toBeNull();
+    expect(screen.queryByText('DataReceipt')).toBeNull();
+    expect(screen.queryByText(id)).toBeNull();
+    expect(screen.queryByText('workspace.details')).toBeNull();
+  }
+);
 
 test.stable(
   'keeps the exact restore review visible while pending and closes only after its committed receipt',
-  async () => {
-    const value = model();
+  async ({ vi, render, screen, fireEvent, expect, act, waitFor }) => {
+    const value = model({ vi });
     const reviewed = value.state.preview!;
     let finish!: () => void;
 
-    test.vi.mocked(value.owner.accept).mockImplementation(
+    vi.mocked(value.owner.accept).mockImplementation(
       () =>
         new Promise<void>((resolve) => {
           finish = resolve;
         })
     );
-    test.vi.spyOn(value.owner, 'snapshot').mockImplementation(() => value.state);
-    supply(value);
-    const view = test.render(<DataSettings />);
-    const confirm = test.screen.getByRole('button', { name: 'DataAccept' });
+    vi.spyOn(value.owner, 'snapshot').mockImplementation(() => value.state);
+    supply({ vi }, value);
+    const view = render(<DataSettings />);
+    const confirm = screen.getByRole('button', { name: 'DataAccept' });
 
-    test.fireEvent.click(confirm);
-    test.expect(value.owner.accept).not.toHaveBeenCalled();
-    test.fireEvent.change(
-      test.screen.getByRole('textbox', { name: 'DataRestoreConfirmationInstruction' }),
-      {
-        target: { value: 'DataRestoreConfirmationWord' }
-      }
-    );
-    test.fireEvent.click(confirm);
-    test.expect(value.owner.accept).toHaveBeenCalledExactlyOnceWith(reviewed);
+    fireEvent.click(confirm);
+    expect(value.owner.accept).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByRole('textbox', { name: 'DataRestoreConfirmationInstruction' }), {
+      target: { value: 'DataRestoreConfirmationWord' }
+    });
+    fireEvent.click(confirm);
+    expect(value.owner.accept).toHaveBeenCalledExactlyOnceWith(reviewed);
     value.state = { ...value.state, busy: true, preview: undefined };
-    supply(value);
+    supply({ vi }, value);
     view.rerender(<DataSettings />);
-    test.expect(test.screen.getByRole('alertdialog', { name: 'DataPreview' })).toBeVisible();
-    test.expect(test.screen.getByRole('table')).toBeVisible();
-    test.expect(test.screen.getByRole('textbox')).toBeDisabled();
-    test.expect(test.screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    expect(screen.getByRole('alertdialog', { name: 'DataPreview' })).toBeVisible();
+    expect(screen.getByRole('table')).toBeVisible();
+    expect(screen.getByRole('textbox')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
     value.state = {
       ...value.state,
       busy: false,
       receipt: { state: 'restart-required', backupId: id, recoveryCopy: false }
     };
-    supply(value);
-    await test.act(async () => finish());
+    supply({ vi }, value);
+    await act(async () => finish());
     view.rerender(<DataSettings />);
-    await test.waitFor(() => test.expect(test.screen.queryByRole('alertdialog')).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
   }
 );
 
 test.stable(
   'keeps an uncertain restore visible and fenced until the user returns to recovery',
-  async () => {
-    const value = model();
+  async ({ vi, render, fireEvent, screen, act, expect, within }) => {
+    const value = model({ vi });
     let finish!: () => void;
 
-    test.vi.mocked(value.owner.accept).mockImplementation(
+    vi.mocked(value.owner.accept).mockImplementation(
       () =>
         new Promise<void>((resolve) => {
           finish = resolve;
         })
     );
-    test.vi.spyOn(value.owner, 'snapshot').mockImplementation(() => value.state);
-    supply(value);
-    const view = test.render(<DataSettings />);
+    vi.spyOn(value.owner, 'snapshot').mockImplementation(() => value.state);
+    supply({ vi }, value);
+    const view = render(<DataSettings />);
 
-    test.fireEvent.change(
-      test.screen.getByRole('textbox', { name: 'DataRestoreConfirmationInstruction' }),
-      {
-        target: { value: 'DataRestoreConfirmationWord' }
-      }
-    );
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'DataAccept' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'DataRestoreConfirmationInstruction' }), {
+      target: { value: 'DataRestoreConfirmationWord' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'DataAccept' }));
     value.state = { ...value.state, preview: undefined, uncertain: { kind: 'accept', id } };
-    supply(value);
-    await test.act(async () => finish());
+    supply({ vi }, value);
+    await act(async () => finish());
     view.rerender(<DataSettings />);
-    const dialog = test.screen.getByRole('alertdialog', { name: 'DataPreview' });
+    const dialog = screen.getByRole('alertdialog', { name: 'DataPreview' });
 
-    test.expect(test.within(dialog).getByText('DataUncertain')).toBeVisible();
-    test.expect(test.within(dialog).getByRole('button', { name: 'DataAccept' })).toBeDisabled();
-    test.expect(test.within(dialog).getByRole('button', { name: 'Cancel' })).toBeEnabled();
+    expect(within(dialog).getByText('DataUncertain')).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: 'DataAccept' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeEnabled();
   }
 );
 
 test.stable(
   'keeps deletion pending until a new receipt for the exact selected backup is confirmed',
-  async () => {
-    const value = model();
+  async ({ vi, render, fireEvent, screen, within, expect, act, waitFor }) => {
+    const value = model({ vi });
 
     value.state.preview = undefined;
     let finish!: () => void;
 
-    test.vi.mocked(value.owner.delete).mockImplementation(
+    vi.mocked(value.owner.delete).mockImplementation(
       () =>
         new Promise<void>((resolve) => {
           finish = resolve;
         })
     );
-    test.vi.spyOn(value.owner, 'snapshot').mockImplementation(() => value.state);
-    supply(value);
-    const view = test.render(<DataSettings />);
+    vi.spyOn(value.owner, 'snapshot').mockImplementation(() => value.state);
+    supply({ vi }, value);
+    const view = render(<DataSettings />);
 
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'DataDelete' }));
-    const dialog = test.screen.getByRole('alertdialog');
+    fireEvent.click(screen.getByRole('button', { name: 'DataDelete' }));
+    const dialog = screen.getByRole('alertdialog');
 
-    test.fireEvent.click(test.within(dialog).getByRole('button', { name: 'DataDelete' }));
-    test.expect(value.owner.delete).not.toHaveBeenCalled();
-    test.fireEvent.change(test.within(dialog).getByRole('textbox'), {
+    fireEvent.click(within(dialog).getByRole('button', { name: 'DataDelete' }));
+    expect(value.owner.delete).not.toHaveBeenCalled();
+    fireEvent.change(within(dialog).getByRole('textbox'), {
       target: { value: 'DeleteConfirmationWord' }
     });
-    test.fireEvent.click(test.within(dialog).getByRole('button', { name: 'DataDelete' }));
-    test.expect(value.owner.delete).toHaveBeenCalledExactlyOnceWith(id);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'DataDelete' }));
+    expect(value.owner.delete).toHaveBeenCalledExactlyOnceWith(id);
     value.state = { ...value.state, busy: true };
-    supply(value);
+    supply({ vi }, value);
     view.rerender(<DataSettings />);
-    test.expect(test.screen.getByRole('alertdialog')).toBeVisible();
-    test.expect(test.screen.getByRole('textbox')).toBeDisabled();
+    expect(screen.getByRole('alertdialog')).toBeVisible();
+    expect(screen.getByRole('textbox')).toBeDisabled();
     value.state = {
       ...value.state,
       busy: false,
       submitted: { kind: 'delete', id },
       receipt: { completed: true }
     };
-    supply(value);
-    await test.act(async () => finish());
+    supply({ vi }, value);
+    await act(async () => finish());
     view.rerender(<DataSettings />);
-    await test.waitFor(() => test.expect(test.screen.queryByRole('alertdialog')).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
   }
 );

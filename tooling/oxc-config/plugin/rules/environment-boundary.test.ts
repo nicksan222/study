@@ -2,34 +2,47 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable('rejects process.env reads outside startup configuration', async () => {
-  const diagnostics = await lintRule(
-    'environment-boundary',
-    { 'src/domain.ts': 'const key = process.env.KEY;' },
-    false
-  );
+test.stable(
+  'rejects process.env reads outside startup configuration',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-});
+    const diagnostics = await lintRule(
+      { assert },
+      'environment-boundary',
+      { 'src/domain.ts': 'const key = process.env.KEY;' },
+      false
+    );
 
-test.stable('recognizes aliases and destructuring without confusing shadowed process', async () => {
-  const diagnostics = await lintRule('environment-boundary', {
-    'src/a.ts': `const p = process;
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  }
+);
+
+test.stable(
+  'recognizes aliases and destructuring without confusing shadowed process',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'environment-boundary', {
+      'src/a.ts': `const p = process;
  const { env } = p;
  const value = p['env'].KEY;
  function f(process: any) { return process.env.KEY;
  }`,
-    'src/runtime/config.ts': 'const value = process.env.KEY;',
-    'src/a.test.ts': 'const value = process.env.KEY;'
-  });
+      'src/runtime/config.ts': 'const value = process.env.KEY;',
+      'src/a.test.ts': 'const value = process.env.KEY;'
+    });
 
-  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  }
+);
 
 test.stable(
   'traces process imports, global aliases and nested destructuring at startup boundaries',
-  async () => {
-    const diagnostics = await lintRule('environment-boundary', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'environment-boundary', {
       'src/a.ts': `import proc, { env as vars } from 'node:process';
 const p = globalThis.process;
 const { env: { KEY } } = p;
@@ -41,6 +54,6 @@ function f(globalThis: any) { return globalThis.process.env.X;
       'src/runtime/main.ts': 'const x = process.env.X;'
     });
 
-    test.assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
   }
 );

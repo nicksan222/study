@@ -38,70 +38,85 @@ const quiz = (
   questions: Extract<MaterialContentInput, { kind: 'quiz' }>['questions']
 ): MaterialContentInput => ({ kind: 'quiz', questions });
 
-test.stable('generation validates exact counts and every question kind and choice count', () => {
-  test.assert.doesNotThrow(() => assertQuizConfig(config, quiz([open, choice])));
-  test.assert.doesNotThrow(() =>
-    assertQuizConfig({ ...config, questionKind: 'open' }, quiz([open, open]))
-  );
-  test.assert.doesNotThrow(() =>
-    assertQuizConfig(
-      { ...config, questionKind: 'choice' },
-      quiz([choice, { ...choice, kind: 'multiple_choice' }])
-    )
-  );
-  test.assert.throws(() => assertQuizConfig(config, quiz([open])));
-  test.assert.throws(() =>
-    assertQuizConfig(config, { kind: 'flashcards', cards: [{ front: 'Q', back: 'A' }] })
-  );
-  test.assert.throws(() =>
-    assertQuizConfig({ ...config, questionKind: 'open' }, quiz([open, choice]))
-  );
-  test.assert.throws(() =>
-    assertQuizConfig({ ...config, questionKind: 'choice' }, quiz([choice, open]))
-  );
-  test.assert.throws(() =>
-    assertQuizConfig(
-      config,
-      quiz([choice, { ...choice, choices: [...choice.choices, { text: 'C', isCorrect: false }] }])
-    )
-  );
-  test.assert.doesNotThrow(() => assertQuizConfig(undefined, quiz([choice])));
-});
+test.stable(
+  'generation validates exact counts and every question kind and choice count',
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-test.stable('blank-only generation rejects other kinds and ignores the choice count', () => {
-  const blank = { ...open, kind: 'fill_blank' as const, prompt: 'A prime has ____ divisors.' };
-  const blanks = { ...config, questionKind: 'fill_blank' as const };
+    assert.doesNotThrow(() => assertQuizConfig(config, quiz([open, choice])));
+    assert.doesNotThrow(() =>
+      assertQuizConfig({ ...config, questionKind: 'open' }, quiz([open, open]))
+    );
+    assert.doesNotThrow(() =>
+      assertQuizConfig(
+        { ...config, questionKind: 'choice' },
+        quiz([choice, { ...choice, kind: 'multiple_choice' }])
+      )
+    );
+    assert.throws(() => assertQuizConfig(config, quiz([open])));
+    assert.throws(() =>
+      assertQuizConfig(config, { kind: 'flashcards', cards: [{ front: 'Q', back: 'A' }] })
+    );
+    assert.throws(() =>
+      assertQuizConfig({ ...config, questionKind: 'open' }, quiz([open, choice]))
+    );
+    assert.throws(() =>
+      assertQuizConfig({ ...config, questionKind: 'choice' }, quiz([choice, open]))
+    );
+    assert.throws(() =>
+      assertQuizConfig(
+        config,
+        quiz([choice, { ...choice, choices: [...choice.choices, { text: 'C', isCorrect: false }] }])
+      )
+    );
+    assert.doesNotThrow(() => assertQuizConfig(undefined, quiz([choice])));
+  }
+);
 
-  test.assert.doesNotThrow(() => assertQuizConfig(blanks, quiz([blank, blank])));
-  test.assert.doesNotThrow(() => assertQuizConfig(config, quiz([blank, choice])));
-  test.assert.throws(() => assertQuizConfig(blanks, quiz([blank, open])));
-  test.assert.throws(() =>
-    assertQuizConfig({ ...config, questionKind: 'open' }, quiz([blank, open]))
-  );
-  test.assert.throws(() =>
-    assertQuizConfig({ ...config, questionKind: 'choice' }, quiz([blank, choice]))
-  );
-});
+test.stable(
+  'blank-only generation rejects other kinds and ignores the choice count',
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-test.stable('ordering-only generation enforces exact kind and count without choice options', () => {
-  const ordering = {
-    kind: 'ordering' as const,
-    prompt: 'Order',
-    explanation: 'E',
-    items: [{ text: 'A' }, { text: 'B' }]
-  };
-  const settings = { ...config, questionKind: 'ordering' as const };
+    const blank = { ...open, kind: 'fill_blank' as const, prompt: 'A prime has ____ divisors.' };
+    const blanks = { ...config, questionKind: 'fill_blank' as const };
 
-  test.assert.doesNotThrow(() => assertQuizConfig(settings, quiz([ordering, ordering])));
-  test.assert.throws(() => assertQuizConfig(settings, quiz([ordering, open])));
-  test.assert.throws(() => assertQuizConfig(settings, quiz([ordering])));
-  test.assert.throws(() =>
-    assertQuizConfig({ ...config, questionKind: 'choice' }, quiz([ordering, choice]))
-  );
-});
+    assert.doesNotThrow(() => assertQuizConfig(blanks, quiz([blank, blank])));
+    assert.doesNotThrow(() => assertQuizConfig(config, quiz([blank, choice])));
+    assert.throws(() => assertQuizConfig(blanks, quiz([blank, open])));
+    assert.throws(() => assertQuizConfig({ ...config, questionKind: 'open' }, quiz([blank, open])));
+    assert.throws(() =>
+      assertQuizConfig({ ...config, questionKind: 'choice' }, quiz([blank, choice]))
+    );
+  }
+);
+
+test.stable(
+  'ordering-only generation enforces exact kind and count without choice options',
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const ordering = {
+      kind: 'ordering' as const,
+      prompt: 'Order',
+      explanation: 'E',
+      items: [{ text: 'A' }, { text: 'B' }]
+    };
+    const settings = { ...config, questionKind: 'ordering' as const };
+
+    assert.doesNotThrow(() => assertQuizConfig(settings, quiz([ordering, ordering])));
+    assert.throws(() => assertQuizConfig(settings, quiz([ordering, open])));
+    assert.throws(() => assertQuizConfig(settings, quiz([ordering])));
+    assert.throws(() =>
+      assertQuizConfig({ ...config, questionKind: 'choice' }, quiz([ordering, choice]))
+    );
+  }
+);
 test.stable(
   'matching-only generation preserves exact question counts and excludes other kinds',
-  () => {
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const matching = {
       kind: 'matching' as const,
       prompt: 'Match',
@@ -113,10 +128,10 @@ test.stable(
     };
     const configured = { ...config, questionKind: 'matching' as const };
 
-    test.assert.doesNotThrow(() => assertQuizConfig(configured, quiz([matching, matching])));
-    test.assert.throws(() => assertQuizConfig(configured, quiz([matching])));
-    test.assert.throws(() => assertQuizConfig(configured, quiz([matching, open])));
-    test.assert.throws(() =>
+    assert.doesNotThrow(() => assertQuizConfig(configured, quiz([matching, matching])));
+    assert.throws(() => assertQuizConfig(configured, quiz([matching])));
+    assert.throws(() => assertQuizConfig(configured, quiz([matching, open])));
+    assert.throws(() =>
       assertQuizConfig({ ...config, questionKind: 'choice' }, quiz([matching, choice]))
     );
   }
@@ -124,7 +139,9 @@ test.stable(
 
 test.stable(
   'boolean generation enforces its exact kind and count independently of choice preferences',
-  () => {
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const question = {
       kind: 'true_false' as const,
       prompt: 'ATP carries energy.',
@@ -132,14 +149,14 @@ test.stable(
       isTrue: true
     };
 
-    test.assert.throws(() => assertQuestionSpec({ count: 1, kind: 'choice' }, quiz([question])));
-    test.assert.throws(() => assertQuestionSpec({ count: 1, kind: 'open' }, quiz([question])));
+    assert.throws(() => assertQuestionSpec({ count: 1, kind: 'choice' }, quiz([question])));
+    assert.throws(() => assertQuestionSpec({ count: 1, kind: 'open' }, quiz([question])));
     const booleanConfig = { ...config, questionKind: 'true_false' as const, choiceCount: 6 };
 
-    test.assert.doesNotThrow(() => assertQuizConfig(booleanConfig, quiz([question, question])));
-    test.assert.throws(() => assertQuizConfig(booleanConfig, quiz([question])));
-    test.assert.throws(() => assertQuizConfig(booleanConfig, quiz([question, choice])));
-    test.assert.throws(() =>
+    assert.doesNotThrow(() => assertQuizConfig(booleanConfig, quiz([question, question])));
+    assert.throws(() => assertQuizConfig(booleanConfig, quiz([question])));
+    assert.throws(() => assertQuizConfig(booleanConfig, quiz([question, choice])));
+    assert.throws(() =>
       assertQuizConfig({ ...config, questionKind: 'choice' }, quiz([question, question]))
     );
   }

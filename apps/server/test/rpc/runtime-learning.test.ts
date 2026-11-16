@@ -31,7 +31,9 @@ for (const accountState of ['signed-out', 'not-shared'] as const)
   test.stable(
     `an RPC open answer waits durably when ${accountState} and keeps a manual grade`,
     { timeout: 10000 },
-    async ({ resources: location }) => {
+    async ({ resources: location, pollUntil, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+
       if (accountState === 'not-shared') {
         const context = new ServerContext(await location.openDb());
 
@@ -89,7 +91,7 @@ for (const accountState of ['signed-out', 'not-shared'] as const)
                 questionId,
                 answer: { type: 'open', answer: 'Mitochondria' }
               });
-              yield* test.pollUntil(
+              yield* pollUntil(
                 Effect.sync(
                   () =>
                     app.store.db.orm.all(sql`SELECT * FROM workflow_configuration_waits`).length ===
@@ -110,9 +112,9 @@ for (const accountState of ['signed-out', 'not-shared'] as const)
               });
               const completed = yield* client['learning.finishQuiz']({ attemptId: attempt.id });
 
-              test.assert.ok(completed.status === 'completed');
-              test.assert.strictEqual(completed.questions[0]?.score, 1);
-              test.assert.ok(completed.questions[0]?.feedback === 'Reviewed manually');
+              assert.ok(completed.status === 'completed');
+              assert.strictEqual(completed.questions[0]?.score, 1);
+              assert.ok(completed.questions[0]?.feedback === 'Reviewed manually');
             })
           )
         );

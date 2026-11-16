@@ -34,7 +34,9 @@ import { pageTransformFixture } from '#testing/page-transform';
 for (const action of ['apply', 'keep'] as const)
   test.stable(
     `completed proposal ${action} receipt replays after restore while a new key retains normal proposal validation`,
-    async ({ databases }) => {
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
       const source = await pageTransformFixture(databases);
 
       let target: Awaited<ReturnType<typeof restoreSnapshot>> | undefined;
@@ -54,7 +56,7 @@ for (const action of ['apply', 'keep'] as const)
               document: backupPage('Target body')
             });
 
-            test.assert.ok(document.version);
+            assert.ok(document.version);
             const note = yield* c.createUntitledNote({});
 
             yield* m.attach({ noteId: note.id, pageId: document.id });
@@ -114,7 +116,7 @@ for (const action of ['apply', 'keep'] as const)
           ).pipe(Effect.provide(source.domain()))
         );
 
-        test.assert.ok(outcome.resultVersionId !== null);
+        assert.ok(outcome.resultVersionId !== null);
 
         const bytes = await exportSnapshot(source.context.db);
 
@@ -131,26 +133,24 @@ for (const action of ['apply', 'keep'] as const)
           action === 'apply' ? c.applyPageProposal(input) : c.keepPageProposal(input)
         );
 
-        test.expect(replay).toStrictEqual({ ...outcome, replayed: true });
-        test.assert.strictEqual(
+        expect(replay).toStrictEqual({ ...outcome, replayed: true });
+        assert.strictEqual(
           (await app.nativeRuntime.runPromise(m.version({ id: outcome.resultVersionId }))).id,
           outcome.resultVersionId
         );
-        test.assert.strictEqual(
+        assert.strictEqual(
           (await app.nativeRuntime.runPromise(m.version({ id: proposed }))).id,
           proposed
         );
-        test
-          .expect(
-            await app.nativeRuntime.runPromise(
-              c.inspectNoteContext({ requestId: saved.capture.requestId })
-            )
+        expect(
+          await app.nativeRuntime.runPromise(
+            c.inspectNoteContext({ requestId: saved.capture.requestId })
           )
-          .toStrictEqual(saved.capture);
+        ).toStrictEqual(saved.capture);
 
         const late = { ...input, key: 'new-action' };
 
-        test.assert.ok(
+        assert.ok(
           (
             await app.nativeRuntime.runPromise(
               Effect.flip(action === 'apply' ? c.applyPageProposal(late) : c.keepPageProposal(late))
@@ -162,7 +162,7 @@ for (const action of ['apply', 'keep'] as const)
 
         await app.workers.start();
         await app.workers.stop();
-        test.expect(app.store.db.orm.select().from(s.page_versions).all()).toStrictEqual(before);
+        expect(app.store.db.orm.select().from(s.page_versions).all()).toStrictEqual(before);
       } finally {
         await target?.close();
         await source.close();
@@ -172,7 +172,9 @@ for (const action of ['apply', 'keep'] as const)
 
 test.stable(
   'pending generation, practice and open-answer grading remain admitted after import',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const source = await backupFixture();
 
     let target: Awaited<ReturnType<typeof restoreSnapshot>> | undefined;
@@ -227,7 +229,7 @@ test.stable(
 
           const question = source.app.store.db.orm.select().from(s.material_quiz_questions).get();
 
-          test.assert.ok(question);
+          assert.ok(question);
           yield* learning.answerQuestion({
             attemptId: attempt.id,
             questionId: question.id,
@@ -253,36 +255,36 @@ test.stable(
         m.materialGeneration({ requestId: saved.generation.id, verifyOnly: true })
       );
 
-      test.assert.ok(generation.cancelled === false);
-      test.assert.ok(generation.resultVersionId === null);
+      assert.ok(generation.cancelled === false);
+      assert.ok(generation.resultVersionId === null);
 
       const learning = await app.nativeRuntime.runPromise(Learning);
 
-      test.assert.ok(
+      assert.ok(
         (await app.nativeRuntime.runPromise(learning.practice({ projectId: saved.project.id })))
           .enabled === true
       );
-      test.assert.ok(
+      assert.ok(
         app.store.db.orm
           .select()
           .from(s.learning_practice_slots)
           .all()
           .some((slot) => slot.status === 'pending')
       );
-      test
-        .expect(app.store.db.orm.select().from(s.material_quiz_responses).all())
-        .toStrictEqual(attempts);
-      test.assert.strictEqual(
+      expect(app.store.db.orm.select().from(s.material_quiz_responses).all()).toStrictEqual(
+        attempts
+      );
+      assert.strictEqual(
         (await app.nativeRuntime.runPromise(m.materialVersion({ id: saved.quiz.version.id }))).id,
         saved.quiz.version.id
       );
       await app.workers.start();
       await app.workers.stop();
-      test.assert.ok(app.store.db.orm.select().from(s.workflow_executions).all().length > 0);
-      test.expect(target.requests).toStrictEqual([]);
-      test
-        .expect(app.store.db.orm.select().from(s.material_quiz_responses).all())
-        .toStrictEqual(attempts);
+      assert.ok(app.store.db.orm.select().from(s.workflow_executions).all().length > 0);
+      expect(target.requests).toStrictEqual([]);
+      expect(app.store.db.orm.select().from(s.material_quiz_responses).all()).toStrictEqual(
+        attempts
+      );
 
       const fresh = await app.nativeRuntime.runPromise(
         learning.startPractice({
@@ -291,8 +293,8 @@ test.stable(
         })
       );
 
-      test.assert.ok(fresh.enabled === true);
-      test.assert.strictEqual(fresh.epoch, saved.practice.epoch);
+      assert.ok(fresh.enabled === true);
+      assert.strictEqual(fresh.epoch, saved.practice.epoch);
     } finally {
       await target?.close();
       await source.close();
@@ -302,7 +304,9 @@ test.stable(
 
 test.stable(
   'pending source correction retains completed extraction and durable outbox intent',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const source = await pageTransformFixture(databases);
 
     let target: Awaited<ReturnType<typeof restoreSnapshot>> | undefined;
@@ -318,7 +322,7 @@ test.stable(
         ).pipe(Effect.provide(source.domain()))
       );
 
-      const completed = await processSource(source);
+      const completed = await processSource(source, assert);
 
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -342,7 +346,7 @@ test.stable(
         .all()
         .find((event) => event.type === 'SourceCorrectionRequested');
 
-      test.assert.ok(pending);
+      assert.ok(pending);
       const bytes = await exportSnapshot(source.context.db);
 
       await source.close();
@@ -352,16 +356,16 @@ test.stable(
 
       const before = app.store.db.orm.select().from(s.content_snapshots).all();
 
-      test
-        .expect(app.store.db.orm.select().from(s.workflowEvents).all())
-        .toEqual(test.expect.arrayContaining([pending]));
+      expect(app.store.db.orm.select().from(s.workflowEvents).all()).toEqual(
+        expect.arrayContaining([pending])
+      );
 
-      test.assert.ok(before.some((row) => row.id === completed.documentId));
+      assert.ok(before.some((row) => row.id === completed.documentId));
       await app.workers.start();
       await app.workers.stop();
-      test.expect(app.store.db.orm.select().from(s.content_snapshots).all()).toStrictEqual(before);
-      test.expect(target.requests).toStrictEqual([]);
-      test.assert.ok(
+      expect(app.store.db.orm.select().from(s.content_snapshots).all()).toStrictEqual(before);
+      expect(target.requests).toStrictEqual([]);
+      assert.ok(
         app.store.db.orm
           .select()
           .from(s.workflow_executions)

@@ -20,15 +20,19 @@ import * as schema from '@study/db';
 import { test } from '@study/testing';
 import { Effect, Option, Schema } from 'effect';
 
-function failureKind(error: unknown) {
-  test.assert.ok(error && typeof error === 'object' && 'kind' in error);
+function failureKind({ assert: assertions }: Pick<test.Context, 'assert'>, error: unknown) {
+  const assert: test.Assert = assertions;
+
+  assert.ok(error && typeof error === 'object' && 'kind' in error);
 
   return error.kind;
 }
 
 test.stable(
   'native HTTP RPC preserves int64 IDs, bytes, typed failures and settings',
-  async ({ rpc }) => {
+  async ({ rpc, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const large = Schema.decodeUnknownSync(projectIdSchema)(9007199254740993n);
 
     rpc.app.store.db.orm
@@ -39,20 +43,21 @@ test.stable(
       Effect.gen(function* () {
         const client = rpc.client;
 
-        test.assert.strictEqual(
-          (yield* client['projects.projects']({ limit: 10 })).items[0]?.id,
-          large
-        );
+        assert.strictEqual((yield* client['projects.projects']({ limit: 10 })).items[0]?.id, large);
         const absent = Schema.decodeUnknownSync(projectIdSchema)(9223372036854775807n);
 
-        test.assert.ok(Option.isNone(yield* client['projects.findProject']({ id: absent })));
-        test.assert.ok(
-          failureKind(yield* Effect.flip(client['projects.project']({ id: absent }))) ===
-            'not_found'
+        assert.ok(Option.isNone(yield* client['projects.findProject']({ id: absent })));
+        assert.ok(
+          failureKind(
+            { assert },
+            yield* Effect.flip(client['projects.project']({ id: absent }))
+          ) === 'not_found'
         );
-        test.assert.ok(
-          failureKind(yield* Effect.flip(client['projects.createProject']({ name: '' }))) ===
-            'invalid_input'
+        assert.ok(
+          failureKind(
+            { assert },
+            yield* Effect.flip(client['projects.createProject']({ name: '' }))
+          ) === 'invalid_input'
         );
         const source = yield* client['sources.createSource']({
           name: 'hello.txt',
@@ -60,9 +65,9 @@ test.stable(
           projectId: large
         });
 
-        test.assert.strictEqual(source.projectId, large);
-        test.assert.ok(source.sha256 instanceof Uint8Array);
-        test.expect(yield* client['sources.source']({ id: source.id })).toStrictEqual(source);
+        assert.strictEqual(source.projectId, large);
+        assert.ok(source.sha256 instanceof Uint8Array);
+        expect(yield* client['sources.source']({ id: source.id })).toStrictEqual(source);
         const settings = {
           language: Language.ITALIAN,
           appearance: Appearance.LIGHT,
@@ -71,14 +76,15 @@ test.stable(
         };
 
         yield* client['settings.saveAppSettings'](settings);
-        test.expect(yield* client['settings.appSettings']({})).toStrictEqual(settings);
-        test.assert.strictEqual(yield* client['auth.publicAccount']({}), undefined);
-        test.assert.strictEqual(
+        expect(yield* client['settings.appSettings']({})).toStrictEqual(settings);
+        assert.strictEqual(yield* client['auth.publicAccount']({}), undefined);
+        assert.strictEqual(
           yield* client['projects.setExam']({ id: large, examOn: '2028-02-29' }),
           true
         );
-        test.assert.ok(
+        assert.ok(
           failureKind(
+            { assert },
             yield* Effect.flip(client['projects.setExam']({ id: large, examOn: '2026-02-29' }))
           ) === 'invalid_input'
         );
@@ -88,13 +94,15 @@ test.stable(
       bytes: Uint8Array;
     };
 
-    test.expect(snapshot.bytes).toStrictEqual(new TextEncoder().encode('hello'));
+    expect(snapshot.bytes).toStrictEqual(new TextEncoder().encode('hello'));
   }
 );
 
 test.stable(
   'native listener enforces browser origins and exposes the RPC endpoint',
-  async ({ rpc }) => {
+  async ({ rpc, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     for (const origin of [
       'tauri://localhost',
       'http://tauri.localhost',
@@ -110,8 +118,8 @@ test.stable(
         }
       });
 
-      test.assert.strictEqual(response.status, 204);
-      test.assert.strictEqual(response.headers.get('access-control-allow-origin'), origin);
+      assert.strictEqual(response.status, 204);
+      assert.strictEqual(response.headers.get('access-control-allow-origin'), origin);
     }
 
     const denied = await fetch(`${rpc.server.url}/rpc`, {
@@ -119,8 +127,8 @@ test.stable(
       headers: { origin: 'https://evil.example', 'access-control-request-method': 'POST' }
     });
 
-    test.assert.strictEqual(denied.status, 204);
-    test.assert.strictEqual(
+    assert.strictEqual(denied.status, 204);
+    assert.strictEqual(
       (
         await fetch(`${rpc.server.url}/rpc`, {
           method: 'POST',
@@ -129,8 +137,8 @@ test.stable(
       ).status,
       403
     );
-    test.assert.ok(denied.headers.get('access-control-allow-origin') === null);
-    test.assert.strictEqual(
+    assert.ok(denied.headers.get('access-control-allow-origin') === null);
+    assert.strictEqual(
       (await fetch(`${rpc.server.url}/api/listProjects`, { method: 'POST' })).status,
       404
     );
@@ -140,7 +148,9 @@ test.stable(
 test.stable(
   'closing the listener terminates an incomplete request and rejects new connections',
   { timeout: 5000 },
-  async ({ rpc }) => {
+  async ({ rpc, assert: assertions, withinTestDeadline, expect }) => {
+    const assert: test.Assert = assertions;
+
     const endpoint = new URL(rpc.server.url);
     let onClose!: () => void;
     const closed = new Promise<void>((resolve) => {
@@ -155,7 +165,7 @@ test.stable(
           onClose();
         },
         error(_socket, error) {
-          test.assert.ok('code' in error && error.code === 'ECONNRESET');
+          assert.ok('code' in error && error.code === 'ECONNRESET');
         }
       }
     });
@@ -165,8 +175,8 @@ test.stable(
         `POST /rpc HTTP/1.1\r\nHost: ${endpoint.host}\r\nContent-Type: application/json\r\nContent-Length: 1000000\r\n\r\n{`
       );
       await rpc.server.close();
-      await test.withinTestDeadline(closed);
-      await test.expect(fetch(`${rpc.server.url}/rpc`)).rejects.toSatisfy(() => true);
+      await withinTestDeadline(closed);
+      await expect(fetch(`${rpc.server.url}/rpc`)).rejects.toSatisfy(() => true);
     } finally {
       socket.end();
     }
@@ -175,7 +185,9 @@ test.stable(
 
 test.stable(
   'HTTP message attachments retain explicit source identity across collections',
-  async ({ rpc }) => {
+  async ({ rpc, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     await rpc.runPromise(
       Effect.gen(function* () {
         const client = rpc.client;
@@ -201,16 +213,16 @@ test.stable(
           sourceIds: [source.id]
         });
 
-        test.assert.strictEqual(message.parts[0]?.sourceId, source.id);
-        test.assert.ok(message.parts[0]?.sourceName === 'notes.txt');
+        assert.strictEqual(message.parts[0]?.sourceId, source.id);
+        assert.ok(message.parts[0]?.sourceName === 'notes.txt');
         const shared = yield* client['notes.postMessage']({
           noteId: note.id,
           text: '',
           sourceIds: [foreign.id]
         });
 
-        test.assert.strictEqual(shared.parts[0]?.sourceId, foreign.id);
-        test.assert.strictEqual(
+        assert.strictEqual(shared.parts[0]?.sourceId, foreign.id);
+        assert.strictEqual(
           (yield* client['notes.thread']({ noteId: note.id, limit: 10 })).items.length,
           2
         );

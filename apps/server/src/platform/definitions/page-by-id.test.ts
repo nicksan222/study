@@ -19,7 +19,7 @@ import { pageById } from '#server/platform/definitions/page-by-id';
 
 test.stable(
   'ID pages only probe full pages and never expose a cursor for the final page',
-  async () => {
+  async ({ expect }) => {
     const calls: { limit: number; before?: number }[] = [];
     const query = (input: { limit: number; before?: number }) =>
       Effect.sync(() => {
@@ -28,35 +28,37 @@ test.stable(
         return input.before === undefined ? [{ id: 3 }, { id: 2 }] : [{ id: 1 }];
       });
 
-    test.expect(await Effect.runPromise(pageById(query, { limit: 2 }))).toStrictEqual({
+    expect(await Effect.runPromise(pageById(query, { limit: 2 }))).toStrictEqual({
       items: [{ id: 3 }, { id: 2 }],
       next: 2
     });
-    test.expect(calls).toStrictEqual([{ limit: 2 }, { limit: 1, before: 2 }]);
+    expect(calls).toStrictEqual([{ limit: 2 }, { limit: 1, before: 2 }]);
     calls.length = 0;
-    test.expect(await Effect.runPromise(pageById(query, { limit: 2, before: 2 }))).toStrictEqual({
+    expect(await Effect.runPromise(pageById(query, { limit: 2, before: 2 }))).toStrictEqual({
       items: [{ id: 1 }],
       next: null
     });
-    test.expect(calls).toStrictEqual([{ limit: 2, before: 2 }]);
+    expect(calls).toStrictEqual([{ limit: 2, before: 2 }]);
 
     const terminal = ({ before }: { limit: number; before?: number }) =>
       Effect.succeed(before === undefined ? [{ id: 1 }] : []);
 
-    test.expect(await Effect.runPromise(pageById(terminal, { limit: 1 }))).toStrictEqual({
+    expect(await Effect.runPromise(pageById(terminal, { limit: 1 }))).toStrictEqual({
       items: [{ id: 1 }],
       next: null
     });
-    test
-      .expect(await Effect.runPromise(pageById(() => Effect.succeed([]), { limit: 1 })))
-      .toStrictEqual({
+    expect(await Effect.runPromise(pageById(() => Effect.succeed([]), { limit: 1 }))).toStrictEqual(
+      {
         items: [],
         next: null
-      });
+      }
+    );
   }
 );
 
-test.stable('ID pages preserve lookahead failures', async () => {
+test.stable('ID pages preserve lookahead failures', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const failure = { kind: 'transient' };
   const result = pageById(
     ({ before }: { limit: number; before?: number }) =>
@@ -64,5 +66,5 @@ test.stable('ID pages preserve lookahead failures', async () => {
     { limit: 1 }
   );
 
-  test.assert.strictEqual(await Effect.runPromise(Effect.flip(result)), failure);
+  assert.strictEqual(await Effect.runPromise(Effect.flip(result)), failure);
 });

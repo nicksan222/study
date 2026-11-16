@@ -33,30 +33,30 @@ test.beforeEach(async ({ mock }) => {
 
 test.stable(
   'announces only the confirmed operation and does not replay it on later discovery',
-  async () => {
+  async ({ vi, render, act, waitFor, expect }) => {
     const registry = AtomRegistry.make();
     const owner = dataOwner(registry);
-    const toast = test.vi.spyOn(toastManager, 'add').mockReturnValue('receipt');
+    const toast = vi.spyOn(toastManager, 'add').mockReturnValue('receipt');
 
-    test.render(
+    render(
       <RegistryContext.Provider value={registry}>
         <BackupNotifications />
       </RegistryContext.Provider>
     );
-    await test.act(async () => {
+    await act(async () => {
       await owner.refresh();
       await owner.discard();
     });
-    await test.waitFor(() =>
-      test.expect(toast).toHaveBeenCalledExactlyOnceWith({
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledExactlyOnceWith({
         title: 'DataRecoveryDiscarded',
         type: 'success'
       })
     );
-    await test.act(async () => {
+    await act(async () => {
       await owner.refresh();
     });
-    test.expect(toast).toHaveBeenCalledTimes(1);
+    expect(toast).toHaveBeenCalledTimes(1);
     registry.dispose();
   }
 );

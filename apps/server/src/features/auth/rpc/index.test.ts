@@ -27,63 +27,66 @@ import { testLiveQueries } from '#testing/live-queries';
 
 import { AuthRpcLive } from './index.ts';
 
-test.stable('auth RPC exposes only public account and operations', async ({ databases }) => {
-  const location = await databases();
-  const context = new ServerContext(await location.open());
+test.stable(
+  'auth RPC exposes only public account and operations',
+  async ({ databases, expect }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
 
-  context.db.orm
-    .insert(preferences)
-    .values({
-      scope: 'private.chatgpt',
-      key: 'account',
-      value: JSON.stringify({
-        subject: 'person',
-        clientId: 'private-client',
-        refreshToken: 'private-token',
-        sharing: true
+    context.db.orm
+      .insert(preferences)
+      .values({
+        scope: 'private.chatgpt',
+        key: 'account',
+        value: JSON.stringify({
+          subject: 'person',
+          clientId: 'private-client',
+          refreshToken: 'private-token',
+          sharing: true
+        })
       })
-    })
-    .run();
-  const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
-  const handlers = AuthRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
-    Layer.provide(Auth.layer),
-    Layer.provideMerge(
-      Layer.merge(
-        Layer.succeed(Database, { store: context }),
-        Layer.succeed(ChatGptSession, { manager, issuer: 'http://localhost', hostId: 'test' })
-      )
-    )
-  );
-
-  try {
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const client = yield* RpcTest.makeClient(AuthRpc, { flatten: true });
-
-          test.expect(yield* client('auth.publicAccount', {})).toStrictEqual({
-            subject: 'person',
-            email: undefined,
-            sharing: true
-          });
-          test.expect(yield* client('auth.status', {})).toStrictEqual({
-            signedIn: true,
-            email: null,
-            sharing: true
-          });
-          yield* client('auth.saveApiKey', { provider: 'anthropic', apiKey: 'rpc-secret' });
-          const providers = yield* client('auth.providers', {});
-
-          test
-            .expect(providers.find((provider) => provider.id === 'anthropic')?.configured)
-            .toBe(true);
-          test.expect(JSON.stringify(providers)).not.toContain('rpc-secret');
-        }).pipe(Effect.provide(handlers))
+      .run();
+    const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
+    const handlers = AuthRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
+      Layer.provide(Auth.layer),
+      Layer.provideMerge(
+        Layer.merge(
+          Layer.succeed(Database, { store: context }),
+          Layer.succeed(ChatGptSession, { manager, issuer: 'http://localhost', hostId: 'test' })
+        )
       )
     );
-  } finally {
-    await manager.dispose();
-    context.close();
-    await location.cleanup();
+
+    try {
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const client = yield* RpcTest.makeClient(AuthRpc, { flatten: true });
+
+            expect(yield* client('auth.publicAccount', {})).toStrictEqual({
+              subject: 'person',
+              email: undefined,
+              sharing: true
+            });
+            expect(yield* client('auth.status', {})).toStrictEqual({
+              signedIn: true,
+              email: null,
+              sharing: true
+            });
+            yield* client('auth.saveApiKey', { provider: 'anthropic', apiKey: 'rpc-secret' });
+            const providers = yield* client('auth.providers', {});
+
+            expect(providers.find((provider) => provider.id === 'anthropic')?.configured).toBe(
+              true
+            );
+            expect(JSON.stringify(providers)).not.toContain('rpc-secret');
+          }).pipe(Effect.provide(handlers))
+        )
+      );
+    } finally {
+      await manager.dispose();
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);

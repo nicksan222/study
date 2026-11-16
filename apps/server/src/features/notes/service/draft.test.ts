@@ -24,7 +24,9 @@ import { Notes } from './index.ts';
 
 test.stable(
   'new notes reuse one empty draft across concurrent requests and collections',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(Projects.layer, Notes.layer, Settings.layer).pipe(
@@ -42,22 +44,22 @@ test.stable(
             { concurrency: 'unbounded' }
           );
 
-          test.assert.ok(repeated.every((note) => note.id === first.id));
+          assert.ok(repeated.every((note) => note.id === first.id));
           const scoped = yield* notes.createUntitledNote({ project: project.id });
 
-          test.assert.strictEqual(scoped.id, first.id);
-          test.expect(scoped.projectIds).toStrictEqual([project.id]);
-          test.assert.strictEqual((yield* notes.notes({ limit: 100 })).items.length, 1);
+          assert.strictEqual(scoped.id, first.id);
+          expect(scoped.projectIds).toStrictEqual([project.id]);
+          assert.strictEqual((yield* notes.notes({ limit: 100 })).items.length, 1);
           const global = yield* notes.createUntitledNote({});
 
-          test.assert.strictEqual(global.id, first.id);
-          test.expect(global.projectIds).toStrictEqual([]);
+          assert.strictEqual(global.id, first.id);
+          expect(global.projectIds).toStrictEqual([]);
           yield* notes.updateNoteSelection({
             noteId: first.id,
             expectedRevision: 0n,
             targets: []
           });
-          test.assert.strictEqual((yield* notes.createUntitledNote({})).id, first.id);
+          assert.strictEqual((yield* notes.createUntitledNote({})).id, first.id);
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -69,7 +71,9 @@ test.stable(
 
 test.stable(
   'new notes preserve captured work and explicitly named notes',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(Notes.layer, Settings.layer).pipe(
@@ -83,21 +87,21 @@ test.stable(
           const named = yield* notes.createNote({ title: 'Planned study' });
           const first = yield* notes.createUntitledNote({});
 
-          test.assert.notStrictEqual(first.id, named.id);
+          assert.notStrictEqual(first.id, named.id);
           yield* notes.postMessage({ noteId: first.id, text: 'My notes' });
           const second = yield* notes.createUntitledNote({});
 
-          test.assert.notStrictEqual(second.id, first.id);
+          assert.notStrictEqual(second.id, first.id);
           yield* notes.renameNote({ id: second.id, title: 'Next topic' });
           const third = yield* notes.createUntitledNote({});
 
-          test.assert.notStrictEqual(third.id, second.id);
-          test.assert.strictEqual((yield* notes.createUntitledNote({})).id, third.id);
-          test.assert.ok(
+          assert.notStrictEqual(third.id, second.id);
+          assert.strictEqual((yield* notes.createUntitledNote({})).id, third.id);
+          assert.ok(
             (yield* notes.thread({ noteId: first.id, limit: 100 })).items[0]?.versions.at(-1)
               ?.text === 'My notes'
           );
-          test.assert.ok((yield* notes.note(second.id)).title === 'Next topic');
+          assert.ok((yield* notes.note(second.id)).title === 'Next topic');
 
           context.transaction(['notes'], (tx) => {
             tx.db.orm
@@ -111,7 +115,7 @@ test.stable(
           });
           const fourth = yield* notes.createUntitledNote({});
 
-          test.assert.notStrictEqual(fourth.id, third.id);
+          assert.notStrictEqual(fourth.id, third.id);
           yield* notes.captureNoteContext({
             noteId: fourth.id,
             additionalNoteIds: [first.id],
@@ -121,7 +125,7 @@ test.stable(
           });
           const fifth = yield* notes.createUntitledNote({});
 
-          test.assert.notStrictEqual(fifth.id, fourth.id);
+          assert.notStrictEqual(fifth.id, fourth.id);
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -133,7 +137,9 @@ test.stable(
 
 test.stable(
   'first send atomically creates a visible note and first message',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(Notes.layer, Settings.layer).pipe(
@@ -147,21 +153,21 @@ test.stable(
           const initialMessage = { text: 'First saved note' };
           const note = yield* notes.createUntitledNote({ initialMessage });
 
-          test
-            .expect((yield* notes.notes({ limit: 100 })).items.map((item) => item.id))
-            .toStrictEqual([note.id]);
+          expect((yield* notes.notes({ limit: 100 })).items.map((item) => item.id)).toStrictEqual([
+            note.id
+          ]);
           const thread = yield* notes.thread({ noteId: note.id, limit: 100 });
 
-          test.assert.strictEqual(thread.items.length, 1);
-          test.assert.ok(thread.items[0]?.versions.at(-1)?.text === 'First saved note');
-          test.assert.ok(
+          assert.strictEqual(thread.items.length, 1);
+          assert.ok(thread.items[0]?.versions.at(-1)?.text === 'First saved note');
+          assert.ok(
             (yield* Effect.flip(
               notes.createUntitledNote({
                 initialMessage: { text: ' ' }
               })
             )).kind === 'invalid_input'
           );
-          test.assert.strictEqual((yield* notes.notes({ limit: 100 })).items.length, 1);
+          assert.strictEqual((yield* notes.notes({ limit: 100 })).items.length, 1);
         }).pipe(Effect.provide(layer))
       );
     } finally {

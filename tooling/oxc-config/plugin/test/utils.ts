@@ -1,5 +1,5 @@
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
-import { test } from '@study/testing';
+import type { test } from '@study/testing';
 import { temporaryDirectory } from '@study/testing/resources';
 import { Effect, FileSystem, Path } from 'effect';
 
@@ -76,6 +76,7 @@ async function preparePlugin(
 }
 
 async function runLint(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
   directory: string,
   server: string,
   plugin: string,
@@ -83,6 +84,8 @@ async function runLint(
   workspace = false,
   toolingFixtures: readonly string[] = []
 ): Promise<Diagnostic[]> {
+  const assert: test.Assert = assertions;
+
   const config = join(directory, 'oxlintrc.json');
 
   if (rule)
@@ -124,20 +127,23 @@ async function runLint(
   const stderr = result.stderr.toString();
   const stdout = result.stdout.toString();
 
-  assertLintStatus(result.exitCode, stderr, stdout);
+  assertLintStatus({ assert }, result.exitCode, stderr, stdout);
   const output = JSON.parse(stdout) as { diagnostics: Diagnostic[] };
 
-  test.assert.strictEqual(result.exitCode, output.diagnostics.length ? 1 : 0, stderr);
+  assert.strictEqual(result.exitCode, output.diagnostics.length ? 1 : 0, stderr);
 
   return output.diagnostics;
 }
 
 export async function lintFiles(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
   files: Record<string, string>,
   rule?: string,
   workspace = false,
   manifests?: Record<string, unknown>
 ): Promise<Diagnostic[]> {
+  const assert: test.Assert = assertions;
+
   await using temporary = await temporaryDirectory({ prefix: 'oxlint-quality-' });
   const directory = temporary.path;
   const server = join(directory, 'apps/server');
@@ -146,6 +152,7 @@ export async function lintFiles(
   const plugin = await preparePlugin(directory, manifests);
 
   return await runLint(
+    { assert },
     directory,
     server,
     plugin,
@@ -156,26 +163,32 @@ export async function lintFiles(
 }
 
 export function lintRule(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
   rule: string,
   files: Record<string, string>,
   workspace = false,
   manifests?: Record<string, unknown>
 ): Promise<Diagnostic[]> {
-  return lintFiles(files, rule, workspace, manifests);
+  const assert: test.Assert = assertions;
+
+  return lintFiles({ assert }, files, rule, workspace, manifests);
 }
 
 /** Run workspace fixtures through the shared runner and retain their supplied paths. */
 export async function lintRulePaths(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
   rule: string,
   files: Record<string, string>
 ): Promise<string[]> {
+  const assert: test.Assert = assertions;
+
   const paths = Object.keys(files).sort((a, b) => b.length - a.length);
 
-  return (await lintRule(rule, files, true))
+  return (await lintRule({ assert }, rule, files, true))
     .map(({ filename }) => {
       const path = paths.find((candidate) => filename.endsWith(`/${candidate}`));
 
-      test.assert.ok(path, filename);
+      assert.ok(path, filename);
 
       return path;
     })
@@ -183,26 +196,29 @@ export async function lintRulePaths(
 }
 
 export function checkWiring(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
   rules: string[],
   configured: Record<string, unknown>,
   testFiles: string[],
   overrides: Record<string, unknown>[] = []
 ): void {
+  const assert: test.Assert = assertions;
+
   for (const rule of rules) {
-    test.assert.strictEqual(
+    assert.strictEqual(
       configured[`study/${rule}`],
       'error',
       `study/${rule} must be enabled as an error`
     );
-    test.assert.ok(testFiles.includes(`${rule}.test.ts`), `missing test for study/${rule}`);
+    assert.ok(testFiles.includes(`${rule}.test.ts`), `missing test for study/${rule}`);
   }
 
   for (const entries of [configured, ...overrides]) {
     for (const [name, severity] of Object.entries(entries)) {
       if (!name.startsWith('study/')) continue;
 
-      test.assert.ok(rules.includes(name.slice('study/'.length)), `unknown rule ${name}`);
-      test.assert.strictEqual(
+      assert.ok(rules.includes(name.slice('study/'.length)), `unknown rule ${name}`);
+      assert.strictEqual(
         Array.isArray(severity) ? severity[0] : severity,
         'error',
         `${name} must remain an error`
@@ -212,26 +228,34 @@ export function checkWiring(
 }
 
 export function assertDiagnostics(
+  { expect, assert: assertions }: Pick<test.Context, 'expect' | 'assert'>,
   rule: string,
   diagnostics: Diagnostic[],
   expected: [string, string][]
 ): void {
-  test
-    .expect(
-      diagnostics
-        .map(({ code, filename, message }) => {
-          test.assert.strictEqual(code, `study(${rule})`);
-          const marker = '/apps/server/';
+  const assert: test.Assert = assertions;
 
-          test.assert.ok(filename.includes(marker), filename);
+  expect(
+    diagnostics
+      .map(({ code, filename, message }) => {
+        assert.strictEqual(code, `study(${rule})`);
+        const marker = '/apps/server/';
 
-          return [filename.split(marker)[1], message];
-        })
-        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
-    )
-    .toStrictEqual(expected.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))));
+        assert.ok(filename.includes(marker), filename);
+
+        return [filename.split(marker)[1], message];
+      })
+      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+  ).toStrictEqual(expected.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))));
 }
 
-function assertLintStatus(status: number | null, stderr: string, stdout: string): void {
-  test.assert.ok(status === 0 || status === 1, stderr || stdout);
+function assertLintStatus(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  status: number | null,
+  stderr: string,
+  stdout: string
+): void {
+  const assert: test.Assert = assertions;
+
+  assert.ok(status === 0 || status === 1, stderr || stdout);
 }

@@ -28,24 +28,25 @@ const choice = {
   ]
 };
 
-test.stable('a captured question specification enforces count and selected kind', () => {
-  test
-    .expect(() =>
+test.stable(
+  'a captured question specification enforces count and selected kind',
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(() =>
       assertQuestionSpec({ count: 1, kind: 'open' }, { kind: 'quiz', questions: [open] })
-    )
-    .not.toThrow();
-  test
-    .expect(() =>
+    ).not.toThrow();
+    expect(() =>
       assertQuestionSpec({ count: 1, kind: 'choice' }, { kind: 'quiz', questions: [choice] })
-    )
-    .not.toThrow();
-  test.assert.throws(() =>
-    assertQuestionSpec({ count: 1, kind: 'open' }, { kind: 'quiz', questions: [choice] })
-  );
-  test.assert.throws(() =>
-    assertQuestionSpec({ count: 1, kind: 'choice' }, { kind: 'quiz', questions: [open] })
-  );
-  test.assert.throws(() =>
-    assertQuestionSpec({ count: 1, kind: 'open' }, { kind: 'quiz', questions: [open, open] })
-  );
-});
+    ).not.toThrow();
+    assert.throws(() =>
+      assertQuestionSpec({ count: 1, kind: 'open' }, { kind: 'quiz', questions: [choice] })
+    );
+    assert.throws(() =>
+      assertQuestionSpec({ count: 1, kind: 'choice' }, { kind: 'quiz', questions: [open] })
+    );
+    assert.throws(() =>
+      assertQuestionSpec({ count: 1, kind: 'open' }, { kind: 'quiz', questions: [open, open] })
+    );
+  }
+);

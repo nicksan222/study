@@ -24,7 +24,9 @@ import { ensureNote } from './ensure-note.ts';
 
 test.stable(
   'named notebook lookup uses exact titles, active notebooks, earliest IDs and collection scope',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const run = <A, E>(effect: Effect.Effect<A, E, Database>) =>
@@ -40,8 +42,8 @@ test.stable(
         .returning()
         .all();
 
-      test.assert.ok(firstProject);
-      test.assert.ok(secondProject);
+      assert.ok(firstProject);
+      assert.ok(secondProject);
 
       const insert = (title: string, extra: Partial<typeof notes.$inferInsert> = {}) =>
         context.db.orm
@@ -78,62 +80,54 @@ test.stable(
         transaction((tx) => {
           const store = tx.store(NoteStore);
 
-          test
-            .expect(Option.getOrUndefined(store.findNotebookByTitle({ title: 'Biology' }))?.id)
-            .toBe(earliest.id);
-          test
-            .expect(
-              Option.getOrUndefined(
-                store.findNotebookByTitle({ title: 'Biology', project: firstProject.id })
-              )?.id
-            )
-            .toBe(firstOnly.id);
-          test
-            .expect(
-              Option.getOrUndefined(
-                store.findNotebookByTitle({ title: 'Biology', project: secondProject.id })
-              )?.projectIds
-            )
-            .toEqual([firstProject.id, secondProject.id]);
-          test
-            .expect(Option.getOrUndefined(store.findNotebookByTitle({ title: 'biology' }))?.id)
-            .toBe(lowerCase.id);
-          test.expect(Option.isNone(store.findNotebookByTitle({ title: 'BIOLOGY' }))).toBe(true);
-          test
-            .expect(
-              store
-                .notes({ limit: 100, before: { updatedAt: 999n, id: lowerCase.id } })
-                .some((note) => note.id === collected.id)
-            )
-            .toBe(true);
-          test
-            .expect(
-              store
-                .notes({ limit: 100, before: { updatedAt: 999n, id: lowerCase.id }, project: null })
-                .some((note) => note.id === collected.id)
-            )
-            .toBe(false);
+          expect(Option.getOrUndefined(store.findNotebookByTitle({ title: 'Biology' }))?.id).toBe(
+            earliest.id
+          );
+          expect(
+            Option.getOrUndefined(
+              store.findNotebookByTitle({ title: 'Biology', project: firstProject.id })
+            )?.id
+          ).toBe(firstOnly.id);
+          expect(
+            Option.getOrUndefined(
+              store.findNotebookByTitle({ title: 'Biology', project: secondProject.id })
+            )?.projectIds
+          ).toEqual([firstProject.id, secondProject.id]);
+          expect(Option.getOrUndefined(store.findNotebookByTitle({ title: 'biology' }))?.id).toBe(
+            lowerCase.id
+          );
+          expect(Option.isNone(store.findNotebookByTitle({ title: 'BIOLOGY' }))).toBe(true);
+          expect(
+            store
+              .notes({ limit: 100, before: { updatedAt: 999n, id: lowerCase.id } })
+              .some((note) => note.id === collected.id)
+          ).toBe(true);
+          expect(
+            store
+              .notes({ limit: 100, before: { updatedAt: 999n, id: lowerCase.id }, project: null })
+              .some((note) => note.id === collected.id)
+          ).toBe(false);
         })
       );
 
-      test.expect((await run(ensureNote({ title: '  Biology  ' }))).id).toBe(earliest.id);
-      test
-        .expect((await run(ensureNote({ title: 'Biology', project: firstProject.id }))).id)
-        .toBe(firstOnly.id);
-      test
-        .expect((await run(ensureNote({ title: 'Biology', project: secondProject.id }))).id)
-        .toBe(collected.id);
+      expect((await run(ensureNote({ title: '  Biology  ' }))).id).toBe(earliest.id);
+      expect((await run(ensureNote({ title: 'Biology', project: firstProject.id }))).id).toBe(
+        firstOnly.id
+      );
+      expect((await run(ensureNote({ title: 'Biology', project: secondProject.id }))).id).toBe(
+        collected.id
+      );
       const created = await run(ensureNote({ title: '  New title  ', project: secondProject.id }));
 
-      test.expect(created.title).toBe('New title');
-      test.expect(created.titleSource).toBe('user');
-      test
-        .expect((await run(ensureNote({ title: 'New title', project: secondProject.id }))).id)
-        .toBe(created.id);
-      test
-        .expect(context.db.orm.select().from(notes).where(eq(notes.title, 'New title')).all())
-        .toHaveLength(1);
-      await test.expect(run(ensureNote({ title: '   ' }))).rejects.toMatchObject({
+      expect(created.title).toBe('New title');
+      expect(created.titleSource).toBe('user');
+      expect((await run(ensureNote({ title: 'New title', project: secondProject.id }))).id).toBe(
+        created.id
+      );
+      expect(
+        context.db.orm.select().from(notes).where(eq(notes.title, 'New title')).all()
+      ).toHaveLength(1);
+      await expect(run(ensureNote({ title: '   ' }))).rejects.toMatchObject({
         kind: 'invalid_input'
       });
     } finally {

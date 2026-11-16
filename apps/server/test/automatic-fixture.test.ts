@@ -34,21 +34,26 @@ const runnerArgs = [
   '--silent=false'
 ];
 
-test.stable('pure tests never acquire an unused database fixture', async () => {
-  await using directory = await test.temporaryDirectory();
-  const child = test.spawnTestProcess([process.execPath, ...runnerArgs], {
-    env: { ...process.env, STUDY_TEST_SCENARIO: 'unused', TMPDIR: directory.path },
-    stdout: 'pipe',
-    stderr: 'pipe'
-  });
-  const [stdout, stderr, code] = await Promise.all([
-    new Response(child.stdout).text(),
-    new Response(child.stderr).text(),
-    child.exited
-  ]);
+test.stable(
+  'pure tests never acquire an unused database fixture',
+  async ({ temporaryDirectory, spawnTestProcess, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test.assert.strictEqual(code, 0, stdout + stderr);
-});
+    await using directory = await temporaryDirectory();
+    const child = spawnTestProcess([process.execPath, ...runnerArgs], {
+      env: { ...process.env, STUDY_TEST_SCENARIO: 'unused', TMPDIR: directory.path },
+      stdout: 'pipe',
+      stderr: 'pipe'
+    });
+    const [stdout, stderr, code] = await Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.exited
+    ]);
+
+    assert.strictEqual(code, 0, stdout + stderr);
+  }
+);
 
 for (const mode of [
   'success',
@@ -61,71 +66,14 @@ for (const mode of [
   'retry-async',
   'api-reuse'
 ] as const) {
-  test.stable(`automatic fixture cleans databases after ${mode}`, async () => {
-    const env = { ...process.env, STUDY_TEST_SCENARIO: mode };
+  test.stable(
+    `automatic fixture cleans databases after ${mode}`,
+    async ({ spawnTestProcess, assert: assertions }) => {
+      const assert: test.Assert = assertions;
 
-    const child = test.spawnTestProcess([process.execPath, ...runnerArgs], {
-      env,
-      stdout: 'pipe',
-      stderr: 'pipe'
-    });
-    const [stdout, stderr, status] = await Promise.all([
-      new Response(child.stdout).text(),
-      new Response(child.stderr).text(),
-      child.exited
-    ]);
-    const output = stdout + stderr;
-    const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
-    const pathsService = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
+      const env = { ...process.env, STUDY_TEST_SCENARIO: mode };
 
-    test.assert.strictEqual(
-      status,
-      ['failure', 'setup-failure', 'cleanup-throw', 'failure-cleanup-throw'].includes(mode) ? 1 : 0,
-      output
-    );
-    const paths = [...stdout.matchAll(/FIXTURE_PATH (".*")/g)].map(
-      (match) => JSON.parse(match[1]!) as string
-    );
-
-    test.assert.strictEqual(paths.length, ['success', 'concurrent'].includes(mode) ? 2 : 1, stdout);
-    test.assert.strictEqual(new Set(paths).size, paths.length);
-
-    for (const path of paths) {
-      test.assert.match(
-        path,
-        /[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.db$/
-      );
-      test.assert.strictEqual(await Effect.runPromise(fs.exists(path)), false, path);
-      test.assert.strictEqual(
-        await Effect.runPromise(fs.exists(pathsService.dirname(path))),
-        false,
-        pathsService.dirname(path)
-      );
-    }
-
-    if (['success', 'failure', 'cleanup-throw', 'failure-cleanup-throw'].includes(mode)) {
-      test.assert.match(output, /LIVE_SQL_DURING_DISPOSAL/);
-      test.assert.match(output, /EXTRA_CONNECTION_CLOSED/);
-    }
-
-    if (['retry-sync', 'retry-async'].includes(mode))
-      test.assert.match(output, /RETRIED_CLOSE_BEFORE_FILE_CLEANUP/);
-
-    if (['cleanup-throw', 'failure-cleanup-throw'].includes(mode)) {
-      if (mode === 'failure-cleanup-throw') test.assert.match(output, /intentional test failure/);
-      else test.assert.match(output, /intentional disposer failure/);
-
-      test.assert.match(output, /CLEANUP_THROWN/);
-      test.assert.match(output, /CLEANUP_AFTER_THROW/);
-    }
-  });
-}
-
-test.stable('concurrent test files use separate databases and remove them', async () => {
-  const env = { ...process.env, STUDY_TEST_SCENARIO: 'success' };
-  const results = await Promise.all(
-    [0, 1].map(async () => {
-      const child = test.spawnTestProcess([process.execPath, ...runnerArgs], {
+      const child = spawnTestProcess([process.execPath, ...runnerArgs], {
         env,
         stdout: 'pipe',
         stderr: 'pipe'
@@ -135,21 +83,92 @@ test.stable('concurrent test files use separate databases and remove them', asyn
         new Response(child.stderr).text(),
         child.exited
       ]);
+      const output = stdout + stderr;
+      const fs = await Effect.runPromise(
+        Effect.provide(FileSystem.FileSystem, BunFileSystem.layer)
+      );
+      const pathsService = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
-      test.assert.strictEqual(status, 0, stderr);
+      assert.strictEqual(
+        status,
+        ['failure', 'setup-failure', 'cleanup-throw', 'failure-cleanup-throw'].includes(mode)
+          ? 1
+          : 0,
+        output
+      );
+      const paths = [...stdout.matchAll(/FIXTURE_PATH (".*")/g)].map(
+        (match) => JSON.parse(match[1]!) as string
+      );
 
-      return stdout;
-    })
+      assert.strictEqual(paths.length, ['success', 'concurrent'].includes(mode) ? 2 : 1, stdout);
+      assert.strictEqual(new Set(paths).size, paths.length);
+
+      for (const path of paths) {
+        assert.match(
+          path,
+          /[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.db$/
+        );
+        assert.strictEqual(await Effect.runPromise(fs.exists(path)), false, path);
+        assert.strictEqual(
+          await Effect.runPromise(fs.exists(pathsService.dirname(path))),
+          false,
+          pathsService.dirname(path)
+        );
+      }
+
+      if (['success', 'failure', 'cleanup-throw', 'failure-cleanup-throw'].includes(mode)) {
+        assert.match(output, /LIVE_SQL_DURING_DISPOSAL/);
+        assert.match(output, /EXTRA_CONNECTION_CLOSED/);
+      }
+
+      if (['retry-sync', 'retry-async'].includes(mode))
+        assert.match(output, /RETRIED_CLOSE_BEFORE_FILE_CLEANUP/);
+
+      if (['cleanup-throw', 'failure-cleanup-throw'].includes(mode)) {
+        if (mode === 'failure-cleanup-throw') assert.match(output, /intentional test failure/);
+        else assert.match(output, /intentional disposer failure/);
+
+        assert.match(output, /CLEANUP_THROWN/);
+        assert.match(output, /CLEANUP_AFTER_THROW/);
+      }
+    }
   );
-  const paths = results.flatMap((stdout) =>
-    [...stdout.matchAll(/FIXTURE_PATH (".*")/g)].map((match) => JSON.parse(match[1]!) as string)
-  );
+}
 
-  test.assert.strictEqual(paths.length, 4);
-  test.assert.strictEqual(new Set(paths).size, 4);
-  const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
-  const pathsService = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
+test.stable(
+  'concurrent test files use separate databases and remove them',
+  async ({ spawnTestProcess, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  for (const path of paths)
-    test.assert.strictEqual(await Effect.runPromise(fs.exists(pathsService.dirname(path))), false);
-});
+    const env = { ...process.env, STUDY_TEST_SCENARIO: 'success' };
+    const results = await Promise.all(
+      [0, 1].map(async () => {
+        const child = spawnTestProcess([process.execPath, ...runnerArgs], {
+          env,
+          stdout: 'pipe',
+          stderr: 'pipe'
+        });
+        const [stdout, stderr, status] = await Promise.all([
+          new Response(child.stdout).text(),
+          new Response(child.stderr).text(),
+          child.exited
+        ]);
+
+        assert.strictEqual(status, 0, stderr);
+
+        return stdout;
+      })
+    );
+    const paths = results.flatMap((stdout) =>
+      [...stdout.matchAll(/FIXTURE_PATH (".*")/g)].map((match) => JSON.parse(match[1]!) as string)
+    );
+
+    assert.strictEqual(paths.length, 4);
+    assert.strictEqual(new Set(paths).size, 4);
+    const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
+    const pathsService = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
+
+    for (const path of paths)
+      assert.strictEqual(await Effect.runPromise(fs.exists(pathsService.dirname(path))), false);
+  }
+);

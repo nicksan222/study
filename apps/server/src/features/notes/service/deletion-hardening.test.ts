@@ -35,11 +35,13 @@ import { withTestAdmission, admitTestExecution } from '#testing/workflow-admissi
 
 test.stable(
   'canonical status, ownership and correlation queries bind directly with typed aggregate results',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const fixture = await pageTransformFixture(databases);
 
     try {
-      const saved = await setup(fixture, 'DIRECT_QUERY_BINDING_8');
+      const saved = await setup(fixture, assert, 'DIRECT_QUERY_BINDING_8');
 
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -49,42 +51,36 @@ test.stable(
 
           const correlations = yield* useStore(NoteDeletionCorrelationStore);
 
-          test.assert.ok(Option.isNone(yield* status.findNoteDeletion(saved.note.id)));
+          assert.ok(Option.isNone(yield* status.findNoteDeletion(saved.note.id)));
 
-          test.assert.ok(
-            (yield* Effect.flip(status.noteDeletion(saved.note.id))).kind === 'not_found'
-          );
+          assert.ok((yield* Effect.flip(status.noteDeletion(saved.note.id))).kind === 'not_found');
 
           const owned = yield* ownership.deletionOwnership(saved.note.id);
 
-          test.assert.ok(owned.contextIds.includes(saved.capture.requestId));
+          assert.ok(owned.contextIds.includes(saved.capture.requestId));
 
-          test.assert.ok(owned.correlations.includes(saved.capture.requestId));
+          assert.ok(owned.correlations.includes(saved.capture.requestId));
 
           const accepted = yield* (yield* Notes).deleteNote(saved.note.id);
 
           const retained = yield* correlations.deletionCorrelation(saved.note.id);
 
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* status.noteDeletion(saved.note.id)).operationId,
             accepted.operationId
           );
 
-          test.assert.ok(retained.correlations.includes(saved.request.id));
+          assert.ok(retained.correlations.includes(saved.request.id));
 
-          test.assert.ok(retained.correlations.includes(saved.capture.requestId));
+          assert.ok(retained.correlations.includes(saved.capture.requestId));
 
-          test
-            .expect((yield* ownership.deletionOwnership(saved.note.id)).contextIds)
-            .toStrictEqual([]);
+          expect((yield* ownership.deletionOwnership(saved.note.id)).contextIds).toStrictEqual([]);
 
-          test
-            .expect(
-              yield* transaction((tx) =>
-                tx.store(NoteDeletionCorrelationStore).deletionCorrelation(saved.note.id)
-              )
+          expect(
+            yield* transaction((tx) =>
+              tx.store(NoteDeletionCorrelationStore).deletionCorrelation(saved.note.id)
             )
-            .toStrictEqual(retained);
+          ).toStrictEqual(retained);
         }).pipe(Effect.provide(fixture.domain()))
       );
 
@@ -96,9 +92,9 @@ test.stable(
 
           const correlations = yield* useStore(NoteDeletionCorrelationStore);
 
-          test.assert.strictEqual((yield* status.noteDeletion(saved.note.id)).attempt, 1);
+          assert.strictEqual((yield* status.noteDeletion(saved.note.id)).attempt, 1);
 
-          test.assert.ok(
+          assert.ok(
             (yield* correlations.deletionCorrelation(saved.note.id)).correlations.includes(
               saved.request.id
             )
@@ -114,13 +110,15 @@ test.stable(
 for (const state of ['running', 'suspended'] as const) {
   test.stable(
     `pending retry waits for every exact current native execution while ${state}, then rejects stale settlement`,
-    async ({ databases }) => {
+    async ({ databases, expect, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+
       const fixture = await pageTransformFixture(databases);
 
       const marker = `ATTEMPT_FENCE_${state}_8`;
 
       try {
-        const saved = await setup(fixture, marker);
+        const saved = await setup(fixture, assert, marker);
 
         await Effect.runPromise(
           Effect.scoped(
@@ -131,7 +129,7 @@ for (const state of ['running', 'suspended'] as const) {
 
               const accepted = yield* chats.deleteNote(saved.note.id);
 
-              const event = deletionEvent(fixture, saved.note.id);
+              const event = deletionEvent(fixture, saved.note.id, assert);
 
               const entered = yield* Deferred.make<void>();
 
@@ -178,7 +176,7 @@ for (const state of ['running', 'suspended'] as const) {
                 payload: { event: { ...event, eventId: `${accepted.operationId}/older` } }
               });
 
-              test.expect(yield* chats.retryNoteDeletion(saved.note.id)).toStrictEqual(accepted);
+              expect(yield* chats.retryNoteDeletion(saved.note.id)).toStrictEqual(accepted);
 
               admitTestExecution(fixture.context, probe, 'other-operation', {
                 event: { ...event, correlationId: 'other-operation' }
@@ -216,20 +214,21 @@ for (const state of ['running', 'suspended'] as const) {
                 Workflows.correlatedExecutions(tx, accepted.operationId, event.eventId)
               );
 
-              test
-                .expect(runs.map((run) => run.id).sort())
-                .toStrictEqual(['current-held', 'current-terminal']);
+              expect(runs.map((run) => run.id).sort()).toStrictEqual([
+                'current-held',
+                'current-terminal'
+              ]);
 
-              test.assert.strictEqual(
+              assert.strictEqual(
                 (yield* transaction((tx) =>
                   Workflows.correlatedExecutions(tx, accepted.operationId)
                 )).length,
                 3
               );
 
-              test.expect(yield* chats.retryNoteDeletion(saved.note.id)).toStrictEqual(accepted);
+              expect(yield* chats.retryNoteDeletion(saved.note.id)).toStrictEqual(accepted);
 
-              test.assert.strictEqual(deletionEvents(fixture).length, 1);
+              assert.strictEqual(deletionEvents(fixture).length, 1);
 
               if (state === 'running') yield* Deferred.succeed(release, undefined);
               else
@@ -244,32 +243,30 @@ for (const state of ['running', 'suspended'] as const) {
 
               const retry = yield* chats.retryNoteDeletion(saved.note.id);
 
-              test.assert.strictEqual(retry.operationId, accepted.operationId);
+              assert.strictEqual(retry.operationId, accepted.operationId);
 
-              test.assert.strictEqual(retry.attempt, 2);
+              assert.strictEqual(retry.attempt, 2);
 
-              test.assert.strictEqual(deletionEvents(fixture).length, 2);
+              assert.strictEqual(deletionEvents(fixture).length, 2);
               // No attempt-2 execution exists yet: old terminal owners cannot cause a third attempt.
-              test.expect(yield* chats.retryNoteDeletion(saved.note.id)).toStrictEqual(retry);
+              expect(yield* chats.retryNoteDeletion(saved.note.id)).toStrictEqual(retry);
 
-              test
-                .expect(
-                  yield* chats.failNoteDeletion({
-                    noteId: saved.note.id,
-                    errorKind: 'internal',
-                    attempt: 1
-                  })
-                )
-                .toStrictEqual(retry);
+              expect(
+                yield* chats.failNoteDeletion({
+                  noteId: saved.note.id,
+                  errorKind: 'internal',
+                  attempt: 1
+                })
+              ).toStrictEqual(retry);
 
               yield* withTestPublication(
                 fixture.context,
                 chats.finishNoteDeletion({ noteId: saved.note.id, attempt: 1 }).pipe(Effect.asVoid)
               );
 
-              test.expect(yield* chats.noteDeletion(saved.note.id)).toStrictEqual(retry);
+              expect(yield* chats.noteDeletion(saved.note.id)).toStrictEqual(retry);
 
-              test.assert.notStrictEqual(
+              assert.notStrictEqual(
                 fixture.context.db.orm
                   .select()
                   .from(s.material_generation_requests)
@@ -289,47 +286,45 @@ for (const state of ['running', 'suspended'] as const) {
                 })
               );
 
-              test.expect(yield* chats.noteDeletion(saved.note.id)).toStrictEqual(retry);
+              expect(yield* chats.noteDeletion(saved.note.id)).toStrictEqual(retry);
 
               yield* withTestAdmission(
                 fixture.context,
                 noteDeletionWorkflow,
                 'current-cleanup',
-                { event: deletionEvent(fixture, saved.note.id) },
+                { event: deletionEvent(fixture, saved.note.id, assert) },
                 engine.execute(noteDeletionWorkflow, {
                   executionId: 'current-cleanup',
-                  payload: { event: deletionEvent(fixture, saved.note.id) }
+                  payload: { event: deletionEvent(fixture, saved.note.id, assert) }
                 })
               );
 
               const completed = yield* chats.noteDeletion(saved.note.id);
 
-              test.assert.ok(completed.status === 'completed');
+              assert.ok(completed.status === 'completed');
 
-              test.assert.strictEqual(completed.attempt, 2);
+              assert.strictEqual(completed.attempt, 2);
 
-              test
-                .expect(
-                  yield* chats.failNoteDeletion({
-                    noteId: saved.note.id,
-                    errorKind: 'internal',
-                    attempt: 1
-                  })
-                )
-                .toStrictEqual(completed);
+              expect(
+                yield* chats.failNoteDeletion({
+                  noteId: saved.note.id,
+                  errorKind: 'internal',
+                  attempt: 1
+                })
+              ).toStrictEqual(completed);
 
-              test.expect(yield* chats.retryNoteDeletion(saved.note.id)).toStrictEqual(completed);
+              expect(yield* chats.retryNoteDeletion(saved.note.id)).toStrictEqual(completed);
 
-              test.assert.strictEqual(deletionEvents(fixture).length, 2);
+              assert.strictEqual(deletionEvents(fixture).length, 2);
             }).pipe(Effect.provide(fixture.services()))
           )
         );
 
-        assertScrubbed(fixture, marker);
+        assertScrubbed(fixture, assert, marker);
 
         await fixture.reopen();
 
-        assertScrubbed(fixture, marker);
+        assertScrubbed(fixture, assert, marker);
       } finally {
         await fixture.close();
       }

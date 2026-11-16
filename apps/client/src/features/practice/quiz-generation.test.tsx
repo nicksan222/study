@@ -23,8 +23,8 @@ let readiness: ReturnType<typeof createMockState>['readiness'];
 
 const en = catalogs.english;
 
-function rpcFixture(linked = true) {
-  const rpc = materialRpc();
+function rpcFixture({ vi }: Pick<test.Context, 'vi'>, linked = true) {
+  const rpc = materialRpc({ vi });
 
   rpc['projects.projects'].mockReturnValue(
     Effect.succeed({
@@ -109,17 +109,17 @@ function rpcFixture(linked = true) {
 
   return {
     ...rpc,
-    'settings.quizSettings': test.vi
+    'settings.quizSettings': vi
       .fn<StudyClient['settings.quizSettings']>()
       .mockReturnValue(
         Effect.succeed({ ...defaultQuizSettings, questionCount: 3, choiceCount: 2 })
       ),
-    'materials.requestMaterialGeneration': test.vi
+    'materials.requestMaterialGeneration': vi
       .fn<StudyClient['materials.requestMaterialGeneration']>()
       .mockImplementation((input) =>
         Effect.succeed({ id: 'generation-1', ...input, inputs: [...input.inputs] })
       ),
-    'materials.materialGeneration': test.vi
+    'materials.materialGeneration': vi
       .fn<StudyClient['materials.materialGeneration']>()
       .mockImplementation(() =>
         Effect.succeed({
@@ -161,136 +161,134 @@ test.beforeEach(async ({ mock }) => {
   mountLibraryRoute = __mockModule0.mountLibraryRoute;
 });
 
-test.stable('blocks generation while provider setup is needed', async () => {
-  readiness.state = 'setup';
+test.stable(
+  'blocks generation while provider setup is needed',
+  async ({ expect, screen, vi, render, rpcHandlersTransport }) => {
+    readiness.state = 'setup';
 
-  try {
-    const rpc = rpcFixture();
+    try {
+      const rpc = rpcFixture({ vi });
 
-    mountLibraryRoute('/practice/41?project=1', rpc);
-    test
-      .expect(await test.screen.findByRole('button', { name: en.PracticeGenerateFromPages }))
-      .toBeDisabled();
-    test.expect(rpc['materials.requestMaterialGeneration']).not.toHaveBeenCalled();
-  } finally {
-    readiness.state = 'ready';
+      mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?project=1', rpc);
+      expect(
+        await screen.findByRole('button', { name: en.PracticeGenerateFromPages })
+      ).toBeDisabled();
+      expect(rpc['materials.requestMaterialGeneration']).not.toHaveBeenCalled();
+    } finally {
+      readiness.state = 'ready';
+    }
   }
-});
+);
 
-test.stable('requires a subject before offering practice generation', async () => {
-  const rpc = rpcFixture();
+test.stable(
+  'requires a subject before offering practice generation',
+  async ({ expect, screen, vi, render, rpcHandlersTransport }) => {
+    const rpc = rpcFixture({ vi });
 
-  mountLibraryRoute('/practice', rpc);
-  test.expect(await test.screen.findByRole('button', { name: en.PracticeGenerate })).toBeDisabled();
-  test.expect(rpc['materials.requestMaterialGeneration']).not.toHaveBeenCalled();
-});
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice', rpc);
+    expect(await screen.findByRole('button', { name: en.PracticeGenerate })).toBeDisabled();
+    expect(rpc['materials.requestMaterialGeneration']).not.toHaveBeenCalled();
+  }
+);
 
-test.stable('starts generation with saved settings and closes the dialog', async () => {
-  const rpc = rpcFixture();
-  const user = test.userEvent.setup();
+test.stable(
+  'starts generation with saved settings and closes the dialog',
+  async ({ userEvent, screen, within, waitFor, expect, vi, render, rpcHandlersTransport }) => {
+    const rpc = rpcFixture({ vi });
+    const user = userEvent.setup();
 
-  mountLibraryRoute('/practice/41?project=1', rpc);
-  await user.click(await test.screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
-  const dialog = await test.screen.findByRole('dialog', { name: en.PracticeGenerate });
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?project=1', rpc);
+    await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
+    const dialog = await screen.findByRole('dialog', { name: en.PracticeGenerate });
 
-  await user.click(test.within(dialog).getByRole('button', { name: en.PracticeGenerateStart }));
-  await test.waitFor(() =>
-    test.expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledExactlyOnceWith(
-      test.expect.objectContaining({
-        projectId: 1n,
-        inputs: [{ kind: 'page', versionId: 8n }],
-        quizConfig: {
-          questionCount: 3,
-          choiceCount: 2,
-          questionKind: 'mixed',
-          difficulty: 'balanced'
-        }
-      })
-    )
-  );
-  await test.waitFor(() =>
-    test
-      .expect(test.screen.queryByRole('dialog', { name: en.PracticeGenerate }))
-      .not.toBeInTheDocument()
-  );
-  test
-    .expect(rpc['materials.materialGeneration'])
-    .toHaveBeenCalledWith({ requestId: 'generation-1' });
-});
+    await user.click(within(dialog).getByRole('button', { name: en.PracticeGenerateStart }));
+    await waitFor(() =>
+      expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          projectId: 1n,
+          inputs: [{ kind: 'page', versionId: 8n }],
+          quizConfig: {
+            questionCount: 3,
+            choiceCount: 2,
+            questionKind: 'mixed',
+            difficulty: 'balanced'
+          }
+        })
+      )
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: en.PracticeGenerate })).not.toBeInTheDocument()
+    );
+    expect(rpc['materials.materialGeneration']).toHaveBeenCalledWith({ requestId: 'generation-1' });
+  }
+);
 
-test.stable('keeps a rejected start recoverable without closing the dialog', async () => {
-  const rpc = rpcFixture();
+test.stable(
+  'keeps a rejected start recoverable without closing the dialog',
+  async ({ userEvent, screen, within, expect, waitFor, vi, render, rpcHandlersTransport }) => {
+    const rpc = rpcFixture({ vi });
 
-  rpc['materials.requestMaterialGeneration'].mockImplementationOnce(() =>
-    Effect.fail(new StudyError('internal', 'Not available'))
-  );
-  const user = test.userEvent.setup();
+    rpc['materials.requestMaterialGeneration'].mockImplementationOnce(() =>
+      Effect.fail(new StudyError('internal', 'Not available'))
+    );
+    const user = userEvent.setup();
 
-  mountLibraryRoute('/practice/41?project=1', rpc);
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?project=1', rpc);
 
-  await user.click(await test.screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
-  const dialog = await test.screen.findByRole('dialog', { name: en.PracticeGenerate });
+    await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
+    const dialog = await screen.findByRole('dialog', { name: en.PracticeGenerate });
 
-  await user.click(test.within(dialog).getByRole('button', { name: en.PracticeGenerateStart }));
-  await test.within(dialog).findByText(en.QuizGenerateError);
-  test.expect(test.within(dialog).getByRole('radio', { name: en.SidebarQuiz })).toBeEnabled();
-  test.expect(test.within(dialog).queryByText(en.QuizGenerating)).toBeNull();
-  await user.click(test.within(dialog).getByRole('button', { name: en.Retry }));
-  await test.waitFor(() =>
-    test
-      .expect(test.screen.queryByRole('dialog', { name: en.PracticeGenerate }))
-      .not.toBeInTheDocument()
-  );
-  test.expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledTimes(2);
-  test
-    .expect(rpc['materials.requestMaterialGeneration'].mock.calls[1]?.[0])
-    .toEqual(rpc['materials.requestMaterialGeneration'].mock.calls[0]?.[0]);
-  test.expect(rpc['materials.materialGeneration']).toHaveBeenLastCalledWith({
-    requestId: 'generation-1'
-  });
-});
+    await user.click(within(dialog).getByRole('button', { name: en.PracticeGenerateStart }));
+    await within(dialog).findByText(en.QuizGenerateError);
+    expect(within(dialog).getByRole('radio', { name: en.SidebarQuiz })).toBeEnabled();
+    expect(within(dialog).queryByText(en.QuizGenerating)).toBeNull();
+    await user.click(within(dialog).getByRole('button', { name: en.Retry }));
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: en.PracticeGenerate })).not.toBeInTheDocument()
+    );
+    expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledTimes(2);
+    expect(rpc['materials.requestMaterialGeneration'].mock.calls[1]?.[0]).toEqual(
+      rpc['materials.requestMaterialGeneration'].mock.calls[0]?.[0]
+    );
+    expect(rpc['materials.materialGeneration']).toHaveBeenLastCalledWith({
+      requestId: 'generation-1'
+    });
+  }
+);
 
 test.stable(
   'selects subject notes to create a quiz when the existing material has no provenance',
-  async () => {
-    const rpc = rpcFixture(false);
-    const user = test.userEvent.setup();
+  async ({ userEvent, screen, within, expect, waitFor, vi, render, rpcHandlersTransport }) => {
+    const rpc = rpcFixture({ vi }, false);
+    const user = userEvent.setup();
 
-    mountLibraryRoute('/practice/41?project=1', rpc);
-    await user.click(
-      await test.screen.findByRole('button', { name: en.PracticeGenerateFromPages })
-    );
-    const dialog = await test.screen.findByRole('dialog', { name: en.PracticeGenerate });
-    const create = test.within(dialog).getByRole('button', { name: en.PracticeGenerateStart });
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?project=1', rpc);
+    await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
+    const dialog = await screen.findByRole('dialog', { name: en.PracticeGenerate });
+    const create = within(dialog).getByRole('button', { name: en.PracticeGenerateStart });
 
-    const document = await test
-      .within(dialog)
-      .findByRole('switch', { name: 'Prime numbers notes' });
+    const document = await within(dialog).findByRole('switch', { name: 'Prime numbers notes' });
 
-    test.expect(document).toBeChecked();
-    test.expect(create).toBeEnabled();
+    expect(document).toBeChecked();
+    expect(create).toBeEnabled();
     await user.click(document);
-    test.expect(create).toBeDisabled();
+    expect(create).toBeDisabled();
     await user.click(document);
-    test.expect(create).toBeEnabled();
+    expect(create).toBeEnabled();
     await user.click(create);
-    await test.waitFor(() =>
-      test
-        .expect(test.screen.queryByRole('dialog', { name: en.PracticeGenerate }))
-        .not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: en.PracticeGenerate })).not.toBeInTheDocument()
     );
-    test
-      .expect(rpc['materials.requestMaterialGeneration'])
-      .toHaveBeenCalledExactlyOnceWith(
-        test.expect.objectContaining({ inputs: [{ kind: 'page', versionId: 8n }] })
-      );
+    expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ inputs: [{ kind: 'page', versionId: 8n }] })
+    );
   }
 );
 
 test.stable(
   'generates flashcards from explicitly loaded pages with optional filtering',
-  async () => {
-    const rpc = rpcFixture(false);
+  async ({ userEvent, waitFor, expect, screen, within, vi, render, rpcHandlersTransport }) => {
+    const rpc = rpcFixture({ vi }, false);
     const first = rpc['pages.pages'].getMockImplementation()!;
     const original = rpc['materials.materialVersion'].getMockImplementation()!;
     const extra = Schema.decodeUnknownSync(summarySchema)({
@@ -320,36 +318,36 @@ test.stable(
         }))
       )
     );
-    const user = test.userEvent.setup();
+    const user = userEvent.setup();
 
-    mountLibraryRoute('/practice?project=1', rpc);
-    await test.waitFor(() =>
-      test.expect(test.screen.getByRole('button', { name: en.PracticeGenerate })).toBeEnabled()
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice?project=1', rpc);
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: en.PracticeGenerate })).toBeEnabled()
     );
-    await user.click(test.screen.getByRole('button', { name: en.PracticeGenerate }));
-    const dialog = await test.screen.findByRole('dialog', { name: en.PracticeGenerate });
+    await user.click(screen.getByRole('button', { name: en.PracticeGenerate }));
+    const dialog = await screen.findByRole('dialog', { name: en.PracticeGenerate });
 
-    await user.click(await test.within(dialog).findByRole('button', { name: en.LibraryMore }));
-    const selected = await test.within(dialog).findByRole('switch', { name: 'Index notes' });
+    await user.click(await within(dialog).findByRole('button', { name: en.LibraryMore }));
+    const selected = await within(dialog).findByRole('switch', { name: 'Index notes' });
 
-    test.expect(selected).toBeChecked();
-    const prime = test.within(dialog).getByRole('switch', { name: 'Prime numbers notes' });
+    expect(selected).toBeChecked();
+    const prime = within(dialog).getByRole('switch', { name: 'Prime numbers notes' });
 
-    test.expect(prime).toBeChecked();
+    expect(prime).toBeChecked();
     await user.click(prime);
-    await user.click(test.within(dialog).getByRole('radio', { name: en.Flashcards }));
-    await user.click(test.within(dialog).getByText(en.PracticeCustomize));
+    await user.click(within(dialog).getByRole('radio', { name: en.Flashcards }));
+    await user.click(within(dialog).getByText(en.PracticeCustomize));
     await user.type(
-      test.within(dialog).getByRole('textbox', { name: en.PracticeGeneratePrompt }),
+      within(dialog).getByRole('textbox', { name: en.PracticeGeneratePrompt }),
       'Focus on index tradeoffs.'
     );
-    test
-      .expect(test.within(dialog).queryByRole('textbox', { name: en.QuizGenerateName }))
-      .not.toBeInTheDocument();
-    await user.click(test.within(dialog).getByRole('button', { name: en.PracticeGenerateStart }));
-    await test.waitFor(() =>
-      test.expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledExactlyOnceWith(
-        test.expect.objectContaining({
+    expect(
+      within(dialog).queryByRole('textbox', { name: en.QuizGenerateName })
+    ).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: en.PracticeGenerateStart }));
+    await waitFor(() =>
+      expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
           kind: 'flashcards',
           autoTitle: true,
           instruction: 'Focus on index tradeoffs.',
@@ -358,45 +356,38 @@ test.stable(
         })
       )
     );
-    await test.waitFor(() =>
-      test
-        .expect(test.screen.queryByRole('dialog', { name: en.PracticeGenerate }))
-        .not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: en.PracticeGenerate })).not.toBeInTheDocument()
     );
   }
 );
 
 test.stable(
   'closes after acceptance while generation remains pending and can open a fresh form',
-  async () => {
-    const rpc = rpcFixture();
+  async ({ userEvent, screen, within, waitFor, expect, vi, render, rpcHandlersTransport }) => {
+    const rpc = rpcFixture({ vi });
 
     rpc['materials.materialGeneration'].mockReturnValue(Effect.never);
-    const user = test.userEvent.setup();
+    const user = userEvent.setup();
 
-    mountLibraryRoute('/practice/41?project=1', rpc);
-    await user.click(
-      await test.screen.findByRole('button', { name: en.PracticeGenerateFromPages })
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?project=1', rpc);
+    await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
+    const dialog = await screen.findByRole('dialog', { name: en.PracticeGenerate });
+
+    await user.click(within(dialog).getByRole('button', { name: en.PracticeGenerateStart }));
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: en.PracticeGenerate })).not.toBeInTheDocument()
     );
-    const dialog = await test.screen.findByRole('dialog', { name: en.PracticeGenerate });
-
-    await user.click(test.within(dialog).getByRole('button', { name: en.PracticeGenerateStart }));
-    await test.waitFor(() =>
-      test
-        .expect(test.screen.queryByRole('dialog', { name: en.PracticeGenerate }))
-        .not.toBeInTheDocument()
+    expect(screen.queryByText('Leaked generation activity')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: en.PracticeGenerateFromPages })).toHaveAttribute(
+      'aria-busy',
+      'true'
     );
-    test.expect(test.screen.queryByText('Leaked generation activity')).not.toBeInTheDocument();
-    test
-      .expect(test.screen.getByRole('button', { name: en.PracticeGenerateFromPages }))
-      .toHaveAttribute('aria-busy', 'true');
-    await user.click(test.screen.getByRole('button', { name: en.PracticeGenerateFromPages }));
-    const fresh = await test.screen.findByRole('dialog', { name: en.PracticeGenerate });
+    await user.click(screen.getByRole('button', { name: en.PracticeGenerateFromPages }));
+    const fresh = await screen.findByRole('dialog', { name: en.PracticeGenerate });
 
-    test
-      .expect(test.within(fresh).getByRole('button', { name: en.PracticeGenerateStart }))
-      .toBeEnabled();
-    test.expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledTimes(1);
+    expect(within(fresh).getByRole('button', { name: en.PracticeGenerateStart })).toBeEnabled();
+    expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledTimes(1);
   }
 );
 
@@ -406,94 +397,101 @@ for (const [kind, label] of [
   ['ordering', en.PracticeOrdering],
   ['true_false', en.PracticeTrueFalse]
 ] as const)
-  test.stable(`generates ${kind} practice with its independent defaults`, async () => {
-    const rpc = rpcFixture();
+  test.stable(
+    `generates ${kind} practice with its independent defaults`,
+    async ({ userEvent, screen, within, waitFor, expect, vi, render, rpcHandlersTransport }) => {
+      const rpc = rpcFixture({ vi });
 
-    rpc['settings.quizSettings'].mockReturnValue(
-      Effect.succeed({
-        ...defaultQuizSettings,
-        questionCount: 3,
-        choiceCount: 2,
-        practice: { [kind]: { questionCount: 7, difficulty: 'challenging' } }
-      })
-    );
-    const user = test.userEvent.setup();
+      rpc['settings.quizSettings'].mockReturnValue(
+        Effect.succeed({
+          ...defaultQuizSettings,
+          questionCount: 3,
+          choiceCount: 2,
+          practice: { [kind]: { questionCount: 7, difficulty: 'challenging' } }
+        })
+      );
+      const user = userEvent.setup();
 
-    mountLibraryRoute('/practice/41?project=1', rpc);
-    await user.click(
-      await test.screen.findByRole('button', { name: en.PracticeGenerateFromPages })
-    );
-    const dialog = await test.screen.findByRole('dialog', { name: en.PracticeGenerate });
+      mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?project=1', rpc);
+      await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
+      const dialog = await screen.findByRole('dialog', { name: en.PracticeGenerate });
 
-    await user.click(test.within(dialog).getByRole('radio', { name: label }));
-    await user.click(test.within(dialog).getByRole('button', { name: en.PracticeGenerateStart }));
-    await test.waitFor(() =>
-      test.expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledExactlyOnceWith(
-        test.expect.objectContaining({
+      await user.click(within(dialog).getByRole('radio', { name: label }));
+      await user.click(within(dialog).getByRole('button', { name: en.PracticeGenerateStart }));
+      await waitFor(() =>
+        expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledExactlyOnceWith(
+          expect.objectContaining({
+            kind: 'quiz',
+            title: label,
+            autoTitle: true,
+            quizConfig: {
+              questionCount: 7,
+              choiceCount: 2,
+              questionKind: kind,
+              difficulty: 'challenging'
+            }
+          })
+        )
+      );
+    }
+  );
+
+test.stable(
+  'generates true or false practice with a typed kind and saved difficulty',
+  async ({ userEvent, screen, within, waitFor, expect, vi, render, rpcHandlersTransport }) => {
+    const rpc = rpcFixture({ vi });
+    const user = userEvent.setup();
+
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?project=1', rpc);
+    await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
+    const dialog = await screen.findByRole('dialog', { name: en.PracticeGenerate });
+
+    await user.click(within(dialog).getByRole('radio', { name: 'True or false' }));
+    await user.click(within(dialog).getByRole('button', { name: en.PracticeGenerateStart }));
+    await waitFor(() =>
+      expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
           kind: 'quiz',
-          title: label,
+          title: 'True or false',
           autoTitle: true,
           quizConfig: {
-            questionCount: 7,
+            questionCount: 3,
             choiceCount: 2,
-            questionKind: kind,
-            difficulty: 'challenging'
+            questionKind: 'true_false',
+            difficulty: 'balanced'
           }
         })
       )
     );
-  });
+  }
+);
 
-test.stable('generates true or false practice with a typed kind and saved difficulty', async () => {
-  const rpc = rpcFixture();
-  const user = test.userEvent.setup();
+test.stable(
+  'generates ordering practice with a typed kind and saved difficulty',
+  async ({ userEvent, screen, within, waitFor, expect, vi, render, rpcHandlersTransport }) => {
+    const rpc = rpcFixture({ vi });
+    const user = userEvent.setup();
 
-  mountLibraryRoute('/practice/41?project=1', rpc);
-  await user.click(await test.screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
-  const dialog = await test.screen.findByRole('dialog', { name: en.PracticeGenerate });
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?project=1', rpc);
+    await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
+    const dialog = await screen.findByRole('dialog', { name: en.PracticeGenerate });
 
-  await user.click(test.within(dialog).getByRole('radio', { name: 'True or false' }));
-  await user.click(test.within(dialog).getByRole('button', { name: en.PracticeGenerateStart }));
-  await test.waitFor(() =>
-    test.expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledExactlyOnceWith(
-      test.expect.objectContaining({
-        kind: 'quiz',
-        title: 'True or false',
-        autoTitle: true,
-        quizConfig: {
-          questionCount: 3,
-          choiceCount: 2,
-          questionKind: 'true_false',
-          difficulty: 'balanced'
-        }
-      })
-    )
-  );
-});
-
-test.stable('generates ordering practice with a typed kind and saved difficulty', async () => {
-  const rpc = rpcFixture();
-  const user = test.userEvent.setup();
-
-  mountLibraryRoute('/practice/41?project=1', rpc);
-  await user.click(await test.screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
-  const dialog = await test.screen.findByRole('dialog', { name: en.PracticeGenerate });
-
-  await user.click(test.within(dialog).getByRole('radio', { name: 'Put in order' }));
-  await user.click(test.within(dialog).getByRole('button', { name: en.PracticeGenerateStart }));
-  await test.waitFor(() =>
-    test.expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledExactlyOnceWith(
-      test.expect.objectContaining({
-        kind: 'quiz',
-        title: 'Put in order',
-        autoTitle: true,
-        quizConfig: {
-          questionCount: 3,
-          choiceCount: 2,
-          questionKind: 'ordering',
-          difficulty: 'balanced'
-        }
-      })
-    )
-  );
-});
+    await user.click(within(dialog).getByRole('radio', { name: 'Put in order' }));
+    await user.click(within(dialog).getByRole('button', { name: en.PracticeGenerateStart }));
+    await waitFor(() =>
+      expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          kind: 'quiz',
+          title: 'Put in order',
+          autoTitle: true,
+          quizConfig: {
+            questionCount: 3,
+            choiceCount: 2,
+            questionKind: 'ordering',
+            difficulty: 'balanced'
+          }
+        })
+      )
+    );
+  }
+);

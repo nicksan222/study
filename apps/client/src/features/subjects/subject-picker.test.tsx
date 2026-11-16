@@ -52,11 +52,11 @@ function Picker() {
 
 test.stable(
   'uses the same custom/automatic identity in the trigger and searchable keyboard picker',
-  async ({ react }) => {
+  async ({ react, expect, within }) => {
     react.render(<Picker />);
     const trigger = react.screen.getByRole('combobox', { name: 'Cell Biology' });
 
-    test.expect(test.within(trigger).getByText('BIO')).toBeVisible();
+    expect(within(trigger).getByText('BIO')).toBeVisible();
     await react.user.click(trigger);
     await react.user.type(
       await react.screen.findByRole('combobox', { name: 'Find subject' }),
@@ -64,10 +64,8 @@ test.stable(
     );
     const choice = await react.screen.findByRole('option', { name: 'History of Art' });
 
-    test.expect(test.within(choice).getByText('HA')).toBeVisible();
+    expect(within(choice).getByText('HA')).toBeVisible();
     await react.user.keyboard('{ArrowDown}{Enter}');
-    test
-      .expect(await react.screen.findByRole('combobox', { name: 'History of Art' }))
-      .toBeVisible();
+    expect(await react.screen.findByRole('combobox', { name: 'History of Art' })).toBeVisible();
   }
 );

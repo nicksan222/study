@@ -5,8 +5,12 @@ import { workflowName } from './identity.ts';
 import { assertSnapshotComparison } from './preflight.ts';
 import { temporaryArtifacts } from './temporary.ts';
 
-async function fixture(titles: string[], suite = '') {
-  const directory = await temporaryArtifacts();
+async function fixture(
+  { spawnTestProcess, onTestFinished }: Pick<test.Context, 'spawnTestProcess' | 'onTestFinished'>,
+  titles: string[],
+  suite = ''
+) {
+  const directory = await temporaryArtifacts({ onTestFinished });
   const config = `${directory}/playwright.config.ts`;
   const preflight = Bun.fileURLToPath(new URL('./preflight.ts', import.meta.url));
   const harness = Bun.fileURLToPath(new URL('./index.ts', import.meta.url));
@@ -39,7 +43,7 @@ async function fixture(titles: string[], suite = '') {
   return {
     directory,
     async run(scope?: string, flags: string[] = []) {
-      const child = test.spawnTestProcess(
+      const child = spawnTestProcess(
         ['bun', '--bun', 'playwright', 'test', '--config', config, ...flags],
         {
           env: {
@@ -62,71 +66,82 @@ async function fixture(titles: string[], suite = '') {
   };
 }
 
-test.stable.each([
+test.stable.for([
   ['Notes retain edits', 'Notes: retain edits'],
   ['Notes retain edits', 'Notes retain edits'],
   ['Notes\nretain edits', 'Notes retain edits'],
   ['Notes\tretain edits', 'Notes retain edits'],
   ['Notes\u00a0retain edits', 'Notes retain edits']
-])('native preflight rejects cross-file baseline collisions for %j', async (...titles) => {
-  const { directory, run } = await fixture(titles);
-  const result = await run('notes-retain-edits');
+])(
+  'native preflight rejects cross-file baseline collisions for %j',
+  async (titles, { expect, spawnTestProcess, onTestFinished }) => {
+    const { directory, run } = await fixture({ onTestFinished, spawnTestProcess }, titles);
+    const result = await run('notes-retain-edits');
 
-  test.expect(result.code).not.toBe(0);
-  test.expect(result.output).toContain('Baseline identity collision');
+    expect(result.code).not.toBe(0);
+    expect(result.output).toContain('Baseline identity collision');
 
-  for (const index of [0, 1])
-    test.expect(await Bun.file(`${directory}/${index}.txt`).exists()).toBe(false);
-});
+    for (const index of [0, 1])
+      expect(await Bun.file(`${directory}/${index}.txt`).exists()).toBe(false);
+  }
+);
 
-test.stable.each(['', 'Editor "quoted" \\ path > [draft]?'])(
+test.stable.for(['', 'Editor "quoted" \\ path > [draft]?'])(
   'native catalog selects exact nested titles in %s',
-  async (suite) => {
+  async (suite, { expect, spawnTestProcess, onTestFinished }) => {
     const titles = [
       '2 Notes: retain edits. [draft]?',
       'Reopened 2 Notes: retain edits. [draft]?',
       'Notes "retain" edits.'
     ];
-    const { directory, run } = await fixture(titles, suite);
+    const { directory, run } = await fixture({ onTestFinished, spawnTestProcess }, titles, suite);
     const result = await run('2-notes-retain-edits-draft/settings');
 
-    test.expect(result.code, result.output).toBe(0);
-    test.expect(await Bun.file(`${directory}/0.txt`).exists()).toBe(true);
-    test.expect(await Bun.file(`${directory}/1.txt`).exists()).toBe(false);
-    test.expect(await Bun.file(`${directory}/2.txt`).exists()).toBe(false);
+    expect(result.code, result.output).toBe(0);
+    expect(await Bun.file(`${directory}/0.txt`).exists()).toBe(true);
+    expect(await Bun.file(`${directory}/1.txt`).exists()).toBe(false);
+    expect(await Bun.file(`${directory}/2.txt`).exists()).toBe(false);
   }
 );
 
-test.stable.each(['--update-snapshots', '--ignore-snapshots'])(
+test.stable.for(['--update-snapshots', '--ignore-snapshots'])(
   'native snapshot overrides fail before running a journey: %s',
-  async (flag) => {
-    const { directory, run } = await fixture(['One scoped journey']);
+  async (flag, { expect, spawnTestProcess, onTestFinished }) => {
+    const { directory, run } = await fixture({ onTestFinished, spawnTestProcess }, [
+      'One scoped journey'
+    ]);
     const result = await run(undefined, [flag]);
 
-    test.expect(result.code).not.toBe(0);
-    test.expect(result.output).toContain('native snapshot overrides are forbidden');
-    test.expect(await Bun.file(`${directory}/0.txt`).exists()).toBe(false);
+    expect(result.code).not.toBe(0);
+    expect(result.output).toContain('native snapshot overrides are forbidden');
+    expect(await Bun.file(`${directory}/0.txt`).exists()).toBe(false);
   }
 );
 
-test.stable('per-comparison policy rejects UI run overrides and ignored snapshots', () => {
-  test.expect(() => assertSnapshotComparison('none', false)).not.toThrow();
+test.stable(
+  'per-comparison policy rejects UI run overrides and ignored snapshots',
+  ({ expect }) => {
+    expect(() => assertSnapshotComparison('none', false)).not.toThrow();
 
-  for (const mode of ['all', 'changed', 'missing', 'default'] as const)
-    test
-      .expect(() => assertSnapshotComparison(mode, false))
-      .toThrow('native snapshot overrides are forbidden');
+    for (const mode of ['all', 'changed', 'missing', 'default'] as const)
+      expect(() => assertSnapshotComparison(mode, false)).toThrow(
+        'native snapshot overrides are forbidden'
+      );
 
-  test
-    .expect(() => assertSnapshotComparison('none', true))
-    .toThrow('native snapshot overrides are forbidden');
-});
+    expect(() => assertSnapshotComparison('none', true)).toThrow(
+      'native snapshot overrides are forbidden'
+    );
+  }
+);
 
 test.stable(
   'native shards partition every journey and distribute settings cases within one file',
-  async () => {
-    async function catalog(shard?: string) {
-      const child = test.spawnTestProcess(
+  async ({ expect, spawnTestProcess }) => {
+    async function catalog(
+      { spawnTestProcess, expect }: Pick<test.Context, 'spawnTestProcess' | 'expect'>,
+      shard?: string
+    ) {
+      const child = spawnTestProcess(
         [
           'bun',
           '--bun',
@@ -151,7 +166,7 @@ test.stable(
         child.exited
       ]);
 
-      test.expect(code, stderr).toBe(0);
+      expect(code, stderr).toBe(0);
       const report: JSONReport = JSON.parse(stdout);
       const specs: JSONReportSpec[] = [];
 
@@ -167,32 +182,27 @@ test.stable(
     }
 
     const [all, ...shards] = await Promise.all([
-      catalog(),
-      catalog('1/3'),
-      catalog('2/3'),
-      catalog('3/3')
+      catalog({ spawnTestProcess, expect }),
+      catalog({ spawnTestProcess, expect }, '1/3'),
+      catalog({ spawnTestProcess, expect }, '2/3'),
+      catalog({ spawnTestProcess, expect }, '3/3')
     ]);
     const ids = (specs: typeof all) => specs.map((spec) => spec.id).sort();
 
-    test.expect(ids(shards.flat())).toEqual(ids(all));
-    test.expect(new Set(ids(shards.flat())).size).toBe(all.length);
+    expect(ids(shards.flat())).toEqual(ids(all));
+    expect(new Set(ids(shards.flat())).size).toBe(all.length);
 
-    test
-      .expect(
-        shards.filter((shard) => shard.some((spec) => spec.file.endsWith('settings.test.ts')))
-          .length
-      )
-      .toBeGreaterThan(1);
+    expect(
+      shards.filter((shard) => shard.some((spec) => spec.file.endsWith('settings.test.ts'))).length
+    ).toBeGreaterThan(1);
 
     // The two consecutive fixtures must stay on one worker to exercise fixture cleanup.
-    test
-      .expect(
-        shards
-          .map(
-            (shard) => shard.filter((spec) => spec.file.endsWith('worker-a.browser.test.ts')).length
-          )
-          .sort()
-      )
-      .toEqual([0, 0, 2]);
+    expect(
+      shards
+        .map(
+          (shard) => shard.filter((spec) => spec.file.endsWith('worker-a.browser.test.ts')).length
+        )
+        .sort()
+    ).toEqual([0, 0, 2]);
   }
 );

@@ -24,7 +24,7 @@ import { ProjectsStore } from './index.ts';
 
 test.stable(
   'custom subject icon persists across SQLite reopen and automatic mode restores title-derived identity',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const location = await databases();
     const clock = Effect.runSync(Clock.Clock);
     let context = new ServerContext(await location.open(), clock);
@@ -48,7 +48,7 @@ test.stable(
       context = new ServerContext(await location.open(), clock);
       const store = await provide(useStore(ProjectsStore));
 
-      test.expect((await Effect.runPromise(store.project(created.id))).icon).toStrictEqual({
+      expect((await Effect.runPromise(store.project(created.id))).icon).toStrictEqual({
         kind: 'monogram',
         value: 'BIO',
         color: 'neutral'
@@ -58,7 +58,7 @@ test.stable(
           tx.store(ProjectsStore).renameProject({ id: created.id, name: 'Advanced Biology' })
         )
       );
-      test.expect((await Effect.runPromise(store.project(created.id))).icon).toStrictEqual({
+      expect((await Effect.runPromise(store.project(created.id))).icon).toStrictEqual({
         kind: 'monogram',
         value: 'BIO',
         color: 'neutral'
@@ -70,7 +70,7 @@ test.stable(
             .setIcon({ id: created.id, icon: { kind: 'automatic', color: 'neutral' } })
         )
       );
-      test.expect((await Effect.runPromise(store.project(created.id))).icon).toStrictEqual({
+      expect((await Effect.runPromise(store.project(created.id))).icon).toStrictEqual({
         kind: 'automatic',
         color: 'neutral'
       });
@@ -85,7 +85,7 @@ test.stable(
         )
       );
 
-      test.expect(error.kind).toStrictEqual('not_found');
+      expect(error.kind).toStrictEqual('not_found');
     } finally {
       context.close();
       await location.cleanup();
@@ -95,7 +95,7 @@ test.stable(
 
 test.stable(
   'rich icons persist their typed variant and color across SQLite reopen',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const location = await databases();
     const clock = Effect.runSync(Clock.Clock);
     let context = new ServerContext(await location.open(), clock);
@@ -119,7 +119,7 @@ test.stable(
         context = new ServerContext(await location.open(), clock);
         const store = await provide(useStore(ProjectsStore));
 
-        test.expect((await Effect.runPromise(store.project(created.id))).icon).toStrictEqual(icon);
+        expect((await Effect.runPromise(store.project(created.id))).icon).toStrictEqual(icon);
       }
     } finally {
       context.close();

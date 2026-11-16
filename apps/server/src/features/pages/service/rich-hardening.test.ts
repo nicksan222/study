@@ -41,7 +41,9 @@ const paragraph = (text: string) =>
 
 test.stable(
   'a retained separator-only learning request cannot retry after reopen or emit new work',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await pageTransformFixture(databases);
 
     try {
@@ -73,7 +75,7 @@ test.stable(
             citations: []
           });
 
-          test.assert.ok(empty.version);
+          assert.ok(empty.version);
 
           return { project, version: empty.version };
         }).pipe(Effect.provide(f.domain()))
@@ -108,7 +110,7 @@ test.stable(
         Effect.gen(function* () {
           const materials = yield* Materials;
 
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               materials.retryMaterialGenerationOnce({
                 requestId: 'historical-empty',
@@ -116,23 +118,23 @@ test.stable(
               })
             )).kind === 'invalid_input'
           );
-          test.assert.ok(
+          assert.ok(
             (yield* materials.materialGeneration({
               requestId: 'historical-empty',
               verifyOnly: true
             })).resultVersionId === null
           );
-          test.assert.ok(
+          assert.ok(
             (yield* (yield* Pages).version({ id: saved.version.id })).status === 'published'
           );
         }).pipe(Effect.provide(f.domain()))
       );
-      test.expect(f.context.db.orm.select().from(s.workflowEvents).all()).toStrictEqual(before);
-      test.assert.strictEqual(
+      expect(f.context.db.orm.select().from(s.workflowEvents).all()).toStrictEqual(before);
+      assert.strictEqual(
         f.context.db.orm.select().from(s.material_evidence_inputs).all().length,
         1
       );
-      test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }
@@ -141,7 +143,9 @@ test.stable(
 
 test.stable(
   'invalid rich input rolls back and retained conflict drafts reject canonical projection and payload corruption after reopen',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await pageTransformFixture(databases);
 
     try {
@@ -150,7 +154,7 @@ test.stable(
           const docs = yield* Pages;
           const block = paragraph('Evidence');
 
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               docs.create({
                 createKey: crypto.randomUUID(),
@@ -161,11 +165,8 @@ test.stable(
               })
             )).kind === 'invalid_input'
           );
-          test.assert.strictEqual(f.context.db.orm.select().from(s.pages).all().length, 0);
-          test.assert.strictEqual(
-            f.context.db.orm.select().from(s.content_snapshots).all().length,
-            0
-          );
+          assert.strictEqual(f.context.db.orm.select().from(s.pages).all().length, 0);
+          assert.strictEqual(f.context.db.orm.select().from(s.content_snapshots).all().length, 0);
           const original = yield* docs.create({
             createKey: crypto.randomUUID(),
             title: 'Draft alternatives',
@@ -174,7 +175,7 @@ test.stable(
             citations: []
           });
 
-          test.assert.ok(original.version);
+          assert.ok(original.version);
           yield* docs.save({
             pageId: original.id,
             expectedVersionId: original.version.id,
@@ -189,10 +190,10 @@ test.stable(
           };
           const conflict = yield* docs.save(intent);
 
-          test.assert.ok(conflict.outcome === 'conflict');
+          assert.ok(conflict.outcome === 'conflict');
           const draft = yield* docs.version({ id: conflict.submittedVersionId });
 
-          test.assert.ok(draft.status === 'draft');
+          assert.ok(draft.status === 'draft');
 
           return { draft, intent, conflict };
         }).pipe(Effect.provide(f.domain()))
@@ -208,18 +209,18 @@ test.stable(
         sql`UPDATE blocks SET content=${encodeBlockContent(paragraph('Substitution').content)} WHERE document_id=${saved.draft.snapshotId}`,
         sql`DELETE FROM content_snapshots WHERE id=${saved.draft.snapshotId}`
       ])
-        test.assert.throws(() => f.context.db.orm.run(mutation));
+        assert.throws(() => f.context.db.orm.run(mutation));
 
       await Effect.runPromise(
         Effect.gen(function* () {
           const docs = yield* Pages;
 
-          test.expect(yield* docs.version({ id: saved.draft.id })).toStrictEqual(saved.draft);
-          test.expect(yield* docs.save(saved.intent)).toStrictEqual({
+          expect(yield* docs.version({ id: saved.draft.id })).toStrictEqual(saved.draft);
+          expect(yield* docs.save(saved.intent)).toStrictEqual({
             ...saved.conflict,
             replayed: true
           });
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               docs.restore({
                 pageId: saved.intent.pageId,
@@ -236,14 +237,14 @@ test.stable(
             key: 'adopt-alternative'
           });
 
-          test.assert.ok(restored.outcome === 'saved');
-          test.assert.ok(
+          assert.ok(restored.outcome === 'saved');
+          assert.ok(
             (yield* docs.version({ id: restored.submittedVersionId })).document.blocks[0]?.text ===
               'Retained alternative'
           );
         }).pipe(Effect.provide(f.domain()))
       );
-      test.assert.strictEqual(
+      assert.strictEqual(
         f.context.db.orm.select().from(s.workflowEvents).all().length,
         before.length + 1
       );
@@ -255,7 +256,9 @@ test.stable(
 
 test.stable(
   'authored image replacement and body retirement release only owned roots while independent copies retain exact bytes',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await pageTransformFixture(databases);
     const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 
@@ -279,8 +282,8 @@ test.stable(
           const original = yield* create('Original');
           const copy = yield* create('Independent copy');
 
-          test.assert.ok(original.version);
-          test.assert.ok(copy.version);
+          assert.ok(original.version);
+          assert.ok(copy.version);
           const oldBlock = original.version.document.blocks[0]!;
           const replacement = image(other.id);
           const edit = yield* docs.save({
@@ -290,29 +293,21 @@ test.stable(
             document: { blocks: [{ ...replacement, id: oldBlock.id }], meta }
           });
 
-          test.assert.ok(edit.outcome === 'saved');
+          assert.ok(edit.outcome === 'saved');
           const scope = { pageId: original.id, keepLatest: 1 };
           const preview = yield* docs.previewHistory(scope);
 
           yield* docs.retireHistory({ ...scope, token: preview.token });
-          test.assert.strictEqual(
-            f.context.db.orm.select().from(s.document_assets).all().length,
-            2
-          );
+          assert.strictEqual(f.context.db.orm.select().from(s.document_assets).all().length, 2);
           const remove = yield* docs.previewDeletion({ id: original.id });
 
           yield* docs.delete({ pageId: original.id, token: remove.token });
-          test.assert.strictEqual(
-            f.context.db.orm.select().from(s.document_assets).all().length,
-            1
-          );
-          test
-            .expect((yield* sources.previewDeletion({ id: other.id })).blockedBy)
-            .toStrictEqual([]);
+          assert.strictEqual(f.context.db.orm.select().from(s.document_assets).all().length, 1);
+          expect((yield* sources.previewDeletion({ id: other.id })).blockedBy).toStrictEqual([]);
           yield* sources.deleteSource({ id: other.id });
-          test
-            .expect((yield* sources.previewDeletion({ id: first.id })).blockedBy)
-            .toStrictEqual(['image_assets']);
+          expect((yield* sources.previewDeletion({ id: first.id })).blockedBy).toStrictEqual([
+            'image_assets'
+          ]);
 
           return { first, copy: copy.version };
         }).pipe(Effect.provide(f.domain()))
@@ -326,24 +321,20 @@ test.stable(
         sql`UPDATE source_snapshots SET mime='text/plain' WHERE source_id=${saved.first.id} AND revision=1`,
         sql`DELETE FROM source_snapshots WHERE source_id=${saved.first.id} AND revision=1`
       ])
-        test.assert.throws(() => f.context.db.orm.run(mutation));
+        assert.throws(() => f.context.db.orm.run(mutation));
 
       await Effect.runPromise(
         Effect.gen(function* () {
-          test
-            .expect(
-              (yield* (yield* Sources).sourceSnapshot({ id: saved.first.id, revision: 1 })).bytes
-            )
-            .toStrictEqual(bytes);
-          test
-            .expect(yield* (yield* Pages).version({ id: saved.copy.id }))
-            .toStrictEqual(saved.copy);
+          expect(
+            (yield* (yield* Sources).sourceSnapshot({ id: saved.first.id, revision: 1 })).bytes
+          ).toStrictEqual(bytes);
+          expect(yield* (yield* Pages).version({ id: saved.copy.id })).toStrictEqual(saved.copy);
         }).pipe(Effect.provide(f.domain()))
       );
-      test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
-      test
-        .expect(f.context.db.orm.all(sql`PRAGMA integrity_check`))
-        .toStrictEqual([{ integrity_check: 'ok' }]);
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      expect(f.context.db.orm.all(sql`PRAGMA integrity_check`)).toStrictEqual([
+        { integrity_check: 'ok' }
+      ]);
     } finally {
       await f.close();
     }

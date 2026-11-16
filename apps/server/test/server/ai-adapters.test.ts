@@ -30,9 +30,9 @@ const agent = defineAgent({
 
 test.stable(
   'shared one-shot mocks use the real application agent and tool adapters',
-  async ({ resources: resourcesFixture }) => {
+  async ({ resources: resourcesFixture, createAiMock, expect }) => {
     const resources = resourcesFixture;
-    using mock = test.createAiMock();
+    using mock = createAiMock();
     const input = { topic: 'Cell division', revision: 2n };
     const output = { summary: 'Mitosis preserves the chromosome count.', revision: 2n };
     let actualExecutions = 0;
@@ -65,8 +65,8 @@ test.stable(
       }
     });
 
-    test.expect(await app.nativeRuntime.runPromise(generateAgent(agent, input))).toEqual(output);
-    test.expect((await nextAgent.called).input).toEqual(input);
+    expect(await app.nativeRuntime.runPromise(generateAgent(agent, input))).toEqual(output);
+    expect((await nextAgent.called).input).toEqual(input);
     const toolOutput = await app.nativeRuntime.runPromise(
       Effect.gen(function* () {
         const environment = yield* Agents;
@@ -87,8 +87,8 @@ test.stable(
       }).pipe(Effect.withSpan('testing.mocked-tool'))
     );
 
-    test.expect(toolOutput).toEqual({ text: 'Original observation' });
-    test.expect((await nextTool.called).input).toEqual({ id: 'observation-one' });
-    test.expect(actualExecutions).toBe(0);
+    expect(toolOutput).toEqual({ text: 'Original observation' });
+    expect((await nextTool.called).input).toEqual({ id: 'observation-one' });
+    expect(actualExecutions).toBe(0);
   }
 );

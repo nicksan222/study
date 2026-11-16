@@ -45,7 +45,12 @@ const document = () => ({
   }
 });
 
-function createEvidence(input: { projectId: ProjectId; title: string }) {
+function createEvidence(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  input: { projectId: ProjectId; title: string }
+) {
+  const assert: test.Assert = assertions;
+
   return Effect.flatMap(Pages, (docs) =>
     docs.create({
       ...input,
@@ -56,7 +61,7 @@ function createEvidence(input: { projectId: ProjectId; title: string }) {
     })
   ).pipe(
     Effect.map((value) => {
-      test.assert.ok(value.version);
+      assert.ok(value.version);
 
       return { ...value, version: value.version };
     })
@@ -65,7 +70,9 @@ function createEvidence(input: { projectId: ProjectId; title: string }) {
 
 test.stable(
   'quiz settings persist as request intent and reject changed settings',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const services = Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer).pipe(
@@ -78,7 +85,10 @@ test.stable(
           const projects = yield* Projects;
           const materials = yield* Materials;
           const project = yield* projects.createProject({ name: 'Configured quizzes' });
-          const doc = yield* createEvidence({ projectId: project.id, title: 'Evidence' });
+          const doc = yield* createEvidence(
+            { assert },
+            { projectId: project.id, title: 'Evidence' }
+          );
           const input = { kind: 'page' as const, versionId: doc.version.id };
           const quizConfig = {
             questionCount: 2,
@@ -96,16 +106,14 @@ test.stable(
           };
 
           yield* materials.requestMaterialGenerationOnce({ requestId: 'configured-quiz', request });
-          test
-            .expect(
-              (yield* materials.materialGeneration({ requestId: 'configured-quiz' })).quizConfig
-            )
-            .toStrictEqual(quizConfig);
-          test.assert.strictEqual(
+          expect(
+            (yield* materials.materialGeneration({ requestId: 'configured-quiz' })).quizConfig
+          ).toStrictEqual(quizConfig);
+          assert.strictEqual(
             (yield* materials.materialGeneration({ requestId: 'configured-quiz' })).autoTitle,
             true
           );
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* Effect.flip(
               materials.requestMaterialGenerationOnce({
                 requestId: 'configured-quiz',
@@ -122,7 +130,7 @@ test.stable(
             { questionKind: 'open' as const },
             { difficulty: 'easy' as const }
           ])
-            test.assert.strictEqual(
+            assert.strictEqual(
               (yield* Effect.flip(
                 materials.requestMaterialGenerationOnce({
                   requestId: 'configured-quiz',
@@ -142,7 +150,9 @@ test.stable(
 
 test.stable(
   'generation requests persist immutable published document inputs and an outbox event',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const services = Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer).pipe(
@@ -155,7 +165,10 @@ test.stable(
           const projects = yield* Projects;
           const materials = yield* Materials;
           const project = yield* projects.createProject({ name: 'Generation' });
-          const doc = yield* createEvidence({ projectId: project.id, title: 'Document' });
+          const doc = yield* createEvidence(
+            { assert },
+            { projectId: project.id, title: 'Document' }
+          );
           const request = yield* materials.requestMaterialGeneration({
             projectId: project.id,
             title: ' Cards ',
@@ -163,11 +176,11 @@ test.stable(
             inputs: [{ kind: 'page' as const, versionId: doc.version.id }]
           });
 
-          test.assert.ok(request.title === 'Cards');
-          test
-            .expect(request.inputs)
-            .toStrictEqual([{ kind: 'page' as const, versionId: doc.version.id }]);
-          test.assert.strictEqual(
+          assert.ok(request.title === 'Cards');
+          expect(request.inputs).toStrictEqual([
+            { kind: 'page' as const, versionId: doc.version.id }
+          ]);
+          assert.strictEqual(
             context.db.orm
               .select()
               .from(workflowEvents)
@@ -186,7 +199,9 @@ test.stable(
 
 test.stable(
   'generation validation, rollback, RPC, and persistent snapshots',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     let context = new ServerContext(await location.open());
     const makeServices = () =>
@@ -202,15 +217,26 @@ test.stable(
       const services = makeServices();
       const handlers = materialRpcHandlers.pipe(Layer.provide(services));
 
-      function* verifyGenerationSnapshots() {
+      function* verifyGenerationSnapshots({
+        assert: assertions,
+        expect
+      }: Pick<test.Context, 'assert' | 'expect'>) {
+        const assert: test.Assert = assertions;
+
         const projects = yield* Projects;
         const materials = yield* Materials;
         const client = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
         const project = yield* projects.createProject({ name: 'One' });
         const other = yield* projects.createProject({ name: 'Two' });
-        const doc = yield* createEvidence({ projectId: project.id, title: 'Doc' });
-        const foreign = yield* createEvidence({ projectId: other.id, title: 'Foreign' });
-        const draftOwner = yield* createEvidence({ projectId: project.id, title: 'Draft' });
+        const doc = yield* createEvidence({ assert }, { projectId: project.id, title: 'Doc' });
+        const foreign = yield* createEvidence(
+          { assert },
+          { projectId: other.id, title: 'Foreign' }
+        );
+        const draftOwner = yield* createEvidence(
+          { assert },
+          { projectId: project.id, title: 'Draft' }
+        );
         const docs = yield* Pages;
 
         yield* docs.save({
@@ -226,7 +252,10 @@ test.stable(
           document: document()
         });
         const draft = yield* docs.version({ id: alternative.submittedVersionId });
-        const archived = yield* createEvidence({ projectId: project.id, title: 'Archived' });
+        const archived = yield* createEvidence(
+          { assert },
+          { projectId: project.id, title: 'Archived' }
+        );
 
         yield* docs.archive({ id: archived.id, archived: true });
         const diagram = yield* materials.create({
@@ -237,7 +266,7 @@ test.stable(
         const base = { projectId: project.id, title: 'Generated', kind: 'quiz' as const };
 
         for (const id of [foreign.version.id, draft.id, archived.version.id]) {
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               materials.requestMaterialGeneration({
                 ...base,
@@ -249,11 +278,11 @@ test.stable(
 
         const parse = Schema.decodeUnknownSync(requestMaterialGenerationInputSchema);
 
-        test.assert.throws(() =>
+        assert.throws(() =>
           parse({ ...base, inputs: [{ kind: 'material', versionId: diagram.version.id }] })
         );
 
-        test.assert.throws(() =>
+        assert.throws(() =>
           parse({
             ...base,
             inputs: [
@@ -262,8 +291,8 @@ test.stable(
             ]
           })
         );
-        test.assert.throws(() => parse({ ...base, inputs: [] }));
-        test.assert.throws(() =>
+        assert.throws(() => parse({ ...base, inputs: [] }));
+        assert.throws(() =>
           parse({
             ...base,
             inputs: Array.from({ length: 21 }, (_, i) => ({
@@ -272,7 +301,7 @@ test.stable(
             }))
           })
         );
-        test.assert.strictEqual(
+        assert.strictEqual(
           context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length,
           0
         );
@@ -285,11 +314,11 @@ test.stable(
             inputs: [{ kind: 'page' as const, versionId: doc.version.id }]
           })
         );
-        test.assert.strictEqual(
+        assert.strictEqual(
           context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length,
           0
         );
-        test.assert.strictEqual(
+        assert.strictEqual(
           context.db.orm.all(sql`SELECT * FROM material_evidence_inputs`).length,
           0
         );
@@ -304,14 +333,14 @@ test.stable(
         requestId = request.id;
         versionId = doc.version.id;
         pageId = doc.version.snapshotId;
-        test.assert.ok(snapshot.instruction === 'Focus');
+        assert.ok(snapshot.instruction === 'Focus');
         const event = context.db.orm
           .select()
           .from(workflowEvents)
           .all()
           .find((row) => row.eventId === request.id)!;
 
-        test.expect(decodeEvent(event.payload)).toStrictEqual({
+        expect(decodeEvent(event.payload)).toStrictEqual({
           type: 'MaterialGenerationRequested',
           eventId: request.id,
           causationId: null,
@@ -336,13 +365,13 @@ test.stable(
         });
 
         otherRequestId = otherRequest.id;
-        test.assert.throws(() =>
+        assert.throws(() =>
           context.db.orm.run(sql`DELETE FROM page_versions WHERE id=${doc.version.id}`)
         );
       }
 
       await Effect.runPromise(
-        Effect.gen(verifyGenerationSnapshots).pipe(
+        Effect.gen(() => verifyGenerationSnapshots({ assert, expect })).pipe(
           Effect.provide(services),
           Effect.provide(handlers),
           Effect.scoped
@@ -355,25 +384,22 @@ test.stable(
           const materials = yield* Materials;
           const snapshot = yield* materials.materialGeneration({ requestId });
 
-          test.expect(snapshot.inputs).toStrictEqual([{ kind: 'page', versionId }]);
+          expect(snapshot.inputs).toStrictEqual([{ kind: 'page', versionId }]);
           const docs = yield* Pages;
           const exact = snapshot.inputs[0];
 
-          test.assert.ok(exact?.kind === 'page');
-          test.assert.strictEqual(
-            (yield* docs.version({ id: exact.versionId })).snapshotId,
-            pageId
-          );
+          assert.ok(exact?.kind === 'page');
+          assert.strictEqual((yield* docs.version({ id: exact.versionId })).snapshotId, pageId);
           context.db.orm.run(sql`DELETE FROM projects WHERE id=${snapshot.projectId}`);
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* materials.materialGeneration({ requestId: otherRequestId })).id,
             otherRequestId
           );
-          test.assert.strictEqual(
+          assert.strictEqual(
             context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length,
             2
           );
-          test.assert.strictEqual(
+          assert.strictEqual(
             context.db.orm.all(sql`SELECT * FROM material_evidence_inputs`).length,
             2
           );
@@ -388,7 +414,9 @@ test.stable(
 
 test.stable(
   'caller-owned generation keys replay the same request and reject changed intent',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const services = Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer).pipe(
@@ -401,7 +429,10 @@ test.stable(
           const projects = yield* Projects;
           const materials = yield* Materials;
           const project = yield* projects.createProject({ name: 'Replay' });
-          const doc = yield* createEvidence({ projectId: project.id, title: 'Document' });
+          const doc = yield* createEvidence(
+            { assert },
+            { projectId: project.id, title: 'Document' }
+          );
           const request = {
             projectId: project.id,
             title: 'Question',
@@ -417,12 +448,12 @@ test.stable(
             request
           });
 
-          test.expect(replay).toStrictEqual(first);
-          test.assert.strictEqual(
+          expect(replay).toStrictEqual(first);
+          assert.strictEqual(
             context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length,
             1
           );
-          test.assert.strictEqual(
+          assert.strictEqual(
             context.db.orm
               .select()
               .from(workflowEvents)
@@ -430,7 +461,7 @@ test.stable(
               .filter((event) => event.type === 'MaterialGenerationRequested').length,
             1
           );
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               materials.requestMaterialGenerationOnce({
                 requestId: 'slot-1',
@@ -449,7 +480,9 @@ test.stable(
 
 test.stable(
   'generation scopes retain tombstones and fence requests by project and intent',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const services = Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer).pipe(
@@ -463,7 +496,10 @@ test.stable(
           const materials = yield* Materials;
           const project = yield* projects.createProject({ name: 'Scope' });
           const other = yield* projects.createProject({ name: 'Other' });
-          const doc = yield* createEvidence({ projectId: project.id, title: 'Document' });
+          const doc = yield* createEvidence(
+            { assert },
+            { projectId: project.id, title: 'Document' }
+          );
           const scope = { scopeId: 'epoch', projectId: project.id };
           const request = {
             projectId: project.id,
@@ -477,11 +513,11 @@ test.stable(
           yield* materials.openGenerationScope(scope);
           yield* materials.openGenerationScope(scope);
           yield* materials.requestMaterialGenerationOnce({ requestId: 'slot', request });
-          test.assert.ok(
+          assert.ok(
             (yield* materials.materialGeneration({ requestId: 'slot' })).questionSpec?.kind ===
               'open'
           );
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               materials.requestMaterialGenerationOnce({
                 requestId: 'slot',
@@ -489,24 +525,24 @@ test.stable(
               })
             )).kind === 'invalid_input'
           );
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(materials.openGenerationScope({ ...scope, projectId: other.id })))
               .kind === 'invalid_input'
           );
           yield* materials.closeGenerationScope(scope);
           yield* materials.openGenerationScope(scope);
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(materials.materialGeneration({ requestId: 'slot' }))).kind ===
               'invalid_input'
           );
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               materials.requestMaterialGenerationOnce({ requestId: 'new', request })
             )).kind === 'invalid_input'
           );
           yield* materials.closeGenerationScope({ ...scope, scopeId: 'early' });
           yield* materials.openGenerationScope({ ...scope, scopeId: 'early' });
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               materials.requestMaterialGenerationOnce({
                 requestId: 'early-slot',
@@ -525,7 +561,9 @@ test.stable(
 
 test.stable(
   'explicit generation retries are idempotent and require active captured intent',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const services = Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer).pipe(
@@ -538,7 +576,10 @@ test.stable(
           const projects = yield* Projects;
           const materials = yield* Materials;
           const project = yield* projects.createProject({ name: 'Retry' });
-          const doc = yield* createEvidence({ projectId: project.id, title: 'Document' });
+          const doc = yield* createEvidence(
+            { assert },
+            { projectId: project.id, title: 'Document' }
+          );
 
           yield* materials.openGenerationScope({ scopeId: 'scope', projectId: project.id });
           yield* materials.requestMaterialGenerationOnce({
@@ -559,15 +600,15 @@ test.stable(
             .all()
             .map((row) => decodeEvent(row.payload));
 
-          test.assert.strictEqual(
+          assert.strictEqual(
             events.filter((event) => event.type === 'MaterialGenerationRequested').length,
             2
           );
-          test.assert.ok(
+          assert.ok(
             (yield* materials.materialGeneration({ requestId: 'request', eventId: 'retry' })).id ===
               'request'
           );
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               materials.materialGeneration({ requestId: 'request', eventId: 'forged' })
             )).kind === 'invalid_input'
@@ -581,7 +622,7 @@ test.stable(
               inputs: [{ kind: 'page' as const, versionId: doc.version.id }]
             }
           });
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               materials.retryMaterialGenerationOnce({
                 requestId: 'other-request',
@@ -589,7 +630,7 @@ test.stable(
               })
             )).kind === 'invalid_input'
           );
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               materials.retryMaterialGenerationOnce({
                 requestId: 'request',
@@ -598,7 +639,7 @@ test.stable(
             )).kind === 'invalid_input'
           );
           yield* materials.closeGenerationScope({ scopeId: 'scope', projectId: project.id });
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               materials.retryMaterialGenerationOnce({ requestId: 'request', retryId: 'retry-2' })
             )).kind === 'invalid_input'
@@ -614,7 +655,9 @@ test.stable(
 
 test.stable(
   'active practice generations recover across reads and exclude cancelled and other subjects',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const services = Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer).pipe(
@@ -628,8 +671,14 @@ test.stable(
           const materials = yield* Materials;
           const project = yield* projects.createProject({ name: 'Practice' });
           const other = yield* projects.createProject({ name: 'Other' });
-          const doc = yield* createEvidence({ projectId: project.id, title: 'Evidence' });
-          const otherDoc = yield* createEvidence({ projectId: other.id, title: 'Other evidence' });
+          const doc = yield* createEvidence(
+            { assert },
+            { projectId: project.id, title: 'Evidence' }
+          );
+          const otherDoc = yield* createEvidence(
+            { assert },
+            { projectId: other.id, title: 'Other evidence' }
+          );
           const request = yield* materials.requestMaterialGeneration({
             projectId: project.id,
             title: 'Quiz',
@@ -643,16 +692,14 @@ test.stable(
             inputs: [{ kind: 'page', versionId: otherDoc.version.id }]
           });
 
-          test
-            .expect(
-              (yield* materials.activeMaterialGenerations({ projectId: project.id })).map(
-                (item) => item.id
-              )
+          expect(
+            (yield* materials.activeMaterialGenerations({ projectId: project.id })).map(
+              (item) => item.id
             )
-            .toEqual([request.id]);
-          test
-            .expect((yield* materials.activeMaterialGenerations({})).map((item) => item.id).sort())
-            .toEqual([request.id, otherRequest.id].sort());
+          ).toEqual([request.id]);
+          expect(
+            (yield* materials.activeMaterialGenerations({})).map((item) => item.id).sort()
+          ).toEqual([request.id, otherRequest.id].sort());
           context.transaction(['workflows'], (tx) =>
             emitEvent(
               tx,
@@ -674,16 +721,14 @@ test.stable(
           );
           const failed = yield* materials.activeMaterialGenerations({ projectId: project.id });
 
-          test
-            .expect(failed.map((item) => ({ id: item.id, errorKind: item.errorKind })))
-            .toEqual([{ id: request.id, errorKind: 'invalid_input' }]);
+          expect(failed.map((item) => ({ id: item.id, errorKind: item.errorKind }))).toEqual([
+            { id: request.id, errorKind: 'invalid_input' }
+          ]);
           yield* materials.cancelMaterialGeneration({ requestId: request.id });
-          test
-            .expect(yield* materials.activeMaterialGenerations({ projectId: project.id }))
-            .toEqual([]);
-          test
-            .expect((yield* materials.activeMaterialGenerations({})).map((item) => item.id))
-            .toEqual([otherRequest.id]);
+          expect(yield* materials.activeMaterialGenerations({ projectId: project.id })).toEqual([]);
+          expect((yield* materials.activeMaterialGenerations({})).map((item) => item.id)).toEqual([
+            otherRequest.id
+          ]);
         }).pipe(Effect.provide(services))
       );
     } finally {

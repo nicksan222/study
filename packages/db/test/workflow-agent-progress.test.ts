@@ -7,9 +7,9 @@ import { workflow_agent_progress } from '../src/schema.ts';
 
 test.stable(
   'upgrading existing agent previews defaults their phase without losing progress',
-  async ({ databases }) => {
+  async ({ databases, temporaryDirectory, expect }) => {
     const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
-    const folder = await test.temporaryDirectory({ prefix: 'study-progress-upgrade-' });
+    const folder = await temporaryDirectory({ prefix: 'study-progress-upgrade-' });
     const older = `${folder.path}/drizzle`;
 
     await Effect.runPromise(
@@ -31,15 +31,15 @@ test.stable(
       VALUES('agent','run','reply',1,'reply','text','running','Retained preview',2,1);`);
       db.close();
       db = await location.open({ migrations: 'current' });
-      test.expect(db.orm.select().from(workflow_agent_progress).get()).toMatchObject({
+      expect(db.orm.select().from(workflow_agent_progress).get()).toMatchObject({
         run_id: 'agent',
         phase: 'generating',
         text: 'Retained preview',
         revision: 2n,
         status: 'running'
       });
-      test.expect(() => db.exec("UPDATE workflow_agent_progress SET phase='unknown'")).toThrow();
-      test.expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toEqual([]);
+      expect(() => db.exec("UPDATE workflow_agent_progress SET phase='unknown'")).toThrow();
+      expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toEqual([]);
     } finally {
       db.close();
     }

@@ -4,8 +4,10 @@ import { lintRule } from '../test/utils.ts';
 
 test.stable(
   'public runtime exports and extracted open methods cannot bypass fixture ownership',
-  async () => {
-    const diagnostics = await lintRule('harness-boundary', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'harness-boundary', {
       'src/features/projects/service/public.test.ts': `import { App } from '@study/server/runtime'; App.open({ path });`,
       'src/features/projects/service/index.test.ts': `import * as runtime from '#server/runtime/index';
       const app = runtime.App; const open = app.open; open({ path });`,
@@ -16,14 +18,16 @@ test.stable(
       'src/features/projects/service/index.ts': `export { createServerFixture } from '@study/server/testing';`
     });
 
-    test.assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
   }
 );
 
 test.stable(
   'production code cannot import test resources and tests acquire apps through the owned harness',
-  async () => {
-    const diagnostics = await lintRule('harness-boundary', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'harness-boundary', {
       'src/domains/projects/service.ts':
         "import { fixture } from '#testing/fixtures'; export { fixture };",
       'src/procedures/projects/procedure.test.ts':
@@ -37,14 +41,16 @@ const app = A.open({ path: ":memory:" });`,
       'src/domains/sources/pure.test.ts': 'const Db = { open() {} }; Db.open();'
     });
 
-    test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );
 
 test.stable(
   'resource ownership survives namespaces and constant aliases with lexical shadowing',
-  async () => {
-    const diagnostics = await lintRule('harness-boundary', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'harness-boundary', {
       'src/domains/projects/store.test.ts': String.raw`import * as db from "@study/db";
 const Alias = db.Db;
 Alias.open(":memory:");
@@ -57,17 +63,22 @@ const Alias = App;
 Alias.open({ path: ":memory:" });`
     });
 
-    test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );
 
-test.stable('relative namespace imports cannot open applications outside the harness', async () => {
-  const diagnostics = await lintRule('harness-boundary', {
-    'src/domains/projects/store.test.ts':
-      "import {App} from '../../runtime/service'; App.open({});",
-    'src/domains/sources/store.test.ts':
-      "import * as runtime from '../../runtime/service.ts'; runtime.App.open({});"
-  });
+test.stable(
+  'relative namespace imports cannot open applications outside the harness',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-});
+    const diagnostics = await lintRule({ assert }, 'harness-boundary', {
+      'src/domains/projects/store.test.ts':
+        "import {App} from '../../runtime/service'; App.open({});",
+      'src/domains/sources/store.test.ts':
+        "import * as runtime from '../../runtime/service.ts'; runtime.App.open({});"
+    });
+
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  }
+);

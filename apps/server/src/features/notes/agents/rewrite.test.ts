@@ -16,26 +16,29 @@ import { test } from '@study/testing';
 import { rewriteAgent } from './rewrite.ts';
 
 for (const origin of ['improve', 'summarize'] as const)
-  test.stable(`rewrite ${origin} keeps the captured target immediately before the task`, () => {
-    const messages = [
-      { role: 'user' as const, content: 'Earlier context' },
-      { role: 'assistant' as const, content: 'The requested target' }
-    ];
-    const prompt = rewriteAgent.prompt({
-      messages,
-      origin,
-      instruction: null,
-      preferences: {}
-    });
+  test.stable(
+    `rewrite ${origin} keeps the captured target immediately before the task`,
+    ({ expect }) => {
+      const messages = [
+        { role: 'user' as const, content: 'Earlier context' },
+        { role: 'assistant' as const, content: 'The requested target' }
+      ];
+      const prompt = rewriteAgent.prompt({
+        messages,
+        origin,
+        instruction: null,
+        preferences: {}
+      });
 
-    test.expect(prompt.slice(0, -1)).toStrictEqual(messages);
-    test.expect(prompt.at(-2)).toStrictEqual(messages.at(-1));
-    test.expect(prompt.at(-1)).toStrictEqual({ role: 'user', content: `Task: ${origin}. ` });
-  });
+      expect(prompt.slice(0, -1)).toStrictEqual(messages);
+      expect(prompt.at(-2)).toStrictEqual(messages.at(-1));
+      expect(prompt.at(-1)).toStrictEqual({ role: 'user', content: `Task: ${origin}. ` });
+    }
+  );
 
 test.stable(
   'rewrite instruction and preferences appear once in the task, outside captured text',
-  () => {
+  ({ expect }) => {
     const messages = [{ role: 'user' as const, content: 'Rewrite this passage' }];
     const prompt = rewriteAgent.prompt({
       messages,
@@ -44,8 +47,8 @@ test.stable(
       preferences: { language: 'italian', detail: 'brief' }
     });
 
-    test.expect(prompt.slice(0, -1)).toStrictEqual(messages);
-    test.expect(prompt.at(-1)).toStrictEqual({
+    expect(prompt.slice(0, -1)).toStrictEqual(messages);
+    expect(prompt.at(-1)).toStrictEqual({
       role: 'user',
       content:
         'Task: instruction. Keep qualifiers\nPreferences: {"language":"italian","detail":"brief"}'

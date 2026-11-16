@@ -42,13 +42,15 @@ import { withTestAdmission } from '#testing/workflow-admission';
 
 test.stable(
   'deleting an in-flight recording fences late attachment and checkpoints while its independent source work survives',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const fixture = await pageTransformFixture(databases);
 
     const marker = 'INFLIGHT_RECORDING_SESSION_PRIVATE_8';
 
     try {
-      const saved = await setup(fixture, marker);
+      const saved = await setup(fixture, assert, marker);
 
       const post = await Effect.runPromise(
         Effect.gen(function* () {
@@ -72,11 +74,11 @@ test.stable(
         .where(eq(s.workflowEvents.eventId, post.requestId))
         .get();
 
-      test.assert.ok(persistedEvent);
+      assert.ok(persistedEvent);
 
       const event = decodeEvent(persistedEvent.payload);
 
-      test.assert.ok(!(event.type !== 'RecordingPostRequested'), 'Expected recording event');
+      assert.ok(!(event.type !== 'RecordingPostRequested'), 'Expected recording event');
 
       await Effect.runPromise(
         Effect.scoped(
@@ -171,7 +173,7 @@ test.stable(
 
             const imported = fixture.context.db.orm.select().from(s.source_recording_imports).get();
 
-            test.assert.ok(imported);
+            assert.ok(imported);
 
             const snapshot = yield* sources.sourceSnapshot({ id: imported.source_id, revision: 1 });
 
@@ -181,16 +183,13 @@ test.stable(
               .where(eq(s.workflowEvents.type, 'SourceProcessingRequested'))
               .get();
 
-            test.assert.ok(sourceEventRow);
+            assert.ok(sourceEventRow);
 
             const sourceEvent = decodeEvent(sourceEventRow.payload);
 
-            test.assert.ok(
-              !(sourceEvent.type !== 'SourceProcessingRequested'),
-              'Expected source event'
-            );
+            assert.ok(!(sourceEvent.type !== 'SourceProcessingRequested'), 'Expected source event');
 
-            test.assert.strictEqual(sourceEvent.correlationId, event.correlationId);
+            assert.strictEqual(sourceEvent.correlationId, event.correlationId);
 
             yield* withTestAdmission(
               fixture.context,
@@ -212,41 +211,38 @@ test.stable(
               fixture.context,
               noteDeletionWorkflow,
               'recording-cleanup',
-              { event: deletionEvent(fixture, saved.note.id) },
+              { event: deletionEvent(fixture, saved.note.id, assert) },
               engine.execute(noteDeletionWorkflow, {
                 executionId: 'recording-cleanup',
-                payload: { event: deletionEvent(fixture, saved.note.id) }
+                payload: { event: deletionEvent(fixture, saved.note.id, assert) }
               })
             );
 
-            test.assert.ok((yield* chats.noteDeletion(saved.note.id)).status === 'completed');
+            assert.ok((yield* chats.noteDeletion(saved.note.id)).status === 'completed');
 
-            test.assert.ok(
+            assert.ok(
               workflowStore(fixture.context).execution('recording-in-flight')?.status ===
                 'cancelled'
             );
 
-            test.assert.ok(
+            assert.ok(
               workflowStore(fixture.context).execution('shared-source-reader')?.status ===
                 'suspended'
             );
 
-            test.assert.strictEqual(
-              fixture.context.db.orm.select().from(s.recordings).all().length,
-              0
-            );
+            assert.strictEqual(fixture.context.db.orm.select().from(s.recordings).all().length, 0);
 
-            test.assert.strictEqual(
+            assert.strictEqual(
               fixture.context.db.orm.select().from(s.recording_chunks).all().length,
               0
             );
 
-            test.assert.strictEqual(
+            assert.strictEqual(
               fixture.context.db.orm.select().from(s.recording_posts).all().length,
               0
             );
 
-            test.assert.strictEqual(
+            assert.strictEqual(
               fixture.context.db.orm.select().from(s.note_recording_posts).all().length,
               0
             );
@@ -258,10 +254,7 @@ test.stable(
               exit: Exit.void
             });
 
-            test.assert.strictEqual(
-              workflowStore(fixture.context).retired('recording-in-flight'),
-              true
-            );
+            assert.strictEqual(workflowStore(fixture.context).retired('recording-in-flight'), true);
 
             const rejected = yield* Effect.flip(
               withTestPublication(
@@ -278,7 +271,7 @@ test.stable(
               )
             );
 
-            test.assert.ok(rejected.kind === 'invalid_input');
+            assert.ok(rejected.kind === 'invalid_input');
 
             yield* engine.deferredDone(sourceGate, {
               workflowName: sourceReader._tag,
@@ -298,20 +291,18 @@ test.stable(
               })
             );
 
-            test.expect(bytes).toStrictEqual(snapshot.bytes);
+            expect(bytes).toStrictEqual(snapshot.bytes);
 
-            test
-              .expect(
-                (yield* sources.sourceSnapshot({ id: imported.source_id, revision: 1 })).bytes
-              )
-              .toStrictEqual(snapshot.bytes);
+            expect(
+              (yield* sources.sourceSnapshot({ id: imported.source_id, revision: 1 })).bytes
+            ).toStrictEqual(snapshot.bytes);
 
-            test.assert.strictEqual(
+            assert.strictEqual(
               fixture.context.db.orm.select().from(s.source_recording_imports).all().length,
               1
             );
 
-            test.assert.strictEqual(
+            assert.strictEqual(
               fixture.context.db.orm
                 .select()
                 .from(s.workflowEvents)
@@ -323,11 +314,11 @@ test.stable(
         )
       );
 
-      assertScrubbed(fixture, marker);
+      assertScrubbed(fixture, assert, marker);
 
       await fixture.reopen();
 
-      test.assert.strictEqual(
+      assert.strictEqual(
         admitPending(
           fixture.context,
           [
@@ -347,14 +338,14 @@ test.stable(
 
       const native = workflowStore(fixture.context);
 
-      test.assert.throws(() => native.assertPublication('recording-in-flight', 1));
+      assert.throws(() => native.assertPublication('recording-in-flight', 1));
 
-      test.assert.strictEqual(
+      assert.strictEqual(
         fixture.context.db.orm.select().from(s.note_recording_posts).all().length,
         0
       );
 
-      assertScrubbed(fixture, marker);
+      assertScrubbed(fixture, assert, marker);
     } finally {
       await fixture.close();
     }

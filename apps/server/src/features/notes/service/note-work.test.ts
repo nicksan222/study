@@ -28,7 +28,9 @@ import { testLiveQueries } from '#testing/live-queries';
 
 test.stable(
   'note work RPC scopes active executions, paginates, and preserves canonical cancellation state',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(Notes.layer, Pages.layer, Sources.layer, Settings.layer).pipe(
@@ -106,24 +108,21 @@ test.stable(
               limit: 2
             });
 
-            test
-              .expect(first.items.map((item) => item.kind))
-              .toStrictEqual(['transform', 'attachment']);
-            test
-              .expect(first.items.map((item) => item.title))
-              .toStrictEqual(['Study guide', 'lecture.txt']);
-            test.assert.ok(first.items.every((item) => item.execution.canCancel));
-            test.assert.ok(first.next);
+            expect(first.items.map((item) => item.kind)).toStrictEqual(['transform', 'attachment']);
+            expect(first.items.map((item) => item.title)).toStrictEqual([
+              'Study guide',
+              'lecture.txt'
+            ]);
+            assert.ok(first.items.every((item) => item.execution.canCancel));
+            assert.ok(first.next);
             const second = yield* rpc('notes.noteWork', {
               noteId: note.id,
               limit: 2,
               before: first.next
             });
 
-            test
-              .expect(second.items.map((item) => item.execution.id))
-              .toStrictEqual(['reply-work']);
-            test.assert.strictEqual(second.next, null);
+            expect(second.items.map((item) => item.execution.id)).toStrictEqual(['reply-work']);
+            assert.strictEqual(second.next, null);
             context.db.orm
               .update(workflow_executions)
               .set({ cancellation_mode: 'safe', status: 'cancelling' })
@@ -131,11 +130,11 @@ test.stable(
               .run();
             const cancelling = yield* chats.noteWork({ noteId: note.id, limit: 100 });
 
-            test.assert.strictEqual(
+            assert.strictEqual(
               cancelling.items.find((item) => item.kind === 'reply')?.execution.status,
               'cancelling'
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               cancelling.items.find((item) => item.kind === 'reply')?.execution.canCancel,
               false
             );
@@ -144,21 +143,19 @@ test.stable(
               .set({ status: 'cancelled', result: null })
               .where(eq(workflow_executions.execution_id, 'reply-work'))
               .run();
-            test.assert.strictEqual(
+            assert.strictEqual(
               (yield* chats.noteWork({ noteId: note.id, limit: 100 })).items.length,
               2
             );
-            test
-              .expect(
-                (yield* chats.noteWork({ noteId: other.id, limit: 100 })).items.map(
-                  (item) => item.execution.id
-                )
+            expect(
+              (yield* chats.noteWork({ noteId: other.id, limit: 100 })).items.map(
+                (item) => item.execution.id
               )
-              .toStrictEqual(['foreign-work']);
+            ).toStrictEqual(['foreign-work']);
             yield* chats.deleteNote(note.id);
             const error = yield* Effect.flip(chats.noteWork({ noteId: note.id, limit: 100 }));
 
-            test.assert.strictEqual(error.kind, 'not_found');
+            assert.strictEqual(error.kind, 'not_found');
           })
         ).pipe(
           Effect.provide(NotesRpcLive.pipe(Layer.provide(testLiveQueries))),

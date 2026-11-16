@@ -37,11 +37,13 @@ import { noteTitleHandler, noteTitleWorkflow } from './title.ts';
 
 test.stable(
   'title workflow checkpoints and fences stale and renamed notes',
-  async ({ databases }) => {
+  async ({ databases, createAiMock, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     let context = new ServerContext(await location.open());
     let calls = 0;
-    using mock = test.createAiMock();
+    using mock = createAiMock();
     const domain = () =>
       Layer.merge(Notes.layer, Settings.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -89,13 +91,18 @@ test.stable(
 
         return { note, message };
       };
-      const request = async (noteId: Awaited<ReturnType<typeof make>>['note']['id']) => {
+      const request = async (
+        { assert: assertions }: Pick<test.Context, 'assert'>,
+        noteId: Awaited<ReturnType<typeof make>>['note']['id']
+      ) => {
+        const assert: test.Assert = assertions;
+
         await run(Effect.flatMap(Notes, (c) => c.requestTitle({ noteId })));
         const event = decodeEvent(
           context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
         );
 
-        test.assert.ok(!(event.type !== 'NoteTitleRequested'), 'wrong event');
+        assert.ok(!(event.type !== 'NoteTitleRequested'), 'wrong event');
 
         return event;
       };
@@ -132,42 +139,42 @@ test.stable(
           hold
         });
       const first = await make();
-      const stale = await request(first.note.id);
+      const stale = await request({ assert }, first.note.id);
 
       await run(
         Effect.flatMap(Notes, (c) => c.editMessage({ messageId: first.message.id, text: 'Plants' }))
       );
-      await test.expect(execute(stale, 'stale-title')).rejects.toSatisfy(() => true);
-      test.assert.strictEqual(calls, 0);
-      const old = await request(first.note.id);
-      const current = await request(first.note.id);
+      await expect(execute(stale, 'stale-title')).rejects.toSatisfy(() => true);
+      assert.strictEqual(calls, 0);
+      const old = await request({ assert }, first.note.id);
+      const current = await request({ assert }, first.note.id);
 
-      await test.expect(execute(old, 'old-title')).rejects.toSatisfy(() => true);
-      test.assert.strictEqual(calls, 0);
+      await expect(execute(old, 'old-title')).rejects.toSatisfy(() => true);
+      assert.strictEqual(calls, 0);
       const currentPlan = plan(current, 'Cell Biology');
 
       await execute(current, 'replay-title');
-      test.assert.strictEqual(calls, 1);
+      assert.strictEqual(calls, 1);
       context.close();
       context = new ServerContext(await location.open());
       await execute(current, 'replay-title');
-      test.assert.strictEqual(calls, 1);
-      test.assert.ok(
+      assert.strictEqual(calls, 1);
+      assert.ok(
         (await run(Effect.flatMap(Notes, (c) => c.note(first.note.id)))).title === 'Cell Biology'
       );
       await execute(current, 'replay-title');
-      test.assert.strictEqual(calls, 1, 'a committed title must replay without a new model call');
-      test.expect((await currentPlan.called).input.prompt).toContain('Plants');
+      assert.strictEqual(calls, 1, 'a committed title must replay without a new model call');
+      expect((await currentPlan.called).input.prompt).toContain('Plants');
       const renamed = await make();
-      const renamedRequest = await request(renamed.note.id);
+      const renamedRequest = await request({ assert }, renamed.note.id);
 
       await run(
         Effect.flatMap(Notes, (c) => c.renameNote({ id: renamed.note.id, title: 'Personal' }))
       );
-      await test.expect(execute(renamedRequest, 'renamed-title')).rejects.toSatisfy(() => true);
-      test.assert.strictEqual(calls, 1);
+      await expect(execute(renamedRequest, 'renamed-title')).rejects.toSatisfy(() => true);
+      assert.strictEqual(calls, 1);
       const race = await make();
-      const racing = await request(race.note.id);
+      const racing = await request({ assert }, race.note.id);
 
       const racingPlan = plan(racing, 'Cell Biology', true);
       const raceExecution = execute(racing, 'race-title');
@@ -179,25 +186,23 @@ test.stable(
       await racingPlan.called;
       await run(Effect.flatMap(Notes, (c) => c.renameNote({ id: race.note.id, title: 'Mine' })));
       racingPlan.release();
-      test.expect(await raceResult).toBe(true);
-      test.assert.ok(
-        (await run(Effect.flatMap(Notes, (c) => c.note(race.note.id)))).title === 'Mine'
-      );
+      expect(await raceResult).toBe(true);
+      assert.ok((await run(Effect.flatMap(Notes, (c) => c.note(race.note.id)))).title === 'Mine');
       const invalid = await make();
 
-      const invalidRequest = await request(invalid.note.id);
+      const invalidRequest = await request({ assert }, invalid.note.id);
 
       plan(invalidRequest, 'x'.repeat(201));
-      await test.expect(execute(invalidRequest, 'invalid-title')).rejects.toSatisfy(() => true);
-      test.assert.ok(
+      await expect(execute(invalidRequest, 'invalid-title')).rejects.toSatisfy(() => true);
+      assert.ok(
         (await run(Effect.flatMap(Notes, (c) => c.note(invalid.note.id)))).titleSource ===
           'provisional'
       );
-      const retryRequest = await request(invalid.note.id);
+      const retryRequest = await request({ assert }, invalid.note.id);
 
       plan(retryRequest, 'Valid retry');
       await execute(retryRequest, 'retry-title');
-      test.assert.ok(
+      assert.ok(
         (await run(Effect.flatMap(Notes, (c) => c.note(invalid.note.id)))).title === 'Valid retry'
       );
       const mergeFirst = await make();
@@ -214,18 +219,18 @@ test.stable(
         context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
       );
 
-      test.assert.ok(
+      assert.ok(
         mergeEvent.type === 'NoteTitleRequested',
         'merge must queue the existing title workflow'
       );
       plan(mergeEvent, 'Combined Biology');
       await execute(mergeEvent, 'merged-title');
-      test
-        .expect((await run(Effect.flatMap(Notes, (c) => c.note(merged.id)))).title)
-        .toBe('Combined Biology');
-      test
-        .expect((await run(Effect.flatMap(Notes, (c) => c.note(mergeFirst.note.id)))).archivedAt)
-        .not.toBeNull();
+      expect((await run(Effect.flatMap(Notes, (c) => c.note(merged.id)))).title).toBe(
+        'Combined Biology'
+      );
+      expect(
+        (await run(Effect.flatMap(Notes, (c) => c.note(mergeFirst.note.id)))).archivedAt
+      ).not.toBeNull();
     } finally {
       context.close();
       await location.cleanup();
@@ -235,7 +240,9 @@ test.stable(
 
 test.stable(
   'explicit title requests replace existing titles and fence subsequent manual edits',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Notes.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
@@ -255,7 +262,7 @@ test.stable(
               .publishTitle({ requestId: first.requestId, title: 'Cell biology' })
               .pipe(Effect.asVoid)
           );
-          test.assert.strictEqual((yield* notes.note(note.id)).title, 'Cell biology');
+          assert.strictEqual((yield* notes.note(note.id)).title, 'Cell biology');
           const second = yield* notes.requestTitle({ noteId: note.id });
 
           yield* withTestPublication(
@@ -264,12 +271,12 @@ test.stable(
               .publishTitle({ requestId: second.requestId, title: 'Tissues' })
               .pipe(Effect.asVoid)
           );
-          test.assert.strictEqual((yield* notes.note(note.id)).title, 'Tissues');
+          assert.strictEqual((yield* notes.note(note.id)).title, 'Tissues');
           yield* notes.renameNote({ id: note.id, title: 'Personal' });
           const pending = yield* notes.requestTitle({ noteId: note.id });
 
           yield* notes.renameNote({ id: note.id, title: 'Personal' });
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* Effect.flip(notes.titleSnapshot({ requestId: pending.requestId }))).kind,
             'invalid_input'
           );
@@ -284,7 +291,9 @@ test.stable(
 
 test.stable(
   'automatic note titles are opt-in, durable, replay-safe and respect user titles',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Notes.layer, Settings.layer).pipe(
@@ -307,7 +316,7 @@ test.stable(
               .map((row) => decodeEvent(row.payload))
               .filter((event) => event.type === 'NoteTitleRequested');
 
-          test.assert.strictEqual(titles().length, 0);
+          assert.strictEqual(titles().length, 0);
           yield* settings.saveWorkspacePreferences({
             ...defaultWorkspacePreferences,
             autoTitleNotes: true
@@ -320,18 +329,18 @@ test.stable(
           };
           const noteMessage = yield* notes.postMessage(input);
 
-          test.assert.strictEqual(titles().length, 1);
-          test.assert.strictEqual((yield* notes.postMessage(input)).id, noteMessage.id);
-          test.assert.strictEqual(titles().length, 1);
+          assert.strictEqual(titles().length, 1);
+          assert.strictEqual((yield* notes.postMessage(input)).id, noteMessage.id);
+          assert.strictEqual(titles().length, 1);
           yield* notes.renameNote({ id: note.id, title: 'My biology notes' });
           yield* notes.postMessage({ noteId: note.id, text: 'More cells' });
-          test.assert.strictEqual(titles().length, 1);
+          assert.strictEqual(titles().length, 1);
           yield* settings.saveWorkspacePreferences(defaultWorkspacePreferences);
           const manual = yield* notes.createUntitledNote({});
 
           yield* notes.postMessage({ noteId: manual.id, text: 'Manual title' });
           yield* notes.requestTitle({ noteId: manual.id });
-          test.assert.strictEqual(titles().length, 2);
+          assert.strictEqual(titles().length, 2);
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -343,7 +352,9 @@ test.stable(
 
 test.stable(
   'automatic titles and replies commit together while title snapshots skip pending assistants',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Notes.layer, Settings.layer).pipe(
@@ -374,25 +385,23 @@ test.stable(
           const title = events.find((event) => event.type === 'NoteTitleRequested');
           const reply = events.find((event) => event.type === 'NoteGenerationRequested');
 
-          test.assert.ok(title && title.type === 'NoteTitleRequested');
-          test.assert.ok(reply && reply.type === 'NoteGenerationRequested');
-          test
-            .expect(title.messages.map((message) => message.messageId))
-            .toStrictEqual([noteMessage.id]);
-          test
-            .expect((yield* notes.titleSnapshot({ requestId: title.requestId })).messages)
-            .toStrictEqual(title.messages);
+          assert.ok(title && title.type === 'NoteTitleRequested');
+          assert.ok(reply && reply.type === 'NoteGenerationRequested');
+          expect(title.messages.map((message) => message.messageId)).toStrictEqual([
+            noteMessage.id
+          ]);
+          expect(
+            (yield* notes.titleSnapshot({ requestId: title.requestId })).messages
+          ).toStrictEqual(title.messages);
           const thread = yield* notes.thread({ noteId: note.id, limit: 10 });
 
-          test.assert.strictEqual(thread.items.length, 2);
-          test.assert.ok(thread.items[1]?.versions[0]?.status === 'pending');
+          assert.strictEqual(thread.items.length, 2);
+          assert.ok(thread.items[1]?.versions[0]?.status === 'pending');
           const manual = yield* notes.requestTitle({ noteId: note.id });
 
-          test.expect((yield* notes.titleSnapshot(manual)).messages).toStrictEqual(title.messages);
+          expect((yield* notes.titleSnapshot(manual)).messages).toStrictEqual(title.messages);
           yield* notes.editMessage({ messageId: noteMessage.id, text: 'New context' });
-          test.assert.ok(
-            (yield* Effect.flip(notes.titleSnapshot(manual))).kind === 'invalid_input'
-          );
+          assert.ok((yield* Effect.flip(notes.titleSnapshot(manual))).kind === 'invalid_input');
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -404,7 +413,9 @@ test.stable(
 
 test.stable(
   'reply publication refreshes automatic titles durably and idempotently without replacing user titles',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Notes.layer, Settings.layer).pipe(
@@ -438,8 +449,8 @@ test.stable(
           const reply = events().find((event) => event.type === 'NoteGenerationRequested');
           const original = titles()[0];
 
-          test.assert.ok(reply && reply.type === 'NoteGenerationRequested');
-          test.assert.ok(original);
+          assert.ok(reply && reply.type === 'NoteGenerationRequested');
+          assert.ok(original);
           const publication = {
             requestId: reply.requestId,
             text: 'Cells divide through mitosis.',
@@ -447,26 +458,26 @@ test.stable(
           };
 
           yield* withTestPublication(context, notes.publishReply(publication).pipe(Effect.asVoid));
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(notes.titleSnapshot({ requestId: original.requestId }))).kind ===
               'invalid_input'
           );
-          test.assert.strictEqual(titles().length, 2);
+          assert.strictEqual(titles().length, 2);
           const refreshed = titles()[1]!;
 
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* notes.titleSnapshot({ requestId: refreshed.requestId })).messages.length,
             2
           );
           yield* withTestPublication(context, notes.publishReply(publication).pipe(Effect.asVoid));
-          test.assert.strictEqual(titles().length, 2);
+          assert.strictEqual(titles().length, 2);
           yield* withTestPublication(
             context,
             notes
               .publishTitle({ requestId: refreshed.requestId, title: 'Cell division' })
               .pipe(Effect.asVoid)
           );
-          test.assert.ok((yield* notes.note(note.id)).title === 'Cell division');
+          assert.ok((yield* notes.note(note.id)).title === 'Cell division');
           const manual = yield* notes.createUntitledNote({});
 
           yield* notes.postMessage({
@@ -478,7 +489,7 @@ test.stable(
             (event) => event.type === 'NoteGenerationRequested'
           );
 
-          test.assert.ok(manualReply && manualReply.type === 'NoteGenerationRequested');
+          assert.ok(manualReply && manualReply.type === 'NoteGenerationRequested');
           yield* notes.renameNote({ id: manual.id, title: 'My title' });
           const before = titles().length;
 
@@ -492,8 +503,8 @@ test.stable(
               })
               .pipe(Effect.asVoid)
           );
-          test.assert.strictEqual(titles().length, before);
-          test.assert.ok((yield* notes.note(manual.id)).title === 'My title');
+          assert.strictEqual(titles().length, before);
+          assert.ok((yield* notes.note(manual.id)).title === 'My title');
         }).pipe(Effect.provide(layer))
       );
     } finally {

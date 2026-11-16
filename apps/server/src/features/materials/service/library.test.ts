@@ -53,7 +53,13 @@ const authored = () => ({
   }
 });
 
-function createAuthored(projectId: typeof projectIdSchema.Type, title: string) {
+function createAuthored(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  projectId: typeof projectIdSchema.Type,
+  title: string
+) {
+  const assert: test.Assert = assertions;
+
   return Effect.flatMap(Pages, (docs) =>
     docs.create({
       createKey: crypto.randomUUID(),
@@ -65,7 +71,7 @@ function createAuthored(projectId: typeof projectIdSchema.Type, title: string) {
     })
   ).pipe(
     Effect.map((value) => {
-      test.assert.ok(value.version);
+      assert.ok(value.version);
 
       return { ...value, version: value.version };
     })
@@ -74,7 +80,9 @@ function createAuthored(projectId: typeof projectIdSchema.Type, title: string) {
 
 test.stable(
   'native RPC creates an uncollected material shared by quick notes and preserves it after note deletion',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     let context = new ServerContext(await location.open());
     const handlers = () =>
@@ -100,7 +108,7 @@ test.stable(
               });
 
             yield* materials('materials.detach', { noteId: first.id, materialId: material.id });
-            test.assert.strictEqual(
+            assert.strictEqual(
               (yield* materials('materials.materials', {
                 noteId: second.id,
                 limit: 10,
@@ -108,7 +116,7 @@ test.stable(
               })).items[0]?.id,
               material.id
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               (yield* materials('materials.materials', {
                 noteId: first.id,
                 limit: 10,
@@ -131,9 +139,9 @@ test.stable(
             const materials = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
             const reopened = yield* materials('materials.material', { id: saved.id });
 
-            test.assert.strictEqual(reopened.version.id, saved.version.id);
-            test.expect(reopened.version.content).toStrictEqual(saved.version.content);
-            test.assert.strictEqual(
+            assert.strictEqual(reopened.version.id, saved.version.id);
+            expect(reopened.version.content).toStrictEqual(saved.version.content);
+            assert.strictEqual(
               (yield* materials('materials.materials', { limit: 10, archived: false })).items[0]
                 ?.id,
               saved.id
@@ -150,7 +158,9 @@ test.stable(
 
 test.stable(
   'flat collections organize shared materials and notes without owning source bytes or lineage',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     let context = new ServerContext(await location.open());
     const services = () =>
@@ -178,7 +188,7 @@ test.stable(
             title: 'Independent learning diagram',
             content
           });
-          const evidence = yield* createAuthored(a.id, 'Exact authored input');
+          const evidence = yield* createAuthored({ assert }, a.id, 'Exact authored input');
           const material = yield* materials.create({
             title: 'Shared',
             content,
@@ -192,30 +202,26 @@ test.stable(
 
           yield* projects.addMaterial({ projectId: a.id, materialId: original.id });
           yield* projects.addMaterial({ projectId: a.id, materialId: material.id });
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* materials.materials({ projectId: a.id, archived: false, limit: 10 })).items
               .length,
             2
           );
           yield* projects.removeMaterial({ projectId: a.id, materialId: material.id });
-          test
-            .expect(
-              (yield* materials.materials({
-                projectId: a.id,
-                archived: false,
-                limit: 10
-              })).items.map((m) => m.id)
-            )
-            .toStrictEqual([original.id]);
-          test
-            .expect(
-              (yield* materials.materials({
-                projectId: b.id,
-                archived: false,
-                limit: 10
-              })).items.map((m) => m.id)
-            )
-            .toStrictEqual([material.id]);
+          expect(
+            (yield* materials.materials({
+              projectId: a.id,
+              archived: false,
+              limit: 10
+            })).items.map((m) => m.id)
+          ).toStrictEqual([original.id]);
+          expect(
+            (yield* materials.materials({
+              projectId: b.id,
+              archived: false,
+              limit: 10
+            })).items.map((m) => m.id)
+          ).toStrictEqual([material.id]);
           const outboxBefore = context.db.orm.select().from(workflowEvents).all().length;
           const missingProject = Schema.decodeUnknownSync(projectIdSchema)(999n);
           const missingMaterial = Schema.decodeUnknownSync(materialIdSchema)(999n);
@@ -232,13 +238,13 @@ test.stable(
               content
             })
           ])
-            test.assert.ok((yield* Effect.flip(mutation)).kind === 'not_found');
+            assert.ok((yield* Effect.flip(mutation)).kind === 'not_found');
 
-          test.assert.strictEqual(
+          assert.strictEqual(
             context.db.orm.select().from(workflowEvents).all().length,
             outboxBefore
           );
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* materials.materials({ archived: false, limit: 10 })).items.length,
             2
           );
@@ -257,19 +263,19 @@ test.stable(
             sources = yield* Sources;
           const material = yield* materials.material({ id: saved.material.id });
 
-          test.assert.strictEqual(material.version.id, saved.material.version.id);
-          test
-            .expect(material.version.inputs)
-            .toStrictEqual([{ kind: 'page', versionId: saved.evidence.version.id }]);
-          test.expect(material.projectIds).toStrictEqual([saved.b.id]);
-          test.expect((yield* notes.note(saved.note.id)).projectIds).toStrictEqual([saved.b.id]);
-          test.assert.strictEqual((yield* sources.source(saved.source.id)).id, saved.source.id);
-          test.assert.ok(
+          assert.strictEqual(material.version.id, saved.material.version.id);
+          expect(material.version.inputs).toStrictEqual([
+            { kind: 'page', versionId: saved.evidence.version.id }
+          ]);
+          expect(material.projectIds).toStrictEqual([saved.b.id]);
+          expect((yield* notes.note(saved.note.id)).projectIds).toStrictEqual([saved.b.id]);
+          assert.strictEqual((yield* sources.source(saved.source.id)).id, saved.source.id);
+          assert.ok(
             new TextDecoder().decode(
               (yield* sources.exportRevision({ sourceId: saved.source.id, revision: 1n })).bytes
             ) === 'Original bytes'
           );
-          test.expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(services()))
       );
     } finally {
@@ -281,7 +287,9 @@ test.stable(
 
 test.stable(
   'generation scope stays exact across shared membership removal, reopen and last collection deletion',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     let context = new ServerContext(await location.open());
     const services = () =>
@@ -299,8 +307,8 @@ test.stable(
           const notes = yield* Notes;
           const a = yield* projects.createProject({ name: 'Requested' });
           const b = yield* projects.createProject({ name: 'Other membership' });
-          const input = yield* createAuthored(a.id, 'Captured');
-          const unrelated = yield* createAuthored(a.id, 'Unselected');
+          const input = yield* createAuthored({ assert }, a.id, 'Captured');
+          const unrelated = yield* createAuthored({ assert }, a.id, 'Unselected');
           const note = yield* notes.createNote({ title: 'Selection is not scope' });
 
           yield* docs.attachProject({ projectId: b.id, pageId: input.id });
@@ -326,11 +334,11 @@ test.stable(
           const events = context.db.orm.select().from(workflowEvents).all();
           const requests = context.db.orm.all(sql`SELECT * FROM material_generation_requests`);
 
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(materials.materialGeneration({ requestId: request.id }))).kind ===
               'invalid_input'
           );
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               materials.requestMaterialGeneration({
                 projectId: a.id,
@@ -340,10 +348,10 @@ test.stable(
               })
             )).kind === 'invalid_input'
           );
-          test.expect(context.db.orm.select().from(workflowEvents).all()).toStrictEqual(events);
-          test
-            .expect(context.db.orm.all(sql`SELECT * FROM material_generation_requests`))
-            .toStrictEqual(requests);
+          expect(context.db.orm.select().from(workflowEvents).all()).toStrictEqual(events);
+          expect(context.db.orm.all(sql`SELECT * FROM material_generation_requests`)).toStrictEqual(
+            requests
+          );
 
           return { a, b, input, unrelated, note, request };
         }).pipe(Effect.provide(services()))
@@ -359,23 +367,23 @@ test.stable(
           const docs = yield* Pages;
           const notes = yield* Notes;
 
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(materials.materialGeneration({ requestId: saved.request.id })))
               .kind === 'invalid_input'
           );
           yield* docs.attachProject({ projectId: saved.a.id, pageId: saved.input.id });
-          test
-            .expect((yield* materials.materialGeneration({ requestId: saved.request.id })).inputs)
-            .toStrictEqual([{ kind: 'page', versionId: saved.input.version.id }]);
+          expect(
+            (yield* materials.materialGeneration({ requestId: saved.request.id })).inputs
+          ).toStrictEqual([{ kind: 'page', versionId: saved.input.version.id }]);
           yield* projects.removeNote({ projectId: saved.a.id, noteId: saved.note.id });
-          test.expect((yield* notes.note(saved.note.id)).projectIds).toStrictEqual([]);
-          test.assert.strictEqual(
+          expect((yield* notes.note(saved.note.id)).projectIds).toStrictEqual([]);
+          assert.strictEqual(
             (yield* docs.pages({ noteId: saved.note.id, archived: false, limit: 10 })).items.length,
             2
           );
           yield* projects.deleteProject({ id: saved.a.id });
           yield* projects.deleteProject({ id: saved.b.id });
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(materials.materialGeneration({ requestId: saved.request.id })))
               .kind === 'not_found'
           );
@@ -390,18 +398,18 @@ test.stable(
           const notes = yield* Notes;
 
           for (const original of [saved.input, saved.unrelated]) {
-            test.expect((yield* docs.page({ id: original.id })).projectIds).toStrictEqual([]);
-            test
-              .expect((yield* docs.version({ id: original.version.id })).document)
-              .toStrictEqual(original.version.document);
+            expect((yield* docs.page({ id: original.id })).projectIds).toStrictEqual([]);
+            expect((yield* docs.version({ id: original.version.id })).document).toStrictEqual(
+              original.version.document
+            );
           }
 
-          test.expect((yield* notes.note(saved.note.id)).projectIds).toStrictEqual([]);
-          test.assert.strictEqual(
+          expect((yield* notes.note(saved.note.id)).projectIds).toStrictEqual([]);
+          assert.strictEqual(
             (yield* docs.pages({ noteId: saved.note.id, archived: false, limit: 10 })).items.length,
             2
           );
-          test.expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(services()))
       );
     } finally {

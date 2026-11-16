@@ -19,18 +19,20 @@ import { makeStudyClient } from '#server/client/index';
 
 test.stable(
   'a pending reply survives abrupt Bun server process death without duplicates',
-  async ({ databases }) => {
-    const location = await databases();
-    const children: ReturnType<typeof test.spawnTestProcess<'pipe', 'pipe', 'pipe'>>[] = [];
+  async ({ databases, expect, spawnTestProcess, waitFor, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-    async function start() {
+    const location = await databases();
+    const children: ReturnType<test.Context['spawnTestProcess']>[] = [];
+
+    async function start({ spawnTestProcess }: Pick<test.Context, 'spawnTestProcess'>) {
       const env: Record<string, string | undefined> = {
         ...process.env,
         STUDY_DATABASE: location.path
       };
 
       delete env.STUDY_SERVER_TOKEN;
-      const child = test.spawnTestProcess(
+      const child = spawnTestProcess(
         [process.execPath, new URL('../src/runtime/main.ts', import.meta.url).pathname],
         {
           env,
@@ -75,7 +77,7 @@ test.stable(
     }
 
     try {
-      const first = await start();
+      const first = await start({ spawnTestProcess });
       const saved = await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
@@ -94,30 +96,28 @@ test.stable(
         )
       );
 
-      await waitForReply(location);
+      await waitForReply({ waitFor, assert }, location);
 
       first.child.kill('SIGKILL');
-      test.expect(await first.child.exited).not.toBe(0);
-      const second = await start();
+      expect(await first.child.exited).not.toBe(0);
+      const second = await start({ spawnTestProcess });
 
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: second.url });
 
-            test.expect(yield* client['notes.ask'](saved.input)).toEqual(saved.result);
-            test
-              .expect(
-                yield* client['notes.replyVersion']({
-                  noteId: saved.input.noteId,
-                  messageId: saved.result.messageId,
-                  versionId: saved.result.versionId
-                })
-              )
-              .toEqual({ state: 'available', requestId: saved.result.requestId });
+            expect(yield* client['notes.ask'](saved.input)).toEqual(saved.result);
+            expect(
+              yield* client['notes.replyVersion']({
+                noteId: saved.input.noteId,
+                messageId: saved.result.messageId,
+                versionId: saved.result.versionId
+              })
+            ).toEqual({ state: 'available', requestId: saved.result.requestId });
             const thread = yield* client['notes.thread']({ noteId: saved.input.noteId, limit: 10 });
 
-            test.expect(thread.items).toHaveLength(2);
+            expect(thread.items).toHaveLength(2);
           })
         )
       );
@@ -133,12 +133,17 @@ test.stable(
   }
 );
 
-async function waitForReply(location: Awaited<ReturnType<typeof createTestDatabase>>) {
+async function waitForReply(
+  { waitFor, assert: assertions }: Pick<test.Context, 'waitFor' | 'assert'>,
+  location: Awaited<ReturnType<typeof createTestDatabase>>
+) {
+  const assert: test.Assert = assertions;
+
   const database = await location.open();
 
   try {
-    await test.waitFor(() => {
-      test.assert.equal(
+    await waitFor(() => {
+      assert.equal(
         database.orm.all(
           sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id=w.execution_id WHERE e.workflow_tag='conversation-reply/v1'`
         ).length,

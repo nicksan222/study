@@ -10,16 +10,21 @@ const question = {
   explanation: 'Mitochondria produce ATP.'
 };
 
-test.stable('fill-in-the-blank questions require exactly one blank and a reference answer', () => {
-  const decode = Schema.decodeUnknownSync(materialQuestionInputSchema);
+test.stable(
+  'fill-in-the-blank questions require exactly one blank and a reference answer',
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test.assert.deepEqual(decode(question), question);
-  test.assert.doesNotThrow(() =>
-    decode({ ...question, prompt: 'The keyword defining my_function is ____.' })
-  );
+    const decode = Schema.decodeUnknownSync(materialQuestionInputSchema);
 
-  for (const prompt of ['No blank here.', '____ and ____', '_____', '___'])
-    test.assert.throws(() => decode({ ...question, prompt }));
+    assert.deepEqual(decode(question), question);
+    assert.doesNotThrow(() =>
+      decode({ ...question, prompt: 'The keyword defining my_function is ____.' })
+    );
 
-  test.assert.throws(() => decode({ ...question, referenceAnswer: ' ' }));
-});
+    for (const prompt of ['No blank here.', '____ and ____', '_____', '___'])
+      assert.throws(() => decode({ ...question, prompt }));
+
+    assert.throws(() => decode({ ...question, referenceAnswer: ' ' }));
+  }
+);

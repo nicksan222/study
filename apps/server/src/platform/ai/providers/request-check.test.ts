@@ -17,7 +17,7 @@ import { withRequestCheck } from './request-check.ts';
 
 test.stable(
   'preflight blocks API-key model requests before the transport sees credentials',
-  async () => {
+  async ({ expect }) => {
     let requests = 0;
     const model = getApiKeyProvider('deepseek').createModel({
       apiKey: 'test-secret',
@@ -32,8 +32,8 @@ test.stable(
       throw new Error('ownership lost');
     });
 
-    await test.expect(checked.doStream({ prompt: [] })).rejects.toThrow('ownership lost');
-    await test.expect(checked.doGenerate({ prompt: [] })).rejects.toThrow('ownership lost');
-    test.expect(requests).toBe(0);
+    await expect(checked.doStream({ prompt: [] })).rejects.toThrow('ownership lost');
+    await expect(checked.doGenerate({ prompt: [] })).rejects.toThrow('ownership lost');
+    expect(requests).toBe(0);
   }
 );

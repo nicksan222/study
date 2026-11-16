@@ -33,13 +33,17 @@ const annotation = Schema.decodeUnknownSync(annotationSchema)({
 
 const target = annotation.target;
 
-const rpc = {
-  'pages.annotation': test.vi.fn(),
-  'pages.reviseAnnotation': test.vi.fn(),
-  'pages.annotationHistory': test.vi.fn(),
-  'pages.versions': test.vi.fn(),
-  'pages.version': test.vi.fn()
-};
+function createRpc({ vi }: Pick<test.Context, 'vi'>) {
+  return {
+    'pages.annotation': vi.fn(),
+    'pages.reviseAnnotation': vi.fn(),
+    'pages.annotationHistory': vi.fn(),
+    'pages.versions': vi.fn(),
+    'pages.version': vi.fn()
+  };
+}
+
+let rpc: ReturnType<typeof createRpc>;
 
 test.beforeEach(async ({ mock }) => {
   mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
@@ -54,16 +58,20 @@ test.beforeEach(async ({ mock }) => {
   savedDraft = __mockModule2.savedDraft;
 });
 
-test.beforeEach(() => {
-  test.vi.clearAllMocks();
+test.beforeEach(({ vi }) => {
+  rpc = createRpc({ vi });
+  vi.clearAllMocks();
   rpc['pages.versions'].mockResolvedValue({ items: [], nextCursor: null });
   rpc['pages.version'].mockRejectedValue(new StudyError('not_found', 'Retired'));
   rpc['pages.annotation'].mockResolvedValue(annotation);
   rpc['pages.annotationHistory'].mockResolvedValue({ items: [annotation], nextCursor: null });
 });
 
-function mount() {
-  const harness = test.rpcHandlersTransport(rpc);
+function mount({
+  rpcHandlersTransport,
+  render
+}: Pick<test.Context, 'rpcHandlersTransport' | 'render'>) {
+  const harness = rpcHandlersTransport(rpc);
   let registry: AtomRegistry.AtomRegistry | undefined;
   const wrapper = ({ children }: { children: ReactNode }) => (
     <harness.wrapper>
@@ -79,7 +87,7 @@ function mount() {
   );
 
   return {
-    ...test.render(<AnnotationControls annotation={annotation} />, { wrapper }),
+    ...render(<AnnotationControls annotation={annotation} />, { wrapper }),
     wrapper,
     setTarget(target: AnnotationDraft['target']) {
       if (!registry) throw new Error('Draft registry not mounted');
@@ -94,93 +102,97 @@ function mount() {
   };
 }
 
-test.stable('does not erase a newer draft when an older save completes', async () => {
-  let finish!: (value: unknown) => void;
+test.stable(
+  'does not erase a newer draft when an older save completes',
+  async ({ userEvent, screen, act, expect, rpcHandlersTransport, render }) => {
+    let finish!: (value: unknown) => void;
 
-  rpc['pages.reviseAnnotation'].mockReturnValue(
-    new Promise((resolve) => {
-      finish = resolve;
-    })
-  );
-  const user = test.userEvent.setup();
+    rpc['pages.reviseAnnotation'].mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      })
+    );
+    const user = userEvent.setup();
 
-  mount();
-  const field = test.screen.getByLabelText('PageAnnotationNote');
+    mount({ rpcHandlersTransport, render });
+    const field = screen.getByLabelText('PageAnnotationNote');
 
-  await user.clear(field);
-  await user.type(field, 'Submitted');
-  await user.click(test.screen.getByText('PageSaveAnnotation'));
-  await user.clear(field);
-  await user.type(field, 'Newer edit');
-  await test.act(async () =>
-    finish({ outcome: 'saved', annotation: { ...annotation, revision: 2n, note: 'Submitted' } })
-  );
-  test.expect(field).toHaveValue('Newer edit');
-  test.expect(rpc['pages.reviseAnnotation']).toHaveBeenCalledWith({
-    id: annotation.id,
-    expectedRevision: 1n,
-    note: 'Submitted',
-    kind: 'note',
-    target,
-    deleted: false
-  });
-});
+    await user.clear(field);
+    await user.type(field, 'Submitted');
+    await user.click(screen.getByText('PageSaveAnnotation'));
+    await user.clear(field);
+    await user.type(field, 'Newer edit');
+    await act(async () =>
+      finish({ outcome: 'saved', annotation: { ...annotation, revision: 2n, note: 'Submitted' } })
+    );
+    expect(field).toHaveValue('Newer edit');
+    expect(rpc['pages.reviseAnnotation']).toHaveBeenCalledWith({
+      id: annotation.id,
+      expectedRevision: 1n,
+      note: 'Submitted',
+      kind: 'note',
+      target,
+      deleted: false
+    });
+  }
+);
 
 test.stable(
   'retains edits on conflict and requires explicit adoption before using the new revision',
-  async () => {
+  async ({ userEvent, screen, expect, rpcHandlersTransport, render }) => {
     rpc['pages.reviseAnnotation'].mockResolvedValue({
       outcome: 'conflict',
       annotation: { ...annotation, revision: 3n, note: 'Remote' }
     });
-    const user = test.userEvent.setup();
+    const user = userEvent.setup();
 
-    mount();
-    await user.type(test.screen.getByLabelText('PageAnnotationNote'), ' local');
-    await user.click(test.screen.getByText('PageSaveAnnotation'));
-    await user.click(await test.screen.findByText('AnnotationUseRevision'));
-    test.expect(test.screen.getByLabelText('PageAnnotationNote')).toHaveValue('Original local');
-    await user.click(test.screen.getByText('PageSaveAnnotation'));
-    test
-      .expect(rpc['pages.reviseAnnotation'])
-      .toHaveBeenLastCalledWith(
-        test.expect.objectContaining({ expectedRevision: 3n, note: 'Original local' })
-      );
+    mount({ rpcHandlersTransport, render });
+    await user.type(screen.getByLabelText('PageAnnotationNote'), ' local');
+    await user.click(screen.getByText('PageSaveAnnotation'));
+    await user.click(await screen.findByText('AnnotationUseRevision'));
+    expect(screen.getByLabelText('PageAnnotationNote')).toHaveValue('Original local');
+    await user.click(screen.getByText('PageSaveAnnotation'));
+    expect(rpc['pages.reviseAnnotation']).toHaveBeenLastCalledWith(
+      expect.objectContaining({ expectedRevision: 3n, note: 'Original local' })
+    );
   }
 );
 
 test.stable(
   'retains drafts across caller remount and isolates another connection registry',
-  async () => {
-    const user = test.userEvent.setup();
-    const view = mount();
+  async ({ userEvent, screen, expect, rpcHandlersTransport, render }) => {
+    const user = userEvent.setup();
+    const view = mount({ rpcHandlersTransport, render });
 
-    await user.type(test.screen.getByLabelText('PageAnnotationNote'), ' retained');
+    await user.type(screen.getByLabelText('PageAnnotationNote'), ' retained');
     view.rerender(<></>);
     view.rerender(<AnnotationControls annotation={annotation} />);
 
-    test.expect(test.screen.getByLabelText('PageAnnotationNote')).toHaveValue('Original retained');
+    expect(screen.getByLabelText('PageAnnotationNote')).toHaveValue('Original retained');
     view.unmount();
-    mount();
-    test.expect(test.screen.getByLabelText('PageAnnotationNote')).toHaveValue('Original');
+    mount({ rpcHandlersTransport, render });
+    expect(screen.getByLabelText('PageAnnotationNote')).toHaveValue('Original');
   }
 );
 
-test.stable('blocks uncertain writes until a successful canonical revision refresh', async () => {
-  rpc['pages.reviseAnnotation'].mockRejectedValue(new StudyError('transient', 'lost'));
-  const user = test.userEvent.setup();
+test.stable(
+  'blocks uncertain writes until a successful canonical revision refresh',
+  async ({ userEvent, screen, expect, waitFor, rpcHandlersTransport, render }) => {
+    rpc['pages.reviseAnnotation'].mockRejectedValue(new StudyError('transient', 'lost'));
+    const user = userEvent.setup();
 
-  mount();
-  await user.click(test.screen.getByText('PageSaveAnnotation'));
-  await test.screen.findByText('AnnotationReconcile');
-  test.expect(test.screen.getByText('PageSaveAnnotation')).toBeDisabled();
-  rpc['pages.annotation'].mockResolvedValue({ ...annotation, revision: 2n });
-  await user.click(test.screen.getByText('AnnotationRefreshRevision'));
-  await user.click(await test.screen.findByRole('button', { name: 'AnnotationUseRevision' }));
-  await test.waitFor(() => test.expect(test.screen.getByText('PageSaveAnnotation')).toBeEnabled());
-});
+    mount({ rpcHandlersTransport, render });
+    await user.click(screen.getByText('PageSaveAnnotation'));
+    await screen.findByText('AnnotationReconcile');
+    expect(screen.getByText('PageSaveAnnotation')).toBeDisabled();
+    rpc['pages.annotation'].mockResolvedValue({ ...annotation, revision: 2n });
+    await user.click(screen.getByText('AnnotationRefreshRevision'));
+    await user.click(await screen.findByRole('button', { name: 'AnnotationUseRevision' }));
+    await waitFor(() => expect(screen.getByText('PageSaveAnnotation')).toBeEnabled());
+  }
+);
 
-test.stable('keeps unsaved note edits while acknowledging reanchor or delete', () => {
+test.stable('keeps unsaved note edits while acknowledging reanchor or delete', ({ expect }) => {
   const draft = {
     current: annotation,
     generation: 2,
@@ -190,7 +202,7 @@ test.stable('keeps unsaved note edits while acknowledging reanchor or delete', (
     uncertain: false
   };
 
-  test.expect(savedDraft(draft, -1, { ...annotation, revision: 2n })).toMatchObject({
+  expect(savedDraft(draft, -1, { ...annotation, revision: 2n })).toMatchObject({
     note: 'Unsaved',
     pending: false,
     current: { revision: 2n }
@@ -199,7 +211,7 @@ test.stable('keeps unsaved note edits while acknowledging reanchor or delete', (
 
 test.stable(
   'deletes only after confirmation and keeps paginated deleted revisions accessible',
-  async () => {
+  async ({ userEvent, expect, screen, within, waitFor, rpcHandlersTransport, render }) => {
     const deleted = { ...annotation, revision: 2n, deleted: true, operation: 'delete' };
 
     rpc['pages.reviseAnnotation'].mockResolvedValue({ outcome: 'saved', annotation: deleted });
@@ -210,20 +222,20 @@ test.stable(
           : { items: [deleted], nextCursor: 2n }
       )
     );
-    const user = test.userEvent.setup();
+    const user = userEvent.setup();
 
-    mount();
-    test.expect(rpc['pages.reviseAnnotation']).not.toHaveBeenCalled();
-    await user.click(test.screen.getByRole('button', { name: 'AnnotationDelete' }));
-    const dialog = await test.screen.findByRole('alertdialog');
-    const confirm = test.within(dialog).getByRole('button', { name: 'AnnotationDelete' });
+    mount({ rpcHandlersTransport, render });
+    expect(rpc['pages.reviseAnnotation']).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'AnnotationDelete' }));
+    const dialog = await screen.findByRole('alertdialog');
+    const confirm = within(dialog).getByRole('button', { name: 'AnnotationDelete' });
 
-    test.expect(confirm).toBeDisabled();
-    test.expect(rpc['pages.reviseAnnotation']).not.toHaveBeenCalled();
-    await user.type(test.within(dialog).getByRole('textbox'), 'DeleteConfirmationWord');
+    expect(confirm).toBeDisabled();
+    expect(rpc['pages.reviseAnnotation']).not.toHaveBeenCalled();
+    await user.type(within(dialog).getByRole('textbox'), 'DeleteConfirmationWord');
     await user.click(confirm);
-    await test.waitFor(() =>
-      test.expect(rpc['pages.reviseAnnotation']).toHaveBeenCalledWith({
+    await waitFor(() =>
+      expect(rpc['pages.reviseAnnotation']).toHaveBeenCalledWith({
         id: annotation.id,
         expectedRevision: 1n,
         target,
@@ -232,37 +244,37 @@ test.stable(
         deleted: true
       })
     );
-    await user.click(test.screen.getByText('AnnotationHistory'));
-    await user.click(await test.screen.findByText('LibraryMore'));
-    await test.waitFor(() =>
-      test.expect(rpc['pages.annotationHistory']).toHaveBeenCalledWith({
+    await user.click(screen.getByText('AnnotationHistory'));
+    await user.click(await screen.findByText('LibraryMore'));
+    await waitFor(() =>
+      expect(rpc['pages.annotationHistory']).toHaveBeenCalledWith({
         id: annotation.id,
         limit: 60,
         cursor: undefined
       })
     );
-    test.expect(await test.screen.findByText(/AnnotationCreated/)).toBeInTheDocument();
-    test.expect(test.screen.getByText('PageSaveAnnotation')).toBeDisabled();
+    expect(await screen.findByText(/AnnotationCreated/)).toBeInTheDocument();
+    expect(screen.getByText('PageSaveAnnotation')).toBeDisabled();
   }
 );
 
 test.stable(
   'commits the previewed exact target with the expected revision without saving unrelated note edits',
-  async () => {
-    const user = test.userEvent.setup();
-    const view = mount();
+  async ({ userEvent, screen, act, waitFor, expect, rpcHandlersTransport, render }) => {
+    const user = userEvent.setup();
+    const view = mount({ rpcHandlersTransport, render });
     const next = { ...target, range: { ...target.range, start: 1, end: 3 } };
 
     rpc['pages.reviseAnnotation'].mockResolvedValue({
       outcome: 'saved',
       annotation: { ...annotation, revision: 2n, operation: 'reanchor', target: next }
     });
-    await user.type(test.screen.getByLabelText('PageAnnotationNote'), ' unsaved');
-    test.act(() => view.setTarget(next));
-    await user.click(test.screen.getByText('AnnotationReanchor'));
-    await user.click(test.screen.getByText('AnnotationCommitTarget'));
-    await test.waitFor(() =>
-      test.expect(rpc['pages.reviseAnnotation']).toHaveBeenCalledWith({
+    await user.type(screen.getByLabelText('PageAnnotationNote'), ' unsaved');
+    act(() => view.setTarget(next));
+    await user.click(screen.getByText('AnnotationReanchor'));
+    await user.click(screen.getByText('AnnotationCommitTarget'));
+    await waitFor(() =>
+      expect(rpc['pages.reviseAnnotation']).toHaveBeenCalledWith({
         id: annotation.id,
         expectedRevision: 1n,
         target: next,
@@ -271,24 +283,27 @@ test.stable(
         deleted: false
       })
     );
-    test.expect(test.screen.getByLabelText('PageAnnotationNote')).toHaveValue('Original unsaved');
-    test.expect(rpc['pages.reviseAnnotation']).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText('PageAnnotationNote')).toHaveValue('Original unsaved');
+    expect(rpc['pages.reviseAnnotation']).toHaveBeenCalledTimes(1);
   }
 );
 
-test.stable('saving note content preserves an independently selected reanchor target', () => {
-  const next = { ...target, range: { ...target.range, start: 1, end: 3 } };
-  const draft = {
-    current: annotation,
-    generation: 4,
-    note: 'Submitted',
-    kind: 'note' as const,
-    target: next,
-    pending: true,
-    uncertain: false
-  };
+test.stable(
+  'saving note content preserves an independently selected reanchor target',
+  ({ expect }) => {
+    const next = { ...target, range: { ...target.range, start: 1, end: 3 } };
+    const draft = {
+      current: annotation,
+      generation: 4,
+      note: 'Submitted',
+      kind: 'note' as const,
+      target: next,
+      pending: true,
+      uncertain: false
+    };
 
-  test
-    .expect(savedDraft(draft, 4, { ...annotation, revision: 2n, note: 'Submitted' }).target)
-    .toEqual(next);
-});
+    expect(savedDraft(draft, 4, { ...annotation, revision: 2n, note: 'Submitted' }).target).toEqual(
+      next
+    );
+  }
+);

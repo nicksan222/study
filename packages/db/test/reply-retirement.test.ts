@@ -3,7 +3,9 @@ import { sql } from 'drizzle-orm';
 
 test.stable(
   'raw reply retirement fences publication and capture resurrection independently of learning cleanup',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const db = await location.open();
 
@@ -13,20 +15,20 @@ test.stable(
         VALUES(1,1,1,'answer','pending','','reply-one',1),(2,2,1,'answer','complete','Preserved raw answer','reply-two',1),(3,3,1,'typed','complete','Manual',NULL,1);
       INSERT INTO note_reply_requests(request_id,note_id,version_id,snapshot) VALUES('reply-one',1,1,'{}'),('reply-two',1,2,'{}');
       INSERT INTO workflow_retired_correlations(correlation_id,event_type) VALUES('reply-one','NoteGenerationRequested'),('reply-two','NoteGenerationRequested'),('reply-three','NoteGenerationRequested');`);
-    test.assert.throws(() =>
+    assert.throws(() =>
       db.exec("UPDATE message_versions SET status='complete',text='Late answer' WHERE id=1")
     );
-    test.assert.throws(() =>
+    assert.throws(() =>
       db.exec(
         'UPDATE note_reply_requests SET snapshot=\'{"private":"resurrected"}\' WHERE request_id=\'reply-two\''
       )
     );
-    test.assert.throws(() =>
+    assert.throws(() =>
       db.exec(
         "INSERT INTO note_reply_requests(request_id,note_id,version_id,snapshot) VALUES('reply-three',1,3,'{}')"
       )
     );
-    test.assert.throws(() =>
+    assert.throws(() =>
       db.exec(
         "INSERT INTO message_versions(message_id,number,origin,status,text,generation_request_id,created_at) VALUES(3,2,'answer','complete','Bypass','reply-three',1)"
       )
@@ -34,11 +36,11 @@ test.stable(
     db.exec(
       "INSERT INTO message_versions(message_id,number,origin,status,text,created_at) VALUES(3,2,'edited','complete','Independent manual edit',1)"
     );
-    test.assert.strictEqual(
+    assert.strictEqual(
       db.orm.get(sql`SELECT text FROM message_versions WHERE id=2`)?.text,
       'Preserved raw answer'
     );
 
-    test.expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+    expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
   }
 );

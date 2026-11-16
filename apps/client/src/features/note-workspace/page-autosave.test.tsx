@@ -55,9 +55,13 @@ function message(text: string, versionId = 10n, basedOn: bigint | null = null) {
 
 const registries: AtomRegistry.AtomRegistry[] = [];
 
-function mount(page: PageTarget = target, registry = AtomRegistry.make()) {
+function mount(
+  { rpcTestTransport, renderHook }: Pick<test.Context, 'rpcTestTransport' | 'renderHook'>,
+  page: PageTarget = target,
+  registry = AtomRegistry.make()
+) {
   registries.push(registry);
-  const fixture = test.rpcTestTransport(async (tag, input) => {
+  const fixture = rpcTestTransport(async (tag, input) => {
     if (tag === 'notes.postMessage') return api.post(input);
 
     if (tag === 'notes.editMessage') return api.edit(input);
@@ -74,7 +78,7 @@ function mount(page: PageTarget = target, registry = AtomRegistry.make()) {
     </RpcProvider>
   );
 
-  return { registry, ...test.renderHook(() => usePageAutosave(id, page), { wrapper }) };
+  return { registry, ...renderHook(() => usePageAutosave(id, page), { wrapper }) };
 }
 
 function createMockState(mock: test.Mock) {
@@ -98,19 +102,19 @@ test.beforeEach(async ({ mock }) => {
   usePageAutosave = __mockModule0.usePageAutosave;
 });
 
-test.beforeEach(() => {
-  test.vi.useFakeTimers();
-  test.vi.resetAllMocks();
+test.beforeEach(({ vi }) => {
+  vi.useFakeTimers();
+  vi.resetAllMocks();
 });
-test.afterEach(() => {
-  test.cleanup();
+test.afterEach(({ cleanup, vi }) => {
+  cleanup();
   registries.splice(0).forEach((registry) => registry.dispose());
-  test.vi.useRealTimers();
+  vi.useRealTimers();
 });
 
 test.stable(
   'autosaves every three seconds, serializes writes and preserves typing during a pending save',
-  async () => {
+  async ({ act, vi, expect, rpcTestTransport, renderHook }) => {
     let accept!: (value: ReturnType<typeof message>) => void;
 
     api.post.mockReturnValue(
@@ -119,32 +123,32 @@ test.stable(
       })
     );
     api.edit.mockResolvedValue(message('Later typing', 11n, 10n));
-    const view = mount();
+    const view = mount({ rpcTestTransport, renderHook });
 
-    test.act(() => view.result.current.setText('# First page'));
-    await test.act(async () => {
-      await test.vi.advanceTimersByTimeAsync(3000);
+    act(() => view.result.current.setText('# First page'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
     });
-    test.expect(api.post).toHaveBeenCalledExactlyOnceWith({
+    expect(api.post).toHaveBeenCalledExactlyOnceWith({
       noteId: id,
       captureKey: 'page-test-capture',
       text: '# First page',
       format: 'document',
       requestReply: false
     });
-    test.act(() => view.result.current.setText('Later typing'));
-    await test.act(async () => {
-      await test.vi.advanceTimersByTimeAsync(6000);
+    act(() => view.result.current.setText('Later typing'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6000);
     });
-    test.expect(api.post).toHaveBeenCalledTimes(1);
-    await test.act(async () => {
+    expect(api.post).toHaveBeenCalledTimes(1);
+    await act(async () => {
       accept(message('# First page'));
     });
-    test.expect(view.result.current.draft.text).toBe('Later typing');
-    await test.act(async () => {
-      await test.vi.advanceTimersByTimeAsync(3000);
+    expect(view.result.current.draft.text).toBe('Later typing');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
     });
-    test.expect(api.edit).toHaveBeenCalledExactlyOnceWith({
+    expect(api.edit).toHaveBeenCalledExactlyOnceWith({
       messageId: 2n,
       text: 'Later typing',
       expectedActiveVersionId: 10n
@@ -154,110 +158,128 @@ test.stable(
 
 test.stable(
   'retains an uncertain creation across remounts and retries its exact capture identity only on request',
-  async () => {
+  async ({ act, vi, expect, rpcTestTransport, renderHook }) => {
     api.post
       .mockRejectedValueOnce(new StudyError('transient', 'offline'))
       .mockResolvedValueOnce(message('Original'));
-    const first = mount();
+    const first = mount({ rpcTestTransport, renderHook });
 
-    test.act(() => first.result.current.setText('Original'));
-    await test.act(async () => {
-      await test.vi.advanceTimersByTimeAsync(3000);
+    act(() => first.result.current.setText('Original'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
     });
     first.unmount();
-    const next = mount(target, first.registry);
+    const next = mount({ rpcTestTransport, renderHook }, target, first.registry);
 
-    await test.act(async () => {
-      await test.vi.advanceTimersByTimeAsync(9000);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9000);
     });
-    test.expect(api.post).toHaveBeenCalledTimes(1);
-    await test.act(async () => {
+    expect(api.post).toHaveBeenCalledTimes(1);
+    await act(async () => {
       await next.result.current.save();
-      await test.vi.advanceTimersByTimeAsync(1);
+      await vi.advanceTimersByTimeAsync(1);
     });
-    test.expect(api.post.mock.calls[1]).toEqual(api.post.mock.calls[0]);
-    test.expect(next.result.current.draft.error).toBeUndefined();
+    expect(api.post.mock.calls[1]).toEqual(api.post.mock.calls[0]);
+    expect(next.result.current.draft.error).toBeUndefined();
   }
 );
 
-test.stable('keeps local changes when another writer advances the active version', async () => {
-  api.edit.mockRejectedValue(new StudyError('invalid_input', 'conflict'));
-  api.message.mockResolvedValue(message('Other writer', 11n, 10n));
-  const view = mount({ kind: 'message', message: message('Original') });
+test.stable(
+  'keeps local changes when another writer advances the active version',
+  async ({ act, vi, expect, rpcTestTransport, renderHook }) => {
+    api.edit.mockRejectedValue(new StudyError('invalid_input', 'conflict'));
+    api.message.mockResolvedValue(message('Other writer', 11n, 10n));
+    const view = mount(
+      { rpcTestTransport, renderHook },
+      { kind: 'message', message: message('Original') }
+    );
 
-  test.act(() => view.result.current.setText('My changes'));
-  await test.act(async () => {
-    await test.vi.advanceTimersByTimeAsync(3000);
-  });
-  test.expect(view.result.current.draft.text).toBe('My changes');
-  await test.act(async () => {
-    await test.vi.advanceTimersByTimeAsync(1);
-  });
-  test.expect(view.result.current.draft.conflict?.activeVersionId).toBe(11n);
-  await test.act(async () => {
-    await test.vi.advanceTimersByTimeAsync(9000);
-  });
-  test.expect(api.edit).toHaveBeenCalledTimes(1);
-});
+    act(() => view.result.current.setText('My changes'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    expect(view.result.current.draft.text).toBe('My changes');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(view.result.current.draft.conflict?.activeVersionId).toBe(11n);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9000);
+    });
+    expect(api.edit).toHaveBeenCalledTimes(1);
+  }
+);
 
-test.stable('flushes edits typed during a save when their document tab closes', async () => {
-  let accept!: (value: ReturnType<typeof message>) => void;
+test.stable(
+  'flushes edits typed during a save when their document tab closes',
+  async ({ act, vi, expect, rpcTestTransport, renderHook }) => {
+    let accept!: (value: ReturnType<typeof message>) => void;
 
-  api.post.mockReturnValue(
-    new Promise((resolve) => {
-      accept = resolve;
-    })
-  );
-  api.edit.mockResolvedValue(message('Final text', 11n, 10n));
-  const view = mount();
+    api.post.mockReturnValue(
+      new Promise((resolve) => {
+        accept = resolve;
+      })
+    );
+    api.edit.mockResolvedValue(message('Final text', 11n, 10n));
+    const view = mount({ rpcTestTransport, renderHook });
 
-  test.act(() => view.result.current.setText('First text'));
-  await test.act(async () => {
-    await test.vi.advanceTimersByTimeAsync(3000);
-  });
-  test.act(() => view.result.current.setText('Final text'));
-  view.unmount();
-  await test.act(async () => {
-    accept(message('First text'));
-  });
-  test.expect(api.post).toHaveBeenCalledTimes(1);
-  test.expect(api.edit).toHaveBeenCalledExactlyOnceWith({
-    messageId: 2n,
-    text: 'Final text',
-    expectedActiveVersionId: 10n
-  });
-});
+    act(() => view.result.current.setText('First text'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    act(() => view.result.current.setText('Final text'));
+    view.unmount();
+    await act(async () => {
+      accept(message('First text'));
+    });
+    expect(api.post).toHaveBeenCalledTimes(1);
+    expect(api.edit).toHaveBeenCalledExactlyOnceWith({
+      messageId: 2n,
+      text: 'Final text',
+      expectedActiveVersionId: 10n
+    });
+  }
+);
 
-test.stable('reconciles a lost edit receipt without creating a duplicate version', async () => {
-  api.edit.mockRejectedValue(new StudyError('transient', 'Lost receipt'));
-  api.message.mockResolvedValue(message('Updated text', 11n, 10n));
-  const view = mount({ kind: 'message', message: message('Original') });
+test.stable(
+  'reconciles a lost edit receipt without creating a duplicate version',
+  async ({ act, vi, expect, rpcTestTransport, renderHook }) => {
+    api.edit.mockRejectedValue(new StudyError('transient', 'Lost receipt'));
+    api.message.mockResolvedValue(message('Updated text', 11n, 10n));
+    const view = mount(
+      { rpcTestTransport, renderHook },
+      { kind: 'message', message: message('Original') }
+    );
 
-  test.act(() => view.result.current.setText('Updated text'));
-  await test.act(async () => {
-    await test.vi.advanceTimersByTimeAsync(3001);
-  });
-  test.expect(view.result.current.draft.error).toBeUndefined();
-  test.expect(view.result.current.draft.savedText).toBe('Updated text');
-  await test.act(async () => {
-    await test.vi.advanceTimersByTimeAsync(9000);
-  });
-  test.expect(api.edit).toHaveBeenCalledTimes(1);
-});
+    act(() => view.result.current.setText('Updated text'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3001);
+    });
+    expect(view.result.current.draft.error).toBeUndefined();
+    expect(view.result.current.draft.savedText).toBe('Updated text');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9000);
+    });
+    expect(api.edit).toHaveBeenCalledTimes(1);
+  }
+);
 
-test.stable('waits for the configured autosave interval before creating a page', async () => {
-  preferences.autosaveIntervalSeconds = 8;
-  api.post.mockResolvedValue(message('Longer pause'));
-  const view = mount();
+test.stable(
+  'waits for the configured autosave interval before creating a page',
+  async ({ act, vi, expect, rpcTestTransport, renderHook }) => {
+    preferences.autosaveIntervalSeconds = 8;
+    api.post.mockResolvedValue(message('Longer pause'));
+    const view = mount({ rpcTestTransport, renderHook });
 
-  test.act(() => view.result.current.setText('Longer pause'));
-  await test.act(async () => {
-    await test.vi.advanceTimersByTimeAsync(7999);
-  });
-  test.expect(api.post).not.toHaveBeenCalled();
-  await test.act(async () => {
-    await test.vi.advanceTimersByTimeAsync(1);
-  });
-  test.expect(api.post).toHaveBeenCalledTimes(1);
-  preferences.autosaveIntervalSeconds = 3;
-});
+    act(() => view.result.current.setText('Longer pause'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(7999);
+    });
+    expect(api.post).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(api.post).toHaveBeenCalledTimes(1);
+    preferences.autosaveIntervalSeconds = 3;
+  }
+);

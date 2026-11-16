@@ -20,7 +20,9 @@ import { Sources } from '#server/features/sources/index';
 
 test.stable(
   'native projects and source inputs persist after reopening the real application',
-  async ({ server: serverFixture }) => {
+  async ({ server: serverFixture, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const fixture = serverFixture;
     const app = fixture.app;
     const source = await fixture.run(
@@ -42,10 +44,10 @@ test.stable(
       Effect.gen(function* () {
         const projects = yield* (yield* Projects).projects({ limit: 10 });
 
-        test.assert.ok(projects.items[0]?.name === 'Physics');
+        assert.ok(projects.items[0]?.name === 'Physics');
         const snapshot = yield* (yield* Sources).sourceSnapshot({ id: source.id, revision: 1 });
 
-        test.assert.ok(new TextDecoder().decode(snapshot.bytes) === 'Hello');
+        assert.ok(new TextDecoder().decode(snapshot.bytes) === 'Hello');
       })
     );
   }

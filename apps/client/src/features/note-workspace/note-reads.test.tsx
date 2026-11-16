@@ -7,7 +7,7 @@ import { useNoteList } from './note-reads';
 /** Interaction-level coverage; authoritative membership and transaction races are server tests. */
 test.stable(
   'keeps loaded note windows bounded, navigates beyond one hundred and resets on owner changes',
-  async () => {
+  async ({ rpcTestTransport, renderHook, waitFor, expect, act }) => {
     const items = Array.from({ length: 150 }, (_, index) => {
       const value = BigInt(150 - index);
 
@@ -22,7 +22,7 @@ test.stable(
       };
     });
     const reads: (typeof notePageInputSchema.Type)[] = [];
-    const fixture = test.rpcTestTransport(async (_tag, input) => {
+    const fixture = rpcTestTransport(async (_tag, input) => {
       const request = Schema.decodeUnknownSync(notePageInputSchema)(input);
 
       reads.push(request);
@@ -38,31 +38,31 @@ test.stable(
             : null
       };
     });
-    const view = test.renderHook(({ project }) => useNoteList(project), {
+    const view = renderHook(({ project }) => useNoteList(project), {
       wrapper: fixture.wrapper,
       initialProps: { project: projectIdSchema.make(1n) }
     });
 
-    await test.waitFor(() => test.expect(view.result.current.data?.items).toHaveLength(30));
+    await waitFor(() => expect(view.result.current.data?.items).toHaveLength(30));
 
     for (const limit of [60, 90, 100]) {
-      test.act(() => view.result.current.fetchNextPage());
-      await test.waitFor(() => test.expect(view.result.current.data?.items).toHaveLength(limit));
+      act(() => view.result.current.fetchNextPage());
+      await waitFor(() => expect(view.result.current.data?.items).toHaveLength(limit));
     }
 
-    test.act(() => view.result.current.fetchNextPage());
-    await test.waitFor(() =>
-      test.expect(view.result.current.data?.items[0]?.id).toBe(noteIdSchema.make(50n))
+    act(() => view.result.current.fetchNextPage());
+    await waitFor(() =>
+      expect(view.result.current.data?.items[0]?.id).toBe(noteIdSchema.make(50n))
     );
-    test.expect(view.result.current.pagination.hasPrevious).toBe(true);
-    test.act(() => view.result.current.pagination.previous());
-    await test.waitFor(() =>
-      test.expect(view.result.current.data?.items[0]?.id).toBe(noteIdSchema.make(150n))
+    expect(view.result.current.pagination.hasPrevious).toBe(true);
+    act(() => view.result.current.pagination.previous());
+    await waitFor(() =>
+      expect(view.result.current.data?.items[0]?.id).toBe(noteIdSchema.make(150n))
     );
     view.rerender({ project: projectIdSchema.make(2n) });
-    await test.waitFor(() => test.expect(reads.at(-1)?.project).toBe(projectIdSchema.make(2n)));
-    test.expect(reads.at(-1)?.before).toBeUndefined();
-    test.expect(reads.at(-1)?.limit).toBe(30);
-    test.expect(reads.every((request) => request.limit <= 100)).toBe(true);
+    await waitFor(() => expect(reads.at(-1)?.project).toBe(projectIdSchema.make(2n)));
+    expect(reads.at(-1)?.before).toBeUndefined();
+    expect(reads.at(-1)?.limit).toBe(30);
+    expect(reads.every((request) => request.limit <= 100)).toBe(true);
   }
 );

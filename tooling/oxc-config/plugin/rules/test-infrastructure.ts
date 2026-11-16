@@ -289,8 +289,8 @@ function checkPublicExpectation(context: any, node: any): void {
   const called = importedValue(context, node.callee);
 
   if (
-    called?.source === '@study/testing' &&
-    called.name === 'test.expect' &&
+    ((called?.source === '@study/testing' && called.name === 'test.expect') ||
+      isFixtureHelperCall(context, node, 'expect')) &&
     node.arguments.length > 2
   )
     context.report({ node, messageId: 'expectArguments' });
@@ -352,47 +352,55 @@ function callbackForTest(context: any, node: any): any | undefined {
   return undefined;
 }
 
-function patternProvidesMock(context: any, pattern: any, variable: any): boolean {
+function patternProvidesFixture(context: any, pattern: any, variable: any, name: string): boolean {
   return (
     pattern?.type === 'ObjectPattern' &&
     pattern.properties.some(
       (property: any) =>
         property.type === 'Property' &&
-        (property.key.name ?? property.key.value) === 'mock' &&
+        (property.key.name ?? property.key.value) === name &&
         property.value.type === 'Identifier' &&
         binding(context, property.value) === variable
     )
   );
 }
 
-function followsMockAlias(context: any, declaration: any, parameter: any, seen: Set<any>): boolean {
-  return (
-    declaration.id.type === 'Identifier' &&
-    declaration.init?.type === 'Identifier' &&
-    bindingProvidesMock(context, declaration.init, parameter, seen)
-  );
-}
-
-function destructuresMockFixture(
+function followsFixtureAlias(
   context: any,
   declaration: any,
   parameter: any,
-  variable: any
+  name: string,
+  seen: Set<any>
+): boolean {
+  return (
+    declaration.id.type === 'Identifier' &&
+    declaration.init?.type === 'Identifier' &&
+    bindingProvidesFixture(context, declaration.init, parameter, name, seen)
+  );
+}
+
+function destructuresFixture(
+  context: any,
+  declaration: any,
+  parameter: any,
+  variable: any,
+  name: string
 ): boolean {
   if (parameter?.type !== 'Identifier' || declaration.id.type !== 'ObjectPattern') return false;
 
   return (
     declaration.init?.type === 'Identifier' &&
     binding(context, declaration.init) === binding(context, parameter) &&
-    patternProvidesMock(context, declaration.id, variable)
+    patternProvidesFixture(context, declaration.id, variable, name)
   );
 }
 
-function mockAliasDefinition(
+function fixtureAliasDefinition(
   context: any,
   definition: any,
   parameter: any,
   variable: any,
+  name: string,
   seen: Set<any>
 ): boolean {
   const declaration = definition.node;
@@ -400,15 +408,16 @@ function mockAliasDefinition(
   if (declaration?.type !== 'VariableDeclarator') return false;
 
   return (
-    followsMockAlias(context, declaration, parameter, seen) ||
-    destructuresMockFixture(context, declaration, parameter, variable)
+    followsFixtureAlias(context, declaration, parameter, name, seen) ||
+    destructuresFixture(context, declaration, parameter, variable, name)
   );
 }
 
-function bindingProvidesMock(
+function bindingProvidesFixture(
   context: any,
   identifier: any,
   parameter: any,
+  name: string,
   seen = new Set<any>()
 ): boolean {
   const variable = binding(context, identifier);
@@ -418,14 +427,14 @@ function bindingProvidesMock(
   seen.add(variable);
 
   return (
-    patternProvidesMock(context, parameter, variable) ||
+    patternProvidesFixture(context, parameter, variable, name) ||
     (variable.defs ?? []).some((definition: any) =>
-      mockAliasDefinition(context, definition, parameter, variable, seen)
+      fixtureAliasDefinition(context, definition, parameter, variable, name, seen)
     )
   );
 }
 
-function isMockFixtureCall(context: any, node: any): boolean {
+function isFixtureHelperCall(context: any, node: any, name: string): boolean {
   const callback = callbackForTest(context, node);
 
   if (!callback) return false;
@@ -433,11 +442,11 @@ function isMockFixtureCall(context: any, node: any): boolean {
   const parameter = mockFixtureParameter(context, callback);
 
   if (node.callee.type === 'Identifier')
-    return bindingProvidesMock(context, node.callee, parameter);
+    return bindingProvidesFixture(context, node.callee, parameter, name);
 
   return (
     node.callee.type === 'MemberExpression' &&
-    memberName(node.callee) === 'mock' &&
+    memberName(node.callee) === name &&
     node.callee.object.type === 'Identifier' &&
     parameter?.type === 'Identifier' &&
     binding(context, parameter) === binding(context, node.callee.object)
@@ -463,6 +472,88 @@ function mockTarget(node: any): string | undefined {
   return undefined;
 }
 
+const testNamespaceMembers = new Set([
+  'stable',
+  'regression',
+  'migration',
+  'characterization',
+  'beforeEach',
+  'afterEach',
+  'beforeAll',
+  'afterAll',
+  'describe'
+]);
+
+function testNamespace(context: any, node: any): boolean {
+  const value = importedValue(context, node);
+
+  return value?.source === '@study/testing' && value.name === 'test';
+}
+
+function checkTestNamespaceMember(context: any, node: any): void {
+  if (!testNamespace(context, node.object)) return;
+
+  const member = memberName(node);
+
+  if (member && !testNamespaceMembers.has(member))
+    context.report({ node, messageId: 'testHelperFixture' });
+}
+
+function checkTestNamespaceDestructure(context: any, node: any): void {
+  if (node.id?.type !== 'ObjectPattern' || !testNamespace(context, node.init)) return;
+
+  for (const property of node.id.properties) {
+    if (property.type === 'RestElement') {
+      context.report({ node: property, messageId: 'opaqueTestFixtures' });
+
+      continue;
+    }
+
+    if (property.type !== 'Property') continue;
+
+    const member = property.key.name ?? property.key.value;
+
+    if (typeof member === 'string' && !testNamespaceMembers.has(member))
+      context.report({ node: property, messageId: 'testHelperFixture' });
+  }
+}
+
+function hasRestProperty(pattern: any): boolean {
+  return (
+    pattern?.type === 'ObjectPattern' &&
+    pattern.properties.some((property: any) => property.type === 'RestElement')
+  );
+}
+
+function checkOpaqueFixtureParameter(context: any, node: any): void {
+  const registration = importedValue(context, registrationCallee(node));
+
+  if (!canonicalTestBody(registration) && registration?.name !== 'test.beforeEach') return;
+
+  const parameter = mockFixtureParameter(context, node);
+
+  if (hasRestProperty(parameter))
+    context.report({ node: parameter, messageId: 'opaqueTestFixtures' });
+}
+
+function checkOpaqueFixtureSpread(context: any, node: any): void {
+  if (testNamespace(context, node.argument)) {
+    context.report({ node, messageId: 'opaqueTestFixtures' });
+
+    return;
+  }
+
+  const callback = callbackForTest(context, node);
+  const parameter = callback && mockFixtureParameter(context, callback);
+
+  if (
+    node.argument.type === 'Identifier' &&
+    parameter?.type === 'Identifier' &&
+    binding(context, node.argument) === binding(context, parameter)
+  )
+    context.report({ node, messageId: 'opaqueTestFixtures' });
+}
+
 export default defineRule({
   meta: {
     type: 'problem',
@@ -483,11 +574,15 @@ export default defineRule({
       registration:
         'Use the provided test registrations and native each/extend APIs instead of a custom test wrapper.',
       expectArguments:
-        'Pass at most an assertion subject and one diagnostic message to test.expect.',
+        'Pass at most an assertion subject and one diagnostic message to the callback expect fixture.',
       scopedMock:
         'Request mock through the test callback parameters, register the mock there, and dynamically import its subject. Module mocks must not use test.mock, hoisting, or test.vi.',
       staticMockSubject:
-        'A subject registered with the callback mock fixture must be dynamically imported after mock registration, not statically imported.'
+        'A subject registered with the callback mock fixture must be dynamically imported after mock registration, not statically imported.',
+      testHelperFixture:
+        'Request test-body helpers through callback fixture parameters; reserve the test namespace for registrations, hooks, classification and describe.',
+      opaqueTestFixtures:
+        'Do not collect test fixture helpers through an opaque rest or spread; destructure each required helper explicitly.'
     }
   },
   create(context) {
@@ -497,9 +592,10 @@ export default defineRule({
       /\/packages\/testing\/src\//.test(path) || (/\/tooling\/testing\//.test(path) && !actualTest);
     const fixtureOwner = fixtureOwnerPath(path);
     const test =
-      /\.(?:test|spec)\.[cm]?[jt]sx?$|\/(?:test|tests)\/(?:testing|support|fixtures)(?:\/|[.])|\/src\/test\/|\/test\/e2e\/harness\/|test-(?:support|utils)/.test(
+      /\.(?:test|spec)\.[cm]?[jt]sx?$|\/(?:test|tests)\/(?:testing|support|fixtures)(?:\/|[.])|\/src\/(?:test|testing)\/|\/test\/e2e\/harness\/|test-(?:support|utils|helper)s?/.test(
         path
       );
+    const enforceTestHelperFixture = test && !testApiOwnerPath(path) && !fixtureSubjectPath(path);
     const staticImports = new Map<string, any[]>();
 
     for (const statement of context.sourceCode.ast.body) {
@@ -545,13 +641,28 @@ export default defineRule({
 
     return {
       ...edges,
+      MemberExpression(node) {
+        if (enforceTestHelperFixture) checkTestNamespaceMember(context, node);
+      },
+      ArrowFunctionExpression(node) {
+        if (enforceTestHelperFixture) checkOpaqueFixtureParameter(context, node);
+      },
+      FunctionExpression(node) {
+        if (enforceTestHelperFixture) checkOpaqueFixtureParameter(context, node);
+      },
+      SpreadElement(node) {
+        if (enforceTestHelperFixture) checkOpaqueFixtureSpread(context, node);
+      },
+      VariableDeclarator(node) {
+        if (enforceTestHelperFixture) checkTestNamespaceDestructure(context, node);
+      },
       CallExpression(node) {
         edges.CallExpression(node);
         checkPublicExpectation(context, node);
         checkNestedRegistration(context, node);
         checkTestCall(context, node, actualTest, fixtureOwner || fixtureSubjectPath(path));
 
-        if (!actualTest || !isMockFixtureCall(context, node)) return;
+        if (!actualTest || !isFixtureHelperCall(context, node, 'mock')) return;
 
         const source = mockTarget(node);
 

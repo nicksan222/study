@@ -31,7 +31,9 @@ const isCompleted = (item: { status: string }) => item.status === 'completed';
 test.stable(
   'native workflow RPC exposes bounded status and persists cancellation while the worker is stopped',
   { timeout: 10000 },
-  async ({ resources: location }) => {
+  async ({ resources: location, expect, pollUntil, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     let app = await location.openApp({ path: location.path });
     let server = await serve(app);
 
@@ -41,9 +43,7 @@ test.stable(
           Effect.gen(function* () {
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
 
-            test
-              .expect((yield* client['workflows.executions']({ limit: 10 })).items)
-              .toStrictEqual([]);
+            expect((yield* client['workflows.executions']({ limit: 10 })).items).toStrictEqual([]);
             const source = yield* client['sources.createSource']({
               name: 'waiting.png',
               bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
@@ -53,7 +53,7 @@ test.stable(
 
             yield* client['system.startWorkers']({});
 
-            const execution = yield* test.pollUntil(
+            const execution = yield* pollUntil(
               Effect.gen(function* () {
                 const page = yield* client['workflows.executions']({
                   limit: 10,
@@ -70,31 +70,31 @@ test.stable(
               }
             );
 
-            test.assert.ok(execution?.status === 'suspended');
-            test.assert.ok(execution.canCancel === true);
-            test.assert.ok(execution.outcome === null);
-            test
-              .expect((yield* client['workflows.execution']({ id: execution.id })).id)
-              .toStrictEqual(execution.id);
+            assert.ok(execution?.status === 'suspended');
+            assert.ok(execution.canCancel === true);
+            assert.ok(execution.outcome === null);
+            expect((yield* client['workflows.execution']({ id: execution.id })).id).toStrictEqual(
+              execution.id
+            );
             yield* client['system.stopWorkers']({});
             const cancelled = yield* client['workflows.cancelExecution']({
               id: execution.id,
               mode: 'unsafe'
             });
 
-            test.assert.ok(['cancelling', 'cancelled'].includes(cancelled.status));
-            test.assert.ok(cancelled.canCancel === false);
+            assert.ok(['cancelling', 'cancelled'].includes(cancelled.status));
+            assert.ok(cancelled.canCancel === false);
             const repeated = yield* client['workflows.cancelExecution']({
               id: execution.id,
               mode: 'safe'
             });
 
-            test.assert.ok(['cancelling', 'cancelled'].includes(repeated.status));
-            test.assert.ok('payload' in repeated === false);
-            test.assert.ok('ownerToken' in repeated === false);
+            assert.ok(['cancelling', 'cancelled'].includes(repeated.status));
+            assert.ok('payload' in repeated === false);
+            assert.ok('ownerToken' in repeated === false);
 
             for (const createdAtMs of [-1n, 9223372036854775808n])
-              test.assert.ok(
+              assert.ok(
                 (yield* Effect.exit(
                   client['workflows.executions']({
                     limit: 1,
@@ -117,7 +117,7 @@ test.stable(
           Effect.gen(function* () {
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
 
-            const page = yield* test.pollUntil(
+            const page = yield* pollUntil(
               client['workflows.executions']({ limit: 10 }),
               (value) => value.items.some(isCancelledSource),
               {
@@ -128,16 +128,16 @@ test.stable(
             );
             const execution = page.items.find(isSourceIngestion);
 
-            test.assert.ok(execution?.status === 'cancelled');
-            test.assert.ok(
+            assert.ok(execution?.status === 'cancelled');
+            assert.ok(
               (yield* client['sources.sourceProcessing']({
                 id: (yield* client['sources.sources']({ limit: 1 })).items[0]!.id
               })).documentId === null
             );
-            test.assert.ok(
+            assert.ok(
               Option.isSome(yield* client['workflows.findExecution']({ id: execution.id }))
             );
-            test.assert.ok(page.next === null);
+            assert.ok(page.next === null);
 
             return;
           })
@@ -154,7 +154,9 @@ test.stable(
 test.stable(
   'workflow status distinguishes terminal failures and paginates without exposing checkpoints',
   { timeout: 10000 },
-  async ({ resources: location }) => {
+  async ({ resources: location, pollUntil, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const app = await location.openApp({ path: location.path });
     const server = await serve(app);
 
@@ -177,7 +179,7 @@ test.stable(
               projectId: null
             });
 
-            const { page, ingestions } = yield* test.pollUntil(
+            const { page, ingestions } = yield* pollUntil(
               Effect.gen(function* () {
                 const page = yield* client['workflows.executions']({ limit: 100 });
                 const ingestions = page.items.filter(isSourceIngestion);
@@ -192,28 +194,26 @@ test.stable(
               }
             );
 
-            test
-              .expect(
-                ingestions
-                  .map((execution) => execution.outcome)
-                  .sort((a, b) => (a ?? '').localeCompare(b ?? ''))
-              )
-              .toStrictEqual(['failure', 'success']);
-            test.assert.ok(
+            expect(
+              ingestions
+                .map((execution) => execution.outcome)
+                .sort((a, b) => (a ?? '').localeCompare(b ?? ''))
+            ).toStrictEqual(['failure', 'success']);
+            assert.ok(
               ingestions.find((execution) => execution.outcome === 'failure')?.failureKind ===
                 'unsupported'
             );
-            test.assert.ok(page.items.every((execution) => !execution.canCancel));
+            assert.ok(page.items.every((execution) => !execution.canCancel));
             const first = yield* client['workflows.executions']({ limit: 1 });
 
-            test.assert.ok(first.next);
+            assert.ok(first.next);
             const second = yield* client['workflows.executions']({
               limit: 1,
               before: first.next
             });
 
-            test.assert.strictEqual(second.items.length, 1);
-            test.assert.notStrictEqual(first.items[0]?.id, second.items[0]?.id);
+            assert.strictEqual(second.items.length, 1);
+            assert.notStrictEqual(first.items[0]?.id, second.items[0]?.id);
             const seen = [first.items[0]!.id, second.items[0]!.id];
             let cursor = second.next;
 
@@ -224,30 +224,28 @@ test.stable(
               cursor = next.next;
             }
 
-            test.assert.strictEqual(new Set(seen).size, seen.length);
-            test.assert.ok(ingestions.every((execution) => seen.includes(execution.id)));
+            assert.strictEqual(new Set(seen).size, seen.length);
+            assert.ok(ingestions.every((execution) => seen.includes(execution.id)));
             const target = ingestions[0]!;
 
-            test
-              .expect(yield* client['workflows.cancelExecution']({ id: target.id, mode: 'unsafe' }))
-              .toStrictEqual(target);
-            test
-              .expect(Object.keys(target).sort())
-              .toStrictEqual(
-                [
-                  'id',
-                  'workflow',
-                  'correlationId',
-                  'status',
-                  'outcome',
-                  'failureKind',
-                  'configurationWaitReason',
-                  'canCancel',
-                  'createdAtMs',
-                  'updatedAtMs'
-                ].sort()
-              );
-            test.assert.ok(
+            expect(
+              yield* client['workflows.cancelExecution']({ id: target.id, mode: 'unsafe' })
+            ).toStrictEqual(target);
+            expect(Object.keys(target).sort()).toStrictEqual(
+              [
+                'id',
+                'workflow',
+                'correlationId',
+                'status',
+                'outcome',
+                'failureKind',
+                'configurationWaitReason',
+                'canCancel',
+                'createdAtMs',
+                'updatedAtMs'
+              ].sort()
+            );
+            assert.ok(
               (yield* Effect.exit(client['workflows.executions']({ limit: 0 })))._tag === 'Failure'
             );
 
@@ -266,7 +264,9 @@ test.stable(
 test.stable(
   'unsafe workflow cancellation aborts an active real HTTP fetch',
   { timeout: 10000 },
-  async ({ resources: location, onTestFinished }) => {
+  async ({ resources: location, onTestFinished, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     let entered!: () => void;
     let aborted!: () => void;
     const requested = new Promise<void>((resolve) => {
@@ -318,15 +318,15 @@ test.stable(
               correlationId: processing.requestId!
             })).items.find(isSourceIngestion);
 
-            test.assert.ok(execution);
+            assert.ok(execution);
             const result = yield* client['workflows.cancelExecution']({
               id: execution.id,
               mode: 'unsafe'
             });
 
-            test.assert.ok(['cancelled', 'cancelling'].includes(result.status));
+            assert.ok(['cancelled', 'cancelling'].includes(result.status));
             yield* Effect.promise(() => closed).pipe(Effect.timeout('2 seconds'));
-            test.assert.ok(
+            assert.ok(
               (yield* client['sources.sourceProcessing']({ id: source.id })).documentId === null
             );
           })

@@ -2,18 +2,24 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable('database connection and schema factories stay with their owners', async () => {
-  const diagnostics = await lintRule(
-    'database-ownership',
-    {
-      'apps/server/src/core-migrate.ts': "import { migrateSync } from 'drizzle-orm/sqlite-core';\n",
-      'packages/db/src/schema/namespace.ts': "import * as core from 'drizzle-orm/sqlite-core';\n",
-      'packages/db/src/schema/dynamic.ts': "const core = import('drizzle-orm/sqlite-core');\n",
-      'packages/db/src/schema/migrate.ts':
-        "import { migrateSync } from 'drizzle-orm/sqlite-core';\n",
-      'packages/db/src/schema/leak.ts':
-        "import { sqliteTable as table } from 'drizzle-orm/sqlite-core';\nexport { table };\n",
-      'packages/db/src/db.ts': `import { DatabaseSync } from 'node:sqlite';
+test.stable(
+  'database connection and schema factories stay with their owners',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule(
+      { assert },
+      'database-ownership',
+      {
+        'apps/server/src/core-migrate.ts':
+          "import { migrateSync } from 'drizzle-orm/sqlite-core';\n",
+        'packages/db/src/schema/namespace.ts': "import * as core from 'drizzle-orm/sqlite-core';\n",
+        'packages/db/src/schema/dynamic.ts': "const core = import('drizzle-orm/sqlite-core');\n",
+        'packages/db/src/schema/migrate.ts':
+          "import { migrateSync } from 'drizzle-orm/sqlite-core';\n",
+        'packages/db/src/schema/leak.ts':
+          "import { sqliteTable as table } from 'drizzle-orm/sqlite-core';\nexport { table };\n",
+        'packages/db/src/db.ts': `import { DatabaseSync } from 'node:sqlite';
 
 export { DatabaseSync };
 
@@ -28,10 +34,10 @@ import { drizzle } from 'drizzle-orm/node-sqlite';
 import { migrate } from 'drizzle-orm/node-sqlite/migrator';
 
 `,
-      'packages/db/src/schema/items.ts':
-        "import { sqliteTable as table, sqliteView } from 'drizzle-orm/sqlite-core';\n",
-      'packages/db/drizzle.config.ts': "import { defineConfig } from 'drizzle-kit';\n",
-      'apps/server/src/good.ts': `import { eq, sql } from 'drizzle-orm';
+        'packages/db/src/schema/items.ts':
+          "import { sqliteTable as table, sqliteView } from 'drizzle-orm/sqlite-core';\n",
+        'packages/db/drizzle.config.ts': "import { defineConfig } from 'drizzle-kit';\n",
+        'apps/server/src/good.ts': `import { eq, sql } from 'drizzle-orm';
 
 import type { NodeSQLiteDatabase } from 'drizzle-orm/node-sqlite';
 
@@ -44,29 +50,28 @@ const sqliteTable = () => 1;
 const object = { sqliteTable };
 
 `,
-      'apps/server/test/raw.test.ts': "import { DatabaseSync as Raw } from 'node:sqlite';\n",
-      'apps/server/src/driver.ts': "export { drizzle as create } from 'drizzle-orm/node-sqlite';\n",
-      'apps/server/src/migrator.ts': "export * from 'drizzle-orm/node-sqlite/migrator';\n",
-      'apps/server/src/schema.ts':
-        "import { sqliteTable as table } from 'drizzle-orm/sqlite-core';\n",
-      'packages/db/src/not-schema.ts':
-        "export { sqliteTableCreator } from 'drizzle-orm/sqlite-core';\n",
-      'apps/server/src/namespace.ts':
-        "import * as core from 'drizzle-orm/sqlite-core';\ncore.sqliteView('v');\n",
-      'apps/server/src/dynamic.ts':
-        "const core = import('drizzle-orm/sqlite-core');\nconst db = import('node:sqlite');\n",
-      'apps/server/src/reexport.ts': "export * from 'drizzle-orm/sqlite-core';\n"
-    },
-    true
-  );
+        'apps/server/test/raw.test.ts': "import { DatabaseSync as Raw } from 'node:sqlite';\n",
+        'apps/server/src/driver.ts':
+          "export { drizzle as create } from 'drizzle-orm/node-sqlite';\n",
+        'apps/server/src/migrator.ts': "export * from 'drizzle-orm/node-sqlite/migrator';\n",
+        'apps/server/src/schema.ts':
+          "import { sqliteTable as table } from 'drizzle-orm/sqlite-core';\n",
+        'packages/db/src/not-schema.ts':
+          "export { sqliteTableCreator } from 'drizzle-orm/sqlite-core';\n",
+        'apps/server/src/namespace.ts':
+          "import * as core from 'drizzle-orm/sqlite-core';\ncore.sqliteView('v');\n",
+        'apps/server/src/dynamic.ts':
+          "const core = import('drizzle-orm/sqlite-core');\nconst db = import('node:sqlite');\n",
+        'apps/server/src/reexport.ts': "export * from 'drizzle-orm/sqlite-core';\n"
+      },
+      true
+    );
 
-  test
-    .expect(
+    expect(
       diagnostics
         .map(({ filename, message }) => [filename.split(/\/(?:apps|packages)\//)[1], message])
         .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
-    )
-    .toStrictEqual(
+    ).toStrictEqual(
       [
         [
           'server/src/core-migrate.ts',
@@ -111,13 +116,19 @@ const object = { sqliteTable };
         ['db/src/not-schema.ts', 'SQLite schema factories belong in packages/db/src/schema/.']
       ].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
     );
-});
+  }
+);
 
-test.stable('owner reexports cannot evade ownership by preceding imports', async () => {
-  const diagnostics = await lintRule(
-    'database-ownership',
-    {
-      'packages/db/src/db.ts': `export { raw, driver, migrate };
+test.stable(
+  'owner reexports cannot evade ownership by preceding imports',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule(
+      { assert },
+      'database-ownership',
+      {
+        'packages/db/src/db.ts': `export { raw, driver, migrate };
 
 import { DatabaseSync as raw } from 'node:sqlite';
 
@@ -130,7 +141,7 @@ export type { NodeSQLiteDatabase } from 'drizzle-orm/node-sqlite';
 export type { raw };
 
 `,
-      'packages/db/src/schema/example.ts': `export { table, makeView };
+        'packages/db/src/schema/example.ts': `export { table, makeView };
 
 import { sqliteTable as table, sqliteView as makeView } from 'drizzle-orm/sqlite-core';
 
@@ -139,17 +150,15 @@ export type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 export type { table };
 
 `
-    },
-    true
-  );
+      },
+      true
+    );
 
-  test
-    .expect(
+    expect(
       diagnostics
         .map(({ filename, message }) => [filename.split(/\/(?:apps|packages)\//)[1], message])
         .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
-    )
-    .toStrictEqual(
+    ).toStrictEqual(
       [
         ...Array.from({ length: 3 }, () => [
           'db/src/db.ts',
@@ -161,25 +170,31 @@ export type { table };
         ])
       ].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
     );
-});
+  }
+);
 
 test.stable(
   'snapshot machinery uses Db primitives without acquiring a second raw driver in runtime or storage',
-  async () => {
-    const diagnostics = await lintRule('database-ownership', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'database-ownership', {
       'src/platform/database/backups.ts': "import { backup as snapshot } from 'node:sqlite';",
       'src/runtime/backups.ts': "import * as driver from 'node:sqlite';",
       'src/runtime/composition.ts': "import { Db } from '@study/db'; Db.openSnapshot(path);"
     });
 
-    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
 test.stable(
   'the metadata wrapper may construct tables without exposing raw factories',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'database-ownership',
       {
         'packages/db/src/table.ts':
@@ -191,7 +206,7 @@ test.stable(
       true
     );
 
-    test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-    test.assert.ok(diagnostics[0]?.filename.endsWith('/unwrapped.ts'));
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.ok(diagnostics[0]?.filename.endsWith('/unwrapped.ts'));
   }
 );

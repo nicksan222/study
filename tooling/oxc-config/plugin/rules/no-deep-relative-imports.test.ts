@@ -4,8 +4,10 @@ import { lintRule } from '../test/utils.ts';
 
 test.stable(
   'rejects relative imports that ascend two or more directories across module edge forms',
-  async () => {
-    const diagnostics = await lintRule('no-deep-relative-imports', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'no-deep-relative-imports', {
       'src/a.ts': `import '../x';
 import '../../x';
 export * from './../../../x';
@@ -15,8 +17,8 @@ const y = import('../folder/../../x');
 require('../../x');`
     });
 
-    test.assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
-    test.assert.ok(
+    assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
+    assert.ok(
       diagnostics.every(
         ({ message }) =>
           message ===
@@ -26,14 +28,19 @@ require('../../x');`
   }
 );
 
-test.stable('allows shallow and non-import strings and respects shadowed require', async () => {
-  const diagnostics = await lintRule('no-deep-relative-imports', {
-    'src/a.ts': `import './x';
+test.stable(
+  'allows shallow and non-import strings and respects shadowed require',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'no-deep-relative-imports', {
+      'src/a.ts': `import './x';
  import '../x';
  const text = '../../x';
  function f(require: (s: string) => void) { require('../../x');
  }`
-  });
+    });
 
-  test.expect(diagnostics).toStrictEqual([]);
-});
+    expect(diagnostics).toStrictEqual([]);
+  }
+);

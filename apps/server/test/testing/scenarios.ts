@@ -134,18 +134,11 @@ const runner = baseTest.stable
       },
       fixture: resources
     };
-  });
+  })
+  .extend('createServerFixture', { scope: 'worker' }, () => createServerFixture)
+  .extend('createRpcFixture', { scope: 'worker' }, () => createRpcFixture)
+  .extend('createTestDatabase', { scope: 'worker' }, () => createTestDatabase)
+  .extend('snapshotValues', { scope: 'worker' }, () => snapshotValues);
 
 /** One classified test API; fixtures are lazily acquired only when requested. */
-export const test: ReturnType<typeof createTestApi<typeof runner>> & {
-  createServerFixture: typeof createServerFixture;
-  createRpcFixture: typeof createRpcFixture;
-  createTestDatabase: typeof createTestDatabase;
-  snapshotValues: typeof snapshotValues;
-} = {
-  ...createTestApi(runner),
-  createServerFixture,
-  createRpcFixture,
-  createTestDatabase,
-  snapshotValues
-};
+export const test: ReturnType<typeof createTestApi<typeof runner>> = createTestApi(runner);

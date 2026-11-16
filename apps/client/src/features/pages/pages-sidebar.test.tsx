@@ -63,12 +63,12 @@ test.beforeEach(() => {
   preferences = defaultWorkspacePreferences;
   api.pages.mockReset().mockResolvedValue({ items: [], nextCursor: null });
 });
-test.afterEach(() => {
-  test.cleanup();
+test.afterEach(({ cleanup }) => {
+  cleanup();
 });
 
-function show() {
-  const harness = test.rpcTestTransport(async (tag, input) => {
+function show({ rpcTestTransport, render }: Pick<test.Context, 'rpcTestTransport' | 'render'>) {
+  const harness = rpcTestTransport(async (tag, input) => {
     if (tag === 'pages.pages') return api.pages(input);
 
     if (tag === 'pages.delete') return api.remove(input);
@@ -98,7 +98,7 @@ function show() {
     history: createMemoryHistory({ initialEntries: ['/'] })
   });
 
-  test.render(
+  render(
     <harness.wrapper>
       <RouterProvider router={router} />
     </harness.wrapper>
@@ -109,7 +109,7 @@ function show() {
 
 test.stable(
   'shows only published, unarchived pages for the subject and opens their reader',
-  async () => {
+  async ({ userEvent, screen, expect, within, waitFor, act, rpcTestTransport, render }) => {
     api.pages.mockResolvedValue({
       items: [
         document(1n),
@@ -120,92 +120,96 @@ test.stable(
       ],
       nextCursor: null
     });
-    const user = test.userEvent.setup();
-    const { router, notify } = show();
-    const newest = await test.screen.findByRole('link', { name: /\bDocument 2\b/ });
+    const user = userEvent.setup();
+    const { router, notify } = show({ rpcTestTransport, render });
+    const newest = await screen.findByRole('link', { name: /\bDocument 2\b/ });
 
-    test
-      .expect(test.screen.getAllByRole('link').map((link) => link.textContent))
-      .toEqual([
-        test.expect.stringContaining('Document 2'),
-        test.expect.stringContaining('Document 1')
-      ]);
-    test.expect(api.pages).toHaveBeenCalledWith({
+    expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual([
+      expect.stringContaining('Document 2'),
+      expect.stringContaining('Document 1')
+    ]);
+    expect(api.pages).toHaveBeenCalledWith({
       projectId: project,
       archived: false,
       limit: 30,
       cursor: undefined
     });
-    test.expect(newest).toHaveClass('study-note-row');
-    test.expect(test.within(newest).getByText('Description 2')).toBeInTheDocument();
-    test.expect(newest).toHaveAttribute('href', '/pages/2?project=1');
+    expect(newest).toHaveClass('study-note-row');
+    expect(within(newest).getByText('Description 2')).toBeInTheDocument();
+    expect(newest).toHaveAttribute('href', '/pages/2?project=1');
     await user.click(newest);
-    await test.waitFor(() => test.expect(router.state.location.pathname).toBe('/pages/2'));
-    test
-      .expect(test.screen.getByRole('link', { name: /\bDocument 2\b/ }))
-      .toHaveAttribute('aria-current', 'page');
-    test.expect(test.screen.getByRole('navigation', { name: en.SourcePage })).toBeVisible();
-    await test.act(async () => {
+    await waitFor(() => expect(router.state.location.pathname).toBe('/pages/2'));
+    expect(screen.getByRole('link', { name: /\bDocument 2\b/ })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+    expect(screen.getByRole('navigation', { name: en.SourcePage })).toBeVisible();
+    await act(async () => {
       preferences = { ...defaultWorkspacePreferences, sidebarDensity: 'compact' };
       await notify();
     });
-    await test.waitFor(() =>
-      test
-        .expect(test.screen.getByRole('link', { name: /\bDocument 2\b/ }))
-        .toHaveAttribute('data-layout', 'compact')
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: /\bDocument 2\b/ })).toHaveAttribute(
+        'data-layout',
+        'compact'
+      )
     );
   }
 );
 
 test.stable(
   'shows an empty document list and picks up a newly published document after a server change hint',
-  async () => {
-    const { notify } = show();
+  async ({ expect, screen, act, rpcTestTransport, render }) => {
+    const { notify } = show({ rpcTestTransport, render });
 
-    test.expect(await test.screen.findByText(en.PagesEmpty)).toBeInTheDocument();
+    expect(await screen.findByText(en.PagesEmpty)).toBeInTheDocument();
     api.pages.mockResolvedValue({ items: [document(7n)], nextCursor: null });
-    await test.act(async () => {
+    await act(async () => {
       await notify();
     });
-    test
-      .expect(await test.screen.findByRole('link', { name: /\bDocument 7\b/ }))
-      .toBeInTheDocument();
-    test.expect(test.screen.queryByText(en.PagesEmpty)).not.toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /\bDocument 7\b/ })).toBeInTheDocument();
+    expect(screen.queryByText(en.PagesEmpty)).not.toBeInTheDocument();
   }
 );
 
-test.stable('loads additional document pages without dropping the current rows', async () => {
-  api.pages.mockImplementation(({ limit }) =>
-    Promise.resolve(
-      limit > 30
-        ? { items: [document(2n), document(1n)], nextCursor: null }
-        : { items: [document(2n)], nextCursor: 2n }
-    )
-  );
-  const user = test.userEvent.setup();
+test.stable(
+  'loads additional document pages without dropping the current rows',
+  async ({ userEvent, screen, expect, rpcTestTransport, render }) => {
+    api.pages.mockImplementation(({ limit }) =>
+      Promise.resolve(
+        limit > 30
+          ? { items: [document(2n), document(1n)], nextCursor: null }
+          : { items: [document(2n)], nextCursor: 2n }
+      )
+    );
+    const user = userEvent.setup();
 
-  show();
-  await test.screen.findByRole('link', { name: /\bDocument 2\b/ });
-  await user.click(test.screen.getByRole('button', { name: en.LibraryMore }));
-  test.expect(await test.screen.findByRole('link', { name: /\bDocument 1\b/ })).toBeInTheDocument();
-  test.expect(test.screen.getByRole('link', { name: /\bDocument 2\b/ })).toBeInTheDocument();
-  test.expect(test.screen.queryByRole('button', { name: en.LibraryMore })).not.toBeInTheDocument();
-});
+    show({ rpcTestTransport, render });
+    await screen.findByRole('link', { name: /\bDocument 2\b/ });
+    await user.click(screen.getByRole('button', { name: en.LibraryMore }));
+    expect(await screen.findByRole('link', { name: /\bDocument 1\b/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /\bDocument 2\b/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: en.LibraryMore })).not.toBeInTheDocument();
+  }
+);
 
-test.stable('keeps failed reads recoverable through retry', async () => {
-  api.pages.mockRejectedValueOnce(new Error('offline'));
-  const user = test.userEvent.setup();
+test.stable(
+  'keeps failed reads recoverable through retry',
+  async ({ userEvent, expect, screen, rpcTestTransport, render }) => {
+    api.pages.mockRejectedValueOnce(new Error('offline'));
+    const user = userEvent.setup();
 
-  show();
-  test.expect(await test.screen.findByText(en.PagesLoadError)).toBeInTheDocument();
-  await user.click(test.screen.getByRole('button', { name: en.Retry }));
-  test.expect(await test.screen.findByText(en.PagesEmpty)).toBeInTheDocument();
-  test.expect(test.screen.queryByText(en.PagesLoadError)).not.toBeInTheDocument();
-});
+    show({ rpcTestTransport, render });
+    expect(await screen.findByText(en.PagesLoadError)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: en.Retry }));
+    expect(await screen.findByText(en.PagesEmpty)).toBeInTheDocument();
+    expect(screen.queryByText(en.PagesLoadError)).not.toBeInTheDocument();
+  }
+);
 
 test.stable(
   'browses beyond one hundred rows in bounded live windows and returns to the newest window',
-  async () => {
+  async ({ userEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     const items = Array.from({ length: 151 }, (_, index) => document(BigInt(151 - index)));
 
     api.pages.mockImplementation(({ limit, cursor }: { limit: number; cursor?: bigint }) => {
@@ -217,55 +221,53 @@ test.stable(
         nextCursor: start + limit < items.length ? (page.at(-1)?.id ?? null) : null
       });
     });
-    const user = test.userEvent.setup();
+    const user = userEvent.setup();
 
-    show();
-    await test.screen.findByRole('link', { name: /\bDocument 151\b/ });
+    show({ rpcTestTransport, render });
+    await screen.findByRole('link', { name: /\bDocument 151\b/ });
 
     for (const limit of [60, 90, 100]) {
-      await user.click(test.screen.getByRole('button', { name: en.LibraryMore }));
-      await test.waitFor(() =>
-        test.expect(api.pages).toHaveBeenCalledWith(test.expect.objectContaining({ limit }))
+      await user.click(screen.getByRole('button', { name: en.LibraryMore }));
+      await waitFor(() =>
+        expect(api.pages).toHaveBeenCalledWith(expect.objectContaining({ limit }))
       );
-      await test.screen.findByRole('link', { name: new RegExp(`\\bDocument ${152 - limit}\\b`) });
+      await screen.findByRole('link', { name: new RegExp(`\\bDocument ${152 - limit}\\b`) });
     }
 
-    await user.click(test.screen.getByRole('button', { name: en.LibraryMore }));
-    await test.screen.findByRole('link', { name: /\bDocument 51\b/ });
-    test.expect(test.screen.queryByRole('link', { name: /\bDocument 151\b/ })).toBeNull();
-    await user.click(test.screen.getByRole('button', { name: en.LibraryPrevious }));
-    await test.screen.findByRole('link', { name: /\bDocument 151\b/ });
-    test.expect(test.screen.queryByRole('link', { name: /\bDocument 51\b/ })).toBeNull();
+    await user.click(screen.getByRole('button', { name: en.LibraryMore }));
+    await screen.findByRole('link', { name: /\bDocument 51\b/ });
+    expect(screen.queryByRole('link', { name: /\bDocument 151\b/ })).toBeNull();
+    await user.click(screen.getByRole('button', { name: en.LibraryPrevious }));
+    await screen.findByRole('link', { name: /\bDocument 151\b/ });
+    expect(screen.queryByRole('link', { name: /\bDocument 51\b/ })).toBeNull();
   }
 );
 
 test.stable(
   'a committed list replacement updates membership and ordering without duplicate rows',
-  async () => {
+  async ({ screen, act, expect, rpcTestTransport, render }) => {
     api.pages.mockResolvedValue({ items: [document(2n), document(1n)], nextCursor: null });
-    const view = show();
+    const view = show({ rpcTestTransport, render });
 
-    await test.screen.findByRole('link', { name: /\bDocument 1\b/ });
+    await screen.findByRole('link', { name: /\bDocument 1\b/ });
     api.pages.mockResolvedValue({
       items: [document(3n), document(2n, { title: 'Renamed page' })],
       nextCursor: null
     });
-    await test.act(() => view.notify());
-    await test.screen.findByRole('link', { name: /\bRenamed page\b/ });
-    test.expect(test.screen.queryByRole('link', { name: /\bDocument 1\b/ })).toBeNull();
-    test
-      .expect(
-        test.screen
-          .getAllByRole('link')
-          .map((link) => link.querySelector('.study-note-title')?.textContent)
-      )
-      .toEqual(['Document 3', 'Renamed page']);
+    await act(() => view.notify());
+    await screen.findByRole('link', { name: /\bRenamed page\b/ });
+    expect(screen.queryByRole('link', { name: /\bDocument 1\b/ })).toBeNull();
+    expect(
+      screen
+        .getAllByRole('link')
+        .map((link) => link.querySelector('.study-note-title')?.textContent)
+    ).toEqual(['Document 3', 'Renamed page']);
   }
 );
 
 test.stable(
   'a committed cursor-anchor deletion resets the mounted window to a fresh authoritative first page',
-  async () => {
+  async ({ userEvent, screen, act, expect, rpcTestTransport, render }) => {
     let items = Array.from({ length: 151 }, (_, index) => document(BigInt(151 - index)));
     const removed = new Set<bigint>();
 
@@ -285,24 +287,22 @@ test.stable(
       removed.add(pageId);
       items = items.filter((item) => item.id !== pageId);
     });
-    const user = test.userEvent.setup();
+    const user = userEvent.setup();
 
-    show();
-    await test.screen.findByRole('link', { name: /\bDocument 151\b/ });
+    show({ rpcTestTransport, render });
+    await screen.findByRole('link', { name: /\bDocument 151\b/ });
 
     for (const limit of [60, 90, 100]) {
-      await user.click(test.screen.getByRole('button', { name: en.LibraryMore }));
-      await test.screen.findByRole('link', { name: new RegExp(`\\bDocument ${152 - limit}\\b`) });
+      await user.click(screen.getByRole('button', { name: en.LibraryMore }));
+      await screen.findByRole('link', { name: new RegExp(`\\bDocument ${152 - limit}\\b`) });
     }
 
-    await user.click(test.screen.getByRole('button', { name: en.LibraryMore }));
-    await test.screen.findByRole('link', { name: /\bDocument 51\b/ });
-    await test.act(() =>
-      rpc.pages.delete.call({ pageId: document(52n).id, token: 'reviewed-anchor' })
-    );
-    await test.screen.findByRole('link', { name: /\bDocument 151\b/ });
-    test.expect(test.screen.queryByRole('link', { name: /\bDocument 51\b/ })).toBeNull();
-    test.expect(test.screen.queryByRole('button', { name: en.LibraryPrevious })).toBeNull();
-    test.expect(api.remove).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole('button', { name: en.LibraryMore }));
+    await screen.findByRole('link', { name: /\bDocument 51\b/ });
+    await act(() => rpc.pages.delete.call({ pageId: document(52n).id, token: 'reviewed-anchor' }));
+    await screen.findByRole('link', { name: /\bDocument 151\b/ });
+    expect(screen.queryByRole('link', { name: /\bDocument 51\b/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: en.LibraryPrevious })).toBeNull();
+    expect(api.remove).toHaveBeenCalledOnce();
   }
 );

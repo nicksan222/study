@@ -3,22 +3,23 @@ import { test } from '@study/testing';
 import { packageExportIssues } from '../package-export-policy.ts';
 import { lintRule } from '../test/utils.ts';
 
-test.stable('the server testing facet stays inside its feature-service fixtures', () => {
-  test
-    .expect(packageExportIssues('apps/server', { './testing': './test/testing/fixture.ts' }))
-    .toEqual([]);
-  test
-    .expect(packageExportIssues('apps/server', { './testing': './test/private.ts' }))
-    .toHaveLength(1);
-  test
-    .expect(packageExportIssues('apps/server', { './client': './test/testing/fixture.ts' }))
-    .toHaveLength(1);
+test.stable('the server testing facet stays inside its feature-service fixtures', ({ expect }) => {
+  expect(packageExportIssues('apps/server', { './testing': './test/testing/fixture.ts' })).toEqual(
+    []
+  );
+  expect(packageExportIssues('apps/server', { './testing': './test/private.ts' })).toHaveLength(1);
+  expect(
+    packageExportIssues('apps/server', { './client': './test/testing/fixture.ts' })
+  ).toHaveLength(1);
 });
 
 test.stable(
   'workspace libraries are imported through their root with only approved facets',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'package-root-exports',
       {
         'apps/server/src/ordinary.ts': "import { StudyError } from '@study/contracts/errors';\n",
@@ -46,41 +47,46 @@ test.stable(
       true
     );
 
-    test
-      .expect(
-        diagnostics
-          .map(({ code, filename }) => [code, filename.split('/').at(-1)])
-          .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
-      )
-      .toStrictEqual(
-        [
-          'ordinary.ts',
-          'type.ts',
-          'reexport.ts',
-          'reexport-type.ts',
-          'type-query.ts',
-          'dynamic.ts',
-          'require.ts',
-          'import-equals.ts'
-        ]
-          .map((name) => ['study(package-root-exports)', name])
-          .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
-      );
+    expect(
+      diagnostics
+        .map(({ code, filename }) => [code, filename.split('/').at(-1)])
+        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+    ).toStrictEqual(
+      [
+        'ordinary.ts',
+        'type.ts',
+        'reexport.ts',
+        'reexport-type.ts',
+        'type-query.ts',
+        'dynamic.ts',
+        'require.ts',
+        'import-equals.ts'
+      ]
+        .map((name) => ['study(package-root-exports)', name])
+        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+    );
   }
 );
 
-test.stable('known packages reject unknown facets and app roots without exports', async () => {
-  const diagnostics = await lintRule(
-    'package-root-exports',
-    {
-      'apps/client/src/unknown.ts': "import '@study/contracts/not-a-facet';\n",
-      'apps/client/src/client-root.ts': "import '@study/client';\n",
-      'apps/server/src/server.ts': "import '@study/server/runtime';\n"
-    },
-    true
-  );
+test.stable(
+  'known packages reject unknown facets and app roots without exports',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test
-    .expect(diagnostics.map(({ filename }) => filename.split('/').at(-1)).sort())
-    .toStrictEqual(['client-root.ts', 'unknown.ts']);
-});
+    const diagnostics = await lintRule(
+      { assert },
+      'package-root-exports',
+      {
+        'apps/client/src/unknown.ts': "import '@study/contracts/not-a-facet';\n",
+        'apps/client/src/client-root.ts': "import '@study/client';\n",
+        'apps/server/src/server.ts': "import '@study/server/runtime';\n"
+      },
+      true
+    );
+
+    expect(diagnostics.map(({ filename }) => filename.split('/').at(-1)).sort()).toStrictEqual([
+      'client-root.ts',
+      'unknown.ts'
+    ]);
+  }
+);

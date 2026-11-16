@@ -25,7 +25,9 @@ import { serve } from '#server/runtime/index';
 test.stable(
   'HTTP attachment replies wake through registered source subscriptions before waiting for authentication',
   { timeout: 15000 },
-  async ({ server: serverFixture }) => {
+  async ({ server: serverFixture, assert: assertions, pollUntil }) => {
+    const assert: test.Assert = assertions;
+
     const fixture = serverFixture;
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
@@ -47,11 +49,16 @@ test.stable(
       release();
       await peer.stop(true);
     });
-    test.assert.ok(peer.port, 'missing source peer address');
+    assert.ok(peer.port, 'missing source peer address');
     const evidenceUrl = new URL('/evidence.txt', peer.url).href;
     const server = fixture.manage(await serve(fixture.app));
 
-    function* verifyAttachmentReadinessWake() {
+    function* verifyAttachmentReadinessWake({
+      pollUntil,
+      assert: assertions
+    }: Pick<test.Context, 'pollUntil' | 'assert'>) {
+      const assert: test.Assert = assertions;
+
       const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
       const project = yield* client['projects.createProject']({ name: 'Readiness' });
       const source = yield* client['sources.addLink']({
@@ -71,7 +78,7 @@ test.stable(
       const request = yield* client['notes.requestReply']({ noteId: note.id });
 
       yield* client['system.startWorkers']({});
-      yield* test.pollUntil(
+      yield* pollUntil(
         Effect.gen(function* () {
           const executions = yield* client['workflows.executions']({
             correlationId: request.requestId,
@@ -86,7 +93,7 @@ test.stable(
         (value) => value,
         { attempts: 100, interval: '25 millis', message: 'Expected durable workflow wait' }
       );
-      test.assert.strictEqual(
+      assert.strictEqual(
         fixture.store.db.orm.all(
           sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id = w.execution_id WHERE e.workflow_tag = 'conversation-reply/v1'`
         ).length,
@@ -98,9 +105,9 @@ test.stable(
         )
       );
 
-      test.assert.strictEqual(before.pendingAttachments?.length, 1);
+      assert.strictEqual(before.pendingAttachments?.length, 1);
       release();
-      yield* test.pollUntil(
+      yield* pollUntil(
         Effect.sync(
           () =>
             fixture.store.db.orm.all(
@@ -120,14 +127,16 @@ test.stable(
         )
       );
 
-      test.assert.strictEqual(after.pendingAttachments, undefined);
-      test.assert.strictEqual(after.messages[0]?.attachments[0]?.sourceId, source.id);
-      test.assert.strictEqual(
+      assert.strictEqual(after.pendingAttachments, undefined);
+      assert.strictEqual(after.messages[0]?.attachments[0]?.sourceId, source.id);
+      assert.strictEqual(
         after.messages[0]?.attachments[0]?.snapshotId,
         (yield* client['sources.sourceProcessing']({ id: source.id })).documentId
       );
     }
 
-    await Effect.runPromise(Effect.scoped(Effect.gen(verifyAttachmentReadinessWake)));
+    await Effect.runPromise(
+      Effect.scoped(Effect.gen(() => verifyAttachmentReadinessWake({ pollUntil, assert })))
+    );
   }
 );

@@ -29,7 +29,9 @@ import { Sources } from './index.ts';
 
 test.stable(
   'source deletion scrubs native captures before interrupting a retired provider execution',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const cancelled: string[] = [];
@@ -40,11 +42,8 @@ test.stable(
           Layer.succeed(WorkflowControl, {
             cancel: ({ id }) =>
               Effect.sync(() => {
-                test.assert.strictEqual(
-                  context.db.orm.get(sql`SELECT count(*) n FROM sources`)?.n,
-                  0n
-                );
-                test.assert.ok(
+                assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM sources`)?.n, 0n);
+                assert.ok(
                   context.db.orm.get(
                     sql`SELECT payload FROM workflow_executions WHERE execution_id=${id}`
                   )?.payload === '{}'
@@ -79,30 +78,27 @@ test.stable(
           context.db.orm
             .run(sql`INSERT INTO workflow_executions(execution_id,workflow_tag,version,payload,status,created_at,updated_at)
         VALUES('source-run','SourceIngestionWorkflow',1,${JSON.stringify({ event })},'running',1,1)`);
-          test.assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
-          test.expect(cancelled).toStrictEqual(['source-run']);
-          test.assert.strictEqual(
-            context.db.orm.get(sql`SELECT 1 FROM source_snapshots`),
-            undefined
-          );
+          assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
+          expect(cancelled).toStrictEqual(['source-run']);
+          assert.strictEqual(context.db.orm.get(sql`SELECT 1 FROM source_snapshots`), undefined);
 
-          test.assert.ok(
+          assert.ok(
             context.db.orm.get(
               sql`SELECT payload FROM workflow_events WHERE correlation_id=${request.requestId}`
             )?.payload === '{}'
           );
-          test.assert.ok(
+          assert.ok(
             context.db.orm.get(
               sql`SELECT status FROM workflow_executions WHERE execution_id='source-run'`
             )?.status === 'cancelled'
           );
-          test.assert.strictEqual(
+          assert.strictEqual(
             context.db.orm.get(
               sql`SELECT correlation_id FROM workflow_retired_executions WHERE execution_id='source-run'`
             )?.correlation_id,
             request.requestId
           );
-          test.expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -114,7 +110,9 @@ test.stable(
 
 test.stable(
   'raw reply captures pin pending and ready source revisions until their note is deleted',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Sources.layer, Notes.layer).pipe(
@@ -142,10 +140,10 @@ test.stable(
           });
           const request = yield* notes.requestReply({ noteId: note.id });
 
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind === 'invalid_input'
           );
-          test.assert.ok(
+          assert.ok(
             context.db.orm.get(
               sql`SELECT snapshot_id FROM note_reply_sources WHERE request_id=${request.requestId}`
             )?.snapshot_id === null
@@ -181,8 +179,8 @@ test.stable(
             context,
             notes.sealReplyAttachments({ requestId: request.requestId }).pipe(
               Effect.tap((sealed) => {
-                test.assert.strictEqual(sealed.messages[0].attachments[0].revision, 1n);
-                test.assert.strictEqual(
+                assert.strictEqual(sealed.messages[0].attachments[0].revision, 1n);
+                assert.strictEqual(
                   sealed.messages[0].attachments[0].snapshotId,
                   published.documentId
                 );
@@ -197,18 +195,18 @@ test.stable(
             name: 'replacement.txt',
             bytes: new TextEncoder().encode('Replacement')
           });
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* notes.replySnapshot({ requestId: request.requestId })).messages[0]
               .attachments[0].snapshotId,
             published.documentId
           );
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind === 'invalid_input'
           );
-          test.assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);
+          assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);
           yield* notes.deleteNote(note.id);
-          test.assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
-          test.expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+          assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
+          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -220,7 +218,9 @@ test.stable(
 
 test.stable(
   'source preview protects external authored images while allowing deletion of its own canonical image extraction',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Sources.layer, Pages.layer).pipe(
@@ -265,9 +265,9 @@ test.stable(
           );
           const own = yield* sources.previewDeletion({ id: source.id });
 
-          test.expect(own.blockedBy).toStrictEqual([]);
-          test.assert.strictEqual(own.revisionCount, 1n);
-          test.assert.strictEqual(own.extractionCount, 1n);
+          expect(own.blockedBy).toStrictEqual([]);
+          assert.strictEqual(own.revisionCount, 1n);
+          assert.strictEqual(own.extractionCount, 1n);
           const authored = yield* documents.create({
             createKey: 'external-image',
             title: 'External image',
@@ -286,24 +286,22 @@ test.stable(
             citations: []
           });
 
-          test
-            .expect((yield* sources.previewDeletion({ id: source.id })).blockedBy)
-            .toStrictEqual(['image_assets']);
-          test.assert.ok(
+          expect((yield* sources.previewDeletion({ id: source.id })).blockedBy).toStrictEqual([
+            'image_assets'
+          ]);
+          assert.ok(
             (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind === 'invalid_input'
           );
           const preview = yield* documents.previewDeletion({ id: authored.id });
 
           yield* documents.delete({ pageId: authored.id, token: preview.token });
-          test
-            .expect((yield* sources.previewDeletion({ id: source.id })).blockedBy)
-            .toStrictEqual([]);
-          test.assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
-          test.assert.strictEqual(
+          expect((yield* sources.previewDeletion({ id: source.id })).blockedBy).toStrictEqual([]);
+          assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
+          assert.strictEqual(
             context.db.orm.get(sql`SELECT 1 FROM document_assets WHERE source_id=${source.id}`),
             undefined
           );
-          test.expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(layer))
       );
     } finally {

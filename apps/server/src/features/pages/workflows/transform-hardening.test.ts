@@ -58,7 +58,9 @@ const notes = [
   { kind: 'limit' as const, explanation: 'Captured evidence only', blockOrdinals: [0] }
 ];
 
-function capture(blocks: Block[]) {
+function capture({ assert: assertions }: Pick<test.Context, 'assert'>, blocks: Block[]) {
+  const assert: test.Assert = assertions;
+
   return Effect.gen(function* () {
     const materials = yield* Pages;
     const chats = yield* Notes;
@@ -72,7 +74,7 @@ function capture(blocks: Block[]) {
       document: document(blocks)
     });
 
-    test.assert.ok(original.version);
+    assert.ok(original.version);
     yield* chats.updateNoteSelection({
       noteId: note.id,
       expectedRevision: 0n,
@@ -101,7 +103,9 @@ function capture(blocks: Block[]) {
 
 test.stable(
   'actual provider JSON images persist as canonical bigint assets and survive reopen/replay',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const fixture = await pageTransformFixture(databases);
 
     try {
@@ -119,7 +123,11 @@ test.stable(
             alt: 'alpha image'
           });
 
-          return { ...(yield* capture([paragraph('alpha selected'), block])), image, block };
+          return {
+            ...(yield* capture({ assert }, [paragraph('alpha selected'), block])),
+            image,
+            block
+          };
         }).pipe(Effect.provide(fixture.domain()))
       );
       const event = fixture.authoredEvent(setup.request.id);
@@ -144,31 +152,31 @@ test.stable(
       );
       const result = await fixture.executeAuthored(event, 'json-image');
 
-      test.assert.strictEqual(fixture.bodies.length, 2);
-      test.assert.strictEqual(fixture.replies.length, 0);
+      assert.strictEqual(fixture.bodies.length, 2);
+      assert.strictEqual(fixture.replies.length, 0);
       await fixture.reopen();
-      test.assert.strictEqual(await fixture.executeAuthored(event, 'json-image-replay'), result);
-      test.assert.strictEqual(fixture.bodies.length, 2);
+      assert.strictEqual(await fixture.executeAuthored(event, 'json-image-replay'), result);
+      assert.strictEqual(fixture.bodies.length, 2);
       await Effect.runPromise(
         Effect.gen(function* () {
           const materials = yield* Pages;
           const read = yield* materials.version({ id: result });
 
-          test.expect(read.document.blocks[1]!.content).toStrictEqual({
+          expect(read.document.blocks[1]!.content).toStrictEqual({
             type: 'image',
             sourceId: setup.image.id,
             revision: 1,
             alt: 'Retained image'
           });
-          test.assert.notStrictEqual(read.document.blocks[1]!.id, setup.block.id);
-          test.expect(read.document.blocks[1]!.anchor).toStrictEqual({ type: 'authored' });
-          test.expect(read.inputs[0]).toStrictEqual({
+          assert.notStrictEqual(read.document.blocks[1]!.id, setup.block.id);
+          expect(read.document.blocks[1]!.anchor).toStrictEqual({ type: 'authored' });
+          expect(read.inputs[0]).toStrictEqual({
             kind: 'page',
             versionId: setup.original.version.id
           });
-          test
-            .expect((yield* materials.version({ id: setup.original.version.id })).document)
-            .toStrictEqual(setup.original.version.document);
+          expect(
+            (yield* materials.version({ id: setup.original.version.id })).document
+          ).toStrictEqual(setup.original.version.document);
           const chats = yield* Notes;
 
           yield* chats.deleteNote(setup.note.id);
@@ -178,19 +186,17 @@ test.stable(
           );
           const retained = yield* materials.version({ id: result });
 
-          test.expect(retained.document).toStrictEqual(read.document);
-          test
-            .expect(
-              (yield* (yield* Sources).sourceSnapshot({ id: setup.image.id, revision: 1 })).bytes
-            )
-            .toStrictEqual(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
+          expect(retained.document).toStrictEqual(read.document);
+          expect(
+            (yield* (yield* Sources).sourceSnapshot({ id: setup.image.id, revision: 1 })).bytes
+          ).toStrictEqual(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
         }).pipe(Effect.provide(fixture.domain()))
       );
-      await test
-        .expect(fixture.executeAuthored(event, 'image-after-note-delete'))
-        .rejects.toSatisfy(() => true);
-      test.assert.strictEqual(fixture.bodies.length, 2);
-      test.assert.strictEqual(
+      await expect(fixture.executeAuthored(event, 'image-after-note-delete')).rejects.toSatisfy(
+        () => true
+      );
+      assert.strictEqual(fixture.bodies.length, 2);
+      assert.strictEqual(
         fixture.context.db.orm.all(
           sql`SELECT * FROM document_assets WHERE source_id=${setup.image.id}`
         ).length,
@@ -207,7 +213,9 @@ for (const mode of ['fake-id', 'fake-revision', 'alt-range'] as const) {
     mode === 'alt-range'
       ? 'stored alt-text range still captures the whole document image'
       : `provider JSON ${mode} cannot publish unauthorized images`,
-    async ({ databases }) => {
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
       const fixture = await pageTransformFixture(databases);
 
       try {
@@ -224,7 +232,7 @@ for (const mode of ['fake-id', 'fake-revision', 'alt-range'] as const) {
               revision: 1,
               alt: 'alpha image'
             });
-            const initial = yield* capture([block]);
+            const initial = yield* capture({ assert }, [block]);
             const chats = yield* Notes;
 
             if (mode !== 'alt-range') return { ...initial, image };
@@ -302,36 +310,32 @@ for (const mode of ['fake-id', 'fake-revision', 'alt-range'] as const) {
             )
           );
 
-          test.assert.ok(
+          assert.ok(
             saved.document.blocks.some(
               (block) => block.content.type === 'image' && block.content.sourceId === setup.image.id
             )
           );
-          test.assert.strictEqual(fixture.bodies.length, 2);
-          test.assert.strictEqual(fixture.replies.length, 0);
-          test.assert.ok(fixture.bodies[0]!.includes('alpha image'));
+          assert.strictEqual(fixture.bodies.length, 2);
+          assert.strictEqual(fixture.replies.length, 0);
+          assert.ok(fixture.bodies[0]!.includes('alpha image'));
 
           return;
         }
 
-        await test
-          .expect(fixture.executeAuthored(fixture.authoredEvent(setup.request.id), mode))
-          .rejects.toSatisfy(() => true);
-        test.assert.strictEqual(fixture.bodies.length, 2);
-        test.assert.strictEqual(fixture.replies.length, 0);
-        test
-          .expect(fixture.context.db.orm.select().from(s.page_versions).all())
-          .toStrictEqual(before);
-        test
-          .expect(
-            fixture.context.db.orm
-              .select()
-              .from(s.workflowEvents)
-              .all()
-              .filter((row) => row.type === 'PagePublished')
-          )
-          .toStrictEqual(published);
-        test.assert.ok(
+        await expect(
+          fixture.executeAuthored(fixture.authoredEvent(setup.request.id), mode)
+        ).rejects.toSatisfy(() => true);
+        assert.strictEqual(fixture.bodies.length, 2);
+        assert.strictEqual(fixture.replies.length, 0);
+        expect(fixture.context.db.orm.select().from(s.page_versions).all()).toStrictEqual(before);
+        expect(
+          fixture.context.db.orm
+            .select()
+            .from(s.workflowEvents)
+            .all()
+            .filter((row) => row.type === 'PagePublished')
+        ).toStrictEqual(published);
+        assert.ok(
           fixture.context.db.orm
             .select()
             .from(s.page_transform_requests)
@@ -348,12 +352,14 @@ for (const mode of ['fake-id', 'fake-revision', 'alt-range'] as const) {
 test.stable(
   'transient provider retry keeps the exact original capture after current input and selection change',
   { timeout: 15000 },
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const fixture = await pageTransformFixture(databases);
 
     try {
       const setup = await Effect.runPromise(
-        capture([paragraph('alpha captured')]).pipe(Effect.provide(fixture.domain()))
+        capture({ assert }, [paragraph('alpha captured')]).pipe(Effect.provide(fixture.domain()))
       );
 
       fixture.beforeResponse(() =>
@@ -383,12 +389,12 @@ test.stable(
         'transient-retry'
       );
 
-      test.assert.strictEqual(fixture.bodies.length, 3);
-      test.assert.strictEqual(fixture.replies.length, 0);
+      assert.strictEqual(fixture.bodies.length, 3);
+      assert.strictEqual(fixture.replies.length, 0);
 
       for (const body of fixture.bodies) {
-        test.assert.ok(body.includes('alpha captured'));
-        test.assert.ok(!body.includes('LATEST SECRET'));
+        assert.ok(body.includes('alpha captured'));
+        assert.ok(!body.includes('LATEST SECRET'));
       }
 
       await Effect.runPromise(
@@ -400,24 +406,24 @@ test.stable(
             retryId: 'completed-retry'
           });
 
-          test.assert.strictEqual(retry.contextRequestId, setup.snapshot.requestId);
-          test.assert.strictEqual(retry.resultVersionId, result);
-          test
-            .expect(read.inputs)
-            .toStrictEqual([{ kind: 'page', versionId: setup.original.version.id }]);
+          assert.strictEqual(retry.contextRequestId, setup.snapshot.requestId);
+          assert.strictEqual(retry.resultVersionId, result);
+          expect(read.inputs).toStrictEqual([
+            { kind: 'page', versionId: setup.original.version.id }
+          ]);
         }).pipe(Effect.provide(fixture.domain()))
       );
       await fixture.reopen();
-      test.assert.strictEqual(
+      assert.strictEqual(
         await fixture.executeAuthored(fixture.authoredEvent(setup.request.id), 'retry-reopen'),
         result
       );
-      test.assert.strictEqual(fixture.bodies.length, 3);
+      assert.strictEqual(fixture.bodies.length, 3);
       const regenerated = await Effect.runPromise(
         Effect.gen(function* () {
           const head = (yield* (yield* Pages).page({ id: setup.original.id })).version;
 
-          test.assert.ok(head);
+          assert.ok(head);
           const chats = yield* Notes;
 
           yield* chats.updateNoteSelection({
@@ -437,7 +443,7 @@ test.stable(
             operations: ['explain']
           });
 
-          test.assert.notStrictEqual(request.id, setup.request.id);
+          assert.notStrictEqual(request.id, setup.request.id);
 
           return { request, head };
         }).pipe(Effect.provide(fixture.domain()))
@@ -455,18 +461,18 @@ test.stable(
         'explicit-regenerate'
       );
 
-      test.assert.notStrictEqual(second, result);
+      assert.notStrictEqual(second, result);
       await Effect.runPromise(
         Effect.gen(function* () {
           const read = yield* (yield* Pages).version({ id: second });
 
-          test.expect(read.inputs).toStrictEqual([
+          expect(read.inputs).toStrictEqual([
             { kind: 'page', versionId: regenerated.head.id },
             { kind: 'page', versionId: result }
           ]);
         }).pipe(Effect.provide(fixture.domain()))
       );
-      test.assert.strictEqual(fixture.bodies.length, 5);
+      assert.strictEqual(fixture.bodies.length, 5);
     } finally {
       await fixture.close();
     }
@@ -476,12 +482,14 @@ test.stable(
 test.stable(
   'native cancellation before provider response fences publication and never resumes or retries',
   { timeout: 15000 },
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const fixture = await pageTransformFixture(databases);
 
     try {
       const setup = await Effect.runPromise(
-        capture([paragraph('alpha selected')]).pipe(Effect.provide(fixture.domain()))
+        capture({ assert }, [paragraph('alpha selected')]).pipe(Effect.provide(fixture.domain()))
       );
       const event = fixture.authoredEvent(setup.request.id);
 
@@ -521,11 +529,11 @@ test.stable(
               requestId: setup.request.id
             });
 
-            test.assert.ok(cancelled.cancelled === true);
+            assert.ok(cancelled.cancelled === true);
             yield* Deferred.succeed(release, undefined);
             const exit = yield* Fiber.await(fiber);
 
-            test.assert.ok(Exit.isFailure(exit));
+            assert.ok(Exit.isFailure(exit));
             yield* reconcileCancellation(
               fixture.context,
               pageTransformWorkflow,
@@ -533,7 +541,7 @@ test.stable(
               'safe',
               true
             );
-            test.assert.ok(
+            assert.ok(
               workflowStore(fixture.context).execution('cancel-before-publication')?.status ===
                 'cancelled'
             );
@@ -545,12 +553,12 @@ test.stable(
               })
             );
 
-            test.assert.ok(error.kind === 'cancelled');
+            assert.ok(error.kind === 'cancelled');
           })
         ).pipe(Effect.provide(fixture.services()), Effect.timeout('10 seconds'))
       );
-      test.assert.strictEqual(fixture.bodies.length, 2);
-      test.assert.strictEqual(fixture.context.db.orm.select().from(s.pages).all().length, 1);
+      assert.strictEqual(fixture.bodies.length, 2);
+      assert.strictEqual(fixture.context.db.orm.select().from(s.pages).all().length, 1);
       await fixture.reopen();
       await Effect.runPromise(
         Effect.scoped(
@@ -563,12 +571,12 @@ test.stable(
               requestId: setup.request.id
             });
 
-            test.assert.ok(read.cancelled === true);
-            test.assert.ok(read.resultVersionId === null);
+            assert.ok(read.cancelled === true);
+            assert.ok(read.resultVersionId === null);
           })
         ).pipe(Effect.provide(fixture.services()))
       );
-      test.assert.strictEqual(fixture.bodies.length, 2);
+      assert.strictEqual(fixture.bodies.length, 2);
     } finally {
       await fixture.close();
     }
@@ -578,12 +586,14 @@ test.stable(
 test.stable(
   'committed publication wins actual native pending and unsafe cancellation before terminal checkpoint',
   { timeout: 15000 },
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, pollUntil }) => {
+    const assert: test.Assert = assertions;
+
     const fixture = await pageTransformFixture(databases);
 
     try {
       const setup = await Effect.runPromise(
-        capture([paragraph('alpha selected')]).pipe(Effect.provide(fixture.domain()))
+        capture({ assert }, [paragraph('alpha selected')]).pipe(Effect.provide(fixture.domain()))
       );
       const event = fixture.authoredEvent(setup.request.id);
 
@@ -616,7 +626,7 @@ test.stable(
             yield* Deferred.await(published);
             workflowStore(fixture.context).requestCancellation('publication-wins', 'safe');
             yield* engine.interrupt(pageTransformWorkflow, 'publication-wins');
-            test.assert.ok(
+            assert.ok(
               workflowStore(fixture.context).execution('publication-wins')?.cancellation_mode ===
                 'safe'
             );
@@ -625,8 +635,8 @@ test.stable(
               requestId: setup.request.id
             });
 
-            test.assert.ok(pending.resultVersionId);
-            test.assert.ok(pending.cancelled === false);
+            assert.ok(pending.resultVersionId);
+            assert.ok(pending.cancelled === false);
             const cancellation = yield* reconcileCancellation(
               fixture.context,
               pageTransformWorkflow,
@@ -640,7 +650,7 @@ test.stable(
             yield* Deferred.succeed(finish, undefined);
             yield* Fiber.join(cancellation);
 
-            yield* test.pollUntil(
+            yield* pollUntil(
               Effect.sync(
                 () => workflowStore(fixture.context).execution('publication-wins')?.status
               ),
@@ -652,7 +662,7 @@ test.stable(
               }
             );
 
-            test.assert.ok(
+            assert.ok(
               workflowStore(fixture.context).execution('publication-wins')?.status === 'cancelled'
             );
             const read = yield* materials.transform({
@@ -662,10 +672,10 @@ test.stable(
               requestId: setup.request.id
             });
 
-            test.assert.ok(read.cancelled === false);
-            test.assert.ok(cancelled.cancelled === false);
-            test.assert.strictEqual(read.resultVersionId, pending.resultVersionId);
-            test.assert.strictEqual(cancelled.resultVersionId, pending.resultVersionId);
+            assert.ok(read.cancelled === false);
+            assert.ok(cancelled.cancelled === false);
+            assert.strictEqual(read.resultVersionId, pending.resultVersionId);
+            assert.strictEqual(cancelled.resultVersionId, pending.resultVersionId);
 
             return pending.resultVersionId;
           })
@@ -673,12 +683,9 @@ test.stable(
       );
 
       await fixture.reopen();
-      test.assert.strictEqual(
-        await fixture.executeAuthored(event, 'publication-wins-replay'),
-        result
-      );
-      test.assert.strictEqual(fixture.bodies.length, 2);
-      test.assert.strictEqual(fixture.context.db.orm.select().from(s.pages).all().length, 2);
+      assert.strictEqual(await fixture.executeAuthored(event, 'publication-wins-replay'), result);
+      assert.strictEqual(fixture.bodies.length, 2);
+      assert.strictEqual(fixture.context.db.orm.select().from(s.pages).all().length, 2);
     } finally {
       await fixture.close();
     }
@@ -687,7 +694,9 @@ test.stable(
 
 test.stable(
   'provider markers preserve distinct whole-block evidence after note deletion',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const fixture = await pageTransformFixture(databases);
 
     try {
@@ -695,7 +704,7 @@ test.stable(
         Effect.gen(function* () {
           const block = paragraph('😀 echo :: echo');
           const duplicate = paragraph('echo');
-          const initial = yield* capture([block, duplicate]);
+          const initial = yield* capture({ assert }, [block, duplicate]);
           const input = initial.snapshot.inputs[0]!;
           const chats = yield* Notes;
           const range = {
@@ -754,26 +763,25 @@ test.stable(
           const materials = yield* Pages;
           const saved = (yield* materials.version({ id: result })).citations;
 
-          test.expect(saved.map((citation) => citation.target)).toStrictEqual([
+          expect(saved.map((citation) => citation.target)).toStrictEqual([
             { ...setup.range, start: 0, end: setup.block.text.length },
             { blockId: setup.duplicate.id, start: 0, end: setup.duplicate.text.length }
           ]);
-          test
-            .expect(saved.map(({ quote }) => quote))
-            .toStrictEqual([setup.block.text, setup.duplicate.text]);
+          expect(saved.map(({ quote }) => quote)).toStrictEqual([
+            setup.block.text,
+            setup.duplicate.text
+          ]);
         }).pipe(Effect.provide(fixture.domain()))
       );
-      await test
-        .expect(fixture.executeAuthored(event, 'duplicate-ranges-replay'))
-        .rejects.toSatisfy(
-          (error: unknown) => error instanceof StudyError && error.kind === 'cancelled'
-        );
-      test.expect(await libraryState(fixture, [result])).toStrictEqual(retained);
-      test.assert.strictEqual(
+      await expect(fixture.executeAuthored(event, 'duplicate-ranges-replay')).rejects.toSatisfy(
+        (error: unknown) => error instanceof StudyError && error.kind === 'cancelled'
+      );
+      expect(await libraryState(fixture, [result])).toStrictEqual(retained);
+      assert.strictEqual(
         fixture.context.db.orm.select().from(s.page_versions).all().length,
         outputCount
       );
-      test.assert.strictEqual(fixture.bodies.length, 2);
+      assert.strictEqual(fixture.bodies.length, 2);
     } finally {
       await fixture.close();
     }
@@ -782,12 +790,14 @@ test.stable(
 
 test.stable(
   'provider report ordinals cannot reference an unavailable output block',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const fixture = await pageTransformFixture(databases);
 
     try {
       const setup = await Effect.runPromise(
-        capture([paragraph('alpha selected')]).pipe(Effect.provide(fixture.domain()))
+        capture({ assert }, [paragraph('alpha selected')]).pipe(Effect.provide(fixture.domain()))
       );
 
       fixture.replies.push(
@@ -806,14 +816,12 @@ test.stable(
           }
         }
       );
-      await test
-        .expect(
-          fixture.executeAuthored(fixture.authoredEvent(setup.request.id), 'bad-report-reference')
-        )
-        .rejects.toSatisfy(() => true);
-      test.assert.strictEqual(fixture.bodies.length, 2);
-      test.assert.strictEqual(fixture.context.db.orm.select().from(s.pages).all().length, 1);
-      test.assert.ok(
+      await expect(
+        fixture.executeAuthored(fixture.authoredEvent(setup.request.id), 'bad-report-reference')
+      ).rejects.toSatisfy(() => true);
+      assert.strictEqual(fixture.bodies.length, 2);
+      assert.strictEqual(fixture.context.db.orm.select().from(s.pages).all().length, 1);
+      assert.ok(
         fixture.context.db.orm
           .select()
           .from(s.page_transform_requests)
@@ -827,38 +835,43 @@ test.stable(
 );
 
 for (const barrier of ['cancel', 'note-delete'] as const) {
-  test.stable(`native ${barrier} preflight prevents provider dispatch`, async ({ databases }) => {
-    const fixture = await pageTransformFixture(databases);
+  test.stable(
+    `native ${barrier} preflight prevents provider dispatch`,
+    async ({ databases, expect, assert: assertions }) => {
+      const assert: test.Assert = assertions;
 
-    try {
-      const setup = await Effect.runPromise(
-        capture([paragraph('alpha selected')]).pipe(Effect.provide(fixture.domain()))
-      );
-      const event = fixture.authoredEvent(setup.request.id);
+      const fixture = await pageTransformFixture(databases);
 
-      await Effect.runPromise(
-        Effect.gen(function* () {
-          if (barrier === 'cancel')
-            yield* (yield* Pages).cancelTransform({ requestId: setup.request.id });
-          else yield* (yield* Notes).deleteNote(setup.note.id);
-        }).pipe(Effect.provide(fixture.domain()))
-      );
-      await test
-        .expect(fixture.executeAuthored(event, `preflight-${barrier}`))
-        .rejects.toSatisfy(() => true);
-      test.assert.strictEqual(fixture.bodies.length, 0);
-      test.assert.strictEqual(fixture.context.db.orm.select().from(s.pages).all().length, 1);
-      test.assert.ok(
-        fixture.context.db.orm
-          .select()
-          .from(s.page_transform_requests)
-          .where(eq(s.page_transform_requests.id, setup.request.id))
-          .get()?.result_version_id === null
-      );
-    } finally {
-      await fixture.close();
+      try {
+        const setup = await Effect.runPromise(
+          capture({ assert }, [paragraph('alpha selected')]).pipe(Effect.provide(fixture.domain()))
+        );
+        const event = fixture.authoredEvent(setup.request.id);
+
+        await Effect.runPromise(
+          Effect.gen(function* () {
+            if (barrier === 'cancel')
+              yield* (yield* Pages).cancelTransform({ requestId: setup.request.id });
+            else yield* (yield* Notes).deleteNote(setup.note.id);
+          }).pipe(Effect.provide(fixture.domain()))
+        );
+        await expect(fixture.executeAuthored(event, `preflight-${barrier}`)).rejects.toSatisfy(
+          () => true
+        );
+        assert.strictEqual(fixture.bodies.length, 0);
+        assert.strictEqual(fixture.context.db.orm.select().from(s.pages).all().length, 1);
+        assert.ok(
+          fixture.context.db.orm
+            .select()
+            .from(s.page_transform_requests)
+            .where(eq(s.page_transform_requests.id, setup.request.id))
+            .get()?.result_version_id === null
+        );
+      } finally {
+        await fixture.close();
+      }
     }
-  });
+  );
 }
 
 /** Hold the real handler after publication while the native checkpoint is still pending. */
@@ -875,12 +888,16 @@ function holdAfterPublication(published: Deferred.Deferred<void>, finish: Deferr
 for (const size of [90_000]) {
   test.stable(
     `oversized captured Page input (${size}) fails with typed admission error before dispatch`,
-    async ({ databases }) => {
+    async ({ databases, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+
       const fixture = await pageTransformFixture(databases);
 
       try {
         const setup = await Effect.runPromise(
-          capture([paragraph('\u0000'.repeat(size))]).pipe(Effect.provide(fixture.domain()))
+          capture({ assert }, [paragraph('\u0000'.repeat(size))]).pipe(
+            Effect.provide(fixture.domain())
+          )
         );
         const event = fixture.authoredEvent(setup.request.id);
         const executionId = `oversized-${size}`;
@@ -902,10 +919,10 @@ for (const size of [90_000]) {
           )
         );
 
-        test.assert.strictEqual(failure, 'not_enough');
-        test.assert.strictEqual(fixture.bodies.length, 0);
-        test.assert.strictEqual(fixture.context.db.orm.select().from(s.pages).all().length, 1);
-        test.assert.strictEqual(
+        assert.strictEqual(failure, 'not_enough');
+        assert.strictEqual(fixture.bodies.length, 0);
+        assert.strictEqual(fixture.context.db.orm.select().from(s.pages).all().length, 1);
+        assert.strictEqual(
           fixture.context.db.orm
             .select()
             .from(s.page_transform_requests)

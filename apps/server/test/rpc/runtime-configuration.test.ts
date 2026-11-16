@@ -29,7 +29,9 @@ import { WorkflowConfiguration } from '#server/platform/workflows/configuration'
 
 test.stable(
   'same-account credential replacement changes the durable nonsecret fingerprint',
-  async ({ resources: location }) => {
+  async ({ resources: location, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     let app = await location.openApp({ path: location.path });
     let savedRevision = '';
 
@@ -56,15 +58,15 @@ test.stable(
           );
           savedRevision = yield* configuration.revision;
 
-          test.assert.notStrictEqual(savedRevision, before);
-          test.expect(yield* auth.publicAccount()).toStrictEqual(publicAccount);
-          test.expect(savedRevision).toMatch(/^[a-f0-9]{64}$/);
-          test.assert.ok(!savedRevision.includes('private-token'));
+          assert.notStrictEqual(savedRevision, before);
+          expect(yield* auth.publicAccount()).toStrictEqual(publicAccount);
+          expect(savedRevision).toMatch(/^[a-f0-9]{64}$/);
+          assert.ok(!savedRevision.includes('private-token'));
         })
       );
       await app.close();
       app = await location.openApp({ path: location.path });
-      test.assert.strictEqual(
+      assert.strictEqual(
         await app.nativeRuntime.runPromise(
           Effect.flatMap(WorkflowConfiguration, (configuration) => configuration.revision)
         ),
@@ -79,7 +81,9 @@ test.stable(
 
 test.stable(
   'shared agent instructions resolve the current application language per operation',
-  async ({ resources: location }) => {
+  async ({ resources: location, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const app = await location.openApp({ path: location.path });
 
     try {
@@ -90,11 +94,11 @@ test.stable(
           const language = () =>
             typeof agents.language === 'string' ? Effect.succeed(agents.language) : agents.language;
 
-          test.assert.strictEqual(yield* language(), 'english');
+          assert.strictEqual(yield* language(), 'english');
           const current = yield* settings.appSettings();
 
           yield* settings.saveAppSettings({ ...current, language: 2 });
-          test.assert.strictEqual(yield* language(), 'italian');
+          assert.strictEqual(yield* language(), 'italian');
         })
       );
     } finally {

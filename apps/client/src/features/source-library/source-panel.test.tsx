@@ -18,15 +18,23 @@ import { useSourceProcessingExecution, useSourceCopy } from './source-panel.quer
 
 const source = sourceIdSchema.make(7n);
 
-const rpc = {
-  copy: test.vi.fn<StudyClient['pages.copySource']>(),
-  processing: test.vi.fn<StudyClient['sources.sourceProcessing']>(),
-  executions: test.vi.fn<StudyClient['workflows.executions']>()
-};
+function createRpc({ vi }: Pick<test.Context, 'vi'>) {
+  return {
+    copy: vi.fn<StudyClient['pages.copySource']>(),
+    processing: vi.fn<StudyClient['sources.sourceProcessing']>(),
+    executions: vi.fn<StudyClient['workflows.executions']>()
+  };
+}
 
-test.afterEach(() => {
-  test.cleanup();
-  test.vi.resetAllMocks();
+let rpc: ReturnType<typeof createRpc>;
+
+test.afterEach(({ cleanup, vi }) => {
+  cleanup();
+  vi.resetAllMocks();
+});
+
+test.beforeEach(({ vi }) => {
+  rpc = createRpc({ vi });
 });
 
 function execution(
@@ -53,9 +61,9 @@ function processing(requestId: string | null) {
 
 test.stable(
   'keeps an uncertain exact copy request across caller remount and newer source extraction',
-  async () => {
+  async ({ rpcHandlersTransport, render, act, expect, waitFor }) => {
     const note = noteIdSchema.make(8n);
-    const harness = test.rpcHandlersTransport({ 'pages.copySource': rpc.copy });
+    const harness = rpcHandlersTransport({ 'pages.copySource': rpc.copy });
     let current: ReturnType<typeof useSourceCopy> | undefined;
 
     function Probe() {
@@ -83,57 +91,57 @@ test.stable(
     rpc.copy
       .mockReturnValueOnce(Effect.fail(new StudyError('transient', 'Lost copy response')))
       .mockReturnValueOnce(Effect.succeed(authoredPage(20n)));
-    const view = test.render(
+    const view = render(
       <harness.wrapper>
         <Probe />
       </harness.wrapper>
     );
 
-    await test.act(() => state().copy(exact));
+    await act(() => state().copy(exact));
     const attempt = rpc.copy.mock.calls[0]?.[0];
 
-    test.expect(attempt).toMatchObject({
+    expect(attempt).toMatchObject({
       sourceId: source,
       noteId: note,
       revision: 1n,
       snapshotId: 11n
     });
-    test.act(() => state().acknowledge());
+    act(() => state().acknowledge());
     view.rerender(<harness.wrapper>{null}</harness.wrapper>);
     view.rerender(
       <harness.wrapper>
         <Probe />
       </harness.wrapper>
     );
-    await test.act(() =>
+    await act(() =>
       state().copy({
         name: 'Replacement',
         revision: 2n,
         snapshotId: contentSnapshotIdSchema.make(12n)
       })
     );
-    test.expect(rpc.copy.mock.calls[1]?.[0]).toEqual(attempt);
-    await test.waitFor(() => test.expect(state().page?.id).toBe(20n));
-    await test.act(() => state().copy(exact));
-    test.expect(rpc.copy).toHaveBeenCalledTimes(2);
-    test.act(() => state().acknowledge());
+    expect(rpc.copy.mock.calls[1]?.[0]).toEqual(attempt);
+    await waitFor(() => expect(state().page?.id).toBe(20n));
+    await act(() => state().copy(exact));
+    expect(rpc.copy).toHaveBeenCalledTimes(2);
+    act(() => state().acknowledge());
     rpc.copy.mockReturnValueOnce(Effect.succeed(authoredPage(21n)));
-    await test.act(() =>
+    await act(() =>
       state().copy({
         name: 'Replacement',
         revision: 2n,
         snapshotId: contentSnapshotIdSchema.make(12n)
       })
     );
-    test.expect(rpc.copy.mock.calls[2]?.[0]).toMatchObject({ revision: 2n, snapshotId: 12n });
-    test.expect(rpc.copy.mock.calls[2]?.[0].createKey).not.toBe(attempt?.createKey);
+    expect(rpc.copy.mock.calls[2]?.[0]).toMatchObject({ revision: 2n, snapshotId: 12n });
+    expect(rpc.copy.mock.calls[2]?.[0].createKey).not.toBe(attempt?.createKey);
   }
 );
 
 test.stable(
   'live processing follows the current request and never presents an unrelated workflow outcome',
-  async () => {
-    const harness = test.rpcHandlersTransport({
+  async ({ rpcHandlersTransport, renderHook, waitFor, expect, act }) => {
+    const harness = rpcHandlersTransport({
       'sources.sourceProcessing': rpc.processing,
       'workflows.executions': rpc.executions
     });
@@ -145,20 +153,18 @@ test.stable(
         next: null
       })
     );
-    const view = test.renderHook(() => useSourceProcessingExecution(source), {
+    const view = renderHook(() => useSourceProcessingExecution(source), {
       wrapper: harness.wrapper
     });
 
-    await test.waitFor(() => test.expect(rpc.executions).toHaveBeenCalled());
-    test.expect(view.result.current.data).toBeUndefined();
+    await waitFor(() => expect(rpc.executions).toHaveBeenCalled());
+    expect(view.result.current.data).toBeUndefined();
     rpc.executions.mockReturnValue(Effect.succeed({ items: [execution()], next: null }));
-    await test.act(() => harness.notify());
-    await test.waitFor(() =>
-      test.expect(view.result.current.data?.failureKind).toBe('unsupported')
-    );
+    await act(() => harness.notify());
+    await waitFor(() => expect(view.result.current.data?.failureKind).toBe('unsupported'));
     rpc.processing.mockReturnValue(processing(null));
-    await test.act(() => harness.notify());
-    await test.waitFor(() => test.expect(view.result.current.data).toBeUndefined());
+    await act(() => harness.notify());
+    await waitFor(() => expect(view.result.current.data).toBeUndefined());
   }
 );
 
@@ -205,11 +211,11 @@ const failureScenarios = [
 
 test.stable.for(failureScenarios)(
   'renders canonical failure and configuration waits for %s, then recovers to extracted content',
-  async ([_scenarioName, scenario]) => {
+  async ([_scenarioName, scenario], { expect, screen, act, vi, render, rpcHandlersTransport }) => {
     const copy = catalogs.english;
     const { overrides, label } = scenario;
     const client = {
-      ...materialRpc(),
+      ...materialRpc({ vi }),
       'sources.sourceProcessing': rpc.processing,
       'workflows.executions': rpc.executions
     };
@@ -217,22 +223,23 @@ test.stable.for(failureScenarios)(
     rpc.processing.mockReturnValue(processing('request-1'));
     rpc.executions.mockReturnValue(Effect.succeed({ items: [execution(overrides)], next: null }));
     client['sources.currentExtraction'].mockReturnValue(Effect.succeed(null));
-    const view = mountLibraryRoute('/sources/7', client);
+    const view = mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/sources/7', client);
 
-    test.expect(await test.screen.findByText(label)).toBeInTheDocument();
-    test.expect(test.screen.queryByText(copy.NotePending)).toBeNull();
+    expect(await screen.findByText(label)).toBeInTheDocument();
+    expect(screen.queryByText(copy.NotePending)).toBeNull();
 
     if ('configurationWaitReason' in overrides)
-      test
-        .expect(test.screen.getByRole('link', { name: copy.Settings }))
-        .toHaveAttribute('href', '/settings');
+      expect(screen.getByRole('link', { name: copy.Settings })).toHaveAttribute(
+        'href',
+        '/settings'
+      );
 
     rpc.processing.mockReturnValue(processing(null));
-    await test.act(async () => {
+    await act(async () => {
       await view.notify();
     });
-    test.expect(await test.screen.findByText(copy.NotePending)).toBeInTheDocument();
-    test.expect(test.screen.queryByText(label)).toBeNull();
+    expect(await screen.findByText(copy.NotePending)).toBeInTheDocument();
+    expect(screen.queryByText(label)).toBeNull();
     client['sources.currentExtraction'].mockReturnValue(
       client['sources.extraction']({
         sourceId: importedSource.id,
@@ -240,10 +247,10 @@ test.stable.for(failureScenarios)(
         snapshotId: contentSnapshotIdSchema.make(101n)
       })
     );
-    await test.act(async () => {
+    await act(async () => {
       await view.notify();
     });
-    test.expect(await test.screen.findByText('Historical extraction')).toBeInTheDocument();
-    test.expect(test.screen.queryByText(copy.NotePending)).toBeNull();
+    expect(await screen.findByText('Historical extraction')).toBeInTheDocument();
+    expect(screen.queryByText(copy.NotePending)).toBeNull();
   }
 );

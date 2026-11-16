@@ -30,7 +30,9 @@ import { pageTransformFixture } from '#testing/page-transform';
 for (const kind of ['file', 'image'] as const)
   test.stable(
     `authored retirement preserves independent ${kind} source pins and revoked exports after restore`,
-    async ({ databases }) => {
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
       const source = await pageTransformFixture(databases);
       let target: Awaited<ReturnType<typeof restoreSnapshot>> | undefined;
 
@@ -50,7 +52,7 @@ for (const kind of ['file', 'image'] as const)
         );
         // Text ingestion exercises the real native extraction owner. Images are authored roots of
         // original bytes; they need no artificial extraction or fake source Material.
-        const extracted = kind === 'file' ? await processSource(source) : null;
+        const extracted = kind === 'file' ? await processSource(source, assert) : null;
         const saved = await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Pages;
@@ -83,12 +85,12 @@ for (const kind of ['file', 'image'] as const)
             const original = yield* create('Retired authored output');
             const copy = yield* create('Independent retained output');
 
-            test.assert.ok(original.version);
-            test.assert.ok(copy.version);
+            assert.ok(original.version);
+            assert.ok(copy.version);
             const expected = yield* docs.exportVersion({ id: copy.version.id });
             const preview = yield* docs.previewDeletion({ id: original.id });
 
-            test.expect(preview.blockedVersionIds).toStrictEqual([]);
+            expect(preview.blockedVersionIds).toStrictEqual([]);
             yield* docs.delete({ pageId: original.id, token: preview.token });
 
             return {
@@ -106,52 +108,45 @@ for (const kind of ['file', 'image'] as const)
         const app = target.app;
         const docs = await app.nativeRuntime.runPromise(Pages);
 
-        test.assert.ok(
+        assert.ok(
           (
             await app.nativeRuntime.runPromise(
               Effect.flip(docs.exportVersion({ id: saved.originalVersionId }))
             )
           ).kind === 'not_found'
         );
-        test
-          .expect(
-            await app.nativeRuntime.runPromise(docs.exportVersion({ id: saved.copyVersionId }))
+        expect(
+          await app.nativeRuntime.runPromise(docs.exportVersion({ id: saved.copyVersionId }))
+        ).toStrictEqual(saved.expected);
+        expect(
+          new Uint8Array(
+            app.store.db.orm
+              .select()
+              .from(s.source_blobs)
+              .where(eq(s.source_blobs.source_id, originalSource.id))
+              .get()!.bytes
           )
-          .toStrictEqual(saved.expected);
-        test
-          .expect(
-            new Uint8Array(
-              app.store.db.orm
-                .select()
-                .from(s.source_blobs)
-                .where(eq(s.source_blobs.source_id, originalSource.id))
-                .get()!.bytes
-            )
-          )
-          .toStrictEqual(bytes);
+        ).toStrictEqual(bytes);
         const owner = await app.nativeRuntime.runPromise(Sources);
 
-        test.assert.ok(
+        assert.ok(
           (await app.nativeRuntime.runPromise(owner.previewDeletion({ id: originalSource.id })))
             .blockedBy.length
         );
 
         if (kind === 'image')
-          test.assert.strictEqual(
-            app.store.db.orm.select().from(s.document_assets).all().length,
-            1
-          );
+          assert.strictEqual(app.store.db.orm.select().from(s.document_assets).all().length, 1);
 
         await app.workers.start();
         await app.workers.stop();
-        test.assert.ok(
+        assert.ok(
           (
             await app.nativeRuntime.runPromise(
               Effect.flip(docs.version({ id: saved.originalVersionId }))
             )
           ).kind === 'not_found'
         );
-        test.expect(app.store.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+        expect(app.store.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         await target?.close();
         await source.close();
@@ -161,7 +156,9 @@ for (const kind of ['file', 'image'] as const)
 
 test.stable(
   'authored history retirement protects exact dependents before restoring unavailable bodies and independent current history',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const source = await pageTransformFixture(databases);
     let target: Awaited<ReturnType<typeof restoreSnapshot>> | undefined;
 
@@ -183,7 +180,7 @@ test.stable(
             });
           const root = yield* create('Retire history', 'PRIVATE_PRUNED_BODY');
 
-          test.assert.ok(root.version);
+          assert.ok(root.version);
           const current = yield* docs.save({
             pageId: root.id,
             expectedVersionId: root.version.id,
@@ -195,12 +192,12 @@ test.stable(
           ]);
           const independent = yield* create('Independent', 'Independent body');
 
-          test.assert.ok(independent.version);
+          assert.ok(independent.version);
           const scope = { pageId: root.id, keepLatest: 1 };
           const blocked = yield* docs.previewHistory(scope);
 
-          test.expect(blocked.blockedVersionIds).toStrictEqual([root.version.id]);
-          test.assert.ok(
+          expect(blocked.blockedVersionIds).toStrictEqual([root.version.id]);
+          assert.ok(
             (yield* Effect.flip(docs.retireHistory({ ...scope, token: blocked.token }))).kind ===
               'invalid_input'
           );
@@ -209,7 +206,7 @@ test.stable(
           yield* docs.delete({ pageId: dependent.id, token: removeDependent.token });
           const preview = yield* docs.previewHistory(scope);
 
-          test.expect(preview.blockedVersionIds).toStrictEqual([]);
+          expect(preview.blockedVersionIds).toStrictEqual([]);
           yield* docs.retireHistory({ ...scope, token: preview.token });
 
           return {
@@ -221,7 +218,7 @@ test.stable(
         }).pipe(Effect.provide(source.domain()))
       );
 
-      assertScrubbed(source, 'PRIVATE_PRUNED_BODY');
+      assertScrubbed(source, assert, 'PRIVATE_PRUNED_BODY');
       const bytes = await exportSnapshot(source.context.db);
 
       await source.close();
@@ -229,31 +226,31 @@ test.stable(
       const app = target.app;
       const docs = await app.nativeRuntime.runPromise(Pages);
 
-      test.assert.ok(
+      assert.ok(
         (await app.nativeRuntime.runPromise(Effect.flip(docs.version({ id: saved.old })))).kind ===
           'not_found'
       );
-      test.assert.ok(
+      assert.ok(
         (await app.nativeRuntime.runPromise(Effect.flip(docs.exportVersion({ id: saved.old }))))
           .kind === 'not_found'
       );
-      test.assert.ok(
+      assert.ok(
         (await app.nativeRuntime.runPromise(docs.version({ id: saved.current }))).document.blocks[0]
           ?.text === 'Current body'
       );
-      test.assert.ok(
+      assert.ok(
         (await app.nativeRuntime.runPromise(docs.version({ id: saved.independent }))).document
           .blocks[0]?.text === 'Independent body'
       );
-      test.assert.strictEqual(app.store.db.orm.select().from(s.page_retirements).all().length, 2);
+      assert.strictEqual(app.store.db.orm.select().from(s.page_retirements).all().length, 2);
       const api = await target.api();
       const next = await app.nativeRuntime.runPromise(api.createBackup());
 
-      test.assert.ok(
+      assert.ok(
         (await app.nativeRuntime.runPromise(api.previewRestore({ id: next.id })))
           .blockedByCurrentBarriers === true
       );
-      test.expect(app.store.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      expect(app.store.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await target?.close();
       await source.close();
@@ -263,21 +260,23 @@ test.stable(
 
 test.stable(
   'completed note cleanup roundtrips content-free private captures and independent library history',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const source = await pageTransformFixture(databases);
 
     let target: Awaited<ReturnType<typeof restoreSnapshot>> | undefined;
 
     try {
-      const saved = await setup(source, 'PRIVATE_SESSION_BODY_BACKUP');
+      const saved = await setup(source, assert, 'PRIVATE_SESSION_BODY_BACKUP');
 
       await Effect.runPromise(
         Effect.flatMap(Notes, (c) => c.deleteNote(saved.note.id)).pipe(
           Effect.provide(source.domain())
         )
       );
-      await cleanupNote(source, saved.note.id);
-      assertScrubbed(source, 'PRIVATE_SESSION_BODY_BACKUP');
+      await cleanupNote(source, saved.note.id, assert);
+      assertScrubbed(source, assert, 'PRIVATE_SESSION_BODY_BACKUP');
 
       const bytes = await exportSnapshot(source.context.db);
 
@@ -288,25 +287,25 @@ test.stable(
 
       const c = await app.nativeRuntime.runPromise(Notes);
 
-      test.assert.ok(
+      assert.ok(
         (await app.nativeRuntime.runPromise(c.noteDeletion(saved.note.id))).status === 'completed'
       );
-      test.assert.ok(
+      assert.ok(
         (await app.nativeRuntime.runPromise(Effect.flip(c.note(saved.note.id)))).kind ===
           'not_found'
       );
-      test.assert.ok(
+      assert.ok(
         (
           await app.nativeRuntime.runPromise(
             Effect.flip(c.noteContext({ requestId: saved.capture.requestId }))
           )
         ).kind === 'not_found'
       );
-      test.assert.ok(
+      assert.ok(
         (await app.nativeRuntime.runPromise(c.thread({ noteId: saved.other.id, limit: 10 })))
           .items[0]?.versions[0]?.text === 'Other note'
       );
-      test.assert.strictEqual(
+      assert.strictEqual(
         (
           await app.nativeRuntime.runPromise(
             Effect.flatMap(Pages, (m) => m.version({ id: saved.library.version.id }))
@@ -314,14 +313,14 @@ test.stable(
         ).id,
         saved.library.version.id
       );
-      test.assert.ok(
+      assert.ok(
         app.store.db.orm
           .select()
           .from(s.workflowEvents)
           .all()
           .every((e) => !e.payload.includes('PRIVATE_SESSION_BODY_BACKUP'))
       );
-      test.assert.ok(
+      assert.ok(
         app.store.db.orm
           .select()
           .from(s.workflow_executions)
@@ -330,7 +329,7 @@ test.stable(
       );
       await app.workers.start();
       await app.workers.stop();
-      test.assert.ok(
+      assert.ok(
         (
           await app.nativeRuntime.runPromise(
             Effect.flip(c.postMessage({ noteId: saved.note.id, text: 'Cannot resurrect' }))

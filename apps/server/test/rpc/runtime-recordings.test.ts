@@ -22,7 +22,9 @@ import { serve } from '#server/runtime/index';
 test.stable(
   'HTTP recording capture hands durable WAV publication to the native worker',
   { timeout: 10000 },
-  async ({ resources: location }) => {
+  async ({ resources: location, assert: assertions, pollUntil, expect }) => {
+    const assert: test.Assert = assertions;
+
     const app = await location.openApp({ path: location.path });
     const server = await serve(app);
 
@@ -44,7 +46,7 @@ test.stable(
               id: recording.id,
               samples: [-32768, 0, 32767]
             });
-            test.assert.strictEqual(
+            assert.strictEqual(
               (yield* client['recordings.recording']({ id: recording.id })).samples,
               3n
             );
@@ -54,18 +56,18 @@ test.stable(
               name: 'Lecture.wav'
             });
 
-            const result = yield* test.pollUntil(
+            const result = yield* pollUntil(
               client['recordings.recordingPost']({ requestId: post.requestId }),
               (value) => value.messageId !== null,
               { attempts: 100, interval: '25 millis', message: 'Recording was not posted' }
             );
 
-            test.assert.ok(result.messageId !== null);
+            assert.ok(result.messageId !== null);
             const message = yield* client['notes.message']({ id: result.messageId });
 
-            test.assert.strictEqual(message.recordedIn, result.sourceId);
-            test.assert.strictEqual(message.parts[0]?.sourceId, result.sourceId);
-            test.assert.strictEqual(
+            assert.strictEqual(message.recordedIn, result.sourceId);
+            assert.strictEqual(message.parts[0]?.sourceId, result.sourceId);
+            assert.strictEqual(
               (yield* client['recordings.recordings']({ limit: 10 })).items.length,
               0
             );
@@ -75,8 +77,8 @@ test.stable(
               name: 'Lecture.wav'
             });
 
-            test.expect(replayed).toStrictEqual(result);
-            test.assert.strictEqual(
+            expect(replayed).toStrictEqual(result);
+            assert.strictEqual(
               (yield* client['notes.thread']({ noteId: note.id, limit: 10 })).items.length,
               1
             );

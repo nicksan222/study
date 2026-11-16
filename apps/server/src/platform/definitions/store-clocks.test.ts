@@ -23,7 +23,12 @@ import { Database } from '#server/platform/database/database';
 import { transaction, useStore } from '#server/platform/definitions/define-store';
 import { unixSeconds } from '#server/platform/time/index';
 
-function checkAdvancingEligibility(context: ServerContext) {
+function checkAdvancingEligibility(
+  { assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>,
+  context: ServerContext
+) {
+  const assert: test.Assert = assertions;
+
   return Effect.gen(function* () {
     const project = yield* transaction((tx) =>
       tx.store(ProjectsStore).createProject({ name: 'Live scheduling' })
@@ -42,41 +47,43 @@ function checkAdvancingEligibility(context: ServerContext) {
     const query = { projectId: project.id, limit: 10, newCardsPerDay: 10 };
     const initial = yield* cards.cards(query);
 
-    test.assert.strictEqual(initial.length, 1);
+    assert.strictEqual(initial.length, 1);
     const cardId = initial[0]!.snapshot.card_id;
     const reviewInput = { versionId: material.version.id, cardId, rating: 'good' as const };
     const first = yield* transaction((tx) => tx.store(CardStore).reviewCard(reviewInput));
     const due = first.schedule.due;
 
-    test.expect(note.createdAt).toBe(100n);
-    test.expect(project.createdAt).toBe(100n);
-    test.expect(material.created_at).toBe(100n);
-    test.expect(first.review.reviewed_at).toBe(unixSeconds(context.clock));
-    test.assert.ok(due > unixSeconds(context.clock));
-    test.expect(yield* cards.cards(query)).toHaveLength(0);
+    expect(note.createdAt).toBe(100n);
+    expect(project.createdAt).toBe(100n);
+    expect(material.created_at).toBe(100n);
+    expect(first.review.reviewed_at).toBe(unixSeconds(context.clock));
+    assert.ok(due > unixSeconds(context.clock));
+    expect(yield* cards.cards(query)).toHaveLength(0);
     yield* TestClock.setTime(Number(due * 1000n - 1000n));
-    test.expect(yield* cards.cards(query)).toHaveLength(0);
+    expect(yield* cards.cards(query)).toHaveLength(0);
     yield* TestClock.adjust('1 second');
     const eligible = yield* cards.cards(query);
 
-    test.expect(eligible.map((card) => card.snapshot.card_id)).toEqual([cardId]);
+    expect(eligible.map((card) => card.snapshot.card_id)).toEqual([cardId]);
     const second = yield* transaction((tx) => tx.store(CardStore).reviewCard(reviewInput));
     const renamed = yield* transaction((tx) =>
       tx.store(NoteStore).renameNote({ id: note.id, title: 'Still fixed' })
     );
 
-    test.expect(second.review.reviewed_at).toBe(due);
-    test.expect(second.schedule.last_review).toBe(due);
-    test.expect(second.schedule.due).toBeGreaterThan(due);
-    test.expect(renamed.createdAt).toBe(100n);
-    test.expect(renamed.updatedAt).toBe(100n);
-    test.expect(unixSeconds(context.timestampClock)).toBe(100n);
+    expect(second.review.reviewed_at).toBe(due);
+    expect(second.schedule.last_review).toBe(due);
+    expect(second.schedule.due).toBeGreaterThan(due);
+    expect(renamed.createdAt).toBe(100n);
+    expect(renamed.updatedAt).toBe(100n);
+    expect(unixSeconds(context.timestampClock)).toBe(100n);
   }).pipe(Effect.provideService(Database, { store: context }));
 }
 
 test.stable(
   'future cards become due as operational time advances with fixed note timestamps',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const timestampClock = await Effect.runPromise(
       Effect.gen(function* () {
         yield* TestClock.setTime(100_000);
@@ -97,8 +104,8 @@ test.stable(
             timestampClock
           );
 
-          test.assert.notStrictEqual(context.clock, context.timestampClock);
-          yield* checkAdvancingEligibility(context).pipe(
+          assert.notStrictEqual(context.clock, context.timestampClock);
+          yield* checkAdvancingEligibility({ assert, expect }, context).pipe(
             Effect.ensuring(Effect.sync(() => context.close()))
           );
         }).pipe(Effect.provide(TestClock.layer()))
@@ -111,17 +118,17 @@ test.stable(
 
 test.stable(
   'default store contexts preserve clock identity through nested transactions',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const location = await databases();
     const context = new ServerContext(await location.open());
 
     try {
-      test.expect(context.timestampClock).toBe(context.clock);
+      expect(context.timestampClock).toBe(context.clock);
       context.transaction(['settings'], (outer) => {
-        test.expect(outer.timestampClock).toBe(context.clock);
+        expect(outer.timestampClock).toBe(context.clock);
         outer.transaction(['settings'], (inner) => {
-          test.expect(inner.clock).toBe(context.clock);
-          test.expect(inner.timestampClock).toBe(context.clock);
+          expect(inner.clock).toBe(context.clock);
+          expect(inner.timestampClock).toBe(context.clock);
         });
       });
     } finally {

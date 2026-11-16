@@ -12,29 +12,33 @@ test.beforeEach(({ assistant, mock }) => {
   mount = assistant.mountAssistant;
 });
 
-test.stable('sends only nonblank user messages and supports multiline drafts', async () => {
-  const user = test.userEvent.setup();
+test.stable(
+  'sends only nonblank user messages and supports multiline drafts',
+  async ({ userEvent, screen, waitFor, expect }) => {
+    const user = userEvent.setup();
 
-  await mount();
-  const input = await test.screen.findByRole('textbox', { name: 'Message' });
+    await mount();
+    const input = await screen.findByRole('textbox', { name: 'Message' });
 
-  await test.waitFor(() => test.expect(input).toBeEnabled());
-  const send = test.screen.getByRole('button', { name: 'Send message' });
+    await waitFor(() => expect(input).toBeEnabled());
+    const send = screen.getByRole('button', { name: 'Send message' });
 
-  test.expect(send).toBeDisabled();
-  await user.type(input, '   ');
-  test.expect(send).toBeDisabled();
-  await user.clear(input);
-  await user.type(input, 'Explain this topic{Shift>}{Enter}{/Shift}with an example');
-  test.expect(test.screen.queryAllByRole('article')).toHaveLength(0);
-  await user.keyboard('{Enter}');
-  await test.waitFor(() => test.expect(api.ask).toHaveBeenCalledOnce());
-  test
-    .expect(await test.screen.findByRole('article', { name: 'You' }))
-    .toHaveTextContent('Explain this topic with an example');
-  await test.waitFor(() => test.expect(input).toHaveValue(''));
-  test.expect(input).toHaveFocus();
-  test
-    .expect(test.screen.getByRole('article', { name: 'Assistant' }))
-    .toHaveAttribute('data-role', 'assistant');
-});
+    expect(send).toBeDisabled();
+    await user.type(input, '   ');
+    expect(send).toBeDisabled();
+    await user.clear(input);
+    await user.type(input, 'Explain this topic{Shift>}{Enter}{/Shift}with an example');
+    expect(screen.queryAllByRole('article')).toHaveLength(0);
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(api.ask).toHaveBeenCalledOnce());
+    expect(await screen.findByRole('article', { name: 'You' })).toHaveTextContent(
+      'Explain this topic with an example'
+    );
+    await waitFor(() => expect(input).toHaveValue(''));
+    expect(input).toHaveFocus();
+    expect(screen.getByRole('article', { name: 'Assistant' })).toHaveAttribute(
+      'data-role',
+      'assistant'
+    );
+  }
+);

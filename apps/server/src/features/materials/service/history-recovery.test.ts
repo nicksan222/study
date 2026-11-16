@@ -24,7 +24,9 @@ import { withTestPublication } from '#testing/publication';
 for (const failSettlement of [false, true]) {
   test.stable(
     `injected cleanup failure ${failSettlement ? 'and failed state persistence' : 'with durable failure'} rolls back and recovers after reopen`,
-    async ({ databases }) => {
+    async ({ databases, expect, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+
       const f = await pageTransformFixture(databases);
 
       try {
@@ -70,7 +72,7 @@ for (const failSettlement of [false, true]) {
             sql`CREATE TRIGGER reject_history_failure BEFORE UPDATE OF status ON material_history_prunes WHEN NEW.status='failed' BEGIN SELECT RAISE(ABORT,'injected settlement'); END`
           );
 
-        await test.expect(cleanupHistory(f, 'history-rollback')).rejects.toSatisfy(() => true);
+        await expect(cleanupHistory(f, 'history-rollback', assert)).rejects.toSatisfy(() => true);
 
         await Effect.runPromise(
           awaitNativeStatus(f, 'history-test/history-rollback/1', 'completed')
@@ -82,18 +84,18 @@ for (const failSettlement of [false, true]) {
           ).pipe(Effect.provide(f.domain()))
         );
 
-        test.assert.strictEqual(state.status, failSettlement ? 'pending' : 'failed');
+        assert.strictEqual(state.status, failSettlement ? 'pending' : 'failed');
 
-        test.assert.ok(state.completedAt === null);
+        assert.ok(state.completedAt === null);
 
-        test
-          .expect(f.context.db.orm.select().from(s.material_flashcard_versions).all())
-          .toStrictEqual(before);
-        test
-          .expect(f.context.db.orm.select().from(s.material_flashcard_entries).all())
-          .toStrictEqual(entriesBefore);
+        expect(f.context.db.orm.select().from(s.material_flashcard_versions).all()).toStrictEqual(
+          before
+        );
+        expect(f.context.db.orm.select().from(s.material_flashcard_entries).all()).toStrictEqual(
+          entriesBefore
+        );
 
-        test.assert.ok(
+        assert.ok(
           f.context.db.orm
             .select()
             .from(s.material_flashcard_versions)
@@ -101,7 +103,7 @@ for (const failSettlement of [false, true]) {
             .get()
         );
 
-        await test.expect(acceptMaterialDeletion(f, saved.root.id)).rejects.toSatisfy(() => true);
+        await expect(acceptMaterialDeletion(f, saved.root.id)).rejects.toSatisfy(() => true);
 
         f.context.db.orm.run(sql`DROP TRIGGER reject_history_cleanup`);
 
@@ -115,14 +117,14 @@ for (const failSettlement of [false, true]) {
 
             const retry = yield* m.retryHistoryPrune({ operationId: state.operationId });
 
-            test.assert.strictEqual(retry.attempt, 2);
+            assert.strictEqual(retry.attempt, 2);
 
-            test.assert.strictEqual(
+            assert.strictEqual(
               (yield* m.retryHistoryPrune({ operationId: state.operationId })).attempt,
               2
             );
 
-            test.assert.ok(
+            assert.ok(
               (yield* m.failMaterialHistory({
                 operationId: state.operationId,
                 attempt: 1,
@@ -136,7 +138,7 @@ for (const failSettlement of [false, true]) {
           withTestPublication(
             f.context,
             Effect.gen(function* () {
-              test.assert.ok(
+              assert.ok(
                 (yield* (yield* Materials).finishMaterialHistory({
                   operationId: state.operationId,
                   attempt: 1
@@ -146,15 +148,15 @@ for (const failSettlement of [false, true]) {
           ).pipe(Effect.provide(f.domain()))
         );
 
-        test
-          .expect(f.context.db.orm.select().from(s.material_flashcard_versions).all())
-          .toStrictEqual(before);
+        expect(f.context.db.orm.select().from(s.material_flashcard_versions).all()).toStrictEqual(
+          before
+        );
 
-        await cleanupHistory(f, state.operationId);
+        await cleanupHistory(f, state.operationId, assert);
 
         await f.reopen();
 
-        assertScrubbed(f, 'ROLLBACK_HISTORY_PRIVATE');
+        assertScrubbed(f, assert, 'ROLLBACK_HISTORY_PRIVATE');
 
         await Effect.runPromise(
           Effect.gen(function* () {
@@ -162,28 +164,28 @@ for (const failSettlement of [false, true]) {
 
             const completed = yield* m.historyPrune({ operationId: state.operationId });
 
-            test.assert.ok(completed.status === 'completed');
+            assert.ok(completed.status === 'completed');
 
-            test.assert.strictEqual(completed.attempt, 2);
+            assert.strictEqual(completed.attempt, 2);
 
-            test.assert.strictEqual(
+            assert.strictEqual(
               (yield* m.retryHistoryPrune({ operationId: state.operationId })).attempt,
               2
             );
 
-            test
-              .expect(yield* m.materialVersion({ id: saved.current.id }))
-              .toStrictEqual(saved.currentVersion);
+            expect(yield* m.materialVersion({ id: saved.current.id })).toStrictEqual(
+              saved.currentVersion
+            );
           }).pipe(Effect.provide(f.domain()))
         );
 
         await acceptMaterialDeletion(f, saved.root.id);
 
-        await cleanupMaterial(f, saved.root.id);
+        await cleanupMaterial(f, saved.root.id, assert);
 
         await f.reopen();
 
-        assertScrubbed(f, 'ROLLBACK_CURRENT_KEEP');
+        assertScrubbed(f, assert, 'ROLLBACK_CURRENT_KEEP');
       } finally {
         await f.close();
       }

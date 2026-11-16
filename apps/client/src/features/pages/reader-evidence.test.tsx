@@ -23,9 +23,9 @@ test.beforeEach(async ({ mock }) => {
   EvidenceDetails = __mockModule1.EvidenceDetails;
 });
 
-test.stable.each([false, true])(
+test.stable.for([false, true])(
   'shows unavailable message evidence with citations: %s',
-  async (cited) => {
+  async (cited, { rpcHandlersTransport, render, userEvent, screen, expect }) => {
     const document = authoredPage(41n, 'An answer', 101n);
     const input = Schema.decodeUnknownSync(exactInputSchema)({ kind: 'message', versionId: 7n });
     const version = {
@@ -44,37 +44,38 @@ test.stable.each([false, true])(
           ]
         : []
     };
-    const harness = test.rpcHandlersTransport({
+    const harness = rpcHandlersTransport({
       'pages.version': () => Effect.succeed(version),
       'pages.annotations': () => Effect.succeed({ items: [], nextCursor: null }),
       'pages.assessments': () => Effect.succeed({ items: [], nextCursor: null })
     });
 
-    test.render(
+    render(
       <harness.wrapper>
         <EvidenceDetails version={version} />
       </harness.wrapper>
     );
-    await test.userEvent.setup().click(await test.screen.findByText(catalogs.english.PageEvidence));
-    test
-      .expect(await test.screen.findByText(catalogs.english.PageEvidenceUnavailable))
-      .toBeInTheDocument();
+    await userEvent.setup().click(await screen.findByText(catalogs.english.PageEvidence));
+    expect(await screen.findByText(catalogs.english.PageEvidenceUnavailable)).toBeInTheDocument();
 
     if (cited) {
-      const citation = (await test.screen.findByText('Retained quote')).closest('blockquote')!;
+      const citation = (await screen.findByText('Retained quote')).closest('blockquote')!;
 
-      test.expect(citation).toHaveTextContent(catalogs.english.ReaderUnavailable);
+      expect(citation).toHaveTextContent(catalogs.english.ReaderUnavailable);
     }
   }
 );
 
-test.stable.each([
+test.stable.for([
   ['assessed', 'contradicts', catalogs.english.PageContradicts, catalogs.english.PageUserAssessed],
   ['stale', 'uncertain', catalogs.english.PageUncertain, catalogs.english.PageStale],
   ['unavailable', 'supports', catalogs.english.PageSupports, catalogs.english.ReaderUnavailable]
 ] as const)(
   'shows the actual %s judgment %s and note independently of evidence availability',
-  async (state, judgment, label, status) => {
+  async (
+    [state, judgment, label, status],
+    { vi, rpcHandlersTransport, render, userEvent, screen, expect }
+  ) => {
     const document = authoredPage(41n, 'A disputed claim', 101n);
     const base = document.version!;
     const input = { kind: 'page' as const, versionId: base.id };
@@ -109,32 +110,30 @@ test.stable.each([
       }
     });
     const rpc = {
-      'pages.version': test.vi
+      'pages.version': vi
         .fn<StudyClient['pages.version']>()
         .mockReturnValue(Effect.succeed(version)),
-      'pages.annotations': test.vi
+      'pages.annotations': vi
         .fn<StudyClient['pages.annotations']>()
         .mockReturnValue(Effect.succeed({ items: [], nextCursor: null })),
-      'pages.assessments': test.vi
+      'pages.assessments': vi
         .fn<StudyClient['pages.assessments']>()
         .mockReturnValue(Effect.succeed({ items: [record], nextCursor: null }))
     };
 
-    const harness = test.rpcHandlersTransport(rpc);
+    const harness = rpcHandlersTransport(rpc);
 
-    test.render(
+    render(
       <harness.wrapper>
         <EvidenceDetails version={version} />
       </harness.wrapper>
     );
-    await test.userEvent.setup().click(await test.screen.findByText(catalogs.english.PageEvidence));
-    test.expect(await test.screen.findByText(label)).toBeInTheDocument();
-    test.expect(test.screen.getByText('My explicit reasoning')).toBeInTheDocument();
-    const shown = test.screen.getByText('A disputed claim').closest('blockquote')!;
+    await userEvent.setup().click(await screen.findByText(catalogs.english.PageEvidence));
+    expect(await screen.findByText(label)).toBeInTheDocument();
+    expect(screen.getByText('My explicit reasoning')).toBeInTheDocument();
+    const shown = screen.getByText('A disputed claim').closest('blockquote')!;
 
-    test.expect(shown).toHaveTextContent(status);
-    test
-      .expect(test.screen.getByText(catalogs.english.PageEvidenceExplanation))
-      .toBeInTheDocument();
+    expect(shown).toHaveTextContent(status);
+    expect(screen.getByText(catalogs.english.PageEvidenceExplanation)).toBeInTheDocument();
   }
 );

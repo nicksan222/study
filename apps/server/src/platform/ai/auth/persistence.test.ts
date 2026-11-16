@@ -15,9 +15,14 @@ import { test } from '@study/testing';
 
 import { decodeAccount, encodeAccount } from '#server/platform/ai/auth/persistence';
 
-test.stable('stored account round trips and rejects malformed credentials', () => {
-  const account = { subject: 'subject', clientId: 'client', refreshToken: null, sharing: true };
+test.stable(
+  'stored account round trips and rejects malformed credentials',
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test.expect(decodeAccount(encodeAccount(account))).toStrictEqual(account);
-  test.assert.throws(() => decodeAccount({ ...account, refreshToken: 42 }));
-});
+    const account = { subject: 'subject', clientId: 'client', refreshToken: null, sharing: true };
+
+    expect(decodeAccount(encodeAccount(account))).toStrictEqual(account);
+    assert.throws(() => decodeAccount({ ...account, refreshToken: 42 }));
+  }
+);

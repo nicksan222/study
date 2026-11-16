@@ -96,14 +96,26 @@ const testHarness = testBrowser.extend<Fixtures>({
   }
 });
 
+const withTools = testHarness.extend<{
+  expect: typeof expect;
+  policy: typeof testPolicy;
+  createAiMock: typeof createAiMock;
+  createTestResources: typeof createTestResources;
+}>({
+  expect: async ({ browserName: _browserName }, provide) => provide(expect),
+  policy: async ({ browserName: _browserName }, provide) => provide(testPolicy),
+  createAiMock: async ({ browserName: _browserName }, provide) => provide(createAiMock),
+  createTestResources: async ({ browserName: _browserName }, provide) =>
+    provide(createTestResources)
+});
+
 /** Focused browser harness cases use the same explicit stable namespace. */
 export const test = {
-  stable: testHarness,
-  expect,
-  describe: testHarness.describe,
-  use: testHarness.use,
-  beforeEach: testHarness.beforeEach,
-  afterEach: testHarness.afterEach,
-  beforeAll: testHarness.beforeAll,
-  afterAll: testHarness.afterAll
+  stable: withTools,
+  describe: withTools.describe,
+  use: withTools.use,
+  beforeEach: withTools.beforeEach,
+  afterEach: withTools.afterEach,
+  beforeAll: withTools.beforeAll,
+  afterAll: withTools.afterAll
 };

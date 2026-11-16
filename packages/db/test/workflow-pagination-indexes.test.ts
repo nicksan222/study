@@ -3,7 +3,7 @@ import { sql } from 'drizzle-orm';
 
 test.stable(
   'workflow pagination queries can use the matching SQLite indexes',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const location = await databases();
     const db = await location.open();
     const plans = [
@@ -15,7 +15,7 @@ test.stable(
       )
     ];
 
-    test.expect(plans[0]![0]!.detail).toMatch(/workflow_executions_pagination_idx/);
-    test.expect(plans[1]![0]!.detail).toMatch(/workflow_executions_correlation_pagination_idx/);
+    expect(plans[0]![0]!.detail).toMatch(/workflow_executions_pagination_idx/);
+    expect(plans[1]![0]!.detail).toMatch(/workflow_executions_correlation_pagination_idx/);
   }
 );

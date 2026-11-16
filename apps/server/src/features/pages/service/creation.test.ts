@@ -34,7 +34,9 @@ const document = {
 
 test.stable(
   'empty document creation replays its exact key and descriptions use guarded independent metadata',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Pages.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
@@ -53,12 +55,12 @@ test.stable(
           const original = yield* pages.create(input);
           const replay = yield* pages.create(input);
 
-          test.assert.strictEqual(replay.id, original.id);
-          test.assert.ok(original.version);
-          test.assert.ok(replay.version);
-          test.assert.strictEqual(replay.version.id, original.version.id);
-          test.assert.strictEqual(original.version.pageId, original.id);
-          test.assert.ok(
+          assert.strictEqual(replay.id, original.id);
+          assert.ok(original.version);
+          assert.ok(replay.version);
+          assert.strictEqual(replay.version.id, original.version.id);
+          assert.strictEqual(original.version.pageId, original.id);
+          assert.ok(
             (yield* Effect.flip(pages.create({ ...input, title: 'Different intent' }))).kind ===
               'invalid_input'
           );
@@ -70,9 +72,9 @@ test.stable(
             expectedDescription: null
           });
 
-          test.assert.ok(description.description === 'A short summary');
-          test.assert.strictEqual(description.headVersionId, original.version.id);
-          test.assert.ok(
+          assert.ok(description.description === 'A short summary');
+          assert.strictEqual(description.headVersionId, original.version.id);
+          assert.ok(
             (yield* Effect.flip(
               pages.updateMetadata({
                 id: original.id,
@@ -83,7 +85,7 @@ test.stable(
               })
             )).kind === 'invalid_input'
           );
-          test.assert.ok(
+          assert.ok(
             (yield* pages.updateMetadata({
               id: original.id,
               title: original.title,

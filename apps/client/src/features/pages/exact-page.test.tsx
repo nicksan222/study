@@ -10,7 +10,7 @@ import { ExactAuthoredPageContent } from './exact-page';
 
 test.stable(
   'retries the exact document and individual image, distinguishes loading, and releases URLs on replacement/unmount',
-  async () => {
+  async ({ vi, rpcHandlersTransport, render, userEvent, screen, expect, act, waitFor }) => {
     const document = authoredPage(41n).version!;
     const block = createBlock({
       type: 'image',
@@ -31,92 +31,89 @@ test.stable(
     });
     const pending = deferred<typeof image>();
     const rpc = {
-      'pages.version': test.vi
+      'pages.version': vi
         .fn<StudyClient['pages.version']>()
         .mockReturnValueOnce(Effect.fail(new StudyError('transient', 'Document read interrupted')))
         .mockReturnValue(Effect.succeed(value)),
-      'sources.exportRevision': test.vi
+      'sources.exportRevision': vi
         .fn<StudyClient['sources.exportRevision']>()
         .mockReturnValueOnce(Effect.fail(new StudyError('transient', 'Image read interrupted')))
         .mockReturnValueOnce(Effect.promise(() => pending.promise))
         .mockReturnValue(Effect.succeed({ ...image, bytes: new Uint8Array([2]) }))
     };
 
-    const create = test.vi
+    const create = vi
       .fn()
       .mockReturnValueOnce('blob:first')
       .mockReturnValueOnce('blob:replacement');
-    const revoke = test.vi.fn();
+    const revoke = vi.fn();
 
-    test.vi.stubGlobal(
+    vi.stubGlobal(
       'URL',
       class extends URL {
         static createObjectURL = create;
         static revokeObjectURL = revoke;
       }
     );
-    const harness = test.rpcHandlersTransport(rpc);
-    const view = test.render(
+    const harness = rpcHandlersTransport(rpc);
+    const view = render(
       <harness.wrapper>
         <ExactAuthoredPageContent id={document.id} pageId={document.pageId} />
       </harness.wrapper>
     );
-    const user = test.userEvent.setup();
+    const user = userEvent.setup();
 
     try {
-      await test.screen.findByText(catalogs.english.ReaderUnavailable);
-      await user.click(test.screen.getByRole('button', { name: catalogs.english.LibraryRefresh }));
-      await test.screen.findByText(catalogs.english.ReaderImageUnavailable);
-      test.expect(test.screen.queryByRole('img')).toBeNull();
-      await user.click(
-        test.screen.getByRole('button', { name: catalogs.english.ReaderRetryImage })
-      );
-      test
-        .expect(await test.screen.findByRole('status'))
-        .toHaveTextContent(catalogs.english.LoadingStudy);
-      test.expect(test.screen.queryByText(catalogs.english.ReaderImageUnavailable)).toBeNull();
-      await test.act(async () => {
+      await screen.findByText(catalogs.english.ReaderUnavailable);
+      await user.click(screen.getByRole('button', { name: catalogs.english.LibraryRefresh }));
+      await screen.findByText(catalogs.english.ReaderImageUnavailable);
+      expect(screen.queryByRole('img')).toBeNull();
+      await user.click(screen.getByRole('button', { name: catalogs.english.ReaderRetryImage }));
+      expect(await screen.findByRole('status')).toHaveTextContent(catalogs.english.LoadingStudy);
+      expect(screen.queryByText(catalogs.english.ReaderImageUnavailable)).toBeNull();
+      await act(async () => {
         pending.resolve(image);
         await pending.promise;
       });
-      test
-        .expect(await test.screen.findByRole('img', { name: 'Retained figure' }))
-        .toHaveAttribute('src', 'blob:first');
-      test.expect(rpc['pages.version']).toHaveBeenCalledTimes(2);
-      test.expect(rpc['sources.exportRevision']).toHaveBeenCalledTimes(2);
+      expect(await screen.findByRole('img', { name: 'Retained figure' })).toHaveAttribute(
+        'src',
+        'blob:first'
+      );
+      expect(rpc['pages.version']).toHaveBeenCalledTimes(2);
+      expect(rpc['sources.exportRevision']).toHaveBeenCalledTimes(2);
 
       for (const [input] of rpc['pages.version'].mock.calls) {
-        test.expect(input).toEqual({ id: document.id });
+        expect(input).toEqual({ id: document.id });
       }
 
       for (const [input] of rpc['sources.exportRevision'].mock.calls) {
-        test.expect(input).toEqual({
+        expect(input).toEqual({
           sourceId: block.content.type === 'image' ? block.content.sourceId : undefined,
           revision: 1n
         });
       }
 
-      await test.act(async () => {
+      await act(async () => {
         await harness.notify();
       });
-      await test.waitFor(() =>
-        test.expect(test.screen.getByRole('img')).toHaveAttribute('src', 'blob:replacement')
+      await waitFor(() =>
+        expect(screen.getByRole('img')).toHaveAttribute('src', 'blob:replacement')
       );
-      test.expect(revoke).toHaveBeenCalledWith('blob:first');
+      expect(revoke).toHaveBeenCalledWith('blob:first');
       view.unmount();
-      test.expect(revoke).toHaveBeenCalledWith('blob:replacement');
-      test.expect(create).toHaveBeenCalledTimes(2);
+      expect(revoke).toHaveBeenCalledWith('blob:replacement');
+      expect(create).toHaveBeenCalledTimes(2);
     } finally {
       view.unmount();
 
-      test.vi.unstubAllGlobals();
+      vi.unstubAllGlobals();
     }
   }
 );
 
 test.stable(
   'retries one failed image without reacquiring an already displayed neighbor',
-  async () => {
+  async ({ vi, rpcHandlersTransport, render, screen, userEvent, expect }) => {
     const base = authoredPage(41n).version!;
     const asset = Schema.decodeUnknownSync(revisionExportSchema)({
       sourceId: 7n,
@@ -140,10 +137,10 @@ test.stable(
     const document = { ...base, document: { ...base.document, blocks: [first, neighbor] } };
     let interrupted = true;
     const rpc = {
-      'pages.version': test.vi
+      'pages.version': vi
         .fn<StudyClient['pages.version']>()
         .mockReturnValue(Effect.succeed(document)),
-      'sources.exportRevision': test.vi
+      'sources.exportRevision': vi
         .fn<StudyClient['sources.exportRevision']>()
         .mockImplementation(({ sourceId }) => {
           if (sourceId === asset.sourceId && interrupted) {
@@ -156,45 +153,43 @@ test.stable(
         })
     };
 
-    const revoke = test.vi.fn();
+    const revoke = vi.fn();
     let urlNumber = 0;
 
-    test.vi.stubGlobal(
+    vi.stubGlobal(
       'URL',
       class extends URL {
         static createObjectURL = () => `blob:figure-${++urlNumber}`;
         static revokeObjectURL = revoke;
       }
     );
-    const harness = test.rpcHandlersTransport(rpc);
-    const view = test.render(
+    const harness = rpcHandlersTransport(rpc);
+    const view = render(
       <harness.wrapper>
         <ExactAuthoredPageContent id={document.id} pageId={document.pageId} />
       </harness.wrapper>
     );
 
     try {
-      const visible = await test.screen.findByRole('img', { name: 'Available neighbor' });
+      const visible = await screen.findByRole('img', { name: 'Available neighbor' });
       const url = visible.getAttribute('src');
 
-      await test.userEvent
+      await userEvent
         .setup()
-        .click(await test.screen.findByRole('button', { name: catalogs.english.ReaderRetryImage }));
-      await test.screen.findByRole('img', { name: 'Interrupted figure' });
-      test
-        .expect(test.screen.getByRole('img', { name: 'Available neighbor' }))
-        .toHaveAttribute('src', url);
+        .click(await screen.findByRole('button', { name: catalogs.english.ReaderRetryImage }));
+      await screen.findByRole('img', { name: 'Interrupted figure' });
+      expect(screen.getByRole('img', { name: 'Available neighbor' })).toHaveAttribute('src', url);
       const calls = rpc['sources.exportRevision'].mock.calls.map(([input]) => input);
 
-      test.expect(calls.filter((input) => input.sourceId !== asset.sourceId)).toHaveLength(1);
-      test.expect(calls.filter((input) => input.sourceId === asset.sourceId)).toHaveLength(2);
-      test.expect(revoke).not.toHaveBeenCalled();
+      expect(calls.filter((input) => input.sourceId !== asset.sourceId)).toHaveLength(1);
+      expect(calls.filter((input) => input.sourceId === asset.sourceId)).toHaveLength(2);
+      expect(revoke).not.toHaveBeenCalled();
       view.unmount();
-      test.expect(revoke).toHaveBeenCalledTimes(2);
+      expect(revoke).toHaveBeenCalledTimes(2);
     } finally {
       view.unmount();
 
-      test.vi.unstubAllGlobals();
+      vi.unstubAllGlobals();
     }
   }
 );

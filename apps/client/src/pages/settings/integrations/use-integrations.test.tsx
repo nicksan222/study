@@ -24,8 +24,8 @@ test.beforeEach(({ mock }) => {
   api = createApi(mock);
 });
 
-function fixture() {
-  return test.rpcTestTransport(async (tag, input) => {
+function fixture({ rpcTestTransport }: Pick<test.Context, 'rpcTestTransport'>) {
+  return rpcTestTransport(async (tag, input) => {
     if (tag === 'integrations.imports') return api.imports();
 
     if (tag === 'integrations.providers') return api.providers();
@@ -61,73 +61,69 @@ function previewState(): typeof integrationImportSchema.Type {
 
 test.stable(
   'retains the reviewed import identity and exclusions when a start response is lost',
-  async () => {
+  async ({ renderHook, waitFor, expect, act, rpcTestTransport }) => {
     const state = previewState();
 
     api.imports.mockResolvedValue([state]);
     api.providers.mockResolvedValue([{ id: 'obsidian', capabilities: ['import'] }]);
     api.projects.mockResolvedValue({ items: [], next: null });
     api.start.mockRejectedValue(new Error('Response lost'));
-    const client = fixture();
-    const { result, unmount } = test.renderHook(useIntegrations, {
+    const client = fixture({ rpcTestTransport });
+    const { result, unmount } = renderHook(useIntegrations, {
       wrapper: ({ children }: { children: ReactNode }) => (
         <client.wrapper>{children}</client.wrapper>
       )
     });
 
     try {
-      await test.waitFor(() => test.expect(result.current.imports.isSuccess).toBe(true));
-      test.act(() => {
+      await waitFor(() => expect(result.current.imports.isSuccess).toBe(true));
+      act(() => {
         result.current.setSelected(state.id);
         result.current.setExcluded(['B.md']);
       });
-      test.act(() => result.current.act(state, 'start'));
-      await test.waitFor(() => test.expect(result.current.action.isError).toBe(true));
-      test.expect(result.current.current?.id).toBe(state.id);
-      test.expect(result.current.excluded).toEqual(['B.md']);
-      test.expect(api.start).toHaveBeenCalledWith({
+      act(() => result.current.act(state, 'start'));
+      await waitFor(() => expect(result.current.action.isError).toBe(true));
+      expect(result.current.current?.id).toBe(state.id);
+      expect(result.current.excluded).toEqual(['B.md']);
+      expect(api.start).toHaveBeenCalledWith({
         id: state.id,
         excludedKeys: ['B.md'],
         projectId: undefined
       });
-      test.expect(api.preview).not.toHaveBeenCalled();
+      expect(api.preview).not.toHaveBeenCalled();
     } finally {
       unmount();
     }
   }
 );
 
-test.stable.each([
+test.stable.for([
   { attempt: 0, resumable: false },
   { attempt: 1, resumable: true }
 ])(
   'only offers resume for a confirmed cancelled import, attempt $attempt',
-  async ({ attempt, resumable }) => {
+  async ({ attempt, resumable }, { render, fireEvent, screen, expect, rpcTestTransport }) => {
     const state = { ...previewState(), status: 'cancelled' as const, attempt };
 
     api.imports.mockResolvedValue([state]);
     api.providers.mockResolvedValue([{ id: 'obsidian', capabilities: ['import'] }]);
     api.projects.mockResolvedValue({ items: [], next: null });
-    const client = fixture();
-    const view = test.render(
+    const client = fixture({ rpcTestTransport });
+    const view = render(
       <client.wrapper>
         <IntegrationsSettings />
       </client.wrapper>
     );
 
     try {
-      test.fireEvent.click(await test.screen.findByRole('button', { name: /^Biology/ }));
-      await test.screen.findByRole('heading', { name: 'Biology' });
-      test
-        .expect(test.screen.queryByRole('button', { name: 'Resume import' }) !== null)
-        .toBe(resumable);
-      test
-        .expect(
-          test.screen.queryByText(
-            'Completed notes are kept. Resume this import to continue the remaining notes.'
-          ) !== null
-        )
-        .toBe(resumable);
+      fireEvent.click(await screen.findByRole('button', { name: /^Biology/ }));
+      await screen.findByRole('heading', { name: 'Biology' });
+      expect(screen.queryByRole('button', { name: 'Resume import' }) !== null).toBe(resumable);
+      expect(
+        screen.queryByText(
+          'Completed notes are kept. Resume this import to continue the remaining notes.'
+        ) !== null
+      ).toBe(resumable);
     } finally {
       view.unmount();
     }

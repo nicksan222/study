@@ -23,7 +23,9 @@ const environment = { language: 'en', searchSources: () => Effect.succeed([]) };
 
 test.stable(
   'notebook tools scope exact-name retries, page history and preserve memberships',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
 
@@ -42,21 +44,19 @@ test.stable(
 
           const retry = yield* noteTools.create_note.execute({ title: 'Revision' }, environment);
 
-          test.expect(retry.id).toBe(first.id);
+          expect(retry.id).toBe(first.id);
           const scoped = yield* noteTools.create_note.execute(
             { title: 'Revision', project: subject.id },
             environment
           );
 
-          test.expect(scoped.id).not.toBe(first.id);
-          test
-            .expect(
-              (yield* noteTools.create_note.execute(
-                { title: 'Revision', project: subject.id },
-                environment
-              )).id
-            )
-            .toBe(scoped.id);
+          expect(scoped.id).not.toBe(first.id);
+          expect(
+            (yield* noteTools.create_note.execute(
+              { title: 'Revision', project: subject.id },
+              environment
+            )).id
+          ).toBe(scoped.id);
           yield* noteTools.link_note_subject.execute(
             { noteId: first.id, projectId: subject.id },
             environment
@@ -65,16 +65,16 @@ test.stable(
             { noteId: first.id, projectId: subject.id },
             environment
           );
-          test
-            .expect((yield* noteTools.read_note.execute({ id: first.id }, environment)).projectIds)
-            .toStrictEqual([subject.id]);
+          expect(
+            (yield* noteTools.read_note.execute({ id: first.id }, environment)).projectIds
+          ).toStrictEqual([subject.id]);
           yield* noteTools.unlink_note_subject.execute(
             { noteId: first.id, projectId: subject.id },
             environment
           );
-          test
-            .expect((yield* noteTools.read_note.execute({ id: first.id }, environment)).projectIds)
-            .toStrictEqual([]);
+          expect(
+            (yield* noteTools.read_note.execute({ id: first.id }, environment)).projectIds
+          ).toStrictEqual([]);
           yield* service.postMessage({ noteId: first.id, text: 'First note' });
           yield* service.postMessage({ noteId: first.id, text: 'Second note' });
           const page = yield* noteTools.read_note_history.execute(
@@ -82,23 +82,21 @@ test.stable(
             environment
           );
 
-          test.assert.ok(page.next);
+          assert.ok(page.next);
           const older = yield* noteTools.read_note_history.execute(
             { noteId: first.id, limit: 1, before: page.next },
             environment
           );
 
-          test.expect(older.items).toHaveLength(1);
-          test.expect(older.items[0].id).not.toBe(page.items[0].id);
-          test.expect(older.next).toBeNull();
-          test
-            .expect(
-              (yield* noteTools.rename_note.execute(
-                { id: first.id, title: 'Exam review' },
-                environment
-              )).title
-            )
-            .toBe('Exam review');
+          expect(older.items).toHaveLength(1);
+          expect(older.items[0].id).not.toBe(page.items[0].id);
+          expect(older.next).toBeNull();
+          expect(
+            (yield* noteTools.rename_note.execute(
+              { id: first.id, title: 'Exam review' },
+              environment
+            )).title
+          ).toBe('Exam review');
           const assistant = yield* service.assistantNote();
 
           for (const operation of [
@@ -113,7 +111,7 @@ test.stable(
               .execute({ noteId: assistant.id, projectId: subject.id }, environment)
               .pipe(Effect.asVoid)
           ])
-            test.expect((yield* Effect.flip(operation)).kind).toBe('not_found');
+            expect((yield* Effect.flip(operation)).kind).toBe('not_found');
         }).pipe(Effect.provide(Notes.layer), Effect.provideService(Database, { store: context }))
       );
     } finally {

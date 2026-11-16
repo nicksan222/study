@@ -5,10 +5,10 @@ import { QuizQuestionView } from './quiz-question-view';
 
 test.stable(
   'the shared multiple choice editor retains selections and submits a complete response',
-  () => {
-    const submit = test.vi.fn();
+  ({ vi, render, expect, screen, fireEvent }) => {
+    const submit = vi.fn();
 
-    test.render(
+    render(
       <PracticePresentationProvider
         value={{
           t: (key) => key,
@@ -35,10 +35,10 @@ test.stable(
         />
       </PracticePresentationProvider>
     );
-    test.expect(test.screen.getByRole('button', { name: 'SubmitAnswer' })).toBeDisabled();
-    test.fireEvent.click(test.screen.getByRole('checkbox', { name: /Two/ }));
-    test.fireEvent.click(test.screen.getByRole('checkbox', { name: /Three/ }));
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'SubmitAnswer' }));
-    test.expect(submit).toHaveBeenCalledWith({ type: 'choice', choiceIds: [2n, 3n] });
+    expect(screen.getByRole('button', { name: 'SubmitAnswer' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('checkbox', { name: /Two/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Three/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'SubmitAnswer' }));
+    expect(submit).toHaveBeenCalledWith({ type: 'choice', choiceIds: [2n, 3n] });
   }
 );

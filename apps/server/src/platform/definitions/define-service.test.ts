@@ -21,7 +21,9 @@ import { defineService } from '#server/platform/definitions/define-service';
 
 class Greeting extends Context.Service<Greeting, string>()('test/Greeting') {}
 
-test.stable('service acquires dependencies and runs operations', async () => {
+test.stable('service acquires dependencies and runs operations', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const service = defineService(
     'test/Greeter',
     Effect.gen(function* () {
@@ -44,28 +46,35 @@ test.stable('service acquires dependencies and runs operations', async () => {
     );
   }
 
-  test.assert.ok((await result) === 'Hello, Ada');
+  assert.ok((await result) === 'Hello, Ada');
 });
 
-test.stable('service preserves typed failure identity and fields', async () => {
-  const failure = { _tag: 'Conflict' as const, revision: 42 };
-  const service = defineService(
-    'test/Failure',
-    Effect.succeed({ fail: () => Effect.fail(failure) })
-  );
-  const result = await Effect.runPromise(
-    Effect.gen(function* () {
-      const instance = yield* service;
+test.stable(
+  'service preserves typed failure identity and fields',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-      return yield* Effect.flip(instance.fail());
-    }).pipe(Effect.provide(service.layer))
-  );
+    const failure = { _tag: 'Conflict' as const, revision: 42 };
+    const service = defineService(
+      'test/Failure',
+      Effect.succeed({ fail: () => Effect.fail(failure) })
+    );
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const instance = yield* service;
 
-  test.assert.strictEqual(result, failure);
-  test.expect(result).toStrictEqual({ _tag: 'Conflict', revision: 42 });
-});
+        return yield* Effect.flip(instance.fail());
+      }).pipe(Effect.provide(service.layer))
+    );
 
-test.stable('service preserves a StudyError and its cause', async () => {
+    assert.strictEqual(result, failure);
+    expect(result).toStrictEqual({ _tag: 'Conflict', revision: 42 });
+  }
+);
+
+test.stable('service preserves a StudyError and its cause', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const cause = new Error('underlying');
   const failure = new StudyError('transient', 'unavailable', { cause, retryAfterMs: 123 });
   const service = defineService(
@@ -78,32 +87,37 @@ test.stable('service preserves a StudyError and its cause', async () => {
     )
   );
 
-  test.assert.strictEqual(result, failure);
-  test.assert.strictEqual(result.cause, cause);
-  test.assert.strictEqual(result.retryAfterMs, 123);
+  assert.strictEqual(result, failure);
+  assert.strictEqual(result.cause, cause);
+  assert.strictEqual(result.retryAfterMs, 123);
 });
 
-test.stable('service suspends and normalizes synchronous construction throws', async () => {
-  const cause = new Error('private');
-  const service = defineService(
-    'test/Throw',
-    Effect.succeed({
-      fail: (): Effect.Effect<void> => {
-        throw cause;
-      }
-    })
-  );
-  const result = await Effect.runPromise(
-    Effect.gen(function* () {
-      const instance = yield* service;
+test.stable(
+  'service suspends and normalizes synchronous construction throws',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-      return yield* Effect.flip(instance.fail());
-    }).pipe(Effect.provide(service.layer))
-  );
+    const cause = new Error('private');
+    const service = defineService(
+      'test/Throw',
+      Effect.succeed({
+        fail: (): Effect.Effect<void> => {
+          throw cause;
+        }
+      })
+    );
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const instance = yield* service;
 
-  test.assert.strictEqual(result.cause, cause);
-  test.assert.ok(result instanceof StudyError);
-});
+        return yield* Effect.flip(instance.fail());
+      }).pipe(Effect.provide(service.layer))
+    );
+
+    assert.strictEqual(result.cause, cause);
+    assert.ok(result instanceof StudyError);
+  }
+);
 
 function serviceTypeAssertions() {
   const service = defineService(
@@ -124,7 +138,9 @@ function serviceTypeAssertions() {
 
 void serviceTypeAssertions;
 
-test.stable('service operations remain lazy and cancellable', async () => {
+test.stable('service operations remain lazy and cancellable', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   let started = 0;
   let constructed = 0;
   let cancelled = 0;
@@ -153,21 +169,21 @@ test.stable('service operations remain lazy and cancellable', async () => {
       const instance = yield* service;
       const operation = instance.wait();
 
-      test.assert.strictEqual(started, 0);
-      test.assert.strictEqual(constructed, 0);
+      assert.strictEqual(started, 0);
+      assert.strictEqual(constructed, 0);
       const fiber = yield* Effect.forkChild(operation);
 
       yield* Effect.yieldNow;
       yield* Fiber.interrupt(fiber);
       const [exit] = yield* Fiber.awaitAll([fiber]);
 
-      test.assert.ok(Exit.isFailure(exit));
-      test.assert.ok(Cause.hasInterruptsOnly(exit.cause));
+      assert.ok(Exit.isFailure(exit));
+      assert.ok(Cause.hasInterruptsOnly(exit.cause));
     }).pipe(Effect.provide(service.layer))
   );
-  test.assert.strictEqual(started, 1);
-  test.assert.strictEqual(constructed, 1);
-  test.assert.strictEqual(cancelled, 1);
+  assert.strictEqual(started, 1);
+  assert.strictEqual(constructed, 1);
+  assert.strictEqual(cancelled, 1);
 });
 
 class Publication extends Context.Service<Publication, string>()('test/Publication') {}
@@ -221,21 +237,26 @@ function errorAndLayerTypeAssertions() {
 
 void errorAndLayerTypeAssertions;
 
-test.stable('service methods retain their individual capability requirements', async () => {
-  const guarded = defineService(
-    'test/Guarded',
-    Effect.succeed({ publish: () => Effect.map(Publication, (owner) => `published:${owner}`) })
-  );
-  const action = Effect.flatMap(guarded, (service) => service.publish()).pipe(
-    Effect.provide(guarded.layer)
-  );
-  const typed: Effect.Effect<string, StudyError, Publication> = action;
+test.stable(
+  'service methods retain their individual capability requirements',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test.assert.ok(
-    (await Effect.runPromise(typed.pipe(Effect.provideService(Publication, 'current')))) ===
-      'published:current'
-  );
-});
+    const guarded = defineService(
+      'test/Guarded',
+      Effect.succeed({ publish: () => Effect.map(Publication, (owner) => `published:${owner}`) })
+    );
+    const action = Effect.flatMap(guarded, (service) => service.publish()).pipe(
+      Effect.provide(guarded.layer)
+    );
+    const typed: Effect.Effect<string, StudyError, Publication> = action;
+
+    assert.ok(
+      (await Effect.runPromise(typed.pipe(Effect.provideService(Publication, 'current')))) ===
+        'published:current'
+    );
+  }
+);
 
 function publicationTypeAssertions() {
   const guarded = defineService(
@@ -256,7 +277,9 @@ void publicationTypeAssertions;
 
 test.stable(
   'service harness accepts lazy generator factories and preserves dependency and failure types',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     let acquisitions = 0;
     const failure = new StudyError('invalid_input', 'rejected');
     const service = defineService('test/Generator', function* () {
@@ -266,7 +289,7 @@ test.stable(
       return { greet: () => Effect.succeed(greeting), reject: () => Effect.fail(failure) };
     });
 
-    test.assert.strictEqual(acquisitions, 0);
+    assert.strictEqual(acquisitions, 0);
     const result = await Effect.runPromise(
       Effect.gen(function* () {
         const instance = yield* service;
@@ -275,8 +298,8 @@ test.stable(
       }).pipe(Effect.provide(service.layer), Effect.provideService(Greeting, 'hello'))
     );
 
-    test.assert.strictEqual(acquisitions, 1);
-    test.assert.strictEqual(result[0], 'hello');
-    test.assert.strictEqual(result[1], failure);
+    assert.strictEqual(acquisitions, 1);
+    assert.strictEqual(result[0], 'hello');
+    assert.strictEqual(result[1], failure);
   }
 );

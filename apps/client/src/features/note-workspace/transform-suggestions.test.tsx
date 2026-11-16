@@ -10,7 +10,7 @@ let api: ReturnType<typeof createMockState>['api'];
 
 const id = noteIdSchema.make(1n);
 
-let fixture: ReturnType<typeof test.rpcTestTransport>;
+let fixture: ReturnType<test.Context['rpcTestTransport']>;
 
 let revision = 1n;
 
@@ -43,11 +43,11 @@ test.beforeEach(async ({ mock }) => {
   Transformation = __mockModule0.Transformation;
 });
 
-test.beforeEach(() => {
-  test.vi.resetAllMocks();
+test.beforeEach(({ vi, rpcTestTransport }) => {
+  vi.resetAllMocks();
   api.readiness = 'ready';
   revision = 1n;
-  fixture = test.rpcTestTransport(async (tag, input) => {
+  fixture = rpcTestTransport(async (tag, input) => {
     if (tag === 'notes.suggestTransformField') return api.suggest(input);
 
     if (tag === 'notes.noteSelection') return { revision, targets: [] };
@@ -71,12 +71,12 @@ test.beforeEach(() => {
     throw new StudyError('unsupported', tag);
   });
 });
-test.afterEach(() => {
-  test.cleanup();
+test.afterEach(({ cleanup }) => {
+  cleanup();
 });
 
-function mount(active = true) {
-  return test.render(
+function mount({ render }: Pick<test.Context, 'render'>, active = true) {
+  return render(
     <Provider>
       <Transformation id={id} active={active} />
     </Provider>
@@ -94,110 +94,110 @@ function deferred() {
 
 test.stable(
   'generates each field independently and preserves edits during generation',
-  async () => {
+  async ({ waitFor, expect, screen, fireEvent, act, render }) => {
     const title = deferred();
 
     api.suggest.mockImplementation(({ field }: { field: string }) =>
       field === 'title' ? title.promise : Promise.resolve('Explain cell division')
     );
-    mount();
-    await test.waitFor(() =>
-      test.expect(test.screen.getByRole('button', { name: 'NoteGenerateTitle' })).toBeEnabled()
+    mount({ render });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'NoteGenerateTitle' })).toBeEnabled()
     );
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteGenerateTitle' }));
-    await test.waitFor(() => test.expect(api.suggest).toHaveBeenCalledTimes(1));
-    test.expect(test.screen.getByRole('button', { name: 'NoteGenerateTitle' })).toBeDisabled();
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteGenerateInstructions' }));
-    await test.waitFor(() =>
-      test
-        .expect(test.screen.getByLabelText('NoteInstructions'))
-        .toHaveValue('Explain cell division')
+    fireEvent.click(screen.getByRole('button', { name: 'NoteGenerateTitle' }));
+    await waitFor(() => expect(api.suggest).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('button', { name: 'NoteGenerateTitle' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'NoteGenerateInstructions' }));
+    await waitFor(() =>
+      expect(screen.getByLabelText('NoteInstructions')).toHaveValue('Explain cell division')
     );
-    test.fireEvent.change(test.screen.getByLabelText('NoteOutputTitle'), {
+    fireEvent.change(screen.getByLabelText('NoteOutputTitle'), {
       target: { value: 'My title' }
     });
-    await test.waitFor(() =>
-      test.expect(test.screen.getByLabelText('NoteOutputTitle')).toHaveValue('My title')
+    await waitFor(() => expect(screen.getByLabelText('NoteOutputTitle')).toHaveValue('My title'));
+    await act(async () => title.resolve('Generated title'));
+    expect(screen.getByLabelText('NoteOutputTitle')).toHaveValue('My title');
+    expect(api.suggest).toHaveBeenCalledWith(
+      expect.objectContaining({ noteId: id, field: 'instruction', language: 'english' })
     );
-    await test.act(async () => title.resolve('Generated title'));
-    test.expect(test.screen.getByLabelText('NoteOutputTitle')).toHaveValue('My title');
-    test
-      .expect(api.suggest)
-      .toHaveBeenCalledWith(
-        test.expect.objectContaining({ noteId: id, field: 'instruction', language: 'english' })
-      );
   }
 );
 
-test.stable('ignores old results after dismiss and reopen even when kept mounted', async () => {
-  const title = deferred();
-
-  api.suggest.mockReturnValue(title.promise);
-  const view = mount();
-
-  await test.waitFor(() =>
-    test.expect(test.screen.getByRole('button', { name: 'NoteGenerateTitle' })).toBeEnabled()
-  );
-  test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteGenerateTitle' }));
-  await test.waitFor(() => test.expect(api.suggest).toHaveBeenCalledTimes(1));
-  view.rerender(
-    <Provider>
-      <Transformation id={id} active={false} />
-    </Provider>
-  );
-  view.rerender(
-    <Provider>
-      <Transformation id={id} active />
-    </Provider>
-  );
-  await test.act(async () => title.resolve('Old title'));
-  test.expect(test.screen.getByLabelText('NoteOutputTitle')).toHaveValue('');
-});
-
-test.stable('shows a field error without clearing the other field and allows retry', async () => {
-  api.suggest
-    .mockRejectedValueOnce(new StudyError('auth', 'Sign in'))
-    .mockResolvedValue('Cell biology');
-  mount();
-  await test.waitFor(() =>
-    test.expect(test.screen.getByRole('button', { name: 'NoteGenerateTitle' })).toBeEnabled()
-  );
-  test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteGenerateTitle' }));
-  await test.screen.findByRole('alert');
-  test.expect(test.screen.getByLabelText('NoteInstructions')).toHaveValue('');
-  test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteGenerateTitle' }));
-  await test.waitFor(() =>
-    test.expect(test.screen.getByLabelText('NoteOutputTitle')).toHaveValue('Cell biology')
-  );
-});
-
 test.stable(
-  'ignores results after saved context changes or the selected notes change',
-  async () => {
+  'ignores old results after dismiss and reopen even when kept mounted',
+  async ({ waitFor, expect, screen, fireEvent, act, render }) => {
     const title = deferred();
 
     api.suggest.mockReturnValue(title.promise);
-    const view = mount();
+    const view = mount({ render });
 
-    await test.waitFor(() =>
-      test.expect(test.screen.getByRole('button', { name: 'NoteGenerateTitle' })).toBeEnabled()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'NoteGenerateTitle' })).toBeEnabled()
     );
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteGenerateTitle' }));
-    await test.waitFor(() => test.expect(api.suggest).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'NoteGenerateTitle' }));
+    await waitFor(() => expect(api.suggest).toHaveBeenCalledTimes(1));
+    view.rerender(
+      <Provider>
+        <Transformation id={id} active={false} />
+      </Provider>
+    );
+    view.rerender(
+      <Provider>
+        <Transformation id={id} active />
+      </Provider>
+    );
+    await act(async () => title.resolve('Old title'));
+    expect(screen.getByLabelText('NoteOutputTitle')).toHaveValue('');
+  }
+);
+
+test.stable(
+  'shows a field error without clearing the other field and allows retry',
+  async ({ waitFor, expect, screen, fireEvent, render }) => {
+    api.suggest
+      .mockRejectedValueOnce(new StudyError('auth', 'Sign in'))
+      .mockResolvedValue('Cell biology');
+    mount({ render });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'NoteGenerateTitle' })).toBeEnabled()
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'NoteGenerateTitle' }));
+    await screen.findByRole('alert');
+    expect(screen.getByLabelText('NoteInstructions')).toHaveValue('');
+    fireEvent.click(screen.getByRole('button', { name: 'NoteGenerateTitle' }));
+    await waitFor(() =>
+      expect(screen.getByLabelText('NoteOutputTitle')).toHaveValue('Cell biology')
+    );
+  }
+);
+
+test.stable(
+  'ignores results after saved context changes or the selected notes change',
+  async ({ waitFor, expect, screen, fireEvent, act, render }) => {
+    const title = deferred();
+
+    api.suggest.mockReturnValue(title.promise);
+    const view = mount({ render });
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'NoteGenerateTitle' })).toBeEnabled()
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'NoteGenerateTitle' }));
+    await waitFor(() => expect(api.suggest).toHaveBeenCalledTimes(1));
     revision = 2n;
-    await test.act(async () => {
+    await act(async () => {
       await fixture.notify();
     });
-    await test.waitFor(() =>
-      test.expect(test.screen.getByRole('button', { name: 'NoteGenerateTitle' })).toBeEnabled()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'NoteGenerateTitle' })).toBeEnabled()
     );
-    await test.act(async () => title.resolve('Stale title'));
-    test.expect(test.screen.getByLabelText('NoteOutputTitle')).toHaveValue('');
+    await act(async () => title.resolve('Stale title'));
+    expect(screen.getByLabelText('NoteOutputTitle')).toHaveValue('');
     const next = deferred();
 
     api.suggest.mockReturnValue(next.promise);
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteGenerateTitle' }));
-    await test.waitFor(() => test.expect(api.suggest).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByRole('button', { name: 'NoteGenerateTitle' }));
+    await waitFor(() => expect(api.suggest).toHaveBeenCalledTimes(2));
     view.rerender(
       <Provider>
         <Transformation
@@ -209,51 +209,58 @@ test.stable(
         />
       </Provider>
     );
-    await test.act(async () => next.resolve('Wrong group'));
-    test.expect(test.screen.getByLabelText('NoteOutputTitle')).toHaveValue('');
+    await act(async () => next.resolve('Wrong group'));
+    expect(screen.getByLabelText('NoteOutputTitle')).toHaveValue('');
   }
 );
 
-test.stable('disables suggestions above twenty notes without truncating the selection', () => {
-  test.render(
-    <Provider>
-      <Transformation
-        id={id}
-        notes={Array.from({ length: 21 }, (_, index) => ({
-          id: noteIdSchema.make(BigInt(index + 1)),
-          title: `Note ${index + 1}`
-        }))}
-      />
-    </Provider>
-  );
-  test.expect(test.screen.getByRole('button', { name: 'NoteGenerateTitle' })).toBeDisabled();
-  test.expect(test.screen.getByRole('button', { name: 'NoteGenerateInstructions' })).toBeDisabled();
-  test.expect(test.screen.getAllByText('NoteSuggestionLimit')).toHaveLength(2);
-  test.expect(api.suggest).not.toHaveBeenCalled();
-});
+test.stable(
+  'disables suggestions above twenty notes without truncating the selection',
+  ({ render, expect, screen }) => {
+    render(
+      <Provider>
+        <Transformation
+          id={id}
+          notes={Array.from({ length: 21 }, (_, index) => ({
+            id: noteIdSchema.make(BigInt(index + 1)),
+            title: `Note ${index + 1}`
+          }))}
+        />
+      </Provider>
+    );
+    expect(screen.getByRole('button', { name: 'NoteGenerateTitle' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'NoteGenerateInstructions' })).toBeDisabled();
+    expect(screen.getAllByText('NoteSuggestionLimit')).toHaveLength(2);
+    expect(api.suggest).not.toHaveBeenCalled();
+  }
+);
 
-test.stable('offers retry guidance for invalid model output', async () => {
-  api.suggest.mockRejectedValue(new StudyError('transient', 'Invalid transform suggestion'));
-  mount();
-  await test.waitFor(() =>
-    test.expect(test.screen.getByRole('button', { name: 'NoteGenerateTitle' })).toBeEnabled()
-  );
-  test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteGenerateTitle' }));
-  test.expect(await test.screen.findByText('NoteSuggestionError')).toBeVisible();
-  test.expect(test.screen.queryByText('NoteSuggestionContextError')).toBeNull();
-});
+test.stable(
+  'offers retry guidance for invalid model output',
+  async ({ waitFor, expect, screen, fireEvent, render }) => {
+    api.suggest.mockRejectedValue(new StudyError('transient', 'Invalid transform suggestion'));
+    mount({ render });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'NoteGenerateTitle' })).toBeEnabled()
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'NoteGenerateTitle' }));
+    expect(await screen.findByText('NoteSuggestionError')).toBeVisible();
+    expect(screen.queryByText('NoteSuggestionContextError')).toBeNull();
+  }
+);
 
-test.stable('blocks new suggestions and page creation when setup is missing', async () => {
-  api.readiness = 'setup';
-  mount();
-  test.expect(test.screen.getAllByText('Readiness: setup')).toHaveLength(1);
-  await test.waitFor(() =>
-    test.expect(test.screen.getByLabelText('NoteOutputTitle')).toBeEnabled()
-  );
-  test.fireEvent.change(test.screen.getByLabelText('NoteOutputTitle'), {
-    target: { value: 'Title' }
-  });
-  test.expect(test.screen.getByRole('button', { name: 'NoteGenerateTitle' })).toBeDisabled();
-  test.expect(test.screen.getByRole('button', { name: 'NoteCreatePage' })).toBeDisabled();
-  test.expect(api.suggest).not.toHaveBeenCalled();
-});
+test.stable(
+  'blocks new suggestions and page creation when setup is missing',
+  async ({ expect, screen, waitFor, fireEvent, render }) => {
+    api.readiness = 'setup';
+    mount({ render });
+    expect(screen.getAllByText('Readiness: setup')).toHaveLength(1);
+    await waitFor(() => expect(screen.getByLabelText('NoteOutputTitle')).toBeEnabled());
+    fireEvent.change(screen.getByLabelText('NoteOutputTitle'), {
+      target: { value: 'Title' }
+    });
+    expect(screen.getByRole('button', { name: 'NoteGenerateTitle' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'NoteCreatePage' })).toBeDisabled();
+    expect(api.suggest).not.toHaveBeenCalled();
+  }
+);

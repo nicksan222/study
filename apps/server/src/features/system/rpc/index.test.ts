@@ -22,7 +22,9 @@ import { serve } from '#server/runtime/index';
 
 test.stable(
   'native System RPC returns published quiz search identities',
-  async ({ resources: location }) => {
+  async ({ resources: location, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const app = await location.openApp({ path: location.path });
     const server = await serve(app);
 
@@ -52,7 +54,7 @@ test.stable(
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
             const result = yield* client['system.search']({ query: 'solar', limit: 1 });
 
-            test.expect(result.hits[0]?.target).toStrictEqual({
+            expect(result.hits[0]?.target).toStrictEqual({
               type: 'question',
               materialId: 1n,
               versionId: 1n,
@@ -64,14 +66,14 @@ test.stable(
               kinds: ['note', 'message']
             });
 
-            test.expect(filtered.hits).toStrictEqual([]);
+            expect(filtered.hits).toStrictEqual([]);
             const material = yield* client['system.search']({
               query: 'astronomy',
               limit: 10,
               kinds: ['material']
             });
 
-            test.assert.ok(
+            assert.ok(
               material.hits[0]?.target.type === 'material' &&
                 material.hits[0].target.materialKind === 'quiz'
             );
@@ -81,7 +83,7 @@ test.stable(
               project: 2n as never
             });
 
-            test.assert.strictEqual(other.hits.length, 0);
+            assert.strictEqual(other.hits.length, 0);
           })
         )
       );

@@ -73,7 +73,9 @@ async function fixture(databases: Databases) {
 
 test.stable(
   'exact authored readers and source-owned image revisions retain independent identities across reopen',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await fixture(databases);
 
     try {
@@ -93,11 +95,8 @@ test.stable(
               bytes: new Uint8Array([...bytes, 1])
             });
 
-            test.assert.notStrictEqual(source.id, other.id);
-            test.assert.strictEqual(
-              (yield* rpc['sources.source']({ id: source.id })).id,
-              source.id
-            );
+            assert.notStrictEqual(source.id, other.id);
+            assert.strictEqual((yield* rpc['sources.source']({ id: source.id })).id, source.id);
             const imageBlock = createBlock({
               type: 'image',
               sourceId: source.id,
@@ -114,10 +113,10 @@ test.stable(
               citations: []
             });
 
-            test.assert.ok(authored.version);
+            assert.ok(authored.version);
             const original = yield* rpc['pages.version']({ id: authored.version.id });
 
-            test.expect(original.document).toStrictEqual(document);
+            expect(original.document).toStrictEqual(document);
             const another = yield* rpc['pages.create']({
               createKey: crypto.randomUUID(),
               title: 'Other',
@@ -126,17 +125,17 @@ test.stable(
               citations: []
             });
 
-            test.assert.ok(another.version);
-            test.assert.notStrictEqual(original.snapshotId, another.version.snapshotId);
-            test.assert.notStrictEqual(original.pageId, another.id);
-            test.assert.ok(original.document.blocks[0]?.content.type === 'image');
+            assert.ok(another.version);
+            assert.notStrictEqual(original.snapshotId, another.version.snapshotId);
+            assert.notStrictEqual(original.pageId, another.id);
+            assert.ok(original.document.blocks[0]?.content.type === 'image');
             const image = yield* rpc['sources.exportRevision']({
               sourceId: original.document.blocks[0].content.sourceId,
               revision: BigInt(original.document.blocks[0].content.revision)
             });
 
-            test.assert.ok(image.mime === 'image/png');
-            test.expect(image.bytes).toStrictEqual(bytes);
+            assert.ok(image.mime === 'image/png');
+            expect(image.bytes).toStrictEqual(bytes);
             const revised = yield* rpc['pages.save']({
               pageId: authored.id,
               expectedVersionId: original.id,
@@ -145,14 +144,11 @@ test.stable(
             });
             const next = yield* rpc['pages.version']({ id: revised.submittedVersionId });
 
-            test.assert.ok(
+            assert.ok(
               next.document.blocks.some((block) => block.content.type === 'image') === false
             );
-            test.expect(yield* rpc['pages.version']({ id: original.id })).toStrictEqual(original);
-            test.assert.strictEqual(
-              f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n,
-              0n
-            );
+            expect(yield* rpc['pages.version']({ id: original.id })).toStrictEqual(original);
+            assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
 
             return { original, image, source };
           }).pipe(Effect.provide(f.handlers()))
@@ -165,15 +161,13 @@ test.stable(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(PagesRpc.merge(SourcesRpc));
 
-            test
-              .expect(yield* rpc['pages.version']({ id: saved.original.id }))
-              .toStrictEqual(saved.original);
-            test
-              .expect(
-                yield* rpc['sources.exportRevision']({ sourceId: saved.source.id, revision: 1n })
-              )
-              .toStrictEqual(saved.image);
-            test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+            expect(yield* rpc['pages.version']({ id: saved.original.id })).toStrictEqual(
+              saved.original
+            );
+            expect(
+              yield* rpc['sources.exportRevision']({ sourceId: saved.source.id, revision: 1n })
+            ).toStrictEqual(saved.image);
+            expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
           }).pipe(Effect.provide(f.handlers()))
         )
       );
@@ -185,7 +179,9 @@ test.stable(
 
 test.stable(
   'authored history retirement removes its exact reader body while an independent version retains image bytes',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await fixture(databases);
 
     try {
@@ -213,7 +209,7 @@ test.stable(
               citations: []
             });
 
-            test.assert.ok(authored.version);
+            assert.ok(authored.version);
             const next = yield* rpc['pages.save']({
               pageId: authored.id,
               expectedVersionId: authored.version.id,
@@ -232,16 +228,16 @@ test.stable(
               keepLatest: 1,
               token: preview.token
             });
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(rpc['pages.version']({ id: before.id }))).kind === 'not_found'
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               f.context.db.orm.get(
                 sql`SELECT 1 FROM document_assets WHERE document_id=${before.snapshotId}`
               ),
               undefined
             );
-            test.assert.ok(
+            assert.ok(
               f.context.db.orm.get(
                 sql`SELECT 1 FROM document_assets WHERE document_id=${after.snapshotId}`
               )
@@ -258,21 +254,19 @@ test.stable(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(PagesRpc.merge(SourcesRpc));
 
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(rpc['pages.version']({ id: saved.before.id }))).kind ===
                 'not_found'
             );
-            test
-              .expect(yield* rpc['pages.version']({ id: saved.after.id }))
-              .toStrictEqual(saved.after);
+            expect(yield* rpc['pages.version']({ id: saved.after.id })).toStrictEqual(saved.after);
             const image = yield* rpc['sources.exportRevision']({
               sourceId: saved.source.id,
               revision: 1n
             });
 
-            test.assert.ok(image.mime === 'image/png');
-            test.assert.ok(image.bytes.length);
-            test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+            assert.ok(image.mime === 'image/png');
+            assert.ok(image.bytes.length);
+            expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
           }).pipe(Effect.provide(f.handlers()))
         )
       );

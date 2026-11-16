@@ -13,7 +13,7 @@ import type { MaterialId, ContentSnapshotId } from '@study/contracts';
 import { MaterialsRpc } from '@study/contracts';
 import { eq } from '@study/db';
 import * as s from '@study/db';
-import { test } from '@study/testing';
+import type { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
 import { WorkflowEngine } from 'effect/workflow';
@@ -34,7 +34,9 @@ import { testLiveQueries } from '#testing/live-queries';
 import type { MaterialDeletionFixture } from '#testing/material-deletion';
 import { admitTestExecution, refreshTestExecution } from '#testing/workflow-admission';
 
-function historyEvent(f: MaterialDeletionFixture, operationId: string) {
+type TestAssertion = Pick<test.Context, 'assert'>['assert'];
+
+function historyEvent(f: MaterialDeletionFixture, operationId: string, assert: TestAssertion) {
   const event = f.context.db.orm
     .select()
     .from(s.workflowEvents)
@@ -45,13 +47,17 @@ function historyEvent(f: MaterialDeletionFixture, operationId: string) {
       (event) => event.type === 'MaterialHistoryPruneRequested' && event.operationId === operationId
     );
 
-  test.assert.ok(event?.type === 'MaterialHistoryPruneRequested');
+  assert.ok(event?.type === 'MaterialHistoryPruneRequested');
 
   return event;
 }
 
-export function cleanupHistory(f: MaterialDeletionFixture, operationId: string) {
-  const event = historyEvent(f, operationId);
+export function cleanupHistory(
+  f: MaterialDeletionFixture,
+  operationId: string,
+  assert: TestAssertion
+) {
+  const event = historyEvent(f, operationId, assert);
 
   return Effect.runPromise(
     Effect.scoped(
@@ -108,7 +114,11 @@ export function acceptHistory(
   );
 }
 
-export function processSource(f: MaterialDeletionFixture, correction = false) {
+export function processSource(
+  f: MaterialDeletionFixture,
+  assert: TestAssertion,
+  correction = false
+) {
   const row = f.context.db.orm
     .select()
     .from(s.workflowEvents)
@@ -123,7 +133,7 @@ export function processSource(f: MaterialDeletionFixture, correction = false) {
 
   const event = row === undefined ? undefined : decodeEvent(row.payload);
 
-  test.assert.ok(
+  assert.ok(
     event?.type === 'SourceProcessingRequested' || event?.type === 'SourceCorrectionRequested'
   );
 
@@ -185,7 +195,7 @@ export function processSource(f: MaterialDeletionFixture, correction = false) {
           .map((row) => decodeEvent(row.payload))
           .findLast((e) => e.type === 'SourceIndexed' && e.documentId === documentId);
 
-        test.assert.ok(indexed?.type === 'SourceIndexed');
+        assert.ok(indexed?.type === 'SourceIndexed');
 
         return { documentId };
       }).pipe(Effect.provide(materialHistoryRegistration.layer), Effect.provide(f.services()))

@@ -32,7 +32,9 @@ const png = Buffer.from(
 
 test.stable(
   'rechecksummed theme, asset revision, migration receipt and virtual schema tampering is rejected',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await backupFixture();
 
     try {
@@ -140,37 +142,33 @@ test.stable(
 
       const at = patched.lastIndexOf(png);
 
-      test.assert.ok(at >= 0);
+      assert.ok(at >= 0);
       patched[at + png.length - 1] = patched[at + png.length - 1]! ^ 1;
 
       const { repack } = await import('#testing/managed-backups');
 
-      await test
-        .expect(
-          f.app.nativeRuntime.runPromise(
-            api.importBackup({ bytes: repack(originalPacket.manifest, patched) })
-          )
+      await expect(
+        f.app.nativeRuntime.runPromise(
+          api.importBackup({ bytes: repack(originalPacket.manifest, patched) })
         )
-        .rejects.toSatisfy(() => true);
+      ).rejects.toSatisfy(() => true);
 
       for (const change of changes) {
-        await test
-          .expect(
-            f.app.nativeRuntime.runPromise(
-              api.importBackup({ bytes: await changedArtifact(f.location.dir, bytes, change) })
-            )
+        await expect(
+          f.app.nativeRuntime.runPromise(
+            api.importBackup({ bytes: await changedArtifact(f.location.dir, bytes, change) })
           )
-          .rejects.toSatisfy(() => true);
-        test.assert.strictEqual(f.app.store.db.contentIdentity(), before);
-        test.assert.ok(
+        ).rejects.toSatisfy(() => true);
+        assert.strictEqual(f.app.store.db.contentIdentity(), before);
+        assert.ok(
           (await Effect.runPromise(fs.exists(f.location.path + '.backups/scratch.sqlite'))) ===
             false
         );
       }
 
-      test
-        .expect((await f.app.nativeRuntime.runPromise(api.backups())).map((b) => b.id))
-        .toStrictEqual([backup.id]);
+      expect((await f.app.nativeRuntime.runPromise(api.backups())).map((b) => b.id)).toStrictEqual([
+        backup.id
+      ]);
     } finally {
       await f.close();
     }
@@ -179,7 +177,9 @@ test.stable(
 
 test.stable(
   'manifest and byte bounds reject malformed transport without allocating managed artifacts',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const f = await backupFixture();
 
     try {
@@ -205,23 +205,23 @@ test.stable(
         oversizedManifest.toString('base64'),
         missingBody.toString('base64')
       ])
-        await test
-          .expect(f.app.nativeRuntime.runPromise(api.importBackup({ bytes })))
-          .rejects.toSatisfy(() => true);
+        await expect(f.app.nativeRuntime.runPromise(api.importBackup({ bytes }))).rejects.toSatisfy(
+          () => true
+        );
 
-      test.assert.strictEqual((await f.app.nativeRuntime.runPromise(api.backups())).length, 1);
+      assert.strictEqual((await f.app.nativeRuntime.runPromise(api.backups())).length, 1);
 
       for (let index = 1; index < MAX_MANAGED_BACKUPS; index++)
         await f.app.nativeRuntime.runPromise(api.createBackup());
 
-      await test
-        .expect(f.app.nativeRuntime.runPromise(api.createBackup()))
-        .rejects.toSatisfy(() => true);
-      test.assert.strictEqual(
+      await expect(f.app.nativeRuntime.runPromise(api.createBackup())).rejects.toSatisfy(
+        () => true
+      );
+      assert.strictEqual(
         (await f.app.nativeRuntime.runPromise(api.backups())).length,
         MAX_MANAGED_BACKUPS
       );
-      test.assert.ok(
+      assert.ok(
         (await Effect.runPromise(fs.readDirectory(f.location.path + '.backups'))).some(
           (name) => name.endsWith('.writing') || name.startsWith('scratch.sqlite')
         ) === false
@@ -232,37 +232,43 @@ test.stable(
   }
 );
 
-test.stable('listing preserves incompatible artifacts while returning usable backups', async () => {
-  const f = await backupFixture();
+test.stable(
+  'listing preserves incompatible artifacts while returning usable backups',
+  async ({ expect }) => {
+    const f = await backupFixture();
 
-  try {
-    const api = await f.api();
-    const backup = await f.app.nativeRuntime.runPromise(api.createBackup());
-    const exported = Buffer.from(
-      await f.app.nativeRuntime.runPromise(api.readBackup({ id: backup.id })),
-      'base64'
-    );
-    const parsed = packet(exported);
-    const { repack } = await import('#testing/managed-backups');
-    const id = crypto.randomUUID();
-    const incompatible = Buffer.from(
-      repack({ ...parsed.manifest, id, version: 999 } as unknown as BackupManifest, parsed.sqlite),
-      'base64'
-    );
-    const path = f.location.path + '.backups/' + id + '.studybackup';
+    try {
+      const api = await f.api();
+      const backup = await f.app.nativeRuntime.runPromise(api.createBackup());
+      const exported = Buffer.from(
+        await f.app.nativeRuntime.runPromise(api.readBackup({ id: backup.id })),
+        'base64'
+      );
+      const parsed = packet(exported);
+      const { repack } = await import('#testing/managed-backups');
+      const id = crypto.randomUUID();
+      const incompatible = Buffer.from(
+        repack(
+          { ...parsed.manifest, id, version: 999 } as unknown as BackupManifest,
+          parsed.sqlite
+        ),
+        'base64'
+      );
+      const path = f.location.path + '.backups/' + id + '.studybackup';
 
-    await Bun.write(path, incompatible);
-    test
-      .expect((await f.app.nativeRuntime.runPromise(api.backups())).map((entry) => entry.id))
-      .toStrictEqual([backup.id]);
-    test.expect(Buffer.from(await Bun.file(path).arrayBuffer())).toStrictEqual(incompatible);
-    await test
-      .expect(f.app.nativeRuntime.runPromise(api.readBackup({ id: id as BackupId })))
-      .rejects.toMatchObject({ kind: 'invalid_input' });
-    test
-      .expect(await f.app.nativeRuntime.runPromise(api.readBackup({ id: backup.id })))
-      .toBe(exported.toString('base64'));
-  } finally {
-    await f.close();
+      await Bun.write(path, incompatible);
+      expect(
+        (await f.app.nativeRuntime.runPromise(api.backups())).map((entry) => entry.id)
+      ).toStrictEqual([backup.id]);
+      expect(Buffer.from(await Bun.file(path).arrayBuffer())).toStrictEqual(incompatible);
+      await expect(
+        f.app.nativeRuntime.runPromise(api.readBackup({ id: id as BackupId }))
+      ).rejects.toMatchObject({ kind: 'invalid_input' });
+      expect(await f.app.nativeRuntime.runPromise(api.readBackup({ id: backup.id }))).toBe(
+        exported.toString('base64')
+      );
+    } finally {
+      await f.close();
+    }
   }
-});
+);

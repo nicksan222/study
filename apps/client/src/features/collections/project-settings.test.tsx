@@ -46,13 +46,16 @@ test.beforeEach(async ({ mock }) => {
   ProjectSettings = __mockModule0.ProjectSettings;
 });
 
-test.beforeEach(() => {
-  test.vi.resetAllMocks();
+test.beforeEach(({ vi }) => {
+  vi.resetAllMocks();
   api.list.mockResolvedValue([first, second]);
 });
 
-function mount(initialProject: ProjectId | null = second.id) {
-  const harness = test.rpcHandlersTransport({
+function mount(
+  { rpcHandlersTransport, render }: Pick<test.Context, 'rpcHandlersTransport' | 'render'>,
+  initialProject: ProjectId | null = second.id
+) {
+  const harness = rpcHandlersTransport({
     'projects.projects': async () => ({ items: await api.list(), next: null }),
     'projects.project': async ({ id }) => {
       const items = await api.list();
@@ -68,7 +71,7 @@ function mount(initialProject: ProjectId | null = second.id) {
   });
 
   return {
-    ...test.render(
+    ...render(
       <harness.wrapper>
         <ProjectSettings initialProject={initialProject ?? undefined} />
       </harness.wrapper>
@@ -78,83 +81,74 @@ function mount(initialProject: ProjectId | null = second.id) {
 
 test.stable(
   'edits the exact selected subject and refreshes canonical sidebar data after renaming',
-  async () => {
+  async ({ screen, expect, fireEvent, waitFor, rpcHandlersTransport, render }) => {
     api.rename.mockImplementation(async () => {
       api.list.mockResolvedValue([first, { ...second, name: 'Linear algebra' }]);
 
       return true;
     });
-    mount();
-    const name = await test.screen.findByRole('textbox', { name: 'ProjectName' });
+    mount({ rpcHandlersTransport, render });
+    const name = await screen.findByRole('textbox', { name: 'ProjectName' });
 
-    test.expect(name).toHaveValue('Math 101');
-    test.fireEvent.change(name, { target: { value: 'Linear algebra' } });
-    await test.waitFor(() =>
-      test.expect(test.screen.getByRole('button', { name: 'Save' })).toBeEnabled()
-    );
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'Save' }));
-    await test.screen.findAllByText('Linear algebra');
-    test
-      .expect(api.rename)
-      .toHaveBeenCalledExactlyOnceWith({ id: second.id, name: 'Linear algebra' });
-    test.expect(name).toHaveValue('Linear algebra');
+    expect(name).toHaveValue('Math 101');
+    fireEvent.change(name, { target: { value: 'Linear algebra' } });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await screen.findAllByText('Linear algebra');
+    expect(api.rename).toHaveBeenCalledExactlyOnceWith({ id: second.id, name: 'Linear algebra' });
+    expect(name).toHaveValue('Linear algebra');
   }
 );
 
 test.stable(
   'keeps unsaved names with their subject when navigating between list and details',
-  async () => {
-    const user = test.userEvent.setup();
+  async ({ userEvent, fireEvent, screen, expect, rpcHandlersTransport, render }) => {
+    const user = userEvent.setup();
 
-    mount();
-    test.fireEvent.change(await test.screen.findByRole('textbox', { name: 'ProjectName' }), {
+    mount({ rpcHandlersTransport, render });
+    fireEvent.change(await screen.findByRole('textbox', { name: 'ProjectName' }), {
       target: { value: 'Draft algebra' }
     });
-    await user.click(test.screen.getByRole('button', { name: 'Projects' }));
-    await user.click(await test.screen.findByRole('button', { name: 'Biology' }));
-    test.expect(test.screen.getByRole('textbox', { name: 'ProjectName' })).toHaveValue('Biology');
-    await user.click(test.screen.getByRole('button', { name: 'Projects' }));
-    await user.click(await test.screen.findByRole('button', { name: 'Math 101' }));
-    test
-      .expect(test.screen.getByRole('textbox', { name: 'ProjectName' }))
-      .toHaveValue('Draft algebra');
+    await user.click(screen.getByRole('button', { name: 'Projects' }));
+    await user.click(await screen.findByRole('button', { name: 'Biology' }));
+    expect(screen.getByRole('textbox', { name: 'ProjectName' })).toHaveValue('Biology');
+    await user.click(screen.getByRole('button', { name: 'Projects' }));
+    await user.click(await screen.findByRole('button', { name: 'Math 101' }));
+    expect(screen.getByRole('textbox', { name: 'ProjectName' })).toHaveValue('Draft algebra');
   }
 );
 
-test.stable('keeps the submitted name available after a failed rename', async () => {
-  api.rename.mockRejectedValue(new StudyError('transient', 'Offline'));
-  mount();
-  test.fireEvent.change(await test.screen.findByRole('textbox', { name: 'ProjectName' }), {
-    target: { value: 'Draft algebra' }
-  });
-  await test.waitFor(() =>
-    test.expect(test.screen.getByRole('button', { name: 'Save' })).toBeEnabled()
-  );
-  test.fireEvent.click(test.screen.getByRole('button', { name: 'Save' }));
-  await test.screen.findByText('collections.mutationError');
-  test
-    .expect(test.screen.getByRole('textbox', { name: 'ProjectName' }))
-    .toHaveValue('Draft algebra');
-  test.expect(test.screen.getByRole('button', { name: 'Save' })).toBeEnabled();
-});
+test.stable(
+  'keeps the submitted name available after a failed rename',
+  async ({ fireEvent, screen, waitFor, expect, rpcHandlersTransport, render }) => {
+    api.rename.mockRejectedValue(new StudyError('transient', 'Offline'));
+    mount({ rpcHandlersTransport, render });
+    fireEvent.change(await screen.findByRole('textbox', { name: 'ProjectName' }), {
+      target: { value: 'Draft algebra' }
+    });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await screen.findByText('collections.mutationError');
+    expect(screen.getByRole('textbox', { name: 'ProjectName' })).toHaveValue('Draft algebra');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+  }
+);
 
 test.stable(
   'opens the icon editor for the selected subject and persists its exact identity',
-  async () => {
+  async ({ fireEvent, screen, within, waitFor, expect, rpcHandlersTransport, render }) => {
     api.icon.mockImplementation(async (input) => ({ ...second, icon: input.icon }));
-    mount();
-    test.fireEvent.click(await test.screen.findByRole('button', { name: 'SubjectIconChange' }));
-    const dialog = test.within(
-      await test.screen.findByRole('dialog', { name: 'SubjectIconTitle' })
-    );
+    mount({ rpcHandlersTransport, render });
+    fireEvent.click(await screen.findByRole('button', { name: 'SubjectIconChange' }));
+    const dialog = within(await screen.findByRole('dialog', { name: 'SubjectIconTitle' }));
 
-    test.fireEvent.click(dialog.getByRole('button', { name: 'SubjectIconCustom' }));
-    test.fireEvent.change(dialog.getByRole('textbox', { name: 'SubjectIconLetters' }), {
+    fireEvent.click(dialog.getByRole('button', { name: 'SubjectIconCustom' }));
+    fireEvent.change(dialog.getByRole('textbox', { name: 'SubjectIconLetters' }), {
       target: { value: 'LA' }
     });
-    test.fireEvent.click(dialog.getByRole('button', { name: 'Save' }));
-    await test.waitFor(() =>
-      test.expect(api.icon).toHaveBeenCalledExactlyOnceWith({
+    fireEvent.click(dialog.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(api.icon).toHaveBeenCalledExactlyOnceWith({
         id: second.id,
         icon: { kind: 'monogram', value: 'LA', color: 'neutral' }
       })
@@ -162,48 +156,46 @@ test.stable(
   }
 );
 
-test.stable('requires exact-name confirmation and removes only the selected subject', async () => {
-  api.remove.mockImplementation(async () => {
-    api.list.mockResolvedValue([first]);
-
-    return true;
-  });
-  mount();
-  test.fireEvent.click(await test.screen.findByRole('button', { name: 'ProjectSettingsDelete' }));
-  const dialog = test.within(test.screen.getByRole('alertdialog'));
-
-  test.expect(dialog.getByRole('button', { name: 'ProjectSettingsDelete' })).toBeDisabled();
-  test.fireEvent.change(dialog.getByRole('textbox'), { target: { value: 'Math 101' } });
-  test.fireEvent.click(dialog.getByRole('button', { name: 'ProjectSettingsDelete' }));
-  await test.waitFor(() =>
-    test.expect(api.remove).toHaveBeenCalledExactlyOnceWith({ id: second.id })
-  );
-  await test.waitFor(() =>
-    test.expect(test.screen.queryByRole('alertdialog')).not.toBeInTheDocument()
-  );
-  test.expect(await test.screen.findByRole('button', { name: 'Biology' })).toBeVisible();
-  test.expect(test.screen.queryByRole('button', { name: 'Math 101' })).not.toBeInTheDocument();
-});
-
 test.stable(
-  'shows a useful empty state without editable fields when no subjects exist',
-  async () => {
-    api.list.mockResolvedValue([]);
-    mount();
-    test.expect(await test.screen.findByText('NoProjectsYet')).toBeVisible();
-    test
-      .expect(test.screen.queryByRole('textbox', { name: 'ProjectName' }))
-      .not.toBeInTheDocument();
+  'requires exact-name confirmation and removes only the selected subject',
+  async ({ fireEvent, screen, within, expect, waitFor, rpcHandlersTransport, render }) => {
+    api.remove.mockImplementation(async () => {
+      api.list.mockResolvedValue([first]);
+
+      return true;
+    });
+    mount({ rpcHandlersTransport, render });
+    fireEvent.click(await screen.findByRole('button', { name: 'ProjectSettingsDelete' }));
+    const dialog = within(screen.getByRole('alertdialog'));
+
+    expect(dialog.getByRole('button', { name: 'ProjectSettingsDelete' })).toBeDisabled();
+    fireEvent.change(dialog.getByRole('textbox'), { target: { value: 'Math 101' } });
+    fireEvent.click(dialog.getByRole('button', { name: 'ProjectSettingsDelete' }));
+    await waitFor(() => expect(api.remove).toHaveBeenCalledExactlyOnceWith({ id: second.id }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(await screen.findByRole('button', { name: 'Biology' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Math 101' })).not.toBeInTheDocument();
   }
 );
 
-test.stable('opens the subjects index first and drills into the chosen subject', async () => {
-  mount(null);
-  test.expect(await test.screen.findByRole('button', { name: 'Biology' })).toBeVisible();
-  test.expect(test.screen.getByRole('button', { name: 'Math 101' })).toBeVisible();
-  test.expect(test.screen.queryByRole('textbox', { name: 'ProjectName' })).not.toBeInTheDocument();
-  test.fireEvent.click(test.screen.getByRole('button', { name: 'Biology' }));
-  test
-    .expect(await test.screen.findByRole('textbox', { name: 'ProjectName' }))
-    .toHaveValue('Biology');
-});
+test.stable(
+  'shows a useful empty state without editable fields when no subjects exist',
+  async ({ expect, screen, rpcHandlersTransport, render }) => {
+    api.list.mockResolvedValue([]);
+    mount({ rpcHandlersTransport, render });
+    expect(await screen.findByText('NoProjectsYet')).toBeVisible();
+    expect(screen.queryByRole('textbox', { name: 'ProjectName' })).not.toBeInTheDocument();
+  }
+);
+
+test.stable(
+  'opens the subjects index first and drills into the chosen subject',
+  async ({ expect, screen, fireEvent, rpcHandlersTransport, render }) => {
+    mount({ rpcHandlersTransport, render }, null);
+    expect(await screen.findByRole('button', { name: 'Biology' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Math 101' })).toBeVisible();
+    expect(screen.queryByRole('textbox', { name: 'ProjectName' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Biology' }));
+    expect(await screen.findByRole('textbox', { name: 'ProjectName' })).toHaveValue('Biology');
+  }
+);

@@ -42,77 +42,88 @@ test.beforeEach(() => {
   });
 });
 
-function mount() {
-  return test.render(<UpdatesSettings />);
+function mount({ render }: Pick<test.Context, 'render'>) {
+  return render(<UpdatesSettings />);
 }
 
-test.stable('browser explains availability without invoking native commands', () => {
-  native.enabled = false;
-  mount();
-  test
-    .expect(test.screen.getByText('Updates are available in installed release builds.'))
-    .toBeInTheDocument();
-  test
-    .expect(test.screen.queryByRole('button', { name: 'Check for updates' }))
-    .not.toBeInTheDocument();
-  test.expect(native.invoke).not.toHaveBeenCalled();
-});
+test.stable(
+  'browser explains availability without invoking native commands',
+  ({ expect, screen, render }) => {
+    native.enabled = false;
+    mount({ render });
+    expect(
+      screen.getByText('Updates are available in installed release builds.')
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Check for updates' })).not.toBeInTheDocument();
+    expect(native.invoke).not.toHaveBeenCalled();
+  }
+);
 
-test.stable('manual check reports current version only after a successful check', async () => {
-  mount();
-  test.expect(await test.screen.findByText('0.1.1')).toBeInTheDocument();
-  test.expect(test.screen.queryByText('Study is up to date.')).not.toBeInTheDocument();
-  await test.userEvent.click(await test.screen.findByRole('button', { name: 'Check for updates' }));
-  test.expect(await test.screen.findByText('Study is up to date.')).toBeInTheDocument();
-  test.expect(native.invoke).toHaveBeenCalledWith('check_for_update');
-});
+test.stable(
+  'manual check reports current version only after a successful check',
+  async ({ expect, screen, userEvent, render }) => {
+    mount({ render });
+    expect(await screen.findByText('0.1.1')).toBeInTheDocument();
+    expect(screen.queryByText('Study is up to date.')).not.toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('button', { name: 'Check for updates' }));
+    expect(await screen.findByText('Study is up to date.')).toBeInTheDocument();
+    expect(native.invoke).toHaveBeenCalledWith('check_for_update');
+  }
+);
 
-test.stable('unsigned desktop builds cannot claim to be current', async () => {
-  native.invoke.mockResolvedValue({ version: '0.1.1', supported: false });
-  mount();
-  test
-    .expect(await test.screen.findByText('Updates are available in installed release builds.'))
-    .toBeInTheDocument();
-  test
-    .expect(test.screen.queryByRole('button', { name: 'Check for updates' }))
-    .not.toBeInTheDocument();
-});
+test.stable(
+  'unsigned desktop builds cannot claim to be current',
+  async ({ expect, screen, render }) => {
+    native.invoke.mockResolvedValue({ version: '0.1.1', supported: false });
+    mount({ render });
+    expect(
+      await screen.findByText('Updates are available in installed release builds.')
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Check for updates' })).not.toBeInTheDocument();
+  }
+);
 
-test.stable('retries a failed native capability query before enabling manual checks', async () => {
-  native.invoke.mockRejectedValueOnce(new Error('connection unavailable'));
-  mount();
-  test
-    .expect(await test.screen.findByText('The update could not be completed. Try again.'))
-    .toBeInTheDocument();
-  await test.userEvent.click(test.screen.getByRole('button', { name: 'Retry' }));
-  test.expect(await test.screen.findByRole('button', { name: 'Check for updates' })).toBeEnabled();
-});
+test.stable(
+  'retries a failed native capability query before enabling manual checks',
+  async ({ expect, screen, userEvent, render }) => {
+    native.invoke.mockRejectedValueOnce(new Error('connection unavailable'));
+    mount({ render });
+    expect(
+      await screen.findByText('The update could not be completed. Try again.')
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByRole('button', { name: 'Check for updates' })).toBeEnabled();
+  }
+);
 
-test.stable('check failure is recoverable and a new check clears the error', async () => {
-  mount();
-  const button = await test.screen.findByRole('button', { name: 'Check for updates' });
+test.stable(
+  'check failure is recoverable and a new check clears the error',
+  async ({ screen, userEvent, expect, render }) => {
+    mount({ render });
+    const button = await screen.findByRole('button', { name: 'Check for updates' });
 
-  native.invoke.mockRejectedValueOnce(new Error('offline'));
-  await test.userEvent.click(button);
-  test
-    .expect(await test.screen.findByText('The update could not be completed. Try again.'))
-    .toBeInTheDocument();
-  native.invoke.mockResolvedValueOnce(null);
-  await test.userEvent.click(button);
-  test.expect(await test.screen.findByText('Study is up to date.')).toBeInTheDocument();
-});
+    native.invoke.mockRejectedValueOnce(new Error('offline'));
+    await userEvent.click(button);
+    expect(
+      await screen.findByText('The update could not be completed. Try again.')
+    ).toBeInTheDocument();
+    native.invoke.mockResolvedValueOnce(null);
+    await userEvent.click(button);
+    expect(await screen.findByText('Study is up to date.')).toBeInTheDocument();
+  }
+);
 
 test.stable(
   'requires install consent, disables duplicate actions, and retries a failed install',
-  async () => {
-    mount();
-    const check = await test.screen.findByRole('button', { name: 'Check for updates' });
+  async ({ screen, userEvent, expect, act, waitFor, render }) => {
+    mount({ render });
+    const check = await screen.findByRole('button', { name: 'Check for updates' });
 
     native.invoke.mockResolvedValueOnce('0.1.42');
-    await test.userEvent.click(check);
-    const install = await test.screen.findByRole('button', { name: 'Install and restart' });
+    await userEvent.click(check);
+    const install = await screen.findByRole('button', { name: 'Install and restart' });
 
-    test.expect(native.invoke).not.toHaveBeenCalledWith('install_update', test.expect.anything());
+    expect(native.invoke).not.toHaveBeenCalledWith('install_update', expect.anything());
     let reject!: (error: Error) => void;
 
     native.invoke.mockReturnValueOnce(
@@ -120,31 +131,29 @@ test.stable(
         reject = fail;
       })
     );
-    await test.userEvent.click(install);
-    test.expect(install).toBeDisabled();
-    test.expect(check).toBeDisabled();
-    test
-      .expect(native.invoke)
-      .toHaveBeenLastCalledWith('install_update', { expectedVersion: '0.1.42' });
-    await test.act(async () => reject(new Error('offline')));
-    test
-      .expect(await test.screen.findByText('The update could not be completed. Try again.'))
-      .toBeInTheDocument();
-    await test.waitFor(() => test.expect(install).toBeEnabled());
+    await userEvent.click(install);
+    expect(install).toBeDisabled();
+    expect(check).toBeDisabled();
+    expect(native.invoke).toHaveBeenLastCalledWith('install_update', { expectedVersion: '0.1.42' });
+    await act(async () => reject(new Error('offline')));
+    expect(
+      await screen.findByText('The update could not be completed. Try again.')
+    ).toBeInTheDocument();
+    await waitFor(() => expect(install).toBeEnabled());
     native.invoke.mockResolvedValueOnce(undefined);
-    await test.userEvent.click(install);
-    test
-      .expect(native.invoke.mock.calls.filter(([command]) => command === 'install_update'))
-      .toHaveLength(2);
+    await userEvent.click(install);
+    expect(
+      native.invoke.mock.calls.filter(([command]) => command === 'install_update')
+    ).toHaveLength(2);
   }
 );
 
 test.stable(
   'settings and background consent cannot start competing native installations',
-  async () => {
-    const notice = test.vi.spyOn(toastManager, 'add').mockReturnValue('update-notice');
+  async ({ vi, render, userEvent, screen, waitFor, expect, act }) => {
+    const notice = vi.spyOn(toastManager, 'add').mockReturnValue('update-notice');
 
-    test.vi.spyOn(toastManager, 'close').mockImplementation(() => {});
+    vi.spyOn(toastManager, 'close').mockImplementation(() => {});
     let finish: (() => void) | undefined;
 
     native.invoke.mockImplementation((command) => {
@@ -157,28 +166,24 @@ test.stable(
         finish = resolve;
       });
     });
-    test.render(
+    render(
       <RegistryProvider>
         <DesktopUpdates />
         <UpdatesSettings />
       </RegistryProvider>
     );
-    await test.userEvent.click(
-      await test.screen.findByRole('button', { name: 'Check for updates' })
-    );
-    await test.userEvent.click(
-      await test.screen.findByRole('button', { name: 'Install and restart' })
-    );
-    await test.waitFor(() => test.expect(finish).toBeTypeOf('function'));
+    await userEvent.click(await screen.findByRole('button', { name: 'Check for updates' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Install and restart' }));
+    await waitFor(() => expect(finish).toBeTypeOf('function'));
     const consent = notice.mock.calls.find(([value]) => value.actionProps)?.[0];
 
-    await test.act(async () => {
+    await act(async () => {
       consent?.actionProps?.onClick?.({} as never);
     });
-    test
-      .expect(native.invoke.mock.calls.filter(([command]) => command === 'install_update'))
-      .toHaveLength(1);
-    await test.act(async () => {
+    expect(
+      native.invoke.mock.calls.filter(([command]) => command === 'install_update')
+    ).toHaveLength(1);
+    await act(async () => {
       finish?.();
     });
   }

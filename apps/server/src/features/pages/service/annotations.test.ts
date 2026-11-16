@@ -44,7 +44,9 @@ const paragraph = (text: string) =>
 
 test.stable(
   'standalone authored annotation CRUD preserves exact rich Unicode history, conflicts, outbox atomicity and reopen',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     let context = new ServerContext(await location.open());
     const handlers = () =>
@@ -76,7 +78,7 @@ test.stable(
               citations: []
             });
 
-            test.assert.ok(document.version);
+            assert.ok(document.version);
             const target = {
               pageId: document.id,
               range: {
@@ -93,13 +95,13 @@ test.stable(
               note: ''
             });
 
-            test.assert.ok(created.outcome === 'saved');
+            assert.ok(created.outcome === 'saved');
             const exact = yield* rpc['pages.version']({
               id: created.annotation.target.range.versionId
             });
 
-            test.expect(exact.document.blocks[0].content).toStrictEqual(block.content);
-            test.assert.ok(
+            expect(exact.document.blocks[0].content).toStrictEqual(block.content);
+            assert.ok(
               exact.document.blocks[0].text.slice(target.range.start, target.range.end) === '😀'
             );
             const id = created.annotation.id;
@@ -109,7 +111,7 @@ test.stable(
               { ...target.range, end: 200 },
               { ...target.range, start: 1, end: 1 }
             ])
-              test.assert.ok(
+              assert.ok(
                 (yield* Effect.flip(
                   rpc['pages.createAnnotation']({
                     target: { ...target, range },
@@ -128,7 +130,7 @@ test.stable(
               deleted: false
             };
 
-            test.assert.ok((yield* rpc['pages.reviseAnnotation'](update)).outcome === 'saved');
+            assert.ok((yield* rpc['pages.reviseAnnotation'](update)).outcome === 'saved');
             const beforeConflicts = state();
 
             for (const intent of [
@@ -138,12 +140,12 @@ test.stable(
             ]) {
               const conflict = yield* rpc['pages.reviseAnnotation'](intent);
 
-              test.assert.ok(conflict.outcome === 'conflict');
-              test.assert.ok(conflict.annotation.note === 'First edit');
-              test.expect(conflict.annotation.target).toStrictEqual(target);
+              assert.ok(conflict.outcome === 'conflict');
+              assert.ok(conflict.annotation.note === 'First edit');
+              expect(conflict.annotation.target).toStrictEqual(target);
             }
 
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(
                 rpc['pages.reviseAnnotation']({
                   ...update,
@@ -152,7 +154,7 @@ test.stable(
                 })
               )).kind === 'invalid_input'
             );
-            test.expect(state()).toStrictEqual(beforeConflicts);
+            expect(state()).toStrictEqual(beforeConflicts);
             const other = yield* rpc['pages.create']({
               createKey: crypto.randomUUID(),
               title: 'Other identity',
@@ -161,10 +163,10 @@ test.stable(
               citations: []
             });
 
-            test.assert.ok(other.version);
+            assert.ok(other.version);
             const beforeWrongOwner = state();
 
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(
                 rpc['pages.reviseAnnotation']({
                   ...update,
@@ -173,7 +175,7 @@ test.stable(
                 })
               )).kind === 'invalid_input'
             );
-            test.expect(state()).toStrictEqual(beforeWrongOwner);
+            expect(state()).toStrictEqual(beforeWrongOwner);
             const changed = yield* rpc['pages.save']({
               pageId: document.id,
               expectedVersionId: document.version.id,
@@ -199,15 +201,13 @@ test.stable(
               target: nextTarget
             });
 
-            test.assert.ok(moved.annotation.operation === 'reanchor');
-            test
-              .expect(
-                (yield* rpc['pages.annotationHistory']({ id, limit: 10 })).items.map(
-                  (item) => item.target
-                )
+            assert.ok(moved.annotation.operation === 'reanchor');
+            expect(
+              (yield* rpc['pages.annotationHistory']({ id, limit: 10 })).items.map(
+                (item) => item.target
               )
-              .toStrictEqual([nextTarget, target, target]);
-            test.assert.ok(
+            ).toStrictEqual([nextTarget, target, target]);
+            assert.ok(
               (yield* rpc['pages.version']({
                 id: target.range.versionId
               })).document.blocks[0].text.slice(1, 3) === '😀'
@@ -224,7 +224,7 @@ test.stable(
               { ...update, expectedRevision: 3n, target: nextTarget, deleted: true }
             ]) {
               yield* Effect.flip(rpc['pages.reviseAnnotation'](intent));
-              test.expect(state()).toStrictEqual(beforeFailure);
+              expect(state()).toStrictEqual(beforeFailure);
             }
 
             context.db.exec('DROP TRIGGER reject_annotation_event');
@@ -242,7 +242,7 @@ test.stable(
               }
             };
 
-            test.assert.throws(() =>
+            assert.throws(() =>
               context.db.orm
                 .insert(s.page_annotation_revisions)
                 .values({
@@ -257,22 +257,22 @@ test.stable(
                 })
                 .run()
             );
-            test.assert.throws(() => context.db.orm.delete(s.page_annotations).run());
-            test.assert.throws(() =>
+            assert.throws(() => context.db.orm.delete(s.page_annotations).run());
+            assert.throws(() =>
               context.db.orm.update(s.page_annotations).set({ revision: 9n }).run()
             );
-            test.assert.throws(() =>
+            assert.throws(() =>
               context.db.orm
                 .update(s.page_annotations)
                 .set({ page_id: other.id })
                 .where(eq(s.page_annotations.id, id))
                 .run()
             );
-            test.assert.throws(() => context.db.orm.delete(s.page_annotation_revisions).run());
-            test.assert.throws(() =>
+            assert.throws(() => context.db.orm.delete(s.page_annotation_revisions).run());
+            assert.throws(() =>
               context.db.orm.update(s.page_annotation_revisions).set({ payload: '{}' }).run()
             );
-            test.expect(state()).toStrictEqual(beforeFailure);
+            expect(state()).toStrictEqual(beforeFailure);
             const retried = yield* rpc['pages.reviseAnnotation']({
               ...update,
               expectedRevision: 3n,
@@ -280,21 +280,21 @@ test.stable(
               note: 'Retried after rollback'
             });
 
-            test.assert.strictEqual(retried.annotation.revision, 4n);
-            test.assert.strictEqual(state().events.length, beforeFailure.events.length + 1);
+            assert.strictEqual(retried.annotation.revision, 4n);
+            assert.strictEqual(state().events.length, beforeFailure.events.length + 1);
             const page = yield* rpc['pages.annotationHistory']({ id, limit: 2 });
 
-            test.expect(page.items.map((item) => item.revision)).toStrictEqual([4n, 3n]);
-            test.assert.strictEqual(page.nextCursor, 3n);
+            expect(page.items.map((item) => item.revision)).toStrictEqual([4n, 3n]);
+            assert.strictEqual(page.nextCursor, 3n);
             const tail = yield* rpc['pages.annotationHistory']({
               id,
               limit: 2,
               cursor: page.nextCursor!
             });
 
-            test.expect(tail.items.map((item) => item.revision)).toStrictEqual([2n, 1n]);
-            test.assert.ok(tail.nextCursor === null);
-            test.assert.strictEqual(
+            expect(tail.items.map((item) => item.revision)).toStrictEqual([2n, 1n]);
+            assert.ok(tail.nextCursor === null);
+            assert.strictEqual(
               (yield* rpc['pages.annotations']({
                 pageId: document.id,
                 limit: 1,
@@ -316,8 +316,8 @@ test.stable(
             const rpc = yield* RpcTest.makeClient(PagesRpc);
             const reopened = yield* rpc['pages.annotation']({ id: retained.id });
 
-            test.assert.strictEqual(reopened.revision, 4n);
-            test.assert.ok(reopened.note === 'Retried after rollback');
+            assert.strictEqual(reopened.revision, 4n);
+            assert.ok(reopened.note === 'Retried after rollback');
             const deleted = yield* rpc['pages.reviseAnnotation']({
               id: retained.id,
               expectedRevision: reopened.revision,
@@ -327,9 +327,9 @@ test.stable(
               deleted: true
             });
 
-            test.assert.ok(deleted.annotation.deleted === true);
-            test.assert.strictEqual(deleted.annotation.revision, 5n);
-            test.assert.strictEqual(
+            assert.ok(deleted.annotation.deleted === true);
+            assert.strictEqual(deleted.annotation.revision, 5n);
+            assert.strictEqual(
               (yield* rpc['pages.annotations']({
                 pageId: retained.pageId,
                 limit: 10,
@@ -337,7 +337,7 @@ test.stable(
               })).items.length,
               0
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               (yield* rpc['pages.annotations']({
                 pageId: retained.pageId,
                 limit: 10,
@@ -345,11 +345,11 @@ test.stable(
               })).items.length,
               1
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               (yield* rpc['pages.annotationHistory']({ id: retained.id, limit: 10 })).items.length,
               5
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               (yield* rpc['pages.page']({ id: retained.pageId })).id,
               retained.pageId
             );
@@ -360,7 +360,7 @@ test.stable(
               { target: retained.target, deleted: false, note: reopened.note },
               { target: reopened.target, deleted: true, note: reopened.note }
             ])
-              test.assert.ok(
+              assert.ok(
                 (yield* Effect.flip(
                   rpc['pages.reviseAnnotation']({
                     id: retained.id,
@@ -371,8 +371,8 @@ test.stable(
                 )).kind === 'invalid_input'
               );
 
-            test.expect(state()).toStrictEqual(tombstone);
-            test.assert.ok(
+            expect(state()).toStrictEqual(tombstone);
+            assert.ok(
               (yield* Effect.flip(rpc['pages.version']({ id: pageVersionIdSchema.make(999999n) })))
                 .kind === 'not_found'
             );
@@ -383,7 +383,7 @@ test.stable(
               { ...retained.target.range, start: 2, end: 3 },
               { ...retained.target.range, start: 1, end: 1 }
             ])
-              test.assert.ok(
+              assert.ok(
                 (yield* Effect.flip(
                   rpc['pages.createAnnotation']({
                     target: { ...retained.target, range },
@@ -395,8 +395,8 @@ test.stable(
 
             const old = yield* rpc['pages.version']({ id: retained.target.range.versionId });
 
-            test.assert.ok(old.document.blocks[0].text.slice(1, 3) === '😀');
-            test.expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+            assert.ok(old.document.blocks[0].text.slice(1, 3) === '😀');
+            expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
           }).pipe(Effect.provide(handlers()))
         )
       );

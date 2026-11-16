@@ -27,7 +27,9 @@ import { ChatGptSession } from '#server/platform/ai/auth/service';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 
-async function peer() {
+async function peer({ assert: assertions }: Pick<test.Context, 'assert'>) {
+  const assert: test.Assert = assertions;
+
   let nonce = '';
   let issuer = '';
   let refreshStarted!: () => void;
@@ -56,7 +58,7 @@ async function peer() {
 
       const form = new URLSearchParams(body);
 
-      test.assert.ok(new URL(request.url).pathname === '/api/accounts/oauth/token');
+      assert.ok(new URL(request.url).pathname === '/api/accounts/oauth/token');
 
       if (form.get('grant_type') === 'refresh_token') {
         if (rotate) {
@@ -67,7 +69,7 @@ async function peer() {
         } else return new Response(null, { status: 400 });
       }
 
-      test.assert.ok(form.get('grant_type') === 'authorization_code');
+      assert.ok(form.get('grant_type') === 'authorization_code');
 
       if (blockToken) {
         request.signal.addEventListener('abort', tokenClosed, { once: true });
@@ -100,7 +102,7 @@ async function peer() {
     }
   });
 
-  test.assert.ok(server.port);
+  assert.ok(server.port);
   issuer = server.url.origin;
 
   return {
@@ -134,6 +136,7 @@ async function peer() {
 type Databases = () => Promise<{ open(): Promise<Db>; cleanup(): Promise<void> }>;
 
 async function withAuth(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
   databases: Databases,
   run: (
     layer: Layer.Layer<Database | Context.Service.Identifier<typeof Auth>, unknown, never>,
@@ -142,7 +145,9 @@ async function withAuth(
     manager: AuthManager
   ) => Promise<void>
 ) {
-  const oauth = await peer();
+  const assert: test.Assert = assertions;
+
+  const oauth = await peer({ assert });
   const location = await databases();
   const context = new ServerContext(await location.open());
   const manager = new AuthManager({ issuer: oauth.issuer, saveRefresh: async () => {} });
@@ -167,9 +172,16 @@ async function withAuth(
 
 test.stable(
   'successful OAuth finish persists only a public-safe account and changes generation on repeated sign-in',
-  async ({ databases }) => {
-    await withAuth(databases, async (layer, context, oauth) => {
-      function* verifyRepeatedSignIn() {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    await withAuth({ assert }, databases, async (layer, context, oauth) => {
+      function* verifyRepeatedSignIn({
+        assert: assertions,
+        expect
+      }: Pick<test.Context, 'assert' | 'expect'>) {
+        const assert: test.Assert = assertions;
+
         const auth = yield* Auth;
         const initial = yield* auth.credentialGeneration();
         const attempt = yield* auth.startSignIn({});
@@ -178,21 +190,21 @@ test.stable(
         );
         const response = yield* Effect.promise(() => fetch(oauth.callback(attempt.url)));
 
-        test.assert.strictEqual(response.status, 200);
+        assert.strictEqual(response.status, 200);
         yield* Effect.promise(() => response.text());
-        test.expect(yield* Fiber.join(pending)).toStrictEqual({
+        expect(yield* Fiber.join(pending)).toStrictEqual({
           signedIn: true,
           email: 'p@example.test',
           sharing: true
         });
-        test.expect(yield* auth.publicAccount()).toStrictEqual({
+        expect(yield* auth.publicAccount()).toStrictEqual({
           subject: 'person',
           email: 'p@example.test',
           sharing: true
         });
         const first = yield* auth.credentialGeneration();
 
-        test.expect(first).not.toStrictEqual(initial);
+        expect(first).not.toStrictEqual(initial);
         const second = yield* auth.startSignIn({});
         const finishing = yield* Effect.forkChild(
           auth.finishSignIn({ attemptId: second.attemptId })
@@ -201,16 +213,18 @@ test.stable(
 
         yield* Effect.promise(() => result.text());
         yield* Fiber.join(finishing);
-        test.expect(yield* auth.credentialGeneration()).not.toStrictEqual(first);
+        expect(yield* auth.credentialGeneration()).not.toStrictEqual(first);
         const rows = context.db.orm.select().from(preferences).all();
         const account = rows.find((row) => row.key === 'account');
 
-        test.assert.ok(JSON.parse(account!.value).refreshToken === 'refresh-secret');
-        test.assert.ok(!JSON.stringify(yield* auth.publicAccount()).includes('secret'));
+        assert.ok(JSON.parse(account!.value).refreshToken === 'refresh-secret');
+        assert.ok(!JSON.stringify(yield* auth.publicAccount()).includes('secret'));
       }
 
       await Effect.runPromise(
-        Effect.scoped(Effect.gen(verifyRepeatedSignIn).pipe(Effect.provide(layer)))
+        Effect.scoped(
+          Effect.gen(() => verifyRepeatedSignIn({ assert, expect })).pipe(Effect.provide(layer))
+        )
       );
     });
   }
@@ -218,8 +232,10 @@ test.stable(
 
 test.stable(
   'failed OAuth persistence restores the previous account and session',
-  async ({ databases }) => {
-    await withAuth(databases, async (layer, context, oauth, manager) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    await withAuth({ assert }, databases, async (layer, context, oauth, manager) => {
       const previous = {
         subject: 'old',
         clientId: 'client',
@@ -232,7 +248,9 @@ test.stable(
         .values({ scope: 'private.chatgpt', key: 'account', value: JSON.stringify(previous) })
         .run();
 
-      function* verifyAccountRestoration() {
+      function* verifyAccountRestoration({ assert: assertions }: Pick<test.Context, 'assert'>) {
+        const assert: test.Assert = assertions;
+
         const auth = yield* Auth;
 
         context.db.orm.run(
@@ -245,9 +263,9 @@ test.stable(
         const response = yield* Effect.promise(() => fetch(oauth.callback(attempt.url)));
 
         yield* Effect.promise(() => response.text());
-        test.assert.ok(yield* Fiber.join(pending));
-        test.assert.ok((yield* auth.publicAccount())?.subject === 'old');
-        test.assert.ok(
+        assert.ok(yield* Fiber.join(pending));
+        assert.ok((yield* auth.publicAccount())?.subject === 'old');
+        assert.ok(
           JSON.parse(
             context.db.orm
               .select()
@@ -261,12 +279,14 @@ test.stable(
           Effect.tryPromise({ try: () => manager.token(), catch: (error) => error })
         );
 
-        test.assert.ok(failure instanceof Error);
-        test.assert.notStrictEqual(failure.message, 'ChatGPT is not signed in');
+        assert.ok(failure instanceof Error);
+        assert.notStrictEqual(failure.message, 'ChatGPT is not signed in');
       }
 
       await Effect.runPromise(
-        Effect.scoped(Effect.gen(verifyAccountRestoration).pipe(Effect.provide(layer)))
+        Effect.scoped(
+          Effect.gen(() => verifyAccountRestoration({ assert })).pipe(Effect.provide(layer))
+        )
       );
     });
   }
@@ -274,8 +294,10 @@ test.stable(
 
 test.stable(
   'refresh rotation settling during OAuth finish survives the sign-in commit',
-  async ({ databases }) => {
-    const oauth = await peer();
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const oauth = await peer({ assert });
 
     oauth.startRotation();
     const location = await databases();
@@ -353,7 +375,7 @@ test.stable(
               .all()
               .find((entry) => entry.key === 'account');
 
-            test.assert.ok(JSON.parse(row!.value).refreshToken === 'rotated-secret');
+            assert.ok(JSON.parse(row!.value).refreshToken === 'rotated-secret');
           }).pipe(Effect.provide(layer))
         )
       );
@@ -369,11 +391,13 @@ test.stable(
 
 test.stable(
   'interrupting finish aborts the token HTTP request and closes the listener',
-  async ({ databases }) => {
-    await withAuth(databases, async (layer, _context, oauth) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    await withAuth({ assert }, databases, async (layer, _context, oauth) => {
       oauth.blockToken();
 
-      function* verifySignInInterruption() {
+      function* verifySignInInterruption({ expect }: Pick<test.Context, 'expect'>) {
         const auth = yield* Auth;
         const attempt = yield* auth.startSignIn({});
         const callback = oauth.callback(attempt.url);
@@ -386,11 +410,13 @@ test.stable(
         yield* Effect.promise(() => oauth.tokenRequest);
         yield* Fiber.interrupt(finishing);
         yield* Effect.promise(() => oauth.tokenAbort);
-        yield* Effect.promise(() => test.expect(fetch(callback)).rejects.toThrow());
+        yield* Effect.promise(() => expect(fetch(callback)).rejects.toThrow());
       }
 
       await Effect.runPromise(
-        Effect.scoped(Effect.gen(verifySignInInterruption).pipe(Effect.provide(layer)))
+        Effect.scoped(
+          Effect.gen(() => verifySignInInterruption({ expect })).pipe(Effect.provide(layer))
+        )
       );
     });
   }

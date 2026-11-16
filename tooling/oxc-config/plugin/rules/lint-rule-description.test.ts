@@ -32,114 +32,133 @@ function frame(contents: string): string {
 
 const guide = frame(contents);
 
-test.stable('production config rejects undocumented custom lint implementations', async () => {
-  const diagnostics = await lintFiles(
-    { [`${directory}/missing.ts`]: implementation },
-    undefined,
-    true
-  );
+test.stable(
+  'production config rejects undocumented custom lint implementations',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test.assert.ok(diagnostics.some(({ code }) => code === 'study(lint-rule-description)'));
-});
+    const diagnostics = await lintFiles(
+      { assert },
+      { [`${directory}/missing.ts`]: implementation },
+      undefined,
+      true
+    );
 
-test.stable('requires a purpose, prevented failure and both examples before imports', async () => {
-  const variants = {
-    missing: '',
-    'purpose-only': '@file Checks imports.',
-    'empty-purpose': contents.replace(
-      '@file Keeps feature imports on their public boundaries.',
-      '@file'
-    ),
-    'empty-prevention': contents.replace("Direct imports of another feature's private store.", ''),
-    'missing-allowed': contents.replace('Allowed:', 'Accepted:'),
-    'empty-allowed': contents.replace(
-      "  import { Materials } from '#server/features/materials';",
-      ''
-    ),
-    'missing-rejected': contents.replace('Rejected:', 'Incorrect:'),
-    'empty-rejected': contents.replace(
-      "  import { store } from '#server/features/materials/store';",
-      ''
-    )
-  };
-  const files = Object.fromEntries(
-    Object.entries(variants).map(([name, header]) => [
-      `${directory}/${name}.ts`,
-      `${frame(header)}\n\n${implementation}`
-    ])
-  );
+    assert.ok(diagnostics.some(({ code }) => code === 'study(lint-rule-description)'));
+  }
+);
 
-  files[`${directory}/late.ts`] = implementation + guide;
-  files[`${directory}/split.ts`] =
-    `/** @file Checks imports. */\n${frame(contents.replace('@file Keeps feature imports on their public boundaries.', ''))}\n${implementation}`;
+test.stable(
+  'requires a purpose, prevented failure and both examples before imports',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test
-    .expect(await lintRulePaths('lint-rule-description', files))
-    .toStrictEqual(Object.keys(files).sort());
-});
+    const variants = {
+      missing: '',
+      'purpose-only': '@file Checks imports.',
+      'empty-purpose': contents.replace(
+        '@file Keeps feature imports on their public boundaries.',
+        '@file'
+      ),
+      'empty-prevention': contents.replace(
+        "Direct imports of another feature's private store.",
+        ''
+      ),
+      'missing-allowed': contents.replace('Allowed:', 'Accepted:'),
+      'empty-allowed': contents.replace(
+        "  import { Materials } from '#server/features/materials';",
+        ''
+      ),
+      'missing-rejected': contents.replace('Rejected:', 'Incorrect:'),
+      'empty-rejected': contents.replace(
+        "  import { store } from '#server/features/materials/store';",
+        ''
+      )
+    };
+    const files = Object.fromEntries(
+      Object.entries(variants).map(([name, header]) => [
+        `${directory}/${name}.ts`,
+        `${frame(header)}\n\n${implementation}`
+      ])
+    );
+
+    files[`${directory}/late.ts`] = implementation + guide;
+    files[`${directory}/split.ts`] =
+      `/** @file Checks imports. */\n${frame(contents.replace('@file Keeps feature imports on their public boundaries.', ''))}\n${implementation}`;
+
+    expect(await lintRulePaths({ assert }, 'lint-rule-description', files)).toStrictEqual(
+      Object.keys(files).sort()
+    );
+  }
+);
 
 test.stable(
   'allows framed guides, licenses, CRLF and helpers without a lint implementation',
-  async () => {
-    test
-      .expect(
-        await lintRulePaths('lint-rule-description', {
-          [`${directory}/documented.ts`]: `${guide}\n\n${implementation}`,
-          [`${directory}/license.ts`]: `/* Copyright Study */\n${guide}\n\n${implementation}`,
-          [`${directory}/windows.ts`]: `${guide}\n\n${implementation}`.replaceAll('\n', '\r\n'),
-          [`${directory}/helper.ts`]: 'export function helper() { return 1; }',
-          [`${directory}/example.test.ts`]: implementation,
-          [`${directory}/example.spec.ts`]: implementation,
-          'apps/server/src/example.ts': implementation,
-          [`${directory}/unrelated.ts`]:
-            'function defineRule(value) { return value; } export default defineRule({});'
-        })
-      )
-      .toStrictEqual([]);
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lintRulePaths({ assert }, 'lint-rule-description', {
+        [`${directory}/documented.ts`]: `${guide}\n\n${implementation}`,
+        [`${directory}/license.ts`]: `/* Copyright Study */\n${guide}\n\n${implementation}`,
+        [`${directory}/windows.ts`]: `${guide}\n\n${implementation}`.replaceAll('\n', '\r\n'),
+        [`${directory}/helper.ts`]: 'export function helper() { return 1; }',
+        [`${directory}/example.test.ts`]: implementation,
+        [`${directory}/example.spec.ts`]: implementation,
+        'apps/server/src/example.ts': implementation,
+        [`${directory}/unrelated.ts`]:
+          'function defineRule(value) { return value; } export default defineRule({});'
+      })
+    ).toStrictEqual([]);
   }
 );
 
 test.stable(
   'recognizes imported aliases and namespaces without confusing shadowed bindings',
-  async () => {
-    test
-      .expect(
-        await lintRulePaths('lint-rule-description', {
-          [`${directory}/alias.ts`]:
-            "import { defineRule as rule } from 'vite-plus/lint/plugins'; export default rule({});",
-          [`${directory}/namespace.ts`]:
-            "import * as lint from 'vite-plus/lint/plugins'; export default lint.defineRule({});",
-          [`${directory}/shadowed.ts`]: `import { defineRule } from 'vite-plus/lint/plugins';
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lintRulePaths({ assert }, 'lint-rule-description', {
+        [`${directory}/alias.ts`]:
+          "import { defineRule as rule } from 'vite-plus/lint/plugins'; export default rule({});",
+        [`${directory}/namespace.ts`]:
+          "import * as lint from 'vite-plus/lint/plugins'; export default lint.defineRule({});",
+        [`${directory}/shadowed.ts`]: `import { defineRule } from 'vite-plus/lint/plugins';
  function make(defineRule) { return defineRule({});
  }`
-        })
-      )
-      .toStrictEqual([`${directory}/alias.ts`, `${directory}/namespace.ts`]);
+      })
+    ).toStrictEqual([`${directory}/alias.ts`, `${directory}/namespace.ts`]);
   }
 );
 
-test.stable('requires the padded frame around rule explanations', async () => {
-  const variants = {
-    plain:
-      '/**\n' +
-      contents
-        .split('\n')
-        .map((line) => ' * ' + line)
-        .join('\n') +
-      '\n */',
-    corner: guide.replace('╭', '┌'),
-    border: guide.replace('─', '-'),
-    padding: guide.replace(' * │ Prevents:', ' * │  Prevents:'),
-    width: frame(contents + '\n' + 'x'.repeat(89))
-  };
-  const files = Object.fromEntries(
-    Object.entries(variants).map(([name, header]) => [
-      `${directory}/${name}.ts`,
-      `${header}\n\n${implementation}`
-    ])
-  );
+test.stable(
+  'requires the padded frame around rule explanations',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test
-    .expect(await lintRulePaths('lint-rule-description', files))
-    .toStrictEqual(Object.keys(files).sort());
-});
+    const variants = {
+      plain:
+        '/**\n' +
+        contents
+          .split('\n')
+          .map((line) => ' * ' + line)
+          .join('\n') +
+        '\n */',
+      corner: guide.replace('╭', '┌'),
+      border: guide.replace('─', '-'),
+      padding: guide.replace(' * │ Prevents:', ' * │  Prevents:'),
+      width: frame(contents + '\n' + 'x'.repeat(89))
+    };
+    const files = Object.fromEntries(
+      Object.entries(variants).map(([name, header]) => [
+        `${directory}/${name}.ts`,
+        `${header}\n\n${implementation}`
+      ])
+    );
+
+    expect(await lintRulePaths({ assert }, 'lint-rule-description', files)).toStrictEqual(
+      Object.keys(files).sort()
+    );
+  }
+);

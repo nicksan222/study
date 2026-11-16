@@ -52,11 +52,13 @@ import {
 
 test.stable(
   'indexed source wakes the dispatched reply using its persisted receipt',
-  async ({ databases }) => {
+  async ({ databases, createAiMock, assert: assertions, pollUntil, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     let calls = 0;
-    using mock = test.createAiMock();
+    using mock = createAiMock();
 
     mock.next(replyAgent, {
       input: {
@@ -128,11 +130,11 @@ test.stable(
             });
             const request = yield* notes.requestReply({ noteId: note.id });
 
-            test.assert.strictEqual(
+            assert.strictEqual(
               (yield* notes.replyReadiness({ requestId: request.requestId })).length,
               1
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               yield* dispatchPending(context, noteReplyRegistration.triggers, Date.now()),
               1
             );
@@ -149,7 +151,7 @@ test.stable(
                 .get()!.payload
             );
 
-            assertEventType(generation, 'NoteGenerationRequested', 'wrong event');
+            assertEventType({ assert }, generation, 'NoteGenerationRequested', 'wrong event');
 
             yield* withTestAdmission(
               context,
@@ -162,14 +164,14 @@ test.stable(
                 discard: true
               })
             );
-            const result = yield* test.pollUntil(
+            const result = yield* pollUntil(
               engine.poll(noteReplyWorkflow, receipt.executionId),
               Option.isSome,
               { attempts: 500, interval: '10 millis', message: 'Note reply did not start' }
             );
 
-            test.assert.ok(result.value._tag === 'Suspended');
-            test.assert.strictEqual(calls, 0);
+            assert.ok(result.value._tag === 'Suspended');
+            assert.strictEqual(calls, 0);
             const sourceEvent = context.db.orm
               .select()
               .from(tables.workflowEvents)
@@ -178,7 +180,7 @@ test.stable(
               .map((row) => decodeEvent(row.payload))
               .find((event) => event.type === 'SourceProcessingRequested');
 
-            assertEventType(sourceEvent, 'SourceProcessingRequested', 'missing event');
+            assertEventType({ assert }, sourceEvent, 'SourceProcessingRequested', 'missing event');
 
             yield* withTestAdmission(
               context,
@@ -198,7 +200,7 @@ test.stable(
               .map((row) => decodeEvent(row.payload))
               .find((event) => event.type === 'SourceIndexed');
 
-            assertEventType(indexed, 'SourceIndexed', 'missing index event');
+            assertEventType({ assert }, indexed, 'SourceIndexed', 'missing index event');
 
             yield* dispatchPending(
               context,
@@ -233,7 +235,7 @@ test.stable(
                 payload: { event: generation }
               })
             );
-            test.assert.strictEqual(calls, 1);
+            assert.strictEqual(calls, 1);
             const row = context.db.orm
               .select()
               .from(tables.note_reply_requests)
@@ -241,8 +243,8 @@ test.stable(
               .get()!;
             const snapshot = JSON.parse(row.snapshot);
 
-            test.assert.strictEqual(snapshot.pendingAttachments, undefined);
-            test.assert.strictEqual(snapshot.messages[0].attachments.length, 1);
+            assert.strictEqual(snapshot.pendingAttachments, undefined);
+            assert.strictEqual(snapshot.messages[0].attachments.length, 1);
 
             const earlyNote = yield* notes.createNote({
               project: project.id,
@@ -274,7 +276,7 @@ test.stable(
               requestId: earlyRequest.requestId
             });
 
-            test.assert.strictEqual(earlySnapshot.pendingAttachments?.[0]?.partId, threadRoot);
+            assert.strictEqual(earlySnapshot.pendingAttachments?.[0]?.partId, threadRoot);
             const earlyIngestion = context.db.orm
               .select()
               .from(tables.workflowEvents)
@@ -286,7 +288,12 @@ test.stable(
                   item.type === 'SourceProcessingRequested' && item.sourceId === earlySource.id
               );
 
-            assertEventType(earlyIngestion, 'SourceProcessingRequested', 'missing ingestion');
+            assertEventType(
+              { assert },
+              earlyIngestion,
+              'SourceProcessingRequested',
+              'missing ingestion'
+            );
 
             yield* withTestAdmission(
               context,
@@ -306,7 +313,7 @@ test.stable(
               .map((item) => decodeEvent(item.payload))
               .find((item) => item.type === 'SourceIndexed' && item.sourceId === earlySource.id);
 
-            assertEventType(earlyIndex, 'SourceIndexed', 'missing index');
+            assertEventType({ assert }, earlyIndex, 'SourceIndexed', 'missing index');
 
             yield* withTestAdmission(
               context,
@@ -326,7 +333,7 @@ test.stable(
               .get()!;
             const earlyEvent = decodeEvent(earlyEventRow.payload);
 
-            assertEventType(earlyEvent, 'NoteGenerationRequested', 'wrong event');
+            assertEventType({ assert }, earlyEvent, 'NoteGenerationRequested', 'wrong event');
 
             const earlyReceipt = context.db.orm
               .select()
@@ -344,7 +351,7 @@ test.stable(
                 payload: { event: earlyEvent }
               })
             );
-            test.assert.strictEqual(calls, 2);
+            assert.strictEqual(calls, 2);
 
             const failedNote = yield* notes.createNote({
               project: project.id,
@@ -373,7 +380,12 @@ test.stable(
                   item.type === 'SourceProcessingRequested' && item.sourceId === failedSource.id
               );
 
-            assertEventType(failedIngestion, 'SourceProcessingRequested', 'missing ingestion');
+            assertEventType(
+              { assert },
+              failedIngestion,
+              'SourceProcessingRequested',
+              'missing ingestion'
+            );
 
             yield* Effect.flip(
               withTestAdmission(
@@ -398,7 +410,12 @@ test.stable(
                   item.type === 'SourceProcessingFailed' && item.sourceId === failedSource.id
               );
 
-            assertEventType(failureNotice, 'SourceProcessingFailed', 'missing failure notice');
+            assertEventType(
+              { assert },
+              failureNotice,
+              'SourceProcessingFailed',
+              'missing failure notice'
+            );
 
             yield* withTestAdmission(
               context,
@@ -418,7 +435,7 @@ test.stable(
               .get()!;
             const failedEvent = decodeEvent(failedRow.payload);
 
-            test.assert.ok(!(failedEvent.type !== 'NoteGenerationRequested'), 'wrong event');
+            assert.ok(!(failedEvent.type !== 'NoteGenerationRequested'), 'wrong event');
 
             const failedReceipt = context.db.orm
               .select()
@@ -438,8 +455,8 @@ test.stable(
               )
             );
 
-            test.assert.ok(earlyFailure.kind === 'invalid_input');
-            test.assert.strictEqual(calls, 2);
+            assert.ok(earlyFailure.kind === 'invalid_input');
+            assert.strictEqual(calls, 2);
 
             for (const mode of [
               'delete',
@@ -449,10 +466,15 @@ test.stable(
               'later-pending',
               'ready-reference'
             ] as const) {
-              yield* assertInvalidationResumesReply(mode);
+              yield* assertInvalidationResumesReply({ assert, pollUntil, expect }, mode);
             }
 
             function* assertInvalidationResumesReply(
+              {
+                assert: assertions,
+                pollUntil,
+                expect
+              }: Pick<test.Context, 'assert' | 'pollUntil' | 'expect'>,
               mode:
                 | 'delete'
                 | 'replace'
@@ -461,6 +483,8 @@ test.stable(
                 | 'later-pending'
                 | 'ready-reference'
             ) {
+              const assert: test.Assert = assertions;
+
               const nextNote = yield* notes.createNote({
                 project: project.id,
                 title: mode
@@ -492,7 +516,12 @@ test.stable(
                       item.type === 'SourceProcessingRequested' && item.sourceId === nextSource.id
                   );
 
-                assertEventType(ingestion, 'SourceProcessingRequested', 'missing ingestion');
+                assertEventType(
+                  { assert },
+                  ingestion,
+                  'SourceProcessingRequested',
+                  'missing ingestion'
+                );
 
                 yield* withTestAdmission(
                   context,
@@ -528,7 +557,7 @@ test.stable(
                 .get()!;
               const nextEvent = decodeEvent(eventRow.payload);
 
-              test.assert.ok(!(nextEvent.type !== 'NoteGenerationRequested'), 'wrong event');
+              assert.ok(!(nextEvent.type !== 'NoteGenerationRequested'), 'wrong event');
 
               const nextReceipt = context.db.orm
                 .select()
@@ -547,26 +576,26 @@ test.stable(
                   discard: true
                 })
               );
-              const nextResult = yield* test.pollUntil(
+              const nextResult = yield* pollUntil(
                 engine.poll(noteReplyWorkflow, nextReceipt.executionId),
                 Option.isSome,
                 { attempts: 500, interval: '10 millis', message: 'Next note reply did not start' }
               );
 
-              test.assert.ok(nextResult.value._tag === 'Suspended');
+              assert.ok(nextResult.value._tag === 'Suspended');
 
               if (['delete', 'later-pending', 'ready-reference'].includes(mode)) {
-                test.assert.ok(
+                assert.ok(
                   (yield* Effect.flip(sources.deleteSource({ id: nextSource.id }))).kind ===
                     'invalid_input'
                 );
-                test
-                  .expect(yield* notes.inspectReplySnapshot({ requestId: nextRequest.requestId }))
-                  .toStrictEqual(captured);
+                expect(
+                  yield* notes.inspectReplySnapshot({ requestId: nextRequest.requestId })
+                ).toStrictEqual(captured);
                 yield* notes.deleteNote(nextNote.id);
-                test.assert.strictEqual(yield* sources.deleteSource({ id: nextSource.id }), true);
-                test.assert.strictEqual(calls, 2);
-                test.assert.strictEqual(
+                assert.strictEqual(yield* sources.deleteSource({ id: nextSource.id }), true);
+                assert.strictEqual(calls, 2);
+                assert.strictEqual(
                   context.db.orm
                     .select()
                     .from(tables.note_reply_requests)
@@ -578,9 +607,14 @@ test.stable(
                 return;
               }
 
-              yield* invalidateSource();
+              yield* invalidateSource({ assert, expect });
 
-              function* invalidateSource() {
+              function* invalidateSource({
+                assert: assertions,
+                expect
+              }: Pick<test.Context, 'assert' | 'expect'>) {
+                const assert: test.Assert = assertions;
+
                 if (mode === 'replace')
                   yield* sources.replaceSource({
                     id: nextSource.id,
@@ -597,11 +631,11 @@ test.stable(
                   const replacement = yield* sources.sourceProcessing(nextSource.id);
                   const accepted = captured.pendingAttachments![0]!;
 
-                  test.assert.strictEqual(BigInt(replacement.revision), accepted.inputRevision);
-                  test.assert.notStrictEqual(replacement.requestId, accepted.requestId);
-                  test
-                    .expect(yield* notes.inspectReplySnapshot({ requestId: nextRequest.requestId }))
-                    .toStrictEqual(captured);
+                  assert.strictEqual(BigInt(replacement.revision), accepted.inputRevision);
+                  assert.notStrictEqual(replacement.requestId, accepted.requestId);
+                  expect(
+                    yield* notes.inspectReplySnapshot({ requestId: nextRequest.requestId })
+                  ).toStrictEqual(captured);
                 }
 
                 if (mode === 'unsupported') {
@@ -616,7 +650,12 @@ test.stable(
                         item.type === 'SourceProcessingRequested' && item.sourceId === nextSource.id
                     );
 
-                  assertEventType(ingestion, 'SourceProcessingRequested', 'missing ingestion');
+                  assertEventType(
+                    { assert },
+                    ingestion,
+                    'SourceProcessingRequested',
+                    'missing ingestion'
+                  );
 
                   yield* Effect.flip(
                     withTestAdmission(
@@ -648,7 +687,7 @@ test.stable(
                       item.type === 'SourceProcessingFailed')
                 );
 
-              assertWakeEvent(wake);
+              assertWakeEvent({ assert }, wake);
 
               yield* withTestAdmission(
                 context,
@@ -660,10 +699,10 @@ test.stable(
                   payload: { event: wake }
                 })
               );
-              yield* assertReplyCompleted();
+              yield* assertReplyCompleted({ pollUntil });
 
-              function* assertReplyCompleted() {
-                yield* test.pollUntil(
+              function* assertReplyCompleted({ pollUntil }: Pick<test.Context, 'pollUntil'>) {
+                yield* pollUntil(
                   engine.poll(noteReplyWorkflow, nextReceipt.executionId),
                   (observed) => Option.isSome(observed) && observed.value._tag === 'Complete',
                   {
@@ -687,9 +726,9 @@ test.stable(
                 )
               );
 
-              test.assert.ok(error.kind === 'invalid_input');
-              test.assert.strictEqual(calls, 2);
-              test.assert.strictEqual(
+              assert.ok(error.kind === 'invalid_input');
+              assert.strictEqual(calls, 2);
+              assert.strictEqual(
                 context.db.orm
                   .select()
                   .from(tables.note_reply_requests)
@@ -710,10 +749,12 @@ test.stable(
 
 test.stable(
   'a pending reply survives reopening and protects its source until raw note deletion',
-  async ({ databases }) => {
+  async ({ databases, createAiMock, pollUntil, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     let context = new ServerContext(await location.open());
-    using mock = test.createAiMock();
+    using mock = createAiMock();
     const services = () => {
       const database = Layer.succeed(Database, { store: context });
 
@@ -790,7 +831,7 @@ test.stable(
                 .get()!.payload
             );
 
-            assertEventType(event, 'NoteGenerationRequested', 'wrong event');
+            assertEventType({ assert }, event, 'NoteGenerationRequested', 'wrong event');
 
             yield* withTestAdmission(
               context,
@@ -803,13 +844,13 @@ test.stable(
                 discard: true
               })
             );
-            const result = yield* test.pollUntil(
+            const result = yield* pollUntil(
               engine.poll(noteReplyWorkflow, receipt.executionId),
               Option.isSome,
               { attempts: 500, interval: '10 millis', message: 'Note reply did not start' }
             );
 
-            test.assert.ok(result.value._tag === 'Suspended');
+            assert.ok(result.value._tag === 'Suspended');
 
             return {
               noteId: note.id,
@@ -832,15 +873,13 @@ test.stable(
 
             yield* engine.register(noteReplyWorkflow, noteReplyHandler);
             yield* engine.register(noteAttachmentWakeWorkflow, noteAttachmentWakeHandler);
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(sources.deleteSource({ id: saved.sourceId }))).kind ===
                 'invalid_input'
             );
             const notes = yield* Notes;
 
-            test.assert.ok(
-              yield* notes.inspectReplySnapshot({ requestId: saved.request.requestId })
-            );
+            assert.ok(yield* notes.inspectReplySnapshot({ requestId: saved.request.requestId }));
             yield* engine.register(noteDeletionWorkflow, noteDeletionHandler);
             yield* notes.deleteNote(saved.noteId);
             const cleanup = context.db.orm
@@ -853,7 +892,7 @@ test.stable(
                 (event) => event.type === 'NoteDeletionRequested' && event.noteId === saved.noteId
               );
 
-            assertEventType(cleanup, 'NoteDeletionRequested', 'missing cleanup event');
+            assertEventType({ assert }, cleanup, 'NoteDeletionRequested', 'missing cleanup event');
             yield* withTestAdmission(
               context,
               noteDeletionWorkflow,
@@ -864,10 +903,8 @@ test.stable(
                 payload: { event: cleanup }
               })
             );
-            test.assert.ok(
-              workflowStore(context).execution(saved.executionId)?.status === 'cancelled'
-            );
-            test.assert.strictEqual(yield* sources.deleteSource({ id: saved.sourceId }), true);
+            assert.ok(workflowStore(context).execution(saved.executionId)?.status === 'cancelled');
+            assert.strictEqual(yield* sources.deleteSource({ id: saved.sourceId }), true);
             const deleted = context.db.orm
               .select()
               .from(tables.workflowEvents)
@@ -876,7 +913,7 @@ test.stable(
               .map((row) => decodeEvent(row.payload))
               .find((event) => event.type === 'SourceDeleted' && event.sourceId === saved.sourceId);
 
-            assertEventType(deleted, 'SourceDeleted', 'missing deletion');
+            assertEventType({ assert }, deleted, 'SourceDeleted', 'missing deletion');
 
             yield* withTestAdmission(
               context,
@@ -888,7 +925,7 @@ test.stable(
                 payload: { event: deleted }
               })
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               context.db.orm
                 .select()
                 .from(tables.note_reply_requests)
@@ -907,20 +944,26 @@ test.stable(
 );
 
 function assertEventType<T extends ReturnType<typeof decodeEvent>['type']>(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
   event: ReturnType<typeof decodeEvent> | undefined,
   type: T,
   message: string
 ): asserts event is Extract<ReturnType<typeof decodeEvent>, { type: T }> {
-  test.assert.ok(event && event.type === type, message);
+  const assert: test.Assert = assertions;
+
+  assert.ok(event && event.type === type, message);
 }
 
 function assertWakeEvent(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
   event: ReturnType<typeof decodeEvent> | undefined
 ): asserts event is Extract<
   ReturnType<typeof decodeEvent>,
   { type: 'SourceDeleted' | 'SourceProcessingRequested' | 'SourceProcessingFailed' }
 > {
-  test.assert.ok(
+  const assert: test.Assert = assertions;
+
+  assert.ok(
     event &&
       (event.type === 'SourceDeleted' ||
         event.type === 'SourceProcessingRequested' ||

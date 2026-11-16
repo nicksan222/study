@@ -4,29 +4,30 @@ import { test } from '@study/testing';
 
 import { LibraryListView } from './library-list.view';
 
-test.stable('renders loading and empty states from props', async () => {
-  test.renderInRouter(
-    <LibraryListView
-      state={{ status: 'pending' }}
-      subjects={[]}
-      blocked={false}
-      query=""
-      search={{}}
-      reload={() => {}}
-    />
-  );
-  test
-    .expect(await test.screen.findByRole('status'))
-    .toHaveTextContent(catalogs.english.LoadingStudy);
-});
+test.stable(
+  'renders loading and empty states from props',
+  async ({ renderInRouter, expect, screen }) => {
+    renderInRouter(
+      <LibraryListView
+        state={{ status: 'pending' }}
+        subjects={[]}
+        blocked={false}
+        query=""
+        search={{}}
+        reload={() => {}}
+      />
+    );
+    expect(await screen.findByRole('status')).toHaveTextContent(catalogs.english.LoadingStudy);
+  }
+);
 
 test.stable(
   'retries a failed load through its callback without executing transport work',
-  async () => {
-    const reload = test.vi.fn();
-    const user = test.userEvent.setup();
+  async ({ vi, userEvent, renderInRouter, screen, expect }) => {
+    const reload = vi.fn();
+    const user = userEvent.setup();
 
-    test.renderInRouter(
+    renderInRouter(
       <LibraryListView
         state={{ status: 'error', error: new StudyError('transient', 'offline') }}
         subjects={[]}
@@ -36,16 +37,14 @@ test.stable(
         reload={reload}
       />
     );
-    await user.click(
-      await test.screen.findByRole('button', { name: catalogs.english.StudyLoadError })
-    );
-    test.expect(reload).toHaveBeenCalledOnce();
+    await user.click(await screen.findByRole('button', { name: catalogs.english.StudyLoadError }));
+    expect(reload).toHaveBeenCalledOnce();
   }
 );
 
 test.stable(
   'replaces its loading announcement with the empty practice list after a completed load',
-  () => {
+  ({ render, expect, screen }) => {
     const props = {
       subjects: [],
       blocked: false,
@@ -53,11 +52,11 @@ test.stable(
       search: {},
       reload: () => {}
     };
-    const { rerender } = test.render(<LibraryListView {...props} state={{ status: 'pending' }} />);
+    const { rerender } = render(<LibraryListView {...props} state={{ status: 'pending' }} />);
 
-    test.expect(test.screen.getByRole('status')).toHaveTextContent(catalogs.english.LoadingStudy);
+    expect(screen.getByRole('status')).toHaveTextContent(catalogs.english.LoadingStudy);
     rerender(<LibraryListView {...props} state={{ status: 'success', data: [] }} />);
-    test.expect(test.screen.queryByRole('status')).not.toBeInTheDocument();
-    test.expect(test.screen.getByText(catalogs.english.SidebarPracticeEmpty)).toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.getByText(catalogs.english.SidebarPracticeEmpty)).toBeInTheDocument();
   }
 );

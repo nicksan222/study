@@ -82,27 +82,34 @@ function fixture(text = 'Exact 😀 target') {
   return { request, context };
 }
 
-function oversized(run: () => unknown) {
-  test.expect(run).toThrowError(test.expect.objectContaining({ kind: 'not_enough' }));
+function oversized({ expect }: Pick<test.Context, 'expect'>, run: () => unknown) {
+  expect(run).toThrowError(expect.objectContaining({ kind: 'not_enough' }));
 }
 
-test.stable('Page prompts preserve exact rich editable targets and captured Unicode', () => {
-  const { request, context } = fixture();
-  const result = pageTransformPrompt(request, context);
+test.stable(
+  'Page prompts preserve exact rich editable targets and captured Unicode',
+  ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  test.assert.strictEqual(result.editTarget, context.inputs[0]);
-  const captured = JSON.parse(result.prompt);
+    const { request, context } = fixture();
+    const result = pageTransformPrompt(request, context);
 
-  test.expect(captured.editTarget.document).toStrictEqual(context.inputs[0]!.document);
-  test.expect(captured.inputs[0].excerpts).toStrictEqual(context.inputs[0]!.excerpts);
-  test.assert.strictEqual(captured.inputs[0].role, 'editable_target');
-  test.assert.strictEqual(captured.editTarget.input.versionId, '1');
-  test.assert.ok(result.prompt.includes('😀'));
-});
+    assert.strictEqual(result.editTarget, context.inputs[0]);
+    const captured = JSON.parse(result.prompt);
+
+    expect(captured.editTarget.document).toStrictEqual(context.inputs[0]!.document);
+    expect(captured.inputs[0].excerpts).toStrictEqual(context.inputs[0]!.excerpts);
+    assert.strictEqual(captured.inputs[0].role, 'editable_target');
+    assert.strictEqual(captured.editTarget.input.versionId, '1');
+    assert.ok(result.prompt.includes('😀'));
+  }
+);
 
 test.stable(
   'Page prompt admission accounts for all serialized input bytes without changing the target',
-  () => {
+  ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const { request, context } = fixture();
     const before = context.inputs[0]!.document;
 
@@ -114,33 +121,40 @@ test.stable(
       },
       fixture('x'.repeat(140000)).context
     ]) {
-      oversized(() => pageTransformPrompt(request, oversizedContext));
+      oversized({ expect }, () => pageTransformPrompt(request, oversizedContext));
     }
 
-    test.assert.strictEqual(context.inputs[0]!.document, before);
+    assert.strictEqual(context.inputs[0]!.document, before);
   }
 );
 
-test.stable('Page transforms still require the exact whole-document editable target', () => {
-  const { request, context } = fixture();
+test.stable(
+  'Page transforms still require the exact whole-document editable target',
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test
-    .expect(() => pageTransformPrompt(request, { ...context, inputs: [] }))
-    .toThrowError(test.expect.objectContaining({ kind: 'invalid_input' }));
-  test.assert.throws(() =>
-    pageTransformPrompt(request, {
-      ...context,
-      inputs: context.inputs.map((input) => ({
-        ...input,
-        scope: { kind: 'blocks' as const, blockIds: [input.excerpts[0]!.blockId] }
-      }))
-    })
-  );
-});
+    const { request, context } = fixture();
+
+    expect(() => pageTransformPrompt(request, { ...context, inputs: [] })).toThrowError(
+      expect.objectContaining({ kind: 'invalid_input' })
+    );
+    assert.throws(() =>
+      pageTransformPrompt(request, {
+        ...context,
+        inputs: context.inputs.map((input) => ({
+          ...input,
+          scope: { kind: 'blocks' as const, blockIds: [input.excerpts[0]!.blockId] }
+        }))
+      })
+    );
+  }
+);
 
 test.stable(
   'Page prompts include only captured support excerpts with their exact identities',
-  () => {
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { request, context } = fixture();
     const support = Schema.decodeUnknownSync(pageTransformContextSchema)({
       ...context,
@@ -166,12 +180,12 @@ test.stable(
     });
     const captured = JSON.parse(pageTransformPrompt(request, support).prompt);
 
-    test.expect(captured.inputs[1]).toStrictEqual({
+    expect(captured.inputs[1]).toStrictEqual({
       role: 'supporting_evidence',
       input: { kind: 'page', versionId: '2' },
       name: 'Support 😀',
       excerpts: JSON.parse(JSON.stringify(support.inputs[1]!.excerpts))
     });
-    test.assert.strictEqual(captured.editTarget.input.versionId, '1');
+    assert.strictEqual(captured.editTarget.input.versionId, '1');
   }
 );

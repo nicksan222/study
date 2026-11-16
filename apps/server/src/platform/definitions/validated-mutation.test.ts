@@ -42,7 +42,9 @@ const probe = defineStore({
 
 test.stable(
   'validated mutation rejects inputs and rolls back a typed store write on failure',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const failure = new StudyError('internal', 'write failed');
@@ -61,13 +63,13 @@ test.stable(
       Effect.runPromise(effect.pipe(Effect.provideService(Database, { store: context })));
 
     try {
-      test.assert.deepStrictEqual(await run(save(1)), { value: 1 });
+      assert.deepStrictEqual(await run(save(1)), { value: 1 });
       const invalid = await run(Effect.flip(save(1.5)));
 
-      test.assert.strictEqual(invalid.kind, 'invalid_input');
-      test.assert.strictEqual(invalid.message, 'Expected an integer');
-      test.assert.strictEqual(await run(Effect.flip(save(2))), failure);
-      test.assert.deepStrictEqual(
+      assert.strictEqual(invalid.kind, 'invalid_input');
+      assert.strictEqual(invalid.message, 'Expected an integer');
+      assert.strictEqual(await run(Effect.flip(save(2))), failure);
+      assert.deepStrictEqual(
         context.db.orm
           .select()
           .from(preferences)

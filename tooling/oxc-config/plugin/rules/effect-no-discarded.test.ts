@@ -4,18 +4,23 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message = 'Consume Effect computations with yield*, return, or an approved runtime boundary.';
 
-test.stable('reports discarded Effects and accepts explicitly handled results', async () => {
-  assertDiagnostics(
-    'effect-no-discarded',
-    await lintRule('effect-no-discarded', {
-      'src/procedures/bad.ts': String.raw`import { Effect as E } from "effect";
+test.stable(
+  'reports discarded Effects and accepts explicitly handled results',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    assertDiagnostics(
+      { assert, expect },
+      'effect-no-discarded',
+      await lintRule({ assert }, 'effect-no-discarded', {
+        'src/procedures/bad.ts': String.raw`import { Effect as E } from "effect";
 import { StudyError } from "@study/server/shared/errors";
 E.succeed(1);
 const task = E.fn(function* () {
   return 1;
 });
 task();`,
-      'src/procedures/good.ts': String.raw`import { Effect as E } from "effect";
+        'src/procedures/good.ts': String.raw`import { Effect as E } from "effect";
 import { StudyError } from "@study/server/shared/errors";
 const task = E.gen(function* () {
   return 1;
@@ -24,26 +29,30 @@ function f(E: any) {
   E.succeed(1);
 }
 E.runSync(task);`,
-      'src/procedures/example.test.ts': String.raw`import { Effect as E } from "effect";
+        'src/procedures/example.test.ts': String.raw`import { Effect as E } from "effect";
 import { StudyError } from "@study/server/shared/errors";
 E.succeed(1);
 const task = E.fn(function* () {
   return 1;
 });
 task();`
-    }),
-    [
-      ['src/procedures/bad.ts', message],
-      ['src/procedures/bad.ts', message]
-    ]
-  );
-});
+      }),
+      [
+        ['src/procedures/bad.ts', message],
+        ['src/procedures/bad.ts', message]
+      ]
+    );
+  }
+);
 test.stable(
   'resolves imported namespaces, named imports, const aliases and shadowing',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     assertDiagnostics(
+      { assert, expect },
       'effect-no-discarded',
-      await lintRule('effect-no-discarded', {
+      await lintRule({ assert }, 'effect-no-discarded', {
         'src/procedures/aliases.ts': String.raw`import * as E from "effect/Effect";
 import { succeed as operation } from "effect/Effect";
 const alias = E;
@@ -64,10 +73,13 @@ function f(E: any, operation: any) {
 
 test.stable(
   'checks known Effect values and pipelines without guessing arbitrary service returns',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     assertDiagnostics(
+      { assert, expect },
       'effect-no-discarded',
-      await lintRule('effect-no-discarded', {
+      await lintRule({ assert }, 'effect-no-discarded', {
         'src/procedures/values.ts': String.raw`import { Effect as E } from "effect";
 const task = E.gen(function* () {
   return 1;
@@ -89,56 +101,77 @@ fn();`
   }
 );
 
-test.stable('recognizes canonical Effect constants through imported aliases', async () => {
-  assertDiagnostics(
-    'effect-no-discarded',
-    await lintRule('effect-no-discarded', {
-      'src/procedures/constants.ts': String.raw`import * as E from "effect/Effect";
+test.stable(
+  'recognizes canonical Effect constants through imported aliases',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    assertDiagnostics(
+      { assert, expect },
+      'effect-no-discarded',
+      await lintRule({ assert }, 'effect-no-discarded', {
+        'src/procedures/constants.ts': String.raw`import * as E from "effect/Effect";
 import { void as done } from "effect/Effect";
 E.void;
 done;`
-    }),
-    [
-      ['src/procedures/constants.ts', message],
-      ['src/procedures/constants.ts', message]
-    ]
-  );
-});
+      }),
+      [
+        ['src/procedures/constants.ts', message],
+        ['src/procedures/constants.ts', message]
+      ]
+    );
+  }
+);
 
-test.stable('void and await do not execute Effects but terminal runtime pipelines do', async () => {
-  const diagnostics = await lintRule('effect-no-discarded', {
-    'src/bad.ts': String.raw`import { Effect } from "effect";
+test.stable(
+  'void and await do not execute Effects but terminal runtime pipelines do',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'effect-no-discarded', {
+      'src/bad.ts': String.raw`import { Effect } from "effect";
 void Effect.sync(() => work());
 async function operation() {
   await Effect.sync(() => work());
 }`,
-    'src/runtime/main.ts': String.raw`import { Effect } from "effect";
+      'src/runtime/main.ts': String.raw`import { Effect } from "effect";
 Effect.sync(() => work()).pipe(Effect.runSync);
 void Effect.sync(() => work()).pipe(Effect.runPromise);`
-  });
+    });
 
-  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-  test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
-});
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+  }
+);
 
-test.stable('reports discarded browser Effects and accepts explicit handling', async () => {
-  const diagnostics = await lintRule(
-    'effect-no-discarded',
-    {
-      'apps/client/src/features/example/page.logic.ts':
-        "import { Effect } from 'effect'; Effect.succeed(1);",
-      'apps/client/src/features/example/page.logic.test.ts':
-        "import { Effect } from 'effect'; Effect.succeed(1);"
-    },
-    true
-  );
+test.stable(
+  'reports discarded browser Effects and accepts explicit handling',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-});
+    const diagnostics = await lintRule(
+      { assert },
+      'effect-no-discarded',
+      {
+        'apps/client/src/features/example/page.logic.ts':
+          "import { Effect } from 'effect'; Effect.succeed(1);",
+        'apps/client/src/features/example/page.logic.test.ts':
+          "import { Effect } from 'effect'; Effect.succeed(1);"
+      },
+      true
+    );
 
-test.stable('consumes v4 constructors, scheduler values and untraced operations', async () => {
-  const diagnostics = await lintRule('effect-no-discarded', {
-    'src/bad.ts': String.raw`import { Effect as E } from "effect";
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  }
+);
+
+test.stable(
+  'consumes v4 constructors, scheduler values and untraced operations',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'effect-no-discarded', {
+      'src/bad.ts': String.raw`import { Effect as E } from "effect";
 E.flatten(task);
 E.asVoid(task);
 E.andThen(task, next);
@@ -152,7 +185,7 @@ run();
 E.fnUntracedEager(function* () {
   return 1;
 })();`,
-    'src/good.ts': String.raw`import { Effect as E } from "effect";
+      'src/good.ts': String.raw`import { Effect as E } from "effect";
 const task = E.flatten(other);
 const run = E.fnUntraced(function* () {
   yield* E.yieldNow;
@@ -161,36 +194,47 @@ const run = E.fnUntraced(function* () {
 function f(E: any) {
   E.flatten(task);
 }`
-  });
+    });
 
-  assertDiagnostics(
-    'effect-no-discarded',
-    diagnostics,
-    Array.from({ length: 8 }, (): [string, string] => ['src/bad.ts', message])
-  );
-});
+    assertDiagnostics(
+      { assert, expect },
+      'effect-no-discarded',
+      diagnostics,
+      Array.from({ length: 8 }, (): [string, string] => ['src/bad.ts', message])
+    );
+  }
+);
 
-test.stable('recognizes applied data-last v4 computations', async () => {
-  assertDiagnostics(
-    'effect-no-discarded',
-    await lintRule('effect-no-discarded', {
-      'src/bad.ts':
-        "import {Effect as E} from 'effect'; E.forkIn(scope)(task); E.andThen(next)(task);",
-      'src/good.ts': "import {Effect as E} from 'effect'; const task = E.andThen(next)(previous);"
-    }),
-    [
-      ['src/bad.ts', message],
-      ['src/bad.ts', message]
-    ]
-  );
-});
+test.stable(
+  'recognizes applied data-last v4 computations',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    assertDiagnostics(
+      { assert, expect },
+      'effect-no-discarded',
+      await lintRule({ assert }, 'effect-no-discarded', {
+        'src/bad.ts':
+          "import {Effect as E} from 'effect'; E.forkIn(scope)(task); E.andThen(next)(task);",
+        'src/good.ts': "import {Effect as E} from 'effect'; const task = E.andThen(next)(previous);"
+      }),
+      [
+        ['src/bad.ts', message],
+        ['src/bad.ts', message]
+      ]
+    );
+  }
+);
 
 test.stable(
   'permits functions with terminal transformations that change the return type',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     assertDiagnostics(
+      { assert, expect },
       'effect-no-discarded',
-      await lintRule('effect-no-discarded', {
+      await lintRule({ assert }, 'effect-no-discarded', {
         'src/runtime/main.ts': String.raw`import { Effect as E } from "effect";
 const run = E.fnUntraced(function* () {
   return 7;

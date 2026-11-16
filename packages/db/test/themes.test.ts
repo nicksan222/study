@@ -21,7 +21,9 @@ function contrast(a: string, b: string) {
 
 test.stable(
   'the curated catalog includes complete accessible light and dark palettes',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const db = await location.open();
 
@@ -30,27 +32,30 @@ test.stable(
     for (const id of ['tokyo-night', 'catppuccin', 'rose-pine', 'nord']) {
       const row = catalog.find((theme) => theme.id === id);
 
-      test.assert.ok(row?.builtin, id);
+      assert.ok(row?.builtin, id);
       const theme = parseTheme(JSON.stringify(row.definition));
 
       for (const mode of ['light', 'dark'] as const) {
         const colors = theme[mode]!;
 
-        test
-          .expect(Object.keys(colors).sort(), `${id} ${mode}`)
-          .toStrictEqual([...themeColorKeys].sort());
+        expect(Object.keys(colors).sort(), `${id} ${mode}`).toStrictEqual(
+          [...themeColorKeys].sort()
+        );
 
-        verifyContrast(colors, id, mode);
+        verifyContrast({ assert }, colors, id, mode);
       }
     }
   }
 );
 
 function verifyContrast(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
   colors: NonNullable<ReturnType<typeof parseTheme>['light']>,
   id: string,
   mode: string
 ) {
+  const assert: test.Assert = assertions;
+
   for (const [foreground, background] of [
     ['foreground', 'background'],
     ['muted-foreground', 'background'],
@@ -68,7 +73,7 @@ function verifyContrast(
     ['terminal-foreground', 'terminal-background'],
     ['control-on-destructive', 'destructive']
   ] as const)
-    test.assert.ok(
+    assert.ok(
       contrast(colors[foreground]!, colors[background]!) >= 4.5,
       `${id} ${mode} ${foreground}`
     );

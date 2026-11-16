@@ -45,8 +45,10 @@ import { materialGenerationWorkflow, materialGenerationHandler } from './generat
 
 test.stable(
   'rejects mismatched generation event before reaching a provider',
-  async ({ databases }) => {
-    using mock = test.createAiMock();
+  async ({ databases, createAiMock, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    using mock = createAiMock();
     const location = await databases();
     const context = new ServerContext(await location.open());
     const database = Layer.succeed(Database, { store: context });
@@ -104,36 +106,34 @@ test.stable(
             context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
           );
 
-          assertEventType(value, 'MaterialGenerationRequested', 'wrong event');
+          assertEventType({ assert }, value, 'MaterialGenerationRequested', 'wrong event');
 
           return value;
         }).pipe(Effect.provide(domain))
       );
 
-      await test
-        .expect(
-          Effect.runPromise(
-            Effect.scoped(
-              Effect.gen(function* () {
-                const engine = yield* WorkflowEngine.WorkflowEngine;
+      await expect(
+        Effect.runPromise(
+          Effect.scoped(
+            Effect.gen(function* () {
+              const engine = yield* WorkflowEngine.WorkflowEngine;
 
-                yield* engine.register(materialGenerationWorkflow, materialGenerationHandler);
+              yield* engine.register(materialGenerationWorkflow, materialGenerationHandler);
 
-                return yield* withTestAdmission(
-                  context,
-                  materialGenerationWorkflow,
-                  'mismatch',
-                  { event: { ...event, kind: 'quiz' } },
-                  engine.execute(materialGenerationWorkflow, {
-                    executionId: 'mismatch',
-                    payload: { event: { ...event, kind: 'quiz' } }
-                  })
-                );
-              }).pipe(Effect.provide(services))
-            )
+              return yield* withTestAdmission(
+                context,
+                materialGenerationWorkflow,
+                'mismatch',
+                { event: { ...event, kind: 'quiz' } },
+                engine.execute(materialGenerationWorkflow, {
+                  executionId: 'mismatch',
+                  payload: { event: { ...event, kind: 'quiz' } }
+                })
+              );
+            }).pipe(Effect.provide(services))
           )
         )
-        .rejects.toSatisfy(() => true);
+      ).rejects.toSatisfy(() => true);
     } finally {
       context.close();
       await location.cleanup();
@@ -143,7 +143,9 @@ test.stable(
 
 test.stable(
   'generates and publishes all material kinds with captured evidence and replays receipts',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const { createChatGptModel } = await import('#server/platform/ai/providers/chatgpt/model');
     const { AuthManager } = await import('#server/platform/ai/providers/chatgpt/session');
     const location = await databases();
@@ -207,7 +209,7 @@ test.stable(
       }
     });
 
-    test.assert.ok(peer.port, 'missing address');
+    assert.ok(peer.port, 'missing address');
     const base = peer.url.origin;
     const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
@@ -255,7 +257,7 @@ test.stable(
           });
           const state = yield* sources.sourceProcessing(source.id);
 
-          test.assert.ok(state.requestId);
+          assert.ok(state.requestId);
           const engine = yield* WorkflowEngine.WorkflowEngine;
 
           yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
@@ -293,8 +295,8 @@ test.stable(
           );
           const exact = yield* sources.currentExtraction({ id: source.id });
 
-          test.assert.ok(exact);
-          test.assert.strictEqual(context.db.orm.select().from(s.materials).all().length, 0);
+          assert.ok(exact);
+          assert.strictEqual(context.db.orm.select().from(s.materials).all().length, 0);
 
           return {
             projectId: project.id,
@@ -309,11 +311,14 @@ test.stable(
         }).pipe(Effect.scoped, Effect.provide(services()))
       );
       const generate = async (
+        { expect, assert: assertions }: Pick<test.Context, 'expect' | 'assert'>,
         kind: 'flashcards' | 'quiz',
         content: unknown,
         failure?: 'publication',
         quizConfig?: (typeof materialGenerationInputSchema.Type)['quizConfig']
       ) => {
+        const assert: test.Assert = assertions;
+
         await Effect.runPromise(
           Effect.flatMap(Materials, (m) =>
             m.requestMaterialGeneration({
@@ -329,7 +334,7 @@ test.stable(
           context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
         );
 
-        assertEventType(event, 'MaterialGenerationRequested', 'wrong event');
+        assertEventType({ assert }, event, 'MaterialGenerationRequested', 'wrong event');
 
         tool = true;
         output = JSON.stringify(content);
@@ -365,7 +370,7 @@ test.stable(
 
           let rejected: unknown;
 
-          await test.expect(execute()).rejects.toSatisfy((error) => {
+          await expect(execute()).rejects.toSatisfy((error) => {
             rejected = error;
 
             return true;
@@ -380,17 +385,17 @@ test.stable(
                 value.type === 'MaterialGenerationFailed' && value.requestId === event.requestId
             );
 
-          test.assert.strictEqual(
+          assert.strictEqual(
             failures.length,
             1,
             JSON.stringify(rejected, (_key, value) =>
               value instanceof Error ? { message: value.message, cause: value.cause } : value
             )
           );
-          test.assert.strictEqual(failures[0]?.causationId, event.eventId);
+          assert.strictEqual(failures[0]?.causationId, event.eventId);
           const completedCalls = calls;
 
-          test.assert.strictEqual(
+          assert.strictEqual(
             completedCalls - beforeCorrection,
             2,
             JSON.stringify(rejected, (_key, value) =>
@@ -402,17 +407,13 @@ test.stable(
 
           context.close();
           context = new ServerContext(await location.open());
-          test.expect(rejected).toMatchObject({ kind: 'internal' });
-          await test.expect(execute()).rejects.toMatchObject({
+          expect(rejected).toMatchObject({ kind: 'internal' });
+          await expect(execute()).rejects.toMatchObject({
             kind: 'internal',
             message: 'Operation failed'
           });
-          test.assert.strictEqual(
-            calls,
-            completedCalls,
-            'reopening must reuse the terminal failure'
-          );
-          test.assert.strictEqual(
+          assert.strictEqual(calls, completedCalls, 'reopening must reuse the terminal failure');
+          assert.strictEqual(
             context.db.orm
               .select()
               .from(s.workflowEvents)
@@ -430,27 +431,28 @@ test.stable(
 
         const id = await execute();
 
-        test.expect(bodies.at(-1)!).toMatch(/alpha evidence/);
+        expect(bodies.at(-1)!).toMatch(/alpha evidence/);
         const before = calls;
 
         context.close();
         context = new ServerContext(await location.open());
-        test.assert.strictEqual(await execute(), id);
-        test.assert.strictEqual(calls, before);
+        assert.strictEqual(await execute(), id);
+        assert.strictEqual(calls, before);
         const version = await Effect.runPromise(
           Effect.flatMap(Materials, (m) => m.materialVersion({ id })).pipe(Effect.provide(domain()))
         );
 
-        test.assert.strictEqual(version.kind, kind);
+        assert.strictEqual(version.kind, kind);
 
         return version;
       };
 
-      await generate('flashcards', {
+      await generate({ expect, assert }, 'flashcards', {
         kind: 'flashcards',
         cards: [{ front: 'What? [1]', back: 'alpha' }]
       });
       await generate(
+        { expect, assert },
         'flashcards',
         {
           kind: 'flashcards',
@@ -458,7 +460,7 @@ test.stable(
         },
         'publication'
       );
-      const quiz = await generate('quiz', {
+      const quiz = await generate({ expect, assert }, 'quiz', {
         kind: 'quiz',
         questions: [
           {
@@ -511,9 +513,10 @@ test.stable(
         ]
       });
 
-      assertQuizQuestionShapes();
+      assertQuizQuestionShapes({ assert, expect });
 
       await generate(
+        { expect, assert },
         'quiz',
         {
           kind: 'quiz',
@@ -530,11 +533,16 @@ test.stable(
         undefined,
         { questionCount: 2, choiceCount: 2, questionKind: 'mixed', difficulty: 'balanced' }
       );
-      test.expect(bodies.at(-1)).toMatch(/Question kind: [^.]*\bordering\b[^.]*questions\./);
+      expect(bodies.at(-1)).toMatch(/Question kind: [^.]*\bordering\b[^.]*questions\./);
 
-      function assertQuizQuestionShapes() {
-        test.assert.ok(quiz);
-        test.assert.ok(quiz.content.kind === 'quiz');
+      function assertQuizQuestionShapes({
+        assert: assertions,
+        expect
+      }: Pick<test.Context, 'assert' | 'expect'>) {
+        const assert: test.Assert = assertions;
+
+        assert.ok(quiz);
+        assert.ok(quiz.content.kind === 'quiz');
 
         if (quiz.content.kind !== 'quiz') throw Error('wrong content');
 
@@ -547,30 +555,32 @@ test.stable(
         )
           throw Error('wrong questions');
 
-        test.expect(single.choices.map((choice) => choice.isCorrect)).toStrictEqual([true, false]);
-        test
-          .expect(multiple.choices.map((choice) => choice.isCorrect))
-          .toStrictEqual([true, true, false]);
-        test.assert.ok(open.referenceAnswer === 'alpha');
-        test.assert.ok(blank?.kind === 'fill_blank');
-        test.assert.equal(blank.referenceAnswer, 'alpha');
-        test.assert.ok(ordering?.kind === 'ordering');
-        test.assert.deepEqual(
+        expect(single.choices.map((choice) => choice.isCorrect)).toStrictEqual([true, false]);
+        expect(multiple.choices.map((choice) => choice.isCorrect)).toStrictEqual([
+          true,
+          true,
+          false
+        ]);
+        assert.ok(open.referenceAnswer === 'alpha');
+        assert.ok(blank?.kind === 'fill_blank');
+        assert.equal(blank.referenceAnswer, 'alpha');
+        assert.ok(ordering?.kind === 'ordering');
+        assert.deepEqual(
           ordering.items.map((item) => item.text),
           ['Initial stage', 'Final stage']
         );
-        test.assert.ok(matching);
-        test.assert.ok(matching.kind === 'matching');
-        test.assert.deepEqual(
+        assert.ok(matching);
+        assert.ok(matching.kind === 'matching');
+        assert.deepEqual(
           matching.pairs.map((p) => [p.term, p.definition]),
           [
             ['Alpha', 'First'],
             ['Beta', 'Second']
           ]
         );
-        test.assert.ok(boolean);
-        test.assert.ok(boolean.kind === 'true_false');
-        test.assert.deepEqual(
+        assert.ok(boolean);
+        assert.ok(boolean.kind === 'true_false');
+        assert.deepEqual(
           boolean.choices.map((choice) => [choice.text, choice.isCorrect]),
           [
             ['true', true],
@@ -597,8 +607,8 @@ test.stable(
           }
         ]
       ] as const) {
-        await test.expect(generate(kind, content)).rejects.toSatisfy(() => true);
-        test.assert.strictEqual(
+        await expect(generate({ expect, assert }, kind, content)).rejects.toSatisfy(() => true);
+        assert.strictEqual(
           context.db.orm
             .select()
             .from(s.material_generation_requests)
@@ -609,7 +619,9 @@ test.stable(
         );
       }
 
-      const request = async () => {
+      const request = async ({ assert: assertions }: Pick<test.Context, 'assert'>) => {
+        const assert: test.Assert = assertions;
+
         await Effect.runPromise(
           Effect.flatMap(Materials, (m) =>
             m.requestMaterialGeneration({
@@ -624,7 +636,7 @@ test.stable(
           context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
         );
 
-        assertEventType(event, 'MaterialGenerationRequested', 'wrong event');
+        assertEventType({ assert }, event, 'MaterialGenerationRequested', 'wrong event');
 
         return event;
       };
@@ -672,31 +684,31 @@ test.stable(
             sources.setSourceProject({ id: doc.sourceId, projectId: doc.projectId })
           ).pipe(Effect.provide(domain()))
         );
-      const stale = await request();
+      const stale = await request({ assert });
 
       await archive();
       const beforeStale = calls;
 
-      await test.expect(executeEvent(stale)).rejects.toSatisfy(() => true);
-      test.assert.strictEqual(calls, beforeStale);
+      await expect(executeEvent(stale)).rejects.toSatisfy(() => true);
+      assert.strictEqual(calls, beforeStale);
       await unarchive();
-      const resolver = await request();
+      const resolver = await request({ assert });
 
       duringModel = async () => {
         await archive();
       };
-      await test.expect(executeEvent(resolver)).rejects.toSatisfy(() => true);
-      test.assert.strictEqual(calls, beforeStale);
+      await expect(executeEvent(resolver)).rejects.toSatisfy(() => true);
+      assert.strictEqual(calls, beforeStale);
       await unarchive();
-      const racing = await request();
+      const racing = await request({ assert });
 
       tool = false;
       output = JSON.stringify({ kind: 'flashcards', cards: [{ front: 'Q', back: 'A' }] });
       duringCall = async () => {
         await archive();
       };
-      await test.expect(executeEvent(racing)).rejects.toSatisfy(() => true);
-      test.assert.ok(
+      await expect(executeEvent(racing)).rejects.toSatisfy(() => true);
+      assert.ok(
         (
           await Effect.runPromise(
             Effect.flatMap(Materials, (m) => m.materialGeneration({ requestId: racing.requestId }))
@@ -706,12 +718,12 @@ test.stable(
         )._tag === 'Failure'
       );
       await unarchive();
-      const forged = await request();
+      const forged = await request({ assert });
 
       tool = false;
       output = JSON.stringify({ kind: 'flashcards', cards: [{ front: 'Q [99]', back: 'A' }] });
-      await test.expect(executeEvent(forged)).rejects.toSatisfy(() => true);
-      test.assert.ok(
+      await expect(executeEvent(forged)).rejects.toSatisfy(() => true);
+      assert.ok(
         (
           await Effect.runPromise(
             Effect.flatMap(Materials, (m) =>
@@ -731,11 +743,11 @@ test.stable(
               item.type === 'MaterialGenerationFailed' && item.generationEventId === forged.eventId
           );
 
-      test.assert.strictEqual(failures().length, 1);
-      test.assert.strictEqual(failures()[0]!.causationId, forged.eventId);
-      test.assert.strictEqual(failures()[0]!.correlationId, forged.requestId);
-      await test.expect(executeEvent(forged)).rejects.toSatisfy(() => true);
-      test.assert.strictEqual(failures().length, 1);
+      assert.strictEqual(failures().length, 1);
+      assert.strictEqual(failures()[0]!.causationId, forged.eventId);
+      assert.strictEqual(failures()[0]!.correlationId, forged.requestId);
+      await expect(executeEvent(forged)).rejects.toSatisfy(() => true);
+      assert.strictEqual(failures().length, 1);
       await Effect.runPromise(
         Effect.flatMap(Materials, (m) =>
           m.retryMaterialGenerationOnce({
@@ -748,18 +760,18 @@ test.stable(
         context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
       );
 
-      assertEventType(retry, 'MaterialGenerationRequested', 'wrong retry event');
+      assertEventType({ assert }, retry, 'MaterialGenerationRequested', 'wrong retry event');
 
-      await test
-        .expect(executeEvent({ ...retry, eventId: 'forged-retry' }))
-        .rejects.toSatisfy(() => true);
+      await expect(executeEvent({ ...retry, eventId: 'forged-retry' })).rejects.toSatisfy(
+        () => true
+      );
       tool = true;
       output = JSON.stringify({ kind: 'flashcards', cards: [{ front: 'Q [1]', back: 'A' }] });
       const retryVersion = await executeEvent(retry);
       const callsAfterRetry = calls;
 
-      test.assert.strictEqual(await executeEvent(retry), retryVersion);
-      test.assert.strictEqual(calls, callsAfterRetry);
+      assert.strictEqual(await executeEvent(retry), retryVersion);
+      assert.strictEqual(calls, callsAfterRetry);
       await Effect.runPromise(
         Effect.flatMap(Materials, (m) =>
           m.retryMaterialGenerationOnce({
@@ -768,7 +780,7 @@ test.stable(
           })
         ).pipe(Effect.provide(domain()))
       );
-      test.assert.ok(
+      assert.ok(
         context.db.orm
           .select()
           .from(s.workflowEvents)
@@ -803,12 +815,12 @@ test.stable(
         context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
       );
 
-      assertEventType(closedEvent, 'MaterialGenerationRequested', 'wrong event');
+      assertEventType({ assert }, closedEvent, 'MaterialGenerationRequested', 'wrong event');
 
       const beforeClosed = calls;
 
-      await test.expect(executeEvent(closedEvent)).rejects.toSatisfy(() => true);
-      test.assert.strictEqual(calls, beforeClosed);
+      await expect(executeEvent(closedEvent)).rejects.toSatisfy(() => true);
+      assert.strictEqual(calls, beforeClosed);
       const closedFailures = context.db.orm
         .select()
         .from(s.workflowEvents)
@@ -820,30 +832,30 @@ test.stable(
             item.generationEventId === closedEvent.eventId
         );
 
-      test.assert.strictEqual(closedFailures.length, 1);
-      const cancelled = await request();
+      assert.strictEqual(closedFailures.length, 1);
+      const cancelled = await request({ assert });
 
       tool = false;
       output = JSON.stringify({ kind: 'flashcards', cards: [{ front: 'Q', back: 'A' }] });
       duringCall = async () => {
         await cancel!();
       };
-      await test.expect(executeEvent(cancelled)).rejects.toSatisfy(() => true);
+      await expect(executeEvent(cancelled)).rejects.toSatisfy(() => true);
       const cancelledState = await Effect.runPromise(
         Effect.flatMap(Materials, (m) =>
           m.materialGeneration({ requestId: cancelled.requestId, verifyOnly: true })
         ).pipe(Effect.provide(domain()))
       );
 
-      test.assert.ok(cancelledState.resultVersionId === null);
-      test.assert.ok(cancelledState.cancelled === true);
+      assert.ok(cancelledState.resultVersionId === null);
+      assert.ok(cancelledState.cancelled === true);
       const blocked = await Effect.runPromise(
         Effect.flatMap(Materials, (m) =>
           Effect.flip(m.materialGeneration({ requestId: cancelled.requestId }))
         ).pipe(Effect.provide(domain()))
       );
 
-      test.assert.ok(blocked.kind === 'cancelled');
+      assert.ok(blocked.kind === 'cancelled');
     } finally {
       await auth.dispose();
       context.close();
@@ -854,9 +866,12 @@ test.stable(
 );
 
 function assertEventType<T extends ReturnType<typeof decodeEvent>['type']>(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
   event: ReturnType<typeof decodeEvent> | undefined,
   type: T,
   message: string
 ): asserts event is Extract<ReturnType<typeof decodeEvent>, { type: T }> {
-  test.assert.ok(event && event.type === type, message);
+  const assert: test.Assert = assertions;
+
+  assert.ok(event && event.type === type, message);
 }

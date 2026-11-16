@@ -49,11 +49,11 @@ test.beforeEach(async ({ mock }) => {
   useDocumentEditorImages = __mockModule2.useDocumentEditorImages;
 });
 
-test.beforeEach(() => {
-  test.vi.resetAllMocks();
+test.beforeEach(({ vi }) => {
+  vi.resetAllMocks();
   const NativeURL = URL;
 
-  test.vi.stubGlobal(
+  vi.stubGlobal(
     'URL',
     class extends NativeURL {
       static createObjectURL = createUrl;
@@ -62,13 +62,16 @@ test.beforeEach(() => {
   );
   createUrl.mockReturnValue('blob:exact-image');
 });
-test.afterEach(() => {
-  test.cleanup();
-  test.vi.unstubAllGlobals();
+test.afterEach(({ cleanup, vi }) => {
+  cleanup();
+  vi.unstubAllGlobals();
 });
 
-function mount(document = blankDocument()) {
-  const fixture = test.rpcTestTransport(async (tag, input) => {
+function mount(
+  { rpcTestTransport, render }: Pick<test.Context, 'rpcTestTransport' | 'render'>,
+  document = blankDocument()
+) {
+  const fixture = rpcTestTransport(async (tag, input) => {
     if (tag === 'sources.createSource') return rpc.create(input);
 
     if (tag === 'sources.exportRevision') return rpc.export(input);
@@ -89,7 +92,7 @@ function mount(document = blankDocument()) {
     return <>{latest.subscriptions}</>;
   }
 
-  const view = test.render(<Probe />, { wrapper: fixture.wrapper });
+  const view = render(<Probe />, { wrapper: fixture.wrapper });
 
   return {
     ...view,
@@ -114,44 +117,45 @@ function file(name: string, type: string, bytes: Uint8Array) {
 
 test.stable(
   'retains uploaded image bytes in the document subject before returning a canonical reference',
-  async () => {
+  async ({ expect, rpcTestTransport, render }) => {
     rpc.create.mockResolvedValue({
       ...importedSource,
       id: sourceIdSchema.make(17n),
       kind: 'image',
       name: 'diagram.png'
     });
-    const view = mount();
+    const view = mount({ rpcTestTransport, render });
     const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
     const image = file('diagram.png', 'image/png', bytes);
     const reference = await view.result.current.upload(image);
 
-    test.expect(rpc.create).toHaveBeenCalledExactlyOnceWith({
+    expect(rpc.create).toHaveBeenCalledExactlyOnceWith({
       name: 'diagram.png',
       bytes,
       projectId: projectIdSchema.make(5n)
     });
-    test.expect(reference).toEqual({ sourceId: '17', revision: 1, alt: 'diagram.png' });
-    test.expect(reference).not.toHaveProperty('src');
+    expect(reference).toEqual({ sourceId: '17', revision: 1, alt: 'diagram.png' });
+    expect(reference).not.toHaveProperty('src');
   }
 );
 
-test.stable('rejects non-image files before creating a source', async () => {
-  const view = mount();
+test.stable(
+  'rejects non-image files before creating a source',
+  async ({ expect, rpcTestTransport, render }) => {
+    const view = mount({ rpcTestTransport, render });
 
-  await test
-    .expect(
+    await expect(
       view.result.current.upload(
         file('note.txt', 'text/plain', new TextEncoder().encode('Not an image'))
       )
-    )
-    .rejects.toMatchObject({ kind: 'invalid_input' });
-  test.expect(rpc.create).not.toHaveBeenCalled();
-});
+    ).rejects.toMatchObject({ kind: 'invalid_input' });
+    expect(rpc.create).not.toHaveBeenCalled();
+  }
+);
 
 test.stable(
   'resolves the exact revision and revokes its preview after availability fails',
-  async () => {
+  async ({ waitFor, expect, act, rpcTestTransport, render }) => {
     const sourceId = sourceIdSchema.make(17n);
 
     rpc.export.mockResolvedValue({
@@ -165,18 +169,16 @@ test.stable(
       ...blankDocument(),
       blocks: [createBlock({ type: 'image', sourceId, revision: 1, alt: 'Diagram' })]
     };
-    const view = mount(document);
+    const view = mount({ rpcTestTransport, render }, document);
 
-    await test.waitFor(() =>
-      test.expect(view.result.current.urls['17:1']).toBe('blob:exact-image')
-    );
-    test.expect(rpc.export).toHaveBeenCalledWith({ sourceId, revision: 1n });
+    await waitFor(() => expect(view.result.current.urls['17:1']).toBe('blob:exact-image'));
+    expect(rpc.export).toHaveBeenCalledWith({ sourceId, revision: 1n });
     rpc.export.mockRejectedValue(new Error('Unavailable revision'));
-    await test.act(async () => {
+    await act(async () => {
       await view.notify();
     });
-    await test.waitFor(() => test.expect(view.result.current.urls['17:1']).toBeUndefined());
-    test.expect(revokeUrl).toHaveBeenCalledWith('blob:exact-image');
-    test.expect(view.result.current.error).toBeDefined();
+    await waitFor(() => expect(view.result.current.urls['17:1']).toBeUndefined());
+    expect(revokeUrl).toHaveBeenCalledWith('blob:exact-image');
+    expect(view.result.current.error).toBeDefined();
   }
 );

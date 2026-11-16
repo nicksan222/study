@@ -42,8 +42,11 @@ test.beforeEach(async ({ mock }) => {
   usePage = __studyMockModule0.usePage;
 });
 
-function setup<T>(hook: () => T) {
-  const fixture = test.rpcTestTransport(async (tag, input) => {
+function setup<T>(
+  { rpcTestTransport, renderHook }: Pick<test.Context, 'rpcTestTransport' | 'renderHook'>,
+  hook: () => T
+) {
+  const fixture = rpcTestTransport(async (tag, input) => {
     if (tag === 'settings.appSettings') return (await api.load()).settings;
 
     if (tag === 'settings.appearancePreferences') return defaultAppearancePreferences;
@@ -59,78 +62,82 @@ function setup<T>(hook: () => T) {
     throw new Error(tag);
   });
 
-  return test.renderHook(hook, { wrapper: fixture.wrapper });
+  return renderHook(hook, { wrapper: fixture.wrapper });
 }
 
 test.stable(
   'persists system appearance as a partial change and reloads committed data',
-  async () => {
+  async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
     const settings = { appearance: 2, language: 2, zoomPercent: 125, onboarded: true };
 
     api.load.mockResolvedValue({ settings, selected: null, themes: [] });
     api.save.mockResolvedValue({});
-    const { result } = setup(useAppearance);
+    const { result } = setup({ rpcTestTransport, renderHook }, useAppearance);
 
-    await test.waitFor(() => test.expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
 
-    test.act(() => result.current.setAppearance('system'));
-    await test.waitFor(() =>
-      test.expect(api.save).toHaveBeenCalledWith({ ...settings, appearance: 3 })
-    );
+    act(() => result.current.setAppearance('system'));
+    await waitFor(() => expect(api.save).toHaveBeenCalledWith({ ...settings, appearance: 3 }));
   }
 );
 
-test.stable('keeps the saved selection and exposes recovery when a mutation fails', async () => {
-  api.load.mockResolvedValue({
-    settings: { appearance: 2, language: 2, zoomPercent: 100, onboarded: true },
-    selected: 'ocean',
-    themes: []
-  });
-  api.select.mockRejectedValue(new Error('offline'));
-  const { result } = setup(useAppearance);
+test.stable(
+  'keeps the saved selection and exposes recovery when a mutation fails',
+  async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
+    api.load.mockResolvedValue({
+      settings: { appearance: 2, language: 2, zoomPercent: 100, onboarded: true },
+      selected: 'ocean',
+      themes: []
+    });
+    api.select.mockRejectedValue(new Error('offline'));
+    const { result } = setup({ rpcTestTransport, renderHook }, useAppearance);
 
-  await test.waitFor(() => test.expect(result.current.loading).toBe(false));
-  test.act(() => result.current.selectTheme('iris'));
-  await test.waitFor(() => test.expect(result.current.error).toBe(true));
-  test.expect(result.current.data?.selected).toBe('ocean');
-});
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => result.current.selectTheme('iris'));
+    await waitFor(() => expect(result.current.error).toBe(true));
+    expect(result.current.data?.selected).toBe('ocean');
+  }
+);
 
-test.stable.each([
-  [undefined, projectIdSchema.make(41n), projectIdSchema.make(41n), true],
-  ['41', undefined, projectIdSchema.make(41n), true],
-  [undefined, projectIdSchema.make(41n), projectIdSchema.make(42n), false],
-  [undefined, undefined, projectIdSchema.make(41n), false]
+test.stable.for([
+  [undefined, projectIdSchema.make(41n), projectIdSchema.make(41n), true] as const,
+  ['41', undefined, projectIdSchema.make(41n), true] as const,
+  [undefined, projectIdSchema.make(41n), projectIdSchema.make(42n), false] as const,
+  [undefined, undefined, projectIdSchema.make(41n), false] as const
 ])(
   'redirects only when deleting the resolved workspace or URL subject (%s, %s, %s)',
-  (scope, workspace, deleted, redirect) => {
+  ([scope, workspace, deleted, redirect], { act, expect, rpcTestTransport, renderHook }) => {
     router.scope = scope ? { project: scope } : {};
     router.navigate.mockClear();
-    const { result } = setup(() => usePage(undefined, 'projects', workspace));
+    const { result } = setup({ rpcTestTransport, renderHook }, () =>
+      usePage(undefined, 'projects', workspace)
+    );
 
-    test.act(() => result.current.onProjectDeleted(deleted));
+    act(() => result.current.onProjectDeleted(deleted));
 
     if (redirect)
-      test
-        .expect(router.navigate)
-        .toHaveBeenCalledWith({ to: '/notes', search: {}, replace: true });
-    else test.expect(router.navigate).not.toHaveBeenCalled();
+      expect(router.navigate).toHaveBeenCalledWith({ to: '/notes', search: {}, replace: true });
+    else expect(router.navigate).not.toHaveBeenCalled();
   }
 );
 
-test.stable('clears a deleted stale URL subject without leaving the resolved note', () => {
-  router.scope = { project: '41' };
-  router.navigate.mockClear();
-  const { result } = setup(() => usePage(undefined, 'projects', projectIdSchema.make(42n)));
+test.stable(
+  'clears a deleted stale URL subject without leaving the resolved note',
+  ({ act, expect, rpcTestTransport, renderHook }) => {
+    router.scope = { project: '41' };
+    router.navigate.mockClear();
+    const { result } = setup({ rpcTestTransport, renderHook }, () =>
+      usePage(undefined, 'projects', projectIdSchema.make(42n))
+    );
 
-  test.act(() => result.current.onProjectDeleted(projectIdSchema.make(41n)));
-  test.expect(router.navigate).toHaveBeenCalledExactlyOnceWith({
-    to: '.',
-    search: test.expect.any(Function),
-    replace: true
-  });
-  const search = router.navigate.mock.calls[0]![0].search;
+    act(() => result.current.onProjectDeleted(projectIdSchema.make(41n)));
+    expect(router.navigate).toHaveBeenCalledExactlyOnceWith({
+      to: '.',
+      search: expect.any(Function),
+      replace: true
+    });
+    const search = router.navigate.mock.calls[0]![0].search;
 
-  test
-    .expect(search({ project: '41', version: '9' }))
-    .toEqual({ project: undefined, version: '9' });
-});
+    expect(search({ project: '41', version: '9' })).toEqual({ project: undefined, version: '9' });
+  }
+);

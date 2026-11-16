@@ -5,10 +5,10 @@ import { useAgentProgress } from './use-agent-progress';
 
 test.stable(
   'switching progress input ignores a late snapshot from the previous execution',
-  async () => {
+  async ({ rpcTestTransport, renderHook, waitFor, expect, act }) => {
     let resolveOld!: (value: unknown) => void;
     const inputs: unknown[] = [];
-    const fixture = test.rpcTestTransport(async (_tag, input) => {
+    const fixture = rpcTestTransport(async (_tag, input) => {
       inputs.push(input);
 
       if (inputs.length === 1)
@@ -18,7 +18,7 @@ test.stable(
 
       return [];
     });
-    const view = test.renderHook(
+    const view = renderHook(
       ({ id }) => useAgentProgress({ executionId: executionIdSchema.make(id) }),
       {
         initialProps: { id: 'first' },
@@ -26,11 +26,11 @@ test.stable(
       }
     );
 
-    await test.waitFor(() => test.expect(inputs).toHaveLength(1));
+    await waitFor(() => expect(inputs).toHaveLength(1));
     view.rerender({ id: 'second' });
-    await test.waitFor(() => test.expect(inputs).toHaveLength(2));
-    await test.act(async () => resolveOld([{ text: 'invalid obsolete snapshot' }]));
-    test.expect(view.result.current.runs).toEqual([]);
-    test.expect(view.result.current.isError).toBe(false);
+    await waitFor(() => expect(inputs).toHaveLength(2));
+    await act(async () => resolveOld([{ text: 'invalid obsolete snapshot' }]));
+    expect(view.result.current.runs).toEqual([]);
+    expect(view.result.current.isError).toBe(false);
   }
 );

@@ -2,16 +2,24 @@ import { test } from '@study/testing';
 
 import { lintRulePaths } from '../test/utils.ts';
 
-async function lint(files: Record<string, string>) {
-  return await lintRulePaths('workflow-boundary', files);
+async function lint(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  files: Record<string, string>
+) {
+  const assert: test.Assert = assertions;
+
+  return await lintRulePaths({ assert }, 'workflow-boundary', files);
 }
 
 test.stable(
   'keeps workflow constructors and memory infrastructure within their owners',
-  async () => {
-    test
-      .expect(
-        await lint({
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
           'apps/server/src/domains/a/service.ts': `import { Workflow as W, Activity, WorkflowEngine } from 'effect/workflow';
  const make = W.make;
  make('x');
@@ -30,46 +38,55 @@ test.stable(
  }`,
           'apps/client/src/a.ts': `export { Workflow } from 'effect/workflow';`,
           'packages/contracts/src/a.ts': `import type { Workflow } from 'effect/workflow';`
-        })
+        }
       )
-      .toStrictEqual([
-        'apps/client/src/a.ts',
-        'apps/server/src/domains/a/service.ts',
-        'apps/server/src/domains/a/service.ts',
-        'apps/server/src/domains/a/service.ts',
-        'apps/server/src/domains/a/service.ts',
-        'apps/server/src/platform/workflows/engine.ts',
-        'packages/contracts/src/a.ts'
-      ]);
+    ).toStrictEqual([
+      'apps/client/src/a.ts',
+      'apps/server/src/domains/a/service.ts',
+      'apps/server/src/domains/a/service.ts',
+      'apps/server/src/domains/a/service.ts',
+      'apps/server/src/domains/a/service.ts',
+      'apps/server/src/platform/workflows/engine.ts',
+      'packages/contracts/src/a.ts'
+    ]);
   }
 );
 
-test.stable('only the SQLite engine may grant a workflow activity lease', async () => {
-  test
-    .expect(
-      await lint({
-        'apps/server/src/domains/jobs/service.ts': `import {Effect,Layer} from 'effect';
+test.stable(
+  'only the SQLite engine may grant a workflow activity lease',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
+          'apps/server/src/domains/jobs/service.ts': `import {Effect,Layer} from 'effect';
 import {WorkflowActivityOwner as Owner} from '#server/platform/workflows/ownership';
 Effect.provideService(task,Owner,forged);
 Layer.succeed(Owner,forged);`,
-        'apps/server/src/platform/workflows/engine.ts': `import {Effect} from 'effect';
+          'apps/server/src/platform/workflows/engine.ts': `import {Effect} from 'effect';
  import {WorkflowActivityOwner} from '#server/platform/workflows/ownership';
  Effect.provideService(task,WorkflowActivityOwner,captured);
 `
-      })
-    )
-    .toStrictEqual([
+        }
+      )
+    ).toStrictEqual([
       'apps/server/src/domains/jobs/service.ts',
       'apps/server/src/domains/jobs/service.ts'
     ]);
-});
+  }
+);
 
 test.stable(
   'only the platform engine grants activity and publication capabilities through aliases',
-  async () => {
-    test
-      .expect(
-        await lint({
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
           'apps/server/src/features/source/source.rpc.ts': `import { Effect, Layer, Context } from 'effect';
 import * as caps from '#server/platform/workflows/ownership';
 const owner = caps.WorkflowActivityOwner;
@@ -83,68 +100,80 @@ function f(guard) { Context.make(guard, fake);
  import { PublicationGuard } from '#server/platform/workflows/ownership';
  Effect.provideService(task, PublicationGuard, real);
 `
-        })
+        }
       )
-      .toStrictEqual([
-        'apps/server/src/features/source/source.rpc.ts',
-        'apps/server/src/features/source/source.rpc.ts',
-        'apps/server/src/features/source/source.rpc.ts'
-      ]);
+    ).toStrictEqual([
+      'apps/server/src/features/source/source.rpc.ts',
+      'apps/server/src/features/source/source.rpc.ts',
+      'apps/server/src/features/source/source.rpc.ts'
+    ]);
   }
 );
 
-test.stable('publication guards are granted only by their actual platform owner', async () => {
-  test
-    .expect(
-      await lint({
-        'apps/server/src/features/sources/service.ts': `import {Effect, Layer} from 'effect';
+test.stable(
+  'publication guards are granted only by their actual platform owner',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
+          'apps/server/src/features/sources/service.ts': `import {Effect, Layer} from 'effect';
 import {PublicationGuard as Guard} from '#server/platform/workflows/publication';
 Effect.provideService(task, Guard, fake);
 Layer.succeed(Guard, fake);`,
-        'apps/server/src/platform/workflows/publication.ts': `import {Effect} from 'effect';
+          'apps/server/src/platform/workflows/publication.ts': `import {Effect} from 'effect';
  import {PublicationGuard} from '#server/platform/workflows/publication';
  Effect.provideService(task, PublicationGuard, captured);
 `,
-        'apps/server/src/features/sources/workflow.ts':
-          "import { Activity } from 'effect/workflow'; Activity.make({});"
-      })
-    )
-    .toStrictEqual([
+          'apps/server/src/features/sources/workflow.ts':
+            "import { Activity } from 'effect/workflow'; Activity.make({});"
+        }
+      )
+    ).toStrictEqual([
       'apps/server/src/features/sources/service.ts',
       'apps/server/src/features/sources/service.ts'
     ]);
-});
+  }
+);
 
-test.stable('destructuring does not grant permission to forge capabilities', async () => {
-  const files = {
-    'apps/server/src/features/sources/workflow.ts': `import { Effect } from 'effect';
+test.stable(
+  'destructuring does not grant permission to forge capabilities',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const files = {
+      'apps/server/src/features/sources/workflow.ts': `import { Effect } from 'effect';
 import * as caps from '#server/platform/workflows/publication';
 const { PublicationGuard: Guard } = caps;
 const Alias = Guard;
 Effect.provideService(task, Alias, {} as any);
 function f(Guard) { Effect.provideService(task, Guard, {});
 }`,
-    'apps/server/src/features/sources/service.ts': `import { Layer } from 'effect';
+      'apps/server/src/features/sources/service.ts': `import { Layer } from 'effect';
  import * as caps from '#server/platform/workflows/ownership';
  const { WorkflowActivityOwner: Owner } = caps;
  Layer.succeed(Owner, {} as any);
 `
-  };
+    };
 
-  test
-    .expect(await lint(files))
-    .toStrictEqual([
+    expect(await lint({ assert }, files)).toStrictEqual([
       'apps/server/src/features/sources/service.ts',
       'apps/server/src/features/sources/workflow.ts'
     ]);
-});
+  }
+);
 
 test.stable(
   'note cleanup cannot forge publication or Activity ownership while invoking native retirement',
-  async () => {
-    test
-      .expect(
-        await lint({
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
           'apps/server/src/features/notes/workflows/deletion.ts': `
       import { Activity } from 'effect/workflow';
       import { withPublicationGuard } from '#server/platform/workflows/publication';
@@ -157,18 +186,21 @@ test.stable(
       Effect.provideService(finishNoteDeletion(input), PublicationGuard, forged);
       Layer.succeed(WorkflowActivityOwner, forged);
     `
-        })
+        }
       )
-      .toStrictEqual(Array(2).fill('apps/server/src/features/notes/service/deletion.ts'));
+    ).toStrictEqual(Array(2).fill('apps/server/src/features/notes/service/deletion.ts'));
   }
 );
 
 test.stable(
   'Material cleanup uses native Activities and cannot forge publication or execution ownership',
-  async () => {
-    test
-      .expect(
-        await lint({
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
           'apps/server/src/features/materials/workflows/deletion.ts': `
       import { Activity } from 'effect/workflow';
       import { withPublicationGuard } from '#server/platform/workflows/publication';
@@ -181,18 +213,21 @@ test.stable(
       Effect.provideService(finishMaterialDeletion(input), PublicationGuard, forged);
       Layer.succeed(WorkflowActivityOwner, forged);
     `
-        })
+        }
       )
-      .toStrictEqual(Array(2).fill('apps/server/src/features/materials/service/deletion.ts'));
+    ).toStrictEqual(Array(2).fill('apps/server/src/features/materials/service/deletion.ts'));
   }
 );
 
 test.stable(
   'history cleanup retains native Activity publication ownership and cannot mint guards',
-  async () => {
-    test
-      .expect(
-        await lint({
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
           'apps/server/src/features/materials/workflows/history.ts': `
       import { Activity } from 'effect/workflow';
       import { withPublicationGuard } from '#server/platform/workflows/publication';
@@ -208,8 +243,8 @@ test.stable(
       Layer.succeed(WorkflowActivityOwner, forged);
 
     `
-        })
+        }
       )
-      .toStrictEqual(Array(2).fill('apps/server/src/features/materials/service/history.ts'));
+    ).toStrictEqual(Array(2).fill('apps/server/src/features/materials/service/history.ts'));
   }
 );

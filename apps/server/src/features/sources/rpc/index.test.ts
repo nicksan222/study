@@ -27,7 +27,9 @@ import { SourcesRpcLive } from './index.ts';
 
 test.stable(
   'RPC handlers use the source service and return canonical failures',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const handlers = SourcesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
@@ -42,40 +44,38 @@ test.stable(
             const client = yield* RpcTest.makeClient(SourcesRpc, { flatten: true });
             const id = 9999n as SourceId;
 
-            test.assert.ok(
-              (yield* Effect.flip(client('sources.source', { id }))).kind === 'not_found'
-            );
-            test.assert.ok(Option.isNone(yield* client('sources.findSource', { id })));
+            assert.ok((yield* Effect.flip(client('sources.source', { id }))).kind === 'not_found');
+            assert.ok(Option.isNone(yield* client('sources.findSource', { id })));
             const link = yield* client('sources.addLink', {
               url: 'https://example.org/path',
               projectId: null
             });
 
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(
                 client('sources.addLink', { url: 'file:///tmp/test', projectId: null })
               )).kind === 'invalid_input'
             );
             const linkExport = yield* client('sources.sourceExport', { id: link.id });
 
-            test.assert.strictEqual(new TextDecoder().decode(linkExport.bytes), link.uri);
-            test.assert.strictEqual(linkExport.source.uri, link.uri);
-            test.assert.ok(link.kind === 'link');
-            test.assert.ok(link.uri === 'https://example.org/path');
+            assert.strictEqual(new TextDecoder().decode(linkExport.bytes), link.uri);
+            assert.strictEqual(linkExport.source.uri, link.uri);
+            assert.ok(link.kind === 'link');
+            assert.ok(link.uri === 'https://example.org/path');
             const created = yield* client('sources.createSource', {
               name: 'test.txt',
               bytes: new Uint8Array([1]),
               projectId: null
             });
 
-            test.assert.strictEqual(
+            assert.strictEqual(
               (yield* client('sources.source', { id: created.id })).id,
               created.id
             );
-            test
-              .expect((yield* client('sources.sourceExport', { id: created.id })).bytes)
-              .toStrictEqual(new Uint8Array([1]));
-            test.assert.ok(
+            expect((yield* client('sources.sourceExport', { id: created.id })).bytes).toStrictEqual(
+              new Uint8Array([1])
+            );
+            assert.ok(
               (yield* Effect.flip(
                 client('sources.correctBlock', {
                   id: created.id,
@@ -93,20 +93,12 @@ test.stable(
               bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])
             });
 
-            test.assert.strictEqual(replaced.revision, 2);
-            test.assert.ok(
-              (yield* client('sources.source', { id: created.id })).mime === 'image/png'
-            );
-            test.assert.strictEqual(
-              yield* client('sources.deleteSource', { id: created.id }),
-              true
-            );
-            test.assert.ok(Option.isNone(yield* client('sources.findSource', { id: created.id })));
-            test.assert.strictEqual(
-              yield* client('sources.deleteSource', { id: created.id }),
-              false
-            );
-            test.assert.strictEqual(yield* client('sources.deleteSource', { id }), false);
+            assert.strictEqual(replaced.revision, 2);
+            assert.ok((yield* client('sources.source', { id: created.id })).mime === 'image/png');
+            assert.strictEqual(yield* client('sources.deleteSource', { id: created.id }), true);
+            assert.ok(Option.isNone(yield* client('sources.findSource', { id: created.id })));
+            assert.strictEqual(yield* client('sources.deleteSource', { id: created.id }), false);
+            assert.strictEqual(yield* client('sources.deleteSource', { id }), false);
           }).pipe(Effect.provide(handlers))
         )
       );

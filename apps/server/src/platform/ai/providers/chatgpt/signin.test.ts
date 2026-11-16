@@ -18,51 +18,56 @@ import { Effect } from 'effect';
 
 import { SignIn, acquireSignIn } from '#server/platform/ai/providers/chatgpt/signin';
 
-test.stable('PKCE sign-in verifies identity and returns the issued account', async () => {
-  let nonce = '';
-  const signIn = await SignIn.start({
-    issuer: 'https://auth.example',
-    hostId: 'host',
-    fetch: async (_url, init) => {
-      const form = new URLSearchParams(init?.body as string);
+test.stable(
+  'PKCE sign-in verifies identity and returns the issued account',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-      test.assert.ok(form.get('grant_type') === 'authorization_code');
-      test.assert.ok(form.get('code_verifier'));
-      const claims = {
-        iss: 'https://auth.example',
-        aud: 'issued',
-        sub: 'user',
-        nonce,
-        exp: Math.floor(Date.now() / 1000) + 60
-      };
+    let nonce = '';
+    const signIn = await SignIn.start({
+      issuer: 'https://auth.example',
+      hostId: 'host',
+      fetch: async (_url, init) => {
+        const form = new URLSearchParams(init?.body as string);
 
-      return Response.json({
-        access_token: 'access',
-        refresh_token: 'refresh',
-        scope: 'openid chatgpt.tokens.use.direct',
-        id_token: `e30.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.sig`
-      });
-    }
-  });
-  const url = new URL(signIn.url);
+        assert.ok(form.get('grant_type') === 'authorization_code');
+        assert.ok(form.get('code_verifier'));
+        const claims = {
+          iss: 'https://auth.example',
+          aud: 'issued',
+          sub: 'user',
+          nonce,
+          exp: Math.floor(Date.now() / 1000) + 60
+        };
 
-  nonce = url.searchParams.get('nonce')!;
-  test.assert.ok(url.searchParams.get('code_challenge_method') === 'S256');
-  const finish = signIn.finish(5000);
-  const callback = new URL(url.searchParams.get('redirect_uri')!);
+        return Response.json({
+          access_token: 'access',
+          refresh_token: 'refresh',
+          scope: 'openid chatgpt.tokens.use.direct',
+          id_token: `e30.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.sig`
+        });
+      }
+    });
+    const url = new URL(signIn.url);
 
-  callback.searchParams.set('state', url.searchParams.get('state')!);
-  callback.searchParams.set('code', 'code');
-  callback.searchParams.set('client_id', 'issued');
-  test.assert.strictEqual((await fetch(callback)).status, 200);
-  const result = await finish;
+    nonce = url.searchParams.get('nonce')!;
+    assert.ok(url.searchParams.get('code_challenge_method') === 'S256');
+    const finish = signIn.finish(5000);
+    const callback = new URL(url.searchParams.get('redirect_uri')!);
 
-  test.assert.ok(result.account.subject === 'user');
-  test.assert.ok(result.account.sharing === true);
-  test.assert.ok(result.account.refreshToken === 'refresh');
-});
+    callback.searchParams.set('state', url.searchParams.get('state')!);
+    callback.searchParams.set('code', 'code');
+    callback.searchParams.set('client_id', 'issued');
+    assert.strictEqual((await fetch(callback)).status, 200);
+    const result = await finish;
 
-test.stable('abandoned sign-in expires and closes its listener', async () => {
+    assert.ok(result.account.subject === 'user');
+    assert.ok(result.account.sharing === true);
+    assert.ok(result.account.refreshToken === 'refresh');
+  }
+);
+
+test.stable('abandoned sign-in expires and closes its listener', async ({ expect }) => {
   await Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
@@ -74,84 +79,88 @@ test.stable('abandoned sign-in expires and closes its listener', async () => {
         const callback = new URL(new URL(signIn.url).searchParams.get('redirect_uri')!);
 
         yield* Effect.sleep(60);
-        yield* Effect.promise(() => test.expect(fetch(callback)).rejects.toThrow());
-        yield* Effect.promise(() =>
-          test.expect(signIn.finish(1000)).rejects.toThrow(/expired|cancel/i)
-        );
+        yield* Effect.promise(() => expect(fetch(callback)).rejects.toThrow());
+        yield* Effect.promise(() => expect(signIn.finish(1000)).rejects.toThrow(/expired|cancel/i));
       })
     )
   );
 });
 
-test.stable('disposing sign-in cancels a waiting finish and closes the listener', async () => {
-  const signIn = await SignIn.start({
-    issuer: 'https://auth.example',
-    hostId: 'host'
-  });
-  const callback = new URL(new URL(signIn.url).searchParams.get('redirect_uri')!);
-  const finishing = signIn.finish(5000);
+test.stable(
+  'disposing sign-in cancels a waiting finish and closes the listener',
+  async ({ expect }) => {
+    const signIn = await SignIn.start({
+      issuer: 'https://auth.example',
+      hostId: 'host'
+    });
+    const callback = new URL(new URL(signIn.url).searchParams.get('redirect_uri')!);
+    const finishing = signIn.finish(5000);
 
-  signIn.dispose();
-  await test.expect(finishing).rejects.toThrow(/cancel/i);
-  await test.expect(fetch(callback)).rejects.toThrow();
-});
+    signIn.dispose();
+    await expect(finishing).rejects.toThrow(/cancel/i);
+    await expect(fetch(callback)).rejects.toThrow();
+  }
+);
 
-test.stable('callback failure shows both localized messages', async () => {
+test.stable('callback failure shows both localized messages', async ({ expect }) => {
   const signIn = await SignIn.start({
     issuer: 'https://auth.example',
     hostId: 'host'
   });
   const finishing = (async () => {
-    await test.expect(signIn.finish(5000)).rejects.toThrow(/mismatch/i);
+    await expect(signIn.finish(5000)).rejects.toThrow(/mismatch/i);
   })();
   const callback = new URL(new URL(signIn.url).searchParams.get('redirect_uri')!);
   const response = await fetch(callback);
   const page = await response.text();
 
-  test.expect(page).toMatch(/The sign-in did not complete/);
-  test.expect(page).toMatch(/accesso non è riuscito/);
+  expect(page).toMatch(/The sign-in did not complete/);
+  expect(page).toMatch(/accesso non è riuscito/);
   await finishing;
 });
 
-test.stable('malformed token response and ID claims do not leak their contents', async () => {
-  for (const body of [
-    'secret-token-body',
-    JSON.stringify({
-      access_token: 'access',
-      id_token: `e30.${Buffer.from('secret-identity').toString('base64url')}.sig`
-    })
-  ]) {
-    const signIn = await SignIn.start({
-      issuer: 'https://auth.example',
-      hostId: 'host',
-      clientId: 'issued',
-      fetch: async () => new Response(body)
-    });
-    const url = new URL(signIn.url);
-    const callback = new URL(url.searchParams.get('redirect_uri')!);
+test.stable(
+  'malformed token response and ID claims do not leak their contents',
+  async ({ expect }) => {
+    for (const body of [
+      'secret-token-body',
+      JSON.stringify({
+        access_token: 'access',
+        id_token: `e30.${Buffer.from('secret-identity').toString('base64url')}.sig`
+      })
+    ]) {
+      const signIn = await SignIn.start({
+        issuer: 'https://auth.example',
+        hostId: 'host',
+        clientId: 'issued',
+        fetch: async () => new Response(body)
+      });
+      const url = new URL(signIn.url);
+      const callback = new URL(url.searchParams.get('redirect_uri')!);
 
-    callback.searchParams.set('state', url.searchParams.get('state')!);
-    callback.searchParams.set('code', 'code');
-    const failure = (async () => {
-      await test
-        .expect(signIn.finish(5000))
-        .rejects.toSatisfy(
+      callback.searchParams.set('state', url.searchParams.get('state')!);
+      callback.searchParams.set('code', 'code');
+      const failure = (async () => {
+        await expect(signIn.finish(5000)).rejects.toSatisfy(
           (error) =>
             !String(error).includes('secret-token-body') &&
             !String(error).includes('secret-identity') &&
             error instanceof Error &&
             error.cause === undefined
         );
-    })();
+      })();
 
-    await fetch(callback);
-    await failure;
+      await fetch(callback);
+      await failure;
+    }
   }
-});
+);
 
 test.stable(
   'sign-in deadline interrupts a stalled loopback token body and releases both connections',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const { Clock } = await import('effect');
     const { TestClock } = await import('effect/testing');
     let started!: () => void;
@@ -180,7 +189,7 @@ test.stable(
       }
     });
 
-    test.assert.ok(server.port, 'No loopback address');
+    assert.ok(server.port, 'No loopback address');
 
     try {
       await Effect.runPromise(
@@ -201,7 +210,7 @@ test.stable(
           callback.searchParams.set('code', 'code');
           const finishing = signIn.finish(5000);
           const rejected = (async () => {
-            await test.expect(finishing).rejects.toThrow(/timed out/);
+            await expect(finishing).rejects.toThrow(/timed out/);
           })();
 
           yield* Effect.promise(() => fetch(callback));
@@ -209,7 +218,7 @@ test.stable(
           yield* TestClock.adjust('5 seconds');
           yield* Effect.promise(() => rejected);
           yield* Effect.promise(() => bodyClosed);
-          yield* Effect.promise(() => test.expect(fetch(callback)).rejects.toThrow());
+          yield* Effect.promise(() => expect(fetch(callback)).rejects.toThrow());
         }).pipe(Effect.provide(TestClock.layer()))
       );
     } finally {
@@ -220,7 +229,9 @@ test.stable(
 
 test.stable(
   'browser callback bridge rejects stale states, replays, and cancelled attempts',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const signin = await SignIn.start({
       issuer: 'https://auth.example',
       hostId: 'host',
@@ -230,7 +241,7 @@ test.stable(
     try {
       const authorization = new URL(signin.url);
 
-      test.assert.strictEqual(
+      assert.strictEqual(
         authorization.searchParams.get('redirect_uri'),
         'http://127.0.0.1:5173/auth/callback'
       );
@@ -240,33 +251,38 @@ test.stable(
         client_id: 'issued'
       });
 
-      test.assert.strictEqual(signin.acceptCallback(params), false);
+      assert.strictEqual(signin.acceptCallback(params), false);
       params.set('state', authorization.searchParams.get('state')!);
-      test.assert.strictEqual(signin.acceptCallback(params), true);
-      test.assert.strictEqual(signin.acceptCallback(params), false);
+      assert.strictEqual(signin.acceptCallback(params), true);
+      assert.strictEqual(signin.acceptCallback(params), false);
       signin.dispose();
-      test.assert.strictEqual(signin.acceptCallback(params), false);
+      assert.strictEqual(signin.acceptCallback(params), false);
     } finally {
       signin.dispose();
     }
   }
 );
 
-test.stable('browser callback denial fails completion and releases the attempt', async () => {
-  const signin = await SignIn.start({
-    issuer: 'https://auth.example',
-    hostId: 'host',
-    callbackUrl: 'http://127.0.0.1:5173/auth/callback'
-  });
-  const params = new URLSearchParams({
-    state: new URL(signin.url).searchParams.get('state')!,
-    error: 'access_denied'
-  });
+test.stable(
+  'browser callback denial fails completion and releases the attempt',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  test.assert.strictEqual(signin.acceptCallback(params), false);
-  await test.expect(signin.finish(1000)).rejects.toThrow(/declined/);
-  test.assert.strictEqual(signin.acceptCallback(params), false);
-});
+    const signin = await SignIn.start({
+      issuer: 'https://auth.example',
+      hostId: 'host',
+      callbackUrl: 'http://127.0.0.1:5173/auth/callback'
+    });
+    const params = new URLSearchParams({
+      state: new URL(signin.url).searchParams.get('state')!,
+      error: 'access_denied'
+    });
+
+    assert.strictEqual(signin.acceptCallback(params), false);
+    await expect(signin.finish(1000)).rejects.toThrow(/declined/);
+    assert.strictEqual(signin.acceptCallback(params), false);
+  }
+);
 
 for (const callbackUrl of [
   'https://example.com/auth/callback',
@@ -275,36 +291,39 @@ for (const callbackUrl of [
   'http://user@127.0.0.1:5173/auth/callback',
   'http://127.0.0.1:5173/auth/callback?code=x'
 ])
-  test.stable(`OAuth rejects an unsafe callback URL: ${callbackUrl}`, async () => {
-    await test
-      .expect(SignIn.start({ issuer: 'https://auth.example', hostId: 'host', callbackUrl }))
-      .rejects.toThrow();
+  test.stable(`OAuth rejects an unsafe callback URL: ${callbackUrl}`, async ({ expect }) => {
+    await expect(
+      SignIn.start({ issuer: 'https://auth.example', hostId: 'host', callbackUrl })
+    ).rejects.toThrow();
   });
 
-test.stable('disposing sign-in closes a stalled callback connection', async () => {
-  const signIn = await SignIn.start({ issuer: 'https://auth.example', hostId: 'host' });
-  const callback = new URL(new URL(signIn.url).searchParams.get('redirect_uri')!);
-  let closed!: () => void;
-  const closure = new Promise<void>((resolve) => {
-    closed = resolve;
-  });
-  const socket = await Bun.connect({
-    hostname: '127.0.0.1',
-    port: Number(callback.port),
-    socket: {
-      open: (connection) => {
-        connection.write('GET /auth/callback HTTP/1.1\r\nHost: 127.0.0.1\r\n');
-      },
-      data: () => {},
-      close: () => closed()
+test.stable(
+  'disposing sign-in closes a stalled callback connection',
+  async ({ withinTestDeadline }) => {
+    const signIn = await SignIn.start({ issuer: 'https://auth.example', hostId: 'host' });
+    const callback = new URL(new URL(signIn.url).searchParams.get('redirect_uri')!);
+    let closed!: () => void;
+    const closure = new Promise<void>((resolve) => {
+      closed = resolve;
+    });
+    const socket = await Bun.connect({
+      hostname: '127.0.0.1',
+      port: Number(callback.port),
+      socket: {
+        open: (connection) => {
+          connection.write('GET /auth/callback HTTP/1.1\r\nHost: 127.0.0.1\r\n');
+        },
+        data: () => {},
+        close: () => closed()
+      }
+    });
+
+    try {
+      signIn.dispose();
+      await withinTestDeadline(closure);
+    } finally {
+      signIn.dispose();
+      socket.end();
     }
-  });
-
-  try {
-    signIn.dispose();
-    await test.withinTestDeadline(closure);
-  } finally {
-    signIn.dispose();
-    socket.end();
   }
-});
+);

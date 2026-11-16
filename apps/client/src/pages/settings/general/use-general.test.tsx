@@ -7,9 +7,9 @@ import { useGeneralSettings } from './use-general';
 
 test.stable.extend('locale', 'italian')(
   'updates language only after a confirmed save and preserves other settings',
-  async ({ react, rpc }) => {
+  async ({ react, rpc, vi, expect }) => {
     const settings: AppSettings = { language: 2, appearance: 3, zoomPercent: 125, onboarded: true };
-    const save = test.vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue({});
+    const save = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue({});
 
     rpc.given({ 'settings.appSettings': settings });
     rpc.handle({ 'settings.saveAppSettings': (input) => save(input) });
@@ -18,12 +18,12 @@ test.stable.extend('locale', 'italian')(
       localization: useI18n()
     }));
 
-    await react.waitFor(() => test.expect(result.current.model.data).toEqual(settings));
+    await react.waitFor(() => expect(result.current.model.data).toEqual(settings));
     react.act(() => result.current.model.setLanguage('english'));
-    await react.waitFor(() => test.expect(result.current.model.error).toBe(true));
-    test.expect(result.current.localization.locale).toBe('italian');
+    await react.waitFor(() => expect(result.current.model.error).toBe(true));
+    expect(result.current.localization.locale).toBe('italian');
     react.act(() => result.current.model.setLanguage('english'));
-    await react.waitFor(() => test.expect(result.current.localization.locale).toBe('english'));
-    test.expect(save).toHaveBeenLastCalledWith({ ...settings, language: 1 });
+    await react.waitFor(() => expect(result.current.localization.locale).toBe('english'));
+    expect(save).toHaveBeenLastCalledWith({ ...settings, language: 1 });
   }
 );

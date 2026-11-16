@@ -502,16 +502,16 @@ import { test } from '@study/testing';
 
 import { useGeneralSettings } from '#client/pages/settings/general/use-general.ts';
 
-test.stable('renders the saved settings', async ({ react, rpc }) => {
+test.stable('renders the saved settings', async ({ react, rpc, expect }) => {
   rpc.given({
     'settings.appSettings': { language: 1, appearance: 3, zoomPercent: 100, onboarded: true }
   });
   const { result } = react.renderHook(useGeneralSettings);
-  await react.waitFor(() => test.expect(result.current.data?.zoomPercent).toBe(100));
+  await react.waitFor(() => expect(result.current.data?.zoomPercent).toBe(100));
 });
 ```
 
-`test.expect`, `test.assert` and `test.expectTypeOf` expose the native assertions. Request
+`expect`, `assert` and `expectTypeOf` are callback fixtures exposing the native assertions. Request
 `mock` in the callback for spies and module mocks. Register a module mock before dynamically
 importing its subject; the fixture owns module-cache isolation and restores mocks on cleanup.
 Use canonical workspace aliases or package names for targets. Shared setup can request the
@@ -520,17 +520,18 @@ same fixture through `test.beforeEach(async ({ mock }) => { ... })`.
 ```ts
 import { test } from '@study/testing';
 
-test.stable('browser host capabilities are explicit', async ({ mock }) => {
+test.stable('browser host capabilities are explicit', async ({ mock, expect }) => {
   mock('@tauri-apps/api/core', () => ({ isTauri: () => false, invoke: mock.fn() }));
   const { hostCapabilities } = await import('#client/lib/host.ts');
 
-  test.expect(hostCapabilities()).toEqual({ updates: false, diagnostics: false });
+  expect(hostCapabilities()).toEqual({ updates: false, diagnostics: false });
 });
 ```
 
-`test.vi` retains native clock and inspection utilities. Browser tests use the same public
-import and their native Playwright assertions and page fixtures. Module mocks and hoisted
-setup on the `test` namespace are rejected by Oxlint.
+`vi` is a callback fixture for native clock and inspection utilities. Browser tests use the same public
+import and their native Playwright assertions and page fixtures. The `test` namespace is reserved for registration, classification, suites and hooks; Oxlint rejects runtime helpers and opaque context spreads.
+
+TypeScript narrowing assertions require an explicitly typed local binding: request `{ assert: assertions }` and declare `const assert: test.Assert = assertions;`. Ordinary `expect` assertions need no extra annotation. Test helpers accept the utilities they need through explicit parameters typed with `Pick<test.Context, ...>`.
 
 Fixtures initialize when requested through callback parameters, share their dependencies
 within that test, and release consumers before their backing resources. Pure tests open
@@ -539,10 +540,13 @@ no database or application. Parameterized cases that need fixtures use native `.
 ```ts
 import { test } from '@study/testing';
 
-test.stable.for(['english', 'italian'] as const)('opens Notes in %s', async (locale, { page }) => {
-  await page.open('/notes', { locale });
-  test.expect(await page.screen.findByRole('main')).toBeVisible();
-});
+test.stable.for(['english', 'italian'] as const)(
+  'opens Notes in %s',
+  async (locale, { page, expect }) => {
+    await page.open('/notes', { locale });
+    expect(await page.screen.findByRole('main')).toBeVisible();
+  }
+);
 ```
 
 | Fixture       | Prepared resources                                                                                 |
@@ -562,8 +566,8 @@ runner: `test.regression({ regression: 'evidence_integrity' })(name, callback)` 
 the same fixtures. Keep catalog metadata literal. For a localized React case, use
 `test.stable.extend('locale', 'italian')(name, callback)`.
 
-Use `test.runTestEffect` for scoped Effect execution and `test.observeUntil` for observable
-state. `test.pollUntil` is reserved for external engines without subscriptions and needs
+Request `runTestEffect` for scoped Effect execution and `observeUntil` for observable
+state. `pollUntil` is reserved for external engines without subscriptions and needs
 an explicit observation budget. Process and temporary-resource helpers register ownership
 with the native runner; fixture implementations and standalone scripts retain internal
 facets for composing their owners.

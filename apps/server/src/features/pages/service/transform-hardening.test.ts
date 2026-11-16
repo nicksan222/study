@@ -59,7 +59,13 @@ function publish(f: Fixture, value: Publication) {
   }).pipe(Effect.provide(f.domain()));
 }
 
-function create(title: string, blocks = [paragraph('alpha evidence')]) {
+function create(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  title: string,
+  blocks = [paragraph('alpha evidence')]
+) {
+  const assert: test.Assert = assertions;
+
   return Effect.flatMap(Pages, (docs) =>
     docs.create({
       createKey: crypto.randomUUID(),
@@ -70,19 +76,21 @@ function create(title: string, blocks = [paragraph('alpha evidence')]) {
     })
   ).pipe(
     Effect.map((value) => {
-      test.assert.ok(value.version);
+      assert.ok(value.version);
 
       return { ...value, version: value.version };
     })
   );
 }
 
-function capture(exactTarget: boolean) {
+function capture({ assert: assertions }: Pick<test.Context, 'assert'>, exactTarget: boolean) {
+  const assert: test.Assert = assertions;
+
   return Effect.gen(function* () {
     const chats = yield* Notes;
     const block = paragraph('😀 echo :: echo');
     const unselected = paragraph('echo');
-    const original = yield* create('Repeated phrases', [block, unselected]);
+    const original = yield* create({ assert }, 'Repeated phrases', [block, unselected]);
     const note = yield* chats.createUntitledNote({});
 
     yield* (yield* Pages).attach({ noteId: note.id, pageId: original.id });
@@ -134,11 +142,15 @@ function capture(exactTarget: boolean) {
 
 test.stable(
   'whole captured blocks publish and exact citation identities and report hashes remain immutable across reopen',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const f = await pageTransformFixture(databases);
 
     try {
-      const saved = await Effect.runPromise(capture(false).pipe(Effect.provide(f.domain())));
+      const saved = await Effect.runPromise(
+        capture({ assert }, false).pipe(Effect.provide(f.domain()))
+      );
       const cited = saved.publication.citations[0]!;
       const forged: (typeof citationSchema.Type)[] = [
         { ...cited, target: null },
@@ -158,10 +170,10 @@ test.stable(
       const before = state(f);
 
       for (const citation of forged) {
-        await test
-          .expect(Effect.runPromise(publish(f, { ...saved.publication, citations: [citation] })))
-          .rejects.toSatisfy(() => true);
-        test.expect(state(f)).toStrictEqual(before);
+        await expect(
+          Effect.runPromise(publish(f, { ...saved.publication, citations: [citation] }))
+        ).rejects.toSatisfy(() => true);
+        expect(state(f)).toStrictEqual(before);
       }
 
       await Effect.runPromise(publish(f, saved.publication));
@@ -180,7 +192,7 @@ test.stable(
           }))
         })
       );
-      test.expect(state(f)).toStrictEqual(after);
+      expect(state(f)).toStrictEqual(after);
 
       for (const changed of [
         { ...saved.publication, language: 'italian' },
@@ -193,15 +205,15 @@ test.stable(
           citations: [{ ...cited, target: { ...saved.target, start: 3, end: 7 } }]
         }
       ]) {
-        await test.expect(Effect.runPromise(publish(f, changed))).rejects.toSatisfy(() => true);
-        test.expect(state(f)).toStrictEqual(after);
+        await expect(Effect.runPromise(publish(f, changed))).rejects.toSatisfy(() => true);
+        expect(state(f)).toStrictEqual(after);
       }
 
       const versionId = after.transforms.find(
         (row) => row.id === saved.request.id
       )?.result_version_id;
 
-      test.assert.ok(versionId);
+      assert.ok(versionId);
 
       for (const mutation of [
         sql`UPDATE page_citations SET target=NULL WHERE version_id=${versionId}`,
@@ -210,13 +222,13 @@ test.stable(
         sql`UPDATE page_transform_requests SET result_hash='forged' WHERE id=${saved.request.id}`,
         sql`UPDATE page_transform_requests SET report=NULL WHERE id=${saved.request.id}`
       ]) {
-        test.assert.throws(() => f.context.db.orm.run(mutation));
-        test.expect(state(f)).toStrictEqual(after);
+        assert.throws(() => f.context.db.orm.run(mutation));
+        expect(state(f)).toStrictEqual(after);
       }
 
       await f.reopen();
       await Effect.runPromise(publish(f, saved.publication));
-      test.expect(state(f)).toStrictEqual(after);
+      expect(state(f)).toStrictEqual(after);
       await Effect.runPromise(
         Effect.flatMap(Notes, (chats) => chats.deleteNote(saved.note.id)).pipe(
           Effect.provide(f.domain())
@@ -225,14 +237,14 @@ test.stable(
       const retired = state(f);
 
       await Effect.runPromise(publish(f, saved.publication));
-      test.expect(state(f)).toStrictEqual(retired);
+      expect(state(f)).toStrictEqual(retired);
       const docs = await Effect.runPromise(Pages.pipe(Effect.provide(f.domain())));
       const version = await Effect.runPromise(
         docs.version({ id: versionId }).pipe(Effect.provide(f.domain()))
       );
 
-      test.expect(version.citations).toStrictEqual(saved.publication.citations);
-      test.expect(version.inputs).toStrictEqual([saved.input]);
+      expect(version.citations).toStrictEqual(saved.publication.citations);
+      expect(version.inputs).toStrictEqual([saved.input]);
     } finally {
       await f.close();
     }
@@ -241,7 +253,9 @@ test.stable(
 
 test.stable(
   'canonical authored citations reject fabricated exact inputs and UTF16 splits while anchor-only provenance stays explicitly inexact',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const f = await pageTransformFixture(databases);
 
     try {
@@ -249,7 +263,7 @@ test.stable(
         Effect.gen(function* () {
           const docs = yield* Pages;
           const block = paragraph('😀 echo');
-          const evidence = yield* create('Evidence', [block]);
+          const evidence = yield* create({ assert }, 'Evidence', [block]);
           const input = { kind: 'page' as const, versionId: evidence.version.id };
           const citation = {
             marker: 1,
@@ -268,10 +282,10 @@ test.stable(
             });
           const exact = yield* write(citation);
 
-          test.expect(exact.version?.citations).toStrictEqual([citation]);
+          expect(exact.version?.citations).toStrictEqual([citation]);
           const approximate = yield* write({ ...citation, target: null });
 
-          test.assert.ok(approximate.version?.citations[0]?.target === null);
+          assert.ok(approximate.version?.citations[0]?.target === null);
           const before = state(f);
 
           for (const target of [
@@ -280,13 +294,13 @@ test.stable(
             { ...citation.target, start: 0, end: 2 },
             { ...citation.target, blockId: exact.version!.document.blocks[0]!.id }
           ]) {
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(write({ ...citation, target }))).kind === 'invalid_input'
             );
-            test.expect(state(f)).toStrictEqual(before);
+            expect(state(f)).toStrictEqual(before);
           }
 
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               write({
                 ...citation,
@@ -299,7 +313,7 @@ test.stable(
               })
             )).kind === 'not_found'
           );
-          test.expect(state(f)).toStrictEqual(before);
+          expect(state(f)).toStrictEqual(before);
         }).pipe(Effect.provide(f.domain()))
       );
     } finally {
@@ -310,7 +324,9 @@ test.stable(
 
 test.stable(
   'note-only publication rejects separator-only tables without outputs, receipts, memberships or events',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await pageTransformFixture(databases);
 
     try {
@@ -357,8 +373,8 @@ test.stable(
             })
           );
 
-          test.assert.ok(failure.kind === 'invalid_input');
-          test.expect(state(f)).toStrictEqual(before);
+          assert.ok(failure.kind === 'invalid_input');
+          expect(state(f)).toStrictEqual(before);
         }).pipe(Effect.provide(f.domain()))
       );
     } finally {
@@ -370,11 +386,15 @@ test.stable(
 for (const table of ['page_proposals', 'page_transform_requests'] as const)
   test.stable(
     `proposal publication rolls back ${table} failure before same-key retry and reopen`,
-    async ({ databases }) => {
+    async ({ databases, expect, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+
       const f = await pageTransformFixture(databases);
 
       try {
-        const saved = await Effect.runPromise(capture(true).pipe(Effect.provide(f.domain())));
+        const saved = await Effect.runPromise(
+          capture({ assert }, true).pipe(Effect.provide(f.domain()))
+        );
         const before = state(f);
 
         f.context.db.exec(
@@ -382,10 +402,10 @@ for (const table of ['page_proposals', 'page_transform_requests'] as const)
             ? "CREATE TRIGGER reject_publication BEFORE INSERT ON page_proposals BEGIN SELECT RAISE(ABORT,'fixture rollback'); END"
             : "CREATE TRIGGER reject_publication BEFORE UPDATE OF result_version_id ON page_transform_requests WHEN NEW.result_version_id IS NOT NULL BEGIN SELECT RAISE(ABORT,'fixture rollback'); END"
         );
-        await test
-          .expect(Effect.runPromise(publish(f, saved.publication)))
-          .rejects.toSatisfy(() => true);
-        test.expect(state(f)).toStrictEqual(before);
+        await expect(Effect.runPromise(publish(f, saved.publication))).rejects.toSatisfy(
+          () => true
+        );
+        expect(state(f)).toStrictEqual(before);
         f.context.db.exec('DROP TRIGGER reject_publication');
         await Effect.runPromise(publish(f, saved.publication));
         const after = state(f);
@@ -393,21 +413,21 @@ for (const table of ['page_proposals', 'page_transform_requests'] as const)
           (row) => row.id === saved.request.id
         )?.result_version_id;
 
-        test.assert.ok(versionId);
-        test.assert.strictEqual(after.proposals[0]?.proposed_version_id, versionId);
-        test.assert.strictEqual(after.proposals[0]?.base_version_id, saved.original.version.id);
-        test.assert.ok(after.pages.find((row) => row.id === versionId)?.status === 'draft');
-        test.assert.strictEqual(after.published.length, before.published.length + 1);
-        test.assert.strictEqual(after.published.at(-1)?.correlationId, saved.request.id);
-        test.assert.ok(
+        assert.ok(versionId);
+        assert.strictEqual(after.proposals[0]?.proposed_version_id, versionId);
+        assert.strictEqual(after.proposals[0]?.base_version_id, saved.original.version.id);
+        assert.ok(after.pages.find((row) => row.id === versionId)?.status === 'draft');
+        assert.strictEqual(after.published.length, before.published.length + 1);
+        assert.strictEqual(after.published.at(-1)?.correlationId, saved.request.id);
+        assert.ok(
           after.pages.find((row) => row.id === saved.original.version.id)?.status === 'published'
         );
         await Effect.runPromise(publish(f, saved.publication));
-        test.expect(state(f)).toStrictEqual(after);
+        expect(state(f)).toStrictEqual(after);
         await f.reopen();
         await Effect.runPromise(publish(f, saved.publication));
-        test.expect(state(f)).toStrictEqual(after);
-        test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+        expect(state(f)).toStrictEqual(after);
+        expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         await f.close();
       }

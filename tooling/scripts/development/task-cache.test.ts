@@ -8,8 +8,8 @@ const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFile
 
 test.stable(
   'task cache evicts old archives with their sidecars and preserves unrelated files',
-  async () => {
-    await using temp = await test.temporaryDirectory({ prefix: 'study-task-cache-' });
+  async ({ temporaryDirectory, expect }) => {
+    await using temp = await temporaryDirectory({ prefix: 'study-task-cache-' });
     const directory = temp.path;
 
     for (const hash of ['0000000000000001', '0000000000000002']) {
@@ -26,19 +26,19 @@ test.stable(
     await pruneTaskCache(directory, { maxBytes: 110 });
     const entries = await Effect.runPromise(fs.readDirectory(directory));
 
-    test.expect(entries).toHaveLength(4);
-    test.expect(entries).toContain('unrelated');
-    test.expect(entries).toContain('0000000000000002.tar.zst');
+    expect(entries).toHaveLength(4);
+    expect(entries).toContain('unrelated');
+    expect(entries).toContain('0000000000000002.tar.zst');
     await pruneTaskCache(directory, { maxAgeMs: 0 });
-    test.expect(await Effect.runPromise(fs.readDirectory(directory))).toEqual(['unrelated']);
+    expect(await Effect.runPromise(fs.readDirectory(directory))).toEqual(['unrelated']);
     await pruneTaskCache(`${directory}/missing`);
   }
 );
 
 test.stable(
   'transform cache eviction bounds revision history without following symlinks',
-  async () => {
-    await using temp = await test.temporaryDirectory({ prefix: 'study-transform-cache-' });
+  async ({ temporaryDirectory, expect }) => {
+    await using temp = await temporaryDirectory({ prefix: 'study-transform-cache-' });
     const directory = temp.path;
 
     const hash = 'a'.repeat(40);
@@ -47,25 +47,28 @@ test.stable(
     await Bun.write(`${directory}/keep`, 'not a cache entry');
     await Effect.runPromise(fs.symlink(`${directory}/keep`, `${directory}/${'b'.repeat(40)}`));
     await pruneTaskCache(directory, { format: 'vitest', maxBytes: 50 });
-    test.expect(await Bun.file(`${directory}/${hash}`).exists()).toBe(false);
-    test.expect(await Bun.file(`${directory}/keep`).text()).toBe('not a cache entry');
-    test
-      .expect((await Effect.runPromise(fs.lstat(`${directory}/${'b'.repeat(40)}`))).type)
-      .toBe('SymbolicLink');
+    expect(await Bun.file(`${directory}/${hash}`).exists()).toBe(false);
+    expect(await Bun.file(`${directory}/keep`).text()).toBe('not a cache entry');
+    expect((await Effect.runPromise(fs.lstat(`${directory}/${'b'.repeat(40)}`))).type).toBe(
+      'SymbolicLink'
+    );
   }
 );
 
-test.stable('a broken Turbo cache does not disable transform-cache retirement', async () => {
-  await using temp = await test.temporaryDirectory({ prefix: 'study-independent-caches-' });
-  const directory = temp.path;
+test.stable(
+  'a broken Turbo cache does not disable transform-cache retirement',
+  async ({ temporaryDirectory, expect }) => {
+    await using temp = await temporaryDirectory({ prefix: 'study-independent-caches-' });
+    const directory = temp.path;
 
-  await Bun.write(`${directory}/.turbo/cache`, 'not a directory');
-  const entry = `${directory}/node_modules/.vitest-cache/${'a'.repeat(40)}`;
+    await Bun.write(`${directory}/.turbo/cache`, 'not a directory');
+    const entry = `${directory}/node_modules/.vitest-cache/${'a'.repeat(40)}`;
 
-  await Bun.write(entry, 'expired');
-  await Effect.runPromise(fs.utimes(entry, new Date(0), new Date(0)));
-  const results = await maintainTaskCaches(`${directory}/`);
+    await Bun.write(entry, 'expired');
+    await Effect.runPromise(fs.utimes(entry, new Date(0), new Date(0)));
+    const results = await maintainTaskCaches(`${directory}/`);
 
-  test.expect(results.map((result) => result.status)).toEqual(['rejected', 'fulfilled']);
-  test.expect(await Bun.file(entry).exists()).toBe(false);
-});
+    expect(results.map((result) => result.status)).toEqual(['rejected', 'fulfilled']);
+    expect(await Bun.file(entry).exists()).toBe(false);
+  }
+);

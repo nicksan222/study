@@ -94,7 +94,9 @@ function setup() {
 
 test.stable(
   'source history respects authored and raw citation pins even after private reply captures have gone',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await fixture(databases);
 
     try {
@@ -105,7 +107,7 @@ test.stable(
             const saved = yield* setup();
             const [first, second] = saved.snapshots;
 
-            test.assert.ok(first && second);
+            assert.ok(first && second);
             const copy = yield* rpc['pages.copySource']({
               createKey: 'history-copy',
               title: 'Independent copy',
@@ -125,16 +127,17 @@ test.stable(
               keepLatest: 1
             });
 
-            test
-              .expect(preview.candidates.map((item) => item.snapshotId))
-              .toStrictEqual([first, second]);
-            test.expect(preview.blockedSnapshotIds).toStrictEqual([first, second]);
-            test.assert.ok(
+            expect(preview.candidates.map((item) => item.snapshotId)).toStrictEqual([
+              first,
+              second
+            ]);
+            expect(preview.blockedSnapshotIds).toStrictEqual([first, second]);
+            assert.ok(
               (yield* rpc['sources.previewDeletion']({ id: saved.source.id })).blockedBy.includes(
                 'exact_inputs'
               )
             );
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(
                 rpc['sources.retireHistory']({
                   sourceId: saved.source.id,
@@ -143,7 +146,7 @@ test.stable(
                 })
               )).kind === 'invalid_input'
             );
-            test.assert.throws(() =>
+            assert.throws(() =>
               f.context.db.orm.run(
                 sql`DELETE FROM source_extraction_revisions WHERE snapshot_id=${second}`
               )
@@ -152,7 +155,7 @@ test.stable(
 
             yield* rpc['pages.delete']({ pageId: copy.id, token: deletion.token });
             f.context.db.exec('DELETE FROM notes WHERE id=1');
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(
                 rpc['sources.retireHistory']({
                   sourceId: saved.source.id,
@@ -166,27 +169,23 @@ test.stable(
               keepLatest: 1
             });
 
-            test.expect(fresh.blockedSnapshotIds).toStrictEqual([]);
+            expect(fresh.blockedSnapshotIds).toStrictEqual([]);
             yield* rpc['sources.retireHistory']({
               sourceId: saved.source.id,
               keepLatest: 1,
               token: fresh.token
             });
-            test
-              .expect(
-                (yield* rpc['sources.extractions']({
-                  sourceId: saved.source.id,
-                  limit: 10
-                })).items.map((item) => item.snapshotId)
-              )
-              .toStrictEqual(saved.snapshots.slice(2));
-            test
-              .expect(
-                (yield* rpc['sources.exportRevision']({ sourceId: saved.source.id, revision: 1n }))
-                  .bytes
-              )
-              .toStrictEqual(saved.bytes);
-            test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+            expect(
+              (yield* rpc['sources.extractions']({
+                sourceId: saved.source.id,
+                limit: 10
+              })).items.map((item) => item.snapshotId)
+            ).toStrictEqual(saved.snapshots.slice(2));
+            expect(
+              (yield* rpc['sources.exportRevision']({ sourceId: saved.source.id, revision: 1n }))
+                .bytes
+            ).toStrictEqual(saved.bytes);
+            expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
           })
         ).pipe(Effect.provide(f.handlers))
       );
@@ -198,7 +197,9 @@ test.stable(
 
 test.stable(
   'source history preview fences new publication and rolls body removal back with its outbox',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await fixture(databases);
 
     try {
@@ -217,7 +218,7 @@ test.stable(
               expectedRevision: 1
             });
 
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(
                 rpc['sources.retireHistory']({
                   sourceId: saved.source.id,
@@ -250,10 +251,10 @@ test.stable(
                 token: fresh.token
               })
             );
-            test
-              .expect(f.context.db.orm.all(sql`SELECT * FROM content_snapshots ORDER BY id`))
-              .toStrictEqual(before);
-            test.assert.strictEqual(
+            expect(
+              f.context.db.orm.all(sql`SELECT * FROM content_snapshots ORDER BY id`)
+            ).toStrictEqual(before);
+            assert.strictEqual(
               (yield* rpc['sources.extractions']({ sourceId: saved.source.id, limit: 10 })).items
                 .length,
               4
@@ -265,29 +266,27 @@ test.stable(
               token: fresh.token
             });
 
-            test.assert.strictEqual(retired.candidates.length, 3);
-            test.assert.strictEqual(
+            assert.strictEqual(retired.candidates.length, 3);
+            assert.strictEqual(
               (yield* rpc['sources.currentExtraction']({ id: saved.source.id }))?.snapshotId,
               latest.documentId
             );
-            test
-              .expect(
-                (yield* rpc['sources.exportRevision']({ sourceId: saved.source.id, revision: 1n }))
-                  .bytes
-              )
-              .toStrictEqual(saved.bytes);
-            test.assert.strictEqual(
+            expect(
+              (yield* rpc['sources.exportRevision']({ sourceId: saved.source.id, revision: 1n }))
+                .bytes
+            ).toStrictEqual(saved.bytes);
+            assert.strictEqual(
               (yield* rpc['sources.previewHistory']({ sourceId: saved.source.id, keepLatest: 1 }))
                 .candidates.length,
               0
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               f.context.db.orm.get(
                 sql`SELECT count(*) n FROM workflow_events WHERE type='SourceHistoryPruned'`
               )?.n,
               1n
             );
-            test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+            expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
           })
         ).pipe(Effect.provide(f.handlers))
       );
@@ -299,7 +298,9 @@ test.stable(
 
 test.stable(
   'deletes only the selected attachment extraction through the history boundary',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await fixture(databases);
 
     try {
@@ -310,24 +311,22 @@ test.stable(
             const saved = yield* setup();
             const [first, second, current] = saved.snapshots;
 
-            test.assert.ok(first && second && current);
+            assert.ok(first && second && current);
             const input = { sourceId: saved.source.id, keepLatest: 1, snapshotId: second };
             const preview = yield* rpc['sources.previewHistory'](input);
 
-            test.expect(preview.candidates.map((item) => item.snapshotId)).toEqual([second]);
+            expect(preview.candidates.map((item) => item.snapshotId)).toEqual([second]);
             yield* rpc['sources.retireHistory']({ ...input, token: preview.token });
             const history = yield* rpc['sources.extractions']({
               sourceId: saved.source.id,
               limit: 100
             });
 
-            test.expect(history.items.map((item) => item.snapshotId)).toEqual([current, first]);
-            test
-              .expect(
-                (yield* rpc['sources.previewHistory']({ ...input, snapshotId: current })).candidates
-              )
-              .toEqual([]);
-            test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toEqual([]);
+            expect(history.items.map((item) => item.snapshotId)).toEqual([current, first]);
+            expect(
+              (yield* rpc['sources.previewHistory']({ ...input, snapshotId: current })).candidates
+            ).toEqual([]);
+            expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toEqual([]);
           })
         ).pipe(Effect.provide(f.handlers))
       );

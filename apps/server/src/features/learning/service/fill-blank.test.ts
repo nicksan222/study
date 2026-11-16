@@ -27,7 +27,9 @@ import { Learning } from './index.ts';
 
 test.stable(
   'blank practice persists, hides answers, filters kinds and settles a grade after completion',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const domain = Learning.layer.pipe(
@@ -65,22 +67,22 @@ test.stable(
           });
           const detail = yield* materials.materialVersion({ id: material.version.id });
 
-          test.assert.ok(detail.content.kind === 'quiz');
-          test.assert.ok(detail.content.questions[0]?.kind === 'fill_blank');
-          test.assert.equal(detail.content.questions[0].referenceAnswer, 'mitochondrion');
+          assert.ok(detail.content.kind === 'quiz');
+          assert.ok(detail.content.questions[0]?.kind === 'fill_blank');
+          assert.equal(detail.content.questions[0].referenceAnswer, 'mitochondrion');
           const configuration = { ...defaultQuizSettings, questionKind: 'fill_blank' as const };
           const attempt = yield* learning.startQuiz({
             versionId: material.version.id,
             configuration
           });
 
-          test.assert.equal(attempt.questions.length, 1);
+          assert.equal(attempt.questions.length, 1);
           const question = attempt.questions[0]!;
 
-          test.assert.equal(question.kind, 'fill_blank');
-          test.assert.ok(!('referenceAnswer' in question));
-          test.assert.ok(!('explanation' in question));
-          test.assert.equal(
+          assert.equal(question.kind, 'fill_blank');
+          assert.ok(!('referenceAnswer' in question));
+          assert.ok(!('explanation' in question));
+          assert.equal(
             (yield* Effect.flip(
               learning.answerQuestion({
                 attemptId: attempt.id,
@@ -97,7 +99,7 @@ test.stable(
           });
           const restored = yield* learning.attempt(attempt.id);
 
-          test.assert.deepEqual(restored.questions[0]?.answer, {
+          assert.deepEqual(restored.questions[0]?.answer, {
             type: 'open',
             answer: 'mitochondrion'
           });
@@ -109,14 +111,14 @@ test.stable(
               .find((row) => row.type === 'QuizAnswerSubmitted')!.payload
           );
 
-          test.assert.ok(event.type === 'QuizAnswerSubmitted');
+          assert.ok(event.type === 'QuizAnswerSubmitted');
           const snapshot = yield* learning.gradingSnapshot(event);
 
-          test.assert.equal(snapshot.referenceAnswer, 'mitochondrion');
-          test.assert.equal(snapshot.learnerAnswer, 'mitochondrion');
+          assert.equal(snapshot.referenceAnswer, 'mitochondrion');
+          assert.equal(snapshot.learnerAnswer, 'mitochondrion');
           const finished = yield* learning.finishQuiz({ attemptId: attempt.id });
 
-          test.assert.equal(finished.scoring.complete, false);
+          assert.equal(finished.scoring.complete, false);
           // The workflow uses the private settlement operation when grading finishes after completion.
           const { AttemptStore } = yield* Effect.promise(
             () => import('#server/features/learning/store/index')
@@ -136,13 +138,13 @@ test.stable(
           );
           const completed = yield* learning.attempt(attempt.id);
 
-          test.assert.ok(completed.status === 'completed');
-          test.assert.equal(completed.scoring.score, 1);
+          assert.ok(completed.status === 'completed');
+          assert.equal(completed.scoring.score, 1);
           const result = completed.questions[0]!;
 
-          test.assert.ok(result.kind === 'fill_blank');
-          test.assert.equal(result.referenceAnswer, 'mitochondrion');
-          test.assert.equal(result.feedback, 'Correct.');
+          assert.ok(result.kind === 'fill_blank');
+          assert.equal(result.referenceAnswer, 'mitochondrion');
+          assert.equal(result.feedback, 'Correct.');
           yield* transaction((tx) =>
             tx.store(AttemptStore).publishGrade({
               attemptId: attempt.id,
@@ -154,9 +156,9 @@ test.stable(
           );
           const unchanged = yield* learning.attempt(attempt.id);
 
-          test.assert.ok(unchanged.status === 'completed');
-          test.assert.equal(unchanged.scoring.score, 1);
-          test.assert.throws(() =>
+          assert.ok(unchanged.status === 'completed');
+          assert.equal(unchanged.scoring.score, 1);
+          assert.throws(() =>
             context.db.orm
               .update(s.material_quiz_responses)
               .set({ score: 0 })
@@ -168,12 +170,12 @@ test.stable(
             configuration: { ...configuration, questionKind: 'open' }
           });
 
-          test.assert.deepEqual(
+          assert.deepEqual(
             open.questions.map((q) => q.kind),
             ['open']
           );
-          test.assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
-          test.assert.equal(
+          assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+          assert.equal(
             context.db.orm
               .select()
               .from(s.material_quiz_responses)

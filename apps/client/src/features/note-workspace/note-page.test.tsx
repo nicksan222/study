@@ -57,9 +57,13 @@ let material: ReturnType<typeof initializeMaterial>;
 
 const registries: AtomRegistry.AtomRegistry[] = [];
 
-function mount<T>(hook: () => T, registry = AtomRegistry.make()) {
+function mount<T>(
+  { rpcTestTransport, renderHook }: Pick<test.Context, 'rpcTestTransport' | 'renderHook'>,
+  hook: () => T,
+  registry = AtomRegistry.make()
+) {
   registries.push(registry);
-  const fixture = test.rpcTestTransport(async (tag, input) => {
+  const fixture = rpcTestTransport(async (tag, input) => {
     if (tag === 'pages.create') return api.create(input);
 
     if (tag === 'pages.save') return api.save(input);
@@ -78,7 +82,7 @@ function mount<T>(hook: () => T, registry = AtomRegistry.make()) {
     </RpcProvider>
   );
 
-  return { registry, ...test.renderHook(hook, { wrapper }) };
+  return { registry, ...renderHook(hook, { wrapper }) };
 }
 
 function createMockState(mock: test.Mock) {
@@ -113,178 +117,183 @@ test.beforeEach(async ({ mock }) => {
   material = initializeMaterial();
 });
 
-test.beforeEach(() => {
-  test.vi.useFakeTimers();
-  test.vi.resetAllMocks();
+test.beforeEach(({ vi }) => {
+  vi.useFakeTimers();
+  vi.resetAllMocks();
 });
-test.afterEach(() => {
-  test.cleanup();
+test.afterEach(({ cleanup, vi }) => {
+  cleanup();
   registries.splice(0).forEach((registry) => registry.dispose());
-  test.vi.useRealTimers();
+  vi.useRealTimers();
 });
 
-async function settle() {
-  await test.act(async () => {
-    await test.vi.advanceTimersByTimeAsync(1);
+async function settle({ act, vi }: Pick<test.Context, 'act' | 'vi'>) {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1);
   });
 }
 
 test.stable(
   'creates an empty real document attachment and reuses the exact creation receipt after uncertain transport',
-  async () => {
+  async ({ act, expect, rpcTestTransport, renderHook, vi }) => {
     api.create
       .mockRejectedValueOnce(new StudyError('transient', 'offline'))
       .mockResolvedValueOnce(material());
-    const view = mount(() => useNotePageCreation(id));
+    const view = mount({ rpcTestTransport, renderHook }, () => useNotePageCreation(id));
 
-    await test.act(async () => {
+    await act(async () => {
       await view.result.current.create('New page');
     });
     const input = api.create.mock.calls[0]![0];
 
-    test.expect(input).toMatchObject({
+    expect(input).toMatchObject({
       noteId: id,
       title: 'New page',
       document: { blocks: [{ text: '' }] }
     });
-    test.expect(input.createKey).toBeTruthy();
-    await settle();
-    test.expect(view.result.current.error).toBeDefined();
-    await test.act(async () => {
+    expect(input.createKey).toBeTruthy();
+    await settle({ act, vi });
+    expect(view.result.current.error).toBeDefined();
+    await act(async () => {
       await view.result.current.retry();
     });
-    test.expect(api.create.mock.calls[1]![0]).toEqual(input);
-    await settle();
-    test.expect(view.result.current.error).toBeUndefined();
+    expect(api.create.mock.calls[1]![0]).toEqual(input);
+    await settle({ act, vi });
+    expect(view.result.current.error).toBeUndefined();
   }
 );
 
-test.stable('autosaves typed pages and flushes trailing edits after the tab closes', async () => {
-  let finish!: (value: typeof editOutcomeSchema.Type) => void;
+test.stable(
+  'autosaves typed pages and flushes trailing edits after the tab closes',
+  async ({ act, vi, expect, rpcTestTransport, renderHook }) => {
+    let finish!: (value: typeof editOutcomeSchema.Type) => void;
 
-  api.save
-    .mockReturnValueOnce(
-      new Promise((resolve) => {
-        finish = resolve;
-      })
-    )
-    .mockResolvedValue(saveReceipt('saved', 12n, 11n));
-  const initial = material();
-  const view = mount(() => useNotePageAutosave(initial));
-  const first = document('First');
-  const last = document('Last');
+    api.save
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          finish = resolve;
+        })
+      )
+      .mockResolvedValue(saveReceipt('saved', 12n, 11n));
+    const initial = material();
+    const view = mount({ rpcTestTransport, renderHook }, () => useNotePageAutosave(initial));
+    const first = document('First');
+    const last = document('Last');
 
-  test.act(() => view.result.current.change(first));
-  await test.act(async () => {
-    await test.vi.advanceTimersByTimeAsync(3000);
-  });
-  test.expect(api.save.mock.calls[0]![0]).toMatchObject({
-    pageId: initial.id,
-    expectedVersionId: initial.version!.id,
-    document: first
-  });
-  test.act(() => view.result.current.change(last));
-  view.unmount();
-  await test.act(async () => {
-    finish(saveReceipt('saved', 11n, 10n));
-  });
-  test.expect(api.save).toHaveBeenCalledTimes(2);
-  test.expect(api.save.mock.calls[1]![0]).toMatchObject({ document: last, expectedVersionId: 11n });
-});
+    act(() => view.result.current.change(first));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    expect(api.save.mock.calls[0]![0]).toMatchObject({
+      pageId: initial.id,
+      expectedVersionId: initial.version!.id,
+      document: first
+    });
+    act(() => view.result.current.change(last));
+    view.unmount();
+    await act(async () => {
+      finish(saveReceipt('saved', 11n, 10n));
+    });
+    expect(api.save).toHaveBeenCalledTimes(2);
+    expect(api.save.mock.calls[1]![0]).toMatchObject({ document: last, expectedVersionId: 11n });
+  }
+);
 
 test.stable(
   'preserves a failed save payload and requires an explicit retry with the same save key',
-  async () => {
+  async ({ act, vi, expect, rpcTestTransport, renderHook }) => {
     api.save
       .mockRejectedValueOnce(new StudyError('transient', 'lost receipt'))
       .mockResolvedValueOnce(saveReceipt('saved', 11n, 10n));
     const initial = material();
-    const view = mount(() => useNotePageAutosave(initial));
+    const view = mount({ rpcTestTransport, renderHook }, () => useNotePageAutosave(initial));
 
-    test.act(() => view.result.current.change(document('Draft')));
-    await test.act(async () => {
-      await test.vi.advanceTimersByTimeAsync(9000);
+    act(() => view.result.current.change(document('Draft')));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9000);
     });
-    test.expect(api.save).toHaveBeenCalledTimes(1);
-    await test.act(async () => {
+    expect(api.save).toHaveBeenCalledTimes(1);
+    await act(async () => {
       await view.result.current.save();
     });
-    test.expect(api.save.mock.calls[1]![0]).toEqual(api.save.mock.calls[0]![0]);
-    await settle();
-    test.expect(view.result.current.dirty).toBe(false);
+    expect(api.save.mock.calls[1]![0]).toEqual(api.save.mock.calls[0]![0]);
+    await settle({ act, vi });
+    expect(view.result.current.dirty).toBe(false);
   }
 );
 
 test.stable(
   'retains local edits on conflict until the user selects the saved version',
-  async () => {
+  async ({ act, vi, expect, rpcTestTransport, renderHook }) => {
     api.save.mockResolvedValue(saveReceipt('conflict', 12n, 10n));
     const incoming = material('Another editor', 11n);
 
     api.material.mockResolvedValue(incoming);
     const initial = material();
-    const view = mount(() => useNotePageAutosave(initial));
+    const view = mount({ rpcTestTransport, renderHook }, () => useNotePageAutosave(initial));
 
-    test.act(() => view.result.current.change(document('Local')));
-    await test.act(async () => {
-      await test.vi.advanceTimersByTimeAsync(3000);
+    act(() => view.result.current.change(document('Local')));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
     });
-    await settle();
-    test.expect(view.result.current.document.blocks[0]!.text).toBe('Local');
-    test.expect(view.result.current.conflict?.id).toBe(initial.id);
-    test.act(() => view.result.current.acceptSavedVersion());
-    await settle();
-    test.expect(view.result.current.document.blocks[0]!.text).toBe('Another editor');
+    await settle({ act, vi });
+    expect(view.result.current.document.blocks[0]!.text).toBe('Local');
+    expect(view.result.current.conflict?.id).toBe(initial.id);
+    act(() => view.result.current.acceptSavedVersion());
+    await settle({ act, vi });
+    expect(view.result.current.document.blocks[0]!.text).toBe('Another editor');
   }
 );
 
 test.stable(
   'linked attachment pages remain bounded and request continuation only explicitly',
-  async () => {
+  async ({ expect, act, rpcTestTransport, renderHook, vi }) => {
     const item = material();
 
     api.list.mockImplementation(async ({ limit }) => ({
       items: [item],
       nextCursor: limit < 60 ? item.id : null
     }));
-    const view = mount(() => useLinkedPages(id));
+    const view = mount({ rpcTestTransport, renderHook }, () => useLinkedPages(id));
 
-    await settle();
-    test.expect(view.result.current.data?.items).toHaveLength(1);
-    test.expect(api.list).toHaveBeenCalledTimes(1);
-    test.expect(api.list.mock.calls[0]![0]).toMatchObject({ noteId: id, limit: 30 });
-    await test.act(async () => view.result.current.pagination.more(item.id));
-    await settle();
-    test.expect(api.list.mock.calls.at(-1)![0]).toMatchObject({ noteId: id, limit: 60 });
+    await settle({ act, vi });
+    expect(view.result.current.data?.items).toHaveLength(1);
+    expect(api.list).toHaveBeenCalledTimes(1);
+    expect(api.list.mock.calls[0]![0]).toMatchObject({ noteId: id, limit: 30 });
+    await act(async () => view.result.current.pagination.more(item.id));
+    await settle({ act, vi });
+    expect(api.list.mock.calls.at(-1)![0]).toMatchObject({ noteId: id, limit: 60 });
   }
 );
 
 test.stable(
   'creates a subject-owned blank document and retries the same receipt without attaching a note',
-  async () => {
+  async ({ act, expect, rpcTestTransport, renderHook, vi }) => {
     const projectId = projectIdSchema.make(7n);
 
     api.create
       .mockRejectedValueOnce(new StudyError('transient', 'offline'))
       .mockResolvedValueOnce(material());
-    const view = mount(() => useBlankPageCreation({ kind: 'project', projectId }));
+    const view = mount({ rpcTestTransport, renderHook }, () =>
+      useBlankPageCreation({ kind: 'project', projectId })
+    );
 
-    await test.act(async () => {
+    await act(async () => {
       await view.result.current.create('Blank page');
     });
     const input = api.create.mock.calls[0]![0];
 
-    test.expect(input).toMatchObject({
+    expect(input).toMatchObject({
       projectId,
       title: 'Blank page',
       document: { blocks: [{ text: '' }] }
     });
-    test.expect(input).not.toHaveProperty('noteId');
-    await test.act(async () => {
+    expect(input).not.toHaveProperty('noteId');
+    await act(async () => {
       await view.result.current.create('A changed title');
     });
-    test.expect(api.create.mock.calls[1]![0]).toEqual(input);
-    await settle();
-    test.expect(view.result.current.error).toBeUndefined();
+    expect(api.create.mock.calls[1]![0]).toEqual(input);
+    await settle({ act, vi });
+    expect(view.result.current.error).toBeUndefined();
   }
 );

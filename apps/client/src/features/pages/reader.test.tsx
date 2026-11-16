@@ -49,17 +49,25 @@ test.beforeEach(async ({ mock }) => {
   AuthoredPageReader = __mockModule1.AuthoredPageReader;
 });
 
-test.afterEach(() => {
-  test.cleanup();
+test.afterEach(({ cleanup, vi }) => {
+  cleanup();
 
-  test.vi.clearAllMocks();
+  vi.clearAllMocks();
 });
 
-function mount(initialVersion?: string, refreshedPage?: Promise<void>) {
+function mount(
+  {
+    vi,
+    rpcHandlersTransport,
+    render
+  }: Pick<test.Context, 'vi' | 'rpcHandlersTransport' | 'render'>,
+  initialVersion?: string,
+  refreshedPage?: Promise<void>
+) {
   const current = authoredPage(2n, 'Current text', 30n);
   const old = authoredPage(2n, 'Old text', 20n).version!;
   let value: Page = current;
-  const restore = test.vi.fn(async () => {
+  const restore = vi.fn(async () => {
     value = authoredPage(2n, 'Old text', 31n);
 
     return {
@@ -71,24 +79,24 @@ function mount(initialVersion?: string, refreshedPage?: Promise<void>) {
     };
   });
   const rpc = {
-    'pages.page': test.vi.fn(async () => {
+    'pages.page': vi.fn(async () => {
       if (value !== current) await refreshedPage;
 
       return value;
     }),
-    'pages.versions': test.vi.fn(async () => ({
+    'pages.versions': vi.fn(async () => ({
       items: [current.version!, old],
       nextCursor: null
     })),
-    'pages.version': test.vi.fn(async ({ id }: { id: bigint }) =>
+    'pages.version': vi.fn(async ({ id }: { id: bigint }) =>
       id === old.id ? old : current.version!
     ),
     'pages.restore': restore
   };
 
-  const harness = test.rpcHandlersTransport(rpc);
+  const harness = rpcHandlersTransport(rpc);
 
-  const view = test.render(
+  const view = render(
     <harness.wrapper>
       <AuthoredPageReader id={current.id} initialVersion={initialVersion} />
     </harness.wrapper>
@@ -99,76 +107,71 @@ function mount(initialVersion?: string, refreshedPage?: Promise<void>) {
 
 test.stable(
   'version arrows replace content in the same editor and keep old content read-only',
-  async () => {
-    mount();
-    await test.screen.findByRole('region', { name: 'editor' });
-    await test.waitFor(() =>
-      test.expect(test.screen.getByRole('button', { name: 'NotePreviousVersion' })).toBeEnabled()
+  async ({ screen, waitFor, expect, fireEvent, vi, rpcHandlersTransport, render }) => {
+    mount({ vi, rpcHandlersTransport, render });
+    await screen.findByRole('region', { name: 'editor' });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'NotePreviousVersion' })).toBeEnabled()
     );
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'NotePreviousVersion' }));
-    await test.waitFor(() =>
-      test.expect(test.screen.getByRole('textbox', { name: 'content' })).toHaveValue('Old text')
+    fireEvent.click(screen.getByRole('button', { name: 'NotePreviousVersion' }));
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'content' })).toHaveValue('Old text')
     );
-    test.expect(test.screen.getAllByRole('region', { name: 'editor' })).toHaveLength(1);
-    test.expect(test.screen.getByRole('textbox', { name: 'content' })).toHaveAttribute('readonly');
-    test
-      .expect(test.screen.getByRole('region', { name: 'editor' }))
-      .toHaveAttribute('data-snapshot', '120');
-    test.expect(test.screen.getByRole('button', { name: 'NotePreviousVersion' })).toBeDisabled();
-    const next = test.screen.getByRole('button', { name: 'NoteNextVersion' });
+    expect(screen.getAllByRole('region', { name: 'editor' })).toHaveLength(1);
+    expect(screen.getByRole('textbox', { name: 'content' })).toHaveAttribute('readonly');
+    expect(screen.getByRole('region', { name: 'editor' })).toHaveAttribute('data-snapshot', '120');
+    expect(screen.getByRole('button', { name: 'NotePreviousVersion' })).toBeDisabled();
+    const next = screen.getByRole('button', { name: 'NoteNextVersion' });
 
-    await test.waitFor(() => test.expect(next).toBeEnabled());
-    test.fireEvent.click(next);
-    await test.waitFor(() =>
-      test.expect(test.screen.getByRole('textbox', { name: 'content' })).toHaveValue('Current text')
+    await waitFor(() => expect(next).toBeEnabled());
+    fireEvent.click(next);
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'content' })).toHaveValue('Current text')
     );
-    test
-      .expect(test.screen.getByRole('textbox', { name: 'content' }))
-      .not.toHaveAttribute('readonly');
+    expect(screen.getByRole('textbox', { name: 'content' })).not.toHaveAttribute('readonly');
   }
 );
 
 test.stable(
   'an old-version deep link uses the editor and can make that content current',
-  async () => {
+  async ({ screen, fireEvent, waitFor, expect, vi, rpcHandlersTransport, render }) => {
     const refreshed = Promise.withResolvers<void>();
-    const { rpc, old } = mount('20', refreshed.promise);
+    const { rpc, old } = mount({ vi, rpcHandlersTransport, render }, '20', refreshed.promise);
 
-    await test.screen.findByDisplayValue('Old text');
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'PageMakeCurrent' }));
-    await test.waitFor(() => test.expect(rpc['pages.restore']).toHaveBeenCalledTimes(1));
-    test.expect(rpc['pages.restore'].mock.calls[0]).toEqual([
+    await screen.findByDisplayValue('Old text');
+    fireEvent.click(screen.getByRole('button', { name: 'PageMakeCurrent' }));
+    await waitFor(() => expect(rpc['pages.restore']).toHaveBeenCalledTimes(1));
+    expect(rpc['pages.restore'].mock.calls[0]).toEqual([
       {
         pageId: 2n,
         expectedVersionId: pageVersionIdSchema.make(30n),
         restoreVersionId: old.id,
-        key: test.expect.any(String)
+        key: expect.any(String)
       }
     ]);
-    await test.waitFor(() =>
-      test.expect(test.screen.queryByRole('button', { name: 'PageMakeCurrent' })).toBeNull()
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'PageMakeCurrent' })).toBeNull()
     );
     refreshed.resolve();
-    await test.waitFor(() => {
-      test.expect(test.screen.getByRole('textbox', { name: 'content' })).toHaveValue('Old text');
-      test
-        .expect(test.screen.getByRole('textbox', { name: 'content' }))
-        .not.toHaveAttribute('readonly');
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: 'content' })).toHaveValue('Old text');
+      expect(screen.getByRole('textbox', { name: 'content' })).not.toHaveAttribute('readonly');
     });
   }
 );
 
-test.stable('updates the selected version when the deep link changes in place', async () => {
-  const { current, view, harness } = mount('20');
+test.stable(
+  'updates the selected version when the deep link changes in place',
+  async ({ screen, expect, vi, rpcHandlersTransport, render }) => {
+    const { current, view, harness } = mount({ vi, rpcHandlersTransport, render }, '20');
 
-  await test.screen.findByDisplayValue('Old text');
-  view.rerender(
-    <harness.wrapper>
-      <AuthoredPageReader id={current.id} initialVersion="30" />
-    </harness.wrapper>
-  );
-  await test.screen.findByDisplayValue('Current text');
-  test
-    .expect(test.screen.getByRole('textbox', { name: 'content' }))
-    .not.toHaveAttribute('readonly');
-});
+    await screen.findByDisplayValue('Old text');
+    view.rerender(
+      <harness.wrapper>
+        <AuthoredPageReader id={current.id} initialVersion="30" />
+      </harness.wrapper>
+    );
+    await screen.findByDisplayValue('Current text');
+    expect(screen.getByRole('textbox', { name: 'content' })).not.toHaveAttribute('readonly');
+  }
+);

@@ -9,13 +9,16 @@ let usePageMetadata: typeof __MockType1.usePageMetadata;
 
 let api: ReturnType<typeof createMockState>['api'];
 
-function mount() {
-  const fixture = test.rpcTestTransport(async (_tag, input) => api.description(input));
+function mount({
+  rpcTestTransport,
+  renderHook
+}: Pick<test.Context, 'rpcTestTransport' | 'renderHook'>) {
+  const fixture = rpcTestTransport(async (_tag, input) => api.description(input));
   const original = { ...material(), description: 'Original summary' };
 
   return {
     original,
-    ...test.renderHook(() => usePageMetadata(original), { wrapper: fixture.wrapper })
+    ...renderHook(() => usePageMetadata(original), { wrapper: fixture.wrapper })
   };
 }
 
@@ -38,25 +41,25 @@ test.beforeEach(async ({ mock }) => {
   usePageMetadata = __mockModule1.usePageMetadata;
 });
 
-test.beforeEach(() => {
-  test.vi.resetAllMocks();
+test.beforeEach(({ vi }) => {
+  vi.resetAllMocks();
   api.description.mockResolvedValue(material());
 });
-test.afterEach(() => {
-  test.cleanup();
+test.afterEach(({ cleanup }) => {
+  cleanup();
 });
 
 test.stable(
   'updates document metadata with the expected stored description and trimmed title',
-  async () => {
-    const view = mount();
+  async ({ act, expect, rpcTestTransport, renderHook }) => {
+    const view = mount({ rpcTestTransport, renderHook });
 
-    test.act(() => {
+    act(() => {
       view.result.current.setTitle('  Lecture notes  ');
       view.result.current.setDescription('  Study this tomorrow  ');
     });
-    await test.act(() => view.result.current.mutation.mutateAsync());
-    test.expect(api.description).toHaveBeenCalledWith({
+    await act(() => view.result.current.mutation.mutateAsync());
+    expect(api.description).toHaveBeenCalledWith({
       id: view.original.id,
       expectedDescription: 'Original summary',
       description: 'Study this tomorrow',
@@ -66,15 +69,18 @@ test.stable(
   }
 );
 
-test.stable('keeps edits on a description conflict and does not rename the material', async () => {
-  const view = mount();
+test.stable(
+  'keeps edits on a description conflict and does not rename the material',
+  async ({ act, waitFor, expect, rpcTestTransport, renderHook }) => {
+    const view = mount({ rpcTestTransport, renderHook });
 
-  api.description.mockRejectedValue(new Error('conflict'));
-  test.act(() => {
-    view.result.current.setDescription('My summary');
-    view.result.current.mutation.mutate();
-  });
-  await test.waitFor(() => test.expect(view.result.current.mutation.isError).toBe(true));
-  test.expect(view.result.current.description).toBe('My summary');
-  test.expect(view.result.current.title).toBe(view.original.title);
-});
+    api.description.mockRejectedValue(new Error('conflict'));
+    act(() => {
+      view.result.current.setDescription('My summary');
+      view.result.current.mutation.mutate();
+    });
+    await waitFor(() => expect(view.result.current.mutation.isError).toBe(true));
+    expect(view.result.current.description).toBe('My summary');
+    expect(view.result.current.title).toBe(view.original.title);
+  }
+);

@@ -25,11 +25,13 @@ import { recordingSource } from '#testing/recording-source';
 for (const kind of ['file', 'image', 'recording'] as const)
   test.stable(
     `independent ${kind} pins preserve exact exports until final source removal without affecting equal-hash bytes or raw PCM`,
-    async ({ databases }) => {
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
       const f = await pageTransformFixture(databases);
 
       try {
-        const recordingId = kind === 'recording' ? await recordingSource(f) : null;
+        const recordingId = kind === 'recording' ? await recordingSource(f, assert) : null;
         const saved = await Effect.runPromise(
           Effect.gen(function* () {
             const sources = yield* Sources;
@@ -75,25 +77,25 @@ for (const kind of ['file', 'image', 'recording'] as const)
             const a = yield* create('First authored owner');
             const b = yield* create('Independent authored owner');
 
-            test.assert.ok(a.version);
-            test.assert.ok(b.version);
+            assert.ok(a.version);
+            assert.ok(b.version);
             const expected = yield* docs.exportVersion({ id: b.version.id });
             const preview = yield* docs.previewDeletion({ id: a.id });
 
             yield* docs.delete({ pageId: a.id, token: preview.token });
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(docs.exportVersion({ id: a.version.id }))).kind === 'not_found'
             );
             const blocked = yield* sources.previewDeletion({ id: source.id });
 
-            test.assert.ok(blocked.blockedBy.includes('exact_inputs'));
-            test.assert.ok(
+            assert.ok(blocked.blockedBy.includes('exact_inputs'));
+            assert.ok(
               (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind === 'invalid_input'
             );
-            test
-              .expect(yield* sources.exportRevision({ sourceId: source.id, revision: 1n }))
-              .toStrictEqual(original);
-            test.expect(yield* docs.exportVersion({ id: b.version.id })).toStrictEqual(expected);
+            expect(
+              yield* sources.exportRevision({ sourceId: source.id, revision: 1n })
+            ).toStrictEqual(original);
+            expect(yield* docs.exportVersion({ id: b.version.id })).toStrictEqual(expected);
 
             return { source, unrelated, original, b: { ...b, version: b.version }, expected };
           }).pipe(Effect.provide(f.domain()))
@@ -106,7 +108,7 @@ for (const kind of ['file', 'image', 'recording'] as const)
           sql`DELETE FROM sources WHERE id=${saved.source.id}`,
           sql`UPDATE source_snapshots SET bytes=x'00' WHERE source_id=${saved.source.id}`
         ])
-          test.assert.throws(() => f.context.db.orm.run(mutation));
+          assert.throws(() => f.context.db.orm.run(mutation));
 
         const pcm = f.context.db.orm.select().from(s.recording_chunks).all();
 
@@ -115,39 +117,36 @@ for (const kind of ['file', 'image', 'recording'] as const)
             const sources = yield* Sources;
             const docs = yield* Pages;
 
-            test
-              .expect(yield* docs.exportVersion({ id: saved.b.version.id }))
-              .toStrictEqual(saved.expected);
+            expect(yield* docs.exportVersion({ id: saved.b.version.id })).toStrictEqual(
+              saved.expected
+            );
             const preview = yield* docs.previewDeletion({ id: saved.b.id });
 
             yield* docs.delete({ pageId: saved.b.id, token: preview.token });
-            test
-              .expect((yield* sources.previewDeletion({ id: saved.source.id })).blockedBy)
-              .toStrictEqual([]);
+            expect(
+              (yield* sources.previewDeletion({ id: saved.source.id })).blockedBy
+            ).toStrictEqual([]);
             f.context.db.exec(
               "CREATE TRIGGER reject_source_event BEFORE INSERT ON workflow_events WHEN NEW.type='SourceDeleted' BEGIN SELECT RAISE(ABORT,'injected'); END"
             );
             yield* Effect.flip(sources.deleteSource({ id: saved.source.id }));
-            test
-              .expect(yield* sources.exportRevision({ sourceId: saved.source.id, revision: 1n }))
-              .toStrictEqual(saved.original);
+            expect(
+              yield* sources.exportRevision({ sourceId: saved.source.id, revision: 1n })
+            ).toStrictEqual(saved.original);
             f.context.db.exec('DROP TRIGGER reject_source_event');
             yield* sources.deleteSource({ id: saved.source.id });
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(
                 sources.exportRevision({ sourceId: saved.source.id, revision: 1n })
               )).kind === 'not_found'
             );
-            test
-              .expect(
-                (yield* sources.exportRevision({ sourceId: saved.unrelated.id, revision: 1n }))
-                  .bytes
-              )
-              .toStrictEqual(saved.original.bytes);
+            expect(
+              (yield* sources.exportRevision({ sourceId: saved.unrelated.id, revision: 1n })).bytes
+            ).toStrictEqual(saved.original.bytes);
           }).pipe(Effect.provide(f.domain()))
         );
         await f.reopen();
-        test.assert.strictEqual(
+        assert.strictEqual(
           f.context.db.orm
             .select()
             .from(s.source_blobs)
@@ -155,7 +154,7 @@ for (const kind of ['file', 'image', 'recording'] as const)
             .all().length,
           0
         );
-        test.assert.strictEqual(
+        assert.strictEqual(
           f.context.db.orm
             .select()
             .from(s.source_snapshots)
@@ -163,11 +162,11 @@ for (const kind of ['file', 'image', 'recording'] as const)
             .all().length,
           0
         );
-        test.expect(f.context.db.orm.select().from(s.recording_chunks).all()).toStrictEqual(pcm);
+        expect(f.context.db.orm.select().from(s.recording_chunks).all()).toStrictEqual(pcm);
 
-        if (kind === 'recording') test.assert.ok(pcm.length);
+        if (kind === 'recording') assert.ok(pcm.length);
 
-        test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+        expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         await f.close();
       }

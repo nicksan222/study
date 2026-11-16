@@ -12,9 +12,9 @@
  * │ Allowed:                                                                                 │
  * │   // apps/client/test/e2e/example.test.ts                                                │
  * │   import { test } from '@study/testing';                                                 │
- * │   test.stable('Notes retain edits', async ({ page, expectScreenshot }) => {              │
+ * │   test.stable('Notes retain edits', async ({ page, expectScreenshot, expect }) => {      │
  * │     await expectScreenshot('ready', { target: 'viewport',                                │
- * │       ready: () => test.expect(page.getByRole('heading')).toBeVisible() });              │
+ * │       ready: () => expect(page.getByRole('heading')).toBeVisible() });                   │
  * │   });                                                                                    │
  * │                                                                                          │
  * │ Rejected:                                                                                │
@@ -49,10 +49,7 @@ function callback(node: any): any {
 function expectCall(node: any): boolean {
   if (node?.type !== 'CallExpression') return false;
 
-  return (
-    node.callee?.name === 'expect' ||
-    (memberName(node.callee) === 'expect' && node.callee.object?.name === 'test')
-  );
+  return node.callee?.name === 'expect';
 }
 
 function explicitReadiness(node: any): boolean {

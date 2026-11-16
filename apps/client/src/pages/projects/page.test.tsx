@@ -4,7 +4,7 @@ import { test } from '@study/testing';
 
 test.stable.for(['english', 'italian'] as const)(
   'opens the Projects page in %s',
-  async (locale, { page, rpc }) => {
+  async (locale, { page, rpc, expect, screen }) => {
     rpc.given({
       'projects.project': {
         id: projectIdSchema.make(9007199254740993n),
@@ -17,9 +17,9 @@ test.stable.for(['english', 'italian'] as const)(
     });
     const { router } = await page.open('/projects?project=9007199254740993', { locale });
 
-    test
-      .expect(await test.screen.findByRole('heading', { name: catalogs[locale].Projects }))
-      .toBeInTheDocument();
-    test.expect(router.state.location.search.project).toBe('9007199254740993');
+    expect(
+      await screen.findByRole('heading', { name: catalogs[locale].Projects })
+    ).toBeInTheDocument();
+    expect(router.state.location.search.project).toBe('9007199254740993');
   }
 );

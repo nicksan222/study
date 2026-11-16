@@ -37,7 +37,9 @@ import { withTestAdmission } from '#testing/workflow-admission';
 
 test.stable(
   'guarded publication validates captured citations and replays without writes',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
@@ -45,7 +47,12 @@ test.stable(
     );
 
     try {
-      function* verifyGuardedCitationPublication() {
+      function* verifyGuardedCitationPublication({
+        assert: assertions,
+        expect
+      }: Pick<test.Context, 'assert' | 'expect'>) {
+        const assert: test.Assert = assertions;
+
         const project = yield* (yield* Projects).createProject({ name: 'Publication' });
         const notes = yield* Notes;
         const note = yield* notes.createNote({
@@ -152,7 +159,7 @@ test.stable(
           ]
         };
 
-        test.assert.ok(
+        assert.ok(
           (yield* Effect.flip(withPublicationGuard(context, notes.publishReply(input)))).kind ===
             'internal'
         );
@@ -196,13 +203,10 @@ test.stable(
                   { ...input, requestId: 'missing' }
                 ]) {
                   yield* Effect.flip(notes.publishReply(bad));
-                  test.assert.ok(
+                  assert.ok(
                     (yield* notes.message(request.messageId)).versions[0]?.status === 'pending'
                   );
-                  test.assert.strictEqual(
-                    context.db.orm.all(sql`SELECT * FROM citations`).length,
-                    0
-                  );
+                  assert.strictEqual(context.db.orm.all(sql`SELECT * FROM citations`).length, 0);
                 }
 
                 const historicNote = yield* notes.createNote({
@@ -218,11 +222,11 @@ test.stable(
                 });
 
                 yield* notes.editMessage({ messageId: historicQuestion.id, text: 'new' });
-                test.assert.ok(
+                assert.ok(
                   (yield* notes.replySnapshot({ requestId: historic.requestId })).messages[0]
                     ?.text === 'old'
                 );
-                test.assert.strictEqual(
+                assert.strictEqual(
                   yield* notes.publishReply({
                     requestId: historic.requestId,
                     text: 'answer',
@@ -230,11 +234,11 @@ test.stable(
                   }),
                   historic.versionId
                 );
-                test.assert.ok(
+                assert.ok(
                   (yield* notes.message(historic.messageId)).versions[0]?.status === 'complete'
                 );
                 yield* notes.deleteMessage(historic.messageId);
-                test.assert.ok(
+                assert.ok(
                   (yield* Effect.flip(
                     notes.publishReply({
                       requestId: historic.requestId,
@@ -249,12 +253,12 @@ test.stable(
                   .where(eq(noteTable.id, note.id))
                   .get()!.context_revision;
 
-                test.assert.strictEqual(yield* notes.publishReply(input), request.versionId);
+                assert.strictEqual(yield* notes.publishReply(input), request.versionId);
                 const message = yield* notes.message(request.messageId);
 
-                test.assert.strictEqual(message.activeVersionId, request.versionId);
-                test.assert.ok(message.versions[0]?.text === 'Answer [1]');
-                test.expect(message.citations).toStrictEqual([
+                assert.strictEqual(message.activeVersionId, request.versionId);
+                assert.ok(message.versions[0]?.text === 'Answer [1]');
+                expect(message.citations).toStrictEqual([
                   {
                     origin: 'agent',
                     support: { state: 'unassessed' },
@@ -286,7 +290,7 @@ test.stable(
                     quote: 'quoted passage'
                   }
                 ]);
-                test.assert.strictEqual(yield* notes.publishReply(input), request.versionId);
+                assert.strictEqual(yield* notes.publishReply(input), request.versionId);
                 yield* Effect.flip(notes.publishReply({ ...input, text: 'Changed [1]' }));
                 yield* Effect.flip(
                   notes.publishReply({
@@ -294,13 +298,13 @@ test.stable(
                     citations: [{ ...input.citations[0]!, quote: 'quoted' }]
                   })
                 );
-                test.assert.strictEqual(
+                assert.strictEqual(
                   context.db.orm.select().from(noteTable).where(eq(noteTable.id, note.id)).get()!
                     .context_revision,
                   revision + 1n
                 );
-                test.assert.strictEqual(context.db.orm.all(sql`SELECT * FROM citations`).length, 1);
-                test.assert.strictEqual(
+                assert.strictEqual(context.db.orm.all(sql`SELECT * FROM citations`).length, 1);
+                assert.strictEqual(
                   context.db.orm.all(
                     sql`SELECT * FROM workflow_events WHERE type = 'NoteGenerationRequested'`
                   ).length,
@@ -324,7 +328,7 @@ test.stable(
 
       await Effect.runPromise(
         Effect.scoped(
-          Effect.gen(verifyGuardedCitationPublication).pipe(
+          Effect.gen(() => verifyGuardedCitationPublication({ assert, expect })).pipe(
             Effect.provide(layer),
             Effect.provide(workflowEngineLayer(context))
           )

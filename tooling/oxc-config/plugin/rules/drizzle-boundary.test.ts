@@ -2,39 +2,48 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable('Drizzle imports and exports belong exclusively to the database package', async () => {
-  const diagnostics = await lintRule(
-    'drizzle-boundary',
-    {
-      'apps/server/src/direct.ts': `import { sql } from 'drizzle-orm';
+test.stable(
+  'Drizzle imports and exports belong exclusively to the database package',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule(
+      { assert },
+      'drizzle-boundary',
+      {
+        'apps/server/src/direct.ts': `import { sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 export * from 'drizzle-orm/sqlite-core';
 export type { SQL } from 'drizzle-orm';
 const migrate = import('drizzle-orm/node-sqlite/migrator');
 type Query = import('drizzle-orm').SQL;`,
-      'apps/client/src/direct.ts': "export { defineConfig } from 'drizzle-kit';",
-      'apps/server/test/direct.test.ts': "import { eq } from 'drizzle-orm';",
-      'apps/server/src/facade.ts':
-        "import { sql, eq } from '@study/db'; export type { SQL } from '@study/db';",
-      'packages/db/src/db.ts': "import { drizzle } from 'drizzle-orm/node-sqlite';",
-      'packages/db/src/schema/items.ts': "import { sqliteTable } from 'drizzle-orm/sqlite-core';",
-      'packages/db/drizzle.config.ts': "import { defineConfig } from 'drizzle-kit';",
-      'packages/db/test/query.test.ts': "import { sql } from 'drizzle-orm';",
-      'tooling/example.test.ts': 'const fixture = "import { sql } from \'drizzle-orm\';";'
-    },
-    true
-  );
+        'apps/client/src/direct.ts': "export { defineConfig } from 'drizzle-kit';",
+        'apps/server/test/direct.test.ts': "import { eq } from 'drizzle-orm';",
+        'apps/server/src/facade.ts':
+          "import { sql, eq } from '@study/db'; export type { SQL } from '@study/db';",
+        'packages/db/src/db.ts': "import { drizzle } from 'drizzle-orm/node-sqlite';",
+        'packages/db/src/schema/items.ts': "import { sqliteTable } from 'drizzle-orm/sqlite-core';",
+        'packages/db/drizzle.config.ts': "import { defineConfig } from 'drizzle-kit';",
+        'packages/db/test/query.test.ts': "import { sql } from 'drizzle-orm';",
+        'tooling/example.test.ts': 'const fixture = "import { sql } from \'drizzle-orm\';";'
+      },
+      true
+    );
 
-  test.assert.strictEqual(diagnostics.length, 9, JSON.stringify(diagnostics));
-  test.assert.ok(
-    diagnostics.some(({ filename }) => filename.endsWith('/packages/db/src/schema/items.ts'))
-  );
-});
+    assert.strictEqual(diagnostics.length, 9, JSON.stringify(diagnostics));
+    assert.ok(
+      diagnostics.some(({ filename }) => filename.endsWith('/packages/db/src/schema/items.ts'))
+    );
+  }
+);
 
 test.stable(
   'Drizzle require calls respect lexical bindings and createRequire aliases',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'drizzle-boundary',
       {
         'apps/server/src/bad.ts': `import { createRequire as makeRequire } from 'node:module';
@@ -55,17 +64,18 @@ load('drizzle-kit');`,
       true
     );
 
-    test.assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
-    test.assert.ok(
-      diagnostics.some(({ filename }) => filename.endsWith('/packages/db/src/require.ts'))
-    );
+    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.some(({ filename }) => filename.endsWith('/packages/db/src/require.ts')));
   }
 );
 
 test.stable(
   'Drizzle namespace createRequire and global loader forms stay behind the facade',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'drizzle-boundary',
       {
         'apps/desktop/src/bad.ts': `import * as modules from 'node:module';
@@ -84,17 +94,18 @@ module.require('drizzle-orm');
       true
     );
 
-    test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
-    test.assert.ok(
-      diagnostics.every(({ filename }) => filename.endsWith('/apps/desktop/src/bad.ts'))
-    );
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/apps/desktop/src/bad.ts')));
   }
 );
 
 test.stable(
   'TypeScript CommonJS import declarations cannot bypass the database facade',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'drizzle-boundary',
       {
         'apps/server/src/direct.cts': "import orm = require('drizzle-orm'); export { orm };",
@@ -103,17 +114,18 @@ test.stable(
       true
     );
 
-    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-    test.assert.ok(
-      diagnostics.some(({ filename }) => filename.endsWith('/packages/db/src/driver.cts'))
-    );
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.some(({ filename }) => filename.endsWith('/packages/db/src/driver.cts')));
   }
 );
 
 test.stable(
   'schema declarations cannot bypass mandatory table metadata through raw Drizzle imports',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'drizzle-boundary',
       {
         'packages/db/src/schema/bypass.ts': `
@@ -134,8 +146,8 @@ test.stable(
       true
     );
 
-    test.assert.strictEqual(diagnostics.length, 7, JSON.stringify(diagnostics));
-    test.assert.ok(
+    assert.strictEqual(diagnostics.length, 7, JSON.stringify(diagnostics));
+    assert.ok(
       diagnostics.every(
         ({ filename }) => filename.endsWith('/bypass.ts') || filename.endsWith('/escape.ts')
       )

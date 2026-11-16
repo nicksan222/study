@@ -24,39 +24,44 @@ import { testLiveQueries } from '#testing/live-queries';
 
 import { ThemesRpcLive } from './index.ts';
 
-test.stable('native themes RPC exposes the catalog and typed failures', async ({ databases }) => {
-  const location = await databases();
-  const context = new ServerContext(await location.open());
-  const handlers = ThemesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
-    Layer.provide(Themes.layer),
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
+test.stable(
+  'native themes RPC exposes the catalog and typed failures',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const client = yield* RpcTest.makeClient(ThemesRpc, { flatten: true });
-
-          test.assert.ok(
-            (yield* Effect.flip(client('themes.theme', { id: 'missing' }))).kind === 'not_found'
-          );
-          test.assert.ok(Option.isNone(yield* client('themes.findTheme', { id: 'missing' })));
-          test.assert.ok(
-            (yield* Effect.flip(client('themes.importTheme', { json: '{}' }))).kind ===
-              'invalid_input'
-          );
-          yield* client('themes.importTheme', {
-            json: JSON.stringify({ version: 1, id: 'rpc-test', name: 'RPC' })
-          });
-          yield* client('themes.selectTheme', { id: 'rpc-test' });
-          test.assert.strictEqual(yield* client('themes.selectedTheme', {}), 'rpc-test');
-          test.assert.ok((yield* client('themes.theme', { id: 'rpc-test' })).name === 'RPC');
-        }).pipe(Effect.provide(handlers))
-      )
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const handlers = ThemesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
+      Layer.provide(Themes.layer),
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
-  } finally {
-    context.close();
-    await location.cleanup();
+
+    try {
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const client = yield* RpcTest.makeClient(ThemesRpc, { flatten: true });
+
+            assert.ok(
+              (yield* Effect.flip(client('themes.theme', { id: 'missing' }))).kind === 'not_found'
+            );
+            assert.ok(Option.isNone(yield* client('themes.findTheme', { id: 'missing' })));
+            assert.ok(
+              (yield* Effect.flip(client('themes.importTheme', { json: '{}' }))).kind ===
+                'invalid_input'
+            );
+            yield* client('themes.importTheme', {
+              json: JSON.stringify({ version: 1, id: 'rpc-test', name: 'RPC' })
+            });
+            yield* client('themes.selectTheme', { id: 'rpc-test' });
+            assert.strictEqual(yield* client('themes.selectedTheme', {}), 'rpc-test');
+            assert.ok((yield* client('themes.theme', { id: 'rpc-test' })).name === 'RPC');
+          }).pipe(Effect.provide(handlers))
+        )
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);

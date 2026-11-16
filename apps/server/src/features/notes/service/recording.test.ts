@@ -32,7 +32,9 @@ import { Notes } from './index.ts';
 
 test.stable(
   'recording publication posts once and rejects changed or deleted results',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     let context = new ServerContext(await location.open());
     const layer = () =>
@@ -116,9 +118,9 @@ test.stable(
           messageId = yield* service.postRecordingMessage(input);
           const message = yield* service.message(messageId);
 
-          test.assert.ok(message.versions[0]?.text === '');
-          test.assert.strictEqual(message.parts[0]?.sourceId, source.id);
-          test.assert.strictEqual(
+          assert.ok(message.versions[0]?.text === '');
+          assert.strictEqual(message.parts[0]?.sourceId, source.id);
+          assert.strictEqual(
             context.db.orm.select().from(notes).where(eq(notes.id, note.id)).get()!
               .context_revision,
             1n
@@ -132,12 +134,12 @@ test.stable(
         Effect.gen(function* () {
           const service = yield* Notes;
 
-          test.assert.strictEqual(yield* service.postRecordingMessage(input), messageId);
-          test.assert.ok(
+          assert.strictEqual(yield* service.postRecordingMessage(input), messageId);
+          assert.ok(
             (yield* Effect.flip(service.postRecordingMessage({ ...input, durationMs: 1235 })))
               .kind === 'invalid_input'
           );
-          test.assert.strictEqual(
+          assert.strictEqual(
             context.db.orm.select().from(notes).where(eq(notes.id, input.noteId)).get()!
               .context_revision,
             1n
@@ -158,7 +160,7 @@ test.stable(
             .returning()
             .get();
 
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               service.postRecordingMessage({
                 ...input,
@@ -167,7 +169,7 @@ test.stable(
               })
             )).kind === 'invalid_input'
           );
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               service.postRecordingMessage({ ...input, sourceId: wrongSource.id })
             )).kind === 'invalid_input'
@@ -187,7 +189,7 @@ test.stable(
             .returning()
             .get();
 
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               service.postRecordingMessage({
                 ...input,
@@ -203,27 +205,24 @@ test.stable(
             service.postRecordingMessage({ ...input, requestId: 'context-rollback' })
           );
           context.db.orm.run(sql`DROP TRIGGER fail_recording_context`);
-          test.assert.strictEqual(context.db.orm.all(sql`SELECT * FROM messages`).length, 1);
-          test.assert.strictEqual(
-            context.db.orm.all(sql`SELECT * FROM note_recording_posts`).length,
-            1
-          );
+          assert.strictEqual(context.db.orm.all(sql`SELECT * FROM messages`).length, 1);
+          assert.strictEqual(context.db.orm.all(sql`SELECT * FROM note_recording_posts`).length, 1);
           context.db.orm.run(
             sql`CREATE TEMP TRIGGER fail_recording_receipt BEFORE INSERT ON note_recording_posts BEGIN SELECT RAISE(ABORT, 'injected failure'); END`
           );
           yield* Effect.flip(service.postRecordingMessage({ ...input, requestId: 'rollback' }));
           context.db.orm.run(sql`DROP TRIGGER fail_recording_receipt`);
-          test.assert.strictEqual(
+          assert.strictEqual(
             context.db.orm.select().from(notes).where(eq(notes.id, input.noteId)).get()!
               .context_revision,
             1n
           );
-          test.assert.strictEqual(context.db.orm.all(sql`SELECT * FROM messages`).length, 1);
+          assert.strictEqual(context.db.orm.all(sql`SELECT * FROM messages`).length, 1);
           yield* service.deleteMessage(messageId);
-          test.assert.strictEqual(yield* service.postRecordingMessage(input), messageId);
-          test.assert.strictEqual(context.db.orm.all(sql`SELECT * FROM messages`).length, 0);
+          assert.strictEqual(yield* service.postRecordingMessage(input), messageId);
+          assert.strictEqual(context.db.orm.all(sql`SELECT * FROM messages`).length, 0);
           yield* service.deleteNote(input.noteId);
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(service.postRecordingMessage(input))).kind === 'invalid_input'
           );
         }).pipe(Effect.orDie)

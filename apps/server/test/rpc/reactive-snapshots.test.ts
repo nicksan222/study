@@ -23,7 +23,7 @@ import { serve } from '#server/runtime/index';
 
 test.stable(
   'native live RPC reflects another client mutation and keeps concurrent results separate',
-  async ({ resources: fixture }) => {
+  async ({ resources: fixture, expect }) => {
     const app = await fixture.openApp({ path: fixture.path });
     const server = await serve(app);
 
@@ -57,19 +57,17 @@ test.stable(
               { concurrency: 2 }
             );
 
-            test.expect(results.map((result) => result.name)).toEqual(['Biology', 'Chemistry']);
-            test.expect(results[0]?.id).not.toBe(results[1]?.id);
+            expect(results.map((result) => result.name)).toEqual(['Biology', 'Chemistry']);
+            expect(results[0]?.id).not.toBe(results[1]?.id);
             yield* Deferred.await(updated);
             const pages = yield* Fiber.join(snapshots);
 
-            test
-              .expect(
-                pages
-                  .at(-1)
-                  ?.items.map((project) => project.name)
-                  .sort()
-              )
-              .toEqual(['Biology', 'Chemistry']);
+            expect(
+              pages
+                .at(-1)
+                ?.items.map((project) => project.name)
+                .sort()
+            ).toEqual(['Biology', 'Chemistry']);
           })
         ).pipe(Effect.timeout('10 seconds'))
       );
@@ -83,7 +81,7 @@ test.stable(
 
 test.stable(
   'navigation counts are not capped by mounted windows and exclude unpublished pages',
-  async ({ resources: fixture }) => {
+  async ({ resources: fixture, expect }) => {
     const app = await fixture.openApp({ path: fixture.path });
     const server = await serve(app);
 
@@ -99,7 +97,7 @@ test.stable(
           Effect.gen(function* () {
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
 
-            test.expect(yield* client['pages.count']({ archived: false })).toBe(0n);
+            expect(yield* client['pages.count']({ archived: false })).toBe(0n);
             yield* client['pages.create']({
               title: 'Published',
               createKey: crypto.randomUUID(),
@@ -120,7 +118,7 @@ test.stable(
                 }
               }
             });
-            test.expect(yield* client['pages.count']({ archived: false })).toBe(1n);
+            expect(yield* client['pages.count']({ archived: false })).toBe(1n);
             yield* Effect.forEach(
               Array.from({ length: 101 }, (_, index) => index),
               (index) => client['notes.createNote']({ title: `Notebook ${index}` }),
@@ -128,9 +126,9 @@ test.stable(
             );
             const mounted = yield* client['notes.notes']({ limit: 100 });
 
-            test.expect(mounted.items).toHaveLength(100);
-            test.expect(mounted.next).not.toBeNull();
-            test.expect(yield* client['notes.count']({})).toBe(101n);
+            expect(mounted.items).toHaveLength(100);
+            expect(mounted.next).not.toBeNull();
+            expect(yield* client['notes.count']({})).toBe(101n);
           })
         ).pipe(Effect.timeout('20 seconds'))
       );

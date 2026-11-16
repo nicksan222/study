@@ -20,7 +20,7 @@ import { pageTransformFixture } from '#testing/page-transform';
 
 test.stable(
   'automatically includes active note items, archives reversibly, and preserves captured requests',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const f = await pageTransformFixture(databases);
 
     try {
@@ -54,8 +54,8 @@ test.stable(
             });
           const before = yield* capture();
 
-          test.expect(before.messages.map((x) => x.text)).toEqual(['Note note']);
-          test.expect(before.inputs.map((x) => x.name)).toEqual(['Shared document']);
+          expect(before.messages.map((x) => x.text)).toEqual(['Note note']);
+          expect(before.inputs.map((x) => x.name)).toEqual(['Shared document']);
 
           yield* notes.setItemArchived({
             noteId: first.id,
@@ -67,32 +67,24 @@ test.stable(
             target: { kind: 'page', id: doc.id },
             archived: true
           });
-          test.expect((yield* notes.thread({ noteId: first.id, limit: 30 })).items).toHaveLength(0);
-          test
-            .expect(
-              (yield* documents.pages({ noteId: first.id, archived: false, limit: 30 })).items
-            )
-            .toHaveLength(0);
-          test
-            .expect(
-              (yield* documents.pages({ noteId: second.id, archived: false, limit: 30 })).items
-            )
-            .toHaveLength(1);
-          test
-            .expect(
-              (yield* notes.archivedItems({ noteId: first.id })).map((x) => x.target.kind).sort()
-            )
-            .toEqual(['message', 'page']);
+          expect((yield* notes.thread({ noteId: first.id, limit: 30 })).items).toHaveLength(0);
+          expect(
+            (yield* documents.pages({ noteId: first.id, archived: false, limit: 30 })).items
+          ).toHaveLength(0);
+          expect(
+            (yield* documents.pages({ noteId: second.id, archived: false, limit: 30 })).items
+          ).toHaveLength(1);
+          expect(
+            (yield* notes.archivedItems({ noteId: first.id })).map((x) => x.target.kind).sort()
+          ).toEqual(['message', 'page']);
           const empty = yield* Effect.flip(capture());
 
-          test.expect(empty.kind).toBe('invalid_input');
-          test
-            .expect(
-              (yield* notes.inspectNoteContext({
-                requestId: before.requestId
-              })).messages.map((x) => x.text)
-            )
-            .toEqual(['Note note']);
+          expect(empty.kind).toBe('invalid_input');
+          expect(
+            (yield* notes.inspectNoteContext({
+              requestId: before.requestId
+            })).messages.map((x) => x.text)
+          ).toEqual(['Note note']);
 
           yield* notes.setItemArchived({
             noteId: first.id,
@@ -104,8 +96,8 @@ test.stable(
             target: { kind: 'page', id: doc.id },
             archived: false
           });
-          test.expect(yield* notes.archivedItems({ noteId: first.id })).toHaveLength(0);
-          test.expect((yield* capture()).inputs).toHaveLength(1);
+          expect(yield* notes.archivedItems({ noteId: first.id })).toHaveLength(0);
+          expect((yield* capture()).inputs).toHaveLength(1);
 
           yield* notes.setItemArchived({
             noteId: first.id,
@@ -113,7 +105,7 @@ test.stable(
             archived: true
           });
           yield* notes.deleteMessage(noteMessage.id);
-          test.expect(yield* notes.archivedItems({ noteId: first.id })).toHaveLength(0);
+          expect(yield* notes.archivedItems({ noteId: first.id })).toHaveLength(0);
         }).pipe(Effect.provide(f.domain()))
       );
     } finally {
@@ -124,7 +116,7 @@ test.stable(
 
 test.stable(
   'source archive is note-scoped and pending active material is never silently omitted',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const f = await pageTransformFixture(databases);
 
     try {
@@ -157,14 +149,14 @@ test.stable(
             target: { kind: 'source', id: source.id },
             archived: true
           });
-          test
-            .expect((yield* notes.thread({ noteId: first.id, limit: 30 })).items[0]?.parts)
-            .toHaveLength(0);
-          test
-            .expect((yield* notes.thread({ noteId: second.id, limit: 30 })).items[0]?.parts)
-            .toHaveLength(1);
-          test.expect((yield* sources.source(source.id)).id).toBe(source.id);
-          test.expect((yield* notes.archivedItems({ noteId: first.id }))[0]?.target).toEqual({
+          expect(
+            (yield* notes.thread({ noteId: first.id, limit: 30 })).items[0]?.parts
+          ).toHaveLength(0);
+          expect(
+            (yield* notes.thread({ noteId: second.id, limit: 30 })).items[0]?.parts
+          ).toHaveLength(1);
+          expect((yield* sources.source(source.id)).id).toBe(source.id);
+          expect((yield* notes.archivedItems({ noteId: first.id }))[0]?.target).toEqual({
             kind: 'source',
             id: source.id
           });
@@ -188,7 +180,7 @@ test.stable(
             })
           );
 
-          test.expect(failure.kind).toBe('not_enough');
+          expect(failure.kind).toBe('not_enough');
         }).pipe(Effect.provide(f.domain()))
       );
     } finally {
@@ -197,40 +189,43 @@ test.stable(
   }
 );
 
-test.stable('archive mutation rejects an item owned by another note', async ({ databases }) => {
-  const f = await pageTransformFixture(databases);
+test.stable(
+  'archive mutation rejects an item owned by another note',
+  async ({ databases, expect }) => {
+    const f = await pageTransformFixture(databases);
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const notes = yield* Notes;
-        const first = yield* notes.createNote({ title: 'First' });
-        const second = yield* notes.createNote({ title: 'Second' });
-        const noteMessage = yield* notes.postMessage({
-          noteId: second.id,
-          text: 'Other note',
-          requestReply: false
-        });
-        const failure = yield* Effect.flip(
-          notes.setItemArchived({
-            noteId: first.id,
-            target: { kind: 'message', id: noteMessage.id },
-            archived: true
-          })
-        );
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const notes = yield* Notes;
+          const first = yield* notes.createNote({ title: 'First' });
+          const second = yield* notes.createNote({ title: 'Second' });
+          const noteMessage = yield* notes.postMessage({
+            noteId: second.id,
+            text: 'Other note',
+            requestReply: false
+          });
+          const failure = yield* Effect.flip(
+            notes.setItemArchived({
+              noteId: first.id,
+              target: { kind: 'message', id: noteMessage.id },
+              archived: true
+            })
+          );
 
-        test.expect(failure.kind).toBe('not_found');
-        test.expect((yield* notes.thread({ noteId: second.id, limit: 30 })).items).toHaveLength(1);
-      }).pipe(Effect.provide(f.domain()))
-    );
-  } finally {
-    await f.close();
+          expect(failure.kind).toBe('not_found');
+          expect((yield* notes.thread({ noteId: second.id, limit: 30 })).items).toHaveLength(1);
+        }).pipe(Effect.provide(f.domain()))
+      );
+    } finally {
+      await f.close();
+    }
   }
-});
+);
 
 test.stable(
   'empty archives load and bounded reads retain every archived item',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const f = await pageTransformFixture(databases);
 
     try {
@@ -239,7 +234,7 @@ test.stable(
           const notes = yield* Notes;
           const note = yield* notes.createNote({ title: 'Archive pages' });
 
-          test.expect(yield* notes.archivedItems({ noteId: note.id })).toEqual([]);
+          expect(yield* notes.archivedItems({ noteId: note.id })).toEqual([]);
           const ids = [];
 
           for (let i = 0; i < 101; i++) {
@@ -259,8 +254,8 @@ test.stable(
 
           const items = yield* notes.archivedItems({ noteId: note.id });
 
-          test.expect(items).toHaveLength(101);
-          test.expect(new Set(items.map((item) => item.target.id))).toEqual(new Set(ids));
+          expect(items).toHaveLength(101);
+          expect(new Set(items.map((item) => item.target.id))).toEqual(new Set(ids));
         }).pipe(Effect.provide(f.domain()))
       );
     } finally {

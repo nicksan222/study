@@ -27,34 +27,38 @@ async function fixture(databases: Databases) {
 
 test.stable(
   'authored documents have independent identity and survive all note links being removed',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const db = await fixture(databases);
 
     db.exec(`INSERT INTO notes(id,title,title_source,created_at,updated_at)
     VALUES (1,'One','user',1,1),(2,'Two','user',1,1);
     INSERT INTO note_pages(note_id,page_id,position) VALUES (1,1,0),(1,2,1),(2,1,0);
     DELETE FROM notes;`);
-    test.assert.strictEqual(db.orm.get(sql`SELECT count(*) AS n FROM pages`)?.n, 2n);
-    test.assert.strictEqual(db.orm.get(sql`SELECT count(*) AS n FROM page_versions`)?.n, 3n);
-    test.assert.strictEqual(db.orm.get(sql`SELECT count(*) AS n FROM note_pages`)?.n, 0n);
-    test.expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+    assert.strictEqual(db.orm.get(sql`SELECT count(*) AS n FROM pages`)?.n, 2n);
+    assert.strictEqual(db.orm.get(sql`SELECT count(*) AS n FROM page_versions`)?.n, 3n);
+    assert.strictEqual(db.orm.get(sql`SELECT count(*) AS n FROM note_pages`)?.n, 0n);
+    expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
   }
 );
 
 test.stable(
   'authored ancestry and edit receipts cannot refer to another document',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const db = await fixture(databases);
 
     db.exec(`UPDATE page_versions SET status='published',published_at=2 WHERE id IN (1,3);
     INSERT INTO page_version_parents(version_id,parent_version_id,page_id)
     VALUES (2,1,1);`);
-    test.assert.throws(() =>
+    assert.throws(() =>
       db.exec(`INSERT INTO page_version_parents
     (version_id,parent_version_id,page_id) VALUES (2,3,1)`)
     );
     db.exec(`UPDATE page_versions SET status='published',published_at=3 WHERE id=2`);
-    test.assert.throws(() =>
+    assert.throws(() =>
       db.exec(`INSERT INTO page_edit_receipts
     (page_id,key,operation,intent,expected_version_id,current_version_id,submitted_version_id,outcome)
     VALUES (1,'forged','save','{}',1,1,3,'saved')`)
@@ -62,38 +66,40 @@ test.stable(
     db.exec(`INSERT INTO page_edit_receipts
     (page_id,key,operation,intent,expected_version_id,current_version_id,submitted_version_id,outcome)
     VALUES (1,'save','save','{}',1,1,2,'saved');`);
-    test.assert.throws(() => db.exec(`UPDATE page_edit_receipts SET intent='{"changed":true}'`));
+    assert.throws(() => db.exec(`UPDATE page_edit_receipts SET intent='{"changed":true}'`));
   }
 );
 
 test.stable(
   'publication seals authored versions, ancestry and canonical blocks at SQLite level',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const db = await fixture(databases);
 
     db.exec(`UPDATE page_versions SET status='published',published_at=2 WHERE id=1;
     INSERT INTO page_version_parents(version_id,parent_version_id,page_id)
     VALUES (2,1,1);
     UPDATE page_versions SET status='published',published_at=3 WHERE id=2;`);
-    test.assert.throws(() => db.exec(`UPDATE page_versions SET creator='agent' WHERE id=1`));
-    test.assert.throws(() => db.exec(`DELETE FROM page_versions WHERE id=1`));
-    test.assert.throws(() =>
-      db.exec(`UPDATE content_snapshots SET meta='{"changed":true}' WHERE id=1`)
-    );
-    test.assert.throws(() => db.exec(`UPDATE blocks SET text='Changed' WHERE document_id=1`));
-    test.assert.throws(() => db.exec(`DELETE FROM blocks WHERE document_id=1`));
-    test.assert.throws(() => db.exec(`DELETE FROM page_version_parents WHERE version_id=2`));
-    test.assert.throws(() =>
+    assert.throws(() => db.exec(`UPDATE page_versions SET creator='agent' WHERE id=1`));
+    assert.throws(() => db.exec(`DELETE FROM page_versions WHERE id=1`));
+    assert.throws(() => db.exec(`UPDATE content_snapshots SET meta='{"changed":true}' WHERE id=1`));
+    assert.throws(() => db.exec(`UPDATE blocks SET text='Changed' WHERE document_id=1`));
+    assert.throws(() => db.exec(`DELETE FROM blocks WHERE document_id=1`));
+    assert.throws(() => db.exec(`DELETE FROM page_version_parents WHERE version_id=2`));
+    assert.throws(() =>
       db.exec(`INSERT INTO page_version_parents
     (version_id,parent_version_id,page_id) VALUES (1,2,1)`)
     );
-    test.expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+    expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
   }
 );
 
 test.stable(
   'deleted Pages permit only metadata removal and cannot regain annotation content',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const db = await fixture(databases);
 
     db.exec(`UPDATE page_versions SET instruction='PRIVATE_INSTRUCTION',language='english' WHERE id=1;
@@ -105,38 +111,44 @@ test.stable(
       sql`SELECT payload FROM page_annotation_revisions`
     )!;
 
-    test.assert.throws(() => db.exec('DELETE FROM page_annotation_revisions'));
-    test.assert.throws(() =>
+    assert.throws(() => db.exec('DELETE FROM page_annotation_revisions'));
+    assert.throws(() =>
       db.exec('UPDATE page_versions SET instruction=NULL,language=NULL WHERE id=1')
     );
     db.exec("INSERT INTO page_retirements(version_id,reason,created_at) VALUES(1,'history',3)");
-    test.assert.throws(() => db.exec('DELETE FROM page_annotation_revisions'));
+    assert.throws(() => db.exec('DELETE FROM page_annotation_revisions'));
     db.exec(`INSERT INTO page_deletions(page_id,created_at) VALUES(1,4);
     UPDATE page_versions SET instruction=NULL,language=NULL WHERE id=1;
     DELETE FROM page_annotation_revisions;`);
-    test.assert.strictEqual(
+    assert.strictEqual(
       db.orm.get(sql`SELECT instruction FROM page_versions WHERE id=1`)?.instruction,
       null
     );
-    test.assert.throws(() =>
-      db.exec("UPDATE page_versions SET instruction='RESURRECTED' WHERE id=1")
-    );
-    test.assert.throws(() => db.exec("UPDATE page_versions SET creator='agent' WHERE id=1"));
-    test.assert.throws(() =>
+    assert.throws(() => db.exec("UPDATE page_versions SET instruction='RESURRECTED' WHERE id=1"));
+    assert.throws(() => db.exec("UPDATE page_versions SET creator='agent' WHERE id=1"));
+    assert.throws(() =>
       db.orm.run(
         sql`INSERT INTO page_annotation_revisions(annotation_id,revision,page_id,version_id,snapshot_id,payload) VALUES(1,1,1,1,1,${annotation.payload})`
       )
     );
-    test.assert.throws(() => db.exec('DELETE FROM page_annotations'));
-    test.expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+    assert.throws(() => db.exec('DELETE FROM page_annotations'));
+    expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
   }
 );
 
 test.stable(
   'upgrading existing deleted Pages removes owned text without changing retained identities',
-  async ({ onTestFinished }) => {
+  async ({
+    onTestFinished,
+    temporaryDirectory,
+    createTestDatabase,
+    assert: assertions,
+    expect
+  }) => {
+    const assert: test.Assert = assertions;
+
     const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
-    await using folder = await test.temporaryDirectory({ prefix: 'study-page-upgrade-' });
+    await using folder = await temporaryDirectory({ prefix: 'study-page-upgrade-' });
     const folderPath = folder.path;
     const older = folderPath + '/drizzle';
 
@@ -149,7 +161,7 @@ test.stable(
         await Effect.runPromise(fs.remove(older + '/' + entry, { recursive: true }));
     }
 
-    const location = await test.createTestDatabase(older);
+    const location = await createTestDatabase(older);
 
     onTestFinished(() => location.cleanup());
     let db = await location.open();
@@ -173,25 +185,19 @@ test.stable(
 
       db.close();
       db = await Db.open(path);
-      test.assert.strictEqual(db.orm.get(sql`SELECT title FROM pages WHERE id=1`)?.title, '-');
-      test.assert.strictEqual(
+      assert.strictEqual(db.orm.get(sql`SELECT title FROM pages WHERE id=1`)?.title, '-');
+      assert.strictEqual(
         db.orm.get(sql`SELECT description FROM pages WHERE id=1`)?.description,
         null
       );
-      test.assert.strictEqual(
+      assert.strictEqual(
         db.orm.get(sql`SELECT instruction FROM page_versions WHERE id=1`)?.instruction,
         null
       );
-      test.assert.strictEqual(
-        db.orm.get(sql`SELECT count(*) n FROM page_annotation_revisions`)?.n,
-        0n
-      );
-      test.assert.ok(db.orm.get(sql`SELECT id FROM page_annotations WHERE id=1`));
-      test.assert.strictEqual(
-        db.orm.get(sql`SELECT title FROM pages WHERE id=2`)?.title,
-        'Independent'
-      );
-      test.expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      assert.strictEqual(db.orm.get(sql`SELECT count(*) n FROM page_annotation_revisions`)?.n, 0n);
+      assert.ok(db.orm.get(sql`SELECT id FROM page_annotations WHERE id=1`));
+      assert.strictEqual(db.orm.get(sql`SELECT title FROM pages WHERE id=2`)?.title, 'Independent');
+      expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       db.close();
     }
@@ -200,24 +206,26 @@ test.stable(
 
 test.stable(
   'publication cannot use empty, source-owned or already-owned snapshots',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const db = await fixture(databases);
 
     db.exec(`INSERT INTO content_snapshots(id,extractor_version,meta,created_at) VALUES (4,0,'{}',1);
     INSERT INTO page_versions(id,page_id,number,content_snapshot_id,created_at)
     VALUES (4,1,3,4,1);`);
-    test.assert.throws(() =>
+    assert.throws(() =>
       db.exec(`UPDATE page_versions SET status='published',published_at=2 WHERE id=4`)
     );
     db.exec(`INSERT INTO sources(id,origin,kind,mime,name,size_bytes,sha256,created_at)
     VALUES (7,'attachment','text','text/plain','Source',1,zeroblob(32),1);
     INSERT INTO content_snapshots(id,source_id,extractor_version,meta,created_at)
     VALUES (5,7,0,'{}',1);`);
-    test.assert.throws(() =>
+    assert.throws(() =>
       db.exec(`INSERT INTO page_versions
     (page_id,number,content_snapshot_id,created_at) VALUES (1,4,5,1)`)
     );
-    test.assert.throws(() =>
+    assert.throws(() =>
       db.exec(`INSERT INTO page_versions
     (page_id,number,content_snapshot_id,created_at) VALUES (2,2,1,1)`)
     );
@@ -226,19 +234,21 @@ test.stable(
 
 test.stable(
   'authored publication rejects an exact input draft or retired dependent body',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const db = await fixture(databases);
 
     db.exec(`INSERT INTO page_inputs(version_id,position,page_version_id) VALUES(1,0,3);`);
-    test.assert.throws(() =>
+    assert.throws(() =>
       db.exec(`UPDATE page_versions SET status='published',published_at=2 WHERE id=1`)
     );
     db.exec(
       `UPDATE page_versions SET status='published',published_at=2 WHERE id=3; UPDATE page_versions SET status='published',published_at=2 WHERE id=1;`
     );
-    test.assert.throws(() =>
+    assert.throws(() =>
       db.exec(`INSERT INTO page_retirements(version_id,reason,created_at) VALUES(3,'history',3)`)
     );
-    test.expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+    expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
   }
 );

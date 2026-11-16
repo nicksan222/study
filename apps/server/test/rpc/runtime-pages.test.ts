@@ -22,7 +22,9 @@ import { serve } from '#server/runtime/index';
 
 test.stable(
   'native HTTP runtime exposes independent Pages and persists exact saves, annotations and archive',
-  async ({ server: serverFixture }) => {
+  async ({ server: serverFixture, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const fixture = serverFixture;
     const server = fixture.manage(await serve(fixture.app));
 
@@ -56,8 +58,8 @@ test.stable(
           };
           const document = yield* rpc['pages.create'](input);
 
-          test.assert.ok(document.version);
-          test.assert.strictEqual((yield* rpc['pages.create'](input)).id, document.id);
+          assert.ok(document.version);
+          assert.strictEqual((yield* rpc['pages.create'](input)).id, document.id);
           const renamed = yield* rpc['pages.updateMetadata']({
             id: document.id,
             title: 'HTTP renamed',
@@ -66,7 +68,7 @@ test.stable(
             expectedDescription: null
           });
 
-          test.assert.ok(renamed.title === 'HTTP renamed');
+          assert.ok(renamed.title === 'HTTP renamed');
           const rejectedMetadata = yield* Effect.flip(
             rpc['pages.updateMetadata']({
               id: document.id,
@@ -77,8 +79,8 @@ test.stable(
             })
           );
 
-          test.assert.ok('kind' in rejectedMetadata);
-          test.assert.ok(rejectedMetadata.kind === 'invalid_input');
+          assert.ok('kind' in rejectedMetadata);
+          assert.ok(rejectedMetadata.kind === 'invalid_input');
           const note = yield* rpc['notes.createNote']({ title: 'HTTP source links' });
           const source = yield* rpc['sources.createSource']({
             name: 'source.txt',
@@ -88,12 +90,12 @@ test.stable(
 
           yield* rpc['sources.attachSource']({ noteId: note.id, sourceId: source.id });
           yield* rpc['sources.attachSource']({ noteId: note.id, sourceId: source.id });
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* rpc['sources.noteSources']({ noteId: note.id, limit: 100 })).length,
             1
           );
           yield* rpc['sources.detachSource']({ noteId: note.id, sourceId: source.id });
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* rpc['sources.noteSources']({ noteId: note.id, limit: 100 })).length,
             0
           );
@@ -105,7 +107,7 @@ test.stable(
             document: input.document
           });
 
-          test.assert.ok(saved.outcome === 'saved');
+          assert.ok(saved.outcome === 'saved');
           const latest = yield* rpc['pages.version']({ id: saved.submittedVersionId });
           const annotation = yield* rpc['pages.createAnnotation']({
             target: {
@@ -122,11 +124,11 @@ test.stable(
             note: 'HTTP exact note'
           });
 
-          test.assert.ok(
+          assert.ok(
             (yield* rpc['pages.annotation']({ id: annotation.annotation.id })).note ===
               'HTTP exact note'
           );
-          test.assert.ok(
+          assert.ok(
             (yield* rpc['pages.annotations']({
               pageId: document.id,
               versionId: latest.id,
@@ -135,24 +137,24 @@ test.stable(
             })).items[0].note === 'HTTP exact note'
           );
           yield* rpc['pages.archive']({ id: document.id, archived: true });
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* rpc['pages.pages']({ limit: 10, archived: false })).items.length,
             0
           );
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* rpc['pages.pages']({ limit: 10, archived: true })).items[0]?.id,
             document.id
           );
-          test.assert.ok(
+          assert.ok(
             (yield* rpc['pages.exportVersion']({ id: latest.id })).format === 'canonical_json'
           );
         })
       )
     );
-    test.assert.strictEqual(
+    assert.strictEqual(
       fixture.store.db.orm.get(sql`SELECT count(*) AS n FROM materials WHERE kind='document'`)?.n,
       0n
     );
-    test.expect(fixture.store.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+    expect(fixture.store.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
   }
 );

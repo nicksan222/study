@@ -26,14 +26,14 @@ const original = [
 
 test.stable(
   'Bilingual notes preserve Unicode edits search and locale changes',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
-    test.expect(page.viewportSize()).toEqual({ width: 2560, height: 1440 });
+    expect(page.viewportSize()).toEqual({ width: 2560, height: 1440 });
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
 
     await composer.fill(original);
     await page.getByRole('button', { name: copy.NoteSaveNote }).click();
-    await test.expect(page).toHaveURL(/\/notes\/.+/);
+    await expect(page).toHaveURL(/\/notes\/.+/);
     const noteUrl = page.url();
     const notePath = new URL(noteUrl).pathname;
     const notebook = page.getByRole('region', { name: copy.NoteNotebook });
@@ -41,28 +41,28 @@ test.stable(
     const entry = notebook.getByText(copy.NoteEntryNote, { exact: true });
     const scrollHost = page.locator('[data-notebook-scroll-host]');
 
-    await test.expect.poll(() => body.textContent()).toBe(original);
+    await expect.poll(() => body.textContent()).toBe(original);
     await entry.scrollIntoViewIfNeeded();
-    await test.expect(entry).toBeInViewport({ ratio: 1 });
+    await expect(entry).toBeInViewport({ ratio: 1 });
     await expectScreenshot('mixed-scripts', {
       target: 'viewport',
       ready: async () => {
-        await test.expect(body).toHaveText(original);
-        await test.expect(entry).toBeInViewport({ ratio: 1 });
+        await expect(body).toHaveText(original);
+        await expect(entry).toBeInViewport({ ratio: 1 });
       }
     });
 
     const top = await body.boundingBox();
 
     await scrollHost.press('PageDown');
-    await test.expect.poll(async () => (await body.boundingBox())!.y).toBeLessThan(top!.y - 100);
+    await expect.poll(async () => (await body.boundingBox())!.y).toBeLessThan(top!.y - 100);
     const middle = await body.boundingBox();
 
-    await test.expect(body).toBeInViewport();
+    await expect(body).toBeInViewport();
     await scrollHost.press('End');
-    await test.expect.poll(async () => (await body.boundingBox())!.y).toBeLessThan(middle!.y - 100);
-    await test.expect(entry).not.toBeInViewport();
-    await test.expect
+    await expect.poll(async () => (await body.boundingBox())!.y).toBeLessThan(middle!.y - 100);
+    await expect(entry).not.toBeInViewport();
+    await expect
       .poll(async () => {
         const text = await body.boundingBox();
         const floating = await page.locator('.workspace-desk-floating-composer').boundingBox();
@@ -70,16 +70,16 @@ test.stable(
         return !!text && !!floating && text.y + text.height <= floating.y;
       })
       .toBe(true);
-    await test.expect(composer).toBeInViewport({ ratio: 1 });
-    await test.expect(page.getByRole('button', { name: copy.NoteSaveNote })).toBeInViewport({
+    await expect(composer).toBeInViewport({ ratio: 1 });
+    await expect(page.getByRole('button', { name: copy.NoteSaveNote })).toBeInViewport({
       ratio: 1
     });
     await expectScreenshot('mixed-scripts-bottom', {
       target: 'viewport',
       ready: async () => {
-        await test.expect(body).toHaveText(original);
-        await test.expect(entry).not.toBeInViewport();
-        await test.expect(composer).toBeInViewport({ ratio: 1 });
+        await expect(body).toHaveText(original);
+        await expect(entry).not.toBeInViewport();
+        await expect(composer).toBeInViewport({ ratio: 1 });
       }
     });
 
@@ -91,11 +91,11 @@ test.stable(
       .locator(`a[href="${notePath}"]`)
       .filter({ hasText: 'lucciolacittà' });
 
-    await test.expect(initialResult).toHaveCount(1);
+    await expect(initialResult).toHaveCount(1);
     await initialResult.click();
-    await test.expect(page).toHaveURL(noteUrl);
+    await expect(page).toHaveURL(noteUrl);
 
-    await test.expect.poll(() => body.textContent()).toBe(original);
+    await expect.poll(() => body.textContent()).toBe(original);
 
     let content = original;
 
@@ -109,7 +109,7 @@ test.stable(
       const dialog = page.getByRole('dialog', { name: copy.NoteEditNote });
       const editor = dialog.getByRole('textbox', { name: copy.NoteEditNote });
 
-      await test.expect(editor).toHaveValue(content);
+      await expect(editor).toHaveValue(content);
       content = content.replace(before!, after!);
 
       if (index === 0) {
@@ -122,15 +122,15 @@ test.stable(
 
         await editor.press('g');
 
-        await test.expect(editor).toHaveValue(content);
-        await test.expect(editor).toBeFocused();
-        await test.expect(editor.locator(':scope:focus-visible')).toHaveCount(1);
+        await expect(editor).toHaveValue(content);
+        await expect(editor).toBeFocused();
+        await expect(editor.locator(':scope:focus-visible')).toHaveCount(1);
         const save = dialog.getByRole('button', { name: copy.NoteSaveNote });
 
         await editor.press('Tab');
-        await test.expect(save).toBeFocused();
-        await test.expect(save).toBeInViewport({ ratio: 1 });
-        await test.expect(save.locator(':scope:focus-visible')).toHaveCount(1);
+        await expect(save).toBeFocused();
+        await expect(save).toBeInViewport({ ratio: 1 });
+        await expect(save.locator(':scope:focus-visible')).toHaveCount(1);
         await save.press('Shift+Tab');
         // Navigate from the document end so the first caret line owns the scroll position.
         await editor.press('ControlOrMeta+End');
@@ -139,52 +139,52 @@ test.stable(
         await expectScreenshot('selection-edit', {
           target: dialog,
           ready: async () => {
-            await test.expect(editor).toHaveValue(content);
-            await test.expect(editor).toBeFocused();
-            await test.expect(save).toBeInViewport({ ratio: 1 });
+            await expect(editor).toHaveValue(content);
+            await expect(editor).toBeFocused();
+            await expect(save).toBeInViewport({ ratio: 1 });
           }
         });
       } else await editor.fill(content);
 
       await dialog.getByRole('button', { name: copy.NoteSaveNote }).click();
-      await test.expect(dialog).toBeHidden();
-      await test.expect.poll(() => body.textContent()).toBe(content);
+      await expect(dialog).toBeHidden();
+      await expect.poll(() => body.textContent()).toBe(content);
       await page.reload();
-      await test.expect.poll(() => body.textContent()).toBe(content);
+      await expect.poll(() => body.textContent()).toBe(content);
     }
 
     await page.goto('/notes');
     await composer.fill('Second notebook: an independent English observation.');
     await page.getByRole('button', { name: copy.NoteSaveNote }).click();
-    await test.expect(page).toHaveURL(/\/notes\/.+/);
-    test.expect(page.url()).not.toBe(noteUrl);
+    await expect(page).toHaveURL(/\/notes\/.+/);
+    expect(page.url()).not.toBe(noteUrl);
     const secondUrl = page.url();
     const search = page.getByRole('searchbox', { name: copy.Search, exact: true });
     const result = page.locator(`a[href="${notePath}"]`).filter({ hasText: 'lucciolaperché' });
 
     for (const token of ['nessunrisultatounicode', 'lucciolacittà']) {
       await search.fill('lucciolaperché');
-      await test.expect(result).toHaveCount(1);
+      await expect(result).toHaveCount(1);
       await search.fill(token);
-      await test
-        .expect(page.getByRole('status').filter({ hasText: copy.SearchNoResults }))
-        .toBeVisible();
+      await expect(
+        page.getByRole('status').filter({ hasText: copy.SearchNoResults })
+      ).toBeVisible();
     }
 
     await search.fill('lucciolaperché');
 
-    await test.expect(result).toHaveCount(1);
-    await test.expect(result).toBeInViewport({ ratio: 1 });
+    await expect(result).toHaveCount(1);
+    await expect(result).toBeInViewport({ ratio: 1 });
     await expectScreenshot('search-edited', {
       target: 'viewport',
       ready: async () => {
-        await test.expect(result).toBeVisible();
-        await test.expect(search).toHaveValue('lucciolaperché');
+        await expect(result).toBeVisible();
+        await expect(search).toHaveValue('lucciolaperché');
       }
     });
     await result.click();
-    await test.expect(page).toHaveURL(noteUrl);
-    await test.expect.poll(() => body.textContent()).toBe(content);
+    await expect(page).toHaveURL(noteUrl);
+    await expect.poll(() => body.textContent()).toBe(content);
 
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     await page
@@ -195,24 +195,24 @@ test.stable(
     await page.getByRole('option', { name: copy.ItalianOwnName }).click();
     const settings = page.getByRole('dialog', { name: italian.Settings });
 
-    await test
-      .expect(settings.getByRole('combobox', { name: italian.GeneralSettingsLanguage }))
-      .toHaveText(italian.ItalianOwnName);
+    await expect(
+      settings.getByRole('combobox', { name: italian.GeneralSettingsLanguage })
+    ).toHaveText(italian.ItalianOwnName);
 
-    await test
-      .expect(settings.getByRole('combobox', { name: italian.GeneralSettingsLanguage }))
-      .toBeEnabled();
+    await expect(
+      settings.getByRole('combobox', { name: italian.GeneralSettingsLanguage })
+    ).toBeEnabled();
     await expectAccessibility('settings-italian');
     await settings.getByRole('button', { name: italian.Close }).click();
     await page.goto(secondUrl);
     await page.reload();
-    await test.expect(page.getByRole('textbox', { name: italian.NoteCompose })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: italian.NoteCompose })).toBeVisible();
     await page.getByRole('searchbox', { name: italian.Search, exact: true }).fill('lucciolaperché');
     await page.locator(`a[href="${notePath}"]`).filter({ hasText: 'lucciolaperché' }).click();
-    await test.expect(page).toHaveURL(noteUrl);
+    await expect(page).toHaveURL(noteUrl);
     const localizedNotebook = page.getByRole('region', { name: italian.NoteNotebook });
 
-    await test.expect
+    await expect
       .poll(() => localizedNotebook.locator('.chat-message-text').textContent())
       .toBe(content);
     const localizedEntry = localizedNotebook.getByText(italian.NoteEntryNote, { exact: true });
@@ -221,11 +221,11 @@ test.stable(
     await expectScreenshot('localized-reopened', {
       target: 'viewport',
       ready: async () => {
-        await test.expect(localizedEntry).toBeInViewport({ ratio: 1 });
-        await test.expect(page.getByRole('button', { name: italian.NoteSaveNote })).toBeInViewport({
+        await expect(localizedEntry).toBeInViewport({ ratio: 1 });
+        await expect(page.getByRole('button', { name: italian.NoteSaveNote })).toBeInViewport({
           ratio: 1
         });
-        await test.expect(localizedNotebook.locator('.chat-message-text')).toHaveText(content);
+        await expect(localizedNotebook.locator('.chat-message-text')).toHaveText(content);
       }
     });
     await page.getByRole('button', { name: italian.Settings, exact: true }).click();
@@ -233,8 +233,8 @@ test.stable(
       .getByRole('dialog', { name: italian.Settings })
       .getByRole('button', { name: italian.GeneralSettingsTitle, exact: true })
       .click();
-    await test
-      .expect(page.getByRole('combobox', { name: italian.GeneralSettingsLanguage }))
-      .toHaveText(italian.ItalianOwnName);
+    await expect(page.getByRole('combobox', { name: italian.GeneralSettingsLanguage })).toHaveText(
+      italian.ItalianOwnName
+    );
   }
 );

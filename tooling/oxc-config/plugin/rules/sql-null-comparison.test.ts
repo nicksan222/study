@@ -2,18 +2,22 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable('requires SQL null checks to use IS NULL semantics', async () => {
-  const diagnostics = await lintRule('sql-null-comparison', {
+test.stable('requires SQL null checks to use IS NULL semantics', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
+  const diagnostics = await lintRule({ assert }, 'sql-null-comparison', {
     'src/bad.ts': "import { eq } from '@study/db'; eq(items.id, null);"
   });
 
-  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
 test.stable(
   'recognizes aliases and ignores quoted or commented SQL and shadowed names',
-  async () => {
-    const diagnostics = await lintRule('sql-null-comparison', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'sql-null-comparison', {
       'src/bad.ts': `import { eq as equal, sql as query } from '@study/db';
 import * as d from 'drizzle-orm';
 const alias = equal;
@@ -30,14 +34,16 @@ d.sql\`NULL = x\`;`,
       'src/example.test.ts': "import { eq } from '@study/db'; eq(col, null);"
     });
 
-    test.assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
   }
 );
 
 test.stable(
   'NULL assignments are valid while comparisons in WHERE and assignment expressions fail',
-  async () => {
-    const diagnostics = await lintRule('sql-null-comparison', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'sql-null-comparison', {
       'src/domains/projects/store.ts': `import { sql } from '@study/db';
 sql\`UPDATE projects SET error=NULL, title=NULL WHERE id=1\`;
 sql\`INSERT INTO projects VALUES(1) ON CONFLICT(id) DO UPDATE SET error=NULL\`;
@@ -46,6 +52,6 @@ sql\`UPDATE projects SET error=NULL WHERE title=NULL\`;
 sql\`SELECT id FROM projects WHERE NULL = title\`;`
     });
 
-    test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );

@@ -14,13 +14,16 @@ test.beforeEach(async ({ mock }) => {
   QuizSettings = __studyMockModule0.QuizSettings;
 });
 
-function mount(kind?: 'matching') {
+function mount(
+  { vi, rpcTestTransport, render }: Pick<test.Context, 'vi' | 'rpcTestTransport' | 'render'>,
+  kind?: 'matching'
+) {
   const api = {
-    read: test.vi.fn(async (): Promise<QuizPreferences> => defaultQuizSettings),
-    save: test.vi.fn(async (value: QuizPreferences) => value)
+    read: vi.fn(async (): Promise<QuizPreferences> => defaultQuizSettings),
+    save: vi.fn(async (value: QuizPreferences) => value)
   };
 
-  const fixture = test.rpcTestTransport(async (tag, input) => {
+  const fixture = rpcTestTransport(async (tag, input) => {
     if (tag === 'settings.quizSettings') return api.read();
 
     if (tag === 'settings.saveQuizSettings') {
@@ -37,123 +40,129 @@ function mount(kind?: 'matching') {
     throw new Error(`Unexpected endpoint ${tag}`);
   });
 
-  test.render(<QuizSettings kind={kind} />, { wrapper: fixture.wrapper });
+  render(<QuizSettings kind={kind} />, { wrapper: fixture.wrapper });
 
   return { ...fixture, api };
 }
 
-test.stable('persists quiz order while preserving count, type, and answer settings', async () => {
-  const { api } = mount();
-  const control = await test.screen.findByRole('switch', { name: 'QuizShuffleQuestions' });
+test.stable(
+  'persists quiz order while preserving count, type, and answer settings',
+  async ({ screen, waitFor, expect, fireEvent, vi, rpcTestTransport, render }) => {
+    const { api } = mount({ vi, rpcTestTransport, render });
+    const control = await screen.findByRole('switch', { name: 'QuizShuffleQuestions' });
 
-  await test.waitFor(() => test.expect(control).toBeEnabled());
-  test.fireEvent.click(control);
-  await test.waitFor(() =>
-    test.expect(api.save).toHaveBeenCalledExactlyOnceWith({
-      ...defaultQuizSettings,
-      questionOrder: 'shuffle'
-    })
-  );
-  await test.waitFor(() => {
-    test.expect(control).toBeChecked();
-    test.expect(control).toBeEnabled();
-  });
-  test.fireEvent.click(test.screen.getByRole('switch', { name: 'QuizShuffleChoices' }));
-  await test.waitFor(() =>
-    test.expect(api.save).toHaveBeenLastCalledWith({
-      ...defaultQuizSettings,
-      questionOrder: 'shuffle',
-      shuffleChoices: false
-    })
-  );
-  await test.waitFor(() => {
-    test.expect(test.screen.getByRole('switch', { name: 'QuizShuffleChoices' })).not.toBeChecked();
-    test.expect(test.screen.getByRole('switch', { name: 'QuizShuffleChoices' })).toBeEnabled();
-  });
-});
+    await waitFor(() => expect(control).toBeEnabled());
+    fireEvent.click(control);
+    await waitFor(() =>
+      expect(api.save).toHaveBeenCalledExactlyOnceWith({
+        ...defaultQuizSettings,
+        questionOrder: 'shuffle'
+      })
+    );
+    await waitFor(() => {
+      expect(control).toBeChecked();
+      expect(control).toBeEnabled();
+    });
+    fireEvent.click(screen.getByRole('switch', { name: 'QuizShuffleChoices' }));
+    await waitFor(() =>
+      expect(api.save).toHaveBeenLastCalledWith({
+        ...defaultQuizSettings,
+        questionOrder: 'shuffle',
+        shuffleChoices: false
+      })
+    );
+    await waitFor(() => {
+      expect(screen.getByRole('switch', { name: 'QuizShuffleChoices' })).not.toBeChecked();
+      expect(screen.getByRole('switch', { name: 'QuizShuffleChoices' })).toBeEnabled();
+    });
+  }
+);
 
-test.stable('retains confirmed settings when saving fails and provides recovery', async () => {
-  const { api } = mount();
+test.stable(
+  'retains confirmed settings when saving fails and provides recovery',
+  async ({ screen, waitFor, expect, fireEvent, vi, rpcTestTransport, render }) => {
+    const { api } = mount({ vi, rpcTestTransport, render });
 
-  api.save.mockRejectedValueOnce(new Error('Unavailable'));
-  const control = await test.screen.findByRole('switch', { name: 'QuizShuffleChoices' });
+    api.save.mockRejectedValueOnce(new Error('Unavailable'));
+    const control = await screen.findByRole('switch', { name: 'QuizShuffleChoices' });
 
-  await test.waitFor(() => test.expect(control).toBeEnabled());
-  test.fireEvent.click(control);
-  test.expect(await test.screen.findByText('QuizSettingsError')).toBeInTheDocument();
-  test.expect(control).toBeChecked();
-  api.read.mockResolvedValue({ ...defaultQuizSettings, choiceCount: 6 });
-  test.fireEvent.click(test.screen.getByRole('button', { name: 'Retry' }));
-  await test.waitFor(() => {
-    test.expect(test.screen.queryByText('QuizSettingsError')).toBeNull();
-    test
-      .expect(test.screen.getByRole('combobox', { name: 'QuizGenerateChoices' }))
-      .toHaveTextContent('6');
-    test.expect(control).toBeEnabled();
-    test.expect(control).toBeChecked();
-  });
-});
+    await waitFor(() => expect(control).toBeEnabled());
+    fireEvent.click(control);
+    expect(await screen.findByText('QuizSettingsError')).toBeInTheDocument();
+    expect(control).toBeChecked();
+    api.read.mockResolvedValue({ ...defaultQuizSettings, choiceCount: 6 });
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => {
+      expect(screen.queryByText('QuizSettingsError')).toBeNull();
+      expect(screen.getByRole('combobox', { name: 'QuizGenerateChoices' })).toHaveTextContent('6');
+      expect(control).toBeEnabled();
+      expect(control).toBeChecked();
+    });
+  }
+);
 
-test.stable('persists new quiz choice count and difficulty in study settings', async () => {
-  const { api } = mount();
-  const user = test.userEvent.setup();
-  const refreshed = Promise.withResolvers<QuizPreferences>();
-  const choices = await test.screen.findByRole('combobox', { name: 'QuizGenerateChoices' });
+test.stable(
+  'persists new quiz choice count and difficulty in study settings',
+  async ({ userEvent, screen, waitFor, expect, vi, rpcTestTransport, render }) => {
+    const { api } = mount({ vi, rpcTestTransport, render });
+    const user = userEvent.setup();
+    const refreshed = Promise.withResolvers<QuizPreferences>();
+    const choices = await screen.findByRole('combobox', { name: 'QuizGenerateChoices' });
 
-  await test.waitFor(() => test.expect(choices).toBeEnabled());
-  api.read.mockImplementationOnce(() => refreshed.promise);
-  await user.click(choices);
-  await user.click(await test.screen.findByRole('option', { name: /^6$/ }));
-  await test.waitFor(() =>
-    test.expect(api.save).toHaveBeenLastCalledWith({ ...defaultQuizSettings, choiceCount: 6 })
-  );
-  await test.waitFor(() => test.expect(choices).toBeDisabled());
-  refreshed.resolve({ ...defaultQuizSettings, choiceCount: 6 });
-  const difficulty = test.screen.getByRole('combobox', { name: 'QuizDifficulty' });
+    await waitFor(() => expect(choices).toBeEnabled());
+    api.read.mockImplementationOnce(() => refreshed.promise);
+    await user.click(choices);
+    await user.click(await screen.findByRole('option', { name: /^6$/ }));
+    await waitFor(() =>
+      expect(api.save).toHaveBeenLastCalledWith({ ...defaultQuizSettings, choiceCount: 6 })
+    );
+    await waitFor(() => expect(choices).toBeDisabled());
+    refreshed.resolve({ ...defaultQuizSettings, choiceCount: 6 });
+    const difficulty = screen.getByRole('combobox', { name: 'QuizDifficulty' });
 
-  await test.waitFor(() => {
-    test.expect(choices).toHaveTextContent('6');
-    test.expect(choices).toBeEnabled();
-    test.expect(difficulty).toBeEnabled();
-  });
-  await user.click(difficulty);
-  await user.click(await test.screen.findByRole('option', { name: 'QuizDifficultyChallenging' }));
-  await test.waitFor(() =>
-    test.expect(api.save).toHaveBeenLastCalledWith({
-      ...defaultQuizSettings,
-      choiceCount: 6,
-      difficulty: 'challenging'
-    })
-  );
-  await test.waitFor(() => {
-    test.expect(difficulty).toHaveTextContent('QuizDifficultyChallenging');
-    test.expect(difficulty).toBeEnabled();
-  });
-});
+    await waitFor(() => {
+      expect(choices).toHaveTextContent('6');
+      expect(choices).toBeEnabled();
+      expect(difficulty).toBeEnabled();
+    });
+    await user.click(difficulty);
+    await user.click(await screen.findByRole('option', { name: 'QuizDifficultyChallenging' }));
+    await waitFor(() =>
+      expect(api.save).toHaveBeenLastCalledWith({
+        ...defaultQuizSettings,
+        choiceCount: 6,
+        difficulty: 'challenging'
+      })
+    );
+    await waitFor(() => {
+      expect(difficulty).toHaveTextContent('QuizDifficultyChallenging');
+      expect(difficulty).toBeEnabled();
+    });
+  }
+);
 
-test.stable('saves matching defaults independently of quiz defaults', async () => {
-  const { api } = mount('matching');
-  const difficulty = await test.screen.findByRole('combobox', { name: 'QuizDifficulty' });
+test.stable(
+  'saves matching defaults independently of quiz defaults',
+  async ({ screen, waitFor, expect, userEvent, vi, rpcTestTransport, render }) => {
+    const { api } = mount({ vi, rpcTestTransport, render }, 'matching');
+    const difficulty = await screen.findByRole('combobox', { name: 'QuizDifficulty' });
 
-  await test.waitFor(() => test.expect(difficulty).toBeEnabled());
-  const user = test.userEvent.setup();
+    await waitFor(() => expect(difficulty).toBeEnabled());
+    const user = userEvent.setup();
 
-  await user.click(difficulty);
-  await user.click(await test.screen.findByRole('option', { name: 'QuizDifficultyChallenging' }));
-  await test.waitFor(() =>
-    test.expect(api.save).toHaveBeenCalledWith({
-      ...defaultQuizSettings,
-      practice: { matching: { questionCount: 10, difficulty: 'challenging' } }
-    })
-  );
-  await test.waitFor(() => {
-    test.expect(difficulty).toHaveTextContent('QuizDifficultyChallenging');
-    test.expect(difficulty).toBeEnabled();
-  });
-  test
-    .expect(test.screen.queryByRole('combobox', { name: 'QuizQuestionKind' }))
-    .not.toBeInTheDocument();
-  test
-    .expect(test.screen.queryByRole('combobox', { name: 'QuizGenerateChoices' }))
-    .not.toBeInTheDocument();
-});
+    await user.click(difficulty);
+    await user.click(await screen.findByRole('option', { name: 'QuizDifficultyChallenging' }));
+    await waitFor(() =>
+      expect(api.save).toHaveBeenCalledWith({
+        ...defaultQuizSettings,
+        practice: { matching: { questionCount: 10, difficulty: 'challenging' } }
+      })
+    );
+    await waitFor(() => {
+      expect(difficulty).toHaveTextContent('QuizDifficultyChallenging');
+      expect(difficulty).toBeEnabled();
+    });
+    expect(screen.queryByRole('combobox', { name: 'QuizQuestionKind' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'QuizGenerateChoices' })).not.toBeInTheDocument();
+  }
+);

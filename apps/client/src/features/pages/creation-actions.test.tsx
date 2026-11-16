@@ -30,39 +30,42 @@ test.beforeEach(async ({ mock }) => {
   NewBlankPage = __mockModule0.NewBlankPage;
 });
 
-test.beforeEach(() => {
-  test.vi.resetAllMocks();
+test.beforeEach(({ vi }) => {
+  vi.resetAllMocks();
   api.owner.mockReturnValue({ create: api.create, pending: false, error: undefined });
   api.create.mockResolvedValue({ id: pageIdSchema.make(5n) });
   api.navigate.mockResolvedValue(undefined);
 });
-test.afterEach(test.cleanup);
+test.afterEach(({ cleanup }) => cleanup());
 
-test.stable('opens a subject-owned blank page directly in the shared editor', async () => {
-  const project = projectIdSchema.make(2n);
+test.stable(
+  'opens a subject-owned blank page directly in the shared editor',
+  async ({ render, userEvent, screen, expect, waitFor }) => {
+    const project = projectIdSchema.make(2n);
 
-  test.render(<NewBlankPage project={project} />);
-  await test.userEvent.click(test.screen.getByRole('button', { name: 'PageNew' }));
-  test.expect(api.owner).toHaveBeenCalledWith({ kind: 'project', projectId: project });
-  test.expect(api.create).toHaveBeenCalledExactlyOnceWith('NoteNewPage');
-  await test.waitFor(() =>
-    test.expect(api.navigate).toHaveBeenCalledWith({
-      to: '/pages/$pageId',
-      params: { pageId: '5' },
-      search: { project: '2' }
-    })
-  );
-  test.expect(test.screen.queryByRole('dialog')).not.toBeInTheDocument();
-});
+    render(<NewBlankPage project={project} />);
+    await userEvent.click(screen.getByRole('button', { name: 'PageNew' }));
+    expect(api.owner).toHaveBeenCalledWith({ kind: 'project', projectId: project });
+    expect(api.create).toHaveBeenCalledExactlyOnceWith('NoteNewPage');
+    await waitFor(() =>
+      expect(api.navigate).toHaveBeenCalledWith({
+        to: '/pages/$pageId',
+        params: { pageId: '5' },
+        search: { project: '2' }
+      })
+    );
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  }
+);
 
 test.stable(
   'reopens the known document after a navigation failure without creating a duplicate',
-  async () => {
+  async ({ render, userEvent, screen, waitFor, expect }) => {
     api.navigate.mockRejectedValueOnce(new Error('Navigation unavailable'));
-    test.render(<NewBlankPage />);
-    await test.userEvent.click(test.screen.getByRole('button', { name: 'PageNew' }));
-    await test.userEvent.click(await test.screen.findByRole('button', { name: 'Retry' }));
-    await test.waitFor(() => test.expect(api.navigate).toHaveBeenCalledTimes(2));
-    test.expect(api.create).toHaveBeenCalledTimes(1);
+    render(<NewBlankPage />);
+    await userEvent.click(screen.getByRole('button', { name: 'PageNew' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(api.navigate).toHaveBeenCalledTimes(2));
+    expect(api.create).toHaveBeenCalledTimes(1);
   }
 );

@@ -77,7 +77,13 @@ function setup(fixture: Fixture) {
   );
 }
 
-function eventFor(fixture: Fixture, requestId: string) {
+function eventFor(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  fixture: Fixture,
+  requestId: string
+) {
+  const assert: test.Assert = assertions;
+
   const event = decodeEvent(
     fixture.context.db.orm
       .select()
@@ -86,7 +92,7 @@ function eventFor(fixture: Fixture, requestId: string) {
       .find((row) => row.correlationId === requestId)!.payload
   );
 
-  test.assert.ok(event.type === 'PageGenerationRequested');
+  assert.ok(event.type === 'PageGenerationRequested');
 
   return event;
 }
@@ -108,7 +114,9 @@ function reply(fixture: Fixture) {
 
 test.stable(
   'merge publishes once, retains exact inputs and archives originals only on success',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const fixture = await pageTransformFixture(databases);
 
     try {
@@ -118,42 +126,42 @@ test.stable(
         Effect.gen(function* () {
           const service = yield* Pages;
 
-          test.expect((yield* service.page({ id: docs[0]!.id })).archivedAt).toBeNull();
-          test.expect(yield* service.merge(input)).toEqual(request);
-          test.expect((yield* service.merges({})).map((item) => item.id)).toContain(request.id);
-          test
-            .expect((yield* service.merge({ ...input, title: 'Other' }).pipe(Effect.exit))._tag)
-            .toBe('Failure');
+          expect((yield* service.page({ id: docs[0]!.id })).archivedAt).toBeNull();
+          expect(yield* service.merge(input)).toEqual(request);
+          expect((yield* service.merges({})).map((item) => item.id)).toContain(request.id);
+          expect((yield* service.merge({ ...input, title: 'Other' }).pipe(Effect.exit))._tag).toBe(
+            'Failure'
+          );
         }).pipe(Effect.provide(fixture.domain()))
       );
-      const event = eventFor(fixture, request.id);
+      const event = eventFor({ assert }, fixture, request.id);
 
       reply(fixture);
       const versionId = await fixture.executeAuthored(event, 'merge');
 
-      test.expect(await fixture.executeAuthored(event, 'merge-replay')).toEqual(versionId);
+      expect(await fixture.executeAuthored(event, 'merge-replay')).toEqual(versionId);
       await Effect.runPromise(
         Effect.gen(function* () {
           const service = yield* Pages;
           const result = yield* service.version({ id: versionId });
 
-          test
-            .expect(result.inputs)
-            .toEqual(input.versions.map((versionId) => ({ kind: 'page', versionId })));
+          expect(result.inputs).toEqual(
+            input.versions.map((versionId) => ({ kind: 'page', versionId }))
+          );
 
           for (const doc of docs) {
-            test.expect((yield* service.page({ id: doc.id })).archivedAt).not.toBeNull();
-            test
-              .expect((yield* service.version({ id: doc.version!.id })).document)
-              .toEqual(doc.version!.document);
+            expect((yield* service.page({ id: doc.id })).archivedAt).not.toBeNull();
+            expect((yield* service.version({ id: doc.version!.id })).document).toEqual(
+              doc.version!.document
+            );
             yield* service.archive({ id: doc.id, archived: false });
           }
 
-          test.expect((yield* service.merges({}))[0]!.resultVersionId).toEqual(versionId);
+          expect((yield* service.merges({}))[0]!.resultVersionId).toEqual(versionId);
         }).pipe(Effect.provide(fixture.domain()))
       );
-      test.expect(await fixture.executeAuthored(event, 'merge-restored-replay')).toEqual(versionId);
-      test.expect(fixture.bodies).toHaveLength(2);
+      expect(await fixture.executeAuthored(event, 'merge-restored-replay')).toEqual(versionId);
+      expect(fixture.bodies).toHaveLength(2);
       await Effect.runPromise(
         Effect.gen(function* () {
           const service = yield* Pages;
@@ -163,17 +171,17 @@ test.stable(
           yield* service.delete({ pageId: result.pageId, token: preview.token });
           const retained = yield* service.transform({ requestId: request.id });
 
-          test.expect(retained.resultVersionId).toEqual(versionId);
-          test.expect(retained.title).toBe('-');
-          test.expect(retained.merge?.title).toBe('-');
-          test.expect(retained.merge?.instruction).toBe('');
-          test.expect(retained.merge?.versions).toEqual(input.versions);
-          test.expect(retained.report).toBeNull();
+          expect(retained.resultVersionId).toEqual(versionId);
+          expect(retained.title).toBe('-');
+          expect(retained.merge?.title).toBe('-');
+          expect(retained.merge?.instruction).toBe('');
+          expect(retained.merge?.versions).toEqual(input.versions);
+          expect(retained.report).toBeNull();
 
           for (const doc of docs)
-            test
-              .expect((yield* service.version({ id: doc.version!.id })).document)
-              .toEqual(doc.version!.document);
+            expect((yield* service.version({ id: doc.version!.id })).document).toEqual(
+              doc.version!.document
+            );
         }).pipe(Effect.provide(fixture.services()))
       );
     } finally {
@@ -184,7 +192,9 @@ test.stable(
 
 test.stable(
   'a concurrent edit fences real merge publication and keeps both originals visible',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const fixture = await pageTransformFixture(databases);
 
     try {
@@ -203,23 +213,23 @@ test.stable(
           ).pipe(Effect.asVoid, Effect.provide(fixture.domain()))
         )
       );
-      await test
-        .expect(fixture.executeAuthored(eventFor(fixture, request.id), 'merge-edit'))
-        .rejects.toBeDefined();
+      await expect(
+        fixture.executeAuthored(eventFor({ assert }, fixture, request.id), 'merge-edit')
+      ).rejects.toBeDefined();
       await Effect.runPromise(
         Effect.gen(function* () {
           const service = yield* Pages;
 
           for (const doc of docs)
-            test.expect((yield* service.page({ id: doc.id })).archivedAt).toBeNull();
+            expect((yield* service.page({ id: doc.id })).archivedAt).toBeNull();
 
           const result = yield* service.transform({ requestId: request.id });
 
-          test.expect(result.resultVersionId).toBeNull();
-          test.expect(result.errorKind).toBe('invalid_input');
+          expect(result.resultVersionId).toBeNull();
+          expect(result.errorKind).toBe('invalid_input');
         }).pipe(Effect.provide(fixture.domain()))
       );
-      test.expect(fixture.context.db.orm.select().from(s.pages).all()).toHaveLength(2);
+      expect(fixture.context.db.orm.select().from(s.pages).all()).toHaveLength(2);
     } finally {
       await fixture.close();
     }
@@ -228,7 +238,9 @@ test.stable(
 
 test.stable(
   'cancelling while the provider runs fences late publication without archiving originals',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const fixture = await pageTransformFixture(databases);
 
     try {
@@ -254,10 +266,10 @@ test.stable(
                 fixture.context,
                 pageTransformWorkflow,
                 'merge-cancel',
-                { event: eventFor(fixture, request.id) },
+                { event: eventFor({ assert }, fixture, request.id) },
                 engine.execute(pageTransformWorkflow, {
                   executionId: 'merge-cancel',
-                  payload: { event: eventFor(fixture, request.id) }
+                  payload: { event: eventFor({ assert }, fixture, request.id) }
                 })
               )
             );
@@ -265,7 +277,7 @@ test.stable(
             yield* Deferred.await(received);
             yield* (yield* Pages).cancelTransform({ requestId: request.id });
             yield* Deferred.succeed(release, undefined);
-            test.expect(Exit.isFailure(yield* Fiber.await(fiber))).toBe(true);
+            expect(Exit.isFailure(yield* Fiber.await(fiber))).toBe(true);
             yield* reconcileCancellation(
               fixture.context,
               pageTransformWorkflow,
@@ -273,9 +285,9 @@ test.stable(
               'safe',
               true
             );
-            test
-              .expect(workflowStore(fixture.context).execution('merge-cancel')?.status)
-              .toBe('cancelled');
+            expect(workflowStore(fixture.context).execution('merge-cancel')?.status).toBe(
+              'cancelled'
+            );
           })
         ).pipe(Effect.provide(fixture.services()), Effect.timeout('10 seconds'))
       );
@@ -284,15 +296,15 @@ test.stable(
           const service = yield* Pages;
 
           for (const doc of docs)
-            test.expect((yield* service.page({ id: doc.id })).archivedAt).toBeNull();
+            expect((yield* service.page({ id: doc.id })).archivedAt).toBeNull();
 
           const result = yield* service.transform({ requestId: request.id });
 
-          test.expect(result.cancelled).toBe(true);
-          test.expect(result.resultVersionId).toBeNull();
+          expect(result.cancelled).toBe(true);
+          expect(result.resultVersionId).toBeNull();
         }).pipe(Effect.provide(fixture.domain()))
       );
-      test.expect(fixture.context.db.orm.select().from(s.pages).all()).toHaveLength(2);
+      expect(fixture.context.db.orm.select().from(s.pages).all()).toHaveLength(2);
     } finally {
       await fixture.close();
     }
@@ -301,7 +313,7 @@ test.stable(
 
 test.stable(
   'duplicate merge inputs are rejected and older pending work stays reachable',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const fixture = await pageTransformFixture(databases);
 
     try {
@@ -311,27 +323,25 @@ test.stable(
         Effect.gen(function* () {
           const service = yield* Pages;
 
-          test
-            .expect(
-              (yield* service
-                .merge({
-                  ...input,
-                  key: crypto.randomUUID(),
-                  versions: [input.versions[0]!, input.versions[0]!]
-                })
-                .pipe(Effect.exit))._tag
-            )
-            .toBe('Failure');
+          expect(
+            (yield* service
+              .merge({
+                ...input,
+                key: crypto.randomUUID(),
+                versions: [input.versions[0]!, input.versions[0]!]
+              })
+              .pipe(Effect.exit))._tag
+          ).toBe('Failure');
 
           for (let index = 0; index < 1000; index++)
             yield* service.merge({ ...input, key: crypto.randomUUID() });
 
           const pending = yield* service.merges({});
 
-          test.expect(pending).toHaveLength(1001);
-          test.expect(pending.map((item) => item.id)).toContain(request.id);
+          expect(pending).toHaveLength(1001);
+          expect(pending.map((item) => item.id)).toContain(request.id);
           yield* service.cancelTransform({ requestId: request.id });
-          test.expect((yield* service.merges({})).map((item) => item.id)).not.toContain(request.id);
+          expect((yield* service.merges({})).map((item) => item.id)).not.toContain(request.id);
         }).pipe(Effect.provide(fixture.domain()))
       );
     } finally {

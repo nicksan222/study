@@ -35,7 +35,9 @@ const content = {
 
 test.stable(
   'materials versions, links, citations and note membership preserve SQLite invariants',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const services = Layer.mergeAll(
@@ -59,7 +61,7 @@ test.stable(
             bytes: new TextEncoder().encode('Canonical source')
           });
 
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* materials.materials({ projectId: project.id, archived: false, limit: 10 }))
               .items.length,
             0
@@ -86,7 +88,7 @@ test.stable(
             citations: []
           });
 
-          test.assert.ok(evidence.version);
+          assert.ok(evidence.version);
           const input = { kind: 'page' as const, versionId: evidence.version.id };
           const another = yield* projects.createProject({ name: 'Other' });
           const first = yield* materials.create({
@@ -96,15 +98,15 @@ test.stable(
             publish: false
           });
 
-          test.assert.ok(first.version.status === 'draft');
-          test.assert.ok(
+          assert.ok(first.version.status === 'draft');
+          assert.ok(
             (yield* Effect.flip(materials.deleteDraft({ id: first.version.id }))).kind ===
               'invalid_input'
           );
           const published = yield* materials.publishVersion({ id: first.version.id });
 
-          test.assert.ok(published.status === 'published');
-          test.assert.ok(
+          assert.ok(published.status === 'published');
+          assert.ok(
             (yield* Effect.flip(materials.replaceDraft({ id: published.id, content }))).kind ===
               'invalid_input'
           );
@@ -135,14 +137,12 @@ test.stable(
           });
           const citations = yield* materials.citations({ id: next.id, limit: 1 });
 
-          test.assert.strictEqual(citations.nextCursor, 1n);
-          test.assert.strictEqual(
+          assert.strictEqual(citations.nextCursor, 1n);
+          assert.strictEqual(
             (yield* materials.citations({ id: next.id, limit: 1, cursor: 1n })).items[0]?.marker,
             2n
           );
-          test
-            .expect((yield* materials.materialVersion({ id: next.id })).inputs)
-            .toStrictEqual([input]);
+          expect((yield* materials.materialVersion({ id: next.id })).inputs).toStrictEqual([input]);
           yield* materials.publishVersion({ id: next.id });
           const foreign = yield* docs.create({
             createKey: crypto.randomUUID(),
@@ -156,7 +156,7 @@ test.stable(
             citations: []
           });
 
-          test.assert.ok(foreign.version);
+          assert.ok(foreign.version);
           const foreignInput = { kind: 'page' as const, versionId: foreign.version.id };
           const shared = yield* materials.createVersion({
             materialId: first.id,
@@ -164,7 +164,7 @@ test.stable(
             inputs: [foreignInput]
           });
 
-          test.expect(shared.inputs).toStrictEqual([foreignInput]);
+          expect(shared.inputs).toStrictEqual([foreignInput]);
           const note = context.db.orm
             .insert(notes)
             .values({
@@ -177,23 +177,21 @@ test.stable(
             .get();
 
           yield* materials.attach({ noteId: note.id, materialId: first.id });
-          test
-            .expect(
-              (yield* materials.reorder({ noteId: note.id, materialIds: [first.id] })).materialIds
-            )
-            .toStrictEqual([first.id]);
-          test.assert.ok(
+          expect(
+            (yield* materials.reorder({ noteId: note.id, materialIds: [first.id] })).materialIds
+          ).toStrictEqual([first.id]);
+          assert.ok(
             (yield* Effect.flip(materials.reorder({ noteId: note.id, materialIds: [] }))).kind ===
               'invalid_input'
           );
           yield* materials.detach({ noteId: note.id, materialId: first.id });
           yield* materials.archive({ id: first.id });
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(materials.rename({ id: first.id, title: 'Rejected' }))).kind ===
               'invalid_input'
           );
           yield* materials.unarchive({ id: first.id });
-          test.assert.ok(
+          assert.ok(
             (yield* materials.rename({ id: first.id, title: '  Renamed  ' })).title === 'Renamed'
           );
           const page = yield* materials.materials({
@@ -202,9 +200,9 @@ test.stable(
             limit: 1
           });
 
-          test.assert.strictEqual(page.items.length, 1);
-          test.assert.ok(Option.isSome(yield* materials.findMaterial({ id: first.id })));
-          test.assert.strictEqual(
+          assert.strictEqual(page.items.length, 1);
+          assert.ok(Option.isSome(yield* materials.findMaterial({ id: first.id })));
+          assert.strictEqual(
             context.db.orm
               .select()
               .from(workflowEvents)
@@ -223,7 +221,9 @@ test.stable(
 
 test.stable(
   'native materials RPC uses the service and maps canonical failures',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const services = Layer.mergeAll(
@@ -246,14 +246,12 @@ test.stable(
             content
           });
 
-          test.assert.ok(
-            (yield* client('materials.material', { id: material.id })).title === 'Native'
-          );
+          assert.ok((yield* client('materials.material', { id: material.id })).title === 'Native');
           const failure = yield* Effect.flip(
             client('materials.replaceDraft', { id: material.version.id, content })
           );
 
-          test.assert.ok(failure.kind === 'invalid_input');
+          assert.ok(failure.kind === 'invalid_input');
           const exportFailure = yield* Effect.flip(
             client('materials.exportMaterialVersion', {
               id: Schema.decodeUnknownSync(
@@ -263,7 +261,7 @@ test.stable(
             })
           );
 
-          test.assert.ok(exportFailure.kind === 'not_found');
+          assert.ok(exportFailure.kind === 'not_found');
         }).pipe(Effect.provide(services), Effect.provide(handlers), Effect.scoped)
       );
     } finally {

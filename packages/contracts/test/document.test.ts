@@ -14,7 +14,9 @@ import { canonicalText, anchorSchema } from '../src/sources/schemas.ts';
 
 test.stable(
   'editor ranges use exact UTF-16 boundaries independently of source byte positions',
-  () => {
+  ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const block = createBlock(
       { type: 'paragraph', inlines: [{ type: 'text', text: 'é😀e\u0301', marks: [] }] },
       { type: 'text', lineStart: 1, lineEnd: 1, start: 100, end: 109 }
@@ -43,7 +45,7 @@ test.stable(
       [4, 5],
       [5, 5]
     ]) {
-      test.assert.strictEqual(validBlockTextRange(document, { ...range, start, end }), true);
+      assert.strictEqual(validBlockTextRange(document, { ...range, start, end }), true);
     }
 
     for (const [start, end] of [
@@ -58,16 +60,16 @@ test.stable(
       [0, Number.POSITIVE_INFINITY],
       [100, 109]
     ]) {
-      test.assert.strictEqual(validBlockTextRange(document, { ...range, start, end }), false);
+      assert.strictEqual(validBlockTextRange(document, { ...range, start, end }), false);
     }
 
-    test.assert.strictEqual(Schema.is(contentRangeSchema)({ ...range, start: 0.5 }), false);
-    test.assert.strictEqual(
+    assert.strictEqual(Schema.is(contentRangeSchema)({ ...range, start: 0.5 }), false);
+    assert.strictEqual(
       Schema.is(contentRangeSchema)({ ...range, end: Number.MAX_SAFE_INTEGER + 1 }),
       false
     );
-    test.assert.strictEqual(Schema.is(contentRangeSchema)({ ...range, start: 3, end: 1 }), false);
-    test.expect(block.anchor).toStrictEqual({
+    assert.strictEqual(Schema.is(contentRangeSchema)({ ...range, start: 3, end: 1 }), false);
+    expect(block.anchor).toStrictEqual({
       type: 'text',
       lineStart: 1,
       lineEnd: 1,
@@ -79,7 +81,9 @@ test.stable(
 
 test.stable(
   'source anchors reject nonfinite, unsafe, reversed and unsupported locations centrally',
-  () => {
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const valid = [
       { type: 'authored' },
       { type: 'page', page: 1 },
@@ -101,15 +105,15 @@ test.stable(
       { type: 'url', url: 'javascript:alert(1)', fragment: null }
     ];
 
-    for (const anchor of valid) test.assert.strictEqual(Schema.is(anchorSchema)(anchor), true);
+    for (const anchor of valid) assert.strictEqual(Schema.is(anchorSchema)(anchor), true);
 
-    for (const anchor of invalid) test.assert.strictEqual(Schema.is(anchorSchema)(anchor), false);
+    for (const anchor of invalid) assert.strictEqual(Schema.is(anchorSchema)(anchor), false);
   }
 );
 
 test.stable(
   'Unicode editor offsets agree with independently enumerated code point boundaries',
-  () => {
+  ({ expect }) => {
     fc.assert(
       fc.property(
         fc.string({ unit: 'grapheme', maxLength: 40 }),
@@ -133,22 +137,20 @@ test.stable(
           const start = Math.min(first, second);
           const end = Math.max(first, second);
 
-          test
-            .expect(validBlockTextRange({ blocks: [block] }, { blockId: block.id, start, end }))
-            .toBe(boundaries.has(start) && boundaries.has(end));
+          expect(validBlockTextRange({ blocks: [block] }, { blockId: block.id, start, end })).toBe(
+            boundaries.has(start) && boundaries.has(end)
+          );
           const supplementary = createBlock({
             type: 'paragraph',
             inlines: [{ type: 'text', text: `${text}😀`, marks: [] }]
           });
 
-          test
-            .expect(
-              validBlockTextRange(
-                { blocks: [supplementary] },
-                { blockId: supplementary.id, start: text.length + 1, end: text.length + 2 }
-              )
+          expect(
+            validBlockTextRange(
+              { blocks: [supplementary] },
+              { blockId: supplementary.id, start: text.length + 1, end: text.length + 2 }
             )
-            .toBe(false);
+          ).toBe(false);
         }
       ),
       { numRuns: 150 }
@@ -207,15 +209,18 @@ const content: fc.Arbitrary<BlockContent> = fc.oneof(
   })
 );
 
-test.stable('rich content JSON roundtrips preserve every inline and canonical projection', () => {
-  fc.assert(
-    fc.property(content, (original) => {
-      const restored = decodeBlockContent(encodeBlockContent(original));
+test.stable(
+  'rich content JSON roundtrips preserve every inline and canonical projection',
+  ({ expect }) => {
+    fc.assert(
+      fc.property(content, (original) => {
+        const restored = decodeBlockContent(encodeBlockContent(original));
 
-      test.expect(restored).toEqual(original);
-      test.expect(encodeBlockContent(restored)).toBe(encodeBlockContent(original));
-      test.expect(canonicalText(restored)).toBe(canonicalText(original));
-    }),
-    { numRuns: 150 }
-  );
-});
+        expect(restored).toEqual(original);
+        expect(encodeBlockContent(restored)).toBe(encodeBlockContent(original));
+        expect(canonicalText(restored)).toBe(canonicalText(original));
+      }),
+      { numRuns: 150 }
+    );
+  }
+);

@@ -27,7 +27,7 @@ const execution = {
   updatedAtMs: 1n
 };
 
-let fixture: ReturnType<typeof test.rpcHandlersTransport>;
+let fixture: ReturnType<test.Context['rpcHandlersTransport']>;
 
 function createMockState(mock: test.Mock) {
   return {
@@ -50,9 +50,9 @@ test.beforeEach(async ({ mock }) => {
   PendingMessageWork = __mockModule0.PendingMessageWork;
 });
 
-test.beforeEach(() => {
-  test.vi.resetAllMocks();
-  fixture = test.rpcHandlersTransport({
+test.beforeEach(({ vi, rpcHandlersTransport }) => {
+  vi.resetAllMocks();
+  fixture = rpcHandlersTransport({
     'notes.replyVersion': api.provenance,
     'workflows.executions': api.executions,
     'workflows.cancelExecution': api.cancel
@@ -60,17 +60,17 @@ test.beforeEach(() => {
   api.provenance.mockResolvedValue({ state: 'available', requestId: 'exact-request' });
   api.executions.mockResolvedValue({ items: [execution], next: null });
 });
-test.afterEach(() => {
-  test.cleanup();
+test.afterEach(({ cleanup }) => {
+  cleanup();
 });
 
-function mount() {
-  test.render(<PendingMessageWork {...target} />, { wrapper: fixture.wrapper });
+function mount({ render }: Pick<test.Context, 'render'>) {
+  render(<PendingMessageWork {...target} />, { wrapper: fixture.wrapper });
 }
 
 test.stable(
   'cancels the exact pending version and waits for committed stopping state',
-  async () => {
+  async ({ screen, expect, fireEvent, waitFor, render }) => {
     api.cancel.mockImplementation(async () => {
       api.executions.mockResolvedValue({
         items: [{ ...execution, status: 'cancelling', canCancel: false }],
@@ -79,37 +79,33 @@ test.stable(
 
       return { ...execution, status: 'cancelling', canCancel: false };
     });
-    mount();
-    const button = await test.screen.findByRole('button', { name: 'NoteCancel' });
+    mount({ render });
+    const button = await screen.findByRole('button', { name: 'NoteCancel' });
 
-    test.expect(test.screen.getByRole('status')).toHaveTextContent('NoteThinking');
-    test.expect(document.querySelector('[data-slot="loading-placeholder"]')).toBeNull();
+    expect(screen.getByRole('status')).toHaveTextContent('NoteThinking');
+    expect(document.querySelector('[data-slot="loading-placeholder"]')).toBeNull();
 
-    test.fireEvent.click(button);
-    await test.waitFor(() =>
-      test.expect(api.cancel).toHaveBeenCalledExactlyOnceWith({ id: 'exact-run', mode: 'safe' })
+    fireEvent.click(button);
+    await waitFor(() =>
+      expect(api.cancel).toHaveBeenCalledExactlyOnceWith({ id: 'exact-run', mode: 'safe' })
     );
-    await test.waitFor(() => test.expect(button).toBeDisabled());
-    test.expect(api.provenance).toHaveBeenCalledWith(target);
-    await test.waitFor(() =>
-      test.expect(test.screen.getByRole('status')).toHaveTextContent('NoteWorkStopping')
-    );
+    await waitFor(() => expect(button).toBeDisabled());
+    expect(api.provenance).toHaveBeenCalledWith(target);
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('NoteWorkStopping'));
   }
 );
 
 test.stable(
   'keeps an ambiguous cancellation disabled until an explicit status refresh',
-  async () => {
+  async ({ fireEvent, screen, expect, waitFor, render }) => {
     api.cancel.mockRejectedValue(new Error('Offline'));
-    mount();
-    test.fireEvent.click(await test.screen.findByRole('button', { name: 'NoteCancel' }));
-    test.expect(await test.screen.findByRole('alert')).toHaveTextContent('NoteWorkStopError');
-    test.expect(test.screen.getByRole('button', { name: 'NoteCancel' })).toBeDisabled();
-    test.expect(api.cancel).toHaveBeenCalledTimes(1);
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'LibraryRefresh' }));
-    await test.waitFor(() =>
-      test.expect(test.screen.getByRole('button', { name: 'NoteCancel' })).toBeEnabled()
-    );
-    test.expect(api.cancel).toHaveBeenCalledTimes(1);
+    mount({ render });
+    fireEvent.click(await screen.findByRole('button', { name: 'NoteCancel' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('NoteWorkStopError');
+    expect(screen.getByRole('button', { name: 'NoteCancel' })).toBeDisabled();
+    expect(api.cancel).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'LibraryRefresh' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'NoteCancel' })).toBeEnabled());
+    expect(api.cancel).toHaveBeenCalledTimes(1);
   }
 );

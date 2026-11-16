@@ -15,7 +15,7 @@ import type { MaterialId } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { eq } from '@study/db';
 import * as s from '@study/db';
-import { test } from '@study/testing';
+import type { test } from '@study/testing';
 import { Effect } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
 
@@ -30,6 +30,8 @@ import { refreshTestExecution } from '#testing/workflow-admission';
 
 export type MaterialDeletionFixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
+type TestAssertion = Pick<test.Context, 'assert'>['assert'];
+
 export function acceptMaterialDeletion(fixture: MaterialDeletionFixture, materialId: MaterialId) {
   return Effect.runPromise(
     Effect.gen(function* () {
@@ -42,7 +44,11 @@ export function acceptMaterialDeletion(fixture: MaterialDeletionFixture, materia
   );
 }
 
-export function materialDeletionEvent(fixture: MaterialDeletionFixture, materialId: MaterialId) {
+export function materialDeletionEvent(
+  fixture: MaterialDeletionFixture,
+  materialId: MaterialId,
+  assert: TestAssertion
+) {
   const events = fixture.context.db.orm
     .select()
     .from(s.workflowEvents)
@@ -54,13 +60,17 @@ export function materialDeletionEvent(fixture: MaterialDeletionFixture, material
     (e) => e.type === 'MaterialDeletionRequested' && e.materialId === materialId
   );
 
-  test.assert.ok(event?.type === 'MaterialDeletionRequested');
+  assert.ok(event?.type === 'MaterialDeletionRequested');
 
   return event;
 }
 
-export function cleanupMaterial(fixture: MaterialDeletionFixture, materialId: MaterialId) {
-  const event = materialDeletionEvent(fixture, materialId);
+export function cleanupMaterial(
+  fixture: MaterialDeletionFixture,
+  materialId: MaterialId,
+  assert: TestAssertion
+) {
+  const event = materialDeletionEvent(fixture, materialId, assert);
 
   return Effect.runPromise(
     Effect.scoped(

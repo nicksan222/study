@@ -27,7 +27,9 @@ import { pageTransformFixture } from '#testing/page-transform';
 
 test.stable(
   'native authored project links are idempotent and project/note deletion preserves independent versions',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await pageTransformFixture(databases);
 
     try {
@@ -50,35 +52,34 @@ test.stable(
               noteId: note.id
             });
 
-            test.assert.ok(document.version);
+            assert.ok(document.version);
             const link = { pageId: document.id, projectId: b.id };
 
             yield* rpc['pages.attachProject'](link);
             yield* rpc['pages.attachProject'](link);
-            test
-              .expect((yield* rpc['pages.page']({ id: document.id })).projectIds)
-              .toStrictEqual([a.id, b.id]);
+            expect((yield* rpc['pages.page']({ id: document.id })).projectIds).toStrictEqual([
+              a.id,
+              b.id
+            ]);
             const missing = {
               ...link,
               projectId: Schema.decodeUnknownSync(projectIdSchema)(b.id + 999n)
             };
 
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(rpc['pages.attachProject'](missing))).kind === 'not_found'
             );
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(rpc['pages.detachProject'](missing))).kind === 'not_found'
             );
             yield* rpc['pages.detachProject']({ pageId: document.id, projectId: a.id });
             yield* rpc['pages.detachProject']({ pageId: document.id, projectId: a.id });
             yield* projects.deleteProject({ id: a.id });
             yield* projects.deleteProject({ id: b.id });
-            test
-              .expect((yield* rpc['pages.page']({ id: document.id })).projectIds)
-              .toStrictEqual([]);
-            test
-              .expect(yield* rpc['pages.version']({ id: document.version.id }))
-              .toStrictEqual(document.version);
+            expect((yield* rpc['pages.page']({ id: document.id })).projectIds).toStrictEqual([]);
+            expect(yield* rpc['pages.version']({ id: document.version.id })).toStrictEqual(
+              document.version
+            );
             yield* chats.deleteNote(note.id);
 
             return { noteId: note.id, document, version: document.version };
@@ -90,31 +91,25 @@ test.stable(
         )
       );
 
-      await cleanup(f, saved.noteId);
+      await cleanup(f, saved.noteId, assert);
       await f.reopen();
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(PagesRpc);
 
-            test
-              .expect(yield* rpc['pages.version']({ id: saved.version.id }))
-              .toStrictEqual(saved.version);
+            expect(yield* rpc['pages.version']({ id: saved.version.id })).toStrictEqual(
+              saved.version
+            );
             const all = yield* rpc['pages.pages']({ limit: 10, archived: false });
 
-            test.assert.strictEqual(all.items[0]?.id, saved.document.id);
-            test.assert.strictEqual(
-              f.context.db.orm.get(sql`SELECT count(*) n FROM note_pages`)?.n,
-              0n
-            );
-            test.assert.strictEqual(
+            assert.strictEqual(all.items[0]?.id, saved.document.id);
+            assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM note_pages`)?.n, 0n);
+            assert.strictEqual(
               f.context.db.orm.get(sql`SELECT count(*) n FROM project_pages`)?.n,
               0n
             );
-            test.assert.strictEqual(
-              f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n,
-              0n
-            );
+            assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
           })
         ).pipe(
           Effect.provide(
@@ -122,7 +117,7 @@ test.stable(
           )
         )
       );
-      test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }

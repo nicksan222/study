@@ -2,19 +2,26 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable('rejects nested ORM transactions in application code', async () => {
-  const diagnostics = await lintRule('application-transactions', {
-    'src/bad.ts':
-      "import type { Db } from '@study/db'; function f(db: Db) { db.orm.transaction(() => {}); }"
-  });
+test.stable(
+  'rejects nested ORM transactions in application code',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-});
+    const diagnostics = await lintRule({ assert }, 'application-transactions', {
+      'src/bad.ts':
+        "import type { Db } from '@study/db'; function f(db: Db) { db.orm.transaction(() => {}); }"
+    });
+
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  }
+);
 
 test.stable(
   'recognizes database aliases and preserves context and unrelated transactions',
-  async () => {
-    const diagnostics = await lintRule('application-transactions', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'application-transactions', {
       'src/bad.ts': `import type { Db as Database } from '@study/db';
 import type { ServerContext as C } from '#server/runtime/context';
 function f(db: Database, ctx: C) { const alias = db;
@@ -32,6 +39,6 @@ database.orm.transaction(() => {});
         "import type { Db } from '@study/db'; function f(db: Db) { db.transaction(() => {}); }"
     });
 
-    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );

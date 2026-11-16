@@ -26,28 +26,56 @@ import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 
 // This deliberately narrow, test-only bridge handles the single initial prompt
 // needed to measure Effect's object-with-tools behavior, not production traffic.
-test.stable('native structured generation stops after a grounded tool call', async () => {
-  let requests = 0;
-  let body = '';
-  let output: string | undefined;
-  const server = Bun.serve({
-    hostname: '127.0.0.1',
-    port: 0,
-    fetch: async (req) => {
-      let events = '';
-      const requestBody = await req.text();
+test.stable(
+  'native structured generation stops after a grounded tool call',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-      body = requestBody;
-      requests++;
+    let requests = 0;
+    let body = '';
+    let output: string | undefined;
+    const server = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      fetch: async (req) => {
+        let events = '';
+        const requestBody = await req.text();
 
-      if (output !== undefined) {
+        body = requestBody;
+        requests++;
+
+        if (output !== undefined) {
+          for (const event of [
+            {
+              type: 'response.output_item.added',
+              output_index: 0,
+              item: { type: 'message', id: 'm' }
+            },
+            { type: 'response.output_text.delta', item_id: 'm', delta: output },
+            { type: 'response.completed', response: {} }
+          ])
+            events += `data: ${JSON.stringify(event)}\n\n`;
+
+          return new globalThis.Response(events, {
+            headers: { 'content-type': 'text/event-stream' }
+          });
+        }
+
+        const call = {
+          type: 'function_call',
+          id: 'item1',
+          call_id: 'call1',
+          name: 'sources',
+          arguments: '{"query":"cell"}'
+        };
+
         for (const event of [
+          { type: 'response.output_item.added', output_index: 0, item: call },
           {
-            type: 'response.output_item.added',
+            type: 'response.output_item.done',
             output_index: 0,
-            item: { type: 'message', id: 'm' }
+            item: { ...call, status: 'completed' }
           },
-          { type: 'response.output_text.delta', item_id: 'm', delta: output },
           { type: 'response.completed', response: {} }
         ])
           events += `data: ${JSON.stringify(event)}\n\n`;
@@ -56,145 +84,126 @@ test.stable('native structured generation stops after a grounded tool call', asy
           headers: { 'content-type': 'text/event-stream' }
         });
       }
-
-      const call = {
-        type: 'function_call',
-        id: 'item1',
-        call_id: 'call1',
-        name: 'sources',
-        arguments: '{"query":"cell"}'
-      };
-
-      for (const event of [
-        { type: 'response.output_item.added', output_index: 0, item: call },
-        {
-          type: 'response.output_item.done',
-          output_index: 0,
-          item: { ...call, status: 'completed' }
-        },
-        { type: 'response.completed', response: {} }
-      ])
-        events += `data: ${JSON.stringify(event)}\n\n`;
-
-      return new globalThis.Response(events, { headers: { 'content-type': 'text/event-stream' } });
-    }
-  });
-  const address = { port: server.port };
-
-  if (!address || typeof address === 'string') throw Error('missing address');
-
-  const base = `http://127.0.0.1:${address.port}`;
-  const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
-
-  try {
-    await auth.replace(
-      { subject: 'u', clientId: 'c', sharing: true, refreshToken: 'r' },
-      { accessToken: 'a', expiresIn: 3600 }
-    );
-    const provider = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
-    const catalog = createEvidenceCatalog([
-      { key: 'doc', reference: 'doc', name: 'Notes', blocks: [{ text: 'A cell uses energy.' }] }
-    ]);
-    const source = Tool.make('sources', {
-      description: flashcardsAgent.tools.sources.description,
-      parameters: flashcardsAgent.tools.sources.input,
-      success: sourcesOutputSchema
     });
-    const toolkit = Toolkit.make(source);
-    const native = await Effect.runPromise(
-      LanguageModel.make({
-        generateText: (options) =>
-          Effect.tryPromise({
-            try: async (signal) => {
-              const result = await provider.doGenerate({
-                abortSignal: signal,
-                prompt: [
-                  { role: 'system', content: flashcardsAgent.instructions('en') },
-                  { role: 'user', content: [{ type: 'text', text: 'Make a card about cells' }] }
-                ],
-                tools: options.tools.map((tool) => ({
-                  type: 'function' as const,
-                  name: tool.name,
-                  description: tool.description,
-                  inputSchema: Tool.getJsonSchema(tool)
-                })),
-                responseFormat: {
-                  type: 'json',
-                  schema: Tool.getJsonSchemaFromSchema(flashcardsAgent.output),
-                  name: 'flashcards'
-                }
-              });
+    const address = { port: server.port };
 
-              return result.content.flatMap((part): Response.PartEncoded[] => {
-                if (part.type === 'text') return [{ type: 'text' as const, text: part.text }];
+    if (!address || typeof address === 'string') throw Error('missing address');
 
-                if (part.type === 'tool-call')
-                  return [
-                    {
-                      type: 'tool-call' as const,
-                      id: part.toolCallId,
-                      name: part.toolName,
-                      params: JSON.parse(part.input)
-                    }
-                  ];
+    const base = `http://127.0.0.1:${address.port}`;
+    const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
-                return [];
-              });
-            },
-            catch: () =>
-              AiError.make({
-                module: 'evaluation',
-                method: 'generateText',
-                reason: new AiError.UnknownError({ description: 'provider failed' })
-              })
-          }),
-        streamText: () => Stream.empty
-      })
-    );
-    const program = native.generateObject({
-      prompt: flashcardsAgent.prompt({ prompt: 'Make a card about cells' }),
-      schema: flashcardsAgent.output,
-      toolkit
-    });
-    const result = await Effect.runPromise(
-      Effect.flip(program).pipe(
-        Effect.provide(
-          toolkit.toLayer({
-            sources: (input) =>
-              flashcardsAgent.tools.sources
-                .execute(input, {
-                  language: 'en',
-                  searchSources: (query) => Effect.succeed(catalog.search(query))
+    try {
+      await auth.replace(
+        { subject: 'u', clientId: 'c', sharing: true, refreshToken: 'r' },
+        { accessToken: 'a', expiresIn: 3600 }
+      );
+      const provider = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
+      const catalog = createEvidenceCatalog([
+        { key: 'doc', reference: 'doc', name: 'Notes', blocks: [{ text: 'A cell uses energy.' }] }
+      ]);
+      const source = Tool.make('sources', {
+        description: flashcardsAgent.tools.sources.description,
+        parameters: flashcardsAgent.tools.sources.input,
+        success: sourcesOutputSchema
+      });
+      const toolkit = Toolkit.make(source);
+      const native = await Effect.runPromise(
+        LanguageModel.make({
+          generateText: (options) =>
+            Effect.tryPromise({
+              try: async (signal) => {
+                const result = await provider.doGenerate({
+                  abortSignal: signal,
+                  prompt: [
+                    { role: 'system', content: flashcardsAgent.instructions('en') },
+                    { role: 'user', content: [{ type: 'text', text: 'Make a card about cells' }] }
+                  ],
+                  tools: options.tools.map((tool) => ({
+                    type: 'function' as const,
+                    name: tool.name,
+                    description: tool.description,
+                    inputSchema: Tool.getJsonSchema(tool)
+                  })),
+                  responseFormat: {
+                    type: 'json',
+                    schema: Tool.getJsonSchemaFromSchema(flashcardsAgent.output),
+                    name: 'flashcards'
+                  }
+                });
+
+                return result.content.flatMap((part): Response.PartEncoded[] => {
+                  if (part.type === 'text') return [{ type: 'text' as const, text: part.text }];
+
+                  if (part.type === 'tool-call')
+                    return [
+                      {
+                        type: 'tool-call' as const,
+                        id: part.toolCallId,
+                        name: part.toolName,
+                        params: JSON.parse(part.input)
+                      }
+                    ];
+
+                  return [];
+                });
+              },
+              catch: () =>
+                AiError.make({
+                  module: 'evaluation',
+                  method: 'generateText',
+                  reason: new AiError.UnknownError({ description: 'provider failed' })
                 })
-                .pipe(Effect.orDie, Effect.map(Schema.decodeUnknownSync(sourcesOutputSchema)))
-          })
+            }),
+          streamText: () => Stream.empty
+        })
+      );
+      const program = native.generateObject({
+        prompt: flashcardsAgent.prompt({ prompt: 'Make a card about cells' }),
+        schema: flashcardsAgent.output,
+        toolkit
+      });
+      const result = await Effect.runPromise(
+        Effect.flip(program).pipe(
+          Effect.provide(
+            toolkit.toLayer({
+              sources: (input) =>
+                flashcardsAgent.tools.sources
+                  .execute(input, {
+                    language: 'en',
+                    searchSources: (query) => Effect.succeed(catalog.search(query))
+                  })
+                  .pipe(Effect.orDie, Effect.map(Schema.decodeUnknownSync(sourcesOutputSchema)))
+            })
+          )
         )
-      )
-    );
+      );
 
-    test.assert.ok(result.reason._tag === 'StructuredOutputError');
-    test.assert.strictEqual(requests, 1);
-    test.assert.ok(catalog.citations('answer [1]')[0]?.quote === 'A cell uses energy.');
-    test.expect(body).toMatch(/Make a card about cells/);
-    test.expect(body).toMatch(/sources/);
-    output = JSON.stringify({
-      kind: 'flashcards',
-      cards: [{ front: 'What uses energy?', back: 'A cell [1]' }]
-    });
-    const decoded = await Effect.runPromise(
-      native.generateObject({ prompt: 'Make a card', schema: flashcardsAgent.output })
-    );
+      assert.ok(result.reason._tag === 'StructuredOutputError');
+      assert.strictEqual(requests, 1);
+      assert.ok(catalog.citations('answer [1]')[0]?.quote === 'A cell uses energy.');
+      expect(body).toMatch(/Make a card about cells/);
+      expect(body).toMatch(/sources/);
+      output = JSON.stringify({
+        kind: 'flashcards',
+        cards: [{ front: 'What uses energy?', back: 'A cell [1]' }]
+      });
+      const decoded = await Effect.runPromise(
+        native.generateObject({ prompt: 'Make a card', schema: flashcardsAgent.output })
+      );
 
-    test.assert.ok(decoded.value.cards[0]?.back === 'A cell [1]');
-    test.assert.ok(catalog.citations(decoded.value.cards[0]?.back ?? '')[0]?.reference === 'doc');
-    output = JSON.stringify({ kind: 'flashcards', cards: [] });
-    const invalid = await Effect.runPromise(
-      Effect.flip(native.generateObject({ prompt: 'Make a card', schema: flashcardsAgent.output }))
-    );
+      assert.ok(decoded.value.cards[0]?.back === 'A cell [1]');
+      assert.ok(catalog.citations(decoded.value.cards[0]?.back ?? '')[0]?.reference === 'doc');
+      output = JSON.stringify({ kind: 'flashcards', cards: [] });
+      const invalid = await Effect.runPromise(
+        Effect.flip(
+          native.generateObject({ prompt: 'Make a card', schema: flashcardsAgent.output })
+        )
+      );
 
-    test.assert.ok(invalid.reason._tag === 'StructuredOutputError');
-  } finally {
-    await auth.dispose();
-    await server.stop(true);
+      assert.ok(invalid.reason._tag === 'StructuredOutputError');
+    } finally {
+      await auth.dispose();
+      await server.stop(true);
+    }
   }
-});
+);

@@ -22,7 +22,9 @@ const isSourceIngestion = (item: { workflow: string }) => item.workflow === 'sou
 test.stable(
   'failed extraction leaves same-note sibling sources and original bytes usable over HTTP',
   { timeout: 15000 },
-  async ({ server: serverFixture }) => {
+  async ({ server: serverFixture, pollUntil, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const fixture = serverFixture;
 
     const server = fixture.manage(await serve(fixture.app));
@@ -52,7 +54,7 @@ test.stable(
             sourceIds: sources.map((source) => source.id)
           });
 
-          const { failed, north, south } = yield* test.pollUntil(
+          const { failed, north, south } = yield* pollUntil(
             Effect.gen(function* () {
               const processing = yield* client['sources.sourceProcessing']({ id: sources[1]!.id });
 
@@ -77,19 +79,19 @@ test.stable(
             }
           );
 
-          test.assert.ok(failed?.outcome === 'failure' && north && south);
-          test.assert.strictEqual(failed.failureKind, 'unsupported');
-          test.assert.strictEqual(
+          assert.ok(failed?.outcome === 'failure' && north && south);
+          assert.strictEqual(failed.failureKind, 'unsupported');
+          assert.strictEqual(
             (yield* client['sources.sourceProcessing']({ id: sources[1]!.id })).documentId,
             null
           );
-          test
-            .expect(north.document.blocks.map((block) => block.text))
-            .toStrictEqual(['North bank evidence']);
-          test
-            .expect(south.document.blocks.map((block) => block.text))
-            .toStrictEqual(['South bank evidence']);
-          test.assert.notStrictEqual(north.sourceId, south.sourceId);
+          expect(north.document.blocks.map((block) => block.text)).toStrictEqual([
+            'North bank evidence'
+          ]);
+          expect(south.document.blocks.map((block) => block.text)).toStrictEqual([
+            'South bank evidence'
+          ]);
+          assert.notStrictEqual(north.sourceId, south.sourceId);
 
           for (const [index, source] of sources.entries()) {
             const retained = yield* client['sources.exportRevision']({
@@ -97,19 +99,17 @@ test.stable(
               revision: 1n
             });
 
-            test.expect(retained.bytes).toStrictEqual(inputs[index]!.bytes);
+            expect(retained.bytes).toStrictEqual(inputs[index]!.bytes);
           }
 
           const messages = yield* client['notes.thread']({ noteId: note.id, limit: 100 });
 
-          test.assert.strictEqual(messages.items.length, 1);
-          test
-            .expect(
-              messages.items[0]!.parts.filter((part) => part.sourceId !== null).map(
-                (part) => part.sourceId
-              )
+          assert.strictEqual(messages.items.length, 1);
+          expect(
+            messages.items[0]!.parts.filter((part) => part.sourceId !== null).map(
+              (part) => part.sourceId
             )
-            .toStrictEqual(sources.map((source) => source.id));
+          ).toStrictEqual(sources.map((source) => source.id));
 
           return;
         })

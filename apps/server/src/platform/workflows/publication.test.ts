@@ -26,7 +26,7 @@ const definition = Workflow.make('publication-test', {
 
 test.stable(
   'publication fences cancellation, supersession, retirement and escaped guards',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const location = await databases();
     const context = new ServerContext(await location.open());
 
@@ -57,20 +57,20 @@ test.stable(
             escaped = guard;
             const closed = yield* withPublicationGuard(context, PublicationGuard);
 
-            test.expect(() => assertGuard(closed)).toThrow(StudyError);
+            expect(() => assertGuard(closed)).toThrow(StudyError);
             assertGuard(guard);
             context.db.orm
               .update(workflow_executions)
               .set({ generation: 2 })
               .where(eq(workflow_executions.execution_id, 'publication'))
               .run();
-            test.expect(() => assertGuard(guard)).toThrow(StudyError);
+            expect(() => assertGuard(guard)).toThrow(StudyError);
             context.db.orm
               .update(workflow_executions)
               .set({ generation: 1, cancellation_mode: 'safe', status: 'cancelling' })
               .where(eq(workflow_executions.execution_id, 'publication'))
               .run();
-            test.expect(() => assertGuard(guard)).toThrow(StudyError);
+            expect(() => assertGuard(guard)).toThrow(StudyError);
             context.db.orm
               .update(workflow_executions)
               .set({ cancellation_mode: null, status: 'running' })
@@ -80,20 +80,18 @@ test.stable(
               .insert(workflow_retired_executions)
               .values({ execution_id: 'publication', correlation_id: 'deleted' })
               .run();
-            test.expect(() => assertGuard(guard)).toThrow(StudyError);
+            expect(() => assertGuard(guard)).toThrow(StudyError);
           })
         ).pipe(Effect.provideService(WorkflowEngine.WorkflowInstance, instance))
       );
-      test
-        .expect(() =>
-          context.transaction(['workflows'], (transaction) => escaped!.assert(transaction))
-        )
-        .toThrow(StudyError);
+      expect(() =>
+        context.transaction(['workflows'], (transaction) => escaped!.assert(transaction))
+      ).toThrow(StudyError);
       const failure = await Effect.runPromise(
         Effect.flip(withPublicationGuard(context, Effect.void))
       );
 
-      test.expect(failure.kind).toBe('internal');
+      expect(failure.kind).toBe('internal');
     } finally {
       context.close();
       await location.cleanup();

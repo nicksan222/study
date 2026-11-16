@@ -3,7 +3,9 @@ import { Schema } from 'effect';
 
 import { materialQuestionInputSchema } from './schemas.ts';
 
-test.stable('true or false content requires a boolean truth value', () => {
+test.stable('true or false content requires a boolean truth value', ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const decode = Schema.decodeUnknownSync(materialQuestionInputSchema);
   const question = {
     kind: 'true_false' as const,
@@ -12,9 +14,9 @@ test.stable('true or false content requires a boolean truth value', () => {
     isTrue: true
   };
 
-  test.assert.deepEqual(decode(question), question);
-  test.assert.throws(() => decode({ ...question, isTrue: 'true' }));
-  test.assert.throws(() =>
+  assert.deepEqual(decode(question), question);
+  assert.throws(() => decode({ ...question, isTrue: 'true' }));
+  assert.throws(() =>
     decode({
       kind: 'true_false' as const,
       prompt: question.prompt,

@@ -14,8 +14,11 @@ test.beforeEach(({ mock }) => {
   api.save.mockResolvedValue({});
 });
 
-function setup() {
-  const fixture = test.rpcTestTransport(async (tag, input) => {
+function setup({
+  rpcTestTransport,
+  renderHook
+}: Pick<test.Context, 'rpcTestTransport' | 'renderHook'>) {
+  const fixture = rpcTestTransport(async (tag, input) => {
     if (tag === 'settings.reviewSettings') return api.load();
 
     if (tag === 'settings.saveReviewSettings') {
@@ -29,47 +32,53 @@ function setup() {
     throw new Error(`Unexpected endpoint ${tag}`);
   });
 
-  return test.renderHook(() => useStudySettings(), { wrapper: fixture.wrapper });
+  return renderHook(() => useStudySettings(), { wrapper: fixture.wrapper });
 }
 
 test.stable(
   'rejects empty, fractional and out-of-range values without sending a request',
-  async () => {
-    const { result } = setup();
+  async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
+    const { result } = setup({ rpcTestTransport, renderHook });
 
-    await test.waitFor(() => test.expect(result.current.draft).toBe('20'));
+    await waitFor(() => expect(result.current.draft).toBe('20'));
 
     for (const value of ['', '-1', '1.5', '10001']) {
-      test.act(() => result.current.setDraft(value));
-      test.expect(result.current.valid).toBe(false);
-      test.act(() => result.current.save());
+      act(() => result.current.setDraft(value));
+      expect(result.current.valid).toBe(false);
+      act(() => result.current.save());
     }
 
-    test.expect(api.save).not.toHaveBeenCalled();
+    expect(api.save).not.toHaveBeenCalled();
   }
 );
 
-test.stable('saves zero and reloads the committed allowance', async () => {
-  const { result } = setup();
+test.stable(
+  'saves zero and reloads the committed allowance',
+  async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
+    const { result } = setup({ rpcTestTransport, renderHook });
 
-  await test.waitFor(() => test.expect(result.current.draft).toBe('20'));
-  api.load.mockResolvedValue({ newCardsPerDay: 0 });
-  test.act(() => result.current.setDraft('0'));
-  test.act(() => result.current.save());
-  await test.waitFor(() => test.expect(api.save).toHaveBeenCalledWith({ newCardsPerDay: 0 }));
-  await test.waitFor(() => test.expect(result.current.data?.newCardsPerDay).toBe(0));
-  test.expect(result.current.changed).toBe(false);
-});
+    await waitFor(() => expect(result.current.draft).toBe('20'));
+    api.load.mockResolvedValue({ newCardsPerDay: 0 });
+    act(() => result.current.setDraft('0'));
+    act(() => result.current.save());
+    await waitFor(() => expect(api.save).toHaveBeenCalledWith({ newCardsPerDay: 0 }));
+    await waitFor(() => expect(result.current.data?.newCardsPerDay).toBe(0));
+    expect(result.current.changed).toBe(false);
+  }
+);
 
-test.stable('restores the saved allowance on failure and recovers by retrying', async () => {
-  const { result } = setup();
+test.stable(
+  'restores the saved allowance on failure and recovers by retrying',
+  async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
+    const { result } = setup({ rpcTestTransport, renderHook });
 
-  await test.waitFor(() => test.expect(result.current.draft).toBe('20'));
-  api.save.mockRejectedValue(new Error('offline'));
-  test.act(() => result.current.setDraft('30'));
-  test.act(() => result.current.save());
-  await test.waitFor(() => test.expect(result.current.error).toBe(true));
-  test.expect(result.current.draft).toBe('30');
-  test.act(() => result.current.retry());
-  await test.waitFor(() => test.expect(result.current.error).toBe(false));
-});
+    await waitFor(() => expect(result.current.draft).toBe('20'));
+    api.save.mockRejectedValue(new Error('offline'));
+    act(() => result.current.setDraft('30'));
+    act(() => result.current.save());
+    await waitFor(() => expect(result.current.error).toBe(true));
+    expect(result.current.draft).toBe('30');
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.error).toBe(false));
+  }
+);

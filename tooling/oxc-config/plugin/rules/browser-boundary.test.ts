@@ -4,8 +4,11 @@ import { lintRule } from '../test/utils.ts';
 
 test.stable(
   'browser entrypoints and contracts reject private value edges and contract type edges',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'browser-boundary',
       {
         'packages/contracts/src/bad.ts':
@@ -20,32 +23,39 @@ test.stable(
       true
     );
 
-    test.assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
   }
 );
 
-test.stable('browser entrypoints reject private server types', async () => {
-  const diagnostics = await lintRule('browser-boundary', {
+test.stable('browser entrypoints reject private server types', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
+  const diagnostics = await lintRule({ assert }, 'browser-boundary', {
     'src/client/types.ts':
       "import type { ServerContext } from '../runtime/context'; import type { AppRouter } from '../runtime/router'; import type { Secret } from '../domains/jobs/store';"
   });
 
-  test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
-test.stable('public root rejects private server types', async () => {
-  const diagnostics = await lintRule('browser-boundary', {
+test.stable('public root rejects private server types', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
+  const diagnostics = await lintRule({ assert }, 'browser-boundary', {
     'src/index.ts':
       "export type {AppRouter} from './runtime/router'; export type {ServerContext} from './runtime/context';"
   });
 
-  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
 test.stable(
   'contracts admit Effect RPC but reject workflow engine and browser clients reject router types',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'browser-boundary',
       {
         'packages/contracts/src/rpc.ts':
@@ -56,38 +66,50 @@ test.stable(
       true
     );
 
-    test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );
 
-test.stable('browser consumers use only the explicit native client entrypoint', async () => {
-  const diagnostics = await lintRule(
-    'browser-boundary',
-    {
-      'apps/client/src/client.ts':
-        "import { makeStudyClient } from '@study/server/client'; import '@study/server/client/node'; import '@study/server';"
-    },
-    true
-  );
+test.stable(
+  'browser consumers use only the explicit native client entrypoint',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-});
+    const diagnostics = await lintRule(
+      { assert },
+      'browser-boundary',
+      {
+        'apps/client/src/client.ts':
+          "import { makeStudyClient } from '@study/server/client'; import '@study/server/client/node'; import '@study/server';"
+      },
+      true
+    );
 
-test.stable('only the shared client host boundary can import native APIs', async () => {
-  const diagnostics = await lintRule(
-    'browser-boundary',
-    {
-      'apps/client/src/lib/host.ts':
-        "import { invoke } from '@tauri-apps/api/core'; import { openUrl } from '@tauri-apps/plugin-opener';",
-      'apps/client/src/pages/settings/updates.tsx':
-        "import { isTauri } from '@tauri-apps/api/core';",
-      'apps/client/src/lib/study-client/client.ts':
-        "export { invoke } from '@tauri-apps/api/core';",
-      'packages/ui/src/native.ts': "import('@tauri-apps/plugin-opener');"
-    },
-    true
-  );
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  }
+);
 
-  test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
-  test.assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/lib/host.ts')));
-});
+test.stable(
+  'only the shared client host boundary can import native APIs',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule(
+      { assert },
+      'browser-boundary',
+      {
+        'apps/client/src/lib/host.ts':
+          "import { invoke } from '@tauri-apps/api/core'; import { openUrl } from '@tauri-apps/plugin-opener';",
+        'apps/client/src/pages/settings/updates.tsx':
+          "import { isTauri } from '@tauri-apps/api/core';",
+        'apps/client/src/lib/study-client/client.ts':
+          "export { invoke } from '@tauri-apps/api/core';",
+        'packages/ui/src/native.ts': "import('@tauri-apps/plugin-opener');"
+      },
+      true
+    );
+
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/lib/host.ts')));
+  }
+);

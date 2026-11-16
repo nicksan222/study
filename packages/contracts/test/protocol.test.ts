@@ -14,27 +14,30 @@ import {
 
 const schemas = { payload: { id: sourceIdSchema }, success: Schema.String, error: failureSchema };
 
-test.stable('query and mutation constructors preserve native schemas and required policies', () => {
-  const read = liveQuery('test.read', schemas, {
-    dependencies: [dependency.sources],
-    refresh: 'database'
-  });
-  const write = mutation('test.write', schemas, { changes: [dependency.sources] });
-  const group = endpointGroup({ read, write });
+test.stable(
+  'query and mutation constructors preserve native schemas and required policies',
+  ({ expect }) => {
+    const read = liveQuery('test.read', schemas, {
+      dependencies: [dependency.sources],
+      refresh: 'database'
+    });
+    const write = mutation('test.write', schemas, { changes: [dependency.sources] });
+    const group = endpointGroup({ read, write });
 
-  test.expect([...group.requests.keys()]).toEqual(['test.read', 'test.read.live', 'test.write']);
-  test.expect(Context.get(read.rpc.annotations, EndpointPolicy)).toEqual({
-    kind: 'query',
-    dependencies: ['sources'],
-    refresh: 'database'
-  });
-  test.expect(Context.get(write.rpc.annotations, EndpointPolicy)).toEqual({
-    kind: 'mutation',
-    changes: ['sources']
-  });
-  test.expect(read.successSchema).toBe(Schema.String);
-  test.expect(write.rpc.errorSchema).toBe(failureSchema);
-});
+    expect([...group.requests.keys()]).toEqual(['test.read', 'test.read.live', 'test.write']);
+    expect(Context.get(read.rpc.annotations, EndpointPolicy)).toEqual({
+      kind: 'query',
+      dependencies: ['sources'],
+      refresh: 'database'
+    });
+    expect(Context.get(write.rpc.annotations, EndpointPolicy)).toEqual({
+      kind: 'mutation',
+      changes: ['sources']
+    });
+    expect(read.successSchema).toBe(Schema.String);
+    expect(write.rpc.errorSchema).toBe(failureSchema);
+  }
+);
 
 // This function is typechecked without executing intentionally invalid declarations.
 function invalidDeclarations() {
@@ -55,25 +58,25 @@ function invalidDeclarations() {
 
 test.stable(
   'live queries derive a separate native stream without changing one-shot schemas',
-  () => {
+  ({ expect }) => {
     const read = liveQuery('test.read', schemas, {
       dependencies: [dependency.sources],
       refresh: 'database'
     });
 
-    test.expect(read.rpc._tag).toBe('test.read');
-    test.expect(read.liveRpc._tag).toBe('test.read.live');
-    test.expect(read.rpc.successSchema).toBe(Schema.String);
-    test.expect(read.rpc.payloadSchema.fields.id).toBe(sourceIdSchema);
-    test
-      .expect(Context.get(read.liveRpc.annotations, EndpointPolicy))
-      .toEqual(Context.get(read.rpc.annotations, EndpointPolicy));
+    expect(read.rpc._tag).toBe('test.read');
+    expect(read.liveRpc._tag).toBe('test.read.live');
+    expect(read.rpc.successSchema).toBe(Schema.String);
+    expect(read.rpc.payloadSchema.fields.id).toBe(sourceIdSchema);
+    expect(Context.get(read.liveRpc.annotations, EndpointPolicy)).toEqual(
+      Context.get(read.rpc.annotations, EndpointPolicy)
+    );
   }
 );
 
 test.stable(
   'live frames preserve typed domain failures and distinguish transport heartbeats',
-  () => {
+  ({ expect }) => {
     const schema = liveFrameSchema(Schema.BigInt, failureSchema);
     const codec = Schema.fromJsonString(Schema.toCodecJson(schema));
     const frames = [
@@ -89,7 +92,7 @@ test.stable(
     for (const frame of frames) {
       const decoded = Schema.decodeUnknownSync(codec)(Schema.encodeSync(codec)(frame));
 
-      test.expect(decoded).toEqual(frame);
+      expect(decoded).toEqual(frame);
     }
   }
 );

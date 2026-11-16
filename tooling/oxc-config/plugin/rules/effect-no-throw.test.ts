@@ -6,10 +6,13 @@ const message = 'Yield a typed failure instead of throwing StudyError inside an 
 
 test.stable(
   'reports thrown exceptions in Effect code and accepts typed failure constructors',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     assertDiagnostics(
+      { assert, expect },
       'effect-no-throw',
-      await lintRule('effect-no-throw', {
+      await lintRule({ assert }, 'effect-no-throw', {
         'src/procedures/bad.ts': String.raw`import { Effect as E } from "effect";
 import { StudyError } from "@study/server/shared/errors";
 E.gen(function* () {
@@ -34,11 +37,16 @@ E.gen(function* () {
   }
 );
 
-test.stable('limits domain throw checks to the nearest imported Effect generator', async () => {
-  assertDiagnostics(
-    'effect-no-throw',
-    await lintRule('effect-no-throw', {
-      'src/procedures/generators.ts': String.raw`import * as E from "effect/Effect";
+test.stable(
+  'limits domain throw checks to the nearest imported Effect generator',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    assertDiagnostics(
+      { assert, expect },
+      'effect-no-throw',
+      await lintRule({ assert }, 'effect-no-throw', {
+        'src/procedures/generators.ts': String.raw`import * as E from "effect/Effect";
 import { StudyError as Failure } from "@study/server/shared/errors";
 E.fn("task")(function* () {
   throw new Failure("bad");
@@ -57,27 +65,35 @@ E.gen(function* () {
   class Failure {}
   throw new Failure();
 });`
-    }),
-    [['src/procedures/generators.ts', message]]
-  );
-});
+      }),
+      [['src/procedures/generators.ts', message]]
+    );
+  }
+);
 
-test.stable('canonical server error imports retain typed Effect failure enforcement', async () => {
-  const diagnostics = await lintRule('effect-no-throw', {
-    'src/bad.ts': String.raw`import { Effect } from "effect";
+test.stable(
+  'canonical server error imports retain typed Effect failure enforcement',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'effect-no-throw', {
+      'src/bad.ts': String.raw`import { Effect } from "effect";
 import { StudyError } from "#server/shared/errors/index";
 const operation = Effect.gen(function* () {
   throw new StudyError("internal", "bad");
 });`
-  });
+    });
 
-  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  }
+);
 
 test.stable(
   'public contracts error imports preserve the same typed Effect failure boundary',
-  async () => {
-    const diagnostics = await lintRule('effect-no-throw', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'effect-no-throw', {
       'src/domains/projects/service.ts': String.raw`import { Effect } from "effect";
 import { StudyError } from "@study/contracts";
 Effect.gen(function* () {
@@ -85,36 +101,47 @@ Effect.gen(function* () {
 });`
     });
 
-    test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   }
 );
 
-test.stable('reports thrown browser Effect failures and accepts typed errors', async () => {
-  const diagnostics = await lintRule(
-    'effect-no-throw',
-    {
-      'apps/client/src/features/example/page.logic.ts': String.raw`import { Effect } from "effect";
+test.stable(
+  'reports thrown browser Effect failures and accepts typed errors',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule(
+      { assert },
+      'effect-no-throw',
+      {
+        'apps/client/src/features/example/page.logic.ts': String.raw`import { Effect } from "effect";
 import { StudyError } from "@study/contracts";
 export const task = Effect.gen(function* () {
   throw new StudyError("internal", "bad");
 });`,
-      'apps/client/src/features/example/page.logic.test.ts': String.raw`import { Effect } from "effect";
+        'apps/client/src/features/example/page.logic.test.ts': String.raw`import { Effect } from "effect";
 import { StudyError } from "@study/contracts";
 export const task = Effect.gen(function* () {
   throw new StudyError("internal", "bad");
 });`
-    },
-    true
-  );
+      },
+      true
+    );
 
-  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  }
+);
 
-test.stable('keeps typed failures in native untraced generators', async () => {
-  assertDiagnostics(
-    'effect-no-throw',
-    await lintRule('effect-no-throw', {
-      'src/bad.ts': String.raw`import { Effect as E } from "effect";
+test.stable(
+  'keeps typed failures in native untraced generators',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    assertDiagnostics(
+      { assert, expect },
+      'effect-no-throw',
+      await lintRule({ assert }, 'effect-no-throw', {
+        'src/bad.ts': String.raw`import { Effect as E } from "effect";
 import { StudyError as Failure } from "@study/contracts";
 E.fnUntraced(function* () {
   throw new Failure("internal", "bad");
@@ -122,7 +149,7 @@ E.fnUntraced(function* () {
 E.fnUntracedEager(function* () {
   throw new Failure("internal", "bad");
 });`,
-      'src/good.ts': String.raw`import { Effect as E } from "effect";
+        'src/good.ts': String.raw`import { Effect as E } from "effect";
 import { StudyError } from "@study/contracts";
 E.fnUntraced(function* () {
   yield* E.fail(new StudyError("internal", "bad"));
@@ -138,10 +165,11 @@ function f(E: any) {
     throw new StudyError("internal", "sync");
   });
 }`
-    }),
-    [
-      ['src/bad.ts', message],
-      ['src/bad.ts', message]
-    ]
-  );
-});
+      }),
+      [
+        ['src/bad.ts', message],
+        ['src/bad.ts', message]
+      ]
+    );
+  }
+);

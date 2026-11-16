@@ -2,25 +2,35 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable('keeps protocol execution in the application composition boundary', async () => {
-  const diagnostics = await lintRule(
-    'web-query-contract',
-    {
-      'apps/client/src/routes/home.tsx': `import {RpcClient} from 'effect/rpc';`,
-      'apps/client/src/features/library/api.ts': `import {client} from '@study/server/client';`,
-      'apps/client/src/features/library/load.ts': `import {runRequest} from '../../lib/effect/runtime';`,
-      'apps/client/src/features/library/query.ts': `import {listSources} from '../../lib/study-client/operations';`
-    },
-    true
-  );
+test.stable(
+  'keeps protocol execution in the application composition boundary',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test.expect(diagnostics).toHaveLength(4);
-});
+    const diagnostics = await lintRule(
+      { assert },
+      'web-query-contract',
+      {
+        'apps/client/src/routes/home.tsx': `import {RpcClient} from 'effect/rpc';`,
+        'apps/client/src/features/library/api.ts': `import {client} from '@study/server/client';`,
+        'apps/client/src/features/library/load.ts': `import {runRequest} from '../../lib/effect/runtime';`,
+        'apps/client/src/features/library/query.ts': `import {listSources} from '../../lib/study-client/operations';`
+      },
+      true
+    );
 
-test.stable('allows canonical facade, local atoms, schemas and runtime composition', async () => {
-  test
-    .expect(
+    expect(diagnostics).toHaveLength(4);
+  }
+);
+
+test.stable(
+  'allows canonical facade, local atoms, schemas and runtime composition',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
       await lintRule(
+        { assert },
         'web-query-contract',
         {
           'apps/client/src/routes/home.tsx': `import {rpc} from '@study/contracts/react'; import {Atom} from 'effect/unstable/reactivity';`,
@@ -31,28 +41,37 @@ test.stable('allows canonical facade, local atoms, schemas and runtime compositi
         },
         true
       )
-    )
-    .toStrictEqual([]);
-});
+    ).toStrictEqual([]);
+  }
+);
 
-test.stable('keeps React out of React-free protocol contracts', async () => {
-  const diagnostics = await lintRule(
-    'web-query-contract',
-    {
-      'packages/contracts/src/projects/rpc.ts': `import {useState} from 'react';`,
-      'packages/contracts/src/rpc.ts': `export * from './react';`,
-      'packages/contracts/src/sources/schemas.ts': `import {useAtomValue} from '@effect/atom-react';`
-    },
-    true
-  );
+test.stable(
+  'keeps React out of React-free protocol contracts',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test.expect(diagnostics).toHaveLength(3);
-});
+    const diagnostics = await lintRule(
+      { assert },
+      'web-query-contract',
+      {
+        'packages/contracts/src/projects/rpc.ts': `import {useState} from 'react';`,
+        'packages/contracts/src/rpc.ts': `export * from './react';`,
+        'packages/contracts/src/sources/schemas.ts': `import {useAtomValue} from '@effect/atom-react';`
+      },
+      true
+    );
+
+    expect(diagnostics).toHaveLength(3);
+  }
+);
 
 test.stable(
   'permits only the actual optional React modules and approved composition imports',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'web-query-contract',
       {
         'packages/contracts/src/react-state.ts': `import { useAtomValue } from '@effect/atom-react'; import { useState } from 'react';`,
@@ -65,6 +84,6 @@ test.stable(
       true
     );
 
-    test.expect(diagnostics).toHaveLength(3);
+    expect(diagnostics).toHaveLength(3);
   }
 );

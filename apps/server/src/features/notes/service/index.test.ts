@@ -30,7 +30,9 @@ import { Notes } from './index.ts';
 
 test.stable(
   'notes support normalized creation, bounded pagination and missing reads',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const database = Layer.succeed(Database, { store: context });
@@ -51,45 +53,39 @@ test.stable(
             title: 'Second'
           });
 
-          test.assert.ok(first.title === 'First');
-          test.assert.ok(first.titleSource === 'user');
+          assert.ok(first.title === 'First');
+          assert.ok(first.titleSource === 'user');
           const page = yield* notes.notes({ limit: 1 });
 
-          test.assert.strictEqual(page.items[0]?.id, second.id);
-          test.expect(page.next).toStrictEqual({ updatedAt: second.updatedAt, id: second.id });
-          test.assert.strictEqual(
+          assert.strictEqual(page.items[0]?.id, second.id);
+          expect(page.next).toStrictEqual({ updatedAt: second.updatedAt, id: second.id });
+          assert.strictEqual(
             (yield* notes.notes({ limit: 1, before: page.next! })).items[0]?.id,
             first.id
           );
           const global = yield* notes.createNote({ title: 'Projectless' });
 
-          test
-            .expect(
-              (yield* notes.notes({ limit: 1, project: project.id })).items.map((item) => item.id)
-            )
-            .toStrictEqual([second.id]);
+          expect(
+            (yield* notes.notes({ limit: 1, project: project.id })).items.map((item) => item.id)
+          ).toStrictEqual([second.id]);
           const scoped = yield* notes.notes({ limit: 1, project: project.id });
 
-          test
-            .expect(
-              (yield* notes.notes({
-                limit: 1,
-                project: project.id,
-                before: scoped.next!
-              })).items.map((item) => item.id)
-            )
-            .toStrictEqual([first.id]);
-          test
-            .expect(
-              (yield* notes.notes({ limit: 100, project: null })).items.map((item) => item.id)
-            )
-            .toStrictEqual([global.id]);
-          test.assert.strictEqual((yield* notes.notes({ limit: 1 })).items[0]?.id, global.id);
+          expect(
+            (yield* notes.notes({
+              limit: 1,
+              project: project.id,
+              before: scoped.next!
+            })).items.map((item) => item.id)
+          ).toStrictEqual([first.id]);
+          expect(
+            (yield* notes.notes({ limit: 100, project: null })).items.map((item) => item.id)
+          ).toStrictEqual([global.id]);
+          assert.strictEqual((yield* notes.notes({ limit: 1 })).items[0]?.id, global.id);
           const absent = 999n as NoteId;
 
-          test.assert.ok(Option.isNone(yield* notes.findNote(absent)));
-          test.assert.ok((yield* Effect.flip(notes.note(absent))).kind === 'not_found');
-          test.assert.ok(
+          assert.ok(Option.isNone(yield* notes.findNote(absent)));
+          assert.ok((yield* Effect.flip(notes.note(absent))).kind === 'not_found');
+          assert.ok(
             (yield* Effect.flip(notes.createNote({ project: project.id, title: ' ' }))).kind ===
               'invalid_input'
           );
@@ -104,7 +100,9 @@ test.stable(
 
 test.stable(
   'messages retain immutable versions and paginate in chronological order',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
@@ -127,7 +125,7 @@ test.stable(
           };
           const first = yield* notes.postMessage(input);
 
-          test.assert.strictEqual((yield* notes.postMessage(input)).id, first.id);
+          assert.strictEqual((yield* notes.postMessage(input)).id, first.id);
           const second = yield* notes.postMessage({ noteId: note.id, text: 'second' });
           const edited = yield* notes.editMessage({
             messageId: first.id,
@@ -135,11 +133,11 @@ test.stable(
             expectedActiveVersionId: first.activeVersionId!
           });
 
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* notes.postMessage(input)).activeVersionId,
             edited.activeVersionId
           );
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               notes.editMessage({
                 messageId: first.id,
@@ -148,14 +146,14 @@ test.stable(
               })
             )).kind === 'invalid_input'
           );
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(notes.postMessage({ ...input, text: 'different payload' })))
               .kind === 'invalid_input'
           );
 
-          test.expect(edited.versions.map((v) => v.text)).toStrictEqual([pageText, 'changed']);
-          test.assert.strictEqual(edited.versions[1]?.basedOn, first.activeVersionId);
-          test.assert.ok(
+          expect(edited.versions.map((v) => v.text)).toStrictEqual([pageText, 'changed']);
+          assert.strictEqual(edited.versions[1]?.basedOn, first.activeVersionId);
+          assert.ok(
             (yield* Effect.flip(
               notes.setActiveVersion({
                 messageId: second.id,
@@ -168,24 +166,24 @@ test.stable(
             versionId: first.activeVersionId!
           });
 
-          test.assert.strictEqual(restored.activeVersionId, first.activeVersionId);
-          test
-            .expect((yield* notes.thread({ noteId: note.id, limit: 2 })).items.map((m) => m.id))
-            .toStrictEqual([first.id, second.id]);
+          assert.strictEqual(restored.activeVersionId, first.activeVersionId);
+          expect(
+            (yield* notes.thread({ noteId: note.id, limit: 2 })).items.map((m) => m.id)
+          ).toStrictEqual([first.id, second.id]);
           const page = yield* notes.thread({ noteId: note.id, limit: 1 });
 
-          test.assert.strictEqual(page.items[0]?.id, second.id);
-          test.assert.strictEqual(page.next, second.id);
-          test.assert.strictEqual(
+          assert.strictEqual(page.items[0]?.id, second.id);
+          assert.strictEqual(page.next, second.id);
+          assert.strictEqual(
             (yield* notes.thread({ noteId: note.id, limit: 1, before: page.next! })).items[0]?.id,
             first.id
           );
-          test.assert.strictEqual(yield* notes.deleteMessage(first.id), true);
-          test.assert.ok((yield* Effect.flip(notes.message(first.id))).kind === 'not_found');
+          assert.strictEqual(yield* notes.deleteMessage(first.id), true);
+          assert.ok((yield* Effect.flip(notes.message(first.id))).kind === 'not_found');
           const { message_versions } = yield* Effect.promise(() => import('@study/db'));
           const { eq } = yield* Effect.promise(() => import('@study/db'));
 
-          test.assert.strictEqual(
+          assert.strictEqual(
             context.db.orm
               .select()
               .from(message_versions)
@@ -204,7 +202,9 @@ test.stable(
 
 test.stable(
   'explicit attachment snapshots share sources across collections and survive source deletion',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
@@ -249,30 +249,27 @@ test.stable(
             sourceIds: [foreign.id]
           });
 
-          test.assert.strictEqual(shared.parts[0]?.sourceId, foreign.id);
-          test.assert.strictEqual(
-            (yield* notes.thread({ noteId: note.id, limit: 10 })).items.length,
-            1
-          );
+          assert.strictEqual(shared.parts[0]?.sourceId, foreign.id);
+          assert.strictEqual((yield* notes.thread({ noteId: note.id, limit: 10 })).items.length, 1);
           const message = yield* notes.postMessage({
             noteId: note.id,
             text: '',
             sourceIds: [b.id, a.id]
           });
 
-          test.expect(message.parts.map((p) => p.sourceName)).toStrictEqual(['b.txt', 'a.txt']);
+          expect(message.parts.map((p) => p.sourceName)).toStrictEqual(['b.txt', 'a.txt']);
           context.db.orm.delete(sources).where(eq(sources.id, b.id)).run();
           const edited = yield* notes.editMessage({
             messageId: message.id,
             text: 'edited'
           });
 
-          test.expect(edited.parts.map((p) => [p.sourceId, p.sourceName])).toStrictEqual([
+          expect(edited.parts.map((p) => [p.sourceId, p.sourceName])).toStrictEqual([
             [null, 'b.txt'],
             [a.id, 'a.txt']
           ]);
-          test.assert.ok((yield* notes.deleteNote(note.id)).status === 'pending');
-          test.assert.ok((yield* Effect.flip(notes.message(message.id))).kind === 'not_found');
+          assert.ok((yield* notes.deleteNote(note.id)).status === 'pending');
+          assert.ok((yield* Effect.flip(notes.message(message.id))).kind === 'not_found');
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -284,7 +281,9 @@ test.stable(
 
 test.stable(
   'editing and deleting messages update note ordering with a composite cursor',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
@@ -319,8 +318,8 @@ test.stable(
           yield* notes.editMessage({ messageId: message.id, text: 'new' });
           const page = yield* notes.notes({ limit: 1 });
 
-          test.assert.strictEqual(page.items[0]?.id, first.id);
-          test.assert.strictEqual(
+          assert.strictEqual(page.items[0]?.id, first.id);
+          assert.strictEqual(
             (yield* notes.notes({ limit: 1, before: page.next! })).items[0]?.id,
             second.id
           );
@@ -330,7 +329,7 @@ test.stable(
             .where(eq(noteTable.id, first.id))
             .run();
           yield* notes.deleteMessage(message.id);
-          test.assert.strictEqual((yield* notes.notes({ limit: 1 })).items[0]?.id, first.id);
+          assert.strictEqual((yield* notes.notes({ limit: 1 })).items[0]?.id, first.id);
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -342,7 +341,9 @@ test.stable(
 
 test.stable(
   'message validation rejects invalid text, incomplete versions, and foreign versions',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
@@ -360,11 +361,11 @@ test.stable(
             title: 'Chat'
           });
 
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(notes.postMessage({ noteId: note.id, text: '  ' }))).kind ===
               'invalid_input'
           );
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(notes.postMessage({ noteId: note.id, text: '😀'.repeat(100001) })))
               .kind === 'invalid_input'
           );
@@ -386,16 +387,16 @@ test.stable(
             .returning()
             .get();
 
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               notes.setActiveVersion({ messageId: message.id, versionId: unfinished.id })
             )).kind === 'invalid_input'
           );
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* notes.message(message.id)).activeVersionId,
             message.activeVersionId
           );
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(notes.editMessage({ messageId: message.id, text: ' ' }))).kind ===
               'invalid_input'
           );
@@ -410,7 +411,9 @@ test.stable(
 
 test.stable(
   'reply request persists its context and rejects another pending request',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
@@ -437,8 +440,8 @@ test.stable(
             .all()
             .filter((event) => event.type === 'NoteGenerationRequested');
 
-          test.assert.strictEqual(events.length, 1);
-          test.expect(decodeEvent(events[0]!.payload)).toStrictEqual({
+          assert.strictEqual(events.length, 1);
+          expect(decodeEvent(events[0]!.payload)).toStrictEqual({
             type: 'NoteGenerationRequested',
             eventId: events[0]!.eventId,
             causationId: null,
@@ -450,23 +453,23 @@ test.stable(
           });
           const target = yield* notes.message(request.messageId);
 
-          test.assert.strictEqual(target.activeVersionId, request.versionId);
-          test.assert.ok(target.versions[0]?.status === 'pending');
-          test.assert.strictEqual(snapshot.messages[0]?.versionId, message.activeVersionId);
-          test.assert.ok(snapshot.messages[0]?.text === 'hello');
-          test.assert.ok(
+          assert.strictEqual(target.activeVersionId, request.versionId);
+          assert.ok(target.versions[0]?.status === 'pending');
+          assert.strictEqual(snapshot.messages[0]?.versionId, message.activeVersionId);
+          assert.ok(snapshot.messages[0]?.text === 'hello');
+          assert.ok(
             (yield* Effect.flip(notes.requestReply({ noteId: note.id }))).kind === 'invalid_input'
           );
           yield* notes.editMessage({ messageId: message.id, text: 'changed' });
-          test.assert.ok(
+          assert.ok(
             (yield* notes.replySnapshot({ requestId: request.requestId })).messages[0]?.text ===
               'hello'
           );
           yield* withTestPublication(context, notes.abandonReply(request).pipe(Effect.asVoid));
           const replacement = yield* notes.requestReply({ noteId: note.id });
 
-          test.assert.notStrictEqual(replacement.requestId, request.requestId);
-          test.assert.ok(
+          assert.notStrictEqual(replacement.requestId, request.requestId);
+          assert.ok(
             (yield* notes.replySnapshot({ requestId: replacement.requestId })).messages[0]?.text ===
               'changed'
           );
@@ -476,11 +479,11 @@ test.stable(
           });
           const afterEdit = yield* notes.requestReply({ noteId: note.id });
 
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* notes.message(editedReply.id)).activeVersionId,
             editedReply.activeVersionId
           );
-          test.assert.ok(
+          assert.ok(
             (yield* notes.replySnapshot({ requestId: afterEdit.requestId })).messages.at(-1)
               ?.text === 'Keep this complete edit'
           );
@@ -495,7 +498,9 @@ test.stable(
 
 test.stable(
   'reply snapshots retain historical attachments after reopen and reprocessing',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     let context = new ServerContext(await location.open());
     const { sources, source_snapshots, content_snapshots, source_processing } =
@@ -597,12 +602,9 @@ test.stable(
             requestId: saved.request.requestId
           });
 
-          test.assert.strictEqual(snapshot.messages[0]?.versionId, saved.message.activeVersionId);
-          test.assert.strictEqual(
-            snapshot.messages[0]?.attachments[0]?.snapshotId,
-            saved.document.id
-          );
-          test.assert.ok(snapshot.messages[0]?.attachments[0]?.sourceName === 'a.txt');
+          assert.strictEqual(snapshot.messages[0]?.versionId, saved.message.activeVersionId);
+          assert.strictEqual(snapshot.messages[0]?.attachments[0]?.snapshotId, saved.document.id);
+          assert.ok(snapshot.messages[0]?.attachments[0]?.sourceName === 'a.txt');
           yield* notes.setActiveVersion({
             messageId: saved.message.id,
             versionId: saved.edited.activeVersionId!
@@ -611,9 +613,9 @@ test.stable(
             messageId: saved.message.id,
             versionId: saved.message.activeVersionId!
           });
-          test
-            .expect(yield* notes.replySnapshot({ requestId: saved.request.requestId }))
-            .toStrictEqual(snapshot);
+          expect(yield* notes.replySnapshot({ requestId: saved.request.requestId })).toStrictEqual(
+            snapshot
+          );
         }).pipe(Effect.provide(layer()))
       );
     } finally {
@@ -625,7 +627,9 @@ test.stable(
 
 test.stable(
   'outbox failure rolls back reply request and pending message',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const { sql } = await import('@study/db');
@@ -646,23 +650,15 @@ test.stable(
             sql`CREATE TRIGGER fail_reply_event BEFORE INSERT ON workflow_events BEGIN SELECT RAISE(ABORT, 'event failed'); END`
           );
           yield* Effect.flip(notes.requestReply({ noteId: note.id }));
-          test.assert.strictEqual(
-            (yield* notes.thread({ noteId: note.id, limit: 10 })).items.length,
-            1
-          );
-          test.assert.strictEqual(
-            context.db.orm.select().from(note_reply_requests).all().length,
-            0
-          );
-          test
-            .expect(
-              context.db.orm
-                .select()
-                .from(workflowEvents)
-                .all()
-                .map((event) => event.type)
-            )
-            .toStrictEqual(['NoteQuestionRequested']);
+          assert.strictEqual((yield* notes.thread({ noteId: note.id, limit: 10 })).items.length, 1);
+          assert.strictEqual(context.db.orm.select().from(note_reply_requests).all().length, 0);
+          expect(
+            context.db.orm
+              .select()
+              .from(workflowEvents)
+              .all()
+              .map((event) => event.type)
+          ).toStrictEqual(['NoteQuestionRequested']);
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -674,7 +670,9 @@ test.stable(
 
 test.stable(
   'reply captures pending attachments and invalidates deleted context',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const { sources, source_snapshots, content_snapshots, source_processing } =
@@ -726,8 +724,8 @@ test.stable(
           const request = yield* notes.requestReply({ noteId: note.id });
           const pending = yield* notes.replySnapshot({ requestId: request.requestId });
 
-          test.assert.strictEqual(pending.pendingAttachments?.length, 1);
-          test.assert.strictEqual(pending.pendingAttachments?.[0]?.sourceId, source.id);
+          assert.strictEqual(pending.pendingAttachments?.length, 1);
+          assert.strictEqual(pending.pendingAttachments?.[0]?.sourceId, source.id);
           const document = context.db.orm
             .insert(content_snapshots)
             .values({
@@ -755,7 +753,7 @@ test.stable(
             .set({ project_id: project.id })
             .where(eq(sources.id, source.id))
             .run();
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* notes.replyReadiness({ requestId: request.requestId })).length,
             0
           );
@@ -764,12 +762,12 @@ test.stable(
             .set({ request_id: 'replacement', revision: 2n })
             .where(eq(source_processing.source_id, source.id))
             .run();
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(notes.replySnapshot({ requestId: request.requestId }))).kind ===
               'invalid_input'
           );
           yield* notes.deleteMessage(message.id);
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(notes.replySnapshot({ requestId: request.requestId }))).kind ===
               'not_found'
           );
@@ -784,7 +782,9 @@ test.stable(
 
 test.stable(
   'reply history includes every active note and rejects excess total text',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
@@ -807,9 +807,9 @@ test.stable(
           const request = yield* notes.requestReply({ noteId: note.id });
           const history = yield* notes.replySnapshot({ requestId: request.requestId });
 
-          test.assert.strictEqual(history.messages.length, 60);
-          test.assert.ok(history.messages[0]?.text === 'message 0');
-          test.assert.ok(history.messages.at(-1)?.text === 'message 59');
+          assert.strictEqual(history.messages.length, 60);
+          assert.ok(history.messages[0]?.text === 'message 0');
+          assert.ok(history.messages.at(-1)?.text === 'message 59');
           const largeNote = yield* notes.createNote({
             project: project.id,
             title: 'Large'
@@ -821,7 +821,7 @@ test.stable(
               text: String(i).repeat(80000)
             });
 
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* Effect.flip(notes.requestReply({ noteId: largeNote.id }))).kind,
             'not_enough'
           );
@@ -836,7 +836,9 @@ test.stable(
 
 test.stable(
   'untitled notes capture title requests and reject stale context',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
@@ -860,8 +862,8 @@ test.stable(
               )
             );
 
-          test.assert.ok(note.titleSource === 'provisional');
-          test.assert.ok(note.title === 'New note');
+          assert.ok(note.titleSource === 'provisional');
+          assert.ok(note.title === 'New note');
           const settingsLayer = Settings.layer.pipe(
             Layer.provideMerge(Layer.succeed(Database, { store: context }))
           );
@@ -880,7 +882,7 @@ test.stable(
             .createUntitledNote({ project: project.id })
             .pipe(Effect.provide(settingsLayer));
 
-          test.assert.ok(italian.title === 'Nuova nota');
+          assert.ok(italian.title === 'Nuova nota');
           const message = yield* notes.postMessage({
             noteId: note.id,
             text: 'Study cells'
@@ -888,10 +890,10 @@ test.stable(
           const request = yield* notes.requestTitle({ noteId: note.id });
           const snapshot = yield* notes.titleSnapshot({ requestId: request.requestId });
 
-          test.assert.strictEqual(snapshot.messages[0]?.versionId, message.activeVersionId);
-          test.assert.ok(snapshot.messages[0]?.text === 'Study cells');
+          assert.strictEqual(snapshot.messages[0]?.versionId, message.activeVersionId);
+          assert.ok(snapshot.messages[0]?.text === 'Study cells');
           yield* notes.editMessage({ messageId: message.id, text: 'Study plants' });
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(notes.titleSnapshot({ requestId: request.requestId }))).kind ===
               'invalid_input'
           );
@@ -906,7 +908,9 @@ test.stable(
 
 test.stable(
   'title context retains every active note within its text budget',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const { Settings } = await import('#server/features/settings/index');
@@ -927,9 +931,9 @@ test.stable(
           const request = yield* notes.requestTitle({ noteId: note.id });
           const snapshot = yield* notes.titleSnapshot({ requestId: request.requestId });
 
-          test.assert.strictEqual(snapshot.messages.length, 51);
-          test.assert.ok(snapshot.messages[0]?.text === 'message 0');
-          test.assert.ok(snapshot.messages.at(-1)?.text === 'message 50');
+          assert.strictEqual(snapshot.messages.length, 51);
+          assert.ok(snapshot.messages[0]?.text === 'message 0');
+          assert.ok(snapshot.messages.at(-1)?.text === 'message 50');
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -941,7 +945,9 @@ test.stable(
 
 test.stable(
   'titles respect the aggregate text budget and do not require ready attachment content_snapshots',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { Settings } = await import('#server/features/settings/index');
     const { Sources } = await import('#server/features/sources/index');
     const location = await databases();
@@ -965,7 +971,7 @@ test.stable(
             projectId: project.id
           });
 
-          test.assert.ok((yield* sources.sourceProcessing(source.id)).documentId === null);
+          assert.ok((yield* sources.sourceProcessing(source.id)).documentId === null);
           const note = yield* notes.createUntitledNote({ project: project.id });
 
           yield* notes.postMessage({
@@ -975,7 +981,7 @@ test.stable(
           });
           const pending = yield* notes.requestTitle({ noteId: note.id });
 
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* notes.titleSnapshot({ requestId: pending.requestId })).messages.length,
             1
           );
@@ -987,7 +993,7 @@ test.stable(
               text: String(i).repeat(80000)
             });
 
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* Effect.flip(notes.requestTitle({ noteId: large.id }))).kind,
             'not_enough'
           );
@@ -1000,160 +1006,172 @@ test.stable(
   }
 );
 
-test.stable('attachment threads are isolated, owned and paginated', async ({ databases }) => {
-  const location = await databases();
-  const context = new ServerContext(await location.open());
-  const { sources, source_snapshots, content_snapshots, source_processing } =
-    await import('@study/db');
-  const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
+test.stable(
+  'attachment threads are isolated, owned and paginated',
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const project = yield* (yield* Projects).createProject({ name: 'Threads' });
-        const notes = yield* Notes;
-        const note = yield* notes.createNote({ project: project.id, title: 'Chat' });
-        const other = yield* notes.createNote({ project: project.id, title: 'Other' });
-        const source = context.db.orm
-          .insert(sources)
-          .values({
-            project_id: project.id,
-            origin: 'attachment',
-            kind: 'text',
-            mime: 'text/plain',
-            name: 'a.txt',
-            size_bytes: 1n,
-            sha256: Buffer.alloc(32),
-            created_at: 1n
-          })
-          .returning()
-          .get();
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const { sources, source_snapshots, content_snapshots, source_processing } =
+      await import('@study/db');
+    const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
 
-        context.db.orm
-          .insert(source_snapshots)
-          .values({ source_id: source.id, revision: 1n, bytes: Buffer.from('a') })
-          .run();
-        const document = context.db.orm
-          .insert(content_snapshots)
-          .values({
-            source_id: source.id,
-            extractor_version: 1n,
-            meta: JSON.stringify(deletionDocument('').meta),
-            created_at: 1n
-          })
-          .returning()
-          .get();
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const project = yield* (yield* Projects).createProject({ name: 'Threads' });
+          const notes = yield* Notes;
+          const note = yield* notes.createNote({ project: project.id, title: 'Chat' });
+          const other = yield* notes.createNote({ project: project.id, title: 'Other' });
+          const source = context.db.orm
+            .insert(sources)
+            .values({
+              project_id: project.id,
+              origin: 'attachment',
+              kind: 'text',
+              mime: 'text/plain',
+              name: 'a.txt',
+              size_bytes: 1n,
+              sha256: Buffer.alloc(32),
+              created_at: 1n
+            })
+            .returning()
+            .get();
 
-        context.db.orm
-          .insert(source_processing)
-          .values({
-            source_id: source.id,
-            revision: 1n,
-            request_id: 'one',
-            published_request_id: 'one',
-            document_id: document.id
-          })
-          .run();
-        const root = yield* notes.postMessage({
-          noteId: note.id,
-          text: 'root',
-          sourceIds: [source.id]
-        });
-        const part = root.parts[0]!.id;
+          context.db.orm
+            .insert(source_snapshots)
+            .values({ source_id: source.id, revision: 1n, bytes: Buffer.from('a') })
+            .run();
+          const document = context.db.orm
+            .insert(content_snapshots)
+            .values({
+              source_id: source.id,
+              extractor_version: 1n,
+              meta: JSON.stringify(deletionDocument('').meta),
+              created_at: 1n
+            })
+            .returning()
+            .get();
 
-        test.assert.ok(
-          (yield* Effect.flip(
-            notes.postMessage({ noteId: other.id, text: 'bad', threadRoot: part })
-          )).kind === 'invalid_input'
-        );
-        const one = yield* notes.postMessage({
-          noteId: note.id,
-          text: 'one',
-          threadRoot: part
-        });
-        const two = yield* notes.postMessage({
-          noteId: note.id,
-          text: 'two',
-          threadRoot: part
-        });
+          context.db.orm
+            .insert(source_processing)
+            .values({
+              source_id: source.id,
+              revision: 1n,
+              request_id: 'one',
+              published_request_id: 'one',
+              document_id: document.id
+            })
+            .run();
+          const root = yield* notes.postMessage({
+            noteId: note.id,
+            text: 'root',
+            sourceIds: [source.id]
+          });
+          const part = root.parts[0]!.id;
 
-        test
-          .expect((yield* notes.thread({ noteId: note.id, limit: 10 })).items.map((m) => m.id))
-          .toStrictEqual([root.id]);
-        const page = yield* notes.thread({
-          noteId: note.id,
-          threadRoot: part,
-          limit: 1
-        });
+          assert.ok(
+            (yield* Effect.flip(
+              notes.postMessage({ noteId: other.id, text: 'bad', threadRoot: part })
+            )).kind === 'invalid_input'
+          );
+          const one = yield* notes.postMessage({
+            noteId: note.id,
+            text: 'one',
+            threadRoot: part
+          });
+          const two = yield* notes.postMessage({
+            noteId: note.id,
+            text: 'two',
+            threadRoot: part
+          });
 
-        test.assert.strictEqual(page.items[0]?.id, two.id);
-        test.assert.strictEqual(
-          (yield* notes.thread({
+          expect(
+            (yield* notes.thread({ noteId: note.id, limit: 10 })).items.map((m) => m.id)
+          ).toStrictEqual([root.id]);
+          const page = yield* notes.thread({
             noteId: note.id,
             threadRoot: part,
-            limit: 1,
-            before: page.next!
-          })).items[0]?.id,
-          one.id
-        );
-        const request = yield* notes.requestReply({
-          noteId: note.id,
-          threadRoot: part
-        });
-        const reply = yield* notes.message(request.messageId);
+            limit: 1
+          });
 
-        test.assert.strictEqual(reply.threadRoot, part);
-        test.assert.strictEqual(reply.replyTo, two.id);
-        const snapshot = yield* notes.replySnapshot({ requestId: request.requestId });
+          assert.strictEqual(page.items[0]?.id, two.id);
+          assert.strictEqual(
+            (yield* notes.thread({
+              noteId: note.id,
+              threadRoot: part,
+              limit: 1,
+              before: page.next!
+            })).items[0]?.id,
+            one.id
+          );
+          const request = yield* notes.requestReply({
+            noteId: note.id,
+            threadRoot: part
+          });
+          const reply = yield* notes.message(request.messageId);
 
-        test.expect(snapshot.messages.map((m) => m.text)).toStrictEqual(['root', 'one', 'two']);
-        test.assert.strictEqual(snapshot.messages[0]?.attachments[0]?.partId, part);
-        const { message_versions } = yield* Effect.promise(() => import('@study/db'));
-        const { eq } = yield* Effect.promise(() => import('@study/db'));
+          assert.strictEqual(reply.threadRoot, part);
+          assert.strictEqual(reply.replyTo, two.id);
+          const snapshot = yield* notes.replySnapshot({ requestId: request.requestId });
 
-        context.db.orm
-          .update(message_versions)
-          .set({ status: 'complete', text: 'answer' })
-          .where(eq(message_versions.id, request.versionId))
-          .run();
-        const reanswer = yield* notes.reanswer({ messageId: request.messageId });
-        const reanswerSnapshot = yield* notes.replySnapshot({
-          requestId: reanswer.requestId
-        });
+          expect(snapshot.messages.map((m) => m.text)).toStrictEqual(['root', 'one', 'two']);
+          assert.strictEqual(snapshot.messages[0]?.attachments[0]?.partId, part);
+          const { message_versions } = yield* Effect.promise(() => import('@study/db'));
+          const { eq } = yield* Effect.promise(() => import('@study/db'));
 
-        test
-          .expect(reanswerSnapshot.messages.map((m) => m.text))
-          .toStrictEqual(['root', 'one', 'two']);
-        test.assert.strictEqual((yield* notes.message(reanswer.messageId)).threadRoot, part);
-        context.db.orm
-          .update(message_versions)
-          .set({ status: 'complete', text: 'another answer' })
-          .where(eq(message_versions.id, reanswer.versionId))
-          .run();
-        const rewrite = yield* notes.rewriteMessage({
-          messageId: reanswer.messageId,
-          origin: 'improve'
-        });
-        const rewriteSnapshot = yield* notes.replySnapshot({
-          requestId: rewrite.requestId
-        });
+          context.db.orm
+            .update(message_versions)
+            .set({ status: 'complete', text: 'answer' })
+            .where(eq(message_versions.id, request.versionId))
+            .run();
+          const reanswer = yield* notes.reanswer({ messageId: request.messageId });
+          const reanswerSnapshot = yield* notes.replySnapshot({
+            requestId: reanswer.requestId
+          });
 
-        test
-          .expect(rewriteSnapshot.messages.map((m) => m.text))
-          .toStrictEqual(['root', 'one', 'two', 'another answer']);
-      }).pipe(Effect.provide(layer))
-    );
-  } finally {
-    context.close();
-    await location.cleanup();
+          expect(reanswerSnapshot.messages.map((m) => m.text)).toStrictEqual([
+            'root',
+            'one',
+            'two'
+          ]);
+          assert.strictEqual((yield* notes.message(reanswer.messageId)).threadRoot, part);
+          context.db.orm
+            .update(message_versions)
+            .set({ status: 'complete', text: 'another answer' })
+            .where(eq(message_versions.id, reanswer.versionId))
+            .run();
+          const rewrite = yield* notes.rewriteMessage({
+            messageId: reanswer.messageId,
+            origin: 'improve'
+          });
+          const rewriteSnapshot = yield* notes.replySnapshot({
+            requestId: rewrite.requestId
+          });
+
+          expect(rewriteSnapshot.messages.map((m) => m.text)).toStrictEqual([
+            'root',
+            'one',
+            'two',
+            'another answer'
+          ]);
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
 test.stable(
   'posting a message can request a reply explicitly or by assistant mention',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
@@ -1173,8 +1191,8 @@ test.stable(
           });
           const items = (yield* notes.thread({ noteId: note.id, limit: 10 })).items;
 
-          test.assert.strictEqual(items.length, 2);
-          test.assert.strictEqual(items[1]?.replyTo, posted.id);
+          assert.strictEqual(items.length, 2);
+          assert.strictEqual(items[1]?.replyTo, posted.id);
           const second = yield* notes.createNote({
             project: project.id,
             title: 'Mention'
@@ -1184,7 +1202,7 @@ test.stable(
             text: 'Hello @study!'
           });
 
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* notes.thread({ noteId: second.id, limit: 10 })).items[1]?.replyTo,
             mention.id
           );
@@ -1205,7 +1223,7 @@ test.stable(
             yield* notes.postMessage({ noteId: target.id, text });
             const thread = yield* notes.thread({ noteId: target.id, limit: 10 });
 
-            test.assert.strictEqual(thread.items.length, replies ? 2 : 1, text);
+            assert.strictEqual(thread.items.length, replies ? 2 : 1, text);
           }
         }).pipe(Effect.provide(layer))
       );
@@ -1218,7 +1236,9 @@ test.stable(
 
 test.stable(
   'note source links survive raw message deletion while authored documents keep independent project lifetime',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(Projects.layer, Notes.layer, Sources.layer, Pages.layer).pipe(
@@ -1249,7 +1269,7 @@ test.stable(
             requestReply: false
           });
 
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* sources.noteSources({ noteId: note.id, limit: 100 }))[0].id,
             source.id
           );
@@ -1262,32 +1282,29 @@ test.stable(
             noteId: note.id
           });
 
-          test.expect(authored.projectIds).toStrictEqual([project.id]);
+          expect(authored.projectIds).toStrictEqual([project.id]);
           yield* notes.deleteMessage(message.id);
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* sources.noteSources({ noteId: note.id, limit: 100 }))[0].id,
             source.id
           );
           yield* notes.deleteNote(note.id);
-          test.assert.ok(
+          assert.ok(
             (yield* documents.page({ id: authored.id })).version!.document.blocks[0].text ===
               'Authored body'
           );
-          test
-            .expect((yield* documents.page({ id: authored.id })).projectIds)
-            .toStrictEqual([project.id]);
-          test.assert.strictEqual(
+          expect((yield* documents.page({ id: authored.id })).projectIds).toStrictEqual([
+            project.id
+          ]);
+          assert.strictEqual(
             (yield* documents.pages({ projectId: project.id, limit: 100, archived: false }))
               .items[0].id,
             authored.id
           );
-          test.assert.ok((yield* sources.source(source.id)).name === 'note.txt');
-          test.assert.strictEqual(
-            context.db.orm.get(sql`SELECT count(*) n FROM note_sources`)?.n,
-            0n
-          );
-          test.assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM messages`)?.n, 0n);
-          test.expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+          assert.ok((yield* sources.source(source.id)).name === 'note.txt');
+          assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM note_sources`)?.n, 0n);
+          assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM messages`)?.n, 0n);
+          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(layer))
       );
     } finally {
@@ -1299,7 +1316,7 @@ test.stable(
 
 test.stable(
   'deletes an exact note version, preserves other items, and protects the final version',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const location = await databases();
     const context = new ServerContext(await location.open());
     const layer = Notes.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
@@ -1328,51 +1345,43 @@ test.stable(
             text: 'Third'
           });
 
-          test
-            .expect(
-              (yield* Effect.flip(
-                notes.deleteMessageVersion({
-                  messageId: other.id,
-                  versionId: edited.activeVersionId!
-                })
-              )).kind
-            )
-            .toBe('invalid_input');
+          expect(
+            (yield* Effect.flip(
+              notes.deleteMessageVersion({
+                messageId: other.id,
+                versionId: edited.activeVersionId!
+              })
+            )).kind
+          ).toBe('invalid_input');
           const remaining = yield* notes.deleteMessageVersion({
             messageId: original.id,
             versionId: edited.activeVersionId!
           });
 
-          test
-            .expect(remaining.versions.map((version) => version.text))
-            .toEqual(['Original', 'Third']);
-          test.expect(remaining.activeVersionId).toBe(latest.activeVersionId);
-          test.expect(remaining.versions[1]?.basedOn).toBeNull();
+          expect(remaining.versions.map((version) => version.text)).toEqual(['Original', 'Third']);
+          expect(remaining.activeVersionId).toBe(latest.activeVersionId);
+          expect(remaining.versions[1]?.basedOn).toBeNull();
           const fallback = yield* notes.deleteMessageVersion({
             messageId: original.id,
             versionId: latest.activeVersionId!
           });
 
-          test.expect(fallback.activeVersionId).toBe(original.activeVersionId);
-          test
-            .expect(
-              (yield* Effect.flip(
-                notes.deleteMessageVersion({
-                  messageId: original.id,
-                  versionId: original.activeVersionId!
-                })
-              )).kind
+          expect(fallback.activeVersionId).toBe(original.activeVersionId);
+          expect(
+            (yield* Effect.flip(
+              notes.deleteMessageVersion({
+                messageId: original.id,
+                versionId: original.activeVersionId!
+              })
+            )).kind
+          ).toBe('invalid_input');
+          expect((yield* notes.message(other.id)).versions[0]?.text).toBe('Other item');
+          expect(yield* notes.deleteMessage(original.id)).toBe(true);
+          expect(
+            (yield* notes.thread({ noteId: note.id, limit: 100 })).items.map(
+              (message) => message.id
             )
-            .toBe('invalid_input');
-          test.expect((yield* notes.message(other.id)).versions[0]?.text).toBe('Other item');
-          test.expect(yield* notes.deleteMessage(original.id)).toBe(true);
-          test
-            .expect(
-              (yield* notes.thread({ noteId: note.id, limit: 100 })).items.map(
-                (message) => message.id
-              )
-            )
-            .toEqual([other.id]);
+          ).toEqual([other.id]);
         }).pipe(Effect.provide(layer))
       );
     } finally {

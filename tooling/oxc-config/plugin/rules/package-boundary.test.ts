@@ -4,8 +4,11 @@ import { lintRule, root } from '../test/utils.ts';
 
 test.stable(
   'the database testing entry owns fixtures without allowing production testing dependencies',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'package-boundary',
       {
         'packages/db/src/testing.ts':
@@ -15,51 +18,54 @@ test.stable(
       true
     );
 
-    test.expect(diagnostics.map(({ filename }) => filename.split('/').at(-1))).toEqual(['db.ts']);
+    expect(diagnostics.map(({ filename }) => filename.split('/').at(-1))).toEqual(['db.ts']);
   }
 );
 
-test.stable('package ownership, public exports, and browser entrypoints are enforced', async () => {
-  const diagnostics = await lintRule(
-    'package-boundary',
-    {
-      'packages/ui/src/app.ts': "import '@study/client';\n",
-      'packages/ui/src/bad.ts': "import '@study/server/client';\n",
-      'packages/localization/src/bad.ts': "export * from '@study/ui';\n",
-      'packages/db/src/bad.ts': "import type { Account } from '@study/ai';\n",
-      'packages/ai/src/bad.ts': "export * from '@study/db';\n",
-      'apps/server/src/bad.ts': "import '@study/ui';\n",
-      'apps/client/src/bad.ts': "export * from '@study/server/runtime';\n",
-      'apps/client/src/root.ts': "import '@study/server';\n",
-      'apps/client/src/node.ts': "import 'node:fs';\n",
-      'apps/client/src/private.ts': "import '@study/server/shared/not-exported';\n",
-      'apps/client/src/relative.ts': "export * from '../../../apps/server/src/index.ts';\n",
-      'apps/client/src/absolute.ts': `import '${root}packages/ai/src/index.ts';\n`,
-      'apps/client/src/dynamic.ts':
-        "export const db = import('../../../packages/db/src/index.ts');\n",
-      'apps/desktop/src/bad.ts': "import '@study/server/client';\n",
-      'apps/landing/src/bad.ts': "import '@study/server/client';\n",
-      'apps/landing/src/good.ts': "import '@study/ui';\nimport '@study/localization';\n",
-      'tooling/scripts/seed/index.ts': "import '@study/localization';\n",
-      'packages/ai/src/good.ts': "import '@study/localization';\n",
-      'apps/server/src/good.ts': "import type { jobs } from '@study/db';\n",
-      'apps/client/src/good.ts': "import '@study/ui';\nimport '@study/server/client';\n",
-      'packages/ui/src/same.ts': "import './other.ts';\n"
-    },
-    true
-  );
+test.stable(
+  'package ownership, public exports, and browser entrypoints are enforced',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test
-    .expect(
+    const diagnostics = await lintRule(
+      { assert },
+      'package-boundary',
+      {
+        'packages/ui/src/app.ts': "import '@study/client';\n",
+        'packages/ui/src/bad.ts': "import '@study/server/client';\n",
+        'packages/localization/src/bad.ts': "export * from '@study/ui';\n",
+        'packages/db/src/bad.ts': "import type { Account } from '@study/ai';\n",
+        'packages/ai/src/bad.ts': "export * from '@study/db';\n",
+        'apps/server/src/bad.ts': "import '@study/ui';\n",
+        'apps/client/src/bad.ts': "export * from '@study/server/runtime';\n",
+        'apps/client/src/root.ts': "import '@study/server';\n",
+        'apps/client/src/node.ts': "import 'node:fs';\n",
+        'apps/client/src/private.ts': "import '@study/server/shared/not-exported';\n",
+        'apps/client/src/relative.ts': "export * from '../../../apps/server/src/index.ts';\n",
+        'apps/client/src/absolute.ts': `import '${root}packages/ai/src/index.ts';\n`,
+        'apps/client/src/dynamic.ts':
+          "export const db = import('../../../packages/db/src/index.ts');\n",
+        'apps/desktop/src/bad.ts': "import '@study/server/client';\n",
+        'apps/landing/src/bad.ts': "import '@study/server/client';\n",
+        'apps/landing/src/good.ts': "import '@study/ui';\nimport '@study/localization';\n",
+        'tooling/scripts/seed/index.ts': "import '@study/localization';\n",
+        'packages/ai/src/good.ts': "import '@study/localization';\n",
+        'apps/server/src/good.ts': "import type { jobs } from '@study/db';\n",
+        'apps/client/src/good.ts': "import '@study/ui';\nimport '@study/server/client';\n",
+        'packages/ui/src/same.ts': "import './other.ts';\n"
+      },
+      true
+    );
+
+    expect(
       diagnostics
         .map(({ code, filename, message }) => {
-          test.assert.strictEqual(code, 'study(package-boundary)');
+          assert.strictEqual(code, 'study(package-boundary)');
 
           return [filename.split('/').slice(-4).join('/'), message];
         })
         .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
-    )
-    .toStrictEqual(
+    ).toStrictEqual(
       [
         ['packages/ui/src/app.ts', '@study/client is not a public package export.'],
         [
@@ -108,29 +114,33 @@ test.stable('package ownership, public exports, and browser entrypoints are enfo
         ]
       ].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
     );
-});
+  }
+);
 
-test.stable('source and test directory imports cannot bypass package boundaries', async () => {
-  const diagnostics = await lintRule(
-    'package-boundary',
-    {
-      'apps/client/src/relative.ts': "import '../../../apps/server/src/';\n",
-      'apps/client/src/absolute.ts': `import '${root}packages/db/test';\n`
-    },
-    true
-  );
+test.stable(
+  'source and test directory imports cannot bypass package boundaries',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test
-    .expect(
+    const diagnostics = await lintRule(
+      { assert },
+      'package-boundary',
+      {
+        'apps/client/src/relative.ts': "import '../../../apps/server/src/';\n",
+        'apps/client/src/absolute.ts': `import '${root}packages/db/test';\n`
+      },
+      true
+    );
+
+    expect(
       diagnostics
         .map(({ code, filename, message }) => {
-          test.assert.strictEqual(code, 'study(package-boundary)');
+          assert.strictEqual(code, 'study(package-boundary)');
 
           return [filename.split('/').at(-1), message];
         })
         .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
-    )
-    .toStrictEqual([
+    ).toStrictEqual([
       [
         'absolute.ts',
         'Import @study/db through its public package exports instead of a source path.'
@@ -140,12 +150,16 @@ test.stable('source and test directory imports cannot bypass package boundaries'
         'Import @study/server through its public package exports instead of a source path.'
       ]
     ]);
-});
+  }
+);
 
 test.stable(
   'the client build config can read test policy without exposing it to app code',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'package-boundary',
       {
         'apps/client/vite.config.ts': "import { testPolicy } from '@study/testing';",
@@ -154,16 +168,19 @@ test.stable(
       true
     );
 
-    test
-      .expect(diagnostics.map(({ filename }) => filename.split('/').at(-1)))
-      .toEqual(['application.ts']);
+    expect(diagnostics.map(({ filename }) => filename.split('/').at(-1))).toEqual([
+      'application.ts'
+    ]);
   }
 );
 
 test.stable(
   'browser source forbids Node builtins but colocated tests and support may use them',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'package-boundary',
       {
         'apps/client/src/example.test.ts': "import 'node:assert/strict';\n",
@@ -176,24 +193,23 @@ test.stable(
       true
     );
 
-    test
-      .expect(
-        diagnostics.map(({ code, filename, message }) => {
-          test.assert.strictEqual(code, 'study(package-boundary)');
+    expect(
+      diagnostics.map(({ code, filename, message }) => {
+        assert.strictEqual(code, 'study(package-boundary)');
 
-          return [filename.split('/').at(-1), message];
-        })
-      )
-      .toStrictEqual([
-        ['example.ts', '@study/client cannot import Node builtins in browser code.']
-      ]);
+        return [filename.split('/').at(-1), message];
+      })
+    ).toStrictEqual([['example.ts', '@study/client cannot import Node builtins in browser code.']]);
   }
 );
 
 test.stable(
   'manifest exports honor blocked exact and more specific patterns and conditional root',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'package-boundary',
       {
         'apps/client/src/blocked.ts': "import '@study/ui/private';\n",
@@ -215,28 +231,29 @@ test.stable(
       }
     );
 
-    test
-      .expect(
-        diagnostics
-          .map(({ code, filename, message }) => {
-            test.assert.strictEqual(code, 'study(package-boundary)');
+    expect(
+      diagnostics
+        .map(({ code, filename, message }) => {
+          assert.strictEqual(code, 'study(package-boundary)');
 
-            return [filename.split('/').at(-1), message];
-          })
-          .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
-      )
-      .toStrictEqual([
-        ['blocked.ts', '@study/ui/private is not a public package export.'],
-        ['conditional.ts', '@study/ui/conditional is not a public package export.'],
-        ['pattern.ts', '@study/ui/internal/secret is not a public package export.']
-      ]);
+          return [filename.split('/').at(-1), message];
+        })
+        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+    ).toStrictEqual([
+      ['blocked.ts', '@study/ui/private is not a public package export.'],
+      ['conditional.ts', '@study/ui/conditional is not a public package export.'],
+      ['pattern.ts', '@study/ui/internal/secret is not a public package export.']
+    ]);
   }
 );
 
 test.stable(
   'the theme engine remains browser-safe while UI and server can consume its public API',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'package-boundary',
       {
         'packages/theme/src/bad.ts':
@@ -247,49 +264,66 @@ test.stable(
       true
     );
 
-    test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-    test.assert.match(diagnostics[0]!.message, /cannot import Node builtins/);
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.match(diagnostics[0]!.message, /cannot import Node builtins/);
   }
 );
 
-test.stable('contracts are recognized and unknown workspace packages fail closed', async () => {
-  const diagnostics = await lintRule(
-    'package-boundary',
-    {
-      'packages/contracts/src/a.ts': "import type { A } from '@study/server';",
-      'apps/server/src/a.ts':
-        "import type { A } from '@study/contracts'; import '@study/ai'; import '@study/missing';",
-      'apps/client/src/a.ts': "import '@study/server/shared/ids';"
-    },
-    true
-  );
+test.stable(
+  'contracts are recognized and unknown workspace packages fail closed',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test.assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
-});
+    const diagnostics = await lintRule(
+      { assert },
+      'package-boundary',
+      {
+        'packages/contracts/src/a.ts': "import type { A } from '@study/server';",
+        'apps/server/src/a.ts':
+          "import type { A } from '@study/contracts'; import '@study/ai'; import '@study/missing';",
+        'apps/client/src/a.ts': "import '@study/server/shared/ids';"
+      },
+      true
+    );
 
-test.stable('checks typed and aliased loader edges while honoring shadowing', async () => {
-  const diagnostics = await lintRule(
-    'package-boundary',
-    {
-      'apps/client/src/loader.ts': `import { createRequire as cr } from 'node:module';
+    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+  }
+);
+
+test.stable(
+  'checks typed and aliased loader edges while honoring shadowing',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule(
+      { assert },
+      'package-boundary',
+      {
+        'apps/client/src/loader.ts': `import { createRequire as cr } from 'node:module';
 const load = cr(import.meta.url);
 load(\`@study/missing\`);
 type T = import('@study/missing').T;
 import x = require('@study/missing');
 function f(require: (s: string) => void) { require('@study/missing');
 }`
-    },
-    true
-  );
+      },
+      true
+    );
 
-  test.assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+  }
+);
 
-test.stable('loader edges follow lexical bindings and direct createRequire calls', async () => {
-  const diagnostics = await lintRule(
-    'package-boundary',
-    {
-      'apps/server/src/loader.ts': `import * as mod from 'node:module';
+test.stable(
+  'loader edges follow lexical bindings and direct createRequire calls',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule(
+      { assert },
+      'package-boundary',
+      {
+        'apps/server/src/loader.ts': `import * as mod from 'node:module';
 const cr = mod.createRequire;
 const req = cr(import.meta.url);
 const alias = req;
@@ -302,17 +336,21 @@ r('@study/missing');
 function f(globalThis: any, req: any) { globalThis.require('@study/missing');
 req('@study/missing');
 }`
-    },
-    true
-  );
+      },
+      true
+    );
 
-  test.assert.strictEqual(diagnostics.length, 5, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 5, JSON.stringify(diagnostics));
+  }
+);
 
 test.stable(
   'database storage may reuse canonical contract ID types without depending on server implementation',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'package-boundary',
       {
         'packages/db/src/schema/ids.ts':
@@ -323,64 +361,82 @@ test.stable(
       true
     );
 
-    test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-    test.assert.ok(diagnostics[0]?.filename.endsWith('/server.ts'));
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.ok(diagnostics[0]?.filename.endsWith('/server.ts'));
   }
 );
 
-test.stable('landing consumes only the explicit feature preview export from client', async () => {
-  const diagnostics = await lintRule(
-    'package-boundary',
-    {
-      'apps/landing/src/good.ts':
-        "export { FeaturePreview } from '@study/client/feature-previews';",
-      'apps/landing/src/catalog.ts':
-        "export { previewFeatures } from '@study/client/feature-previews/catalog';",
-      'apps/landing/src/root.ts': "import '@study/client';",
-      'apps/landing/src/private.ts': "import '@study/client/features/quiz';",
-      'apps/landing/src/relative.ts': "import '../../client/src/feature-previews/index.tsx';"
-    },
-    true,
-    {
-      client: {
-        './feature-previews': './src/feature-previews/index.tsx',
-        './feature-previews/catalog': './src/feature-previews/catalog.ts',
-        './features/quiz': './src/features/quiz/index.ts'
+test.stable(
+  'landing consumes only the explicit feature preview export from client',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule(
+      { assert },
+      'package-boundary',
+      {
+        'apps/landing/src/good.ts':
+          "export { FeaturePreview } from '@study/client/feature-previews';",
+        'apps/landing/src/catalog.ts':
+          "export { previewFeatures } from '@study/client/feature-previews/catalog';",
+        'apps/landing/src/root.ts': "import '@study/client';",
+        'apps/landing/src/private.ts': "import '@study/client/features/quiz';",
+        'apps/landing/src/relative.ts': "import '../../client/src/feature-previews/index.tsx';"
+      },
+      true,
+      {
+        client: {
+          './feature-previews': './src/feature-previews/index.tsx',
+          './feature-previews/catalog': './src/feature-previews/catalog.ts',
+          './features/quiz': './src/features/quiz/index.ts'
+        }
       }
-    }
-  );
+    );
 
-  test
-    .expect(diagnostics.map(({ filename }) => filename.split('/').at(-1)).sort())
-    .toStrictEqual(['private.ts', 'relative.ts', 'root.ts']);
-});
+    expect(diagnostics.map(({ filename }) => filename.split('/').at(-1)).sort()).toStrictEqual([
+      'private.ts',
+      'relative.ts',
+      'root.ts'
+    ]);
+  }
+);
 
-test.stable('only explicit web E2E runtime harness files can own server resources', async () => {
-  const diagnostics = await lintRule(
-    'package-boundary',
-    {
-      'apps/client/test/e2e/harness/index.ts': `import '@study/db/testing';
+test.stable(
+  'only explicit web E2E runtime harness files can own server resources',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule(
+      { assert },
+      'package-boundary',
+      {
+        'apps/client/test/e2e/harness/index.ts': `import '@study/db/testing';
  import '@study/server/runtime';
  import '@study/tooling/development/rpc-proxy';
 `,
-      'apps/client/test/e2e/harness/stack.ts':
-        "import '@study/db/testing'; import '@study/server/runtime';",
-      'apps/client/test/e2e/harness/testing.ts': "import '@study/server/testing';",
-      'apps/client/test/e2e/harness/creation-response.test.ts': `import '@study/db/testing';
+        'apps/client/test/e2e/harness/stack.ts':
+          "import '@study/db/testing'; import '@study/server/runtime';",
+        'apps/client/test/e2e/harness/testing.ts': "import '@study/server/testing';",
+        'apps/client/test/e2e/harness/creation-response.test.ts': `import '@study/db/testing';
  import '@study/server/runtime';
  import '@study/tooling/development/rpc-proxy';
 `,
-      'apps/client/test/e2e/harness/other.test.ts':
-        "import '@study/db/testing'; import '@study/server/runtime';",
-      'apps/client/test/e2e/other.ts': `import '@study/db/testing';
+        'apps/client/test/e2e/harness/other.test.ts':
+          "import '@study/db/testing'; import '@study/server/runtime';",
+        'apps/client/test/e2e/other.ts': `import '@study/db/testing';
  import '@study/server/runtime';
  import '@study/tooling/development/rpc-proxy';
 `
-    },
-    true
-  );
+      },
+      true
+    );
 
-  test
-    .expect(diagnostics.map(({ filename }) => filename.split('/').at(-1)).sort())
-    .toStrictEqual(['other.test.ts', 'other.test.ts', 'other.ts', 'other.ts', 'other.ts']);
-});
+    expect(diagnostics.map(({ filename }) => filename.split('/').at(-1)).sort()).toStrictEqual([
+      'other.test.ts',
+      'other.test.ts',
+      'other.ts',
+      'other.ts',
+      'other.ts'
+    ]);
+  }
+);

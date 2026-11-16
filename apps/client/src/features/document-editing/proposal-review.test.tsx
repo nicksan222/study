@@ -69,10 +69,10 @@ test.beforeEach(async ({ mock }) => {
 for (const kind of ['apply', 'keep'] as const) {
   test.stable(
     `explicit ${kind} retry keeps the uncertain payload through live refresh and route remount`,
-    async () => {
+    async ({ rpcTestTransport, render, fireEvent, screen, act, expect }) => {
       const attempts: unknown[] = [];
       let current = 101n;
-      const fixture = test.rpcTestTransport(async (tag, input) => {
+      const fixture = rpcTestTransport(async (tag, input) => {
         if (tag === 'pages.compareProposal') return comparison(current);
 
         if (tag === 'pages.version') return version(103n);
@@ -103,54 +103,57 @@ for (const kind of ['apply', 'keep'] as const) {
         );
       }
 
-      test.render(<Route />, { wrapper: fixture.wrapper });
-      test.fireEvent.click(
-        await test.screen.findByRole('button', {
+      render(<Route />, { wrapper: fixture.wrapper });
+      fireEvent.click(
+        await screen.findByRole('button', {
           name: kind === 'apply' ? 'PageApply' : 'PageKeepNew'
         })
       );
-      await test.screen.findByText('PageActionFailed');
+      await screen.findByText('PageActionFailed');
       current = 104n;
-      await test.act(() => fixture.notify());
-      test.fireEvent.click(test.screen.getByRole('button', { name: 'Route' }));
-      test.fireEvent.click(test.screen.getByRole('button', { name: 'Route' }));
-      test.fireEvent.click(await test.screen.findByRole('button', { name: 'PageRetryProposal' }));
-      await test.screen.findByText('PageProposalSaved');
-      test.expect(attempts).toHaveLength(2);
-      test.expect(attempts[1]).toEqual(attempts[0]);
+      await act(() => fixture.notify());
+      fireEvent.click(screen.getByRole('button', { name: 'Route' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Route' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'PageRetryProposal' }));
+      await screen.findByText('PageProposalSaved');
+      expect(attempts).toHaveLength(2);
+      expect(attempts[1]).toEqual(attempts[0]);
     }
   );
 }
 
-test.stable('two rendered proposal controls share write ownership', async () => {
-  let resolve!: (value: unknown) => void;
-  const calls: unknown[] = [];
-  const fixture = test.rpcTestTransport(async (tag, input) => {
-    if (tag === 'pages.compareProposal') return comparison();
+test.stable(
+  'two rendered proposal controls share write ownership',
+  async ({ rpcTestTransport, render, screen, fireEvent, waitFor, expect, act }) => {
+    let resolve!: (value: unknown) => void;
+    const calls: unknown[] = [];
+    const fixture = rpcTestTransport(async (tag, input) => {
+      if (tag === 'pages.compareProposal') return comparison();
 
-    if (tag === 'pages.version') return version(103n);
+      if (tag === 'pages.version') return version(103n);
 
-    if (tag !== 'pages.applyProposal') throw new Error(`Unexpected ${tag}`);
+      if (tag !== 'pages.applyProposal') throw new Error(`Unexpected ${tag}`);
 
-    calls.push(input);
+      calls.push(input);
 
-    return new Promise((accept) => {
-      resolve = accept;
+      return new Promise((accept) => {
+        resolve = accept;
+      });
     });
-  });
 
-  test.render(
-    <>
-      <ProposalReview requestId="proposal-1" />
-      <ProposalReview requestId="proposal-1" />
-    </>,
-    { wrapper: fixture.wrapper }
-  );
-  const buttons = await test.screen.findAllByRole('button', { name: 'PageApply' });
+    render(
+      <>
+        <ProposalReview requestId="proposal-1" />
+        <ProposalReview requestId="proposal-1" />
+      </>,
+      { wrapper: fixture.wrapper }
+    );
+    const buttons = await screen.findAllByRole('button', { name: 'PageApply' });
 
-  test.fireEvent.click(buttons[0]!);
-  test.fireEvent.click(buttons[1]!);
-  await test.waitFor(() => test.expect(calls).toHaveLength(1));
-  await test.act(async () => resolve(receipt('applied')));
-  await test.screen.findAllByText('PageProposalSaved');
-});
+    fireEvent.click(buttons[0]!);
+    fireEvent.click(buttons[1]!);
+    await waitFor(() => expect(calls).toHaveLength(1));
+    await act(async () => resolve(receipt('applied')));
+    await screen.findAllByText('PageProposalSaved');
+  }
+);

@@ -77,7 +77,7 @@ const summary = (item: {
   });
 };
 
-function sidebarTransport() {
+function sidebarTransport({ rpcTestTransport }: Pick<test.Context, 'rpcTestTransport'>) {
   let created: (typeof subjects)[number] | undefined;
   const note = (value: { id: bigint; projectIds?: bigint[] }) => ({
     title: 'Note',
@@ -148,7 +148,7 @@ function sidebarTransport() {
     return undefined;
   };
 
-  return test.rpcTestTransport(async (tag, input) => {
+  return rpcTestTransport(async (tag, input) => {
     const base = await foundation(tag);
 
     if (base !== undefined) return base;
@@ -192,15 +192,20 @@ function sidebarTransport() {
 
 const en = catalogs.english;
 
-async function renderWithNavigation() {
-  const fixture = sidebarTransport();
+async function renderWithNavigation({
+  render,
+  screen,
+  userEvent,
+  rpcTestTransport
+}: Pick<test.Context, 'render' | 'screen' | 'userEvent' | 'rpcTestTransport'>) {
+  const fixture = sidebarTransport({ rpcTestTransport });
 
   configureRpcTransport(fixture.transport);
-  test.render(<App transport={fixture.transport} />);
-  const toggle = await test.screen.findByRole('button', { name: en.ToggleSidebar });
+  render(<App transport={fixture.transport} />);
+  const toggle = await screen.findByRole('button', { name: en.ToggleSidebar });
 
   if (toggle.getAttribute('aria-expanded') === 'false') {
-    await test.userEvent.setup().click(toggle);
+    await userEvent.setup().click(toggle);
   }
 }
 
@@ -245,494 +250,217 @@ test.beforeEach(() => {
 
 test.stable(
   'switches subjects while keeping the section and clearing the selected item',
-  async () => {
-    const user = test.userEvent.setup();
+  async ({ userEvent, screen, waitFor, expect, render, rpcTestTransport }) => {
+    const user = userEvent.setup();
 
-    await renderWithNavigation();
-    await user.click(await test.screen.findByLabelText('Biology'));
-    await user.click(await test.screen.findByRole('option', { name: 'History' }));
-    await test.waitFor(() =>
-      test.expect(location.pathname + location.search).toBe('/projects/2/notes')
-    );
-    test.expect(await test.screen.findByLabelText('History')).toBeInTheDocument();
+    await renderWithNavigation({ render, screen, userEvent, rpcTestTransport });
+    await user.click(await screen.findByLabelText('Biology'));
+    await user.click(await screen.findByRole('option', { name: 'History' }));
+    await waitFor(() => expect(location.pathname + location.search).toBe('/projects/2/notes'));
+    expect(await screen.findByLabelText('History')).toBeInTheDocument();
   }
 );
-
-test.stable('searches within the selected subject and opens a result', async () => {
-  api.search.mockResolvedValue({
-    hits: [
-      {
-        kind: 'note',
-        title: 'Cell division',
-        at: 0n,
-        target: { type: 'note', noteId: 9n }
-      }
-    ]
-  });
-  const user = test.userEvent.setup();
-
-  await renderWithNavigation();
-  await test.screen.findByLabelText('Biology');
-  await user.type(test.screen.getByRole('searchbox'), 'cell');
-  await user.click(await test.screen.findByRole('link', { name: /Cell division/ }));
-  test.expect(api.search).toHaveBeenLastCalledWith({
-    query: 'cell',
-    project: 1n,
-    limit: 30,
-    kinds: ['note', 'message']
-  });
-  await test.waitFor(() =>
-    test.expect(location.pathname + location.search).toBe('/projects/1/notes/9')
-  );
-});
 
 test.stable(
-  'opens one local draft in the selected subject without persisting an empty note',
-  async () => {
-    const user = test.userEvent.setup();
+  'searches within the selected subject and opens a result',
+  async ({ userEvent, screen, expect, waitFor, render, rpcTestTransport }) => {
+    api.search.mockResolvedValue({
+      hits: [
+        {
+          kind: 'note',
+          title: 'Cell division',
+          at: 0n,
+          target: { type: 'note', noteId: 9n }
+        }
+      ]
+    });
+    const user = userEvent.setup();
 
-    await renderWithNavigation();
-    await test.screen.findByLabelText('Biology');
-    await user.click(
-      test
-        .within(test.screen.getByRole('complementary', { name: en.SidebarNavigation }))
-        .getByRole('button', { name: en.NewNote })
-    );
-    await test.waitFor(() =>
-      test.expect(location.pathname + location.search).toBe('/projects/1/notes')
-    );
-    test.expect(api.createNote).not.toHaveBeenCalled();
-    test.expect(await test.screen.findByRole('textbox', { name: en.NoteCompose })).toHaveValue('');
-    test.expect(test.screen.getByRole('button', { name: en.NoteSaveNote })).toBeDisabled();
-    await user.type(
-      test.screen.getByRole('textbox', { name: en.NoteCompose }),
-      'Unsent biology notes'
-    );
-    const sidebar = test.within(
-      test.screen.getByRole('complementary', { name: en.SidebarNavigation })
-    );
-    const draft = await sidebar.findByRole('link', { name: /Unsent biology notes/ });
-
-    test.expect(draft.closest('details')).toBeNull();
-    test
-      .expect(draft.closest('.study-note-entry'))
-      .toBe(draft.closest('.study-note-groups')?.firstElementChild);
-  }
-);
-
-test.stable('does not search another subject when the URL subject is missing', async () => {
-  history.replaceState(null, '', '/projects/99/notes');
-  const user = test.userEvent.setup();
-
-  await renderWithNavigation();
-  await test.screen.findByText(en.SubjectNotFound);
-  await user.type(test.screen.getByRole('searchbox'), 'cell');
-  test.expect(api.search).not.toHaveBeenCalled();
-  await user.click(
-    test
-      .within(test.screen.getByRole('complementary', { name: en.SidebarNavigation }))
-      .getByRole('button', {
-        name: en.NewNote
-      })
-  );
-  await test.waitFor(() => test.expect(location.pathname + location.search).toBe('/notes'));
-  test.expect(api.createNote).not.toHaveBeenCalled();
-});
-
-test.stable('opens search from the collapsed rail with the keyboard shortcut', async () => {
-  const user = test.userEvent.setup();
-
-  await renderWithNavigation();
-  await test.screen.findByLabelText('Biology');
-  await user.click(test.screen.getByRole('button', { name: en.ToggleSidebar }));
-  await user.keyboard('{Control>}k{/Control}');
-  await test.waitFor(() => test.expect(test.screen.getByRole('searchbox')).toHaveFocus());
-});
-
-test.stable('creates a subject from the toolbar and selects it', async () => {
-  api.createProject.mockResolvedValue({ ...subjects[0], id: 3n, name: 'Physics' });
-  const user = test.userEvent.setup();
-
-  await renderWithNavigation();
-  await test.screen.findByLabelText('Biology');
-  await user.click(test.screen.getByRole('button', { name: en.NewProject }));
-  await user.type(test.screen.getByRole('textbox', { name: en.ProjectName }), 'Physics');
-  await user.click(test.screen.getByRole('button', { name: en.CreateProject }));
-  test.expect(api.createProject).toHaveBeenCalledWith({ name: 'Physics' });
-  await test.waitFor(() =>
-    test.expect(location.pathname + location.search).toBe('/projects/3/notes')
-  );
-});
-
-test.stable('searches note content across subjects when no subject is selected', async () => {
-  history.replaceState(null, '', '/notes');
-  const user = test.userEvent.setup();
-
-  await renderWithNavigation();
-  await test.screen.findByRole('combobox', { name: en.ChooseProject });
-  await user.type(test.screen.getByRole('searchbox'), 'cell');
-  await test.waitFor(() =>
-    test.expect(api.search).toHaveBeenLastCalledWith({
-      query: 'cell',
-      project: undefined,
-      limit: 30,
-      kinds: ['note', 'message']
-    })
-  );
-});
-
-test.stable('lets the keyboard search and dismiss the subject picker', async () => {
-  const user = test.userEvent.setup();
-
-  await renderWithNavigation();
-  const picker = await test.screen.findByLabelText('Biology');
-
-  picker.focus();
-  await user.keyboard('{Enter}');
-  await test.waitFor(() => test.expect(test.screen.getByLabelText(en.FindSubject)).toHaveFocus());
-  await user.clear(test.screen.getByLabelText(en.FindSubject));
-  await user.type(test.screen.getByLabelText(en.FindSubject), 'Hist');
-  await user.keyboard('{ArrowDown}{Enter}');
-  await test.waitFor(() =>
-    test.expect(location.pathname + location.search).toBe('/projects/2/notes')
-  );
-  test.screen.getByLabelText('History').focus();
-  await user.keyboard('{Enter}{Escape}');
-  await test.waitFor(() =>
-    test.expect(test.screen.queryByLabelText(en.FindSubject)).not.toBeInTheDocument()
-  );
-});
-
-test.stable('ignores a subject list fetched before a new subject was created', async () => {
-  const user = test.userEvent.setup();
-
-  await renderWithNavigation();
-  await test.screen.findByLabelText('Biology');
-  let finish: (result: { items: typeof subjects }) => void = () => {};
-
-  api.projects.mockReturnValueOnce(
-    new Promise((resolve) => {
-      finish = resolve;
-    })
-  );
-  await user.click(test.screen.getByLabelText('Biology'));
-  await test.waitFor(() => test.expect(test.screen.getByLabelText(en.FindSubject)).toHaveFocus());
-  await user.keyboard('{Escape}');
-  await test.waitFor(() =>
-    test.expect(test.screen.queryByLabelText(en.FindSubject)).not.toBeInTheDocument()
-  );
-  api.createProject.mockResolvedValue({ ...subjects[0], id: 3n, name: 'Physics' });
-  await user.click(test.screen.getByRole('button', { name: en.NewProject }));
-  await user.type(test.screen.getByRole('textbox', { name: en.ProjectName }), 'Physics');
-  await user.click(test.screen.getByRole('button', { name: en.CreateProject }));
-  await test.screen.findByLabelText('Physics');
-  await test.act(async () => {
-    finish({ items: subjects });
-  });
-  test.expect(test.screen.getByLabelText('Physics')).toBeInTheDocument();
-  test.expect(test.screen.queryByText(en.SubjectNotFound)).not.toBeInTheDocument();
-  test
-    .expect(
-      test
-        .within(test.screen.getByRole('complementary', { name: en.SidebarNavigation }))
-        .getByRole('button', {
-          name: en.NewNote
-        })
-    )
-    .toBeEnabled();
-});
-
-test.stable('searches note content without a sidebar filter control', async () => {
-  const user = test.userEvent.setup();
-
-  await renderWithNavigation();
-  await test.screen.findByLabelText('Biology');
-  test.expect(test.screen.queryByRole('button', { name: en.SearchFilter })).not.toBeInTheDocument();
-  await user.type(test.screen.getByRole('searchbox'), 'cell');
-  await test.waitFor(() =>
-    test.expect(api.search).toHaveBeenLastCalledWith({
+    await renderWithNavigation({ render, screen, userEvent, rpcTestTransport });
+    await screen.findByLabelText('Biology');
+    await user.type(screen.getByRole('searchbox'), 'cell');
+    await user.click(await screen.findByRole('link', { name: /Cell division/ }));
+    expect(api.search).toHaveBeenLastCalledWith({
       query: 'cell',
       project: 1n,
       limit: 30,
       kinds: ['note', 'message']
-    })
-  );
-});
+    });
+    await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/notes/9'));
+  }
+);
 
-test.stable('uses the body for notes and a labeled navigation block above settings', async () => {
-  const user = test.userEvent.setup();
+test.stable(
+  'opens one local draft in the selected subject without persisting an empty note',
+  async ({ userEvent, screen, within, waitFor, expect, render, rpcTestTransport }) => {
+    const user = userEvent.setup();
 
-  await renderWithNavigation();
-  await test.screen.findByLabelText('Biology');
-  const note = await test.screen.findByRole('link', { name: /Cell division/ });
+    await renderWithNavigation({ render, screen, userEvent, rpcTestTransport });
+    await screen.findByLabelText('Biology');
+    await user.click(
+      within(screen.getByRole('complementary', { name: en.SidebarNavigation })).getByRole(
+        'button',
+        { name: en.NewNote }
+      )
+    );
+    await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/notes'));
+    expect(api.createNote).not.toHaveBeenCalled();
+    expect(await screen.findByRole('textbox', { name: en.NoteCompose })).toHaveValue('');
+    expect(screen.getByRole('button', { name: en.NoteSaveNote })).toBeDisabled();
+    await user.type(screen.getByRole('textbox', { name: en.NoteCompose }), 'Unsent biology notes');
+    const sidebar = within(screen.getByRole('complementary', { name: en.SidebarNavigation }));
+    const draft = await sidebar.findByRole('link', { name: /Unsent biology notes/ });
 
-  test.expect(note.closest('nav')).toHaveAttribute('aria-label', en.Notes);
-  test.expect(note).toHaveAttribute('aria-current', 'page');
-  test.expect(test.screen.queryByRole('link', { name: /Roman Republic/ })).not.toBeInTheDocument();
-  const flashcards = test.screen.getByRole('link', {
-    name: new RegExp(`^${en.Practice}(?: \\d+)?$`)
-  });
+    expect(draft.closest('details')).toBeNull();
+    expect(draft.closest('.study-note-entry')).toBe(
+      draft.closest('.study-note-groups')?.firstElementChild
+    );
+  }
+);
 
-  test.expect(flashcards.closest('nav')).toHaveClass('study-sidebar-navigation');
-  test.expect(flashcards).toHaveTextContent(en.Practice);
-  test
-    .expect(test.screen.getByRole('button', { name: en.Settings }))
-    .toHaveTextContent(en.Settings);
-  test
-    .expect(test.screen.getByRole('button', { name: en.Settings }).closest('nav'))
-    .toHaveClass('study-sidebar-footer');
-  await user.click(flashcards);
-  await test.waitFor(() =>
-    test.expect(location.pathname + location.search).toBe('/projects/1/practice')
-  );
-  await user.click(test.screen.getByRole('link', { name: new RegExp(`^${en.Notes}(?: \\d+)?$`) }));
-  await user.click(await test.screen.findByRole('link', { name: /Cell division/ }));
-  await test.waitFor(() =>
-    test.expect(location.pathname + location.search).toBe('/projects/1/notes/42')
-  );
-});
+test.stable(
+  'does not search another subject when the URL subject is missing',
+  async ({ userEvent, screen, expect, within, waitFor, render, rpcTestTransport }) => {
+    history.replaceState(null, '', '/projects/99/notes');
+    const user = userEvent.setup();
 
-test.stable('lists flashcards and quizzes together and follows material pagination', async () => {
-  api.materials.mockImplementation(({ cursor }) =>
-    Promise.resolve(
-      cursor
-        ? {
-            items: [
-              { id: 22n, title: 'Cell quiz', projectIds: [1n], kind: 'quiz', updated_at: 0n }
-            ],
-            nextCursor: null
-          }
-        : {
-            items: [
-              {
-                id: 21n,
-                title: 'Cell cards',
-                projectIds: [1n],
-                kind: 'flashcards',
-                updated_at: 0n
-              }
-            ],
-            nextCursor: 21n
-          }
-    )
-  );
-  const user = test.userEvent.setup();
+    await renderWithNavigation({ render, screen, userEvent, rpcTestTransport });
+    await screen.findByText(en.SubjectNotFound);
+    await user.type(screen.getByRole('searchbox'), 'cell');
+    expect(api.search).not.toHaveBeenCalled();
+    await user.click(
+      within(screen.getByRole('complementary', { name: en.SidebarNavigation })).getByRole(
+        'button',
+        {
+          name: en.NewNote
+        }
+      )
+    );
+    await waitFor(() => expect(location.pathname + location.search).toBe('/notes'));
+    expect(api.createNote).not.toHaveBeenCalled();
+  }
+);
 
-  await renderWithNavigation();
-  await test.screen.findByLabelText('Biology');
-  await user.click(
-    test.screen.getByRole('link', { name: new RegExp(`^${en.Practice}(?: \\d+)?$`) })
-  );
-  await test.screen.findByRole('link', { name: /Cell cards/ });
-  await user.click(test.screen.getByRole('button', { name: en.LibraryMore }));
-  test.expect(await test.screen.findByRole('link', { name: /Cell quiz/ })).toBeInTheDocument();
-  test.expect(test.screen.queryByRole('link', { name: /Cell division/ })).not.toBeInTheDocument();
-  test.expect(api.materials).toHaveBeenLastCalledWith({
-    projectId: 1n,
-    cursor: 21n,
-    limit: 100,
-    archived: false
-  });
-  await user.click(test.screen.getByRole('button', { name: en.Back }));
-  await user.click(await test.screen.findByRole('link', { name: /Cell cards/ }));
-  await test.waitFor(() =>
-    test.expect(location.pathname + location.search).toBe('/projects/1/flashcards/21')
-  );
-});
+test.stable(
+  'opens search from the collapsed rail with the keyboard shortcut',
+  async ({ userEvent, screen, waitFor, expect, render, rpcTestTransport }) => {
+    const user = userEvent.setup();
 
-test.stable('loads later project and note pages', async () => {
-  api.projects.mockImplementation(({ before }) =>
-    Promise.resolve(
-      before ? { items: [subjects[1]], next: null } : { items: [subjects[0]], next: 1n }
-    )
-  );
-  api.notes.mockImplementation(({ before }) =>
-    Promise.resolve(
-      before
-        ? {
-            items: [
-              {
-                id: 43n,
-                projectIds: [1n],
-                title: 'Later note',
-                titleSource: 'user',
-                archivedAt: null,
-                createdAt: 0n,
-                updatedAt: 0n
-              }
-            ],
-            next: null
-          }
-        : { items: [], next: { id: 42n, updatedAt: 1n } }
-    )
-  );
-  await renderWithNavigation();
-  await test.userEvent.click(await test.screen.findByRole('button', { name: en.LibraryMore }));
-  test.expect(await test.screen.findByRole('link', { name: /Later note/ })).toBeInTheDocument();
-  const user = test.userEvent.setup();
+    await renderWithNavigation({ render, screen, userEvent, rpcTestTransport });
+    await screen.findByLabelText('Biology');
+    await user.click(screen.getByRole('button', { name: en.ToggleSidebar }));
+    await user.keyboard('{Control>}k{/Control}');
+    await waitFor(() => expect(screen.getByRole('searchbox')).toHaveFocus());
+  }
+);
 
-  const picker = await test.screen.findByLabelText('Biology');
+test.stable(
+  'creates a subject from the toolbar and selects it',
+  async ({ userEvent, screen, expect, waitFor, render, rpcTestTransport }) => {
+    api.createProject.mockResolvedValue({ ...subjects[0], id: 3n, name: 'Physics' });
+    const user = userEvent.setup();
 
-  if (picker.getAttribute('aria-expanded') !== 'true') await user.click(picker);
+    await renderWithNavigation({ render, screen, userEvent, rpcTestTransport });
+    await screen.findByLabelText('Biology');
+    await user.click(screen.getByRole('button', { name: en.NewProject }));
+    await user.type(screen.getByRole('textbox', { name: en.ProjectName }), 'Physics');
+    await user.click(screen.getByRole('button', { name: en.CreateProject }));
+    expect(api.createProject).toHaveBeenCalledWith({ name: 'Physics' });
+    await waitFor(() => expect(location.pathname + location.search).toBe('/projects/3/notes'));
+  }
+);
 
-  await test.screen.findByLabelText(en.FindSubject);
-  await user.click(test.screen.getByRole('button', { name: en.LibraryMore }));
-  test.expect(await test.screen.findByRole('option', { name: 'History' })).toBeInTheDocument();
-});
+test.stable(
+  'searches note content across subjects when no subject is selected',
+  async ({ userEvent, screen, waitFor, expect, render, rpcTestTransport }) => {
+    history.replaceState(null, '', '/notes');
+    const user = userEvent.setup();
 
-test.stable.each([
-  ['flashcards', '/projects/1/flashcards/8'],
-  ['quiz', '/projects/1/practice/8']
-])('filters the practice list and opens %s in its subject', async (kind, destination) => {
-  history.replaceState(null, '', '/projects/1/practice');
-  api.materials.mockResolvedValue({
-    items: [
-      {
-        id: 8n,
-        kind,
-        title: 'Cell study',
-        projectIds: [1n],
-        updated_at: 0n
-      }
-    ],
-    nextCursor: null
-  });
-  const user = test.userEvent.setup();
-
-  await renderWithNavigation();
-  await test.screen.findByLabelText('Biology');
-  await user.type(test.screen.getByRole('searchbox'), 'cell');
-  await user.click(
-    await test
-      .within(test.screen.getByRole('complementary'))
-      .findByRole('link', { name: /Cell study/ })
-  );
-  await test.waitFor(() => test.expect(location.pathname + location.search).toBe(destination));
-  test.expect(api.search).not.toHaveBeenCalled();
-});
-
-test.stable('preserves projects loaded while project creation is in flight', async () => {
-  let finishLoad!: (value: { items: typeof subjects; next: null }) => void;
-  let finishCreate!: (value: (typeof subjects)[number]) => void;
-
-  api.projects.mockReturnValue(
-    new Promise((resolve) => {
-      finishLoad = resolve;
-    })
-  );
-  api.createProject.mockReturnValue(
-    new Promise((resolve) => {
-      finishCreate = resolve;
-    })
-  );
-  const user = test.userEvent.setup();
-
-  await renderWithNavigation();
-  await user.click(await test.screen.findByRole('button', { name: en.NewProject }));
-  await user.type(test.screen.getByRole('textbox', { name: en.ProjectName }), 'Physics');
-  await user.click(test.screen.getByRole('button', { name: en.CreateProject }));
-  await test.act(async () => {
-    finishLoad({ items: subjects, next: null });
-  });
-  api.projects.mockReturnValue(new Promise(() => {}));
-  await test.act(async () => {
-    finishCreate({ ...subjects[0], id: 3n, name: 'Physics' });
-  });
-  await user.click(await test.screen.findByLabelText('Physics'));
-  test.expect(await test.screen.findByRole('option', { name: 'Biology' })).toBeInTheDocument();
-  test.expect(test.screen.getByRole('option', { name: 'History' })).toBeInTheDocument();
-});
-
-test.stable('first send adds a note to the sidebar and permits another lazy note', async () => {
-  let finish!: (value: { items: [] }) => void;
-
-  api.notes.mockReturnValueOnce(
-    new Promise((resolve) => {
-      finish = resolve;
-    })
-  );
-  const user = test.userEvent.setup();
-
-  await renderWithNavigation();
-  await test.screen.findByLabelText('Biology');
-  api.notes.mockResolvedValue({
-    items: [
-      {
-        id: 7n,
-        projectIds: [1n],
-        title: 'Created note',
-        titleSource: 'user',
-        archivedAt: null,
-        createdAt: 0n,
-        updatedAt: 0n
-      }
-    ]
-  });
-  api.createNote.mockResolvedValue({
-    id: 7n,
-    projectIds: [1n],
-    title: 'Created note',
-    titleSource: 'provisional',
-    archivedAt: null,
-    createdAt: 0n,
-    updatedAt: 0n
-  });
-  await user.click(
-    test
-      .within(test.screen.getByRole('complementary', { name: en.SidebarNavigation }))
-      .getByRole('button', {
-        name: en.NewNote
+    await renderWithNavigation({ render, screen, userEvent, rpcTestTransport });
+    await screen.findByRole('combobox', { name: en.ChooseProject });
+    await user.type(screen.getByRole('searchbox'), 'cell');
+    await waitFor(() =>
+      expect(api.search).toHaveBeenLastCalledWith({
+        query: 'cell',
+        project: undefined,
+        limit: 30,
+        kinds: ['note', 'message']
       })
-  );
-  await user.type(await test.screen.findByRole('textbox', { name: en.NoteCompose }), 'First note');
-  await user.click(test.screen.getByRole('button', { name: en.NoteSaveNote }));
-  await test.waitFor(() => test.expect(location.pathname).toBe('/projects/1/notes/7'));
-  await test.act(async () => {
-    finish({ items: [] });
-  });
-  test.expect(await test.screen.findByRole('link', { name: /Created note/ })).toBeInTheDocument();
-  await user.click(
-    test
-      .within(test.screen.getByRole('complementary', { name: en.SidebarNavigation }))
-      .getByRole('button', {
-        name: en.NewNote
+    );
+  }
+);
+
+test.stable(
+  'lets the keyboard search and dismiss the subject picker',
+  async ({ userEvent, screen, waitFor, expect, render, rpcTestTransport }) => {
+    const user = userEvent.setup();
+
+    await renderWithNavigation({ render, screen, userEvent, rpcTestTransport });
+    const picker = await screen.findByLabelText('Biology');
+
+    picker.focus();
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.getByLabelText(en.FindSubject)).toHaveFocus());
+    await user.clear(screen.getByLabelText(en.FindSubject));
+    await user.type(screen.getByLabelText(en.FindSubject), 'Hist');
+    await user.keyboard('{ArrowDown}{Enter}');
+    await waitFor(() => expect(location.pathname + location.search).toBe('/projects/2/notes'));
+    screen.getByLabelText('History').focus();
+    await user.keyboard('{Enter}{Escape}');
+    await waitFor(() => expect(screen.queryByLabelText(en.FindSubject)).not.toBeInTheDocument());
+  }
+);
+
+test.stable(
+  'ignores a subject list fetched before a new subject was created',
+  async ({ userEvent, screen, waitFor, expect, act, within, render, rpcTestTransport }) => {
+    const user = userEvent.setup();
+
+    await renderWithNavigation({ render, screen, userEvent, rpcTestTransport });
+    await screen.findByLabelText('Biology');
+    let finish: (result: { items: typeof subjects }) => void = () => {};
+
+    api.projects.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
       })
-  );
-  const input = await test.screen.findByRole('textbox', { name: en.NoteCompose });
+    );
+    await user.click(screen.getByLabelText('Biology'));
+    await waitFor(() => expect(screen.getByLabelText(en.FindSubject)).toHaveFocus());
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByLabelText(en.FindSubject)).not.toBeInTheDocument());
+    api.createProject.mockResolvedValue({ ...subjects[0], id: 3n, name: 'Physics' });
+    await user.click(screen.getByRole('button', { name: en.NewProject }));
+    await user.type(screen.getByRole('textbox', { name: en.ProjectName }), 'Physics');
+    await user.click(screen.getByRole('button', { name: en.CreateProject }));
+    await screen.findByLabelText('Physics');
+    await act(async () => {
+      finish({ items: subjects });
+    });
+    expect(screen.getByLabelText('Physics')).toBeInTheDocument();
+    expect(screen.queryByText(en.SubjectNotFound)).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole('complementary', { name: en.SidebarNavigation })).getByRole(
+        'button',
+        {
+          name: en.NewNote
+        }
+      )
+    ).toBeEnabled();
+  }
+);
 
-  test.expect(input).toHaveValue('');
-  await user.type(input, 'Second note');
-  test.expect(test.screen.getByRole('button', { name: en.NoteSaveNote })).toBeEnabled();
-  const second = {
-    id: 8n,
-    projectIds: [1n],
-    title: 'Second note',
-    titleSource: 'provisional',
-    archivedAt: null,
-    createdAt: 0n,
-    updatedAt: 0n
-  };
+test.stable(
+  'searches note content without a sidebar filter control',
+  async ({ userEvent, screen, expect, waitFor, render, rpcTestTransport }) => {
+    const user = userEvent.setup();
 
-  api.createNote.mockResolvedValueOnce(second);
-  api.notes.mockResolvedValue({ items: [second] });
-  await user.click(test.screen.getByRole('button', { name: en.NoteSaveNote }));
-  await test.waitFor(() => test.expect(location.pathname).toBe('/projects/1/notes/8'));
-  test.expect(await test.screen.findByRole('link', { name: /Second note/ })).toBeInTheDocument();
-});
-
-test.stable.each(['/notes/42', '/projects/2/notes/42'])(
-  'uses the actual note owner for direct and mismatched links: %s',
-  async (url) => {
-    history.replaceState(null, '', url);
-    await renderWithNavigation();
-    test.expect(await test.screen.findByLabelText('Biology')).toBeVisible();
-    test.expect(await test.screen.findByRole('link', { name: /Cell division/ })).toBeVisible();
-    test
-      .expect(test.screen.queryByRole('link', { name: /Roman Republic/ }))
-      .not.toBeInTheDocument();
-    await test.userEvent.setup().type(test.screen.getByRole('searchbox'), 'cell');
-    await test.waitFor(() =>
-      test.expect(api.search).toHaveBeenLastCalledWith({
+    await renderWithNavigation({ render, screen, userEvent, rpcTestTransport });
+    await screen.findByLabelText('Biology');
+    expect(screen.queryByRole('button', { name: en.SearchFilter })).not.toBeInTheDocument();
+    await user.type(screen.getByRole('searchbox'), 'cell');
+    await waitFor(() =>
+      expect(api.search).toHaveBeenLastCalledWith({
         query: 'cell',
         project: 1n,
         limit: 30,
@@ -742,37 +470,340 @@ test.stable.each(['/notes/42', '/projects/2/notes/42'])(
   }
 );
 
-test.stable('does not reveal a foreign subject while note ownership is loading', async () => {
-  history.replaceState(null, '', '/projects/2/notes/42');
-  api.note.mockReturnValue(new Promise(() => {}));
-  await renderWithNavigation();
-  test.expect(test.screen.queryByLabelText('History')).not.toBeInTheDocument();
-  test.expect(test.screen.queryByRole('link', { name: /Roman Republic/ })).not.toBeInTheDocument();
-  await test.userEvent.setup().type(test.screen.getByRole('searchbox'), 'rome');
-  test.expect(api.search).not.toHaveBeenCalled();
-});
+test.stable(
+  'uses the body for notes and a labeled navigation block above settings',
+  async ({ userEvent, screen, expect, waitFor, render, rpcTestTransport }) => {
+    const user = userEvent.setup();
 
-test.stable('keeps projectless notes independent of a foreign query parameter', async () => {
-  history.replaceState(null, '', '/projects/2/notes/42');
-  api.note.mockResolvedValue({ id: 42n, projectIds: [] });
-  await renderWithNavigation();
-  await test.waitFor(() => test.expect(api.note).toHaveBeenCalled());
-  test.expect(test.screen.queryByLabelText('History')).not.toBeInTheDocument();
-});
+    await renderWithNavigation({ render, screen, userEvent, rpcTestTransport });
+    await screen.findByLabelText('Biology');
+    const note = await screen.findByRole('link', { name: /Cell division/ });
 
-test.stable('retries a failed note owner read from the subject picker error', async () => {
-  api.note.mockRejectedValue(new Error('offline'));
-  await renderWithNavigation();
-  const retry = await test.screen.findByRole('button', { name: en.SubjectsLoadError });
+    expect(note.closest('nav')).toHaveAttribute('aria-label', en.Notes);
+    expect(note).toHaveAttribute('aria-current', 'page');
+    expect(screen.queryByRole('link', { name: /Roman Republic/ })).not.toBeInTheDocument();
+    const flashcards = screen.getByRole('link', {
+      name: new RegExp(`^${en.Practice}(?: \\d+)?$`)
+    });
 
-  api.note.mockResolvedValue({ id: 42n, projectIds: [1n] });
-  await test.userEvent.setup().click(retry);
-  test.expect(await test.screen.findByLabelText('Biology')).toBeVisible();
-});
+    expect(flashcards.closest('nav')).toHaveClass('study-sidebar-navigation');
+    expect(flashcards).toHaveTextContent(en.Practice);
+    expect(screen.getByRole('button', { name: en.Settings })).toHaveTextContent(en.Settings);
+    expect(screen.getByRole('button', { name: en.Settings }).closest('nav')).toHaveClass(
+      'study-sidebar-footer'
+    );
+    await user.click(flashcards);
+    await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/practice'));
+    await user.click(screen.getByRole('link', { name: new RegExp(`^${en.Notes}(?: \\d+)?$`) }));
+    await user.click(await screen.findByRole('link', { name: /Cell division/ }));
+    await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/notes/42'));
+  }
+);
 
-test.stable.each(['/pages/10', '/projects/2/pages/10'])(
+test.stable(
+  'lists flashcards and quizzes together and follows material pagination',
+  async ({ userEvent, screen, expect, waitFor, render, rpcTestTransport }) => {
+    api.materials.mockImplementation(({ cursor }) =>
+      Promise.resolve(
+        cursor
+          ? {
+              items: [
+                { id: 22n, title: 'Cell quiz', projectIds: [1n], kind: 'quiz', updated_at: 0n }
+              ],
+              nextCursor: null
+            }
+          : {
+              items: [
+                {
+                  id: 21n,
+                  title: 'Cell cards',
+                  projectIds: [1n],
+                  kind: 'flashcards',
+                  updated_at: 0n
+                }
+              ],
+              nextCursor: 21n
+            }
+      )
+    );
+    const user = userEvent.setup();
+
+    await renderWithNavigation({ render, screen, userEvent, rpcTestTransport });
+    await screen.findByLabelText('Biology');
+    await user.click(screen.getByRole('link', { name: new RegExp(`^${en.Practice}(?: \\d+)?$`) }));
+    await screen.findByRole('link', { name: /Cell cards/ });
+    await user.click(screen.getByRole('button', { name: en.LibraryMore }));
+    expect(await screen.findByRole('link', { name: /Cell quiz/ })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Cell division/ })).not.toBeInTheDocument();
+    expect(api.materials).toHaveBeenLastCalledWith({
+      projectId: 1n,
+      cursor: 21n,
+      limit: 100,
+      archived: false
+    });
+    await user.click(screen.getByRole('button', { name: en.Back }));
+    await user.click(await screen.findByRole('link', { name: /Cell cards/ }));
+    await waitFor(() =>
+      expect(location.pathname + location.search).toBe('/projects/1/flashcards/21')
+    );
+  }
+);
+
+test.stable(
+  'loads later project and note pages',
+  async ({ userEvent, screen, expect, render, rpcTestTransport }) => {
+    api.projects.mockImplementation(({ before }) =>
+      Promise.resolve(
+        before ? { items: [subjects[1]], next: null } : { items: [subjects[0]], next: 1n }
+      )
+    );
+    api.notes.mockImplementation(({ before }) =>
+      Promise.resolve(
+        before
+          ? {
+              items: [
+                {
+                  id: 43n,
+                  projectIds: [1n],
+                  title: 'Later note',
+                  titleSource: 'user',
+                  archivedAt: null,
+                  createdAt: 0n,
+                  updatedAt: 0n
+                }
+              ],
+              next: null
+            }
+          : { items: [], next: { id: 42n, updatedAt: 1n } }
+      )
+    );
+    await renderWithNavigation({ render, screen, userEvent, rpcTestTransport });
+    await userEvent.click(await screen.findByRole('button', { name: en.LibraryMore }));
+    expect(await screen.findByRole('link', { name: /Later note/ })).toBeInTheDocument();
+    const user = userEvent.setup();
+
+    const picker = await screen.findByLabelText('Biology');
+
+    if (picker.getAttribute('aria-expanded') !== 'true') await user.click(picker);
+
+    await screen.findByLabelText(en.FindSubject);
+    await user.click(screen.getByRole('button', { name: en.LibraryMore }));
+    expect(await screen.findByRole('option', { name: 'History' })).toBeInTheDocument();
+  }
+);
+
+test.stable.for([
+  ['flashcards', '/projects/1/flashcards/8'],
+  ['quiz', '/projects/1/practice/8']
+])(
+  'filters the practice list and opens %s in its subject',
+  async (
+    [kind, destination],
+    { userEvent, screen, within, waitFor, expect, render, rpcTestTransport }
+  ) => {
+    history.replaceState(null, '', '/projects/1/practice');
+    api.materials.mockResolvedValue({
+      items: [
+        {
+          id: 8n,
+          kind,
+          title: 'Cell study',
+          projectIds: [1n],
+          updated_at: 0n
+        }
+      ],
+      nextCursor: null
+    });
+    const user = userEvent.setup();
+
+    await renderWithNavigation({ render, screen, userEvent, rpcTestTransport });
+    await screen.findByLabelText('Biology');
+    await user.type(screen.getByRole('searchbox'), 'cell');
+    await user.click(
+      await within(screen.getByRole('complementary')).findByRole('link', { name: /Cell study/ })
+    );
+    await waitFor(() => expect(location.pathname + location.search).toBe(destination));
+    expect(api.search).not.toHaveBeenCalled();
+  }
+);
+
+test.stable(
+  'preserves projects loaded while project creation is in flight',
+  async ({ userEvent, screen, act, expect, render, rpcTestTransport }) => {
+    let finishLoad!: (value: { items: typeof subjects; next: null }) => void;
+    let finishCreate!: (value: (typeof subjects)[number]) => void;
+
+    api.projects.mockReturnValue(
+      new Promise((resolve) => {
+        finishLoad = resolve;
+      })
+    );
+    api.createProject.mockReturnValue(
+      new Promise((resolve) => {
+        finishCreate = resolve;
+      })
+    );
+    const user = userEvent.setup();
+
+    await renderWithNavigation({ render, screen, userEvent, rpcTestTransport });
+    await user.click(await screen.findByRole('button', { name: en.NewProject }));
+    await user.type(screen.getByRole('textbox', { name: en.ProjectName }), 'Physics');
+    await user.click(screen.getByRole('button', { name: en.CreateProject }));
+    await act(async () => {
+      finishLoad({ items: subjects, next: null });
+    });
+    api.projects.mockReturnValue(new Promise(() => {}));
+    await act(async () => {
+      finishCreate({ ...subjects[0], id: 3n, name: 'Physics' });
+    });
+    await user.click(await screen.findByLabelText('Physics'));
+    expect(await screen.findByRole('option', { name: 'Biology' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'History' })).toBeInTheDocument();
+  }
+);
+
+test.stable(
+  'first send adds a note to the sidebar and permits another lazy note',
+  async ({ userEvent, screen, within, waitFor, expect, act, render, rpcTestTransport }) => {
+    let finish!: (value: { items: [] }) => void;
+
+    api.notes.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      })
+    );
+    const user = userEvent.setup();
+
+    await renderWithNavigation({ render, screen, userEvent, rpcTestTransport });
+    await screen.findByLabelText('Biology');
+    api.notes.mockResolvedValue({
+      items: [
+        {
+          id: 7n,
+          projectIds: [1n],
+          title: 'Created note',
+          titleSource: 'user',
+          archivedAt: null,
+          createdAt: 0n,
+          updatedAt: 0n
+        }
+      ]
+    });
+    api.createNote.mockResolvedValue({
+      id: 7n,
+      projectIds: [1n],
+      title: 'Created note',
+      titleSource: 'provisional',
+      archivedAt: null,
+      createdAt: 0n,
+      updatedAt: 0n
+    });
+    await user.click(
+      within(screen.getByRole('complementary', { name: en.SidebarNavigation })).getByRole(
+        'button',
+        {
+          name: en.NewNote
+        }
+      )
+    );
+    await user.type(await screen.findByRole('textbox', { name: en.NoteCompose }), 'First note');
+    await user.click(screen.getByRole('button', { name: en.NoteSaveNote }));
+    await waitFor(() => expect(location.pathname).toBe('/projects/1/notes/7'));
+    await act(async () => {
+      finish({ items: [] });
+    });
+    expect(await screen.findByRole('link', { name: /Created note/ })).toBeInTheDocument();
+    await user.click(
+      within(screen.getByRole('complementary', { name: en.SidebarNavigation })).getByRole(
+        'button',
+        {
+          name: en.NewNote
+        }
+      )
+    );
+    const input = await screen.findByRole('textbox', { name: en.NoteCompose });
+
+    expect(input).toHaveValue('');
+    await user.type(input, 'Second note');
+    expect(screen.getByRole('button', { name: en.NoteSaveNote })).toBeEnabled();
+    const second = {
+      id: 8n,
+      projectIds: [1n],
+      title: 'Second note',
+      titleSource: 'provisional',
+      archivedAt: null,
+      createdAt: 0n,
+      updatedAt: 0n
+    };
+
+    api.createNote.mockResolvedValueOnce(second);
+    api.notes.mockResolvedValue({ items: [second] });
+    await user.click(screen.getByRole('button', { name: en.NoteSaveNote }));
+    await waitFor(() => expect(location.pathname).toBe('/projects/1/notes/8'));
+    expect(await screen.findByRole('link', { name: /Second note/ })).toBeInTheDocument();
+  }
+);
+
+test.stable.for(['/notes/42', '/projects/2/notes/42'])(
+  'uses the actual note owner for direct and mismatched links: %s',
+  async (url, { expect, screen, userEvent, waitFor, render, rpcTestTransport }) => {
+    history.replaceState(null, '', url);
+    await renderWithNavigation({ render, screen, userEvent, rpcTestTransport });
+    expect(await screen.findByLabelText('Biology')).toBeVisible();
+    expect(await screen.findByRole('link', { name: /Cell division/ })).toBeVisible();
+    expect(screen.queryByRole('link', { name: /Roman Republic/ })).not.toBeInTheDocument();
+    await userEvent.setup().type(screen.getByRole('searchbox'), 'cell');
+    await waitFor(() =>
+      expect(api.search).toHaveBeenLastCalledWith({
+        query: 'cell',
+        project: 1n,
+        limit: 30,
+        kinds: ['note', 'message']
+      })
+    );
+  }
+);
+
+test.stable(
+  'does not reveal a foreign subject while note ownership is loading',
+  async ({ expect, screen, userEvent, render, rpcTestTransport }) => {
+    history.replaceState(null, '', '/projects/2/notes/42');
+    api.note.mockReturnValue(new Promise(() => {}));
+    await renderWithNavigation({ render, screen, userEvent, rpcTestTransport });
+    expect(screen.queryByLabelText('History')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Roman Republic/ })).not.toBeInTheDocument();
+    await userEvent.setup().type(screen.getByRole('searchbox'), 'rome');
+    expect(api.search).not.toHaveBeenCalled();
+  }
+);
+
+test.stable(
+  'keeps projectless notes independent of a foreign query parameter',
+  async ({ waitFor, expect, screen, render, userEvent, rpcTestTransport }) => {
+    history.replaceState(null, '', '/projects/2/notes/42');
+    api.note.mockResolvedValue({ id: 42n, projectIds: [] });
+    await renderWithNavigation({ render, screen, userEvent, rpcTestTransport });
+    await waitFor(() => expect(api.note).toHaveBeenCalled());
+    expect(screen.queryByLabelText('History')).not.toBeInTheDocument();
+  }
+);
+
+test.stable(
+  'retries a failed note owner read from the subject picker error',
+  async ({ screen, userEvent, expect, render, rpcTestTransport }) => {
+    api.note.mockRejectedValue(new Error('offline'));
+    await renderWithNavigation({ render, screen, userEvent, rpcTestTransport });
+    const retry = await screen.findByRole('button', { name: en.SubjectsLoadError });
+
+    api.note.mockResolvedValue({ id: 42n, projectIds: [1n] });
+    await userEvent.setup().click(retry);
+    expect(await screen.findByLabelText('Biology')).toBeVisible();
+  }
+);
+
+test.stable.for(['/pages/10', '/projects/2/pages/10'])(
   'uses route-owned document context and shows only pages in the sidebar: %s',
-  async (url) => {
+  async (url, { userEvent, expect, screen, waitFor, render, rpcTestTransport }) => {
     history.replaceState(null, '', url);
     api.pages.mockResolvedValue({
       items: [
@@ -789,82 +820,74 @@ test.stable.each(['/pages/10', '/projects/2/pages/10'])(
       ],
       nextCursor: null
     });
-    const user = test.userEvent.setup();
+    const user = userEvent.setup();
 
-    await renderWithNavigation();
-    test.expect(await test.screen.findByLabelText('Biology')).toBeVisible();
-    test.expect(test.screen.queryByRole('link', { name: /Cell division/ })).not.toBeInTheDocument();
-    const document = await test.screen.findByRole('link', { name: /Cell notes/ });
+    await renderWithNavigation({ render, screen, userEvent, rpcTestTransport });
+    expect(await screen.findByLabelText('Biology')).toBeVisible();
+    expect(screen.queryByRole('link', { name: /Cell division/ })).not.toBeInTheDocument();
+    const document = await screen.findByRole('link', { name: /Cell notes/ });
 
-    test.expect(document).toHaveAttribute('aria-current', 'page');
-    test
-      .expect(test.screen.getByRole('link', { name: new RegExp(`^${en.SourcePage}(?: \\d+)?$`) }))
-      .toHaveAttribute('aria-current', 'page');
-    test
-      .expect(test.screen.queryByRole('link', { name: /Roman Republic/ }))
-      .not.toBeInTheDocument();
-    await user.click(test.screen.getByLabelText('Biology'));
-    await user.click(await test.screen.findByRole('option', { name: 'History' }));
-    await test.waitFor(() =>
-      test.expect(location.pathname + location.search).toBe('/projects/2/pages')
-    );
+    expect(document).toHaveAttribute('aria-current', 'page');
+    expect(
+      screen.getByRole('link', { name: new RegExp(`^${en.SourcePage}(?: \\d+)?$`) })
+    ).toHaveAttribute('aria-current', 'page');
+    expect(screen.queryByRole('link', { name: /Roman Republic/ })).not.toBeInTheDocument();
+    await user.click(screen.getByLabelText('Biology'));
+    await user.click(await screen.findByRole('option', { name: 'History' }));
+    await waitFor(() => expect(location.pathname + location.search).toBe('/projects/2/pages'));
   }
 );
 
-test.stable('opens Pages between Notes and Practice with a pages-only sidebar', async () => {
-  api.pages.mockResolvedValue({
-    items: [
-      {
-        id: 10n,
-        title: 'Cell notes',
-        projectIds: [1n],
-        description: 'Cell study notes',
-        createdAt: 0n,
-        updatedAt: 0n,
-        archivedAt: null,
-        headVersionId: 101n
-      }
-    ],
-    nextCursor: null
-  });
-  const user = test.userEvent.setup();
+test.stable(
+  'opens Pages between Notes and Practice with a pages-only sidebar',
+  async ({ userEvent, within, screen, expect, waitFor, render, rpcTestTransport }) => {
+    api.pages.mockResolvedValue({
+      items: [
+        {
+          id: 10n,
+          title: 'Cell notes',
+          projectIds: [1n],
+          description: 'Cell study notes',
+          createdAt: 0n,
+          updatedAt: 0n,
+          archivedAt: null,
+          headVersionId: 101n
+        }
+      ],
+      nextCursor: null
+    });
+    const user = userEvent.setup();
 
-  await renderWithNavigation();
-  const sidebar = test.within(
-    test.screen.getByRole('complementary', { name: en.SidebarNavigation })
-  );
+    await renderWithNavigation({ render, screen, userEvent, rpcTestTransport });
+    const sidebar = within(screen.getByRole('complementary', { name: en.SidebarNavigation }));
 
-  test.expect(await sidebar.findByRole('link', { name: /Cell division/ })).toBeVisible();
-  test.expect(sidebar.queryByRole('link', { name: /Cell notes/ })).not.toBeInTheDocument();
-  const navigation = test.within(sidebar.getByRole('navigation', { name: en.SidebarNavigation }));
+    expect(await sidebar.findByRole('link', { name: /Cell division/ })).toBeVisible();
+    expect(sidebar.queryByRole('link', { name: /Cell notes/ })).not.toBeInTheDocument();
+    const navigation = within(sidebar.getByRole('navigation', { name: en.SidebarNavigation }));
 
-  test
-    .expect(
+    expect(
       navigation
         .getAllByRole('link')
         .slice(0, 3)
         .map((link) => link.querySelector('.study-sidebar-navigation-label')?.textContent)
-    )
-    .toEqual([en.Notes, en.SourcePage, en.Practice]);
-  await user.click(
-    navigation.getByRole('link', { name: new RegExp(`^${en.SourcePage}(?: \\d+)?$`) })
-  );
-  await test.waitFor(() =>
-    test.expect(location.pathname + location.search).toBe('/projects/1/pages')
-  );
-  await sidebar.findByRole('link', { name: /Cell notes/ });
-  test.expect(sidebar.queryByRole('link', { name: /Cell division/ })).not.toBeInTheDocument();
-  test.expect(sidebar.queryByText(en.SidebarOpen)).not.toBeInTheDocument();
-  test
-    .expect(test.screen.getByRole('heading', { name: en.PagesOverviewTitle, level: 2 }))
-    .toBeVisible();
-  await user.type(sidebar.getByRole('searchbox'), 'missing');
-  test.expect(await sidebar.findByText(en.SearchNoResults)).toBeVisible();
-  await user.clear(sidebar.getByRole('searchbox'));
-  await user.click(await sidebar.findByRole('link', { name: /Cell notes/ }));
-  await test.waitFor(() => test.expect(location.pathname).toBe('/projects/1/pages/10'));
-  test
-    .expect(await sidebar.findByRole('link', { name: /Cell notes/ }))
-    .toHaveAttribute('aria-current', 'page');
-  test.expect(sidebar.queryByRole('link', { name: /Cell division/ })).not.toBeInTheDocument();
-});
+    ).toEqual([en.Notes, en.SourcePage, en.Practice]);
+    await user.click(
+      navigation.getByRole('link', { name: new RegExp(`^${en.SourcePage}(?: \\d+)?$`) })
+    );
+    await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/pages'));
+    await sidebar.findByRole('link', { name: /Cell notes/ });
+    expect(sidebar.queryByRole('link', { name: /Cell division/ })).not.toBeInTheDocument();
+    expect(sidebar.queryByText(en.SidebarOpen)).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: en.PagesOverviewTitle, level: 2 })).toBeVisible();
+    await user.type(sidebar.getByRole('searchbox'), 'missing');
+    expect(await sidebar.findByText(en.SearchNoResults)).toBeVisible();
+    await user.clear(sidebar.getByRole('searchbox'));
+    await user.click(await sidebar.findByRole('link', { name: /Cell notes/ }));
+    await waitFor(() => expect(location.pathname).toBe('/projects/1/pages/10'));
+    expect(await sidebar.findByRole('link', { name: /Cell notes/ })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+    expect(sidebar.queryByRole('link', { name: /Cell division/ })).not.toBeInTheDocument();
+  }
+);

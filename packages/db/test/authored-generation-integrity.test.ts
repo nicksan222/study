@@ -110,27 +110,32 @@ const mutations = [
 ] as const;
 
 for (const [name, mutation, retained] of mutations)
-  test.stable(`authored generation receipt rejects ${name}`, async ({ databases }) => {
-    const f = await fixture(databases);
+  test.stable(
+    `authored generation receipt rejects ${name}`,
+    async ({ databases, assert: assertions }) => {
+      const assert: test.Assert = assertions;
 
-    try {
-      test.assert.throws(() => {
-        if (mutation) f.db.exec(mutation);
+      const f = await fixture(databases);
 
-        if (retained) retain(f.db);
+      try {
+        assert.throws(() => {
+          if (mutation) f.db.exec(mutation);
 
-        receipt(f.db);
-      });
-      test.assert.strictEqual(
-        f.db.orm.get(
-          "SELECT result_version_id FROM page_generation_requests WHERE id='document/capture'"
-        )?.result_version_id,
-        null
-      );
-    } finally {
-      await f.close();
+          if (retained) retain(f.db);
+
+          receipt(f.db);
+        });
+        assert.strictEqual(
+          f.db.orm.get(
+            "SELECT result_version_id FROM page_generation_requests WHERE id='document/capture'"
+          )?.result_version_id,
+          null
+        );
+      } finally {
+        await f.close();
+      }
     }
-  });
+  );
 
 const invalidCaptures = [
   [
@@ -174,30 +179,37 @@ const invalidCaptures = [
 ] as const;
 
 for (const [name, patch] of invalidCaptures)
-  test.stable(`authored first receipt rejects ${name}`, async ({ databases }) => {
-    const f = await fixture(databases, patch);
+  test.stable(
+    `authored first receipt rejects ${name}`,
+    async ({ databases, assert: assertions }) => {
+      const assert: test.Assert = assertions;
 
-    try {
-      retain(f.db);
-      test.assert.throws(() => receipt(f.db));
-    } finally {
-      await f.close();
+      const f = await fixture(databases, patch);
+
+      try {
+        retain(f.db);
+        assert.throws(() => receipt(f.db));
+      } finally {
+        await f.close();
+      }
     }
-  });
+  );
 
 test.stable(
   'an exact retained authored proposal commits one immutable result without publishing its draft',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await fixture(databases);
 
     try {
       retain(f.db);
       receipt(f.db);
-      test.assert.strictEqual(
+      assert.strictEqual(
         f.db.orm.get('SELECT status FROM page_versions WHERE id=4')?.status,
         'draft'
       );
-      test.assert.strictEqual(
+      assert.strictEqual(
         f.db.orm.get(
           "SELECT id FROM page_versions WHERE page_id=1 AND status='published' ORDER BY number DESC LIMIT 1"
         )?.id,
@@ -212,9 +224,9 @@ test.stable(
         'DELETE FROM page_inputs WHERE version_id=4',
         'DELETE FROM page_version_parents WHERE version_id=4'
       ])
-        test.assert.throws(() => f.db.exec(mutation));
+        assert.throws(() => f.db.exec(mutation));
 
-      test.expect(f.db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
+      expect(f.db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
     } finally {
       await f.close();
     }
@@ -228,31 +240,38 @@ for (const [name, operation, outcome, current, result] of [
   ['draft independent result', 'keep', 'kept', 3, 4],
   ['unchanged target retained as independent', 'keep', 'kept', 3, 3]
 ] as const)
-  test.stable(`authored proposal receipts reject ${name}`, async ({ databases }) => {
-    const f = await fixture(databases);
-
-    try {
-      retain(f.db);
-      receipt(f.db);
-      test.assert.throws(() =>
-        f.db.orm.run(
-          sql`INSERT INTO page_proposal_receipts(key,request_id,operation,intent,outcome,current_version_id,result_version_id) VALUES('forged','document/capture',${operation},'{}',${outcome},${current},${result})`
-        )
-      );
-    } finally {
-      await f.close();
-    }
-  });
-
-for (const result of [1, 3, 5])
   test.stable(
-    `generation cannot claim unrelated authored result ${result}`,
-    async ({ databases }) => {
+    `authored proposal receipts reject ${name}`,
+    async ({ databases, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+
       const f = await fixture(databases);
 
       try {
         retain(f.db);
-        test.assert.throws(() =>
+        receipt(f.db);
+        assert.throws(() =>
+          f.db.orm.run(
+            sql`INSERT INTO page_proposal_receipts(key,request_id,operation,intent,outcome,current_version_id,result_version_id) VALUES('forged','document/capture',${operation},'{}',${outcome},${current},${result})`
+          )
+        );
+      } finally {
+        await f.close();
+      }
+    }
+  );
+
+for (const result of [1, 3, 5])
+  test.stable(
+    `generation cannot claim unrelated authored result ${result}`,
+    async ({ databases, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+
+      const f = await fixture(databases);
+
+      try {
+        retain(f.db);
+        assert.throws(() =>
           f.db.orm.run(
             sql`UPDATE page_generation_requests SET result_version_id=${result} WHERE id='document/capture'`
           )
@@ -265,12 +284,14 @@ for (const result of [1, 3, 5])
 
 test.stable(
   'authored generation cannot claim another note as its publication metadata',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const f = await fixture(databases, {}, 2);
 
     try {
       retain(f.db);
-      test.assert.throws(() => receipt(f.db));
+      assert.throws(() => receipt(f.db));
     } finally {
       await f.close();
     }

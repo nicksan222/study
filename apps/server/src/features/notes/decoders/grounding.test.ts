@@ -18,31 +18,38 @@ import { test } from '@study/testing';
 
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
 
-test.stable('citations only resolve excerpts exposed by search', () => {
-  const catalog = createEvidenceCatalog([
-    {
-      key: '1:2',
-      reference: { sourceId: 1n as SourceId, documentId: 2n as ContentSnapshotId },
-      name: 'Notes',
-      blocks: [{ text: 'alpha beta' }, { text: 'gamma' }]
-    }
-  ]);
+test.stable(
+  'citations only resolve excerpts exposed by search',
+  ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  test.assert.throws(() => catalog.citations('Answer [1]'));
-  test.assert.ok(catalog.search('alpha')[0]?.text === '[1] alpha beta');
-  test.expect(catalog.citations('Answer [1]')).toStrictEqual([
-    {
-      marker: 1,
-      reference: { sourceId: 1n, documentId: 2n },
-      blockOrdinal: 0,
-      quote: 'alpha beta'
-    }
-  ]);
-  test.assert.throws(() => catalog.citations('Answer [2]'));
-  test.expect(catalog.citations('Plain answer')).toStrictEqual([]);
-});
+    const catalog = createEvidenceCatalog([
+      {
+        key: '1:2',
+        reference: { sourceId: 1n as SourceId, documentId: 2n as ContentSnapshotId },
+        name: 'Notes',
+        blocks: [{ text: 'alpha beta' }, { text: 'gamma' }]
+      }
+    ]);
 
-test.stable('bounds excerpts and deduplicates captured documents', () => {
+    assert.throws(() => catalog.citations('Answer [1]'));
+    assert.ok(catalog.search('alpha')[0]?.text === '[1] alpha beta');
+    expect(catalog.citations('Answer [1]')).toStrictEqual([
+      {
+        marker: 1,
+        reference: { sourceId: 1n, documentId: 2n },
+        blockOrdinal: 0,
+        quote: 'alpha beta'
+      }
+    ]);
+    assert.throws(() => catalog.citations('Answer [2]'));
+    expect(catalog.citations('Plain answer')).toStrictEqual([]);
+  }
+);
+
+test.stable('bounds excerpts and deduplicates captured documents', ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const catalog = createEvidenceCatalog([]);
   const document = {
     key: '1:2',
@@ -55,35 +62,40 @@ test.stable('bounds excerpts and deduplicates captured documents', () => {
   catalog.addDocument(document);
   const hits = catalog.search('a');
 
-  test.assert.strictEqual(hits.length, 10);
-  test.assert.strictEqual(hits[0]!.text.length, 1004);
-  test.assert.throws(() => catalog.citations('Answer [101]'));
-});
-
-test.stable('shared catalog preserves opaque material references', async () => {
-  const { createEvidenceCatalog: createSharedCatalog } =
-    await import('#server/platform/ai/evidence');
-  const catalog = createSharedCatalog([
-    {
-      key: 'version',
-      name: 'Notes',
-      reference: { inputVersionId: 9n },
-      blocks: [{ text: 'captured evidence' }]
-    }
-  ]);
-
-  test.assert.throws(() => catalog.citations('[1]'));
-  catalog.search('captured');
-  test
-    .expect(catalog.citations('[1]'))
-    .toStrictEqual([
-      { marker: 1, reference: { inputVersionId: 9n }, blockOrdinal: 0, quote: 'captured evidence' }
-    ]);
+  assert.strictEqual(hits.length, 10);
+  assert.strictEqual(hits[0]!.text.length, 1004);
+  assert.throws(() => catalog.citations('Answer [101]'));
 });
 
 test.stable(
+  'shared catalog preserves opaque material references',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const { createEvidenceCatalog: createSharedCatalog } =
+      await import('#server/platform/ai/evidence');
+    const catalog = createSharedCatalog([
+      {
+        key: 'version',
+        name: 'Notes',
+        reference: { inputVersionId: 9n },
+        blocks: [{ text: 'captured evidence' }]
+      }
+    ]);
+
+    assert.throws(() => catalog.citations('[1]'));
+    catalog.search('captured');
+    expect(catalog.citations('[1]')).toStrictEqual([
+      { marker: 1, reference: { inputVersionId: 9n }, blockOrdinal: 0, quote: 'captured evidence' }
+    ]);
+  }
+);
+
+test.stable(
   'evidence ranking preserves case-insensitive scores, marker ties and empty queries',
-  () => {
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const catalog = createEvidenceCatalog([
       {
         key: 'ranking',
@@ -93,11 +105,11 @@ test.stable(
       }
     ]);
 
-    test.expect(catalog.search('  ')).toStrictEqual([]);
-    test.assert.throws(() => catalog.citations('[2]'));
-    test.expect(catalog.search(' alpha BETA ').map((hit) => hit.id)).toStrictEqual(['2', '3', '1']);
-    test
-      .expect(catalog.citations('[2]'))
-      .toStrictEqual([{ marker: 2, reference: 'version', blockOrdinal: 1, quote: 'beta alpha' }]);
+    expect(catalog.search('  ')).toStrictEqual([]);
+    assert.throws(() => catalog.citations('[2]'));
+    expect(catalog.search(' alpha BETA ').map((hit) => hit.id)).toStrictEqual(['2', '3', '1']);
+    expect(catalog.citations('[2]')).toStrictEqual([
+      { marker: 2, reference: 'version', blockOrdinal: 1, quote: 'beta alpha' }
+    ]);
   }
 );

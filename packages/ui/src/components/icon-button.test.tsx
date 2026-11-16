@@ -3,20 +3,23 @@ import { test } from '@study/testing';
 import { IconButton } from './icon-button';
 import { TooltipProvider } from './tooltip';
 
-test.stable('keeps disabled action help reachable without enabling its action', async () => {
-  const activate = test.vi.fn();
-  const user = test.userEvent.setup();
+test.stable(
+  'keeps disabled action help reachable without enabling its action',
+  async ({ vi, userEvent, render, screen, expect }) => {
+    const activate = vi.fn();
+    const user = userEvent.setup();
 
-  test.render(
-    <TooltipProvider delay={0}>
-      <IconButton label="Previous version" disabled onClick={activate} />
-    </TooltipProvider>
-  );
-  const button = test.screen.getByRole('button', { name: 'Previous version' });
+    render(
+      <TooltipProvider delay={0}>
+        <IconButton label="Previous version" disabled onClick={activate} />
+      </TooltipProvider>
+    );
+    const button = screen.getByRole('button', { name: 'Previous version' });
 
-  test.expect(button).toBeDisabled();
-  await user.tab();
-  test.expect(await test.screen.findByRole('tooltip')).toHaveTextContent('Previous version');
-  await user.click(button);
-  test.expect(activate).not.toHaveBeenCalled();
-});
+    expect(button).toBeDisabled();
+    await user.tab();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Previous version');
+    await user.click(button);
+    expect(activate).not.toHaveBeenCalled();
+  }
+);

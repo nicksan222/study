@@ -8,20 +8,20 @@ import { useGeneralSettings } from '#client/pages/settings/general/use-general.t
 
 test.stable.for(['before opening', 'during opening'] as const)(
   'closed page starters release setup %s',
-  async (phase, { page, rpc }) => {
+  async (phase, { page, rpc, expect }) => {
     const opening = phase === 'during opening' ? page.open('/notes') : undefined;
     const closing = page.close();
 
-    await test.expect(opening ?? page.open('/notes')).rejects.toThrow(ReferenceError);
+    await expect(opening ?? page.open('/notes')).rejects.toThrow(ReferenceError);
     await closing;
-    test.expect(rpc.activeSubscriptions()).toBe(0);
-    test.expect(page.screen.queryByRole('main')).not.toBeInTheDocument();
+    expect(rpc.activeSubscriptions()).toBe(0);
+    expect(page.screen.queryByRole('main')).not.toBeInTheDocument();
   }
 );
 
 test.stable.for(['alias', 'url'] as const)(
   'callback module mocks resolve client targets through %s',
-  async (source, { mock }) => {
+  async (source, { mock, expect }) => {
     const readiness = mock.fn(() => 'ready');
 
     mock(
@@ -32,13 +32,13 @@ test.stable.for(['alias', 'url'] as const)(
     );
     const { useAiReadiness } = await import('../lib/ai-readiness.ts');
 
-    test.expect(useAiReadiness).toBe(readiness);
+    expect(useAiReadiness).toBe(readiness);
   }
 );
 
 test.stable.extend('locale', 'italian')(
   'React starters provide RPC, localization, hook rendering and planned failure recovery',
-  async ({ react, rpc }) => {
+  async ({ react, rpc, expect }) => {
     const settings: AppSettings = { language: 2, appearance: 3, zoomPercent: 125, onboarded: true };
 
     rpc.given({ 'settings.appSettings': settings });
@@ -62,41 +62,39 @@ test.stable.extend('locale', 'italian')(
       locale: useI18n().locale
     }));
 
-    await react.waitFor(() => test.expect(view.result.current.model.data).toEqual(settings));
+    await react.waitFor(() => expect(view.result.current.model.data).toEqual(settings));
     react.act(() => view.result.current.model.setLanguage('english'));
-    await react.waitFor(() => test.expect(view.result.current.model.error).toBe(true));
-    test.expect(view.result.current.locale).toBe('italian');
+    await react.waitFor(() => expect(view.result.current.model.error).toBe(true));
+    expect(view.result.current.locale).toBe('italian');
     react.act(() => view.result.current.model.setLanguage('english'));
-    await react.waitFor(() => test.expect(view.result.current.locale).toBe('english'));
-    test.expect(view.result.current.model.data?.zoomPercent).toBe(125);
+    await react.waitFor(() => expect(view.result.current.locale).toBe('english'));
+    expect(view.result.current.model.data?.zoomPercent).toBe(125);
   }
 );
 
 test.stable(
   'React starters restore the default locale and have no prior subscriptions',
-  ({ react, rpc }) => {
-    test.expect(rpc.activeSubscriptions()).toBe(0);
+  ({ react, rpc, expect }) => {
+    expect(rpc.activeSubscriptions()).toBe(0);
     const view = react.renderHook(
       ({ value }: { value: number }) => ({ locale: useI18n().locale, value }),
       { initialProps: { value: 1 } }
     );
 
     view.rerender({ value: 2 });
-    test.expect(view.result.current.value).toBe(2);
-    test.expect(view.result.current.locale).toBe('english');
-    test.expect(react.screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(view.result.current.value).toBe(2);
+    expect(view.result.current.locale).toBe('english');
+    expect(react.screen.queryByRole('button')).not.toBeInTheDocument();
   }
 );
 
 test.stable(
   'page starters open the real route with default RPC snapshots and accept live updates',
-  async ({ page, rpc }) => {
+  async ({ page, rpc, expect }) => {
     const view = await page.open('/notes');
 
-    test
-      .expect(await page.screen.findByRole('heading', { name: catalogs.english.Notes }))
-      .toBeVisible();
-    test.expect(view.router.state.location.pathname).toBe('/notes');
+    expect(await page.screen.findByRole('heading', { name: catalogs.english.Notes })).toBeVisible();
+    expect(view.router.state.location.pathname).toBe('/notes');
     await rpc.update({
       'settings.appSettings': {
         language: 2,
@@ -105,22 +103,20 @@ test.stable(
         onboarded: true
       }
     });
-    test
-      .expect(await page.screen.findByRole('heading', { name: catalogs.italian.Notes }))
-      .toBeVisible();
+    expect(await page.screen.findByRole('heading', { name: catalogs.italian.Notes })).toBeVisible();
   }
 );
 
 test.stable(
   'closing a page releases its router history and RPC subscriptions',
-  async ({ page, rpc }) => {
+  async ({ page, rpc, vi, expect }) => {
     const view = await page.open('/notes');
 
     await page.screen.findByRole('heading', { name: catalogs.english.Notes });
-    const destroy = test.vi.spyOn(view.router.history, 'destroy');
+    const destroy = vi.spyOn(view.router.history, 'destroy');
 
     await page.close();
-    test.expect(destroy).toHaveBeenCalledOnce();
-    test.expect(rpc.activeSubscriptions()).toBe(0);
+    expect(destroy).toHaveBeenCalledOnce();
+    expect(rpc.activeSubscriptions()).toBe(0);
   }
 );

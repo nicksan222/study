@@ -32,9 +32,12 @@ let api: ReturnType<typeof createMockState>['api'];
 
 const clients: AtomRegistry.AtomRegistry[] = [];
 
-function mount() {
+function mount({
+  rpcHandlersTransport,
+  render
+}: Pick<test.Context, 'rpcHandlersTransport' | 'render'>) {
   const cache = AtomRegistry.make();
-  const fixture = test.rpcHandlersTransport(
+  const fixture = rpcHandlersTransport(
     {
       'notes.createUntitledNote': ({ project, initialMessage }) =>
         api.create(project, initialMessage),
@@ -83,7 +86,7 @@ function mount() {
     routeTree: root.addChildren([start, saved, pages]),
     history: createMemoryHistory({ initialEntries: ['/notes?project=1'] })
   });
-  const view = test.render(
+  const view = render(
     <Provider>
       <RouterProvider router={router} />
     </Provider>
@@ -120,113 +123,109 @@ test.beforeEach(async ({ mock }) => {
   startDrafts = __mockModule2.startDrafts;
 });
 
-test.beforeEach(() => test.vi.resetAllMocks());
-test.afterEach(() => {
-  test.cleanup();
+test.beforeEach(({ vi }) => vi.resetAllMocks());
+test.afterEach(({ cleanup }) => {
+  cleanup();
   clients.splice(0).forEach((cache) => cache.dispose());
 });
 
 test.stable(
   'opening, typing and switching subjects only cache drafts until first send',
-  async () => {
-    const { cache, router } = mount();
-    const input = await test.screen.findByRole('textbox', { name: 'NoteCompose' });
+  async ({ screen, fireEvent, act, expect, waitFor, rpcHandlersTransport, render }) => {
+    const { cache, router } = mount({ rpcHandlersTransport, render });
+    const input = await screen.findByRole('textbox', { name: 'NoteCompose' });
 
-    test.fireEvent.change(input, { target: { value: 'Math draft' } });
-    await test.act(async () => {
+    fireEvent.change(input, { target: { value: 'Math draft' } });
+    await act(async () => {
       await router.navigate({ to: '/notes', search: { project: '2' } });
     });
-    test.expect(test.screen.getByRole('textbox', { name: 'NoteCompose' })).toHaveValue('');
-    test.fireEvent.change(test.screen.getByRole('textbox', { name: 'NoteCompose' }), {
+    expect(screen.getByRole('textbox', { name: 'NoteCompose' })).toHaveValue('');
+    fireEvent.change(screen.getByRole('textbox', { name: 'NoteCompose' }), {
       target: { value: 'History draft' }
     });
-    await test.act(async () => {
+    await act(async () => {
       await router.navigate({ to: '/notes', search: { project: '1' } });
     });
-    await test.waitFor(() =>
-      test
-        .expect(test.screen.getByRole('textbox', { name: 'NoteCompose' }))
-        .toHaveValue('Math draft')
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'NoteCompose' })).toHaveValue('Math draft')
     );
-    test.expect(cache.get(startDrafts)).toEqual(['2', '1']);
-    test.expect(api.create).not.toHaveBeenCalled();
-    test.fireEvent.click(test.screen.getAllByRole('button', { name: 'SidebarDismissDraft' })[1]!);
-    await test.waitFor(() =>
-      test.expect(test.screen.getByRole('textbox', { name: 'NoteCompose' })).toHaveValue('')
+    expect(cache.get(startDrafts)).toEqual(['2', '1']);
+    expect(api.create).not.toHaveBeenCalled();
+    fireEvent.click(screen.getAllByRole('button', { name: 'SidebarDismissDraft' })[1]!);
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'NoteCompose' })).toHaveValue('')
     );
-    test.expect(cache.get(startDraft(startDraftKey('1')))).toBe('');
-    test.expect(cache.get(startDraft(startDraftKey('2')))).toBe('History draft');
+    expect(cache.get(startDraft(startDraftKey('1')))).toBe('');
+    expect(cache.get(startDraft(startDraftKey('2')))).toBe('History draft');
   }
 );
 
-test.stable('first send creates once, consumes its draft, and preserves later typing', async () => {
-  let resolve!: (value: unknown) => void;
+test.stable(
+  'first send creates once, consumes its draft, and preserves later typing',
+  async ({ screen, fireEvent, waitFor, expect, act, rpcHandlersTransport, render }) => {
+    let resolve!: (value: unknown) => void;
 
-  api.create.mockImplementation(
-    () =>
-      new Promise((accept) => {
-        resolve = accept;
-      })
-  );
-  const { cache } = mount();
-  const input = await test.screen.findByRole('textbox', { name: 'NoteCompose' });
+    api.create.mockImplementation(
+      () =>
+        new Promise((accept) => {
+          resolve = accept;
+        })
+    );
+    const { cache } = mount({ rpcHandlersTransport, render });
+    const input = await screen.findByRole('textbox', { name: 'NoteCompose' });
 
-  test.fireEvent.change(input, { target: { value: 'Lecture notes' } });
-  await test.waitFor(() =>
-    test.expect(test.screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled()
-  );
-  test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteSaveNote' }));
-  await test.waitFor(() =>
-    test
-      .expect(api.create)
-      .toHaveBeenCalledExactlyOnceWith(1n, { text: 'Lecture notes', sourceIds: [] })
-  );
-  test.fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true });
-  test.fireEvent.change(input, { target: { value: 'Newer notes' } });
-  await test.act(async () =>
-    resolve(
-      Schema.decodeUnknownSync(noteSchema)({
-        id: 10n,
-        title: 'Lecture',
-        titleSource: 'user',
-        archivedAt: null,
-        projectIds: [1n],
-        createdAt: 1n,
-        updatedAt: 1n
+    fireEvent.change(input, { target: { value: 'Lecture notes' } });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
+    await waitFor(() =>
+      expect(api.create).toHaveBeenCalledExactlyOnceWith(1n, {
+        text: 'Lecture notes',
+        sourceIds: []
       })
-    )
-  );
-  await test.screen.findByText('Saved note');
-  test.expect(api.create).toHaveBeenCalledTimes(1);
-  test.expect(cache.get(startDraft(startDraftKey('1')))).toBe('Newer notes');
-  test.expect(cache.get(startDrafts)).toEqual(['1']);
-});
+    );
+    fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true });
+    fireEvent.change(input, { target: { value: 'Newer notes' } });
+    await act(async () =>
+      resolve(
+        Schema.decodeUnknownSync(noteSchema)({
+          id: 10n,
+          title: 'Lecture',
+          titleSource: 'user',
+          archivedAt: null,
+          projectIds: [1n],
+          createdAt: 1n,
+          updatedAt: 1n
+        })
+      )
+    );
+    await screen.findByText('Saved note');
+    expect(api.create).toHaveBeenCalledTimes(1);
+    expect(cache.get(startDraft(startDraftKey('1')))).toBe('Newer notes');
+    expect(cache.get(startDrafts)).toEqual(['1']);
+  }
+);
 
 test.stable(
   'lost creation receipts retain the draft and prevent duplicate creation across remount',
-  async () => {
+  async ({ fireEvent, screen, waitFor, expect, act, rpcHandlersTransport, render }) => {
     api.create.mockRejectedValue(new StudyError('transient', 'Receipt lost'));
-    const { router } = mount();
+    const { router } = mount({ rpcHandlersTransport, render });
 
-    test.fireEvent.change(await test.screen.findByRole('textbox', { name: 'NoteCompose' }), {
+    fireEvent.change(await screen.findByRole('textbox', { name: 'NoteCompose' }), {
       target: { value: 'Keep my note' }
     });
-    await test.waitFor(() =>
-      test.expect(test.screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled()
-    );
-    test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteSaveNote' }));
-    await test.screen.findByText('NoteCreationUncertain');
-    await test.act(async () => {
+    await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
+    await screen.findByText('NoteCreationUncertain');
+    await act(async () => {
       await router.navigate({ to: '/pages', search: { project: '1' } });
     });
-    await test.act(async () => {
+    await act(async () => {
       await router.navigate({ to: '/notes', search: { project: '1' } });
     });
-    test
-      .expect(await test.screen.findByRole('textbox', { name: 'NoteCompose' }))
-      .toHaveValue('Keep my note');
-    test.expect(test.screen.getByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
-    test.expect(test.screen.getByRole('button', { name: 'SidebarDismissDraft' })).toBeDisabled();
-    test.expect(api.create).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole('textbox', { name: 'NoteCompose' })).toHaveValue('Keep my note');
+    expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'SidebarDismissDraft' })).toBeDisabled();
+    expect(api.create).toHaveBeenCalledTimes(1);
   }
 );

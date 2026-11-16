@@ -2,19 +2,22 @@ import { test } from '@study/testing';
 
 import { ContextMenu, ContextMenuTrigger } from './context-menu';
 
-test.stable.each([false, true])('preserves trigger class callbacks with fill %s', (fill) => {
-  test.render(
-    <ContextMenu>
-      <ContextMenuTrigger
-        fill={fill}
-        className={() => 'state-dependent'}
-        aria-label="Menu surface"
-      />
-    </ContextMenu>
-  );
+test.stable.for([false, true])(
+  'preserves trigger class callbacks with fill %s',
+  (fill, { render, screen, expect }) => {
+    render(
+      <ContextMenu>
+        <ContextMenuTrigger
+          fill={fill}
+          className={() => 'state-dependent'}
+          aria-label="Menu surface"
+        />
+      </ContextMenu>
+    );
 
-  const trigger = test.screen.getByLabelText('Menu surface');
+    const trigger = screen.getByLabelText('Menu surface');
 
-  test.expect(trigger).toHaveClass('state-dependent');
-  test.expect(trigger.classList.contains('h-full')).toBe(fill);
-});
+    expect(trigger).toHaveClass('state-dependent');
+    expect(trigger.classList.contains('h-full')).toBe(fill);
+  }
+);

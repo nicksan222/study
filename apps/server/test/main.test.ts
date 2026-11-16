@@ -22,8 +22,16 @@ import { makeStudyClient } from '#server/client/index';
 for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
   test.stable(
     `server entry serves native RPC and shuts down on ${shutdown}`,
-    { timeout: test.policy.processStartupTimeout },
-    async ({ resources: resourcesFixture }) => {
+    async ({
+      resources: resourcesFixture,
+      spawnTestProcess,
+      waitFor,
+      assert: assertions,
+      policy,
+      expect
+    }) => {
+      const assert: test.Assert = assertions;
+
       const testDatabase = resourcesFixture;
       const env: Record<string, string | undefined> = {
         ...process.env,
@@ -31,7 +39,7 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
       };
 
       delete env.STUDY_SERVER_TOKEN;
-      const child = test.spawnTestProcess({
+      const child = spawnTestProcess({
         cmd: [
           process.execPath,
           Bun.fileURLToPath(new URL('../src/runtime/main.ts', import.meta.url))
@@ -68,19 +76,19 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
       });
 
       try {
-        await test.waitFor(() => test.assert.ok(stdout.length > 0 || child.exitCode !== null), {
-          timeout: test.policy.processStartupTimeout
+        await waitFor(() => assert.ok(stdout.length > 0 || child.exitCode !== null), {
+          timeout: policy.processStartupTimeout
         });
 
-        test.assert.ok(stdout.length > 0, child.exitCode === null ? '' : await stderr);
+        assert.ok(stdout.length > 0, child.exitCode === null ? '' : await stderr);
 
         const line = stdout[0]!;
         const endpoint = JSON.parse(line) as {
           url: string;
         };
 
-        test.expect(endpoint.url).toMatch(/^http:\/\/127\.0\.0\.1:/);
-        test.expect(Object.keys(endpoint)).toStrictEqual(['url']);
+        expect(endpoint.url).toMatch(/^http:\/\/127\.0\.0\.1:/);
+        expect(Object.keys(endpoint)).toStrictEqual(['url']);
         const project = await Effect.runPromise(
           Effect.scoped(
             Effect.gen(function* () {
@@ -91,7 +99,7 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
           )
         );
 
-        test.assert.ok(typeof project.id === 'bigint');
+        assert.ok(typeof project.id === 'bigint');
         const database = await resourcesFixture.openDb(env.STUDY_DATABASE!);
 
         try {
@@ -99,8 +107,8 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
             sql`SELECT id, name FROM projects WHERE id=${project.id}`
           );
 
-          test.assert.strictEqual(saved?.id, project.id);
-          test.assert.ok(saved?.name === 'Process persistence');
+          assert.strictEqual(saved?.id, project.id);
+          assert.ok(saved?.name === 'Process persistence');
         } finally {
           database.close();
         }
@@ -111,8 +119,8 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
         const result = await exit;
 
         await output;
-        test.assert.strictEqual(result, 0, await stderr);
-        test.expect(stdout).toStrictEqual([JSON.stringify(endpoint)]);
+        assert.strictEqual(result, 0, await stderr);
+        expect(stdout).toStrictEqual([JSON.stringify(endpoint)]);
       } finally {
         if (child.exitCode === null) child.kill('SIGKILL');
 

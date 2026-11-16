@@ -30,7 +30,9 @@ class Input extends Context.Service<Input, string>()('test/ActivityInput') {}
 
 test.stable(
   'activity harness keeps native replay identity and lazy generator requirements',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     let calls = 0;
     const activity = defineActivity({
       name: 'read-value',
@@ -50,9 +52,9 @@ test.stable(
       idempotencyKey: () => 'one'
     });
 
-    test.assert.strictEqual(calls, 0);
-    test.assert.strictEqual(activity.name, 'read-value');
-    test.assert.strictEqual(activity.errorSchema, failureSchema);
+    assert.strictEqual(calls, 0);
+    assert.strictEqual(activity.name, 'read-value');
+    assert.strictEqual(activity.errorSchema, failureSchema);
     const values = await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
@@ -67,14 +69,16 @@ test.stable(
       )
     );
 
-    test.assert.deepStrictEqual(values, ['saved', 'saved']);
-    test.assert.strictEqual(calls, 1);
+    assert.deepStrictEqual(values, ['saved', 'saved']);
+    assert.strictEqual(calls, 1);
   }
 );
 
 test.stable(
   'activity harness preserves the canonical failure kind on the native error channel',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const failure = new StudyError('invalid_input', 'rejected');
     const activity = defineActivity({
       name: 'reject',
@@ -101,14 +105,16 @@ test.stable(
       )
     );
 
-    test.assert.strictEqual(result.kind, 'invalid_input');
-    test.assert.strictEqual(result.message, 'rejected');
+    assert.strictEqual(result.kind, 'invalid_input');
+    assert.strictEqual(result.message, 'rejected');
   }
 );
 
 test.stable(
   'publication activities capture real domain authorization inside execution',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     let writes = 0;
@@ -132,7 +138,7 @@ test.stable(
       })
     });
 
-    test.assert.strictEqual(writes, 0);
+    assert.strictEqual(writes, 0);
 
     try {
       const result = await Effect.runPromise(
@@ -149,8 +155,8 @@ test.stable(
         )
       );
 
-      test.assert.strictEqual(result, 1);
-      test.assert.strictEqual(writes, 1);
+      assert.strictEqual(result, 1);
+      assert.strictEqual(writes, 1);
     } finally {
       context.close();
       await location.cleanup();
@@ -160,7 +166,9 @@ test.stable(
 
 test.stable(
   'resumable checkpoint keeps terminal failures and honors a zero retry budget',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     let calls = 0;
@@ -202,8 +210,8 @@ test.stable(
         )
       );
 
-      test.assert.strictEqual(error.kind, 'transient');
-      test.assert.strictEqual(calls, 1);
+      assert.strictEqual(error.kind, 'transient');
+      assert.strictEqual(calls, 1);
     } finally {
       context.close();
       await location.cleanup();

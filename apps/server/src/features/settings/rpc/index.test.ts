@@ -33,7 +33,9 @@ import { SettingsRpcLive } from './index.ts';
 
 test.stable(
   'settings RPC exposes typed settings and maps service failures',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const handlers = SettingsRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
@@ -48,9 +50,9 @@ test.stable(
           Effect.gen(function* () {
             const client = yield* RpcTest.makeClient(SettingsRpc, { flatten: true });
 
-            test.expect((yield* client('settings.usage', { days: 30 })).totals.requests).toBe(0);
+            expect((yield* client('settings.usage', { days: 30 })).totals.requests).toBe(0);
 
-            test.expect(yield* client('settings.agentRules', {})).toStrictEqual(defaultAgentRules);
+            expect(yield* client('settings.agentRules', {})).toStrictEqual(defaultAgentRules);
             const rules = {
               ...defaultAgentRules,
               pages: 'Keep worked examples.',
@@ -58,29 +60,27 @@ test.stable(
             };
 
             yield* client('settings.saveAgentRules', rules);
-            test.expect(yield* client('settings.agentRules', {})).toStrictEqual(rules);
-            test
-              .expect(
-                Exit.isFailure(
-                  yield* Effect.exit(
-                    client('settings.saveAgentRules', { ...rules, pages: 'x'.repeat(8001) })
-                  )
+            expect(yield* client('settings.agentRules', {})).toStrictEqual(rules);
+            expect(
+              Exit.isFailure(
+                yield* Effect.exit(
+                  client('settings.saveAgentRules', { ...rules, pages: 'x'.repeat(8001) })
                 )
               )
-              .toBe(true);
-            test.expect(yield* client('settings.agentRules', {})).toStrictEqual(rules);
-            test
-              .expect(yield* client('settings.workspacePreferences', {}))
-              .toStrictEqual(defaultWorkspacePreferences);
+            ).toBe(true);
+            expect(yield* client('settings.agentRules', {})).toStrictEqual(rules);
+            expect(yield* client('settings.workspacePreferences', {})).toStrictEqual(
+              defaultWorkspacePreferences
+            );
             yield* client('settings.saveWorkspacePreferences', {
               ...defaultWorkspacePreferences,
               autosaveIntervalSeconds: 7
             });
-            test.assert.strictEqual(
+            assert.strictEqual(
               (yield* client('settings.workspacePreferences', {})).autosaveIntervalSeconds,
               7
             );
-            test.expect(yield* client('settings.concurrencySettings', {})).toStrictEqual({
+            expect(yield* client('settings.concurrencySettings', {})).toStrictEqual({
               maxConcurrentAi: 2,
               maxQueuedAi: 16
             });
@@ -88,7 +88,7 @@ test.stable(
               maxConcurrentAi: 4,
               maxQueuedAi: 8
             });
-            test.expect(yield* client('settings.concurrencySettings', {})).toStrictEqual({
+            expect(yield* client('settings.concurrencySettings', {})).toStrictEqual({
               maxConcurrentAi: 4,
               maxQueuedAi: 8
             });
@@ -101,24 +101,18 @@ test.stable(
             };
 
             yield* client('settings.saveQuizSettings', quiz);
-            test.expect(yield* client('settings.quizSettings', {})).toStrictEqual(quiz);
-            test.assert.strictEqual((yield* client('settings.appSettings', {})).zoomPercent, 100);
+            expect(yield* client('settings.quizSettings', {})).toStrictEqual(quiz);
+            assert.strictEqual((yield* client('settings.appSettings', {})).zoomPercent, 100);
             yield* client('settings.saveReviewSettings', { newCardsPerDay: 33 });
-            test.assert.strictEqual(
-              (yield* client('settings.reviewSettings', {})).newCardsPerDay,
-              33
-            );
+            assert.strictEqual((yield* client('settings.reviewSettings', {})).newCardsPerDay, 33);
             context.db.orm.run(
               sql`CREATE TRIGGER reject_review BEFORE INSERT ON preferences WHEN NEW.scope = 'review' BEGIN SELECT RAISE(ABORT, 'rejected'); END`
             );
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(client('settings.saveReviewSettings', { newCardsPerDay: 44 })))
                 .kind
             );
-            test.assert.strictEqual(
-              (yield* client('settings.reviewSettings', {})).newCardsPerDay,
-              33
-            );
+            assert.strictEqual((yield* client('settings.reviewSettings', {})).newCardsPerDay, 33);
           }).pipe(Effect.provide(handlers))
         )
       );
@@ -131,7 +125,9 @@ test.stable(
 
 test.stable(
   'saving concurrency immediately resizes the shared gate after commit and preserves active work',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const owner = makeAdmission({ concurrency: 2, maxWaiting: 2 });
@@ -180,18 +176,18 @@ test.stable(
               maxConcurrentAi: 1,
               maxQueuedAi: 3
             });
-            test.expect(yield* client('settings.concurrencySettings', {})).toStrictEqual({
+            expect(yield* client('settings.concurrencySettings', {})).toStrictEqual({
               maxConcurrentAi: 1,
               maxQueuedAi: 3
             });
             yield* Deferred.succeed(releases[0]!, undefined);
             yield* Fiber.join(first);
             yield* Effect.yieldNow;
-            test.assert.strictEqual(dispatches, 2);
+            assert.strictEqual(dispatches, 2);
             yield* Deferred.succeed(releases[1]!, undefined);
             yield* Fiber.join(second);
             yield* Deferred.await(entered[2]!);
-            test.assert.strictEqual(dispatches, 3);
+            assert.strictEqual(dispatches, 3);
 
             // Raising the setting dispatches existing queued work without another submission.
             yield* client('settings.saveConcurrencySettings', {
@@ -199,7 +195,7 @@ test.stable(
               maxQueuedAi: 2
             });
             yield* Deferred.await(entered[3]!);
-            test.assert.strictEqual(dispatches, 4);
+            assert.strictEqual(dispatches, 4);
 
             context.db.orm.run(
               sql`CREATE TRIGGER reject_concurrency BEFORE INSERT ON preferences WHEN NEW.scope = 'concurrency' BEGIN SELECT RAISE(ABORT, 'rejected'); END`
@@ -207,13 +203,13 @@ test.stable(
             yield* Effect.flip(
               client('settings.saveConcurrencySettings', { maxConcurrentAi: 1, maxQueuedAi: 0 })
             );
-            test.expect(yield* client('settings.concurrencySettings', {})).toStrictEqual({
+            expect(yield* client('settings.concurrencySettings', {})).toStrictEqual({
               maxConcurrentAi: 2,
               maxQueuedAi: 2
             });
             yield* Deferred.succeed(releases[2]!, undefined);
             yield* Fiber.join(third);
-            test.assert.strictEqual(
+            assert.strictEqual(
               yield* owner.run(Effect.succeed('unchanged after failed save')),
               'unchanged after failed save'
             );

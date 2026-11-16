@@ -19,13 +19,11 @@ import { pageTransformFixture } from './page-transform.ts';
 
 test.stable(
   'fixture acquisition failure releases peer/database and close releases auth exactly once',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const owner = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
 
     try {
-      await test
-        .expect(pageTransformFixture(databases))
-        .rejects.toThrow(/auth owner already exists/);
+      await expect(pageTransformFixture(databases)).rejects.toThrow(/auth owner already exists/);
     } finally {
       await owner.dispose();
     }

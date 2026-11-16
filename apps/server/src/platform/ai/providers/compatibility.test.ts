@@ -22,7 +22,7 @@ import { adaptProviderTool } from './tools.ts';
 
 test.stable(
   'compatible providers stream schema-validated JSON without requiring strict JSON Schema',
-  async () => {
+  async ({ expect }) => {
     let body: { response_format?: unknown; messages: unknown[]; tools: unknown[] } | undefined;
     const server = Bun.serve({
       hostname: '127.0.0.1',
@@ -49,7 +49,7 @@ test.stable(
     });
     const address = { port: server.port };
 
-    test.expect(address).not.toBeNull();
+    expect(address).not.toBeNull();
     const base = `http://127.0.0.1:${(address as { port: number }).port}`;
     const schema = jsonSchema<{ answer: string }>({
       type: 'object',
@@ -79,11 +79,11 @@ test.stable(
           }
         });
 
-        test.expect(await result.output).toStrictEqual({ answer: 'Hello' });
-        test.expect(body?.response_format).toStrictEqual({ type: 'json_object' });
-        test.expect(JSON.stringify(body?.messages)).toContain('JSON Schema');
-        test.expect(JSON.stringify(body?.messages)).toContain('answer');
-        test.expect(body?.tools).toHaveLength(1);
+        expect(await result.output).toStrictEqual({ answer: 'Hello' });
+        expect(body?.response_format).toStrictEqual({ type: 'json_object' });
+        expect(JSON.stringify(body?.messages)).toContain('JSON Schema');
+        expect(JSON.stringify(body?.messages)).toContain('answer');
+        expect(body?.tools).toHaveLength(1);
       }
     } finally {
       await server.stop(true);
@@ -91,24 +91,27 @@ test.stable(
   }
 );
 
-test.stable('Gemini 2 keeps function tools without mixing incompatible grounding tools', () => {
-  const legacy = getApiKeyProvider('google').createModel({
-    apiKey: 'test-key',
-    modelId: 'gemini-2.5-flash'
-  });
-  const current = getApiKeyProvider('google').createModel({
-    apiKey: 'test-key',
-    modelId: 'gemini-3.6-flash'
-  });
+test.stable(
+  'Gemini 2 keeps function tools without mixing incompatible grounding tools',
+  ({ expect }) => {
+    const legacy = getApiKeyProvider('google').createModel({
+      apiKey: 'test-key',
+      modelId: 'gemini-2.5-flash'
+    });
+    const current = getApiKeyProvider('google').createModel({
+      apiKey: 'test-key',
+      modelId: 'gemini-3.6-flash'
+    });
 
-  test.expect(adaptProviderTool(legacy, webSearchTool)).toBeDefined();
-  test.expect(adaptProviderTool(legacy, webSearchTool, true)).toBeUndefined();
-  test.expect(adaptProviderTool(current, webSearchTool, true)).toBeDefined();
-});
+    expect(adaptProviderTool(legacy, webSearchTool)).toBeDefined();
+    expect(adaptProviderTool(legacy, webSearchTool, true)).toBeUndefined();
+    expect(adaptProviderTool(current, webSearchTool, true)).toBeDefined();
+  }
+);
 
 test.stable(
   'queued models resolve replacement keys on each call and reject removed keys before transport',
-  async () => {
+  async ({ expect }) => {
     let key: string | undefined = 'first-key';
     const seen: string[] = [];
     const model = createApiKeyModel(
@@ -127,17 +130,15 @@ test.stable(
     );
 
     key = 'replacement-key';
-    await test
-      .expect(model.doGenerate({ prompt: [] }))
-      .rejects.toMatchObject({ kind: 'transient' });
-    test.expect(seen).toStrictEqual(['Bearer replacement-key']);
+    await expect(model.doGenerate({ prompt: [] })).rejects.toMatchObject({ kind: 'transient' });
+    expect(seen).toStrictEqual(['Bearer replacement-key']);
     key = undefined;
-    await test.expect(model.doStream({ prompt: [] })).rejects.toThrow('Key removed');
-    test.expect(seen).toHaveLength(1);
+    await expect(model.doStream({ prompt: [] })).rejects.toThrow('Key removed');
+    expect(seen).toHaveLength(1);
   }
 );
 
-test.stable('API-key models use bounded HTTP bodies and reject redirects', async () => {
+test.stable('API-key models use bounded HTTP bodies and reject redirects', async ({ expect }) => {
   let redirect: RequestRedirect | undefined;
   const model = createApiKeyModel(
     getApiKeyProvider('deepseek'),
@@ -155,6 +156,6 @@ test.stable('API-key models use bounded HTTP bodies and reject redirects', async
     }
   );
 
-  await test.expect(model.doGenerate({ prompt: [] })).rejects.toMatchObject({ kind: 'transient' });
-  test.expect(redirect).toBe('error');
+  await expect(model.doGenerate({ prompt: [] })).rejects.toMatchObject({ kind: 'transient' });
+  expect(redirect).toBe('error');
 });

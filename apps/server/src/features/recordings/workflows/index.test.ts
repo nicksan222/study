@@ -34,7 +34,9 @@ import { recordingPostHandler, recordingPostWorkflow } from './index.ts';
 for (const deleteCommittedMessage of [false, true])
   test.stable(
     `same-version recording replay after reopen preserves ${deleteCommittedMessage ? 'deleted' : 'retained'} messages`,
-    async ({ databases }) => {
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
       const location = await databases();
       let context = new ServerContext(await location.open());
       const services = () =>
@@ -60,8 +62,8 @@ for (const deleteCommittedMessage of [false, true])
             const recording = yield* recordings.createRecording(note.id);
 
             yield* recordings.appendRecording({ id: recording.id, samples: [-32768, 0, 32767] });
-            test.assert.strictEqual((yield* recordings.recording(recording.id)).samples, 3n);
-            test.assert.ok(
+            assert.strictEqual((yield* recordings.recording(recording.id)).samples, 3n);
+            assert.ok(
               (yield* Effect.flip(
                 recordings.postRecording({
                   note: other.id,
@@ -80,7 +82,7 @@ for (const deleteCommittedMessage of [false, true])
                 name: 'lecture.wav'
               })
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               context.db.orm.select().from(tables.recording_posts).all().length,
               0
             );
@@ -88,30 +90,30 @@ for (const deleteCommittedMessage of [false, true])
             const input = { note: note.id, recording: recording.id, name: 'lecture.wav' };
             const post = yield* recordings.postRecording(input);
 
-            test.expect(yield* recordings.postRecording(input)).toStrictEqual(post);
-            test.assert.ok(
+            expect(yield* recordings.postRecording(input)).toStrictEqual(post);
+            assert.ok(
               (yield* Effect.flip(recordings.appendRecording({ id: recording.id, samples: [1] })))
                 .kind === 'invalid_input'
             );
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(recordings.deleteRecording(recording.id))).kind ===
                 'invalid_input'
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               context.db.orm.select().from(tables.recording_posts).all().length,
               1
             );
-            test.assert.throws(() =>
+            assert.throws(() =>
               context.db.orm.run(
                 sql`UPDATE recording_chunks SET pcm=x'0100' WHERE recording_id=${recording.id}`
               )
             );
-            test.assert.throws(() =>
+            assert.throws(() =>
               context.db.orm.run(
                 sql`UPDATE recordings SET note_id=${other.id} WHERE id=${recording.id}`
               )
             );
-            test.assert.throws(() =>
+            assert.throws(() =>
               context.db.orm.run(
                 sql`UPDATE recording_posts SET name='changed.wav' WHERE recording_id=${recording.id}`
               )
@@ -124,7 +126,7 @@ for (const deleteCommittedMessage of [false, true])
           context.db.orm.select().from(tables.workflowEvents).all().at(-1)!.payload
         );
 
-        test.assert.ok(!(event.type !== 'RecordingPostRequested'), 'unexpected event');
+        assert.ok(!(event.type !== 'RecordingPostRequested'), 'unexpected event');
 
         const execute = () =>
           Effect.runPromise(
@@ -153,11 +155,11 @@ for (const deleteCommittedMessage of [false, true])
 
         const committedResult = await execute();
 
-        test.assert.strictEqual(
+        assert.strictEqual(
           context.db.orm.select().from(tables.source_recording_imports).all().length,
           1
         );
-        test.assert.strictEqual(
+        assert.strictEqual(
           context.db.orm.select().from(tables.note_recording_posts).all().length,
           1
         );
@@ -176,11 +178,11 @@ for (const deleteCommittedMessage of [false, true])
         context = new ServerContext(await location.open());
         const result = await execute();
 
-        test.expect(result).toStrictEqual(committedResult);
-        test.assert.ok(result.messageId);
-        test.assert.ok(result.sourceId);
-        test.expect(await execute()).toStrictEqual(result);
-        test.assert.strictEqual(context.db.orm.select().from(tables.sources).all().length, 1);
+        expect(result).toStrictEqual(committedResult);
+        assert.ok(result.messageId);
+        assert.ok(result.sourceId);
+        expect(await execute()).toStrictEqual(result);
+        assert.strictEqual(context.db.orm.select().from(tables.sources).all().length, 1);
         const caused = context.db.orm
           .select()
           .from(tables.workflowEvents)
@@ -188,41 +190,41 @@ for (const deleteCommittedMessage of [false, true])
           .map((row) => decodeEvent(row.payload))
           .find((item) => item.type === 'SourceProcessingRequested');
 
-        test.assert.strictEqual(caused?.causationId, event.eventId);
-        test.assert.strictEqual(caused?.correlationId, event.correlationId);
-        test.assert.strictEqual(caused?.depth, 1);
-        test.assert.strictEqual(
+        assert.strictEqual(caused?.causationId, event.eventId);
+        assert.strictEqual(caused?.correlationId, event.correlationId);
+        assert.strictEqual(caused?.depth, 1);
+        assert.strictEqual(
           context.db.orm.select().from(tables.messages).all().length,
           deleteCommittedMessage ? 0 : 1
         );
         const blob = context.db.orm.select().from(tables.source_blobs).all()[0]!;
 
-        test.expect([...blob.bytes.subarray(44)]).toStrictEqual([0, 128, 0, 0, 255, 127]);
-        test.assert.throws(() =>
+        expect([...blob.bytes.subarray(44)]).toStrictEqual([0, 128, 0, 0, 255, 127]);
+        assert.throws(() =>
           context.db.orm.run(
             sql`UPDATE source_blobs SET bytes=x'0100' WHERE source_id=${result.sourceId}`
           )
         );
-        test.assert.throws(() =>
+        assert.throws(() =>
           context.db.orm.run(sql`DELETE FROM source_blobs WHERE source_id=${result.sourceId}`)
         );
         await Effect.runPromise(
           Effect.gen(function* () {
             const recordings = yield* Recordings;
 
-            test
-              .expect(yield* recordings.recordingPost({ requestId: result.requestId }))
-              .toStrictEqual(result);
-            test.assert.strictEqual((yield* recordings.recordings({ limit: 10 })).items.length, 0);
+            expect(yield* recordings.recordingPost({ requestId: result.requestId })).toStrictEqual(
+              result
+            );
+            assert.strictEqual((yield* recordings.recordings({ limit: 10 })).items.length, 0);
             const messages = yield* (yield* Notes).thread({
               noteId: pending.note.id,
               limit: 10
             });
 
-            test.assert.strictEqual(messages.items.length, deleteCommittedMessage ? 0 : 1);
+            assert.strictEqual(messages.items.length, deleteCommittedMessage ? 0 : 1);
 
             if (!deleteCommittedMessage)
-              test.assert.strictEqual(messages.items[0]?.recordedIn, result.sourceId);
+              assert.strictEqual(messages.items[0]?.recordedIn, result.sourceId);
 
             if (!deleteCommittedMessage) {
               const notes = yield* Notes;
@@ -237,46 +239,40 @@ for (const deleteCommittedMessage of [false, true])
                 .where(eq(tables.recordings.note_id, merged.id))
                 .get()!;
 
-              test.expect(copied.id).not.toBe(pending.post.recordingId);
-              test.expect((yield* recordings.recording(copied.id)).samples).toBe(3n);
-              test.expect((yield* recordings.recordings({ limit: 100 })).items).toHaveLength(0);
-              test
-                .expect(
-                  (yield* Effect.flip(recordings.appendRecording({ id: copied.id, samples: [1] })))
-                    .kind
-                )
-                .toBe('invalid_input');
-              test
-                .expect((yield* Effect.flip(recordings.deleteRecording(copied.id))).kind)
-                .toBe('invalid_input');
-              test
-                .expect(
-                  (yield* Effect.flip(
-                    recordings.postRecording({
-                      note: merged.id,
-                      recording: copied.id,
-                      name: 'duplicate.wav'
-                    })
-                  )).kind
-                )
-                .toBe('invalid_input');
-              test
-                .expect(
-                  (yield* notes.thread({ noteId: merged.id, limit: 100 })).items[0]?.recordedIn
-                )
-                .toBe(result.sourceId);
+              expect(copied.id).not.toBe(pending.post.recordingId);
+              expect((yield* recordings.recording(copied.id)).samples).toBe(3n);
+              expect((yield* recordings.recordings({ limit: 100 })).items).toHaveLength(0);
+              expect(
+                (yield* Effect.flip(recordings.appendRecording({ id: copied.id, samples: [1] })))
+                  .kind
+              ).toBe('invalid_input');
+              expect((yield* Effect.flip(recordings.deleteRecording(copied.id))).kind).toBe(
+                'invalid_input'
+              );
+              expect(
+                (yield* Effect.flip(
+                  recordings.postRecording({
+                    note: merged.id,
+                    recording: copied.id,
+                    name: 'duplicate.wav'
+                  })
+                )).kind
+              ).toBe('invalid_input');
+              expect(
+                (yield* notes.thread({ noteId: merged.id, limit: 100 })).items[0]?.recordedIn
+              ).toBe(result.sourceId);
             }
 
             yield* (yield* Projects).deleteProject({ id: pending.project.id });
-            test.assert.strictEqual(
+            assert.strictEqual(
               context.db.orm.select().from(tables.recording_posts).all().length,
               1
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               context.db.orm.select().from(tables.note_recording_posts).all().length,
               1
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               context.db.orm.select().from(tables.source_recording_imports).all().length,
               1
             );

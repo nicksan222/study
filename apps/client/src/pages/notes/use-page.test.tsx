@@ -20,17 +20,17 @@ test.beforeEach(async ({ mock }) => {
 
 test.stable(
   'preserves validated identity beyond JavaScript number precision and clears it on index',
-  () => {
+  ({ rpcTestTransport, renderHook, expect }) => {
     const id = Schema.decodeUnknownSync(noteIdSchema)(9007199254740993n);
 
     noteId = id;
-    const fixture = test.rpcTestTransport(async () => new Promise(() => {}));
-    const { result, rerender, unmount } = test.renderHook(usePage, { wrapper: fixture.wrapper });
+    const fixture = rpcTestTransport(async () => new Promise(() => {}));
+    const { result, rerender, unmount } = renderHook(usePage, { wrapper: fixture.wrapper });
 
-    test.expect(result.current.id).toBe(id);
+    expect(result.current.id).toBe(id);
     noteId = undefined;
     rerender();
-    test.expect(result.current.id).toBeUndefined();
+    expect(result.current.id).toBeUndefined();
     unmount();
   }
 );

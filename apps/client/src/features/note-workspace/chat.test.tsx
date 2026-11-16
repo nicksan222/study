@@ -3,13 +3,13 @@ import { ChatNote, ChatMessage, ChatMessageText, ChatMessageActionToolbar } from
 
 test.stable(
   'keeps the reading anchor on older-page insertion and follows new arrivals only at the end',
-  () => {
-    const view = test.render(
+  ({ render, screen, fireEvent, expect }) => {
+    const view = render(
       <ChatNote label="Note" jumpLabel="Latest" itemCount={3} firstItemKey="b">
         <p>Notes</p>
       </ChatNote>
     );
-    const viewport = test.screen.getByRole('log', { name: 'Note' });
+    const viewport = screen.getByRole('log', { name: 'Note' });
     let height = 2000;
 
     Object.defineProperties(viewport, {
@@ -17,48 +17,49 @@ test.stable(
       clientHeight: { value: 500 }
     });
     viewport.scrollTop = 100;
-    test.fireEvent.scroll(viewport);
-    test.expect(test.screen.getByRole('button', { name: 'Latest' })).toBeInTheDocument();
+    fireEvent.scroll(viewport);
+    expect(screen.getByRole('button', { name: 'Latest' })).toBeInTheDocument();
     height = 2400;
     view.rerender(
       <ChatNote label="Note" jumpLabel="Latest" itemCount={4} firstItemKey="a">
         <p>Older notes</p>
       </ChatNote>
     );
-    test.expect(viewport.scrollTop).toBe(500);
+    expect(viewport.scrollTop).toBe(500);
     height = 2600;
     view.rerender(
       <ChatNote label="Note" jumpLabel="Latest" itemCount={5} firstItemKey="a">
         <p>New note</p>
       </ChatNote>
     );
-    test.expect(viewport.scrollTop).toBe(500);
+    expect(viewport.scrollTop).toBe(500);
     viewport.scrollTop = 2100;
-    test.fireEvent.scroll(viewport);
-    test.expect(test.screen.queryByRole('button', { name: 'Latest' })).not.toBeInTheDocument();
+    fireEvent.scroll(viewport);
+    expect(screen.queryByRole('button', { name: 'Latest' })).not.toBeInTheDocument();
     height = 2900;
     view.rerender(
       <ChatNote label="Note" jumpLabel="Latest" itemCount={6} firstItemKey="a">
         <p>Another note</p>
       </ChatNote>
     );
-    test.expect(viewport.scrollTop).toBe(2900);
+    expect(viewport.scrollTop).toBe(2900);
   }
 );
 
-test.stable('keeps quick notes literal and exposes their actions to keyboard users', () => {
-  test.render(
-    <ChatMessage>
-      <ChatMessageText text={'**Literal note**\nSecond line'} />
-      <ChatMessageActionToolbar aria-label="Note actions">
-        <button>Edit</button>
-      </ChatMessageActionToolbar>
-    </ChatMessage>
-  );
-  test
-    .expect(test.screen.getByText('**Literal note** Second line'))
-    .toHaveTextContent('**Literal note**');
-  test
-    .expect(test.screen.getByRole('group', { name: 'Note actions' }))
-    .toContainElement(test.screen.getByRole('button', { name: 'Edit' }));
-});
+test.stable(
+  'keeps quick notes literal and exposes their actions to keyboard users',
+  ({ render, expect, screen }) => {
+    render(
+      <ChatMessage>
+        <ChatMessageText text={'**Literal note**\nSecond line'} />
+        <ChatMessageActionToolbar aria-label="Note actions">
+          <button>Edit</button>
+        </ChatMessageActionToolbar>
+      </ChatMessage>
+    );
+    expect(screen.getByText('**Literal note** Second line')).toHaveTextContent('**Literal note**');
+    expect(screen.getByRole('group', { name: 'Note actions' })).toContainElement(
+      screen.getByRole('button', { name: 'Edit' })
+    );
+  }
+);

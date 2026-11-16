@@ -22,25 +22,25 @@ const labels = {
 
 test.stable(
   'renders saved Markdown as a document with headings, lists, emphasis and safe links',
-  () => {
-    test.render(
+  ({ render, expect, screen }) => {
+    render(
       <RichNoteContent
         value={'# Notes\n\n- **Important**\n- Another idea\n\n[Unsafe](javascript:alert(1))'}
       />
     );
-    test.expect(test.screen.getByRole('heading', { name: 'Notes' })).toBeInTheDocument();
-    test.expect(test.screen.getAllByRole('listitem')).toHaveLength(2);
-    test.expect(test.screen.getByText('Important').tagName).toBe('STRONG');
-    test
-      .expect(test.screen.getByText('Unsafe').closest('a')?.getAttribute('href') ?? '')
-      .not.toMatch(/^javascript:/i);
+    expect(screen.getByRole('heading', { name: 'Notes' })).toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    expect(screen.getByText('Important').tagName).toBe('STRONG');
+    expect(screen.getByText('Unsafe').closest('a')?.getAttribute('href') ?? '').not.toMatch(
+      /^javascript:/i
+    );
   }
 );
 
 test.stable(
   'serializes formatting into Markdown and accepts external updates without echoing them',
-  async () => {
-    const onChange = test.vi.fn();
+  async ({ vi, render, fireEvent, screen, waitFor, expect }) => {
+    const onChange = vi.fn();
     const props = {
       value: 'A thought',
       label: 'Page',
@@ -48,28 +48,29 @@ test.stable(
       labels,
       onChange
     };
-    const view = test.render(<RichNoteEditor {...props} />);
+    const view = render(<RichNoteEditor {...props} />);
 
-    test.fireEvent.click(test.screen.getByRole('button', { name: /^Text style: / }));
-    test.fireEvent.click(await test.screen.findByRole('menuitem', { name: 'Heading' }));
-    await test.waitFor(() =>
-      test.expect(onChange).toHaveBeenLastCalledWith(test.expect.stringMatching(/^# A thought\n*$/))
+    fireEvent.click(screen.getByRole('button', { name: /^Text style: / }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Heading' }));
+    await waitFor(() =>
+      expect(onChange).toHaveBeenLastCalledWith(expect.stringMatching(/^# A thought\n*$/))
     );
-    test.expect(test.screen.getByRole('heading', { name: 'A thought' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'A thought' })).toBeInTheDocument();
     onChange.mockClear();
     view.rerender(<RichNoteEditor {...props} value={'## Reopened\n\nA **saved** page'} disabled />);
-    test.expect(test.screen.getByRole('heading', { name: 'Reopened' })).toBeInTheDocument();
-    test
-      .expect(test.screen.getByRole('textbox', { name: 'Page' }))
-      .toHaveAttribute('contenteditable', 'false');
-    test.expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('heading', { name: 'Reopened' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Page' })).toHaveAttribute(
+      'contenteditable',
+      'false'
+    );
+    expect(onChange).not.toHaveBeenCalled();
   }
 );
 
 test.stable(
   'applies writing preferences to the editable document without changing its text',
-  () => {
-    const onChange = test.vi.fn();
+  ({ vi, render, screen, expect }) => {
+    const onChange = vi.fn();
     const props = {
       value: 'A thought',
       label: 'Page',
@@ -77,14 +78,14 @@ test.stable(
       labels,
       onChange
     };
-    const view = test.render(<RichNoteEditor {...props} spellcheck={false} fontSize={22} />);
-    const editor = test.screen.getByRole('textbox', { name: 'Page' });
+    const view = render(<RichNoteEditor {...props} spellcheck={false} fontSize={22} />);
+    const editor = screen.getByRole('textbox', { name: 'Page' });
 
-    test.expect(editor).toHaveAttribute('spellcheck', 'false');
-    test.expect(editor).toHaveStyle({ fontSize: '22px' });
+    expect(editor).toHaveAttribute('spellcheck', 'false');
+    expect(editor).toHaveStyle({ fontSize: '22px' });
     view.rerender(<RichNoteEditor {...props} spellcheck fontSize={16} />);
-    test.expect(editor).toHaveAttribute('spellcheck', 'true');
-    test.expect(editor).toHaveStyle({ fontSize: '16px' });
-    test.expect(onChange).not.toHaveBeenCalled();
+    expect(editor).toHaveAttribute('spellcheck', 'true');
+    expect(editor).toHaveStyle({ fontSize: '16px' });
+    expect(onChange).not.toHaveBeenCalled();
   }
 );

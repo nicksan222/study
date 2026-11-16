@@ -10,38 +10,37 @@ test.beforeEach(() => {
   history.replaceState(null, '', '/');
 });
 
-test.stable.for(pages)('renders the %s route without network access', async (page, { rpc }) => {
-  history.replaceState(null, '', `/${page.toLowerCase()}`);
-  const fetch = test.vi.spyOn(globalThis, 'fetch');
+test.stable.for(pages)(
+  'renders the %s route without network access',
+  async (page, { rpc, vi, render, expect, screen }) => {
+    history.replaceState(null, '', `/${page.toLowerCase()}`);
+    const fetch = vi.spyOn(globalThis, 'fetch');
 
-  rpc.givenWorkspace();
+    rpc.givenWorkspace();
 
-  test.render(<App transport={rpc.transport} />);
-  const title = catalogs.english[page];
+    render(<App transport={rpc.transport} />);
+    const title = catalogs.english[page];
 
-  if (page === 'Practice' || page === 'Flashcards') {
-    test.expect(await test.screen.findByRole('main')).toHaveTextContent(/^$/);
-    test
-      .expect(test.screen.getByRole('button', { name: catalogs.english.PracticeGenerate }))
-      .toBeInTheDocument();
-  } else {
-    test
-      .expect(await test.screen.findByRole('heading', { name: title, level: 1 }))
-      .toBeInTheDocument();
-    test
-      .expect(test.screen.getByRole('main'))
-      .toHaveTextContent(
+    if (page === 'Practice' || page === 'Flashcards') {
+      expect(await screen.findByRole('main')).toHaveTextContent(/^$/);
+      expect(
+        screen.getByRole('button', { name: catalogs.english.PracticeGenerate })
+      ).toBeInTheDocument();
+    } else {
+      expect(await screen.findByRole('heading', { name: title, level: 1 })).toBeInTheDocument();
+      expect(screen.getByRole('main')).toHaveTextContent(
         page === 'Notes' ? catalogs.english.NoteStartHelp : catalogs.english.AppName
       );
-  }
+    }
 
-  test.expect(fetch).not.toHaveBeenCalled();
-});
+    expect(fetch).not.toHaveBeenCalled();
+  }
+);
 
 test.stable(
   'opens settings over the current page and restores focus without changing the URL',
-  async ({ rpc }) => {
-    const user = test.userEvent.setup();
+  async ({ rpc, userEvent, render, expect, screen, waitFor }) => {
+    const user = userEvent.setup();
 
     history.replaceState(null, '', '/projects/1/notes/42');
     rpc.givenWorkspace();
@@ -66,60 +65,62 @@ test.stable(
       }
     });
 
-    test.render(<App transport={rpc.transport} />);
-    test
-      .expect(await test.screen.findByRole('button', { name: catalogs.english.ToggleSidebar }))
-      .toHaveAttribute('aria-expanded', 'true');
-    const trigger = await test.screen.findByRole('button', { name: catalogs.english.Settings });
+    render(<App transport={rpc.transport} />);
+    expect(
+      await screen.findByRole('button', { name: catalogs.english.ToggleSidebar })
+    ).toHaveAttribute('aria-expanded', 'true');
+    const trigger = await screen.findByRole('button', { name: catalogs.english.Settings });
 
     await user.click(trigger);
-    test
-      .expect(await test.screen.findByRole('dialog', { name: catalogs.english.Settings }))
-      .toBeInTheDocument();
-    test.expect(location.pathname + location.search).toBe('/projects/1/notes/42');
+    expect(
+      await screen.findByRole('dialog', { name: catalogs.english.Settings })
+    ).toBeInTheDocument();
+    expect(location.pathname + location.search).toBe('/projects/1/notes/42');
     await user.keyboard('{Escape}');
-    await test.waitFor(() =>
-      test.expect(test.screen.queryByRole('dialog')).not.toBeInTheDocument()
-    );
-    await test.waitFor(() => test.expect(trigger).toHaveFocus());
-    test
-      .expect(test.screen.getByRole('heading', { name: catalogs.english.Notes }))
-      .toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(screen.getByRole('heading', { name: catalogs.english.Notes })).toBeInTheDocument();
   }
 );
 
-test.stable('opens the appearance popup from its direct settings route', async ({ rpc }) => {
-  history.replaceState(null, '', '/settings');
-  rpc.givenWorkspace();
+test.stable(
+  'opens the appearance popup from its direct settings route',
+  async ({ rpc, render, expect, screen }) => {
+    history.replaceState(null, '', '/settings');
+    rpc.givenWorkspace();
 
-  test.render(<App transport={rpc.transport} />);
-  test
-    .expect(await test.screen.findByRole('dialog', { name: catalogs.english.Settings }))
-    .toBeInTheDocument();
-});
+    render(<App transport={rpc.transport} />);
+    expect(
+      await screen.findByRole('dialog', { name: catalogs.english.Settings })
+    ).toBeInTheDocument();
+  }
+);
 
-test.stable('keeps Settings reachable while the sidebar is collapsed', async ({ rpc }) => {
-  const user = test.userEvent.setup();
+test.stable(
+  'keeps Settings reachable while the sidebar is collapsed',
+  async ({ rpc, userEvent, render, screen, expect, waitFor }) => {
+    const user = userEvent.setup();
 
-  history.replaceState(null, '', '/projects');
-  rpc.givenWorkspace();
+    history.replaceState(null, '', '/projects');
+    rpc.givenWorkspace();
 
-  test.render(<App transport={rpc.transport} />);
-  await test.screen.findByRole('heading', { name: catalogs.english.Projects });
+    render(<App transport={rpc.transport} />);
+    await screen.findByRole('heading', { name: catalogs.english.Projects });
 
-  const toggle = test.screen.getByRole('button', { name: catalogs.english.ToggleSidebar });
+    const toggle = screen.getByRole('button', { name: catalogs.english.ToggleSidebar });
 
-  test.expect(toggle).toHaveAttribute('aria-expanded', 'true');
-  await user.click(toggle);
-  test.expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
 
-  await user.click(test.screen.getByRole('button', { name: catalogs.english.Settings }));
-  test
-    .expect(await test.screen.findByRole('heading', { name: catalogs.english.Settings }))
-    .toBeInTheDocument();
-  await user.keyboard('{Escape}');
-  await test.waitFor(() => test.expect(test.screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: catalogs.english.Settings }));
+    expect(
+      await screen.findByRole('heading', { name: catalogs.english.Settings })
+    ).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
-  await user.click(toggle);
-  test.expect(toggle).toHaveAttribute('aria-expanded', 'true');
-});
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  }
+);

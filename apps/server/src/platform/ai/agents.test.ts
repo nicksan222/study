@@ -69,16 +69,19 @@ function send(text: string, finish = true): Response {
 }
 
 async function peer(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
   handler: (req: Request, body: string) => Response | Promise<Response>,
   run: (base: string, auth: AuthManager) => Promise<void>
 ) {
+  const assert: test.Assert = assertions;
+
   const server = Bun.serve({
     hostname: '127.0.0.1',
     port: 0,
     fetch: async (req) => handler(req, await req.text())
   });
 
-  test.assert.ok(server.port, 'missing address');
+  assert.ok(server.port, 'missing address');
   const base = server.url.origin;
   const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
@@ -112,7 +115,7 @@ function service(
   });
 }
 
-function mockService(mock: ReturnType<typeof test.createAiMock>) {
+function mockService(mock: ReturnType<test.Context['createAiMock']>) {
   return layer({
     model: (tier, call) => mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError)),
     language: 'en',
@@ -121,109 +124,124 @@ function mockService(mock: ReturnType<typeof test.createAiMock>) {
   });
 }
 
-test.stable('generates validated output through the Responses provider', async () => {
-  const observe: NonNullable<AgentsConfig['observe']> = (observation) =>
-    Effect.sync(() => {
-      test.expect(observation.phase).toBe('generating');
-    });
+test.stable(
+  'generates validated output through the Responses provider',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  await peer(
-    (_req) => send('Biology'),
-    async (base, auth) => {
-      test.assert.ok(
-        (await Effect.runPromise(
-          generateAgent(definition, 'cells').pipe(Effect.provide(service(base, auth, observe)))
-        )) === 'Biology'
-      );
-    }
-  );
-});
-
-test.stable('the harness publishes partial output before generation completes', async () => {
-  let finish!: () => void;
-  let sawDelta!: () => void;
-  const partial = new Promise<void>((resolve) => {
-    sawDelta = resolve;
-  });
-  const observed: string[] = [];
-  const observe: NonNullable<AgentsConfig['observe']> = (observation) =>
-    Effect.sync(() => {
-      observed.push(observation.event.type);
-
-      if (observation.event.type === 'text-delta') sawDelta();
-    });
-
-  await peer(
-    () =>
-      new Response(
-        new ReadableStream({
-          start(controller) {
-            const encoder = new TextEncoder();
-
-            controller.enqueue(
-              encoder.encode(
-                `data: ${JSON.stringify({ type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } })}\n\n`
-              )
-            );
-            controller.enqueue(
-              encoder.encode(
-                `data: ${JSON.stringify({ type: 'response.output_text.delta', item_id: 'm', delta: 'First' })}\n\n`
-              )
-            );
-            finish = () => {
-              controller.enqueue(
-                encoder.encode(
-                  `data: ${JSON.stringify({ type: 'response.completed', response: {} })}\n\n`
-                )
-              );
-              controller.close();
-            };
-          }
-        }),
-        { headers: { 'content-type': 'text/event-stream' } }
-      ),
-    async (base, auth) => {
-      let complete = false;
-      const running = Effect.runPromise(
-        generateAgent(definition, 'x').pipe(Effect.provide(service(base, auth, observe)))
-      ).then((text) => {
-        complete = true;
-
-        return text;
+    const observe: NonNullable<AgentsConfig['observe']> = (observation) =>
+      Effect.sync(() => {
+        expect(observation.phase).toBe('generating');
       });
 
-      try {
-        await partial;
-        test.expect(complete).toBe(false);
-        test.expect(observed).toStrictEqual(['start', 'text-delta']);
-      } finally {
-        finish();
+    await peer(
+      { assert },
+      (_req) => send('Biology'),
+      async (base, auth) => {
+        assert.ok(
+          (await Effect.runPromise(
+            generateAgent(definition, 'cells').pipe(Effect.provide(service(base, auth, observe)))
+          )) === 'Biology'
+        );
       }
+    );
+  }
+);
 
-      test.expect(await running).toBe('First');
-      test.expect(observed).toStrictEqual(['start', 'text-delta', 'complete']);
-    }
-  );
-});
+test.stable(
+  'the harness publishes partial output before generation completes',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-test.stable('rejects malformed structured output', async () => {
+    let finish!: () => void;
+    let sawDelta!: () => void;
+    const partial = new Promise<void>((resolve) => {
+      sawDelta = resolve;
+    });
+    const observed: string[] = [];
+    const observe: NonNullable<AgentsConfig['observe']> = (observation) =>
+      Effect.sync(() => {
+        observed.push(observation.event.type);
+
+        if (observation.event.type === 'text-delta') sawDelta();
+      });
+
+    await peer(
+      { assert },
+      () =>
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              const encoder = new TextEncoder();
+
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({ type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } })}\n\n`
+                )
+              );
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({ type: 'response.output_text.delta', item_id: 'm', delta: 'First' })}\n\n`
+                )
+              );
+              finish = () => {
+                controller.enqueue(
+                  encoder.encode(
+                    `data: ${JSON.stringify({ type: 'response.completed', response: {} })}\n\n`
+                  )
+                );
+                controller.close();
+              };
+            }
+          }),
+          { headers: { 'content-type': 'text/event-stream' } }
+        ),
+      async (base, auth) => {
+        let complete = false;
+        const running = Effect.runPromise(
+          generateAgent(definition, 'x').pipe(Effect.provide(service(base, auth, observe)))
+        ).then((text) => {
+          complete = true;
+
+          return text;
+        });
+
+        try {
+          await partial;
+          expect(complete).toBe(false);
+          expect(observed).toStrictEqual(['start', 'text-delta']);
+        } finally {
+          finish();
+        }
+
+        expect(await running).toBe('First');
+        expect(observed).toStrictEqual(['start', 'text-delta', 'complete']);
+      }
+    );
+  }
+);
+
+test.stable('rejects malformed structured output', async ({ expect, assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   await peer(
+    { assert },
     (_req) => send('{"count":"wrong"}'),
     async (base, auth) => {
-      await test
-        .expect(
-          Effect.runPromise(
-            generateAgent(objectDefinition, 'x').pipe(Effect.provide(service(base, auth)))
-          )
+      await expect(
+        Effect.runPromise(
+          generateAgent(objectDefinition, 'x').pipe(Effect.provide(service(base, auth)))
         )
-        .rejects.toThrow();
+      ).rejects.toThrow();
     }
   );
 });
 
 test.stable(
   'batches preview writes without delaying direct deltas or losing the final text',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     let response!: ReadableStreamDefaultController<Uint8Array>;
     let sawFirst!: () => void;
     let sawDirectBurst!: () => void;
@@ -272,11 +290,11 @@ test.stable(
 
         // Synchronize with real SSE delivery before advancing the preview clock.
         yield* Effect.promise(() => directBurst);
-        test.expect(previews).toEqual(['First']);
-        test.expect(direct).toHaveLength(51);
+        expect(previews).toEqual(['First']);
+        expect(direct).toHaveLength(51);
 
         yield* TestClock.adjust('100 millis');
-        test.expect(previews).toEqual(['First', 'x'.repeat(50)]);
+        expect(previews).toEqual(['First', 'x'.repeat(50)]);
       } finally {
         delta('tail');
         response.enqueue(
@@ -288,10 +306,11 @@ test.stable(
         yield* Fiber.join(running);
       }
 
-      test.expect(previews.join('')).toBe(`${expected}tail`);
+      expect(previews.join('')).toBe(`${expected}tail`);
     });
 
     await peer(
+      { assert },
       () =>
         new Response(
           new ReadableStream({
@@ -319,111 +338,123 @@ test.stable(
 );
 
 for (const intercepted of [false, true])
-  test.stable(`executes a validated source tool with runtime adapter ${intercepted}`, async () => {
-    using mock = test.createAiMock();
-    const bodies: string[] = [];
+  test.stable(
+    `executes a validated source tool with runtime adapter ${intercepted}`,
+    async ({ createAiMock, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
 
-    await peer(
-      (_req, body) => {
-        bodies.push(body);
+      using mock = createAiMock();
+      const bodies: string[] = [];
 
-        if (bodies.length !== 1) return send('Cells use energy.');
+      await peer(
+        { assert },
+        (_req, body) => {
+          bodies.push(body);
 
-        const call = {
-          type: 'function_call',
-          id: 'item1',
-          call_id: 'call1',
-          name: 'sources',
-          arguments: '{"query":"cell"}'
-        };
+          if (bodies.length !== 1) return send('Cells use energy.');
 
-        let events = '';
+          const call = {
+            type: 'function_call',
+            id: 'item1',
+            call_id: 'call1',
+            name: 'sources',
+            arguments: '{"query":"cell"}'
+          };
 
-        for (const event of [
-          { type: 'response.output_item.added', output_index: 0, item: call },
-          {
-            type: 'response.output_item.done',
-            output_index: 0,
-            item: { ...call, status: 'completed' }
-          },
-          { type: 'response.completed', response: {} }
-        ])
-          events += `data: ${JSON.stringify(event)}\n\n`;
+          let events = '';
 
-        return new Response(events, { headers: { 'content-type': 'text/event-stream' } });
-      },
-      async (base, auth) => {
-        const queries: string[] = [];
-        const observed: string[] = [];
-        const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
-        const withTool = defineAgent({
-          ...definition,
-          tools: {
-            sources: defineTool({
-              description: 'Find sources',
-              wiki: {
-                when: 'Find evidence.',
-                examples: ['Find cells.'],
-                limits: 'Captured sources only.'
-              },
-              output: Schema.Array(
-                Schema.Struct({ id: Schema.String, name: Schema.String, text: Schema.String })
-              ),
-              mutates: false,
-              input: Schema.Struct({ query: Schema.String }),
-              execute: (input, environment) =>
-                environment.searchSources(
-                  Schema.decodeUnknownSync(Schema.Struct({ query: Schema.String }))(input).query
-                )
-            })
-          }
-        });
+          for (const event of [
+            { type: 'response.output_item.added', output_index: 0, item: call },
+            {
+              type: 'response.output_item.done',
+              output_index: 0,
+              item: { ...call, status: 'completed' }
+            },
+            { type: 'response.completed', response: {} }
+          ])
+            events += `data: ${JSON.stringify(event)}\n\n`;
 
-        if (intercepted)
-          mock.next(withTool.tools.sources, {
-            input: { query: 'cell' },
-            output: [{ id: '1', name: 'notes', text: 'Cells use energy' }]
+          return new Response(events, { headers: { 'content-type': 'text/event-stream' } });
+        },
+        async (base, auth) => {
+          const queries: string[] = [];
+          const observed: string[] = [];
+          const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
+          const withTool = defineAgent({
+            ...definition,
+            tools: {
+              sources: defineTool({
+                description: 'Find sources',
+                wiki: {
+                  when: 'Find evidence.',
+                  examples: ['Find cells.'],
+                  limits: 'Captured sources only.'
+                },
+                output: Schema.Array(
+                  Schema.Struct({ id: Schema.String, name: Schema.String, text: Schema.String })
+                ),
+                mutates: false,
+                input: Schema.Struct({ query: Schema.String }),
+                execute: (input, environment) =>
+                  environment.searchSources(
+                    Schema.decodeUnknownSync(Schema.Struct({ query: Schema.String }))(input).query
+                  )
+              })
+            }
           });
 
-        const executeTool: AgentsConfig['executeTool'] = intercepted
-          ? (call, execute) =>
-              mock.runtime.executeTool(call, execute).pipe(Effect.mapError(normalizeError))
-          : undefined;
-        const output = await Effect.runPromise(
-          generateAgent(withTool, 'x').pipe(
-            Effect.provide(
-              layer({
-                observe: (observation) =>
-                  Effect.sync(() => {
-                    observed.push(observation.event.type);
-                  }),
-                model: () => Effect.succeed(model),
-                executeTool,
-                language: 'en',
-                rules: Effect.succeed(defaultAgentRules),
-                searchSources: (query) => {
-                  queries.push(query);
+          if (intercepted)
+            mock.next(withTool.tools.sources, {
+              input: { query: 'cell' },
+              output: [{ id: '1', name: 'notes', text: 'Cells use energy' }]
+            });
 
-                  return Effect.succeed([{ id: '1', name: 'notes', text: 'Cells use energy' }]);
-                }
-              })
+          const executeTool: AgentsConfig['executeTool'] = intercepted
+            ? (call, execute) =>
+                mock.runtime.executeTool(call, execute).pipe(Effect.mapError(normalizeError))
+            : undefined;
+          const output = await Effect.runPromise(
+            generateAgent(withTool, 'x').pipe(
+              Effect.provide(
+                layer({
+                  observe: (observation) =>
+                    Effect.sync(() => {
+                      observed.push(observation.event.type);
+                    }),
+                  model: () => Effect.succeed(model),
+                  executeTool,
+                  language: 'en',
+                  rules: Effect.succeed(defaultAgentRules),
+                  searchSources: (query) => {
+                    queries.push(query);
+
+                    return Effect.succeed([{ id: '1', name: 'notes', text: 'Cells use energy' }]);
+                  }
+                })
+              )
             )
-          )
-        );
+          );
 
-        test.assert.ok(output === 'Cells use energy.');
-        test.expect(queries).toStrictEqual(intercepted ? [] : ['cell']);
-        test.expect(bodies[1]).toMatch(/Cells use energy/);
-        test
-          .expect(observed)
-          .toStrictEqual(['start', 'tool-start', 'tool-finish', 'text-delta', 'complete']);
-      }
-    );
-  });
+          assert.ok(output === 'Cells use energy.');
+          expect(queries).toStrictEqual(intercepted ? [] : ['cell']);
+          expect(bodies[1]).toMatch(/Cells use energy/);
+          expect(observed).toStrictEqual([
+            'start',
+            'tool-start',
+            'tool-finish',
+            'text-delta',
+            'complete'
+          ]);
+        }
+      );
+    }
+  );
 
 test.stable(
   'streams text before the provider completes and never completes a truncated response',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const { Stream } = await import('effect');
     const { streamAgent } = await import('#server/platform/ai/agents');
     let release!: () => void;
@@ -458,7 +489,7 @@ test.stable(
       }
     });
 
-    test.assert.ok(server.port, 'missing address');
+    assert.ok(server.port, 'missing address');
     const base = server.url.origin;
     const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
@@ -502,7 +533,7 @@ test.stable(
         )
       );
       const rejected = (async () => {
-        await test.expect(running).rejects.toThrow();
+        await expect(running).rejects.toThrow();
       })();
 
       try {
@@ -512,13 +543,13 @@ test.stable(
             setTimeout(() => reject(Error('delta was buffered')), 500)
           )
         ]);
-        test.expect(seen).toStrictEqual([{ type: 'text-delta', text: 'partial' }]);
+        expect(seen).toStrictEqual([{ type: 'text-delta', text: 'partial' }]);
       } finally {
         release();
       }
 
       await rejected;
-      test.expect(seen).toStrictEqual([{ type: 'text-delta', text: 'partial' }]);
+      expect(seen).toStrictEqual([{ type: 'text-delta', text: 'partial' }]);
     } finally {
       release();
       await auth.dispose();
@@ -527,105 +558,118 @@ test.stable(
   }
 );
 
-test.stable('retries rate-limited requests up to the configured limit', async () => {
-  let calls = 0;
+test.stable(
+  'retries rate-limited requests up to the configured limit',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  await peer(
-    (_req) => {
-      calls++;
+    let calls = 0;
 
-      return calls === 1 ? new Response(null, { status: 429 }) : send('ok');
-    },
-    async (base, auth) => {
-      test.assert.ok(
-        (await Effect.runPromise(
-          generateAgent(definition, 'x', { maxRetries: 1 }).pipe(
-            Effect.provide(service(base, auth))
-          )
-        )) === 'ok'
-      );
-      test.assert.strictEqual(calls, 2);
-    }
-  );
-});
-
-test.stable('cancellation after a delta never publishes completion', async () => {
-  let release!: () => void;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const seen: unknown[] = [];
-
-  try {
     await peer(
-      () =>
-        new Response(
-          new ReadableStream({
-            async start(controller) {
-              const encoder = new TextEncoder();
+      { assert },
+      (_req) => {
+        calls++;
 
-              for (const event of [
-                {
-                  type: 'response.output_item.added',
-                  output_index: 0,
-                  item: { type: 'message', id: 'm' }
-                },
-                { type: 'response.output_text.delta', item_id: 'm', delta: 'partial' }
-              ])
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
-
-              await gate;
-
-              try {
-                controller.enqueue(
-                  encoder.encode(
-                    `data: ${JSON.stringify({ type: 'response.completed', response: {} })}\n\n`
-                  )
-                );
-                controller.close();
-              } catch {
-                /* cancelled by client */
-              }
-            }
-          }),
-          { headers: { 'content-type': 'text/event-stream' } }
-        ),
+        return calls === 1 ? new Response(null, { status: 429 }) : send('ok');
+      },
       async (base, auth) => {
-        const controller = new AbortController();
-        const running = Effect.runPromise(
-          streamAgent(definition, 'x').pipe(
-            Stream.tap((event) => {
-              function recordAndAbort() {
-                seen.push(event);
-                controller.abort();
-                release();
-              }
-
-              return Effect.sync(recordAndAbort);
-            }),
-            Stream.runDrain,
-            Effect.provide(service(base, auth))
-          ),
-          { signal: controller.signal }
+        assert.ok(
+          (await Effect.runPromise(
+            generateAgent(definition, 'x', { maxRetries: 1 }).pipe(
+              Effect.provide(service(base, auth))
+            )
+          )) === 'ok'
         );
-
-        await test.expect(running).rejects.toThrow();
-        test.expect(seen).toStrictEqual([{ type: 'text-delta', text: 'partial' }]);
+        assert.strictEqual(calls, 2);
       }
     );
-  } finally {
-    release();
   }
-});
+);
 
-test.stable('rejects empty model output without publishing completion', async () => {
-  using mock = test.createAiMock();
+test.stable(
+  'cancellation after a delta never publishes completion',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  mock.next(definition, { input: 'x', output: '' });
-  const seen: AgentProgress<string>[] = [];
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const seen: unknown[] = [];
 
-  await test
-    .expect(
+    try {
+      await peer(
+        { assert },
+        () =>
+          new Response(
+            new ReadableStream({
+              async start(controller) {
+                const encoder = new TextEncoder();
+
+                for (const event of [
+                  {
+                    type: 'response.output_item.added',
+                    output_index: 0,
+                    item: { type: 'message', id: 'm' }
+                  },
+                  { type: 'response.output_text.delta', item_id: 'm', delta: 'partial' }
+                ])
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+
+                await gate;
+
+                try {
+                  controller.enqueue(
+                    encoder.encode(
+                      `data: ${JSON.stringify({ type: 'response.completed', response: {} })}\n\n`
+                    )
+                  );
+                  controller.close();
+                } catch {
+                  /* cancelled by client */
+                }
+              }
+            }),
+            { headers: { 'content-type': 'text/event-stream' } }
+          ),
+        async (base, auth) => {
+          const controller = new AbortController();
+          const running = Effect.runPromise(
+            streamAgent(definition, 'x').pipe(
+              Stream.tap((event) => {
+                function recordAndAbort() {
+                  seen.push(event);
+                  controller.abort();
+                  release();
+                }
+
+                return Effect.sync(recordAndAbort);
+              }),
+              Stream.runDrain,
+              Effect.provide(service(base, auth))
+            ),
+            { signal: controller.signal }
+          );
+
+          await expect(running).rejects.toThrow();
+          expect(seen).toStrictEqual([{ type: 'text-delta', text: 'partial' }]);
+        }
+      );
+    } finally {
+      release();
+    }
+  }
+);
+
+test.stable(
+  'rejects empty model output without publishing completion',
+  async ({ createAiMock, expect }) => {
+    using mock = createAiMock();
+
+    mock.next(definition, { input: 'x', output: '' });
+    const seen: AgentProgress<string>[] = [];
+
+    await expect(
       Effect.runPromise(
         streamAgent(definition, 'x').pipe(
           Stream.tap((event) => Effect.sync(() => seen.push(event))),
@@ -633,50 +677,58 @@ test.stable('rejects empty model output without publishing completion', async ()
           Effect.provide(mockService(mock))
         )
       )
-    )
-    .rejects.toThrow();
-  test.expect(seen.some((event) => event.type === 'complete')).toBe(false);
-});
+    ).rejects.toThrow();
+    expect(seen.some((event) => event.type === 'complete')).toBe(false);
+  }
+);
 
-test.stable('preserves note history in the native reply request', async () => {
-  const { replyAgent } = await import('#server/features/notes/agents/reply');
-  let body = '';
+test.stable(
+  'preserves note history in the native reply request',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  await peer(
-    (_req, request) => {
-      body = request;
+    const { replyAgent } = await import('#server/features/notes/agents/reply');
+    let body = '';
 
-      return send('read');
-    },
-    async (base, auth) => {
-      const messages = [
-        { role: 'user' as const, content: 'Earlier request' },
-        { role: 'assistant' as const, content: 'Earlier answer' },
-        { role: 'user' as const, content: 'Read these' }
-      ];
+    await peer(
+      { assert },
+      (_req, request) => {
+        body = request;
 
-      test.assert.ok(
-        (await Effect.runPromise(
-          generateAgent(replyAgent, { messages }).pipe(Effect.provide(service(base, auth)))
-        )) === 'read'
-      );
+        return send('read');
+      },
+      async (base, auth) => {
+        const messages = [
+          { role: 'user' as const, content: 'Earlier request' },
+          { role: 'assistant' as const, content: 'Earlier answer' },
+          { role: 'user' as const, content: 'Read these' }
+        ];
 
-      for (const value of ['Earlier request', 'Earlier answer', 'Read these'])
-        test.assert.ok(body.includes(value));
+        assert.ok(
+          (await Effect.runPromise(
+            generateAgent(replyAgent, { messages }).pipe(Effect.provide(service(base, auth)))
+          )) === 'read'
+        );
 
-      const request = JSON.parse(body);
+        for (const value of ['Earlier request', 'Earlier answer', 'Read these'])
+          assert.ok(body.includes(value));
 
-      test.expect(request.tools).toContainEqual({ type: 'web_search' });
-      test
-        .expect(request.tools)
-        .toContainEqual(test.expect.objectContaining({ type: 'function', name: 'sources' }));
-    }
-  );
-});
+        const request = JSON.parse(body);
+
+        expect(request.tools).toContainEqual({ type: 'web_search' });
+        expect(request.tools).toContainEqual(
+          expect.objectContaining({ type: 'function', name: 'sources' })
+        );
+      }
+    );
+  }
+);
 
 test.stable(
   'the Assistant keeps its local tools without gaining web search',
-  async ({ resources: resourcesFixture }) => {
+  async ({ resources: resourcesFixture, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { assistantAgent } = await import('#server/features/notes/agents/assistant');
     const fixture = resourcesFixture;
     const store = new ServerContext(await fixture.openDb());
@@ -685,6 +737,7 @@ test.stable(
     let body = '';
 
     await peer(
+      { assert },
       (_req, request) => {
         body = request;
 
@@ -698,8 +751,8 @@ test.stable(
         );
         const tools = JSON.parse(body).tools;
 
-        test.expect(tools.length).toBeGreaterThan(0);
-        test.expect(tools.every((tool: { type: string }) => tool.type === 'function')).toBe(true);
+        expect(tools.length).toBeGreaterThan(0);
+        expect(tools.every((tool: { type: string }) => tool.type === 'function')).toBe(true);
       }
     );
   }
@@ -707,12 +760,15 @@ test.stable(
 
 test.stable(
   'native web search completes inside the reply request without a local search executor',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { replyAgent } = await import('#server/features/notes/agents/reply');
     const answer = 'Verified with [OpenAI](https://openai.com/).';
     let requests = 0;
 
     await peer(
+      { assert },
       (_req) => {
         requests++;
         let events = '';
@@ -743,116 +799,138 @@ test.stable(
         return new Response(events, { headers: { 'content-type': 'text/event-stream' } });
       },
       async (base, auth) => {
-        test
-          .expect(
-            await Effect.runPromise(
-              generateAgent(replyAgent, {
-                messages: [{ role: 'user', content: 'Check online' }]
-              }).pipe(Effect.provide(service(base, auth)))
-            )
+        expect(
+          await Effect.runPromise(
+            generateAgent(replyAgent, {
+              messages: [{ role: 'user', content: 'Check online' }]
+            }).pipe(Effect.provide(service(base, auth)))
           )
-          .toBe(answer);
-        test.expect(requests).toBe(1);
+        ).toBe(answer);
+        expect(requests).toBe(1);
       }
     );
   }
 );
 
-test.stable('agents without a web search declaration never receive native web search', async () => {
-  let body = '';
+test.stable(
+  'agents without a web search declaration never receive native web search',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  await peer(
-    (_req, request) => {
-      body = request;
-
-      return send('Local answer');
-    },
-    async (base, auth) => {
-      await Effect.runPromise(
-        generateAgent(definition, 'Search online').pipe(Effect.provide(service(base, auth)))
-      );
-      test
-        .expect(JSON.parse(body).tools ?? [])
-        .not.toContainEqual(test.expect.objectContaining({ type: 'web_search' }));
-    }
-  );
-});
-
-test.stable('transcribes image and PDF bytes through the native vision API', async () => {
-  const { visionTranscriptionAgent } =
-    await import('#server/features/sources/agents/vision-transcription');
-
-  for (const [_kind, mime, expected] of [
-    ['image', 'image/png', 'input_image'],
-    ['pdf', 'application/pdf', 'input_file']
-  ] as const) {
     let body = '';
 
     await peer(
+      { assert },
       (_req, request) => {
         body = request;
 
-        return send(
-          JSON.stringify({ pages: [{ page: 1, blocks: [{ kind: 'paragraph', text: 'read' }] }] })
-        );
+        return send('Local answer');
       },
       async (base, auth) => {
-        const result = await Effect.runPromise(
-          generateAgent(visionTranscriptionAgent, {
-            prompt: 'Transcribe page 1',
-            data: new Uint8Array([1, 2, 3]),
-            mediaType: mime
-          }).pipe(Effect.provide(service(base, auth)))
+        await Effect.runPromise(
+          generateAgent(definition, 'Search online').pipe(Effect.provide(service(base, auth)))
         );
-
-        test.assert.ok(result.pages[0].blocks[0].text === 'read');
-        test.expect(body).toMatch(new RegExp(expected));
+        expect(JSON.parse(body).tools ?? []).not.toContainEqual(
+          expect.objectContaining({ type: 'web_search' })
+        );
       }
     );
   }
-});
+);
 
-test.stable('rejects invalid request limits before making a provider request', async () => {
-  using mock = test.createAiMock();
+test.stable(
+  'transcribes image and PDF bytes through the native vision API',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  for (const options of [
-    { maxSteps: 0 },
-    { maxSteps: 21 },
-    { maxRetries: -1 },
-    { maxRetries: 6 }
-  ]) {
-    const error = await Effect.runPromise(
-      Effect.flip(generateAgent(definition, 'x', options)).pipe(Effect.provide(mockService(mock)))
-    );
+    const { visionTranscriptionAgent } =
+      await import('#server/features/sources/agents/vision-transcription');
 
-    test.expect(error.kind).toBe('invalid_input');
+    for (const [_kind, mime, expected] of [
+      ['image', 'image/png', 'input_image'],
+      ['pdf', 'application/pdf', 'input_file']
+    ] as const) {
+      let body = '';
+
+      await peer(
+        { assert },
+        (_req, request) => {
+          body = request;
+
+          return send(
+            JSON.stringify({ pages: [{ page: 1, blocks: [{ kind: 'paragraph', text: 'read' }] }] })
+          );
+        },
+        async (base, auth) => {
+          const result = await Effect.runPromise(
+            generateAgent(visionTranscriptionAgent, {
+              prompt: 'Transcribe page 1',
+              data: new Uint8Array([1, 2, 3]),
+              mediaType: mime
+            }).pipe(Effect.provide(service(base, auth)))
+          );
+
+          assert.ok(result.pages[0].blocks[0].text === 'read');
+          expect(body).toMatch(new RegExp(expected));
+        }
+      );
+    }
   }
-});
+);
 
-test.stable('preserves the typed provider error after retries are exhausted', async () => {
-  await peer(
-    (_req) => {
-      return new Response(null, { status: 429 });
-    },
-    async (base, auth) => {
+test.stable(
+  'rejects invalid request limits before making a provider request',
+  async ({ createAiMock, expect }) => {
+    using mock = createAiMock();
+
+    for (const options of [
+      { maxSteps: 0 },
+      { maxSteps: 21 },
+      { maxRetries: -1 },
+      { maxRetries: 6 }
+    ]) {
       const error = await Effect.runPromise(
-        Effect.flip(generateAgent(definition, 'x')).pipe(Effect.provide(service(base, auth)))
+        Effect.flip(generateAgent(definition, 'x', options)).pipe(Effect.provide(mockService(mock)))
       );
 
-      test.assert.ok(error.kind === 'rate_limited');
-      test.assert.strictEqual(error.name, 'ChatGptRequestError');
+      expect(error.kind).toBe('invalid_input');
     }
-  );
-});
+  }
+);
+
+test.stable(
+  'preserves the typed provider error after retries are exhausted',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    await peer(
+      { assert },
+      (_req) => {
+        return new Response(null, { status: 429 });
+      },
+      async (base, auth) => {
+        const error = await Effect.runPromise(
+          Effect.flip(generateAgent(definition, 'x')).pipe(Effect.provide(service(base, auth)))
+        );
+
+        assert.ok(error.kind === 'rate_limited');
+        assert.strictEqual(error.name, 'ChatGptRequestError');
+      }
+    );
+  }
+);
 
 test.stable(
   'canonical quiz agent accepts exactly one correct choice and rejects inconsistent answers',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const { quizAgent } = await import('#server/features/materials/agents/quiz');
     let validAnswer = true;
     let requests = 0;
 
     await peer(
+      { assert },
       (_req) => {
         requests++;
 
@@ -881,10 +959,10 @@ test.stable(
             )
           );
 
-        test.assert.ok((await run()).questions[0]?.kind === 'single_choice');
+        assert.ok((await run()).questions[0]?.kind === 'single_choice');
         validAnswer = false;
-        await test.expect(run()).rejects.toThrow();
-        test.assert.strictEqual(requests, 2);
+        await expect(run()).rejects.toThrow();
+        assert.strictEqual(requests, 2);
       }
     );
   }
@@ -892,10 +970,13 @@ test.stable(
 
 test.stable(
   'generic model request checks fail in the typed lane before provider work',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     let calls = 0;
 
     await peer(
+      { assert },
       (_req) => {
         calls++;
 
@@ -924,93 +1005,107 @@ test.stable(
           )
         );
 
-        test.assert.ok(failure.kind === 'cancelled');
-        test.assert.strictEqual(calls, 0);
+        assert.ok(failure.kind === 'cancelled');
+        assert.strictEqual(calls, 0);
       }
     );
   }
 );
 
-test.stable('slow consumers receive all large deltas and the validated completion', async () => {
-  const delta = 'x'.repeat(4096);
-  const count = 80;
+test.stable(
+  'slow consumers receive all large deltas and the validated completion',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  await peer(
-    (_req) => {
-      const events = [
-        { type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } },
-        ...Array.from({ length: count }, () => ({
-          type: 'response.output_text.delta',
-          item_id: 'm',
-          delta
-        })),
-        { type: 'response.completed', response: {} }
-      ];
-      let index = 0;
+    const delta = 'x'.repeat(4096);
+    const count = 80;
 
-      return new Response(
-        new ReadableStream({
-          pull(controller) {
-            if (index === events.length) controller.close();
-            else
-              controller.enqueue(
-                new TextEncoder().encode(`data: ${JSON.stringify(events[index++])}\n\n`)
-              );
-          }
-        }),
-        { headers: { 'content-type': 'text/event-stream' } }
-      );
-    },
-    async (base, auth) => {
-      const events = await Effect.runPromise(
-        streamAgent(definition, 'x').pipe(
-          Stream.tap(() => Effect.sleep('1 millis')),
-          Stream.runCollect,
-          Effect.provide(service(base, auth))
-        )
-      );
-      const deltas = events.filter((event) => event.type === 'text-delta');
+    await peer(
+      { assert },
+      (_req) => {
+        const events = [
+          {
+            type: 'response.output_item.added',
+            output_index: 0,
+            item: { type: 'message', id: 'm' }
+          },
+          ...Array.from({ length: count }, () => ({
+            type: 'response.output_text.delta',
+            item_id: 'm',
+            delta
+          })),
+          { type: 'response.completed', response: {} }
+        ];
+        let index = 0;
 
-      test.assert.strictEqual(deltas.map((event) => event.text).join(''), delta.repeat(count));
-      test.expect(events.at(-1)).toStrictEqual({ type: 'complete', output: delta.repeat(count) });
-    }
-  );
-});
+        return new Response(
+          new ReadableStream({
+            pull(controller) {
+              if (index === events.length) controller.close();
+              else
+                controller.enqueue(
+                  new TextEncoder().encode(`data: ${JSON.stringify(events[index++])}\n\n`)
+                );
+            }
+          }),
+          { headers: { 'content-type': 'text/event-stream' } }
+        );
+      },
+      async (base, auth) => {
+        const events = await Effect.runPromise(
+          streamAgent(definition, 'x').pipe(
+            Stream.tap(() => Effect.sleep('1 millis')),
+            Stream.runCollect,
+            Effect.provide(service(base, auth))
+          )
+        );
+        const deltas = events.filter((event) => event.type === 'text-delta');
 
-test.stable('never retries a failed response after publishing a delta', async () => {
-  let calls = 0;
-  let finish!: () => void;
+        assert.strictEqual(deltas.map((event) => event.text).join(''), delta.repeat(count));
+        expect(events.at(-1)).toStrictEqual({ type: 'complete', output: delta.repeat(count) });
+      }
+    );
+  }
+);
 
-  await peer(
-    (_req) => {
-      calls++;
+test.stable(
+  'never retries a failed response after publishing a delta',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-      return new Response(
-        new ReadableStream({
-          start(controller) {
-            const events = [
-              {
-                type: 'response.output_item.added',
-                output_index: 0,
-                item: { type: 'message', id: 'm' }
-              },
-              { type: 'response.output_text.delta', item_id: 'm', delta: 'partial' }
-            ];
+    let calls = 0;
+    let finish!: () => void;
 
-            for (const event of events)
-              controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`));
+    await peer(
+      { assert },
+      (_req) => {
+        calls++;
 
-            finish = () => controller.close();
-          }
-        }),
-        { headers: { 'content-type': 'text/event-stream' } }
-      );
-    },
-    async (base, auth) => {
-      const seen: string[] = [];
+        return new Response(
+          new ReadableStream({
+            start(controller) {
+              const events = [
+                {
+                  type: 'response.output_item.added',
+                  output_index: 0,
+                  item: { type: 'message', id: 'm' }
+                },
+                { type: 'response.output_text.delta', item_id: 'm', delta: 'partial' }
+              ];
 
-      await test
-        .expect(
+              for (const event of events)
+                controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`));
+
+              finish = () => controller.close();
+            }
+          }),
+          { headers: { 'content-type': 'text/event-stream' } }
+        );
+      },
+      async (base, auth) => {
+        const seen: string[] = [];
+
+        await expect(
           Effect.runPromise(
             streamAgent(definition, 'x', { maxRetries: 3 }).pipe(
               Stream.tap((event) => {
@@ -1025,17 +1120,19 @@ test.stable('never retries a failed response after publishing a delta', async ()
               Effect.provide(service(base, auth))
             )
           )
-        )
-        .rejects.toThrow();
-      test.expect(seen).toStrictEqual(['text-delta']);
-      test.assert.strictEqual(calls, 1);
-    }
-  );
-});
+        ).rejects.toThrow();
+        expect(seen).toStrictEqual(['text-delta']);
+        assert.strictEqual(calls, 1);
+      }
+    );
+  }
+);
 
 test.stable(
   'local interruption closes the request without retries or durable cancellation',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     let calls = 0;
     const observed: string[] = [];
     let closed!: () => void;
@@ -1049,6 +1146,7 @@ test.stable(
       });
 
     await peer(
+      { assert },
       (_req) => {
         calls++;
         _req.signal.addEventListener('abort', closed, { once: true });
@@ -1070,39 +1168,46 @@ test.stable(
         while (calls === 0) await new Promise((resolve) => setTimeout(resolve, 5));
 
         controller.abort();
-        await test.expect(running).rejects.toThrow();
+        await expect(running).rejects.toThrow();
         await requestClosed;
-        test.assert.strictEqual(calls, 1);
-        test.expect(observed).toStrictEqual(['start']);
+        assert.strictEqual(calls, 1);
+        expect(observed).toStrictEqual(['start']);
       }
     );
   }
 );
 
-test.stable('decoder exceptions remain typed input failures before provider work', async () => {
-  using mock = test.createAiMock();
+test.stable(
+  'decoder exceptions remain typed input failures before provider work',
+  async ({ createAiMock, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  const guarded = defineAgent({
-    ...definition,
-    input: Schema.Struct({ prompt: Schema.String }),
-    prompt: (input) => input.prompt
-  });
-  const input = {
-    get prompt(): string {
-      throw new Error('private decoder failure');
-    }
-  };
-  const failure = await Effect.runPromise(
-    Effect.flip(generateAgent(guarded, input)).pipe(Effect.provide(mockService(mock)))
-  );
+    using mock = createAiMock();
 
-  test.assert.ok(failure.kind === 'invalid_input');
-  test.assert.ok(failure.message === 'Invalid agent input');
-});
+    const guarded = defineAgent({
+      ...definition,
+      input: Schema.Struct({ prompt: Schema.String }),
+      prompt: (input) => input.prompt
+    });
+    const input = {
+      get prompt(): string {
+        throw new Error('private decoder failure');
+      }
+    };
+    const failure = await Effect.runPromise(
+      Effect.flip(generateAgent(guarded, input)).pipe(Effect.provide(mockService(mock)))
+    );
+
+    assert.ok(failure.kind === 'invalid_input');
+    assert.ok(failure.message === 'Invalid agent input');
+  }
+);
 
 test.stable(
   'injects only selected rules, composes title rules and reloads preferences for each run',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     let rules = {
       ...defaultAgentRules,
       quizzes: 'Use application questions.',
@@ -1112,6 +1217,7 @@ test.stable(
     const bodies: string[] = [];
 
     await peer(
+      { assert },
       (_req, body) => {
         bodies.push(body);
 
@@ -1134,105 +1240,123 @@ test.stable(
           Effect.runPromise(generateAgent(agent, 'question').pipe(Effect.provide(configured)));
 
         await run();
-        test.expect(bodies[0]).toContain('Base instructions in en');
-        test.expect(bodies[0]).toContain('Use application questions.');
-        test.expect(bodies[0]).toContain('Use descriptive titles.');
-        test.expect(bodies[0]).not.toContain('UNRELATED DOCUMENT RULE');
+        expect(bodies[0]).toContain('Base instructions in en');
+        expect(bodies[0]).toContain('Use application questions.');
+        expect(bodies[0]).toContain('Use descriptive titles.');
+        expect(bodies[0]).not.toContain('UNRELATED DOCUMENT RULE');
         rules = { ...rules, quizzes: 'Updated quiz preference.', titles: '   ' };
         await run();
-        test.expect(bodies[1]).toContain('Updated quiz preference.');
-        test.expect(bodies[1]).not.toContain('Use application questions.');
-        test.expect(bodies[1]).not.toContain('Use descriptive titles.');
+        expect(bodies[1]).toContain('Updated quiz preference.');
+        expect(bodies[1]).not.toContain('Use application questions.');
+        expect(bodies[1]).not.toContain('Use descriptive titles.');
         rules = defaultAgentRules;
         await run();
-        test.expect(bodies[2]).not.toContain('User preferences');
-        test.expect(bodies[2]).toContain('Base instructions in en');
+        expect(bodies[2]).not.toContain('User preferences');
+        expect(bodies[2]).toContain('Base instructions in en');
       }
     );
   }
 );
 
-test.stable('records provider usage even when an agent rejects the generated output', async () => {
-  const records: { input: number; output: number; incomplete: boolean }[] = [];
-  const recordUsage: NonNullable<AgentsConfig['recordUsage']> = (record) =>
-    Effect.sync(() => {
-      records.push(record);
-    });
+test.stable(
+  'records provider usage even when an agent rejects the generated output',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  await peer(
-    (_req) => send('not valid JSON'),
-    async (base, auth) => {
-      const exit = await Effect.runPromise(
-        Effect.exit(
-          generateAgent(objectDefinition, 'count').pipe(
-            Effect.provide(service(base, auth, undefined, recordUsage))
+    const records: { input: number; output: number; incomplete: boolean }[] = [];
+    const recordUsage: NonNullable<AgentsConfig['recordUsage']> = (record) =>
+      Effect.sync(() => {
+        records.push(record);
+      });
+
+    await peer(
+      { assert },
+      (_req) => send('not valid JSON'),
+      async (base, auth) => {
+        const exit = await Effect.runPromise(
+          Effect.exit(
+            generateAgent(objectDefinition, 'count').pipe(
+              Effect.provide(service(base, auth, undefined, recordUsage))
+            )
           )
-        )
-      );
+        );
 
-      test.expect(exit._tag).toBe('Failure');
-      test.expect(records).toHaveLength(1);
-      test.expect(records[0]).toMatchObject({ input: 0, output: 0, incomplete: true });
-    }
-  );
-});
+        expect(exit._tag).toBe('Failure');
+        expect(records).toHaveLength(1);
+        expect(records[0]).toMatchObject({ input: 0, output: 0, incomplete: true });
+      }
+    );
+  }
+);
 
-test.stable('retains provider-reported tokens when ChatGPT truncates a response', async () => {
-  const records: { input: number; output: number }[] = [];
-  const recordUsage: NonNullable<AgentsConfig['recordUsage']> = (record) =>
-    Effect.sync(() => {
-      records.push(record);
-    });
+test.stable(
+  'retains provider-reported tokens when ChatGPT truncates a response',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  await peer(
-    (_req) => {
-      let events = '';
+    const records: { input: number; output: number }[] = [];
+    const recordUsage: NonNullable<AgentsConfig['recordUsage']> = (record) =>
+      Effect.sync(() => {
+        records.push(record);
+      });
 
-      for (const event of [
-        { type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } },
-        { type: 'response.output_text.delta', item_id: 'm', delta: 'Partial answer' },
-        {
-          type: 'response.incomplete',
-          response: {
-            incomplete_details: { reason: 'max_output_tokens' },
-            usage: {
-              input_tokens: 100,
-              output_tokens: 20,
-              input_tokens_details: { cached_tokens: 80 },
-              output_tokens_details: { reasoning_tokens: 5 }
+    await peer(
+      { assert },
+      (_req) => {
+        let events = '';
+
+        for (const event of [
+          {
+            type: 'response.output_item.added',
+            output_index: 0,
+            item: { type: 'message', id: 'm' }
+          },
+          { type: 'response.output_text.delta', item_id: 'm', delta: 'Partial answer' },
+          {
+            type: 'response.incomplete',
+            response: {
+              incomplete_details: { reason: 'max_output_tokens' },
+              usage: {
+                input_tokens: 100,
+                output_tokens: 20,
+                input_tokens_details: { cached_tokens: 80 },
+                output_tokens_details: { reasoning_tokens: 5 }
+              }
             }
           }
-        }
-      ])
-        events += `data: ${JSON.stringify(event)}\n\n`;
+        ])
+          events += `data: ${JSON.stringify(event)}\n\n`;
 
-      return new Response(events, { headers: { 'content-type': 'text/event-stream' } });
-    },
-    async (base, auth) => {
-      const exit = await Effect.runPromise(
-        Effect.exit(
-          generateAgent(definition, 'cells').pipe(
-            Effect.provide(service(base, auth, undefined, recordUsage))
+        return new Response(events, { headers: { 'content-type': 'text/event-stream' } });
+      },
+      async (base, auth) => {
+        const exit = await Effect.runPromise(
+          Effect.exit(
+            generateAgent(definition, 'cells').pipe(
+              Effect.provide(service(base, auth, undefined, recordUsage))
+            )
           )
-        )
-      );
+        );
 
-      test.expect(exit._tag).toBe('Failure');
-      test.expect(records).toHaveLength(1);
-      test.expect(records[0]).toMatchObject({
-        input: 100,
-        output: 20,
-        cacheRead: 80,
-        reasoning: 5,
-        incomplete: false
-      });
-    }
-  );
-});
+        expect(exit._tag).toBe('Failure');
+        expect(records).toHaveLength(1);
+        expect(records[0]).toMatchObject({
+          input: 100,
+          output: 20,
+          cacheRead: 80,
+          reasoning: 5,
+          incomplete: false
+        });
+      }
+    );
+  }
+);
 
 test.stable(
   'decodes JSON optional identifiers in structured agent output before publication',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const generated = {
       title: 'Cells',
       content: {
@@ -1245,6 +1369,7 @@ test.stable(
     };
 
     await peer(
+      { assert },
       (_req) => send(JSON.stringify(generated)),
       async (base, auth) => {
         const result = await Effect.runPromise(
@@ -1254,7 +1379,7 @@ test.stable(
           ).pipe(Effect.provide(service(base, auth)))
         );
 
-        test.expect(result).toStrictEqual({
+        expect(result).toStrictEqual({
           ...generated,
           content: {
             ...generated.content,
@@ -1269,36 +1394,39 @@ test.stable(
   }
 );
 
-test.stable('model adapters receive the actual agent contract and validated input', async () => {
-  using mock = test.createAiMock();
+test.stable(
+  'model adapters receive the actual agent contract and validated input',
+  async ({ createAiMock, expect }) => {
+    using mock = createAiMock();
 
-  const expected = mock.next(definition, { input: 'cells', output: 'Biology' });
-  const output = await Effect.runPromise(
-    generateAgent(definition, 'cells').pipe(
-      Effect.provide(
-        layer({
-          model: (tier, call) => {
-            test.expect(call.definition).toBe(definition);
-            test.expect(call.input).toBe('cells');
+    const expected = mock.next(definition, { input: 'cells', output: 'Biology' });
+    const output = await Effect.runPromise(
+      generateAgent(definition, 'cells').pipe(
+        Effect.provide(
+          layer({
+            model: (tier, call) => {
+              expect(call.definition).toBe(definition);
+              expect(call.input).toBe('cells');
 
-            return mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError));
-          },
-          language: 'en',
-          rules: Effect.succeed(defaultAgentRules),
-          searchSources: () => Effect.succeed([])
-        })
+              return mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError));
+            },
+            language: 'en',
+            rules: Effect.succeed(defaultAgentRules),
+            searchSources: () => Effect.succeed([])
+          })
+        )
       )
-    )
-  );
+    );
 
-  test.expect((await expected.called).input).toBe('cells');
-  test.expect(output).toBe('Biology');
-});
+    expect((await expected.called).input).toBe('cells');
+    expect(output).toBe('Biology');
+  }
+);
 
 test.stable(
   'internal provider retries cannot consume the next agent invocation expectation',
-  async () => {
-    using mock = test.createAiMock();
+  async ({ createAiMock, expect }) => {
+    using mock = createAiMock();
     const unavailable = new StudyError('transient', 'Try this logical call again later');
 
     mock.failNext(definition, { input: 'cells', error: unavailable });
@@ -1317,11 +1445,9 @@ test.stable(
       )
     );
 
-    test.expect(failed.kind).toBe('transient');
-    test
-      .expect(
-        await Effect.runPromise(generateAgent(definition, 'cells').pipe(Effect.provide(services)))
-      )
-      .toBe('The next logical call');
+    expect(failed.kind).toBe('transient');
+    expect(
+      await Effect.runPromise(generateAgent(definition, 'cells').pipe(Effect.provide(services)))
+    ).toBe('The next logical call');
   }
 );

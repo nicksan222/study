@@ -26,20 +26,24 @@ test.beforeEach(async ({ mock }) => {
   SidebarView = __studyMockModule1.SidebarView;
 });
 
-function renderSidebar(children: ReactNode) {
-  const fixture = test.rpcTestTransport(async () => defaultWorkspacePreferences);
+function renderSidebar(
+  { rpcTestTransport, renderInRouter }: Pick<test.Context, 'rpcTestTransport' | 'renderInRouter'>,
+  children: ReactNode
+) {
+  const fixture = rpcTestTransport(async () => defaultWorkspacePreferences);
 
-  return test.renderInRouter(<fixture.wrapper>{children}</fixture.wrapper>);
+  return renderInRouter(<fixture.wrapper>{children}</fixture.wrapper>);
 }
 
 test.stable(
   'renders invalid subjects and invokes retry callbacks without fetching data',
-  async () => {
-    const user = test.userEvent.setup();
-    const reloadSubjects = test.vi.fn();
-    const fetch = test.vi.spyOn(globalThis, 'fetch');
+  async ({ userEvent, vi, expect, screen, rpcTestTransport, renderInRouter }) => {
+    const user = userEvent.setup();
+    const reloadSubjects = vi.fn();
+    const fetch = vi.spyOn(globalThis, 'fetch');
 
     renderSidebar(
+      { rpcTestTransport, renderInRouter },
       <SidebarView
         {...sidebarModel()}
         invalidSubject
@@ -48,94 +52,123 @@ test.stable(
         collection={null}
       />
     );
-    test.expect(await test.screen.findByText(catalogs.english.SubjectNotFound)).toBeInTheDocument();
-    await user.click(test.screen.getByRole('button', { name: catalogs.english.SubjectsLoadError }));
-    test.expect(reloadSubjects).toHaveBeenCalledOnce();
-    test.expect(fetch).not.toHaveBeenCalled();
+    expect(await screen.findByText(catalogs.english.SubjectNotFound)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: catalogs.english.SubjectsLoadError }));
+    expect(reloadSubjects).toHaveBeenCalledOnce();
+    expect(fetch).not.toHaveBeenCalled();
   }
 );
 
-test.stable('allows creating an unfiled note from an empty note list', async () => {
-  const user = test.userEvent.setup();
-  const createNote = test.vi.fn();
+test.stable(
+  'allows creating an unfiled note from an empty note list',
+  async ({ userEvent, vi, expect, screen, rpcTestTransport, renderInRouter }) => {
+    const user = userEvent.setup();
+    const createNote = vi.fn();
 
-  renderSidebar(<SidebarView {...sidebarModel()} createNote={createNote} collection={null} />);
-  test.expect(await test.screen.findByText(catalogs.english.DashboardNoNotes)).toBeInTheDocument();
-  const create = test.screen.getByRole('button', { name: catalogs.english.NewNote });
+    renderSidebar(
+      { rpcTestTransport, renderInRouter },
+      <SidebarView {...sidebarModel()} createNote={createNote} collection={null} />
+    );
+    expect(await screen.findByText(catalogs.english.DashboardNoNotes)).toBeInTheDocument();
+    const create = screen.getByRole('button', { name: catalogs.english.NewNote });
 
-  test.expect(create).toBeEnabled();
-  await user.click(create);
-  test.expect(createNote).toHaveBeenCalledOnce();
-});
+    expect(create).toBeEnabled();
+    await user.click(create);
+    expect(createNote).toHaveBeenCalledOnce();
+  }
+);
 
-test.stable('announces note loading once through the shared indicator', async () => {
-  renderSidebar(<SidebarView {...sidebarModel()} noteState="loading" collection={null} />);
+test.stable(
+  'announces note loading once through the shared indicator',
+  async ({ expect, screen, rpcTestTransport, renderInRouter }) => {
+    renderSidebar(
+      { rpcTestTransport, renderInRouter },
+      <SidebarView {...sidebarModel()} noteState="loading" collection={null} />
+    );
 
-  test
-    .expect(await test.screen.findByRole('status'))
-    .toHaveTextContent(catalogs.english.LoadingNotes);
-  test.expect(test.screen.getAllByRole('status')).toHaveLength(1);
-});
+    expect(await screen.findByRole('status')).toHaveTextContent(catalogs.english.LoadingNotes);
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+  }
+);
 
-test.stable('shows the shared search indicator while search results are pending', async () => {
-  renderSidebar(<SidebarView {...sidebarModel()} query="biology" collection={null} />);
+test.stable(
+  'shows the shared search indicator while search results are pending',
+  async ({ expect, screen, rpcTestTransport, renderInRouter }) => {
+    renderSidebar(
+      { rpcTestTransport, renderInRouter },
+      <SidebarView {...sidebarModel()} query="biology" collection={null} />
+    );
 
-  test.expect(await test.screen.findByRole('status')).toHaveTextContent(catalogs.english.Searching);
-  test.expect(test.screen.getAllByRole('status')).toHaveLength(1);
-});
+    expect(await screen.findByRole('status')).toHaveTextContent(catalogs.english.Searching);
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+  }
+);
 
-test.stable('shows localized loading in the subject picker', async () => {
-  renderSidebar(
-    <SidebarView {...sidebarModel()} pickerOpen subjectState="loading" collection={null} />
-  );
+test.stable(
+  'shows localized loading in the subject picker',
+  async ({ expect, screen, rpcTestTransport, renderInRouter }) => {
+    renderSidebar(
+      { rpcTestTransport, renderInRouter },
+      <SidebarView {...sidebarModel()} pickerOpen subjectState="loading" collection={null} />
+    );
 
-  test.expect(await test.screen.findByText(catalogs.english.LoadingSubjects)).toBeInTheDocument();
-});
+    expect(await screen.findByText(catalogs.english.LoadingSubjects)).toBeInTheDocument();
+  }
+);
 
 test.stable(
   'keeps a saving subject disabled with one loading announcement in the dialog',
-  async () => {
+  async ({ screen, within, expect, rpcTestTransport, renderInRouter }) => {
     renderSidebar(
+      { rpcTestTransport, renderInRouter },
       <SidebarView {...sidebarModel()} newSubjectOpen creating name="Biology" collection={null} />
     );
-    const dialog = await test.screen.findByRole('dialog');
-    const saving = test.within(dialog).getByRole('button', { name: catalogs.english.Saving });
+    const dialog = await screen.findByRole('dialog');
+    const saving = within(dialog).getByRole('button', { name: catalogs.english.Saving });
 
-    test.expect(saving).toBeDisabled();
-    test.expect(test.within(dialog).getAllByRole('status')).toHaveLength(1);
-    test.expect(test.within(dialog).getByRole('status')).toHaveTextContent(catalogs.english.Saving);
+    expect(saving).toBeDisabled();
+    expect(within(dialog).getAllByRole('status')).toHaveLength(1);
+    expect(within(dialog).getByRole('status')).toHaveTextContent(catalogs.english.Saving);
   }
 );
 
-test.stable('offers page creation instead of note creation in Pages', async () => {
-  renderSidebar(
-    <SidebarView
-      {...sidebarModel()}
-      metadata={{ title: 'SourcePage', section: 'pages', scope: 'project' }}
-      section="pages"
-      collection={null}
-    />
-  );
+test.stable(
+  'offers page creation instead of note creation in Pages',
+  async ({ expect, screen, rpcTestTransport, renderInRouter }) => {
+    renderSidebar(
+      { rpcTestTransport, renderInRouter },
+      <SidebarView
+        {...sidebarModel()}
+        metadata={{ title: 'SourcePage', section: 'pages', scope: 'project' }}
+        section="pages"
+        collection={null}
+      />
+    );
 
-  test
-    .expect(await test.screen.findByRole('button', { name: catalogs.english.NoteCreatePage }))
-    .toBeEnabled();
-  test
-    .expect(test.screen.queryByRole('button', { name: catalogs.english.NewNote }))
-    .not.toBeInTheDocument();
-});
+    expect(
+      await screen.findByRole('button', { name: catalogs.english.NoteCreatePage })
+    ).toBeEnabled();
+    expect(
+      screen.queryByRole('button', { name: catalogs.english.NewNote })
+    ).not.toBeInTheDocument();
+  }
+);
 
-test.stable('does not offer note creation on unrelated pages', async () => {
-  renderSidebar(
-    <SidebarView
-      {...sidebarModel()}
-      metadata={{ title: 'Help', section: 'notes', scope: 'global' }}
-      collection={null}
-    />
-  );
+test.stable(
+  'does not offer note creation on unrelated pages',
+  async ({ screen, expect, rpcTestTransport, renderInRouter }) => {
+    renderSidebar(
+      { rpcTestTransport, renderInRouter },
+      <SidebarView
+        {...sidebarModel()}
+        metadata={{ title: 'Help', section: 'notes', scope: 'global' }}
+        collection={null}
+      />
+    );
 
-  await test.screen.findByRole('button', { name: catalogs.english.NewProject });
-  test
-    .expect(test.screen.queryByRole('button', { name: catalogs.english.NewNote }))
-    .not.toBeInTheDocument();
-});
+    await screen.findByRole('button', { name: catalogs.english.NewProject });
+    expect(
+      screen.queryByRole('button', { name: catalogs.english.NewNote })
+    ).not.toBeInTheDocument();
+  }
+);

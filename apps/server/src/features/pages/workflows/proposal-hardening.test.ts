@@ -52,12 +52,14 @@ const document = (blocks: Block[]) => ({
 const json = (value: unknown) =>
   JSON.stringify(value, (_, item: unknown) => (typeof item === 'bigint' ? String(item) : item));
 
-function providerPrompt(body: string) {
+function providerPrompt({ assert: assertions }: Pick<test.Context, 'assert'>, body: string) {
+  const assert: test.Assert = assertions;
+
   const request = JSON.parse(body);
 
   const user = request.input.find((item: { role?: string }) => item.role === 'user');
 
-  test.assert.ok(user, 'Provider request must contain the captured user prompt');
+  assert.ok(user, 'Provider request must contain the captured user prompt');
 
   return {
     instructions: request.instructions as string,
@@ -111,13 +113,16 @@ function capturedBlockIds(capture: CapturedContext, selectedId: Block['id']) {
 }
 
 function assertProviderCapture(
+  { expect, assert: assertions }: Pick<test.Context, 'expect' | 'assert'>,
   { captured, instructions }: ReturnType<typeof providerPrompt>,
   capture: CapturedContext,
   input: CapturedContext['inputs'][number] | undefined
 ) {
-  test.expect(instructions).toMatch(/propose a revision of that exact target Page only/);
+  const assert: test.Assert = assertions;
 
-  test.assert.ok(captured.instruction === 'Clarify');
+  expect(instructions).toMatch(/propose a revision of that exact target Page only/);
+
+  assert.ok(captured.instruction === 'Clarify');
 
   const expectedRoles = capture.inputs.map((entry) =>
     input === undefined
@@ -127,24 +132,20 @@ function assertProviderCapture(
         : 'supporting_evidence'
   );
 
-  test
-    .expect(captured.inputs.map((entry: { role: string }) => entry.role))
-    .toStrictEqual(expectedRoles);
+  expect(captured.inputs.map((entry: { role: string }) => entry.role)).toStrictEqual(expectedRoles);
 
-  test
-    .expect(
-      captured.inputs[2].excerpts.map((excerpt: { text: string; start: number; end: number }) => [
-        excerpt.text,
-        excerpt.start,
-        excerpt.end
-      ])
-    )
-    .toStrictEqual([['HIDDEN BEFORE alpha evidence HIDDEN AFTER', 0, 41]]);
+  expect(
+    captured.inputs[2].excerpts.map((excerpt: { text: string; start: number; end: number }) => [
+      excerpt.text,
+      excerpt.start,
+      excerpt.end
+    ])
+  ).toStrictEqual([['HIDDEN BEFORE alpha evidence HIDDEN AFTER', 0, 41]]);
 
-  test.assert.strictEqual(captured.editTarget === undefined, input === undefined);
+  assert.strictEqual(captured.editTarget === undefined, input === undefined);
 
   if (input)
-    test.expect(captured.editTarget).toStrictEqual(
+    expect(captured.editTarget).toStrictEqual(
       JSON.parse(
         json({
           input: input.input,
@@ -156,16 +157,21 @@ function assertProviderCapture(
     );
 }
 
-function assertGeneratedIdentity(value: {
-  versionId: PageVersionId;
-  requestId: string;
-  capture: CapturedContext;
-  input: CapturedContext['inputs'][number] | undefined;
-  retained: readonly Block[];
-  selectedId: Block['id'];
-  codeId: Block['id'];
-  remintCode: boolean;
-}) {
+function assertGeneratedIdentity(
+  { assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>,
+  value: {
+    versionId: PageVersionId;
+    requestId: string;
+    capture: CapturedContext;
+    input: CapturedContext['inputs'][number] | undefined;
+    retained: readonly Block[];
+    selectedId: Block['id'];
+    codeId: Block['id'];
+    remintCode: boolean;
+  }
+) {
+  const assert: test.Assert = assertions;
+
   return Effect.gen(function* () {
     const materials = yield* Pages;
 
@@ -175,20 +181,20 @@ function assertGeneratedIdentity(value: {
 
     const allInputIds = capturedBlockIds(value.capture, value.selectedId);
 
-    test.assert.strictEqual(version.status, value.input ? 'draft' : 'published');
+    assert.strictEqual(version.status, value.input ? 'draft' : 'published');
 
-    test.assert.strictEqual(new Set(ids).size, ids.length);
+    assert.strictEqual(new Set(ids).size, ids.length);
 
     if (value.input?.document) {
-      test.assert.strictEqual(version.pageId, value.input.pageId);
+      assert.strictEqual(version.pageId, value.input.pageId);
 
-      test
-        .expect(ids.slice(1, value.retained.length))
-        .toStrictEqual(value.retained.slice(1).map((block) => block.id));
+      expect(ids.slice(1, value.retained.length)).toStrictEqual(
+        value.retained.slice(1).map((block) => block.id)
+      );
 
-      test.assert.ok(!ids.includes(value.retained[0]!.id));
+      assert.ok(!ids.includes(value.retained[0]!.id));
 
-      if (value.remintCode) test.assert.notStrictEqual(ids.at(-1), value.codeId);
+      if (value.remintCode) assert.notStrictEqual(ids.at(-1), value.codeId);
 
       const comparison = yield* (yield* Pages).compareProposal({
         requestId: value.requestId
@@ -196,23 +202,23 @@ function assertGeneratedIdentity(value: {
 
       const retainedIds = new Set(value.retained.slice(1).map((block) => block.id));
 
-      test.assert.ok(
-        comparison.proposedChanges.every((change) => !retainedIds.has(change.blockId))
-      );
-    } else test.assert.ok(ids.every((id) => !allInputIds.includes(id)));
+      assert.ok(comparison.proposedChanges.every((change) => !retainedIds.has(change.blockId)));
+    } else assert.ok(ids.every((id) => !allInputIds.includes(id)));
 
     const generation = yield* materials.transform({
       requestId: value.requestId
     });
 
-    test.expect(generation.report?.notes[0]!.blockIds).toStrictEqual(ids);
+    expect(generation.report?.notes[0]!.blockIds).toStrictEqual(ids);
   });
 }
 
 test.stable(
   'A-target, B-target and no-target requests discriminate exact rich captures and preserve only target IDs',
   { timeout: 20000 },
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await pageTransformFixture(databases);
 
     try {
@@ -255,9 +261,9 @@ test.stable(
             document: document([selected])
           });
 
-          test.assert.ok(a.version);
-          test.assert.ok(b.version);
-          test.assert.ok(support.version);
+          assert.ok(a.version);
+          assert.ok(b.version);
+          assert.ok(support.version);
           yield* chats.updateNoteSelection({
             noteId: note.id,
             expectedRevision: 0n,
@@ -280,7 +286,7 @@ test.stable(
             preferences: {}
           });
 
-          test.assert.ok(whole.inputs[2]?.input.kind === 'page');
+          assert.ok(whole.inputs[2]?.input.kind === 'page');
 
           yield* chats.updateNoteSelection({
             noteId: note.id,
@@ -329,9 +335,9 @@ test.stable(
 
             const request = yield* chats.requestPageTransform(value);
 
-            test.assert.strictEqual((yield* chats.requestPageTransform(value)).id, request.id);
+            assert.strictEqual((yield* chats.requestPageTransform(value)).id, request.id);
 
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(
                 chats.requestPageTransform({
                   ...value,
@@ -361,14 +367,12 @@ test.stable(
         }).pipe(Effect.provide(f.domain()))
       );
 
-      test.assert.notStrictEqual(
+      assert.notStrictEqual(
         setup.requests[0]!.capture.requestId,
         setup.requests[1]!.capture.requestId
       );
 
-      test
-        .expect(setup.requests[0]!.capture.inputs)
-        .toStrictEqual(setup.requests[1]!.capture.inputs);
+      expect(setup.requests[0]!.capture.inputs).toStrictEqual(setup.requests[1]!.capture.inputs);
 
       const prompts = [];
 
@@ -413,39 +417,42 @@ test.stable(
           `discrimination-${index}`
         );
 
-        const { captured, instructions } = providerPrompt(f.bodies[bodyIndex]!);
+        const { captured, instructions } = providerPrompt({ assert }, f.bodies[bodyIndex]!);
 
         prompts.push(captured);
 
-        assertProviderCapture({ captured, instructions }, item.capture, input);
+        assertProviderCapture({ expect, assert }, { captured, instructions }, item.capture, input);
 
         for (const body of f.bodies.slice(bodyIndex)) {
-          test.assert.ok(body.includes('HIDDEN BEFORE'));
+          assert.ok(body.includes('HIDDEN BEFORE'));
 
-          test.assert.ok(body.includes('HIDDEN AFTER'));
+          assert.ok(body.includes('HIDDEN AFTER'));
 
-          test.assert.ok(!body.includes('LATEST PRIVATE TARGET'));
+          assert.ok(!body.includes('LATEST PRIVATE TARGET'));
         }
 
         await Effect.runPromise(
-          assertGeneratedIdentity({
-            versionId: result,
-            requestId: item.request.id,
-            capture: item.capture,
-            input,
-            retained,
-            selectedId: setup.selected.id,
-            codeId: setup.code.id,
-            remintCode: item.target === setup.a
-          }).pipe(Effect.provide(f.domain()))
+          assertGeneratedIdentity(
+            { assert, expect },
+            {
+              versionId: result,
+              requestId: item.request.id,
+              capture: item.capture,
+              input,
+              retained,
+              selectedId: setup.selected.id,
+              codeId: setup.code.id,
+              remintCode: item.target === setup.a
+            }
+          ).pipe(Effect.provide(f.domain()))
         );
       }
 
-      test.expect(prompts[0].editTarget).not.toStrictEqual(prompts[1].editTarget);
+      expect(prompts[0].editTarget).not.toStrictEqual(prompts[1].editTarget);
 
-      test.assert.strictEqual(f.context.db.orm.select().from(s.page_proposals).all().length, 2);
+      assert.strictEqual(f.context.db.orm.select().from(s.page_proposals).all().length, 2);
 
-      test.assert.strictEqual(f.bodies.length, 6);
+      assert.strictEqual(f.bodies.length, 6);
     } finally {
       await f.close();
     }
@@ -456,7 +463,9 @@ for (const barrier of ['cancel', 'delete'] as const) {
   test.stable(
     `target proposal ${barrier} during the native output Activity fences all late publication`,
     { timeout: 15000 },
-    async ({ databases }) => {
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
       const f = await pageTransformFixture(databases);
 
       try {
@@ -472,7 +481,7 @@ for (const barrier of ['cancel', 'delete'] as const) {
               document: document([paragraph('alpha target')])
             });
 
-            test.assert.ok(target.version);
+            assert.ok(target.version);
             const note = yield* chats.createNote({ title: 'In flight' });
 
             yield* (yield* Pages).attach({ noteId: note.id, pageId: target.id });
@@ -560,34 +569,32 @@ for (const barrier of ['cancel', 'delete'] as const) {
 
               yield* Deferred.succeed(release, undefined);
 
-              test.assert.ok(Exit.isFailure(yield* Fiber.await(fiber)));
+              assert.ok(Exit.isFailure(yield* Fiber.await(fiber)));
             })
           ).pipe(Effect.provide(f.services()), Effect.timeout('10 seconds'))
         );
 
         const after = output();
 
-        test.expect(after.pages).toStrictEqual(before.pages);
+        expect(after.pages).toStrictEqual(before.pages);
 
-        test.expect(after.blocks).toStrictEqual(before.blocks);
+        expect(after.blocks).toStrictEqual(before.blocks);
 
-        test.expect(after.proposals).toStrictEqual([]);
+        expect(after.proposals).toStrictEqual([]);
 
-        test.expect(after.proposalReceipts).toStrictEqual([]);
+        expect(after.proposalReceipts).toStrictEqual([]);
 
-        test.expect(after.published).toStrictEqual(before.published);
+        expect(after.published).toStrictEqual(before.published);
 
-        test.assert.strictEqual(f.bodies.length, 2);
+        assert.strictEqual(f.bodies.length, 2);
 
         await f.reopen();
 
-        await test
-          .expect(
-            f.executeAuthored(f.authoredEvent(setup.request.id), `target-fence-reopen-${barrier}`)
-          )
-          .rejects.toSatisfy(() => true);
+        await expect(
+          f.executeAuthored(f.authoredEvent(setup.request.id), `target-fence-reopen-${barrier}`)
+        ).rejects.toSatisfy(() => true);
 
-        test.assert.strictEqual(f.bodies.length, 2);
+        assert.strictEqual(f.bodies.length, 2);
 
         await Effect.runPromise(
           Effect.gen(function* () {
@@ -609,14 +616,14 @@ for (const barrier of ['cancel', 'delete'] as const) {
               })
             );
 
-            test.assert.strictEqual(
+            assert.strictEqual(
               (yield* (yield* Pages).page({ id: setup.target.id })).version?.id,
               setup.target.version.id
             );
           }).pipe(Effect.provide(f.domain()))
         );
 
-        test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+        expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         await f.close();
       }

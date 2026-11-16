@@ -23,27 +23,34 @@ import { adaptRequestCheck, adaptTool } from './tool-adapter.ts';
 
 test.stable(
   'provider preflights inherit the scoped logger and preserve typed failures',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const messages: unknown[] = [];
     const logger = Logger.make((entry) => messages.push(entry.message));
 
-    function* verifyScopedPreflights() {
+    function* verifyScopedPreflights({
+      assert: assertions,
+      expect
+    }: Pick<test.Context, 'assert' | 'expect'>) {
+      const assert: test.Assert = assertions;
+
       const context = yield* Effect.context<never>();
       const span = yield* Effect.currentSpan;
       const callback = adaptRequestCheck(Effect.logInfo('Preflight checked'), span, {}, context);
 
       yield* Effect.promise(() => callback(undefined));
-      test.assert.strictEqual(messages.length, 1);
+      assert.strictEqual(messages.length, 1);
       const error = new StudyError('invalid_input', 'stale request');
       const invalid = adaptRequestCheck(Effect.fail(error), span, {}, context);
 
       yield* Effect.promise(() =>
-        test.expect(invalid(undefined)).rejects.toSatisfy((actual: unknown) => actual === error)
+        expect(invalid(undefined)).rejects.toSatisfy((actual: unknown) => actual === error)
       );
     }
 
     await Effect.runPromise(
-      Effect.gen(verifyScopedPreflights).pipe(
+      Effect.gen(() => verifyScopedPreflights({ assert, expect })).pipe(
         Effect.withSpan('scoped-preflight'),
         Effect.provide(Logger.layer([logger]))
       )
@@ -108,18 +115,18 @@ async function executeWithProgress(
 
 test.stable(
   'tool previews bound actual inputs and results without truncating execution',
-  async () => {
+  async ({ expect }) => {
     const query = 'q'.repeat(13000);
     const output = 'r'.repeat(14000);
     const run = await executeWithProgress({ query }, (input) => {
-      test.expect(input.query).toBe(query);
+      expect(input.query).toBe(query);
 
       return Effect.succeed(output);
     });
 
-    test.expect(run.error).toBeUndefined();
-    test.expect(run.result).toBe(output);
-    test.expect(run.events).toEqual([
+    expect(run.error).toBeUndefined();
+    expect(run.result).toBe(output);
+    expect(run.events).toEqual([
       {
         type: 'tool-start',
         toolCallId: 'call',
@@ -137,7 +144,7 @@ test.stable(
   }
 );
 
-test.stable('invalid inputs finish the visible tool with a typed failure', async () => {
+test.stable('invalid inputs finish the visible tool with a typed failure', async ({ expect }) => {
   let executed = false;
   const run = await executeWithProgress({ query: 42 }, () => {
     executed = true;
@@ -145,9 +152,9 @@ test.stable('invalid inputs finish the visible tool with a typed failure', async
     return Effect.succeed('unused');
   });
 
-  test.expect(executed).toBe(false);
-  test.expect(run.error).toMatchObject({ kind: 'invalid_input' });
-  test.expect(run.events).toEqual([
+  expect(executed).toBe(false);
+  expect(run.error).toMatchObject({ kind: 'invalid_input' });
+  expect(run.events).toEqual([
     {
       type: 'tool-start',
       toolCallId: 'call',
@@ -166,12 +173,12 @@ test.stable('invalid inputs finish the visible tool with a typed failure', async
 
 test.stable(
   'typed tool failures retain their classification without exposing internal error text',
-  async () => {
+  async ({ expect }) => {
     const failure = new StudyError('not_found', 'private failure details');
     const run = await executeWithProgress({ query: 'topic' }, () => Effect.fail(failure));
 
-    test.expect(run.error).toBe(failure);
-    test.expect(run.events.at(-1)).toEqual({
+    expect(run.error).toBe(failure);
+    expect(run.events.at(-1)).toEqual({
       type: 'tool-finish',
       toolCallId: 'call',
       toolName: 'sources',
@@ -181,7 +188,7 @@ test.stable(
   }
 );
 
-test.stable('aborting a running tool emits a cancelled finish', async () => {
+test.stable('aborting a running tool emits a cancelled finish', async ({ expect }) => {
   const controller = new AbortController();
   const run = await executeWithProgress(
     { query: 'topic' },
@@ -189,8 +196,8 @@ test.stable('aborting a running tool emits a cancelled finish', async () => {
     controller.signal
   );
 
-  test.expect(run.error).toBeDefined();
-  test.expect(run.events.at(-1)).toEqual({
+  expect(run.error).toBeDefined();
+  expect(run.events.at(-1)).toEqual({
     type: 'tool-finish',
     toolCallId: 'call',
     toolName: 'sources',
@@ -199,12 +206,12 @@ test.stable('aborting a running tool emits a cancelled finish', async () => {
   });
 });
 
-test.stable('typed cancellation finishes as cancelled rather than failed', async () => {
+test.stable('typed cancellation finishes as cancelled rather than failed', async ({ expect }) => {
   const failure = new StudyError('cancelled', 'Tool lease expired');
   const run = await executeWithProgress({ query: 'topic' }, () => Effect.fail(failure));
 
-  test.expect(run.error).toBe(failure);
-  test.expect(run.events.at(-1)).toEqual({
+  expect(run.error).toBe(failure);
+  expect(run.events.at(-1)).toEqual({
     type: 'tool-finish',
     toolCallId: 'call',
     toolName: 'sources',
@@ -213,13 +220,13 @@ test.stable('typed cancellation finishes as cancelled rather than failed', async
   });
 });
 
-test.stable('unexpected tool defects finish as internal failures', async () => {
+test.stable('unexpected tool defects finish as internal failures', async ({ expect }) => {
   const run = await executeWithProgress({ query: 'topic' }, () =>
     Effect.die(new Error('private defect'))
   );
 
-  test.expect(run.error).toBeDefined();
-  test.expect(run.events.at(-1)).toEqual({
+  expect(run.error).toBeDefined();
+  expect(run.events.at(-1)).toEqual({
     type: 'tool-finish',
     toolCallId: 'call',
     toolName: 'sources',
@@ -230,7 +237,7 @@ test.stable('unexpected tool defects finish as internal failures', async () => {
 
 test.stable(
   'a failed success-preview write never reclassifies completed tool work as a failure',
-  async () => {
+  async ({ expect }) => {
     let executed = 0;
     const run = await executeWithProgress(
       { query: 'topic' },
@@ -247,9 +254,9 @@ test.stable(
           : Effect.void
     );
 
-    test.expect(executed).toBe(1);
-    test.expect(run.error).toBeDefined();
-    test.expect(run.events).toHaveLength(2);
-    test.expect(run.events.at(-1)).toMatchObject({ type: 'tool-finish', outcome: 'success' });
+    expect(executed).toBe(1);
+    expect(run.error).toBeDefined();
+    expect(run.events).toHaveLength(2);
+    expect(run.events.at(-1)).toMatchObject({ type: 'tool-finish', outcome: 'success' });
   }
 );

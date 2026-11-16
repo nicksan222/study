@@ -4,42 +4,52 @@ import { Schema } from 'effect';
 import { sourcePageInputSchema, sourceProcessingSchema } from '../src/sources/rpc.ts';
 import { sourceSchema } from '../src/sources/schemas.ts';
 
-test.stable('source pages require a bounded limit and preserve 64-bit cursors', () => {
-  const decode = Schema.decodeUnknownSync(sourcePageInputSchema);
+test.stable(
+  'source pages require a bounded limit and preserve 64-bit cursors',
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test.expect(decode({ limit: 20, before: 9007199254740993n })).toStrictEqual({
-    limit: 20,
-    before: 9007199254740993n
-  });
+    const decode = Schema.decodeUnknownSync(sourcePageInputSchema);
 
-  for (const limit of [0, -1, 101, 1.5, Infinity]) {
-    test.assert.throws(() => decode({ limit }));
+    expect(decode({ limit: 20, before: 9007199254740993n })).toStrictEqual({
+      limit: 20,
+      before: 9007199254740993n
+    });
+
+    for (const limit of [0, -1, 101, 1.5, Infinity]) {
+      assert.throws(() => decode({ limit }));
+    }
+
+    assert.throws(() => decode({}));
+    assert.throws(() => decode({ limit: 1, before: 0n }));
   }
+);
 
-  test.assert.throws(() => decode({}));
-  test.assert.throws(() => decode({ limit: 1, before: 0n }));
-});
+test.stable(
+  'source processing identities survive the native JSON codec',
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-test.stable('source processing identities survive the native JSON codec', () => {
-  const codec = Schema.toCodecJson(sourceProcessingSchema);
-  const value = {
-    sourceId: Schema.decodeUnknownSync(sourceProcessingSchema.fields.sourceId)(9007199254740993n),
-    revision: 2,
-    requestId: 'ingest-2',
-    documentId: null
-  };
-  const encoded = Schema.encodeSync(codec)(value);
+    const codec = Schema.toCodecJson(sourceProcessingSchema);
+    const value = {
+      sourceId: Schema.decodeUnknownSync(sourceProcessingSchema.fields.sourceId)(9007199254740993n),
+      revision: 2,
+      requestId: 'ingest-2',
+      documentId: null
+    };
+    const encoded = Schema.encodeSync(codec)(value);
 
-  test
-    .expect(Schema.decodeUnknownSync(codec)(JSON.parse(JSON.stringify(encoded))))
-    .toStrictEqual(value);
-  const decode = Schema.decodeUnknownSync(sourceProcessingSchema);
+    expect(Schema.decodeUnknownSync(codec)(JSON.parse(JSON.stringify(encoded)))).toStrictEqual(
+      value
+    );
+    const decode = Schema.decodeUnknownSync(sourceProcessingSchema);
 
-  test.assert.throws(() => decode({ ...value, revision: 0 }));
-  test.assert.throws(() => decode({ ...value, requestId: '' }));
-});
+    assert.throws(() => decode({ ...value, revision: 0 }));
+    assert.throws(() => decode({ ...value, requestId: '' }));
+  }
+);
 
-test.stable('canonical source bytes and large IDs have native wire codecs', () => {
+test.stable('canonical source bytes and large IDs have native wire codecs', ({ expect }) => {
   const codec = Schema.toCodecJson(sourceSchema);
   const source = Schema.decodeUnknownSync(sourceSchema)({
     id: 9007199254740993n,
@@ -57,5 +67,5 @@ test.stable('canonical source bytes and large IDs have native wire codecs', () =
 
   const wire = JSON.parse(JSON.stringify(Schema.encodeSync(codec)(source)));
 
-  test.expect(Schema.decodeUnknownSync(codec)(wire)).toStrictEqual(source);
+  expect(Schema.decodeUnknownSync(codec)(wire)).toStrictEqual(source);
 });

@@ -27,7 +27,9 @@ const success = (requestId: string | number = '42') =>
 
 test.stable(
   'creation proof requires the exact operation and request id, never reads or uploads',
-  () => {
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     for (const tag of [
       'notes.notes',
       'sources.upload',
@@ -37,15 +39,15 @@ test.stable(
       const frames = new CreationFrames();
 
       frames.request(request(tag));
-      test.assert.strictEqual(frames.response(success()), undefined);
+      assert.strictEqual(frames.response(success()), undefined);
     }
 
     const frames = new CreationFrames();
 
     frames.request(request('notes.createUntitledNote'));
-    test.assert.strictEqual(frames.response(success('different')), undefined);
-    test.assert.strictEqual(frames.response(success(42)), undefined);
-    test.assert.strictEqual(
+    assert.strictEqual(frames.response(success('different')), undefined);
+    assert.strictEqual(frames.response(success(42)), undefined);
+    assert.strictEqual(
       frames.response(
         bytes({
           _tag: 'Exit',
@@ -55,17 +57,19 @@ test.stable(
       ),
       undefined
     );
-    test.assert.strictEqual(
+    assert.strictEqual(
       frames.response(bytes({ _tag: 'Chunk', requestId: '42', values: [note] })),
       undefined
     );
-    test.assert.strictEqual(frames.response(success())?.note.id, 7n);
+    assert.strictEqual(frames.response(success())?.note.id, 7n);
   }
 );
 
 test.stable(
   'every byte split, including UTF-8 and the final newline, preserves complete Exit framing',
-  () => {
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const encoded = success();
     const encodedRequest = request('notes.createUntitledNote');
 
@@ -74,86 +78,96 @@ test.stable(
 
       for (const byte of encodedRequest) frames.request(Buffer.from([byte]));
 
-      test.assert.strictEqual(frames.response(encoded.subarray(0, split)), undefined);
-      test.assert.strictEqual(frames.response(encoded.subarray(split))?.note.title, note.title);
+      assert.strictEqual(frames.response(encoded.subarray(0, split)), undefined);
+      assert.strictEqual(frames.response(encoded.subarray(split))?.note.title, note.title);
     }
   }
 );
 
-test.stable('unarmed teardown rejects waiters and repeated arming is forbidden', async () => {
-  const fault = creationResponse();
-  const loss = fault.arm();
+test.stable(
+  'unarmed teardown rejects waiters and repeated arming is forbidden',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  test.assert.throws(() => fault.arm());
-  await fault.close();
-  await test.expect(loss.held).rejects.toBeDefined();
-  await fault.close();
-});
+    const fault = creationResponse();
+    const loss = fault.arm();
 
-test.stable('owner teardown terminates a creation response that arrives later', async () => {
-  const entered = Promise.withResolvers<void>();
-  const respond = Promise.withResolvers<void>();
-  const upstream = Bun.serve({
-    hostname: '127.0.0.1',
-    port: 0,
-    async fetch(incoming) {
-      await incoming.arrayBuffer();
-      entered.resolve();
-      await respond.promise;
+    assert.throws(() => fault.arm());
+    await fault.close();
+    await expect(loss.held).rejects.toBeDefined();
+    await fault.close();
+  }
+);
 
-      return new Response(success(), { headers: { 'content-type': 'application/ndjson' } });
-    }
-  });
-  const fault = creationResponse();
-  const loss = fault.arm();
-  const web = await createServer({
-    configFile: false,
-    server: {
-      host: '127.0.0.1',
+test.stable(
+  'owner teardown terminates a creation response that arrives later',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const entered = Promise.withResolvers<void>();
+    const respond = Promise.withResolvers<void>();
+    const upstream = Bun.serve({
+      hostname: '127.0.0.1',
       port: 0,
-      hmr: false,
-      proxy: { '/rpc': fault.proxy({ target: upstream.url.href }) }
-    },
-    optimizeDeps: { noDiscovery: true }
-  });
+      async fetch(incoming) {
+        await incoming.arrayBuffer();
+        entered.resolve();
+        await respond.promise;
 
-  try {
-    await web.listen();
-    const address = web.httpServer?.address();
-
-    test.assert.ok(address && typeof address !== 'string');
-    const signal = AbortSignal.timeout(5000);
-    const pending = fetch(`http://127.0.0.1:${address.port}/rpc`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/ndjson' },
-      body: new ReadableStream({
-        start(controller) {
-          controller.enqueue(request('notes.createUntitledNote'));
-          controller.close();
-        }
-      }),
-      signal
+        return new Response(success(), { headers: { 'content-type': 'application/ndjson' } });
+      }
+    });
+    const fault = creationResponse();
+    const loss = fault.arm();
+    const web = await createServer({
+      configFile: false,
+      server: {
+        host: '127.0.0.1',
+        port: 0,
+        hmr: false,
+        proxy: { '/rpc': fault.proxy({ target: upstream.url.href }) }
+      },
+      optimizeDeps: { noDiscovery: true }
     });
 
-    await entered.promise;
-    await fault.close();
-    await test.expect(loss.held).rejects.toThrow('Creation response owner closed before commit');
-    respond.resolve();
-    const body = await pending.then((response) => response.text()).catch(() => null);
+    try {
+      await web.listen();
+      const address = web.httpServer?.address();
 
-    test.assert.ok(body === null || body === '', 'closed exchange must not deliver its receipt');
-    test.assert.strictEqual(
-      signal.aborted,
-      false,
-      'owner teardown must close before the safety timeout'
-    );
-  } finally {
-    respond.resolve();
-    await fault.close();
-    await web.close();
-    await upstream.stop(true);
+      assert.ok(address && typeof address !== 'string');
+      const signal = AbortSignal.timeout(5000);
+      const pending = fetch(`http://127.0.0.1:${address.port}/rpc`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/ndjson' },
+        body: new ReadableStream({
+          start(controller) {
+            controller.enqueue(request('notes.createUntitledNote'));
+            controller.close();
+          }
+        }),
+        signal
+      });
+
+      await entered.promise;
+      await fault.close();
+      await expect(loss.held).rejects.toThrow('Creation response owner closed before commit');
+      respond.resolve();
+      const body = await pending.then((response) => response.text()).catch(() => null);
+
+      assert.ok(body === null || body === '', 'closed exchange must not deliver its receipt');
+      assert.strictEqual(
+        signal.aborted,
+        false,
+        'owner teardown must close before the safety timeout'
+      );
+    } finally {
+      respond.resolve();
+      await fault.close();
+      await web.close();
+      await upstream.stop(true);
+    }
   }
-});
+);
 
 for (const cleanup of [
   'explicit drop',
@@ -163,14 +177,22 @@ for (const cleanup of [
 ] as const) {
   test.stable(
     `real committed creation loses only its receipt and drains on ${cleanup}`,
-    async () => {
+    async ({
+      createTestResources,
+      onTestFinished,
+      createServerFixture,
+      assert: assertions,
+      expect
+    }) => {
+      const assert: test.Assert = assertions;
+
       let pending: Promise<Exit.Exit<unknown, unknown>> | undefined;
       let failed = false;
       const run = (async () => {
-        await using resources = test.createTestResources();
+        await using resources = createTestResources();
 
-        test.onTestFinished(() => resources.close());
-        const fixture = await resources.acquire(test.createServerFixture);
+        onTestFinished(() => resources.close());
+        const fixture = await resources.acquire(createServerFixture);
         const { server } = await fixture.openRpc();
 
         const fault = creationResponse();
@@ -191,7 +213,7 @@ for (const cleanup of [
         await web.listen();
         const address = web.httpServer?.address();
 
-        test.assert.ok(address && typeof address !== 'string');
+        assert.ok(address && typeof address !== 'string');
         const baseUrl = `http://127.0.0.1:${address.port}`;
         const loss = fault.arm();
         const load = (url: string) =>
@@ -206,7 +228,7 @@ for (const cleanup of [
           );
         const before = await load(baseUrl);
 
-        test.assert.strictEqual(before.items.length, 0);
+        assert.strictEqual(before.items.length, 0);
         pending = Effect.runPromise(
           Effect.scoped(
             Effect.gen(function* () {
@@ -228,20 +250,20 @@ for (const cleanup of [
         });
 
         if (cleanup === 'failed Exit') {
-          test.assert.ok(Exit.isFailure(await pending));
-          await test.expect(loss.held).rejects.toBeDefined();
-          test.assert.strictEqual((await load(baseUrl)).items.length, 0);
+          assert.ok(Exit.isFailure(await pending));
+          await expect(loss.held).rejects.toBeDefined();
+          assert.strictEqual((await load(baseUrl)).items.length, 0);
 
           return;
         }
 
         const receipt = await loss.held;
 
-        test.assert.strictEqual(failed, false, 'receipt must still be withheld');
+        assert.strictEqual(failed, false, 'receipt must still be withheld');
         const committed = await load(server.url);
 
-        test.assert.strictEqual(committed.items.length, 1);
-        test.assert.strictEqual(committed.items[0]?.id, receipt.note.id);
+        assert.strictEqual(committed.items.length, 1);
+        assert.strictEqual(committed.items[0]?.id, receipt.note.id);
         const thread = await Effect.runPromise(
           Effect.scoped(
             Effect.gen(function* () {
@@ -252,14 +274,14 @@ for (const cleanup of [
           )
         );
 
-        test.assert.strictEqual(thread.items.length, 1);
+        assert.strictEqual(thread.items.length, 1);
         const message = thread.items[0]!;
 
-        test.assert.strictEqual(
+        assert.strictEqual(
           message.versions.find((v) => v.id === message.activeVersionId)?.text,
           'Exact committed draft'
         );
-        test.assert.deepStrictEqual(
+        assert.deepStrictEqual(
           await load(baseUrl),
           committed,
           'unrelated responses forward faithfully while held'
@@ -274,7 +296,7 @@ for (const cleanup of [
         if (cleanup === 'journey failure') throw new Error('Deliberate journey failure');
 
         await loss.drop();
-        test.assert.ok(Exit.isFailure(await pending!));
+        assert.ok(Exit.isFailure(await pending!));
         // The one-shot fault is consumed: a later real creation must reply normally.
         await Effect.runPromise(
           Effect.scoped(
@@ -282,18 +304,18 @@ for (const cleanup of [
               const client = yield* makeStudyClient(StudyRpc, { baseUrl });
               const second = yield* client['notes.createUntitledNote']({});
 
-              test.assert.notStrictEqual(second.id, receipt.note.id);
+              assert.notStrictEqual(second.id, receipt.note.id);
             })
           )
         );
-        test.assert.strictEqual((await load(baseUrl)).items.length, 2);
+        assert.strictEqual((await load(baseUrl)).items.length, 2);
       })();
 
       if (cleanup === 'journey failure')
-        await test.expect(run).rejects.toThrow('Deliberate journey failure');
+        await expect(run).rejects.toThrow('Deliberate journey failure');
       else await run;
 
-      test.assert.strictEqual(failed, true, 'cleanup must await termination of the held exchange');
+      assert.strictEqual(failed, true, 'cleanup must await termination of the held exchange');
     }
   );
 }

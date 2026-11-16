@@ -18,46 +18,52 @@ test.beforeEach(async ({ mock }) => {
 
 const en = catalogs.english;
 
-test.stable('offers creation and scoped destinations on otherwise unhandled content', async () => {
-  test.renderInRouter(
-    <DefaultContextMenu project={projectIdSchema.make(2n)}>
-      <p>Workspace</p>
-    </DefaultContextMenu>
-  );
+test.stable(
+  'offers creation and scoped destinations on otherwise unhandled content',
+  async ({ renderInRouter, fireEvent, screen, expect, userEvent, waitFor }) => {
+    renderInRouter(
+      <DefaultContextMenu project={projectIdSchema.make(2n)}>
+        <p>Workspace</p>
+      </DefaultContextMenu>
+    );
 
-  test.fireEvent.contextMenu(await test.screen.findByText('Workspace'));
-  test.expect(await test.screen.findByRole('menuitem', { name: en.NewNote })).toBeEnabled();
-  test.expect(test.screen.getByRole('menuitem', { name: en.PageNew })).toBeEnabled();
-  test
-    .expect(test.screen.getByRole('menuitem', { name: en.SourcePage }))
-    .toHaveAttribute('href', '/pages?project=2');
-  test
-    .expect(test.screen.getByRole('menuitem', { name: en.Projects }))
-    .toHaveAttribute('href', '/projects');
-  await test.userEvent.keyboard('{Escape}');
-  await test.waitFor(() => test.expect(test.screen.queryByRole('menu')).not.toBeInTheDocument());
-});
+    fireEvent.contextMenu(await screen.findByText('Workspace'));
+    expect(await screen.findByRole('menuitem', { name: en.NewNote })).toBeEnabled();
+    expect(screen.getByRole('menuitem', { name: en.PageNew })).toBeEnabled();
+    expect(screen.getByRole('menuitem', { name: en.SourcePage })).toHaveAttribute(
+      'href',
+      '/pages?project=2'
+    );
+    expect(screen.getByRole('menuitem', { name: en.Projects })).toHaveAttribute(
+      'href',
+      '/projects'
+    );
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+  }
+);
 
-test.stable('lets nested custom menus and handlers take precedence over the fallback', async () => {
-  test.renderInRouter(
-    <DefaultContextMenu>
-      <ContextMenu>
-        <ContextMenuTrigger>Custom target</ContextMenuTrigger>
-        <ContextMenuPopup>
-          <ContextMenuItem>Custom action</ContextMenuItem>
-        </ContextMenuPopup>
-      </ContextMenu>
-      <button onContextMenu={(event) => event.preventDefault()}>Handled target</button>
-    </DefaultContextMenu>
-  );
+test.stable(
+  'lets nested custom menus and handlers take precedence over the fallback',
+  async ({ renderInRouter, fireEvent, screen, expect, userEvent, waitFor }) => {
+    renderInRouter(
+      <DefaultContextMenu>
+        <ContextMenu>
+          <ContextMenuTrigger>Custom target</ContextMenuTrigger>
+          <ContextMenuPopup>
+            <ContextMenuItem>Custom action</ContextMenuItem>
+          </ContextMenuPopup>
+        </ContextMenu>
+        <button onContextMenu={(event) => event.preventDefault()}>Handled target</button>
+      </DefaultContextMenu>
+    );
 
-  test.fireEvent.contextMenu(await test.screen.findByText('Custom target'));
-  test
-    .expect(await test.screen.findByRole('menuitem', { name: 'Custom action' }))
-    .toBeInTheDocument();
-  test.expect(test.screen.queryByRole('menuitem', { name: en.NewNote })).not.toBeInTheDocument();
-  await test.userEvent.keyboard('{Escape}');
-  await test.waitFor(() => test.expect(test.screen.queryByRole('menu')).not.toBeInTheDocument());
-  test.fireEvent.contextMenu(test.screen.getByRole('button', { name: 'Handled target' }));
-  await test.waitFor(() => test.expect(test.screen.queryByRole('menu')).not.toBeInTheDocument());
-});
+    fireEvent.contextMenu(await screen.findByText('Custom target'));
+    expect(await screen.findByRole('menuitem', { name: 'Custom action' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: en.NewNote })).not.toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Handled target' }));
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+  }
+);

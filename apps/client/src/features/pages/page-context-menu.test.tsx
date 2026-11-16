@@ -45,13 +45,13 @@ test.beforeEach(async ({ mock }) => {
   document = initializeDocument();
 });
 
-test.afterEach(() => {
-  test.cleanup();
-  test.vi.resetAllMocks();
+test.afterEach(({ cleanup, vi }) => {
+  cleanup();
+  vi.resetAllMocks();
 });
 
-function mount() {
-  const harness = test.rpcTestTransport(async (tag, input) => {
+function mount({ rpcTestTransport, render }: Pick<test.Context, 'rpcTestTransport' | 'render'>) {
+  const harness = rpcTestTransport(async (tag, input) => {
     if (tag === 'pages.page') return document;
 
     if (tag === 'pages.delete') return api.remove(input);
@@ -78,7 +78,7 @@ function mount() {
     history: createMemoryHistory({ initialEntries: ['/'] })
   });
 
-  test.render(
+  render(
     <harness.wrapper>
       <RouterProvider router={router} />
     </harness.wrapper>
@@ -89,22 +89,20 @@ function mount() {
 
 test.stable(
   'provides shared page actions and requires the existing delete confirmation before any removal',
-  async () => {
-    mount();
+  async ({ fireEvent, screen, expect, userEvent, rpcTestTransport, render }) => {
+    mount({ rpcTestTransport, render });
 
-    test.fireEvent.contextMenu(await test.screen.findByRole('link', { name: 'Example document' }));
-    test.expect(await test.screen.findByRole('menuitem', { name: 'PageAskAI' })).toBeEnabled();
-    test.expect(test.screen.getByRole('menuitem', { name: 'PageRename' })).toBeInTheDocument();
-    test.expect(test.screen.getByRole('menuitem', { name: 'ReaderHistory' })).toBeInTheDocument();
-    await test.userEvent.click(test.screen.getByRole('menuitem', { name: 'PageDeleteAction' }));
-    test
-      .expect(await test.screen.findByRole('alertdialog', { name: 'AuthoredPageDelete' }))
-      .toBeInTheDocument();
-    test
-      .expect(test.screen.getByRole('button', { name: 'AuthoredPageRetirementConfirm' }))
-      .toBeDisabled();
-    test.expect(api.remove).not.toHaveBeenCalled();
-    await test.userEvent.click(test.screen.getByRole('button', { name: 'Cancel' }));
-    test.expect(api.remove).not.toHaveBeenCalled();
+    fireEvent.contextMenu(await screen.findByRole('link', { name: 'Example document' }));
+    expect(await screen.findByRole('menuitem', { name: 'PageAskAI' })).toBeEnabled();
+    expect(screen.getByRole('menuitem', { name: 'PageRename' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'ReaderHistory' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'PageDeleteAction' }));
+    expect(
+      await screen.findByRole('alertdialog', { name: 'AuthoredPageDelete' })
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'AuthoredPageRetirementConfirm' })).toBeDisabled();
+    expect(api.remove).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(api.remove).not.toHaveBeenCalled();
   }
 );

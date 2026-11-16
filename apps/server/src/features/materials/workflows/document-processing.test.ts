@@ -43,6 +43,7 @@ import { admitTestExecution, withTestAdmission } from '#testing/workflow-admissi
 import { materialGenerationHandler, materialGenerationWorkflow } from './generation.ts';
 
 async function generationFixture(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
   databases: (folder?: string) => Promise<Awaited<ReturnType<typeof createTestDatabase>>>,
   texts: string[],
   options: {
@@ -55,6 +56,8 @@ async function generationFixture(
     cancelAfterMap?: boolean;
   } = {}
 ) {
+  const assert: test.Assert = assertions;
+
   const location = await databases();
   let context = new ServerContext(await location.open());
   const prompts: string[] = [];
@@ -184,7 +187,7 @@ async function generationFixture(
     );
   const event = decodeEvent(context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload);
 
-  test.assert.equal(event.type, 'MaterialGenerationRequested');
+  assert.equal(event.type, 'MaterialGenerationRequested');
 
   if (event.type !== 'MaterialGenerationRequested') throw new Error('wrong event');
 
@@ -327,8 +330,11 @@ async function generationFixture(
 
 test.stable(
   'maps every original block beyond the former prefix before one final quiz and replays it',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const fixture = await generationFixture(
+      { assert },
       databases,
       Array.from({ length: 240 }, (_, index) => `${'alpha '.repeat(100)}block-${index}-tail`)
     );
@@ -336,80 +342,85 @@ test.stable(
     try {
       const version = await fixture.execute();
 
-      test.expect(fixture.prompts.some((prompt) => prompt.includes('block-239-tail'))).toBe(true);
-      test.expect(fixture.counts().mapCalls).toBeGreaterThan(1);
-      test.expect(fixture.counts().reduceCalls).toBeGreaterThan(3);
+      expect(fixture.prompts.some((prompt) => prompt.includes('block-239-tail'))).toBe(true);
+      expect(fixture.counts().mapCalls).toBeGreaterThan(1);
+      expect(fixture.counts().reduceCalls).toBeGreaterThan(3);
       const mapPrompts = fixture.prompts.filter((value) =>
         value.includes('Extract study notes for this material request')
       );
 
       for (let index = 0; index < 240; index++)
-        test.expect(mapPrompts.join('\n')).toContain(`block-${index}-tail`);
+        expect(mapPrompts.join('\n')).toContain(`block-${index}-tail`);
 
       const originalMarkers = mapPrompts.flatMap((value) =>
         Array.from(value.matchAll(/\[(\d+)\]/g), (match) => Number(match[1]))
       );
 
-      test.expect(new Set(originalMarkers).size).toBe(originalMarkers.length);
-      test.expect(Math.max(...originalMarkers)).toBeGreaterThan(200);
-      test.expect(fixture.counts().finalCalls).toBe(1);
-      test.expect(fixture.published()).toBe(1);
+      expect(new Set(originalMarkers).size).toBe(originalMarkers.length);
+      expect(Math.max(...originalMarkers)).toBeGreaterThan(200);
+      expect(fixture.counts().finalCalls).toBe(1);
+      expect(fixture.published()).toBe(1);
       const evidence = await fixture.evidence(version);
 
-      test.expect(evidence.items).toHaveLength(1);
-      test.expect(evidence.items[0]!.quote).toContain('block-239-tail');
-      test.expect(evidence.items[0]!.quote).not.toContain('Tail concept');
-      test.expect(evidence.items[0]!.target).toMatchObject({
+      expect(evidence.items).toHaveLength(1);
+      expect(evidence.items[0]!.quote).toContain('block-239-tail');
+      expect(evidence.items[0]!.quote).not.toContain('Tail concept');
+      expect(evidence.items[0]!.target).toMatchObject({
         start: 0,
         end: evidence.items[0]!.quote.length
       });
       const calls = fixture.prompts.length;
 
       await fixture.reopen();
-      test.expect(await fixture.execute()).toBe(version);
-      test.expect(fixture.prompts).toHaveLength(calls);
+      expect(await fixture.execute()).toBe(version);
+      expect(fixture.prompts).toHaveLength(calls);
     } finally {
       await fixture.close();
     }
   }
 );
 
-test.stable('maps the canonical tail of one oversized block', async ({ databases }) => {
-  const fixture = await generationFixture(databases, [
-    `${'alpha '.repeat(30000)}single-block-tail`
-  ]);
+test.stable(
+  'maps the canonical tail of one oversized block',
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  try {
-    const version = await fixture.execute();
+    const fixture = await generationFixture({ assert }, databases, [
+      `${'alpha '.repeat(30000)}single-block-tail`
+    ]);
 
-    test.expect(fixture.prompts.some((prompt) => prompt.includes('single-block-tail'))).toBe(true);
-    const evidence = await fixture.evidence(version);
-    const citation = evidence.items[0]!;
+    try {
+      const version = await fixture.execute();
 
-    test.expect(citation.quote).toContain('single-block-tail');
-    test.expect(citation.target!.start).toBeGreaterThan(100_000);
-    test
-      .expect(
+      expect(fixture.prompts.some((prompt) => prompt.includes('single-block-tail'))).toBe(true);
+      const evidence = await fixture.evidence(version);
+      const citation = evidence.items[0]!;
+
+      expect(citation.quote).toContain('single-block-tail');
+      expect(citation.target!.start).toBeGreaterThan(100_000);
+      expect(
         ('alpha '.repeat(30000) + 'single-block-tail').slice(
           citation.target!.start,
           citation.target!.end
         )
-      )
-      .toBe(citation.quote);
-  } finally {
-    await fixture.close();
+      ).toBe(citation.quote);
+    } finally {
+      await fixture.close();
+    }
   }
-});
+);
 
 test.stable(
   'small generation exposes original passages inline without a notes request',
-  async ({ databases }) => {
-    const fixture = await generationFixture(databases, ['small-tail']);
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const fixture = await generationFixture({ assert }, databases, ['small-tail']);
 
     try {
       await fixture.execute();
-      test.expect(fixture.counts()).toEqual({ mapCalls: 0, reduceCalls: 0, finalCalls: 1 });
-      test.expect(fixture.prompts[0]).toContain('small-tail');
+      expect(fixture.counts()).toEqual({ mapCalls: 0, reduceCalls: 0, finalCalls: 1 });
+      expect(fixture.prompts[0]).toContain('small-tail');
     } finally {
       await fixture.close();
     }
@@ -423,33 +434,45 @@ for (const [name, options] of [
   ['multiplied final question count', { questionCount: 2 }],
   ['multiplied practice question count', { practice: true, questionCount: 2 }]
 ] as const) {
-  test.stable(`refuses ${name} without publishing`, async ({ databases }) => {
-    const fixture = await generationFixture(databases, ['alpha '.repeat(6000)], options);
+  test.stable(
+    `refuses ${name} without publishing`,
+    async ({ databases, expect, assert: assertions }) => {
+      const assert: test.Assert = assertions;
 
-    try {
-      await test.expect(fixture.execute()).rejects.toMatchObject({ kind: 'invalid_input' });
-      test.expect(fixture.published()).toBe(0);
+      const fixture = await generationFixture(
+        { assert },
+        databases,
+        ['alpha '.repeat(6000)],
+        options
+      );
 
-      if ('invalidMap' in options) test.expect(fixture.counts().mapCalls).toBe(1);
+      try {
+        await expect(fixture.execute()).rejects.toMatchObject({ kind: 'invalid_input' });
+        expect(fixture.published()).toBe(0);
 
-      if ('invalidReduce' in options) test.expect(fixture.counts().reduceCalls).toBe(1);
-    } finally {
-      await fixture.close();
+        if ('invalidMap' in options) expect(fixture.counts().mapCalls).toBe(1);
+
+        if ('invalidReduce' in options) expect(fixture.counts().reduceCalls).toBe(1);
+      } finally {
+        await fixture.close();
+      }
     }
-  });
+  );
 }
 
 test.stable(
   'stops before another piece when original input is archived during mapping',
-  async ({ databases }) => {
-    const fixture = await generationFixture(databases, ['alpha '.repeat(6000)], {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const fixture = await generationFixture({ assert }, databases, ['alpha '.repeat(6000)], {
       retireAfterMap: true
     });
 
     try {
-      await test.expect(fixture.execute()).rejects.toSatisfy(() => true);
-      test.expect(fixture.counts()).toEqual({ mapCalls: 1, reduceCalls: 0, finalCalls: 0 });
-      test.expect(fixture.published()).toBe(0);
+      await expect(fixture.execute()).rejects.toSatisfy(() => true);
+      expect(fixture.counts()).toEqual({ mapCalls: 1, reduceCalls: 0, finalCalls: 0 });
+      expect(fixture.published()).toBe(0);
     } finally {
       await fixture.close();
     }
@@ -458,15 +481,17 @@ test.stable(
 
 test.stable(
   'stops before another piece when generation is canceled during mapping',
-  async ({ databases }) => {
-    const fixture = await generationFixture(databases, ['alpha '.repeat(6000)], {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const fixture = await generationFixture({ assert }, databases, ['alpha '.repeat(6000)], {
       cancelAfterMap: true
     });
 
     try {
-      await test.expect(fixture.execute()).rejects.toSatisfy(() => true);
-      test.expect(fixture.counts()).toEqual({ mapCalls: 1, reduceCalls: 0, finalCalls: 0 });
-      test.expect(fixture.published()).toBe(0);
+      await expect(fixture.execute()).rejects.toSatisfy(() => true);
+      expect(fixture.counts()).toEqual({ mapCalls: 1, reduceCalls: 0, finalCalls: 0 });
+      expect(fixture.published()).toBe(0);
     } finally {
       await fixture.close();
     }
@@ -499,16 +524,18 @@ function quizOutput(prompt: string, invalid = false, count = 1) {
 
 test.stable(
   'replays a preexisting completed generate-material-1 reply through the current handler',
-  async ({ databases }) => {
-    const fixture = await generationFixture(databases, ['legacy exact evidence']);
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const fixture = await generationFixture({ assert }, databases, ['legacy exact evidence']);
 
     try {
       await fixture.legacyCompletedOuter();
-      test.expect(fixture.prompts).toHaveLength(0);
+      expect(fixture.prompts).toHaveLength(0);
       await fixture.reopen();
       await fixture.execute();
-      test.expect(fixture.prompts).toHaveLength(0);
-      test.expect(fixture.published()).toBe(1);
+      expect(fixture.prompts).toHaveLength(0);
+      expect(fixture.published()).toBe(1);
     } finally {
       await fixture.close();
     }

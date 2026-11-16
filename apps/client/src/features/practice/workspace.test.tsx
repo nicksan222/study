@@ -10,33 +10,33 @@ for (const [width, initiallyOpen] of [
 ] as const) {
   test.stable(
     `uses the available ${width}px container to initialize practice actions`,
-    async () => {
-      test.vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(width);
-      const user = test.userEvent.setup();
+    async ({ vi, userEvent, render, screen, expect }) => {
+      vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(width);
+      const user = userEvent.setup();
 
-      test.render(
+      render(
         <div>
           <PracticeWorkspace title="Recall" actions={<button>Source action</button>}>
             <h2>Core question</h2>
           </PracticeWorkspace>
         </div>
       );
-      const toggle = test.screen.getByRole('button', { name: catalogs.english.PracticeActions });
+      const toggle = screen.getByRole('button', { name: catalogs.english.PracticeActions });
       const panel = document.getElementById(toggle.getAttribute('aria-controls')!)!;
 
-      test.expect(toggle).toHaveAttribute('aria-expanded', String(initiallyOpen));
-      test.expect(panel.hidden).toBe(!initiallyOpen);
+      expect(toggle).toHaveAttribute('aria-expanded', String(initiallyOpen));
+      expect(panel.hidden).toBe(!initiallyOpen);
       await user.click(toggle);
-      test.expect(panel.hidden).toBe(initiallyOpen);
-      test.expect(test.screen.getByRole('heading', { name: 'Core question' })).toBeInTheDocument();
+      expect(panel.hidden).toBe(initiallyOpen);
+      expect(screen.getByRole('heading', { name: 'Core question' })).toBeInTheDocument();
 
       if (initiallyOpen) await user.click(toggle);
 
-      test.screen.getByRole('button', { name: 'Source action' }).focus();
+      screen.getByRole('button', { name: 'Source action' }).focus();
       await user.keyboard('{Escape}');
-      test.expect(panel.hidden).toBe(true);
-      test.expect(toggle).toHaveAttribute('aria-expanded', 'false');
-      test.expect(toggle).toHaveFocus();
+      expect(panel.hidden).toBe(true);
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(toggle).toHaveFocus();
     }
   );
 }

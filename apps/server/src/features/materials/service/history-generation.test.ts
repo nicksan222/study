@@ -29,37 +29,43 @@ import { pageTransformFixture } from '#testing/page-transform';
 
 type Fixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
-function assertRetired(f: Fixture, requestId: string) {
+function assertRetired(
+  { assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>,
+  f: Fixture,
+  requestId: string
+) {
+  const assert: test.Assert = assertions;
+
   const row = f.context.db.orm
     .select()
     .from(s.material_generation_requests)
     .where(eq(s.material_generation_requests.id, requestId))
     .get();
 
-  test.assert.ok(row);
-  test.assert.ok(row.payload === '{}');
-  test.assert.ok(row.cancelled === true);
-  test.assert.ok(row.result_version_id === null);
-  test.assert.ok(row.result_hash === null);
-  test
-    .expect(
-      f.context.db.orm
-        .select()
-        .from(s.material_evidence_inputs)
-        .where(eq(s.material_evidence_inputs.request_id, requestId))
-        .all()
-    )
-    .toStrictEqual([]);
+  assert.ok(row);
+  assert.ok(row.payload === '{}');
+  assert.ok(row.cancelled === true);
+  assert.ok(row.result_version_id === null);
+  assert.ok(row.result_hash === null);
+  expect(
+    f.context.db.orm
+      .select()
+      .from(s.material_evidence_inputs)
+      .where(eq(s.material_evidence_inputs.request_id, requestId))
+      .all()
+  ).toStrictEqual([]);
 }
 
 for (const attemptInputFirst of [false, true])
   test.stable(
     `generated learning history preserves exact ownership when authored input retirement is ${attemptInputFirst ? 'attempted first' : 'not requested'}`,
-    async ({ databases }) => {
+    async ({ databases, assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
       const f = await pageTransformFixture(databases);
 
       try {
-        const saved = await learningGeneration(f);
+        const saved = await learningGeneration(f, assert);
         const event = f.event(saved.request.id);
 
         queueLearningGeneration(f);
@@ -70,9 +76,9 @@ for (const attemptInputFirst of [false, true])
             const docs = yield* Pages;
             const output = yield* m.materialVersion({ id: versionId });
 
-            test.assert.ok(output.content.kind === 'flashcards');
+            assert.ok(output.content.kind === 'flashcards');
 
-            test.assert.ok(!(output.content.kind !== 'flashcards'), 'Expected flashcards');
+            assert.ok(!(output.content.kind !== 'flashcards'), 'Expected flashcards');
 
             const content = {
               kind: 'flashcards' as const,
@@ -100,8 +106,8 @@ for (const attemptInputFirst of [false, true])
             if (attemptInputFirst) {
               const blocked = yield* docs.previewHistory(scope);
 
-              test.expect(blocked.blockedVersionIds).toStrictEqual([saved.input.version.id]);
-              test.assert.ok(
+              expect(blocked.blockedVersionIds).toStrictEqual([saved.input.version.id]);
+              assert.ok(
                 (yield* Effect.flip(docs.retireHistory({ ...scope, token: blocked.token })))
                   .kind === 'invalid_input'
               );
@@ -112,69 +118,62 @@ for (const attemptInputFirst of [false, true])
         );
         const accepted = await acceptHistory(f, kept.owner, 'history-output');
 
-        test.expect(accepted.candidateIds).toStrictEqual([versionId]);
+        expect(accepted.candidateIds).toStrictEqual([versionId]);
         const owner = f.context.db.orm
           .select()
           .from(s.material_history_requests)
           .where(eq(s.material_history_requests.request_id, saved.request.id))
           .get();
 
-        test.assert.ok(owner?.kind === 'generation');
-        test.assert.ok(owner.operation_id === 'history-output');
-        await cleanupHistory(f, 'history-output');
+        assert.ok(owner?.kind === 'generation');
+        assert.ok(owner.operation_id === 'history-output');
+        await cleanupHistory(f, 'history-output', assert);
         await f.reopen();
-        assertRetired(f, saved.request.id);
-        assertScrubbed(f, 'HISTORY_PRIVATE_GENERATION');
+        assertRetired({ assert, expect }, f, saved.request.id);
+        assertScrubbed(f, assert, 'HISTORY_PRIVATE_GENERATION');
         const native = workflowStore(f.context).execution('history-generated');
 
-        test.assert.ok(native?.payload === '{}');
-        test.assert.ok(native.result === null);
+        assert.ok(native?.payload === '{}');
+        assert.ok(native.result === null);
         await Effect.runPromise(
           Effect.gen(function* () {
             const m = yield* Materials;
             const docs = yield* Pages;
 
-            test.assert.ok(
+            assert.ok(
               (yield* m.historyPrune({ operationId: 'history-output' })).status === 'completed'
             );
-            test.assert.strictEqual(
-              (yield* m.material({ id: kept.owner })).version.id,
-              kept.current.id
+            assert.strictEqual((yield* m.material({ id: kept.owner })).version.id, kept.current.id);
+            expect(yield* m.materialVersion({ id: kept.copy.version.id })).toStrictEqual(
+              kept.copy.version
             );
-            test
-              .expect(yield* m.materialVersion({ id: kept.copy.version.id }))
-              .toStrictEqual(kept.copy.version);
-            test
-              .expect((yield* m.materialVersion({ id: kept.current.id })).content)
-              .toStrictEqual(kept.current.content);
-            test.assert.ok(
+            expect((yield* m.materialVersion({ id: kept.current.id })).content).toStrictEqual(
+              kept.current.content
+            );
+            assert.ok(
               (yield* Effect.flip(m.materialVersion({ id: versionId }))).kind === 'not_found'
             );
 
             if (attemptInputFirst) {
               const preview = yield* docs.previewHistory(kept.scope);
 
-              test.expect(preview.blockedVersionIds).toStrictEqual([]);
+              expect(preview.blockedVersionIds).toStrictEqual([]);
               yield* docs.retireHistory({ ...kept.scope, token: preview.token });
             }
           }).pipe(Effect.provide(f.domain()))
         );
         const calls = f.bodies.length;
 
-        await test
-          .expect(f.execute(event, 'late-history-generation'))
-          .rejects.toSatisfy(() => true);
-        test.assert.strictEqual(f.bodies.length, calls);
-        test
-          .expect(
-            f.context.db.orm
-              .select()
-              .from(s.material_history_requests)
-              .where(eq(s.material_history_requests.request_id, saved.request.id))
-              .get()
-          )
-          .toStrictEqual(owner);
-        test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+        await expect(f.execute(event, 'late-history-generation')).rejects.toSatisfy(() => true);
+        assert.strictEqual(f.bodies.length, calls);
+        expect(
+          f.context.db.orm
+            .select()
+            .from(s.material_history_requests)
+            .where(eq(s.material_history_requests.request_id, saved.request.id))
+            .get()
+        ).toStrictEqual(owner);
+        expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         await f.close();
       }
@@ -183,11 +182,13 @@ for (const attemptInputFirst of [false, true])
 
 test.stable(
   'completed learning generation cleanup proof rejects restoring private payload, result, pins or ownership',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await pageTransformFixture(databases);
 
     try {
-      const saved = await learningGeneration(f);
+      const saved = await learningGeneration(f, assert);
 
       queueLearningGeneration(f);
       const versionId = await f.execute(f.event(saved.request.id), 'scrub-proof-generation');
@@ -210,13 +211,13 @@ test.stable(
       );
       const retirement = () => makeGenerationRetirement(f.context);
 
-      test.assert.ok(retirement().isScrubbed(saved.request.id) === false);
+      assert.ok(retirement().isScrubbed(saved.request.id) === false);
       await acceptHistory(f, owner, 'scrub-shape-proof');
-      test.assert.ok(retirement().isScrubbed(saved.request.id) === false);
-      await cleanupHistory(f, 'scrub-shape-proof');
+      assert.ok(retirement().isScrubbed(saved.request.id) === false);
+      await cleanupHistory(f, 'scrub-shape-proof', assert);
       await f.reopen();
-      test.assert.ok(retirement().isScrubbed(saved.request.id) === true);
-      test.assert.ok(retirement().isScrubbed('missing') === false);
+      assert.ok(retirement().isScrubbed(saved.request.id) === true);
+      assert.ok(retirement().isScrubbed('missing') === false);
 
       for (const patch of [
         sql`payload='{ }'`,
@@ -224,13 +225,13 @@ test.stable(
         sql`cancelled=0`,
         sql`result_version_id=${versionId},result_hash='restored'`
       ])
-        test.assert.throws(() =>
+        assert.throws(() =>
           f.context.db.orm.run(
             sql`UPDATE material_generation_requests SET ${patch} WHERE id=${saved.request.id}`
           )
         );
 
-      test.assert.throws(() =>
+      assert.throws(() =>
         f.context.db.orm
           .insert(s.material_evidence_inputs)
           .values({
@@ -240,15 +241,15 @@ test.stable(
           })
           .run()
       );
-      test.assert.throws(() =>
+      assert.throws(() =>
         f.context.db.orm
           .update(s.material_history_requests)
           .set({ kind: 'publication' })
           .where(eq(s.material_history_requests.request_id, saved.request.id))
           .run()
       );
-      test.assert.ok(retirement().isScrubbed(saved.request.id) === true);
-      assertRetired(f, saved.request.id);
+      assert.ok(retirement().isScrubbed(saved.request.id) === true);
+      assertRetired({ assert, expect }, f, saved.request.id);
     } finally {
       await f.close();
     }

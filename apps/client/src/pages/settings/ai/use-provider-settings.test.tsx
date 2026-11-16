@@ -35,8 +35,11 @@ const data = {
   status: { signedIn: false, email: null, sharing: false }
 };
 
-function mount() {
-  const fixture = test.rpcTestTransport(async (tag, input) => {
+function mount({
+  rpcTestTransport,
+  renderHook
+}: Pick<test.Context, 'rpcTestTransport' | 'renderHook'>) {
+  const fixture = rpcTestTransport(async (tag, input) => {
     if (tag === 'settings.saveLlmSettings')
       return operations.saveAiSettings(Schema.decodeUnknownSync(llmSettingsSchema)(input));
 
@@ -46,25 +49,25 @@ function mount() {
     throw new Error(tag);
   });
 
-  return test.renderHook(() => useProviderSettings(data), { wrapper: fixture.wrapper });
+  return renderHook(() => useProviderSettings(data), { wrapper: fixture.wrapper });
 }
 
 test.stable(
   'a combined selection saves its provider and model together and preserves other tiers',
-  async () => {
-    const { result } = mount();
+  async ({ act, waitFor, expect, rpcTestTransport, renderHook }) => {
+    const { result } = mount({ rpcTestTransport, renderHook });
 
-    test.act(() => result.current.setSetup('tiny', { provider: 'anthropic', model: 'new-model' }));
-    await test.waitFor(() =>
-      test.expect(operations.saveAiSettings).toHaveBeenCalledWith({
+    act(() => result.current.setSetup('tiny', { provider: 'anthropic', model: 'new-model' }));
+    await waitFor(() =>
+      expect(operations.saveAiSettings).toHaveBeenCalledWith({
         ...data.settings,
         tiny: { provider: 'anthropic', model: 'new-model' }
       })
     );
-    test.expect(operations.saveAiSettings).toHaveBeenCalledTimes(1);
-    test.act(() => result.current.setSetup('medium', { provider: 1 }));
-    await test.waitFor(() =>
-      test.expect(operations.saveAiSettings).toHaveBeenCalledWith({
+    expect(operations.saveAiSettings).toHaveBeenCalledTimes(1);
+    act(() => result.current.setSetup('medium', { provider: 1 }));
+    await waitFor(() =>
+      expect(operations.saveAiSettings).toHaveBeenCalledWith({
         ...data.settings,
         medium: { provider: 1 }
       })
@@ -72,16 +75,19 @@ test.stable(
   }
 );
 
-test.stable('submits write-only credentials once and clears mutation presentation', async () => {
-  const { result } = mount();
+test.stable(
+  'submits write-only credentials once and clears mutation presentation',
+  async ({ act, expect, rpcTestTransport, renderHook }) => {
+    const { result } = mount({ rpcTestTransport, renderHook });
 
-  await test.act(async () => {
-    await result.current.saveApiKey('anthropic', 'temporary-secret');
-  });
-  test.expect(operations.saveProviderApiKey).toHaveBeenCalledWith({
-    provider: 'anthropic',
-    apiKey: 'temporary-secret'
-  });
-  test.expect(result.current.pending).toBe(false);
-  test.expect(result.current.error).toBe(false);
-});
+    await act(async () => {
+      await result.current.saveApiKey('anthropic', 'temporary-secret');
+    });
+    expect(operations.saveProviderApiKey).toHaveBeenCalledWith({
+      provider: 'anthropic',
+      apiKey: 'temporary-secret'
+    });
+    expect(result.current.pending).toBe(false);
+    expect(result.current.error).toBe(false);
+  }
+);

@@ -6,38 +6,41 @@ const saved = { language: 2 as const, appearance: 3 as const, zoomPercent: 125, 
 
 test.stable(
   'partial appearance and language edits preserve freshly committed unrelated preferences',
-  async () => {
-    const read = test.vi.fn().mockResolvedValue(saved);
-    const write = test.vi.fn().mockResolvedValue({});
-    const fixture = test.rpcTestTransport(async (tag, input) =>
+  async ({ vi, rpcTestTransport, renderHook, act, expect }) => {
+    const read = vi.fn().mockResolvedValue(saved);
+    const write = vi.fn().mockResolvedValue({});
+    const fixture = rpcTestTransport(async (tag, input) =>
       tag === 'settings.appSettings' ? read() : write(input)
     );
-    const hook = test.renderHook(useAppSettingsPatch, { wrapper: fixture.wrapper });
+    const hook = renderHook(useAppSettingsPatch, { wrapper: fixture.wrapper });
 
-    await test.act(async () => {
+    await act(async () => {
       await hook.result.current.mutateAsync({ appearance: 1 });
     });
-    test.expect(write).toHaveBeenLastCalledWith({ ...saved, appearance: 1 });
+    expect(write).toHaveBeenLastCalledWith({ ...saved, appearance: 1 });
     read.mockResolvedValue({ ...saved, zoomPercent: 150 });
-    await test.act(async () => {
+    await act(async () => {
       await hook.result.current.mutateAsync({ language: 1 });
     });
-    test.expect(write).toHaveBeenLastCalledWith({ ...saved, zoomPercent: 150, language: 1 });
+    expect(write).toHaveBeenLastCalledWith({ ...saved, zoomPercent: 150, language: 1 });
   }
 );
 
-test.stable('a failed freshness read never submits a guessed preference snapshot', async () => {
-  const write = test.vi.fn();
-  const fixture = test.rpcTestTransport(async (tag, input) => {
-    if (tag === 'settings.appSettings') throw new Error('Offline');
+test.stable(
+  'a failed freshness read never submits a guessed preference snapshot',
+  async ({ vi, rpcTestTransport, renderHook, act, expect, waitFor }) => {
+    const write = vi.fn();
+    const fixture = rpcTestTransport(async (tag, input) => {
+      if (tag === 'settings.appSettings') throw new Error('Offline');
 
-    return write(input);
-  });
-  const hook = test.renderHook(useAppSettingsPatch, { wrapper: fixture.wrapper });
+      return write(input);
+    });
+    const hook = renderHook(useAppSettingsPatch, { wrapper: fixture.wrapper });
 
-  await test.act(async () => {
-    await test.expect(hook.result.current.mutateAsync({ zoomPercent: 150 })).rejects.toBeDefined();
-  });
-  await test.waitFor(() => test.expect(hook.result.current.isError).toBe(true));
-  test.expect(write).not.toHaveBeenCalled();
-});
+    await act(async () => {
+      await expect(hook.result.current.mutateAsync({ zoomPercent: 150 })).rejects.toBeDefined();
+    });
+    await waitFor(() => expect(hook.result.current.isError).toBe(true));
+    expect(write).not.toHaveBeenCalled();
+  }
+);

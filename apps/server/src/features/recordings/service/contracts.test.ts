@@ -15,21 +15,28 @@ import { appendRecordingInputSchema, recordingPageInputSchema } from '@study/con
 import { test } from '@study/testing';
 import { Schema } from 'effect';
 
-test.stable('recording append accepts only bounded signed 16-bit PCM', () => {
-  const decode = Schema.decodeUnknownSync(appendRecordingInputSchema);
+test.stable(
+  'recording append accepts only bounded signed 16-bit PCM',
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test
-    .expect(decode({ id: 1n, samples: [-32768, 0, 32767] }).samples)
-    .toStrictEqual([-32768, 0, 32767]);
+    const decode = Schema.decodeUnknownSync(appendRecordingInputSchema);
 
-  for (const samples of [[], [32768], [-32769], [1.5], [NaN], Array(960001).fill(0)])
-    test.assert.throws(() => decode({ id: 1n, samples }));
-});
+    expect(decode({ id: 1n, samples: [-32768, 0, 32767] }).samples).toStrictEqual([
+      -32768, 0, 32767
+    ]);
 
-test.stable('recording pages are bounded', () => {
+    for (const samples of [[], [32768], [-32769], [1.5], [NaN], Array(960001).fill(0)])
+      assert.throws(() => decode({ id: 1n, samples }));
+  }
+);
+
+test.stable('recording pages are bounded', ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const decode = Schema.decodeUnknownSync(recordingPageInputSchema);
 
-  test.assert.throws(() => decode({ limit: 0 }));
-  test.assert.throws(() => decode({ limit: 101 }));
-  test.assert.strictEqual(decode({ limit: 100 }).limit, 100);
+  assert.throws(() => decode({ limit: 0 }));
+  assert.throws(() => decode({ limit: 101 }));
+  assert.strictEqual(decode({ limit: 100 }).limit, 100);
 });

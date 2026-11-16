@@ -43,7 +43,9 @@ for (const mode of [
   test.stable(
     `HTTP practice ${mode} recovers, replenishes and stops without further provider work`,
     { timeout: 20000 },
-    async ({ resources: resourcesFixture }) => {
+    async ({ resources: resourcesFixture, assert: assertions, expect, pollUntil }) => {
+      const assert: test.Assert = assertions;
+
       const resources = resourcesFixture;
       let generations = 0;
       let failedCalls = 0;
@@ -146,7 +148,7 @@ for (const mode of [
       resources.dispose(async () => {
         await peer.stop(true);
       });
-      test.assert.ok(peer.port, 'missing peer address');
+      assert.ok(peer.port, 'missing peer address');
       const base = peer.url.origin;
       const context = new ServerContext(await resources.openDb());
 
@@ -211,14 +213,14 @@ for (const mode of [
               inputs: [{ kind: 'page', versionId: document.version!.id }]
             });
 
-            test.assert.strictEqual(initial.slots.length, 2);
-            test.expect(initial.slots.map((slot) => slot.kind)).toStrictEqual(['choice', 'choice']);
+            assert.strictEqual(initial.slots.length, 2);
+            expect(initial.slots.map((slot) => slot.kind)).toStrictEqual(['choice', 'choice']);
 
             if (mode === 'archived-before-request')
               yield* client['pages.archive']({ id: document.id, archived: true });
 
             yield* client['system.startWorkers']({});
-            let ready = yield* test.pollUntil(
+            let ready = yield* pollUntil(
               client['learning.practice']({ projectId: project.id }),
               (value) => value.slots.every(isSettled),
               {
@@ -231,18 +233,23 @@ for (const mode of [
             if (mode === 'archived-before-request')
               yield* client['pages.archive']({ id: document.id, archived: false });
 
-            yield* recoverFailedPractice();
+            yield* recoverFailedPractice({ assert, pollUntil });
 
-            function* recoverFailedPractice() {
+            function* recoverFailedPractice({
+              assert: assertions,
+              pollUntil
+            }: Pick<test.Context, 'assert' | 'pollUntil'>) {
+              const assert: test.Assert = assertions;
+
               if (mode !== 'normal') {
                 mark('recovery');
                 transient = false;
                 const failed = ready.slots.filter((slot) => slot.status === 'failed');
 
-                test.assert.strictEqual(failed.length, mode === 'invalid-model' ? 1 : 2);
+                assert.strictEqual(failed.length, mode === 'invalid-model' ? 1 : 2);
 
                 if (mode === 'transient-exhausted')
-                  test.assert.strictEqual(failedCalls, 8, JSON.stringify({ healthyStarts, trace }));
+                  assert.strictEqual(failedCalls, 8, JSON.stringify({ healthyStarts, trace }));
 
                 if (mode === 'invalid-model') {
                   const settings = yield* client['settings.appSettings']({});
@@ -256,13 +263,13 @@ for (const mode of [
                     slotId: slot.slotId
                   });
 
-                  test.assert.strictEqual(retried.slotId, slot.slotId);
-                  test.assert.strictEqual(retried.kind, slot.kind);
+                  assert.strictEqual(retried.slotId, slot.slotId);
+                  assert.strictEqual(retried.kind, slot.kind);
                   mark('duplicate-manual-retry');
                   yield* client['learning.retryPracticeQuestion']({ slotId: slot.slotId });
                 }
 
-                ready = yield* test.pollUntil(
+                ready = yield* pollUntil(
                   client['learning.practice']({ projectId: project.id }),
                   (value) => value.slots.every(isReady),
                   {
@@ -274,7 +281,7 @@ for (const mode of [
               }
             }
 
-            test.assert.ok(
+            assert.ok(
               ready.slots.every(isReady),
               JSON.stringify(
                 {
@@ -288,22 +295,22 @@ for (const mode of [
                 (_, value) => (typeof value === 'bigint' ? String(value) : value)
               )
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               generations,
               mode === 'invalid-model' ? 3 : mode === 'transient-exhausted' ? 10 : 2,
               JSON.stringify({ failedCalls, healthyStarts, trace })
             );
 
             if (mode === 'transient-exhausted')
-              test.assert.strictEqual(healthyStarts, 2, JSON.stringify({ failedCalls, trace }));
+              assert.strictEqual(healthyStarts, 2, JSON.stringify({ failedCalls, trace }));
 
             const first = ready.slots[0]!;
 
-            test.assert.ok(first.attemptId);
+            assert.ok(first.attemptId);
             const attempt = yield* client['learning.attempt']({ attemptId: first.attemptId });
             const question = attempt.questions[0]!;
 
-            test.assert.ok('choices' in question, 'expected choice');
+            assert.ok('choices' in question, 'expected choice');
 
             const input = {
               slotId: first.slotId,
@@ -320,38 +327,35 @@ for (const mode of [
               })
             );
 
-            test.assert.ok('kind' in rejected);
-            test.assert.ok(rejected.kind === 'invalid_input');
+            assert.ok('kind' in rejected);
+            assert.ok(rejected.kind === 'invalid_input');
             yield* client['learning.answerPracticeQuestion'](input);
             const refill = yield* client['learning.practice']({ projectId: project.id });
 
-            test.expect(refill.slots.map((slot) => slot.kind)).toStrictEqual(['choice', 'open']);
+            expect(refill.slots.map((slot) => slot.kind)).toStrictEqual(['choice', 'open']);
             const stopped = yield* client['learning.stopPractice']({ projectId: project.id });
 
-            test.assert.ok(stopped.enabled === false);
-            test.assert.strictEqual(stopped.slots.length, 0);
+            assert.ok(stopped.enabled === false);
+            assert.strictEqual(stopped.slots.length, 0);
             const count = generations;
 
             yield* client['system.stopWorkers']({});
             yield* client['system.startWorkers']({});
-            yield* assertRefillDrained();
+            yield* assertRefillDrained({ pollUntil });
 
-            function* assertRefillDrained() {
+            function* assertRefillDrained({ pollUntil }: Pick<test.Context, 'pollUntil'>) {
               const refillSlot = refill.slots.find((slot) => slot.kind === 'open')!;
 
-              yield* test.pollUntil(
+              yield* pollUntil(
                 client['workflows.executions']({ limit: 100, correlationId: refillSlot.slotId }),
                 (value) => value.items.length > 0 && value.items.every(isDrained),
                 { attempts: 100, interval: '25 millis', message: 'Practice refill did not drain' }
               );
             }
 
-            test.assert.strictEqual(generations, count);
-            test.assert.strictEqual(
-              yield* client['projects.deleteProject']({ id: project.id }),
-              true
-            );
-            test.expect(app.store.db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
+            assert.strictEqual(generations, count);
+            assert.strictEqual(yield* client['projects.deleteProject']({ id: project.id }), true);
+            expect(app.store.db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
           })
         )
       );

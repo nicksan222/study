@@ -28,40 +28,38 @@ function dimensions(host: HTMLElement, height: number) {
 
 test.stable(
   'uses the workspace scroll host for reading position and the Latest action',
-  async () => {
-    const view = test.render(<Note />);
+  async ({ render, vi, fireEvent, screen, expect }) => {
+    const view = render(<Note />);
     const host = view.container.querySelector<HTMLElement>('[data-notebook-scroll-host]')!;
     const overlay = view.container.querySelector('[data-notebook-navigation-host]')!;
 
     dimensions(host, 1000);
     host.scrollTop = 100;
-    const scroll = test.vi.fn();
+    const scroll = vi.fn();
 
     host.scrollTo = scroll;
-    test.fireEvent.scroll(host);
-    const latest = await test.screen.findByRole('button', { name: 'Latest' });
+    fireEvent.scroll(host);
+    const latest = await screen.findByRole('button', { name: 'Latest' });
 
-    test.expect(overlay).toContainElement(latest);
-    test
-      .expect(overlay)
-      .toContainElement(test.screen.getByRole('navigation', { name: 'Page index' }));
-    test.fireEvent.click(latest);
-    test.expect(scroll).toHaveBeenCalledWith({ top: 1000, behavior: 'smooth' });
+    expect(overlay).toContainElement(latest);
+    expect(overlay).toContainElement(screen.getByRole('navigation', { name: 'Page index' }));
+    fireEvent.click(latest);
+    expect(scroll).toHaveBeenCalledWith({ top: 1000, behavior: 'smooth' });
   }
 );
 
 test.stable(
   'preserves the reader position when older entries are prepended in the workspace host',
-  async () => {
-    const view = test.render(<Note />);
+  async ({ render, fireEvent, screen, waitFor, expect }) => {
+    const view = render(<Note />);
     const host = view.container.querySelector<HTMLElement>('[data-notebook-scroll-host]')!;
 
     dimensions(host, 1000);
     host.scrollTop = 100;
-    test.fireEvent.scroll(host);
-    await test.screen.findByRole('button', { name: 'Latest' });
+    fireEvent.scroll(host);
+    await screen.findByRole('button', { name: 'Latest' });
     dimensions(host, 1200);
     view.rerender(<Note count={3} first="older" />);
-    await test.waitFor(() => test.expect(host.scrollTop).toBe(300));
+    await waitFor(() => expect(host.scrollTop).toBe(300));
   }
 );

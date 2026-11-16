@@ -34,7 +34,7 @@ import { LanguageProvider, useI18n } from '#client/lib/i18n.tsx';
 import type { Locale } from '#client/lib/i18n.tsx';
 
 import { pageTestValues } from './page-values';
-import { renderInRouter } from './render-in-router';
+import { createRenderInRouter } from './render-in-router';
 
 const clientSourceRoot = Bun.fileURLToPath(URL.parse('../', import.meta.url)!);
 
@@ -59,6 +59,12 @@ const testScenario = baseTest.stable
 
     return mock;
   })
+  .override(
+    'waitFor',
+    () =>
+      <T,>(callback: () => T | Promise<T>, options?: Parameters<typeof waitFor>[1] | number) =>
+        waitFor(callback, typeof options === 'number' ? { timeout: options } : options)
+  )
   .extend('locale', 'english' as Locale)
   .extend('rpc', ({ task: _task }, { onCleanup }) => {
     const rpc = createRpcScenario();
@@ -230,39 +236,22 @@ const withAssistant = withPage.extend('assistant', async ({ mock }, { onCleanup 
   return assistant;
 });
 
-type ClientTestApi = Omit<ReturnType<typeof createTestApi<typeof withAssistant>>, 'waitFor'> & {
-  readonly renderInRouter: typeof renderInRouter;
-  readonly act: typeof act;
-  readonly waitFor: typeof waitFor;
-  readonly render: typeof render;
-  readonly renderHook: typeof renderHook;
-  readonly screen: typeof screen;
-  readonly cleanup: typeof cleanup;
-  readonly fireEvent: typeof fireEvent;
-  readonly within: typeof within;
-  readonly createEvent: typeof createEvent;
-  readonly userEvent: typeof userEvent;
-  readonly rpcTestTransport: typeof rpcTestTransport;
-  readonly rpcHandlersTransport: typeof rpcHandlersTransport;
-  readonly rpcValuesTransport: typeof rpcValuesTransport;
-  readonly createRpcScenario: typeof createRpcScenario;
-};
+const withClientTools = withAssistant
+  .extend('renderInRouter', ({ task: _task }, { onCleanup }) =>
+    createRenderInRouter((cleanup) => onCleanup(cleanup))
+  )
+  .extend('act', () => act)
+  .extend('render', () => render)
+  .extend('renderHook', () => renderHook)
+  .extend('screen', () => screen)
+  .extend('cleanup', () => cleanup)
+  .extend('fireEvent', () => fireEvent)
+  .extend('within', () => within)
+  .extend('createEvent', () => createEvent)
+  .extend('userEvent', () => userEvent)
+  .extend('rpcTestTransport', () => rpcTestTransport)
+  .extend('rpcHandlersTransport', () => rpcHandlersTransport)
+  .extend('rpcValuesTransport', () => rpcValuesTransport)
+  .extend('createRpcScenario', () => createRpcScenario);
 
-export const test: ClientTestApi = {
-  ...createTestApi(withAssistant),
-  renderInRouter,
-  act,
-  waitFor,
-  render,
-  renderHook,
-  screen,
-  cleanup,
-  fireEvent,
-  within,
-  createEvent,
-  userEvent,
-  rpcTestTransport,
-  rpcHandlersTransport,
-  rpcValuesTransport,
-  createRpcScenario
-};
+export const test = createTestApi(withClientTools);

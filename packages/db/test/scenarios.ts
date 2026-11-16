@@ -24,12 +24,8 @@ const runner = baseTest.stable
     };
   })
   .extend('database', async ({ databases }) => databases())
-  .extend('db', async ({ database }) => database.open());
+  .extend('db', async ({ database }) => database.open())
+  .extend('createTestDatabase', { scope: 'worker' }, () => createTestDatabase);
 
 /** One public test API for real, isolated Drizzle and SQLite tests. */
-export const test: ReturnType<typeof createTestApi<typeof runner>> & {
-  createTestDatabase: typeof createTestDatabase;
-} = {
-  ...createTestApi(runner),
-  createTestDatabase
-};
+export const test: ReturnType<typeof createTestApi<typeof runner>> = createTestApi(runner);

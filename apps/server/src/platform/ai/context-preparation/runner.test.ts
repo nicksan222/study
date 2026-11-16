@@ -100,7 +100,9 @@ async function run<A, E>(
 
 test.stable(
   'maps all pieces and reduces in deterministic bounded levels',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const events: string[] = [];
     let preflights = 0;
     const execute = processSourcePassages({
@@ -126,8 +128,8 @@ test.stable(
         })
     }).pipe(Effect.map((r) => r.value));
 
-    test.assert.equal(await run(databases, execute, Schema.String), 'abcde');
-    test.assert.deepEqual(events, [
+    assert.equal(await run(databases, execute, Schema.String), 'abcde');
+    assert.deepEqual(events, [
       'map:0',
       'map:1',
       'map:2',
@@ -140,13 +142,15 @@ test.stable(
       'reduce:1:1',
       'reduce:2:0'
     ]);
-    test.assert.equal(preflights, 25);
+    assert.equal(preflights, 25);
   }
 );
 
 test.stable(
   'rejects oversized serialized output and cancellation before further units',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     let mapped = 0;
     const execute = processSourcePassages({
       name: 'test',
@@ -167,8 +171,8 @@ test.stable(
       Effect.map((e) => e.kind)
     );
 
-    test.assert.equal(await run(databases, execute, Schema.String), 'not_enough');
-    test.assert.equal(mapped, 1);
+    assert.equal(await run(databases, execute, Schema.String), 'not_enough');
+    assert.equal(mapped, 1);
     mapped = 0;
     const cancelled = processSourcePassages({
       name: 'test',
@@ -191,14 +195,16 @@ test.stable(
       Effect.map((e) => e.kind)
     );
 
-    test.assert.equal(await run(databases, cancelled, Schema.String), 'cancelled');
-    test.assert.equal(mapped, 1);
+    assert.equal(await run(databases, cancelled, Schema.String), 'cancelled');
+    assert.equal(mapped, 1);
   }
 );
 
 test.stable(
   'official SQLite restart and outer retry preserve child maps and completed outer replies',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const workflow = Workflow.make('SourcePassageGroupsRestartProofV1', {
@@ -299,7 +305,7 @@ test.stable(
       const id = await first.runPromise(workflow.execute({ id: 'accepted' }, { discard: true }));
 
       await first.runPromise(wait(id, () => maps.size === 1));
-      test.assert.equal(maps.get(0), 1);
+      assert.equal(maps.get(0), 1);
       await first.dispose();
       const second = ManagedRuntime.make(build());
 
@@ -311,9 +317,9 @@ test.stable(
           })
         );
         await second.runPromise(wait(id, () => outerCalls >= 3 && reductions === 6));
-        test.assert.equal(planCalls, 1);
-        test.assert.equal(maps.size, 5);
-        test.assert.deepEqual([...maps.values()], [1, 1, 1, 1, 1]);
+        assert.equal(planCalls, 1);
+        assert.equal(maps.size, 5);
+        assert.deepEqual([...maps.values()], [1, 1, 1, 1, 1]);
         await second.dispose();
         const third = ManagedRuntime.make(build(true));
 
@@ -324,15 +330,15 @@ test.stable(
               value: undefined
             })
           );
-          test.assert.equal(
+          assert.equal(
             await third.runPromise(
               workflow.execute({ id: 'accepted' }).pipe(Effect.timeout('10 seconds'))
             ),
             'abcde'
           );
-          test.assert.equal(outerCalls, 3);
-          test.assert.equal(planCalls, 1);
-          test.assert.equal(reductions, 6);
+          assert.equal(outerCalls, 3);
+          assert.equal(planCalls, 1);
+          assert.equal(reductions, 6);
         } finally {
           await third.dispose();
         }
@@ -348,7 +354,9 @@ test.stable(
 
 test.stable(
   'singleton reductions can compact inputs before a later level combines them',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const groups: { level: number; count: number }[] = [];
     const execute = processSourcePassages({
       name: 'compact-singletons',
@@ -366,8 +374,8 @@ test.stable(
         })
     }).pipe(Effect.map((result) => result.value));
 
-    test.assert.equal(await run(databases, execute, Schema.String), 'xx');
-    test.assert.deepEqual(groups, [
+    assert.equal(await run(databases, execute, Schema.String), 'xx');
+    assert.deepEqual(groups, [
       { level: 0, count: 1 },
       { level: 0, count: 1 },
       { level: 1, count: 2 }
@@ -377,7 +385,9 @@ test.stable(
 
 test.stable(
   'rejects reduction input overflow and finite-depth exhaustion',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     let reductions = 0;
     const execute = (budget: typeof limits) =>
       processSourcePassages({
@@ -399,28 +409,30 @@ test.stable(
         Effect.map((error) => error.kind)
       );
 
-    test.assert.equal(
+    assert.equal(
       await run(databases, execute({ ...limits, maxReductionBytes: 1 }), Schema.String),
       'not_enough'
     );
-    test.assert.equal(reductions, 0);
-    test.assert.equal(
+    assert.equal(reductions, 0);
+    assert.equal(
       await run(databases, execute({ ...limits, maxLevels: 1 }), Schema.String),
       'not_enough'
     );
-    test.assert.equal(reductions, 3);
+    assert.equal(reductions, 3);
     reductions = 0;
-    test.assert.equal(
+    assert.equal(
       await run(databases, execute({ ...limits, maxFanout: 1 }), Schema.String),
       'invalid_input'
     );
-    test.assert.equal(reductions, 0);
+    assert.equal(reductions, 0);
   }
 );
 
 test.stable(
   'checks authority again before returning a completed single piece',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     let finished = false;
     const onePiece = planSourcePassages({
       documents: [{ key: 'one', name: 'Exact', reference: 'v1', document: document(['one']) }],
@@ -458,13 +470,15 @@ test.stable(
       Effect.map((error) => error.kind)
     );
 
-    test.assert.equal(await run(databases, execute, Schema.String), 'cancelled');
+    assert.equal(await run(databases, execute, Schema.String), 'cancelled');
   }
 );
 
 test.stable(
   'persists feature bigint reference and mapped schemas through native Activities',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const exact = Schema.decodeUnknownSync(contentInputSchema)({
       kind: 'source',
       sourceId: 1n,
@@ -502,7 +516,7 @@ test.stable(
       }))
     );
 
-    test.assert.deepEqual(
+    assert.deepEqual(
       await run(
         databases,
         execute,

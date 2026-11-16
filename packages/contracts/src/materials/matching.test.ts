@@ -16,10 +16,12 @@ const matching = {
 
 test.stable(
   'matching requires distinct nonempty terms and definitions and at least two pairs',
-  () => {
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const decode = Schema.decodeUnknownSync(materialQuestionInputSchema);
 
-    test.assert.deepEqual(decode(matching), matching);
+    assert.deepEqual(decode(matching), matching);
 
     for (const pairs of [
       [],
@@ -30,6 +32,6 @@ test.stable(
       [matching.pairs[0], { term: ' nucleus ', definition: 'Other' }],
       [matching.pairs[0], { term: 'Other', definition: ' stores DNA ' }]
     ])
-      test.assert.throws(() => decode({ ...matching, pairs }));
+      assert.throws(() => decode({ ...matching, pairs }));
   }
 );

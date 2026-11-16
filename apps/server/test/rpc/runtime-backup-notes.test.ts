@@ -24,7 +24,9 @@ import { admitTestExecution } from '#testing/workflow-admission';
 for (const operation of ['answer', 'rewrite', 'ask'] as const)
   test.stable(
     `restored pending ${operation} preserves its pending shell, history and admitted intent`,
-    async () => {
+    async ({ assert: assertions, expect }) => {
+      const assert: test.Assert = assertions;
+
       const source = await backupFixture();
 
       let target: Awaited<ReturnType<typeof backupFixture>> | undefined;
@@ -88,7 +90,7 @@ for (const operation of ['answer', 'rewrite', 'ask'] as const)
         const bytes = await source.app.nativeRuntime.runPromise(api.readBackup({ id: backup.id }));
 
         // Snapshot retirement must not alter the still-live pending version.
-        test.assert.ok(
+        assert.ok(
           source.app.store.db.orm
             .select()
             .from(s.message_versions)
@@ -109,7 +111,7 @@ for (const operation of ['answer', 'rewrite', 'ask'] as const)
           targetApi.previewRestore({ id: imported.id })
         );
 
-        test.assert.ok(preview.blockedByCurrentBarriers === false);
+        assert.ok(preview.blockedByCurrentBarriers === false);
         await target.app.nativeRuntime.runPromise(targetApi.acceptRestore(acceptance(preview)));
         await target.reopen();
 
@@ -117,39 +119,35 @@ for (const operation of ['answer', 'rewrite', 'ask'] as const)
 
         const notes = await app.nativeRuntime.runPromise(Notes);
 
-        test.assert.ok(
+        assert.ok(
           app.store.db.orm
             .select()
             .from(s.message_versions)
             .all()
             .some((version) => version.id === captured.request.versionId)
         );
-        test
-          .expect(
-            await app.nativeRuntime.runPromise(
-              notes.noteContext({ requestId: captured.request.requestId })
-            )
+        expect(
+          await app.nativeRuntime.runPromise(
+            notes.noteContext({ requestId: captured.request.requestId })
           )
-          .toStrictEqual(context);
-        test.assert.ok(
+        ).toStrictEqual(context);
+        assert.ok(
           await app.nativeRuntime.runPromise(
             notes.replySnapshot({ requestId: captured.request.requestId })
           )
         );
-        test.expect(target.requests).toStrictEqual([]);
+        expect(target.requests).toStrictEqual([]);
 
-        await test
-          .expect(
-            app.nativeRuntime.runPromise(
-              notes.requestReply({ noteId: captured.note.id, intentKey: 'fresh-intent' })
-            )
+        await expect(
+          app.nativeRuntime.runPromise(
+            notes.requestReply({ noteId: captured.note.id, intentKey: 'fresh-intent' })
           )
-          .rejects.toMatchObject({ kind: 'invalid_input' });
+        ).rejects.toMatchObject({ kind: 'invalid_input' });
 
         const next = await app.nativeRuntime.runPromise((await target.api()).createBackup());
 
-        test.assert.strictEqual(next.scope.notes, backup.scope.notes);
-        test.assert.strictEqual(next.scope.tombstones, 0);
+        assert.strictEqual(next.scope.notes, backup.scope.notes);
+        assert.strictEqual(next.scope.tombstones, 0);
       } finally {
         await server.close();
         await target?.close();
@@ -158,68 +156,73 @@ for (const operation of ['answer', 'rewrite', 'ask'] as const)
     }
   );
 
-test.stable('an unused retained capture preserves its authority after restore', async () => {
-  const source = await backupFixture();
+test.stable(
+  'an unused retained capture preserves its authority after restore',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  let target: Awaited<ReturnType<typeof backupFixture>> | undefined;
+    const source = await backupFixture();
 
-  try {
-    const c = await source.app.nativeRuntime.runPromise(Notes);
+    let target: Awaited<ReturnType<typeof backupFixture>> | undefined;
 
-    const note = await source.app.nativeRuntime.runPromise(c.createUntitledNote({}));
+    try {
+      const c = await source.app.nativeRuntime.runPromise(Notes);
 
-    await source.app.nativeRuntime.runPromise(
-      c.postMessage({ noteId: note.id, text: 'Retained capture' })
-    );
+      const note = await source.app.nativeRuntime.runPromise(c.createUntitledNote({}));
 
-    const capture = await source.app.nativeRuntime.runPromise(
-      c.captureNoteContext({
-        noteId: note.id,
-        intentKey: 'unused',
-        instruction: '',
-        preferences: {}
-      })
-    );
+      await source.app.nativeRuntime.runPromise(
+        c.postMessage({ noteId: note.id, text: 'Retained capture' })
+      );
 
-    const { exportSnapshot, restoreSnapshot } = await import('#testing/managed-backups');
+      const capture = await source.app.nativeRuntime.runPromise(
+        c.captureNoteContext({
+          noteId: note.id,
+          intentKey: 'unused',
+          instruction: '',
+          preferences: {}
+        })
+      );
 
-    const bytes = await exportSnapshot(source.app.store.db);
+      const { exportSnapshot, restoreSnapshot } = await import('#testing/managed-backups');
 
-    await source.suspend();
-    target = await restoreSnapshot(bytes);
+      const bytes = await exportSnapshot(source.app.store.db);
 
-    const restored = await target.app.nativeRuntime.runPromise(Notes);
+      await source.suspend();
+      target = await restoreSnapshot(bytes);
 
-    test
-      .expect(
+      const restored = await target.app.nativeRuntime.runPromise(Notes);
+
+      expect(
         await target.app.nativeRuntime.runPromise(
           restored.inspectNoteContext({ requestId: capture.requestId })
         )
-      )
-      .toStrictEqual(capture);
+      ).toStrictEqual(capture);
 
-    const request = await target.app.nativeRuntime.runPromise(
-      restored.requestPageTransform({
-        contextRequestId: capture.requestId,
-        title: 'Resume',
-        operations: ['clarity']
-      })
-    );
+      const request = await target.app.nativeRuntime.runPromise(
+        restored.requestPageTransform({
+          contextRequestId: capture.requestId,
+          title: 'Resume',
+          operations: ['clarity']
+        })
+      );
 
-    test.assert.strictEqual(request.cancelled, false);
-    test.assert.strictEqual(
-      target.app.store.db.orm.select().from(s.material_generation_requests).all().length,
-      0
-    );
-  } finally {
-    await target?.close();
-    await source.close();
+      assert.strictEqual(request.cancelled, false);
+      assert.strictEqual(
+        target.app.store.db.orm.select().from(s.material_generation_requests).all().length,
+        0
+      );
+    } finally {
+      await target?.close();
+      await source.close();
+    }
   }
-});
+);
 
 test.stable(
   'a completed native answer and pending rewrite both survive restore',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const { pageTransformFixture } = await import('#testing/page-transform');
 
     const { exportSnapshot, restoreSnapshot } = await import('#testing/managed-backups');
@@ -264,7 +267,7 @@ test.stable(
             event.requestId === requested.request.requestId
         );
 
-      test.assert.ok(event?.type === 'NoteGenerationRequested');
+      assert.ok(event?.type === 'NoteGenerationRequested');
 
       source.replies.push({ kind: 'output', output: 'Exact native answer' });
       await Effect.runPromise(
@@ -309,32 +312,30 @@ test.stable(
 
       const c = await app.nativeRuntime.runPromise(Notes);
 
-      test
-        .expect(await app.nativeRuntime.runPromise(c.message(requested.request.messageId)))
-        .toMatchObject({
-          activeVersionId: rewrite.versionId,
-          versions: test.expect.arrayContaining(before.versions)
-        });
-      test
-        .expect(
-          await app.nativeRuntime.runPromise(
-            c.inspectReplySnapshot({ requestId: requested.request.requestId })
-          )
+      expect(
+        await app.nativeRuntime.runPromise(c.message(requested.request.messageId))
+      ).toMatchObject({
+        activeVersionId: rewrite.versionId,
+        versions: expect.arrayContaining(before.versions)
+      });
+      expect(
+        await app.nativeRuntime.runPromise(
+          c.inspectReplySnapshot({ requestId: requested.request.requestId })
         )
-        .toStrictEqual(snapshot);
-      test.assert.ok(
+      ).toStrictEqual(snapshot);
+      assert.ok(
         app.store.db.orm
           .select()
           .from(s.message_versions)
           .all()
           .some((version) => version.id === rewrite.versionId)
       );
-      test
-        .expect(await app.nativeRuntime.runPromise(c.message(requested.request.messageId)))
-        .toMatchObject({
-          activeVersionId: rewrite.versionId,
-          versions: test.expect.arrayContaining(before.versions)
-        });
+      expect(
+        await app.nativeRuntime.runPromise(c.message(requested.request.messageId))
+      ).toMatchObject({
+        activeVersionId: rewrite.versionId,
+        versions: expect.arrayContaining(before.versions)
+      });
     } finally {
       await target?.close();
       await source.close();

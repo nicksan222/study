@@ -2,15 +2,25 @@ import { test } from '@study/testing';
 
 import { lintRulePaths } from '../test/utils.ts';
 
-async function lint(files: Record<string, string>) {
-  return await lintRulePaths('operation-conventions', files);
+async function lint(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  files: Record<string, string>
+) {
+  const assert: test.Assert = assertions;
+
+  return await lintRulePaths({ assert }, 'operation-conventions', files);
 }
 
-test.stable('rejects invalid query roles and unbounded collection inputs', async () => {
-  test
-    .expect(
-      await lint({
-        'apps/server/src/features/a/store/index.ts': `
+test.stable(
+  'rejects invalid query roles and unbounded collection inputs',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
+          'apps/server/src/features/a/store/index.ts': `
         import { Schema as S } from 'effect';
 
         import {
@@ -29,7 +39,7 @@ test.stable('rejects invalid query roles and unbounded collection inputs', async
           })
         });
       `,
-        'apps/server/src/features/b/store/index.ts': `
+          'apps/server/src/features/b/store/index.ts': `
         import * as api from '#server/platform/definitions/define-store';
         export const B = api.defineStore({
           entity: { singular: 'item', plural: 'items' },
@@ -43,7 +53,7 @@ test.stable('rejects invalid query roles and unbounded collection inputs', async
           })
         });
       `,
-        'apps/server/src/features/c/service/index.ts': `
+          'apps/server/src/features/c/service/index.ts': `
         import { Effect } from 'effect';
 
         import { defineService as create } from '#server/platform/definitions/define-service';
@@ -55,7 +65,7 @@ test.stable('rejects invalid query roles and unbounded collection inputs', async
           })
         );
       `,
-        'apps/server/src/features/f/store/index.ts': `
+          'apps/server/src/features/f/store/index.ts': `
         import { Schema as S } from 'effect';
 
         import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
@@ -67,34 +77,38 @@ test.stable('rejects invalid query roles and unbounded collection inputs', async
           })
         });
       `,
-        'apps/server/src/features/e/store/index.ts': `
+          'apps/server/src/features/e/store/index.ts': `
         import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
         defineStore({
           entity: { singular: 'item', plural: 'items' },
           make: ({ db }) => ({ queries: { item: storeQuery({ input: S.String }) }, mutations: {} })
         });
       `,
-        'apps/server/src/features/d/service/index.ts': `
+          'apps/server/src/features/d/service/index.ts': `
         import { defineService } from '#server/platform/definitions/define-service';
         function f(defineService) {
           return defineService('x', { getItem() {} });
         }
       `
-      })
-    )
-    .toStrictEqual([
+        }
+      )
+    ).toStrictEqual([
       'apps/server/src/features/a/store/index.ts',
       'apps/server/src/features/e/store/index.ts',
       'apps/server/src/features/f/store/index.ts'
     ]);
-});
+  }
+);
 
 test.stable(
   'schema field composition relies on runtime bounds when the imported shape is opaque',
-  async () => {
-    test
-      .expect(
-        await lint({
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
           'apps/server/src/features/learning/store/index.ts': `
         import { pageInput } from '@study/contracts';
         import { Schema } from 'effect';
@@ -114,34 +128,43 @@ test.stable(
           })
         });
       `
-        })
+        }
       )
-      .toStrictEqual([]);
+    ).toStrictEqual([]);
   }
 );
 
-test.stable('requires canonical roles on queries returned by store factories', async () => {
-  test
-    .expect(
-      await lint({
-        'apps/server/src/features/items/store/index.ts': `
+test.stable(
+  'requires canonical roles on queries returned by store factories',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
+          'apps/server/src/features/items/store/index.ts': `
         import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
         defineStore({
           entity: { singular: 'item', plural: 'items' },
           make: ({ db }) => ({ queries: { getItem: storeQuery({ role: 'snapshot' }) }, mutations: {} })
         });
       `
-      })
-    )
-    .toStrictEqual(['apps/server/src/features/items/store/index.ts']);
-});
+        }
+      )
+    ).toStrictEqual(['apps/server/src/features/items/store/index.ts']);
+  }
+);
 
 test.stable(
   'generation queries allow descriptive names while retaining canonical roles',
-  async () => {
-    test
-      .expect(
-        await lint({
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
           'apps/server/src/features/materials/store/index.ts': `
         import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
         defineStore({
@@ -172,18 +195,21 @@ test.stable(
           })
         });
       `
-        })
+        }
       )
-      .toStrictEqual(['apps/server/src/features/notes/store/role.ts']);
+    ).toStrictEqual(['apps/server/src/features/notes/store/role.ts']);
   }
 );
 
 test.stable(
   'proposal, receipt, comparison and context-validity queries allow semantic names',
-  async () => {
-    test
-      .expect(
-        await lint({
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
           'apps/server/src/features/materials/store/proposals.ts': `
       import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
       defineStore({entity:{singular:'documentProposal',plural:'documentProposals'},make:()=>({queries:{documentProposal:storeQuery({role:'required'})},mutations:{}})});
@@ -198,114 +224,141 @@ test.stable(
       import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
       defineStore({entity:{singular:'documentProposal',plural:'documentProposals'},make:()=>({queries:{findDocumentProposalReceipt:storeQuery({role:'optional'}),compare:storeQuery({role:'required'})},mutations:{}})});
     `
-        })
+        }
       )
-      .toStrictEqual([]);
+    ).toStrictEqual([]);
   }
 );
 
-test.stable('deletion queries can share the required role within one store', async () => {
-  test
-    .expect(
-      await lint({
-        'apps/server/src/features/notes/store/deletion.ts': `
+test.stable(
+  'deletion queries can share the required role within one store',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
+          'apps/server/src/features/notes/store/deletion.ts': `
       import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
       defineStore({entity:{singular:'noteDeletion',plural:'noteDeletions'},make:()=>({queries:{noteDeletion:storeQuery({role:'required'}),findNoteDeletion:storeQuery({role:'optional'})},mutations:{}})});
       defineStore({entity:{singular:'deletionOwnership',plural:'deletionOwnerships'},make:()=>({queries:{deletionOwnership:storeQuery({role:'required'})},mutations:{}})});
       defineStore({entity:{singular:'deletionCorrelation',plural:'deletionCorrelations'},make:()=>({queries:{deletionCorrelation:storeQuery({role:'required'})},mutations:{}})});
     `,
-        'apps/server/src/features/notes/store/descriptive.ts': `
+          'apps/server/src/features/notes/store/descriptive.ts': `
       import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
       defineStore({entity:{singular:'noteDeletion',plural:'noteDeletions'},make:()=>({queries:{deletionOwnership:storeQuery({role:'required'}),deletionCorrelations:storeQuery({role:'required'})},mutations:{}})});
     `
-      })
-    )
-    .toStrictEqual([]);
-});
+        }
+      )
+    ).toStrictEqual([]);
+  }
+);
 
-test.stable('material deletion queries allow descriptive status and preview names', async () => {
-  test
-    .expect(
-      await lint({
-        'apps/server/src/features/materials/store/deletion.ts': `
+test.stable(
+  'material deletion queries allow descriptive status and preview names',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
+          'apps/server/src/features/materials/store/deletion.ts': `
       import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
       defineStore({entity:{singular:'materialDeletion',plural:'materialDeletions'},make:()=>({queries:{materialDeletion:storeQuery({role:'required'}),findMaterialDeletion:storeQuery({role:'optional'})},mutations:{}})});
       defineStore({entity:{singular:'materialDeletionPreview',plural:'materialDeletionPreviews'},make:()=>({queries:{materialDeletionPreview:storeQuery({role:'required'})},mutations:{}})});
       defineStore({entity:{singular:'materialDeletionOwnership',plural:'materialDeletionOwnerships'},make:()=>({queries:{materialDeletionOwnership:storeQuery({role:'required'})},mutations:{}})});
     `,
-        'apps/server/src/features/sources/store/material-deletion.ts': `
+          'apps/server/src/features/sources/store/material-deletion.ts': `
       import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
       defineStore({entity:{singular:'sourceMaterialImpact',plural:'sourceMaterialImpacts'},make:()=>({queries:{sourceMaterialImpact:storeQuery({role:'required'})},mutations:{}})});
     `,
-        'apps/server/src/features/materials/store/descriptive.ts': `
+          'apps/server/src/features/materials/store/descriptive.ts': `
       import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
       defineStore({entity:{singular:'materialDeletion',plural:'materialDeletions'},make:()=>({queries:{readStatus:storeQuery({role:'required'}),previewDeletion:storeQuery({role:'optional'})},mutations:{}})});
     `
-      })
-    )
-    .toStrictEqual([]);
-});
+        }
+      )
+    ).toStrictEqual([]);
+  }
+);
 
-test.stable('history queries allow multiple descriptive required reads', async () => {
-  test
-    .expect(
-      await lint({
-        'apps/server/src/features/materials/store/history.ts': `
+test.stable(
+  'history queries allow multiple descriptive required reads',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
+          'apps/server/src/features/materials/store/history.ts': `
       import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
       defineStore({entity:{singular:'materialHistory',plural:'materialHistories'},make:()=>({queries:{materialHistory:storeQuery({role:'required'}),findMaterialHistory:storeQuery({role:'optional'})},mutations:{}})});
 
       defineStore({entity:{singular:'materialHistoryPublication',plural:'materialHistoryPublications'},make:()=>({queries:{materialHistoryPublication:storeQuery({role:'required'})},mutations:{}})});
 
     `,
-        'apps/server/src/features/sources/store/history.ts': `
+          'apps/server/src/features/sources/store/history.ts': `
       import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
       defineStore({entity:{singular:'sourceMaterialHistory',plural:'sourceMaterialHistories'},make:()=>({queries:{sourceMaterialHistory:storeQuery({role:'required'})},mutations:{}})});
 
     `,
-        'apps/server/src/features/materials/store/descriptive-history.ts': `
+          'apps/server/src/features/materials/store/descriptive-history.ts': `
       import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
       defineStore({entity:{singular:'materialHistory',plural:'materialHistories'},make:()=>({queries:{readStatus:storeQuery({role:'required'}),findMaterialHistory:storeQuery({role:'required'})},mutations:{}})});
 
     `
-      })
-    )
-    .toStrictEqual([]);
-});
+        }
+      )
+    ).toStrictEqual([]);
+  }
+);
 
-test.stable('document readers and reply provenance can coexist in one private store', async () => {
-  test
-    .expect(
-      await lint({
-        'apps/server/src/features/materials/store/reader.ts': `
+test.stable(
+  'document readers and reply provenance can coexist in one private store',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
+          'apps/server/src/features/materials/store/reader.ts': `
         import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
         defineStore({entity:{singular:'materialVersionDocument',plural:'materialVersionPages'},make:()=>({queries:{materialVersionDocument:storeQuery({role:'required'})},mutations:{}})});
         defineStore({entity:{singular:'materialVersionImage',plural:'materialVersionImages'},make:()=>({queries:{materialVersionImage:storeQuery({role:'required'})},mutations:{}})});
         defineStore({entity:{singular:'importedMaterial',plural:'importedMaterials'},make:()=>({queries:{importedMaterial:storeQuery({role:'required'})},mutations:{}})});
       `,
-        'apps/server/src/features/notes/store/reply.ts': `
+          'apps/server/src/features/notes/store/reply.ts': `
         import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
         defineStore({entity:{singular:'replyVersion',plural:'replyVersions'},make:()=>({queries:{replyVersion:storeQuery({role:'required'})},mutations:{}})});
         defineStore({entity:{singular:'replyRequest',plural:'replyRequests'},make:()=>({queries:{findReplyRequest:storeQuery({role:'optional'})},mutations:{}})});
       `,
-        'apps/server/src/features/materials/store/combined.ts': `
+          'apps/server/src/features/materials/store/combined.ts': `
         import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
         defineStore({entity:{singular:'materialReader',plural:'materialReaders'},make:()=>({queries:{materialVersionDocument:storeQuery({role:'required'}),materialVersionImage:storeQuery({role:'required'}),importedMaterial:storeQuery({role:'required'})},mutations:{}})});
       `,
-        'apps/server/src/features/notes/store/combined.ts': `
+          'apps/server/src/features/notes/store/combined.ts': `
         import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
         defineStore({entity:{singular:'replyRequest',plural:'replyRequests'},make:()=>({queries:{findReplyRequest:storeQuery({role:'optional'}),replyVersion:storeQuery({role:'required'})},mutations:{}})});
       `
-      })
-    )
-    .toStrictEqual([]);
-});
+        }
+      )
+    ).toStrictEqual([]);
+  }
+);
 
 test.stable(
   'export aggregates allow descriptive names while collections still require limits',
-  async () => {
-    test
-      .expect(
-        await lint({
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
           'apps/server/src/features/materials/store/export.ts': `
         import { Schema } from 'effect';
         import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
@@ -321,17 +374,22 @@ test.stable(
         import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
         defineStore({entity:{singular:'exportInputGraph',plural:'exportInputGraphs'},make:()=>({queries:{exportInputs:storeQuery({role:'required'})},mutations:{}})});
       `
-        })
+        }
       )
-      .toStrictEqual(['apps/server/src/features/materials/store/unbounded-export.ts']);
+    ).toStrictEqual(['apps/server/src/features/materials/store/unbounded-export.ts']);
   }
 );
 
-test.stable('allows several semantic queries per role through aliases and spreads', async () => {
-  test
-    .expect(
-      await lint({
-        'apps/server/src/features/notes/store/index.ts': `
+test.stable(
+  'allows several semantic queries per role through aliases and spreads',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
+          'apps/server/src/features/notes/store/index.ts': `
       import { Schema } from 'effect';
       import { defineStore as create, storeQuery as query, storeMutation } from '#server/platform/definitions/define-store';
       const required = { role: 'required', input: Schema.String, output: Schema.String, run: input => input };
@@ -343,16 +401,22 @@ test.stable('allows several semantic queries per role through aliases and spread
         mutations: { saveDraft: storeMutation({ input: Schema.String, output: Schema.Void, run: input => {} }) }
       })});
     `
-      })
-    )
-    .toStrictEqual([]);
-});
+        }
+      )
+    ).toStrictEqual([]);
+  }
+);
 
-test.stable('rejects operation identifiers outside lower camel case in either group', async () => {
-  test
-    .expect(
-      await lint({
-        'apps/server/src/features/notes/store/index.ts': `
+test.stable(
+  'rejects operation identifiers outside lower camel case in either group',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
+          'apps/server/src/features/notes/store/index.ts': `
       import { defineStore, storeQuery, storeMutation } from '#server/platform/definitions/define-store';
       const reads = { 'read-messages': storeQuery({role: 'required'}), ReadContext: storeQuery({role: 'required'}), _draft: storeQuery({role: 'optional'}) };
       defineStore({entity: {singular:'note',plural:'notes'}, make: () => ({
@@ -360,16 +424,22 @@ test.stable('rejects operation identifiers outside lower camel case in either gr
         mutations: { 'save-draft': storeMutation({}), SaveContext: storeMutation({}) }
       })});
     `
-      })
-    )
-    .toStrictEqual(Array(8).fill('apps/server/src/features/notes/store/index.ts'));
-});
+        }
+      )
+    ).toStrictEqual(Array(8).fill('apps/server/src/features/notes/store/index.ts'));
+  }
+);
 
-test.stable('requires canonical constructors for semantic queries and mutations', async () => {
-  test
-    .expect(
-      await lint({
-        'apps/server/src/features/notes/store/index.ts': `
+test.stable(
+  'requires canonical constructors for semantic queries and mutations',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
+          'apps/server/src/features/notes/store/index.ts': `
       import { defineStore, storeQuery, storeMutation } from '#server/platform/definitions/define-store';
       import { storeQuery as otherQuery } from './other';
       const reads = { readMessages: {role:'required'}, readContext: otherQuery({role:'required'}) };
@@ -378,16 +448,22 @@ test.stable('requires canonical constructors for semantic queries and mutations'
         mutations: { saveDraft: storeQuery({role:'required'}) }
       })});
     `
-      })
-    )
-    .toStrictEqual(Array(4).fill('apps/server/src/features/notes/store/index.ts'));
-});
+        }
+      )
+    ).toStrictEqual(Array(4).fill('apps/server/src/features/notes/store/index.ts'));
+  }
+);
 
-test.stable('rejects missing, unknown and malformed literal query roles', async () => {
-  test
-    .expect(
-      await lint({
-        'apps/server/src/features/notes/store/index.ts': `
+test.stable(
+  'rejects missing, unknown and malformed literal query roles',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
+          'apps/server/src/features/notes/store/index.ts': `
       import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
       const missing = {};
       const unknown = { role: 'snapshot' };
@@ -397,14 +473,17 @@ test.stable('rejects missing, unknown and malformed literal query roles', async 
         recentMessages: storeQuery({role:12})
       },mutations:{}})});
     `
-      })
-    )
-    .toStrictEqual(Array(5).fill('apps/server/src/features/notes/store/index.ts'));
-});
+        }
+      )
+    ).toStrictEqual(Array(5).fill('apps/server/src/features/notes/store/index.ts'));
+  }
+);
 
 test.stable(
   'descriptive operation names preserve descriptor and persistence boundary checks',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const store = (operation: string) => `
     import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
     import { notes } from '@study/db';
@@ -431,15 +510,20 @@ test.stable(
     ];
 
     for (const [rule, source] of cases)
-      test.expect(await lintRulePaths(rule, { [path]: source })).toStrictEqual([path]);
+      expect(await lintRulePaths({ assert }, rule, { [path]: source })).toStrictEqual([path]);
   }
 );
 
-test.stable('service reads allow conventional verb-based names', async () => {
-  test
-    .expect(
-      await lint({
-        'apps/server/src/features/items/service/index.ts': `
+test.stable(
+  'service reads allow conventional verb-based names',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
+          'apps/server/src/features/items/service/index.ts': `
         import { Effect } from 'effect';
 
         import { defineService } from '#server/platform/definitions/define-service';
@@ -450,7 +534,8 @@ test.stable('service reads allow conventional verb-based names', async () => {
           })
         );
         `
-      })
-    )
-    .toStrictEqual([]);
-});
+        }
+      )
+    ).toStrictEqual([]);
+  }
+);

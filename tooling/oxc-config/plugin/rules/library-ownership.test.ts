@@ -4,7 +4,9 @@ import { lintRulePaths } from '../test/utils.ts';
 
 test.stable(
   'durable library identities cannot acquire collection ownership through schema aliases',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const imports = `import { sqliteTable as table, integer, foreignKey } from 'drizzle-orm/sqlite-core';
 
 import { projects as collections } from './projects.ts';
@@ -42,13 +44,14 @@ table('material_versions', { request: integer().references(() => requests.id) })
     };
     const prefix = 'packages/db/src/schema/';
     const diagnostics = await lintRulePaths(
+      { assert },
       'library-ownership',
       Object.fromEntries(
         Object.entries(files).map(([file, code]) => [prefix + file, imports + code])
       )
     );
 
-    test.expect(diagnostics).toStrictEqual(
+    expect(diagnostics).toStrictEqual(
       Object.keys(files)
         .slice(0, 9)
         .map((file) => prefix + file)

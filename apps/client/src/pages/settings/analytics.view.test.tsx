@@ -42,8 +42,11 @@ test.beforeEach(async ({ mock }) => {
 const snapshot =
   '2026-01-01T00:00:00Z ERROR panic\n  stack: Needle\n2026-01-01T00:00:01Z INFO ready\n';
 
-function setup(locale: 'english' | 'italian' = 'english') {
-  const view = test.render(
+function setup(
+  { render }: Pick<test.Context, 'render'>,
+  locale: 'english' | 'italian' = 'english'
+) {
+  const view = render(
     <LanguageProvider locale={locale}>
       <AnalyticsSettings />
     </LanguageProvider>
@@ -54,77 +57,83 @@ function setup(locale: 'english' | 'italian' = 'english') {
   };
 }
 
-test.stable('searches continuation context and exports the entire snapshot', async () => {
-  test.vi.mocked(hostCapabilities).mockReturnValue({ updates: true, diagnostics: true });
-  test.vi.mocked(diagnosticLog).mockResolvedValue(snapshot);
-  const cleanup = setup();
+test.stable(
+  'searches continuation context and exports the entire snapshot',
+  async ({ vi, userEvent, expect, screen, render }) => {
+    vi.mocked(hostCapabilities).mockReturnValue({ updates: true, diagnostics: true });
+    vi.mocked(diagnosticLog).mockResolvedValue(snapshot);
+    const cleanup = setup({ render });
 
-  try {
-    const user = test.userEvent.setup();
+    try {
+      const user = userEvent.setup();
 
-    test.expect(await test.screen.findByText(/stack: Needle/)).toBeInTheDocument();
-    await user.click(test.screen.getByRole('combobox', { name: 'Severity' }));
-    await user.click(await test.screen.findByRole('option', { name: 'Error' }));
-    test.expect(test.screen.queryByText(/INFO ready/)).not.toBeInTheDocument();
-    await user.type(test.screen.getByRole('searchbox', { name: 'Search logs' }), 'needle');
-    test.expect(test.screen.getByText(/ERROR panic/)).toHaveTextContent('stack: Needle');
-    test.expect(test.screen.queryByText(/INFO ready/)).not.toBeInTheDocument();
-    test.expect(test.screen.getByText('Showing 1 of 2 events')).toBeInTheDocument();
-    await user.click(test.screen.getByRole('button', { name: 'Export snapshot' }));
-    const [name, blob] = test.vi.mocked(downloadFile).mock.calls.at(-1)!;
+      expect(await screen.findByText(/stack: Needle/)).toBeInTheDocument();
+      await user.click(screen.getByRole('combobox', { name: 'Severity' }));
+      await user.click(await screen.findByRole('option', { name: 'Error' }));
+      expect(screen.queryByText(/INFO ready/)).not.toBeInTheDocument();
+      await user.type(screen.getByRole('searchbox', { name: 'Search logs' }), 'needle');
+      expect(screen.getByText(/ERROR panic/)).toHaveTextContent('stack: Needle');
+      expect(screen.queryByText(/INFO ready/)).not.toBeInTheDocument();
+      expect(screen.getByText('Showing 1 of 2 events')).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Export snapshot' }));
+      const [name, blob] = vi.mocked(downloadFile).mock.calls.at(-1)!;
 
-    test.expect(name).toBe('diagnostics.log');
-    test.expect(await (blob as Blob).text()).toBe(snapshot);
-    await user.clear(test.screen.getByRole('searchbox', { name: 'Search logs' }));
-    await user.type(test.screen.getByRole('searchbox', { name: 'Search logs' }), 'missing');
-    test.expect(test.screen.getByText('No events match these filters.')).toBeInTheDocument();
-  } finally {
-    cleanup();
+      expect(name).toBe('diagnostics.log');
+      expect(await (blob as Blob).text()).toBe(snapshot);
+      await user.clear(screen.getByRole('searchbox', { name: 'Search logs' }));
+      await user.type(screen.getByRole('searchbox', { name: 'Search logs' }), 'missing');
+      expect(screen.getByText('No events match these filters.')).toBeInTheDocument();
+    } finally {
+      cleanup();
+    }
   }
-});
+);
 
-test.stable.each(['english', 'italian'] as const)('shows browser fallback in %s', (locale) => {
-  test.vi.mocked(hostCapabilities).mockReturnValue({ updates: false, diagnostics: false });
-  test.vi.mocked(diagnosticLog).mockClear();
-  const cleanup = setup(locale);
+test.stable.for(['english', 'italian'] as const)(
+  'shows browser fallback in %s',
+  (locale, { vi, expect, screen, render }) => {
+    vi.mocked(hostCapabilities).mockReturnValue({ updates: false, diagnostics: false });
+    vi.mocked(diagnosticLog).mockClear();
+    const cleanup = setup({ render }, locale);
 
-  try {
-    test.expect(test.screen.getByText(catalogs[locale].AnalyticsDesktop)).toBeInTheDocument();
-    test.expect(diagnosticLog).not.toHaveBeenCalled();
-  } finally {
-    cleanup();
+    try {
+      expect(screen.getByText(catalogs[locale].AnalyticsDesktop)).toBeInTheDocument();
+      expect(diagnosticLog).not.toHaveBeenCalled();
+    } finally {
+      cleanup();
+    }
   }
-});
+);
 
-test.stable('shows loading, error and recovers to empty on refresh', async () => {
-  test.vi.mocked(hostCapabilities).mockReturnValue({ updates: true, diagnostics: true });
-  let reject!: (reason: Error) => void;
+test.stable(
+  'shows loading, error and recovers to empty on refresh',
+  async ({ vi, expect, screen, waitFor, userEvent, render }) => {
+    vi.mocked(hostCapabilities).mockReturnValue({ updates: true, diagnostics: true });
+    let reject!: (reason: Error) => void;
 
-  test.vi
-    .mocked(diagnosticLog)
-    .mockImplementationOnce(
-      () =>
-        new Promise((_, fail) => {
-          reject = fail;
-        })
-    )
-    .mockResolvedValueOnce('');
-  const cleanup = setup();
+    vi.mocked(diagnosticLog)
+      .mockImplementationOnce(
+        () =>
+          new Promise((_, fail) => {
+            reject = fail;
+          })
+      )
+      .mockResolvedValueOnce('');
+    const cleanup = setup({ render });
 
-  try {
-    test.expect(test.screen.getByText('Loading logs…')).toBeInTheDocument();
-    test.expect(test.screen.getByRole('button', { name: 'Refresh' })).toBeDisabled();
-    await test.waitFor(() => test.expect(diagnosticLog).toHaveBeenCalled());
-    reject(new Error('unavailable'));
-    test
-      .expect(await test.screen.findByText('Could not load logs. Try refreshing.'))
-      .toBeInTheDocument();
-    await test.userEvent.click(test.screen.getByRole('button', { name: 'Refresh' }));
-    await test.waitFor(() =>
-      test.expect(test.screen.getByText('No diagnostic events yet.')).toBeInTheDocument()
-    );
-    test.expect(test.screen.getByRole('button', { name: 'Export snapshot' })).toBeDisabled();
-  } finally {
-    cleanup();
+    try {
+      expect(screen.getByText('Loading logs…')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Refresh' })).toBeDisabled();
+      await waitFor(() => expect(diagnosticLog).toHaveBeenCalled());
+      reject(new Error('unavailable'));
+      expect(await screen.findByText('Could not load logs. Try refreshing.')).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+      await waitFor(() =>
+        expect(screen.getByText('No diagnostic events yet.')).toBeInTheDocument()
+      );
+      expect(screen.getByRole('button', { name: 'Export snapshot' })).toBeDisabled();
+    } finally {
+      cleanup();
+    }
   }
-});
+);

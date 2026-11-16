@@ -7,7 +7,7 @@ import { usePageBrowse } from './use-page-browse';
 
 test.stable(
   'changing the page browser owner discards a slower previous-owner snapshot',
-  async () => {
+  async ({ vi, rpcHandlersTransport, renderHook, waitFor, expect, act }) => {
     const first = projectIdSchema.make(1n);
     const second = projectIdSchema.make(2n);
     const page = (id: bigint) =>
@@ -25,30 +25,28 @@ test.stable(
     const slow = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const read = test.vi.fn(async (input: Parameters<typeof rpc.pages.list.read>[0]) => {
+    const read = vi.fn(async (input: Parameters<typeof rpc.pages.list.read>[0]) => {
       if (input.projectId === first) await slow;
 
       return { items: [page(input.projectId ?? second)], nextCursor: null };
     });
-    const harness = test.rpcHandlersTransport({ 'pages.pages': read });
-    const view = test.renderHook(({ project }) => usePageBrowse(project), {
+    const harness = rpcHandlersTransport({ 'pages.pages': read });
+    const view = renderHook(({ project }) => usePageBrowse(project), {
       initialProps: { project: first },
       wrapper: harness.wrapper
     });
 
-    await test.waitFor(() =>
-      test.expect(read).toHaveBeenCalledWith(test.expect.objectContaining({ projectId: first }))
+    await waitFor(() =>
+      expect(read).toHaveBeenCalledWith(expect.objectContaining({ projectId: first }))
     );
     view.rerender({ project: second });
-    await test.waitFor(() =>
-      test.expect(view.result.current.query.data?.items[0]?.title).toBe('Page 2')
-    );
-    await test.act(async () => {
+    await waitFor(() => expect(view.result.current.query.data?.items[0]?.title).toBe('Page 2'));
+    await act(async () => {
       release();
       await slow;
     });
-    test.expect(view.result.current.query.data?.items[0]?.title).toBe('Page 2');
-    test.expect(view.result.current.navigation.cursor).toBeUndefined();
-    test.expect(view.result.current.navigation.limit).toBe(30);
+    expect(view.result.current.query.data?.items[0]?.title).toBe('Page 2');
+    expect(view.result.current.navigation.cursor).toBeUndefined();
+    expect(view.result.current.navigation.limit).toBe(30);
   }
 );

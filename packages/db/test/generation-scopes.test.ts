@@ -2,7 +2,9 @@ import { test } from '@study/testing';
 
 test.stable(
   'generation scope closure and identity survive direct writes and allow project cascades',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const db = await location.open();
 
@@ -17,17 +19,19 @@ test.stable(
       "UPDATE material_generation_scopes SET created_at=0 WHERE id='scope'",
       "DELETE FROM material_generation_scopes WHERE id='scope'"
     ])
-      test.assert.throws(() => db.exec(mutation));
+      assert.throws(() => db.exec(mutation));
 
     db.exec('DELETE FROM projects WHERE id=1');
-    test.assert.strictEqual(db.orm.get('SELECT * FROM material_generation_scopes'), undefined);
-    test.expect(db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
+    assert.strictEqual(db.orm.get('SELECT * FROM material_generation_scopes'), undefined);
+    expect(db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
   }
 );
 
 test.stable(
   'scoped generation requests require a live scope in their own project',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const db = await location.open();
 
@@ -36,19 +40,19 @@ test.stable(
     db.exec(`INSERT INTO material_generation_requests(id,project_id,payload,created_at)
       VALUES('valid',1,'{"title":"Question","kind":"quiz","inputs":[{"kind":"page","versionId":"1"}],"scopeId":"scope"}',1),
       ('unscoped',1,'{"title":"Question","kind":"quiz","inputs":[{"kind":"page","versionId":"1"}],"scopeId":null}',1)`);
-    test.assert.throws(() =>
+    assert.throws(() =>
       db.exec(`INSERT INTO material_generation_requests(id,project_id,payload,created_at)
       VALUES('invalid-spec',1,'{"title":"Question","kind":"quiz","inputs":[{"kind":"page","versionId":"1"}],"questionSpec":{"count":2,"kind":"open"}}',1)`)
     );
 
     for (const scopeId of ['missing', 'closed'])
-      test.assert.throws(() =>
+      assert.throws(() =>
         db.exec(`
       INSERT INTO material_generation_requests(id,project_id,payload,created_at)
       VALUES('request',1,'{"title":"Question","kind":"quiz","inputs":[{"kind":"page","versionId":"1"}],"scopeId":"${scopeId}"}',1)`)
       );
 
-    test.assert.throws(() =>
+    assert.throws(() =>
       db.exec(`INSERT INTO material_generation_requests(id,project_id,payload,created_at)
       VALUES('other-project',2,'{"title":"Question","kind":"quiz","inputs":[{"kind":"page","versionId":"1"}],"scopeId":"scope"}',1)`)
     );

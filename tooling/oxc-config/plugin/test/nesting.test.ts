@@ -2,10 +2,15 @@ import { test } from '@study/testing';
 
 import { lintFiles } from './utils.ts';
 
-test.stable('production config rejects four nested control-flow blocks', async () => {
-  const diagnostics = await lintFiles(
-    {
-      'apps/client/src/lib/nesting.ts': `
+test.stable(
+  'production config rejects four nested control-flow blocks',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintFiles(
+      { assert },
+      {
+        'apps/client/src/lib/nesting.ts': `
       export function nested(a, b, c, d) {
         if (a) {
           if (b) {
@@ -20,20 +25,24 @@ test.stable('production config rejects four nested control-flow blocks', async (
         return 0;
       }
     `
-    },
-    undefined,
-    true
-  );
+      },
+      undefined,
+      true
+    );
 
-  test.assert.strictEqual(
-    diagnostics.filter(({ code }) => code === 'eslint(max-depth)').length,
-    1,
-    JSON.stringify(diagnostics)
-  );
-});
+    assert.strictEqual(
+      diagnostics.filter(({ code }) => code === 'eslint(max-depth)').length,
+      1,
+      JSON.stringify(diagnostics)
+    );
+  }
+);
 
-test.stable('production config rejects four nested callbacks', async () => {
+test.stable('production config rejects four nested callbacks', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const diagnostics = await lintFiles(
+    { assert },
     {
       'apps/client/src/lib/callbacks.ts': `
       export function nested(items) {
@@ -51,17 +60,22 @@ test.stable('production config rejects four nested callbacks', async () => {
     true
   );
 
-  test.assert.strictEqual(
+  assert.strictEqual(
     diagnostics.filter(({ code }) => code === 'eslint(max-nested-callbacks)').length,
     1,
     JSON.stringify(diagnostics)
   );
 });
 
-test.stable('production config accepts guard clauses and three callback levels', async () => {
-  const diagnostics = await lintFiles(
-    {
-      'apps/client/src/lib/shallow.ts': `
+test.stable(
+  'production config accepts guard clauses and three callback levels',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintFiles(
+      { assert },
+      {
+        'apps/client/src/lib/shallow.ts': `
       export function guarded(a, b, c) {
         if (!a) return 0;
 
@@ -76,10 +90,11 @@ test.stable('production config accepts guard clauses and three callback levels',
         return items.map((a) => items.map((b) => items.map((c) => a + b + c)));
       }
     `
-    },
-    undefined,
-    true
-  );
+      },
+      undefined,
+      true
+    );
 
-  test.expect(diagnostics).toStrictEqual([]);
-});
+    expect(diagnostics).toStrictEqual([]);
+  }
+);

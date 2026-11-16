@@ -25,7 +25,9 @@ import { serve } from '#server/runtime/index';
 test.stable(
   'runtime consumes source requests made over HTTP and recovers pending requests on reopen',
   { timeout: 15000 },
-  async ({ resources: location }) => {
+  async ({ resources: location, pollUntil, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     let app = await location.openApp({ path: location.path });
     let server = await serve(app);
 
@@ -51,16 +53,21 @@ test.stable(
       server = await serve(app);
       await app.workers.start();
 
-      function* verifyRecoveredSource() {
+      function* verifyRecoveredSource({
+        pollUntil,
+        assert: assertions
+      }: Pick<test.Context, 'pollUntil' | 'assert'>) {
+        const assert: test.Assert = assertions;
+
         const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
 
-        const state = yield* test.pollUntil(
+        const state = yield* pollUntil(
           client['sources.sourceProcessing']({ id }),
           (value) => value.documentId !== null,
           { attempts: 100, interval: '50 millis', message: 'Source was not processed' }
         );
 
-        test.assert.ok(state.documentId !== null);
+        assert.ok(state.documentId !== null);
         yield* client['sources.correctBlock']({
           id,
           documentId: state.documentId,
@@ -68,7 +75,7 @@ test.stable(
           before: 'Hello',
           after: 'Corrected'
         });
-        yield* test.pollUntil(
+        yield* pollUntil(
           client['sources.sourceProcessing']({ id }),
           (value) => value.documentId !== null && value.documentId !== state.documentId,
           { attempts: 100, interval: '50 millis', message: 'Source correction was not consumed' }
@@ -79,10 +86,12 @@ test.stable(
           )
         );
 
-        test.assert.ok(document.document.blocks[0]?.text === 'Corrected');
+        assert.ok(document.document.blocks[0]?.text === 'Corrected');
       }
 
-      await Effect.runPromise(Effect.scoped(Effect.gen(verifyRecoveredSource)));
+      await Effect.runPromise(
+        Effect.scoped(Effect.gen(() => verifyRecoveredSource({ pollUntil, assert })))
+      );
     } finally {
       await server.close();
       await app.close();
@@ -94,7 +103,9 @@ test.stable(
 test.stable(
   'running worker processes a source created through HTTP',
   { timeout: 10000 },
-  async ({ resources: location }) => {
+  async ({ resources: location, pollUntil, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const app = await location.openApp({ path: location.path });
     const server = await serve(app);
 
@@ -111,7 +122,7 @@ test.stable(
               projectId: null
             });
 
-            yield* test.pollUntil(
+            yield* pollUntil(
               client['sources.sourceProcessing']({ id: source.id }),
               (value) => value.documentId !== null,
               { attempts: 100, interval: '50 millis', message: 'Source was not processed' }
@@ -121,10 +132,10 @@ test.stable(
               (item) => item.target.type === 'source' && item.target.sourceId === source.id
             );
 
-            test.assert.ok(hit);
-            test.assert.ok(hit.target.type === 'source');
+            assert.ok(hit);
+            assert.ok(hit.target.type === 'source');
 
-            if (hit.target.type === 'source') test.assert.ok(hit.target.anchor?.type === 'text');
+            if (hit.target.type === 'source') assert.ok(hit.target.anchor?.type === 'text');
           })
         )
       );
@@ -139,7 +150,9 @@ test.stable(
 test.stable(
   'HTTP source upload retains exact original bytes and extraction history without authoring or projecting a Material',
   { timeout: 15000 },
-  async ({ resources: location }) => {
+  async ({ resources: location, assert: assertions, expect, pollUntil }) => {
+    const assert: test.Assert = assertions;
+
     const app = await location.openApp({ path: location.path });
     const server = await serve(app);
 
@@ -157,8 +170,13 @@ test.stable(
               projectId: project.id
             });
 
-            function* waitForExtraction(text: string) {
-              const extraction = yield* test.pollUntil(
+            function* waitForExtraction(
+              { pollUntil, assert: assertions }: Pick<test.Context, 'pollUntil' | 'assert'>,
+              text: string
+            ) {
+              const assert: test.Assert = assertions;
+
+              const extraction = yield* pollUntil(
                 client['sources.currentExtraction']({ id: source.id }),
                 (value) => value?.document.blocks[0]?.text === text,
                 {
@@ -168,14 +186,17 @@ test.stable(
                 }
               );
 
-              test.assert.ok(extraction);
+              assert.ok(extraction);
 
               return extraction;
             }
 
-            const extracted = yield* waitForExtraction('Mitochondria generate ATP');
+            const extracted = yield* waitForExtraction(
+              { pollUntil, assert },
+              'Mitochondria generate ATP'
+            );
 
-            test.assert.strictEqual(
+            assert.strictEqual(
               (yield* client['materials.materials']({
                 projectId: project.id,
                 archived: false,
@@ -183,7 +204,7 @@ test.stable(
               })).items.length,
               0
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               (yield* client['pages.pages']({
                 projectId: project.id,
                 archived: false,
@@ -198,18 +219,21 @@ test.stable(
               bytes: new TextEncoder().encode('Chloroplasts capture sunlight')
             });
 
-            test.assert.strictEqual(replaced.revision, 2);
-            const next = yield* waitForExtraction('Chloroplasts capture sunlight');
+            assert.strictEqual(replaced.revision, 2);
+            const next = yield* waitForExtraction(
+              { pollUntil, assert },
+              'Chloroplasts capture sunlight'
+            );
 
-            test.assert.strictEqual(next.sourceId, extracted.sourceId);
-            test.assert.notStrictEqual(next.snapshotId, extracted.snapshotId);
+            assert.strictEqual(next.sourceId, extracted.sourceId);
+            assert.notStrictEqual(next.snapshotId, extracted.snapshotId);
             const old = yield* client['sources.extraction']({
               sourceId: source.id,
               revision: 1n,
               snapshotId: extracted.snapshotId
             });
 
-            test.expect(old.document).toStrictEqual(extracted.document);
+            expect(old.document).toStrictEqual(extracted.document);
             const oldBytes = yield* client['sources.exportRevision']({
               sourceId: source.id,
               revision: 1n
@@ -219,20 +243,21 @@ test.stable(
               revision: 2n
             });
 
-            test
-              .expect(oldBytes.bytes)
-              .toStrictEqual(new TextEncoder().encode('Mitochondria generate ATP'));
-            test
-              .expect(nextBytes.bytes)
-              .toStrictEqual(new TextEncoder().encode('Chloroplasts capture sunlight'));
+            expect(oldBytes.bytes).toStrictEqual(
+              new TextEncoder().encode('Mitochondria generate ATP')
+            );
+            expect(nextBytes.bytes).toStrictEqual(
+              new TextEncoder().encode('Chloroplasts capture sunlight')
+            );
             const history = yield* client['sources.extractions']({
               sourceId: source.id,
               limit: 10
             });
 
-            test
-              .expect(history.items.map((item) => item.snapshotId))
-              .toStrictEqual([next.snapshotId, extracted.snapshotId]);
+            expect(history.items.map((item) => item.snapshotId)).toStrictEqual([
+              next.snapshotId,
+              extracted.snapshotId
+            ]);
           })
         )
       );
@@ -243,13 +268,13 @@ test.stable(
           sql`SELECT revision, bytes FROM source_snapshots ORDER BY revision`
         ) as { revision: bigint; bytes: Uint8Array }[];
 
-        test.assert.strictEqual(snapshots.length, 2);
-        test
-          .expect(Buffer.from(snapshots[0]!.bytes))
-          .toStrictEqual(Buffer.from('Mitochondria generate ATP'));
-        test
-          .expect(Buffer.from(snapshots[1]!.bytes))
-          .toStrictEqual(Buffer.from('Chloroplasts capture sunlight'));
+        assert.strictEqual(snapshots.length, 2);
+        expect(Buffer.from(snapshots[0]!.bytes)).toStrictEqual(
+          Buffer.from('Mitochondria generate ATP')
+        );
+        expect(Buffer.from(snapshots[1]!.bytes)).toStrictEqual(
+          Buffer.from('Chloroplasts capture sunlight')
+        );
       } finally {
         check.close();
       }

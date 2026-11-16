@@ -4,10 +4,10 @@ import { ToastProvider, toastManager } from './toast';
 
 test.stable(
   'shows standard success feedback and supports keyboard access and localized dismissal',
-  async () => {
-    const user = test.userEvent.setup();
+  async ({ userEvent, render, screen, expect, waitFor }) => {
+    const user = userEvent.setup();
 
-    test.render(
+    render(
       <ToastProvider closeLabel="Dismiss notification" viewportLabel="Notifications">
         <button
           type="button"
@@ -17,25 +17,23 @@ test.stable(
         </button>
       </ToastProvider>
     );
-    await user.click(test.screen.getByRole('button', { name: 'Notify' }));
-    test.expect(await test.screen.findByText('Backup created')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Notify' }));
+    expect(await screen.findByText('Backup created')).toBeVisible();
     await user.keyboard('{F6}');
-    await test.waitFor(() =>
-      test.expect(document.querySelector('.ui-toast-viewport')).toHaveFocus()
-    );
-    await user.click(test.screen.getByRole('button', { name: 'Dismiss notification' }));
-    await test.waitFor(() => test.expect(test.screen.queryByText('Backup created')).toBeNull());
+    await waitFor(() => expect(document.querySelector('.ui-toast-viewport')).toHaveFocus());
+    await user.click(screen.getByRole('button', { name: 'Dismiss notification' }));
+    await waitFor(() => expect(screen.queryByText('Backup created')).toBeNull());
   }
 );
 
 test.stable(
   'localizes the notification region instead of exposing the primitive English default',
-  () => {
-    test.render(
+  ({ render, expect }) => {
+    render(
       <ToastProvider closeLabel="Chiudi" viewportLabel="Notifiche">
         <span>App</span>
       </ToastProvider>
     );
-    test.expect(document.querySelector('.ui-toast-viewport')).toHaveAccessibleName('Notifiche');
+    expect(document.querySelector('.ui-toast-viewport')).toHaveAccessibleName('Notifiche');
   }
 );

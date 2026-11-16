@@ -10,18 +10,19 @@ import {
   mountLibraryRoute
 } from '../material-library/test/support';
 
-async function openDeletion(user: ReturnType<typeof test.userEvent.setup>) {
-  await user.click(
-    await test.screen.findByRole('button', { name: catalogs.english.SourceDeleteTitle })
-  );
+async function openDeletion(
+  { screen }: Pick<test.Context, 'screen'>,
+  user: ReturnType<test.Context['userEvent']['setup']>
+) {
+  await user.click(await screen.findByRole('button', { name: catalogs.english.SourceDeleteTitle }));
 
-  return test.screen.findByRole('alertdialog');
+  return screen.findByRole('alertdialog');
 }
 
 test.stable(
   'previews source revisions and requires its exact name before deleting while preserving unrelated authored content',
-  async () => {
-    const rpc = materialRpc();
+  async ({ userEvent, expect, within, waitFor, screen, vi, render, rpcHandlersTransport }) => {
+    const rpc = materialRpc({ vi });
 
     rpc['sources.deleteSource'].mockImplementation(() =>
       Effect.sync(() => {
@@ -30,41 +31,39 @@ test.stable(
         return true;
       })
     );
-    const { router } = mountLibraryRoute('/sources/7?sourceRevision=1&sourceSnapshot=1101', rpc);
+    const { router } = mountLibraryRoute(
+      { render, rpcHandlersTransport, vi },
+      '/sources/7?sourceRevision=1&sourceSnapshot=1101',
+      rpc
+    );
 
-    const user = test.userEvent.setup();
-    const dialog = await openDeletion(user);
+    const user = userEvent.setup();
+    const dialog = await openDeletion({ screen }, user);
 
-    test
-      .expect(await test.within(dialog).findByText(`${catalogs.english.SourceDeleteRevisions}: 1`))
-      .toBeInTheDocument();
-    test
-      .expect(test.within(dialog).getByText(catalogs.english.SourceDeleteHelp))
-      .toBeInTheDocument();
-    const confirm = test.within(dialog).getByRole('button', {
+    expect(
+      await within(dialog).findByText(`${catalogs.english.SourceDeleteRevisions}: 1`)
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText(catalogs.english.SourceDeleteHelp)).toBeInTheDocument();
+    const confirm = within(dialog).getByRole('button', {
       name: catalogs.english.SourceDeleteConfirm
     });
 
-    test.expect(confirm).toBeDisabled();
-    const name = test
-      .within(dialog)
-      .getByRole('textbox', { name: catalogs.english.SourceDeleteName });
+    expect(confirm).toBeDisabled();
+    const name = within(dialog).getByRole('textbox', { name: catalogs.english.SourceDeleteName });
 
-    await test.waitFor(() => test.expect(name).toBeEnabled());
+    await waitFor(() => expect(name).toBeEnabled());
     await user.type(name, importedSource.name);
     await user.click(confirm);
-    await locationIs(router, '/notes');
-    test
-      .expect(rpc['sources.deleteSource'])
-      .toHaveBeenCalledExactlyOnceWith({ id: importedSource.id });
-    test.expect(rpc['sources.findSource']).not.toHaveBeenCalled();
+    await locationIs({ waitFor }, router, '/notes');
+    expect(rpc['sources.deleteSource']).toHaveBeenCalledExactlyOnceWith({ id: importedSource.id });
+    expect(rpc['sources.findSource']).not.toHaveBeenCalled();
   }
 );
 
 test.stable(
   'keeps exact input pins visible and disables deletion without hiding retained source content',
-  async () => {
-    const rpc = materialRpc();
+  async ({ userEvent, expect, within, screen, vi, render, rpcHandlersTransport }) => {
+    const rpc = materialRpc({ vi });
 
     rpc['sources.previewDeletion'].mockReturnValue(
       Effect.succeed({
@@ -76,34 +75,34 @@ test.stable(
         retainedCopies: 'authored_outputs_and_raw_note_records'
       })
     );
-    mountLibraryRoute('/sources/7?sourceRevision=1&sourceSnapshot=1101', rpc);
-    const user = test.userEvent.setup();
-    const dialog = await openDeletion(user);
+    mountLibraryRoute(
+      { render, rpcHandlersTransport, vi },
+      '/sources/7?sourceRevision=1&sourceSnapshot=1101',
+      rpc
+    );
+    const user = userEvent.setup();
+    const dialog = await openDeletion({ screen }, user);
 
-    test
-      .expect(await test.within(dialog).findByText(catalogs.english.SourceDeleteExactPins))
-      .toBeInTheDocument();
-    test
-      .expect(test.within(dialog).getByText(catalogs.english.SourceDeleteImagePins))
-      .toBeInTheDocument();
-    test
-      .expect(test.within(dialog).getByRole('textbox', { name: catalogs.english.SourceDeleteName }))
-      .toBeDisabled();
-    test
-      .expect(
-        test.within(dialog).getByRole('button', { name: catalogs.english.SourceDeleteConfirm })
-      )
-      .toBeDisabled();
-    await user.click(test.within(dialog).getByRole('button', { name: catalogs.english.Cancel }));
-    test.expect(test.screen.getByText('Historical extraction')).toBeInTheDocument();
-    test.expect(rpc['sources.deleteSource']).not.toHaveBeenCalled();
+    expect(
+      await within(dialog).findByText(catalogs.english.SourceDeleteExactPins)
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText(catalogs.english.SourceDeleteImagePins)).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('textbox', { name: catalogs.english.SourceDeleteName })
+    ).toBeDisabled();
+    expect(
+      within(dialog).getByRole('button', { name: catalogs.english.SourceDeleteConfirm })
+    ).toBeDisabled();
+    await user.click(within(dialog).getByRole('button', { name: catalogs.english.Cancel }));
+    expect(screen.getByText('Historical extraction')).toBeInTheDocument();
+    expect(rpc['sources.deleteSource']).not.toHaveBeenCalled();
   }
 );
 
 test.stable(
   'recovers a lost deletion response through durable source absence and returns to Notes',
-  async () => {
-    const rpc = materialRpc();
+  async ({ userEvent, within, waitFor, expect, screen, vi, render, rpcHandlersTransport }) => {
+    const rpc = materialRpc({ vi });
 
     rpc['sources.deleteSource'].mockReturnValue(
       Effect.fail(new StudyError('transient', 'Lost response'))
@@ -115,22 +114,22 @@ test.stable(
         return Option.none();
       })
     );
-    const { router } = mountLibraryRoute('/sources/7?sourceRevision=1&sourceSnapshot=1101', rpc);
-    const user = test.userEvent.setup();
-    const dialog = await openDeletion(user);
-    const name = test
-      .within(dialog)
-      .getByRole('textbox', { name: catalogs.english.SourceDeleteName });
+    const { router } = mountLibraryRoute(
+      { render, rpcHandlersTransport, vi },
+      '/sources/7?sourceRevision=1&sourceSnapshot=1101',
+      rpc
+    );
+    const user = userEvent.setup();
+    const dialog = await openDeletion({ screen }, user);
+    const name = within(dialog).getByRole('textbox', { name: catalogs.english.SourceDeleteName });
 
-    await test.waitFor(() => test.expect(name).toBeEnabled());
+    await waitFor(() => expect(name).toBeEnabled());
     await user.type(name, importedSource.name);
     await user.click(
-      test.within(dialog).getByRole('button', { name: catalogs.english.SourceDeleteConfirm })
+      within(dialog).getByRole('button', { name: catalogs.english.SourceDeleteConfirm })
     );
-    await locationIs(router, '/notes');
-    test
-      .expect(rpc['sources.findSource'])
-      .toHaveBeenCalledExactlyOnceWith({ id: importedSource.id });
-    test.expect(rpc['sources.deleteSource']).toHaveBeenCalledTimes(1);
+    await locationIs({ waitFor }, router, '/notes');
+    expect(rpc['sources.findSource']).toHaveBeenCalledExactlyOnceWith({ id: importedSource.id });
+    expect(rpc['sources.deleteSource']).toHaveBeenCalledTimes(1);
   }
 );

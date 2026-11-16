@@ -21,7 +21,7 @@ import { UsageStore } from './usage-store.ts';
 
 test.stable(
   'usage persists across reopen, deduplicates calls and filters by provider and time',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const location = await databases();
     let context = new ServerContext(await location.open());
     const now = context.clock.currentTimeMillisUnsafe();
@@ -59,7 +59,7 @@ test.stable(
       const store = await run(useStore(UsageStore));
       const report = await Effect.runPromise(store.usageReport({ days: 7 }));
 
-      test.expect(report.totals).toEqual({
+      expect(report.totals).toEqual({
         input: 200,
         cacheRead: 160,
         cacheWrite: 0,
@@ -69,22 +69,18 @@ test.stable(
         runs: 1,
         incomplete: 1
       });
-      test.expect(report.providers).toEqual(['chatgpt', 'future-provider']);
-      test.expect(report.models).toHaveLength(2);
-      test.expect(report.agents).toHaveLength(2);
-      test.expect(report.days).toHaveLength(1);
-      test
-        .expect(
-          (await Effect.runPromise(store.usageReport({ days: 1, provider: 'future-provider' })))
-            .totals.requests
-        )
-        .toBe(1);
-      test
-        .expect(
-          (await Effect.runPromise(store.usageReport({ days: 1, provider: 'missing' }))).totals
-            .requests
-        )
-        .toBe(0);
+      expect(report.providers).toEqual(['chatgpt', 'future-provider']);
+      expect(report.models).toHaveLength(2);
+      expect(report.agents).toHaveLength(2);
+      expect(report.days).toHaveLength(1);
+      expect(
+        (await Effect.runPromise(store.usageReport({ days: 1, provider: 'future-provider' })))
+          .totals.requests
+      ).toBe(1);
+      expect(
+        (await Effect.runPromise(store.usageReport({ days: 1, provider: 'missing' }))).totals
+          .requests
+      ).toBe(0);
     } finally {
       context.close();
       await location.cleanup();

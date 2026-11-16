@@ -54,8 +54,10 @@ import {
 
 test.stable(
   'grading checkpoints provider output and fences stale and manual submissions',
-  async ({ databases }) => {
-    using mock = test.createAiMock();
+  async ({ databases, createAiMock, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    using mock = createAiMock();
     const grade = (answer: string, hold = false) =>
       mock.next(learningGradeAgent, {
         input: { prompt: JSON.stringify({ question: 'Question', reference: 'Reference', answer }) },
@@ -151,7 +153,12 @@ test.stable(
       const attempt = await run(
         Effect.flatMap(Learning, (learning) => learning.startQuiz({ versionId: version.id }))
       );
-      const submit = async (answer: string) => {
+      const submit = async (
+        { assert: assertions }: Pick<test.Context, 'assert'>,
+        answer: string
+      ) => {
+        const assert: test.Assert = assertions;
+
         await run(
           Effect.flatMap(Learning, (learning) =>
             learning.answerQuestion({
@@ -165,7 +172,7 @@ test.stable(
           context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
         );
 
-        test.assert.ok(!(event.type !== 'QuizAnswerSubmitted'), 'wrong event');
+        assert.ok(!(event.type !== 'QuizAnswerSubmitted'), 'wrong event');
 
         return event;
       };
@@ -190,16 +197,16 @@ test.stable(
             }).pipe(Effect.provide(services()))
           )
         );
-      const old = await submit('same');
-      const current = await submit('same');
+      const old = await submit({ assert }, 'same');
+      const current = await submit({ assert }, 'same');
 
-      await test.expect(execute(old, 'stale')).rejects.toSatisfy(() => true);
+      await expect(execute(old, 'stale')).rejects.toSatisfy(() => true);
       mock.verify();
       context.db.orm.run(
         sql`CREATE TRIGGER fail_grade BEFORE UPDATE OF score ON material_quiz_responses BEGIN SELECT RAISE(ABORT, 'publication unavailable'); END`
       );
       grade('same');
-      await test.expect(execute(current, 'failed-publication')).rejects.toSatisfy(() => true);
+      await expect(execute(current, 'failed-publication')).rejects.toSatisfy(() => true);
       mock.verify();
       context.db.orm.run(sql`DROP TRIGGER fail_grade`);
       grade('same');
@@ -209,24 +216,21 @@ test.stable(
       context = new ServerContext(await location.open());
       await execute(current, 'replay');
       mock.verify();
-      test.assert.strictEqual(
-        context.db.orm.select().from(s.material_quiz_responses).get()?.score,
-        0.5
-      );
-      const racing = await submit('racing');
+      assert.strictEqual(context.db.orm.select().from(s.material_quiz_responses).get()?.score, 0.5);
+      const racing = await submit({ assert }, 'racing');
 
       const racingGrade = grade('racing', true);
 
       await Promise.all([
-        test.expect(execute(racing, 'race')).rejects.toSatisfy(() => true),
+        expect(execute(racing, 'race')).rejects.toSatisfy(() => true),
         (async () => {
           await racingGrade.called;
-          await submit('newer');
+          await submit({ assert }, 'newer');
           racingGrade.release();
         })()
       ]);
-      test.assert.ok(context.db.orm.select().from(s.material_quiz_responses).get()?.score === null);
-      const manualRace = await submit('manual race');
+      assert.ok(context.db.orm.select().from(s.material_quiz_responses).get()?.score === null);
+      const manualRace = await submit({ assert }, 'manual race');
 
       const manualGrade = grade('manual race', true);
       const manualExecution = execute(manualRace, 'manual-race');
@@ -244,14 +248,11 @@ test.stable(
       );
       manualGrade.release();
       await manualExecution;
-      test.assert.strictEqual(
-        context.db.orm.select().from(s.material_quiz_responses).get()?.score,
-        1
-      );
-      test.assert.ok(
+      assert.strictEqual(context.db.orm.select().from(s.material_quiz_responses).get()?.score, 1);
+      assert.ok(
         context.db.orm.select().from(s.material_quiz_responses).get()?.feedback === 'Manual race'
       );
-      const manual = await submit('manual');
+      const manual = await submit({ assert }, 'manual');
 
       await run(
         Effect.flatMap(Learning, (learning) =>
@@ -263,13 +264,10 @@ test.stable(
           })
         )
       );
-      await test.expect(execute(manual, 'manual')).rejects.toSatisfy(() => true);
+      await expect(execute(manual, 'manual')).rejects.toSatisfy(() => true);
       mock.verify();
-      test.assert.strictEqual(
-        context.db.orm.select().from(s.material_quiz_responses).get()?.score,
-        1
-      );
-      const finished = await submit('finished');
+      assert.strictEqual(context.db.orm.select().from(s.material_quiz_responses).get()?.score, 1);
+      const finished = await submit({ assert }, 'finished');
 
       await run(
         Effect.flatMap(Learning, (learning) => learning.finishQuiz({ attemptId: attempt.id }))
@@ -277,61 +275,53 @@ test.stable(
       grade('finished');
       const completed = await execute(finished, 'finished');
 
-      test.assert.ok(completed.status === 'completed');
-      test.assert.strictEqual(completed.scoring.score, 0.5);
+      assert.ok(completed.status === 'completed');
+      assert.strictEqual(completed.scoring.score, 0.5);
       mock.verify();
-      test
-        .expect(() =>
-          context.db.orm
-            .update(s.material_quiz_responses)
-            .set({ score: 1 })
-            .where(eq(s.material_quiz_responses.attempt_id, attempt.id))
-            .run()
-        )
-        .toThrow();
-      test
-        .expect(() =>
-          context.db.orm
-            .update(s.material_quiz_responses)
-            .set({ answer: 'changed' })
-            .where(eq(s.material_quiz_responses.attempt_id, attempt.id))
-            .run()
-        )
-        .toThrow();
+      expect(() =>
+        context.db.orm
+          .update(s.material_quiz_responses)
+          .set({ score: 1 })
+          .where(eq(s.material_quiz_responses.attempt_id, attempt.id))
+          .run()
+      ).toThrow();
+      expect(() =>
+        context.db.orm
+          .update(s.material_quiz_responses)
+          .set({ answer: 'changed' })
+          .where(eq(s.material_quiz_responses.attempt_id, attempt.id))
+          .run()
+      ).toThrow();
       const beforeGrade = context.db.orm.select().from(s.material_quiz_responses).get()!;
 
       await execute(finished, 'finished');
-      test.assert.deepStrictEqual(
+      assert.deepStrictEqual(
         context.db.orm.select().from(s.material_quiz_responses).get(),
         beforeGrade
       );
-      await test
-        .expect(
-          run(
-            Effect.flatMap(Learning, (learning) =>
-              learning.answerQuestion({
-                attemptId: attempt.id,
-                questionId: question.id,
-                answer: { type: 'open', answer: 'edited after completion' }
-              })
-            )
+      await expect(
+        run(
+          Effect.flatMap(Learning, (learning) =>
+            learning.answerQuestion({
+              attemptId: attempt.id,
+              questionId: question.id,
+              answer: { type: 'open', answer: 'edited after completion' }
+            })
           )
         )
-        .rejects.toSatisfy(() => true);
-      await test
-        .expect(
-          run(
-            Effect.flatMap(Learning, (learning) =>
-              learning.gradeResponse({
-                attemptId: attempt.id,
-                questionId: question.id,
-                score: 1,
-                feedback: 'manual edit'
-              })
-            )
+      ).rejects.toSatisfy(() => true);
+      await expect(
+        run(
+          Effect.flatMap(Learning, (learning) =>
+            learning.gradeResponse({
+              attemptId: attempt.id,
+              questionId: question.id,
+              score: 1,
+              feedback: 'manual edit'
+            })
           )
         )
-        .rejects.toSatisfy(() => true);
+      ).rejects.toSatisfy(() => true);
     } finally {
       context.close();
       await location.cleanup();
@@ -341,7 +331,9 @@ test.stable(
 
 test.stable(
   'practice slot workflow reuses its generation request and ignores manual publication',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect, pollUntil }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const dbLayer = Layer.succeed(Database, { store: context });
@@ -401,9 +393,9 @@ test.stable(
                 .find((row) => row.type === 'PracticeSlotRequested')!.payload
             );
 
-            test.assert.ok(!(event.type !== 'PracticeSlotRequested'), 'wrong event');
+            assert.ok(!(event.type !== 'PracticeSlotRequested'), 'wrong event');
 
-            test.assert.ok(yield* learning.practiceSlot(event.slotId));
+            assert.ok(yield* learning.practiceSlot(event.slotId));
             yield* engine.register(practiceSlotWorkflow, practiceSlotHandler);
             yield* engine.register(practicePublicationWorkflow, practicePublicationHandler);
             yield* withTestAdmission(
@@ -430,11 +422,11 @@ test.stable(
                 payload: { event }
               })
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               context.db.orm.select().from(s.material_generation_requests).all().length,
               1
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               context.db.orm
                 .select()
                 .from(s.workflowEvents)
@@ -477,8 +469,8 @@ test.stable(
               .run();
             const derived = (yield* learning.practice({ projectId: project.id })).slots[0]!;
 
-            test.assert.ok(derived.status === 'failed');
-            test.assert.ok(derived.failureKind === 'config');
+            assert.ok(derived.status === 'failed');
+            assert.ok(derived.failureKind === 'config');
             yield* engine.register(practiceFailureWorkflow, practiceFailureHandler);
             const failedEvent = {
               type: 'MaterialGenerationFailed' as const,
@@ -494,7 +486,7 @@ test.stable(
               errorKind: 'config' as const
             };
 
-            test.assert.strictEqual(
+            assert.strictEqual(
               yield* withTestAdmission(
                 context,
                 practiceFailureWorkflow,
@@ -509,16 +501,16 @@ test.stable(
             );
             const failed = (yield* learning.practice({ projectId: project.id })).slots[0]!;
 
-            test.assert.ok(failed.status === 'failed');
-            test.assert.ok(failed.failureKind === 'config');
+            assert.ok(failed.status === 'failed');
+            assert.ok(failed.failureKind === 'config');
             const retried = yield* learning.retryPracticeQuestion({ slotId: event.slotId });
 
-            test.assert.strictEqual(retried.slotId, failed.slotId);
-            test.assert.strictEqual(retried.ordinal, failed.ordinal);
-            test.assert.strictEqual(retried.kind, failed.kind);
-            test.expect(retried.inputs).toStrictEqual(failed.inputs);
+            assert.strictEqual(retried.slotId, failed.slotId);
+            assert.strictEqual(retried.ordinal, failed.ordinal);
+            assert.strictEqual(retried.kind, failed.kind);
+            expect(retried.inputs).toStrictEqual(failed.inputs);
             yield* learning.retryPracticeQuestion({ slotId: event.slotId });
-            test.assert.strictEqual(
+            assert.strictEqual(
               yield* withTestAdmission(
                 context,
                 practiceFailureWorkflow,
@@ -543,7 +535,7 @@ test.stable(
                   value.eventId !== event.eventId
               );
 
-            test.assert.ok(
+            assert.ok(
               !(!retryEvent || retryEvent.type !== 'PracticeSlotRequested'),
               'missing retry event'
             );
@@ -558,7 +550,7 @@ test.stable(
                 payload: { event: retryEvent }
               })
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               context.db.orm
                 .select()
                 .from(s.workflowEvents)
@@ -575,7 +567,7 @@ test.stable(
                 (value) => value.type === 'PracticeSlotRequested' && value.slotId !== event.slotId
               );
 
-            test.assert.ok(
+            assert.ok(
               !(!secondEvent || secondEvent.type !== 'PracticeSlotRequested'),
               'missing second slot'
             );
@@ -609,7 +601,7 @@ test.stable(
               })
             );
 
-            yield* test.pollUntil(
+            yield* pollUntil(
               engine.poll(cancelledWorkflow, 'cancelled-generation'),
               Option.isSome,
               {
@@ -645,18 +637,16 @@ test.stable(
               (slot) => slot.slotId === secondEvent.slotId
             )!;
 
-            test
-              .expect(
-                context.db.orm
-                  .select()
-                  .from(s.workflow_executions)
-                  .where(eq(s.workflow_executions.execution_id, 'cancelled-generation'))
-                  .get()?.status
-              )
-              .toBe('cancelled');
-            test.expect(cancelledSlot.status).toBe('failed');
-            test.assert.ok(cancelledSlot.failureKind === 'cancelled');
-            test.assert.ok(
+            expect(
+              context.db.orm
+                .select()
+                .from(s.workflow_executions)
+                .where(eq(s.workflow_executions.execution_id, 'cancelled-generation'))
+                .get()?.status
+            ).toBe('cancelled');
+            expect(cancelledSlot.status).toBe('failed');
+            assert.ok(cancelledSlot.failureKind === 'cancelled');
+            assert.ok(
               (yield* learning.retryPracticeQuestion({ slotId: secondEvent.slotId })).status ===
                 'pending'
             );
@@ -722,9 +712,9 @@ test.stable(
                 )!.payload
             );
 
-            test.assert.ok(!(publication.type !== 'MaterialPublished'), 'wrong publication');
+            assert.ok(!(publication.type !== 'MaterialPublished'), 'wrong publication');
 
-            test.assert.strictEqual(
+            assert.strictEqual(
               yield* withTestAdmission(
                 context,
                 practicePublicationWorkflow,
@@ -737,7 +727,7 @@ test.stable(
               ),
               true
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               yield* withTestAdmission(
                 context,
                 practicePublicationWorkflow,
@@ -753,15 +743,15 @@ test.stable(
             const snapshot = yield* learning.practice({ projectId: project.id });
             const ready = snapshot.slots.find((slot) => slot.slotId === event.slotId)!;
 
-            test.assert.strictEqual(ready.versionId, versionId);
+            assert.strictEqual(ready.versionId, versionId);
             const attempt = yield* learning.attempt(ready.attemptId!);
 
-            test.assert.strictEqual(attempt.practiceSlotId, ready.slotId);
+            assert.strictEqual(attempt.practiceSlotId, ready.slotId);
             const question = attempt.questions[0]!;
 
-            test.assert.ok('choices' in question, 'wrong question kind');
+            assert.ok('choices' in question, 'wrong question kind');
 
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(
                 learning.answerQuestion({
                   attemptId: ready.attemptId!,
@@ -779,7 +769,7 @@ test.stable(
               slotId: ready.slotId,
               answer: { type: 'choice', choiceIds: [question.choices[0]!.id] }
             });
-            test.assert.ok(
+            assert.ok(
               (yield* Effect.flip(
                 learning.answerPracticeQuestion({
                   slotId: ready.slotId,
@@ -787,7 +777,7 @@ test.stable(
                 })
               )).kind === 'invalid_input'
             );
-            test.assert.throws(() =>
+            assert.throws(() =>
               context.db.orm
                 .delete(s.material_quiz_selections)
                 .where(eq(s.material_quiz_selections.attempt_id, ready.attemptId!))
@@ -795,12 +785,12 @@ test.stable(
             );
             const refilled = yield* learning.practice({ projectId: project.id });
 
-            test.expect(refilled.slots.map((slot) => slot.kind)).toStrictEqual(['choice', 'open']);
-            test.assert.strictEqual(
+            expect(refilled.slots.map((slot) => slot.kind)).toStrictEqual(['choice', 'open']);
+            assert.strictEqual(
               context.db.orm.select().from(s.material_quiz_attempts).all().length,
               1
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               context.db.orm
                 .select()
                 .from(s.workflowEvents)
@@ -819,9 +809,9 @@ test.stable(
               answer: { type: 'choice', choiceIds: [question.choices[0]!.id] }
             });
 
-            test.assert.ok(replay.status === 'completed');
-            test.assert.strictEqual(replay.id, ready.attemptId);
-            test.assert.ok(
+            assert.ok(replay.status === 'completed');
+            assert.strictEqual(replay.id, ready.attemptId);
+            assert.ok(
               (yield* Effect.flip(
                 learning.answerPracticeQuestion({
                   slotId: ready.slotId,
@@ -849,7 +839,7 @@ test.stable(
               materialVersionId: manualOutput.version.id
             };
 
-            test.assert.strictEqual(
+            assert.strictEqual(
               yield* withTestAdmission(
                 context,
                 practicePublicationWorkflow,

@@ -22,60 +22,65 @@ function spanName(span: Tracer.AnySpan) {
   return span._tag === 'Span' ? span.name : 'external';
 }
 
-test.stable('only approved scalar operation metadata reaches the log sink', () => {
-  test
-    .expect(
-      safeMetadata({
-        requestId: 'r1',
-        attempt: 2,
-        prompt: 'secret',
-        cause: new Error('secret'),
-        entity: 'project',
-        token: 'secret'
-      })
-    )
-    .toStrictEqual({ requestId: 'r1', attempt: 2, entity: 'project' });
-});
-
-test.stable('operation logs inherit only allowed annotations and carry a span', async () => {
-  const { Effect, Logger, References, Context, Tracer, Option } = await import('effect');
-  const { observeOperation } = await import('#server/platform/observability/index');
-  const entries: { message: unknown; annotations: unknown; spans: unknown }[] = [];
-  const logger = Logger.make((entry) => {
-    entries.push({
-      message: entry.message,
-      annotations: entry.fiber.getRef(References.CurrentLogAnnotations),
-      spans: Option.map(Context.getOption(entry.fiber.context, Tracer.ParentSpan), (span) =>
-        span._tag === 'Span'
-          ? {
-              name: span.name,
-              parent: Option.map(span.parent, spanName)
-            }
-          : 'external'
-      )
-    });
-  });
-
-  await Effect.runPromise(
-    observeOperation('test.operation', Effect.succeed('secret result')).pipe(
-      Effect.annotateLogs({ requestId: 'r1', prompt: 'secret prompt' }),
-      Effect.withSpan('parent'),
-      Effect.provide(Logger.layer([logger])),
-      Effect.provideService(References.MinimumLogLevel, 'Debug')
-    )
-  );
-  test.assert.strictEqual(entries.length, 2);
-  const serialized = JSON.stringify(entries);
-
-  test.expect(serialized).toMatch(/r1/);
-  test.expect(serialized).toMatch(/test.operation/);
-  test.expect(serialized).toMatch(/parent/);
-  test.expect(serialized).not.toMatch(/secret/);
+test.stable('only approved scalar operation metadata reaches the log sink', ({ expect }) => {
+  expect(
+    safeMetadata({
+      requestId: 'r1',
+      attempt: 2,
+      prompt: 'secret',
+      cause: new Error('secret'),
+      entity: 'project',
+      token: 'secret'
+    })
+  ).toStrictEqual({ requestId: 'r1', attempt: 2, entity: 'project' });
 });
 
 test.stable(
+  'operation logs inherit only allowed annotations and carry a span',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const { Effect, Logger, References, Context, Tracer, Option } = await import('effect');
+    const { observeOperation } = await import('#server/platform/observability/index');
+    const entries: { message: unknown; annotations: unknown; spans: unknown }[] = [];
+    const logger = Logger.make((entry) => {
+      entries.push({
+        message: entry.message,
+        annotations: entry.fiber.getRef(References.CurrentLogAnnotations),
+        spans: Option.map(Context.getOption(entry.fiber.context, Tracer.ParentSpan), (span) =>
+          span._tag === 'Span'
+            ? {
+                name: span.name,
+                parent: Option.map(span.parent, spanName)
+              }
+            : 'external'
+        )
+      });
+    });
+
+    await Effect.runPromise(
+      observeOperation('test.operation', Effect.succeed('secret result')).pipe(
+        Effect.annotateLogs({ requestId: 'r1', prompt: 'secret prompt' }),
+        Effect.withSpan('parent'),
+        Effect.provide(Logger.layer([logger])),
+        Effect.provideService(References.MinimumLogLevel, 'Debug')
+      )
+    );
+    assert.strictEqual(entries.length, 2);
+    const serialized = JSON.stringify(entries);
+
+    expect(serialized).toMatch(/r1/);
+    expect(serialized).toMatch(/test.operation/);
+    expect(serialized).toMatch(/parent/);
+    expect(serialized).not.toMatch(/secret/);
+  }
+);
+
+test.stable(
   'operation metrics record outcomes and release active operations without inheriting identifiers',
-  async () => {
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const { Deferred, Effect, Fiber, Metric } = await import('effect');
     const { TestClock } = await import('effect/testing');
     const { observeOperation } = await import('#server/platform/observability/index');
@@ -104,51 +109,51 @@ test.stable(
     );
     const active = snapshots.during.find((s) => s.id === 'study.operation.active');
 
-    test.assert.ok(active?.type === 'Gauge');
+    assert.ok(active?.type === 'Gauge');
 
-    test.assert.ok(active?.type === 'Gauge');
-    test.assert.strictEqual(active.state.value, 1);
+    assert.ok(active?.type === 'Gauge');
+    assert.strictEqual(active.state.value, 1);
 
     const after = snapshots.after;
     const gauge = after.find((s) => s.id === 'study.operation.active');
 
-    test.assert.ok(gauge?.type === 'Gauge');
+    assert.ok(gauge?.type === 'Gauge');
 
-    test.assert.ok(gauge?.type === 'Gauge');
-    test.assert.strictEqual(gauge.state.value, 0);
+    assert.ok(gauge?.type === 'Gauge');
+    assert.strictEqual(gauge.state.value, 0);
 
     const counts = after.filter((s) => s.id === 'study.operation.completed');
 
-    test
-      .expect(
-        counts.map((s) => s.attributes?.outcome).sort((a, b) => (a ?? '').localeCompare(b ?? ''))
-      )
-      .toStrictEqual(['failure', 'interrupted', 'success']);
+    expect(
+      counts.map((s) => s.attributes?.outcome).sort((a, b) => (a ?? '').localeCompare(b ?? ''))
+    ).toStrictEqual(['failure', 'interrupted', 'success']);
 
     for (const count of counts) {
-      test.assert.ok(count.type === 'Counter');
+      assert.ok(count.type === 'Counter');
 
-      test.assert.ok(count.type === 'Counter');
-      test.assert.strictEqual(count.state.count, 1);
+      assert.ok(count.type === 'Counter');
+      assert.strictEqual(count.state.count, 1);
     }
 
     const duration = after.find((s) => s.id === 'study.operation.duration_ms');
 
-    test.assert.ok(duration?.type === 'Histogram');
+    assert.ok(duration?.type === 'Histogram');
 
-    test.assert.ok(duration?.type === 'Histogram');
-    test.assert.strictEqual(duration.state.count, 3);
-    test.assert.ok(duration.state.sum >= 2000);
+    assert.ok(duration?.type === 'Histogram');
+    assert.strictEqual(duration.state.count, 3);
+    assert.ok(duration.state.sum >= 2000);
 
-    test
-      .expect(JSON.stringify(after))
-      .not.toMatch(/private-id|secret-operation|private failure|requestId/);
+    expect(JSON.stringify(after)).not.toMatch(
+      /private-id|secret-operation|private failure|requestId/
+    );
   }
 );
 
 test.stable(
   'metric labels admit only canonical finite values and hooks ignore ambient attributes',
-  async () => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { Effect, Metric } = await import('effect');
     const {
       safeMetricLabels,
@@ -158,16 +163,16 @@ test.stable(
       recordPublicationRejection
     } = await import('#server/platform/observability/index');
 
-    test
-      .expect(safeMetricLabels({ outcome: 'success', modelTier: 'smart', errorKind: 'transient' }))
-      .toStrictEqual({
-        outcome: 'success',
-        modelTier: 'smart',
-        errorKind: 'transient'
-      });
-    test
-      .expect(safeMetricLabels({ outcome: 'private', requestId: 'secret' } as never))
-      .toStrictEqual({});
+    expect(
+      safeMetricLabels({ outcome: 'success', modelTier: 'smart', errorKind: 'transient' })
+    ).toStrictEqual({
+      outcome: 'success',
+      modelTier: 'smart',
+      errorKind: 'transient'
+    });
+    expect(safeMetricLabels({ outcome: 'private', requestId: 'secret' } as never)).toStrictEqual(
+      {}
+    );
     const snapshots = await Effect.runPromise(
       Effect.gen(function* () {
         yield* recordAiAdmission();
@@ -182,14 +187,14 @@ test.stable(
       )
     );
 
-    test.assert.strictEqual(snapshots.length, 4);
+    assert.strictEqual(snapshots.length, 4);
 
     for (const snapshot of snapshots) {
-      test.assert.ok(snapshot.type === 'Counter');
+      assert.ok(snapshot.type === 'Counter');
 
-      if (snapshot.type === 'Counter') test.assert.strictEqual(snapshot.state.count, 1);
+      if (snapshot.type === 'Counter') assert.strictEqual(snapshot.state.count, 1);
 
-      test.expect(JSON.stringify(snapshot.attributes ?? {})).not.toMatch(/secret|requestId/);
+      expect(JSON.stringify(snapshot.attributes ?? {})).not.toMatch(/secret|requestId/);
     }
   }
 );

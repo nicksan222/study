@@ -24,7 +24,9 @@ import { crashLayer, crashWorkflow } from '#testing/official-crash-runner';
 
 test.stable(
   'official SQL engine preserves accepted work, activity replies and durable waits across restart',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
 
     await location.prepare();
@@ -70,7 +72,7 @@ test.stable(
     try {
       const id = await first.runPromise(workflow.execute({ id: 'accepted' }, { discard: true }));
 
-      test.assert.isString(id);
+      assert.isString(id);
       await first.runPromise(
         workflow.poll(id).pipe(
           Effect.repeat({
@@ -86,7 +88,7 @@ test.stable(
           })
         )
       );
-      test.assert.equal(calls, 1);
+      assert.equal(calls, 1);
       await first.dispose();
       const second = ManagedRuntime.make(layer);
 
@@ -97,8 +99,8 @@ test.stable(
             value: undefined
           })
         );
-        test.assert.equal(await second.runPromise(workflow.execute({ id: 'accepted' })), 1);
-        test.assert.equal(calls, 1);
+        assert.equal(await second.runPromise(workflow.execute({ id: 'accepted' })), 1);
+        assert.equal(calls, 1);
       } finally {
         await second.dispose();
       }
@@ -106,8 +108,8 @@ test.stable(
       const third = ManagedRuntime.make(layer);
 
       try {
-        test.assert.equal(await third.runPromise(workflow.execute({ id: 'accepted' })), 1);
-        test.assert.equal(calls, 1);
+        assert.equal(await third.runPromise(workflow.execute({ id: 'accepted' })), 1);
+        assert.equal(calls, 1);
       } finally {
         await third.dispose();
       }
@@ -120,7 +122,9 @@ test.stable(
 
 test.stable(
   'official interruption persists across reopening and does not run a cancelled activity',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
 
     await location.prepare();
@@ -167,8 +171,8 @@ test.stable(
       try {
         const result = await second.runPromise(Effect.exit(workflow.execute({ id: 'cancel' })));
 
-        test.assert.equal(result._tag, 'Failure');
-        test.assert.equal(calls, 0);
+        assert.equal(result._tag, 'Failure');
+        assert.equal(calls, 0);
       } finally {
         await second.dispose();
       }
@@ -181,12 +185,14 @@ test.stable(
 
 test.stable(
   'SIGKILL after official acceptance before receipt acknowledgment safely redelivers without repeating persisted activity',
-  async ({ databases }) => {
+  async ({ databases, spawnTestProcess, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const db = await location.open();
 
     db.orm.run(sql`CREATE TABLE proof_calls (id INTEGER PRIMARY KEY)`);
-    const child = test.spawnTestProcess(
+    const child = spawnTestProcess(
       [
         process.execPath,
         new URL('../../../test/testing/official-crash-runner.ts', import.meta.url).pathname,
@@ -199,18 +205,18 @@ test.stable(
       const reader = child.stdout.getReader();
       const first = await reader.read();
 
-      test.assert.include(new TextDecoder().decode(first.value), 'accepted-before-domain-ack');
+      assert.include(new TextDecoder().decode(first.value), 'accepted-before-domain-ack');
       child.kill('SIGKILL');
       await child.exited;
       reader.releaseLock();
       const runtime = ManagedRuntime.make(crashLayer(location.path));
 
       try {
-        test.assert.equal(
+        assert.equal(
           await runtime.runPromise(crashWorkflow.execute({ id: 'accepted-before-ack' })),
           1
         );
-        test.assert.equal(
+        assert.equal(
           db.orm.all<{ count: bigint }>(sql`SELECT count(*) AS count FROM proof_calls`)[0].count,
           1n
         );
@@ -228,7 +234,9 @@ test.stable(
 
 test.stable(
   'official SQL writer and domain writer contend on the same SQLite file and release transaction locks',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const db = await location.open();
 
@@ -252,11 +260,11 @@ test.stable(
             .pipe(Effect.forkChild);
 
           yield* Deferred.await(held);
-          test.assert.throws(() => db.orm.run(sql`INSERT INTO proof_contention VALUES (2)`));
+          assert.throws(() => db.orm.run(sql`INSERT INTO proof_contention VALUES (2)`));
           yield* Deferred.succeed(release, undefined);
           yield* Fiber.join(writer);
           db.orm.run(sql`INSERT INTO proof_contention VALUES (2)`);
-          test.assert.equal(db.orm.all(sql`SELECT * FROM proof_contention`).length, 2);
+          assert.equal(db.orm.all(sql`SELECT * FROM proof_contention`).length, 2);
         }).pipe(Effect.provide(SqliteClient.layer({ filename: location.path })), Effect.scoped)
       );
     } finally {

@@ -21,7 +21,7 @@ import { LiveQueries, liveQueriesLayer } from './live-queries.ts';
 for (const hinted of [true, false]) {
   test.stable(
     `live snapshots converge after ${hinted ? 'hinted' : 'missed-hint'} writes`,
-    async ({ databases }) => {
+    async ({ databases, expect }) => {
       const fixture = await databases();
       const reader = new ServerContext(await fixture.open());
       const writer = hinted ? reader : new ServerContext(await fixture.open());
@@ -68,7 +68,7 @@ for (const hinted of [true, false]) {
           )
         );
 
-        test.expect(result).toEqual([0n, 1n]);
+        expect(result).toEqual([0n, 1n]);
       } finally {
         if (writer !== reader) writer.close();
 
@@ -81,7 +81,7 @@ for (const hinted of [true, false]) {
 
 test.stable(
   'a write racing a composed snapshot cannot publish mixed committed state',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const fixture = await databases();
     const reader = new ServerContext(await fixture.open());
     const writer = new ServerContext(await fixture.open());
@@ -121,7 +121,7 @@ test.stable(
         )
       );
 
-      test.expect(result).toEqual([[1n, 1n]]);
+      expect(result).toEqual([[1n, 1n]]);
     } finally {
       writer.close();
       reader.close();
@@ -169,7 +169,7 @@ test.stable('releasing a live reader interrupts its in-flight read', async ({ da
 
 test.stable(
   'domain failure remains observed and recovers on a later committed dependency change',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const fixture = await databases();
     const reader = new ServerContext(await fixture.open());
     let available = false;
@@ -213,9 +213,10 @@ test.stable(
         )
       );
 
-      test
-        .expect(snapshots.map((frame) => frame.result))
-        .toEqual([Result.fail('not_found'), Result.succeed('available')]);
+      expect(snapshots.map((frame) => frame.result)).toEqual([
+        Result.fail('not_found'),
+        Result.succeed('available')
+      ]);
     } finally {
       reader.close();
       await fixture.cleanup();
@@ -225,7 +226,7 @@ test.stable(
 
 test.stable(
   'shared heartbeat keeps idle streams alive without rereading snapshots',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const fixture = await databases();
     const reader = new ServerContext(await fixture.open());
     let reads = 0;
@@ -255,10 +256,8 @@ test.stable(
         )
       );
 
-      test
-        .expect(frames.map((frame) => frame._tag))
-        .toEqual(['Snapshot', 'Heartbeat', 'Heartbeat']);
-      test.expect(reads).toBe(1);
+      expect(frames.map((frame) => frame._tag)).toEqual(['Snapshot', 'Heartbeat', 'Heartbeat']);
+      expect(reads).toBe(1);
     } finally {
       reader.close();
       await fixture.cleanup();
@@ -268,7 +267,7 @@ test.stable(
 
 test.stable(
   'a failed revision read emits a transient snapshot and a fresh subscription can recover',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const fixture = await databases();
     const reader = new ServerContext(await fixture.open());
 
@@ -298,7 +297,7 @@ test.stable(
               Stream.runCollect
             );
 
-            test.expect(failed[0]?.result).toMatchObject({
+            expect(failed[0]?.result).toMatchObject({
               _tag: 'Failure',
               failure: { kind: 'transient' }
             });
@@ -308,7 +307,7 @@ test.stable(
               Stream.runCollect
             );
 
-            test.expect(recovered[0]?.result).toEqual(Result.succeed(7));
+            expect(recovered[0]?.result).toEqual(Result.succeed(7));
           })
         ).pipe(
           Effect.provide(
@@ -328,7 +327,7 @@ test.stable(
 
 test.stable(
   'slow refreshes announce waiting before the next authoritative snapshot',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const fixture = await databases();
     const reader = new ServerContext(await fixture.open());
     let reads = 0;
@@ -367,12 +366,12 @@ test.stable(
               tx.db.orm.run(sql`INSERT INTO preferences VALUES ('test', 'key', '1')`)
             );
             yield* Deferred.await(refreshing);
-            test.expect(frames.at(-1)).toBe('Refreshing');
+            expect(frames.at(-1)).toBe('Refreshing');
             yield* Deferred.succeed(finish, undefined);
             const snapshots = yield* Fiber.join(fiber);
 
-            test.expect(snapshots.map((frame) => Result.getOrThrow(frame.result))).toEqual([1, 2]);
-            test.expect(frames).toEqual(['Refreshing', 'Snapshot', 'Refreshing', 'Snapshot']);
+            expect(snapshots.map((frame) => Result.getOrThrow(frame.result))).toEqual([1, 2]);
+            expect(frames).toEqual(['Refreshing', 'Snapshot', 'Refreshing', 'Snapshot']);
           })
         ).pipe(
           Effect.provide(
@@ -392,7 +391,7 @@ test.stable(
 
 test.stable(
   'the shared reconciler recovers a failed tick and still notices a missed hint',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const fixture = await databases();
     const reader = new ServerContext(await fixture.open());
     const writer = new ServerContext(await fixture.open());
@@ -434,9 +433,7 @@ test.stable(
             );
             const snapshots = yield* Fiber.join(fiber);
 
-            test
-              .expect(snapshots.map((frame) => Result.getOrThrow(frame.result)))
-              .toEqual([0n, 1n]);
+            expect(snapshots.map((frame) => Result.getOrThrow(frame.result))).toEqual([0n, 1n]);
           })
         ).pipe(
           Effect.provide(

@@ -19,7 +19,9 @@ import { canonicalPageTransformOutput } from './page-transform-output.ts';
 
 test.stable(
   'target proposals retain unchanged rich identities once, including reordered duplicate blocks',
-  () => {
+  ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const first = createBlock({ type: 'math', expression: 'x²' });
     const second = createBlock(first.content);
     const code = createBlock({ type: 'code', language: 'ts', code: 'const x = 1;' });
@@ -39,24 +41,26 @@ test.stable(
     const proposed = canonicalPageTransformOutput(output, [first, second, code]);
     const ids = proposed.document.blocks.map((block) => block.id);
 
-    test.expect(ids.slice(0, 3)).toStrictEqual([code.id, first.id, second.id]);
-    test.assert.strictEqual(new Set(ids).size, ids.length);
-    test.assert.ok(![first.id, second.id, code.id].includes(ids[3]!));
-    test.assert.ok(![first.id, second.id, code.id, added.id].includes(ids[4]!));
-    test.expect(proposed.report.notes[0]!.blockIds).toStrictEqual([code.id, first.id, second.id]);
+    expect(ids.slice(0, 3)).toStrictEqual([code.id, first.id, second.id]);
+    assert.strictEqual(new Set(ids).size, ids.length);
+    assert.ok(![first.id, second.id, code.id].includes(ids[3]!));
+    assert.ok(![first.id, second.id, code.id, added.id].includes(ids[4]!));
+    expect(proposed.report.notes[0]!.blockIds).toStrictEqual([code.id, first.id, second.id]);
 
     const independent = canonicalPageTransformOutput(output);
 
-    test.assert.ok(independent.document.blocks.every((block) => !ids.includes(block.id)));
-    test
-      .expect(independent.document.blocks.map((block) => block.content))
-      .toStrictEqual(proposed.document.blocks.map((block) => block.content));
+    assert.ok(independent.document.blocks.every((block) => !ids.includes(block.id)));
+    expect(independent.document.blocks.map((block) => block.content)).toStrictEqual(
+      proposed.document.blocks.map((block) => block.content)
+    );
   }
 );
 
 test.stable(
   'equal text projections do not reuse IDs for changed rich table marks or list numbering',
-  () => {
+  ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const table = createBlock({
       type: 'table',
       rows: [
@@ -86,8 +90,8 @@ test.stable(
       ]
     });
 
-    test.assert.strictEqual(table.text, marked.text);
-    test.assert.strictEqual(list.text, renumbered.text);
+    assert.strictEqual(table.text, marked.text);
+    assert.strictEqual(list.text, renumbered.text);
 
     const result = canonicalPageTransformOutput(
       {
@@ -100,8 +104,8 @@ test.stable(
     );
     const ids = result.document.blocks.map((block) => block.id);
 
-    test.assert.ok(ids.slice(0, 2).every((id) => id !== table.id && id !== list.id));
-    test.expect(ids.slice(2)).toStrictEqual([table.id, list.id]);
-    test.expect(result.report.notes[0]!.blockIds).toStrictEqual(ids);
+    assert.ok(ids.slice(0, 2).every((id) => id !== table.id && id !== list.id));
+    expect(ids.slice(2)).toStrictEqual([table.id, list.id]);
+    expect(result.report.notes[0]!.blockIds).toStrictEqual(ids);
   }
 );

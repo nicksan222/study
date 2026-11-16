@@ -10,12 +10,12 @@ import { createAppRouter } from './router';
 
 const originalUrl = window.location.href;
 
-test.afterEach(() => {
-  test.vi.unstubAllGlobals();
+test.afterEach(({ vi }) => {
+  vi.unstubAllGlobals();
   jsdom.reconfigure({ url: originalUrl });
 });
 
-test.stable.each([
+test.stable.for([
   { url: 'tauri://localhost', origin: 'tauri://localhost', calculationOrigin: 'http://localhost' },
   { url: 'tauri://localhost', origin: 'null', calculationOrigin: 'http://localhost' },
   {
@@ -35,86 +35,89 @@ test.stable.each([
   }
 ])(
   'loads startup redirects with internal paths at $url with origin $origin',
-  async ({ url, origin, calculationOrigin }) => {
+  async ({ url, origin, calculationOrigin }, { vi, expect }) => {
     jsdom.reconfigure({ url: `${url}/` });
-    test.vi.stubGlobal('origin', origin);
+    vi.stubGlobal('origin', origin);
 
     const history = createMemoryHistory({ initialEntries: ['/'] });
     const router = createAppRouter(history);
 
     try {
-      test.expect(router.origin).toBe(calculationOrigin);
-      test.expect(router.buildLocation({ to: '/home' }).publicHref).toBe('/home');
+      expect(router.origin).toBe(calculationOrigin);
+      expect(router.buildLocation({ to: '/home' }).publicHref).toBe('/home');
       await router.load();
-      test.expect(router.state.location.pathname).toBe('/notes');
-      test.expect(router.state.status).toBe('idle');
-      test.expect(router.state.matches.every((match) => match.status === 'success')).toBe(true);
+      expect(router.state.location.pathname).toBe('/notes');
+      expect(router.state.status).toBe('idle');
+      expect(router.state.matches.every((match) => match.status === 'success')).toBe(true);
     } finally {
       router.history.destroy();
     }
   }
 );
 
-test.stable('preserves project identity, navigation history, and external URL safety', async () => {
-  test.vi.stubGlobal('origin', 'tauri://localhost');
+test.stable(
+  'preserves project identity, navigation history, and external URL safety',
+  async ({ vi, expect }) => {
+    vi.stubGlobal('origin', 'tauri://localhost');
 
-  const history = createMemoryHistory({ initialEntries: ['/home?project=9007199254740993'] });
-  const router = createAppRouter(history);
-  const unsubscribe = history.subscribe(() => void router.load());
+    const history = createMemoryHistory({ initialEntries: ['/home?project=9007199254740993'] });
+    const router = createAppRouter(history);
+    const unsubscribe = history.subscribe(() => void router.load());
 
-  try {
-    test.expect(history.location.href).toBe('/projects/9007199254740993/home');
-    await router.load();
-    test.expect(router.state.location.publicHref).toBe('/projects/9007199254740993/notes');
-    test.expect(router.state.location.search.project).toBe('9007199254740993');
-    const link = router.buildLocation({
-      to: '/projects',
-      search: { project: '9007199254740993' }
-    });
+    try {
+      expect(history.location.href).toBe('/projects/9007199254740993/home');
+      await router.load();
+      expect(router.state.location.publicHref).toBe('/projects/9007199254740993/notes');
+      expect(router.state.location.search.project).toBe('9007199254740993');
+      const link = router.buildLocation({
+        to: '/projects',
+        search: { project: '9007199254740993' }
+      });
 
-    test.expect(link.publicHref).toBe('/projects/9007199254740993');
-    test.expect(link.external).toBe(false);
-    test.expect(router.protocolAllowlist.has('tauri:')).toBe(false);
-    test.expect(router.protocolAllowlist.has('javascript:')).toBe(false);
-    test.expect(() => router.resolveRedirect(redirect({ href: 'javascript:alert(1)' }))).toThrow();
-    test
-      .expect(() => router.resolveRedirect(redirect({ href: 'tauri://localhost/projects' })))
-      .toThrow();
-    await router.navigate({ to: '/notes', search: { project: '2' } });
-    test.expect(history.location.href).toBe('/projects/2/notes');
-    history.back();
-    await test.vi.waitFor(() => {
-      test.expect(router.state.location.publicHref).toBe('/projects/9007199254740993/notes');
-      test.expect(router.state.status).toBe('idle');
-      test.expect(router.state.matches.every((match) => match.status === 'success')).toBe(true);
-    });
-    history.forward();
-    await test.vi.waitFor(() => {
-      test.expect(router.state.location.publicHref).toBe('/projects/2/notes');
-      test.expect(router.state.status).toBe('idle');
-      test.expect(router.state.matches.every((match) => match.status === 'success')).toBe(true);
-    });
-  } finally {
-    unsubscribe();
-    router.history.destroy();
+      expect(link.publicHref).toBe('/projects/9007199254740993');
+      expect(link.external).toBe(false);
+      expect(router.protocolAllowlist.has('tauri:')).toBe(false);
+      expect(router.protocolAllowlist.has('javascript:')).toBe(false);
+      expect(() => router.resolveRedirect(redirect({ href: 'javascript:alert(1)' }))).toThrow();
+      expect(() =>
+        router.resolveRedirect(redirect({ href: 'tauri://localhost/projects' }))
+      ).toThrow();
+      await router.navigate({ to: '/notes', search: { project: '2' } });
+      expect(history.location.href).toBe('/projects/2/notes');
+      history.back();
+      await vi.waitFor(() => {
+        expect(router.state.location.publicHref).toBe('/projects/9007199254740993/notes');
+        expect(router.state.status).toBe('idle');
+        expect(router.state.matches.every((match) => match.status === 'success')).toBe(true);
+      });
+      history.forward();
+      await vi.waitFor(() => {
+        expect(router.state.location.publicHref).toBe('/projects/2/notes');
+        expect(router.state.status).toBe('idle');
+        expect(router.state.matches.every((match) => match.status === 'success')).toBe(true);
+      });
+    } finally {
+      unsubscribe();
+      router.history.destroy();
+    }
   }
-});
+);
 
-test.stable.each([
+test.stable.for([
   { zoom: '', reduced: false, enabled: false },
   { zoom: '100%', reduced: false, enabled: true },
   { zoom: '125%', reduced: false, enabled: false },
   { zoom: '100%', reduced: true, enabled: false }
 ])(
   'uses navigation snapshots=$enabled at zoom=$zoom, reduced motion=$reduced',
-  async ({ zoom, reduced, enabled }) => {
+  async ({ zoom, reduced, enabled }, { vi, expect }) => {
     const originalZoom = document.documentElement.style.zoom;
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const nativeTransition = test.vi.fn((update: () => Promise<void>) => ({
+    const nativeTransition = vi.fn((update: () => Promise<void>) => ({
       updateCallbackDone: update()
     }));
 
-    test.vi.spyOn(window, 'matchMedia').mockReturnValue({ ...media, matches: reduced });
+    vi.spyOn(window, 'matchMedia').mockReturnValue({ ...media, matches: reduced });
 
     const previousTransition = document.startViewTransition;
 
@@ -128,11 +131,11 @@ test.stable.each([
       await router.load();
       nativeTransition.mockClear();
 
-      const update = test.vi.fn(async () => {});
+      const update = vi.fn(async () => {});
 
       await router.startViewTransition(update);
-      test.expect(update).toHaveBeenCalledOnce();
-      test.expect(nativeTransition).toHaveBeenCalledTimes(enabled ? 1 : 0);
+      expect(update).toHaveBeenCalledOnce();
+      expect(nativeTransition).toHaveBeenCalledTimes(enabled ? 1 : 0);
     } finally {
       document.startViewTransition = previousTransition;
       document.documentElement.style.zoom = originalZoom;

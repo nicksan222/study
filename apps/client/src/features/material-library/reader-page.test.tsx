@@ -16,30 +16,28 @@ import { learningVersion, materialRpc, mountLibraryRoute } from './test/support'
 
 test.stable(
   'rejects a foreign Material version before rendering extraction or exposing its original',
-  async () => {
-    const rpc = materialRpc();
+  async ({ expect, within, screen, vi, render, rpcHandlersTransport }) => {
+    const rpc = materialRpc({ vi });
 
     rpc['materials.materialVersion'].mockReturnValue(Effect.succeed(learningVersion(101n, 99n)));
-    mountLibraryRoute('/materials/41?version=101', rpc);
-    test
-      .expect(await test.within(await test.screen.findByRole('main')).findByRole('alert'))
-      .toHaveTextContent(catalogs.english.ReaderUnavailable);
-    test.expect(test.screen.queryByText(/Historical extraction/)).toBeNull();
-    test.expect(test.screen.queryByText(/Current extraction 41/)).toBeNull();
-    test
-      .expect(test.screen.queryByRole('button', { name: catalogs.english.ReaderOriginal }))
-      .toBeNull();
-    test.expect(rpc['materials.materialVersion']).toHaveBeenCalledExactlyOnceWith({
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/materials/41?version=101', rpc);
+    expect(await within(await screen.findByRole('main')).findByRole('alert')).toHaveTextContent(
+      catalogs.english.ReaderUnavailable
+    );
+    expect(screen.queryByText(/Historical extraction/)).toBeNull();
+    expect(screen.queryByText(/Current extraction 41/)).toBeNull();
+    expect(screen.queryByRole('button', { name: catalogs.english.ReaderOriginal })).toBeNull();
+    expect(rpc['materials.materialVersion']).toHaveBeenCalledExactlyOnceWith({
       id: versionId('101')
     });
-    test.expect(rpc['sources.sourceExport']).not.toHaveBeenCalled();
+    expect(rpc['sources.sourceExport']).not.toHaveBeenCalled();
   }
 );
 
 test.stable(
   'loads history only on opening, refreshes the bounded prefix and preserves collection on selection',
-  async () => {
-    const rpc = materialRpc();
+  async ({ userEvent, screen, expect, within, vi, render, rpcHandlersTransport }) => {
+    const rpc = materialRpc({ vi });
     const decode = Schema.decodeUnknownSync(materialVersionSummarySchema);
     const current = decode(learningVersion(102n));
     const old = decode({ ...learningVersion(), availability: 'unavailable' });
@@ -52,61 +50,68 @@ test.stable(
         ? Effect.fail(new StudyError('not_found', 'Historical version unavailable'))
         : Effect.succeed(learningVersion(102n, 41n, 'Current extraction 41'))
     );
-    const { router } = mountLibraryRoute('/materials/41?project=3', rpc);
-    const user = test.userEvent.setup();
+    const { router } = mountLibraryRoute(
+      { render, rpcHandlersTransport, vi },
+      '/materials/41?project=3',
+      rpc
+    );
+    const user = userEvent.setup();
 
-    await test.screen.findByText(/Current extraction 41/);
-    test.expect(rpc['materials.materialVersions']).not.toHaveBeenCalled();
-    const summary = test.screen.getByText(catalogs.english.ReaderHistory);
+    await screen.findByText(/Current extraction 41/);
+    expect(rpc['materials.materialVersions']).not.toHaveBeenCalled();
+    const summary = screen.getByText(catalogs.english.ReaderHistory);
 
-    test.expect(summary.closest('details')).not.toHaveAttribute('open');
+    expect(summary.closest('details')).not.toHaveAttribute('open');
     await user.click(summary);
-    await test.screen.findByRole('link', {
+    await screen.findByRole('link', {
       name: new RegExp(`${catalogs.english.ReaderVersion} 2`)
     });
-    await user.click(test.screen.getByRole('button', { name: catalogs.english.LibraryMore }));
-    const historic = await test.screen.findByRole('link', {
+    await user.click(screen.getByRole('button', { name: catalogs.english.LibraryMore }));
+    const historic = await screen.findByRole('link', {
       name: new RegExp(`${catalogs.english.ReaderVersion} 1`)
     });
 
-    test.expect(historic).toHaveTextContent(catalogs.english.ReaderUnavailable);
-    test.expect(rpc['materials.materialVersions']).toHaveBeenNthCalledWith(1, {
+    expect(historic).toHaveTextContent(catalogs.english.ReaderUnavailable);
+    expect(rpc['materials.materialVersions']).toHaveBeenNthCalledWith(1, {
       materialId: materialId('41'),
       cursor: undefined,
       limit: 30
     });
-    test.expect(rpc['materials.materialVersions']).toHaveBeenNthCalledWith(2, {
+    expect(rpc['materials.materialVersions']).toHaveBeenNthCalledWith(2, {
       materialId: materialId('41'),
       cursor: undefined,
       limit: 60
     });
     await user.click(historic);
-    test
-      .expect(await test.within(await test.screen.findByRole('main')).findByRole('alert'))
-      .toHaveTextContent(catalogs.english.ReaderUnavailable);
-    test.expect(router.state.location.search).toMatchObject({ project: '3', version: '101' });
-    test.expect(test.screen.queryByText(/Current extraction 41/)).toBeNull();
-    test.expect(rpc['sources.sourceExport']).not.toHaveBeenCalled();
+    expect(await within(await screen.findByRole('main')).findByRole('alert')).toHaveTextContent(
+      catalogs.english.ReaderUnavailable
+    );
+    expect(router.state.location.search).toMatchObject({ project: '3', version: '101' });
+    expect(screen.queryByText(/Current extraction 41/)).toBeNull();
+    expect(rpc['sources.sourceExport']).not.toHaveBeenCalled();
   }
 );
 
 test.stable(
   'preserves the collection while moving from historical to current content',
-  async () => {
-    const { router } = mountLibraryRoute('/materials/41?project=3&version=101');
+  async ({ screen, userEvent, expect, render, rpcHandlersTransport, vi }) => {
+    const { router } = mountLibraryRoute(
+      { render, rpcHandlersTransport, vi },
+      '/materials/41?project=3&version=101'
+    );
 
-    await test.screen.findByText(/Historical extraction/);
-    await test.userEvent
+    await screen.findByText(/Historical extraction/);
+    await userEvent
       .setup()
-      .click(test.screen.getByRole('link', { name: catalogs.english.ReaderCurrent }));
-    await test.screen.findByText(/Current extraction 41/);
-    test.expect(router.state.location.search).toMatchObject({ project: '3', version: '102' });
+      .click(screen.getByRole('link', { name: catalogs.english.ReaderCurrent }));
+    await screen.findByText(/Current extraction 41/);
+    expect(router.state.location.search).toMatchObject({ project: '3', version: '102' });
   }
 );
 
 test.stable(
   'opens deletion through reader Actions and recovers accepted cleanup after the reader becomes fenced',
-  async () => {
+  async ({ vi, userEvent, screen, expect, within, render, rpcHandlersTransport }) => {
     const preview = Schema.decodeUnknownSync(materialDeletionPreviewSchema)({
       materialId: 41n,
       token: 'delete-preview',
@@ -133,53 +138,51 @@ test.stable(
       completedAt: null
     });
     const rpc = {
-      ...materialRpc(),
-      'materials.previewDeletion': test.vi
+      ...materialRpc({ vi }),
+      'materials.previewDeletion': vi
         .fn<StudyClient['materials.previewDeletion']>()
         .mockReturnValue(Effect.succeed(preview)),
-      'materials.requestDeletion': test.vi
+      'materials.requestDeletion': vi
         .fn<StudyClient['materials.requestDeletion']>()
         .mockReturnValue(Effect.succeed(operation))
     };
 
     rpc['materials.deletion'].mockReturnValue(Effect.succeed(operation));
-    mountLibraryRoute('/materials/41', rpc);
-    const user = test.userEvent.setup();
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/materials/41', rpc);
+    const user = userEvent.setup();
 
-    await test.screen.findByText(/Current extraction 41/);
-    const actions = test.screen.getByText(catalogs.english.ReaderActions, { selector: 'summary' });
+    await screen.findByText(/Current extraction 41/);
+    const actions = screen.getByText(catalogs.english.ReaderActions, { selector: 'summary' });
 
-    test.expect(actions.closest('details')).not.toHaveAttribute('open');
+    expect(actions.closest('details')).not.toHaveAttribute('open');
     await user.click(actions);
-    test.expect(actions.closest('details')).toHaveAttribute('open');
-    await user.click(test.screen.getByRole('button', { name: catalogs.english.PageDelete }));
-    const dialog = test.within(
-      await test.screen.findByRole('dialog', { name: catalogs.english.PageDelete })
-    );
+    expect(actions.closest('details')).toHaveAttribute('open');
+    await user.click(screen.getByRole('button', { name: catalogs.english.PageDelete }));
+    const dialog = within(await screen.findByRole('dialog', { name: catalogs.english.PageDelete }));
 
-    test.expect(rpc['materials.requestDeletion']).not.toHaveBeenCalled();
+    expect(rpc['materials.requestDeletion']).not.toHaveBeenCalled();
     await user.click(dialog.getByRole('button', { name: catalogs.english.PagePreview }));
     await dialog.findByRole('button', { name: catalogs.english.PageConfirmDelete });
-    test.expect(rpc['materials.previewDeletion']).toHaveBeenCalledExactlyOnceWith({
+    expect(rpc['materials.previewDeletion']).toHaveBeenCalledExactlyOnceWith({
       materialId: materialId('41')
     });
-    test.expect(rpc['materials.requestDeletion']).not.toHaveBeenCalled();
+    expect(rpc['materials.requestDeletion']).not.toHaveBeenCalled();
     // Accepted deletion retires content before the next live reader snapshot.
     rpc['materials.material'].mockReturnValue(Effect.fail(new StudyError('not_found', 'Retired')));
     await user.click(dialog.getByRole('button', { name: catalogs.english.PageConfirmDelete }));
-    const confirmation = test.within(await test.screen.findByRole('alertdialog'));
+    const confirmation = within(await screen.findByRole('alertdialog'));
 
     await user.type(confirmation.getByRole('textbox'), catalogs.english.DeleteConfirmationWord);
     await user.click(
       confirmation.getByRole('button', { name: catalogs.english.PageConfirmDelete })
     );
-    const recovery = test.within(
-      await test.screen.findByRole('region', { name: catalogs.english.PageDelete })
+    const recovery = within(
+      await screen.findByRole('region', { name: catalogs.english.PageDelete })
     );
 
     await recovery.findByText(catalogs.english.PageCleanupPending);
-    test.expect(test.screen.queryByText(/Current extraction 41/)).toBeNull();
-    test.expect(rpc['materials.requestDeletion']).toHaveBeenCalledExactlyOnceWith({
+    expect(screen.queryByText(/Current extraction 41/)).toBeNull();
+    expect(rpc['materials.requestDeletion']).toHaveBeenCalledExactlyOnceWith({
       materialId: materialId('41'),
       token: 'delete-preview'
     });
@@ -188,59 +191,62 @@ test.stable(
     );
     await user.click(recovery.getByRole('button', { name: catalogs.english.LibraryRefresh }));
     await recovery.findByText(catalogs.english.PageCleanupCompleted);
-    test.expect(rpc['materials.requestDeletion']).toHaveBeenCalledTimes(1);
-    test.expect(rpc['materials.retryDeletion']).not.toHaveBeenCalled();
+    expect(rpc['materials.requestDeletion']).toHaveBeenCalledTimes(1);
+    expect(rpc['materials.retryDeletion']).not.toHaveBeenCalled();
   }
 );
 
-test.stable('reports CSV structure loss without an unrelated image warning', async () => {
-  const rpc = materialRpc();
+test.stable(
+  'reports CSV structure loss without an unrelated image warning',
+  async ({ vi, screen, waitFor, expect, userEvent, render, rpcHandlersTransport }) => {
+    const rpc = materialRpc({ vi });
 
-  rpc['settings.workspacePreferences'].mockReturnValue(
-    Effect.succeed({ ...defaultWorkspacePreferences, defaultExportFormat: 'csv' })
-  );
-  rpc['materials.materialVersion'].mockReturnValue(
-    Effect.succeed(
-      Schema.decodeUnknownSync(materialVersionDetailSchema)({
-        ...learningVersion(),
-        kind: 'flashcards',
-        content: { kind: 'flashcards', cards: [] }
-      })
-    )
-  );
-  rpc['materials.exportMaterialVersion'].mockReturnValue(
-    Effect.succeed({
-      versionId: versionId('101'),
-      format: 'csv',
-      filename: 'cards.csv',
-      mediaType: 'text/csv; charset=utf-8',
-      bytes: new Uint8Array(new TextEncoder().encode('cardId,front,back')),
-      omissions: [{ code: 'csv_structure' }]
-    })
-  );
-  const download = test.vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
-  const create = test.vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:csv-export');
-
-  try {
-    mountLibraryRoute('/materials/41?version=101', rpc);
-    const button = await test.screen.findByRole('button', {
-      name: catalogs.english.ExportDownload
-    });
-
-    await test.waitFor(() =>
-      test
-        .expect(test.screen.getByRole('combobox', { name: catalogs.english.ExportFormat }))
-        .toHaveTextContent(catalogs.english.ExportCsv)
+    rpc['settings.workspacePreferences'].mockReturnValue(
+      Effect.succeed({ ...defaultWorkspacePreferences, defaultExportFormat: 'csv' })
     );
-    await test.userEvent.click(button);
-    test.expect(await test.screen.findByText(catalogs.english.ExportOmitCsv)).toBeInTheDocument();
-    test.expect(test.screen.queryByText(catalogs.english.ExportOmitImage)).not.toBeInTheDocument();
-    test.expect(rpc['materials.exportMaterialVersion']).toHaveBeenCalledWith({
-      id: versionId('101'),
-      format: 'csv'
-    });
-  } finally {
-    download.mockRestore();
-    create.mockRestore();
+    rpc['materials.materialVersion'].mockReturnValue(
+      Effect.succeed(
+        Schema.decodeUnknownSync(materialVersionDetailSchema)({
+          ...learningVersion(),
+          kind: 'flashcards',
+          content: { kind: 'flashcards', cards: [] }
+        })
+      )
+    );
+    rpc['materials.exportMaterialVersion'].mockReturnValue(
+      Effect.succeed({
+        versionId: versionId('101'),
+        format: 'csv',
+        filename: 'cards.csv',
+        mediaType: 'text/csv; charset=utf-8',
+        bytes: new Uint8Array(new TextEncoder().encode('cardId,front,back')),
+        omissions: [{ code: 'csv_structure' }]
+      })
+    );
+    const download = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:csv-export');
+
+    try {
+      mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/materials/41?version=101', rpc);
+      const button = await screen.findByRole('button', {
+        name: catalogs.english.ExportDownload
+      });
+
+      await waitFor(() =>
+        expect(
+          screen.getByRole('combobox', { name: catalogs.english.ExportFormat })
+        ).toHaveTextContent(catalogs.english.ExportCsv)
+      );
+      await userEvent.click(button);
+      expect(await screen.findByText(catalogs.english.ExportOmitCsv)).toBeInTheDocument();
+      expect(screen.queryByText(catalogs.english.ExportOmitImage)).not.toBeInTheDocument();
+      expect(rpc['materials.exportMaterialVersion']).toHaveBeenCalledWith({
+        id: versionId('101'),
+        format: 'csv'
+      });
+    } finally {
+      download.mockRestore();
+      create.mockRestore();
+    }
   }
-});
+);

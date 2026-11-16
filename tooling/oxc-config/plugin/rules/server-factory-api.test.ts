@@ -6,8 +6,11 @@ const store = "import * as api from '#server/platform/definitions/define-store';
 
 test.stable(
   'RPC exports require canonical imported factories including aliases and nested paths',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const results = await lintFiles(
+      { assert },
       {
         'src/features/a/rpc/index.ts':
           "import {defineRpc as create} from '#server/platform/definitions/define-rpc'; const alias = create; export const layer = alias(group, handlers);",
@@ -22,14 +25,19 @@ test.stable(
       'module-factories'
     );
 
-    test.assert.strictEqual(results.length, 3, JSON.stringify(results));
+    assert.strictEqual(results.length, 3, JSON.stringify(results));
   }
 );
 
-test.stable('workflow exports require canonical definitions and registrations', async () => {
-  const results = await lintFiles(
-    {
-      'src/features/a/workflows/index.ts': `
+test.stable(
+  'workflow exports require canonical definitions and registrations',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const results = await lintFiles(
+      { assert },
+      {
+        'src/features/a/workflows/index.ts': `
         import { defineWorkflow } from '#server/platform/definitions/define-workflow';
         import * as api from '#server/platform/definitions/define-workflow-handler';
         const alias = api;
@@ -37,21 +45,24 @@ test.stable('workflow exports require canonical definitions and registrations', 
         export const execute = () => effect;
         export const registration = alias.defineWorkflowHandler(workflow, { execute, triggers: [] });
         `,
-      'src/features/b/workflows/nested.ts':
-        'export const custom = { definition: workflow, layer, triggers: [] };',
-      'src/features/c/workflows/index.ts':
-        'const defineWorkflowHandler = () => ({}); export const registration = defineWorkflowHandler(workflow, {});',
-      'src/features/d/workflows/index.ts': "export { oldTrigger } from './other';"
-    },
-    'module-factories'
-  );
+        'src/features/b/workflows/nested.ts':
+          'export const custom = { definition: workflow, layer, triggers: [] };',
+        'src/features/c/workflows/index.ts':
+          'const defineWorkflowHandler = () => ({}); export const registration = defineWorkflowHandler(workflow, {});',
+        'src/features/d/workflows/index.ts': "export { oldTrigger } from './other';"
+      },
+      'module-factories'
+    );
 
-  test.assert.strictEqual(results.length, 3, JSON.stringify(results));
-});
+    assert.strictEqual(results.length, 3, JSON.stringify(results));
+  }
+);
 
 test.stable(
   'store operations require the correct canonical branded descriptor constructor',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const files: Record<string, string> = {};
 
     for (const [name, query, mutation] of [
@@ -63,14 +74,17 @@ test.stable(
       files[`src/features/${name}/store/index.ts`] =
         `${store} const {storeQuery:q,storeMutation:m} = api; const fake = x => x; api.defineStore({entity:{singular:'item',plural:'items'},make:()=>({queries:{item:${query}},mutations:{save:${mutation}}})});`;
 
-    test.assert.strictEqual((await lintFiles(files, 'operation-conventions')).length, 4);
+    assert.strictEqual((await lintFiles({ assert }, files, 'operation-conventions')).length, 4);
   }
 );
 
 test.stable(
   'services reject raw Database and obsolete imported store bindings without property bans',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const results = await lintFiles(
+      { assert },
       {
         'src/features/a/service/nested.ts':
           "import {Database as DB} from '#server/platform/database/database'; export const effect = DB;",
@@ -87,12 +101,15 @@ test.stable(
       'server-layer-boundary'
     );
 
-    test.assert.strictEqual(results.length, 3, JSON.stringify(results));
+    assert.strictEqual(results.length, 3, JSON.stringify(results));
   }
 );
 
-test.stable('transaction aliases reject asynchronous callbacks', async () => {
+test.stable('transaction aliases reject asynchronous callbacks', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const results = await lintFiles(
+    { assert },
     {
       'src/features/a/service/index.ts': `${store} const {transaction: run} = api; run(async tx => tx.store(Store));`,
       'src/features/b/service/index.ts': `${store} const ns = api; const run = ns.publicationTransaction; run(tx => fetch('url'));`,
@@ -102,45 +119,60 @@ test.stable('transaction aliases reject asynchronous callbacks', async () => {
     'synchronous-transactions'
   );
 
-  test.assert.strictEqual(results.length, 1);
-});
-
-test.stable('publication transaction aliases cannot perform I/O', async () => {
-  const results = await lintFiles(
-    {
-      'src/features/a/service/index.ts': `${store} const {transaction: run} = api; run(async tx => tx.store(Store));`,
-      'src/features/b/service/index.ts': `${store} const ns = api; const run = ns.publicationTransaction; run(tx => fetch('url'));`,
-      'src/features/c/service/index.ts':
-        'function transaction(fn) { return fn(); } transaction(async () => fetch("url"));'
-    },
-    'transaction-no-io'
-  );
-
-  test.assert.strictEqual(results.length, 1);
-});
-
-test.stable('native feature conversion stays behind canonical factories', async () => {
-  const results = await lintFiles(
-    {
-      'src/features/a/rpc/index.ts':
-        "import {AuthRpc as group} from '@study/contracts'; const alias = group; const {toLayer: run} = alias; run(handlers);",
-      'src/features/b/workflows/index.ts':
-        "import {defineWorkflow as create} from '#server/platform/definitions/define-workflow'; const workflow = create({}); const alias = workflow; alias.toLayer(execute);",
-      'src/features/c/workflows/index.ts':
-        "import * as jobs from '#server/features/c/workflows/job'; jobs.jobWorkflow.toLayer(execute);",
-      'src/features/d/rpc/index.ts': 'const group = {toLayer(){}}; group.toLayer(handlers);'
-    },
-    'workflow-boundary'
-  );
-
-  test.assert.strictEqual(results.length, 3, JSON.stringify(results));
+  assert.strictEqual(results.length, 1);
 });
 
 test.stable(
+  'publication transaction aliases cannot perform I/O',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const results = await lintFiles(
+      { assert },
+      {
+        'src/features/a/service/index.ts': `${store} const {transaction: run} = api; run(async tx => tx.store(Store));`,
+        'src/features/b/service/index.ts': `${store} const ns = api; const run = ns.publicationTransaction; run(tx => fetch('url'));`,
+        'src/features/c/service/index.ts':
+          'function transaction(fn) { return fn(); } transaction(async () => fetch("url"));'
+      },
+      'transaction-no-io'
+    );
+
+    assert.strictEqual(results.length, 1);
+  }
+);
+
+test.stable(
+  'native feature conversion stays behind canonical factories',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const results = await lintFiles(
+      { assert },
+      {
+        'src/features/a/rpc/index.ts':
+          "import {AuthRpc as group} from '@study/contracts'; const alias = group; const {toLayer: run} = alias; run(handlers);",
+        'src/features/b/workflows/index.ts':
+          "import {defineWorkflow as create} from '#server/platform/definitions/define-workflow'; const workflow = create({}); const alias = workflow; alias.toLayer(execute);",
+        'src/features/c/workflows/index.ts':
+          "import * as jobs from '#server/features/c/workflows/job'; jobs.jobWorkflow.toLayer(execute);",
+        'src/features/d/rpc/index.ts': 'const group = {toLayer(){}}; group.toLayer(handlers);'
+      },
+      'workflow-boundary'
+    );
+
+    assert.strictEqual(results.length, 3, JSON.stringify(results));
+  }
+);
+
+test.stable(
   'backend useStore is not a React hook and frontend hook rules stay enforced',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const results = (
       await lintFiles(
+        { assert },
         {
           'apps/server/src/platform/example.ts':
             "import {useStore} from '#server/platform/definitions/define-store'; function makeService() { return useStore(Store); }",
@@ -152,15 +184,18 @@ test.stable(
       )
     ).filter(({ code }) => code.includes('rules-of-hooks'));
 
-    test.assert.strictEqual(results.length, 1, JSON.stringify(results));
-    test.assert.ok(results[0]?.filename.includes('/apps/client/'));
+    assert.strictEqual(results.length, 1, JSON.stringify(results));
+    assert.ok(results[0]?.filename.includes('/apps/client/'));
   }
 );
 
 test.stable(
   'canonical bindings resist fake modules, type imports, cyclic aliases and nested namespace destructuring',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const results = await lintFiles(
+      { assert },
       {
         'src/features/relative/rpc/index.ts':
           "import { defineRpc as create } from '../../../platform/definitions/define-rpc.ts'; export default (create)(group, handlers);",
@@ -185,14 +220,17 @@ test.stable(
       'module-factories'
     );
 
-    test.assert.strictEqual(results.length, 5, JSON.stringify(results));
+    assert.strictEqual(results.length, 5, JSON.stringify(results));
   }
 );
 
 test.stable(
   'Database namespace reads and default store imports retain precise boundaries',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const results = await lintFiles(
+      { assert },
       {
         'src/features/a/service/nested.ts':
           "import * as api from '#server/platform/database/database'; const ns = api; const {Database: DB} = ns; const effect = DB;",
@@ -208,14 +246,17 @@ test.stable(
       'server-layer-boundary'
     );
 
-    test.assert.strictEqual(results.length, 3, JSON.stringify(results));
+    assert.strictEqual(results.length, 3, JSON.stringify(results));
   }
 );
 
 test.stable(
   'local native conversion aliases cannot bypass factories while shadowed imports stay unrelated',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const results = await lintFiles(
+      { assert },
       {
         'src/features/a/workflows/nested.ts':
           "import {defineWorkflow} from '#server/platform/definitions/define-workflow'; const workflow = defineWorkflow({}); const {toLayer: run} = workflow; run(execute);",
@@ -229,14 +270,17 @@ test.stable(
       'workflow-boundary'
     );
 
-    test.assert.strictEqual(results.length, 2, JSON.stringify(results));
+    assert.strictEqual(results.length, 2, JSON.stringify(results));
   }
 );
 
 test.stable(
   'unregistered workflow factories cannot publish an alternate registration API',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const results = await lintFiles(
+      { assert },
       {
         'src/features/a/workflows/index.ts':
           'export const alternateRegistration = () => ({definition: workflow, layer, triggers: []});',
@@ -252,25 +296,34 @@ test.stable(
       'module-factories'
     );
 
-    test.assert.strictEqual(results.length, 1);
+    assert.strictEqual(results.length, 1);
   }
 );
 
-test.stable('spreading query descriptors cannot bypass required literal roles', async () => {
-  const results = await lintFiles(
-    {
-      'src/features/a/store/index.ts': `${store} const operations = { item: {role:'required'} }; const queries = {...operations}; api.defineStore({entity:{singular:'item',plural:'items'},make:()=>({queries,mutations:{}})});`
-    },
-    'operation-conventions'
-  );
+test.stable(
+  'spreading query descriptors cannot bypass required literal roles',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test.assert.strictEqual(results.length, 1);
-});
+    const results = await lintFiles(
+      { assert },
+      {
+        'src/features/a/store/index.ts': `${store} const operations = { item: {role:'required'} }; const queries = {...operations}; api.defineStore({entity:{singular:'item',plural:'items'},make:()=>({queries,mutations:{}})});`
+      },
+      'operation-conventions'
+    );
+
+    assert.strictEqual(results.length, 1);
+  }
+);
 
 test.stable(
   'nested store destructuring enforces obsolete bindings without trusting shadows or type imports',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const results = await lintFiles(
+      { assert },
       {
         'src/features/a/service/nested.ts':
           "import * as stores from '#server/features/a/store'; const {AStore:{make,key,layer}}=stores; make(); key; layer;",
@@ -284,15 +337,18 @@ test.stable(
       'server-layer-boundary'
     );
 
-    test.assert.strictEqual(results.length, 3, JSON.stringify(results));
-    test.assert.ok(results.every(({ filename }) => filename.includes('/features/a/')));
+    assert.strictEqual(results.length, 3, JSON.stringify(results));
+    assert.ok(results.every(({ filename }) => filename.includes('/features/a/')));
   }
 );
 
 test.stable(
   'const aliases preserve local destructured native conversion provenance and cycle protection',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const results = await lintFiles(
+      { assert },
       {
         'src/features/a/workflows/nested.ts':
           "import {defineWorkflow} from '#server/platform/definitions/define-workflow'; const workflow = defineWorkflow({}); const {toLayer:run}=workflow; const alias=run; const again=alias; again(execute);",
@@ -315,6 +371,6 @@ test.stable(
       'workflow-boundary'
     );
 
-    test.assert.strictEqual(results.length, 2, JSON.stringify(results));
+    assert.strictEqual(results.length, 2, JSON.stringify(results));
   }
 );

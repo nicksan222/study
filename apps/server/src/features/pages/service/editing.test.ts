@@ -42,7 +42,9 @@ const meta = {
 
 test.stable(
   'native saves race on one expected revision, retain both rich alternatives and replay after reopen',
-  async ({ databases }) => {
+  async ({ databases, expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
 
     let context = new ServerContext(await location.open());
@@ -108,7 +110,7 @@ test.stable(
 
       const results = await Promise.all([save(a), save(b)]);
 
-      test.expect(results.map((r) => r.outcome).sort()).toStrictEqual(['conflict', 'saved']);
+      expect(results.map((r) => r.outcome).sort()).toStrictEqual(['conflict', 'saved']);
 
       const winner = results.find((r) => r.outcome === 'saved')!;
 
@@ -124,15 +126,15 @@ test.stable(
         })
       );
 
-      test.assert.ok(comparison.evidence === 'structural_only');
+      assert.ok(comparison.evidence === 'structural_only');
 
-      test.assert.ok(comparison.proposed.document.blocks.length > 0);
+      assert.ok(comparison.proposed.document.blocks.length > 0);
 
-      test.assert.ok(comparison.proposedChanges.some((change) => change.kind === 'inserted'));
+      assert.ok(comparison.proposedChanges.some((change) => change.kind === 'inserted'));
 
-      test.assert.ok(!comparison.proposedChanges.some((change) => change.blockId === stable.id));
+      assert.ok(!comparison.proposedChanges.some((change) => change.blockId === stable.id));
 
-      test.assert.strictEqual(context.db.orm.select().from(s.pages).all().length, 1);
+      assert.strictEqual(context.db.orm.select().from(s.pages).all().length, 1);
 
       const retainedBlock = context.db.orm
         .select()
@@ -140,7 +142,7 @@ test.stable(
         .where(eq(s.page_versions.id, loser.submittedVersionId))
         .get()!;
 
-      test.assert.throws(() =>
+      assert.throws(() =>
         context.db.orm
           .update(s.blocks)
           .set({ text: 'tampered' })
@@ -148,7 +150,7 @@ test.stable(
           .run()
       );
 
-      test.assert.throws(() => context.db.orm.delete(s.page_edit_receipts).run());
+      assert.throws(() => context.db.orm.delete(s.page_edit_receipts).run());
 
       const output = makeMaterialOutput(context);
 
@@ -165,22 +167,19 @@ test.stable(
         sql`CREATE TRIGGER reject_edit_event BEFORE INSERT ON workflow_events WHEN NEW.type='PagePublished' BEGIN SELECT RAISE(ABORT, 'fixture rollback'); END`
       );
 
-      await test.expect(save(retryable)).rejects.toSatisfy(() => true);
+      await expect(save(retryable)).rejects.toSatisfy(() => true);
 
-      test.expect(output()).toStrictEqual(beforeFailure);
+      expect(output()).toStrictEqual(beforeFailure);
 
       context.db.orm.run(sql`DROP TRIGGER reject_edit_event`);
 
       const retried = await save(retryable);
 
-      test.assert.ok(retried.outcome === 'saved');
+      assert.ok(retried.outcome === 'saved');
 
-      test.assert.strictEqual(
-        (await save(retryable)).submittedVersionId,
-        retried.submittedVersionId
-      );
+      assert.strictEqual((await save(retryable)).submittedVersionId, retried.submittedVersionId);
 
-      test.assert.throws(() =>
+      assert.throws(() =>
         context.db.orm
           .delete(s.page_versions)
           .where(eq(s.page_versions.id, loser.submittedVersionId))
@@ -193,9 +192,9 @@ test.stable(
 
       const replay = await save(a);
 
-      test.assert.ok(replay.replayed === true);
+      assert.ok(replay.replayed === true);
 
-      test.assert.strictEqual(replay.submittedVersionId, results[0]!.submittedVersionId);
+      assert.strictEqual(replay.submittedVersionId, results[0]!.submittedVersionId);
 
       const changed = await call(
         Effect.gen(function* () {
@@ -208,7 +207,7 @@ test.stable(
         })
       );
 
-      test.assert.ok(changed.kind === 'invalid_input');
+      assert.ok(changed.kind === 'invalid_input');
 
       const undo = await call(
         Effect.gen(function* () {
@@ -221,7 +220,7 @@ test.stable(
         })
       );
 
-      test.assert.ok(undo.outcome === 'saved');
+      assert.ok(undo.outcome === 'saved');
 
       const concurrent = await save({
         ...a,
@@ -241,11 +240,11 @@ test.stable(
         })
       );
 
-      test.assert.ok(staleUndo.outcome === 'conflict');
+      assert.ok(staleUndo.outcome === 'conflict');
 
-      test.assert.strictEqual(staleUndo.currentVersionId, concurrent.submittedVersionId);
+      assert.strictEqual(staleUndo.currentVersionId, concurrent.submittedVersionId);
 
-      test.assert.strictEqual(
+      assert.strictEqual(
         (
           await call(
             Effect.gen(function* () {
@@ -256,7 +255,7 @@ test.stable(
         concurrent.submittedVersionId
       );
 
-      test.assert.strictEqual(context.db.orm.select().from(s.pages).all().length, 1);
+      assert.strictEqual(context.db.orm.select().from(s.pages).all().length, 1);
     } finally {
       context.close();
 
@@ -265,7 +264,7 @@ test.stable(
   }
 );
 
-test.stable('retires only one selected authored note version', async ({ databases }) => {
+test.stable('retires only one selected authored note version', async ({ databases, expect }) => {
   const location = await databases();
   const context = new ServerContext(await location.open());
   const layer = Pages.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
@@ -300,18 +299,16 @@ test.stable('retires only one selected authored note version', async ({ database
         };
         const preview = yield* pages.previewHistory(scope);
 
-        test.expect(preview.versionIds).toEqual([second.submittedVersionId]);
+        expect(preview.versionIds).toEqual([second.submittedVersionId]);
         yield* pages.retireHistory({ ...scope, token: preview.token });
-        test
-          .expect((yield* pages.version({ id: original.version!.id })).document.blocks.length)
-          .toBe(1);
-        test
-          .expect((yield* pages.version({ id: third.submittedVersionId })).document.blocks.length)
-          .toBe(1);
-        test
-          .expect((yield* Effect.flip(pages.version({ id: second.submittedVersionId }))).kind)
-          .toBe('not_found');
-        test.expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toEqual([]);
+        expect((yield* pages.version({ id: original.version!.id })).document.blocks.length).toBe(1);
+        expect(
+          (yield* pages.version({ id: third.submittedVersionId })).document.blocks.length
+        ).toBe(1);
+        expect((yield* Effect.flip(pages.version({ id: second.submittedVersionId }))).kind).toBe(
+          'not_found'
+        );
+        expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toEqual([]);
       }).pipe(Effect.provide(layer))
     );
   } finally {

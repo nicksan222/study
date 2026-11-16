@@ -10,7 +10,7 @@
  * │ Allowed:                                                                                 │
  * │   // example.test.ts                                                                     │
  * │   import { test } from '@study/testing';                                                 │
- * │   test.stable('has a value', () => { test.expect(value).toBeDefined(); });               │
+ * │   test.stable('has a value', ({ expect }) => { expect(value).toBeDefined(); });          │
  * │                                                                                          │
  * │ Rejected:                                                                                │
  * │   // example.test.ts                                                                     │

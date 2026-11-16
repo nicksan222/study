@@ -75,7 +75,7 @@ const definition = defineAgent({
 
 test.stable(
   'HTTP streams intermediate agent snapshots, reseeds reconnects, and releases viewers without cancelling work',
-  async ({ resources: location }) => {
+  async ({ resources: location, expect }) => {
     const app = await location.openApp({ path: location.path });
     const server = await serve(app);
     const executionId = executionIdSchema.make('rpc-agent');
@@ -149,24 +149,24 @@ test.stable(
               correlationId: 'rpc-request'
             }).pipe(Stream.take(1), Stream.runCollect);
 
-            test.expect(reseeded[0]?.[0]).toMatchObject({ text: 'first', status: 'running' });
+            expect(reseeded[0]?.[0]).toMatchObject({ text: 'first', status: 'running' });
             provider.finish();
-            test.expect(yield* Fiber.join(generation)).toBe('first second');
+            expect(yield* Fiber.join(generation)).toBe('first second');
             const snapshots = yield* Fiber.join(fiber).pipe(Effect.timeout('3 seconds'));
 
-            test.expect(snapshots[0]).toEqual([]);
-            test.expect(snapshots.at(-1)?.[0]).toMatchObject({
+            expect(snapshots[0]).toEqual([]);
+            expect(snapshots.at(-1)?.[0]).toMatchObject({
               text: 'first second',
               status: 'completed'
             });
-            test
-              .expect(app.store.db.orm.select().from(workflow_executions).get()?.status)
-              .toBe('running');
+            expect(app.store.db.orm.select().from(workflow_executions).get()?.status).toBe(
+              'running'
+            );
           })
         )
       );
 
-      await test.expect.poll(() => listeners, { interval: 10, timeout: 1000 }).toBe(0);
+      await expect.poll(() => listeners, { interval: 10, timeout: 1000 }).toBe(0);
     } finally {
       await server.close();
       await app.close();

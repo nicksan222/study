@@ -60,15 +60,24 @@ function fixture(kind: 'quiz' | 'flashcards', id: bigint) {
   return { detail, summary };
 }
 
-function mount(project = true, paginated = false, empty = false) {
-  const base = materialRpc();
+function mount(
+  {
+    vi,
+    rpcHandlersTransport,
+    render
+  }: Pick<test.Context, 'vi' | 'rpcHandlersTransport' | 'render'>,
+  project = true,
+  paginated = false,
+  empty = false
+) {
+  const base = materialRpc({ vi });
   const quiz = fixture('quiz', 41n);
   const cards = fixture('flashcards', 42n);
   const extra = fixture('quiz', 43n);
   let restored = false;
   const rpc = {
     ...base,
-    'materials.materials': test.vi
+    'materials.materials': vi
       .fn<StudyClient['materials.materials']>()
       .mockImplementation(({ cursor, limit }) =>
         Effect.succeed({
@@ -82,7 +91,7 @@ function mount(project = true, paginated = false, empty = false) {
           nextCursor: paginated && !cursor && limit <= 30 ? extra.summary.id : null
         })
       ),
-    'materials.material': test.vi
+    'materials.material': vi
       .fn<StudyClient['materials.material']>()
       .mockImplementation(({ id }) =>
         Effect.succeed(
@@ -91,7 +100,7 @@ function mount(project = true, paginated = false, empty = false) {
             : { ...quiz.detail, archived_at: restored ? null : 2n }
         )
       ),
-    'materials.unarchive': test.vi.fn<StudyClient['materials.unarchive']>().mockImplementation(() =>
+    'materials.unarchive': vi.fn<StudyClient['materials.unarchive']>().mockImplementation(() =>
       Effect.sync(() => {
         restored = true;
 
@@ -100,127 +109,117 @@ function mount(project = true, paginated = false, empty = false) {
     )
   };
 
-  const transport = test.rpcHandlersTransport(rpc);
+  const transport = rpcHandlersTransport(rpc);
 
-  test.render(
-    <ArchivedPracticeAction projectId={project ? projectIdSchema.make(1n) : undefined} />,
-    {
-      wrapper: transport.wrapper
-    }
-  );
+  render(<ArchivedPracticeAction projectId={project ? projectIdSchema.make(1n) : undefined} />, {
+    wrapper: transport.wrapper
+  });
 
   return { rpc, notify: transport.notify };
 }
 
 test.stable(
   'opens the sidebar archive, previews saved content, and restores through the real mutation',
-  async () => {
-    const { rpc } = mount();
-    const user = test.userEvent.setup();
-    const trigger = test.screen.getByRole('button', { name: en.PracticeArchived });
+  async ({ userEvent, screen, expect, within, waitFor, vi, rpcHandlersTransport, render }) => {
+    const { rpc } = mount({ vi, rpcHandlersTransport, render });
+    const user = userEvent.setup();
+    const trigger = screen.getByRole('button', { name: en.PracticeArchived });
 
-    test.expect(rpc['materials.materials']).not.toHaveBeenCalled();
+    expect(rpc['materials.materials']).not.toHaveBeenCalled();
     await user.click(trigger);
-    const dialog = await test.screen.findByRole('dialog', { name: en.PracticeArchived });
+    const dialog = await screen.findByRole('dialog', { name: en.PracticeArchived });
 
-    await user.click(
-      await test.within(dialog).findByRole('button', { name: /Number theory quiz/ })
+    await user.click(await within(dialog).findByRole('button', { name: /Number theory quiz/ }));
+    expect(await within(dialog).findByText('What is a prime number?')).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('radio', { name: 'Two. ' + en.ReaderCorrectAnswer })
+    ).toBeChecked();
+    expect(
+      within(dialog).getByRole('radio', { name: 'Four. ' + en.PracticeArchiveOtherOption })
+    ).not.toBeChecked();
+    expect(within(dialog).getByText(en.PracticeArchiveExplanation)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: en.PracticeRestore }));
+    await waitFor(() =>
+      expect(within(dialog).queryByRole('button', { name: /Number theory quiz/ })).toBeNull()
     );
-    test
-      .expect(await test.within(dialog).findByText('What is a prime number?'))
-      .toBeInTheDocument();
-    test
-      .expect(test.within(dialog).getByRole('radio', { name: 'Two. ' + en.ReaderCorrectAnswer }))
-      .toBeChecked();
-    test
-      .expect(
-        test.within(dialog).getByRole('radio', { name: 'Four. ' + en.PracticeArchiveOtherOption })
-      )
-      .not.toBeChecked();
-    test.expect(test.within(dialog).getByText(en.PracticeArchiveExplanation)).toBeInTheDocument();
-    await user.click(test.within(dialog).getByRole('button', { name: en.PracticeRestore }));
-    await test.waitFor(() =>
-      test
-        .expect(test.within(dialog).queryByRole('button', { name: /Number theory quiz/ }))
-        .toBeNull()
-    );
-    test.expect(rpc['materials.unarchive']).toHaveBeenCalledExactlyOnceWith({ id: 41n });
-    test.expect(rpc['materials.materials']).toHaveBeenCalledWith({
+    expect(rpc['materials.unarchive']).toHaveBeenCalledExactlyOnceWith({ id: 41n });
+    expect(rpc['materials.materials']).toHaveBeenCalledWith({
       projectId: 1n,
       archived: true,
       cursor: undefined,
       limit: 30
     });
-    test.expect(rpc['materials.unarchive']).toHaveBeenCalledWith({ id: 41n });
-    await user.click(test.within(dialog).getByRole('button', { name: en.Close }));
-    await test.waitFor(() => test.expect(trigger).toHaveFocus());
+    expect(rpc['materials.unarchive']).toHaveBeenCalledWith({ id: 41n });
+    await user.click(within(dialog).getByRole('button', { name: en.Close }));
+    await waitFor(() => expect(trigger).toHaveFocus());
   }
 );
 
-test.stable('pages through the global archive, and searches quizzes and flashcards', async () => {
-  const { rpc } = mount(false, true);
-  const user = test.userEvent.setup();
+test.stable(
+  'pages through the global archive, and searches quizzes and flashcards',
+  async ({ userEvent, screen, within, expect, vi, rpcHandlersTransport, render }) => {
+    const { rpc } = mount({ vi, rpcHandlersTransport, render }, false, true);
+    const user = userEvent.setup();
 
-  await user.click(test.screen.getByRole('button', { name: en.PracticeArchived }));
-  const dialog = await test.screen.findByRole('dialog', { name: en.PracticeArchived });
+    await user.click(screen.getByRole('button', { name: en.PracticeArchived }));
+    const dialog = await screen.findByRole('dialog', { name: en.PracticeArchived });
 
-  await user.click(await test.within(dialog).findByRole('button', { name: en.LibraryMore }));
-  test
-    .expect(await test.within(dialog).findByRole('button', { name: /Prime flashcards/ }))
-    .toBeInTheDocument();
-  test.expect(rpc['materials.materials']).toHaveBeenLastCalledWith({
-    projectId: undefined,
-    archived: true,
-    cursor: undefined,
-    limit: 60
-  });
-  await user.type(
-    test.within(dialog).getByRole('searchbox', { name: en.PracticeSearchArchived }),
-    'Prime'
-  );
-  test
-    .expect(test.within(dialog).getByRole('button', { name: /Prime flashcards/ }))
-    .toBeInTheDocument();
-  test.expect(test.within(dialog).queryByRole('button', { name: /Number theory quiz/ })).toBeNull();
-  await user.click(test.within(dialog).getByRole('button', { name: /Prime flashcards/ }));
-  test
-    .expect(await test.within(dialog).findByRole('heading', { name: 'Smallest prime?' }))
-    .toBeInTheDocument();
-  test.expect(test.within(dialog).getByText('Two.')).toBeInTheDocument();
-  test.expect(test.within(dialog).getByText(en.CardBack)).toBeInTheDocument();
-});
+    await user.click(await within(dialog).findByRole('button', { name: en.LibraryMore }));
+    expect(
+      await within(dialog).findByRole('button', { name: /Prime flashcards/ })
+    ).toBeInTheDocument();
+    expect(rpc['materials.materials']).toHaveBeenLastCalledWith({
+      projectId: undefined,
+      archived: true,
+      cursor: undefined,
+      limit: 60
+    });
+    await user.type(
+      within(dialog).getByRole('searchbox', { name: en.PracticeSearchArchived }),
+      'Prime'
+    );
+    expect(within(dialog).getByRole('button', { name: /Prime flashcards/ })).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: /Number theory quiz/ })).toBeNull();
+    await user.click(within(dialog).getByRole('button', { name: /Prime flashcards/ }));
+    expect(
+      await within(dialog).findByRole('heading', { name: 'Smallest prime?' })
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText('Two.')).toBeInTheDocument();
+    expect(within(dialog).getByText(en.CardBack)).toBeInTheDocument();
+  }
+);
 
 test.stable(
   'uses the shared empty presentation and automatically previews available archived items',
-  async () => {
-    const { rpc, notify } = mount(true, false, true);
-    const user = test.userEvent.setup();
+  async ({ userEvent, screen, within, expect, vi, rpcHandlersTransport, render }) => {
+    const { rpc, notify } = mount({ vi, rpcHandlersTransport, render }, true, false, true);
+    const user = userEvent.setup();
 
-    await user.click(test.screen.getByRole('button', { name: en.PracticeArchived }));
-    const dialog = await test.screen.findByRole('dialog', { name: en.PracticeArchived });
-    const empty = await test.within(dialog).findByRole('status');
+    await user.click(screen.getByRole('button', { name: en.PracticeArchived }));
+    const dialog = await screen.findByRole('dialog', { name: en.PracticeArchived });
+    const empty = await within(dialog).findByRole('status');
 
-    test.expect(empty).toHaveTextContent(en.PracticeArchiveEmpty);
-    test.expect(empty).toHaveTextContent(en.PracticeArchiveHelp);
-    test.expect(empty).toHaveClass('ui-selection-empty');
-    test.expect(empty).toHaveAttribute('aria-live', 'polite');
-    test.expect(test.within(dialog).queryByRole('button', { name: en.PracticeRestore })).toBeNull();
+    expect(empty).toHaveTextContent(en.PracticeArchiveEmpty);
+    expect(empty).toHaveTextContent(en.PracticeArchiveHelp);
+    expect(empty).toHaveClass('ui-selection-empty');
+    expect(empty).toHaveAttribute('aria-live', 'polite');
+    expect(within(dialog).queryByRole('button', { name: en.PracticeRestore })).toBeNull();
     rpc['materials.materials'].mockReturnValue(
       Effect.succeed({ items: [fixture('flashcards', 42n).summary], nextCursor: null })
     );
     await notify();
-    test
-      .expect(await test.within(dialog).findByRole('heading', { name: 'Smallest prime?' }))
-      .toBeInTheDocument();
-    test.expect(test.within(dialog).queryByText(en.PracticeChooseArchived)).toBeNull();
+    expect(
+      await within(dialog).findByRole('heading', { name: 'Smallest prime?' })
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByText(en.PracticeChooseArchived)).toBeNull();
     await user.type(
-      test.within(dialog).getByRole('searchbox', { name: en.PracticeSearchArchived }),
+      within(dialog).getByRole('searchbox', { name: en.PracticeSearchArchived }),
       'no matching material'
     );
-    const noMatches = await test.within(dialog).findByRole('status');
+    const noMatches = await within(dialog).findByRole('status');
 
-    test.expect(noMatches).toHaveTextContent(en.SearchNoResults);
-    test.expect(noMatches).toHaveTextContent(en.PracticeArchiveSearchHelp);
-    test.expect(noMatches).toHaveClass('ui-selection-empty');
+    expect(noMatches).toHaveTextContent(en.SearchNoResults);
+    expect(noMatches).toHaveTextContent(en.PracticeArchiveSearchHelp);
+    expect(noMatches).toHaveClass('ui-selection-empty');
   }
 );

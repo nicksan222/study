@@ -26,7 +26,9 @@ import { pageTransformFixture } from '#testing/page-transform';
 
 test.stable(
   'note generation RPC discovers bounded exact requests across reopen, cancellation and note retirement',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const fixture = await pageTransformFixture(databases);
 
     try {
@@ -45,7 +47,7 @@ test.stable(
             document: deletionDocument('Retained discovery evidence')
           });
 
-          test.assert.ok(input.version);
+          assert.ok(input.version);
           yield* chats.updateNoteSelection({
             noteId: note.id,
             expectedRevision: 0n,
@@ -98,31 +100,29 @@ test.stable(
               limit: 1
             });
 
-            test.assert.strictEqual(first.items[0]?.requestId, setup.requests[0]!.requestId);
-            test.assert.strictEqual(
+            assert.strictEqual(first.items[0]?.requestId, setup.requests[0]!.requestId);
+            assert.strictEqual(
               first.items[0]?.contextRequestId,
               setup.requests[0]!.contextRequestId
             );
-            test.assert.ok(first.items[0]?.state === 'available');
-            test.assert.strictEqual(first.next, setup.requests[0]!.requestId);
+            assert.ok(first.items[0]?.state === 'available');
+            assert.strictEqual(first.next, setup.requests[0]!.requestId);
             const rest = yield* rpc('notes.noteGenerations', {
               noteId: setup.note.id,
               limit: 2,
               before: first.next!
             });
 
-            test
-              .expect(rest.items.map((i) => i.requestId))
-              .toStrictEqual(setup.requests.slice(1).map((i) => i.requestId));
-            test.assert.ok(rest.next === null);
-            test
-              .expect(
-                (yield* rpc('notes.noteGenerations', {
-                  noteId: setup.other.id,
-                  limit: 100
-                })).items
-              )
-              .toStrictEqual([]);
+            expect(rest.items.map((i) => i.requestId)).toStrictEqual(
+              setup.requests.slice(1).map((i) => i.requestId)
+            );
+            assert.ok(rest.next === null);
+            expect(
+              (yield* rpc('notes.noteGenerations', {
+                noteId: setup.other.id,
+                limit: 100
+              })).items
+            ).toStrictEqual([]);
           }).pipe(
             Effect.provide(
               NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
@@ -142,10 +142,10 @@ test.stable(
           });
           const page = yield* chats.noteGenerations({ noteId: setup.note.id, limit: 100 });
 
-          test.assert.ok(page.items.every((item) => item.state === 'available'));
-          test
-            .expect(page.items.map((item) => item.requestId))
-            .toStrictEqual(setup.requests.map((item) => item.requestId));
+          assert.ok(page.items.every((item) => item.state === 'available'));
+          expect(page.items.map((item) => item.requestId)).toStrictEqual(
+            setup.requests.map((item) => item.requestId)
+          );
         }).pipe(Effect.provide(fixture.domain()))
       );
       await Effect.runPromise(
@@ -153,34 +153,30 @@ test.stable(
           const docs = yield* Pages;
           const chats = yield* Notes;
 
-          test.assert.ok(
-            (yield* docs.previewDeletion({ id: setup.input.id })).blockedVersionIds.length
-          );
+          assert.ok((yield* docs.previewDeletion({ id: setup.input.id })).blockedVersionIds.length);
           yield* docs.cancelTransform({ requestId: setup.requests[0]!.requestId });
           const page = yield* chats.noteGenerations({ noteId: setup.note.id, limit: 100 });
 
-          test.assert.ok(page.items[0]?.cancelled === true);
-          test.assert.ok(page.items.every((item) => item.state === 'available'));
+          assert.ok(page.items[0]?.cancelled === true);
+          assert.ok(page.items.every((item) => item.state === 'available'));
           yield* chats.deleteNote(setup.note.id);
         }).pipe(Effect.provide(fixture.domain()))
       );
-      await cleanup(fixture, setup.note.id);
+      await cleanup(fixture, setup.note.id, assert);
       await fixture.reopen();
       await Effect.runPromise(
         Effect.gen(function* () {
           const chats = yield* Notes;
 
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(chats.noteGenerations({ noteId: setup.note.id, limit: 100 })))
               .kind === 'not_found'
           );
           const docs = yield* Pages;
           const retained = yield* docs.page({ id: setup.input.id });
 
-          test.assert.ok(retained.version);
-          test.assert.ok(
-            retained.version.document.blocks[0]?.text === 'Retained discovery evidence'
-          );
+          assert.ok(retained.version);
+          assert.ok(retained.version.document.blocks[0]?.text === 'Retained discovery evidence');
         }).pipe(Effect.provide(fixture.domain()))
       );
     } finally {

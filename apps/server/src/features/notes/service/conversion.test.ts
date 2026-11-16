@@ -39,7 +39,7 @@ function services() {
 
 test.stable(
   'conversion deduplicates requests, preserves originals and retains results after edits',
-  async () => {
+  async ({ expect }) => {
     await Effect.runPromise(
       Effect.gen(function* () {
         const c = yield* Notes;
@@ -56,11 +56,11 @@ test.stable(
         };
         const receipt = yield* c.convertMessage(input);
 
-        test.expect(yield* c.convertMessage(input)).toEqual(receipt);
+        expect(yield* c.convertMessage(input)).toEqual(receipt);
         const pending = yield* c.message(noteMessage.id);
 
-        test.expect(pending.activeVersionId).toBe(noteMessage.activeVersionId);
-        test.expect(pending.versions).toHaveLength(2);
+        expect(pending.activeVersionId).toBe(noteMessage.activeVersionId);
+        expect(pending.versions).toHaveLength(2);
         yield* c.editMessage({ messageId: noteMessage.id, text: 'My newer edit.' });
         const edited = yield* c.message(noteMessage.id);
 
@@ -74,15 +74,15 @@ test.stable(
         );
         const completed = yield* c.message(noteMessage.id);
 
-        test.expect(completed.activeVersionId).toBe(edited.activeVersionId);
-        test.expect(completed.versions.find((v) => v.id === receipt.versionId)).toMatchObject({
+        expect(completed.activeVersionId).toBe(edited.activeVersionId);
+        expect(completed.versions.find((v) => v.id === receipt.versionId)).toMatchObject({
           text: 'A broken paragraph [1].',
           status: 'complete',
           basedOn: noteMessage.activeVersionId,
           origin: 'convert'
         });
-        test.expect(completed.versions[0]?.text).toBe('A broken\nparagraph [1].');
-        test.expect(yield* c.convertMessage(input)).toEqual(receipt);
+        expect(completed.versions[0]?.text).toBe('A broken\nparagraph [1].');
+        expect(yield* c.convertMessage(input)).toEqual(receipt);
       }).pipe(Effect.provide(services()))
     );
   }
@@ -90,7 +90,7 @@ test.stable(
 
 test.stable(
   'automatic conversion is opt-in and uses the same durable request as the button',
-  async () => {
+  async ({ expect }) => {
     await Effect.runPromise(
       Effect.gen(function* () {
         const c = yield* Notes;
@@ -102,19 +102,17 @@ test.stable(
           requestReply: false
         });
 
-        test.expect(manual.versions).toHaveLength(1);
-        test
-          .expect(
-            context.db.orm
-              .select()
-              .from(workflowEvents)
-              .all()
-              .map((row) => decodeEvent(row.payload))
-              .some(
-                (event) => event.type === 'NoteGenerationRequested' && event.messageId === manual.id
-              )
-          )
-          .toBe(false);
+        expect(manual.versions).toHaveLength(1);
+        expect(
+          context.db.orm
+            .select()
+            .from(workflowEvents)
+            .all()
+            .map((row) => decodeEvent(row.payload))
+            .some(
+              (event) => event.type === 'NoteGenerationRequested' && event.messageId === manual.id
+            )
+        ).toBe(false);
         yield* settings.saveWorkspacePreferences({
           ...(yield* settings.workspacePreferences()),
           textConversionMode: 'automatic'
@@ -125,7 +123,7 @@ test.stable(
           requestReply: false
         });
 
-        test.expect(automatic.versions).toHaveLength(2);
+        expect(automatic.versions).toHaveLength(2);
         const input = {
           messageId: automatic.id,
           expectedActiveVersionId: automatic.activeVersionId!,
@@ -133,22 +131,20 @@ test.stable(
         };
         const receipt = yield* c.convertMessage(input);
 
-        test
-          .expect(receipt.versionId)
-          .toBe(automatic.versions.find((version) => version.origin === 'convert')?.id);
+        expect(receipt.versionId).toBe(
+          automatic.versions.find((version) => version.origin === 'convert')?.id
+        );
 
-        test.expect((yield* c.message(automatic.id)).versions).toHaveLength(2);
-        test
-          .expect(
-            (yield* c.replySnapshot({ requestId: receipt.requestId })).generation?.conversion
-              ?.strategyId
-          )
-          .toBe('chatgpt');
+        expect((yield* c.message(automatic.id)).versions).toHaveLength(2);
+        expect(
+          (yield* c.replySnapshot({ requestId: receipt.requestId })).generation?.conversion
+            ?.strategyId
+        ).toBe('chatgpt');
         const unavailable = yield* Effect.result(
           c.convertMessage({ ...input, strategyId: 'missing' })
         );
 
-        test.expect(unavailable._tag).toBe('Failure');
+        expect(unavailable._tag).toBe('Failure');
       }).pipe(Effect.provide(services()))
     );
   }
@@ -156,7 +152,7 @@ test.stable(
 
 test.stable(
   'failed conversions retain their payload, unblock replies and support exact retry or discard',
-  async () => {
+  async ({ expect }) => {
     await Effect.runPromise(
       Effect.gen(function* () {
         const c = yield* Notes;
@@ -173,33 +169,29 @@ test.stable(
         };
         const receipt = yield* c.convertMessage(input);
 
-        test
-          .expect((yield* Effect.result(c.requestReply({ noteId: note.id })))._tag)
-          .toBe('Failure');
+        expect((yield* Effect.result(c.requestReply({ noteId: note.id })))._tag).toBe('Failure');
 
         yield* withTestPublication(context, c.failConversion(receipt).pipe(Effect.asVoid));
         const failed = yield* c.message(noteMessage.id);
 
-        test.expect(failed.versions.at(-1)).toMatchObject({
+        expect(failed.versions.at(-1)).toMatchObject({
           status: 'failed',
           generationRequestId: receipt.requestId
         });
-        test.expect(failed.activeVersionId).toBe(noteMessage.activeVersionId);
-        test.expect((yield* c.requestReply({ noteId: note.id })).requestId).toBeTruthy();
+        expect(failed.activeVersionId).toBe(noteMessage.activeVersionId);
+        expect((yield* c.requestReply({ noteId: note.id })).requestId).toBeTruthy();
         const rewrite = yield* c.rewriteMessage({ messageId: noteMessage.id, origin: 'improve' });
 
-        test
-          .expect(
-            (yield* c.message(noteMessage.id)).versions.find(
-              (version) => version.id === receipt.versionId
-            )?.status
-          )
-          .toBe('failed');
-        test.expect((yield* Effect.result(c.convertMessage(input)))._tag).toBe('Failure');
+        expect(
+          (yield* c.message(noteMessage.id)).versions.find(
+            (version) => version.id === receipt.versionId
+          )?.status
+        ).toBe('failed');
+        expect((yield* Effect.result(c.convertMessage(input)))._tag).toBe('Failure');
         yield* withTestPublication(context, c.abandonReply(rewrite).pipe(Effect.asVoid));
 
-        test.expect(yield* c.convertMessage(input)).toEqual(receipt);
-        test.expect(yield* c.convertMessage(input)).toEqual(receipt);
+        expect(yield* c.convertMessage(input)).toEqual(receipt);
+        expect(yield* c.convertMessage(input)).toEqual(receipt);
         const events = context.db.orm
           .select()
           .from(workflowEvents)
@@ -210,54 +202,57 @@ test.stable(
               event.type === 'NoteGenerationRequested' && event.requestId === receipt.requestId
           );
 
-        test.expect(events).toHaveLength(2);
-        test.expect((yield* c.message(noteMessage.id)).versions.at(-1)?.status).toBe('pending');
+        expect(events).toHaveLength(2);
+        expect((yield* c.message(noteMessage.id)).versions.at(-1)?.status).toBe('pending');
         yield* withTestPublication(context, c.failConversion(receipt).pipe(Effect.asVoid));
         yield* c.deleteMessageVersion({ messageId: noteMessage.id, versionId: receipt.versionId });
-        test.expect((yield* c.message(noteMessage.id)).versions).toHaveLength(1);
+        expect((yield* c.message(noteMessage.id)).versions).toHaveLength(1);
       }).pipe(Effect.provide(services()))
     );
   }
 );
 
-test.stable('failed conversion retry rejects a base version that is no longer active', async () => {
-  await Effect.runPromise(
-    Effect.gen(function* () {
-      const c = yield* Notes;
-      const note = yield* c.createNote({ title: 'Stale conversion' });
-      const noteMessage = yield* c.postMessage({
-        noteId: note.id,
-        text: 'Original\ntext.',
-        requestReply: false
-      });
-      const input = {
-        messageId: noteMessage.id,
-        expectedActiveVersionId: noteMessage.activeVersionId!,
-        strategyId: 'chatgpt'
-      };
-      const receipt = yield* c.convertMessage(input);
+test.stable(
+  'failed conversion retry rejects a base version that is no longer active',
+  async ({ expect }) => {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const c = yield* Notes;
+        const note = yield* c.createNote({ title: 'Stale conversion' });
+        const noteMessage = yield* c.postMessage({
+          noteId: note.id,
+          text: 'Original\ntext.',
+          requestReply: false
+        });
+        const input = {
+          messageId: noteMessage.id,
+          expectedActiveVersionId: noteMessage.activeVersionId!,
+          strategyId: 'chatgpt'
+        };
+        const receipt = yield* c.convertMessage(input);
 
-      yield* withTestPublication(context, c.failConversion(receipt).pipe(Effect.asVoid));
-      yield* c.editMessage({ messageId: noteMessage.id, text: 'A newer edit.' });
-      const edited = yield* c.message(noteMessage.id);
-      const events = context.db.orm.select().from(workflowEvents).all();
-      const error = yield* c
-        .convertMessage(input)
-        .pipe(Effect.match({ onFailure: (error) => error, onSuccess: () => null }));
+        yield* withTestPublication(context, c.failConversion(receipt).pipe(Effect.asVoid));
+        yield* c.editMessage({ messageId: noteMessage.id, text: 'A newer edit.' });
+        const edited = yield* c.message(noteMessage.id);
+        const events = context.db.orm.select().from(workflowEvents).all();
+        const error = yield* c
+          .convertMessage(input)
+          .pipe(Effect.match({ onFailure: (error) => error, onSuccess: () => null }));
 
-      test.expect(error?.kind).toBe('invalid_input');
-      test.expect(yield* c.message(noteMessage.id)).toEqual(edited);
-      test
-        .expect(edited.versions.find((version) => version.id === receipt.versionId)?.status)
-        .toBe('failed');
-      test.expect(context.db.orm.select().from(workflowEvents).all()).toEqual(events);
-    }).pipe(Effect.provide(services()))
-  );
-});
+        expect(error?.kind).toBe('invalid_input');
+        expect(yield* c.message(noteMessage.id)).toEqual(edited);
+        expect(edited.versions.find((version) => version.id === receipt.versionId)?.status).toBe(
+          'failed'
+        );
+        expect(context.db.orm.select().from(workflowEvents).all()).toEqual(events);
+      }).pipe(Effect.provide(services()))
+    );
+  }
+);
 
 test.stable(
   'Ask schedules automatic conversion once after capturing its original reply input',
-  async () => {
+  async ({ expect }) => {
     await Effect.runPromise(
       Effect.gen(function* () {
         const c = yield* Notes;
@@ -270,7 +265,7 @@ test.stable(
           text: 'Manual\ninput.'
         });
 
-        test.expect((yield* c.message(manual.userMessageId)).versions).toHaveLength(1);
+        expect((yield* c.message(manual.userMessageId)).versions).toHaveLength(1);
         yield* settings.saveWorkspacePreferences({
           ...(yield* settings.workspacePreferences()),
           textConversionMode: 'automatic'
@@ -285,12 +280,12 @@ test.stable(
         const asked = yield* c.ask(input);
         const noteMessage = yield* c.message(asked.userMessageId);
 
-        test.expect(noteMessage.versions).toHaveLength(2);
-        test.expect(noteMessage.activeVersionId).toBe(asked.userVersionId);
+        expect(noteMessage.versions).toHaveLength(2);
+        expect(noteMessage.activeVersionId).toBe(asked.userVersionId);
         const conversion = noteMessage.versions.find((version) => version.origin === 'convert')!;
 
-        test.expect(conversion).toMatchObject({ status: 'pending', basedOn: asked.userVersionId });
-        test.expect((yield* c.replySnapshot(asked)).messages.at(-1)).toMatchObject({
+        expect(conversion).toMatchObject({ status: 'pending', basedOn: asked.userVersionId });
+        expect((yield* c.replySnapshot(asked)).messages.at(-1)).toMatchObject({
           messageId: noteMessage.id,
           versionId: asked.userVersionId,
           text: 'Original\nAsk input.'
@@ -305,8 +300,8 @@ test.stable(
               event.type === 'NoteGenerationRequested' && event.messageId === noteMessage.id
           );
 
-        test.expect(conversionEvents).toHaveLength(1);
-        test.expect(conversionEvents[0]).toMatchObject({
+        expect(conversionEvents).toHaveLength(1);
+        expect(conversionEvents[0]).toMatchObject({
           versionId: conversion.id,
           operation: 'rewrite'
         });
@@ -316,19 +311,17 @@ test.stable(
           strategyId: 'chatgpt'
         });
 
-        test.expect(receipt.versionId).toBe(conversion.id);
+        expect(receipt.versionId).toBe(conversion.id);
         yield* withTestPublication(context, c.failConversion(receipt).pipe(Effect.asVoid));
         const events = context.db.orm.select().from(workflowEvents).all();
 
-        test.expect(yield* c.ask(input)).toEqual(asked);
-        test.expect(context.db.orm.select().from(workflowEvents).all()).toEqual(events);
-        test
-          .expect(
-            (yield* c.message(noteMessage.id)).versions.find(
-              (version) => version.id === conversion.id
-            )?.status
-          )
-          .toBe('failed');
+        expect(yield* c.ask(input)).toEqual(asked);
+        expect(context.db.orm.select().from(workflowEvents).all()).toEqual(events);
+        expect(
+          (yield* c.message(noteMessage.id)).versions.find(
+            (version) => version.id === conversion.id
+          )?.status
+        ).toBe('failed');
       }).pipe(Effect.provide(services()))
     );
   }

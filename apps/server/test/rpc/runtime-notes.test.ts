@@ -21,7 +21,9 @@ import { Effect, Schema } from 'effect';
 test.stable(
   'a reply requested over RPC reaches the durable sign-in wait',
   { timeout: 10000 },
-  async ({ rpc }) => {
+  async ({ rpc, pollUntil, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     await rpc.app.workers.start();
     await rpc.runPromise(
       Effect.gen(function* () {
@@ -38,7 +40,7 @@ test.stable(
         });
         const request = yield* client['notes.requestReply']({ noteId: note.id });
 
-        yield* test.pollUntil(
+        yield* pollUntil(
           Effect.sync(() => {
             const rows = rpc.app.store.db.orm.all(
               sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id=w.execution_id WHERE e.workflow_tag='conversation-reply/v1'`
@@ -62,7 +64,7 @@ test.stable(
           text: 'Study photosynthesis'
         });
         yield* client['notes.requestTitle']({ noteId: untitled.id });
-        yield* test.pollUntil(
+        yield* pollUntil(
           Effect.sync(
             () =>
               rpc.app.store.db.orm.all(
@@ -79,10 +81,10 @@ test.stable(
 
         const message = yield* client['notes.message']({ id: request.messageId });
 
-        test.assert.ok(
+        assert.ok(
           message.versions.find((version) => version.id === request.versionId)?.status === 'pending'
         );
-        test.assert.strictEqual(
+        assert.strictEqual(
           (yield* client['notes.thread']({ noteId: note.id, limit: 10 })).items.length,
           2
         );
@@ -93,7 +95,9 @@ test.stable(
 
 test.stable(
   'atomic Ask returns its note and exact request over native HTTP RPC after process reopen',
-  async ({ rpc }) => {
+  async ({ rpc, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const saved = await rpc.runPromise(
       Effect.gen(function* () {
         const client = rpc.client;
@@ -106,11 +110,11 @@ test.stable(
         };
         const result = yield* client['notes.ask'](input);
 
-        test.assert.strictEqual(
+        assert.strictEqual(
           (yield* client['notes.message']({ id: result.userMessageId })).activeVersionId,
           result.userVersionId
         );
-        test.expect(yield* client['notes.ask'](input)).toStrictEqual(result);
+        expect(yield* client['notes.ask'](input)).toStrictEqual(result);
 
         return { input, result };
       })
@@ -121,17 +125,15 @@ test.stable(
       Effect.gen(function* () {
         const client = rpc.client;
 
-        test.expect(yield* client['notes.ask'](saved.input)).toStrictEqual(saved.result);
-        test
-          .expect(
-            yield* client['notes.replyVersion']({
-              noteId: saved.input.noteId,
-              messageId: saved.result.messageId,
-              versionId: saved.result.versionId
-            })
-          )
-          .toStrictEqual({ state: 'available', requestId: saved.result.requestId });
-        test.assert.strictEqual(
+        expect(yield* client['notes.ask'](saved.input)).toStrictEqual(saved.result);
+        expect(
+          yield* client['notes.replyVersion']({
+            noteId: saved.input.noteId,
+            messageId: saved.result.messageId,
+            versionId: saved.result.versionId
+          })
+        ).toStrictEqual({ state: 'available', requestId: saved.result.requestId });
+        assert.strictEqual(
           (yield* client['notes.thread']({
             noteId: saved.input.noteId,
             limit: 10
@@ -145,7 +147,9 @@ test.stable(
 
 test.stable(
   'native Material search binds bounded canonical targets without mixing catalog kinds',
-  async ({ rpc }) => {
+  async ({ rpc, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     await rpc.runPromise(
       Effect.gen(function* () {
         const client = rpc.client;
@@ -162,78 +166,81 @@ test.stable(
           })
         );
 
-        test.assert.strictEqual(found.hits.length, 1);
-        test.assert.ok(found.hits[0]?.kind === 'material');
-        test.expect(found.hits[0]?.target).toStrictEqual({
+        assert.strictEqual(found.hits.length, 1);
+        assert.ok(found.hits[0]?.kind === 'material');
+        expect(found.hits[0]?.target).toStrictEqual({
           type: 'material',
           materialId: material.id,
           versionId: material.version.id,
           materialKind: 'flashcards'
         });
-        test
-          .expect(
-            yield* client['system.materialSearch']({
-              query: 'NativeSearchToken',
-              limit: 1,
-              project: project.id
-            })
-          )
-          .toStrictEqual({ hits: [] });
+        expect(
+          yield* client['system.materialSearch']({
+            query: 'NativeSearchToken',
+            limit: 1,
+            project: project.id
+          })
+        ).toStrictEqual({ hits: [] });
       })
     );
   }
 );
 
-test.stable('plain note edits survive closing and reopening native HTTP RPC', async ({ rpc }) => {
-  const text =
-    'River garden field notebook\n\nFirst observation corrected.\n\nMiddle observation corrected.\n\nLast observation corrected.';
+test.stable(
+  'plain note edits survive closing and reopening native HTTP RPC',
+  async ({ rpc, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  const saved = await rpc.runPromise(
-    Effect.gen(function* () {
-      const client = rpc.client;
-      const note = yield* client['notes.createNote']({ title: 'River garden field notebook' });
-      let message = yield* client['notes.postMessage']({
-        noteId: note.id,
-        text: 'Original observation',
-        requestReply: false
-      });
+    const text =
+      'River garden field notebook\n\nFirst observation corrected.\n\nMiddle observation corrected.\n\nLast observation corrected.';
 
-      for (const content of [
-        'First observation corrected.',
-        'First observation corrected.\n\nMiddle observation corrected.',
-        text
-      ]) {
-        message = yield* client['notes.editMessage']({
-          messageId: message.id,
-          expectedActiveVersionId: message.activeVersionId ?? undefined,
-          text: content
+    const saved = await rpc.runPromise(
+      Effect.gen(function* () {
+        const client = rpc.client;
+        const note = yield* client['notes.createNote']({ title: 'River garden field notebook' });
+        let message = yield* client['notes.postMessage']({
+          noteId: note.id,
+          text: 'Original observation',
+          requestReply: false
         });
-      }
 
-      return { note, message };
-    })
-  );
+        for (const content of [
+          'First observation corrected.',
+          'First observation corrected.\n\nMiddle observation corrected.',
+          text
+        ]) {
+          message = yield* client['notes.editMessage']({
+            messageId: message.id,
+            expectedActiveVersionId: message.activeVersionId ?? undefined,
+            text: content
+          });
+        }
 
-  await rpc.reopen();
-  await rpc.runPromise(
-    Effect.gen(function* () {
-      const client = rpc.client;
-      const thread = yield* client['notes.thread']({ noteId: saved.note.id, limit: 100 });
+        return { note, message };
+      })
+    );
 
-      test.assert.strictEqual(thread.items.length, 1);
-      const message = thread.items[0]!;
+    await rpc.reopen();
+    await rpc.runPromise(
+      Effect.gen(function* () {
+        const client = rpc.client;
+        const thread = yield* client['notes.thread']({ noteId: saved.note.id, limit: 100 });
 
-      test.assert.strictEqual(message.id, saved.message.id);
-      test.assert.strictEqual(message.role, 'user');
-      test.assert.strictEqual(message.activeVersionId, saved.message.activeVersionId);
-      test.assert.strictEqual(
-        message.versions.find((version) => version.id === message.activeVersionId)?.text,
-        text
-      );
-      const notes = yield* client['notes.notes']({ limit: 100 });
+        assert.strictEqual(thread.items.length, 1);
+        const message = thread.items[0]!;
 
-      test.assert.strictEqual(notes.items.length, 1);
-      test.assert.strictEqual(notes.items[0]?.id, saved.note.id);
-    })
-  );
-});
+        assert.strictEqual(message.id, saved.message.id);
+        assert.strictEqual(message.role, 'user');
+        assert.strictEqual(message.activeVersionId, saved.message.activeVersionId);
+        assert.strictEqual(
+          message.versions.find((version) => version.id === message.activeVersionId)?.text,
+          text
+        );
+        const notes = yield* client['notes.notes']({ limit: 100 });
+
+        assert.strictEqual(notes.items.length, 1);
+        assert.strictEqual(notes.items[0]?.id, saved.note.id);
+      })
+    );
+  }
+);

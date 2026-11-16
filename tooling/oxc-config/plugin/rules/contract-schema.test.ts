@@ -2,20 +2,29 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable('requires browser-safe contract values to use Effect schemas', async () => {
-  const diagnostics = await lintRule(
-    'contract-schema',
-    { 'packages/contracts/src/user.ts': 'export interface User { id: string }' },
-    true
-  );
+test.stable(
+  'requires browser-safe contract values to use Effect schemas',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-});
+    const diagnostics = await lintRule(
+      { assert },
+      'contract-schema',
+      { 'packages/contracts/src/user.ts': 'export interface User { id: string }' },
+      true
+    );
+
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  }
+);
 
 test.stable(
   'recognizes Effect schema aliases and leaves unrelated values and derived types alone',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'contract-schema',
       {
         'packages/contracts/src/user.ts': `import { Schema as S } from 'effect';
@@ -30,14 +39,17 @@ function f(S: any) { return S.Unknown;
       true
     );
 
-    test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   }
 );
 
 test.stable(
   'rejects exported aliases to handwritten objects and inferred database types',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'contract-schema',
       {
         'packages/contracts/src/a.ts':
@@ -46,29 +58,38 @@ test.stable(
       true
     );
 
-    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
-test.stable('rejects handwritten brands tied to imported Effect Brand', async () => {
-  const diagnostics = await lintRule(
-    'contract-schema',
-    {
-      'packages/contracts/src/a.ts': `import type { Brand as B } from 'effect';
+test.stable(
+  'rejects handwritten brands tied to imported Effect Brand',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule(
+      { assert },
+      'contract-schema',
+      {
+        'packages/contracts/src/a.ts': `import type { Brand as B } from 'effect';
  export type A = string & B.Brand<'A'>;
  export type C = B.Branded<string, 'C'>;
 `
-    },
-    true
-  );
+      },
+      true
+    );
 
-  test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  }
+);
 
 test.stable(
   'export lists, nested handwritten shapes and structural brands cannot bypass canonical schemas',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'contract-schema',
       {
         'packages/contracts/src/a.ts':
@@ -79,30 +100,39 @@ test.stable(
       true
     );
 
-    test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );
 
-test.stable('native RPC declarations specify payload, success and error schemas', async () => {
-  const diagnostics = await lintRule(
-    'contract-schema',
-    {
-      'packages/contracts/src/sources/rpc.ts': `import { Rpc, RpcGroup } from 'effect/rpc';
+test.stable(
+  'native RPC declarations specify payload, success and error schemas',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule(
+      { assert },
+      'contract-schema',
+      {
+        'packages/contracts/src/sources/rpc.ts': `import { Rpc, RpcGroup } from 'effect/rpc';
 const make = Rpc.make;
 export const Group = RpcGroup.make(make('a', { payload: {}, success: Schema.String, error: failure }), make('b', { success: Schema.String }));
 function f(Rpc: any) { Rpc.make('c', {});
 }`
-    },
-    true
-  );
+      },
+      true
+    );
 
-  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  }
+);
 
 test.stable(
   'rich content remains schema-derived rather than a parallel public editor payload',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'contract-schema',
       {
         'packages/contracts/src/pages.ts': `
@@ -117,14 +147,17 @@ test.stable(
       true
     );
 
-    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
 test.stable(
   'run metadata derives from schemas instead of unchecked preference or parallel context objects',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'contract-schema',
       {
         'packages/contracts/src/notes/capture.ts': `
@@ -139,14 +172,17 @@ test.stable(
       true
     );
 
-    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
 test.stable(
   'Material deletion scope and status derive from canonical schemas rather than parallel unchecked payloads',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'contract-schema',
       {
         'packages/contracts/src/materials/deletion.ts': `
@@ -161,14 +197,17 @@ test.stable(
       true
     );
 
-    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
 test.stable(
   'history policies, exact candidates and native operations derive from checked schemas',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'contract-schema',
       {
         'packages/contracts/src/materials/history.ts': `
@@ -193,14 +232,17 @@ test.stable(
       true
     );
 
-    test.assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );
 
 test.stable(
   'backup descriptors and restore acknowledgements use checked canonical schemas',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'contract-schema',
       {
         'packages/contracts/src/system/backups.ts': `
@@ -219,14 +261,17 @@ test.stable(
       true
     );
 
-    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
 test.stable(
   'optional React implementations may describe generic bindings while wire declarations remain schema checked',
-  async () => {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const diagnostics = await lintRule(
+      { assert },
       'contract-schema',
       {
         'packages/contracts/src/react.ts': `import { Schema } from 'effect';
@@ -244,6 +289,6 @@ test.stable(
       true
     );
 
-    test.assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
   }
 );

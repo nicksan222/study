@@ -21,79 +21,78 @@ import { scrubRetiredExecution } from '#server/platform/workflows/store';
 import { refreshExecutionSnapshots } from '#server/platform/workflows/triggers';
 import { admitTestExecution } from '#testing/workflow-admission';
 
-test.stable('unsupported workflow versions become durably blocked', async ({ databases }) => {
-  const location = await databases();
-  const db = await location.open();
-  const context = new ServerContext(db);
-  const runtime = ManagedRuntime.make(workflowEngineLayer(context));
+test.stable(
+  'unsupported workflow versions become durably blocked',
+  async ({ databases, expect }) => {
+    const location = await databases();
+    const db = await location.open();
+    const context = new ServerContext(db);
+    const runtime = ManagedRuntime.make(workflowEngineLayer(context));
 
-  try {
-    db.orm
-      .insert(workflow_executions)
-      .values({
-        execution_id: 'unsupported',
-        workflow_tag: 'removed/v99',
-        version: 99,
-        payload: '{}',
-        status: 'running',
-        created_at: 1n,
-        updated_at: 1n
-      })
-      .run();
-    db.orm
-      .insert(workflow_executions)
-      .values({
-        execution_id: 'unsupported-retired',
-        workflow_tag: 'removed/v99',
-        version: 99,
-        payload: '{}',
-        status: 'completed',
-        created_at: 1n,
-        updated_at: 1n
-      })
-      .run();
-    db.orm
-      .insert(workflow_retired_executions)
-      .values({ execution_id: 'unsupported-retired', correlation_id: 'retired' })
-      .run();
-    await runtime.runPromise(refreshExecutionSnapshots(context, []));
-    test.expect(db.orm.select().from(workflow_executions).get()?.status).toBe('blocked');
-    test
-      .expect(db.orm.select().from(workflow_executions).get()?.blocked_reason)
-      .toBe('unsupported');
-    test
-      .expect(
+    try {
+      db.orm
+        .insert(workflow_executions)
+        .values({
+          execution_id: 'unsupported',
+          workflow_tag: 'removed/v99',
+          version: 99,
+          payload: '{}',
+          status: 'running',
+          created_at: 1n,
+          updated_at: 1n
+        })
+        .run();
+      db.orm
+        .insert(workflow_executions)
+        .values({
+          execution_id: 'unsupported-retired',
+          workflow_tag: 'removed/v99',
+          version: 99,
+          payload: '{}',
+          status: 'completed',
+          created_at: 1n,
+          updated_at: 1n
+        })
+        .run();
+      db.orm
+        .insert(workflow_retired_executions)
+        .values({ execution_id: 'unsupported-retired', correlation_id: 'retired' })
+        .run();
+      await runtime.runPromise(refreshExecutionSnapshots(context, []));
+      expect(db.orm.select().from(workflow_executions).get()?.status).toBe('blocked');
+      expect(db.orm.select().from(workflow_executions).get()?.blocked_reason).toBe('unsupported');
+      expect(
         db.orm
           .select()
           .from(workflow_executions)
           .where(eq(workflow_executions.execution_id, 'unsupported-retired'))
           .get()?.blocked_reason
-      )
-      .toBe('unsupported');
-    let hints = 0;
-    const unsubscribe = context.subscribe(() => hints++);
+      ).toBe('unsupported');
+      let hints = 0;
+      const unsubscribe = context.subscribe(() => hints++);
 
-    await runtime.runPromise(refreshExecutionSnapshots(context, []));
-    unsubscribe();
-    test.expect(hints).toBe(0);
-    await runtime.dispose();
-    const reopened = await location.open();
+      await runtime.runPromise(refreshExecutionSnapshots(context, []));
+      unsubscribe();
+      expect(hints).toBe(0);
+      await runtime.dispose();
+      const reopened = await location.open();
 
-    try {
-      test.expect(reopened.orm.select().from(workflow_executions).get()?.status).toBe('blocked');
+      try {
+        expect(reopened.orm.select().from(workflow_executions).get()?.status).toBe('blocked');
+      } finally {
+        reopened.close();
+      }
     } finally {
-      reopened.close();
+      await runtime.dispose();
+      db.close();
+      await location.cleanup();
     }
-  } finally {
-    await runtime.dispose();
-    db.close();
-    await location.cleanup();
   }
-});
+);
 
 test.stable(
   'unchanged durable snapshots do not publish hints or keep the worker awake',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const location = await databases();
     const db = await location.open();
     const context = new ServerContext(db);
@@ -150,11 +149,11 @@ test.stable(
           yield* refreshExecutionSnapshots(context, triggers);
         })
       );
-      test.expect(hints).toBe(1);
+      expect(hints).toBe(1);
       hints = 0;
       await runtime.runPromise(refreshExecutionSnapshots(context, triggers));
       await runtime.runPromise(refreshExecutionSnapshots(context, triggers));
-      test.expect(hints).toBe(0);
+      expect(hints).toBe(0);
     } finally {
       unsubscribe();
       await runtime.dispose();
@@ -166,7 +165,7 @@ test.stable(
 
 test.stable(
   'restart retires official replies for already completed domain work',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const location = await databases();
     const db = await location.open();
     const context = new ServerContext(db);
@@ -232,9 +231,9 @@ test.stable(
         })
       );
 
-      test.expect(Option.isNone(reply)).toBe(true);
-      test.expect(calls).toBe(1);
-      test.expect(db.orm.select().from(workflow_executions).get()?.status).toBe('completed');
+      expect(Option.isNone(reply)).toBe(true);
+      expect(calls).toBe(1);
+      expect(db.orm.select().from(workflow_executions).get()?.status).toBe('completed');
     } finally {
       await runtime.dispose();
       db.close();
@@ -245,7 +244,7 @@ test.stable(
 
 test.stable(
   'retirement between polling and snapshot commit cannot restore private output',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const location = await databases();
     const context = new ServerContext(await location.open());
     const workflow = Workflow.make('poll-retirement/v1', {
@@ -295,8 +294,8 @@ test.stable(
       );
       const row = context.db.orm.select().from(workflow_executions).get();
 
-      test.expect(row?.result).toBeNull();
-      test.expect(row?.payload).toBe('{}');
+      expect(row?.result).toBeNull();
+      expect(row?.payload).toBe('{}');
     } finally {
       await runtime.dispose();
       context.close();

@@ -2,43 +2,57 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable('requires persisted JSON to be schema-decoded before use', async () => {
-  const diagnostics = await lintRule('decode-persisted-json', {
-    'src/bad.ts': 'const body = JSON.parse(row.body) as ArtifactBody;',
-    'src/good.ts':
-      'const body = bodySchema.parse(JSON.parse(row.body)); const raw: unknown = JSON.parse(text);',
-    'src/fixture.test.ts': 'const body = JSON.parse(row.body) as ArtifactBody;'
-  });
+test.stable(
+  'requires persisted JSON to be schema-decoded before use',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-  test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
-});
+    const diagnostics = await lintRule({ assert }, 'decode-persisted-json', {
+      'src/bad.ts': 'const body = JSON.parse(row.body) as ArtifactBody;',
+      'src/good.ts':
+        'const body = bodySchema.parse(JSON.parse(row.body)); const raw: unknown = JSON.parse(text);',
+      'src/fixture.test.ts': 'const body = JSON.parse(row.body) as ArtifactBody;'
+    });
 
-test.stable('decode-persisted-json handles aliases and avoids unrelated bindings', async () => {
-  const diagnostics = await lintRule('decode-persisted-json', {
-    'src/bad.ts': 'const domain = JSON.parse(value) as Body;',
-    'src/good.ts':
-      'function f(JSON) { return JSON.parse(value) as Body; } const value = Schema.decodeUnknownSync(bodySchema)(JSON.parse(row.body));'
-  });
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+  }
+);
 
-  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-  test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
-});
+test.stable(
+  'decode-persisted-json handles aliases and avoids unrelated bindings',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-test.stable('decode-persisted-json covers direct unsafe forms', async () => {
-  const diagnostics = await lintRule('decode-persisted-json', {
+    const diagnostics = await lintRule({ assert }, 'decode-persisted-json', {
+      'src/bad.ts': 'const domain = JSON.parse(value) as Body;',
+      'src/good.ts':
+        'function f(JSON) { return JSON.parse(value) as Body; } const value = Schema.decodeUnknownSync(bodySchema)(JSON.parse(row.body));'
+    });
+
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+  }
+);
+
+test.stable('decode-persisted-json covers direct unsafe forms', async ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
+  const diagnostics = await lintRule({ assert }, 'decode-persisted-json', {
     'src/bad.ts': 'const domain: Body = JSON.parse(row.body);',
     'src/good.ts': 'const raw: unknown = JSON.parse(row.body);'
   });
 
-  test.assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-  test.assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
 test.stable(
   'rich block persistence uses the canonical codec instead of a public type assertion',
-  async () => {
-    const diagnostics = await lintRule('decode-persisted-json', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'decode-persisted-json', {
       'src/features/materials/store/content.ts': `
       import { decodeBlockContent } from '@study/contracts';
       import type { BlockContent } from '@study/contracts';
@@ -48,14 +62,16 @@ test.stable(
     `
     });
 
-    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
 test.stable(
   'captured preferences and context use canonical schema codecs at persistence reads',
-  async () => {
-    const diagnostics = await lintRule('decode-persisted-json', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'decode-persisted-json', {
       'src/features/notes/store/capture.ts': `
       import { runSelectionContextSchema } from '@study/contracts';
       import { Schema } from 'effect';
@@ -66,14 +82,16 @@ test.stable(
     `
     });
 
-    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
 test.stable(
   'durable citation targets and transform reports use canonical codecs instead of unchecked casts',
-  async () => {
-    const diagnostics = await lintRule('decode-persisted-json', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'decode-persisted-json', {
       'src/features/materials/store/citations.ts': `
       import { Schema } from 'effect';
       import { documentTextRangeSchema } from '@study/contracts';
@@ -90,14 +108,16 @@ test.stable(
     `
     });
 
-    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
 test.stable(
   'annotation history and assessment payloads require canonical schema decoding',
-  async () => {
-    const diagnostics = await lintRule('decode-persisted-json', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'decode-persisted-json', {
       'src/features/materials/store/annotations.ts': `
       import { Schema } from 'effect';
       import { annotationRevisionSchema } from '@study/contracts';
@@ -114,14 +134,16 @@ test.stable(
     `
     });
 
-    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
 test.stable(
   'retired intents and native attempt metadata require codecs at typed read boundaries',
-  async () => {
-    const diagnostics = await lintRule('decode-persisted-json', {
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const diagnostics = await lintRule({ assert }, 'decode-persisted-json', {
       'src/features/materials/store/note-retirement.ts': `
       import { Schema } from 'effect';
       import { keepProposalSchema } from '@study/contracts';
@@ -132,6 +154,6 @@ test.stable(
       'src/features/workflows/store/index.ts': `const unsafe: ExecutionMetadata = JSON.parse(row.payload);`
     });
 
-    test.assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );

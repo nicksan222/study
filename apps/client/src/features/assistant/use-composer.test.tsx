@@ -15,20 +15,20 @@ function Composer({ send }: { send: () => boolean }) {
 
 test.stable(
   'focuses the shared chat input only after an accepted send and respects composition and multiline input',
-  async () => {
-    const send = test.vi.fn(() => true);
-    const user = test.userEvent.setup();
+  async ({ vi, userEvent, render, screen, fireEvent, expect }) => {
+    const send = vi.fn(() => true);
+    const user = userEvent.setup();
 
-    test.render(<Composer send={send} />);
-    const input = test.screen.getByRole('textbox', { name: 'Draft' });
+    render(<Composer send={send} />);
+    const input = screen.getByRole('textbox', { name: 'Draft' });
 
-    test.fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
-    test.fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
-    test.expect(send).not.toHaveBeenCalled();
-    await user.click(test.screen.getByRole('button', { name: 'Send' }));
-    test.expect(input).toHaveFocus();
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+    fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
+    expect(send).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    expect(input).toHaveFocus();
     send.mockReturnValue(false);
-    await user.click(test.screen.getByRole('button', { name: 'Send' }));
-    test.expect(test.screen.getByRole('button', { name: 'Send' })).toHaveFocus();
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    expect(screen.getByRole('button', { name: 'Send' })).toHaveFocus();
   }
 );

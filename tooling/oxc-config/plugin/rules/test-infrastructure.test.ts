@@ -4,8 +4,10 @@ import { lintRulePaths } from '../test/utils.ts';
 
 test.stable(
   'module mocks come from lazy callback fixtures instead of the test namespace',
-  async () => {
-    const paths = await lintRulePaths('test-infrastructure', {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const paths = await lintRulePaths({ assert }, 'test-infrastructure', {
       'apps/client/src/static.test.ts': `import { test } from '@study/testing';
       test.mock('#client/lib/host.ts', () => ({}));`,
       'apps/client/src/computed.test.ts': `import { test } from '@study/testing';
@@ -18,29 +20,29 @@ test.stable(
       const moduleMock = test.vi.mock;
       moduleMock('#client/lib/host.ts', () => ({}));`,
       'apps/client/src/scoped.test.ts': `import { test } from '@study/testing';
-      test.stable('module', async ({ mock }) => {
+      test.stable('module', async ({ mock, expect }) => {
         mock('#client/lib/host.ts', () => ({}));
         const host = await import('#client/lib/host.ts');
-        test.expect(host).toBeDefined();
+        expect(host).toBeDefined();
       });`
     });
 
-    test
-      .expect([...new Set(paths)].sort())
-      .toEqual([
-        'apps/client/src/alias.test.ts',
-        'apps/client/src/computed.test.ts',
-        'apps/client/src/hoisted.test.ts',
-        'apps/client/src/native.test.ts',
-        'apps/client/src/static.test.ts'
-      ]);
+    expect([...new Set(paths)].sort()).toEqual([
+      'apps/client/src/alias.test.ts',
+      'apps/client/src/computed.test.ts',
+      'apps/client/src/hoisted.test.ts',
+      'apps/client/src/native.test.ts',
+      'apps/client/src/static.test.ts'
+    ]);
   }
 );
 
 test.stable(
   'callback module mocks require a dynamic subject import but ignore type-only imports and mock functions',
-  async () => {
-    const paths = await lintRulePaths('test-infrastructure', {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const paths = await lintRulePaths({ assert }, 'test-infrastructure', {
       'apps/client/src/static-subject.test.ts': `import { test } from '@study/testing';
       import { useHost } from '#client/lib/host.ts';
       test.stable('mocked subject', async ({ mock }) => {
@@ -74,95 +76,166 @@ test.stable(
       });`,
       'apps/client/src/ordinary-mock-function.test.ts': `import { test } from '@study/testing';
       test.stable('ordinary mock function', async () => {
-        const mock = test.vi.fn();
+        const mock = (source: string) => source;
         mock('#client/lib/host.ts');
       });`
     });
 
-    test
-      .expect(paths)
-      .toEqual([
-        'apps/client/src/aliased-static-subject.test.ts',
-        'apps/client/src/for-static-subject.test.ts',
-        'apps/client/src/side-effect-static-subject.test.ts',
-        'apps/client/src/static-subject.test.ts'
-      ]);
+    expect(paths).toEqual([
+      'apps/client/src/aliased-static-subject.test.ts',
+      'apps/client/src/for-static-subject.test.ts',
+      'apps/client/src/side-effect-static-subject.test.ts',
+      'apps/client/src/static-subject.test.ts'
+    ]);
   }
 );
 
-test.stable('application source cannot import test-only public facets', async () => {
-  const paths = await lintRulePaths('test-infrastructure', {
-    'apps/client/src/lib/bad.ts':
-      "import { rpcValuesTransport } from '@study/contracts/react/testing';",
-    'apps/server/src/runtime/bad.ts':
-      "import { createServerFixture } from '@study/server/testing';",
-    'packages/contracts/src/bad.ts': "export * from '@study/contracts/testing';",
-    'apps/client/src/test/good.ts':
-      "import { rpcValuesTransport } from '@study/contracts/react/testing';",
-    'apps/client/src/render.test.ts': "import { renderPage } from '#client/test/render-page.tsx';",
-    'apps/server/src/features/notes/service/good.test.ts':
-      "import { createServerFixture } from '@study/server/testing';"
-  });
+test.stable(
+  'test-body helpers must come from callback parameters in tests and test helpers',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test
-    .expect([...new Set(paths)].sort())
-    .toEqual([
+    const paths = await lintRulePaths({ assert }, 'test-infrastructure', {
+      'apps/client/src/namespace-helper.test.ts': `import { test } from '@study/testing';
+      test.stable('helper', () => test.expect(true).toBe(true));`,
+      'apps/client/src/namespace-alias.test.ts': `import { test } from '@study/testing';
+      test.stable('helper', () => {
+        const { assert: assertion } = test;
+        assertion.ok(true);
+      });`,
+      'apps/client/src/three-argument-expect.test.ts': `import { test } from '@study/testing';
+      test.stable('diagnostic arity', ({ expect: assertion }) => {
+        assertion(true, 'diagnostic', 'unsupported extra argument');
+      });`,
+      'apps/client/src/fixture-rest.test.ts': `import { test } from '@study/testing';
+      test.stable('opaque fixture rest', ({ expect, ...helpers }) => {
+        helpers.expect(true).toBe(true);
+      });`,
+      'apps/client/src/fixture-spread.test.ts': `import { test } from '@study/testing';
+      test.stable('opaque fixture spread', (context) => {
+        const helpers = { ...context };
+        void helpers;
+      });`,
+      'apps/client/src/namespace-spread.test.ts': `import { test } from '@study/testing';
+      const helpers = { ...test };`,
+      'apps/client/src/case-rest.test.ts': `import { test } from '@study/testing';
+      test.stable.for([{ value: 1, extra: 2 }])('case rest', ({ value, ...rest }, { expect }) => {
+        expect(value + rest.extra).toBe(3);
+      });`,
+      'apps/client/src/test/helper-utils.ts': `import { test } from '@study/testing';
+      export const waitForReady = () => test.waitFor(() => true);`,
+      'apps/client/src/testing/helper-utils.ts': `import { test } from '@study/testing';
+      export const assertReady = () => test.assert.ok(true);`,
+      'apps/client/src/lib/test-helper.ts': `import { test } from '@study/testing';
+      export const waitForReady = () => test.waitFor(() => true);`,
+      'apps/client/src/fixture-helper.test.ts': `import { test } from '@study/testing';
+      test.stable('fixture helper', ({ expect, screen }) => {
+        expect(screen.queryByRole('button')).toBeNull();
+      });`,
+      'apps/client/src/allowed-test-namespace.test.ts': `import { test } from '@study/testing';
+      test.describe('group', () => {});
+      test.beforeEach(() => {});
+      test.stable('classified', () => {});`
+    });
+
+    expect(paths).toEqual([
+      'apps/client/src/fixture-rest.test.ts',
+      'apps/client/src/fixture-spread.test.ts',
+      'apps/client/src/lib/test-helper.ts',
+      'apps/client/src/namespace-alias.test.ts',
+      'apps/client/src/namespace-helper.test.ts',
+      'apps/client/src/namespace-spread.test.ts',
+      'apps/client/src/test/helper-utils.ts',
+      'apps/client/src/testing/helper-utils.ts',
+      'apps/client/src/three-argument-expect.test.ts'
+    ]);
+  }
+);
+
+test.stable(
+  'application source cannot import test-only public facets',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const paths = await lintRulePaths({ assert }, 'test-infrastructure', {
+      'apps/client/src/lib/bad.ts':
+        "import { rpcValuesTransport } from '@study/contracts/react/testing';",
+      'apps/server/src/runtime/bad.ts':
+        "import { createServerFixture } from '@study/server/testing';",
+      'packages/contracts/src/bad.ts': "export * from '@study/contracts/testing';",
+      'apps/client/src/test/good.ts':
+        "import { rpcValuesTransport } from '@study/contracts/react/testing';",
+      'apps/client/src/render.test.ts':
+        "import { renderPage } from '#client/test/render-page.tsx';",
+      'apps/server/src/features/notes/service/good.test.ts':
+        "import { createServerFixture } from '@study/server/testing';"
+    });
+
+    expect([...new Set(paths)].sort()).toEqual([
       'apps/client/src/lib/bad.ts',
       'apps/client/src/render.test.ts',
       'apps/server/src/features/notes/service/good.test.ts',
       'apps/server/src/runtime/bad.ts',
       'packages/contracts/src/bad.ts'
     ]);
-});
+  }
+);
 
 test.stable(
   'integration runner tests remain subject to shared resource ownership rules',
-  async () => {
-    const paths = await lintRulePaths('test-infrastructure', {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const paths = await lintRulePaths({ assert }, 'test-infrastructure', {
       'tooling/testing/integrations/runner.test.ts': `import { test } from '@study/testing';
       test.stable('process cleanup', async () => { Bun.spawn(['bun', 'server.ts']); });`
     });
 
-    test.expect(paths).toEqual(['tooling/testing/integrations/runner.test.ts']);
+    expect(paths).toEqual(['tooling/testing/integrations/runner.test.ts']);
   }
 );
 
-test.stable('application tests cannot construct database or server fixtures directly', async () => {
-  const paths = await lintRulePaths('test-infrastructure', {
-    'packages/db/test/bad.test.ts': `import { createTestDatabase } from '@study/db/testing';
+test.stable(
+  'application tests cannot construct database or server fixtures directly',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const paths = await lintRulePaths({ assert }, 'test-infrastructure', {
+      'packages/db/test/bad.test.ts': `import { createTestDatabase } from '@study/db/testing';
       import { test } from '@study/testing';
       test.stable('database', async () => { const fixture = await createTestDatabase(); });`,
-    'apps/server/test/bad.test.ts': `import { createServerFixture } from '@study/server/testing';
+      'apps/server/test/bad.test.ts': `import { createServerFixture } from '@study/server/testing';
       import { test } from '@study/testing';
       test.stable('RPC', async () => { await using fixture = await createServerFixture(); });`,
-    'apps/server/test/testing/owned.ts': `import { createServerFixture } from '@study/server/testing';
+      'apps/server/test/testing/owned.ts': `import { createServerFixture } from '@study/server/testing';
       export const fixture = () => createServerFixture();`,
-    'apps/client/src/bad.test.ts': `import { Db } from '@study/db';
+      'apps/client/src/bad.test.ts': `import { Db } from '@study/db';
       import { test } from '@study/testing';
       test.stable('database', async () => { await Db.open(':memory:'); });`,
-    'apps/server/test/server-open.test.ts': `import { App } from '@study/server/testing';
+      'apps/server/test/server-open.test.ts': `import { App } from '@study/server/testing';
       import { test } from '@study/testing';
       test.stable('server', async () => { await App.open(); });`,
-    'apps/server/test/server-test.test.ts': `import { createServerTest } from '#testing/server-test';
+      'apps/server/test/server-test.test.ts': `import { createServerTest } from '#testing/server-test';
       import { test } from '@study/testing';
       test.stable('server', async () => { await createServerTest(); });`
-  });
+    });
 
-  test
-    .expect([...new Set(paths)])
-    .toEqual([
+    expect([...new Set(paths)]).toEqual([
       'apps/client/src/bad.test.ts',
       'apps/server/test/bad.test.ts',
       'apps/server/test/server-open.test.ts',
       'apps/server/test/server-test.test.ts',
       'packages/db/test/bad.test.ts'
     ]);
-});
+  }
+);
 
 test.stable(
   'ordinary tests use the public facade instead of low-level testing facets',
-  async () => {
-    const paths = await lintRulePaths('test-infrastructure', {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const paths = await lintRulePaths({ assert }, 'test-infrastructure', {
       'apps/client/src/ui.test.tsx': `import { render } from '@testing-library/react';`,
       'apps/client/src/protocol.test.ts': `import { rpcValuesTransport } from '@study/contracts/react/testing';`,
       'apps/server/test/service.test.ts': `import { createServerFixture } from '@study/server/testing';`,
@@ -176,21 +249,21 @@ test.stable(
       'apps/client/src/test/assistant.tsx': `import { render } from '@testing-library/react';`
     });
 
-    test
-      .expect([...new Set(paths)].sort())
-      .toEqual([
-        'apps/client/src/protocol.test.ts',
-        'apps/client/src/ui.test.tsx',
-        'apps/server/test/service.test.ts',
-        'packages/db/test/paths.test.ts'
-      ]);
+    expect([...new Set(paths)].sort()).toEqual([
+      'apps/client/src/protocol.test.ts',
+      'apps/client/src/ui.test.tsx',
+      'apps/server/test/service.test.ts',
+      'packages/db/test/paths.test.ts'
+    ]);
   }
 );
 
 test.stable(
   'fixture subject tests may import the primitives they are specifically testing',
-  async () => {
-    const paths = await lintRulePaths('test-infrastructure', {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const paths = await lintRulePaths({ assert }, 'test-infrastructure', {
       'packages/db/test/testing.test.ts': `import { test } from '@study/testing';
       import { createTestDatabase } from '@study/db/testing';
       test.stable('fixture disposal', async () => { await using fixture = await test.createTestDatabase(); });`,
@@ -199,39 +272,51 @@ test.stable(
       'packages/testing/test/ordinary.test.ts': `import { temporaryDirectory } from '@study/testing/resources';`
     });
 
-    test.expect(paths).toEqual(['packages/testing/test/ordinary.test.ts']);
+    expect(paths).toEqual(['packages/testing/test/ordinary.test.ts']);
   }
 );
 
-test.stable('public namespace cannot expose fixture constructors to ordinary tests', async () => {
-  const paths = await lintRulePaths('test-infrastructure', {
-    'apps/server/test/direct.test.ts': `import { test } from '@study/testing';
+test.stable(
+  'public namespace cannot expose fixture constructors to ordinary tests',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const paths = await lintRulePaths({ assert }, 'test-infrastructure', {
+      'apps/server/test/direct.test.ts': `import { test } from '@study/testing';
       test.stable('database', async () => { await test.createTestDatabase(); });
       test.stable('server', async () => { await test.createServerFixture(); });`,
-    'apps/server/test/testing/scenarios.ts': `import { test } from '@study/testing';
+      'apps/server/test/testing/scenarios.ts': `import { test } from '@study/testing';
       test.createServerFixture();`
-  });
+    });
 
-  test.expect([...new Set(paths)]).toEqual(['apps/server/test/direct.test.ts']);
-});
+    expect([...new Set(paths)]).toEqual(['apps/server/test/direct.test.ts']);
+  }
+);
 
-test.stable('canonical application callbacks are direct test registrations', async () => {
-  const paths = await lintRulePaths('test-infrastructure', {
-    'apps/client/src/valid.test.ts': `import {test} from '#client/test/scenarios.tsx';
+test.stable(
+  'canonical application callbacks are direct test registrations',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const paths = await lintRulePaths({ assert }, 'test-infrastructure', {
+      'apps/client/src/valid.test.ts': `import {test} from '#client/test/scenarios.tsx';
 test.stable('reader', async ({react}) => { await react.render(<div />); });`,
-    'apps/server/test/valid.test.ts': `import {test} from '#testing/scenarios';
+      'apps/server/test/valid.test.ts': `import {test} from '#testing/scenarios';
 test.stable('service', async ({server}) => { await server.run(); });`,
-    'apps/client/src/hidden.test.ts': `import {test} from '#client/test/scenarios.tsx';
+      'apps/client/src/hidden.test.ts': `import {test} from '#client/test/scenarios.tsx';
 function wrap(fn) { return test.stable('reader', fn); }`
-  });
+    });
 
-  test.expect(paths).toEqual(['apps/client/src/valid.test.ts']);
-});
+    expect(paths).toEqual(['apps/client/src/valid.test.ts']);
+  }
+);
 
 test.stable(
   'fixture directories and sleep loops use the canonical resource and observation helpers',
-  async () => {
-    const paths = await lintRulePaths('test-infrastructure', {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const paths = await lintRulePaths({ assert }, 'test-infrastructure', {
       'apps/client/test/e2e/harness/custom.ts': `import { FileSystem } from 'effect';
       function* fixture() { const fs = yield* FileSystem.FileSystem;
       yield* fs.makeTempDirectory({ prefix: 'local-' }); }`,
@@ -249,20 +334,20 @@ test.stable(
     }`
     });
 
-    test
-      .expect([...new Set(paths)])
-      .toEqual([
-        'apps/client/test/good.test.ts',
-        'apps/server/src/features/notes/service/custom.test.ts',
-        'apps/server/test/alias.test.ts'
-      ]);
+    expect([...new Set(paths)]).toEqual([
+      'apps/client/test/good.test.ts',
+      'apps/server/src/features/notes/service/custom.test.ts',
+      'apps/server/test/alias.test.ts'
+    ]);
   }
 );
 
 test.stable(
   'tests use shared resource lifetimes and native polling instead of local machinery',
-  async () => {
-    const paths = await lintRulePaths('test-infrastructure', {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const paths = await lintRulePaths({ assert }, 'test-infrastructure', {
       'apps/server/test/process.test.ts': "Bun.spawn(['bun', 'server.ts']);",
       'apps/server/test/alias.test.ts':
         "import { spawn as launch } from 'bun'; launch(['bun', 'server.ts']);",
@@ -276,30 +361,32 @@ test.stable(
       'apps/server/test/poll.test.ts': 'await Bun.sleep(50);',
       'apps/server/test/temp.test.ts': "import { $ } from 'bun'; await $`mktemp -d`;",
       'apps/server/test/good.test.ts': `import { test } from '@study/testing';
-test.spawnTestProcess(['bun', 'server.ts']);
-await test.waitFor(() => true);`,
+test.stable('uses shared helpers', async ({ spawnTestProcess, waitFor }) => {
+  spawnTestProcess(['bun', 'server.ts']);
+  await waitFor(() => true);
+});`,
       'apps/server/test/shadow.test.ts': "function check(Bun: any) { Bun.spawn(['fixture']); }",
       'tooling/testing/runner.ts': "Bun.spawn(['bun', 'runner.ts']);"
     });
 
-    test
-      .expect([...new Set(paths)])
-      .toEqual([
-        'apps/server/test/alias.test.ts',
-        'apps/server/test/constant.test.ts',
-        'apps/server/test/imported-constant.test.ts',
-        'apps/server/test/namespace.test.ts',
-        'apps/server/test/poll.test.ts',
-        'apps/server/test/process.test.ts',
-        'apps/server/test/temp.test.ts'
-      ]);
+    expect([...new Set(paths)]).toEqual([
+      'apps/server/test/alias.test.ts',
+      'apps/server/test/constant.test.ts',
+      'apps/server/test/imported-constant.test.ts',
+      'apps/server/test/namespace.test.ts',
+      'apps/server/test/poll.test.ts',
+      'apps/server/test/process.test.ts',
+      'apps/server/test/temp.test.ts'
+    ]);
   }
 );
 
 test.stable(
   'runner construction and configuration belong to the shared testing owners',
-  async () => {
-    const paths = await lintRulePaths('test-infrastructure', {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const paths = await lintRulePaths({ assert }, 'test-infrastructure', {
       'apps/client/src/custom.test.ts':
         "import { configure as setup } from '@testing-library/react'; setup({asyncUtilTimeout: 9000});",
       'apps/client/src/runner.ts':
@@ -328,15 +415,13 @@ test.stable(
         "import { createVitest } from 'vite-plus/test/node'; createVitest('test', {});"
     });
 
-    test
-      .expect([...new Set(paths)])
-      .toEqual([
-        'apps/client/src/arrow.ts',
-        'apps/client/src/custom.test.ts',
-        'apps/client/src/function.ts',
-        'apps/client/src/policy.test.ts',
-        'apps/client/src/registration.test.ts',
-        'apps/client/src/runner.ts'
-      ]);
+    expect([...new Set(paths)]).toEqual([
+      'apps/client/src/arrow.ts',
+      'apps/client/src/custom.test.ts',
+      'apps/client/src/function.ts',
+      'apps/client/src/policy.test.ts',
+      'apps/client/src/registration.test.ts',
+      'apps/client/src/runner.ts'
+    ]);
   }
 );

@@ -5,7 +5,7 @@ import { screenshotAssertions, baselinePath } from './screenshots.ts';
 // These exercise the harness contract itself, rather than pretending synthetic HTML is an app journey.
 test.stable(
   'screenshot readiness has a deadline and rejects a stable loading state',
-  async ({ page }, info) => {
+  async ({ page, expect }, info) => {
     await page.setContent('<p>Loading</p>');
     const directory = info.outputPath('contract');
     const screenshots = screenshotAssertions(
@@ -16,55 +16,52 @@ test.stable(
       info
     );
 
-    await test
-      .expect(
-        screenshots.expectScreenshot('loading', {
-          target: 'viewport',
-          ready: () => new Promise(() => {}),
-          timeoutMs: 100
-        })
-      )
-      .rejects.toThrow('readiness or rendering timed out');
-    test.expect(await Bun.file(`${directory}/loading-unready.png`).exists()).toBe(true);
+    await expect(
+      screenshots.expectScreenshot('loading', {
+        target: 'viewport',
+        ready: () => new Promise(() => {}),
+        timeoutMs: 100
+      })
+    ).rejects.toThrow('readiness or rendering timed out');
+    expect(await Bun.file(`${directory}/loading-unready.png`).exists()).toBe(true);
     await page.setContent('<img src="data:image/png;base64,broken" />');
-    await test
-      .expect(
-        screenshots.expectScreenshot('broken-image', {
-          target: 'viewport',
-          ready: async () => {},
-          timeoutMs: 1000
-        })
-      )
-      .rejects.toThrow('The source image cannot be decoded');
+    await expect(
+      screenshots.expectScreenshot('broken-image', {
+        target: 'viewport',
+        ready: async () => {},
+        timeoutMs: 1000
+      })
+    ).rejects.toThrow('The source image cannot be decoded');
   }
 );
 
-test.stable('missing references fail without creating a baseline', async ({ page }, info) => {
-  await page.setContent('<div style="width:100px;height:100px;background:black"></div>');
-  const workflow = `missing-${crypto.randomUUID()}`;
-  const reference = baselinePath('contract', workflow, 'layout');
-  const screenshots = screenshotAssertions(
-    page,
-    workflow,
-    info.outputPath('contract'),
-    'contract',
-    info
-  );
+test.stable(
+  'missing references fail without creating a baseline',
+  async ({ page, expect }, info) => {
+    await page.setContent('<div style="width:100px;height:100px;background:black"></div>');
+    const workflow = `missing-${crypto.randomUUID()}`;
+    const reference = baselinePath('contract', workflow, 'layout');
+    const screenshots = screenshotAssertions(
+      page,
+      workflow,
+      info.outputPath('contract'),
+      'contract',
+      info
+    );
 
-  await test
-    .expect(
+    await expect(
       screenshots.expectScreenshot('layout', {
         target: 'viewport',
         ready: async () => {}
       })
-    )
-    .rejects.toThrow('snapshot');
-  test.expect(await Bun.file(reference).exists()).toBe(false);
-});
+    ).rejects.toThrow('snapshot');
+    expect(await Bun.file(reference).exists()).toBe(false);
+  }
+);
 
 test.stable(
   'screenshot comparison allows isolated drift but rejects larger and resized changes',
-  async ({ page, resources }, info) => {
+  async ({ page, resources, expect }, info) => {
     const workflow = `drift-${crypto.randomUUID()}`;
     const screenshots = screenshotAssertions(
       page,
@@ -122,16 +119,16 @@ test.stable(
 
       if (accepted) await comparison;
       else
-        await test
-          .expect(comparison)
-          .rejects.toThrow(resized ? /Expected an image/ : /pixels .*different/);
+        await expect(comparison).rejects.toThrow(
+          resized ? /Expected an image/ : /pixels .*different/
+        );
     }
   }
 );
 
 test.stable(
   'capture anchors a zoomed scroller at its end from every starting position',
-  async ({ page, resources }, info) => {
+  async ({ page, resources, expect }, info) => {
     const workflow = `scroll-end-${crypto.randomUUID()}`;
     const screenshots = screenshotAssertions(
       page,
@@ -164,10 +161,10 @@ test.stable(
       await screenshots.expectScreenshot(name, {
         target: scroller,
         scrollToEnd: scroller,
-        ready: () => test.expect(scroller).toBeVisible(),
+        ready: () => expect(scroller).toBeVisible(),
         timeoutMs: 2000
       });
-      await test.expect(scroller).toHaveJSProperty('scrollTop', 500);
+      await expect(scroller).toHaveJSProperty('scrollTop', 500);
     }
   }
 );

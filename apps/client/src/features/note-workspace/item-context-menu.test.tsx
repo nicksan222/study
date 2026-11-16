@@ -14,8 +14,11 @@ let NotePageCard: typeof __MockType2.NotePageCard;
 
 let archiveHandler: ReturnType<typeof createMockState>['archiveHandler'];
 
-function Provider({ children }: { children: React.ReactNode }) {
-  const fixture = test.rpcHandlersTransport({
+function Provider({
+  rpcHandlersTransport,
+  children
+}: Pick<test.Context, 'rpcHandlersTransport'> & { children: React.ReactNode }) {
+  const fixture = rpcHandlersTransport({
     'sources.source': async ({ id }) => ({
       id,
       name: 'Lecture.pdf',
@@ -72,12 +75,12 @@ test.beforeEach(async ({ mock }) => {
   NotePageCard = __mockModule2.NotePageCard;
 });
 
-test.afterEach(test.cleanup);
+test.afterEach(({ cleanup }) => cleanup());
 
-test.stable.each([false, true])(
+test.stable.for([false, true])(
   'opens the exact attachment from its context menu (compact: %s)',
-  async (compact) => {
-    const open = test.vi.fn();
+  async (compact, { vi, render, screen, expect, fireEvent, userEvent, rpcHandlersTransport }) => {
+    const open = vi.fn();
     const part = Schema.decodeUnknownSync(messagePartSchema)({
       id: 3n,
       sourceId: 7n,
@@ -85,95 +88,88 @@ test.stable.each([false, true])(
       sourceKind: 'pdf'
     });
 
-    test.render(
-      <Provider>
+    render(
+      <Provider rpcHandlersTransport={rpcHandlersTransport}>
         <AttachmentCards parts={[part]} compact={compact} onOpenSource={open} />
       </Provider>
     );
-    await test.screen.findByRole('button', { name: 'Lecture.pdf' });
-    await test.vi.waitFor(() =>
-      test.expect(test.screen.getByRole('button', { name: 'Lecture.pdf' })).toBeEnabled()
+    await screen.findByRole('button', { name: 'Lecture.pdf' });
+    await vi.waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Lecture.pdf' })).toBeEnabled()
     );
-    const card = test.screen.getByRole('button', { name: 'Lecture.pdf' });
+    const card = screen.getByRole('button', { name: 'Lecture.pdf' });
 
-    test
-      .expect(test.screen.queryByRole('button', { name: 'NoteDeleteItem' }))
-      .not.toBeInTheDocument();
-    test
-      .expect(test.screen.queryByRole('button', { name: 'NoteDeleteVersion' }))
-      .not.toBeInTheDocument();
-    test.fireEvent.contextMenu(card, { button: 2, clientX: 80, clientY: 80 });
-    test.expect(await test.screen.findByRole('menuitem', { name: 'NoteDeleteItem' })).toBeVisible();
-    test.expect(test.screen.getByRole('menuitem', { name: 'NoteDeleteVersion' })).toBeVisible();
-    test.expect(open).not.toHaveBeenCalled();
-    await test.userEvent
-      .setup()
-      .click(await test.screen.findByRole('menuitem', { name: 'OpenMaterial' }));
-    test
-      .expect(open)
-      .toHaveBeenCalledExactlyOnceWith(
-        test.expect.objectContaining({ id: part.sourceId, name: 'Lecture.pdf', sizeBytes: 10n })
-      );
+    expect(screen.queryByRole('button', { name: 'NoteDeleteItem' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'NoteDeleteVersion' })).not.toBeInTheDocument();
+    fireEvent.contextMenu(card, { button: 2, clientX: 80, clientY: 80 });
+    expect(await screen.findByRole('menuitem', { name: 'NoteDeleteItem' })).toBeVisible();
+    expect(screen.getByRole('menuitem', { name: 'NoteDeleteVersion' })).toBeVisible();
+    expect(open).not.toHaveBeenCalled();
+    await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'OpenMaterial' }));
+    expect(open).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ id: part.sourceId, name: 'Lecture.pdf', sizeBytes: 10n })
+    );
   }
 );
 
-test.stable('opens the exact authored page from its context menu', async () => {
-  const document = authoredPage();
-  const open = test.vi.fn();
+test.stable(
+  'opens the exact authored page from its context menu',
+  async ({ vi, render, expect, screen, fireEvent, userEvent, rpcHandlersTransport }) => {
+    const document = authoredPage();
+    const open = vi.fn();
 
-  test.render(
-    <Provider>
-      <NotePageCard page={document} active={false} onOpen={open} />
-    </Provider>
-  );
-  test
-    .expect(test.screen.queryByRole('button', { name: 'NoteDeleteItem' }))
-    .not.toBeInTheDocument();
-  test
-    .expect(test.screen.queryByRole('button', { name: 'NoteDeleteVersion' }))
-    .not.toBeInTheDocument();
-  test.fireEvent.contextMenu(test.screen.getByRole('button', { name: /New page/ }), {
-    button: 2,
-    clientX: 80,
-    clientY: 80
-  });
-  test.expect(open).not.toHaveBeenCalled();
-  test.expect(await test.screen.findByRole('menuitem', { name: 'NoteDeleteItem' })).toBeVisible();
-  test.expect(test.screen.getByRole('menuitem', { name: 'NoteDeleteVersion' })).toBeVisible();
-  await test.userEvent
-    .setup()
-    .click(await test.screen.findByRole('menuitem', { name: 'NoteOpenPage' }));
-  test.expect(open).toHaveBeenCalledExactlyOnceWith(document);
-});
+    render(
+      <Provider rpcHandlersTransport={rpcHandlersTransport}>
+        <NotePageCard page={document} active={false} onOpen={open} />
+      </Provider>
+    );
+    expect(screen.queryByRole('button', { name: 'NoteDeleteItem' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'NoteDeleteVersion' })).not.toBeInTheDocument();
+    fireEvent.contextMenu(screen.getByRole('button', { name: /New page/ }), {
+      button: 2,
+      clientX: 80,
+      clientY: 80
+    });
+    expect(open).not.toHaveBeenCalled();
+    expect(await screen.findByRole('menuitem', { name: 'NoteDeleteItem' })).toBeVisible();
+    expect(screen.getByRole('menuitem', { name: 'NoteDeleteVersion' })).toBeVisible();
+    await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'NoteOpenPage' }));
+    expect(open).toHaveBeenCalledExactlyOnceWith(document);
+  }
+);
 
-test.stable('keeps unavailable attachment context actions disabled', async () => {
-  const part = Schema.decodeUnknownSync(messagePartSchema)({
-    id: 3n,
-    sourceId: null,
-    sourceName: 'Missing.pdf',
-    sourceKind: 'pdf'
-  });
+test.stable(
+  'keeps unavailable attachment context actions disabled',
+  async ({ render, vi, fireEvent, screen, expect, rpcHandlersTransport }) => {
+    const part = Schema.decodeUnknownSync(messagePartSchema)({
+      id: 3n,
+      sourceId: null,
+      sourceName: 'Missing.pdf',
+      sourceKind: 'pdf'
+    });
 
-  test.render(
-    <Provider>
-      <AttachmentCards parts={[part]} onOpenSource={test.vi.fn()} />
-    </Provider>
-  );
-  test.fireEvent.contextMenu(test.screen.getByText('Missing.pdf'), {
-    button: 2,
-    clientX: 80,
-    clientY: 80
-  });
-  test
-    .expect(await test.screen.findByRole('menuitem', { name: 'OpenMaterial' }))
-    .toHaveAttribute('aria-disabled', 'true');
-});
+    render(
+      <Provider rpcHandlersTransport={rpcHandlersTransport}>
+        <AttachmentCards parts={[part]} onOpenSource={vi.fn()} />
+      </Provider>
+    );
+    fireEvent.contextMenu(screen.getByText('Missing.pdf'), {
+      button: 2,
+      clientX: 80,
+      clientY: 80
+    });
+    expect(await screen.findByRole('menuitem', { name: 'OpenMaterial' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+  }
+);
 
-test.stable.each(['page', 'source'] as const)(
+test.stable.for(['page', 'source'] as const)(
   'archives the exact %s membership in this note',
-  async (kind) => {
+  async (kind, { vi, render, screen, expect, fireEvent, userEvent, rpcHandlersTransport }) => {
     const noteId = Schema.decodeUnknownSync(noteIdSchema)(15n);
-    const archive = test.vi.fn().mockResolvedValue(undefined);
+    const archive = vi.fn().mockResolvedValue(undefined);
 
     archiveHandler = archive;
     const document = authoredPage();
@@ -184,29 +180,25 @@ test.stable.each(['page', 'source'] as const)(
       sourceKind: 'pdf'
     });
 
-    test.render(
-      <Provider>
+    render(
+      <Provider rpcHandlersTransport={rpcHandlersTransport}>
         {kind === 'page' ? (
-          <NotePageCard noteId={noteId} page={document} active={false} onOpen={test.vi.fn()} />
+          <NotePageCard noteId={noteId} page={document} active={false} onOpen={vi.fn()} />
         ) : (
-          <AttachmentCards noteId={noteId} parts={[part]} compact onOpenSource={test.vi.fn()} />
+          <AttachmentCards noteId={noteId} parts={[part]} compact onOpenSource={vi.fn()} />
         )}
       </Provider>
     );
     const name = kind === 'page' ? /New page/ : 'Lecture.pdf';
 
-    await test.screen.findByRole('button', { name });
-    await test.vi.waitFor(() =>
-      test.expect(test.screen.getByRole('button', { name })).toBeEnabled()
-    );
-    const target = test.screen.getByRole('button', { name });
+    await screen.findByRole('button', { name });
+    await vi.waitFor(() => expect(screen.getByRole('button', { name })).toBeEnabled());
+    const target = screen.getByRole('button', { name });
 
-    test.fireEvent.contextMenu(target, { button: 2, clientX: 80, clientY: 80 });
-    await test.userEvent
-      .setup()
-      .click(await test.screen.findByRole('menuitem', { name: 'NoteArchive' }));
-    await test.vi.waitFor(() =>
-      test.expect(archive).toHaveBeenCalledExactlyOnceWith({
+    fireEvent.contextMenu(target, { button: 2, clientX: 80, clientY: 80 });
+    await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'NoteArchive' }));
+    await vi.waitFor(() =>
+      expect(archive).toHaveBeenCalledExactlyOnceWith({
         noteId,
         target: kind === 'page' ? { kind, id: document.id } : { kind, id: part.sourceId },
         archived: true

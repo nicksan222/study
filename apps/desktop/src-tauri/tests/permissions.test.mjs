@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 test.stable(
   'every registered native adapter command is granted to the production main window',
-  async () => {
+  async ({ assert, expect }) => {
     const source = await Bun.file(new URL('../src/lib.rs', import.meta.url)).text();
     const registered = source
       .match(/generate_handler!\[([\s\S]*?)\]/)[1]
@@ -24,14 +24,12 @@ test.stable(
       await Bun.file(new URL('../capabilities/default.json', import.meta.url)).text()
     );
 
-    test.assert.ok(capability.windows.includes('main'));
+    assert.ok(capability.windows.includes('main'));
     const allowed = new Set(capability.permissions.flatMap((id) => grants.get(id) ?? []));
 
-    test
-      .expect(
-        registered.filter((command) => !allowed.has(command)),
-        'registered adapters must have an explicit enabled production capability'
-      )
-      .toStrictEqual([]);
+    expect(
+      registered.filter((command) => !allowed.has(command)),
+      'registered adapters must have an explicit enabled production capability'
+    ).toStrictEqual([]);
   }
 );

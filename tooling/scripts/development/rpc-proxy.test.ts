@@ -11,7 +11,9 @@ import { studyRpcProxy } from './rpc-proxy.ts';
 
 test.stable(
   'the browser dev proxy keeps appearance RPC connected across Vite restarts',
-  async ({ databases, resources }) => {
+  async ({ databases, resources, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const database = await databases();
     const app = await resources.openApp({ path: database.path });
     const server = await serve(app);
@@ -25,15 +27,17 @@ test.stable(
 
     try {
       await web.listen();
-      const load = () =>
-        Effect.runPromise(
+      const load = ({ assert: assertions }: Pick<test.Context, 'assert'>) => {
+        const assert: test.Assert = assertions;
+
+        return Effect.runPromise(
           Effect.scoped(
             Effect.gen(function* () {
               const client = yield* makeStudyClient(StudyRpc, {
                 baseUrl: () => {
                   const address = web.httpServer?.address();
 
-                  test.assert.ok(address && typeof address !== 'string');
+                  assert.ok(address && typeof address !== 'string');
 
                   return `http://127.0.0.1:${address.port}`;
                 }
@@ -41,15 +45,16 @@ test.stable(
               const settings = yield* client['settings.appSettings']({});
               const themes = yield* client['themes.themes']({ limit: 100 });
 
-              test.assert.strictEqual(settings.appearance, 2);
-              test.assert.ok(themes.items.some((theme) => theme.id === 't3-code' && theme.builtin));
+              assert.strictEqual(settings.appearance, 2);
+              assert.ok(themes.items.some((theme) => theme.id === 't3-code' && theme.builtin));
             })
           )
         );
+      };
 
-      await load();
+      await load({ assert });
       await web.restart();
-      await load();
+      await load({ assert });
     } finally {
       await web.close();
       await server.close();
@@ -60,7 +65,9 @@ test.stable(
 
 test.stable(
   'browser OAuth completes through the forwarded web port and persists the account',
-  async ({ databases, resources }) => {
+  async ({ databases, resources, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const database = await databases();
     let nonce = '';
     let callbackUrl = '';
@@ -70,9 +77,9 @@ test.stable(
       fetch: async (_url, init) => {
         const form = new URLSearchParams(init?.body as string);
 
-        test.assert.strictEqual(form.get('redirect_uri'), callbackUrl);
-        test.assert.strictEqual(form.get('client_id'), 'issued-client');
-        test.assert.ok(form.get('code_verifier'));
+        assert.strictEqual(form.get('redirect_uri'), callbackUrl);
+        assert.strictEqual(form.get('client_id'), 'issued-client');
+        assert.ok(form.get('code_verifier'));
         exchanges++;
 
         return Response.json({
@@ -96,7 +103,7 @@ test.stable(
       await web.listen();
       const address = web.httpServer?.address();
 
-      test.assert.ok(address && typeof address !== 'string');
+      assert.ok(address && typeof address !== 'string');
       const baseUrl = `http://127.0.0.1:${address.port}`;
 
       callbackUrl = `${baseUrl}/auth/callback`;
@@ -107,7 +114,7 @@ test.stable(
             const attempt = yield* client['auth.startSignIn']({ callbackUrl });
             const authorization = new URL(attempt.url);
 
-            test.assert.strictEqual(authorization.searchParams.get('redirect_uri'), callbackUrl);
+            assert.strictEqual(authorization.searchParams.get('redirect_uri'), callbackUrl);
             nonce = authorization.searchParams.get('nonce')!;
             const redirect = new URL(callbackUrl);
 
@@ -119,26 +126,23 @@ test.stable(
             wrongState.searchParams.set('state', 'stale-state');
             const rejected = yield* Effect.promise(() => fetch(wrongState));
 
-            test.assert.strictEqual(rejected.status, 400);
+            assert.strictEqual(rejected.status, 400);
             yield* Effect.promise(() => rejected.arrayBuffer());
             const response = yield* Effect.promise(() => fetch(redirect));
 
-            test.assert.strictEqual(response.status, 200);
-            test.assert.strictEqual(response.headers.get('cache-control'), 'no-store');
-            test.assert.strictEqual(response.headers.get('referrer-policy'), 'no-referrer');
+            assert.strictEqual(response.status, 200);
+            assert.strictEqual(response.headers.get('cache-control'), 'no-store');
+            assert.strictEqual(response.headers.get('referrer-policy'), 'no-referrer');
             yield* Effect.promise(() => response.arrayBuffer());
             const replay = yield* Effect.promise(() => fetch(redirect));
 
-            test.assert.strictEqual(replay.status, 400);
+            assert.strictEqual(replay.status, 400);
             yield* Effect.promise(() => replay.arrayBuffer());
             const result = yield* client['auth.finishSignIn']({ attemptId: attempt.attemptId });
 
-            test.assert.strictEqual(result.signedIn, true);
-            test.assert.strictEqual(exchanges, 1);
-            test.assert.strictEqual(
-              (yield* client['auth.publicAccount']({}))?.subject,
-              'test-subject'
-            );
+            assert.strictEqual(result.signedIn, true);
+            assert.strictEqual(exchanges, 1);
+            assert.strictEqual((yield* client['auth.publicAccount']({}))?.subject, 'test-subject');
           })
         )
       );
@@ -159,7 +163,7 @@ test.stable(
             Effect.gen(function* () {
               const client = yield* makeStudyClient(StudyRpc, { baseUrl: reopenedServer.url });
 
-              test.assert.strictEqual((yield* client['auth.status']({})).signedIn, true);
+              assert.strictEqual((yield* client['auth.status']({})).signedIn, true);
             })
           )
         );
@@ -174,7 +178,9 @@ test.stable(
 
 test.stable(
   'eight live observers share one socket and leave unary RPC available',
-  async ({ databases, resources }) => {
+  async ({ databases, resources, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const database = await databases();
     const app = await resources.openApp({ path: database.path });
     const server = await serve(app);
@@ -203,7 +209,7 @@ test.stable(
       await web.listen();
       const address = web.httpServer?.address();
 
-      test.assert.ok(address && typeof address !== 'string');
+      assert.ok(address && typeof address !== 'string');
       const baseUrl = `http://127.0.0.1:${address.port}`;
       const forbiddenProtocol = RpcClient.layerProtocolSocket().pipe(
         Layer.provide(RpcSerialization.layerNdjson),
@@ -224,7 +230,7 @@ test.stable(
         ).pipe(Effect.timeout('2 seconds'))
       );
 
-      test.assert.ok(Exit.isFailure(forbidden));
+      assert.ok(Exit.isFailure(forbidden));
       upgrades = 0;
       closes = 0;
       closed = Promise.withResolvers<void>();
@@ -258,13 +264,13 @@ test.stable(
             yield* Effect.forEach(ready, Deferred.await);
             const first = observers[0];
 
-            test.assert.ok(first);
+            assert.ok(first);
             yield* Fiber.interrupt(first);
-            test.assert.strictEqual(closes, 0);
+            assert.strictEqual(closes, 0);
             const unary = yield* makeStudyClient(StudyRpc, { baseUrl });
 
-            test.assert.strictEqual((yield* unary['settings.appSettings']({})).appearance, 2);
-            test.assert.strictEqual(upgrades, 1);
+            assert.strictEqual((yield* unary['settings.appSettings']({})).appearance, 2);
+            assert.strictEqual(upgrades, 1);
           })
         ).pipe(Effect.timeout('10 seconds'))
       );

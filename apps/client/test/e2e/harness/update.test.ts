@@ -4,8 +4,8 @@ import { temporaryArtifacts } from './temporary.ts';
 
 test.stable(
   'updates find the selected client capture even when invoked from another directory',
-  async () => {
-    const root = await temporaryArtifacts();
+  async ({ spawnTestProcess, expect, onTestFinished }) => {
+    const root = await temporaryArtifacts({ onTestFinished });
     const harness = `${root}/apps/client/test/e2e/harness`;
 
     for (const file of ['update.ts', 'identity.ts'])
@@ -21,7 +21,7 @@ test.stable(
     await Bun.write('apps/client/test-results/updates/' + process.env.E2E_UPDATE_RUN + '/capture.json', '{}');
   `
     );
-    const child = test.spawnTestProcess(['bun', `${harness}/update.ts`, 'notes/editing'], {
+    const child = spawnTestProcess(['bun', `${harness}/update.ts`, 'notes/editing'], {
       cwd: harness,
       env: { ...process.env, CI: undefined },
       stdout: 'pipe',
@@ -33,13 +33,13 @@ test.stable(
       child.exited
     ]);
 
-    test.expect(code, stdout + stderr).toBe(0);
+    expect(code, stdout + stderr).toBe(0);
   }
 );
 
 test.stable(
   'updater accepts shared safe names and rejects unsafe or unscoped selections',
-  async () => {
+  async ({ spawnTestProcess, expect }) => {
     for (const scope of [
       '2-notes-survive-reload/editing_state',
       '2',
@@ -53,7 +53,7 @@ test.stable(
       'notes/../editing',
       'a'.repeat(81)
     ]) {
-      const child = test.spawnTestProcess(
+      const child = spawnTestProcess(
         [process.execPath, Bun.fileURLToPath(new URL('./update.ts', import.meta.url)), scope],
         {
           env: { ...process.env, CI: '1' },
@@ -63,11 +63,11 @@ test.stable(
       );
       const error = await new Response(child.stderr).text();
 
-      test.expect(await child.exited).toBe(1);
+      expect(await child.exited).toBe(1);
 
       if (['2-notes-survive-reload/editing_state', '2', 'notes', 'notes/editing'].includes(scope))
-        test.expect(error).toContain('Baseline updates are forbidden in CI');
-      else test.expect(error).toMatch(/Supply one workflow|Unsafe screenshot name/);
+        expect(error).toContain('Baseline updates are forbidden in CI');
+      else expect(error).toMatch(/Supply one workflow|Unsafe screenshot name/);
     }
   }
 );

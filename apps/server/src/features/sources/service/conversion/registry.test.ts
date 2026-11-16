@@ -20,7 +20,7 @@ import { makeConversionRegistry } from './registry.ts';
 
 test.stable(
   'one registration exposes a strategy and routes conversions with validated output',
-  async () => {
+  async ({ expect }) => {
     const context: ConversionContext = { generate: () => Effect.die('Unexpected model call') };
     const output = document([plainBlock('paragraph', 'Converted', { type: 'authored' })], 'text');
     const registry = makeConversionRegistry([
@@ -32,21 +32,17 @@ test.stable(
       }
     ]);
 
-    test
-      .expect(registry.list('english'))
-      .toEqual([{ id: 'test', name: 'AI text conversion', supportedInputs: ['text'] }]);
-    test
-      .expect(
-        await Effect.runPromise(
-          registry.convert('test', { kind: 'text', text: 'Original' }, context)
-        )
-      )
-      .toEqual(output);
+    expect(registry.list('english')).toEqual([
+      { id: 'test', name: 'AI text conversion', supportedInputs: ['text'] }
+    ]);
+    expect(
+      await Effect.runPromise(registry.convert('test', { kind: 'text', text: 'Original' }, context))
+    ).toEqual(output);
     const missing = await Effect.runPromise(
       Effect.result(registry.convert('missing', { kind: 'text', text: 'Original' }, context))
     );
 
-    test.expect(missing._tag).toBe('Failure');
+    expect(missing._tag).toBe('Failure');
     const metadata = registry.describe('test');
 
     metadata.supportedInputs.push('pdf');
@@ -55,25 +51,25 @@ test.stable(
       Effect.result(registry.convert('test', { kind: 'pdf', bytes: new Uint8Array() }, context))
     );
 
-    test.expect(unsupported._tag).toBe('Failure');
+    expect(unsupported._tag).toBe('Failure');
   }
 );
 
-test.stable('a method for one input kind does not disable default PDF reading', () => {
+test.stable('a method for one input kind does not disable default PDF reading', ({ expect }) => {
   const convert = () => Effect.die('Unexpected conversion');
   const registry = makeConversionRegistry([
     { id: 'default-pdf', label: 'ConversionChatGpt', supportedInputs: ['pdf'], convert },
     { id: 'text-only', label: 'ConversionChatGpt', supportedInputs: ['text'], convert }
   ]);
 
-  test.expect(registry.forInput('text-only', 'pdf').id).toBe('default-pdf');
-  test.expect(registry.forInput('text-only', 'text').id).toBe('text-only');
-  test.expect(() => registry.forInput('missing', 'pdf')).toThrow();
+  expect(registry.forInput('text-only', 'pdf').id).toBe('default-pdf');
+  expect(registry.forInput('text-only', 'text').id).toBe('text-only');
+  expect(() => registry.forInput('missing', 'pdf')).toThrow();
 });
 
 test.stable(
   'rejects empty or oversized inputs before invoking any conversion implementation',
-  async () => {
+  async ({ expect }) => {
     let calls = 0;
     const output = document([plainBlock('paragraph', 'Converted', { type: 'authored' })], 'text');
     const registry = makeConversionRegistry([
@@ -101,9 +97,9 @@ test.stable(
         Effect.result(registry.convert('test', input, context))
       );
 
-      test.expect(result._tag).toBe('Failure');
+      expect(result._tag).toBe('Failure');
     }
 
-    test.expect(calls).toBe(0);
+    expect(calls).toBe(0);
   }
 );

@@ -12,19 +12,19 @@ import { LibraryListView } from '../library/library-list.view';
 for (const kind of ['quiz', 'flashcards'] as const) {
   test.stable(
     `${kind} sidebar items expose scoped destinations and archive without opening the row`,
-    async () => {
-      const user = test.userEvent.setup();
+    async ({ userEvent, vi, rpcHandlersTransport, renderInRouter, screen, expect, waitFor }) => {
+      const user = userEvent.setup();
       const material = Schema.decodeUnknownSync(materialSummarySchema)({
         ...summary(),
         kind,
         title: 'Cell biology'
       });
-      const archive = test.vi.fn<StudyClient['materials.archive']>().mockReturnValue(Effect.never);
+      const archive = vi.fn<StudyClient['materials.archive']>().mockReturnValue(Effect.never);
       const rpc = { 'materials.archive': archive };
 
-      const fixture = test.rpcHandlersTransport(rpc);
+      const fixture = rpcHandlersTransport(rpc);
 
-      test.renderInRouter(
+      renderInRouter(
         <RpcProvider transport={fixture.transport}>
           <LibraryListView
             state={{ status: 'success', data: [{ type: 'material', value: material }] }}
@@ -37,34 +37,28 @@ for (const kind of ['quiz', 'flashcards'] as const) {
         </RpcProvider>
       );
       await user.pointer({
-        target: await test.screen.findByRole('link', { name: new RegExp(material.title) }),
+        target: await screen.findByRole('link', { name: new RegExp(material.title) }),
         keys: '[MouseRight]'
       });
-      const open = await test.screen.findByRole('menuitem', {
+      const open = await screen.findByRole('menuitem', {
         name: catalogs.english.OpenPractice
       });
 
-      test
-        .expect(open)
-        .toHaveAttribute(
-          'href',
-          `/${kind === 'quiz' ? 'practice' : 'flashcards'}/${material.id}?project=1`
-        );
-      test
-        .expect(test.screen.getByRole('menuitem', { name: catalogs.english.PracticeViewMaterial }))
-        .toHaveAttribute('href', `/materials/${material.id}?project=1`);
-      test
-        .expect(
-          test.screen.queryByRole('menuitem', { name: catalogs.english.PracticeAttempts }) !== null
-        )
-        .toBe(kind === 'quiz');
-      await user.click(
-        test.screen.getByRole('menuitem', { name: catalogs.english.PracticeArchiveMaterial })
+      expect(open).toHaveAttribute(
+        'href',
+        `/${kind === 'quiz' ? 'practice' : 'flashcards'}/${material.id}?project=1`
       );
-      await test.waitFor(() => test.expect(archive).toHaveBeenCalledWith({ id: material.id }));
-      test
-        .expect(test.screen.getByRole('link', { name: new RegExp(material.title) }))
-        .toBeVisible();
+      expect(
+        screen.getByRole('menuitem', { name: catalogs.english.PracticeViewMaterial })
+      ).toHaveAttribute('href', `/materials/${material.id}?project=1`);
+      expect(
+        screen.queryByRole('menuitem', { name: catalogs.english.PracticeAttempts }) !== null
+      ).toBe(kind === 'quiz');
+      await user.click(
+        screen.getByRole('menuitem', { name: catalogs.english.PracticeArchiveMaterial })
+      );
+      await waitFor(() => expect(archive).toHaveBeenCalledWith({ id: material.id }));
+      expect(screen.getByRole('link', { name: new RegExp(material.title) })).toBeVisible();
     }
   );
 }

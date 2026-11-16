@@ -40,7 +40,9 @@ const body = (text: string) => ({
 
 test.stable(
   'native authored assessments retain exact judgments, reject foreign passages, paginate and become stale independently of evidence availability',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const services = Pages.layer.pipe(
@@ -59,7 +61,7 @@ test.stable(
             citations: []
           });
 
-          test.assert.ok(evidence.version);
+          assert.ok(evidence.version);
           const exact = evidence.version;
           const input = { kind: 'page' as const, versionId: exact.id };
           const target = { blockId: exact.document.blocks[0]!.id, start: 0, end: 8 };
@@ -78,7 +80,7 @@ test.stable(
             citations: [citation]
           });
 
-          test.assert.ok(claim.version);
+          assert.ok(claim.version);
           const version = claim.version;
           const value = {
             claim: {
@@ -98,7 +100,7 @@ test.stable(
             note: 'My explicit reasoning'
           };
 
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               rpc['pages.assessCitation']({ ...value, evidenceRange: { ...target, end: 7 } })
             )).kind === 'invalid_input'
@@ -110,11 +112,11 @@ test.stable(
           });
           const page = yield* rpc['pages.assessments']({ versionId: version.id, limit: 1 });
 
-          test.assert.strictEqual(page.items[0]!.id, second.id);
-          test.assert.ok(page.items[0]!.state === 'assessed');
-          test.assert.ok(page.items[0]!.assessment.independentVerification === false);
-          test.assert.strictEqual(page.nextCursor, second.id);
-          test.assert.strictEqual(
+          assert.strictEqual(page.items[0]!.id, second.id);
+          assert.ok(page.items[0]!.state === 'assessed');
+          assert.ok(page.items[0]!.assessment.independentVerification === false);
+          assert.strictEqual(page.nextCursor, second.id);
+          assert.strictEqual(
             (yield* rpc['pages.assessments']({
               versionId: version.id,
               limit: 1,
@@ -142,9 +144,9 @@ test.stable(
           });
           const stale = yield* rpc['pages.assessments']({ versionId: version.id, limit: 10 });
 
-          test.assert.ok(stale.items.every((item) => item.state === 'stale'));
-          test.assert.strictEqual(stale.items[1]!.assessment.note, value.note);
-          test.assert.ok(
+          assert.ok(stale.items.every((item) => item.state === 'stale'));
+          assert.strictEqual(stale.items[1]!.assessment.note, value.note);
+          assert.ok(
             (yield* rpc['pages.version']({ id: exact.id })).document.blocks[0]!.text ===
               'Evidence 😀'
           );

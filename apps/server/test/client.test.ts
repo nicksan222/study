@@ -22,7 +22,9 @@ import { serve } from '#server/runtime/index';
 
 test.stable(
   'scoped native client exchanges projects, settings, bytes and typed errors over HTTP',
-  async ({ resources: database }) => {
+  async ({ resources: database, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const app = await database.openApp({ path: database.path });
     const server = await serve(app);
     let discoveries = 0;
@@ -39,22 +41,20 @@ test.stable(
               }
             });
 
-            test.assert.strictEqual(discoveries, 0);
-            test.assert.ok((yield* client['system.health']({})).workersRunning === false);
+            assert.strictEqual(discoveries, 0);
+            assert.ok((yield* client['system.health']({})).workersRunning === false);
             yield* client['system.startWorkers']({});
-            test.assert.ok((yield* client['system.health']({})).workersRunning === true);
+            assert.ok((yield* client['system.health']({})).workersRunning === true);
             yield* client['system.stopWorkers']({});
-            test.assert.ok((yield* client['system.health']({})).workersRunning === false);
+            assert.ok((yield* client['system.health']({})).workersRunning === false);
             const project = yield* client['projects.createProject']({ name: 'Biology' });
 
-            test.assert.ok(typeof project.id === 'bigint');
-            test.assert.ok(
-              (yield* client['projects.project']({ id: project.id })).name === 'Biology'
-            );
+            assert.ok(typeof project.id === 'bigint');
+            assert.ok((yield* client['projects.project']({ id: project.id })).name === 'Biology');
             const settings = yield* client['settings.appSettings']({});
 
             yield* client['settings.saveAppSettings']({ ...settings, onboarded: true });
-            test.assert.ok((yield* client['settings.appSettings']({})).onboarded === true);
+            assert.ok((yield* client['settings.appSettings']({})).onboarded === true);
             const theme = yield* client['themes.importTheme']({
               json: JSON.stringify({
                 version: 1,
@@ -65,9 +65,9 @@ test.stable(
             });
 
             yield* client['themes.selectTheme']({ id: theme.id });
-            test.assert.strictEqual(yield* client['themes.selectedTheme']({}), theme.id);
+            assert.strictEqual(yield* client['themes.selectedTheme']({}), theme.id);
             yield* client['themes.deleteTheme']({ id: theme.id });
-            test.assert.strictEqual(yield* client['themes.selectedTheme']({}), null);
+            assert.strictEqual(yield* client['themes.selectedTheme']({}), null);
             const bytes = new Uint8Array([0, 255, 17]);
             const source = yield* client['sources.createSource']({
               name: 'notes.txt',
@@ -75,15 +75,15 @@ test.stable(
               projectId: project.id
             });
 
-            test
-              .expect((yield* client['sources.source']({ id: source.id })).sha256)
-              .toStrictEqual(source.sha256);
-            test.assert.ok(Option.isSome(yield* client['sources.findSource']({ id: source.id })));
+            expect((yield* client['sources.source']({ id: source.id })).sha256).toStrictEqual(
+              source.sha256
+            );
+            assert.ok(Option.isSome(yield* client['sources.findSource']({ id: source.id })));
             const error = yield* Effect.flip(client['projects.createProject']({ name: '' }));
 
-            test.assert.ok('kind' in error);
-            test.assert.ok(error.kind === 'invalid_input');
-            test.assert.strictEqual(discoveries, 1);
+            assert.ok('kind' in error);
+            assert.ok(error.kind === 'invalid_input');
+            assert.strictEqual(discoveries, 1);
           })
         )
       );

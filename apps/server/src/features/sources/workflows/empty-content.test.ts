@@ -52,10 +52,12 @@ for (const [name, text] of [
 ] as const)
   test.stable(
     `${name} settles empty extraction as failed and preserves original bytes`,
-    async ({ databases }) => {
+    async ({ databases, createAiMock, expect, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+
       const location = await databases();
       const context = new ServerContext(await location.open());
-      using mock = test.createAiMock();
+      using mock = createAiMock();
       const services = Layer.mergeAll(
         Layer.mergeAll(Sources.layer, Materials.layer).pipe(
           Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -87,13 +89,13 @@ for (const [name, text] of [
               projectId: null
             });
 
-            test
-              .expect((yield* materials.materials({ archived: false, limit: 10 })).items)
-              .toStrictEqual([]);
+            expect(
+              (yield* materials.materials({ archived: false, limit: 10 })).items
+            ).toStrictEqual([]);
             const state = yield* sources.sourceProcessing(source.id);
             const engine = yield* WorkflowEngine.WorkflowEngine;
 
-            test.assert.ok(state.requestId);
+            assert.ok(state.requestId);
             yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
             yield* engine.register(sourceCorrectionWorkflow, sourceCorrectionHandler);
             const event = {
@@ -152,7 +154,7 @@ for (const [name, text] of [
                 .map((row) => decodeEvent(row.payload))
                 .find((item) => item.type === 'SourceCorrectionRequested');
 
-              test.assert.ok(correction?.type === 'SourceCorrectionRequested');
+              assert.ok(correction?.type === 'SourceCorrectionRequested');
               admitTestExecution(context, sourceCorrectionWorkflow, 'empty-correction', {
                 event: correction
               });
@@ -163,7 +165,7 @@ for (const [name, text] of [
             }
 
             for (let replay = 0; replay < 2; replay++) {
-              test.assert.ok((yield* Effect.flip(execution)).kind === 'invalid_input');
+              assert.ok((yield* Effect.flip(execution)).kind === 'invalid_input');
               const failure = context.db.orm
                 .select()
                 .from(tables.workflowEvents)
@@ -171,21 +173,21 @@ for (const [name, text] of [
                 .map((row) => decodeEvent(row.payload))
                 .findLast((event) => event.type === 'SourceProcessingFailed');
 
-              test.assert.strictEqual(
+              assert.strictEqual(
                 failure?.type === 'SourceProcessingFailed' && failure.sourceId,
                 source.id
               );
-              test.assert.strictEqual(
+              assert.strictEqual(
                 (yield* sources.sourceProcessing(source.id)).documentId,
                 retainedDocumentId
               );
             }
 
-            test.assert.strictEqual(
+            assert.strictEqual(
               context.db.orm.select().from(tables.content_snapshots).all().length,
               retainedDocumentId === null ? 0 : 1
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               context.db.orm
                 .select()
                 .from(tables.workflowEvents)
@@ -193,12 +195,12 @@ for (const [name, text] of [
                 .filter((row) => row.type === 'SourceProcessingFailed').length,
               1
             );
-            test
-              .expect((yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes)
-              .toStrictEqual(new Uint8Array(bytes));
+            expect(
+              (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
+            ).toStrictEqual(new Uint8Array(bytes));
 
             if (retainedDocumentId !== null)
-              test.assert.strictEqual(
+              assert.strictEqual(
                 (yield* sources.document({
                   id: retainedDocumentId,
                   sourceId: source.id,

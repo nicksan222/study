@@ -24,47 +24,47 @@ test.beforeEach(async ({ mock }) => {
 
 test.stable(
   'requires the deletion phrase before deleting the selected theme and announcing success',
-  async () => {
-    const remove = test.vi.fn().mockResolvedValue(undefined);
-    const close = test.vi.fn();
+  async ({ vi, render, screen, within, userEvent, expect, waitFor }) => {
+    const remove = vi.fn().mockResolvedValue(undefined);
+    const close = vi.fn();
     const model: AppearanceModel = {
       loading: false,
       error: false,
       pending: false,
-      retry: test.vi.fn(),
-      setPreferences: test.vi.fn(),
-      setZoom: test.vi.fn(),
-      setAppearance: test.vi.fn(),
-      selectTheme: test.vi.fn(),
-      importTheme: test.vi.fn(),
-      saveTheme: test.vi.fn(),
+      retry: vi.fn(),
+      setPreferences: vi.fn(),
+      setZoom: vi.fn(),
+      setAppearance: vi.fn(),
+      selectTheme: vi.fn(),
+      importTheme: vi.fn(),
+      saveTheme: vi.fn(),
       deleteTheme: remove
     };
 
-    test.render(
+    render(
       <ThemeEditor.Delete
         theme={{ version: 1, id: 'ocean', name: 'Ocean' }}
         model={model}
         onClose={close}
       />
     );
-    const dialog = await test.screen.findByRole('alertdialog');
-    const confirm = test.within(dialog).getByRole('button', { name: catalogs.english.DeleteTheme });
-    const field = test.within(dialog).getByRole('textbox');
-    const user = test.userEvent.setup();
+    const dialog = await screen.findByRole('alertdialog');
+    const confirm = within(dialog).getByRole('button', { name: catalogs.english.DeleteTheme });
+    const field = within(dialog).getByRole('textbox');
+    const user = userEvent.setup();
 
-    test.expect(confirm).toBeDisabled();
+    expect(confirm).toBeDisabled();
     await user.type(field, 'wrong');
-    test.expect(confirm).toBeDisabled();
-    test.expect(remove).not.toHaveBeenCalled();
+    expect(confirm).toBeDisabled();
+    expect(remove).not.toHaveBeenCalled();
     await user.clear(field);
     await user.type(field, catalogs.english.DeleteConfirmationWord);
     await user.click(confirm);
-    await test.waitFor(() => test.expect(remove).toHaveBeenCalledExactlyOnceWith('ocean'));
-    test.expect(toastManager.add).toHaveBeenCalledExactlyOnceWith({
+    await waitFor(() => expect(remove).toHaveBeenCalledExactlyOnceWith('ocean'));
+    expect(toastManager.add).toHaveBeenCalledExactlyOnceWith({
       title: catalogs.english.ThemeDeleted,
       type: 'success'
     });
-    test.expect(close).toHaveBeenCalledOnce();
+    expect(close).toHaveBeenCalledOnce();
   }
 );

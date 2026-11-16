@@ -24,7 +24,9 @@ import { serve } from '#server/runtime/index';
 for (const hinted of [true, false])
   test.stable(
     `workflow subscription reseeds, follows ${hinted ? 'commit hints' : 'unhinted commits'}, and releases its listener`,
-    async ({ resources: location }) => {
+    async ({ resources: location, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+
       const app = await location.openApp({ path: location.path });
       const server = await serve(app);
       const subscribe = app.store.subscribe.bind(app.store);
@@ -80,14 +82,14 @@ for (const hinted of [true, false])
 
               const pages = yield* Fiber.join(fiber).pipe(Effect.timeout('3 seconds'));
 
-              test.assert.strictEqual(pages[0]?.items.length, 0);
-              test.assert.ok(pages[1]?.items[0]?.id === 'subscription');
+              assert.strictEqual(pages[0]?.items.length, 0);
+              assert.ok(pages[1]?.items[0]?.id === 'subscription');
               const reseeded = yield* workflowSnapshots(client, { limit: 10 }).pipe(
                 Stream.take(1),
                 Stream.runCollect
               );
 
-              test.assert.ok(reseeded[0]?.items[0]?.id === 'subscription');
+              assert.ok(reseeded[0]?.items[0]?.id === 'subscription');
             })
           )
         );
@@ -97,7 +99,7 @@ for (const hinted of [true, false])
             setTimeout(() => reject(Error('listener not released')), 2000)
           )
         ]);
-        test.assert.strictEqual(listeners, 0);
+        assert.strictEqual(listeners, 0);
       } finally {
         await server.close();
         await app.close();

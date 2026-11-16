@@ -52,7 +52,7 @@ const message = Schema.decodeUnknownSync(chatMessageSchema)({
   ]
 });
 
-let fixture: ReturnType<typeof test.rpcHandlersTransport>;
+let fixture: ReturnType<test.Context['rpcHandlersTransport']>;
 
 function Provider({ children }: { children: ReactNode }) {
   return <fixture.wrapper>{children}</fixture.wrapper>;
@@ -87,10 +87,10 @@ test.beforeEach(async ({ mock }) => {
   FailedMessageConversion = __mockModule1.FailedMessageConversion;
 });
 
-test.beforeEach(() => {
-  test.vi.resetAllMocks();
-  test.vi.mocked(useAiReadiness).mockReturnValue('ready');
-  fixture = test.rpcHandlersTransport({
+test.beforeEach(({ vi, rpcHandlersTransport }) => {
+  vi.resetAllMocks();
+  vi.mocked(useAiReadiness).mockReturnValue('ready');
+  fixture = rpcHandlersTransport({
     'notes.replySnapshot': api.snapshot,
     'notes.convertMessage': api.convert,
     'notes.deleteMessageVersion': api.discard
@@ -116,81 +116,83 @@ test.beforeEach(() => {
   });
   api.discard.mockResolvedValue(message);
 });
-test.afterEach(() => {
-  test.cleanup();
+test.afterEach(({ cleanup }) => {
+  cleanup();
 });
 
-test.stable.each(['retry', 'discard'] as const)(
+test.stable.for(['retry', 'discard'] as const)(
   'exposes %s for a failed conversion without changing its original input',
-  async (action) => {
-    test.render(
+  async (action, { render, expect, screen, waitFor, fireEvent }) => {
+    render(
       <Provider>
         <FailedMessageConversion message={message} version={message.versions[1]} />
       </Provider>
     );
-    test.expect(test.screen.getByText('NoteConversionFailed')).toBeVisible();
-    const retry = test.screen.getByRole('button', { name: 'Retry' });
+    expect(screen.getByText('NoteConversionFailed')).toBeVisible();
+    const retry = screen.getByRole('button', { name: 'Retry' });
 
-    await test.waitFor(() => test.expect(retry).toBeEnabled());
-    test.fireEvent.click(
-      action === 'retry'
-        ? retry
-        : test.screen.getByRole('button', { name: 'NoteDiscardConversion' })
+    await waitFor(() => expect(retry).toBeEnabled());
+    fireEvent.click(
+      action === 'retry' ? retry : screen.getByRole('button', { name: 'NoteDiscardConversion' })
     );
-    await test.waitFor(() => {
+    await waitFor(() => {
       if (action === 'retry')
-        test.expect(api.convert).toHaveBeenCalledWith({
+        expect(api.convert).toHaveBeenCalledWith({
           messageId: 2n,
           expectedActiveVersionId: 3n,
           strategyId: 'saved-strategy'
         });
-      else test.expect(api.discard).toHaveBeenCalledWith({ messageId: 2n, versionId: 4n });
+      else expect(api.discard).toHaveBeenCalledWith({ messageId: 2n, versionId: 4n });
     });
   }
 );
 
-test.stable('keeps recovery retries blocked while another version has active work', async () => {
-  const busy = Schema.decodeUnknownSync(chatMessageSchema)({
-    ...message,
-    versions: [
-      ...message.versions,
-      {
-        id: 5n,
-        number: 3n,
-        origin: 'improve',
-        status: 'pending',
-        text: '',
-        basedOn: 3n,
-        instruction: null,
-        createdAt: 3n
-      }
-    ]
-  });
+test.stable(
+  'keeps recovery retries blocked while another version has active work',
+  async ({ render, waitFor, expect, screen }) => {
+    const busy = Schema.decodeUnknownSync(chatMessageSchema)({
+      ...message,
+      versions: [
+        ...message.versions,
+        {
+          id: 5n,
+          number: 3n,
+          origin: 'improve',
+          status: 'pending',
+          text: '',
+          basedOn: 3n,
+          instruction: null,
+          createdAt: 3n
+        }
+      ]
+    });
 
-  test.render(
-    <Provider>
-      <FailedMessageConversion message={busy} version={busy.versions[1]} />
-    </Provider>
-  );
-  await test.waitFor(() => test.expect(api.snapshot).toHaveBeenCalled());
-  test.expect(test.screen.getByRole('button', { name: 'Retry' })).toBeDisabled();
-  test.expect(test.screen.getByRole('button', { name: 'NoteDiscardConversion' })).toBeEnabled();
-});
+    render(
+      <Provider>
+        <FailedMessageConversion message={busy} version={busy.versions[1]} />
+      </Provider>
+    );
+    await waitFor(() => expect(api.snapshot).toHaveBeenCalled());
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'NoteDiscardConversion' })).toBeEnabled();
+  }
+);
 
-test.stable('blocks AI conversion recovery without setup while preserving discard', async () => {
-  test.vi.mocked(useAiReadiness).mockReturnValue('setup');
-  test.render(
-    <Provider>
-      <FailedMessageConversion message={message} version={message.versions[1]} />
-    </Provider>
-  );
-  await test.waitFor(() => test.expect(api.snapshot).toHaveBeenCalled());
-  test.expect(test.screen.getByRole('button', { name: 'Retry' })).toBeDisabled();
-  test.expect(test.screen.getByText('AiReadinessSetup')).toBeVisible();
-  test.fireEvent.click(test.screen.getByRole('button', { name: 'Retry' }));
-  test.expect(api.convert).not.toHaveBeenCalled();
-  test.fireEvent.click(test.screen.getByRole('button', { name: 'NoteDiscardConversion' }));
-  await test.waitFor(() =>
-    test.expect(api.discard).toHaveBeenCalledWith({ messageId: 2n, versionId: 4n })
-  );
-});
+test.stable(
+  'blocks AI conversion recovery without setup while preserving discard',
+  async ({ vi, render, waitFor, expect, screen, fireEvent }) => {
+    vi.mocked(useAiReadiness).mockReturnValue('setup');
+    render(
+      <Provider>
+        <FailedMessageConversion message={message} version={message.versions[1]} />
+      </Provider>
+    );
+    await waitFor(() => expect(api.snapshot).toHaveBeenCalled());
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeDisabled();
+    expect(screen.getByText('AiReadinessSetup')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(api.convert).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'NoteDiscardConversion' }));
+    await waitFor(() => expect(api.discard).toHaveBeenCalledWith({ messageId: 2n, versionId: 4n }));
+  }
+);

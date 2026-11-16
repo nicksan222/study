@@ -40,11 +40,11 @@ test.beforeEach(async ({ mock }) => {
   PagesFromNotes = __mockModule0.PagesFromNotes;
 });
 
-test.afterEach(test.cleanup);
+test.afterEach(({ cleanup }) => cleanup());
 
 test.stable(
   'selects only scoped notes and hands multiple selections to the existing transform dialog',
-  async () => {
+  async ({ rpcTestTransport, userEvent, render, screen, expect }) => {
     const projectId = projectIdSchema.make(2n);
     const note = (id: bigint, title: string, project = projectId) => ({
       id: noteIdSchema.make(id),
@@ -61,31 +61,29 @@ test.stable(
       note(2n, 'Exercises'),
       note(3n, 'Other subject', projectIdSchema.make(3n))
     ]);
-    const harness = test.rpcTestTransport(async (tag) => {
+    const harness = rpcTestTransport(async (tag) => {
       if (tag === 'notes.notes') return { items: await api.notes(), next: null };
 
       throw new Error(tag);
     });
-    const user = test.userEvent.setup();
+    const user = userEvent.setup();
 
-    test.render(
+    render(
       <harness.wrapper>
         <PagesFromNotes project={projectId} />
       </harness.wrapper>
     );
-    await user.click(test.screen.getByRole('button', { name: 'PagesFromNotes' }));
-    test.expect(test.screen.getByRole('button', { name: 'NoteApplyAction' })).toBeDisabled();
-    await user.click(await test.screen.findByRole('button', { name: 'Lecture' }));
-    test
-      .expect(test.screen.queryByRole('button', { name: 'Other subject' }))
-      .not.toBeInTheDocument();
-    await user.type(test.screen.getByRole('searchbox', { name: 'PagesFindNotes' }), 'Exercises');
-    test.expect(test.screen.queryByRole('button', { name: 'Lecture' })).not.toBeInTheDocument();
-    await user.click(test.screen.getByRole('button', { name: 'Exercises' }));
-    await user.click(test.screen.getByRole('button', { name: 'NoteApplyAction' }));
-    const transform = await test.screen.findByRole('region', { name: 'Shared transform' });
+    await user.click(screen.getByRole('button', { name: 'PagesFromNotes' }));
+    expect(screen.getByRole('button', { name: 'NoteApplyAction' })).toBeDisabled();
+    await user.click(await screen.findByRole('button', { name: 'Lecture' }));
+    expect(screen.queryByRole('button', { name: 'Other subject' })).not.toBeInTheDocument();
+    await user.type(screen.getByRole('searchbox', { name: 'PagesFindNotes' }), 'Exercises');
+    expect(screen.queryByRole('button', { name: 'Lecture' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Exercises' }));
+    await user.click(screen.getByRole('button', { name: 'NoteApplyAction' }));
+    const transform = await screen.findByRole('region', { name: 'Shared transform' });
 
-    test.expect(transform).toHaveAttribute('data-note', '1');
-    test.expect(transform).toHaveTextContent('Lecture, Exercises');
+    expect(transform).toHaveAttribute('data-note', '1');
+    expect(transform).toHaveTextContent('Lecture, Exercises');
   }
 );

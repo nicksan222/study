@@ -9,7 +9,7 @@ const file = (path: string, text: string) => ({
 
 test.stable(
   'imports nested vault notes, preserving metadata, links, embeds and original bytes',
-  () => {
+  ({ expect }) => {
     const plan = integrationProvider('obsidian').capabilities.import!.plan({
       files: [
         file(
@@ -23,8 +23,8 @@ test.stable(
       ]
     });
 
-    test.expect(plan.notes.map((item) => item.key)).toEqual(['Biology/Cells.md', 'Biology/DNA.md']);
-    test.expect(plan.notes[0]).toMatchObject({
+    expect(plan.notes.map((item) => item.key)).toEqual(['Biology/Cells.md', 'Biology/DNA.md']);
+    expect(plan.notes[0]).toMatchObject({
       title: 'Cell biology',
       text: '# Cells\n\nSee [[DNA|genes]] and ![[images/cell.png]].',
       metadata: 'title: "Cell biology"\ntags: [science]',
@@ -39,21 +39,19 @@ test.stable(
         }
       ]
     });
-    test
-      .expect(plan.files.find((item) => item.path === 'Biology/Cells.md')?.content)
-      .toBe(
-        file(
-          '',
-          '---\ntitle: "Cell biology"\ntags: [science]\n---\n# Cells\n\nSee [[DNA|genes]] and ![[images/cell.png]].'
-        ).content
-      );
-    test.expect(plan.warnings).toEqual([]);
+    expect(plan.files.find((item) => item.path === 'Biology/Cells.md')?.content).toBe(
+      file(
+        '',
+        '---\ntitle: "Cell biology"\ntags: [science]\n---\n# Cells\n\nSee [[DNA|genes]] and ![[images/cell.png]].'
+      ).content
+    );
+    expect(plan.warnings).toEqual([]);
   }
 );
 
 test.stable(
   'reports ambiguous and missing references without discarding note text or inventing targets',
-  () => {
+  ({ expect }) => {
     const plan = integrationProvider('obsidian').capabilities.import!.plan({
       files: [
         file('Home.md', '[[Same]] [[Missing]] ![[photo.png]]\n```md\n[[not a link]]\n```'),
@@ -62,36 +60,42 @@ test.stable(
       ]
     });
 
-    test.expect(plan.notes.find((item) => item.key === 'Home.md')?.links).toEqual([]);
-    test
-      .expect(plan.warnings.map((warning) => warning.code))
-      .toEqual(['ambiguous_link', 'missing_link', 'missing_attachment']);
-    test.expect(plan.notes.find((item) => item.key === 'Home.md')?.text).toContain('[[Missing]]');
+    expect(plan.notes.find((item) => item.key === 'Home.md')?.links).toEqual([]);
+    expect(plan.warnings.map((warning) => warning.code)).toEqual([
+      'ambiguous_link',
+      'missing_link',
+      'missing_attachment'
+    ]);
+    expect(plan.notes.find((item) => item.key === 'Home.md')?.text).toContain('[[Missing]]');
   }
 );
 
-test.stable.each(['../escape.md', '/absolute.md', 'a/../../escape.md', 'C:\\escape.md', 'a\\b.md'])(
+test.stable.for(['../escape.md', '/absolute.md', 'a/../../escape.md', 'C:\\escape.md', 'a\\b.md'])(
   'rejects unsafe vault entry %s',
-  (path) => {
-    test
-      .expect(() =>
-        integrationProvider('obsidian').capabilities.import!.plan({ files: [file(path, 'text')] })
-      )
-      .toThrow();
+  (path, { expect }) => {
+    expect(() =>
+      integrationProvider('obsidian').capabilities.import!.plan({ files: [file(path, 'text')] })
+    ).toThrow();
   }
 );
 
-test.stable('rejects duplicate paths and invalid text encoding; reports empty notes', () => {
-  const provider = integrationProvider('obsidian').capabilities.import!;
+test.stable(
+  'rejects duplicate paths and invalid text encoding; reports empty notes',
+  ({ expect }) => {
+    const provider = integrationProvider('obsidian').capabilities.import!;
 
-  test.expect(() => provider.plan({ files: [file('A.md', 'one'), file('A.md', 'two')] })).toThrow();
-  test.expect(() => provider.plan({ files: [{ path: 'A.md', content: '/w==' }] })).toThrow();
-  test
-    .expect(provider.plan({ files: [file('Empty.md', '   ')] }).warnings)
-    .toEqual([{ code: 'empty_note', path: 'Empty.md', target: null }]);
-});
+    expect(() => provider.plan({ files: [file('A.md', 'one'), file('A.md', 'two')] })).toThrow();
+    expect(() => provider.plan({ files: [{ path: 'A.md', content: '/w==' }] })).toThrow();
+    expect(provider.plan({ files: [file('Empty.md', '   ')] }).warnings).toEqual([
+      { code: 'empty_note', path: 'Empty.md', target: null }
+    ]);
+  }
+);
 
-test.stable('discovers provider capabilities without advertising unsupported export', () => {
-  test.expect(integrationProviders()).toEqual([{ id: 'obsidian', capabilities: ['import'] }]);
-  test.expect(() => integrationProvider('unknown')).toThrow();
-});
+test.stable(
+  'discovers provider capabilities without advertising unsupported export',
+  ({ expect }) => {
+    expect(integrationProviders()).toEqual([{ id: 'obsidian', capabilities: ['import'] }]);
+    expect(() => integrationProvider('unknown')).toThrow();
+  }
+);

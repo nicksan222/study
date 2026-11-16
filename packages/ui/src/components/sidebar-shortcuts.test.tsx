@@ -39,49 +39,55 @@ function Destinations({ names, before }: { names: string[]; before?: ReactNode }
   );
 }
 
-test.stable('opens the first nine current sidebar destinations with Command or Control', () => {
-  test.render(
-    <Destinations
-      names={['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten']}
-    />
-  );
+test.stable(
+  'opens the first nine current sidebar destinations with Command or Control',
+  ({ render, fireEvent, expect, screen }) => {
+    render(
+      <Destinations
+        names={['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten']}
+      />
+    );
 
-  for (const [key, modifier, expected] of [
-    ['1', 'metaKey', 'one'],
-    ['9', 'metaKey', 'nine'],
-    ['3', 'ctrlKey', 'three']
-  ] as const) {
-    const event = new KeyboardEvent('keydown', {
-      key,
-      [modifier]: true,
-      bubbles: true,
-      cancelable: true
-    });
+    for (const [key, modifier, expected] of [
+      ['1', 'metaKey', 'one'],
+      ['9', 'metaKey', 'nine'],
+      ['3', 'ctrlKey', 'three']
+    ] as const) {
+      const event = new KeyboardEvent('keydown', {
+        key,
+        [modifier]: true,
+        bubbles: true,
+        cancelable: true
+      });
 
-    test.fireEvent(window, event);
-    test.expect(test.screen.getByLabelText('Selected item')).toHaveTextContent(expected);
-    test.expect(test.screen.getByRole('link', { name: expected })).toHaveFocus();
-    test.expect(event.defaultPrevented).toBe(true);
+      fireEvent(window, event);
+      expect(screen.getByLabelText('Selected item')).toHaveTextContent(expected);
+      expect(screen.getByRole('link', { name: expected })).toHaveFocus();
+      expect(event.defaultPrevented).toBe(true);
+    }
   }
-});
+);
 
-test.stable('uses the updated rendered order without retaining old page or filter results', () => {
-  const view = test.render(<Destinations names={['old first', 'old second']} />);
+test.stable(
+  'uses the updated rendered order without retaining old page or filter results',
+  ({ render, fireEvent, expect, screen }) => {
+    const view = render(<Destinations names={['old first', 'old second']} />);
 
-  view.rerender(<Destinations names={['new first', 'new second']} />);
-  test.fireEvent.keyDown(window, { key: '2', metaKey: true });
-  test.expect(test.screen.getByLabelText('Selected item')).toHaveTextContent('new second');
-  const missing = new KeyboardEvent('keydown', { key: '9', metaKey: true, cancelable: true });
+    view.rerender(<Destinations names={['new first', 'new second']} />);
+    fireEvent.keyDown(window, { key: '2', metaKey: true });
+    expect(screen.getByLabelText('Selected item')).toHaveTextContent('new second');
+    const missing = new KeyboardEvent('keydown', { key: '9', metaKey: true, cancelable: true });
 
-  test.fireEvent(window, missing);
-  test.expect(missing.defaultPrevented).toBe(false);
-  test.expect(test.screen.getByLabelText('Selected item')).toHaveTextContent('new second');
-});
+    fireEvent(window, missing);
+    expect(missing.defaultPrevented).toBe(false);
+    expect(screen.getByLabelText('Selected item')).toHaveTextContent('new second');
+  }
+);
 
 test.stable(
   'skips hidden, collapsed and disabled destinations and ignores section navigation',
-  () => {
-    test.render(
+  ({ render, fireEvent, expect, screen }) => {
+    render(
       <Destinations
         names={['available']}
         before={
@@ -112,92 +118,101 @@ test.stable(
       />
     );
 
-    test.fireEvent.keyDown(window, { key: '1', metaKey: true });
-    test.expect(test.screen.getByLabelText('Selected item')).toHaveTextContent('available');
+    fireEvent.keyDown(window, { key: '1', metaKey: true });
+    expect(screen.getByLabelText('Selected item')).toHaveTextContent('available');
   }
 );
 
-test.stable('does not intercept modified shortcuts, composition, repeats or modal tasks', () => {
-  const view = test.render(
-    <>
-      <Destinations names={['one']} />
-    </>
-  );
+test.stable(
+  'does not intercept modified shortcuts, composition, repeats or modal tasks',
+  ({ render, fireEvent, expect, screen }) => {
+    const view = render(
+      <>
+        <Destinations names={['one']} />
+      </>
+    );
 
-  for (const options of [
-    { key: '1' },
-    { key: '1', metaKey: true, shiftKey: true },
-    { key: '1', metaKey: true, altKey: true },
-    { key: '1', metaKey: true, repeat: true },
-    { key: '1', metaKey: true, isComposing: true }
-  ])
-    test.fireEvent.keyDown(window, options);
+    for (const options of [
+      { key: '1' },
+      { key: '1', metaKey: true, shiftKey: true },
+      { key: '1', metaKey: true, altKey: true },
+      { key: '1', metaKey: true, repeat: true },
+      { key: '1', metaKey: true, isComposing: true }
+    ])
+      fireEvent.keyDown(window, options);
 
-  test.expect(test.screen.getByLabelText('Selected item')).toHaveTextContent('none');
+    expect(screen.getByLabelText('Selected item')).toHaveTextContent('none');
 
-  view.rerender(
-    <>
-      <Destinations names={['one']} />
-      <div role="dialog" aria-modal="true">
-        Confirm
-      </div>
-    </>
-  );
-  test.fireEvent.keyDown(window, { key: '1', metaKey: true });
-  test.expect(test.screen.getByLabelText('Selected item')).toHaveTextContent('none');
-});
+    view.rerender(
+      <>
+        <Destinations names={['one']} />
+        <div role="dialog" aria-modal="true">
+          Confirm
+        </div>
+      </>
+    );
+    fireEvent.keyDown(window, { key: '1', metaKey: true });
+    expect(screen.getByLabelText('Selected item')).toHaveTextContent('none');
+  }
+);
 
-test.stable('allows switching while writing in a notebook or document editor', () => {
-  test.render(
-    <>
-      <Destinations names={['one', 'two']} />
-      <textarea aria-label="Notebook" />
-      <div contentEditable role="textbox" aria-label="Document" />
-    </>
-  );
+test.stable(
+  'allows switching while writing in a notebook or document editor',
+  ({ render, fireEvent, screen, expect }) => {
+    render(
+      <>
+        <Destinations names={['one', 'two']} />
+        <textarea aria-label="Notebook" />
+        <div contentEditable role="textbox" aria-label="Document" />
+      </>
+    );
 
-  test.fireEvent.keyDown(test.screen.getByLabelText('Notebook'), { key: '1', metaKey: true });
-  test.expect(test.screen.getByLabelText('Selected item')).toHaveTextContent('one');
-  test.fireEvent.keyDown(test.screen.getByLabelText('Document'), { key: '2', metaKey: true });
-  test.expect(test.screen.getByLabelText('Selected item')).toHaveTextContent('two');
-});
+    fireEvent.keyDown(screen.getByLabelText('Notebook'), { key: '1', metaKey: true });
+    expect(screen.getByLabelText('Selected item')).toHaveTextContent('one');
+    fireEvent.keyDown(screen.getByLabelText('Document'), { key: '2', metaKey: true });
+    expect(screen.getByLabelText('Selected item')).toHaveTextContent('two');
+  }
+);
 
-test.stable('shows numbered hints only while the navigation modifier is held', () => {
-  test.render(
-    <Destinations
-      names={['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten']}
-    />
-  );
-  const first = test.screen.getByRole('link', { name: 'one' });
+test.stable(
+  'shows numbered hints only while the navigation modifier is held',
+  ({ render, screen, expect, fireEvent }) => {
+    render(
+      <Destinations
+        names={['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten']}
+      />
+    );
+    const first = screen.getByRole('link', { name: 'one' });
 
-  test.expect(first).not.toHaveAttribute('data-sidebar-shortcut');
-  test.fireEvent.keyDown(window, { key: 'Meta', metaKey: true });
-  test.expect(first).toHaveAttribute('data-sidebar-shortcut', '1');
-  test
-    .expect(test.screen.getByRole('link', { name: 'nine' }))
-    .toHaveAttribute('data-sidebar-shortcut', '9');
-  test
-    .expect(test.screen.getByRole('link', { name: 'ten' }))
-    .not.toHaveAttribute('data-sidebar-shortcut');
-  test.fireEvent.keyUp(window, { key: 'Meta' });
-  test.expect(first).not.toHaveAttribute('data-sidebar-shortcut');
-  test.fireEvent.keyDown(window, { key: 'Control', ctrlKey: true });
-  test.expect(first).toHaveAttribute('data-sidebar-shortcut', '1');
-  test.fireEvent.blur(window);
-  test.expect(first).not.toHaveAttribute('data-sidebar-shortcut');
-});
+    expect(first).not.toHaveAttribute('data-sidebar-shortcut');
+    fireEvent.keyDown(window, { key: 'Meta', metaKey: true });
+    expect(first).toHaveAttribute('data-sidebar-shortcut', '1');
+    expect(screen.getByRole('link', { name: 'nine' })).toHaveAttribute(
+      'data-sidebar-shortcut',
+      '9'
+    );
+    expect(screen.getByRole('link', { name: 'ten' })).not.toHaveAttribute('data-sidebar-shortcut');
+    fireEvent.keyUp(window, { key: 'Meta' });
+    expect(first).not.toHaveAttribute('data-sidebar-shortcut');
+    fireEvent.keyDown(window, { key: 'Control', ctrlKey: true });
+    expect(first).toHaveAttribute('data-sidebar-shortcut', '1');
+    fireEvent.blur(window);
+    expect(first).not.toHaveAttribute('data-sidebar-shortcut');
+  }
+);
 
 test.stable(
   'updates held-key hints when the current list changes and clears them for modal tasks',
-  async () => {
-    const view = test.render(<Destinations names={['one', 'two']} />);
+  async ({ render, fireEvent, waitFor, expect, screen }) => {
+    const view = render(<Destinations names={['one', 'two']} />);
 
-    test.fireEvent.keyDown(window, { key: 'Meta', metaKey: true });
+    fireEvent.keyDown(window, { key: 'Meta', metaKey: true });
     view.rerender(<Destinations names={['two', 'one']} />);
-    await test.waitFor(() =>
-      test
-        .expect(test.screen.getByRole('link', { name: 'two' }))
-        .toHaveAttribute('data-sidebar-shortcut', '1')
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: 'two' })).toHaveAttribute(
+        'data-sidebar-shortcut',
+        '1'
+      )
     );
     view.rerender(
       <>
@@ -207,10 +222,8 @@ test.stable(
         </div>
       </>
     );
-    await test.waitFor(() =>
-      test
-        .expect(test.screen.getByRole('link', { name: 'two' }))
-        .not.toHaveAttribute('data-sidebar-shortcut')
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: 'two' })).not.toHaveAttribute('data-sidebar-shortcut')
     );
   }
 );

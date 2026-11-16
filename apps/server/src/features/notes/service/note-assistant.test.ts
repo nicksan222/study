@@ -19,7 +19,7 @@ import { Database } from '#server/platform/database/database';
 
 test.stable(
   'note chats are distinct, durable, excluded from global chats and scoped to a notebook',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const location = await databases();
     const context = new ServerContext(await location.open());
 
@@ -34,15 +34,15 @@ test.stable(
           const second = yield* service.noteAssistant({ noteId: b.id });
           const global = yield* service.assistantNote();
 
-          test.expect(repeated.id).toBe(first.id);
-          test.expect(second.id).not.toBe(first.id);
-          test.expect(global.id).not.toBe(first.id);
-          test
-            .expect((yield* service.assistantChats({ limit: 100 })).items.map((item) => item.id))
-            .toEqual([global.id]);
-          test
-            .expect((yield* Effect.result(service.noteAssistant({ noteId: first.id })))._tag)
-            .toBe('Failure');
+          expect(repeated.id).toBe(first.id);
+          expect(second.id).not.toBe(first.id);
+          expect(global.id).not.toBe(first.id);
+          expect(
+            (yield* service.assistantChats({ limit: 100 })).items.map((item) => item.id)
+          ).toEqual([global.id]);
+          expect((yield* Effect.result(service.noteAssistant({ noteId: first.id })))._tag).toBe(
+            'Failure'
+          );
         }).pipe(Effect.provide(Notes.layer), Effect.provideService(Database, { store: context }))
       );
     } finally {

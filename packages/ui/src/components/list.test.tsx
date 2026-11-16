@@ -5,11 +5,11 @@ import { List } from './list';
 
 test.stable(
   'keeps a rendered list row a native keyboard-operable button with its ref',
-  async () => {
-    const click = test.vi.fn();
+  async ({ vi, render, screen, expect, userEvent }) => {
+    const click = vi.fn();
     const ref = createRef<HTMLButtonElement>();
 
-    test.render(
+    render(
       <List.Root>
         <List.Row
           render={<button ref={ref} type="button" onClick={click} aria-label="Cell biology" />}
@@ -20,11 +20,11 @@ test.stable(
         </List.Row>
       </List.Root>
     );
-    const row = test.screen.getByRole('button', { name: 'Cell biology' });
+    const row = screen.getByRole('button', { name: 'Cell biology' });
 
-    test.expect(ref.current).toBe(row);
+    expect(ref.current).toBe(row);
     row.focus();
-    await test.userEvent.setup().keyboard('{Enter}');
-    test.expect(click).toHaveBeenCalledOnce();
+    await userEvent.setup().keyboard('{Enter}');
+    expect(click).toHaveBeenCalledOnce();
   }
 );

@@ -9,7 +9,9 @@ const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
 test.stable(
   'online backup delivers completion while the event loop is otherwise idle',
-  async ({ databases }) => {
+  async ({ databases, spawnTestProcess, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const db = await location.open();
 
@@ -21,7 +23,7 @@ test.stable(
     env.STUDY_BACKUP_IDLE_SOURCE = location.path;
     env.STUDY_BACKUP_IDLE_TARGET = join(location.dir, 'idle.sqlite');
 
-    const child = test.spawnTestProcess(
+    const child = spawnTestProcess(
       [process.execPath, Bun.fileURLToPath(new URL('./fixtures/backup-idle.ts', import.meta.url))],
       {
         env,
@@ -32,13 +34,15 @@ test.stable(
     );
     const [status, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()]);
 
-    test.assert.strictEqual(status, 0, stderr);
+    assert.strictEqual(status, 0, stderr);
   }
 );
 
 test.stable(
   'online backup during a concurrent transaction yields one coherent committed snapshot',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const db = await location.open();
 
@@ -68,11 +72,11 @@ test.stable(
           sql`SELECT revision,length(payload) bytes FROM backup_pair ORDER BY id`
         );
 
-        test.assert.strictEqual(rows.length, 2);
-        test.assert.strictEqual(rows[0]!.revision, rows[1]!.revision);
-        test.assert.ok(rows[0]!.revision === 1n || rows[0]!.revision === 2n);
-        test.assert.strictEqual(rows[0]!.bytes, 1024n * 1024n);
-        test.assert.strictEqual(
+        assert.strictEqual(rows.length, 2);
+        assert.strictEqual(rows[0]!.revision, rows[1]!.revision);
+        assert.ok(rows[0]!.revision === 1n || rows[0]!.revision === 2n);
+        assert.strictEqual(rows[0]!.bytes, 1024n * 1024n);
+        assert.strictEqual(
           snapshot.orm.get<{ integrity_check: string }>(sql`PRAGMA integrity_check`)!
             .integrity_check,
           'ok'
@@ -88,13 +92,15 @@ test.stable(
 
 test.stable(
   'supported snapshots reject extra executable schema before writable acquisition',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const db = await location.open();
     const target = join(location.dir, 'snapshot.sqlite');
 
     await db.snapshot(target);
-    test.assert.strictEqual(await Db.validateSnapshot(target), db.schemaIdentity());
+    assert.strictEqual(await Db.validateSnapshot(target), db.schemaIdentity());
 
     const untrusted = await Db.openSnapshot(target);
 
@@ -106,20 +112,22 @@ test.stable(
       untrusted.close();
     }
 
-    await test.expect(Db.validateSnapshot(target)).rejects.toThrow();
-    await test.expect(Db.openSnapshot(target)).rejects.toThrow();
-    test.assert.strictEqual(db.schemaIdentity().length, 64);
+    await expect(Db.validateSnapshot(target)).rejects.toThrow();
+    await expect(Db.openSnapshot(target)).rejects.toThrow();
+    assert.strictEqual(db.schemaIdentity().length, 64);
   }
 );
 
 test.stable(
   'snapshot allocation bounds reject before creating a destination file',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const db = await location.open();
     const target = join(location.dir, 'bounded.sqlite');
 
-    test.assert.throws(() => db.snapshot(target, 1), RangeError);
-    test.assert.strictEqual(await Bun.file(target).exists(), false);
+    assert.throws(() => db.snapshot(target, 1), RangeError);
+    assert.strictEqual(await Bun.file(target).exists(), false);
   }
 );

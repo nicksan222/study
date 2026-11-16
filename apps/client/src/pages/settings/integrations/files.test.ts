@@ -4,7 +4,7 @@ import { vaultFiles } from './files';
 
 test.stable(
   'strips only the selected root and excludes private vault configuration before reading',
-  async () => {
+  async ({ expect }) => {
     const note = new File(['# Cells'], 'Cells.md');
     const privateFile = new File(['private'], 'app.json');
 
@@ -21,7 +21,7 @@ test.stable(
       }
     });
 
-    test.expect(await vaultFiles([note, privateFile])).toEqual({
+    expect(await vaultFiles([note, privateFile])).toEqual({
       sourceKey: 'Biology',
       files: [{ path: 'Notes/Cells.md', content: 'IyBDZWxscw==' }]
     });

@@ -93,7 +93,7 @@ const preparationDefinition = {
 
 const preparation = defineContextPreparation(preparationDefinition);
 
-function contextTypeContracts() {
+function contextTypeContracts({ expectTypeOf }: Pick<test.Context, 'expectTypeOf'>) {
   const definition = { ...replyAgent, context: preparation };
 
   // @ts-expect-error A context-consuming agent cannot omit its captured inputs and ownership checks.
@@ -103,14 +103,16 @@ function contextTypeContracts() {
 
   const plain = generateAgent(replyAgent, { request: 'Study cells' });
 
-  test.expectTypeOf<Effect.Success<typeof plain>>().toEqualTypeOf<string>();
+  expectTypeOf<Effect.Success<typeof plain>>().toEqualTypeOf<string>();
 }
 
 void contextTypeContracts;
 
 test.stable(
   'invalid invocation limits reject before any preparation model work',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const execute = generateAgent(
       { ...replyAgent, context: preparation },
       { request: 'Learn' },
@@ -141,14 +143,16 @@ test.stable(
     );
     const prompts: string[] = [];
 
-    test.assert.equal(await run(databases, execute, Schema.String, prompts), 'invalid_input');
-    test.assert.lengthOf(prompts, 0);
+    assert.equal(await run(databases, execute, Schema.String, prompts), 'invalid_input');
+    assert.lengthOf(prompts, 0);
   }
 );
 
 test.stable(
   'prepared context can recover an omitted original through scoped search',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const execute = Effect.gen(function* () {
       const prepared = yield* preparation.prepare('Learn', {
         scope: 'recover-original',
@@ -171,15 +175,12 @@ test.stable(
         }
       });
 
-      test.assert.equal(
-        (yield* Effect.flip(prepared.evidence.citations('[2]'))).kind,
-        'invalid_input'
-      );
-      test.assert.equal(prepared.search('Rare-tail')[0]?.id, '2');
+      assert.equal((yield* Effect.flip(prepared.evidence.citations('[2]'))).kind, 'invalid_input');
+      assert.equal(prepared.search('Rare-tail')[0]?.id, '2');
       const citation = (yield* prepared.evidence.citations('[2]'))[0]!;
 
-      test.assert.equal(citation.reference, 'original-version');
-      test.assert.include(citation.quote, 'Rare-tail concept');
+      assert.equal(citation.reference, 'original-version');
+      assert.include(citation.quote, 'Rare-tail concept');
 
       return 'Recovered original';
     });
@@ -324,7 +325,9 @@ async function run<A, E>(
 
 test.stable(
   'context agents accept decoded codec inputs before preparing their prompt',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const definition = defineAgent({
       ...replyAgent,
       context: preparation,
@@ -355,13 +358,15 @@ test.stable(
     const prompts: string[] = [];
 
     await run(databases, execute, Schema.String, prompts);
-    test.assert.include(prompts[0]!, 'Revision 3');
+    assert.include(prompts[0]!, 'Revision 3');
   }
 );
 
 test.stable(
   'reuses preparation across distinct agents without extra model work for small inputs',
-  async ({ databases }) => {
+  async ({ databases, expectTypeOf, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const prompts: string[] = [];
     const original = document(['Original exact evidence']);
     const execute = Effect.gen(function* () {
@@ -407,68 +412,77 @@ test.stable(
       );
       const secondCitations = yield* second.evidence.citations(second.output);
 
-      test.expectTypeOf(secondCitations[0]!.reference).toEqualTypeOf<string>();
-      test.assert.equal(secondCitations[0]!.reference, 'version-two');
-      test.assert.equal(secondCitations[0]!.quote, 'Another original evidence');
+      expectTypeOf(secondCitations[0]!.reference).toEqualTypeOf<string>();
+      assert.equal(secondCitations[0]!.reference, 'version-two');
+      assert.equal(secondCitations[0]!.quote, 'Another original evidence');
       const citations = yield* first.evidence.citations(first.output);
 
-      test.assert.equal(citations[0]!.quote, original.blocks[0]!.text);
-      test.assert.equal(citations[0]!.reference, 'version-one');
-      test.assert.deepEqual(citations[0]!.target, {
+      assert.equal(citations[0]!.quote, original.blocks[0]!.text);
+      assert.equal(citations[0]!.reference, 'version-one');
+      assert.deepEqual(citations[0]!.target, {
         blockId: original.blocks[0]!.id,
         start: 0,
         end: original.blocks[0]!.text.length
       });
-      test.assert.deepEqual(citations[0]!.anchor, { type: 'authored' });
+      assert.deepEqual(citations[0]!.anchor, { type: 'authored' });
 
       return second.output;
     });
 
-    test.assert.equal(await run(databases, execute, Schema.String, prompts), 'Final [1]');
-    test.assert.equal(prompts.length, 2);
-    test.assert.include(prompts[0]!, 'Original agent prompt: one');
-    test.assert.include(prompts[1]!, 'Alternate original: two');
+    assert.equal(await run(databases, execute, Schema.String, prompts), 'Final [1]');
+    assert.equal(prompts.length, 2);
+    assert.include(prompts[0]!, 'Original agent prompt: one');
+    assert.include(prompts[1]!, 'Alternate original: two');
   }
 );
 
-test.stable('rejects oversized prompts before admitting provider work', async ({ databases }) => {
-  const prompts: string[] = [];
-  const execute = generateAgent(
-    { ...replyAgent, context: preparation },
-    { request: 'x'.repeat(30000) },
-    {
-      scope: 'one',
-      preflight: Effect.void,
-      sources: {
-        referenceSchema: Schema.String,
-        documents: [
-          {
-            key: 'one',
-            reference: 'v1',
-            load: Effect.succeed({ name: 'Original', document: document(['exact']) })
-          }
-        ]
-      }
-    }
-  ).pipe(
-    Effect.flip,
-    Effect.map((error) => error.kind)
-  );
+test.stable(
+  'rejects oversized prompts before admitting provider work',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  test.assert.equal(await run(databases, execute, Schema.String, prompts), 'not_enough');
-  test.assert.equal(prompts.length, 0);
-});
+    const prompts: string[] = [];
+    const execute = generateAgent(
+      { ...replyAgent, context: preparation },
+      { request: 'x'.repeat(30000) },
+      {
+        scope: 'one',
+        preflight: Effect.void,
+        sources: {
+          referenceSchema: Schema.String,
+          documents: [
+            {
+              key: 'one',
+              reference: 'v1',
+              load: Effect.succeed({ name: 'Original', document: document(['exact']) })
+            }
+          ]
+        }
+      }
+    ).pipe(
+      Effect.flip,
+      Effect.map((error) => error.kind)
+    );
+
+    assert.equal(await run(databases, execute, Schema.String, prompts), 'not_enough');
+    assert.equal(prompts.length, 0);
+  }
+);
 
 test.stable(
   'binds source tools to each run without mutating the caller environment',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const searchingAgent = defineAgent({
       ...replyAgent,
       id: 'prepared-searching',
       tools: { sources: sourcesTool }
     });
-    const check = (label: string) =>
-      Effect.gen(function* () {
+    const check = ({ assert: assertions }: Pick<test.Context, 'assert'>, label: string) => {
+      const assert: test.Assert = assertions;
+
+      return Effect.gen(function* () {
         const parent = yield* Agents;
         const generated = yield* generateAgent(
           { ...searchingAgent, context: preparation },
@@ -489,30 +503,33 @@ test.stable(
           }
         );
 
-        test.assert.strictEqual((yield* Agents).searchSources, parent.searchSources);
+        assert.strictEqual((yield* Agents).searchSources, parent.searchSources);
         const citations = yield* generated.evidence.citations(generated.output);
 
-        test.assert.equal(citations[0]!.reference, label);
+        assert.equal(citations[0]!.reference, label);
 
         return generated.output;
       });
+    };
     const first: string[] = [],
       second: string[] = [];
 
-    await run(databases, check('first-only'), Schema.String, first);
-    await run(databases, check('second-only'), Schema.String, second);
-    test.assert.equal(first.length, 2);
-    test.assert.equal(second.length, 2);
-    test.assert.include(first[1]!, 'shared first-only');
-    test.assert.notInclude(first[1]!, 'second-only');
-    test.assert.include(second[1]!, 'shared second-only');
-    test.assert.notInclude(second[1]!, 'first-only');
+    await run(databases, check({ assert }, 'first-only'), Schema.String, first);
+    await run(databases, check({ assert }, 'second-only'), Schema.String, second);
+    assert.equal(first.length, 2);
+    assert.equal(second.length, 2);
+    assert.include(first[1]!, 'shared first-only');
+    assert.notInclude(first[1]!, 'second-only');
+    assert.include(second[1]!, 'shared second-only');
+    assert.notInclude(second[1]!, 'first-only');
   }
 );
 
 test.stable(
   'retains explicit selected original ranges and excludes unselected evidence',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const original = document(['prefix selected suffix']);
     const execute = Effect.gen(function* () {
       const result = yield* generateAgent(
@@ -538,11 +555,11 @@ test.stable(
         }
       );
 
-      test.assert.equal(result.coverage.mode, 'selected');
+      assert.equal(result.coverage.mode, 'selected');
       const citation = (yield* result.evidence.citations(result.output))[0]!;
 
-      test.assert.equal(citation.quote, 'selected');
-      test.assert.deepEqual(citation.target, {
+      assert.equal(citation.quote, 'selected');
+      assert.deepEqual(citation.target, {
         blockId: original.blocks[0]!.id,
         start: 7,
         end: 15
@@ -553,14 +570,16 @@ test.stable(
     const prompts: string[] = [];
 
     await run(databases, execute, Schema.String, prompts);
-    test.assert.notInclude(prompts[0]!, 'prefix');
-    test.assert.notInclude(prompts[0]!, 'suffix');
+    assert.notInclude(prompts[0]!, 'prefix');
+    assert.notInclude(prompts[0]!, 'suffix');
   }
 );
 
 test.stable(
   'preparation agents search only their piece or reduction originals',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const prompts: string[] = [];
     const observations: (typeof agentObservationSchema.Type)[] = [];
     const searchingNotes = { ...notesAgent, tools: { sources: sourcesTool } };
@@ -602,17 +621,14 @@ test.stable(
       }
     ).pipe(Effect.map(({ output }) => output));
 
-    test.assert.equal(
-      await run(databases, execute, Schema.String, prompts, observations),
-      'Final [1]'
-    );
-    test.assert.deepEqual(
+    assert.equal(await run(databases, execute, Schema.String, prompts, observations), 'Final [1]');
+    assert.deepEqual(
       observations.filter(({ event }) => event.type === 'start').map(({ phase }) => phase),
       ['preparing', 'preparing', 'compacting', 'generating']
     );
 
     for (const observation of observations) {
-      test.assert.equal(
+      assert.equal(
         observation.phase,
         observations.find(({ runId }) => runId === observation.runId)!.phase
       );
@@ -622,25 +638,27 @@ test.stable(
       (prompt) => prompt.includes('Map task:') && prompt.includes('tool-result')
     );
 
-    test.assert.equal(maps.length, 2);
-    test.assert.include(maps[0]!, 'Original agent prompt: Final synthesis');
-    test.assert.include(maps[0]!, 'first-piece');
-    test.assert.notInclude(maps[0]!, 'second-piece');
-    test.assert.include(maps[1]!, 'second-piece');
-    test.assert.notInclude(maps[1]!, 'first-piece');
+    assert.equal(maps.length, 2);
+    assert.include(maps[0]!, 'Original agent prompt: Final synthesis');
+    assert.include(maps[0]!, 'first-piece');
+    assert.notInclude(maps[0]!, 'second-piece');
+    assert.include(maps[1]!, 'second-piece');
+    assert.notInclude(maps[1]!, 'first-piece');
     const reductions = prompts.filter(
       (prompt) => prompt.includes('Reduce task:') && prompt.includes('tool-result')
     );
 
-    test.assert.equal(reductions.length, 1);
-    test.assert.include(reductions[0]!, 'first-piece');
-    test.assert.include(reductions[0]!, 'second-piece');
+    assert.equal(reductions.length, 1);
+    assert.include(reductions[0]!, 'first-piece');
+    assert.include(reductions[0]!, 'second-piece');
   }
 );
 
 test.stable(
   'invalid final agent input fails before multi-piece provider work',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const prompts: string[] = [];
     const execute = generateAgent(
       { ...replyAgent, context: preparation },
@@ -667,14 +685,16 @@ test.stable(
       Effect.map((error) => error.kind)
     );
 
-    test.assert.equal(await run(databases, execute, Schema.String, prompts), 'invalid_input');
-    test.assert.equal(prompts.length, 0);
+    assert.equal(await run(databases, execute, Schema.String, prompts), 'invalid_input');
+    assert.equal(prompts.length, 0);
   }
 );
 
 test.stable(
   'compresses one piece when the assembled final prompt cannot pass directly',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const prompts: string[] = [];
     const execute = generateAgent(
       {
@@ -708,26 +728,28 @@ test.stable(
       }
     ).pipe(Effect.map(({ output }) => output));
 
-    test.assert.equal(await run(databases, execute, Schema.String, prompts), 'Final [1]');
-    test.assert.isAbove(prompts.filter((prompt) => prompt.includes('Map task:')).length, 1);
-    test.assert.include(prompts[0]!, 'Map task:');
-    test.assert.include(prompts.at(-1)!, 'Prepared concept');
+    assert.equal(await run(databases, execute, Schema.String, prompts), 'Final [1]');
+    assert.isAbove(prompts.filter((prompt) => prompt.includes('Map task:')).length, 1);
+    assert.include(prompts[0]!, 'Map task:');
+    assert.include(prompts.at(-1)!, 'Prepared concept');
   }
 );
 
 test.stable(
   'rejects missing captured context at runtime and prevents streaming bypass',
-  async ({ databases }) => {
+  async ({ databases, expectTypeOf, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const definition = defineAgent({ ...replyAgent, context: preparation });
     const widened: AgentDefinition<typeof replyAgent.input, typeof replyAgent.output> = definition;
 
-    test.expectTypeOf(definition).not.toExtend<Parameters<typeof generateAgent>[0]>();
-    test.expectTypeOf(widened).not.toExtend<Parameters<typeof generateAgent>[0]>();
+    expectTypeOf(definition).not.toExtend<Parameters<typeof generateAgent>[0]>();
+    expectTypeOf(widened).not.toExtend<Parameters<typeof generateAgent>[0]>();
     const missing = Reflect.apply(generateAgent, undefined, [definition, { request: 'Learn' }, {}]);
     const result = await Effect.runPromise(Effect.flip(missing));
 
-    test.assert.instanceOf(result, StudyError);
-    test.assert.equal(result.kind, 'invalid_input');
+    assert.instanceOf(result, StudyError);
+    assert.equal(result.kind, 'invalid_input');
     const prompts: string[] = [];
     const streamed = streamAgent(definition, { request: 'Learn' }).pipe(
       Stream.runDrain,
@@ -735,15 +757,17 @@ test.stable(
       Effect.map((error) => error.kind)
     );
 
-    test.assert.equal(await run(databases, streamed, Schema.String, prompts), 'unsupported');
-    test.assert.equal(prompts.length, 0);
+    assert.equal(await run(databases, streamed, Schema.String, prompts), 'unsupported');
+    assert.equal(prompts.length, 0);
   }
 );
 
 test.stable(
   'reduction groups include prompt escaping and instruction overhead in their budget',
-  async ({ databases }) => {
-    using ai = test.createAiMock();
+  async ({ databases, createAiMock, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    using ai = createAiMock();
     const source = ['a'.repeat(1000), 'b'.repeat(1000)];
     const mapped = source.map((_, index) => ({
       notes: [{ text: '\\'.repeat(20000), markers: [index + 1] }]
@@ -795,7 +819,7 @@ test.stable(
       })
       .pipe(Effect.map((prepared) => prepared.coverage.mode));
 
-    test.assert.equal(
+    assert.equal(
       await run(databases, execute, Schema.String, [], [], (tier, call) =>
         ai.runtime
           .model(tier, call)

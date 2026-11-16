@@ -18,34 +18,26 @@ const config = {
 
 test.stable(
   'build storage configuration rejects cache bypasses, duplicate targets and broad Docker contexts',
-  () => {
-    test.expect(buildStoragePolicy(config)).toEqual([]);
-    test.expect(buildStoragePolicy({ ...config, cargoTarget: 'target' })).toHaveLength(1);
-    test
-      .expect(
-        buildStoragePolicy({
-          ...config,
-          scripts: { ...config.scripts, build: 'bun --bun turbo run build' }
-        })
-      )
-      .toHaveLength(2);
-    test
-      .expect(
-        buildStoragePolicy({ ...config, dockerIgnore: `${config.dockerIgnore}\n!target/**\n` })
-      )
-      .toHaveLength(1);
-    test
-      .expect(
-        buildStoragePolicy({ ...config, dockerIgnore: `${config.dockerIgnore}\n!tooling/\n` })
-      )
-      .toHaveLength(1);
-    test
-      .expect(
-        buildStoragePolicy({
-          ...config,
-          dockerIgnore: config.dockerIgnore.replace('!mise.toml', '')
-        })
-      )
-      .toHaveLength(1);
+  ({ expect }) => {
+    expect(buildStoragePolicy(config)).toEqual([]);
+    expect(buildStoragePolicy({ ...config, cargoTarget: 'target' })).toHaveLength(1);
+    expect(
+      buildStoragePolicy({
+        ...config,
+        scripts: { ...config.scripts, build: 'bun --bun turbo run build' }
+      })
+    ).toHaveLength(2);
+    expect(
+      buildStoragePolicy({ ...config, dockerIgnore: `${config.dockerIgnore}\n!target/**\n` })
+    ).toHaveLength(1);
+    expect(
+      buildStoragePolicy({ ...config, dockerIgnore: `${config.dockerIgnore}\n!tooling/\n` })
+    ).toHaveLength(1);
+    expect(
+      buildStoragePolicy({
+        ...config,
+        dockerIgnore: config.dockerIgnore.replace('!mise.toml', '')
+      })
+    ).toHaveLength(1);
   }
 );

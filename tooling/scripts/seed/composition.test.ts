@@ -44,23 +44,23 @@ function createSmallCourse(seed: SeedHarness) {
 
 test.stable(
   'creator sequences reuse library fixtures across any number of notes',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const location = await databases();
 
     const summary = await seedDatabase(location.path, [createSmallCourse]);
 
-    test.expect(summary).toEqual({ projects: 1, notes: 2, sources: 1, pages: 1, materials: 1 });
+    expect(summary).toEqual({ projects: 1, notes: 2, sources: 1, pages: 1, materials: 1 });
 
     const db = await location.open();
 
     try {
-      test.expect(db.orm.get(sql`SELECT count(*) n FROM notes`)?.n).toBe(2n);
-      test.expect(db.orm.get(sql`SELECT count(*) n FROM note_sources`)?.n).toBe(2n);
-      test.expect(db.orm.get(sql`SELECT count(*) n FROM note_pages`)?.n).toBe(2n);
-      test.expect(db.orm.get(sql`SELECT count(*) n FROM note_materials`)?.n).toBe(2n);
-      test.expect(db.orm.get(sql`SELECT count(*) n FROM messages`)?.n).toBe(4n);
-      test.expect(db.orm.get(sql`SELECT count(*) n FROM material_flashcard_versions`)?.n).toBe(1n);
-      test.expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toEqual([]);
+      expect(db.orm.get(sql`SELECT count(*) n FROM notes`)?.n).toBe(2n);
+      expect(db.orm.get(sql`SELECT count(*) n FROM note_sources`)?.n).toBe(2n);
+      expect(db.orm.get(sql`SELECT count(*) n FROM note_pages`)?.n).toBe(2n);
+      expect(db.orm.get(sql`SELECT count(*) n FROM note_materials`)?.n).toBe(2n);
+      expect(db.orm.get(sql`SELECT count(*) n FROM messages`)?.n).toBe(4n);
+      expect(db.orm.get(sql`SELECT count(*) n FROM material_flashcard_versions`)?.n).toBe(1n);
+      expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toEqual([]);
     } finally {
       db.close();
     }
@@ -69,43 +69,38 @@ test.stable(
 
 test.stable(
   'cross-project fixture references abort the candidate and preserve the existing database',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const location = await databases();
     const db = await location.open();
     const before = db.contentIdentity();
 
     db.close();
 
-    await test
-      .expect(
-        seedDatabase(location.path, [
-          (seed) => {
-            const first = createProject(seed, { name: 'First', color: 'blue', examInDays: 21 });
-            const second = createProject(seed, {
-              name: 'Second',
-              color: 'green',
-              examInDays: 28
-            });
-            const source = createSource(
-              first,
-              textSource('private.txt', 'A project-owned source.')
-            );
+    await expect(
+      seedDatabase(location.path, [
+        (seed) => {
+          const first = createProject(seed, { name: 'First', color: 'blue', examInDays: 21 });
+          const second = createProject(seed, {
+            name: 'Second',
+            color: 'green',
+            examInDays: 28
+          });
+          const source = createSource(first, textSource('private.txt', 'A project-owned source.'));
 
-            createNote(second, {
-              title: 'Wrong project',
-              exchanges: [],
-              daysAgo: 1,
-              sources: [source]
-            });
-          }
-        ])
-      )
-      .rejects.toThrow(RangeError);
+          createNote(second, {
+            title: 'Wrong project',
+            exchanges: [],
+            daysAgo: 1,
+            sources: [source]
+          });
+        }
+      ])
+    ).rejects.toThrow(RangeError);
 
     const retained = await location.open();
 
     try {
-      test.expect(retained.contentIdentity()).toBe(before);
+      expect(retained.contentIdentity()).toBe(before);
     } finally {
       retained.close();
     }
@@ -114,7 +109,7 @@ test.stable(
 
 test.stable(
   'notes can mix multiple turns and omit unrelated fixture kinds',
-  async ({ databases }) => {
+  async ({ databases, expect }) => {
     const location = await databases();
 
     await seedDatabase(location.path, [
@@ -139,8 +134,8 @@ test.stable(
     const db = await location.open();
 
     try {
-      test.expect(db.orm.get(sql`SELECT count(*) n FROM messages`)?.n).toBe(4n);
-      test.expect(db.orm.get(sql`SELECT count(*) n FROM sources`)?.n).toBe(0n);
+      expect(db.orm.get(sql`SELECT count(*) n FROM messages`)?.n).toBe(4n);
+      expect(db.orm.get(sql`SELECT count(*) n FROM sources`)?.n).toBe(0n);
     } finally {
       db.close();
     }

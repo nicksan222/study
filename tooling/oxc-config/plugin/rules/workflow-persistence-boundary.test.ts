@@ -2,7 +2,12 @@ import { test } from '@study/testing';
 
 import { lintRule, lintRulePaths } from '../test/utils.ts';
 
-async function lint(files: Record<string, string>) {
+async function lint(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  files: Record<string, string>
+) {
+  const assert: test.Assert = assertions;
+
   const sources = Object.fromEntries(
     Object.entries(files).map(([path, source]) => [
       path,
@@ -11,15 +16,18 @@ ${source}`
     ])
   );
 
-  return await lintRulePaths('workflow-persistence-boundary', sources);
+  return await lintRulePaths({ assert }, 'workflow-persistence-boundary', sources);
 }
 
 test.stable(
   'only progress persistence and retirement cleanup may write generation previews',
-  async () => {
-    test
-      .expect(
-        await lint({
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
           'apps/server/src/platform/workflows/agent-progress.ts': `import { workflow_agent_progress } from '@study/db';
  db.insert(workflow_agent_progress);
  db.update(workflow_agent_progress);
@@ -33,21 +41,24 @@ test.stable(
           'apps/server/src/platform/ai/agents.ts': `import { workflow_agent_progress } from '@study/db';
  db.update(workflow_agent_progress);
 `
-        })
+        }
       )
-      .toStrictEqual([
-        'apps/server/src/features/notes/store/index.ts',
-        'apps/server/src/platform/ai/agents.ts'
-      ]);
+    ).toStrictEqual([
+      'apps/server/src/features/notes/store/index.ts',
+      'apps/server/src/platform/ai/agents.ts'
+    ]);
   }
 );
 
 test.stable(
   'restricts workflow table mutations to their exact owners while allowing reads',
-  async () => {
-    test
-      .expect(
-        await lint({
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
           'apps/server/src/features/workflows/store.ts': `import { workflow_executions as executions, workflowEvents } from '@study/db';
  db.select().from(executions);
  db.update(executions).set({});
@@ -72,22 +83,25 @@ test.stable(
  db.delete(workflow_configuration_waits);
 `,
           'apps/server/src/feature.test.ts': `import { workflow_executions } from '@study/db'; db.delete(workflow_executions);`
-        })
+        }
       )
-      .toStrictEqual([
-        'apps/server/src/features/workflows/store.ts',
-        'apps/server/src/features/workflows/store.ts',
-        'apps/server/src/platform/workflows/control.ts'
-      ]);
+    ).toStrictEqual([
+      'apps/server/src/features/workflows/store.ts',
+      'apps/server/src/features/workflows/store.ts',
+      'apps/server/src/platform/workflows/control.ts'
+    ]);
   }
 );
 
 test.stable(
   'resolves imported tables through aliases, destructuring, wrappers and lexical scopes',
-  async () => {
-    test
-      .expect(
-        await lint({
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
           'apps/server/src/features/jobs/store.ts': `
       import * as schema from '@study/db';
       import { workflowReceipts as clocks } from '@study/db';
@@ -97,17 +111,22 @@ test.stable(
       const a = b; const b = a; db.insert(a);
       db.insert(schema.ordinary).onConflictDoUpdate({ target: schema.ordinary });
     `
-        })
+        }
       )
-      .toStrictEqual(Array(3).fill('apps/server/src/features/jobs/store.ts'));
+    ).toStrictEqual(Array(3).fill('apps/server/src/features/jobs/store.ts'));
   }
 );
 
-test.stable('recognizes raw SQL writes without treating reads or values as mutations', async () => {
-  test
-    .expect(
-      await lint({
-        'apps/server/src/features/jobs/store.ts': `
+test.stable(
+  'recognizes raw SQL writes without treating reads or values as mutations',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
+          'apps/server/src/features/jobs/store.ts': `
       import { sql as query } from 'drizzle-orm';
       import * as schema from '@study/db';
       const q = query;
@@ -122,16 +141,22 @@ test.stable('recognizes raw SQL writes without treating reads or values as mutat
       db.execute("SELECT 'DELETE FROM workflow_receipts'");
       db.execute('SELECT "update" workflow_executions FROM ordinary');
     `
-      })
-    )
-    .toStrictEqual(Array(6).fill('apps/server/src/features/jobs/store.ts'));
-});
+        }
+      )
+    ).toStrictEqual(Array(6).fill('apps/server/src/features/jobs/store.ts'));
+  }
+);
 
-test.stable('each protected table is restricted to its mapped owners', async () => {
-  test
-    .expect(
-      await lint({
-        'apps/server/src/platform/workflows/engine.ts': `import {
+test.stable(
+  'each protected table is restricted to its mapped owners',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
+          'apps/server/src/platform/workflows/engine.ts': `import {
   workflow_agent_progress,
   workflow_configuration_waits,
   workflowReceipts
@@ -142,24 +167,30 @@ test.stable('each protected table is restricted to its mapped owners', async () 
  db.insert(workflow_configuration_waits);
  db.insert(workflowReceipts);
 `,
-        'apps/server/src/platform/workflows/store.ts': `import { workflow_agent_progress, workflow_executions } from '@study/db';
+          'apps/server/src/platform/workflows/store.ts': `import { workflow_agent_progress, workflow_executions } from '@study/db';
  db.delete(workflow_agent_progress);
  db.update(workflow_executions);
 `,
-        'apps/server/src/platform/workflows/events.ts': `import { workflow_executions } from '@study/db'; db.insert(workflow_executions);`
-      })
-    )
-    .toStrictEqual([
+          'apps/server/src/platform/workflows/events.ts': `import { workflow_executions } from '@study/db'; db.insert(workflow_executions);`
+        }
+      )
+    ).toStrictEqual([
       ...Array(5).fill('apps/server/src/platform/workflows/engine.ts'),
       'apps/server/src/platform/workflows/events.ts'
     ]);
-});
+  }
+);
 
-test.stable('unrelated APIs and SQL identifiers are not workflow writers', async () => {
-  test
-    .expect(
-      await lint({
-        'apps/server/src/features/example/store.ts': `
+test.stable(
+  'unrelated APIs and SQL identifiers are not workflow writers',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
+          'apps/server/src/features/example/store.ts': `
       import { workflow_executions } from '@study/db';
       logger.update(workflow_executions);
       parser.run('UPDATE workflow_executions SET x=1');
@@ -167,36 +198,45 @@ test.stable('unrelated APIs and SQL identifiers are not workflow writers', async
       db.execute('WITH update AS (SELECT 1) SELECT workflow_executions FROM ordinary');
       function shadow(db: { update(value: unknown): void }) { db.update(workflow_executions); }
     `
-      })
-    )
-    .toStrictEqual([]);
-});
+        }
+      )
+    ).toStrictEqual([]);
+  }
+);
 
 for (const identifier of ['constructor', '__proto__', 'ordinary']) {
   for (const statement of [
     `WITH ${identifier} AS (SELECT 1) DELETE FROM workflow_events WHERE id = 1`,
     `SELECT ${identifier} FROM ordinary; DELETE FROM workflow_events WHERE id = 1`
   ]) {
-    test.stable(`detects protected SQL writes after ${statement}`, async () => {
-      const diagnostics = await lintRule('workflow-persistence-boundary', {
-        'apps/server/src/features/jobs/store.ts': `import type { Db } from '@study/db';
+    test.stable(
+      `detects protected SQL writes after ${statement}`,
+      async ({ expect, assert: assertions }) => {
+        const assert: test.Assert = assertions;
+
+        const diagnostics = await lintRule({ assert }, 'workflow-persistence-boundary', {
+          'apps/server/src/features/jobs/store.ts': `import type { Db } from '@study/db';
 declare const db: Db;
 db.execute(${JSON.stringify(statement)});`
-      });
+        });
 
-      test
-        .expect(diagnostics.map(({ message }) => message))
-        .toStrictEqual(['Only the canonical workflow owner may write workflow_events.']);
-    });
+        expect(diagnostics.map(({ message }) => message)).toStrictEqual([
+          'Only the canonical workflow owner may write workflow_events.'
+        ]);
+      }
+    );
   }
 }
 
 test.stable(
   'retirement may write its fences but progress and event mutations retain existing canonical owners',
-  async () => {
-    test
-      .expect(
-        await lint({
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
           'apps/server/src/platform/workflows/retirement.ts': `
       import * as s from '@study/db';
       db.insert(s.workflow_retired_correlations); db.insert(s.workflow_retired_executions);
@@ -218,22 +258,25 @@ test.stable(
           'apps/server/src/platform/workflows/configuration.ts': `import * as s from '@study/db';
  db.delete(s.workflow_configuration_waits);
 `
-        })
+        }
       )
-      .toStrictEqual([
-        ...Array(2).fill('apps/server/src/features/notes/store/deletion.ts'),
-        'apps/server/src/platform/workflows/control.ts',
-        ...Array(3).fill('apps/server/src/platform/workflows/retirement.ts')
-      ]);
+    ).toStrictEqual([
+      ...Array(2).fill('apps/server/src/features/notes/store/deletion.ts'),
+      'apps/server/src/platform/workflows/control.ts',
+      ...Array(3).fill('apps/server/src/platform/workflows/retirement.ts')
+    ]);
   }
 );
 
 test.stable(
   'Material cleanup cannot acquire domain execution, progress, event or fence writer authority',
-  async () => {
-    test
-      .expect(
-        await lint({
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
           'apps/server/src/features/materials/store/deletion.ts': `
       import * as s from '@study/db';
       import { sql } from '@study/db';
@@ -248,18 +291,21 @@ test.stable(
       import * as s from '@study/db';
       db.insert(s.workflow_retired_correlations); db.insert(s.workflow_retired_executions);
     `
-        })
+        }
       )
-      .toStrictEqual(Array(8).fill('apps/server/src/features/materials/store/deletion.ts'));
+    ).toStrictEqual(Array(8).fill('apps/server/src/features/materials/store/deletion.ts'));
   }
 );
 
 test.stable(
   'history participants cannot mutate domain payloads, progress, waits or fences',
-  async () => {
-    test
-      .expect(
-        await lint({
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
           'apps/server/src/features/materials/store/generation-cleanup.ts': `
       import * as schema from '@study/db';
       const { workflow_agent_progress: checkpoints, workflow_retired_executions: retired } = schema;
@@ -279,21 +325,24 @@ test.stable(
           'apps/server/src/platform/workflows/retirement.ts': `
       import * as s from '@study/db'; db.insert(s.workflow_retired_correlations); db.insert(s.workflow_retired_executions);
     `
-        })
+        }
       )
-      .toStrictEqual([
-        ...Array(3).fill('apps/server/src/features/materials/store/generation-cleanup.ts'),
-        ...Array(3).fill('apps/server/src/features/notes/store/material-history.ts')
-      ]);
+    ).toStrictEqual([
+      ...Array(3).fill('apps/server/src/features/materials/store/generation-cleanup.ts'),
+      ...Array(3).fill('apps/server/src/features/notes/store/material-history.ts')
+    ]);
   }
 );
 
 test.stable(
   'snapshot sanitizers cannot clear native payloads or receipts outside the canonical workflow owners',
-  async () => {
-    test
-      .expect(
-        await lint({
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
           'apps/server/src/features/system/store/backup.ts': `
       import * as s from '@study/db'; import { sql } from '@study/db';
       db.select().from(s.workflow_executions);
@@ -304,38 +353,43 @@ test.stable(
           'apps/server/src/platform/database/backups.ts': `
       import * as s from '@study/db'; db.delete(s.workflow_retired_executions);
     `
-        })
+        }
       )
-      .toStrictEqual([
-        ...Array(5).fill('apps/server/src/features/system/store/backup.ts'),
-        'apps/server/src/platform/database/backups.ts'
-      ]);
+    ).toStrictEqual([
+      ...Array(5).fill('apps/server/src/features/system/store/backup.ts'),
+      'apps/server/src/platform/database/backups.ts'
+    ]);
   }
 );
 
-test.stable('official SQL infrastructure has no first-party schema or writer owner', async () => {
-  test
-    .expect(
-      await lint({
-        'apps/server/src/platform/workflows/engine.ts': `import { sql } from '@study/db';
+test.stable(
+  'official SQL infrastructure has no first-party schema or writer owner',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
+          'apps/server/src/platform/workflows/engine.ts': `import { sql } from '@study/db';
  sql\`INSERT INTO cluster_messages VALUES (1)\`; sql.raw('UPDATE "cluster_replies" SET payload=1');`,
-        'packages/db/src/custom.ts': `db.exec('CREATE TABLE cluster_messages(id TEXT)');
+          'packages/db/src/custom.ts': `db.exec('CREATE TABLE cluster_messages(id TEXT)');
  db.exec('ALTER TABLE main.cluster_replies ADD payload TEXT');
  db.exec('DROP TABLE IF EXISTS cluster_migrations');
 `,
-        'apps/server/src/features/jobs/store.ts': `db.exec('CREATE INDEX job_index ON cluster_messages(id)');
+          'apps/server/src/features/jobs/store.ts': `db.exec('CREATE INDEX job_index ON cluster_messages(id)');
  db.exec('CREATE TRIGGER private_write AFTER INSERT ON cluster_replies BEGIN SELECT 1; END');
 `,
-        'packages/db/src/schema/custom.ts': `sqliteTable('cluster_messages', {});
+          'packages/db/src/schema/custom.ts': `sqliteTable('cluster_messages', {});
  defineTable({ role: 'internal' })('cluster_replies', {});
 `,
-        'tooling/scripts/jobs.ts': `db.exec('DELETE FROM cluster_messages');`,
-        'apps/server/src/platform/workflows/reader.ts': `db.exec('SELECT * FROM cluster_messages');
+          'tooling/scripts/jobs.ts': `db.exec('DELETE FROM cluster_messages');`,
+          'apps/server/src/platform/workflows/reader.ts': `db.exec('SELECT * FROM cluster_messages');
  db.exec("SELECT 'DELETE FROM cluster_messages'");
 `
-      })
-    )
-    .toStrictEqual([
+        }
+      )
+    ).toStrictEqual([
       'apps/server/src/features/jobs/store.ts',
       'apps/server/src/features/jobs/store.ts',
       'apps/server/src/platform/workflows/engine.ts',
@@ -347,23 +401,30 @@ test.stable('official SQL infrastructure has no first-party schema or writer own
       'packages/db/src/schema/custom.ts',
       'tooling/scripts/jobs.ts'
     ]);
-});
+  }
+);
 
-test.stable('checks trigger body writes and created schema object names', async () => {
-  test
-    .expect(
-      await lint({
-        'apps/server/src/features/jobs/body.ts': `db.exec('CREATE TRIGGER audit AFTER INSERT ON notes BEGIN DELETE FROM cluster_messages; END;');`,
-        'apps/server/src/features/jobs/index.ts': `db.exec('CREATE UNIQUE INDEX IF NOT EXISTS cluster_custom ON notes(updated_at)');`,
-        'apps/server/src/features/jobs/trigger.ts': `db.exec('CREATE TEMP TRIGGER cluster_custom AFTER INSERT ON notes BEGIN SELECT 1; END;');`,
-        'apps/server/src/features/jobs/allowed.ts': `db.exec("CREATE TRIGGER audit AFTER INSERT ON notes BEGIN SELECT 'DELETE FROM cluster_messages'; END;");
+test.stable(
+  'checks trigger body writes and created schema object names',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
+          'apps/server/src/features/jobs/body.ts': `db.exec('CREATE TRIGGER audit AFTER INSERT ON notes BEGIN DELETE FROM cluster_messages; END;');`,
+          'apps/server/src/features/jobs/index.ts': `db.exec('CREATE UNIQUE INDEX IF NOT EXISTS cluster_custom ON notes(updated_at)');`,
+          'apps/server/src/features/jobs/trigger.ts': `db.exec('CREATE TEMP TRIGGER cluster_custom AFTER INSERT ON notes BEGIN SELECT 1; END;');`,
+          'apps/server/src/features/jobs/allowed.ts': `db.exec("CREATE TRIGGER audit AFTER INSERT ON notes BEGIN SELECT 'DELETE FROM cluster_messages'; END;");
  db.exec('CREATE INDEX note_updated ON notes(updated_at)');
 `
-      })
-    )
-    .toStrictEqual([
+        }
+      )
+    ).toStrictEqual([
       'apps/server/src/features/jobs/body.ts',
       'apps/server/src/features/jobs/index.ts',
       'apps/server/src/features/jobs/trigger.ts'
     ]);
-});
+  }
+);

@@ -16,31 +16,37 @@ import { test } from '@study/testing';
 import { anthropic } from './anthropic.ts';
 import { apiKeyProviders, getApiKeyProvider, providerCatalog } from './registry.ts';
 
-test.stable('the provider registry exposes ten API-key providers without credentials', () => {
-  test.expect(apiKeyProviders).toHaveLength(10);
-  test.expect(new Set(apiKeyProviders.map((provider) => provider.id)).size).toBe(10);
-  test.expect(providerCatalog().map((provider) => provider.id)).toContain('anthropic');
-  test.expect(providerCatalog().map((provider) => provider.id)).toContain('openrouter');
-  test.expect(providerCatalog().map((provider) => provider.id)).toContain('deepseek');
-  test.expect(JSON.stringify(providerCatalog())).not.toContain('apiKey');
-});
-
-test.stable('unknown providers fail before a request can be constructed', () => {
-  test.expect(() => getApiKeyProvider('unknown')).toThrow(StudyError);
-});
-
-test.stable('each registry entry constructs an AI SDK v3 model with the requested id', () => {
-  for (const provider of apiKeyProviders) {
-    const model = provider.createModel({ apiKey: 'test-key', modelId: 'test-model' });
-
-    test.expect(model.specificationVersion).toBe('v3');
-    test.expect(model.modelId).toBe('test-model');
+test.stable(
+  'the provider registry exposes ten API-key providers without credentials',
+  ({ expect }) => {
+    expect(apiKeyProviders).toHaveLength(10);
+    expect(new Set(apiKeyProviders.map((provider) => provider.id)).size).toBe(10);
+    expect(providerCatalog().map((provider) => provider.id)).toContain('anthropic');
+    expect(providerCatalog().map((provider) => provider.id)).toContain('openrouter');
+    expect(providerCatalog().map((provider) => provider.id)).toContain('deepseek');
+    expect(JSON.stringify(providerCatalog())).not.toContain('apiKey');
   }
+);
+
+test.stable('unknown providers fail before a request can be constructed', ({ expect }) => {
+  expect(() => getApiKeyProvider('unknown')).toThrow(StudyError);
 });
 
 test.stable(
+  'each registry entry constructs an AI SDK v3 model with the requested id',
+  ({ expect }) => {
+    for (const provider of apiKeyProviders) {
+      const model = provider.createModel({ apiKey: 'test-key', modelId: 'test-model' });
+
+      expect(model.specificationVersion).toBe('v3');
+      expect(model.modelId).toBe('test-model');
+    }
+  }
+);
+
+test.stable(
   'all providers serialize credentials and parse their native protocol over HTTP',
-  async () => {
+  async ({ expect }) => {
     const expectedOrigins: Record<string, string> = {
       anthropic: 'https://api.anthropic.com',
       google: 'https://generativelanguage.googleapis.com',
@@ -113,8 +119,8 @@ test.stable(
     });
     const address = { port: server.port };
 
-    test.expect(address).not.toBeNull();
-    test.expect(typeof address).toBe('object');
+    expect(address).not.toBeNull();
+    expect(typeof address).toBe('object');
 
     const base = `http://127.0.0.1:${(address as { port: number }).port}`;
 
@@ -135,19 +141,17 @@ test.stable(
           prompt: [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }]
         });
 
-        test.expect(result.content).toContainEqual({ type: 'text', text: 'Hello' });
-        test.expect(target?.origin).toBe(expectedOrigins[provider.id]);
-        test
-          .expect(authorization)
-          .toBe(
-            provider.id === 'anthropic' || provider.id === 'google'
-              ? 'test-secret'
-              : 'Bearer test-secret'
-          );
+        expect(result.content).toContainEqual({ type: 'text', text: 'Hello' });
+        expect(target?.origin).toBe(expectedOrigins[provider.id]);
+        expect(authorization).toBe(
+          provider.id === 'anthropic' || provider.id === 'google'
+            ? 'test-secret'
+            : 'Bearer test-secret'
+        );
 
-        if (provider.id !== 'google') test.expect(requestedModel).toBe('test-model');
+        if (provider.id !== 'google') expect(requestedModel).toBe('test-model');
 
-        test.expect(result.finishReason.unified).toBe('stop');
+        expect(result.finishReason.unified).toBe('stop');
       }
     } finally {
       await server.stop(true);
@@ -157,15 +161,15 @@ test.stable(
 
 test.stable(
   'provider model options retain literal types and every tier default is selectable',
-  () => {
-    test
-      .expectTypeOf(anthropic.models)
-      .toEqualTypeOf<readonly ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5']>();
+  ({ expectTypeOf, expect }) => {
+    expectTypeOf(anthropic.models).toEqualTypeOf<
+      readonly ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5']
+    >();
 
     for (const provider of apiKeyProviders) {
       const models: readonly string[] = provider.models;
 
-      for (const model of Object.values(provider.defaults)) test.expect(models).toContain(model);
+      for (const model of Object.values(provider.defaults)) expect(models).toContain(model);
     }
   }
 );

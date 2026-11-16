@@ -36,7 +36,7 @@ const workflow = Workflow.make('cancel-recovery-test', {
 for (const accepted of [false, true, 'completed'] as const)
   test.stable(
     `cancel intent survives restart with accepted=${accepted} and retirement clears official messages`,
-    async ({ databases }) => {
+    async ({ databases, expect }) => {
       const location = await databases();
       const context = new ServerContext(await location.open());
       let runtime = ManagedRuntime.make(workflowEngineLayer(context));
@@ -102,23 +102,19 @@ for (const accepted of [false, true, 'completed'] as const)
               )
             });
 
-            test
-              .expect(
-                Option.isNone(
-                  yield* storage.requestIdForPrimaryKey({ address, tag: 'run', id: '' })
-                )
-              )
-              .toBe(true);
+            expect(
+              Option.isNone(yield* storage.requestIdForPrimaryKey({ address, tag: 'run', id: '' }))
+            ).toBe(true);
           }).pipe(Effect.timeout('5 seconds'), Effect.provideService(Scope.Scope, scope))
         );
-        test
-          .expect(context.db.orm.select().from(workflow_executions).get()?.status)
-          .toBe(accepted === 'completed' ? 'completed' : 'cancelled');
+        expect(context.db.orm.select().from(workflow_executions).get()?.status).toBe(
+          accepted === 'completed' ? 'completed' : 'cancelled'
+        );
         scrubRetiredExecution(context.db, id);
         scrubRetiredExecution(context.db, id);
-        test
-          .expect(workflowStore(context).execution(id)?.status)
-          .toBe(accepted === 'completed' ? 'completed' : 'cancelled');
+        expect(workflowStore(context).execution(id)?.status).toBe(
+          accepted === 'completed' ? 'completed' : 'cancelled'
+        );
       } finally {
         await Effect.runPromise(Scope.close(scope, Exit.void));
         await runtime.dispose();

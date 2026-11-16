@@ -24,7 +24,7 @@ import type { Trigger } from '#server/platform/workflows/triggers';
 for (const reason of ['cancelled', 'depth'] as const)
   test.stable(
     `a full batch of ${reason} intent cannot starve a subsequent event`,
-    async ({ databases }) => {
+    async ({ databases, expect }) => {
       const location = await databases();
       const db = await location.open();
       const context = new ServerContext(db);
@@ -72,16 +72,14 @@ for (const reason of ['cancelled', 'depth'] as const)
           .set({ status: 'cancelled', cancellation_mode: 'safe' })
           .run();
         emit('new', 2);
-        test.expect(await runtime.runPromise(dispatchPending(context, [trigger], 2))).toBe(1);
-        test
-          .expect(
-            db.orm
-              .select()
-              .from(workflowReceipts)
-              .all()
-              .map((row) => row.eventId)
-          )
-          .toEqual(['new']);
+        expect(await runtime.runPromise(dispatchPending(context, [trigger], 2))).toBe(1);
+        expect(
+          db.orm
+            .select()
+            .from(workflowReceipts)
+            .all()
+            .map((row) => row.eventId)
+        ).toEqual(['new']);
       } finally {
         await runtime.dispose();
         db.close();

@@ -16,7 +16,9 @@ import { Schema } from 'effect';
 
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 
-test.stable('workflow retains versioned identity and native schemas', () => {
+test.stable('workflow retains versioned identity and native schemas', ({ assert: assertions }) => {
+  const assert: test.Assert = assertions;
+
   const workflow = defineWorkflow({
     name: 'study/test',
     version: 2,
@@ -26,7 +28,7 @@ test.stable('workflow retains versioned identity and native schemas', () => {
     idempotencyKey: (p) => p.id
   });
 
-  test.assert.ok(workflow._tag === 'study/test/v2');
-  test.assert.strictEqual(workflow.version, 2);
-  test.assert.ok(workflow.idempotencyKey({ id: 'abc' }) === 'abc');
+  assert.ok(workflow._tag === 'study/test/v2');
+  assert.strictEqual(workflow.version, 2);
+  assert.ok(workflow.idempotencyKey({ id: 'abc' }) === 'abc');
 });

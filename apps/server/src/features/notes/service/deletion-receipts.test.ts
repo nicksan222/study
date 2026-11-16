@@ -30,12 +30,14 @@ import { pageTransformFixture } from '#testing/page-transform';
 
 test.stable(
   'exact authored apply and keep receipts reject substituted intent across note deletion and reopen',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await pageTransformFixture(databases);
     const marker = 'EXACT_RECEIPT_SESSION_PRIVATE_8';
 
     try {
-      const saved = await setup(f, marker, true);
+      const saved = await setup(f, assert, marker, true);
 
       f.replies.push(
         { kind: 'sources', query: 'independent' },
@@ -58,9 +60,9 @@ test.stable(
           const keep = yield* chats.keepPageProposal(keepValue);
           const apply = yield* chats.applyPageProposal(applyValue);
 
-          test.assert.ok(apply.outcome === 'applied');
-          test.assert.ok(keep.resultVersionId);
-          test.assert.ok(apply.resultVersionId);
+          assert.ok(apply.outcome === 'applied');
+          assert.ok(keep.resultVersionId);
+          assert.ok(apply.resultVersionId);
 
           return {
             keep,
@@ -69,16 +71,21 @@ test.stable(
           };
         }).pipe(Effect.provide(f.domain()))
       );
-      const checkReplay = () =>
-        Effect.runPromise(
+      const checkReplay = ({
+        expect,
+        assert: assertions
+      }: Pick<test.Context, 'expect' | 'assert'>) => {
+        const assert: test.Assert = assertions;
+
+        return Effect.runPromise(
           Effect.gen(function* () {
             const chats = yield* Notes;
 
-            test.expect(yield* chats.keepPageProposal(keepValue)).toStrictEqual({
+            expect(yield* chats.keepPageProposal(keepValue)).toStrictEqual({
               ...retained.keep,
               replayed: true
             });
-            test.expect(yield* chats.applyPageProposal(applyValue)).toStrictEqual({
+            expect(yield* chats.applyPageProposal(applyValue)).toStrictEqual({
               ...retained.apply,
               replayed: true
             });
@@ -92,12 +99,18 @@ test.stable(
               chats.applyPageProposal({ ...applyValue, requestId: 'different' }),
               chats.applyPageProposal({ ...applyValue, key: keepValue.key })
             ])
-              test.assert.ok((yield* Effect.flip(action)).kind === 'invalid_input');
+              assert.ok((yield* Effect.flip(action)).kind === 'invalid_input');
           }).pipe(Effect.provide(f.domain()))
         );
+      };
       const receipts = () => f.context.db.orm.select().from(s.page_proposal_receipts).all();
       const beforeReceipts = receipts();
-      const rejectForged = () => {
+      const rejectForged = ({
+        assert: assertions,
+        expect
+      }: Pick<test.Context, 'assert' | 'expect'>) => {
+        const assert: test.Assert = assertions;
+
         for (const mutation of [
           sql`UPDATE page_proposal_receipts SET intent=json_set(intent,'$.title','forged')`,
           sql`UPDATE page_proposal_receipts SET request_id='different'`,
@@ -105,14 +118,14 @@ test.stable(
           sql`DELETE FROM page_proposal_receipts`,
           sql`INSERT OR IGNORE INTO page_proposal_receipts(key,request_id,operation,intent,outcome,current_version_id,result_version_id) SELECT key,request_id,operation,'{}',outcome,current_version_id,result_version_id FROM page_proposal_receipts`
         ])
-          test.assert.throws(() => f.context.db.orm.run(mutation));
+          assert.throws(() => f.context.db.orm.run(mutation));
 
-        test.expect(receipts()).toStrictEqual(beforeReceipts);
+        expect(receipts()).toStrictEqual(beforeReceipts);
       };
 
-      await checkReplay();
-      rejectForged();
-      await annotateLibrary(f, retained.ids);
+      await checkReplay({ expect, assert });
+      rejectForged({ assert, expect });
+      await annotateLibrary(f, retained.ids, assert);
       const before = await libraryState(f, retained.ids);
       const after = before.map((state) => ({
         ...state,
@@ -127,18 +140,18 @@ test.stable(
           Effect.provide(f.domain())
         )
       );
-      await checkReplay();
-      rejectForged();
-      await cleanup(f, saved.note.id);
-      await checkReplay();
-      rejectForged();
-      test.expect(await libraryState(f, retained.ids)).toStrictEqual(after);
-      assertScrubbed(f, marker);
+      await checkReplay({ expect, assert });
+      rejectForged({ assert, expect });
+      await cleanup(f, saved.note.id, assert);
+      await checkReplay({ expect, assert });
+      rejectForged({ assert, expect });
+      expect(await libraryState(f, retained.ids)).toStrictEqual(after);
+      assertScrubbed(f, assert, marker);
       await f.reopen();
-      await checkReplay();
-      rejectForged();
-      test.expect(await libraryState(f, retained.ids)).toStrictEqual(after);
-      assertScrubbed(f, marker);
+      await checkReplay({ expect, assert });
+      rejectForged({ assert, expect });
+      expect(await libraryState(f, retained.ids)).toStrictEqual(after);
+      assertScrubbed(f, assert, marker);
       await Effect.runPromise(
         Effect.gen(function* () {
           const chats = yield* Notes;
@@ -147,10 +160,10 @@ test.stable(
             chats.keepPageProposal({ ...keepValue, key: 'brand-new' }),
             chats.applyPageProposal({ ...applyValue, key: 'brand-new' })
           ])
-            test.assert.ok((yield* Effect.flip(action)).kind === 'not_found');
+            assert.ok((yield* Effect.flip(action)).kind === 'not_found');
         }).pipe(Effect.provide(f.domain()))
       );
-      test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }

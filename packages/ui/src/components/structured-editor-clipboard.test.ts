@@ -6,60 +6,64 @@ import { copyEditorSelection } from './structured-editor-clipboard';
 
 const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
 
-test.afterEach(() => {
-  test.vi.unstubAllGlobals();
+test.afterEach(({ vi }) => {
+  vi.unstubAllGlobals();
 
   if (originalClipboard) Object.defineProperty(navigator, 'clipboard', originalClipboard);
   else Reflect.deleteProperty(navigator, 'clipboard');
 });
 
-function clipboard(writeText: (text: string) => Promise<void>) {
+function clipboard({ vi }: Pick<test.Context, 'vi'>, writeText: (text: string) => Promise<void>) {
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
-  test.vi.stubGlobal('ClipboardItem', undefined);
+  vi.stubGlobal('ClipboardItem', undefined);
 }
 
 test.stable(
   'cuts only after the clipboard accepts the selected content and keeps native undo',
-  async () => {
+  async ({ expect, vi }) => {
     const editor = new Editor({ extensions: [StarterKit], content: '<p>Selected neighbor</p>' });
 
-    clipboard(async () => undefined);
+    clipboard({ vi }, async () => undefined);
 
     try {
       editor.commands.setTextSelection({ from: 1, to: 9 });
       await copyEditorSelection(editor, true);
-      test.expect(editor.getText()).toBe(' neighbor');
+      expect(editor.getText()).toBe(' neighbor');
       editor.commands.undo();
-      test.expect(editor.getText()).toBe('Selected neighbor');
+      expect(editor.getText()).toBe('Selected neighbor');
     } finally {
       editor.destroy();
     }
   }
 );
 
-test.stable('retains selected content when clipboard permission is denied', async () => {
-  const editor = new Editor({ extensions: [StarterKit], content: '<p>Keep this text</p>' });
+test.stable(
+  'retains selected content when clipboard permission is denied',
+  async ({ expect, vi }) => {
+    const editor = new Editor({ extensions: [StarterKit], content: '<p>Keep this text</p>' });
 
-  clipboard(async () => {
-    throw new Error('Permission denied');
-  });
+    clipboard({ vi }, async () => {
+      throw new Error('Permission denied');
+    });
 
-  try {
-    editor.commands.selectAll();
-    await test.expect(copyEditorSelection(editor, true)).rejects.toThrow();
-    test.expect(editor.getText()).toBe('Keep this text');
-  } finally {
-    editor.destroy();
+    try {
+      editor.commands.selectAll();
+      await expect(copyEditorSelection(editor, true)).rejects.toThrow();
+      expect(editor.getText()).toBe('Keep this text');
+    } finally {
+      editor.destroy();
+    }
   }
-});
+);
 
 test.stable(
   'keeps content when editing is disabled while clipboard permission is pending',
-  async () => {
+  async ({ expect, vi }) => {
     const editor = new Editor({ extensions: [StarterKit], content: '<p>Keep this text</p>' });
     let accept: () => void = () => undefined;
 
     clipboard(
+      { vi },
       () =>
         new Promise<void>((resolve) => {
           accept = resolve;
@@ -73,7 +77,7 @@ test.stable(
       editor.setEditable(false);
       accept();
       await cutting;
-      test.expect(editor.getText()).toBe('Keep this text');
+      expect(editor.getText()).toBe('Keep this text');
     } finally {
       editor.destroy();
     }

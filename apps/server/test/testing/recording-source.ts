@@ -12,7 +12,7 @@ import { eq } from '@study/db';
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import * as s from '@study/db';
-import { test } from '@study/testing';
+import type { test } from '@study/testing';
 import { Effect } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
 
@@ -28,7 +28,9 @@ import { withTestAdmission } from '#testing/workflow-admission';
 
 type SourceFixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
-export async function recordingSource(f: SourceFixture) {
+type TestAssertion = Pick<test.Context, 'assert'>['assert'];
+
+export async function recordingSource(f: SourceFixture, assert: TestAssertion) {
   const post = await Effect.runPromise(
     Effect.gen(function* () {
       const note = yield* (yield* Notes).createUntitledNote({});
@@ -53,7 +55,7 @@ export async function recordingSource(f: SourceFixture) {
     .where(eq(s.workflowEvents.eventId, post.requestId))
     .get();
 
-  test.assert.ok(row);
+  assert.ok(row);
 
   const event = decodeEvent(row.payload);
 
@@ -86,7 +88,7 @@ export async function recordingSource(f: SourceFixture) {
     )
   );
 
-  test.assert.ok(snapshot.sourceId !== null);
+  assert.ok(snapshot.sourceId !== null);
 
   return snapshot.sourceId;
 }

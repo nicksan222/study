@@ -16,7 +16,7 @@ import type { PageVersionId, NoteId } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
-import { test } from '@study/testing';
+import type { test } from '@study/testing';
 import { pollUntil } from '@study/testing/effect';
 import { Effect, Schema } from 'effect';
 import { Workflow } from 'effect/workflow';
@@ -36,6 +36,8 @@ import { withTestAdmission, refreshTestExecution } from '#testing/workflow-admis
 
 type DeletionFixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
+type TestAssertion = Pick<test.Context, 'assert'>['assert'];
+
 const meta = {
   extractor: null,
   extractorVersion: 1,
@@ -53,6 +55,7 @@ const paragraph = (text: string) =>
 
 export function setup(
   fixture: DeletionFixture,
+  assert: TestAssertion,
   marker: string,
   target = false,
   additionalInputVersionId?: PageVersionId
@@ -76,7 +79,7 @@ export function setup(
         document: { blocks: [paragraph('Independent library evidence')], meta }
       });
 
-      test.assert.ok(library.version);
+      assert.ok(library.version);
       yield* chats.postMessage({ noteId: note.id, text: marker, requestReply: false });
 
       yield* chats.requestTitle({ noteId: note.id });
@@ -145,7 +148,7 @@ export function setup(
   );
 }
 
-export function deletionEvent(fixture: DeletionFixture, id: NoteId) {
+export function deletionEvent(fixture: DeletionFixture, id: NoteId, assert: TestAssertion) {
   const row = fixture.context.db.orm
     .select()
     .from(s.workflowEvents)
@@ -153,19 +156,19 @@ export function deletionEvent(fixture: DeletionFixture, id: NoteId) {
     .all()
     .at(-1);
 
-  test.assert.ok(row);
+  assert.ok(row);
 
   const event = decodeEvent(row.payload);
 
-  test.assert.ok(event.type === 'NoteDeletionRequested');
+  assert.ok(event.type === 'NoteDeletionRequested');
 
-  test.assert.strictEqual(event.noteId, id);
+  assert.strictEqual(event.noteId, id);
 
   return event;
 }
 
-export function cleanup(fixture: DeletionFixture, id: NoteId) {
-  const event = deletionEvent(fixture, id);
+export function cleanup(fixture: DeletionFixture, id: NoteId, assert: TestAssertion) {
+  const event = deletionEvent(fixture, id, assert);
 
   return Effect.runPromise(
     Effect.scoped(
@@ -191,6 +194,7 @@ export function cleanup(fixture: DeletionFixture, id: NoteId) {
 
 export function assertScrubbed(
   fixture: DeletionFixture,
+  assert: TestAssertion,
   marker: string,
   retainAuthoredMetadata = true
 ) {
@@ -228,12 +232,16 @@ export function assertScrubbed(
       (_, value) => (typeof value === 'bigint' ? String(value) : value)
     );
 
-    test.assert.ok(!content.includes(marker), `Note capture remains in ${table.name}`);
+    assert.ok(!content.includes(marker), `Note capture remains in ${table.name}`);
   }
 }
 
 /** Keep exact historic annotations on independently published versions through cleanup. */
-export function annotateLibrary(fixture: DeletionFixture, ids: readonly PageVersionId[]) {
+export function annotateLibrary(
+  fixture: DeletionFixture,
+  ids: readonly PageVersionId[],
+  assert: TestAssertion
+) {
   return Effect.runPromise(
     Effect.gen(function* () {
       const pages = yield* Pages;
@@ -242,7 +250,7 @@ export function annotateLibrary(fixture: DeletionFixture, ids: readonly PageVers
         const version = yield* pages.version({ id });
         const block = version.document.blocks[0];
 
-        test.assert.ok(block);
+        assert.ok(block);
 
         const created = yield* pages.createAnnotation({
           target: {
@@ -259,7 +267,7 @@ export function annotateLibrary(fixture: DeletionFixture, ids: readonly PageVers
           note: 'Independent retained annotation'
         });
 
-        test.assert.ok(created.outcome === 'saved');
+        assert.ok(created.outcome === 'saved');
       }
     }).pipe(Effect.provide(fixture.domain()))
   );

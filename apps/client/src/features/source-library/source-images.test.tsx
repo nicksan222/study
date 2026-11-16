@@ -13,8 +13,8 @@ import { SourcePanel } from './source-panel';
 for (const context of ['current', 'historical', 'note'] as const)
   test.stable(
     `renders retained source images in ${context}, isolates retry and cleans URLs across extraction identities`,
-    async () => {
-      const rpc = materialRpc();
+    async ({ vi, rpcHandlersTransport, render, screen, waitFor, expect, userEvent }) => {
+      const rpc = materialRpc({ vi });
       const sourceId = importedSource.id;
       const base = authoredPage().version!;
       const figure = createBlock({
@@ -60,61 +60,59 @@ for (const context of ['current', 'historical', 'note'] as const)
         });
       });
 
-      const revoke = test.vi.fn();
+      const revoke = vi.fn();
       let count = 0;
 
-      test.vi.stubGlobal(
+      vi.stubGlobal(
         'URL',
         class extends URL {
           static createObjectURL = () => `blob:source-${++count}`;
           static revokeObjectURL = revoke;
         }
       );
-      const harness = test.rpcHandlersTransport(rpc);
+      const harness = rpcHandlersTransport(rpc);
 
       configureRpcTransport(harness.transport);
       const props = {
         sourceId,
         exact: context === 'historical' ? { revision: 1n, snapshotId: base.snapshotId } : undefined,
         noteId: context === 'note' ? Schema.decodeUnknownSync(noteIdSchema)(3n) : undefined,
-        onOpenPage: test.vi.fn()
+        onOpenPage: vi.fn()
       };
-      const view = test.render(
+      const view = render(
         <Providers transport={harness.transport}>
           <SourcePanel {...props} />
         </Providers>
       );
 
       try {
-        await test.screen.findByRole('img', { name: 'Replacement figure' });
+        await screen.findByRole('img', { name: 'Replacement figure' });
 
-        await test.waitFor(() =>
-          test
-            .expect(test.screen.getByRole('img', { name: 'Replacement figure' }))
-            .toHaveAttribute('src', test.expect.stringMatching(/^blob:/))
+        await waitFor(() =>
+          expect(screen.getByRole('img', { name: 'Replacement figure' })).toHaveAttribute(
+            'src',
+            expect.stringMatching(/^blob:/)
+          )
         );
 
-        const url = test.screen
-          .getByRole('img', { name: 'Replacement figure' })
-          .getAttribute('src');
+        const url = screen.getByRole('img', { name: 'Replacement figure' }).getAttribute('src');
 
-        await test.userEvent
+        await userEvent
           .setup()
-          .click(
-            await test.screen.findByRole('button', { name: catalogs.english.ReaderRetryImage })
-          );
-        await test.waitFor(() =>
-          test
-            .expect(test.screen.getByRole('img', { name: 'Exact original figure' }))
-            .toHaveAttribute('src', test.expect.stringMatching(/^blob:/))
+          .click(await screen.findByRole('button', { name: catalogs.english.ReaderRetryImage }));
+        await waitFor(() =>
+          expect(screen.getByRole('img', { name: 'Exact original figure' })).toHaveAttribute(
+            'src',
+            expect.stringMatching(/^blob:/)
+          )
         );
-        test
-          .expect(test.screen.getByRole('img', { name: 'Replacement figure' }))
-          .toHaveAttribute('src', url);
-        test
-          .expect(rpc['sources.exportRevision'].mock.calls.map(([v]) => v.revision))
-          .toEqual([1n, 2n, 1n]);
-        test.expect(revoke).not.toHaveBeenCalled();
+        expect(screen.getByRole('img', { name: 'Replacement figure' })).toHaveAttribute('src', url);
+        expect(rpc['sources.exportRevision'].mock.calls.map(([v]) => v.revision)).toEqual([
+          1n,
+          2n,
+          1n
+        ]);
+        expect(revoke).not.toHaveBeenCalled();
         // Another extraction of the same original must acquire its own asset lifetime.
         const next = {
           ...props,
@@ -129,28 +127,27 @@ for (const context of ['current', 'historical', 'note'] as const)
             <SourcePanel key="next" {...next} />
           </Providers>
         );
-        await test.waitFor(() => test.expect(revoke).toHaveBeenCalledTimes(2));
-        await test.screen.findByRole('img', { name: 'Exact original figure' });
-        await test.waitFor(() =>
-          test.expect(rpc['sources.exportRevision']).toHaveBeenCalledTimes(5)
-        );
-        await test.waitFor(() => {
+        await waitFor(() => expect(revoke).toHaveBeenCalledTimes(2));
+        await screen.findByRole('img', { name: 'Exact original figure' });
+        await waitFor(() => expect(rpc['sources.exportRevision']).toHaveBeenCalledTimes(5));
+        await waitFor(() => {
           for (const name of ['Exact original figure', 'Replacement figure'])
-            test
-              .expect(test.screen.getByRole('img', { name }))
-              .toHaveAttribute('src', test.expect.stringMatching(/^blob:/));
+            expect(screen.getByRole('img', { name })).toHaveAttribute(
+              'src',
+              expect.stringMatching(/^blob:/)
+            );
         });
         view.unmount();
-        test.expect(count).toBe(4);
-        test.expect(new Set(revoke.mock.calls.map(([url]) => url)).size).toBe(4);
-        test.expect(revoke).toHaveBeenCalledTimes(count);
-        test
-          .expect(rpc['sources.extraction'])
-          .toHaveBeenLastCalledWith(next.exact && { sourceId, ...next.exact });
+        expect(count).toBe(4);
+        expect(new Set(revoke.mock.calls.map(([url]) => url)).size).toBe(4);
+        expect(revoke).toHaveBeenCalledTimes(count);
+        expect(rpc['sources.extraction']).toHaveBeenLastCalledWith(
+          next.exact && { sourceId, ...next.exact }
+        );
       } finally {
         view.unmount();
 
-        test.vi.unstubAllGlobals();
+        vi.unstubAllGlobals();
       }
     }
   );

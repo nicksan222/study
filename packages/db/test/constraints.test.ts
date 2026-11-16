@@ -9,16 +9,22 @@ import * as schema from '../src/schema.ts';
 
 const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
-function assertThrowsMatching(run: () => unknown, matches: (error: unknown) => boolean) {
+function assertThrowsMatching(
+  { assert: assertions }: Pick<test.Context, 'assert'>,
+  run: () => unknown,
+  matches: (error: unknown) => boolean
+) {
+  const assert: test.Assert = assertions;
+
   try {
     run();
   } catch (error) {
-    test.assert.ok(matches(error), 'Thrown error did not match');
+    assert.ok(matches(error), 'Thrown error did not match');
 
     return;
   }
 
-  test.assert.fail('Expected function to throw');
+  assert.fail('Expected function to throw');
 }
 
 type Databases = () => Promise<{ open(): Promise<Db> }>;
@@ -95,13 +101,16 @@ function checkViolation(error: unknown): boolean {
 
 test.stable(
   'message instructions are nullable but otherwise nonblank and bounded',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const { db, version } = await newDb(databases);
 
-    test.assert.strictEqual(version.instruction, null);
+    assert.strictEqual(version.instruction, null);
 
     for (const instruction of ['', '   ', '\t\n\r', '\u00a0\u2003\ufeff', 'x'.repeat(100001)])
       assertThrowsMatching(
+        { assert },
         () =>
           db
             .update(schema.message_versions)
@@ -115,41 +124,49 @@ test.stable(
       .set({ origin: 'instruction', instruction: 'x'.repeat(100000) })
       .where(eq(schema.message_versions.id, version.id))
       .run();
-    test.assert.strictEqual(
+    assert.strictEqual(
       db.select().from(schema.message_versions).get()?.instruction?.length,
       100000
     );
   }
 );
 
-test.stable('message citations enforce unsigned 32 bit positive markers', async ({ databases }) => {
-  const { db, version } = await newDb(databases);
-  const citation = { source_name: 'N', anchor: '{}', quote: 'Quote' };
+test.stable(
+  'message citations enforce unsigned 32 bit positive markers',
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  for (const marker of [0n, -1n, 4294967296n]) {
-    assertThrowsMatching(
-      () =>
-        db
-          .insert(schema.citations)
-          .values({ ...citation, version_id: version.id, marker })
-          .run(),
-      checkViolation
-    );
+    const { db, version } = await newDb(databases);
+    const citation = { source_name: 'N', anchor: '{}', quote: 'Quote' };
+
+    for (const marker of [0n, -1n, 4294967296n]) {
+      assertThrowsMatching(
+        { assert },
+        () =>
+          db
+            .insert(schema.citations)
+            .values({ ...citation, version_id: version.id, marker })
+            .run(),
+        checkViolation
+      );
+    }
+
+    for (const marker of [1n, 4294967295n]) {
+      db.insert(schema.citations)
+        .values({ ...citation, version_id: version.id, marker })
+        .run();
+    }
+
+    assert.strictEqual(db.select().from(schema.citations).all().length, 2);
   }
-
-  for (const marker of [1n, 4294967295n]) {
-    db.insert(schema.citations)
-      .values({ ...citation, version_id: version.id, marker })
-      .run();
-  }
-
-  test.assert.strictEqual(db.select().from(schema.citations).all().length, 2);
-});
+);
 
 test.stable(
   'fresh baseline preserves populated references and message search triggers across reopen',
-  async ({ onTestFinished }) => {
-    const folder = await test.temporaryDirectory({ prefix: 'study-constraint-migration-' });
+  async ({ onTestFinished, temporaryDirectory, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
+    const folder = await temporaryDirectory({ prefix: 'study-constraint-migration-' });
     const path = join(folder.path, 'study.db');
 
     onTestFinished(() => folder[Symbol.asyncDispose]());
@@ -174,10 +191,10 @@ test.stable(
     onTestFinished(() => connection.close());
     const db = connection.orm;
 
-    test.assert.strictEqual(db.select().from(schema.messages).get()?.active_version_id, version.id);
-    test.assert.strictEqual(db.select().from(schema.citations).all().length, 1);
-    test.expect(db.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
-    test.assert.strictEqual(
+    assert.strictEqual(db.select().from(schema.messages).get()?.active_version_id, version.id);
+    assert.strictEqual(db.select().from(schema.citations).all().length, 1);
+    expect(db.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+    assert.strictEqual(
       db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'photosynthesis'`)?.rowid,
       version.id
     );
@@ -194,12 +211,12 @@ test.stable(
       .returning()
       .get();
 
-    test.assert.strictEqual(
+    assert.strictEqual(
       db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'mitochondria'`)?.rowid,
       next.id
     );
     db.delete(schema.message_versions).where(eq(schema.message_versions.id, next.id)).run();
-    test.assert.strictEqual(
+    assert.strictEqual(
       db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'mitochondria'`),
       undefined
     );
@@ -219,7 +236,7 @@ test.stable(
       .set({ status: 'complete', text: 'chlorophyll' })
       .where(eq(schema.message_versions.id, pending.id))
       .run();
-    test.assert.strictEqual(
+    assert.strictEqual(
       db.get(sql`SELECT rowid FROM message_fts WHERE message_fts MATCH 'chlorophyll'`)?.rowid,
       pending.id
     );
@@ -230,8 +247,10 @@ for (const table of ['message_versions'] as const)
   for (const keepLowerRow of [false, true])
     test.stable(
       `fresh baseline preserves deleted ${table} identities across reopen with ${keepLowerRow ? 'surviving rows' : 'an empty table'}`,
-      async ({ onTestFinished }) => {
-        const folder = await test.temporaryDirectory({ prefix: 'study-migration-sequences-' });
+      async ({ onTestFinished, temporaryDirectory, assert: assertions, expect }) => {
+        const assert: test.Assert = assertions;
+
+        const folder = await temporaryDirectory({ prefix: 'study-migration-sequences-' });
         const path = join(folder.path, 'study.db');
 
         onTestFinished(() => folder[Symbol.asyncDispose]());
@@ -260,7 +279,7 @@ for (const table of ['message_versions'] as const)
         };
         const lower = insert(original, 0n);
 
-        test.assert.strictEqual(insert(original, 1n, highest), highest);
+        assert.strictEqual(insert(original, 1n, highest), highest);
         original
           .delete(target)
           .where(sql`${target.id} = ${highest}`)
@@ -276,11 +295,11 @@ for (const table of ['message_versions'] as const)
         const connection = await Db.open(path);
 
         onTestFinished(() => connection.close());
-        test.assert.strictEqual(
+        assert.strictEqual(
           connection.orm.get(sql`SELECT seq FROM sqlite_sequence WHERE name = ${table}`)?.seq,
           highest
         );
-        test.assert.strictEqual(insert(connection.orm, 2n), highest + 1n);
-        test.expect(connection.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+        assert.strictEqual(insert(connection.orm, 2n), highest + 1n);
+        expect(connection.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       }
     );

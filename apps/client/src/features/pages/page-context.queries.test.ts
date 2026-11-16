@@ -39,11 +39,11 @@ test.beforeEach(async ({ mock }) => {
   attachPageToNote = __mockModule0.attachPageToNote;
 });
 
-test.beforeEach(() => {
-  test.vi.resetAllMocks();
+test.beforeEach(({ vi, rpcHandlersTransport }) => {
+  vi.resetAllMocks();
   api.attach.mockResolvedValue(undefined);
   api.update.mockResolvedValue({ revision: 13n, targets: [] });
-  const harness = test.rpcHandlersTransport({
+  const harness = rpcHandlersTransport({
     'pages.attach': api.attach,
     'notes.noteSelection': api.selection,
     'notes.updateNoteSelection': api.update
@@ -54,7 +54,7 @@ test.beforeEach(() => {
 
 test.stable(
   'adds the exact document version using the current selection revision while preserving other context',
-  async () => {
+  async ({ expect }) => {
     const existing = {
       input: { kind: 'page', versionId: pageVersionIdSchema.make(7n) },
       scope: { kind: 'document' }
@@ -62,11 +62,11 @@ test.stable(
 
     api.selection.mockResolvedValue({ revision: 12n, targets: [existing] });
     await attachPageToNote(input);
-    test.expect(api.attach).toHaveBeenCalledExactlyOnceWith({
+    expect(api.attach).toHaveBeenCalledExactlyOnceWith({
       pageId: input.pageId,
       noteId: input.noteId
     });
-    test.expect(api.update).toHaveBeenCalledExactlyOnceWith({
+    expect(api.update).toHaveBeenCalledExactlyOnceWith({
       noteId: input.noteId,
       expectedRevision: 12n,
       targets: [existing, target]
@@ -74,15 +74,18 @@ test.stable(
   }
 );
 
-test.stable('does not duplicate already selected document context when retried', async () => {
-  api.selection.mockResolvedValue({ revision: 13n, targets: [target] });
-  await attachPageToNote(input);
-  test.expect(api.update).not.toHaveBeenCalled();
-});
+test.stable(
+  'does not duplicate already selected document context when retried',
+  async ({ expect }) => {
+    api.selection.mockResolvedValue({ revision: 13n, targets: [target] });
+    await attachPageToNote(input);
+    expect(api.update).not.toHaveBeenCalled();
+  }
+);
 
-test.stable('does not continue after attachment fails', async () => {
+test.stable('does not continue after attachment fails', async ({ expect }) => {
   api.attach.mockRejectedValue(new Error('Unavailable'));
-  await test.expect(attachPageToNote(input)).rejects.toMatchObject({ message: 'Unavailable' });
-  test.expect(api.selection).not.toHaveBeenCalled();
-  test.expect(api.update).not.toHaveBeenCalled();
+  await expect(attachPageToNote(input)).rejects.toMatchObject({ message: 'Unavailable' });
+  expect(api.selection).not.toHaveBeenCalled();
+  expect(api.update).not.toHaveBeenCalled();
 });

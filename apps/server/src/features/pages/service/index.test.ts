@@ -79,7 +79,9 @@ async function fixture(databases: Databases) {
 
 test.stable(
   'native Pages RPC retains conflict alternatives and exact idempotent receipts across reopen',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await fixture(databases);
     const input = creation('native-create');
 
@@ -89,13 +91,10 @@ test.stable(
           const rpc = yield* RpcTest.makeClient(PagesRpc);
           const a = yield* rpc['pages.create'](input);
 
-          test.assert.ok(a.version);
-          test.assert.ok(
-            a.createdAt < 100000000000n,
-            'SQLite authored timestamps use Unix seconds'
-          );
-          test.assert.strictEqual((yield* rpc['pages.create'](input)).id, a.id);
-          test.assert.ok(
+          assert.ok(a.version);
+          assert.ok(a.createdAt < 100000000000n, 'SQLite authored timestamps use Unix seconds');
+          assert.strictEqual((yield* rpc['pages.create'](input)).id, a.id);
+          assert.ok(
             (yield* Effect.flip(rpc['pages.create']({ ...input, title: 'Other' }))).kind ===
               'invalid_input'
           );
@@ -108,8 +107,8 @@ test.stable(
           };
           const saved = yield* rpc['pages.save'](edit);
 
-          test.assert.ok(saved.outcome === 'saved');
-          test.assert.ok((yield* rpc['pages.save'](edit)).replayed === true);
+          assert.ok(saved.outcome === 'saved');
+          assert.ok((yield* rpc['pages.save'](edit)).replayed === true);
           const conflictInput = {
             ...edit,
             key: 'stale',
@@ -117,17 +116,17 @@ test.stable(
           };
           const conflict = yield* rpc['pages.save'](conflictInput);
 
-          test.assert.ok(conflict.outcome === 'conflict');
+          assert.ok(conflict.outcome === 'conflict');
           const replay = yield* rpc['pages.save'](conflictInput);
 
-          test.expect(replay).toStrictEqual({ ...conflict, replayed: true });
+          expect(replay).toStrictEqual({ ...conflict, replayed: true });
           const old = yield* rpc['pages.version']({ id: base.id });
           const alternative = yield* rpc['pages.version']({ id: conflict.submittedVersionId });
 
-          test.assert.ok(old.document.blocks[0].text === 'Original');
-          test.assert.ok(alternative.status === 'draft');
-          test.assert.ok(alternative.document.blocks[0].text === 'Retained conflict');
-          test.assert.strictEqual(
+          assert.ok(old.document.blocks[0].text === 'Original');
+          assert.ok(alternative.status === 'draft');
+          assert.ok(alternative.document.blocks[0].text === 'Retained conflict');
+          assert.strictEqual(
             (yield* rpc['pages.page']({ id: a.id })).headVersionId,
             saved.submittedVersionId
           );
@@ -137,9 +136,9 @@ test.stable(
             currentVersionId: saved.submittedVersionId
           });
 
-          test.assert.ok(comparison.proposedChanges[0]?.kind === 'changed');
-          test.assert.ok(comparison.currentChanges[0]?.kind === 'changed');
-          test.assert.ok(
+          assert.ok(comparison.proposedChanges[0]?.kind === 'changed');
+          assert.ok(comparison.currentChanges[0]?.kind === 'changed');
+          assert.ok(
             (yield* Effect.flip(
               rpc['pages.save']({
                 ...edit,
@@ -154,18 +153,18 @@ test.stable(
             key: 'restore'
           });
 
-          test.assert.ok(restored.outcome === 'saved');
+          assert.ok(restored.outcome === 'saved');
           const latest = yield* rpc['pages.version']({ id: restored.submittedVersionId });
 
-          test.assert.ok(latest.operation === 'restore');
-          test.expect(latest.document).toStrictEqual(base.document);
-          test
-            .expect(new Set(latest.parents))
-            .toStrictEqual(new Set([base.id, saved.submittedVersionId]));
+          assert.ok(latest.operation === 'restore');
+          expect(latest.document).toStrictEqual(base.document);
+          expect(new Set(latest.parents)).toStrictEqual(
+            new Set([base.id, saved.submittedVersionId])
+          );
           const exported = yield* rpc['pages.exportVersion']({ id: latest.id });
 
-          test.assert.strictEqual(JSON.parse(exported.content).id, String(latest.id));
-          test.assert.strictEqual(
+          assert.strictEqual(JSON.parse(exported.content).id, String(latest.id));
+          assert.strictEqual(
             (yield* rpc['pages.versions']({ pageId: a.id, limit: 2 })).items.length,
             2
           );
@@ -179,15 +178,12 @@ test.stable(
         )
       );
 
-      test.assert.strictEqual(
-        f.context.db.orm.get(sql`SELECT count(*) AS n FROM materials`)?.n,
-        0n
-      );
-      test.assert.strictEqual(
+      assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) AS n FROM materials`)?.n, 0n);
+      assert.strictEqual(
         f.context.db.orm.get(sql`SELECT count(*) AS n FROM material_versions`)?.n,
         0n
       );
-      test.assert.throws(() =>
+      assert.throws(() =>
         f.context.db.exec(
           `UPDATE blocks SET text='tampered' WHERE document_id=(SELECT content_snapshot_id FROM page_versions WHERE id=${result.latestId})`
         )
@@ -200,11 +196,11 @@ test.stable(
           Effect.gen(function* () {
             const docs = yield* Pages;
 
-            test.assert.strictEqual(
+            assert.strictEqual(
               (yield* docs.page({ id: result.id })).headVersionId,
               result.latestId
             );
-            test.expect(yield* docs.save(result.conflictInput)).toStrictEqual({
+            expect(yield* docs.save(result.conflictInput)).toStrictEqual({
               ...result.conflict,
               replayed: true
             });
@@ -214,7 +210,7 @@ test.stable(
             )
           )
         );
-        test.expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+        expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       } finally {
         context.close();
       }
@@ -226,7 +222,9 @@ test.stable(
 
 test.stable(
   'editing ownership, transactional rollback and independent note membership are enforced',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const f = await fixture(databases);
 
     try {
@@ -239,8 +237,8 @@ test.stable(
           const a = yield* docs.create(creation('one'));
           const b = yield* docs.create(creation('two'));
 
-          test.assert.ok(a.version && b.version);
-          test.assert.ok(
+          assert.ok(a.version && b.version);
+          assert.ok(
             (yield* Effect.flip(
               docs.save({
                 pageId: b.id,
@@ -250,7 +248,7 @@ test.stable(
               })
             )).kind === 'invalid_input'
           );
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               docs.save({
                 pageId: b.id,
@@ -260,7 +258,7 @@ test.stable(
               })
             )).kind === 'invalid_input'
           );
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               docs.restore({
                 pageId: b.id,
@@ -272,7 +270,7 @@ test.stable(
           );
           const missing = Schema.decodeUnknownSync(pageVersionIdSchema)(999999n);
 
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               docs.save({
                 pageId: a.id,
@@ -283,29 +281,20 @@ test.stable(
             )).kind === 'not_found'
           );
           yield* docs.archive({ id: a.id, archived: true });
-          test.assert.strictEqual(
-            (yield* docs.pages({ limit: 10, archived: false })).items.length,
-            1
-          );
-          test.assert.strictEqual(
-            (yield* docs.pages({ limit: 10, archived: true })).items[0]?.id,
-            a.id
-          );
-          test.assert.ok(
+          assert.strictEqual((yield* docs.pages({ limit: 10, archived: false })).items.length, 1);
+          assert.strictEqual((yield* docs.pages({ limit: 10, archived: true })).items[0]?.id, a.id);
+          assert.ok(
             (yield* Effect.flip(docs.create({ ...creation('rollback'), noteId: 999n as never })))
               .kind === 'not_found'
           );
         }).pipe(Effect.provide(f.services))
       );
-      test.assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) AS n FROM pages`)?.n, 2n);
+      assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) AS n FROM pages`)?.n, 2n);
       f.context.db.exec(
         `INSERT INTO note_pages(note_id,page_id,position) SELECT 1,id,id FROM pages; DELETE FROM notes;`
       );
-      test.assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) AS n FROM pages`)?.n, 2n);
-      test.assert.strictEqual(
-        f.context.db.orm.get(sql`SELECT count(*) AS n FROM note_pages`)?.n,
-        0n
-      );
+      assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) AS n FROM pages`)?.n, 2n);
+      assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) AS n FROM note_pages`)?.n, 0n);
     } finally {
       await f.close();
     }
@@ -314,7 +303,9 @@ test.stable(
 
 test.stable(
   'source copies and message provenance pin exact inputs without giving notes ownership',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await fixture(databases);
 
     try {
@@ -347,18 +338,18 @@ test.stable(
           };
           const copy = yield* docs.copySource(copyInput);
 
-          test.assert.ok(copy.version);
-          test.assert.strictEqual((yield* docs.copySource(copyInput)).id, copy.id);
-          test.assert.ok(copy.version.document.blocks[0].text === 'Exact source 😀');
-          test.assert.notStrictEqual(copy.version.document.blocks[0].id, source.blocks[0].id);
-          test
-            .expect(copy.version.inputs)
-            .toStrictEqual([{ kind: 'source', sourceId, revision: 1n, snapshotId }]);
-          test.assert.ok(
+          assert.ok(copy.version);
+          assert.strictEqual((yield* docs.copySource(copyInput)).id, copy.id);
+          assert.ok(copy.version.document.blocks[0].text === 'Exact source 😀');
+          assert.notStrictEqual(copy.version.document.blocks[0].id, source.blocks[0].id);
+          expect(copy.version.inputs).toStrictEqual([
+            { kind: 'source', sourceId, revision: 1n, snapshotId }
+          ]);
+          assert.ok(
             (yield* Effect.flip(transaction((tx) => tx.store(SourceStore).deleteSource(sourceId))))
               .kind === 'invalid_input'
           );
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               docs.copySource({ ...copyInput, createKey: 'wrong-revision', revision: 2n })
             )).kind === 'not_found'
@@ -378,26 +369,26 @@ test.stable(
             ]
           });
 
-          test.assert.ok(linked.version);
-          test.expect(linked.version.inputs).toStrictEqual([input]);
-          test.expect(linked.version.unavailableInputs).toStrictEqual([]);
+          assert.ok(linked.version);
+          expect(linked.version.inputs).toStrictEqual([input]);
+          expect(linked.version.unavailableInputs).toStrictEqual([]);
           f.context.db.exec('DELETE FROM notes WHERE id=1');
           const retained = yield* docs.version({ id: linked.version.id });
 
-          test.expect(retained.inputs).toStrictEqual([input]);
-          test.expect(retained.unavailableInputs).toStrictEqual([input]);
-          test.assert.ok(retained.citations[0]?.quote === 'Exact message');
-          test.assert.ok(
+          expect(retained.inputs).toStrictEqual([input]);
+          expect(retained.unavailableInputs).toStrictEqual([input]);
+          assert.ok(retained.citations[0]?.quote === 'Exact message');
+          assert.ok(
             f.context.db.orm.get(
               sql`SELECT message_version_id FROM page_inputs WHERE exact_message_version_id=11`
             )?.message_version_id === null
           );
         }).pipe(Effect.provide(f.services))
       );
-      test.assert.throws(() =>
+      assert.throws(() =>
         f.context.db.exec(`DELETE FROM source_snapshots WHERE source_id=7 AND revision=1`)
       );
-      test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }
@@ -406,7 +397,9 @@ test.stable(
 
 test.stable(
   'history and deletion require an exact preview, protect dependents, and retire bodies with backup integrity',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await fixture(databases);
 
     try {
@@ -415,7 +408,7 @@ test.stable(
           const docs = yield* Pages;
           const a = yield* docs.create(creation('history'));
 
-          test.assert.ok(a.version);
+          assert.ok(a.version);
           const edit = yield* docs.save({
             pageId: a.id,
             expectedVersionId: a.version.id,
@@ -430,7 +423,7 @@ test.stable(
             key: 'another',
             document: body('Newest', a.version.document.blocks[0].id)
           });
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               docs.retireHistory({ pageId: a.id, keepLatest: 1, token: old.token })
             )).kind === 'invalid_input'
@@ -438,10 +431,8 @@ test.stable(
           const fresh = yield* docs.previewHistory({ pageId: a.id, keepLatest: 1 });
 
           yield* docs.retireHistory({ pageId: a.id, keepLatest: 1, token: fresh.token });
-          test.assert.ok(
-            (yield* Effect.flip(docs.version({ id: a.version.id }))).kind === 'not_found'
-          );
-          test.assert.strictEqual(
+          assert.ok((yield* Effect.flip(docs.version({ id: a.version.id }))).kind === 'not_found');
+          assert.strictEqual(
             f.context.db.orm.get(
               sql`SELECT count(*) AS n FROM blocks WHERE document_id=${a.version.snapshotId}`
             )?.n,
@@ -449,15 +440,15 @@ test.stable(
           );
           const current = (yield* docs.page({ id: a.id })).version;
 
-          test.assert.ok(current);
+          assert.ok(current);
           const dependent = yield* docs.create({
             ...creation('dependent'),
             inputs: [{ kind: 'page', versionId: current.id }]
           });
           const blocked = yield* docs.previewDeletion({ id: a.id });
 
-          test.expect(blocked.blockedVersionIds).toStrictEqual([current.id]);
-          test.assert.ok(
+          expect(blocked.blockedVersionIds).toStrictEqual([current.id]);
+          assert.ok(
             (yield* Effect.flip(docs.delete({ pageId: a.id, token: blocked.token }))).kind ===
               'invalid_input'
           );
@@ -467,21 +458,18 @@ test.stable(
           const deletion = yield* docs.previewDeletion({ id: a.id });
 
           yield* docs.delete({ pageId: a.id, token: deletion.token });
-          test.assert.ok((yield* Effect.flip(docs.page({ id: a.id }))).kind === 'not_found');
-          test.assert.strictEqual(
-            (yield* docs.pages({ limit: 10, archived: false })).items.length,
-            0
-          );
+          assert.ok((yield* Effect.flip(docs.page({ id: a.id }))).kind === 'not_found');
+          assert.strictEqual((yield* docs.pages({ limit: 10, archived: false })).items.length, 0);
         }).pipe(Effect.provide(f.services))
       );
-      test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
-      test.assert.ok(f.context.db.orm.get(sql`PRAGMA integrity_check`)?.integrity_check === 'ok');
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      assert.ok(f.context.db.orm.get(sql`PRAGMA integrity_check`)?.integrity_check === 'ok');
       const path = f.location.path + '.backup';
 
       await f.context.db.snapshot(path);
       const { Db } = await import('@study/db');
 
-      test.assert.strictEqual(await Db.validateSnapshot(path), f.context.db.schemaIdentity());
+      assert.strictEqual(await Db.validateSnapshot(path), f.context.db.schemaIdentity());
     } finally {
       await f.close();
     }
@@ -490,7 +478,9 @@ test.stable(
 
 test.stable(
   'AI publication participant keeps one request intent and retains concurrent proposals',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const f = await fixture(databases);
 
     try {
@@ -499,7 +489,7 @@ test.stable(
           const docs = yield* Pages;
           const a = yield* docs.create(creation('generation'));
 
-          test.assert.ok(a.version);
+          assert.ok(a.version);
           const input = {
             requestId: 'generation-1',
             pageId: a.id,
@@ -514,8 +504,8 @@ test.stable(
           };
           const result = yield* transaction((tx) => Pages.publishInTransaction(tx, input));
 
-          test.assert.ok(result.outcome === 'saved');
-          test.assert.ok(
+          assert.ok(result.outcome === 'saved');
+          assert.ok(
             (yield* transaction((tx) => Pages.publishInTransaction(tx, input))).replayed === true
           );
           const conflict = yield* transaction((tx) =>
@@ -527,11 +517,9 @@ test.stable(
             })
           );
 
-          test.assert.ok(conflict.outcome === 'conflict');
-          test.assert.ok(
-            (yield* docs.version({ id: conflict.submittedVersionId })).status === 'draft'
-          );
-          test.assert.ok(
+          assert.ok(conflict.outcome === 'conflict');
+          assert.ok((yield* docs.version({ id: conflict.submittedVersionId })).status === 'draft');
+          assert.ok(
             (yield* Effect.flip(
               transaction((tx) =>
                 Pages.publishInTransaction(tx, { ...input, instruction: 'Different' })
@@ -540,11 +528,11 @@ test.stable(
           );
         }).pipe(Effect.provide(f.services))
       );
-      test.assert.strictEqual(
+      assert.strictEqual(
         f.context.db.orm.get(sql`SELECT count(*) AS n FROM page_generation_requests`)?.n,
         2n
       );
-      test.assert.strictEqual(
+      assert.strictEqual(
         f.context.db.orm.get(sql`SELECT count(*) AS n FROM page_proposals`)?.n,
         1n
       );
@@ -556,7 +544,9 @@ test.stable(
 
 test.stable(
   'exact citations, Unicode annotation history, image pins and inherited retired message identities are validated',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await fixture(databases);
 
     try {
@@ -583,8 +573,8 @@ test.stable(
           );
           const a = yield* docs.create(base);
 
-          test.assert.ok(a.version);
-          test.assert.strictEqual(
+          assert.ok(a.version);
+          assert.strictEqual(
             f.context.db.orm.get(
               sql`SELECT count(*) AS n FROM document_assets WHERE document_id=${a.version.snapshotId}`
             )?.n,
@@ -606,7 +596,7 @@ test.stable(
             note: 'Exact 😀'
           });
 
-          test.assert.ok(annotation.outcome === 'saved');
+          assert.ok(annotation.outcome === 'saved');
           const invalid = yield* Effect.flip(
             docs.createAnnotation({
               target: { ...target, range: { ...target.range, start: 2 } },
@@ -615,7 +605,7 @@ test.stable(
             })
           );
 
-          test.assert.ok(invalid.kind === 'invalid_input');
+          assert.ok(invalid.kind === 'invalid_input');
           const updated = yield* docs.reviseAnnotation({
             id: annotation.annotation.id,
             expectedRevision: 1n,
@@ -625,7 +615,7 @@ test.stable(
             deleted: false
           });
 
-          test.assert.strictEqual(updated.annotation.revision, 2n);
+          assert.strictEqual(updated.annotation.revision, 2n);
           const stale = yield* docs.reviseAnnotation({
             id: annotation.annotation.id,
             expectedRevision: 1n,
@@ -635,8 +625,8 @@ test.stable(
             deleted: false
           });
 
-          test.assert.ok(stale.outcome === 'conflict');
-          test.assert.strictEqual(
+          assert.ok(stale.outcome === 'conflict');
+          assert.strictEqual(
             (yield* docs.annotationHistory({ id: annotation.annotation.id, limit: 10 })).items
               .length,
             2
@@ -653,8 +643,8 @@ test.stable(
             includeDeleted: false
           });
 
-          test.assert.strictEqual(firstAnnotations.items[0].id, extra.annotation.id);
-          test.assert.strictEqual(firstAnnotations.nextCursor, extra.annotation.id);
+          assert.strictEqual(firstAnnotations.items[0].id, extra.annotation.id);
+          assert.strictEqual(firstAnnotations.nextCursor, extra.annotation.id);
           const nextAnnotations = yield* docs.annotations({
             pageId: a.id,
             limit: 1,
@@ -662,9 +652,9 @@ test.stable(
             includeDeleted: false
           });
 
-          test.assert.ok(nextAnnotations.items[0].note === 'Revised');
-          test.assert.strictEqual(nextAnnotations.items[0].revision, 2n);
-          test.assert.ok(nextAnnotations.nextCursor === null);
+          assert.ok(nextAnnotations.items[0].note === 'Revised');
+          assert.strictEqual(nextAnnotations.items[0].revision, 2n);
+          assert.ok(nextAnnotations.nextCursor === null);
           yield* docs.reviseAnnotation({
             id: extra.annotation.id,
             expectedRevision: 1n,
@@ -673,12 +663,12 @@ test.stable(
             note: 'Retained tombstone',
             deleted: true
           });
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* docs.annotations({ pageId: a.id, limit: 10, includeDeleted: false })).items
               .length,
             1
           );
-          test.assert.strictEqual(
+          assert.strictEqual(
             (yield* docs.annotations({ pageId: a.id, limit: 10, includeDeleted: true })).items
               .length,
             2
@@ -698,8 +688,8 @@ test.stable(
             ]
           });
 
-          test.assert.ok(cited.version);
-          test.assert.ok(
+          assert.ok(cited.version);
+          assert.ok(
             (yield* Effect.flip(
               docs.create({
                 ...creation('bad-quote'),
@@ -725,7 +715,7 @@ test.stable(
             inputs: [messageInput]
           });
 
-          test.assert.ok(derived.version);
+          assert.ok(derived.version);
           f.context.db.exec('DELETE FROM notes WHERE id=1');
           const changed = yield* docs.save({
             pageId: derived.id,
@@ -734,18 +724,18 @@ test.stable(
             document: body('Still editable', derived.version.document.blocks[0].id)
           });
 
-          test.assert.ok(changed.outcome === 'saved');
-          test
-            .expect((yield* docs.version({ id: changed.submittedVersionId })).inputs)
-            .toStrictEqual([messageInput]);
+          assert.ok(changed.outcome === 'saved');
+          expect((yield* docs.version({ id: changed.submittedVersionId })).inputs).toStrictEqual([
+            messageInput
+          ]);
         }).pipe(Effect.provide(f.services))
       );
-      test.assert.throws(() =>
+      assert.throws(() =>
         f.context.db.exec(
           `UPDATE source_snapshots SET bytes=X'42' WHERE source_id=8 AND revision=1`
         )
       );
-      test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }
@@ -754,7 +744,9 @@ test.stable(
 
 test.stable(
   'independent generated publication owns the first authored version and replays one typed request',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await fixture(databases);
 
     try {
@@ -772,12 +764,12 @@ test.stable(
           };
           const a = yield* transaction((tx) => Pages.createGeneratedInTransaction(tx, request));
 
-          test.assert.ok(a.version);
-          test.assert.ok(a.version.creator === 'agent');
-          test.assert.ok(a.version.operation === 'generate');
-          test.assert.strictEqual(a.version.number, 1n);
-          test.expect(a.version.parents).toStrictEqual([]);
-          test.assert.strictEqual(a.version.instruction, request.instruction);
+          assert.ok(a.version);
+          assert.ok(a.version.creator === 'agent');
+          assert.ok(a.version.operation === 'generate');
+          assert.strictEqual(a.version.number, 1n);
+          expect(a.version.parents).toStrictEqual([]);
+          assert.strictEqual(a.version.instruction, request.instruction);
           const docs = yield* Pages;
 
           yield* docs.save({
@@ -790,10 +782,10 @@ test.stable(
             Pages.createGeneratedInTransaction(tx, request)
           );
 
-          test.assert.strictEqual(replay.pageId, a.pageId);
-          test.assert.strictEqual(replay.version.id, a.version.id);
-          test.assert.ok(replay.replayed === true);
-          test.assert.ok(
+          assert.strictEqual(replay.pageId, a.pageId);
+          assert.strictEqual(replay.version.id, a.version.id);
+          assert.ok(replay.replayed === true);
+          assert.ok(
             (yield* Effect.flip(
               transaction((tx) =>
                 Pages.createGeneratedInTransaction(tx, {
@@ -807,19 +799,13 @@ test.stable(
             sql`SELECT expected_version_id,result_version_id FROM page_generation_requests WHERE id='independent-generation'`
           );
 
-          test.assert.ok(receipt?.expected_version_id === null);
-          test.assert.strictEqual(receipt?.result_version_id, a.version.id);
+          assert.ok(receipt?.expected_version_id === null);
+          assert.strictEqual(receipt?.result_version_id, a.version.id);
         }).pipe(Effect.provide(f.services))
       );
-      test.assert.strictEqual(
-        f.context.db.orm.get(sql`SELECT count(*) AS n FROM materials`)?.n,
-        0n
-      );
-      test.assert.strictEqual(
-        f.context.db.orm.get(sql`SELECT count(*) AS n FROM page_versions`)?.n,
-        2n
-      );
-      test.expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+      assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) AS n FROM materials`)?.n, 0n);
+      assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) AS n FROM page_versions`)?.n, 2n);
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       await f.close();
     }
@@ -828,7 +814,9 @@ test.stable(
 
 test.stable(
   'authored metadata and target proposals retain independent histories and exact replay',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
+
     const f = await fixture(databases);
 
     try {
@@ -845,9 +833,9 @@ test.stable(
             expectedDescription: created.description
           });
 
-          test.assert.ok(metadata.title === 'Renamed document');
-          test.assert.ok(metadata.description === 'Private description');
-          test.assert.strictEqual(metadata.headVersionId, base.id);
+          assert.ok(metadata.title === 'Renamed document');
+          assert.ok(metadata.description === 'Private description');
+          assert.strictEqual(metadata.headVersionId, base.id);
           const proposalInput = {
             requestId: 'target-proposal',
             pageId: created.id,
@@ -864,16 +852,12 @@ test.stable(
             Pages.proposeGeneratedInTransaction(tx, proposalInput)
           );
 
-          test.assert.strictEqual(proposed.baseVersionId, base.id);
-          test.assert.strictEqual((yield* docs.page({ id: created.id })).headVersionId, base.id);
-          test.assert.ok(
-            (yield* docs.version({ id: proposed.proposedVersionId })).status === 'draft'
-          );
-          test
-            .expect(
-              yield* transaction((tx) => Pages.proposeGeneratedInTransaction(tx, proposalInput))
-            )
-            .toStrictEqual(proposed);
+          assert.strictEqual(proposed.baseVersionId, base.id);
+          assert.strictEqual((yield* docs.page({ id: created.id })).headVersionId, base.id);
+          assert.ok((yield* docs.version({ id: proposed.proposedVersionId })).status === 'draft');
+          expect(
+            yield* transaction((tx) => Pages.proposeGeneratedInTransaction(tx, proposalInput))
+          ).toStrictEqual(proposed);
           const changed = yield* docs.save({
             pageId: created.id,
             expectedVersionId: base.id,
@@ -886,8 +870,8 @@ test.stable(
             expectedVersionId: base.id
           });
 
-          test.assert.ok(conflict.outcome === 'conflict');
-          test.assert.strictEqual(conflict.currentVersionId, changed.submittedVersionId);
+          assert.ok(conflict.outcome === 'conflict');
+          assert.strictEqual(conflict.currentVersionId, changed.submittedVersionId);
           const keepInput = {
             requestId: proposed.requestId,
             key: 'keep-separate',
@@ -895,18 +879,18 @@ test.stable(
           };
           const kept = yield* docs.keepProposal(keepInput);
 
-          test.assert.ok(kept.outcome === 'kept');
-          test.assert.ok((yield* docs.keepProposal(keepInput)).replayed === true);
+          assert.ok(kept.outcome === 'kept');
+          assert.ok((yield* docs.keepProposal(keepInput)).replayed === true);
           const alternative = yield* docs.version({ id: kept.resultVersionId! });
 
-          test.assert.notStrictEqual(alternative.pageId, created.id);
-          test.assert.ok(alternative.document.blocks[0].text === 'Proposed text');
-          test.assert.notStrictEqual(alternative.document.blocks[0].id, base.document.blocks[0].id);
-          test.assert.strictEqual(
+          assert.notStrictEqual(alternative.pageId, created.id);
+          assert.ok(alternative.document.blocks[0].text === 'Proposed text');
+          assert.notStrictEqual(alternative.document.blocks[0].id, base.document.blocks[0].id);
+          assert.strictEqual(
             (yield* docs.page({ id: created.id })).headVersionId,
             changed.submittedVersionId
           );
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               docs.applyProposal({
                 requestId: proposed.requestId,
@@ -932,32 +916,30 @@ test.stable(
           };
           const applied = yield* docs.applyProposal(applyInput);
 
-          test.assert.ok(applied.outcome === 'applied');
-          test.assert.strictEqual(
+          assert.ok(applied.outcome === 'applied');
+          assert.strictEqual(
             (yield* docs.page({ id: target.id })).headVersionId,
             applied.resultVersionId
           );
-          test.assert.ok(
+          assert.ok(
             (yield* docs.version({ id: applied.resultVersionId! })).document.blocks[0].text ===
               'Accepted proposal'
           );
           const replay = yield* docs.applyProposal(applyInput);
 
-          test.assert.ok(replay.replayed === true);
-          test.assert.strictEqual(replay.resultVersionId, applied.resultVersionId);
+          assert.ok(replay.replayed === true);
+          assert.strictEqual(replay.resultVersionId, applied.resultVersionId);
           const retirement = yield* docs.previewDeletion({ id: target.id });
 
-          test
-            .expect(
-              retirement.blockedVersionIds,
-              'Own proposal identities do not retain deleted document bodies'
-            )
-            .toStrictEqual([]);
+          expect(
+            retirement.blockedVersionIds,
+            'Own proposal identities do not retain deleted document bodies'
+          ).toStrictEqual([]);
           yield* docs.delete({ pageId: target.id, token: retirement.token });
-          test.assert.ok((yield* Effect.flip(docs.page({ id: target.id }))).kind === 'not_found');
-          test.assert.ok((yield* docs.applyProposal(applyInput)).replayed === true);
+          assert.ok((yield* Effect.flip(docs.page({ id: target.id }))).kind === 'not_found');
+          assert.ok((yield* docs.applyProposal(applyInput)).replayed === true);
 
-          test.assert.ok(
+          assert.ok(
             (yield* Effect.flip(
               docs.updateMetadata({
                 id: created.id,
@@ -978,7 +960,9 @@ test.stable(
 
 test.stable(
   'history pagination follows logical numbers when exact version IDs have a different order',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
 
@@ -988,7 +972,7 @@ test.stable(
           const docs = yield* Pages;
           const owner = yield* docs.create(creation('logical-order'));
 
-          test.assert.ok(owner.version);
+          assert.ok(owner.version);
           // Late imported histories can have IDs in a different order from logical numbers.
           // Create valid draft snapshots without changing any published version or SQL guard.
 
@@ -1010,25 +994,25 @@ test.stable(
 
           const first = yield* docs.versions({ pageId: owner.id, limit: 1 });
 
-          test.assert.strictEqual(first.items[0]?.number, 3n);
-          test.assert.strictEqual(first.items[0]?.id, 50n);
-          test.assert.strictEqual(first.nextCursor, 50n);
+          assert.strictEqual(first.items[0]?.number, 3n);
+          assert.strictEqual(first.items[0]?.id, 50n);
+          assert.strictEqual(first.nextCursor, 50n);
           const second = yield* docs.versions({
             pageId: owner.id,
             limit: 1,
             cursor: first.nextCursor!
           });
 
-          test.assert.strictEqual(second.items[0]?.number, 2n);
-          test.assert.strictEqual(second.items[0]?.id, 100n);
+          assert.strictEqual(second.items[0]?.number, 2n);
+          assert.strictEqual(second.items[0]?.id, 100n);
           const last = yield* docs.versions({
             pageId: owner.id,
             limit: 1,
             cursor: second.nextCursor!
           });
 
-          test.assert.strictEqual(last.items[0]?.id, owner.version.id);
-          test.assert.ok(last.nextCursor === null);
+          assert.strictEqual(last.items[0]?.id, owner.version.id);
+          assert.ok(last.nextCursor === null);
         }).pipe(Effect.provide(Pages.layer), Effect.provideService(Database, { store: context }))
       );
     } finally {

@@ -14,33 +14,36 @@ function Copy({ name }: { name: string }) {
 }
 
 test.describe('desktop language provider', () => {
-  test.stable('switches independently and preserves the server locale', () => {
-    const view = (locale: 'english' | 'italian') => (
-      <>
-        <LanguageProvider locale={locale}>
-          <Copy name="first" />
-        </LanguageProvider>
-        <LanguageProvider locale="english">
-          <Copy name="second" />
-        </LanguageProvider>
-      </>
-    );
-    const rendered = test.render(view('english'));
+  test.stable(
+    'switches independently and preserves the server locale',
+    ({ render, expect, screen, cleanup }) => {
+      const view = (locale: 'english' | 'italian') => (
+        <>
+          <LanguageProvider locale={locale}>
+            <Copy name="first" />
+          </LanguageProvider>
+          <LanguageProvider locale="english">
+            <Copy name="second" />
+          </LanguageProvider>
+        </>
+      );
+      const rendered = render(view('english'));
 
-    test.expect(test.screen.getByTestId('first').textContent).toBe('english:Overview:1,234');
-    rendered.rerender(view('italian'));
-    test
-      .expect(test.screen.getByTestId('first').textContent)
-      .toBe(`italian:Panoramica:${new Intl.NumberFormat('it-IT').format(1234)}`);
-    test.expect(test.screen.getByTestId('second').textContent).toBe('english:Overview:1,234');
-    rendered.rerender(view('english'));
-    test.expect(test.screen.getByTestId('first').textContent).toBe('english:Overview:1,234');
-    test.cleanup();
-  });
+      expect(screen.getByTestId('first').textContent).toBe('english:Overview:1,234');
+      rendered.rerender(view('italian'));
+      expect(screen.getByTestId('first').textContent).toBe(
+        `italian:Panoramica:${new Intl.NumberFormat('it-IT').format(1234)}`
+      );
+      expect(screen.getByTestId('second').textContent).toBe('english:Overview:1,234');
+      rendered.rerender(view('english'));
+      expect(screen.getByTestId('first').textContent).toBe('english:Overview:1,234');
+      cleanup();
+    }
+  );
 
-  test.stable('defaults to English outside a provider', () => {
-    test.render(<Copy name="default" />);
-    test.expect(test.screen.getByTestId('default').textContent).toBe('english:Overview:1,234');
-    test.cleanup();
+  test.stable('defaults to English outside a provider', ({ render, expect, screen, cleanup }) => {
+    render(<Copy name="default" />);
+    expect(screen.getByTestId('default').textContent).toBe('english:Overview:1,234');
+    cleanup();
   });
 });

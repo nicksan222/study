@@ -24,7 +24,9 @@ import { workflowStore } from './store.ts';
 
 test.stable(
   'explicit cancellation waits for local provider cleanup before terminal domain state',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const id = executionIdSchema.make('cancel-provider');
@@ -67,8 +69,8 @@ test.stable(
             yield* engine.execute(workflow, { executionId: id, payload: { id }, discard: true });
             yield* Deferred.await(started);
             yield* cancelExecution(context, [workflow], { id, mode: 'unsafe' });
-            test.assert.isTrue(cleaned);
-            test.assert.equal(workflowStore(context).execution(id)?.status, 'cancelled');
+            assert.isTrue(cleaned);
+            assert.equal(workflowStore(context).execution(id)?.status, 'cancelled');
             yield* cancelExecution(context, [workflow], { id, mode: 'unsafe' });
           })
         ).pipe(Effect.provide(workflowEngineLayer(context)))

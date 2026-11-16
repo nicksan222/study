@@ -6,8 +6,8 @@ import { makeStudyClient } from '#server/client/index';
 
 test.stable(
   'owned RPC applications preserve data when reopened and release the database',
-  async () => {
-    await using fixture = await test.createServerFixture();
+  async ({ createServerFixture, expect }) => {
+    await using fixture = await createServerFixture();
     const path = fixture.path;
 
     try {
@@ -35,11 +35,11 @@ test.stable(
         )
       );
 
-      test.expect(restored.name).toBe('Persistent fixture');
+      expect(restored.name).toBe('Persistent fixture');
     } finally {
       await fixture.close();
     }
 
-    test.expect(await Bun.file(path).exists()).toBe(false);
+    expect(await Bun.file(path).exists()).toBe(false);
   }
 );

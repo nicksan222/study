@@ -1,4 +1,4 @@
-import { test } from '@study/testing';
+import type { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Builds exact authored evidence and controlled native learning generation fixtures. │
@@ -20,7 +20,9 @@ import type { pageTransformFixture } from '#testing/page-transform';
 
 type Fixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
-export function learningGeneration(f: Fixture) {
+type TestAssertion = Pick<test.Context, 'assert'>['assert'];
+
+export function learningGeneration(f: Fixture, assert: TestAssertion) {
   return Effect.runPromise(
     Effect.gen(function* () {
       const docs = yield* Pages;
@@ -34,7 +36,7 @@ export function learningGeneration(f: Fixture) {
         citations: []
       });
 
-      test.assert.ok(input.version);
+      assert.ok(input.version);
       const request = yield* (yield* Materials).requestMaterialGeneration({
         projectId: project.id,
         kind: 'flashcards',

@@ -33,7 +33,7 @@ test.beforeEach(async ({ mock }) => {
 for (const uncertain of [false, true])
   test.stable(
     `retirement ${uncertain ? 'keeps unknown outcome explicit without replay' : 'completes only after the canonical mutation receipt'}`,
-    async () => {
+    async ({ vi, rpcHandlersTransport, renderHook, act, waitFor, expect }) => {
       const page = authoredPage(10n, 'Private body', 101n);
       const preview = {
         pageId: page.id,
@@ -42,32 +42,30 @@ for (const uncertain of [false, true])
         blockedVersionIds: [],
         semantics: 'retire_bodies_retain_identities' as const
       };
-      const remove = test.vi
+      const remove = vi
         .fn()
         .mockImplementation(() =>
           uncertain
             ? Promise.reject(new StudyError('transient', 'Lost response'))
             : Promise.resolve(undefined)
         );
-      const harness = test.rpcHandlersTransport({
+      const harness = rpcHandlersTransport({
         'pages.previewDeletion': async () => preview,
         'pages.delete': remove
       });
-      const view = test.renderHook(() => usePageRetirement(page), { wrapper: harness.wrapper });
+      const view = renderHook(() => usePageRetirement(page), { wrapper: harness.wrapper });
 
-      test.act(() => view.result.current.open('deletion'));
-      await test.waitFor(() => test.expect(view.result.current.preview?.token).toBe(preview.token));
-      await test.act(async () => {
+      act(() => view.result.current.open('deletion'));
+      await waitFor(() => expect(view.result.current.preview?.token).toBe(preview.token));
+      await act(async () => {
         await view.result.current.retire.mutateAsync().catch(() => undefined);
       });
-      test
-        .expect(remove)
-        .toHaveBeenCalledExactlyOnceWith({ pageId: page.id, token: preview.token });
+      expect(remove).toHaveBeenCalledExactlyOnceWith({ pageId: page.id, token: preview.token });
 
       if (uncertain) {
-        test.expect(view.result.current.retire.isError).toBe(true);
-        test.expect(view.result.current.mode).toBe('deletion');
-      } else test.expect(view.result.current.mode).toBeUndefined();
+        expect(view.result.current.retire.isError).toBe(true);
+        expect(view.result.current.mode).toBe('deletion');
+      } else expect(view.result.current.mode).toBeUndefined();
 
       view.unmount();
     }

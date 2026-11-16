@@ -53,7 +53,9 @@ function admit(context: ServerContext, tag: string, id: string) {
 for (const kind of ['auth', 'config', 'model_unavailable'] as const)
   test.stable(
     `${kind} configuration waits survive reopening and retry only when the fingerprint changes`,
-    async ({ databases }) => {
+    async ({ databases, assert: assertions, pollUntil }) => {
+      const assert: test.Assert = assertions;
+
       const location = await databases();
       let context = new ServerContext(await location.open());
       let revision = 'before';
@@ -89,16 +91,15 @@ for (const kind of ['auth', 'config', 'model_unavailable'] as const)
           Layer.succeed(WorkflowConfiguration, { revision: Effect.sync(() => revision) })
         );
       const awaitStatus = (
+        { pollUntil }: Pick<test.Context, 'pollUntil'>,
         engine: WorkflowEngine.WorkflowEngine['Service'],
         expected: 'Suspended' | 'Complete'
       ) =>
-        test
-          .pollUntil(
-            engine.poll(workflow, 'configuration-run'),
-            (state) => Option.isSome(state) && state.value._tag === expected,
-            { attempts: 1000, interval: '5 millis', message: `Workflow did not reach ${expected}` }
-          )
-          .pipe(Effect.map((state) => Option.getOrThrow(state)));
+        pollUntil(
+          engine.poll(workflow, 'configuration-run'),
+          (state) => Option.isSome(state) && state.value._tag === expected,
+          { attempts: 1000, interval: '5 millis', message: `Workflow did not reach ${expected}` }
+        ).pipe(Effect.map((state) => Option.getOrThrow(state)));
 
       try {
         await Effect.runPromise(
@@ -112,24 +113,21 @@ for (const kind of ['auth', 'config', 'model_unavailable'] as const)
               payload: { id: 'one' },
               discard: true
             });
-            yield* awaitStatus(engine, 'Suspended');
+            yield* awaitStatus({ pollUntil }, engine, 'Suspended');
             context.db.orm.update(workflow_executions).set({ status: 'suspended' }).run();
-            test.assert.strictEqual(calls, 1);
-            test.assert.throws(() =>
+            assert.strictEqual(calls, 1);
+            assert.throws(() =>
               context.db.orm.run(
                 sql`UPDATE workflow_configuration_waits SET reason = ${'unknown-reason'}`
               )
             );
-            test.assert.strictEqual(
+            assert.strictEqual(
               context.db.orm.select().from(workflow_configuration_waits).get()?.reason,
               kind
             );
-            test.assert.strictEqual(
-              yield* notifyConfigurationChanged(context, engine, revision),
-              0
-            );
-            test.assert.strictEqual(calls, 1);
-            test.assert.strictEqual(
+            assert.strictEqual(yield* notifyConfigurationChanged(context, engine, revision), 0);
+            assert.strictEqual(calls, 1);
+            assert.strictEqual(
               context.db.orm.select().from(workflow_configuration_waits).all().length,
               1
             );
@@ -145,34 +143,31 @@ for (const kind of ['auth', 'config', 'model_unavailable'] as const)
             const id = Schema.decodeUnknownSync(executionIdSchema)('configuration-run');
 
             context.db.orm.update(workflow_configuration_waits).set({ reason: null }).run();
-            test.assert.strictEqual((yield* store.execution(id)).configurationWaitReason, null);
+            assert.strictEqual((yield* store.execution(id)).configurationWaitReason, null);
             context.db.orm.update(workflow_configuration_waits).set({ reason: kind }).run();
             context.db.orm
               .insert(workflow_configuration_waits)
               .values({ execution_id: id, deferred_name: 'legacy', observed_revision: 'before' })
               .run();
-            test.assert.strictEqual((yield* store.execution(id)).configurationWaitReason, kind);
+            assert.strictEqual((yield* store.execution(id)).configurationWaitReason, kind);
             context.db.orm
               .delete(workflow_configuration_waits)
               .where(eq(workflow_configuration_waits.deferred_name, 'legacy'))
               .run();
-            test.assert.strictEqual((yield* store.execution(id)).configurationWaitReason, kind);
-            test.assert.strictEqual(
+            assert.strictEqual((yield* store.execution(id)).configurationWaitReason, kind);
+            assert.strictEqual(
               (yield* store.executions({ limit: 10 }))[0]?.configurationWaitReason,
               kind
             );
 
             yield* engine.register(workflow, () => retryResumableActivity(activity));
-            test.assert.strictEqual(
-              yield* notifyConfigurationChanged(context, engine, revision),
-              1
-            );
-            const complete = yield* awaitStatus(engine, 'Complete');
+            assert.strictEqual(yield* notifyConfigurationChanged(context, engine, revision), 1);
+            const complete = yield* awaitStatus({ pollUntil }, engine, 'Complete');
 
-            test.assert.ok(complete._tag === 'Complete');
-            test.assert.strictEqual(calls, 2);
-            test.assert.strictEqual((yield* store.execution(id)).configurationWaitReason, null);
-            test.assert.strictEqual(
+            assert.ok(complete._tag === 'Complete');
+            assert.strictEqual(calls, 2);
+            assert.strictEqual((yield* store.execution(id)).configurationWaitReason, null);
+            assert.strictEqual(
               context.db.orm.select().from(workflow_configuration_waits).all().length,
               0
             );
@@ -187,7 +182,9 @@ for (const kind of ['auth', 'config', 'model_unavailable'] as const)
 
 test.stable(
   'configuration changes during a failed call are retained, and cancelled waits never retry',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions, pollUntil }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     let revision = 'before';
@@ -228,14 +225,16 @@ test.stable(
       await Effect.runPromise(
         Effect.gen(function* () {
           const engine = yield* WorkflowEngine.WorkflowEngine;
-          const wait = (id: string, expected: 'Complete' | 'Suspended') =>
-            test
-              .pollUntil(
-                engine.poll(workflow, id),
-                (state) => Option.isSome(state) && state.value._tag === expected,
-                { attempts: 1000, interval: '5 millis', message: 'Workflow did not settle' }
-              )
-              .pipe(Effect.asVoid);
+          const wait = (
+            { pollUntil }: Pick<test.Context, 'pollUntil'>,
+            id: string,
+            expected: 'Complete' | 'Suspended'
+          ) =>
+            pollUntil(
+              engine.poll(workflow, id),
+              (state) => Option.isSome(state) && state.value._tag === expected,
+              { attempts: 1000, interval: '5 millis', message: 'Workflow did not settle' }
+            ).pipe(Effect.asVoid);
 
           yield* engine.register(workflow, () => retryResumableActivity(activity));
           admit(context, workflow._tag, 'race');
@@ -244,11 +243,11 @@ test.stable(
             payload: { id: 'race' },
             discard: true
           });
-          yield* wait('race', 'Suspended');
+          yield* wait({ pollUntil }, 'race', 'Suspended');
           ready = true;
-          test.assert.strictEqual(yield* notifyConfigurationChanged(context, engine, revision), 1);
-          yield* wait('race', 'Complete');
-          test.assert.strictEqual(calls, 2);
+          assert.strictEqual(yield* notifyConfigurationChanged(context, engine, revision), 1);
+          yield* wait({ pollUntil }, 'race', 'Complete');
+          assert.strictEqual(calls, 2);
 
           ready = false;
           admit(context, workflow._tag, 'cancel');
@@ -257,18 +256,18 @@ test.stable(
             payload: { id: 'cancel' },
             discard: true
           });
-          yield* wait('cancel', 'Suspended');
+          yield* wait({ pollUntil }, 'cancel', 'Suspended');
           yield* engine.interrupt(workflow, 'cancel');
           ready = true;
           revision = 'after-cancellation';
           yield* notifyConfigurationChanged(context, engine, revision);
-          yield* wait('cancel', 'Complete');
-          test.assert.strictEqual(calls, 3);
-          test.assert.strictEqual(
+          yield* wait({ pollUntil }, 'cancel', 'Complete');
+          assert.strictEqual(calls, 3);
+          assert.strictEqual(
             context.db.orm.select().from(workflow_configuration_waits).all().length,
             0
           );
-          test.assert.ok(
+          assert.ok(
             context.db.orm
               .select()
               .from(workflow_executions)
@@ -287,7 +286,9 @@ test.stable(
 for (const kind of ['invalid_input', 'transient'] as const) {
   test.stable(
     `${kind} failures respect terminal classification and durable retry limits`,
-    async ({ databases }) => {
+    async ({ databases, pollUntil, assert: assertions }) => {
+      const assert: test.Assert = assertions;
+
       const location = await databases();
       const context = new ServerContext(await location.open());
       let calls = 0;
@@ -326,12 +327,12 @@ for (const kind of ['invalid_input', 'transient'] as const) {
               discard: true
             });
 
-            yield* test.pollUntil(
+            yield* pollUntil(
               engine.poll(workflow, 'limit'),
               (state) => Option.isSome(state) && state.value._tag === 'Complete',
               { attempts: 1000, interval: '5 millis', message: 'Workflow did not complete' }
             );
-            test.assert.strictEqual(calls, kind === 'transient' ? 3 : 1);
+            assert.strictEqual(calls, kind === 'transient' ? 3 : 1);
           }).pipe(Effect.provide(services), Effect.scoped)
         );
       } finally {
@@ -344,7 +345,9 @@ for (const kind of ['invalid_input', 'transient'] as const) {
 
 test.stable(
   'configuration reasons stay correlated to their own execution in detail and lists',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     const first = executionIdSchema.make('configuration-first');
@@ -379,11 +382,11 @@ test.stable(
         Effect.gen(function* () {
           const store = yield* useStore(ExecutionStore);
 
-          test.assert.strictEqual((yield* store.execution(first)).configurationWaitReason, 'auth');
-          test.assert.strictEqual((yield* store.execution(second)).configurationWaitReason, null);
+          assert.strictEqual((yield* store.execution(first)).configurationWaitReason, 'auth');
+          assert.strictEqual((yield* store.execution(second)).configurationWaitReason, null);
           let listed = yield* store.executions({ limit: 10 });
 
-          test.assert.strictEqual(
+          assert.strictEqual(
             listed.find((row) => row.id === second)?.configurationWaitReason,
             null
           );
@@ -396,17 +399,14 @@ test.stable(
               reason: 'config'
             })
             .run();
-          test.assert.strictEqual((yield* store.execution(first)).configurationWaitReason, 'auth');
-          test.assert.strictEqual(
-            (yield* store.execution(second)).configurationWaitReason,
-            'config'
-          );
+          assert.strictEqual((yield* store.execution(first)).configurationWaitReason, 'auth');
+          assert.strictEqual((yield* store.execution(second)).configurationWaitReason, 'config');
           listed = yield* store.executions({ limit: 10 });
-          test.assert.strictEqual(
+          assert.strictEqual(
             listed.find((row) => row.id === first)?.configurationWaitReason,
             'auth'
           );
-          test.assert.strictEqual(
+          assert.strictEqual(
             listed.find((row) => row.id === second)?.configurationWaitReason,
             'config'
           );
@@ -421,7 +421,9 @@ test.stable(
 
 test.stable(
   'configuration revisions cannot exceed the total activity attempt bound',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     let revision = '0';
@@ -488,8 +490,8 @@ test.stable(
             })
           );
 
-          test.assert.ok(Option.isSome(reply) && reply.value._tag === 'Complete');
-          test.assert.strictEqual(calls, 3);
+          assert.ok(Option.isSome(reply) && reply.value._tag === 'Complete');
+          assert.strictEqual(calls, 3);
         }).pipe(
           Effect.provide(
             Layer.mergeAll(
@@ -511,7 +513,9 @@ test.stable(
 
 test.stable(
   'configuration revision changes exhaust the bounded total attempt budget',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     let calls = 0;
@@ -574,10 +578,10 @@ test.stable(
               })
             );
 
-            test.assert.ok(Option.isSome(terminal) && terminal.value._tag === 'Complete');
-            test.assert.strictEqual(calls, 2);
+            assert.ok(Option.isSome(terminal) && terminal.value._tag === 'Complete');
+            assert.strictEqual(calls, 2);
             yield* notifyConfigurationChanged(context, engine, 'changed-again');
-            test.assert.strictEqual(calls, 2);
+            assert.strictEqual(calls, 2);
           })
         ).pipe(
           Effect.provide(
@@ -599,7 +603,9 @@ test.stable(
 
 test.stable(
   'local AI saturation uses durable waits without exhausting provider retry budget',
-  async ({ databases }) => {
+  async ({ databases, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
     const location = await databases();
     const context = new ServerContext(await location.open());
     let attempts = 0;
@@ -643,8 +649,8 @@ test.stable(
         )
       );
 
-      test.assert.strictEqual(result, 6);
-      test.assert.strictEqual(attempts, 6);
+      assert.strictEqual(result, 6);
+      assert.strictEqual(attempts, 6);
     } finally {
       await runtime.dispose();
       context.close();
