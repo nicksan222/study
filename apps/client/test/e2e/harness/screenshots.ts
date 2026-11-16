@@ -20,8 +20,12 @@ export type ExpectScreenshot = (
   options: {
     target: Locator | 'viewport';
     center?: Locator;
+    /** Anchor the owner scroller at its end when zoom makes centering clamp ambiguously. */
+    scrollToEnd?: Locator;
     ready: () => Promise<void>;
     timeoutMs?: number;
+    /** Expected application zoom for journeys that exercise the appearance scale. */
+    zoomPercent?: number;
     /** Keep intentional focus snapshots; otherwise normalize only passive notebook entry focus. */
     focus?: 'preserve';
   }
@@ -44,7 +48,7 @@ export function screenshotAssertions(
   const names = new Set<string>();
   const expectScreenshot: ExpectScreenshot = async (
     name,
-    { target, ready, timeoutMs = 30000, focus, center }
+    { target, ready, timeoutMs = 30000, focus, center, scrollToEnd }
   ) => {
     safeName(name);
 
@@ -102,10 +106,46 @@ export function screenshotAssertions(
           fence();
 
           if (center) {
-            await center.evaluate((element) =>
-              element.scrollIntoView({ block: 'center', behavior: 'instant' })
+            await center.evaluate(
+              (element) => element.scrollIntoView({ block: 'center', behavior: 'instant' }),
+              undefined,
+              { timeout: remaining() }
             );
           }
+
+          if (scrollToEnd) {
+            fence();
+            // Screenshot preparation can finish zoom layout before camera positioning.
+            await page.screenshot({
+              animations: 'disabled',
+              caret: 'hide',
+              scale: 'css',
+              timeout: remaining()
+            });
+            fence();
+            const layout = await scrollToEnd.evaluate(
+              (element) => {
+                element.scrollTop = element.scrollHeight;
+
+                return {
+                  scrollTop: element.scrollTop,
+                  scrollHeight: element.scrollHeight,
+                  clientHeight: element.clientHeight,
+                  bounds: element.getBoundingClientRect().toJSON(),
+                  contentBounds: element.firstElementChild?.getBoundingClientRect().toJSON(),
+                  zoom: getComputedStyle(document.documentElement).zoom,
+                  viewport: { width: innerWidth, height: innerHeight }
+                };
+              },
+              undefined,
+              { timeout: remaining() }
+            );
+
+            fence();
+            await Bun.write(`${directory}/${name}-layout.json`, JSON.stringify(layout, null, 2));
+          }
+
+          fence();
 
           if (updateAllowed(workflow, name)) {
             // Native snapshot update mode is run-wide. Keep single-capture updates scoped explicitly.

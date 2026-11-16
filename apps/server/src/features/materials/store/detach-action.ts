@@ -12,14 +12,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { detachInputSchema } from '@study/contracts/materials/rpc';
+import type { detachInputSchema } from '@study/contracts';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
 type Input = typeof detachInputSchema.Type;
 
 import { and, eq } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 
 import { makeReads } from '#server/features/materials/store/reads';
 import { materialIntegrity } from '#server/features/materials/store/transactions';

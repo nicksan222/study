@@ -13,7 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { MaterialId } from '@study/contracts/ids';
+import type { MaterialId } from '@study/contracts';
 
 import { LearningMaterialDeletionStore } from '#server/features/learning/store/material-deletion';
 import type { Transaction } from '#server/platform/definitions/define-store';

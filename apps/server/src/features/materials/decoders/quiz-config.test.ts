@@ -11,7 +11,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { MaterialContentInput } from '@study/contracts/materials/schemas';
+import type { MaterialContentInput } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { assert } from 'vite-plus/test';
 

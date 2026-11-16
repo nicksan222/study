@@ -13,7 +13,7 @@
  */
 
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
-import { spawnTestProcess } from '@study/testing/process';
+import { spawnTestProcess } from '@study/testing/vitest';
 import { testStable } from '@study/testing/vitest';
 import { Effect, FileSystem, Path } from 'effect';
 import { expect } from 'vite-plus/test';

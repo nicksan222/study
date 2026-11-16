@@ -1,17 +1,16 @@
-import type { ErrorKind } from '@study/contracts/errors';
-import { StudyError } from '@study/contracts/errors';
-import type { MaterialId } from '@study/contracts/ids';
-import type { ProjectId } from '@study/contracts/ids';
-import type { Project } from '@study/contracts/projects/schemas';
+import { StudyError } from '@study/contracts';
+import type { ErrorKind, MaterialId, ProjectId, Project } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { Button } from '@study/ui/button';
-import { CollectionPanel } from '@study/ui/collection-panel';
-import { DangerDialog } from '@study/ui/danger-dialog';
-import { ErrorState } from '@study/ui/error-state';
-import { Input } from '@study/ui/input';
-import { Loading } from '@study/ui/loading';
-import { StatusMessage } from '@study/ui/status-message';
-import { toastManager } from '@study/ui/toast';
+import {
+  Button,
+  CollectionPanel,
+  DangerDialog,
+  ErrorState,
+  Input,
+  Loading,
+  StatusMessage,
+  toastManager
+} from '@study/ui';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 

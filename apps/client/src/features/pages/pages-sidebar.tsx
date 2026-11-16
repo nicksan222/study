@@ -1,11 +1,7 @@
-import type { ProjectId } from '@study/contracts/ids';
+import type { ProjectId } from '@study/contracts';
 import { PageIcon } from '@study/icons';
 import { age } from '@study/localization';
-import { RetryButton } from '@study/ui/action-button';
-import { useNowMinute } from '@study/ui/clock';
-import { ErrorState } from '@study/ui/error-state';
-import { Loading } from '@study/ui/loading';
-import { Sidebar } from '@study/ui/sidebar';
+import { RetryButton, useNowMinute, ErrorState, Loading, Sidebar } from '@study/ui';
 import { Link, useParams } from '@tanstack/react-router';
 
 import { CursorWindowActions } from '#client/lib/cursor-window.tsx';

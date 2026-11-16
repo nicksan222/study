@@ -14,11 +14,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { QuizAnswerSubmitted } from '@study/contracts/events';
-import { projectIdSchema } from '@study/contracts/ids';
-import type { QuizAttemptId, QuizChoiceId } from '@study/contracts/ids';
-import { defaultQuizSettings } from '@study/contracts/settings/types';
-import { plainBlock } from '@study/contracts/sources/document';
+import type { QuizAnswerSubmitted } from '@study/contracts';
+import { projectIdSchema } from '@study/contracts';
+import type { QuizAttemptId, QuizChoiceId } from '@study/contracts';
+import { defaultQuizSettings } from '@study/contracts';
+import { plainBlock } from '@study/contracts';
 import { eq } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
@@ -76,7 +76,7 @@ testStable(
   'quiz submissions preserve snapshots, validate ownership and emit a durable event',
   async () => {
     const { eq, sql } = await import('@study/db');
-    const s = await import('@study/db/schema');
+    const s = await import('@study/db');
     const { decodeEvent, emitEvent } = await import('#server/platform/workflows/events');
     const { transaction } = await import('#server/platform/definitions/define-store');
     const { AttemptStore } = await import('#server/features/learning/store/index');
@@ -492,7 +492,7 @@ testStable(
 );
 
 testStable('daily allowance limits new cards and review schedules persist', async () => {
-  const s = await import('@study/db/schema');
+  const s = await import('@study/db');
   const { eq } = await import('@study/db');
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
@@ -606,7 +606,7 @@ testStable('daily allowance limits new cards and review schedules persist', asyn
 });
 
 testStable('practice starts idempotently with two captured pending slots', async () => {
-  const s = await import('@study/db/schema');
+  const s = await import('@study/db');
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
 

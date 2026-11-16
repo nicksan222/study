@@ -1,3 +1,22 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Enforce workspace dependency layers and public package exports.                    │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents imports from bypassing package ownership, reaching private source paths or      │
+ * │ bringing Node built-ins into browser production code. Applies manifest exports and       │
+ * │ explicit testing, native-client and landing-preview exceptions.                          │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/client/src/example.ts                                                          │
+ * │   import '@study/ui';                                                                    │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/client/src/example.ts                                                          │
+ * │   import '@study/db';                                                                    │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { BunPath } from '@effect/platform-bun';
 import { Effect, Path } from 'effect';
 import { defineRule } from 'vite-plus/lint/plugins';

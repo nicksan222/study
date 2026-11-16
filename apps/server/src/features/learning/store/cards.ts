@@ -12,10 +12,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { MaterialVersionId, MaterialCardId } from '@study/contracts/ids';
+import { StudyError } from '@study/contracts';
+import type { MaterialVersionId, MaterialCardId } from '@study/contracts';
 import { and, eq } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import type { Memory } from '#server/platform/scheduling/fsrs';

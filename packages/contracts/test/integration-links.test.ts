@@ -1,4 +1,4 @@
-import { validDocumentHref } from '@study/contracts/sources/schemas';
+import { validDocumentHref } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { expect } from 'vite-plus/test';
 

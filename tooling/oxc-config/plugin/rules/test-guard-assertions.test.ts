@@ -3,19 +3,28 @@ import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('reports direct test guards but not nested callbacks or production', async () => {
+testStable('requires assertions instead of return guards in test callbacks', async () => {
   const diagnostics = await lintRule('test-guard-assertions', {
-    'src/a.test.ts': `import { testStable as check } from '@study/testing/vitest'; check('x', () => { if (!x) return; if (!y) { throw new Error('missing'); } [1].map(() => { return; }); });`,
+    'src/a.test.ts': `import { testStable as check } from '@study/testing/vitest';
+ check('x', () => { if (!x) return;
+ if (!y) { throw new Error('missing');
+ } [1].map(() => { return;
+ });
+ });
+`,
     'src/a.ts': `if (!x) { throw new Error('missing'); }`
   });
 
   assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-testStable('reports unbraced throws and permits a final return', async () => {
+testStable('rejects unbraced guard throws while allowing a final callback return', async () => {
   const diagnostics = await lintRule('test-guard-assertions', {
-    'src/a.test.ts':
-      "import { testStable } from '@study/testing/vitest'; testStable('x', () => { if (!x) throw new Error('missing'); return; });"
+    'src/a.test.ts': `import { testStable } from '@study/testing/vitest';
+ testStable('x', () => { if (!x) throw new Error('missing');
+ return;
+ });
+`
   });
 
   assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));

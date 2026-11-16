@@ -12,10 +12,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { projectIdSchema, noteIdSchema, sourceIdSchema } from '@study/contracts/ids';
+import { StudyError } from '@study/contracts';
+import { projectIdSchema, noteIdSchema, sourceIdSchema } from '@study/contracts';
 import { and, eq } from '@study/db';
-import * as tables from '@study/db/schema';
+import * as tables from '@study/db';
 import { CryptoHasher } from 'bun';
 import { Option, Schema } from 'effect';
 

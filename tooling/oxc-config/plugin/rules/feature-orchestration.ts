@@ -1,3 +1,24 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keep server feature orchestration in Effect rather than native asynchronous        │
+ * │ control flow.                                                                            │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ In production feature service/store/workflow/agent/tool owners and sources/fetch.ts,     │
+ * │ prevents async functions, native fetch and new Promise. I/O adapter modules are outside  │
+ * │ this path check.                                                                         │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   // apps/server/src/features/sources/service.ts                                         │
+ * │   const load = Effect.fnUntraced(function* () { return yield* read; });                  │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/server/src/features/sources/service.ts                                         │
+ * │   async function load() { return fetch(url); }                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings, serverProduction } from '../effect-bindings.ts';

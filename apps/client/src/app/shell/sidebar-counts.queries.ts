@@ -1,4 +1,4 @@
-import type { ProjectId } from '@study/contracts/ids';
+import type { ProjectId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 
 import type { Notes, Subjects } from '#client/lib/study-client/types.ts';

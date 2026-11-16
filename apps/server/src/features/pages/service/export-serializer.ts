@@ -11,11 +11,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { MAX_EXPORT_BYTES } from '@study/contracts/exports';
-import type { exportOmissionSchema } from '@study/contracts/exports';
-import type { PageVersion } from '@study/contracts/pages/types';
-import type { blockSchema, Inline } from '@study/contracts/sources/schemas';
+import { StudyError } from '@study/contracts';
+import { MAX_EXPORT_BYTES } from '@study/contracts';
+import type { exportOmissionSchema } from '@study/contracts';
+import type { PageVersion } from '@study/contracts';
+import type { blockSchema, Inline } from '@study/contracts';
 
 import { exportBudget } from '#server/platform/content-export/budget';
 

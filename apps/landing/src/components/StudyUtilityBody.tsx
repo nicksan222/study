@@ -1,19 +1,19 @@
-import { defaultAppearancePreferences } from '@study/contracts/settings/types';
+import { defaultAppearancePreferences } from '@study/contracts';
 import { CompletedIcon, PageIcon, NoteIcon } from '@study/icons';
 import {
   createLocalization,
   structuredEditorLabels,
   interfaceControlLabels
 } from '@study/localization';
-import { utilityExampleCopy } from '@study/localization/landing';
-import { ColorSchemeControls, InterfaceControls } from '@study/ui/appearance-controls';
-import { ExecutionLog } from '@study/ui/execution-log';
-import { RichNoteContent } from '@study/ui/rich-note';
-import { Sidebar } from '@study/ui/sidebar';
-import { SidebarSearchResults } from '@study/ui/sidebar-search-results';
-import { SourceContent } from '@study/ui/source-content';
-import { StructuredEditor } from '@study/ui/structured-editor';
-import type { StructuredEditorValue } from '@study/ui/structured-editor';
+import { utilityExampleCopy } from '@study/localization';
+import { ColorSchemeControls, InterfaceControls } from '@study/ui';
+import { ExecutionLog } from '@study/ui';
+import { RichNoteContent } from '@study/ui';
+import { Sidebar } from '@study/ui';
+import { SidebarSearchResults } from '@study/ui';
+import { SourceContent } from '@study/ui';
+import { StructuredEditor } from '@study/ui';
+import type { StructuredEditorValue } from '@study/ui';
 import { useState, useSyncExternalStore } from 'react';
 
 export type UtilityKind = 'sources' | 'search' | 'settings' | 'activity';

@@ -12,15 +12,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { QuizOrderingItemId } from '@study/contracts/ids';
-import type { MaterialVersionId, QuizAttemptId } from '@study/contracts/ids';
-import type { QuizQuestionId, QuizChoiceId } from '@study/contracts/ids';
-import { orderingAnswerJsonSchema } from '@study/contracts/learning/schemas';
-import type { quizAttemptInProgressSchema } from '@study/contracts/learning/schemas';
-import { isTextQuestionKind } from '@study/contracts/materials/schemas';
+import { StudyError } from '@study/contracts';
+import type { QuizOrderingItemId } from '@study/contracts';
+import type { MaterialVersionId, QuizAttemptId } from '@study/contracts';
+import type { QuizQuestionId, QuizChoiceId } from '@study/contracts';
+import { orderingAnswerJsonSchema } from '@study/contracts';
+import type { quizAttemptInProgressSchema } from '@study/contracts';
+import { isTextQuestionKind } from '@study/contracts';
 import { and, asc, eq } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { Schema } from 'effect';
 
 import { requireRow } from '#server/platform/database/rows';

@@ -1,8 +1,8 @@
-import { assistantToolNameSchema } from '@study/contracts/ai/assistant-tools';
-import type { agentToolProgressSchema } from '@study/contracts/ai/progress';
+import { assistantToolNameSchema } from '@study/contracts';
+import type { agentToolProgressSchema } from '@study/contracts';
 import { CompletedIcon, PendingIcon, FailedIcon } from '@study/icons';
-import { ToolActivity } from '@study/ui/tool-activity';
 import {
+  ToolActivity,
   TraceCollapsible,
   TraceCollapsibleTrigger,
   TraceCollapsibleContent,
@@ -10,7 +10,7 @@ import {
   TraceTitle,
   TraceIcon,
   TraceDescription
-} from '@study/ui/trace';
+} from '@study/ui';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
 

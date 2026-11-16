@@ -1,5 +1,5 @@
 import { eq } from '@study/db';
-import { pages, page_versions, project_pages } from '@study/db/schema';
+import { pages, page_versions, project_pages } from '@study/db';
 
 import { document, heading } from '../builders/content.ts';
 import type { PageFixture } from '../types.ts';

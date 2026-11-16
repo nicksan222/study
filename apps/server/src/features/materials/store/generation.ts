@@ -13,19 +13,19 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { ErrorKind } from '@study/contracts/errors';
-import type { ProjectId } from '@study/contracts/ids';
-import type { resolvedContentInputSchema } from '@study/contracts/inputs';
-import { contentInputKey } from '@study/contracts/inputs';
+import { StudyError } from '@study/contracts';
+import type { ErrorKind } from '@study/contracts';
+import type { ProjectId } from '@study/contracts';
+import type { resolvedContentInputSchema } from '@study/contracts';
+import { contentInputKey } from '@study/contracts';
 import {
   materialGenerationInputSchema,
   materialGenerationPayloadSchema,
   materialGenerationPublicationSchema
-} from '@study/contracts/materials/schemas';
-import { validBlockTextRange } from '@study/contracts/sources/document';
+} from '@study/contracts';
+import { validBlockTextRange } from '@study/contracts';
 import { and, desc, eq, isNull, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
 
@@ -157,10 +157,7 @@ export function makeGeneration(resources: StoreResources) {
             .get()
       )
       .map((row) => required(readGeneration(row.id)))
-      .filter(
-        (request) =>
-          request.errorKind === null && (request.kind === 'quiz' || request.kind === 'flashcards')
-      );
+      .filter((request) => request.kind === 'quiz' || request.kind === 'flashcards');
   }
 
   function readGeneration(requestId: string) {

@@ -1,7 +1,9 @@
-import { StudyError } from '@study/contracts/errors';
-import { noteIdSchema } from '@study/contracts/ids';
-import { askResultSchema } from '@study/contracts/notes/schemas';
-import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
+import {
+  StudyError,
+  noteIdSchema,
+  askResultSchema,
+  defaultWorkspacePreferences
+} from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';

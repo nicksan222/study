@@ -15,9 +15,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { failureSchema, isRetryable, needsSetup, StudyError } from '@study/contracts/errors';
-import type { ErrorKind, Failure } from '@study/contracts/errors';
-import { workflow_configuration_waits } from '@study/db/schema';
+import { failureSchema, isRetryable, needsSetup, StudyError } from '@study/contracts';
+import type { ErrorKind, Failure } from '@study/contracts';
+import { workflow_configuration_waits } from '@study/db';
 import { Cause, Effect, Result, Schema } from 'effect';
 import { Activity, DurableClock, DurableDeferred } from 'effect/workflow';
 

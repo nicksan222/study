@@ -1,10 +1,13 @@
-import type { VersionId } from '@study/contracts/ids';
-import type { ChatMessage } from '@study/contracts/notes/messages';
+import type { VersionId, ChatMessage } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { anchorLabel, text } from '@study/localization';
 import type { Locale } from '@study/localization';
-import { ChatMessageText, ChatQuestionAnswer } from '@study/ui/chat';
-import { EvidenceReference as EvidenceControl, CitationSources } from '@study/ui/citation';
+import {
+  ChatMessageText,
+  ChatQuestionAnswer,
+  EvidenceReference as EvidenceControl,
+  CitationSources
+} from '@study/ui';
 import { useCallback } from 'react';
 import type { ReactNode } from 'react';
 

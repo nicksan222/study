@@ -1,9 +1,7 @@
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { ThinkingIcon, CompletedIcon, ErrorIcon, CancelledIcon, QueuedIcon } from '@study/icons';
-import { RetryButton } from '@study/ui/action-button';
-import { ErrorState } from '@study/ui/error-state';
-import { ExecutionLog } from '@study/ui/execution-log';
+import { RetryButton, ErrorState, ExecutionLog } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 import { toStudyError } from '#client/lib/study-client/errors.ts';

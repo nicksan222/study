@@ -1,21 +1,21 @@
 import { ScrollToLatestIcon, SendIcon } from '@study/icons';
-import { RetryButton } from '@study/ui/action-button';
-import { Button } from '@study/ui/button';
-import { ComposerSurface } from '@study/ui/composer';
-import { ContextUsage } from '@study/ui/context-usage';
-import { ErrorState } from '@study/ui/error-state';
 import {
+  RetryButton,
+  Button,
+  ComposerSurface,
+  ContextUsage,
+  ErrorState,
   MessageScrollerProvider,
   MessageScrollerEmpty,
   MessageScroller,
   MessageScrollerViewport,
   MessageScrollerContent,
   MessageScrollerItem,
-  MessageScrollerButton
-} from '@study/ui/message-scroller';
-import { Notebook } from '@study/ui/note-workspace';
-import { WorkspaceSurface } from '@study/ui/workspace';
-import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
+  MessageScrollerButton,
+  Notebook,
+  WorkspaceSurface,
+  WorkspaceDeskSurface as Desk
+} from '@study/ui';
 
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';

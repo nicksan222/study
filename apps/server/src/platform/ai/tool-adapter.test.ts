@@ -13,8 +13,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { agentUpdateSchema } from '@study/contracts/ai/progress';
-import { StudyError } from '@study/contracts/errors';
+import type { agentUpdateSchema } from '@study/contracts';
+import { StudyError } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Logger, Schema } from 'effect';
 import { assert, expect } from 'vite-plus/test';

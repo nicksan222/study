@@ -1,5 +1,5 @@
+import type { ConcurrencySettings } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import type { ConcurrencySettings } from '@study/contracts/settings/types';
 import { useState } from 'react';
 
 type ConcurrencyField = keyof ConcurrencySettings;

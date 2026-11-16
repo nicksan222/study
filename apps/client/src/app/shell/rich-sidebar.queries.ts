@@ -1,4 +1,4 @@
-import type { NoteId } from '@study/contracts/ids';
+import type { NoteId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 
 /** Live settings and persisted note summaries update through committed revisions. */

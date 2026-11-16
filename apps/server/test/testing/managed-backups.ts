@@ -12,9 +12,9 @@
  */
 
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
-import { createBlock } from '@study/contracts/sources/document';
-import { backupManifestSchema } from '@study/contracts/system/backups';
-import type { BackupManifest, RestorePreview } from '@study/contracts/system/backups';
+import { createBlock } from '@study/contracts';
+import { backupManifestSchema } from '@study/contracts';
+import type { BackupManifest, RestorePreview } from '@study/contracts';
 import { Db } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { Effect, FileSystem, Path, Schema } from 'effect';

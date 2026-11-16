@@ -12,9 +12,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { MaterialVersionId, MaterialCardId } from '@study/contracts/ids';
-import type { reviewCardInputSchema } from '@study/contracts/learning/rpc';
-import * as s from '@study/db/schema';
+import type { MaterialVersionId, MaterialCardId } from '@study/contracts';
+import type { reviewCardInputSchema } from '@study/contracts';
+import * as s from '@study/db';
 
 import { requireRow } from '#server/platform/database/rows';
 import type { StoreResources } from '#server/platform/definitions/define-store';

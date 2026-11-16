@@ -10,7 +10,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { SourceId } from '@study/contracts/ids';
+import type { SourceId } from '@study/contracts';
 import { sql } from '@study/db';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';

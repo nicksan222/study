@@ -1,4 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
+import { createStudyMaterials } from '@study/server/testing';
+import { createAiMock } from '@study/testing';
 import type { Page } from 'playwright';
 import { test } from 'playwright/test';
 
@@ -17,6 +19,10 @@ type Journey = {
 };
 
 type Fixtures = {
+  study: ReturnType<typeof createStudyMaterials>;
+  aiEnabled: boolean;
+  ai: ReturnType<typeof createAiMock>;
+  app: Awaited<ReturnType<typeof openWebStack>>['app'];
   webStack: Awaited<ReturnType<typeof openWebStack>>;
   journey: Journey;
   captureWorkflow: string;
@@ -24,12 +30,19 @@ type Fixtures = {
 
 /** Playwright owns test/worker lifetimes, browser isolation, traces and failure artifacts. */
 export const testHarness = test.extend<Fixtures>({
-  captureWorkflow: ['', { option: true }],
-  // Fixtures with no dependencies still provide destructuring for native discovery.
+  study: async ({ app, ai }, provide) => provide(createStudyMaterials(app, ai)),
+  aiEnabled: [false, { option: true }],
   // oxlint-disable-next-line no-empty-pattern
-  webStack: async ({}, provide) => {
+  ai: async ({}, provide) => {
+    using mock = createAiMock();
+
+    await provide(mock);
+  },
+  app: async ({ webStack }, provide) => provide(webStack.app),
+  captureWorkflow: ['', { option: true }],
+  webStack: async ({ ai, aiEnabled }, provide) => {
     assertCapturePlatform();
-    await using stack = await openWebStack();
+    await using stack = await openWebStack({ ai: aiEnabled ? ai.runtime : undefined });
 
     await provide(stack);
   },
@@ -64,7 +77,11 @@ export const testHarness = test.extend<Fixtures>({
         screenshots.expectScreenshot(name, {
           ...options,
           ready: async () => {
-            await expect(page.locator('html')).toHaveCSS('zoom', '1.25', { timeout: 30000 });
+            await expect(page.locator('html')).toHaveCSS(
+              'zoom',
+              String((options.zoomPercent ?? 125) / 100),
+              { timeout: 30000 }
+            );
             await options.ready();
           }
         })

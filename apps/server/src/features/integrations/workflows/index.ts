@@ -10,9 +10,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { failureSchema, StudyError } from '@study/contracts/errors';
-import { integrationImportRequestedSchema } from '@study/contracts/events';
-import { integrationImportSchema } from '@study/contracts/integrations/schemas';
+import { failureSchema, StudyError } from '@study/contracts';
+import { integrationImportRequestedSchema } from '@study/contracts';
+import { integrationImportSchema } from '@study/contracts';
 import { Effect, Schema } from 'effect';
 
 import { Integrations } from '#server/features/integrations/index';

@@ -1,13 +1,11 @@
 import {
   quizAttemptCompletedSchema,
-  quizAttemptInProgressSchema
-} from '@study/contracts/learning/schemas';
-import type { quizAttemptSchema } from '@study/contracts/learning/schemas';
-import {
+  quizAttemptInProgressSchema,
   materialDetailSchema,
-  materialVersionDetailSchema
-} from '@study/contracts/materials/schemas';
-import { defaultQuizSettings } from '@study/contracts/settings/types';
+  materialVersionDetailSchema,
+  defaultQuizSettings
+} from '@study/contracts';
+import type { quizAttemptSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { screen, waitFor, within } from '@testing-library/react';

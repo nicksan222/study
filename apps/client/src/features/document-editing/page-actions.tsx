@@ -1,10 +1,6 @@
-import type { comparisonSchema } from '@study/contracts/pages/editing';
+import type { comparisonSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { Button } from '@study/ui/button';
-import { Disclosure } from '@study/ui/disclosure';
-import { DocumentEditing } from '@study/ui/document-editing';
-import { ErrorState } from '@study/ui/error-state';
-import { StatusMessage } from '@study/ui/status-message';
+import { Button, Disclosure, DocumentEditing, ErrorState, StatusMessage } from '@study/ui';
 import { Link } from '@tanstack/react-router';
 
 import { useI18n } from '#client/lib/i18n.tsx';

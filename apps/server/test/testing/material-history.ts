@@ -10,10 +10,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { MaterialId, ContentSnapshotId } from '@study/contracts/ids';
-import { MaterialsRpc } from '@study/contracts/materials/rpc';
+import type { MaterialId, ContentSnapshotId } from '@study/contracts';
+import { MaterialsRpc } from '@study/contracts';
 import { eq } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
 import { WorkflowEngine } from 'effect/workflow';

@@ -12,7 +12,7 @@
  */
 
 import type { LanguageModelV3 } from '@ai-sdk/provider';
-import type { ModelTier } from '@study/contracts/settings/schemas';
+import type { ModelTier } from '@study/contracts';
 
 /** Preserve runtime fetch properties while adapting an injected callable for SDK types. */
 export function sdkFetch(

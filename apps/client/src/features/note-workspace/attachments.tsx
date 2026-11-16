@@ -1,13 +1,16 @@
-import type { NoteId } from '@study/contracts/ids';
-import { sniff, detectedMime } from '@study/contracts/sources/sniff';
+import { sniff, detectedMime } from '@study/contracts';
+import type { NoteId } from '@study/contracts';
 import { AttachmentIcon, RetryIcon, RemoveAttachmentIcon } from '@study/icons';
 import { mediaSize } from '@study/localization';
 import type { StaticMessageKey } from '@study/localization';
-import { AttachmentPreview, useAttachmentPreviewUrl } from '@study/ui/attachment-preview';
-import { ComposerSurface } from '@study/ui/composer';
-import { Disclosure } from '@study/ui/disclosure';
-import { IconButton } from '@study/ui/icon-button';
-import { Notebook } from '@study/ui/note-workspace';
+import {
+  AttachmentPreview,
+  useAttachmentPreviewUrl,
+  ComposerSurface,
+  Disclosure,
+  IconButton,
+  Notebook
+} from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

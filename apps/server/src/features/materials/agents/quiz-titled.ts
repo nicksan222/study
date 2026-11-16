@@ -11,16 +11,18 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { promptInputSchema } from '@study/contracts/ai/shared';
-import { titledQuizGenerationOutputSchema } from '@study/contracts/materials/schemas';
-import { AgentRule } from '@study/contracts/settings/schemas';
+import { promptInputSchema } from '@study/contracts';
+import { titledQuizGenerationOutputSchema } from '@study/contracts';
+import { AgentRule } from '@study/contracts';
 
 import { defineAgent } from '#server/platform/definitions/define-agent';
 
 import { titleInstructions } from './generated-title.ts';
 import { quizAgent } from './quiz.ts';
+import { materialStudyContext } from './study-context.ts';
 
 export const quizTitledAgent = defineAgent({
+  context: materialStudyContext,
   id: 'quiz-titled',
   customRules: [AgentRule.Quizzes, AgentRule.Titles],
   input: promptInputSchema,

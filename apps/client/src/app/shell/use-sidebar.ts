@@ -1,5 +1,5 @@
-import { projectIdSchema } from '@study/contracts/ids';
-import type { ProjectId } from '@study/contracts/ids';
+import { projectIdSchema } from '@study/contracts';
+import type { ProjectId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { Option, Schema } from 'effect';
 import { useContext, useState } from 'react';

@@ -1,5 +1,5 @@
+import { defaultAppearancePreferences } from '@study/contracts';
 import { configureRpcTransport } from '@study/contracts/react';
-import { defaultAppearancePreferences } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
 import { waitFor } from '@testing-library/react';
 import { beforeEach } from 'vite-plus/test';

@@ -14,8 +14,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError, failureSchema } from '@study/contracts/errors';
-import { dependency, endpointGroup, liveQuery } from '@study/contracts/protocol';
+import { StudyError, failureSchema } from '@study/contracts';
+import { dependency, endpointGroup, liveQuery } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import {
   Cause,

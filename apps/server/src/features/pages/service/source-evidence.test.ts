@@ -12,11 +12,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { NotesRpc } from '@study/contracts/notes/rpc';
-import { PagesRpc } from '@study/contracts/pages/rpc';
-import { createBlock, correctBlockText } from '@study/contracts/sources/document';
+import { NotesRpc } from '@study/contracts';
+import { PagesRpc } from '@study/contracts';
+import { createBlock, correctBlockText } from '@study/contracts';
 import { sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';

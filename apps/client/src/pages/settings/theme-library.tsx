@@ -1,4 +1,4 @@
-import { Appearance } from '@study/contracts/settings/types';
+import { Appearance } from '@study/contracts';
 import {
   CopyIcon,
   DownloadIcon,
@@ -7,14 +7,17 @@ import {
   AddIcon,
   DeleteIcon
 } from '@study/icons';
-import { ColorSchemeControls } from '@study/ui/appearance-controls';
-import { Button } from '@study/ui/button';
-import { downloadFile } from '@study/ui/download';
-import { IconButton } from '@study/ui/icon-button';
-import { Settings } from '@study/ui/settings';
-import { defaultThemeId, serializeTheme } from '@study/ui/theme';
-import type { ThemeFile } from '@study/ui/theme';
-import { ThemeSwatches } from '@study/ui/theme-preview';
+import {
+  ColorSchemeControls,
+  Button,
+  downloadFile,
+  IconButton,
+  Settings,
+  defaultThemeId,
+  serializeTheme,
+  ThemeSwatches
+} from '@study/ui';
+import type { ThemeFile } from '@study/ui';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

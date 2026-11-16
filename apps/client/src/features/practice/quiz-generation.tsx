@@ -1,10 +1,12 @@
-import type { PageId } from '@study/contracts/ids';
-import type { ProjectId } from '@study/contracts/ids';
-import type { ContentInput } from '@study/contracts/inputs';
-import type { materialGenerationInputSchema } from '@study/contracts/materials/schemas';
-import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
+import { defaultQuizSettings, practiceGenerationSettings } from '@study/contracts';
+import type {
+  PageId,
+  ProjectId,
+  ContentInput,
+  materialGenerationInputSchema,
+  MaterialVersionDetailDto
+} from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { defaultQuizSettings, practiceGenerationSettings } from '@study/contracts/settings/types';
 import {
   MatchingIcon,
   QuizIcon,
@@ -15,14 +17,19 @@ import {
   FillBlankIcon,
   TrueFalseIcon
 } from '@study/icons';
-import { RetryButton } from '@study/ui/action-button';
-import { Dialog, DialogTrigger, DialogPopup, DialogFooter } from '@study/ui/dialog';
-import { DialogDismissButton } from '@study/ui/dialog-form-actions';
-import { DialogHeading } from '@study/ui/dialog-heading';
-import { ErrorState } from '@study/ui/error-state';
-import { Practice } from '@study/ui/practice';
-import { Settings } from '@study/ui/settings';
-import { Textarea } from '@study/ui/textarea';
+import {
+  RetryButton,
+  Dialog,
+  DialogTrigger,
+  DialogPopup,
+  DialogFooter,
+  DialogDismissButton,
+  DialogHeading,
+  ErrorState,
+  Practice,
+  Settings,
+  Textarea
+} from '@study/ui';
 import type { SetStateAction } from 'react';
 import { useState, useCallback } from 'react';
 

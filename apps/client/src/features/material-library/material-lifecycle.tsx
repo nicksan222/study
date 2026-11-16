@@ -1,14 +1,17 @@
-import type { MaterialId } from '@study/contracts/ids';
-import { Button } from '@study/ui/button';
-import { DangerDialog } from '@study/ui/danger-dialog';
-import { Dialog, DialogPopup } from '@study/ui/dialog';
-import { DialogHeading } from '@study/ui/dialog-heading';
-import { ErrorState } from '@study/ui/error-state';
-import { Field } from '@study/ui/field';
-import { Input } from '@study/ui/input';
-import { Loading } from '@study/ui/loading';
-import { MaterialLibrary } from '@study/ui/material-library';
-import { StatusMessage } from '@study/ui/status-message';
+import type { MaterialId } from '@study/contracts';
+import {
+  Button,
+  DangerDialog,
+  Dialog,
+  DialogPopup,
+  DialogHeading,
+  ErrorState,
+  Field,
+  Input,
+  Loading,
+  MaterialLibrary,
+  StatusMessage
+} from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 import { toStudyError } from '#client/lib/study-client/errors.ts';

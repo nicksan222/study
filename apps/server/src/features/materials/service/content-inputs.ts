@@ -11,13 +11,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { ProjectId } from '@study/contracts/ids';
-import { resolvedContentInputSchema } from '@study/contracts/inputs';
-import type { ContentInput } from '@study/contracts/inputs';
-import type { learningCitationSchema } from '@study/contracts/materials/inputs';
-import { validBlockTextRange } from '@study/contracts/sources/document';
-import { hasTextualContent } from '@study/contracts/sources/schemas';
+import { StudyError } from '@study/contracts';
+import type { ProjectId } from '@study/contracts';
+import { resolvedContentInputSchema } from '@study/contracts';
+import type { ContentInput } from '@study/contracts';
+import type { learningCitationSchema } from '@study/contracts';
+import { validBlockTextRange } from '@study/contracts';
+import { hasTextualContent } from '@study/contracts';
 import { Schema } from 'effect';
 
 import { Pages } from '#server/features/pages/index';

@@ -1,9 +1,6 @@
-import type {
-  quizAnswerSchema,
-  quizAttemptInProgressSchema
-} from '@study/contracts/learning/schemas';
-import { quizAnswerSchema as answerSchema } from '@study/contracts/learning/schemas';
-import { QuizQuestionView } from '@study/ui/quiz-question-view';
+import type { quizAnswerSchema, quizAttemptInProgressSchema } from '@study/contracts';
+import { quizAnswerSchema as answerSchema } from '@study/contracts';
+import { QuizQuestionView } from '@study/ui';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
 

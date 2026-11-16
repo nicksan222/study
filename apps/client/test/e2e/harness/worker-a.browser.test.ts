@@ -2,6 +2,9 @@ import { catalogs } from '@study/localization';
 
 import { expect, testHarness } from './index.ts';
 
+// Keep consecutive fixtures in one worker to verify cleanup between tests.
+testHarness.describe.configure({ mode: 'default' });
+
 const copy = catalogs.english;
 
 testHarness(

@@ -1,5 +1,4 @@
-import type { MessageId, NoteId, ProjectId } from '@study/contracts/ids';
-import type { notePageInputSchema } from '@study/contracts/notes/rpc';
+import type { MessageId, NoteId, ProjectId, notePageInputSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 
 import { useCursorWindow } from '#client/lib/cursor-window.tsx';

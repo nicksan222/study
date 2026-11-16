@@ -1,4 +1,4 @@
-import type { ContentSnapshotId, SourceId, PageVersionId } from '@study/contracts/ids';
+import type { ContentSnapshotId, SourceId, PageVersionId } from '@study/contracts';
 
 import { sql, check, foreignKey, integer, text, primaryKey } from '../schema-builder.ts';
 import type { AnySQLiteColumn } from '../schema-builder.ts';

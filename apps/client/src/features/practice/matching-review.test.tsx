@@ -1,7 +1,7 @@
-import { quizAttemptCompletedSchema } from '@study/contracts/learning/schemas';
+import { quizAttemptCompletedSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { MatchingReviewView as MatchingReview } from '@study/ui/matching-review-view';
+import { MatchingReviewView as MatchingReview } from '@study/ui';
 import { render, screen, within } from '@testing-library/react';
 import { Schema } from 'effect';
 import { expect } from 'vite-plus/test';

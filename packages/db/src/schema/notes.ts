@@ -1,12 +1,5 @@
-import type {
-  MessageId,
-  PartId,
-  RecordingId,
-  NoteId,
-  SourceId,
-  VersionId
-} from '@study/contracts/ids';
-import { noteModes, messageFormats } from '@study/contracts/notes/schemas';
+import type { MessageId, PartId, RecordingId, NoteId, SourceId, VersionId } from '@study/contracts';
+import { noteModes, messageFormats } from '@study/contracts';
 
 import {
   defineTable,

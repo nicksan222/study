@@ -1,10 +1,6 @@
-import { createBlock } from '@study/contracts/sources/document';
-import type { BlockContent, Inline, documentSchema } from '@study/contracts/sources/schemas';
-import { canonicalText } from '@study/contracts/sources/schemas';
-import { Button } from '@study/ui/button';
-import { DocumentEditing } from '@study/ui/document-editing';
-import { Field } from '@study/ui/field';
-import { Textarea } from '@study/ui/textarea';
+import { createBlock, canonicalText } from '@study/contracts';
+import type { BlockContent, Inline, documentSchema } from '@study/contracts';
+import { Button, DocumentEditing, Field, Textarea } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

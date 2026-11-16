@@ -14,7 +14,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { NoteId } from '@study/contracts/ids';
+import type { NoteId } from '@study/contracts';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
@@ -175,7 +175,7 @@ testStable('messages retain immutable versions and paginate in chronological ord
         );
         assert.strictEqual(yield* notes.deleteMessage(first.id), true);
         assert.ok((yield* Effect.flip(notes.message(first.id))).kind === 'not_found');
-        const { message_versions } = yield* Effect.promise(() => import('@study/db/schema'));
+        const { message_versions } = yield* Effect.promise(() => import('@study/db'));
         const { eq } = yield* Effect.promise(() => import('@study/db'));
 
         assert.strictEqual(
@@ -214,7 +214,7 @@ testStable(
             project: project.id,
             title: 'Chat'
           });
-          const { sources } = yield* Effect.promise(() => import('@study/db/schema'));
+          const { sources } = yield* Effect.promise(() => import('@study/db'));
           const { eq } = yield* Effect.promise(() => import('@study/db'));
           const source = (projectId: typeof project.id, name: string) =>
             context.db.orm
@@ -292,7 +292,7 @@ testStable(
             title: 'Second'
           });
           const message = yield* notes.postMessage({ noteId: first.id, text: 'hello' });
-          const { notes: noteTable } = yield* Effect.promise(() => import('@study/db/schema'));
+          const { notes: noteTable } = yield* Effect.promise(() => import('@study/db'));
           const { eq } = yield* Effect.promise(() => import('@study/db'));
 
           context.db.orm
@@ -361,7 +361,7 @@ testStable(
             noteId: note.id,
             text: '😀'.repeat(100000)
           });
-          const { message_versions } = yield* Effect.promise(() => import('@study/db/schema'));
+          const { message_versions } = yield* Effect.promise(() => import('@study/db'));
           const unfinished = context.db.orm
             .insert(message_versions)
             .values({
@@ -414,7 +414,7 @@ testStable('reply request persists its context and rejects another pending reque
         const message = yield* notes.postMessage({ noteId: note.id, text: 'hello' });
         const request = yield* notes.requestReply({ noteId: note.id });
         const snapshot = yield* notes.replySnapshot({ requestId: request.requestId });
-        const { workflowEvents } = yield* Effect.promise(() => import('@study/db/schema'));
+        const { workflowEvents } = yield* Effect.promise(() => import('@study/db'));
         const { decodeEvent } = yield* Effect.promise(
           () => import('#server/platform/workflows/events')
         );
@@ -485,7 +485,7 @@ testStable(
     const location = await createTestDatabase();
     let context = new ServerContext(await location.open());
     const { sources, source_snapshots, content_snapshots, source_processing } =
-      await import('@study/db/schema');
+      await import('@study/db');
     const { eq } = await import('@study/db');
     const layer = () =>
       Layer.merge(Projects.layer, Notes.layer).pipe(
@@ -610,7 +610,7 @@ testStable('outbox failure rolls back reply request and pending message', async 
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
   const { sql } = await import('@study/db');
-  const { workflowEvents, note_reply_requests } = await import('@study/db/schema');
+  const { workflowEvents, note_reply_requests } = await import('@study/db');
   const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -648,7 +648,7 @@ testStable('reply captures pending attachments and invalidates deleted context',
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
   const { sources, source_snapshots, content_snapshots, source_processing } =
-    await import('@study/db/schema');
+    await import('@study/db');
   const { eq } = await import('@study/db');
   const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -962,7 +962,7 @@ testStable('attachment threads are isolated, owned and paginated', async () => {
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
   const { sources, source_snapshots, content_snapshots, source_processing } =
-    await import('@study/db/schema');
+    await import('@study/db');
   const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -1068,7 +1068,7 @@ testStable('attachment threads are isolated, owned and paginated', async () => {
 
         expect(snapshot.messages.map((m) => m.text)).toStrictEqual(['root', 'one', 'two']);
         assert.strictEqual(snapshot.messages[0]?.attachments[0]?.partId, part);
-        const { message_versions } = yield* Effect.promise(() => import('@study/db/schema'));
+        const { message_versions } = yield* Effect.promise(() => import('@study/db'));
         const { eq } = yield* Effect.promise(() => import('@study/db'));
 
         context.db.orm

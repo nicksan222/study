@@ -14,16 +14,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { promptInputSchema } from '@study/contracts/ai/shared';
-import { failureSchema, StudyError } from '@study/contracts/errors';
-import type { Failure } from '@study/contracts/errors';
-import { materialGenerationRequestedSchema } from '@study/contracts/events';
-import { materialVersionIdSchema } from '@study/contracts/ids';
-import { contentInputKey } from '@study/contracts/inputs';
-import type { ContentInput } from '@study/contracts/inputs';
-import { materialGenerationPublicationSchema } from '@study/contracts/materials/schemas';
-import type { quizGenerationConfigSchema } from '@study/contracts/materials/schemas';
-import type { MaterialContentInput } from '@study/contracts/materials/schemas';
+import type { promptInputSchema } from '@study/contracts';
+import { failureSchema, StudyError } from '@study/contracts';
+import type { Failure } from '@study/contracts';
+import { materialGenerationRequestedSchema } from '@study/contracts';
+import { materialVersionIdSchema } from '@study/contracts';
+import { contentInputKey, contentInputSchema } from '@study/contracts';
+import { materialGenerationPublicationSchema } from '@study/contracts';
+import type { quizGenerationConfigSchema } from '@study/contracts';
+import type { MaterialContentInput } from '@study/contracts';
 import { Effect, Schema } from 'effect';
 
 import { flashcardsAgent } from '#server/features/materials/agents/flashcards';
@@ -35,8 +34,8 @@ import {
   assertQuizConfig
 } from '#server/features/materials/decoders/question-spec';
 import { Materials } from '#server/features/materials/service/index';
-import { Agents, generateAgent } from '#server/platform/ai/agents';
-import { createEvidenceCatalog } from '#server/platform/ai/evidence';
+import { generateAgent } from '#server/platform/ai/agents';
+import type { ContextPreparation } from '#server/platform/ai/context-preparation/index';
 import { Database } from '#server/platform/database/database';
 import { defineActivity, publicationActivity } from '#server/platform/definitions/define-activity';
 import type { AgentDefinition } from '#server/platform/definitions/define-agent';
@@ -55,7 +54,6 @@ export const materialGenerationWorkflow = defineWorkflow({
 
 function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSchema.Type)['event']) {
   const materials = yield* Materials;
-  const agents = yield* Agents;
   const database = yield* Database;
   const { store } = database;
   const snapshot = materials
@@ -112,45 +110,43 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
 
       execute: function* () {
         yield* preflight;
-        const catalog = createEvidenceCatalog<{ input: ContentInput }>([]);
-
-        for (const input of initial.inputs) {
-          const exact = yield* materials.contentInput(input);
-
-          catalog.addDocument({
-            key: contentInputKey(input),
-            name: exact.name,
-            reference: { input },
-            blocks: exact.document.blocks
-          });
-        }
-
-        const scoped = {
-          ...agents,
-          searchSources: (query: string) => Effect.sync(() => catalog.search(query))
+        const options = {
+          scope: 'generate-material-1',
+          maxRetries: 0,
+          sources: {
+            referenceSchema: contentInputSchema,
+            documents: initial.inputs.map((input) => ({
+              key: contentInputKey(input),
+              reference: input,
+              load: materials.contentInput(input)
+            }))
+          },
+          preflight
         };
-        const options = { maxRetries: 0, preflight: preflight.pipe(Effect.asVoid) };
         const definition: AgentDefinition<
           typeof promptInputSchema,
           Schema.ConstraintDecoder<MaterialContentInput>
-        > = {
+        > & { context: ContextPreparation } = {
           quiz: quizAgent,
           flashcards: flashcardsAgent
         }[event.kind];
         const titledDefinition: AgentDefinition<
           typeof promptInputSchema,
           Schema.ConstraintDecoder<{ title: string; content: MaterialContentInput }>
-        > = {
+        > & { context: ContextPreparation } = {
           quiz: quizTitledAgent,
           flashcards: flashcardsTitledAgent
         }[event.kind];
         const generated = initial.autoTitle
           ? yield* generateAgent(titledDefinition, { prompt }, options).pipe(
-              Effect.provideService(Agents, scoped)
+              Effect.map(({ output, evidence }) => ({ ...output, evidence }))
             )
           : yield* generateAgent(definition, { prompt }, options).pipe(
-              Effect.map((content) => ({ content, title: undefined })),
-              Effect.provideService(Agents, scoped)
+              Effect.map(({ output, evidence }) => ({
+                content: output,
+                title: undefined,
+                evidence
+              }))
             );
         const { content } = generated;
 
@@ -180,20 +176,15 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
             new StudyError('invalid_input', 'Generated content exceeds limits')
           );
 
-        const citations = yield* Effect.try({
-          try: () =>
-            catalog
-              .citations(JSON.stringify(safeContent))
-              .map(({ marker, reference, ...rest }) => ({
-                marker: BigInt(marker),
-                ...reference,
-                ...rest
-              })),
-          catch: (cause) =>
-            cause instanceof StudyError
-              ? cause
-              : new StudyError('invalid_input', 'Invalid citations', { cause })
-        });
+        const citations = yield* generated.evidence.citations(JSON.stringify(safeContent)).pipe(
+          Effect.map((values) =>
+            values.map(({ marker, reference, ...rest }) => ({
+              ...rest,
+              marker: BigInt(marker),
+              input: reference
+            }))
+          )
+        );
 
         if (citations.length === 0)
           return yield* Effect.fail(

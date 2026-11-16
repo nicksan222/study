@@ -1,3 +1,23 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keep server Effect construction lazy, correctly bridged and interruptible.         │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ In production server modules, prevents recognized eager I/O, fallible sync callbacks,    │
+ * │ promise callbacks in sync/try, async mapped Promise batches and database execution in    │
+ * │ store construction. Uninterruptible work is restricted to                                │
+ * │ platform/ai/runtime/resource.ts and its immediate modules.                               │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   Effect.try({ try: () => JSON.parse(text), catch: error => error });                    │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   Effect.sync(() => JSON.parse(text));                                                   │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings, serverProduction } from '../effect-bindings.ts';

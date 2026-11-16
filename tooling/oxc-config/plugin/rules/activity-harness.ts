@@ -1,3 +1,22 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Route feature checkpoints through the canonical Activity harnesses.                │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ In production server features, prevents bypassing checkpoint codecs and generator        │
+ * │ adaptation by calling Activity.make, or assembling retry/publication wrappers outside    │
+ * │ their harnesses.                                                                         │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { defineActivity } from '#server/platform/definitions/define-activity';         │
+ * │   defineActivity({ name: 'save', execute: work });                                       │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { Activity } from 'effect/workflow';                                            │
+ * │   Activity.make({ name: 'save', execute: work });                                        │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { canonicalImport } from '../architecture-imports.ts';

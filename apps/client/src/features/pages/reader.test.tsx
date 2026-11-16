@@ -1,5 +1,5 @@
-import { pageVersionIdSchema } from '@study/contracts/ids';
-import type { Page } from '@study/contracts/pages/types';
+import { pageVersionIdSchema } from '@study/contracts';
+import type { Page } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -47,7 +47,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function mount(initialVersion?: string) {
+function mount(initialVersion?: string, refreshedPage?: Promise<void>) {
   const current = authoredPage(2n, 'Current text', 30n);
   const old = authoredPage(2n, 'Old text', 20n).version!;
   let value: Page = current;
@@ -63,7 +63,11 @@ function mount(initialVersion?: string) {
     };
   });
   const rpc = {
-    'pages.page': vi.fn(async () => value),
+    'pages.page': vi.fn(async () => {
+      if (value !== current) await refreshedPage;
+
+      return value;
+    }),
     'pages.versions': vi.fn(async () => ({ items: [current.version!, old], nextCursor: null })),
     'pages.version': vi.fn(async ({ id }: { id: bigint }) =>
       id === old.id ? old : current.version!
@@ -112,7 +116,8 @@ testStable(
 testStable(
   'an old-version deep link uses the editor and can make that content current',
   async () => {
-    const { rpc, old } = mount('20');
+    const refreshed = Promise.withResolvers<void>();
+    const { rpc, old } = mount('20', refreshed.promise);
 
     await screen.findByDisplayValue('Old text');
     fireEvent.click(screen.getByRole('button', { name: 'PageMakeCurrent' }));
@@ -128,8 +133,11 @@ testStable(
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'PageMakeCurrent' })).toBeNull()
     );
-    expect(screen.getByRole('textbox', { name: 'content' })).toHaveValue('Old text');
-    expect(screen.getByRole('textbox', { name: 'content' })).not.toHaveAttribute('readonly');
+    refreshed.resolve();
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: 'content' })).toHaveValue('Old text');
+      expect(screen.getByRole('textbox', { name: 'content' })).not.toHaveAttribute('readonly');
+    });
   }
 );
 

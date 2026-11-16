@@ -1,8 +1,7 @@
+import { Language } from '@study/contracts';
 import type { ProtocolTransport } from '@study/contracts/react';
 import { RpcProvider, configureRpcTransport, rpc } from '@study/contracts/react';
-import { Language } from '@study/contracts/settings/types';
-import { ToastProvider } from '@study/ui/toast';
-import { TooltipProvider } from '@study/ui/tooltip';
+import { ToastProvider, TooltipProvider } from '@study/ui';
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 

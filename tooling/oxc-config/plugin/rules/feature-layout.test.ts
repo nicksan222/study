@@ -7,8 +7,22 @@ testStable('requires canonical feature role folders and bound resource APIs', as
   const diagnostics = await lintRule('feature-layout', {
     'src/features/a/old.store.ts': 'export const x = 1;',
     'src/features/a/service/nested/other.workflow.ts': 'export const x = 1;',
-    'src/features/a/store/index.ts': `import { defineStore, storeQuery } from '#server/platform/definitions/define-store'; import type { Db } from '@study/db'; defineStore({ queries: {} }); storeQuery({run: (db, input) => input}); function query(db: Db) { return db; }`,
-    'src/features/b/store/read.ts': `import type { StoreResources } from '#server/platform/definitions/define-store'; export function makeReads({db}: StoreResources) { return { read: (clock: string) => clock }; }`,
+    'src/features/a/store/index.ts': `
+        import type { Db } from '@study/db';
+
+        import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+        defineStore({ queries: {} });
+        storeQuery({ run: (db, input) => input });
+        function query(db: Db) {
+          return db;
+        }
+      `,
+    'src/features/b/store/read.ts': `
+        import type { StoreResources } from '#server/platform/definitions/define-store';
+        export function makeReads({ db }: StoreResources) {
+          return { read: (clock: string) => clock };
+        }
+      `,
     'src/features/b/service/index.ts': 'export const x = 1;'
   });
 
@@ -29,7 +43,12 @@ testStable('rejects public aliases and nested entrypoint loopholes', async () =>
   const diagnostics = await lintRule('feature-layout', {
     'src/features/a/index.ts': `import type { Hidden } from './service/index.ts'; export type Alias = Hidden;`,
     'src/features/b/store/nested/index.ts': `export const Store = 1;`,
-    'src/features/c/store/index.ts': `import { defineStore, storeMutation } from '#server/platform/definitions/define-store'; defineStore({make: () => ({queries: {}, mutations: {save: storeMutation({run(db, input) {}})}})});`
+    'src/features/c/store/index.ts': `
+        import { defineStore, storeMutation } from '#server/platform/definitions/define-store';
+        defineStore({
+          make: () => ({ queries: {}, mutations: { save: storeMutation({ run(db, input) {} }) } })
+        });
+      `
   });
 
   assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
@@ -37,7 +56,16 @@ testStable('rejects public aliases and nested entrypoint loopholes', async () =>
 
 testStable('detects aliased resource types without confusing domain fields', async () => {
   const diagnostics = await lintRule('feature-layout', {
-    'src/features/a/store/read.ts': `import type { Db as Database } from '@study/db'; import type { Clock as Time } from 'effect'; import type { StoreResources as Resources } from '#server/platform/definitions/define-store'; function read(db: Database) {} function now(clock: Time.Clock) {} function makeReads(resources: Resources) {} function domain(db: string, clock: number) {}`
+    'src/features/a/store/read.ts': `
+        import type { Db as Database } from '@study/db';
+        import type { Clock as Time } from 'effect';
+
+        import type { StoreResources as Resources } from '#server/platform/definitions/define-store';
+        function read(db: Database) {}
+        function now(clock: Time.Clock) {}
+        function makeReads(resources: Resources) {}
+        function domain(db: string, clock: number) {}
+      `
   });
 
   assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
@@ -80,7 +108,20 @@ testStable(
   'resolves resource aliases and namespace types while restricting construction to stores',
   async () => {
     const diagnostics = await lintRule('feature-layout', {
-      'src/features/a/store/read.ts': `import type * as Storage from '@study/db'; import type * as E from 'effect'; import type { StoreResources as R } from '../../../platform/definitions/define-store'; type Connection = Storage.Db; type Alias = Connection; type Resources = R; type Loop = Loop; function read(db: Alias) {} function now(clock: E.Clock.Clock) {} function makeReads({db}: Resources) {} function domain(db: string, clock: number, value: Loop) {}`,
+      'src/features/a/store/read.ts': `
+        import type * as Storage from '@study/db';
+        import type * as E from 'effect';
+
+        import type { StoreResources as R } from '../../../platform/definitions/define-store';
+        type Connection = Storage.Db;
+        type Alias = Connection;
+        type Resources = R;
+        type Loop = Loop;
+        function read(db: Alias) {}
+        function now(clock: E.Clock.Clock) {}
+        function makeReads({ db }: Resources) {}
+        function domain(db: string, clock: number, value: Loop) {}
+      `,
       'src/features/a/rpc/index.ts': `import type { StoreResources } from '../../../platform/definitions/define-store'; function makeRpc(resources: StoreResources) {}`,
       'src/features/a/agents/index.ts': `import type * as Context from '../../../runtime/context'; function agent(context: Context.ServerContext) {}`
     });

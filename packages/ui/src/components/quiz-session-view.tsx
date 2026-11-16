@@ -1,6 +1,6 @@
-import { Button } from '@study/ui/button';
-import { NextButton } from '@study/ui/navigation-button';
-import { Practice } from '@study/ui/practice';
+import { Button } from '#ui/components/button.tsx';
+import { NextButton } from '#ui/components/navigation-button.tsx';
+import { Practice } from '#ui/components/practice.tsx';
 import type { ReactNode, RefObject } from 'react';
 
 import { usePracticePresentation } from './practice-presentation';

@@ -1,5 +1,5 @@
-import { landingCopy } from '@study/localization/landing';
-import { FlashcardReviewView } from '@study/ui/flashcard-review-view';
+import { landingCopy } from '@study/localization';
+import { FlashcardReviewView } from '@study/ui';
 import { useRef, useState } from 'react';
 
 import { PracticeExamplePresentation } from './PracticeExamplePresentation';

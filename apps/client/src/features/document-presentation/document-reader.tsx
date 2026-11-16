@@ -1,5 +1,5 @@
-import type { BlockContent, Inline, documentSchema } from '@study/contracts/sources/schemas';
-import { MaterialLibrary } from '@study/ui/material-library';
+import type { BlockContent, Inline, documentSchema } from '@study/contracts';
+import { MaterialLibrary } from '@study/ui';
 import { Fragment, createElement } from 'react';
 import type { ReactNode } from 'react';
 

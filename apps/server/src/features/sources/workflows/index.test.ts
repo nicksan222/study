@@ -13,14 +13,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { ProjectId } from '@study/contracts/ids';
-import { NotesRpc } from '@study/contracts/notes/rpc';
-import { defaultAgentRules } from '@study/contracts/settings/types';
-import { plainBlock } from '@study/contracts/sources/document';
+import type { ProjectId } from '@study/contracts';
+import { NotesRpc } from '@study/contracts';
+import { defaultAgentRules } from '@study/contracts';
+import { plainBlock } from '@study/contracts';
 import type { Db } from '@study/db';
 import { sql } from '@study/db';
-import * as tables from '@study/db/schema';
+import * as tables from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
+import { createAiMock } from '@study/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
@@ -41,6 +42,7 @@ import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model'
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { normalizeError } from '#server/platform/errors/classify-error';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
@@ -69,8 +71,7 @@ testStable(
   async () => {
     const location = await createTestDatabase();
     let context = new ServerContext(await location.open());
-    const auth = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
-    const model = createChatGptModel({ auth, modelId: 'test', baseUrl: 'http://127.0.0.1' });
+    using mock = createAiMock();
     const domain = () =>
       Layer.mergeAll(Sources.layer, Notes.layer, Settings.layer, Projects.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -80,7 +81,8 @@ testStable(
         NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(Layer.provideMerge(domain())),
         Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
         agentsLayer({
-          model: () => Effect.succeed(model),
+          model: (tier, call) =>
+            mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError)),
           language: 'en',
           rules: Effect.succeed(defaultAgentRules),
           searchSources: () => Effect.succeed([])
@@ -251,7 +253,6 @@ testStable(
 
       expect(reopened).toStrictEqual(captured);
     } finally {
-      await auth.dispose();
       context.close();
       await location.cleanup();
     }
@@ -266,19 +267,18 @@ testStable(
     const { sourceIngestionRegistration } =
       await import('#server/features/sources/workflows/index');
     const { workflowStore } = await import('#server/platform/workflows/store');
-    const { workflow_executions } = await import('@study/db/schema');
+    const { workflow_executions } = await import('@study/db');
     const { SourceStore } = await import('#server/features/sources/store/index');
     const { transaction } = await import('#server/platform/definitions/define-store');
     const location = await createTestDatabase();
     const context = new ServerContext(await location.open());
-    const auth = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
-    const model = createChatGptModel({ auth, modelId: 'test', baseUrl: 'http://127.0.0.1' });
+    using mock = createAiMock();
     const services = Layer.mergeAll(
       Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
       Layer.succeed(Database, { store: context }),
       Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context }))),
       agentsLayer({
-        model: () => Effect.succeed(model),
+        model: (tier, call) => mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError)),
         language: 'en',
         rules: Effect.succeed(defaultAgentRules),
         searchSources: () => Effect.succeed([])
@@ -396,7 +396,6 @@ testStable(
         )
       );
     } finally {
-      await auth.dispose();
       context.close();
       await location.cleanup();
     }
@@ -568,14 +567,13 @@ for (const input of ['attachment', 'link'] as const)
 testStable('ingestion publishes visible HTML, delimited text and Office documents', async () => {
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
-  const auth = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
-  const model = createChatGptModel({ auth, modelId: 'test', baseUrl: 'http://127.0.0.1' });
+  using mock = createAiMock();
   const services = Layer.mergeAll(
     Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
     Layer.succeed(Database, { store: context }),
     Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context }))),
     agentsLayer({
-      model: () => Effect.succeed(model),
+      model: (tier, call) => mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError)),
       language: 'en',
       rules: Effect.succeed(defaultAgentRules),
       searchSources: () => Effect.succeed([])
@@ -742,7 +740,6 @@ testStable('ingestion publishes visible HTML, delimited text and Office document
       )
     );
   } finally {
-    await auth.dispose();
     context.close();
     await location.cleanup();
   }
@@ -769,14 +766,13 @@ testStable('link ingestion follows redirects and anchors HTML to the final URI',
   const base = peer.url.origin;
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
-  const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
-  const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
+  using mock = createAiMock();
   const services = Layer.mergeAll(
     Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
     Layer.succeed(Database, { store: context }),
     Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context }))),
     agentsLayer({
-      model: () => Effect.succeed(model),
+      model: (tier, call) => mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError)),
       language: 'en',
       rules: Effect.succeed(defaultAgentRules),
       searchSources: () => Effect.succeed([])
@@ -822,7 +818,6 @@ testStable('link ingestion follows redirects and anchors HTML to the final URI',
       )
     );
   } finally {
-    await auth.dispose();
     context.close();
     await location.cleanup();
     await peer.stop(true);
@@ -845,15 +840,14 @@ testStable('link fetch checkpoint survives SQLite reopen without another request
   const base = peer.url.origin;
   const location = await createTestDatabase();
   let context = new ServerContext(await location.open());
-  const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
-  const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
+  using mock = createAiMock();
   const services = () =>
     Layer.mergeAll(
       Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
       Layer.succeed(Database, { store: context }),
       Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context }))),
       agentsLayer({
-        model: () => Effect.succeed(model),
+        model: (tier, call) => mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError)),
         language: 'en',
         rules: Effect.succeed(defaultAgentRules),
         searchSources: () => Effect.succeed([])
@@ -927,7 +921,6 @@ testStable('link fetch checkpoint survives SQLite reopen without another request
       context.db.orm.all<{ text: string }>(sql`SELECT text FROM blocks`)[0].text === 'captured'
     );
   } finally {
-    await auth.dispose();
     context.close();
     await location.cleanup();
     await peer.stop(true);
@@ -960,14 +953,13 @@ testStable('interrupting link ingestion closes the active HTTP request', async (
   const base = peer.url.origin;
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
-  const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
-  const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
+  using mock = createAiMock();
   const services = Layer.mergeAll(
     Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
     Layer.succeed(Database, { store: context }),
     Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context }))),
     agentsLayer({
-      model: () => Effect.succeed(model),
+      model: (tier, call) => mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError)),
       language: 'en',
       rules: Effect.succeed(defaultAgentRules),
       searchSources: () => Effect.succeed([])
@@ -1010,7 +1002,6 @@ testStable('interrupting link ingestion closes the active HTTP request', async (
       )
     );
   } finally {
-    await auth.dispose();
     context.close();
     await location.cleanup();
     await peer.stop(true);

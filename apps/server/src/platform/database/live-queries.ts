@@ -11,9 +11,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { Failure } from '@study/contracts/errors';
-import { allDependencies } from '@study/contracts/protocol';
-import type { DependencyScope, LiveFrame } from '@study/contracts/protocol';
+import type { Failure } from '@study/contracts';
+import { allDependencies } from '@study/contracts';
+import type { DependencyScope, LiveFrame } from '@study/contracts';
 import type { Cause, Scope } from 'effect';
 import {
   Clock,

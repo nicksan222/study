@@ -11,11 +11,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 /** Sources resolves exact retained revisions without following a mutable extraction head. */
-import * as c from '@study/contracts/sources/rpc';
+import * as c from '@study/contracts';
 import { and, asc, desc, eq, gt, lt, or, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { Schema, Option } from 'effect';
 
 import { decodeStoredBlock } from '#server/platform/database/content-block';

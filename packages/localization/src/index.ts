@@ -1,22 +1,22 @@
-/**
- * English and Italian copy with checked keys and interpolation parameters.
- *
- * @example
- * const { t, count, number } = createLocalization("italian");
- * t("SubjectWelcome", { subject: "Biology" });
- * count("source", 2);
- * number(1234);
- */
-export { catalogs } from './catalog.ts';
+export { anchorLabel, citationLabel } from './anchors.ts';
 export type { Locale, MessageKey } from './catalog.ts';
-export { text, createLocalization, countText } from './i18n.ts';
+export { catalogs } from './catalog.ts';
+export {
+  cardCount,
+  examCountdown,
+  fileCount,
+  practiceFigure,
+  questionCount,
+  questionNumber,
+  reviewProgress,
+  sourceCount
+} from './counts.ts';
+export { choiceLabel, joined, materialFileName, mediaSize, secondsTaken } from './formatting.ts';
 export type { StaticMessageKey } from './i18n.ts';
-export * from './formatting.ts';
-export * from './counts.ts';
-export * from './time.ts';
-export * from './anchors.ts';
-export * from './mentions.ts';
+export { countText, createLocalization, text } from './i18n.ts';
+export { landingCopy, utilityExampleCopy } from './landing.ts';
+export { mentionLabel, mentionSuggestions } from './mentions.ts';
+export { age, dayLabel, moment, pastedImageName, recordingClock } from './time.ts';
 export { noteEditorLabels, structuredEditorLabels } from './editor-labels.ts';
 export { interfaceControlLabels } from './appearance-labels.ts';
-
 export { createPracticePresentation } from './practice-labels.ts';

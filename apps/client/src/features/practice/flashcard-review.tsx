@@ -1,12 +1,7 @@
-import type { ProjectId } from '@study/contracts/ids';
-import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
+import type { ProjectId, MaterialVersionDetailDto } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { SelectedIcon, RetryIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
-import { ErrorState } from '@study/ui/error-state';
-import { FlashcardReviewView } from '@study/ui/flashcard-review-view';
-import { Loading } from '@study/ui/loading';
-import { Practice } from '@study/ui/practice';
+import { Button, ErrorState, FlashcardReviewView, Loading, Practice } from '@study/ui';
 import { useRef, useState } from 'react';
 
 import { useNativeAction } from '#client/lib/effect/native.ts';

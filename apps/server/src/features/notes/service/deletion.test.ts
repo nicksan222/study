@@ -10,9 +10,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { NotesRpc } from '@study/contracts/notes/rpc';
+import { NotesRpc } from '@study/contracts';
 import { eq, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Exit, Layer, Option, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';

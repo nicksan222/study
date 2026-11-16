@@ -1,11 +1,11 @@
-import { quizAnswerSchema } from '@study/contracts/learning/schemas';
+import { quizAnswerSchema } from '@study/contracts';
 import { createLocalization } from '@study/localization';
-import { landingCopy } from '@study/localization/landing';
-import { Button } from '@study/ui/button';
-import { QuizQuestionView } from '@study/ui/quiz-question-view';
-import { QuizResultsView } from '@study/ui/quiz-results-view';
-import { QuizSessionView } from '@study/ui/quiz-session-view';
-import { SelectControl } from '@study/ui/select-control';
+import { landingCopy } from '@study/localization';
+import { Button } from '@study/ui';
+import { QuizQuestionView } from '@study/ui';
+import { QuizResultsView } from '@study/ui';
+import { QuizSessionView } from '@study/ui';
+import { SelectControl } from '@study/ui';
 import { Schema } from 'effect';
 import { useState } from 'react';
 

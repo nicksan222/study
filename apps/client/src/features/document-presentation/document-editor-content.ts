@@ -1,9 +1,6 @@
-import { sourceIdSchema } from '@study/contracts/ids';
-import { createBlock } from '@study/contracts/sources/document';
-import type { documentSchema } from '@study/contracts/sources/schemas';
-import type { BlockContent, Inline } from '@study/contracts/sources/schemas';
-import { blockContentSchema } from '@study/contracts/sources/schemas';
-import type { StructuredEditorValue as Node } from '@study/ui/structured-editor';
+import { sourceIdSchema, createBlock, blockContentSchema } from '@study/contracts';
+import type { documentSchema, BlockContent, Inline } from '@study/contracts';
+import type { StructuredEditorValue as Node } from '@study/ui';
 import { Schema } from 'effect';
 
 export type EditableDocument = typeof documentSchema.Type;

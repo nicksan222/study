@@ -10,9 +10,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { NoteMode } from '@study/contracts/notes/schemas';
+import { NoteMode } from '@study/contracts';
 import { eq } from '@study/db';
-import { notes, projects, project_notes } from '@study/db/schema';
+import { notes, projects, project_notes } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Option } from 'effect';

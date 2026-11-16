@@ -12,15 +12,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { agentProgressInputSchema } from '@study/contracts/ai/progress';
-import { StudyError } from '@study/contracts/errors';
-import type { WorkflowEvent } from '@study/contracts/events';
-import { executionIdSchema } from '@study/contracts/workflows/schemas';
+import type { agentProgressInputSchema } from '@study/contracts';
+import { agentProgressLimit } from '@study/contracts';
+import { StudyError } from '@study/contracts';
+import type { WorkflowEvent } from '@study/contracts';
+import { executionIdSchema } from '@study/contracts';
 import type {
   executionSchema,
   cancelExecutionInputSchema,
   executionsInputSchema
-} from '@study/contracts/workflows/schemas';
+} from '@study/contracts';
 import type { Cause } from 'effect';
 import { Effect, Option, Queue, Schema, Stream } from 'effect';
 
@@ -42,7 +43,7 @@ function* makeWorkflows() {
   const store = yield* useStore(ExecutionStore);
   const progressStore = yield* useStore(AgentProgressStore);
   const agentProgress = (input: typeof agentProgressInputSchema.Type) =>
-    progressStore.agentProgress({ scope: input, limit: 100 });
+    progressStore.agentProgress({ scope: input, limit: agentProgressLimit });
 
   const executions = Effect.fnUntraced(function* (input: typeof executionsInputSchema.Type) {
     const items = yield* store.executions(input);

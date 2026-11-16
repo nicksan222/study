@@ -12,9 +12,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { attemptsInputSchema } from '@study/contracts/learning/rpc';
+import type { attemptsInputSchema } from '@study/contracts';
 import { and, desc, eq, lt } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { cursorPage } from '#server/platform/pagination';

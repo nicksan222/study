@@ -14,7 +14,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import { CryptoHasher } from 'bun';
 import { Effect, Layer, Logger } from 'effect';
 
@@ -61,7 +61,9 @@ import { BackupStorage, ManagedBackups } from '#server/platform/database/backups
 import type { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { liveQueriesLayer } from '#server/platform/database/live-queries';
+import type { AiRuntimeAdapters } from '#server/platform/definitions/define-agent';
 import { transaction } from '#server/platform/definitions/define-store';
+import { normalizeError } from '#server/platform/errors/classify-error';
 import { recordAiTokens, recordUsageFailure } from '#server/platform/observability/index';
 import { UsageStore } from '#server/platform/observability/usage-store';
 import { observeAgentProgress } from '#server/platform/workflows/agent-progress';
@@ -80,13 +82,14 @@ export function nativeLayers(
   hostId: string | undefined,
   lifecycle: WorkerLifecycle['Service'],
   control: WorkflowControl['Service'],
-  request?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>
+  request?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>,
+  ai?: AiRuntimeAdapters
 ) {
   const admission = admissionLayer(makeAdmission());
 
   const database = Layer.succeed(Database, { store });
 
-  const backupOwner = new ManagedBackups(store.db, backupPolicy, store.clock);
+  const backupOwner = new ManagedBackups(store.db, backupPolicy, store.timestampClock);
 
   const backups = Layer.succeed(BackupStorage, { owner: backupOwner });
 
@@ -161,23 +164,26 @@ export function nativeLayers(
         admission: withAdmissionSettings(aiAdmission, settings.concurrencySettings()),
         language: settings.language(),
         rules: settings.agentRules(),
-        model: (tier) =>
-          settings.model(tier).pipe(
-            Effect.flatMap(({ provider, modelId }): ReturnType<Agents['Service']['model']> =>
-              typeof provider === 'string'
-                ? Effect.try({
-                    try: () =>
-                      createApiKeyModel(
-                        getApiKeyProvider(provider),
-                        modelId,
-                        adaptCredentialReader(auth.apiKey(provider)),
-                        request
-                      ),
-                    catch: () => new StudyError('config', 'Could not initialize AI provider')
-                  })
-                : Effect.succeed(createChatGptModel({ auth: manager, modelId, fetch: request }))
-            )
-          ),
+        executeTool: ai?.executeTool,
+        model: (tier, call) =>
+          ai?.model
+            ? ai.model(tier, call).pipe(Effect.mapError(normalizeError))
+            : settings.model(tier).pipe(
+                Effect.flatMap(({ provider, modelId }): ReturnType<Agents['Service']['model']> =>
+                  typeof provider === 'string'
+                    ? Effect.try({
+                        try: () =>
+                          createApiKeyModel(
+                            getApiKeyProvider(provider),
+                            modelId,
+                            adaptCredentialReader(auth.apiKey(provider)),
+                            request
+                          ),
+                        catch: () => new StudyError('config', 'Could not initialize AI provider')
+                      })
+                    : Effect.succeed(createChatGptModel({ auth: manager, modelId, fetch: request }))
+                )
+              ),
         searchSources: () =>
           Effect.fail(new StudyError('unsupported', 'Source search is not configured'))
       };

@@ -1,4 +1,4 @@
-import type { agentProgressInputSchema } from '@study/contracts/ai/progress';
+import type { agentProgressInputSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 
 /** Persisted progress snapshots follow background workflow revisions. */

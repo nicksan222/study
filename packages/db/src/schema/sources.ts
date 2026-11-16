@@ -1,5 +1,5 @@
-import type { ProjectId, SourceId } from '@study/contracts/ids';
-import { projectIconColors } from '@study/contracts/projects/schemas';
+import type { ProjectId, SourceId } from '@study/contracts';
+import { projectIconColors } from '@study/contracts';
 
 import { defineTable, sql, integer, text, blob, index, check } from '../schema-builder.ts';
 import type { AnySQLiteColumn } from '../schema-builder.ts';

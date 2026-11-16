@@ -1,5 +1,4 @@
-import { assessmentViewSchema } from '@study/contracts/pages/evidence';
-import { exactInputSchema } from '@study/contracts/pages/schemas';
+import { assessmentViewSchema, exactInputSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { render, screen } from '@testing-library/react';

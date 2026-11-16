@@ -1,5 +1,4 @@
-import { noteIdSchema } from '@study/contracts/ids';
-import { messagePartSchema } from '@study/contracts/notes/schemas';
+import { noteIdSchema, messagePartSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

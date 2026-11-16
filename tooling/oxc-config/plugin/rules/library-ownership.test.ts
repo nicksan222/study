@@ -6,26 +6,37 @@ import { lintRulePaths } from '../test/utils.ts';
 testStable(
   'durable library identities cannot acquire collection ownership through schema aliases',
   async () => {
-    const imports =
-      "import { sqliteTable as table, integer, foreignKey } from 'drizzle-orm/sqlite-core';\nimport { projects as collections } from './projects.ts';\n";
+    const imports = `import { sqliteTable as table, integer, foreignKey } from 'drizzle-orm/sqlite-core';
+
+import { projects as collections } from './projects.ts';
+
+`;
     const files = {
       'direct.ts': "table('materials', { project_id: integer().notNull() });",
       'nullable.ts': "table('notes', { projectId: integer() });",
       'sql-name.ts': "table('material_versions', { owner: integer('project_id') });",
-      'reference.ts':
-        "table('materials', { owner: integer().references(() => collections.id, { onDelete: 'cascade' }) });",
-      'composite.ts':
-        "table('material_versions', { owner: integer() }, t => [foreignKey({ columns: [t.owner], foreignColumns: [collections.id] }).onDelete('cascade')]);",
-      'aliases.ts':
-        "const make = table; const name = 'notes'; const columns = { ['project_id']: integer() }; make(name, { ...columns });",
+      'reference.ts': `table('materials', { owner: integer().references(() => collections.id, { onDelete: 'cascade' }) });
+`,
+      'composite.ts': `table('material_versions', { owner: integer() }, t => [foreignKey({ columns: [t.owner], foreignColumns: [collections.id] }).onDelete('cascade')]);
+`,
+      'aliases.ts': `const make = table;
+ const name = 'notes';
+ const columns = { ['project_id']: integer() };
+ make(name, { ...columns });
+`,
       'builder-alias.ts':
         "const owner = integer().references(() => collections.id); table('notes', { owner });",
-      'local-projects.ts':
-        "const groups = table('projects', { id: integer() }); table('materials', { owner: integer().references(() => groups.id) });",
+      'local-projects.ts': `const groups = table('projects', { id: integer() });
+ table('materials', { owner: integer().references(() => groups.id) });
+`,
       'typed.ts':
         "const columns = { project_id: integer() } as const; table('materials', columns);",
-      'valid.ts':
-        "table('project_materials', { project_id: integer().notNull().references(() => collections.id, { onDelete: 'cascade' }), material_id: integer().notNull() }); table('project_notes', { project_id: integer().notNull() }); table('material_generation_requests', { project_id: integer().notNull() }); table('materials', { title: integer().notNull() }); const requests = table('material_generation_requests', { project_id: integer().notNull(), id: integer() }); table('material_versions', { request: integer().references(() => requests.id) });",
+      'valid.ts': `table('project_materials', { project_id: integer().notNull().references(() => collections.id, { onDelete: 'cascade' }), material_id: integer().notNull() });
+table('project_notes', { project_id: integer().notNull() });
+table('material_generation_requests', { project_id: integer().notNull() });
+table('materials', { title: integer().notNull() });
+const requests = table('material_generation_requests', { project_id: integer().notNull(), id: integer() });
+table('material_versions', { request: integer().references(() => requests.id) });`,
       'shadow.ts': "function define(table) { table('materials', { project_id: integer() }); }",
       'cycle.ts': "const a = b; const b = a; table('materials', a);",
       'unrelated.ts': "const object = { table }; object.table('other', { project_id: integer() });"

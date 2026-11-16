@@ -10,9 +10,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { failureSchema } from '@study/contracts/errors';
-import { noteDeletionRequestedSchema } from '@study/contracts/events';
-import { noteDeletionSchema } from '@study/contracts/notes/deletion';
+import { failureSchema } from '@study/contracts';
+import { noteDeletionRequestedSchema } from '@study/contracts';
+import { noteDeletionSchema } from '@study/contracts';
 import { Effect, Schema } from 'effect';
 
 import { Notes } from '#server/features/notes/index';

@@ -1,5 +1,5 @@
+import { llmSettingsSchema, apiKeyInputSchema } from '@study/contracts';
 import { configureRpcTransport } from '@study/contracts/react';
-import { llmSettingsSchema, apiKeyInputSchema } from '@study/contracts/settings/schemas';
 import { catalogs, createLocalization } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';

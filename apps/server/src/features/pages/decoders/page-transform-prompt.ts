@@ -11,12 +11,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { PageVersionId } from '@study/contracts/ids';
-import type { pageTransformContextSchema } from '@study/contracts/pages/transform';
-import type { transformSnapshotSchema } from '@study/contracts/pages/transform';
+import { StudyError } from '@study/contracts';
+import type { PageVersionId } from '@study/contracts';
+import type { pageTransformContextSchema } from '@study/contracts';
+import type { transformSnapshotSchema } from '@study/contracts';
 
 import { authorizedTransformAssets } from './page-transform.ts';
+
+// Bound the entire serialized captured request, including rich content and metadata.
+const maxPromptBytes = 256_000;
 
 function inputRole(
   versionId: PageVersionId | undefined,
@@ -69,10 +72,12 @@ export function pageTransformPrompt(
     }))
   };
 
-  return {
-    editTarget,
-    prompt: JSON.stringify(captured, (_, value: unknown) =>
-      typeof value === 'bigint' ? String(value) : value
-    )
-  };
+  const prompt = JSON.stringify(captured, (_, value: unknown) =>
+    typeof value === 'bigint' ? String(value) : value
+  );
+
+  if (new TextEncoder().encode(prompt).byteLength > maxPromptBytes)
+    throw new StudyError('not_enough', 'Captured Page transform exceeds the prompt byte bound');
+
+  return { editTarget, prompt };
 }

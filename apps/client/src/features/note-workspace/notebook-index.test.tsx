@@ -1,5 +1,4 @@
-import { noteIdSchema } from '@study/contracts/ids';
-import { chatMessageSchema } from '@study/contracts/notes/schemas';
+import { noteIdSchema, chatMessageSchema } from '@study/contracts';
 import { rpc as protocol } from '@study/contracts/react';
 import { testStable } from '@study/testing/vitest';
 import { cleanup, fireEvent, render, screen, within, waitFor } from '@testing-library/react';

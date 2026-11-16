@@ -1,5 +1,5 @@
-import { sourceIdSchema, contentSnapshotIdSchema } from '@study/contracts/ids';
-import { MaterialLibrary } from '@study/ui/material-library';
+import { sourceIdSchema, contentSnapshotIdSchema } from '@study/contracts';
+import { MaterialLibrary } from '@study/ui';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
 

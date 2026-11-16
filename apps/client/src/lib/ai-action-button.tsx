@@ -1,5 +1,5 @@
-import type { ModelTier } from '@study/contracts/settings/schemas';
-import { AiButton } from '@study/ui/ai-button';
+import type { ModelTier } from '@study/contracts';
+import { AiButton } from '@study/ui';
 import type { ComponentProps } from 'react';
 
 import { useAiReadiness } from './ai-readiness';

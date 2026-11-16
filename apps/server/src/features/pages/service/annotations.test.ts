@@ -12,12 +12,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { contentSnapshotIdSchema, pageVersionIdSchema } from '@study/contracts/ids';
-import { annotationSchema } from '@study/contracts/pages/evidence';
-import { PagesRpc } from '@study/contracts/pages/rpc';
-import { correctBlockText, createBlock } from '@study/contracts/sources/document';
+import { contentSnapshotIdSchema, pageVersionIdSchema } from '@study/contracts';
+import { annotationSchema } from '@study/contracts';
+import { PagesRpc } from '@study/contracts';
+import { correctBlockText, createBlock } from '@study/contracts';
 import { sql, eq } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';

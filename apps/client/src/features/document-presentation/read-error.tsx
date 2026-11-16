@@ -1,5 +1,4 @@
-import { RetryButton } from '@study/ui/action-button';
-import { ErrorState } from '@study/ui/error-state';
+import { RetryButton, ErrorState } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 import { toStudyError } from '#client/lib/study-client/errors.ts';

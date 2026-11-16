@@ -11,8 +11,14 @@ testStable(
     assertDiagnostics(
       'feature-orchestration',
       await lintRule('feature-orchestration', {
-        'src/features/sources/service.ts':
-          'async function load() {} const f = fetch; f(url); new Promise(resolve => resolve(1)); function local(fetch: any, Promise: any) { fetch(url); new Promise(); }',
+        'src/features/sources/service.ts': String.raw`async function load() {}
+const f = fetch;
+f(url);
+new Promise((resolve) => resolve(1));
+function local(fetch: any, Promise: any) {
+  fetch(url);
+  new Promise();
+}`,
         'src/features/sources/fetch.ts': 'globalThis.fetch(url);',
         'src/features/sources/adapter.ts': 'async function io() { return fetch(url); }',
         'src/features/sources/service.test.ts': 'async function io() { return fetch(url); }'

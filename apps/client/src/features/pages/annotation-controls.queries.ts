@@ -1,6 +1,6 @@
 import { RegistryContext, useAtom, useAtomInitialValues } from '@effect/atom-react';
 import { rpc } from '@study/contracts/react';
-import { toastManager } from '@study/ui/toast';
+import { toastManager } from '@study/ui';
 import { useContext, useEffect, useState } from 'react';
 
 import { useCursorRecovery, useCursorWindow } from '#client/lib/cursor-window.tsx';

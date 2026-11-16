@@ -1,9 +1,9 @@
-import { Button } from '@study/ui/button';
-import { Input } from '@study/ui/input';
-import { NextButton, PreviousButton } from '@study/ui/navigation-button';
-import { Practice } from '@study/ui/practice';
-import { SelectControl } from '@study/ui/select-control';
-import { Textarea } from '@study/ui/textarea';
+import { Button } from '#ui/components/button.tsx';
+import { Input } from '#ui/components/input.tsx';
+import { NextButton, PreviousButton } from '#ui/components/navigation-button.tsx';
+import { Practice } from '#ui/components/practice.tsx';
+import { SelectControl } from '#ui/components/select-control.tsx';
+import { Textarea } from '#ui/components/textarea.tsx';
 import { useState, useEffect, useRef, useId } from 'react';
 import type { ReactNode, KeyboardEvent } from 'react';
 

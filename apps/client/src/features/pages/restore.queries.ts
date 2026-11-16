@@ -1,6 +1,5 @@
 import { RegistryContext, useAtom } from '@effect/atom-react';
-import type { restoreSchema } from '@study/contracts/pages/editing';
-import type { Page, PageVersion } from '@study/contracts/pages/types';
+import type { restoreSchema, Page, PageVersion } from '@study/contracts';
 import { rpc, useIndependentMutation } from '@study/contracts/react';
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';

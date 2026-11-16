@@ -3,16 +3,16 @@
   "private": true,
   "type": "module",
   "exports": {
+    ".": "./src/index.ts",
     "./vitest": "./src/vitest.ts",
-    "./catalog": "./src/catalog.ts",
-    "./classification": "./src/classification.ts",
-    "./config": "./src/config.ts",
-    "./process": "./src/process.ts",
-    "./resources": "./src/resources.ts",
     "./react/setup": "./src/react/setup.ts"
   },
   "scripts": {
     "test": "bun --bun vp test run --config ../../vite.config.ts --project tooling packages/testing && bun --bun vp test run --config ../../vite.config.ts --project @study/client packages/testing/test/react.test.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/provider": "3.0.19",
+    "effect": "4.0.7"
   },
   "devDependencies": {
     "@effect/platform-bun": "4.0.7",

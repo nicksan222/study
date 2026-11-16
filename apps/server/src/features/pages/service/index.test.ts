@@ -11,10 +11,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { pageVersionIdSchema, sourceIdSchema, versionIdSchema } from '@study/contracts/ids';
-import { PagesRpc } from '@study/contracts/pages/rpc';
-import type { PageVersion } from '@study/contracts/pages/types';
-import { createBlock } from '@study/contracts/sources/document';
+import { pageVersionIdSchema, sourceIdSchema, versionIdSchema } from '@study/contracts';
+import { PagesRpc } from '@study/contracts';
+import type { PageVersion } from '@study/contracts';
+import { createBlock } from '@study/contracts';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
@@ -318,7 +318,7 @@ testStable(
   INSERT INTO messages(id,note_id,role,created_at) VALUES(10,1,'user',1);
   INSERT INTO message_versions(id,message_id,number,origin,status,text,created_at) VALUES(11,10,1,'typed','complete','Exact message',1);`);
       const snapshotId = Schema.decodeUnknownSync(
-        (await import('@study/contracts/ids')).contentSnapshotIdSchema
+        (await import('@study/contracts')).contentSnapshotIdSchema
       )(70n);
 
       await Effect.runPromise(
@@ -545,7 +545,7 @@ testStable(
    INSERT INTO notes(id,title,title_source,created_at,updated_at) VALUES(1,'Note','user',1,1);
    INSERT INTO messages(id,note_id,role,created_at) VALUES(10,1,'user',1);
    INSERT INTO message_versions(id,message_id,number,origin,status,text,created_at) VALUES(11,10,1,'typed','complete','Exact raw',1);`);
-      const ids = await import('@study/contracts/ids');
+      const ids = await import('@study/contracts');
 
       await Effect.runPromise(
         Effect.gen(function* () {

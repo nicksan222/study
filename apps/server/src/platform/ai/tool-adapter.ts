@@ -14,9 +14,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { agentUpdateSchema } from '@study/contracts/ai/progress';
-import { StudyError } from '@study/contracts/errors';
-import type { UsageRecord } from '@study/contracts/settings/usage';
+import type { agentUpdateSchema } from '@study/contracts';
+import { StudyError } from '@study/contracts';
+import type { UsageRecord } from '@study/contracts';
 import { dynamicTool } from 'ai';
 import { Cause, Effect, Exit, Option, Schema } from 'effect';
 import type { Context, Tracer } from 'effect';
@@ -68,7 +68,14 @@ export function adaptTool<Requirements>(
             )
           );
 
-          const execute = definition.execute(decoded, toolEnvironment).pipe(
+          const execute = Effect.suspend(() => {
+            const actual = () =>
+              definition.execute(decoded, toolEnvironment).pipe(Effect.provideContext(context));
+
+            return environment.executeTool
+              ? environment.executeTool({ definition, input: decoded }, actual)
+              : actual();
+          }).pipe(
             Effect.flatMap(Schema.encodeUnknownEffect(Schema.toCodecJson(definition.output))),
             Effect.flatMap(Schema.decodeUnknownEffect(Schema.Json)),
             Effect.mapError((cause) =>

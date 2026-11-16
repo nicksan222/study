@@ -12,11 +12,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { createBlock, plainBlock } from '@study/contracts/sources/document';
-import type { Anchor, Block } from '@study/contracts/sources/document';
-import type { Document } from '@study/contracts/sources/document';
-import type { Inline } from '@study/contracts/sources/schemas';
+import { StudyError } from '@study/contracts';
+import { createBlock, plainBlock } from '@study/contracts';
+import type { Anchor, Block } from '@study/contracts';
+import type { Document } from '@study/contracts';
+import type { Inline } from '@study/contracts';
 import { load } from 'cheerio';
 import { XMLValidator } from 'fast-xml-parser';
 import { fromBufferPromise } from 'yauzl';

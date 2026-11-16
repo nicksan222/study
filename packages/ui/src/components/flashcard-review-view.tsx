@@ -1,6 +1,6 @@
 import { SelectedIcon, RetryIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
-import { Practice } from '@study/ui/practice';
+import { Button } from '#ui/components/button.tsx';
+import { Practice } from '#ui/components/practice.tsx';
 import { useEffect } from 'react';
 import type { ReactNode, RefObject } from 'react';
 

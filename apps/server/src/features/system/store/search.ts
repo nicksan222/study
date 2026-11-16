@@ -12,7 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import type {
   ContentSnapshotId,
   PageId,
@@ -21,9 +21,9 @@ import type {
   ChunkId,
   MessageId,
   NoteId
-} from '@study/contracts/ids';
-import { NoteMode } from '@study/contracts/notes/schemas';
-import type { searchHitSchema } from '@study/contracts/system/schemas';
+} from '@study/contracts';
+import { NoteMode } from '@study/contracts';
+import type { searchHitSchema } from '@study/contracts';
 
 type PublicTarget = typeof searchHitSchema.Type.target;
 
@@ -53,9 +53,9 @@ type SearchKind = SearchTarget['type'];
 
 type SearchOptions = { projectId?: ProjectId; kinds?: readonly SearchKind[]; limit?: number };
 
-import { anchorSchema } from '@study/contracts/sources/schemas';
+import { anchorSchema } from '@study/contracts';
 import { sql } from '@study/db';
-import * as schema from '@study/db/schema';
+import * as schema from '@study/db';
 import { Schema } from 'effect';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';

@@ -10,13 +10,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { identifyMatchingPair } from '@study/contracts/ids';
-import { quizOrderingItemIdSchema } from '@study/contracts/ids';
-import type { MaterialVersionId } from '@study/contracts/ids';
-import type { MaterialContentInput } from '@study/contracts/materials/schemas';
+import { StudyError } from '@study/contracts';
+import { identifyMatchingPair } from '@study/contracts';
+import { quizOrderingItemIdSchema } from '@study/contracts';
+import type { MaterialVersionId } from '@study/contracts';
+import type { MaterialContentInput } from '@study/contracts';
 import { and, eq } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { Schema } from 'effect';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';

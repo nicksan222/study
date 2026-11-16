@@ -1,4 +1,4 @@
-import { noteIdSchema } from '@study/contracts/ids';
+import { noteIdSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
 import { expect } from 'vite-plus/test';

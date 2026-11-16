@@ -10,7 +10,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { agentProgressInputSchema, agentProgressPageSchema } from '@study/contracts/ai/progress';
+import {
+  agentProgressInputSchema,
+  agentProgressPageSchema,
+  agentProgressLimit
+} from '@study/contracts';
 import { Schema } from 'effect';
 
 import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
@@ -25,7 +29,7 @@ export const AgentProgressStore = defineStore({
         role: 'collection',
         input: Schema.Struct({
           scope: agentProgressInputSchema,
-          limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))
+          limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: agentProgressLimit }))
         }),
         output: agentProgressPageSchema,
         run: (input) => agentProgressSnapshot({ db }, input.scope, input.limit)

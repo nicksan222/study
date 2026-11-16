@@ -1,10 +1,10 @@
-import { Appearance, defaultAppearancePreferences } from '@study/contracts/settings/types';
+import { Appearance, defaultAppearancePreferences } from '@study/contracts';
 import {
   applyThemeToDocument,
   createThemeStore,
   defaultThemeId,
   observeSystemAppearance
-} from '@study/ui/theme';
+} from '@study/ui';
 
 import { loadAppearance } from './study-client/appearance';
 

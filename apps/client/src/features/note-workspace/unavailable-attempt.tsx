@@ -1,9 +1,6 @@
-import type { NoteId } from '@study/contracts/ids';
+import type { NoteId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { Button } from '@study/ui/button';
-import { ErrorState } from '@study/ui/error-state';
-import { Notebook } from '@study/ui/note-workspace';
-import { StatusMessage } from '@study/ui/status-message';
+import { Button, ErrorState, Notebook, StatusMessage } from '@study/ui';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

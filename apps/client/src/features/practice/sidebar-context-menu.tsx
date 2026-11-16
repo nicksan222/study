@@ -1,13 +1,13 @@
-import type { MaterialSummaryDto } from '@study/contracts/materials/schemas';
+import type { MaterialSummaryDto } from '@study/contracts';
 import { ArchiveIcon, OpenIcon, PageIcon, HistoryIcon } from '@study/icons';
 import {
   ContextMenu,
   ContextMenuTrigger,
   ContextMenuPopup,
   ContextMenuItem,
-  ContextMenuSeparator
-} from '@study/ui/context-menu';
-import { toastManager } from '@study/ui/toast';
+  ContextMenuSeparator,
+  toastManager
+} from '@study/ui';
 import { Link, useNavigate } from '@tanstack/react-router';
 import type { ReactElement } from 'react';
 import { useState } from 'react';

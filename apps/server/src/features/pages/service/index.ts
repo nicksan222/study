@@ -11,18 +11,18 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { ProjectId } from '@study/contracts/ids';
-import type { NoteId } from '@study/contracts/ids';
-import type { PageVersionId } from '@study/contracts/ids';
-import type * as e from '@study/contracts/pages/editing';
-import type * as evidence from '@study/contracts/pages/evidence';
-import type { exportPageInputSchema } from '@study/contracts/pages/export';
+import { StudyError } from '@study/contracts';
+import type { ProjectId } from '@study/contracts';
+import type { NoteId } from '@study/contracts';
+import type { PageVersionId } from '@study/contracts';
+import type * as e from '@study/contracts';
+import type * as evidence from '@study/contracts';
+import type { exportPageInputSchema } from '@study/contracts';
 /** Pages alone owns authored publication. Workflow callers supply their Activity fence. */
-import type * as r from '@study/contracts/pages/rpc';
-import type * as t from '@study/contracts/pages/transform';
-import type { Page } from '@study/contracts/pages/types';
-import { executionIdSchema } from '@study/contracts/workflows/schemas';
+import type * as r from '@study/contracts';
+import type * as t from '@study/contracts';
+import type { Page } from '@study/contracts';
+import { executionIdSchema } from '@study/contracts';
 import { Effect, Option, Schema } from 'effect';
 
 import {

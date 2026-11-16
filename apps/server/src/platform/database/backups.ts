@@ -13,7 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import {
   MAX_BACKUP_BYTES,
   MAX_MANAGED_BACKUPS,
@@ -22,9 +22,9 @@ import {
   restoreTokenSchema,
   backupDigestSchema,
   acceptRestoreSchema
-} from '@study/contracts/system/backups';
-import type { BackupId, BackupManifest, RestorePreview } from '@study/contracts/system/backups';
-import type { backupScopeSchema, restoreStatusSchema } from '@study/contracts/system/backups';
+} from '@study/contracts';
+import type { BackupId, BackupManifest, RestorePreview } from '@study/contracts';
+import type { backupScopeSchema, restoreStatusSchema } from '@study/contracts';
 import { Db, configureSqliteRuntime } from '@study/db';
 import { CryptoHasher } from 'bun';
 import type { Clock } from 'effect';

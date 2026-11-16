@@ -14,8 +14,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { Failure } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
+import type { Failure } from '@study/contracts';
 import { DrizzleQueryError } from '@study/db';
 
 export function classifyError(error: unknown): Failure {

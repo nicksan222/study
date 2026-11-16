@@ -1,5 +1,5 @@
-import type { MaterialId, SourceId, PageId } from '@study/contracts/ids';
-import { notes, project_notes, note_sources, note_pages, note_materials } from '@study/db/schema';
+import type { MaterialId, SourceId, PageId } from '@study/contracts';
+import { notes, project_notes, note_sources, note_pages, note_materials } from '@study/db';
 
 import type { Exchange } from '../types.ts';
 import { createMessages } from './messages.ts';

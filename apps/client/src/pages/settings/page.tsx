@@ -1,4 +1,4 @@
-import type { ProjectId } from '@study/contracts/ids';
+import type { ProjectId } from '@study/contracts';
 
 import { PageView } from './page.view';
 import type { SettingsSectionId } from './page.view';

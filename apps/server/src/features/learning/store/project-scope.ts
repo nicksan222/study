@@ -11,10 +11,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { ProjectId } from '@study/contracts/ids';
+import { StudyError } from '@study/contracts';
+import type { ProjectId } from '@study/contracts';
 import { eq, inArray } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 

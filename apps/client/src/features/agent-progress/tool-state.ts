@@ -1,4 +1,4 @@
-import type { agentProgressSchema, agentToolProgressSchema } from '@study/contracts/ai/progress';
+import type { agentProgressSchema, agentToolProgressSchema } from '@study/contracts';
 
 export function settledAgentTool(
   tool: typeof agentToolProgressSchema.Type,

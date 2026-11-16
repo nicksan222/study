@@ -41,10 +41,15 @@ testStable('permits classified imports, runner hooks and type imports', async ()
   const diagnostics = await lintRule(
     'test-classification',
     {
-      'apps/client/src/a.test.ts':
-        "import {testStable, testRegression} from '@study/testing/vitest'; import {expect, beforeEach, describe} from 'vite-plus/test'; testStable.each([1])('case', n => {}); testRegression({regression: 'evidence_integrity'})('case', () => {});",
-      'apps/server/test/a.test.ts':
-        "import type {TestContext} from 'node:test'; import {beforeEach, describe} from 'node:test'; import {testStable} from '@study/testing/vitest'; testStable('case', () => {});"
+      'apps/client/src/a.test.ts': `import {testStable, testRegression} from '@study/testing/vitest';
+import {expect, beforeEach, describe} from 'vite-plus/test';
+testStable.each([1])('case', n => {});
+testRegression({regression: 'evidence_integrity'})('case', () => {});`,
+      'apps/server/test/a.test.ts': `import type {TestContext} from 'node:test';
+ import {beforeEach, describe} from 'node:test';
+ import {testStable} from '@study/testing/vitest';
+ testStable('case', () => {});
+`
     },
     true
   );
@@ -61,7 +66,9 @@ testStable(
       "import {testStable} from './fake.ts'; testStable('case', () => {});",
       'function testStable() {} testStable();',
       "import {testStable} from '@study/testing/vitest'; testStable.only('case', () => {});",
-      "import {testRegression} from '@study/testing/vitest'; testRegression({regression:'evidence_integrity'}).skip('case', () => {});"
+      `import {testRegression} from '@study/testing/vitest';
+ testRegression({regression:'evidence_integrity'}).skip('case', () => {});
+`
     ])
       assert.strictEqual(
         (await lintRule('test-classification', { 'apps/client/src/a.test.ts': source }, true))
@@ -78,8 +85,12 @@ testStable(
     const diagnostics = await lintRule(
       'test-classification',
       {
-        'apps/server/test/a.test.ts':
-          "import {describe} from 'vite-plus/test'; import {testStable} from '@study/testing/vitest'; describe('group', () => { testStable('child', () => {}); }); testStable('parent', async t => { await t.test('raw', () => {}); });"
+        'apps/server/test/a.test.ts': `import {describe} from 'vite-plus/test';
+import {testStable} from '@study/testing/vitest';
+describe('group', () => { testStable('child', () => {});
+});
+testStable('parent', async t => { await t.test('raw', () => {});
+});`
       },
       true
     );
@@ -113,8 +124,9 @@ testStable('requires the public alias and rejects aliases of registrations', asy
         "import {testStable} from '../../../packages/testing/src/vitest.ts';",
       'apps/client/src/b.test.ts':
         "import {testStable} from '@study/testing/vitest'; const check = testStable;",
-      'apps/client/src/c.test.ts':
-        "import {testRegression} from '@study/testing/vitest'; const check = testRegression({regression:'evidence_integrity'});"
+      'apps/client/src/c.test.ts': `import {testRegression} from '@study/testing/vitest';
+ const check = testRegression({regression:'evidence_integrity'});
+`
     },
     true
   );
@@ -127,8 +139,10 @@ testStable('rejects global namespace tests and focus or skip options', async () 
     'test-classification',
     {
       'apps/client/src/a.test.ts': "globalThis.test('raw', () => {}); window.it('raw', () => {});",
-      'apps/client/src/b.test.ts':
-        "import {testStable} from '@study/testing/vitest'; testStable('case', {only:true}, () => {}); testStable.each([1])('case', {skip:true}, () => {});"
+      'apps/client/src/b.test.ts': `import {testStable} from '@study/testing/vitest';
+ testStable('case', {only:true}, () => {});
+ testStable.each([1])('case', {skip:true}, () => {});
+`
     },
     true
   );
@@ -140,8 +154,10 @@ testStable('metadata must be explicit and temporary removal conditions meaningfu
   const diagnostics = await lintRule(
     'test-classification',
     {
-      'apps/client/src/a.test.ts':
-        "import {testMigration, testRegression} from '@study/testing/vitest'; testMigration(metadata)('case', () => {}); testRegression({...metadata})('case', () => {}); testMigration({migration:'source_upgrade',retention:'temporary',removeWhen:'  '})('case', () => {});"
+      'apps/client/src/a.test.ts': `import {testMigration, testRegression} from '@study/testing/vitest';
+testMigration(metadata)('case', () => {});
+testRegression({...metadata})('case', () => {});
+testMigration({migration:'source_upgrade',retention:'temporary',removeWhen:'  '})('case', () => {});`
     },
     true
   );
@@ -157,7 +173,10 @@ testStable(
       "const tests = await import('@study/testing/vitest');",
       "import {testStable} from '@study/testing/vitest'; const tests = {check:testStable};",
       "import {testStable} from '@study/testing/vitest'; let check; check = testStable.each;",
-      "import {testRegression} from '@study/testing/vitest'; let check; check = testRegression({regression:'evidence_integrity'});"
+      `import {testRegression} from '@study/testing/vitest';
+ let check;
+ check = testRegression({regression:'evidence_integrity'});
+`
     ])
       assert.strictEqual(
         (await lintRule('test-classification', { 'test/a.test.ts': source })).length,
@@ -171,10 +190,14 @@ testStable(
   'nested contexts cannot hide raw subtests behind destructuring or type aliases',
   async () => {
     const diagnostics = await lintRule('test-classification', {
-      'test/a.test.ts':
-        "import {testStable} from '@study/testing/vitest'; testStable('parent', t => { const {test:check} = t; check('raw', () => {}); });",
-      'test/b.test.ts':
-        "import type {TestContext as Context} from 'vite-plus/test'; function nested(context: Context) { context.test('raw', () => {}); }"
+      'test/a.test.ts': `import {testStable} from '@study/testing/vitest';
+ testStable('parent', t => { const {test:check} = t;
+ check('raw', () => {});
+ });
+`,
+      'test/b.test.ts': `import type {TestContext as Context} from 'vite-plus/test';
+ function nested(context: Context) { context.test('raw', () => {});
+ }`
     });
 
     assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));

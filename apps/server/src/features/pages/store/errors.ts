@@ -11,7 +11,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 
 export function required<T>(value: T | undefined | null): T {
   if (value == null) throw new StudyError('not_found', 'Page resource not found');

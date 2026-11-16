@@ -1,4 +1,4 @@
-import { landingCopy } from '@study/localization/landing';
+import { landingCopy } from '@study/localization';
 import { useSyncExternalStore } from 'react';
 
 import { NoteExample, AnswerExample, PageExample } from './StudyDocumentExamples';

@@ -1,9 +1,7 @@
-import type { ProjectId } from '@study/contracts/ids';
+import type { ProjectId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { SelectedIcon, UnselectedIcon } from '@study/icons';
-import { Loading } from '@study/ui/loading';
-import { PageOverview } from '@study/ui/page-overview';
-import { SearchField } from '@study/ui/search-field';
+import { Loading, PageOverview, SearchField } from '@study/ui';
 import { useState } from 'react';
 
 import {

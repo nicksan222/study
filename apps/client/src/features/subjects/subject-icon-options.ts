@@ -1,4 +1,4 @@
-import type { projectSymbols, projectIconColors } from '@study/contracts/projects/schemas';
+import type { projectSymbols, projectIconColors } from '@study/contracts';
 import {
   BookIcon,
   NotebookIcon,

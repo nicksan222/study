@@ -9,10 +9,10 @@ testStable('package ownership, public exports, and browser entrypoints are enfor
     {
       'packages/ui/src/app.ts': "import '@study/client';\n",
       'packages/ui/src/bad.ts': "import '@study/server/client';\n",
-      'packages/localization/src/bad.ts': "export * from '@study/ui/button';\n",
+      'packages/localization/src/bad.ts': "export * from '@study/ui';\n",
       'packages/db/src/bad.ts': "import type { Account } from '@study/ai';\n",
       'packages/ai/src/bad.ts': "export * from '@study/db';\n",
-      'apps/server/src/bad.ts': "import '@study/ui/button';\n",
+      'apps/server/src/bad.ts': "import '@study/ui';\n",
       'apps/client/src/bad.ts': "export * from '@study/server/runtime';\n",
       'apps/client/src/root.ts': "import '@study/server';\n",
       'apps/client/src/node.ts': "import 'node:fs';\n",
@@ -23,12 +23,11 @@ testStable('package ownership, public exports, and browser entrypoints are enfor
         "export const db = import('../../../packages/db/src/index.ts');\n",
       'apps/desktop/src/bad.ts': "import '@study/server/client';\n",
       'apps/landing/src/bad.ts': "import '@study/server/client';\n",
-      'apps/landing/src/good.ts':
-        "import '@study/ui/button';\nimport '@study/localization/landing';\n",
+      'apps/landing/src/good.ts': "import '@study/ui';\nimport '@study/localization';\n",
       'tooling/scripts/seed/index.ts': "import '@study/localization';\n",
       'packages/ai/src/good.ts': "import '@study/localization';\n",
-      'apps/server/src/good.ts': "import type { jobs } from '@study/db/schema';\n",
-      'apps/client/src/good.ts': "import '@study/ui/button';\nimport '@study/server/client';\n",
+      'apps/server/src/good.ts': "import type { jobs } from '@study/db';\n",
+      'apps/client/src/good.ts': "import '@study/ui';\nimport '@study/server/client';\n",
       'packages/ui/src/same.ts': "import './other.ts';\n"
     },
     true
@@ -222,8 +221,13 @@ testStable('checks typed and aliased loader edges while honoring shadowing', asy
   const diagnostics = await lintRule(
     'package-boundary',
     {
-      'apps/client/src/loader.ts':
-        "import { createRequire as cr } from 'node:module'; const load = cr(import.meta.url); load(`@study/missing`); type T = import('@study/missing').T; import x = require('@study/missing'); function f(require: (s: string) => void) { require('@study/missing'); }"
+      'apps/client/src/loader.ts': `import { createRequire as cr } from 'node:module';
+const load = cr(import.meta.url);
+load(\`@study/missing\`);
+type T = import('@study/missing').T;
+import x = require('@study/missing');
+function f(require: (s: string) => void) { require('@study/missing');
+}`
     },
     true
   );
@@ -235,8 +239,19 @@ testStable('loader edges follow lexical bindings and direct createRequire calls'
   const diagnostics = await lintRule(
     'package-boundary',
     {
-      'apps/server/src/loader.ts':
-        "import * as mod from 'node:module'; const cr = mod.createRequire; const req = cr(import.meta.url); const alias = req; alias(`@study/missing`); cr(import.meta.url)('@study/missing'); globalThis.require('@study/missing'); module.require('@study/missing'); const r = require; r('@study/missing'); function f(globalThis: any, req: any) { globalThis.require('@study/missing'); req('@study/missing'); }"
+      'apps/server/src/loader.ts': `import * as mod from 'node:module';
+const cr = mod.createRequire;
+const req = cr(import.meta.url);
+const alias = req;
+alias(\`@study/missing\`);
+cr(import.meta.url)('@study/missing');
+globalThis.require('@study/missing');
+module.require('@study/missing');
+const r = require;
+r('@study/missing');
+function f(globalThis: any, req: any) { globalThis.require('@study/missing');
+req('@study/missing');
+}`
     },
     true
   );
@@ -296,16 +311,22 @@ testStable('only explicit web E2E runtime harness files can own server resources
   const diagnostics = await lintRule(
     'package-boundary',
     {
-      'apps/client/test/e2e/harness/index.ts':
-        "import '@study/db/testing'; import '@study/server/runtime'; import '@study/tooling/development/rpc-proxy';",
+      'apps/client/test/e2e/harness/index.ts': `import '@study/db/testing';
+ import '@study/server/runtime';
+ import '@study/tooling/development/rpc-proxy';
+`,
       'apps/client/test/e2e/harness/stack.ts':
         "import '@study/db/testing'; import '@study/server/runtime';",
-      'apps/client/test/e2e/harness/creation-response.test.ts':
-        "import '@study/db/testing'; import '@study/server/runtime'; import '@study/tooling/development/rpc-proxy';",
+      'apps/client/test/e2e/harness/creation-response.test.ts': `import '@study/db/testing';
+ import '@study/server/runtime';
+ import '@study/tooling/development/rpc-proxy';
+`,
       'apps/client/test/e2e/harness/other.test.ts':
         "import '@study/db/testing'; import '@study/server/runtime';",
-      'apps/client/test/e2e/other.ts':
-        "import '@study/db/testing'; import '@study/server/runtime'; import '@study/tooling/development/rpc-proxy';"
+      'apps/client/test/e2e/other.ts': `import '@study/db/testing';
+ import '@study/server/runtime';
+ import '@study/tooling/development/rpc-proxy';
+`
     },
     true
   );

@@ -30,8 +30,14 @@ testStable(
 testStable('workflow exports require canonical definitions and registrations', async () => {
   const results = await lintFiles(
     {
-      'src/features/a/workflows/index.ts':
-        "import * as api from '#server/platform/definitions/define-workflow-handler'; import {defineWorkflow} from '#server/platform/definitions/define-workflow'; const alias = api; export const workflow = defineWorkflow({}); export const execute = () => effect; export const registration = alias.defineWorkflowHandler(workflow,{execute,triggers:[]});",
+      'src/features/a/workflows/index.ts': `
+        import { defineWorkflow } from '#server/platform/definitions/define-workflow';
+        import * as api from '#server/platform/definitions/define-workflow-handler';
+        const alias = api;
+        export const workflow = defineWorkflow({});
+        export const execute = () => effect;
+        export const registration = alias.defineWorkflowHandler(workflow, { execute, triggers: [] });
+        `,
       'src/features/b/workflows/nested.ts':
         'export const custom = { definition: workflow, layer, triggers: [] };',
       'src/features/c/workflows/index.ts':
@@ -86,23 +92,39 @@ testStable(
   }
 );
 
-testStable('canonical transaction aliases retain synchronous and I/O checks', async () => {
-  const files = {
-    'src/features/a/service/index.ts': `${store} const {transaction: run} = api; run(async tx => tx.store(Store));`,
-    'src/features/b/service/index.ts': `${store} const ns = api; const run = ns.publicationTransaction; run(tx => fetch('url'));`,
-    'src/features/c/service/index.ts':
-      'function transaction(fn) { return fn(); } transaction(async () => fetch("url"));'
-  };
+testStable('transaction aliases reject asynchronous callbacks', async () => {
+  const results = await lintFiles(
+    {
+      'src/features/a/service/index.ts': `${store} const {transaction: run} = api; run(async tx => tx.store(Store));`,
+      'src/features/b/service/index.ts': `${store} const ns = api; const run = ns.publicationTransaction; run(tx => fetch('url'));`,
+      'src/features/c/service/index.ts':
+        'function transaction(fn) { return fn(); } transaction(async () => fetch("url"));'
+    },
+    'synchronous-transactions'
+  );
 
-  assert.strictEqual((await lintFiles(files, 'synchronous-transactions')).length, 1);
-  assert.strictEqual((await lintFiles(files, 'transaction-no-io')).length, 1);
+  assert.strictEqual(results.length, 1);
+});
+
+testStable('publication transaction aliases cannot perform I/O', async () => {
+  const results = await lintFiles(
+    {
+      'src/features/a/service/index.ts': `${store} const {transaction: run} = api; run(async tx => tx.store(Store));`,
+      'src/features/b/service/index.ts': `${store} const ns = api; const run = ns.publicationTransaction; run(tx => fetch('url'));`,
+      'src/features/c/service/index.ts':
+        'function transaction(fn) { return fn(); } transaction(async () => fetch("url"));'
+    },
+    'transaction-no-io'
+  );
+
+  assert.strictEqual(results.length, 1);
 });
 
 testStable('native feature conversion stays behind canonical factories', async () => {
   const results = await lintFiles(
     {
       'src/features/a/rpc/index.ts':
-        "import {AuthRpc as group} from '@study/contracts/auth/rpc'; const alias = group; const {toLayer: run} = alias; run(handlers);",
+        "import {AuthRpc as group} from '@study/contracts'; const alias = group; const {toLayer: run} = alias; run(handlers);",
       'src/features/b/workflows/index.ts':
         "import {defineWorkflow as create} from '#server/platform/definitions/define-workflow'; const workflow = create({}); const alias = workflow; alias.toLayer(execute);",
       'src/features/c/workflows/index.ts':
@@ -143,8 +165,14 @@ testStable(
       {
         'src/features/relative/rpc/index.ts':
           "import { defineRpc as create } from '../../../platform/definitions/define-rpc.ts'; export default (create)(group, handlers);",
-        'src/features/namespace/rpc/index.ts':
-          "import * as api from '#server/platform/definitions/define-rpc'; const ns = api; const {defineRpc: create} = ns; const alias = create; export {aliasResult as layer}; const aliasResult = alias(group, handlers);",
+        'src/features/namespace/rpc/index.ts': `
+        import * as api from '#server/platform/definitions/define-rpc';
+        const ns = api;
+        const { defineRpc: create } = ns;
+        const alias = create;
+        export { aliasResult as layer };
+        const aliasResult = alias(group, handlers);
+          `,
         'src/features/type/rpc/index.ts':
           "import type {defineRpc} from '#server/platform/definitions/define-rpc'; export default defineRpc(group, handlers);",
         'src/features/fake/rpc/index.ts':
@@ -197,7 +225,7 @@ testStable(
         'src/features/c/workflows/index.ts':
           "import {jobWorkflow} from '#server/features/c/workflows/job'; function local(jobWorkflow) { jobWorkflow.toLayer(execute); }",
         'src/features/d/rpc/index.ts':
-          "import {AuthRpc} from '@study/contracts/auth/rpc'; function local(AuthRpc) { AuthRpc.toLayer(handlers); }"
+          "import {AuthRpc} from '@study/contracts'; function local(AuthRpc) { AuthRpc.toLayer(handlers); }"
       },
       'workflow-boundary'
     );
@@ -207,35 +235,38 @@ testStable(
 );
 
 testStable(
-  'unregistered workflow functions and aliased descriptor spreads do not publish alternate APIs',
+  'unregistered workflow factories cannot publish an alternate registration API',
   async () => {
-    assert.strictEqual(
-      (
-        await lintFiles(
-          {
-            'src/features/a/workflows/index.ts':
-              'export const alternateRegistration = () => ({definition: workflow, layer, triggers: []});',
-            'src/features/b/workflows/index.ts':
-              "import {defineWorkflowHandler} from '#server/platform/definitions/define-workflow-handler'; function execute() { return effect; } export {execute}; export const registration = defineWorkflowHandler(workflow,{execute,triggers:[]});"
-          },
-          'module-factories'
-        )
-      ).length,
-      1
+    const results = await lintFiles(
+      {
+        'src/features/a/workflows/index.ts':
+          'export const alternateRegistration = () => ({definition: workflow, layer, triggers: []});',
+        'src/features/b/workflows/index.ts': `
+        import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
+        function execute() {
+          return effect;
+        }
+        export { execute };
+        export const registration = defineWorkflowHandler(workflow, { execute, triggers: [] });
+          `
+      },
+      'module-factories'
     );
-    assert.strictEqual(
-      (
-        await lintFiles(
-          {
-            'src/features/a/store/index.ts': `${store} const operations = { item: {role:'required'} }; const queries = {...operations}; api.defineStore({entity:{singular:'item',plural:'items'},make:()=>({queries,mutations:{}})});`
-          },
-          'operation-conventions'
-        )
-      ).length,
-      1
-    );
+
+    assert.strictEqual(results.length, 1);
   }
 );
+
+testStable('spreading query descriptors cannot bypass required literal roles', async () => {
+  const results = await lintFiles(
+    {
+      'src/features/a/store/index.ts': `${store} const operations = { item: {role:'required'} }; const queries = {...operations}; api.defineStore({entity:{singular:'item',plural:'items'},make:()=>({queries,mutations:{}})});`
+    },
+    'operation-conventions'
+  );
+
+  assert.strictEqual(results.length, 1);
+});
 
 testStable(
   'nested store destructuring enforces obsolete bindings without trusting shadows or type imports',
@@ -272,8 +303,15 @@ testStable(
           'const workflow={toLayer(){}}; const {toLayer:run}=workflow; const alias=run; alias(execute);',
         'src/features/d/workflows/nested.ts':
           'const first=second; const second=first; first(execute);',
-        'src/features/e/workflows/nested.ts':
-          "import {defineWorkflow} from '#server/platform/definitions/define-workflow'; function local(defineWorkflow) { const workflow=defineWorkflow({}); const {toLayer:run}=workflow; const alias=run; alias(execute); }"
+        'src/features/e/workflows/nested.ts': `
+        import { defineWorkflow } from '#server/platform/definitions/define-workflow';
+        function local(defineWorkflow) {
+          const workflow = defineWorkflow({});
+          const { toLayer: run } = workflow;
+          const alias = run;
+          alias(execute);
+        }
+          `
       },
       'workflow-boundary'
     );

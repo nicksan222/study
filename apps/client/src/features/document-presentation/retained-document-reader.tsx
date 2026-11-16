@@ -1,10 +1,6 @@
-import type { ContentSnapshotId } from '@study/contracts/ids';
+import type { ContentSnapshotId, documentSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import type { documentSchema } from '@study/contracts/sources/schemas';
-import { Button } from '@study/ui/button';
-import { ErrorState } from '@study/ui/error-state';
-import { Loading } from '@study/ui/loading';
-import { StructuredEditor } from '@study/ui/structured-editor';
+import { Button, ErrorState, Loading, StructuredEditor } from '@study/ui';
 import { useEffect, useMemo, useRef } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

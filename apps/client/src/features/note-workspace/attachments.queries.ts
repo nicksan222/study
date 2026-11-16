@@ -1,5 +1,5 @@
 import { RegistryContext, useAtomValue } from '@effect/atom-react';
-import type { SourceId, NoteId } from '@study/contracts/ids';
+import type { SourceId, NoteId } from '@study/contracts';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';
 import { useContext } from 'react';

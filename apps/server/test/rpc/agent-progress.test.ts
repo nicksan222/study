@@ -12,11 +12,11 @@
  */
 
 import type { LanguageModelV3, LanguageModelV3StreamPart } from '@ai-sdk/provider';
-import { StudyRpc } from '@study/contracts/rpc';
-import { AgentRule } from '@study/contracts/settings/schemas';
-import { defaultAgentRules } from '@study/contracts/settings/types';
-import { executionIdSchema } from '@study/contracts/workflows/schemas';
-import { workflow_executions } from '@study/db/schema';
+import { StudyRpc } from '@study/contracts';
+import { AgentRule } from '@study/contracts';
+import { defaultAgentRules } from '@study/contracts';
+import { executionIdSchema } from '@study/contracts';
+import { workflow_executions } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Fiber, Schema, Stream } from 'effect';

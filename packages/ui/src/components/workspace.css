@@ -325,7 +325,7 @@
   overflow-wrap: anywhere;
 }
 .ui-workspace-work-empty {
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
   font-size: 0.8125rem;
   margin: 0.625rem 0 0;
 }
@@ -417,7 +417,7 @@
 .ui-workspace-card-caption {
   margin: 0;
   padding: 0.5rem 0.75rem;
-  color: var(--muted-foreground);
+  color: color-mix(in oklab, var(--muted-foreground) 90%, var(--foreground));
   font-size: 0.75rem;
   line-height: 1.6;
 }

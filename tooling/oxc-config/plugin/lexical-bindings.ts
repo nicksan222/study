@@ -7,7 +7,7 @@ export function memberName(node: any): string | undefined {
 }
 
 export function binding(context: any, node: any): any {
-  if (node?.type !== 'Identifier') return;
+  if (node?.type !== 'Identifier' && node?.type !== 'JSXIdentifier') return;
 
   let scope = context.sourceCode.getScope(node);
 

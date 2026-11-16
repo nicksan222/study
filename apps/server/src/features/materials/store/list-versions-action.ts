@@ -12,15 +12,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { materialVersionsInputSchema } from '@study/contracts/materials/rpc';
-import { materialVersionSummarySchema } from '@study/contracts/materials/schemas';
+import { StudyError } from '@study/contracts';
+import type { materialVersionsInputSchema } from '@study/contracts';
+import { materialVersionSummarySchema } from '@study/contracts';
 import { Schema } from 'effect';
 
 type Input = typeof materialVersionsInputSchema.Type;
 
 import { and, desc, eq, lt } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 
 import { makeReads } from '#server/features/materials/store/reads';
 import type { StoreResources } from '#server/platform/definitions/define-store';

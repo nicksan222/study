@@ -1,6 +1,12 @@
 import { useRender } from '@base-ui/react/use-render';
 import { ToggleSidebarIcon, CloseIcon, ExpandIcon, DisclosureIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
+import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
+import type { ComponentProps, CSSProperties, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+
+import { cn } from '../utils.ts';
+import type { AiActivityState } from './ai-button.tsx';
+import { Button } from './button.tsx';
 import {
   Combobox,
   ComboboxTrigger,
@@ -9,16 +15,11 @@ import {
   ComboboxList,
   ComboboxItem,
   ComboboxEmpty
-} from '@study/ui/combobox';
-import type { InputProps } from '@study/ui/input';
-import { Tooltip, TooltipTrigger, TooltipPopup } from '@study/ui/tooltip';
-import { cn } from '@study/ui/utils';
-import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
-import type { ComponentProps, CSSProperties, ReactNode } from 'react';
-import { createPortal } from 'react-dom';
-
+} from './combobox.tsx';
+import type { InputProps } from './input.tsx';
 import { SearchField as SharedSearchField } from './search-field';
 import { useSidebarShortcuts } from './sidebar-shortcuts';
+import { Tooltip, TooltipTrigger, TooltipPopup } from './tooltip.tsx';
 
 const frameClasses = { default: '', 'note-entry': 'study-shell-note-entry' } as const;
 
@@ -759,6 +760,7 @@ function Item({
   context,
   timestamp,
   description,
+  activity,
   selection,
   render,
   className,
@@ -770,6 +772,7 @@ function Item({
   context?: ReactNode;
   timestamp?: ReactNode;
   description?: ReactNode;
+  activity?: AiActivityState;
   selection?: boolean;
 }) {
   return useRender({
@@ -779,6 +782,7 @@ function Item({
       ...props,
       title: props.title ?? (typeof label === 'string' ? label : undefined),
       'data-layout': layout,
+      'data-activity': activity,
       'data-selecting': selection !== undefined || undefined,
       'aria-pressed': selection,
       type: render ? undefined : 'button',

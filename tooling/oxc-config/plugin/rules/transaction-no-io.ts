@@ -1,3 +1,22 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keep recognized external I/O outside server transactions.                          │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents direct global fetch and imported file, HTTP or model calls in synchronous       │
+ * │ transaction callbacks. Checks the immediate callback body, including named callbacks,    │
+ * │ rather than following arbitrary helper calls or nested functions.                        │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import type { Db } from '@study/db';                                                   │
+ * │   async function write(db: Db) { await fetch(url); db.transaction(() => 1); }            │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import type { Db } from '@study/db';                                                   │
+ * │   function write(db: Db) { db.transaction(() => fetch(url)); }                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { binding, imported } from '../lexical-bindings.ts';

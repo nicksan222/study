@@ -1,18 +1,19 @@
-import { StudyError } from '@study/contracts/errors';
-import type { ProjectId } from '@study/contracts/ids';
-import type { Project } from '@study/contracts/projects/schemas';
+import { StudyError } from '@study/contracts';
+import type { ProjectId, Project } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { RetryButton } from '@study/ui/action-button';
-import { Button } from '@study/ui/button';
-import { DangerDialog } from '@study/ui/danger-dialog';
-import { ErrorState } from '@study/ui/error-state';
-import { IdentityEditor } from '@study/ui/identity-editor';
-import { Input } from '@study/ui/input';
-import { Loading } from '@study/ui/loading';
-import { PreviousButton } from '@study/ui/navigation-button';
-import { Settings } from '@study/ui/settings';
-import { SubjectSettings } from '@study/ui/subject-settings';
-import { toastManager } from '@study/ui/toast';
+import {
+  RetryButton,
+  Button,
+  DangerDialog,
+  ErrorState,
+  IdentityEditor,
+  Input,
+  Loading,
+  PreviousButton,
+  Settings,
+  SubjectSettings,
+  toastManager
+} from '@study/ui';
 import { useState } from 'react';
 
 import {

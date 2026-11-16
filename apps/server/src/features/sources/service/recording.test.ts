@@ -14,9 +14,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { ProjectId, NoteId } from '@study/contracts/ids';
+import type { ProjectId, NoteId } from '@study/contracts';
 import { sql } from '@study/db';
-import { workflow_executions } from '@study/db/schema';
+import { workflow_executions } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Cause, Effect, Exit, Layer, Schema } from 'effect';

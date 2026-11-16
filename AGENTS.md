@@ -15,7 +15,7 @@ The native shell owns windows, devices, and the private server process. Native E
    event. A missed event must not lose work.
 4. **No stringly-typed contracts.** No raw `i64` IDs across crate boundaries, no unchecked workflow payloads or stringly typed operation inputs, and no matching on error text.
 5. **Log Rust with `tracing`.** Don't print. Native libraries return typed errors;
-   TypeScript domain failures use `StudyError` and `ErrorKind` from `@study/contracts/errors`.
+   TypeScript domain failures use `StudyError` and `ErrorKind` from `@study/contracts`.
 6. **All user-visible text comes from `@study/localization`**, in English and Italian.
 7. **Model work runs on the user's ChatGPT plan**, using AI SDK in `apps/server/src/platform/ai`.
    Feature-owned agents, tools and workflows live under `apps/server/src/features`. Shared provider
@@ -23,9 +23,9 @@ The native shell owns windows, devices, and the private server process. Native E
    until implemented again; nothing downloads without an explicit install.
 8. **The code is the source of truth.** Don't write design docs or per-crate guides. Say
    what a crate or module is for in its `//!` docs, and put rules in types, tests and lints.
-   `PRODUCT.md` and `DESIGN.md` hold the visual design context the `impeccable` skill
-   reads; the design system itself is code, in `packages/ui`. Accepted architecture
-   decisions belong in `doc/adr`, following
+   Read product context in `README.md` and the existing application; the design system
+   lives in `packages/ui`. Do not create `PRODUCT.md` or `DESIGN.md`, even when an
+   upstream skill requests them. Accepted architecture decisions belong in `doc/adr`, following
    [Architecture decision records](doc/adr/architecture-decision-records.md).
    Do not add speculative design or plan docs.
 9. **Drizzle owns domain schema.** Domain schema modules live in `packages/db/src/schema`.
@@ -63,7 +63,8 @@ automatically; do not launch it for routine UI work.
 These skills are advisory: Study's architecture, existing `@study/ui` components, design
 tokens, localization and devcontainer rules take precedence over upstream stack defaults,
 font choices, component-library recommendations and browser commands. Keep design-system
-truth in `packages/ui`; only `PRODUCT.md` and `DESIGN.md` may hold design context.
+truth in `packages/ui`; use `README.md` and existing code for product and design context.
+Skip upstream skill steps that require creating separate product or design documents.
 Installing a skill does not authorize deployments, telemetry, hooks or additional packages.
 Upstream revisions and local adaptations are recorded in `.agents/skills/upstream-lock.json`.
 

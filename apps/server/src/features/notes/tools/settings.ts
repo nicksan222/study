@@ -12,8 +12,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import * as schemas from '@study/contracts/settings/schemas';
+import { StudyError } from '@study/contracts';
+import * as schemas from '@study/contracts';
 import { Effect, Option, Schema, Struct } from 'effect';
 import type { Context } from 'effect';
 

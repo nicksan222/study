@@ -173,7 +173,7 @@ testStable(
   'deterministic rich decoders retain nested lists, cell boundaries, language, links and supported marks',
   async () => {
     const { decodeHtml } = await import('#server/features/sources/decoders/html');
-    const { canonicalText, documentSchema } = await import('@study/contracts/sources/schemas');
+    const { canonicalText, documentSchema } = await import('@study/contracts');
     const { Schema } = await import('effect');
     const html = decodeHtml({
       bytes: bytes(
@@ -220,7 +220,7 @@ testStable(
 testStable(
   'Markdown retains nested lists, cell boundaries, code language and inline formatting',
   async () => {
-    const { canonicalText, documentSchema } = await import('@study/contracts/sources/schemas');
+    const { canonicalText, documentSchema } = await import('@study/contracts');
     const { Schema } = await import('effect');
     const markdown = decodeText({
       kind: 'text',
@@ -288,7 +288,7 @@ testStable('Office retains extracted marks and cells and reports nested-table lo
 testStable(
   'source anchor validation rejects nonfinite, fractional, reversed and nonpositive locations centrally',
   async () => {
-    const { anchorSchema } = await import('@study/contracts/sources/schemas');
+    const { anchorSchema } = await import('@study/contracts');
     const { Schema } = await import('effect');
 
     for (const anchor of [
@@ -306,7 +306,7 @@ testStable(
 
 testStable('HTML preserves empty list ancestors without inventing continuations', async () => {
   const { decodeHtml } = await import('#server/features/sources/decoders/html');
-  const { documentSchema } = await import('@study/contracts/sources/schemas');
+  const { documentSchema } = await import('@study/contracts');
   const { Schema } = await import('effect');
 
   for (const [source, depths, continuations] of [
@@ -338,7 +338,7 @@ testStable(
   'HTML table cells retain paragraphs, empty paragraphs and surrounding inline text',
   async () => {
     const { decodeHtml } = await import('#server/features/sources/decoders/html');
-    const { canonicalText, documentSchema } = await import('@study/contracts/sources/schemas');
+    const { canonicalText, documentSchema } = await import('@study/contracts');
     const { Schema } = await import('effect');
     const result = decodeHtml({
       bytes: bytes(
@@ -399,7 +399,7 @@ testStable(
   'HTML list wrappers preserve descendants, paragraph boundaries and continuations',
   async () => {
     const { decodeHtml } = await import('#server/features/sources/decoders/html');
-    const { documentSchema } = await import('@study/contracts/sources/schemas');
+    const { documentSchema } = await import('@study/contracts');
     const { Schema } = await import('effect');
     const forms = [
       'Parent<ul><li>Child</li></ul>After',
@@ -440,7 +440,7 @@ testStable(
   'HTML structural and unknown wrappers retain nested flow without splitting phrasing',
   async () => {
     const { decodeHtml } = await import('#server/features/sources/decoders/html');
-    const { documentSchema } = await import('@study/contracts/sources/schemas');
+    const { documentSchema } = await import('@study/contracts');
     const { Schema } = await import('effect');
 
     for (const wrapper of ['details open', 'study-wrapper']) {

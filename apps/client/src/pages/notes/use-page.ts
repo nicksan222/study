@@ -1,4 +1,4 @@
-import { noteIdSchema } from '@study/contracts/ids';
+import { noteIdSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { useParams, useSearch, useNavigate } from '@tanstack/react-router';
 import { useEffect } from 'react';

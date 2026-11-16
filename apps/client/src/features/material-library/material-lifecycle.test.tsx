@@ -1,10 +1,13 @@
-import { StudyError } from '@study/contracts/errors';
-import { materialDeletionSchema } from '@study/contracts/materials/deletion';
-import { historyPreviewSchema, historyPruneSchema } from '@study/contracts/materials/history';
+import {
+  StudyError,
+  materialDeletionSchema,
+  historyPreviewSchema,
+  historyPruneSchema
+} from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import type * as ToastModule from '@study/ui/toast';
-import { toastManager } from '@study/ui/toast';
+import type * as ToastModule from '@study/ui';
+import { toastManager } from '@study/ui';
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Effect, Schema } from 'effect';
@@ -17,7 +20,7 @@ import { materialId, versionId } from './identity';
 import { MaterialLifecycle } from './material-lifecycle';
 import { locationIs, materialRpc, mountLibraryRoute } from './test/support';
 
-vi.mock('@study/ui/toast', async (load) => {
+vi.mock('@study/ui', async (load) => {
   const actual = await load<typeof ToastModule>();
 
   return { ...actual, toastManager: { ...actual.toastManager, add: vi.fn() } };

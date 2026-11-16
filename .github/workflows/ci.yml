@@ -98,9 +98,14 @@ jobs:
           if-no-files-found: ignore
 
   browser:
-    name: 🌐 Browser journeys
+    name: 🌐 Browser journeys (${{ matrix.shard }}/3)
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@v7
@@ -112,13 +117,14 @@ jobs:
           push: never
           env: |
             CI=true
+            E2E_REVIEW=1
             GITHUB_SHA
-          runCmd: bun run web:e2e
+          runCmd: bun run web:e2e:compare --shard=${{ matrix.shard }}/3
       - name: 📸 Retain screenshots, traces and browser reports
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: web-e2e-diagnostics
+          name: web-e2e-diagnostics-${{ matrix.shard }}
           path: apps/client/test-results/
           if-no-files-found: ignore
 

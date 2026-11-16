@@ -1,6 +1,5 @@
-import type { MessageId } from '@study/contracts/ids';
+import type { MessageId, executionSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import type { executionSchema } from '@study/contracts/workflows/schemas';
 
 import { useAgentProgress } from '#client/features/agent-progress/index.tsx';
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';

@@ -10,12 +10,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import type {
   integrationImportSchema,
   integrationPlanSchema,
   integrationNoteSchema
-} from '@study/contracts/integrations/schemas';
+} from '@study/contracts';
 import { CryptoHasher } from 'bun';
 import { Option } from 'effect';
 

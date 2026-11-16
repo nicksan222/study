@@ -16,10 +16,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { failureSchema, StudyError } from '@study/contracts/errors';
-import { executionIdSchema } from '@study/contracts/workflows/schemas';
+import { failureSchema, StudyError } from '@study/contracts';
+import { executionIdSchema } from '@study/contracts';
 import { eq, sql } from '@study/db';
-import { workflow_configuration_waits, workflow_executions } from '@study/db/schema';
+import { workflow_configuration_waits, workflow_executions } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option, Schema, Schedule } from 'effect';

@@ -1,10 +1,7 @@
-import { StudyError } from '@study/contracts/errors';
-import type { NoteId } from '@study/contracts/ids';
+import { StudyError } from '@study/contracts';
+import type { NoteId } from '@study/contracts';
 import { ComposeIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
-import { Loading } from '@study/ui/loading';
-import { Notebook } from '@study/ui/note-workspace';
-import { NotebookComposer } from '@study/ui/notebook-composer';
+import { Button, Loading, Notebook, NotebookComposer } from '@study/ui';
 
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
@@ -16,7 +13,6 @@ import { UnavailableAttempt } from './unavailable-attempt';
 
 type ComposerModel = ReturnType<typeof useComposer>;
 
-/** Combines quick capture, attachments and request recovery for the active note. */
 /** Composes notes, questions and attachments while preserving mixed clipboard content. */
 export function Composer({ id, onPage }: { id: NoteId; onPage?: () => void }) {
   const model = useComposer(id);

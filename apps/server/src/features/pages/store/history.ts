@@ -11,9 +11,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { PageId, PageVersionId } from '@study/contracts/ids';
+import type { PageId, PageVersionId } from '@study/contracts';
 import { desc, eq, inArray, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { CryptoHasher } from 'bun';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';

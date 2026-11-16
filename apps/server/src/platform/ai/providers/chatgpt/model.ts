@@ -19,7 +19,7 @@ import type {
   LanguageModelV3Content,
   LanguageModelV3GenerateResult
 } from '@ai-sdk/provider';
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import type { Clock } from 'effect';
 
 import type { AuthManager } from '#server/platform/ai/providers/chatgpt/session';

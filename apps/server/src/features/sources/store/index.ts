@@ -12,10 +12,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { contentSnapshotIdSchema, projectIdSchema, sourceIdSchema } from '@study/contracts/ids';
-import type { SourceId, ContentSnapshotId } from '@study/contracts/ids';
-import { encodeBlockContent, decodeBlockContent } from '@study/contracts/sources/document';
+import { StudyError } from '@study/contracts';
+import { contentSnapshotIdSchema, projectIdSchema, sourceIdSchema } from '@study/contracts';
+import type { SourceId, ContentSnapshotId } from '@study/contracts';
+import { encodeBlockContent, decodeBlockContent } from '@study/contracts';
 import {
   correctBlockInputSchema,
   setSourceProjectInputSchema,
@@ -23,11 +23,11 @@ import {
   sourcePageInputSchema,
   sourceProcessingSchema,
   sourceRevisionSchema
-} from '@study/contracts/sources/rpc';
-import { documentSchema, hasTextualContent, sourceSchema } from '@study/contracts/sources/schemas';
-import { MAX_SOURCE_BYTES, sourceKindSchema } from '@study/contracts/sources/sniff';
+} from '@study/contracts';
+import { documentSchema, hasTextualContent, sourceSchema } from '@study/contracts';
+import { MAX_SOURCE_BYTES, sourceKindSchema } from '@study/contracts';
 import { isNull, and, desc, eq, getTableColumns, lt } from '@study/db';
-import * as tables from '@study/db/schema';
+import * as tables from '@study/db';
 import { CryptoHasher } from 'bun';
 import { Option, Schema } from 'effect';
 

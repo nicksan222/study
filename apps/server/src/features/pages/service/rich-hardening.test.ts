@@ -12,10 +12,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { materialGenerationPayloadSchema } from '@study/contracts/materials/schemas';
-import { createBlock, encodeBlockContent } from '@study/contracts/sources/document';
+import { materialGenerationPayloadSchema } from '@study/contracts';
+import { createBlock, encodeBlockContent } from '@study/contracts';
 import { sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Schema } from 'effect';
 import { expect } from 'vite-plus/test';

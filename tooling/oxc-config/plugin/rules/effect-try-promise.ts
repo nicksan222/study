@@ -1,3 +1,21 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Use the typed failure bridge for promises.                                         │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ In production server and client source, rejects every resolved Effect.promise call so    │
+ * │ promise rejection stays in the typed error channel through Effect.tryPromise.            │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   Effect.tryPromise(() => load());                                                       │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   Effect.promise(() => load());                                                          │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings, effectProduction } from '../effect-bindings.ts';

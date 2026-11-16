@@ -1,7 +1,5 @@
-import type { VersionId } from '@study/contracts/ids';
-import type { convertMessageInputSchema } from '@study/contracts/notes/conversion';
-import { canConvertMessage } from '@study/contracts/notes/conversion';
-import type { ChatMessage } from '@study/contracts/notes/messages';
+import { canConvertMessage } from '@study/contracts';
+import type { VersionId, convertMessageInputSchema, ChatMessage } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';

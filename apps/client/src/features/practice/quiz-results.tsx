@@ -1,7 +1,6 @@
-import type { quizAttemptCompletedSchema } from '@study/contracts/learning/schemas';
+import type { quizAttemptCompletedSchema } from '@study/contracts';
 import { RetryIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
-import { QuizResultsView } from '@study/ui/quiz-results-view';
+import { Button, QuizResultsView } from '@study/ui';
 import { Link, useSearch } from '@tanstack/react-router';
 
 import { useI18n } from '#client/lib/i18n.tsx';

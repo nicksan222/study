@@ -1,5 +1,5 @@
-import { selectionReferenceKey } from '@study/contracts/notes/context';
-import type { runSelectionContextSchema } from '@study/contracts/notes/context';
+import { selectionReferenceKey } from '@study/contracts';
+import type { runSelectionContextSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import {
   PageIcon,
@@ -9,8 +9,7 @@ import {
   AssistantMessageIcon,
   MessageAuthorIcon
 } from '@study/icons';
-import { Loading } from '@study/ui/loading';
-import { Notebook } from '@study/ui/note-workspace';
+import { Loading, Notebook } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

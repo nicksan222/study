@@ -1,5 +1,5 @@
-import { spawnTestProcess } from '@study/testing/process';
-import { temporaryDirectory } from '@study/testing/resources';
+import { spawnTestProcess } from '@study/testing/vitest';
+import { temporaryDirectory } from '@study/testing/vitest';
 import { testStable } from '@study/testing/vitest';
 import { assert } from 'vite-plus/test';
 
@@ -10,9 +10,9 @@ type Workflow = {
       name: string;
       needs?: string | string[];
       if?: string;
-      strategy?: unknown;
+      strategy?: { 'fail-fast': boolean; 'max-parallel': number; matrix: { shard: number[] } };
       uses?: string;
-      steps?: { run?: string }[];
+      steps?: { run?: string; if?: string; uses?: string; with?: Record<string, string> }[];
     }
   >;
 };
@@ -44,8 +44,27 @@ testStable('all CI lanes start independently and feed the required merge gate', 
     assert.isDefined(job);
     assert.isUndefined(job.needs);
     assert.isUndefined(job.if);
-    assert.isUndefined(job.strategy);
+
+    if (name !== 'browser') assert.isUndefined(job.strategy);
   }
+});
+
+testStable('browser shards run the full catalog without cancelling sibling diagnostics', () => {
+  const browser = workflow.jobs.browser!;
+
+  assert.deepEqual(browser.strategy, {
+    'fail-fast': false,
+    'max-parallel': 3,
+    matrix: { shard: [1, 2, 3] }
+  });
+  const runner = browser.steps!.find((step) => step.with?.runCmd);
+  const artifacts = browser.steps!.find((step) =>
+    step.uses?.startsWith('actions/upload-artifact@')
+  );
+
+  assert.equal(runner?.with?.runCmd, 'bun run web:e2e:compare --shard=${{ matrix.shard }}/3');
+  assert.equal(artifacts?.if, '${{ always() }}');
+  assert.equal(artifacts?.with?.name, 'web-e2e-diagnostics-${{ matrix.shard }}');
 });
 
 testStable.each(['success', 'failure', 'cancelled', 'skipped', 'missing'])(
@@ -57,8 +76,8 @@ testStable.each(['success', 'failure', 'cancelled', 'skipped', 'missing'])(
     {
       const results = Object.fromEntries(lanes.map((lane) => [lane, { result: 'success' }]));
 
-      if (status === 'missing') delete results.database;
-      else results.database!.result = status;
+      if (status === 'missing') delete results.browser;
+      else results.browser!.result = status;
 
       const script = workflow.jobs.check!.steps![0]!.run!;
       const child = spawnTestProcess(['bash', '-c', script], {
@@ -94,6 +113,7 @@ testStable(
       assert.equal(job.needs, 'version');
       assert.equal(job.uses, './.github/workflows/release-platform.yml');
       assert.isUndefined(job.if);
+
       assert.isUndefined(job.strategy);
     }
   }

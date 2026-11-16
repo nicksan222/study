@@ -13,16 +13,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { ErrorKind } from '@study/contracts/errors';
-import type { ProjectId } from '@study/contracts/ids';
-import type { ContentInput } from '@study/contracts/inputs';
-import type { exportMaterialVersionInputSchema } from '@study/contracts/materials/export';
-import type * as input from '@study/contracts/materials/rpc';
+import type { ErrorKind } from '@study/contracts';
+import type { ProjectId } from '@study/contracts';
+import type { ContentInput } from '@study/contracts';
+import type { exportMaterialVersionInputSchema } from '@study/contracts';
+import type * as input from '@study/contracts';
 import type {
   MaterialVersionDetailDto,
   materialGenerationInputSchema,
   materialGenerationPublicationSchema
-} from '@study/contracts/materials/schemas';
+} from '@study/contracts';
 import { Effect } from 'effect';
 
 import { MaterialBackupStore } from '#server/features/materials/store/backup';

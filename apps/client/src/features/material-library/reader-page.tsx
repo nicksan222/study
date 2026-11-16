@@ -1,9 +1,6 @@
-import type { MaterialVersionId } from '@study/contracts/ids';
+import type { MaterialVersionId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { Button } from '@study/ui/button';
-import { ErrorState } from '@study/ui/error-state';
-import { Loading } from '@study/ui/loading';
-import { MaterialLibrary } from '@study/ui/material-library';
+import { Button, ErrorState, Loading, MaterialLibrary } from '@study/ui';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 

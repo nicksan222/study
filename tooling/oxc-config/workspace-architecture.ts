@@ -1,3 +1,5 @@
+import { packageExportIssues } from './plugin/package-export-policy.ts';
+
 export interface WorkspaceManifest {
   name?: string;
   dependencies?: Record<string, string>;
@@ -29,6 +31,15 @@ export function dependencyIdentity(
   return issues;
 }
 
+function misplacedAiDependency(path: string, name: string): boolean {
+  if (path === 'apps/server') return false;
+
+  // Shared mocks implement the SDK protocol; real provider integrations remain server-owned.
+  if (path === 'packages/testing' && name === '@ai-sdk/provider') return false;
+
+  return name === 'ai' || name.startsWith('@ai-sdk/');
+}
+
 function dependencyIssues(
   path: string,
   section: string,
@@ -41,7 +52,7 @@ function dependencyIssues(
     if (/^drizzle-(?:orm|kit)(?:\/|$)/.test(name) && path !== 'packages/db')
       issues.push(`${path}: ${name} belongs exclusively to @study/db.`);
 
-    if ((name === 'ai' || name.startsWith('@ai-sdk/')) && path !== 'apps/server')
+    if (misplacedAiDependency(path, name))
       issues.push(`${path}: ${name} belongs exclusively to apps/server.`);
 
     if (
@@ -85,6 +96,8 @@ export function workspaceArchitecture(manifests: Record<string, WorkspaceManifes
   const version = manifests['apps/server']?.dependencies?.effect;
 
   for (const [path, manifest] of Object.entries(manifests)) {
+    issues.push(...packageExportIssues(path, manifest.exports));
+
     for (const section of [
       'dependencies',
       'devDependencies',
@@ -93,29 +106,6 @@ export function workspaceArchitecture(manifests: Record<string, WorkspaceManifes
     ] as const) {
       issues.push(...dependencyIssues(path, section, manifest[section] ?? {}, version));
     }
-  }
-
-  if (contracts) {
-    function explicitExports(value: unknown): boolean {
-      if (typeof value === 'string')
-        return (
-          value.startsWith('./src/') && !value.includes('*') && !value.split('/').includes('..')
-        );
-
-      if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-
-      return (
-        Object.entries(value).length > 0 &&
-        Object.entries(value).every(
-          ([key, target]) => !key.includes('*') && explicitExports(target)
-        )
-      );
-    }
-
-    if (!explicitExports(contracts.exports))
-      issues.push(
-        'packages/contracts: expose explicit browser-safe source entrypoints, without wildcard exports.'
-      );
   }
 
   return issues.sort();

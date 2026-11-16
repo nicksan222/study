@@ -1,7 +1,7 @@
-import type { NoteId } from '@study/contracts/ids';
+import type { NoteId } from '@study/contracts';
 import { eq } from '@study/db';
 import type { DbTransaction } from '@study/db';
-import { messages, message_versions } from '@study/db/schema';
+import { messages, message_versions } from '@study/db';
 
 import type { Exchange } from '../types.ts';
 

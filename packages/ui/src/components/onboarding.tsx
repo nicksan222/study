@@ -1,8 +1,9 @@
 import { BackIcon, NextIcon, PageIcon, AttachmentIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
-import { Dialog, DialogPopup, DialogTitle, DialogDescription } from '@study/ui/dialog';
-import { RichNoteContent } from '@study/ui/rich-note';
 import type { ReactNode } from 'react';
+
+import { Button } from './button.tsx';
+import { Dialog, DialogPopup, DialogTitle, DialogDescription } from './dialog.tsx';
+import { RichNoteContent } from './rich-note.tsx';
 
 /** A focused, keyboard-accessible welcome with a stable reading and action area. */
 export function Onboarding({

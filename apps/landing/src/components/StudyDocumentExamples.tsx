@@ -1,13 +1,13 @@
 import { createLocalization, structuredEditorLabels } from '@study/localization';
-import { landingCopy } from '@study/localization/landing';
-import { Button } from '@study/ui/button';
-import { ChatMessage, ChatEntryLabel, ChatQuestionAnswer, ChatMessageText } from '@study/ui/chat';
-import { CitationSources, EvidenceReference } from '@study/ui/citation';
-import { NotebookComposer } from '@study/ui/notebook-composer';
-import { RichNoteContent } from '@study/ui/rich-note';
-import { StructuredEditor } from '@study/ui/structured-editor';
-import type { StructuredEditorValue } from '@study/ui/structured-editor';
-import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
+import { landingCopy } from '@study/localization';
+import { Button } from '@study/ui';
+import { ChatMessage, ChatEntryLabel, ChatQuestionAnswer, ChatMessageText } from '@study/ui';
+import { CitationSources, EvidenceReference } from '@study/ui';
+import { NotebookComposer } from '@study/ui';
+import { RichNoteContent } from '@study/ui';
+import { StructuredEditor } from '@study/ui';
+import type { StructuredEditorValue } from '@study/ui';
+import { WorkspaceDeskSurface as Desk } from '@study/ui';
 import { useId, useState } from 'react';
 
 export interface DocumentExampleProps {

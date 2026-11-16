@@ -1,8 +1,8 @@
 import { RetryIcon } from '@study/icons';
-import { IconButton } from '@study/ui/icon-button';
 import { useId } from 'react';
 import type { CSSProperties } from 'react';
 
+import { IconButton } from './icon-button.tsx';
 import { useRangeControl } from './use-range-control';
 
 export function RangeControl({

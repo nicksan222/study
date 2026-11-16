@@ -1,3 +1,24 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Makes public contracts derive from checked Effect schemas rather than parallel     │
+ * │ types.                                                                                   │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Non-test packages/contracts/src exporting handwritten object shapes, using Schema.Any/   │
+ * │ Unknown, leaking Drizzle inferred types or defining Effect brands outside ids.ts.        │
+ * │ Rpc.make must explicitly declare payload, success and error. react.ts/react-state.ts may │
+ * │ define generic implementation shapes and erased schemas; RPC checks still apply.         │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { Schema } from 'effect';                                                       │
+ * │   export const User = Schema.Struct({ name: Schema.String });                            │
+ * │   export type User = typeof User.Type;                                                   │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   export interface User { name: string }                                                 │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings } from '../effect-bindings.ts';

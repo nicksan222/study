@@ -3,14 +3,14 @@
  * │ @file Verifies fixed store timestamps remain separate from live application scheduling.  │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Checks committed note timestamps and advancing durable deadline eligibility.           │
+ * │ - Checks note and backup timestamps and advancing durable deadline eligibility.          │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
  * │ Uses the application composition boundary and real SQLite without browser capture.       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyRpc } from '@study/contracts/rpc';
+import { StudyRpc } from '@study/contracts';
 import { createTestDatabase } from '@study/db/testing';
 import { makeStudyClient } from '@study/server/client';
 import { App, serve } from '@study/server/runtime';
@@ -41,7 +41,12 @@ testStable('App store timestamps remain fixed while the runtime clock advances',
             Effect.gen(function* () {
               const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
 
-              return yield* client['notes.createNote']({ title: 'Canonical timestamp' });
+              const note = yield* client['notes.createNote']({ title: 'Canonical timestamp' });
+              const backup = yield* client['system.createBackup']({});
+
+              expect(backup.createdAtMs).toBe(100_000);
+
+              return note;
             })
           )
         );

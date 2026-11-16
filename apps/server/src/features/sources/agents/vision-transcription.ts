@@ -12,11 +12,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import {
-  visionTranscriptionInputSchema,
-  visionTranscriptionOutputSchema
-} from '@study/contracts/ai/vision-transcription';
-import { AgentRule } from '@study/contracts/settings/schemas';
+import { visionTranscriptionInputSchema, visionTranscriptionOutputSchema } from '@study/contracts';
+import { AgentRule } from '@study/contracts';
 
 import { defineAgent } from '#server/platform/definitions/define-agent';
 

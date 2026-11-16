@@ -1,3 +1,24 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Centralize schema validation and transaction branching in validatedMutation.       │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ In production server features, prevents ternaries combining Schema.is(schema)(input),    │
+ * │ Effect.fail and the canonical transaction helper from duplicating mutation validation    │
+ * │ policy. Other conditionals are outside this syntax check.                                │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { validatedMutation } from '#server/platform/definitions/validated-mutation';   │
+ * │   const save = validatedMutation({ input: schema, message: 'Invalid input', write });    │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { Effect, Schema } from 'effect';                                               │
+ * │   import { transaction } from '#server/platform/definitions/define-store';               │
+ * │   const save = input => Schema.is(schema)(input)                                         │
+ * │     ? transaction(write) : Effect.fail(error);                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { canonicalImport } from '../architecture-imports.ts';

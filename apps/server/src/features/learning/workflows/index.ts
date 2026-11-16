@@ -13,15 +13,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { gradeOutputSchema } from '@study/contracts/ai/grade';
-import { failureSchema } from '@study/contracts/errors';
+import { gradeOutputSchema } from '@study/contracts';
+import { failureSchema } from '@study/contracts';
 import {
   quizAnswerSubmittedSchema,
   practiceSlotRequestedSchema,
   materialGenerationFailedSchema,
   materialPublishedSchema
-} from '@study/contracts/events';
-import { quizAttemptSchema } from '@study/contracts/learning/schemas';
+} from '@study/contracts';
+import { quizAttemptSchema } from '@study/contracts';
 import { text } from '@study/localization';
 import { Effect, Schema } from 'effect';
 

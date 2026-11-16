@@ -1,5 +1,5 @@
-import type { configurationWaitReasonSchema } from '@study/contracts/workflows/schemas';
-import { Button } from '@study/ui/button';
+import type { configurationWaitReasonSchema } from '@study/contracts';
+import { Button } from '@study/ui';
 import { Link } from '@tanstack/react-router';
 
 import { useI18n } from '#client/lib/i18n.tsx';

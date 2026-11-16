@@ -60,15 +60,19 @@ export function AiButton({
   );
 }
 
+export type AiActivityState = 'running' | 'waiting' | 'stopping' | 'attention';
+
 /** Work always names its current state; only active execution animates. */
 export function AiActivity({
   label,
   action,
-  state = 'running'
+  state = 'running',
+  variant = 'plain'
 }: {
   label: string;
   action?: ReactNode;
-  state?: 'running' | 'waiting' | 'stopping' | 'attention';
+  state?: AiActivityState;
+  variant?: 'plain' | 'chip';
 }) {
   return (
     <span className="ui-ai-activity">
@@ -78,6 +82,7 @@ export function AiActivity({
         aria-label={label}
         aria-atomic="true"
         data-state={state}
+        data-variant={variant}
       >
         {state === 'running' ? (
           <AiIcon working />

@@ -1,3 +1,28 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keeps browser journeys on the public harness with observable readiness evidence.   │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ apps/client/test/e2e code outside harness/ owning browser/server resources, mocking      │
+ * │ requests, using fixed waits, DOM handles/coordinate shortcuts or forced locator actions. │
+ * │ Specs register testE2e directly, use behavior names and await a named screenshot whose   │
+ * │ ready callback returns or awaits an expect matcher. Alias tracking is intentionally      │
+ * │ static.                                                                                  │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/client/test/e2e/example.test.ts                                                │
+ * │   import { expect, testE2e } from './harness/index.ts';                                  │
+ * │   testE2e('Notes retain edits', async ({ page, expectScreenshot }) => {                  │
+ * │     await expectScreenshot('ready', { target: 'viewport',                                │
+ * │       ready: () => expect(page.getByRole('heading')).toBeVisible() });                   │
+ * │   });                                                                                    │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/client/test/e2e/example.test.ts                                                │
+ * │   await page.getByRole('button').click({ force: true });                                 │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { moduleEdges } from '../architecture-imports.ts';
@@ -376,6 +401,9 @@ export default defineRule({
 
     function registration(node: any): boolean {
       const owner = root(node.callee);
+
+      // Native fixture configuration does not register a browser journey.
+      if (memberName(node.callee) === 'use' && canonical(owner)) return false;
 
       return (
         owner?.type === 'Identifier' &&

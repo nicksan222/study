@@ -10,9 +10,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { NoteId } from '@study/contracts/ids';
-import type { createNoteInputSchema } from '@study/contracts/notes/rpc';
+import { StudyError } from '@study/contracts';
+import type { NoteId } from '@study/contracts';
+import type { createNoteInputSchema } from '@study/contracts';
 import { Option } from 'effect';
 
 import { NoteStore } from '#server/features/notes/store/index';

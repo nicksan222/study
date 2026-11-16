@@ -1,5 +1,5 @@
 import { BunFileSystem } from '@effect/platform-bun';
-import { spawnTestProcess } from '@study/testing/process';
+import { spawnTestProcess } from '@study/testing/vitest';
 import { testStable } from '@study/testing/vitest';
 import { eq, sql } from 'drizzle-orm';
 import { Effect, FileSystem } from 'effect';

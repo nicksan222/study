@@ -11,17 +11,21 @@ import {
   GeneralSettingsIcon,
   CreateNoteIcon
 } from '@study/icons';
-import { LoadMoreButton } from '@study/ui/action-button';
-import { Button } from '@study/ui/button';
-import { Dialog, DialogPopup, DialogFooter } from '@study/ui/dialog';
-import { DialogHeading } from '@study/ui/dialog-heading';
-import { ErrorState } from '@study/ui/error-state';
-import { IconButton } from '@study/ui/icon-button';
-import { Input } from '@study/ui/input';
-import { Loading } from '@study/ui/loading';
-import { Sidebar as SidebarUI } from '@study/ui/sidebar';
-import { SidebarSearchResults as SearchResults } from '@study/ui/sidebar-search-results';
-import { Spinner } from '@study/ui/spinner';
+import {
+  LoadMoreButton,
+  Button,
+  Dialog,
+  DialogPopup,
+  DialogFooter,
+  DialogHeading,
+  ErrorState,
+  IconButton,
+  Input,
+  Loading,
+  Sidebar as SidebarUI,
+  SidebarSearchResults as SearchResults,
+  Spinner
+} from '@study/ui';
 import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 

@@ -15,8 +15,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { ConcurrencySettings } from '@study/contracts/settings/types';
+import { StudyError } from '@study/contracts';
+import type { ConcurrencySettings } from '@study/contracts';
 import { Context, Effect, Layer, Option, Semaphore } from 'effect';
 
 import { observeActiveAi } from '#server/platform/observability/index';

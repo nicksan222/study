@@ -1,5 +1,5 @@
-import { materialVersionIdSchema } from '@study/contracts/ids';
-import type { MaterialId, SourceId } from '@study/contracts/ids';
+import { materialVersionIdSchema } from '@study/contracts';
+import type { MaterialId, SourceId } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
 import { expect, expectTypeOf } from 'vite-plus/test';

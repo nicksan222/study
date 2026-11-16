@@ -11,11 +11,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { failureSchema } from '@study/contracts/errors';
-import { sourceProcessingRequestedSchema } from '@study/contracts/events';
-import { sourceIdSchema } from '@study/contracts/ids';
+import { failureSchema } from '@study/contracts';
+import { sourceProcessingRequestedSchema } from '@study/contracts';
+import { sourceIdSchema } from '@study/contracts';
 import { eq } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Exit, Schema } from 'effect';
 import { Activity, DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';

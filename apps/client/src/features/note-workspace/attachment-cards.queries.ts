@@ -1,6 +1,6 @@
-import type { SourceId } from '@study/contracts/ids';
+import type { SourceId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { useAttachmentPreviewUrl } from '@study/ui/attachment-preview';
+import { useAttachmentPreviewUrl } from '@study/ui';
 import { useMemo } from 'react';
 
 export function useAttachmentMedia(id: SourceId | null, enabled: boolean) {

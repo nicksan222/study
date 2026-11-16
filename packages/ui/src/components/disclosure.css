@@ -1,7 +1,7 @@
 .ui-disclosure > summary {
   cursor: pointer;
   border-radius: var(--control-radius);
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
 }
 .ui-disclosure > summary:hover {
   color: var(--foreground);

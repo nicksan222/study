@@ -1,5 +1,5 @@
-import type { ErrorKind } from '@study/contracts/errors';
-import type { MaterialVersionId, ProjectId, QuizAttemptId } from '@study/contracts/ids';
+import type { ErrorKind } from '@study/contracts';
+import type { MaterialVersionId, ProjectId, QuizAttemptId } from '@study/contracts';
 
 import {
   defineTable,

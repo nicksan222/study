@@ -1,5 +1,5 @@
 import { createPracticePresentation } from '@study/localization';
-import { PracticePresentationProvider } from '@study/ui/practice-presentation';
+import { PracticePresentationProvider } from '@study/ui';
 import type { ReactNode } from 'react';
 
 export function PracticeExamplePresentation({

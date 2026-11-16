@@ -12,15 +12,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { contentInputSchema } from '@study/contracts/inputs';
-import { learningCitationSchema } from '@study/contracts/materials/inputs';
-import {
-  materialVersionDetailSchema,
-  materialGenerationPayloadSchema
-} from '@study/contracts/materials/schemas';
+import { StudyError } from '@study/contracts';
+import { contentInputSchema } from '@study/contracts';
+import { learningCitationSchema } from '@study/contracts';
+import { materialVersionDetailSchema, materialGenerationPayloadSchema } from '@study/contracts';
 import { sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { Schema } from 'effect';
 
 import { defineStore, storeQuery } from '#server/platform/definitions/define-store';

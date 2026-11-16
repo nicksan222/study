@@ -1,4 +1,4 @@
-import { Practice } from '@study/ui/practice';
+import { Practice } from '#ui/components/practice.tsx';
 
 import { usePracticePresentation } from './practice-presentation';
 import type { PracticeResultQuestionModel } from './practice-question-model';

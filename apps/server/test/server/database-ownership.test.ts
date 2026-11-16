@@ -12,11 +12,11 @@
  */
 
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import { sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { spawnTestProcess } from '@study/testing/process';
+import { spawnTestProcess } from '@study/testing/vitest';
 import { testStable } from '@study/testing/vitest';
 import { Effect, FileSystem, Path } from 'effect';
 import { assert, expect } from 'vite-plus/test';
@@ -192,35 +192,48 @@ for (const termination of ['close', 'SIGKILL'] as const)
     }
   );
 
-testStable(
-  'occupied deterministic endpoint fails closed without acquiring an alternate lease',
-  async () => {
-    const location = await createTestDatabase();
+testStable('an unrelated TCP listener does not block Linux database ownership', async () => {
+  const location = await createTestDatabase();
 
-    const canonical = paths.join(
-      await Effect.runPromise(fs.realPath(location.dir)),
-      paths.basename(location.path)
-    );
+  const canonical = paths.join(
+    await Effect.runPromise(fs.realPath(location.dir)),
+    paths.basename(location.path)
+  );
 
-    const identity = process.platform === 'win32' ? canonical.toLowerCase() : canonical;
+  // Reserve first, then find a legacy hash preimage so setup cannot race another listener.
+  const listener = Bun.listen({ hostname: '127.0.0.1', port: 0, socket: { data() {} } });
+  let path = canonical;
 
-    const hash = new Bun.CryptoHasher('sha256').update(identity).digest();
+  for (let candidate = 0; ; candidate++) {
+    path = `${canonical}.${candidate}`;
+    const identity = process.platform === 'win32' ? path.toLowerCase() : path;
+    const hash = new Bun.CryptoHasher('sha256').update(identity).digest('hex');
+    const port = 1024 + (Number.parseInt(hash.slice(0, 8), 16) % 64512);
 
-    const port =
-      1024 + (new DataView(hash.buffer, hash.byteOffset, hash.byteLength).getUint32(0) % 64512);
+    if (port === listener.port) break;
+  }
 
-    const listener = Bun.listen({ hostname: '127.0.0.1', port, socket: { data() {} } });
+  try {
+    if (process.platform === 'linux') {
+      const app = await App.open({ path });
 
-    try {
-      await expect(App.open({ path: location.path })).rejects.toSatisfy(
+      try {
+        await expect(acquireDatabaseOwnership(path)).rejects.toSatisfy(
+          (error: unknown) => error instanceof StudyError && error.kind === 'transient'
+        );
+      } finally {
+        await app.close();
+      }
+    } else {
+      await expect(App.open({ path })).rejects.toSatisfy(
         (error: unknown) => error instanceof StudyError && error.kind === 'transient'
       );
-    } finally {
-      listener.stop();
-      await location.cleanup();
     }
+  } finally {
+    listener.stop();
+    await location.cleanup();
   }
-);
+});
 
 testStable(
   'a second supported App cannot acquire a target while its restart owner is active',

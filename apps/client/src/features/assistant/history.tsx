@@ -1,8 +1,5 @@
 import { AssistantHistoryIcon, AddIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
-import { ErrorState } from '@study/ui/error-state';
-import { Loading } from '@study/ui/loading';
-import { WorkspaceCard } from '@study/ui/workspace';
+import { Button, ErrorState, Loading, WorkspaceCard } from '@study/ui';
 import type { Ref } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

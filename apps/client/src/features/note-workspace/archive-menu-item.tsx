@@ -1,7 +1,6 @@
-import type { NoteId } from '@study/contracts/ids';
-import type { NoteArchiveTarget } from '@study/contracts/notes/archive';
+import type { NoteId, NoteArchiveTarget } from '@study/contracts';
 import { ArchiveIcon } from '@study/icons';
-import { ContextMenuItem } from '@study/ui/context-menu';
+import { ContextMenuItem } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

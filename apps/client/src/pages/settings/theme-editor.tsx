@@ -1,9 +1,12 @@
-import { DangerDialog } from '@study/ui/danger-dialog';
-import { ErrorState } from '@study/ui/error-state';
-import { JsonEditor } from '@study/ui/json-editor';
-import { parseTheme, serializeTheme } from '@study/ui/theme';
-import type { ThemeFile } from '@study/ui/theme';
-import { toastManager } from '@study/ui/toast';
+import {
+  DangerDialog,
+  ErrorState,
+  JsonEditor,
+  parseTheme,
+  serializeTheme,
+  toastManager
+} from '@study/ui';
+import type { ThemeFile } from '@study/ui';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

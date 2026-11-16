@@ -1,5 +1,5 @@
 import { createPracticePresentation } from '@study/localization';
-import { PracticePresentationProvider } from '@study/ui/practice-presentation';
+import { PracticePresentationProvider } from '@study/ui';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

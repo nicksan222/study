@@ -1,6 +1,6 @@
-import { NextButton, PreviousButton } from '@study/ui/navigation-button';
-import { Practice } from '@study/ui/practice';
-import { SelectionSurface as Surface } from '@study/ui/selection';
+import { NextButton, PreviousButton } from '#ui/components/navigation-button.tsx';
+import { Practice } from '#ui/components/practice.tsx';
+import { SelectionSurface as Surface } from '#ui/components/selection.tsx';
 import { useState, useId } from 'react';
 import type { ReactNode } from 'react';
 

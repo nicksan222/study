@@ -4,7 +4,7 @@ import type {
   keepProposalSchema,
   comparisonSchema,
   proposalOutcomeSchema
-} from '@study/contracts/pages/editing';
+} from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { Atom } from 'effect/reactivity';
 import { useContext } from 'react';

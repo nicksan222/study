@@ -1,7 +1,6 @@
-import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
+import type { MaterialVersionDetailDto } from '@study/contracts';
 import { cardCount, questionCount, questionNumber } from '@study/localization';
-import { Practice } from '@study/ui/practice';
-import { Textarea } from '@study/ui/textarea';
+import { Practice, Textarea } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

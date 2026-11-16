@@ -1,4 +1,4 @@
-import type { signInAttemptSchema } from '@study/contracts/auth/schemas';
+import type { signInAttemptSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 

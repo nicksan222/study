@@ -1,16 +1,14 @@
-import type { ProjectId } from '@study/contracts/ids';
-import { quizAttemptIdSchema } from '@study/contracts/ids';
-import type { answerQuestionInputSchema } from '@study/contracts/learning/rpc';
-import type { quizAttemptInProgressSchema } from '@study/contracts/learning/schemas';
-import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
+import { quizAttemptIdSchema, defaultQuizSettings } from '@study/contracts';
+import type {
+  ProjectId,
+  answerQuestionInputSchema,
+  quizAttemptInProgressSchema,
+  MaterialVersionDetailDto
+} from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { defaultQuizSettings } from '@study/contracts/settings/types';
 import { StartIcon, GradeIcon } from '@study/icons';
 import { questionNumber, questionCount } from '@study/localization';
-import { Button } from '@study/ui/button';
-import { ErrorState } from '@study/ui/error-state';
-import { Practice } from '@study/ui/practice';
-import { QuizSessionView, QuizFinishView } from '@study/ui/quiz-session-view';
+import { Button, ErrorState, Practice, QuizSessionView, QuizFinishView } from '@study/ui';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
 import { useRef, useState } from 'react';

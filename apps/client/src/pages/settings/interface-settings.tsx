@@ -1,6 +1,6 @@
-import { defaultAppearancePreferences } from '@study/contracts/settings/types';
+import { defaultAppearancePreferences } from '@study/contracts';
 import { interfaceControlLabels } from '@study/localization';
-import { InterfaceControls } from '@study/ui/appearance-controls';
+import { InterfaceControls } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

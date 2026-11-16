@@ -1,5 +1,5 @@
 import { testStable } from '@study/testing/vitest';
-import { RichNoteContent, RichNoteEditor } from '@study/ui/rich-note';
+import { RichNoteContent, RichNoteEditor } from '@study/ui';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { expect, vi } from 'vite-plus/test';
 

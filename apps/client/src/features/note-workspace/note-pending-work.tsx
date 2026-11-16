@@ -1,15 +1,16 @@
-import type { NoteId } from '@study/contracts/ids';
-import type { noteWorkPageSchema } from '@study/contracts/notes/work';
+import type { NoteId, noteWorkPageSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { WorkActivityIcon, CancelIcon } from '@study/icons';
-import { LoadMoreButton } from '@study/ui/action-button';
-import { AiActivity } from '@study/ui/ai-button';
-import { Button } from '@study/ui/button';
-import { Disclosure } from '@study/ui/disclosure';
-import { ErrorState } from '@study/ui/error-state';
-import { IconButton } from '@study/ui/icon-button';
-import { Loading } from '@study/ui/loading';
-import { WorkspaceWork } from '@study/ui/workspace';
+import {
+  LoadMoreButton,
+  AiActivity,
+  Button,
+  Disclosure,
+  ErrorState,
+  IconButton,
+  Loading,
+  WorkspaceWork
+} from '@study/ui';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

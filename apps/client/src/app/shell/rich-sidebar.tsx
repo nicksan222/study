@@ -1,4 +1,4 @@
-import type { NoteDto } from '@study/contracts/notes/schemas';
+import type { NoteDto } from '@study/contracts';
 import {
   PageIcon,
   NoteIcon,
@@ -9,11 +9,7 @@ import {
   CloseIcon
 } from '@study/icons';
 import { age } from '@study/localization';
-import { Button } from '@study/ui/button';
-import { useNowMinute } from '@study/ui/clock';
-import { IconButton } from '@study/ui/icon-button';
-import { Sidebar as SidebarUI } from '@study/ui/sidebar';
-import { Spinner } from '@study/ui/spinner';
+import { Button, useNowMinute, IconButton, Sidebar as SidebarUI, Spinner } from '@study/ui';
 import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';

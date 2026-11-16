@@ -1,8 +1,5 @@
-import type { Page } from '@study/contracts/pages/types';
-import { DangerDialog, DangerDialogSummary } from '@study/ui/danger-dialog';
-import { Field } from '@study/ui/field';
-import { Input } from '@study/ui/input';
-import { Loading } from '@study/ui/loading';
+import type { Page } from '@study/contracts';
+import { DangerDialog, DangerDialogSummary, Field, Input, Loading } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

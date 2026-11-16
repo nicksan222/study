@@ -14,7 +14,7 @@
  */
 
 import { sql } from '@study/db';
-import { preferences } from '@study/db/schema';
+import { preferences } from '@study/db';
 import { Option, Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';

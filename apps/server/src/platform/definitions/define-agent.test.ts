@@ -12,10 +12,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { assistantToolNameSchema } from '@study/contracts/ai/assistant-tools';
-import type { AssistantToolName } from '@study/contracts/ai/assistant-tools';
-import { noteIdSchema } from '@study/contracts/ids';
-import { AgentRule } from '@study/contracts/settings/schemas';
+import { assistantToolNameSchema } from '@study/contracts';
+import type { AssistantToolName } from '@study/contracts';
+import { noteIdSchema } from '@study/contracts';
+import { AgentRule } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Schema } from 'effect';
 import { assert, expect, expectTypeOf } from 'vite-plus/test';

@@ -1,5 +1,4 @@
-import { StudyError } from '@study/contracts/errors';
-import { editOutcomeSchema, saveSchema, restoreSchema } from '@study/contracts/pages/editing';
+import { StudyError, editOutcomeSchema, saveSchema, restoreSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';

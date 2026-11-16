@@ -1,4 +1,4 @@
-import type { SourceId } from '@study/contracts/ids';
+import type { SourceId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { Option } from 'effect';
 

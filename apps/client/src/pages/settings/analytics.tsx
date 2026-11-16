@@ -1,10 +1,12 @@
-import { Button } from '@study/ui/button';
-import { DiagnosticText } from '@study/ui/diagnostic-text';
-import { downloadFile } from '@study/ui/download';
-import { SearchField } from '@study/ui/search-field';
-import { SelectControl } from '@study/ui/select-control';
-import { Settings } from '@study/ui/settings';
-import { Usage } from '@study/ui/usage';
+import {
+  Button,
+  DiagnosticText,
+  downloadFile,
+  SearchField,
+  SelectControl,
+  Settings,
+  Usage
+} from '@study/ui';
 import { useState } from 'react';
 
 import { useNativeAsync } from '#client/lib/effect/native.ts';

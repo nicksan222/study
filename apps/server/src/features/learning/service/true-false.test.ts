@@ -11,8 +11,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { quizChoiceIdSchema } from '@study/contracts/ids';
-import { defaultQuizSettings } from '@study/contracts/settings/types';
+import { quizChoiceIdSchema } from '@study/contracts';
+import { defaultQuizSettings } from '@study/contracts';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';

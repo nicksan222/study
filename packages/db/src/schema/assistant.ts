@@ -1,4 +1,4 @@
-import type { NoteId, MessageId, VersionId } from '@study/contracts/ids';
+import type { NoteId, MessageId, VersionId } from '@study/contracts';
 
 import { sql, defineTable, text, integer, check, primaryKey } from '../schema-builder.ts';
 import { notes, messages, message_versions } from './notes.ts';

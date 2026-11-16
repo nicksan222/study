@@ -857,7 +857,7 @@
   margin-top: 1rem;
 }
 .settings-feedback {
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
   font-size: 0.8125rem;
   margin-top: 0.75rem;
 }

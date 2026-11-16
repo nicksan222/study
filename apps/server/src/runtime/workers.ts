@@ -14,14 +14,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { cancelExecutionInputSchema } from '@study/contracts/workflows/schemas';
+import { StudyError } from '@study/contracts';
+import { cancelExecutionInputSchema } from '@study/contracts';
 import { Cause, Effect, Fiber, Queue, Semaphore, Schema } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
 
 import type { ServerContext } from '#server/platform/database/context';
 import { classifyError } from '#server/platform/errors/classify-error';
 import { observeOperation, safeMetadata } from '#server/platform/observability/index';
+import { discardInterruptedAgentProgress } from '#server/platform/workflows/agent-progress';
 import {
   WorkflowConfiguration,
   notifyConfigurationChanged
@@ -90,8 +91,11 @@ export class Workers {
         if (this.state.tag === 'closing' || this.state.tag === 'closed')
           throw new StudyError('cancelled', 'Workflow worker is closing');
 
-        if (this.state.tag === 'stopped')
+        if (this.state.tag === 'stopped') {
+          if (!this.workflowRuntime) discardInterruptedAgentProgress(this.store);
+
           this.state = { tag: 'running', consumer: this.startConsumer() };
+        }
       })
     );
   }

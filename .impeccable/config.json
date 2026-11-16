@@ -14,7 +14,7 @@
         "rule": "overused-font",
         "value": "inter",
         "createdAt": "2026-10-04T13:22:48.963Z",
-        "reason": "design decision: DESIGN.md pins Inter as the app's UI and display face; the website extends the app's world"
+        "reason": "design decision: apps/landing/src/styles/global.css uses bundled Inter; retain the website's existing font"
       }
     ]
   }

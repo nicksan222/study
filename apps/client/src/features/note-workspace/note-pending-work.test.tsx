@@ -1,6 +1,5 @@
-import { noteIdSchema } from '@study/contracts/ids';
-import type { noteWorkItemSchema } from '@study/contracts/notes/work';
-import { executionIdSchema } from '@study/contracts/workflows/schemas';
+import { noteIdSchema, executionIdSchema } from '@study/contracts';
+import type { noteWorkItemSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';

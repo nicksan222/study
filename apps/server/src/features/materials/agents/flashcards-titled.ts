@@ -11,16 +11,18 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { promptInputSchema } from '@study/contracts/ai/shared';
-import { titledFlashcardsGenerationOutputSchema } from '@study/contracts/materials/schemas';
-import { AgentRule } from '@study/contracts/settings/schemas';
+import { promptInputSchema } from '@study/contracts';
+import { titledFlashcardsGenerationOutputSchema } from '@study/contracts';
+import { AgentRule } from '@study/contracts';
 
 import { defineAgent } from '#server/platform/definitions/define-agent';
 
 import { flashcardsAgent } from './flashcards.ts';
 import { titleInstructions } from './generated-title.ts';
+import { materialStudyContext } from './study-context.ts';
 
 export const flashcardsTitledAgent = defineAgent({
+  context: materialStudyContext,
   id: 'flashcards-titled',
   customRules: [AgentRule.Flashcards, AgentRule.Titles],
   input: promptInputSchema,

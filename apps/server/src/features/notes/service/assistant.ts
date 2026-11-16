@@ -10,9 +10,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { NoteId } from '@study/contracts/ids';
-import { assistantContextBudget } from '@study/contracts/notes/assistant';
+import { StudyError } from '@study/contracts';
+import type { NoteId } from '@study/contracts';
+import { assistantContextBudget } from '@study/contracts';
 import type {
   assistantChatStartSchema,
   assistantChatsInputSchema,
@@ -20,8 +20,8 @@ import type {
   assistantToolIntentSchema,
   assistantToolResultSchema,
   assistantNoteInputSchema
-} from '@study/contracts/notes/assistant';
-import { NoteMode } from '@study/contracts/notes/schemas';
+} from '@study/contracts';
+import { NoteMode } from '@study/contracts';
 import { text } from '@study/localization';
 import { Effect, Option } from 'effect';
 

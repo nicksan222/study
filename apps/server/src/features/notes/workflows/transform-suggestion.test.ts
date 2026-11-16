@@ -7,30 +7,31 @@
  * │ - Checks note deletion scrubbing and authentication failures through live RPC.           │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Tests use temporary SQLite databases and a local provider fixture; no external model is  │
+ * │ Tests use temporary SQLite databases and typed model fixtures; no external model is      │
  * │ called.                                                                                  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyRpc } from '@study/contracts/rpc';
-import { defaultAgentRules } from '@study/contracts/settings/types';
+import { StudyRpc } from '@study/contracts';
+import { defaultAgentRules } from '@study/contracts';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
+import { createAiMock } from '@study/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import type { Context } from 'effect';
 import { assert, expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
+import { titleAgent } from '#server/features/notes/agents/title';
 import { Notes } from '#server/features/notes/service/index';
 import { suggestTransformField } from '#server/features/notes/service/transform-suggestion';
 import { Pages } from '#server/features/pages/index';
 import { Settings } from '#server/features/settings/index';
 import { layer as agentsLayer } from '#server/platform/ai/agents';
-import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
-import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { normalizeError } from '#server/platform/errors/classify-error';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { dispatchPending } from '#server/platform/workflows/triggers';
@@ -47,51 +48,7 @@ testStable(
     const context = new ServerContext(await location.open());
     let calls = 0;
     const tiers: string[] = [];
-    let during: (() => Promise<void>) | undefined;
-    let output = 'Cell Biology';
-    const bodies: string[] = [];
-    const peer = Bun.serve({
-      hostname: '127.0.0.1',
-      port: 0,
-      fetch: async (request) => {
-        let events = '';
-        const body = await request.text();
-
-        bodies.push(body);
-
-        calls++;
-        const action = during;
-
-        during = undefined;
-        await action?.();
-
-        for (const event of [
-          { type: 'response.created', response: { id: 'resp', created_at: 1, model: 'test' } },
-          {
-            type: 'response.output_item.added',
-            output_index: 0,
-            item: { type: 'message', id: 'item' }
-          },
-          { type: 'response.output_text.delta', item_id: 'item', delta: output },
-          { type: 'response.completed', response: {} }
-        ])
-          events += `data: ${JSON.stringify(event)}\n\n`;
-
-        return new Response(events + 'data: [DONE]\n\n', {
-          headers: { 'content-type': 'text/event-stream' }
-        });
-      }
-    });
-
-    assert.ok(peer.port, 'missing address');
-    const base = peer.url.origin;
-    const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
-
-    await auth.replace(
-      { subject: 'u', clientId: 'c', sharing: true, refreshToken: 'r' },
-      { accessToken: 'token', expiresIn: 3600 }
-    );
-    const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
+    using mock = createAiMock();
     const domain = () =>
       Layer.mergeAll(Notes.layer, Settings.layer, Pages.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -102,10 +59,19 @@ testStable(
         Layer.succeed(Database, { store: context }),
         Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
         agentsLayer({
-          model: (tier) => {
+          model: (tier, call) => {
             tiers.push(tier);
+            assert.ok(
+              'instructions' in call.definition && typeof call.definition.instructions === 'string'
+            );
+            expect(call.definition.instructions).toContain('Italian');
+            expect(call.definition.instructions).toContain(
+              tiers.length === 2 ? 'transformation instructions' : 'Write a concise Page title'
+            );
 
-            return Effect.succeed(model);
+            calls++;
+
+            return mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError));
           },
           language: Effect.succeed('en'),
           rules: Effect.succeed(defaultAgentRules),
@@ -181,6 +147,20 @@ testStable(
       await expect(execute('title', 'empty', empty.id, [])).rejects.toMatchObject({
         kind: 'invalid_input'
       });
+      const input = (text = 'Mitosis produces two daughter cells.') => ({
+        prompt: JSON.stringify({
+          notes: ['Plants'],
+          messages: [
+            { role: 'user', text },
+            { role: 'user', text: 'Chloroplasts capture light.' }
+          ],
+          sources: [
+            { name: 'Cell reference', passages: ['Chromosomes carry genetic information.'] }
+          ]
+        })
+      });
+
+      mock.next(titleAgent, { input: input(), output: 'Cell Biology' });
       assert.strictEqual(calls, 0);
       assert.strictEqual(await execute('title', 'title-one'), 'Cell Biology');
       assert.strictEqual(
@@ -194,27 +174,31 @@ testStable(
       assert.strictEqual(await execute('title', 'title-one'), 'Cell Biology');
       assert.strictEqual(calls, 1);
       assert.deepEqual(tiers, ['tiny']);
-      assert.ok(bodies[0]!.includes('Mitosis produces two daughter cells.'));
-      assert.ok(bodies[0]!.includes('Chloroplasts capture light.'));
-      assert.ok(bodies[0]!.includes('Italian'));
-      assert.ok(bodies[0]!.includes('Write a concise Page title'));
-      assert.ok(bodies[0]!.includes('Chromosomes carry genetic information.'));
       assert.strictEqual(
         (await run(Effect.flatMap(Notes, (c) => c.note(first.id)))).title,
         'Cells'
       );
-      output = 'Explain how cells divide and compare their structures.';
+      const output = 'Explain how cells divide and compare their structures.';
+
+      mock.next(titleAgent, { input: input(), output });
       assert.strictEqual(await execute('instruction', 'instruction-one'), output);
       assert.strictEqual(calls, 2);
-      during = async () => {
-        await run(
-          Effect.flatMap(Notes, (c) =>
-            c.editMessage({ messageId: message.id, text: 'The saved material changed.' })
-          )
-        );
-      };
-      await expect(execute('title', 'stale')).rejects.toMatchObject({ kind: 'invalid_input' });
-      output = '🌱'.repeat(101);
+      const stalePlan = mock.next(titleAgent, { input: input(), output, hold: true });
+      const staleExecution = execute('title', 'stale');
+      const staleResult = staleExecution.catch((error: unknown) => error);
+
+      await stalePlan.called;
+      await run(
+        Effect.flatMap(Notes, (c) =>
+          c.editMessage({ messageId: message.id, text: 'The saved material changed.' })
+        )
+      );
+      stalePlan.release();
+      expect(await staleResult).toMatchObject({ kind: 'invalid_input' });
+      mock.next(titleAgent, {
+        input: input('The saved material changed.'),
+        output: '🌱'.repeat(101)
+      });
       await expect(execute('title', 'too-long')).rejects.toMatchObject({ kind: 'transient' });
       const owned = context.db.orm.all<{ execution_id: string }>(sql`
         SELECT execution_id FROM workflow_executions WHERE workflow_tag = 'transform-suggestion/v1'
@@ -242,8 +226,6 @@ testStable(
         assert.strictEqual(retained.result, null);
       }
     } finally {
-      await peer.stop(true);
-      await auth.dispose();
       context.close();
       await location.cleanup();
     }

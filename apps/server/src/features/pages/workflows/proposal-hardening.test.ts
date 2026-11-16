@@ -12,13 +12,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { PageVersionId } from '@study/contracts/ids';
-import type { runSelectionContextSchema } from '@study/contracts/notes/context';
-import { createBlock } from '@study/contracts/sources/document';
-import type { Block } from '@study/contracts/sources/document';
-import { blockContentSchema } from '@study/contracts/sources/schemas';
+import type { PageVersionId } from '@study/contracts';
+import type { runSelectionContextSchema } from '@study/contracts';
+import { createBlock } from '@study/contracts';
+import type { Block } from '@study/contracts';
+import { blockContentSchema } from '@study/contracts';
 import { sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Exit, Fiber, Schema } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';

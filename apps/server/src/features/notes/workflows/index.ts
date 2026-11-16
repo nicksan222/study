@@ -13,7 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { failureSchema, StudyError } from '@study/contracts/errors';
+import { failureSchema, StudyError } from '@study/contracts';
 import {
   noteGenerationRequestedSchema,
   sourceIndexedSchema,
@@ -22,21 +22,14 @@ import {
   sourceProcessingFailedSchema,
   sourceProcessingRequestedSchema,
   sourceCorrectionRequestedSchema
-} from '@study/contracts/events';
-import { versionIdSchema } from '@study/contracts/ids';
-import type { ContentSnapshotId, SourceId } from '@study/contracts/ids';
-import { assistantMemorySchema, assistantContextBudget } from '@study/contracts/notes/assistant';
-import { selectionReferenceKey } from '@study/contracts/notes/context';
-import type {
-  selectionReferenceSchema,
-  selectionRangeSchema
-} from '@study/contracts/notes/context';
-import { runPreferencesSchema } from '@study/contracts/notes/context';
-import {
-  NoteMode,
-  publishReplyInputSchema,
-  replySnapshotSchema
-} from '@study/contracts/notes/schemas';
+} from '@study/contracts';
+import { versionIdSchema } from '@study/contracts';
+import type { ContentSnapshotId, SourceId } from '@study/contracts';
+import { assistantMemorySchema, assistantContextBudget } from '@study/contracts';
+import { selectionReferenceKey } from '@study/contracts';
+import type { selectionReferenceSchema, selectionRangeSchema } from '@study/contracts';
+import { runPreferencesSchema } from '@study/contracts';
+import { NoteMode, publishReplyInputSchema, replySnapshotSchema } from '@study/contracts';
 import { Clock, Effect, Option, Result, Schema } from 'effect';
 import type { Context } from 'effect';
 import { DurableDeferred } from 'effect/workflow';
@@ -62,6 +55,7 @@ import type { AgentEnvironment } from '#server/platform/definitions/define-agent
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { impactToken } from '#server/platform/definitions/impact-token';
+import { normalizeError } from '#server/platform/errors/classify-error';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
 
 export const noteReplyWorkflow = defineWorkflow({
@@ -147,7 +141,10 @@ export const noteReplyHandler = ({ event }: typeof noteReplyWorkflow.payloadSche
           return publication;
         }
 
-        const catalog = selectionCatalog(snapshot);
+        const catalog = yield* Effect.try({
+          try: () => selectionCatalog(snapshot),
+          catch: normalizeError
+        });
         const seen = new Set<string>();
 
         for (const attachment of snapshot.messages.flatMap((message) => message.attachments)) {
@@ -172,20 +169,24 @@ export const noteReplyHandler = ({ event }: typeof noteReplyWorkflow.payloadSche
               )
             );
 
-          catalog.addDocument({
-            key,
-            name: attachment.sourceName,
-            reference: {
-              input: {
-                kind: 'source',
-                sourceId: attachment.sourceId,
-                revision: attachment.revision,
-                snapshotId: attachment.snapshotId
-              },
-              sourceId: attachment.sourceId,
-              documentId: attachment.snapshotId
-            },
-            blocks: document.blocks
+          yield* Effect.try({
+            try: () =>
+              catalog.addDocument({
+                key,
+                name: attachment.sourceName,
+                reference: {
+                  input: {
+                    kind: 'source',
+                    sourceId: attachment.sourceId,
+                    revision: attachment.revision,
+                    snapshotId: attachment.snapshotId
+                  },
+                  sourceId: attachment.sourceId,
+                  documentId: attachment.snapshotId
+                },
+                blocks: document.blocks
+              }),
+            catch: normalizeError
           });
         }
 

@@ -11,13 +11,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import {
-  conversionStrategyIdSchema,
-  textConversionInputSchema
-} from '@study/contracts/sources/conversion';
-import type { Document } from '@study/contracts/sources/document';
-import { documentSchema } from '@study/contracts/sources/schemas';
+import { StudyError } from '@study/contracts';
+import { conversionStrategyIdSchema, textConversionInputSchema } from '@study/contracts';
+import type { Document } from '@study/contracts';
+import { documentSchema } from '@study/contracts';
 import { text } from '@study/localization';
 import type { Locale, StaticMessageKey } from '@study/localization';
 import { Effect, Schema } from 'effect';
@@ -33,7 +30,7 @@ export interface ConversionContext {
     I extends Schema.ConstraintDecoder<unknown>,
     O extends Schema.ConstraintDecoder<unknown>
   >(
-    definition: AgentDefinition<I, O>,
+    definition: AgentDefinition<I, O> & { context?: undefined },
     input: I['Type']
   ) => Effect.Effect<O['Type'], StudyError, Agents>;
 }

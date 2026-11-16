@@ -11,12 +11,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type {
-  resolvedSelectionSchema,
-  noteSelectionTargetSchema
-} from '@study/contracts/notes/context';
-import { validBlockTextRange } from '@study/contracts/sources/document';
+import { StudyError } from '@study/contracts';
+import type { resolvedSelectionSchema, noteSelectionTargetSchema } from '@study/contracts';
+import { validBlockTextRange } from '@study/contracts';
 
 import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';

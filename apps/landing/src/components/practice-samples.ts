@@ -1,9 +1,6 @@
-import type { quizAnswerSchema } from '@study/contracts/learning/schemas';
-import {
-  quizAttemptCompletedSchema,
-  quizAttemptInProgressSchema
-} from '@study/contracts/learning/schemas';
-import { landingCopy } from '@study/localization/landing';
+import type { quizAnswerSchema } from '@study/contracts';
+import { quizAttemptCompletedSchema, quizAttemptInProgressSchema } from '@study/contracts';
+import { landingCopy } from '@study/localization';
 import { Schema } from 'effect';
 
 type Lang = 'en' | 'it';

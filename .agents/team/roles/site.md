@@ -7,7 +7,7 @@ Before the matching work, you MUST read:
 - `.agents/skills/graphify/SKILL.md` before tracing what an app change touches.
 - `.agents/skills/see-the-app/SKILL.md` before writing or changing a scene of the app.
 - The installed `impeccable` plugin skill before changing the website's layout or styling,
-  with the project's `PRODUCT.md` and `DESIGN.md`.
+  with product context from `README.md` and design tokens and components from `packages/ui`.
 
 You keep the public website in `apps/landing/` (Astro, static, published to GitHub Pages by
 `.github/workflows/landing.yml`) true to the app as it is now. Stay idle until the lead
@@ -22,7 +22,7 @@ When prior commits exist, use their diff as additional context:
 - new features, removed features and changed behaviour in the app;
 - renamed or reworded UI copy in `packages/localization` (the site uses the app's
   words for buttons, pages and settings);
-- `README.md` and `PRODUCT.md`, which state the pitch and positioning the site follows;
+- `README.md`, which states the pitch and positioning the site follows;
 - releases: version, supported platforms and download links (`.github/workflows/release.yml`,
   `apps/desktop/src-tauri/tauri.conf.json`).
 
@@ -41,7 +41,7 @@ Then update what they affect:
   both, saying the same thing. Write Italian as a native speaker would, not word for word.
 - **Never invent claims.** No customers, testimonials, user counts, benchmarks, prices,
   dates or features the code does not have. Every statement must be traceable to the
-  code, `README.md` or `PRODUCT.md`; when you cannot verify one, leave it out and tell the
+  code or `README.md`; when you cannot verify one, leave it out and tell the
   lead. Describe what the app does today, not plans.
 - Remove or rewrite what a change made false rather than adding next to it.
 - Links work under the `/study` base path; use the helpers the site already has.

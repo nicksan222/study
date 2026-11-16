@@ -1,13 +1,13 @@
-import type { SourceId, NoteId, ContentSnapshotId } from '@study/contracts/ids';
-import type { Page } from '@study/contracts/pages/types';
+import type {
+  SourceId,
+  NoteId,
+  ContentSnapshotId,
+  Page,
+  documentSchema,
+  Source
+} from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import type { documentSchema, Source } from '@study/contracts/sources/schemas';
-import { RetryButton } from '@study/ui/action-button';
-import { Button } from '@study/ui/button';
-import { ErrorState } from '@study/ui/error-state';
-import { Loading } from '@study/ui/loading';
-import { SourceContent } from '@study/ui/source-content';
-import { StatusMessage } from '@study/ui/status-message';
+import { RetryButton, Button, ErrorState, Loading, SourceContent, StatusMessage } from '@study/ui';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 

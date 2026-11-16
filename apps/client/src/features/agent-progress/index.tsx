@@ -1,6 +1,5 @@
-import type { agentProgressInputSchema } from '@study/contracts/ai/progress';
-import { GenerationPreview } from '@study/ui/generation-preview';
-import { Trace } from '@study/ui/trace';
+import type { agentProgressInputSchema } from '@study/contracts';
+import { GenerationPreview, Trace } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -60,3 +59,7 @@ export { useAgentProgress } from './use-agent-progress';
 export { AgentToolCall, AgentToolOutcome } from './tool-call';
 
 export { settledAgentTool } from './tool-state';
+
+export { AgentActivity } from './activity';
+
+export { AgentActivityDetails } from './activity-details';

@@ -1,8 +1,11 @@
-import { StudyError } from '@study/contracts/errors';
-import { noteIdSchema, projectIdSchema } from '@study/contracts/ids';
-import { editOutcomeSchema } from '@study/contracts/pages/editing';
+import {
+  StudyError,
+  noteIdSchema,
+  projectIdSchema,
+  editOutcomeSchema,
+  plainBlock
+} from '@study/contracts';
 import { RpcProvider, configureRpcTransport } from '@study/contracts/react';
-import { plainBlock } from '@study/contracts/sources/document';
 import { testStable } from '@study/testing/vitest';
 import { act, renderHook, cleanup } from '@testing-library/react';
 import { Schema } from 'effect';

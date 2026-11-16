@@ -11,8 +11,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { failureSchema } from '@study/contracts/errors';
-import { StudyError } from '@study/contracts/errors';
+import { failureSchema } from '@study/contracts';
+import { StudyError } from '@study/contracts';
 import { Effect, Schema, Option, Scope } from 'effect';
 import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
 

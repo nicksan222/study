@@ -14,8 +14,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { executionIdSchema } from '@study/contracts';
+import { workflow_executions, workflow_agent_progress } from '@study/db';
 import { testStable } from '@study/testing/vitest';
-import { Effect } from 'effect';
+import { Effect, Layer } from 'effect';
 import { assert, expect } from 'vite-plus/test';
 
 import { createServerTest } from '#testing/server-test';
@@ -71,8 +73,8 @@ testStable(
   { timeout: 10000 },
   async (t) => {
     const { Sources } = await import('#server/features/sources/index');
-    const { workflow_executions } = await import('@study/db/schema');
-    const { executionIdSchema } = await import('@study/contracts/workflows/schemas');
+    const { workflow_executions } = await import('@study/db');
+    const { executionIdSchema } = await import('@study/contracts');
     const { Layer } = await import('effect');
     const { WorkflowEngine } = await import('effect/workflow');
     let reached!: () => void;
@@ -156,7 +158,7 @@ testStable(
 
 testStable('stopped concurrent cancellations and start share one embedded runtime', async (t) => {
   const { Layer } = await import('effect');
-  const { executionIdSchema } = await import('@study/contracts/workflows/schemas');
+  const { executionIdSchema } = await import('@study/contracts');
   const { app } = await createServerTest(t);
   let acquisitions = 0;
 
@@ -188,8 +190,8 @@ testStable(
   'stopped cancellation persists intent without acquiring the embedded runner',
   async (t) => {
     const { Layer } = await import('effect');
-    const { workflow_executions } = await import('@study/db/schema');
-    const { executionIdSchema } = await import('@study/contracts/workflows/schemas');
+    const { workflow_executions } = await import('@study/db');
+    const { executionIdSchema } = await import('@study/contracts');
     const { app } = await createServerTest(t);
     let acquisitions = 0;
 
@@ -221,5 +223,121 @@ testStable(
     expect(app.store.db.orm.select().from(workflow_executions).get()?.cancellation_mode).toBe(
       'unsafe'
     );
+  }
+);
+
+testStable(
+  'restart after failed disposal preserves previews owned by the retained runtime',
+  async (t) => {
+    const { app } = await createServerTest(t);
+
+    app.native.workflows = app.native.workflows.pipe(
+      Layer.tap(() => Effect.addFinalizer(() => Effect.die(new Error('Disposal failed'))))
+    );
+    const entered = Promise.withResolvers<void>();
+    const resume = Promise.withResolvers<void>();
+    const executionId = executionIdSchema.make('retained-progress');
+
+    app.store.db.orm
+      .insert(workflow_executions)
+      .values({
+        execution_id: executionId,
+        workflow_tag: 'retained-progress-test',
+        version: 1,
+        payload: '{}',
+        status: 'running',
+        created_at: 0n,
+        updated_at: 0n
+      })
+      .run();
+    const running = app.workers
+      .runWorkflow(
+        Effect.promise(() => {
+          app.store.db.orm
+            .insert(workflow_agent_progress)
+            .values({
+              run_id: 'active',
+              execution_id: executionId,
+              generation: 1,
+              activity_name: 'reply',
+              attempt: 1,
+              agent_id: 'reply',
+              mode: 'text',
+              status: 'running',
+              revision: 0n,
+              updated_at: 0n
+            })
+            .run();
+          entered.resolve();
+
+          return resume.promise;
+        })
+      )
+      .catch((error: unknown) => error);
+
+    try {
+      await entered.promise;
+      await expect(app.workers.stop()).rejects.toSatisfy(() => true);
+      expect(app.workers.started).toBe(false);
+      await app.workers.start();
+      expect(app.store.db.orm.select().from(workflow_agent_progress).get()?.run_id).toBe('active');
+      resume.resolve();
+      await running;
+      await app.workers.stop();
+    } finally {
+      resume.resolve();
+      await running;
+    }
+  }
+);
+
+testStable(
+  'recovery discards interrupted previews but preserves completed and concurrent steps',
+  async (t) => {
+    const { app } = await createServerTest(t);
+    const executionId = executionIdSchema.make('progress-recovery');
+
+    app.store.db.orm
+      .insert(workflow_executions)
+      .values({
+        execution_id: executionId,
+        workflow_tag: 'progress-recovery-test',
+        version: 1,
+        payload: '{}',
+        status: 'running',
+        created_at: 0n,
+        updated_at: 0n
+      })
+      .run();
+    const seed = (runId: string, status: 'running' | 'completed' = 'running') =>
+      app.store.db.orm
+        .insert(workflow_agent_progress)
+        .values({
+          run_id: runId,
+          execution_id: executionId,
+          generation: 1,
+          activity_name: 'reply',
+          attempt: 1,
+          agent_id: 'reply',
+          mode: 'text',
+          status,
+          revision: 0n,
+          updated_at: 0n
+        })
+        .run();
+    const read = () => app.store.db.orm.select().from(workflow_agent_progress).all();
+
+    seed('finished', 'completed');
+    seed('interrupted');
+    await app.workers.start();
+    expect(read().map((run) => run.run_id)).toEqual(['finished']);
+
+    seed('parallel-a');
+    seed('parallel-b');
+    await app.workers.start();
+    expect(read().map((run) => run.run_id)).toEqual(['finished', 'parallel-a', 'parallel-b']);
+    await app.workers.stop();
+    await app.workers.start();
+    expect(read().map((run) => run.run_id)).toEqual(['finished']);
   }
 );

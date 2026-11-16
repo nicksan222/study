@@ -1,7 +1,5 @@
 import { RegistryContext, useAtom } from '@effect/atom-react';
-import type { SourceId, NoteId, ContentSnapshotId } from '@study/contracts/ids';
-import type { sourceCopySchema } from '@study/contracts/pages/rpc';
-import type { Page } from '@study/contracts/pages/types';
+import type { SourceId, NoteId, ContentSnapshotId, sourceCopySchema, Page } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { Atom } from 'effect/reactivity';
 import { useContext } from 'react';

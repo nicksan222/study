@@ -1,11 +1,12 @@
 import { AlertDialog } from '@base-ui/react/alert-dialog';
-import { Button } from '@study/ui/button';
-import { DIALOG_BACKDROP_CLASS, DIALOG_POPUP_CLASS } from '@study/ui/dialog-styles';
-import { Input } from '@study/ui/input';
-import { Label } from '@study/ui/label';
-import { cn } from '@study/ui/utils';
 import { useId, useRef, useState } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
+
+import { cn } from '../utils.ts';
+import { Button } from './button.tsx';
+import { DIALOG_BACKDROP_CLASS, DIALOG_POPUP_CLASS } from './dialog-styles.ts';
+import { Input } from './input.tsx';
+import { Label } from './label.tsx';
 
 export type DangerDialogProps = {
   open: boolean;

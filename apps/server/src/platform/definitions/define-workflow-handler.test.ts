@@ -16,12 +16,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import {
-  sourceIndexedSchema,
-  sourceDeletedSchema,
-  workflowEventSchema
-} from '@study/contracts/events';
-import { workflowReceipts } from '@study/db/schema';
+import { sourceIndexedSchema, sourceDeletedSchema, workflowEventSchema } from '@study/contracts';
+import { workflowReceipts } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Context, Effect, Schema } from 'effect';

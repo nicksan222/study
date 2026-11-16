@@ -1,14 +1,16 @@
 import { RegistryContext, useAtomValue } from '@effect/atom-react';
-import type { NoteId } from '@study/contracts/ids';
+import type { NoteId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { Button } from '@study/ui/button';
-import { DangerDialog } from '@study/ui/danger-dialog';
-import { ErrorState } from '@study/ui/error-state';
-import { Loading } from '@study/ui/loading';
-import { Notebook } from '@study/ui/note-workspace';
-import { StatusMessage } from '@study/ui/status-message';
-import { toastManager } from '@study/ui/toast';
-import { WorkspaceSurface } from '@study/ui/workspace';
+import {
+  Button,
+  DangerDialog,
+  ErrorState,
+  Loading,
+  Notebook,
+  StatusMessage,
+  toastManager,
+  WorkspaceSurface
+} from '@study/ui';
 import { Atom } from 'effect/reactivity';
 import { useContext, useCallback, useEffect, useRef, useState } from 'react';
 

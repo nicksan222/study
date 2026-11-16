@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Retain the original cause when wrapping caught server failures.                    │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents Error and canonical StudyError wrappers from losing the caught failure. Checks  │
+ * │ direct catch-body throws and messages referring to the caught binding; nested functions  │
+ * │ and unrelated validation failures are outside that scope.                                │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   try { run(); } catch (cause) { throw new Error('failed', { cause }); }                 │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   try { run(); } catch (cause) { throw new Error('failed'); }                            │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { binding, imported } from '../lexical-bindings.ts';

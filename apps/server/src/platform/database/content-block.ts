@@ -11,9 +11,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { decodeBlockContent } from '@study/contracts/sources/document';
-import { blockSchema } from '@study/contracts/sources/schemas';
-import type * as s from '@study/db/schema';
+import { decodeBlockContent } from '@study/contracts';
+import { blockSchema } from '@study/contracts';
+import type * as s from '@study/db';
 import { Schema } from 'effect';
 
 /** Decode one retained canonical block without choosing an application owner or current head. */

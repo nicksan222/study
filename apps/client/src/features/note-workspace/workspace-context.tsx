@@ -1,9 +1,6 @@
-import type { NoteId, SourceId } from '@study/contracts/ids';
-import type { PageSummary } from '@study/contracts/pages/types';
+import type { NoteId, SourceId, PageSummary } from '@study/contracts';
 import { AttachmentIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
-import { Loading } from '@study/ui/loading';
-import { WorkspaceAttachments, WorkspaceCard } from '@study/ui/workspace';
+import { Button, Loading, WorkspaceAttachments, WorkspaceCard } from '@study/ui';
 import type { ReactNode } from 'react';
 
 import { CursorWindowActions } from '#client/lib/cursor-window.tsx';

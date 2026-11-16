@@ -10,16 +10,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { noteIdSchema } from '@study/contracts/ids';
+import { StudyError } from '@study/contracts';
+import { noteIdSchema } from '@study/contracts';
 import {
   assistantChatStartSchema,
   assistantChatsInputSchema,
   assistantCompactionInputSchema,
   assistantCompactionPlanSchema,
   assistantMemorySchema
-} from '@study/contracts/notes/assistant';
-import { NoteMode } from '@study/contracts/notes/schemas';
+} from '@study/contracts';
+import { NoteMode } from '@study/contracts';
 import { and, asc, desc, eq, gt, lt, lte, sql, isNull } from '@study/db';
 import {
   assistant_chat_starts,
@@ -27,7 +27,7 @@ import {
   messages,
   message_versions,
   notes
-} from '@study/db/schema';
+} from '@study/db';
 import { Option, Schema } from 'effect';
 
 import { defineStore, storeQuery, storeMutation } from '#server/platform/definitions/define-store';

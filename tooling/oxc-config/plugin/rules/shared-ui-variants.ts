@@ -1,3 +1,23 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keeps client styling of shared components inside their shared variants.            │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ apps/client/src consumers passing className or style to imported @study/ui components,   │
+ * │ including compound/namespace components and inline object spreads. .test-suffix files    │
+ * │ are exempt. This checks direct attributes and literal spread keys, not arbitrary object  │
+ * │ flow.                                                                                    │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { Button } from '@study/ui';                                                    │
+ * │   const view = <Button variant="secondary" />;                                           │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { Button } from '@study/ui';                                                    │
+ * │   const view = <Button className="p-2" />;                                               │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { isPresentationAttribute, webPresentationSource } from '../presentation-attributes.ts';
@@ -14,7 +34,7 @@ export default defineRule({
 
     return {
       ImportDeclaration(node) {
-        if (!node.source.value.startsWith('@study/ui/') || node.importKind === 'type') return;
+        if (node.source.value !== '@study/ui' || node.importKind === 'type') return;
 
         for (const specifier of node.specifiers) {
           if (specifier.type === 'ImportNamespaceSpecifier') namespaces.add(specifier.local.name);

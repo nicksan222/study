@@ -1,4 +1,4 @@
-import { backupIdSchema, restoreTokenSchema } from '@study/contracts/system/backups';
+import { backupIdSchema, restoreTokenSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Schema } from 'effect';

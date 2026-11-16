@@ -14,11 +14,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { ProjectId } from '@study/contracts/ids';
-import { MaterialsRpc, requestMaterialGenerationInputSchema } from '@study/contracts/materials/rpc';
-import { plainBlock } from '@study/contracts/sources/document';
+import type { ProjectId } from '@study/contracts';
+import { MaterialsRpc, requestMaterialGenerationInputSchema } from '@study/contracts';
+import { plainBlock } from '@study/contracts';
 import { sql } from '@study/db';
-import { workflowEvents } from '@study/db/schema';
+import { workflowEvents } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';
@@ -31,7 +31,7 @@ import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
-import { decodeEvent } from '#server/platform/workflows/events';
+import { decodeEvent, emitEvent } from '#server/platform/workflows/events';
 import { materialRpcHandlers } from '#testing/material-rpc';
 
 const document = () => ({
@@ -641,6 +641,30 @@ testStable(
           expect(
             (yield* materials.activeMaterialGenerations({})).map((item) => item.id).sort()
           ).toEqual([request.id, otherRequest.id].sort());
+          context.transaction(['workflows'], (tx) =>
+            emitEvent(
+              tx,
+              {
+                type: 'MaterialGenerationFailed',
+                eventId: 'failed-practice-request',
+                causationId: request.id,
+                correlationId: request.id,
+                inputVersion: 1,
+                depth: 1,
+                requestId: request.id,
+                projectId: project.id,
+                kind: 'quiz',
+                generationEventId: request.id,
+                errorKind: 'invalid_input'
+              },
+              Date.now()
+            )
+          );
+          const failed = yield* materials.activeMaterialGenerations({ projectId: project.id });
+
+          expect(failed.map((item) => ({ id: item.id, errorKind: item.errorKind }))).toEqual([
+            { id: request.id, errorKind: 'invalid_input' }
+          ]);
           yield* materials.cancelMaterialGeneration({ requestId: request.id });
           expect(yield* materials.activeMaterialGenerations({ projectId: project.id })).toEqual([]);
           expect((yield* materials.activeMaterialGenerations({})).map((item) => item.id)).toEqual([

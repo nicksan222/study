@@ -12,7 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { RecordingsRpc } from '@study/contracts/recordings/rpc';
+import { RecordingsRpc } from '@study/contracts';
 
 import { Recordings } from '#server/features/recordings/service/index';
 import { defineRpc } from '#server/platform/definitions/define-rpc';

@@ -14,7 +14,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { Cause, Context, Effect, Exit, Fiber, Layer } from 'effect';
 import { expect } from 'vite-plus/test';

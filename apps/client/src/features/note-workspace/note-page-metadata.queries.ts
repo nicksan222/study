@@ -1,4 +1,4 @@
-import type { Page } from '@study/contracts/pages/types';
+import type { Page } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { useState } from 'react';
 

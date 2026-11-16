@@ -11,9 +11,9 @@
  */
 
 import { BunFileSystem } from '@effect/platform-bun';
-import { createBlock } from '@study/contracts/sources/document';
-import { MAX_MANAGED_BACKUPS } from '@study/contracts/system/backups';
-import type { BackupManifest, BackupId } from '@study/contracts/system/backups';
+import { createBlock } from '@study/contracts';
+import { MAX_MANAGED_BACKUPS } from '@study/contracts';
+import type { BackupManifest, BackupId } from '@study/contracts';
 import { sql } from '@study/db';
 import type { Db } from '@study/db';
 import { testStable } from '@study/testing/vitest';

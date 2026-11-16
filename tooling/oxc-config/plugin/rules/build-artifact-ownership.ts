@@ -1,3 +1,24 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Bounds disposable runner caches and isolates harness contract-test artifacts.      │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Canonical createVitest calls anywhere omitting a statically provable fsModuleCache:      │
+ * │ false. apps/client/test/e2e/harness/*.test.ts fixtures must not allocate literal         │
+ * │ test-results/ paths; temporaryArtifacts owns their directories. Direct Bun.Glob          │
+ * │ diagnostic reads are exempt. Unknown later spreads/keys cannot prove the cache stays     │
+ * │ disabled.                                                                                │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { createVitest } from 'vite-plus/test/node';                                    │
+ * │   const runner = createVitest('test', { fsModuleCache: false });                         │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { createVitest } from 'vite-plus/test/node';                                    │
+ * │   const runner = createVitest('test', { config: false });                                │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { imported, memberName } from '../lexical-bindings.ts';

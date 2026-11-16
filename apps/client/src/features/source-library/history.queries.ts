@@ -1,4 +1,4 @@
-import type { SourceId, ContentSnapshotId } from '@study/contracts/ids';
+import type { SourceId, ContentSnapshotId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 
 import { useCursorRecovery, useCursorWindow } from '#client/lib/cursor-window.tsx';

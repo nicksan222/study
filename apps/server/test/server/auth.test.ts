@@ -15,8 +15,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyRpc } from '@study/contracts/rpc';
-import { Appearance, Language, LlmProvider } from '@study/contracts/settings';
+import { StudyRpc } from '@study/contracts';
+import { Appearance, Language, LlmProvider } from '@study/contracts';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable, withinTestDeadline } from '@study/testing/vitest';
 import { Effect, Fiber } from 'effect';

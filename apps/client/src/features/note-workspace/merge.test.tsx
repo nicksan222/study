@@ -1,4 +1,4 @@
-import { noteSchema } from '@study/contracts/notes/schemas';
+import { noteSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';

@@ -11,10 +11,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { MaterialsRpc } from '@study/contracts/materials/rpc';
-import { PagesRpc } from '@study/contracts/pages/rpc';
-import { createBlock } from '@study/contracts/sources/document';
-import { SourcesRpc } from '@study/contracts/sources/rpc';
+import { MaterialsRpc } from '@study/contracts';
+import { PagesRpc } from '@study/contracts';
+import { createBlock } from '@study/contracts';
+import { SourcesRpc } from '@study/contracts';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';

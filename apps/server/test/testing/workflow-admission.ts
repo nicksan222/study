@@ -11,9 +11,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import { eq, sql } from '@study/db';
-import { workflow_executions } from '@study/db/schema';
+import { workflow_executions } from '@study/db';
 import { Effect, Option, Schema } from 'effect';
 import { WorkflowEngine, Workflow } from 'effect/workflow';
 

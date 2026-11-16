@@ -1,3 +1,24 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keep StudyError failures in the typed channel of native Effect generators.         │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ In production server and client source, prevents throwing newly constructed imported     │
+ * │ StudyError inside Effect gen/fn generators. Ordinary nested functions and other thrown   │
+ * │ errors are outside this check.                                                           │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { StudyError } from '@study/contracts';                                         │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   Effect.gen(function* () { yield* Effect.fail(new StudyError('internal', 'bad')); });   │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { StudyError } from '@study/contracts';                                         │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   Effect.gen(function* () { throw new StudyError('internal', 'bad'); });                 │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings, effectProduction } from '../effect-bindings.ts';

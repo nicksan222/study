@@ -1,8 +1,8 @@
-import { Spinner } from '@study/ui/spinner';
-import { cn } from '@study/ui/utils';
 import type { ComponentPropsWithRef, ReactNode } from 'react';
 
+import { cn } from '../utils.ts';
 import { AiActivity } from './ai-button';
+import { Spinner } from './spinner.tsx';
 
 type LoadingProps = Omit<ComponentPropsWithRef<'span'>, 'children' | 'role'> & {
   label: string;
