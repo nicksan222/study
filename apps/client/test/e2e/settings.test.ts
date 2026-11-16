@@ -1,7 +1,9 @@
 import { maxAgentRuleLength } from '@study/contracts';
 import { catalogs } from '@study/localization';
+import type { Locator, Page } from 'playwright';
 
 import { expect, testE2e } from './harness/index.ts';
+import type { ExpectScreenshot } from './harness/screenshots.ts';
 
 const copy = catalogs.english;
 
@@ -47,6 +49,9 @@ testE2e(
     await search.fill('no-such-setting-928');
     await expect(results.getByRole('status')).toHaveText(copy.SearchNoResults);
     await expect(results.getByRole('button')).toHaveCount(0);
+    await search.press('Home');
+    await expect(search).toHaveJSProperty('selectionStart', 0);
+    await expect(search).toHaveJSProperty('scrollLeft', 0);
     await expectScreenshot('no-matches', {
       target: dialog,
       ready: () => expect(results.getByRole('status')).toHaveText(copy.SearchNoResults)
@@ -2466,9 +2471,7 @@ testE2e(
 
 testE2e(
   'Project settings validate names edit identities and guard deletion',
-  async ({ page, expectScreenshot, expectAccessibility }, testInfo) => {
-    // This page compares 83 states; CI spent 68 seconds on its first 68 comparisons alone.
-    testInfo.setTimeout(180000);
+  async ({ page, expectScreenshot, expectAccessibility }) => {
     await page.goto('/notes');
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });
@@ -2609,86 +2612,15 @@ testE2e(
       target: icon,
       ready: () => expect(letters).toHaveValue('ÈC')
     });
-    await icon.getByRole('button', { name: copy.SubjectIconSymbols, exact: true }).click();
-    const symbolSearch = icon.getByRole('textbox', { name: copy.SubjectIconSearch, exact: true });
-
-    await symbolSearch.fill('no-symbol-928');
-    await expect(icon.getByText(copy.SearchNoResults, { exact: true })).toBeVisible();
-    await expectScreenshot('project-symbol-search-empty', {
-      target: icon,
-      ready: () => expect(icon.getByText(copy.SearchNoResults, { exact: true })).toBeVisible()
-    });
-    await symbolSearch.fill('');
-    const symbols = icon.getByRole('radiogroup', { name: copy.SubjectIconSymbols, exact: true });
-
-    async function captureIconChoices(group: typeof symbols, prefix: string) {
-      const choices = group.getByRole('radio');
-
-      await expect(group).toBeVisible();
-      const count = await choices.count();
-
-      expect(count).toBeGreaterThan(1);
-
-      for (let index = 0; index < count; index++) {
-        await choices.nth(index).click();
-        await expectScreenshot(`${prefix}-${index}`, {
-          target: icon,
-          ready: () => expect(choices.nth(index)).toBeChecked()
-        });
-      }
-
-      await choices.nth(1).click();
-    }
-
-    await captureIconChoices(symbols, 'project-symbol');
-    await expectScreenshot('project-symbol-selected', {
-      target: icon,
-      ready: () => expect(symbols.getByRole('radio').nth(1)).toBeChecked()
-    });
-    await saveIcon.click();
+    await icon.getByRole('button', { name: copy.Cancel, exact: true }).click();
     await expect(icon).toBeHidden();
-    await dialog.getByRole('button', { name: copy.SubjectIconChange, exact: true }).click();
-    await expect(symbols.getByRole('radio').nth(1)).toBeChecked();
-    await expectScreenshot('project-symbol-reopened', {
-      target: icon,
-      ready: () => expect(symbols.getByRole('radio').nth(1)).toBeChecked()
-    });
-    await icon.getByRole('button', { name: copy.SubjectIconEmojis, exact: true }).click();
-    const emojis = icon.getByRole('radiogroup', { name: copy.SubjectIconEmojis, exact: true });
-
-    await captureIconChoices(emojis, 'project-emoji');
-    await expectScreenshot('project-emoji-selected', {
-      target: icon,
-      ready: () => expect(emojis.getByRole('radio').nth(1)).toBeChecked()
-    });
-    const colors = icon.getByRole('radiogroup', { name: copy.SubjectIconColor, exact: true });
-
-    await captureIconChoices(colors, 'project-color');
-    await expectScreenshot('project-color-selected', {
-      target: icon,
-      ready: () => expect(colors.getByRole('radio').nth(1)).toBeChecked()
-    });
-    await saveIcon.click();
-    await expect(icon).toBeHidden();
-    await expectScreenshot('project-identity-saved', {
-      target: dialog,
-      ready: () =>
-        expect(
-          dialog.getByRole('button', { name: copy.SubjectIconChange, exact: true })
-        ).toBeEnabled()
-    });
     await page.reload();
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     await navigation.getByRole('button', { name: copy.ProjectSettingsTitle, exact: true }).click();
     await dialog.getByRole('button', { name: 'Renamed settings subject', exact: true }).click();
     await expect(name).toHaveValue('Renamed settings subject');
     await dialog.getByRole('button', { name: copy.SubjectIconChange, exact: true }).click();
-    await expect(emojis.getByRole('radio').nth(1)).toBeChecked();
-    await expect(colors.getByRole('radio').nth(1)).toBeChecked();
-    await expectScreenshot('project-identity-reopened', {
-      target: icon,
-      ready: () => expect(emojis.getByRole('radio').nth(1)).toBeChecked()
-    });
+    await expect(letters).toHaveValue('ÈC');
     await icon.getByRole('button', { name: copy.Cancel, exact: true }).click();
     await expect(icon).toBeHidden();
     await dialog.getByRole('button', { name: copy.ProjectSettingsDelete, exact: true }).click();
@@ -2724,6 +2656,145 @@ testE2e(
       target: dialog,
       ready: () => expect(dialog.getByText(copy.NoProjectsYet, { exact: true })).toBeVisible()
     });
+  }
+);
+
+async function openProjectIconSettings(page: Page) {
+  await page.goto('/notes');
+  await page.getByRole('combobox', { name: copy.ChooseProject }).click();
+  await page
+    .locator('[data-slot="combobox-popup"]')
+    .getByRole('button', { name: copy.NewProject, exact: true })
+    .click();
+  const create = page.getByRole('dialog', { name: copy.NewProject, exact: true });
+
+  await create
+    .getByRole('textbox', { name: copy.ProjectName, exact: true })
+    .fill('Renamed settings subject');
+  await create.getByRole('button', { name: copy.CreateProject, exact: true }).click();
+  await expect(create).toBeHidden();
+  await page.getByRole('button', { name: copy.Settings, exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: copy.Settings });
+  const navigation = dialog.getByRole('navigation');
+
+  await navigation.getByRole('button', { name: copy.ProjectSettingsTitle, exact: true }).click();
+  await dialog.getByRole('button', { name: 'Renamed settings subject', exact: true }).click();
+  await dialog.getByRole('button', { name: copy.SubjectIconChange, exact: true }).click();
+  const icon = page.getByRole('dialog', { name: copy.SubjectIconTitle, exact: true });
+
+  await icon.getByRole('button', { name: copy.SubjectIconCustom, exact: true }).click();
+  await icon.getByRole('textbox', { name: copy.SubjectIconLetters, exact: true }).fill('èc');
+  const saveIcon = icon.getByRole('button', { name: copy.Save, exact: true });
+
+  await saveIcon.click();
+  await expect(icon).toBeHidden();
+  await dialog.getByRole('button', { name: copy.SubjectIconChange, exact: true }).click();
+
+  return { dialog, navigation, icon, saveIcon };
+}
+
+async function captureProjectIconChoices(
+  icon: Locator,
+  group: Locator,
+  prefix: string,
+  expectScreenshot: ExpectScreenshot
+) {
+  const choices = group.getByRole('radio');
+
+  await expect(group).toBeVisible();
+  const count = await choices.count();
+
+  expect(count).toBeGreaterThan(1);
+
+  for (let index = 0; index < count; index++) {
+    await choices.nth(index).click();
+    await expectScreenshot(`${prefix}-${index}`, {
+      target: icon,
+      ready: () => expect(choices.nth(index)).toBeChecked()
+    });
+  }
+
+  await choices.nth(1).click();
+}
+
+testE2e(
+  'Project settings search select and persist every symbol',
+  async ({ page, expectScreenshot }) => {
+    const { dialog, icon, saveIcon } = await openProjectIconSettings(page);
+
+    await icon.getByRole('button', { name: copy.SubjectIconSymbols, exact: true }).click();
+    const symbolSearch = icon.getByRole('textbox', { name: copy.SubjectIconSearch, exact: true });
+
+    await symbolSearch.fill('no-symbol-928');
+    await expect(icon.getByText(copy.SearchNoResults, { exact: true })).toBeVisible();
+    await expectScreenshot('project-symbol-search-empty', {
+      target: icon,
+      ready: () => expect(icon.getByText(copy.SearchNoResults, { exact: true })).toBeVisible()
+    });
+    await symbolSearch.fill('');
+    const symbols = icon.getByRole('radiogroup', { name: copy.SubjectIconSymbols, exact: true });
+
+    await captureProjectIconChoices(icon, symbols, 'project-symbol', expectScreenshot);
+    await expectScreenshot('project-symbol-selected', {
+      target: icon,
+      ready: () => expect(symbols.getByRole('radio').nth(1)).toBeChecked()
+    });
+    await saveIcon.click();
+    await expect(icon).toBeHidden();
+    await dialog.getByRole('button', { name: copy.SubjectIconChange, exact: true }).click();
+    await expect(symbols.getByRole('radio').nth(1)).toBeChecked();
+    await expectScreenshot('project-symbol-reopened', {
+      target: icon,
+      ready: () => expect(symbols.getByRole('radio').nth(1)).toBeChecked()
+    });
+  }
+);
+
+testE2e(
+  'Project settings select every emoji and color and persist the identity',
+  async ({ page, expectScreenshot }) => {
+    const { dialog, navigation, icon, saveIcon } = await openProjectIconSettings(page);
+
+    await icon.getByRole('button', { name: copy.SubjectIconEmojis, exact: true }).click();
+    const emojis = icon.getByRole('radiogroup', { name: copy.SubjectIconEmojis, exact: true });
+
+    await captureProjectIconChoices(icon, emojis, 'project-emoji', expectScreenshot);
+    await expectScreenshot('project-emoji-selected', {
+      target: icon,
+      ready: () => expect(emojis.getByRole('radio').nth(1)).toBeChecked()
+    });
+    const colors = icon.getByRole('radiogroup', { name: copy.SubjectIconColor, exact: true });
+
+    await captureProjectIconChoices(icon, colors, 'project-color', expectScreenshot);
+    await expectScreenshot('project-color-selected', {
+      target: icon,
+      ready: () => expect(colors.getByRole('radio').nth(1)).toBeChecked()
+    });
+    await saveIcon.click();
+    await expect(icon).toBeHidden();
+    await expectScreenshot('project-identity-saved', {
+      target: dialog,
+      ready: () =>
+        expect(
+          dialog.getByRole('button', { name: copy.SubjectIconChange, exact: true })
+        ).toBeEnabled()
+    });
+    await page.reload();
+    await page.getByRole('button', { name: copy.Settings, exact: true }).click();
+    await navigation.getByRole('button', { name: copy.ProjectSettingsTitle, exact: true }).click();
+    await dialog.getByRole('button', { name: 'Renamed settings subject', exact: true }).click();
+    await expect(dialog.getByRole('textbox', { name: copy.ProjectName, exact: true })).toHaveValue(
+      'Renamed settings subject'
+    );
+    await dialog.getByRole('button', { name: copy.SubjectIconChange, exact: true }).click();
+    await expect(emojis.getByRole('radio').nth(1)).toBeChecked();
+    await expect(colors.getByRole('radio').nth(1)).toBeChecked();
+    await expectScreenshot('project-identity-reopened', {
+      target: icon,
+      ready: () => expect(emojis.getByRole('radio').nth(1)).toBeChecked()
+    });
+    await icon.getByRole('button', { name: copy.Cancel, exact: true }).click();
+    await expect(icon).toBeHidden();
   }
 );
 
