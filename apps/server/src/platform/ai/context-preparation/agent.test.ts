@@ -11,11 +11,11 @@
  */
 
 import type { LanguageModelV3 } from '@ai-sdk/provider';
-import type { agentObservationSchema } from '@study/contracts/ai/progress';
-import { promptInputSchema } from '@study/contracts/ai/shared';
-import { failureSchema, StudyError } from '@study/contracts/errors';
-import { AgentRule } from '@study/contracts/settings/schemas';
-import { defaultAgentRules } from '@study/contracts/settings/types';
+import type { agentObservationSchema } from '@study/contracts';
+import { promptInputSchema } from '@study/contracts';
+import { failureSchema, StudyError } from '@study/contracts';
+import { AgentRule } from '@study/contracts';
+import { defaultAgentRules } from '@study/contracts';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Schema, Stream } from 'effect';

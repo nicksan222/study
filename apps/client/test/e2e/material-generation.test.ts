@@ -1,5 +1,5 @@
-import { StudyError } from '@study/contracts/errors';
-import { Appearance, Language, defaultQuizSettings } from '@study/contracts/settings/types';
+import { StudyError } from '@study/contracts';
+import { Appearance, Language, defaultQuizSettings } from '@study/contracts';
 import { catalogs } from '@study/localization';
 
 import { expect, testE2e } from './harness/index.ts';

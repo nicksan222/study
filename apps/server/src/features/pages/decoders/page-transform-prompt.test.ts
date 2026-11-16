@@ -10,11 +10,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import {
-  pageTransformContextSchema,
-  transformSnapshotSchema
-} from '@study/contracts/pages/transform';
-import { createBlock } from '@study/contracts/sources/document';
+import { pageTransformContextSchema, transformSnapshotSchema } from '@study/contracts';
+import { createBlock } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
 import { assert, expect } from 'vite-plus/test';

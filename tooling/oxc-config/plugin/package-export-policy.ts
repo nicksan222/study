@@ -10,7 +10,7 @@ const libraryExportFacets: Readonly<Record<string, readonly string[]>> = {
 };
 
 const applicationExportFacets: Readonly<Record<string, readonly string[]>> = {
-  server: ['client', 'runtime', 'runtime/ownership', 'runtime/database'],
+  server: ['client', 'runtime', 'runtime/ownership', 'runtime/database', 'testing'],
   client: ['feature-previews', 'feature-previews/catalog'],
   tooling: ['development/rpc-proxy']
 };
@@ -111,7 +111,15 @@ export function packageExportIssues(path: string, exportsValue: unknown): string
   const allowed = exportKeys(scope.library, facets);
 
   for (const [key, target] of Object.entries(exports))
-    issues.push(...exportEntryIssues(path, key, target, allowed, scope.sourcePrefix));
+    issues.push(
+      ...exportEntryIssues(
+        path,
+        key,
+        target,
+        allowed,
+        path === 'apps/server' && key === './testing' ? './test/testing/' : scope.sourcePrefix
+      )
+    );
 
   return issues;
 }

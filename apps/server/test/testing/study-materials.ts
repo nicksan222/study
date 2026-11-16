@@ -11,14 +11,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { MaterialVersionId } from '@study/contracts/ids';
-import type { ProjectId } from '@study/contracts/ids';
-import { contentInputKey, contentInputSchema } from '@study/contracts/inputs';
-import type { materialGenerationInputSchema } from '@study/contracts/materials/schemas';
-import type { appSettingsSchema, quizSettingsSchema } from '@study/contracts/settings/schemas';
-import { plainBlock } from '@study/contracts/sources/document';
-import { preferences } from '@study/db/schema';
-import type { createAiMock } from '@study/testing/ai-mock';
+import type { MaterialVersionId } from '@study/contracts';
+import type { ProjectId } from '@study/contracts';
+import { contentInputKey, contentInputSchema } from '@study/contracts';
+import type { materialGenerationInputSchema } from '@study/contracts';
+import type { appSettingsSchema, quizSettingsSchema } from '@study/contracts';
+import { plainBlock } from '@study/contracts';
+import { preferences } from '@study/db';
+import type { createAiMock } from '@study/testing';
 import { Effect } from 'effect';
 
 import { flashcardsAgent } from '#server/features/materials/agents/flashcards';

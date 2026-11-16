@@ -1,5 +1,5 @@
-import type { agentProgressInputSchema, agentProgressSchema } from '@study/contracts/ai/progress';
-import { AiActivity } from '@study/ui/ai-button';
+import type { agentProgressInputSchema, agentProgressSchema } from '@study/contracts';
+import { AiActivity } from '@study/ui';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

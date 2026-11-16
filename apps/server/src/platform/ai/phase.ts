@@ -1,6 +1,6 @@
 /** @file Provides the inherited semantic phase for model invocation progress. */
 
-import type { agentPhaseSchema } from '@study/contracts/ai/progress';
+import type { agentPhaseSchema } from '@study/contracts';
 import { Context } from 'effect';
 
 /** Semantic role of the current model invocation, inherited through its scoped work. */

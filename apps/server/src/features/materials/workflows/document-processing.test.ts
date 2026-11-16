@@ -13,12 +13,12 @@
  */
 
 import type { LanguageModelV3 } from '@ai-sdk/provider';
-import type { MaterialVersionId } from '@study/contracts/ids';
-import { materialGenerationPublicationSchema } from '@study/contracts/materials/schemas';
-import { defaultAgentRules } from '@study/contracts/settings/types';
-import { plainBlock } from '@study/contracts/sources/document';
-import { executionIdSchema } from '@study/contracts/workflows/schemas';
-import * as s from '@study/db/schema';
+import type { MaterialVersionId } from '@study/contracts';
+import { materialGenerationPublicationSchema } from '@study/contracts';
+import { defaultAgentRules } from '@study/contracts';
+import { plainBlock } from '@study/contracts';
+import { executionIdSchema } from '@study/contracts';
+import * as s from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option, Schedule } from 'effect';

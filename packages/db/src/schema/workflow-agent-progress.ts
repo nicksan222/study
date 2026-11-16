@@ -1,4 +1,4 @@
-import type { agentPhaseSchema } from '@study/contracts/ai/progress';
+import type { agentPhaseSchema } from '@study/contracts';
 
 import { sql, check, index, integer, defineTable, text } from '../schema-builder.ts';
 import { workflow_executions } from './workflows.ts';

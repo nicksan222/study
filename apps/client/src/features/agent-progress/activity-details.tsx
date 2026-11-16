@@ -1,10 +1,10 @@
-import type { agentProgressInputSchema, agentProgressSchema } from '@study/contracts/ai/progress';
-import { agentProgressLimit } from '@study/contracts/ai/progress';
+import type { agentProgressInputSchema, agentProgressSchema } from '@study/contracts';
+import { agentProgressLimit } from '@study/contracts';
 import { CompletedIcon, ErrorIcon, CancelledIcon, ThinkingIcon } from '@study/icons';
-import { Dialog, DialogPopup, DialogBody } from '@study/ui/dialog';
-import { DialogHeading } from '@study/ui/dialog-heading';
-import { GenerationPreview } from '@study/ui/generation-preview';
-import { Trace, TraceLine, TraceIcon, TraceTitle, TraceDescription } from '@study/ui/trace';
+import { Dialog, DialogPopup, DialogBody } from '@study/ui';
+import { DialogHeading } from '@study/ui';
+import { GenerationPreview } from '@study/ui';
+import { Trace, TraceLine, TraceIcon, TraceTitle, TraceDescription } from '@study/ui';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

@@ -11,8 +11,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { contentInputSchema } from '@study/contracts/inputs';
-import type { Document } from '@study/contracts/sources/document';
+import { contentInputSchema } from '@study/contracts';
+import type { Document } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Schema } from 'effect';
 import { assert } from 'vite-plus/test';

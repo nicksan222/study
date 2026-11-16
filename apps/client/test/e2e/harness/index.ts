@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { createStudyMaterials } from '@study/server/testing';
-import { createAiMock } from '@study/testing/ai-mock';
+import { createAiMock } from '@study/testing';
 import type { Page } from 'playwright';
 import { test } from 'playwright/test';
 

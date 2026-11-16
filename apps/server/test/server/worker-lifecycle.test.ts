@@ -14,8 +14,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { executionIdSchema } from '@study/contracts/workflows/schemas';
-import { workflow_executions, workflow_agent_progress } from '@study/db/schema';
+import { executionIdSchema } from '@study/contracts';
+import { workflow_executions, workflow_agent_progress } from '@study/db';
 import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
 import { assert, expect } from 'vite-plus/test';

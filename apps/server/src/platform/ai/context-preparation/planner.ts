@@ -10,10 +10,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { validBlockTextRange } from '@study/contracts/sources/document';
-import type { Block, Document } from '@study/contracts/sources/document';
-import { anchorSchema, blockIdSchema, documentSchema } from '@study/contracts/sources/schemas';
+import { StudyError } from '@study/contracts';
+import { validBlockTextRange } from '@study/contracts';
+import type { Block, Document } from '@study/contracts';
+import { anchorSchema, blockIdSchema, documentSchema } from '@study/contracts';
 import { Effect, Schema } from 'effect';
 
 const positive = Schema.Int.check(

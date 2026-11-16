@@ -63,6 +63,7 @@ export {
 } from './components/dialog-styles.ts';
 export {
   Dialog,
+  DialogBody,
   DialogClose,
   DialogDescription,
   DialogFooter,

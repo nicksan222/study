@@ -13,8 +13,8 @@
 
 import { BunCrypto } from '@effect/platform-bun';
 import { SqliteClient } from '@effect/sql-sqlite-bun';
-import { failureSchema, StudyError } from '@study/contracts/errors';
-import { contentInputSchema } from '@study/contracts/inputs';
+import { failureSchema, StudyError } from '@study/contracts';
+import { contentInputSchema } from '@study/contracts';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Schema, Layer, ManagedRuntime, Option, Schedule } from 'effect';

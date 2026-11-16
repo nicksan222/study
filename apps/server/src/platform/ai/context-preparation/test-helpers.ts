@@ -10,8 +10,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { Document } from '@study/contracts/sources/document';
-import { plainBlock } from '@study/contracts/sources/document';
+import type { Document } from '@study/contracts';
+import { plainBlock } from '@study/contracts';
 
 export function document(texts: string[]): Document {
   return {

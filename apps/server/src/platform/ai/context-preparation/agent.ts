@@ -11,10 +11,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { promptInputSchema } from '@study/contracts/ai/shared';
-import { StudyError } from '@study/contracts/errors';
-import type { Failure } from '@study/contracts/errors';
-import type { Document } from '@study/contracts/sources/document';
+import type { promptInputSchema } from '@study/contracts';
+import { StudyError } from '@study/contracts';
+import type { Failure } from '@study/contracts';
+import type { Document } from '@study/contracts';
 import type { ModelMessage } from 'ai';
 import { Effect, Schema } from 'effect';
 

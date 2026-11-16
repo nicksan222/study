@@ -12,9 +12,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { materialStudyNotesSchema as studyNotesSchema } from '@study/contracts/ai/material-study-notes';
-import { promptInputSchema } from '@study/contracts/ai/shared';
-import { AgentRule } from '@study/contracts/settings/schemas';
+import { materialStudyNotesSchema as studyNotesSchema } from '@study/contracts';
+import { promptInputSchema } from '@study/contracts';
+import { AgentRule } from '@study/contracts';
 
 import { defineAgent } from '#server/platform/definitions/define-agent';
 

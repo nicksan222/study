@@ -10,8 +10,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { Failure } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
+import type { Failure } from '@study/contracts';
 import { Effect, Schema } from 'effect';
 
 import { resumableActivity } from '#server/platform/definitions/define-activity';
