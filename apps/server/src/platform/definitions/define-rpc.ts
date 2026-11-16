@@ -14,7 +14,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts';
+import { encodeFailure, StudyError } from '@study/contracts';
 import type { Failure } from '@study/contracts';
 import { EndpointPolicy } from '@study/contracts';
 import { Context, Effect, Stream, Queue } from 'effect';
@@ -27,27 +27,17 @@ import { LiveQueries } from '#server/platform/database/live-queries';
 type LiveServices<R extends Rpc.Any> =
   Extract<R['_tag'], `${string}.live`> extends never ? never : LiveQueries;
 
-type DomainError<E> = E | (Failure extends E ? StudyError : never);
-
-type DomainResult<A> =
-  A extends Rpc.Wrapper<infer V>
-    ? Rpc.Wrapper<DomainResult<V>>
-    : A extends Effect.Effect<infer V, infer E, infer R>
-      ? Effect.Effect<
-          V extends Queue.Dequeue<infer A, infer QE> ? Queue.Dequeue<A, DomainError<QE>> : V,
-          DomainError<E>,
-          R
-        >
-      : A extends Stream.Stream<infer V, infer E, infer R>
-        ?
-            | Stream.Stream<V, DomainError<E>, R>
-            | Effect.Effect<Stream.Stream<V, DomainError<E>, R>, DomainError<E>, R>
-        : never;
+// Native RPC already accepts StudyError structurally as Failure. The only extra
+// result form is an effect that acquires a stream before native RPC consumes it.
+type InitializedStream<A> =
+  A extends Stream.Stream<infer V, infer E, infer R>
+    ? A | Effect.Effect<Stream.Stream<V, E, R>, E, R>
+    : A;
 
 type Handlers<R extends Rpc.Any> = {
   readonly [Current in R as Current['_tag'] extends `${string}.live` ? never : Current['_tag']]: (
     ...args: Parameters<Rpc.ToHandlerFn<Current>>
-  ) => DomainResult<ReturnType<Rpc.ToHandlerFn<Current>>>;
+  ) => Rpc.WrapperOr<InitializedStream<Rpc.ResultFrom<Current, any>>>;
 };
 
 type NativeResult<A> =
@@ -64,9 +54,7 @@ type NativeHandlers<H> = {
 };
 
 function failure<E>(error: E): Exclude<E, StudyError> | Failure {
-  return error instanceof StudyError
-    ? { kind: error.kind, message: error.message, retryAfterMs: error.retryAfterMs }
-    : (error as Exclude<E, StudyError>);
+  return error instanceof StudyError ? encodeFailure(error) : (error as Exclude<E, StudyError>);
 }
 
 function mapResult(
@@ -165,7 +153,9 @@ function rpcLayer<R extends Rpc.Any, H extends Handlers<R>, E, Init>(
             live.watch(
               policy.dependencies,
               Effect.suspend(() => {
-                const result = invoke(...args);
+                // Snapshot execution belongs to the live-query scope; unary RPC
+                // scheduling options must not make its subscription uninterruptible.
+                const result = Rpc.unwrap(invoke(...args));
 
                 if (!Effect.isEffect(result))
                   throw new TypeError(`Live snapshot must return an Effect: ${unaryTag}`);

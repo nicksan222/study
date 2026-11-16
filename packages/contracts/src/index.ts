@@ -31,7 +31,14 @@ export {
   signInStatusSchema
 } from './auth/schemas.ts';
 export type { ErrorKind, Failure } from './errors.ts';
-export { errorKindSchema, failureSchema, isRetryable, needsSetup, StudyError } from './errors.ts';
+export {
+  encodeFailure,
+  errorKindSchema,
+  failureSchema,
+  isRetryable,
+  needsSetup,
+  StudyError
+} from './errors.ts';
 export type { QuizAnswerSubmitted, SourcePublicationRequested, WorkflowEvent } from './events.ts';
 export {
   integrationImportRequestedSchema,

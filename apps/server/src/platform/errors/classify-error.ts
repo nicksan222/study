@@ -14,20 +14,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts';
+import { encodeFailure, StudyError } from '@study/contracts';
 import type { Failure } from '@study/contracts';
 import { DrizzleQueryError } from '@study/db';
 
 export function classifyError(error: unknown): Failure {
   if (error instanceof DrizzleQueryError) return classifyError(error.cause);
 
-  if (error instanceof StudyError)
-    return {
-      kind: error.kind,
-      ...(error.resource ? { resource: error.resource } : {}),
-      message: error.message,
-      retryAfterMs: error.retryAfterMs
-    };
+  if (error instanceof StudyError) return encodeFailure(error);
 
   const e = error as {
     code?: string;

@@ -25,6 +25,9 @@ export const failureSchema = Schema.Struct({
 
 export type Failure = typeof failureSchema.Type;
 
+/** Encode only public failure fields, including non-enumerable Error.message. */
+export const encodeFailure = Schema.encodeSync(failureSchema);
+
 export class StudyError extends Error {
   readonly kind: ErrorKind;
   readonly retryAfterMs: number | null;
