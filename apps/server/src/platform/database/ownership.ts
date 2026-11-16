@@ -14,6 +14,7 @@
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { StudyError } from '@study/contracts';
 import { CryptoHasher, listen } from 'bun';
+import type { SocketHandler } from 'bun';
 import { Effect, FileSystem, Layer, Option, Path } from 'effect';
 
 import { runFileSystemPromise } from '#server/platform/filesystem/index';
@@ -41,8 +42,9 @@ async function databasePath(path: string) {
   );
 }
 
-/** Kernel-held loopback binding gives all supported launchers a crash-released lease.
- * Hash collisions or occupied ports fail closed; never try an alternate endpoint.
+/** Kernel-held bindings release on process exit without stale filesystem entries.
+ * Linux uses the full path hash in an abstract socket, outside the TCP port namespace.
+ * Other platforms retain the loopback lease. Occupied endpoints always fail closed.
  */
 
 export async function acquireDatabaseOwnership(path: string) {
@@ -52,23 +54,25 @@ export async function acquireDatabaseOwnership(path: string) {
 
   const identity = process.platform === 'win32' ? canonical.toLowerCase() : canonical;
 
-  const digest = new CryptoHasher('sha256').update(identity).digest();
-  const port =
-    1024 + (new DataView(digest.buffer, digest.byteOffset, digest.byteLength).getUint32(0) % 64512);
+  const digest = new CryptoHasher('sha256').update(identity).digest('hex');
+  const socket: SocketHandler = {
+    data: () => {},
+    open: (connection) => {
+      connection.end();
+    }
+  };
 
   let server: { stop(closeActiveConnections?: boolean): void };
 
   try {
-    server = listen({
-      hostname: '127.0.0.1',
-      port,
-      socket: {
-        data: () => {},
-        open: (socket) => {
-          socket.end();
-        }
-      }
-    });
+    server =
+      process.platform === 'linux'
+        ? listen({ unix: `\0study-database-${digest}`, socket })
+        : listen({
+            hostname: '127.0.0.1',
+            port: 1024 + (Number.parseInt(digest.slice(0, 8), 16) % 64512),
+            socket
+          });
   } catch (cause) {
     throw new StudyError('transient', 'Database ownership is unavailable', { cause });
   }
