@@ -13,11 +13,11 @@
  */
 
 import { MaterialsRpc } from '@study/contracts';
+import { defineRpc } from '@study/server';
 import { Effect } from 'effect';
 
 import { Materials } from '#server/features/materials/service/index';
 import { Notes } from '#server/features/notes/index';
-import { defineRpc } from '#server/platform/definitions/define-rpc';
 
 export const MaterialsRpcLive = defineRpc(
   MaterialsRpc,

@@ -1,6 +1,7 @@
 /** @file Owns library within this feature. */
 
 import type { exportPageInputSchema } from '@study/contracts';
+import { transaction, useStore } from '@study/server';
 
 import {
   PageComparisonsStore,
@@ -10,7 +11,6 @@ import {
   PageVersionsStore,
   PagesStore
 } from '#server/features/pages/store/index';
-import { transaction, useStore } from '#server/platform/definitions/define-store';
 
 import { serializePageVersion } from './export-serializer.ts';
 

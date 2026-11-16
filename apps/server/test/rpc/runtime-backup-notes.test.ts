@@ -230,7 +230,7 @@ test.server.stable(
     const { noteReplyWorkflow, noteReplyHandler } =
       await import('#server/features/notes/workflows/index');
 
-    const { decodeEvent } = await import('#server/platform/workflows/events');
+    const { decodeEvent } = await import('@study/server');
 
     const { WorkflowEngine } = await import('effect/workflow');
 

@@ -1,4 +1,5 @@
 import type { ProjectId } from '@study/contracts';
+import { ServerContext, Database } from '@study/server';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies project validation, lookup semantics, pagination, and mutations through   │
@@ -16,9 +17,6 @@ import type { ProjectId } from '@study/contracts';
  */
 import { test } from '@study/testing';
 import { Effect, Layer, Option } from 'effect';
-
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 
 import { Projects } from './index.ts';
 

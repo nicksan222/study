@@ -1,6 +1,6 @@
 /** @file Composes learning persistence with canonical typed store declarations. */
 
-import { defineStore } from '#server/platform/definitions/define-store';
+import { defineStore } from '@study/server';
 
 import { makeAttemptStore } from './attempts.ts';
 import { makeCardStore } from './cards.ts';

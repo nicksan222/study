@@ -1,4 +1,5 @@
 import { defaultAgentRules } from '@study/contracts';
+import { ServerContext, Database } from '@study/server';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exposes schema-checked settings capabilities and their agent-facing usage          │
@@ -14,9 +15,6 @@ import { defaultAgentRules } from '@study/contracts';
  */
 import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 
 import { settingsTools } from './settings.ts';
 import { subjectTools } from './subjects.ts';

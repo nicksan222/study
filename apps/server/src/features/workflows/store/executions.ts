@@ -7,10 +7,9 @@ import {
   executionsInputSchema
 } from '@study/contracts';
 import { and, desc, eq, inArray, lt, or, sql, workflow_executions } from '@study/db';
+import { storeQuery } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Option, Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeQuery } from '#server/platform/definitions/define-store';
 
 import { columns, makeHelpers, view } from './execution-rows.ts';
 

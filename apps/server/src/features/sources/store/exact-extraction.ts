@@ -16,11 +16,9 @@ import { StudyError } from '@study/contracts';
 import * as c from '@study/contracts';
 import { and, asc, desc, eq, gt, lt, or, sql } from '@study/db';
 import * as s from '@study/db';
+import { decodeStoredBlock, defineStore, storeQuery, storeMutation } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema, Option } from 'effect';
-
-import { decodeStoredBlock } from '#server/platform/database/content-block';
-import { defineStore, storeQuery, storeMutation } from '#server/platform/definitions/define-store';
-import type { StoreResources } from '#server/platform/definitions/define-store';
 
 function makeExtractions({ db }: StoreResources) {
   function extraction(v: typeof c.exactExtractionInputSchema.Type) {

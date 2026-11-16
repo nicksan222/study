@@ -19,14 +19,12 @@ import {
   defaultQuizSettings
 } from '@study/contracts';
 import { sql } from '@study/db';
+import { admissionLayer, makeAdmission, ServerContext, Database } from '@study/server';
 import { test } from '@study/testing';
 import { Deferred, Effect, Exit, Fiber, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
 import { Settings } from '#server/features/settings/index';
-import { admissionLayer, makeAdmission } from '#server/platform/ai/admission';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 import { testLiveQueries } from '#testing/live-queries';
 
 import { SettingsRpcLive } from './index.ts';

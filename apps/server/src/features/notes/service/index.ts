@@ -1,11 +1,11 @@
 /** @file Composes notes application operations behind the feature boundary. */
 
 import type { createNoteInputSchema } from '@study/contracts';
+import { defineService } from '@study/server';
+import type { Transaction } from '@study/server';
 
 import { NoteBackupStore } from '#server/features/notes/store/backup';
 import { NoteStore } from '#server/features/notes/store/index';
-import { defineService } from '#server/platform/definitions/define-service';
-import type { Transaction } from '#server/platform/definitions/define-store';
 
 import { noteArchiveOperations } from './archive-operations.ts';
 import { noteContextOperations } from './context.ts';

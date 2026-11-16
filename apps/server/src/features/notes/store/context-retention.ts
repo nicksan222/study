@@ -1,8 +1,7 @@
 /** @file Owns context retention within this feature. */
 
 import { replySnapshotInputSchema, runSelectionContextSchema } from '@study/contracts';
-
-import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+import { defineStore, storeQuery } from '@study/server';
 
 import { makeContextReads } from './context-reads.ts';
 

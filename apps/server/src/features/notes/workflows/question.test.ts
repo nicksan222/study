@@ -14,6 +14,15 @@ import { noteQuestionRequestedSchema } from '@study/contracts';
  */
 import { defaultAgentRules } from '@study/contracts';
 import { workflowEvents } from '@study/db';
+import {
+  agentsLayer,
+  ServerContext,
+  Database,
+  normalizeError,
+  WorkflowConfiguration,
+  workflowEngineLayer,
+  decodeEvent
+} from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import type { Context } from 'effect';
@@ -22,13 +31,6 @@ import { WorkflowEngine } from 'effect/workflow';
 import { questionAgent } from '#server/features/notes/agents/question';
 import { Notes } from '#server/features/notes/index';
 import { Settings } from '#server/features/settings/index';
-import { layer as agentsLayer } from '#server/platform/ai/agents';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { normalizeError } from '#server/platform/errors/classify-error';
-import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
-import { workflowEngineLayer } from '#server/platform/workflows/engine';
-import { decodeEvent } from '#server/platform/workflows/events';
 import { workflowDefinitions, workflowTriggers } from '#server/runtime/workflows';
 import { withTestAdmission } from '#testing/workflow-admission';
 

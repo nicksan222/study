@@ -21,15 +21,13 @@ import type { quizAttemptInProgressSchema } from '@study/contracts';
 import { isTextQuestionKind } from '@study/contracts';
 import { and, asc, eq } from '@study/db';
 import * as s from '@study/db';
+import { requireRow, invalid } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import { requireRow } from '#server/platform/database/rows';
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { invalid } from '#server/platform/errors/domain-error';
 
 import { matchingView } from './matching.ts';
 
-export { unixSeconds as now } from '#server/platform/time/index';
+export { unixSeconds as now } from '@study/server';
 
 /** Reads attempt snapshots while keeping canonical answers private until completion. */
 export function makeQuiz(resources: StoreResources) {

@@ -16,6 +16,7 @@ import type { PageVersion } from '@study/contracts';
 import { createBlock } from '@study/contracts';
 import { sql } from '@study/db';
 import type { Db } from '@study/db';
+import { ServerContext, Database, transaction } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
@@ -23,9 +24,6 @@ import { RpcTest } from 'effect/rpc';
 import { Pages } from '#server/features/pages/index';
 import { PagesRpcLive } from '#server/features/pages/rpc/index';
 import { SourceStore } from '#server/features/sources/store/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { transaction } from '#server/platform/definitions/define-store';
 import { testLiveQueries } from '#testing/live-queries';
 
 const body = (text: string, id?: PageVersion['document']['blocks'][number]['id']) => ({

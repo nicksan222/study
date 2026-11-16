@@ -7,6 +7,8 @@ import type {
   updateNoteSelectionSchema
 } from '@study/contracts';
 import { StudyError, resolvedSelectionSchema, selectionReferenceKey } from '@study/contracts';
+import { transaction, useStore } from '@study/server';
+import type { Transaction } from '@study/server';
 import { Option, Schema } from 'effect';
 
 import { NoteContextStore } from '#server/features/notes/store/context';
@@ -16,8 +18,6 @@ import { NoteStore } from '#server/features/notes/store/index';
 import { NoteSelectionStore } from '#server/features/notes/store/selection';
 import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
-import type { Transaction } from '#server/platform/definitions/define-store';
-import { transaction, useStore } from '#server/platform/definitions/define-store';
 
 import { activeNoteTargets } from './active-inputs.ts';
 import { resolveSelection } from './selection.ts';

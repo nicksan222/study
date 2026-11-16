@@ -18,11 +18,11 @@ import {
   selectThemeInputSchema
 } from '@study/contracts';
 import { themeFileSchema } from '@study/contracts';
+import { defineTool } from '@study/server';
 import { serializeTheme } from '@study/theme';
 import { Effect, Schema } from 'effect';
 
 import { Themes } from '#server/features/themes/index';
-import { defineTool } from '#server/platform/definitions/define-agent';
 
 export const themeTools = {
   list_themes: defineTool({

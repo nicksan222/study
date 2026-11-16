@@ -15,8 +15,7 @@
 import type { MaterialVersionId, MaterialId } from '@study/contracts';
 import { eq, inArray, and, sql } from '@study/db';
 import * as s from '@study/db';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
+import type { StoreResources } from '@study/server';
 
 type RetirementScope = { kind: 'deletion'; id: MaterialId } | { kind: 'history'; id: string };
 

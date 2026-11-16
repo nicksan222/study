@@ -13,9 +13,9 @@
 import { replyInputSchema, replyOutputSchema } from '@study/contracts';
 import type { NoteId } from '@study/contracts';
 import { AgentRule } from '@study/contracts';
+import { defineAgent } from '@study/server';
 
 import { noteAssistantTools } from '#server/features/notes/tools/note-assistant';
-import { defineAgent } from '#server/platform/definitions/define-agent';
 
 export const noteAssistantAgent = (noteId: NoteId) =>
   defineAgent({

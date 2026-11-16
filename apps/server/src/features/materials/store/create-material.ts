@@ -15,12 +15,12 @@
 import type { MaterialDetailDto } from '@study/contracts';
 import { createMaterialInputSchema } from '@study/contracts';
 import * as s from '@study/db';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
 
 import { required, makeReads } from '#server/features/materials/store/reads';
 import { materialIntegrity } from '#server/features/materials/store/transactions';
 import { now, makeWrites } from '#server/features/materials/store/writes';
-import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { makeNoteMembership } from './note-membership.ts';
 

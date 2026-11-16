@@ -3,10 +3,9 @@
 import type { ErrorKind, ProjectId } from '@study/contracts';
 import { contentInputSchema } from '@study/contracts';
 import { and, eq, inArray } from '@study/db';
+import { invalid } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { invalid } from '#server/platform/errors/domain-error';
 
 import { makePracticeFailures } from './practice-failures.ts';
 import type { Slot } from './practice-schemas.ts';

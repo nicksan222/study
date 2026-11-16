@@ -1,8 +1,7 @@
 /** @file Owns processing events within this feature. */
 
 import type { SourceId } from '@study/contracts';
-
-import type { Transaction } from '#server/platform/definitions/define-store';
+import type { Transaction } from '@study/server';
 
 export const requested = (
   tx: Transaction,

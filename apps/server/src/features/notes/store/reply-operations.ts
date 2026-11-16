@@ -12,9 +12,8 @@ import {
   runSelectionContextSchema
 } from '@study/contracts';
 import { and, eq, message_versions, messages, note_reply_requests, sql } from '@study/db';
+import { defineStore, storeMutation, storeQuery } from '@study/server';
 import { Schema } from 'effect';
-
-import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 
 import { makeReplyCapture } from './reply-capture.ts';
 import { generationMatches, replyTargetPredicate } from './reply-identity.ts';

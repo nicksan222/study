@@ -17,9 +17,8 @@ import type { MaterialVersionId } from '@study/contracts';
 import type { MaterialContentInput } from '@study/contracts';
 import { and, eq } from '@study/db';
 import * as s from '@study/db';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
 
 /** Persist version-owned content bodies inside the caller transaction. */
 export function makeContent({ db: store }: StoreResources) {

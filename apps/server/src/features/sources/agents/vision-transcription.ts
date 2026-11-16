@@ -14,8 +14,7 @@
 
 import { visionTranscriptionInputSchema, visionTranscriptionOutputSchema } from '@study/contracts';
 import { AgentRule } from '@study/contracts';
-
-import { defineAgent } from '#server/platform/definitions/define-agent';
+import { defineAgent } from '@study/server';
 
 export const visionTranscriptionAgent = defineAgent({
   id: 'vision-transcription',

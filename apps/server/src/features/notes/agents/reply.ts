@@ -15,10 +15,7 @@
 
 import { replyInputSchema, replyOutputSchema } from '@study/contracts';
 import { AgentRule } from '@study/contracts';
-
-import { sourcesTool } from '#server/platform/ai/captured-sources-tool';
-import { webSearchTool } from '#server/platform/ai/web-search-tool';
-import { defineAgent } from '#server/platform/definitions/define-agent';
+import { sourcesTool, webSearchTool, defineAgent } from '@study/server';
 
 export const replyAgent = defineAgent({
   id: 'reply',

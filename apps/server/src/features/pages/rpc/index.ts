@@ -14,11 +14,11 @@
 
 import { StudyError } from '@study/contracts';
 import { PagesRpc } from '@study/contracts';
+import { defineRpc } from '@study/server';
 import { Effect, Option } from 'effect';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/service/index';
-import { defineRpc } from '#server/platform/definitions/define-rpc';
 
 export const PagesRpcLive = defineRpc(
   PagesRpc,

@@ -16,14 +16,13 @@ import type { NoteId } from '@study/contracts';
 import { NotesRpc } from '@study/contracts';
 import { eq } from '@study/db';
 import { messages, note_deletions } from '@study/db';
+import { ServerContext, Database } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer, Option } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
 import { Notes } from '#server/features/notes/service/index';
 import { Settings } from '#server/features/settings/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 import { testLiveQueries } from '#testing/live-queries';
 
 import { NotesRpcLive } from './index.ts';

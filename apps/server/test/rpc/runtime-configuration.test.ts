@@ -1,3 +1,8 @@
+import { Agents } from '@study/server';
+import { encodeAccount } from '@study/server';
+import { Database } from '@study/server';
+import { transaction } from '@study/server';
+import { WorkflowConfiguration } from '@study/server';
 import { test } from '@study/testing';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
@@ -21,11 +26,6 @@ import { Effect } from 'effect';
 import { Auth } from '#server/features/auth/index';
 import { AuthStore } from '#server/features/auth/store/index';
 import { Settings } from '#server/features/settings/index';
-import { Agents } from '#server/platform/ai/agents';
-import { encodeAccount } from '#server/platform/ai/auth/index';
-import { Database } from '#server/platform/database/database';
-import { transaction } from '#server/platform/definitions/define-store';
-import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 
 test.server.stable(
   'same-account credential replacement changes the durable nonsecret fingerprint',

@@ -13,6 +13,7 @@ import type { MaterialId, ContentSnapshotId } from '@study/contracts';
 import { MaterialsRpc } from '@study/contracts';
 import { eq } from '@study/db';
 import * as s from '@study/db';
+import { decodeEvent } from '@study/server';
 import type { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
@@ -29,7 +30,6 @@ import {
   sourceCorrectionWorkflow,
   sourceCorrectionHandler
 } from '#server/features/sources/workflows/index';
-import { decodeEvent } from '#server/platform/workflows/events';
 import { testLiveQueries } from '#testing/live-queries';
 import type { MaterialDeletionFixture } from '#testing/material-deletion';
 import { admitTestExecution, refreshTestExecution } from '#testing/workflow-admission';

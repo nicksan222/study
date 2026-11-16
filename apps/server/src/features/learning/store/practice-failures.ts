@@ -4,9 +4,8 @@ import type { ErrorKind } from '@study/contracts';
 import { errorKindSchema } from '@study/contracts';
 import * as s from '@study/db';
 import { and, desc, eq, sql } from '@study/db';
+import type { StoreResources } from '@study/server';
 import { Cause, Exit, Option, Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import type { Slot } from './practice-schemas.ts';
 import { generationEventId, resultCodec } from './practice-schemas.ts';

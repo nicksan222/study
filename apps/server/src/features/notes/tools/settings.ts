@@ -14,14 +14,12 @@
 
 import { StudyError } from '@study/contracts';
 import * as schemas from '@study/contracts';
+import { AiAdmission, defineTool } from '@study/server';
+import type { Database, ToolWiki } from '@study/server';
 import { Effect, Option, Schema, Struct } from 'effect';
 import type { Context } from 'effect';
 
 import { Settings } from '#server/features/settings/index';
-import { AiAdmission } from '#server/platform/ai/admission';
-import type { Database } from '#server/platform/database/database';
-import { defineTool } from '#server/platform/definitions/define-agent';
-import type { ToolWiki } from '#server/platform/definitions/define-agent';
 
 type Service = Context.Service.Shape<typeof Settings>;
 

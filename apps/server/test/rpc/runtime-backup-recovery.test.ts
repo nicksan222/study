@@ -13,11 +13,11 @@ import { BunFileSystem, BunPath } from '@effect/platform-bun';
  */
 import { Db, sql } from '@study/db';
 import * as s from '@study/db';
+import { ManagedBackups } from '@study/server';
+import { acquireDatabaseOwnership } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, FileSystem, Path } from 'effect';
 
-import { ManagedBackups } from '#server/platform/database/backups';
-import { acquireDatabaseOwnership } from '#server/platform/database/ownership';
 import { backupPolicy } from '#server/runtime/backups';
 import { acceptance, backupFixture, createPage } from '#testing/managed-backups';
 

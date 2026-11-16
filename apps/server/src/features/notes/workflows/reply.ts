@@ -10,6 +10,17 @@ import {
   runPreferencesSchema,
   versionIdSchema
 } from '@study/contracts';
+import {
+  Agents,
+  generateAgent,
+  Database,
+  defineActivity,
+  publicationActivity,
+  resumableActivity,
+  defineWorkflow,
+  defineWorkflowHandler,
+  normalizeError
+} from '@study/server';
 import { Effect, Option, Schema } from 'effect';
 import { DurableDeferred } from 'effect/workflow';
 
@@ -18,16 +29,6 @@ import { convertCapturedMessage } from '#server/features/notes/service/conversio
 import { Notes } from '#server/features/notes/service/index';
 import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
-import { Agents, generateAgent } from '#server/platform/ai/agents';
-import { Database } from '#server/platform/database/database';
-import {
-  defineActivity,
-  publicationActivity,
-  resumableActivity
-} from '#server/platform/definitions/define-activity';
-import { defineWorkflow } from '#server/platform/definitions/define-workflow';
-import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
-import { normalizeError } from '#server/platform/errors/classify-error';
 
 import { prepareAssistantContext, toolRunnerForReply } from './internal/assistant-context.ts';
 import { attachmentGate } from './internal/attachment-gate.ts';

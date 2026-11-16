@@ -7,6 +7,7 @@ import type {
   postRecordingInputSchema,
   recordingPageInputSchema
 } from '@study/contracts';
+import { publicationTransaction, transaction, useStore, pageById } from '@study/server';
 
 import {
   RecordingPostSnapshotStore,
@@ -14,12 +15,6 @@ import {
   RecordingStore
 } from '#server/features/recordings/store/index';
 import type { finishRecordingPostInputSchema } from '#server/features/recordings/store/schemas';
-import {
-  publicationTransaction,
-  transaction,
-  useStore
-} from '#server/platform/definitions/define-store';
-import { pageById } from '#server/platform/definitions/page-by-id';
 
 export function* recordingOperations() {
   const recordings = yield* useStore(RecordingStore);

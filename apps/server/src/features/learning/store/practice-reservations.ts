@@ -4,12 +4,9 @@ import type { ContentInput, ProjectId } from '@study/contracts';
 import { contentInputKey, contentInputSchema } from '@study/contracts';
 import * as s from '@study/db';
 import { and, desc, eq, inArray } from '@study/db';
+import { contentInputColumns, requireRow, invalid } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import { contentInputColumns } from '#server/platform/database/content-input';
-import { requireRow } from '#server/platform/database/rows';
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { invalid } from '#server/platform/errors/domain-error';
 
 import { makePracticeQueries } from './practice-queries.ts';
 import type { Slot } from './practice-schemas.ts';

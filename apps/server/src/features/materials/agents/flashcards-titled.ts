@@ -14,8 +14,7 @@
 import { promptInputSchema } from '@study/contracts';
 import { titledFlashcardsGenerationOutputSchema } from '@study/contracts';
 import { AgentRule } from '@study/contracts';
-
-import { defineAgent } from '#server/platform/definitions/define-agent';
+import { defineAgent } from '@study/server';
 
 import { flashcardsAgent } from './flashcards.ts';
 import { titleInstructions } from './generated-title.ts';

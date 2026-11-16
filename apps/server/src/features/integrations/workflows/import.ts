@@ -6,14 +6,17 @@ import {
   integrationImportRequestedSchema,
   integrationImportSchema
 } from '@study/contracts';
+import {
+  Database,
+  publicationActivity,
+  defineWorkflow,
+  defineWorkflowHandler,
+  retryResumableActivity,
+  settleWorkflowFailure
+} from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { Integrations } from '#server/features/integrations/index';
-import { Database } from '#server/platform/database/database';
-import { publicationActivity } from '#server/platform/definitions/define-activity';
-import { defineWorkflow } from '#server/platform/definitions/define-workflow';
-import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
-import { retryResumableActivity, settleWorkflowFailure } from '#server/platform/workflows/retry';
 
 const integrationImportWorkflow = defineWorkflow({
   name: 'integration-import',

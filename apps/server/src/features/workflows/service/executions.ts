@@ -6,14 +6,12 @@ import type {
   executionsInputSchema
 } from '@study/contracts';
 import { agentProgressLimit } from '@study/contracts';
+import { databaseChanges, useStore, WorkflowControl } from '@study/server';
 import type { Cause } from 'effect';
 import { Effect, Queue, Stream } from 'effect';
 
 import { AgentProgressStore } from '#server/features/workflows/store/agent-progress';
 import { ExecutionStore } from '#server/features/workflows/store/index';
-import { databaseChanges } from '#server/platform/database/database';
-import { useStore } from '#server/platform/definitions/define-store';
-import { WorkflowControl } from '#server/platform/workflows/control';
 
 /** Compose workflow controls and persisted snapshot subscriptions over committed hints. */
 export function* makeWorkflows() {

@@ -12,8 +12,7 @@
 
 import { visionTranscriptionInputSchema, visionTranscriptionOutputSchema } from '@study/contracts';
 import { AgentRule } from '@study/contracts';
-
-import { defineAgent } from '#server/platform/definitions/define-agent';
+import { defineAgent } from '@study/server';
 
 import { visionTranscriptionAgent } from './vision-transcription.ts';
 

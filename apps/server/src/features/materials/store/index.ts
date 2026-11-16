@@ -1,6 +1,6 @@
 /** @file Composes materials persistence with canonical typed store declarations. */
 
-import { defineStore } from '#server/platform/definitions/define-store';
+import { defineStore } from '@study/server';
 
 import { makeMaterialCitationsStore } from './citations.ts';
 import { makeMaterialActiveGenerationsStore, makeMaterialGenerationStore } from './generation.ts';

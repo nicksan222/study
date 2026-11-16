@@ -4,11 +4,10 @@ import type { ErrorKind } from '@study/contracts';
 import { StudyError, materialGenerationInputSchema } from '@study/contracts';
 import * as s from '@study/db';
 import { eq } from '@study/db';
+import { decodeEvent } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { decodeEvent } from '#server/platform/workflows/events';
 
 import { makeGenerationEvents } from './generation-events.ts';
 import { makeGenerationQueries } from './generation-queries.ts';

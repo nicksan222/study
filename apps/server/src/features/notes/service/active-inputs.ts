@@ -13,11 +13,11 @@
 import { StudyError } from '@study/contracts';
 import type { NoteId } from '@study/contracts';
 import type { noteContextIntentSchema, noteSelectionTargetSchema } from '@study/contracts';
+import type { Transaction } from '@study/server';
 
 import { NoteMaterialMembershipStore } from '#server/features/notes/store/archive';
 import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
-import type { Transaction } from '#server/platform/definitions/define-store';
 
 /** Every active note membership supplies its current complete body automatically. */
 export function activeNoteTargets(

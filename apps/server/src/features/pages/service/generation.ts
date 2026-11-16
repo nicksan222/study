@@ -1,9 +1,9 @@
 /** @file Owns generation within this feature. */
 
 import type * as e from '@study/contracts';
+import { publicationTransaction } from '@study/server';
 
 import { PagesStore } from '#server/features/pages/store/index';
-import { publicationTransaction } from '#server/platform/definitions/define-store';
 
 export function pageGenerationOperations() {
   return {

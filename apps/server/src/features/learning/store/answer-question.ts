@@ -17,10 +17,9 @@ import { orderingAnswerJsonSchema } from '@study/contracts';
 import { isTextQuestionKind } from '@study/contracts';
 import { and, eq } from '@study/db';
 import * as s from '@study/db';
+import { invalid } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { invalid } from '#server/platform/errors/domain-error';
 
 import { encodeAssociations, matchingScore } from './matching.ts';
 import { makeQuiz } from './quiz.ts';

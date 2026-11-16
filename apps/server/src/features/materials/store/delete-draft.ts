@@ -14,8 +14,7 @@
 
 import type { deleteDraftInputSchema } from '@study/contracts';
 import { StudyError } from '@study/contracts';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
+import type { StoreResources } from '@study/server';
 
 type Input = typeof deleteDraftInputSchema.Type;
 

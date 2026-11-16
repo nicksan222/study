@@ -6,18 +6,18 @@ import {
   quizAnswerSubmittedSchema,
   quizAttemptSchema
 } from '@study/contracts';
+import {
+  generateAgent,
+  Database,
+  publicationActivity,
+  resumableActivity,
+  defineWorkflow,
+  defineWorkflowHandler
+} from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { learningGradeAgent } from '#server/features/learning/agents/learning-grade';
 import { Learning } from '#server/features/learning/service/index';
-import { generateAgent } from '#server/platform/ai/agents';
-import { Database } from '#server/platform/database/database';
-import {
-  publicationActivity,
-  resumableActivity
-} from '#server/platform/definitions/define-activity';
-import { defineWorkflow } from '#server/platform/definitions/define-workflow';
-import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 
 export const quizGradingWorkflow = defineWorkflow({
   name: 'quiz-grading',

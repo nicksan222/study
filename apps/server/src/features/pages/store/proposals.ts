@@ -1,10 +1,9 @@
 /** @file Builds pages proposals queries and mutations with bound store resources. */
 
 import * as e from '@study/contracts';
+import { storeMutation, storeQuery } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Option, Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 
 import { makePageDomain } from './domain.ts';
 

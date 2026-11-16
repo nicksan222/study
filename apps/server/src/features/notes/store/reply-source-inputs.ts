@@ -14,8 +14,7 @@ import { StudyError } from '@study/contracts';
 import type { replySnapshotSchema } from '@study/contracts';
 import { and, eq } from '@study/db';
 import { note_reply_sources } from '@study/db';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
+import type { StoreResources } from '@study/server';
 
 type Snapshot = typeof replySnapshotSchema.Type;
 

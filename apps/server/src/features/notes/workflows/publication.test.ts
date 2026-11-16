@@ -23,16 +23,13 @@ import {
   source_snapshots,
   source_extraction_revisions
 } from '@study/db';
+import { ServerContext, Database, workflowEngineLayer, withPublicationGuard } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
 
 import { Notes } from '#server/features/notes/service/index';
 import { Projects } from '#server/features/projects/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { workflowEngineLayer } from '#server/platform/workflows/engine';
-import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { withTestAdmission } from '#testing/workflow-admission';
 
 test.server.stable(

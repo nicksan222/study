@@ -1,8 +1,9 @@
 /** @file Composes themes application operations behind the feature boundary. */
 
+import { defineService } from '@study/server';
+import type { Transaction } from '@study/server';
+
 import { ThemeBackupStore } from '#server/features/themes/store/index';
-import { defineService } from '#server/platform/definitions/define-service';
-import type { Transaction } from '#server/platform/definitions/define-store';
 
 import { themeOperations } from './themes.ts';
 

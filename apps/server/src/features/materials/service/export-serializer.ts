@@ -15,9 +15,8 @@ import { StudyError } from '@study/contracts';
 import { materialAidExportSchema, MAX_EXPORT_BYTES } from '@study/contracts';
 import type { learningExportFormatSchema, exportOmissionSchema } from '@study/contracts';
 import type { materialCitationSchema, MaterialVersionDetailDto } from '@study/contracts';
+import { exportBudget } from '@study/server';
 import { Schema } from 'effect';
-
-import { exportBudget } from '#server/platform/content-export/budget';
 
 const json = (value: unknown) =>
   JSON.stringify(value, (_, item: unknown) => (typeof item === 'bigint' ? item.toString() : item));

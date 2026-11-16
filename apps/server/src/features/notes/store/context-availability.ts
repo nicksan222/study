@@ -13,8 +13,7 @@
 import { StudyError } from '@study/contracts';
 import { and, eq } from '@study/db';
 import { note_retired_intents, workflow_retired_correlations } from '@study/db';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
+import type { StoreResources } from '@study/server';
 
 export function makeAssertContextAvailable({ db }: StoreResources) {
   return (requestId: string, actionable = true) => {

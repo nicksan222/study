@@ -2,9 +2,8 @@
 
 import { replySnapshotInputSchema } from '@study/contracts';
 import { eq, messages } from '@study/db';
+import { defineStore, storeQuery } from '@study/server';
 import { Schema } from 'effect';
-
-import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 
 import { makeContextReads } from './context-reads.ts';
 

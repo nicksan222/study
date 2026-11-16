@@ -5,11 +5,11 @@ import type {
   reviewCardInputSchema,
   reviewHistoryInputSchema
 } from '@study/contracts';
+import { transaction, useStore } from '@study/server';
 import { Effect } from 'effect';
 
 import { CardStore, ReviewStore } from '#server/features/learning/store/index';
 import { Settings } from '#server/features/settings/index';
-import { transaction, useStore } from '#server/platform/definitions/define-store';
 
 export function* learningReviewOperations() {
   const settings = yield* Settings;

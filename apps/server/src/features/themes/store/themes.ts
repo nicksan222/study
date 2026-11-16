@@ -7,10 +7,9 @@ import {
   themePageInputSchema
 } from '@study/contracts';
 import { eq, gt, sql, themes } from '@study/db';
+import { storeMutation, storeQuery } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Option, Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 
 function makeHelpers({ db }: StoreResources) {
   const find = (id: string) => db.orm.select().from(themes).where(eq(themes.id, id)).get();

@@ -7,11 +7,10 @@ import type {
   sourceProcessingRequestedSchema
 } from '@study/contracts';
 import { contentSnapshotIdSchema } from '@study/contracts';
+import { Database, publicationActivity } from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { Sources } from '#server/features/sources/service/index';
-import { Database } from '#server/platform/database/database';
-import { publicationActivity } from '#server/platform/definitions/define-activity';
 
 export function noticeSourceFailure(
   event: typeof sourceProcessingRequestedSchema.Type | typeof sourceCorrectionRequestedSchema.Type

@@ -15,10 +15,8 @@
 import type { startQuizInputSchema } from '@study/contracts';
 import { eq } from '@study/db';
 import * as s from '@study/db';
-
-import { requireRow } from '#server/platform/database/rows';
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { invalid } from '#server/platform/errors/domain-error';
+import { requireRow, invalid } from '@study/server';
+import type { StoreResources } from '@study/server';
 
 import { now, makeQuiz } from './quiz.ts';
 

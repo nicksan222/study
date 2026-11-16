@@ -18,11 +18,11 @@ import type { ContentInput } from '@study/contracts';
 import type { learningCitationSchema } from '@study/contracts';
 import { validBlockTextRange } from '@study/contracts';
 import { hasTextualContent } from '@study/contracts';
+import type { Transaction } from '@study/server';
 import { Schema } from 'effect';
 
 import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
-import type { Transaction } from '#server/platform/definitions/define-store';
 
 /** Learning consumes canonical exact content only through each public owner. */
 export function readContentInput(

@@ -3,9 +3,8 @@
 import { StudyError } from '@study/contracts';
 import * as s from '@study/db';
 import { eq } from '@study/db';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { decodeEvent } from '#server/platform/workflows/events';
+import { decodeEvent } from '@study/server';
+import type { StoreResources } from '@study/server';
 
 import { makeGenerationQueries } from './generation-queries.ts';
 

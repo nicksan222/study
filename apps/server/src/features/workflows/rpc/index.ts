@@ -14,10 +14,10 @@
  */
 
 import { WorkflowsRpc } from '@study/contracts';
+import { defineRpc } from '@study/server';
 import { Stream } from 'effect';
 
 import { Workflows } from '#server/features/workflows/service/index';
-import { defineRpc } from '#server/platform/definitions/define-rpc';
 
 export const WorkflowsRpcLive = defineRpc(
   WorkflowsRpc,

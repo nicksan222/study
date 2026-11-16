@@ -14,10 +14,10 @@ import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { StudyError } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
+import { acquireDatabaseOwnership } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, FileSystem, Path } from 'effect';
 
-import { acquireDatabaseOwnership } from '#server/platform/database/ownership';
 import type { App } from '#server/runtime/index';
 import { acceptance, backupFixture, createPage } from '#testing/managed-backups';
 import { inTestPhase } from '#testing/progress';
@@ -309,7 +309,7 @@ test.server.stable(
   // Real App startup and owned backup cleanup use the runner's integration deadline.
   // IPC state and exact scratch bytes establish ownership, not subprocess startup speed.
   async ({ task: _task, expect, spawnTestProcess }) => {
-    const { ManagedBackups } = await import('#server/platform/database/backups');
+    const { ManagedBackups } = await import('@study/server');
 
     const { backupPolicy } = await import('#server/runtime/backups');
 

@@ -13,13 +13,10 @@
 import { failureSchema } from '@study/contracts';
 import { materialDeletionRequestedSchema } from '@study/contracts';
 import { materialDeletionSchema } from '@study/contracts';
+import { Database, defineWorkflow, defineWorkflowHandler, cleanupActivity } from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { Materials } from '#server/features/materials/index';
-import { Database } from '#server/platform/database/database';
-import { defineWorkflow } from '#server/platform/definitions/define-workflow';
-import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
-import { cleanupActivity } from '#server/platform/workflows/cleanup';
 
 export const materialDeletionWorkflow = defineWorkflow({
   name: 'material-deletion',

@@ -12,17 +12,19 @@ import { createBlock, plainBlock } from '@study/contracts';
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import { sql } from '@study/db';
+import {
+  ServerContext,
+  Database,
+  transaction,
+  WorkflowControl,
+  workflowStore
+} from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
 import { SourceStore } from '#server/features/sources/store/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { transaction } from '#server/platform/definitions/define-store';
-import { WorkflowControl } from '#server/platform/workflows/control';
-import { workflowStore } from '#server/platform/workflows/store';
 import { withTestPublication } from '#testing/publication';
 
 import { Sources } from './index.ts';

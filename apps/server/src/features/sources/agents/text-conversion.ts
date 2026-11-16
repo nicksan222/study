@@ -12,8 +12,7 @@
 
 import { AgentRule } from '@study/contracts';
 import { textConversionInputSchema, textConversionOutputSchema } from '@study/contracts';
-
-import { defineAgent } from '#server/platform/definitions/define-agent';
+import { defineAgent } from '@study/server';
 
 export const textConversionAgent = defineAgent({
   id: 'text-conversion',

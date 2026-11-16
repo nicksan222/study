@@ -4,10 +4,9 @@ import type { MaterialId, MaterialVersionId } from '@study/contracts';
 import { materialKindSchema, searchHitSchema, searchInputSchema } from '@study/contracts';
 import * as schema from '@study/db';
 import { eq, sql } from '@study/db';
+import { storeQuery } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeQuery } from '#server/platform/definitions/define-store';
 
 import { makeSearch } from './search-operations.ts';
 

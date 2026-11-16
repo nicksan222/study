@@ -1,4 +1,6 @@
 import { sql } from '@study/db';
+import { Database } from '@study/server';
+import { useStore } from '@study/server';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Checks application close is idempotent and orders worker stop/start with shutdown. │
@@ -16,8 +18,6 @@ import { sql } from '@study/db';
  */
 import { test } from '@study/testing';
 
-import { Database } from '#server/platform/database/database';
-import { useStore } from '#server/platform/definitions/define-store';
 import { App } from '#server/runtime/service';
 
 test.server.stable(
@@ -85,13 +85,13 @@ for (const failPersistence of [false, true])
 
       const { AuthStore } = await import('#server/features/auth/store/index');
 
-      const { ChatGptSession } = await import('#server/platform/ai/auth/service');
+      const { ChatGptSession } = await import('@study/server');
 
-      const { decodeAccount, encodeAccount } = await import('#server/platform/ai/auth/index');
+      const { decodeAccount, encodeAccount } = await import('@study/server');
 
-      const { ServerContext } = await import('#server/platform/database/context');
+      const { ServerContext } = await import('@study/server');
 
-      const { transaction } = await import('#server/platform/definitions/define-store');
+      const { transaction } = await import('@study/server');
 
       let entered!: () => void;
 

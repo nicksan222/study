@@ -12,13 +12,11 @@ import { NoteMode } from '@study/contracts';
  */
 import { eq } from '@study/db';
 import { notes, projects, project_notes } from '@study/db';
+import { ServerContext, Database, transaction } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Option } from 'effect';
 
 import { NoteStore } from '#server/features/notes/store/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { transaction } from '#server/platform/definitions/define-store';
 
 import { ensureNote } from './ensure-note.ts';
 

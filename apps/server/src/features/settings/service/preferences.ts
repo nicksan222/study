@@ -20,11 +20,10 @@ import {
   sidebarSettingsSchema,
   workspacePreferencesSchema
 } from '@study/contracts';
+import { useStore, validatedMutation } from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { SettingsStore } from '#server/features/settings/store/index';
-import { useStore } from '#server/platform/definitions/define-store';
-import { validatedMutation } from '#server/platform/definitions/validated-mutation';
 
 export type Preferences = Record<string, JsonValue>;
 

@@ -6,6 +6,7 @@ import type {
   sourceLinkSchema,
   sourcePageInputSchema
 } from '@study/contracts';
+import { transaction, useStore, pageById } from '@study/server';
 import { Effect, Option } from 'effect';
 
 import {
@@ -22,8 +23,6 @@ import {
   SourceSnapshotStore,
   SourceStore
 } from '#server/features/sources/store/index';
-import { transaction, useStore } from '#server/platform/definitions/define-store';
-import { pageById } from '#server/platform/definitions/page-by-id';
 
 type SourcePageInput = typeof sourcePageInputSchema.Type;
 

@@ -16,6 +16,7 @@ import { PagesRpc } from '@study/contracts';
 import { createBlock, correctBlockText } from '@study/contracts';
 import { sql } from '@study/db';
 import * as s from '@study/db';
+import { ServerContext, Database, decodeEvent } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
@@ -26,9 +27,6 @@ import { Pages } from '#server/features/pages/index';
 import { PagesRpcLive } from '#server/features/pages/rpc/index';
 import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { decodeEvent } from '#server/platform/workflows/events';
 import { testLiveQueries } from '#testing/live-queries';
 import { withTestPublication } from '#testing/publication';
 

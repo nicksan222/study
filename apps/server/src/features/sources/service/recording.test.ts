@@ -16,15 +16,16 @@ import type { ProjectId, NoteId } from '@study/contracts';
  */
 import { sql } from '@study/db';
 import { workflow_executions } from '@study/db';
+import {
+  ServerContext,
+  Database,
+  workflowEngineLayer,
+  withPublicationGuard,
+  workflowStore
+} from '@study/server';
 import { test } from '@study/testing';
 import { Cause, Effect, Exit, Layer, Schema } from 'effect';
 import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
-
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { workflowEngineLayer } from '#server/platform/workflows/engine';
-import { withPublicationGuard } from '#server/platform/workflows/publication';
-import { workflowStore } from '#server/platform/workflows/store';
 
 import { Sources } from './index.ts';
 

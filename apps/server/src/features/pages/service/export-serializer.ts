@@ -16,8 +16,7 @@ import { MAX_EXPORT_BYTES } from '@study/contracts';
 import type { exportOmissionSchema } from '@study/contracts';
 import type { PageVersion } from '@study/contracts';
 import type { blockSchema, Inline } from '@study/contracts';
-
-import { exportBudget } from '#server/platform/content-export/budget';
+import { exportBudget } from '@study/server';
 
 const json = (value: unknown) =>
   JSON.stringify(value, (_, item: unknown) => (typeof item === 'bigint' ? item.toString() : item));

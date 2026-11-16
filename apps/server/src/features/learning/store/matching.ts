@@ -13,9 +13,8 @@
 import type { MatchingDefinitionId } from '@study/contracts';
 import { matchingAssociationsSchema } from '@study/contracts';
 import type { matchingPairsSchema } from '@study/contracts';
+import { invalid } from '@study/server';
 import { Schema } from 'effect';
-
-import { invalid } from '#server/platform/errors/domain-error';
 
 type Pairs = typeof matchingPairsSchema.Type;
 

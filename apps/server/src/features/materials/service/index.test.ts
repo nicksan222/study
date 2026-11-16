@@ -16,6 +16,7 @@ import { MaterialsRpc } from '@study/contracts';
  */
 import { plainBlock } from '@study/contracts';
 import { notes, workflowEvents } from '@study/db';
+import { ServerContext, Database } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer, Option, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
@@ -24,8 +25,6 @@ import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 import { materialRpcHandlers } from '#testing/material-rpc';
 
 const content = {

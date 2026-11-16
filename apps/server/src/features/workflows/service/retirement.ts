@@ -1,9 +1,9 @@
 /** @file Owns retirement within this feature. */
 
 import type { executionSchema, executionsInputSchema } from '@study/contracts';
+import type { Transaction } from '@study/server';
 
 import { ExecutionStore } from '#server/features/workflows/store/index';
-import type { Transaction } from '#server/platform/definitions/define-store';
 
 /** Inspect native runs in a caller transaction without transferring execution ownership. */
 

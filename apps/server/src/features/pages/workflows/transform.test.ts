@@ -11,12 +11,12 @@ import { createBlock } from '@study/contracts';
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import * as s from '@study/db';
+import { decodeEvent } from '@study/server';
 import { test } from '@study/testing';
 import { Effect } from 'effect';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
-import { decodeEvent } from '#server/platform/workflows/events';
 import { pageTransformFixture } from '#testing/page-transform';
 
 const meta = {

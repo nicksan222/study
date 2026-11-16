@@ -1,6 +1,6 @@
 /** @file Composes auth persistence with canonical typed store declarations. */
 
-import { defineStore } from '#server/platform/definitions/define-store';
+import { defineStore } from '@study/server';
 
 import { makeAuthGenerationStore, makeAuthStore } from './account.ts';
 import { makeApiKeyStore } from './api-keys.ts';

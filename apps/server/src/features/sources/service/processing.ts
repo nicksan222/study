@@ -6,13 +6,13 @@ import type {
   SourcePublicationRequested,
   correctBlockInputSchema
 } from '@study/contracts';
+import { publicationTransaction, transaction } from '@study/server';
 
 import {
   SourceFailureNoticeStore,
   SourceProcessingStore,
   SourceStore
 } from '#server/features/sources/store/index';
-import { publicationTransaction, transaction } from '#server/platform/definitions/define-store';
 
 import { requested } from './processing-events.ts';
 

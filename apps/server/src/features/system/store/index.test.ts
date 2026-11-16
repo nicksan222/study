@@ -1,4 +1,5 @@
 import { sql } from '@study/db';
+import { ServerContext, Database, useStore } from '@study/server';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies search result projection, filtering, limits, and anchored passage         │
@@ -17,9 +18,6 @@ import { test } from '@study/testing';
 import { Effect } from 'effect';
 
 import { Pages } from '#server/features/pages/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { useStore } from '#server/platform/definitions/define-store';
 import { deletionDocument } from '#testing/material-deletion';
 
 import { SystemStore } from './index.ts';

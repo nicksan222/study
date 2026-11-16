@@ -16,15 +16,15 @@ import { StudyRpc } from '@study/contracts';
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import { plainBlock } from '@study/contracts';
+import { encodeAccount } from '@study/server';
+import { ServerContext } from '@study/server';
+import { Database } from '@study/server';
+import { transaction } from '@study/server';
 import { test } from '@study/testing';
 import { Effect } from 'effect';
 
 import { makeStudyClient } from '#server/client/index';
 import { AuthStore } from '#server/features/auth/store/index';
-import { encodeAccount } from '#server/platform/ai/auth/persistence';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { transaction } from '#server/platform/definitions/define-store';
 import { serve } from '#server/runtime/index';
 
 const isReady = (slot: { status: string }) => slot.status === 'ready';

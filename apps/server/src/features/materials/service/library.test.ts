@@ -17,6 +17,7 @@ import { NotesRpc } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { sql } from '@study/db';
 import { workflowEvents } from '@study/db';
+import { ServerContext, Database } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
@@ -28,8 +29,6 @@ import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
 import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 import { testLiveQueries } from '#testing/live-queries';
 import { materialRpcHandlers } from '#testing/material-rpc';
 

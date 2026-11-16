@@ -11,8 +11,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { defineContextPreparation } from '@study/server';
+
 import { studyNotesAgent } from '#server/features/materials/agents/study-notes';
-import { defineContextPreparation } from '#server/platform/ai/context-preparation/index';
 
 export const materialStudyContext = defineContextPreparation({
   name: 'materials-study-notes-v1',

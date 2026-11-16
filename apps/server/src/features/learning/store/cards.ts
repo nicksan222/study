@@ -11,14 +11,13 @@ import {
 } from '@study/contracts';
 import * as s from '@study/db';
 import { eq } from '@study/db';
+import { storeMutation, storeQuery, unixSeconds } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
 
 import { makeCards } from '#server/features/learning/store/card-operations';
 import { makeDueCards } from '#server/features/learning/store/due-cards';
 import { makeReviewMaterialCard } from '#server/features/learning/store/review-material-card';
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeMutation, storeQuery } from '#server/platform/definitions/define-store';
-import { unixSeconds } from '#server/platform/time/index';
 
 import { optional } from './attempts.ts';
 

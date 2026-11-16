@@ -23,6 +23,7 @@ import type {
 } from '@study/contracts';
 import { NoteMode } from '@study/contracts';
 import { text } from '@study/localization';
+import { transaction, publicationTransaction, useStore } from '@study/server';
 import { Effect, Option } from 'effect';
 
 import {
@@ -39,11 +40,6 @@ import {
 } from '#server/features/notes/store/assistant-state';
 import { AssistantToolStore } from '#server/features/notes/store/assistant-tools';
 import { NoteStore } from '#server/features/notes/store/index';
-import {
-  transaction,
-  publicationTransaction,
-  useStore
-} from '#server/platform/definitions/define-store';
 
 export const makeAssistantNotes = Effect.gen(function* () {
   const scopes = yield* useStore(AssistantScopeStore);

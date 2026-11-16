@@ -2,10 +2,9 @@
 
 import { StudyError, themeFileSchema } from '@study/contracts';
 import { themes } from '@study/db';
+import { storeQuery } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeQuery } from '#server/platform/definitions/define-store';
 
 export function makeThemeBackupStore({ db }: StoreResources) {
   return {

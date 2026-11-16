@@ -3,9 +3,8 @@
 import { sourceExportSchema, sourceIdSchema } from '@study/contracts';
 import * as tables from '@study/db';
 import { eq } from '@study/db';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeQuery } from '#server/platform/definitions/define-store';
+import { storeQuery } from '@study/server';
+import type { StoreResources } from '@study/server';
 
 import { makeHelpers } from './rows.ts';
 

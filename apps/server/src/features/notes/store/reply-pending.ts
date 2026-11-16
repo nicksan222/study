@@ -3,8 +3,7 @@
 import type { replyRequestInputSchema } from '@study/contracts';
 import { StudyError } from '@study/contracts';
 import { and, eq, message_versions, messages, note_reply_requests, sql } from '@study/db';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
+import type { StoreResources } from '@study/server';
 
 import { makeDiscardPending } from './pending.ts';
 import { makeReplySnapshots } from './reply-snapshots.ts';

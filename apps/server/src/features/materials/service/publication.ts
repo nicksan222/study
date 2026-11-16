@@ -1,8 +1,7 @@
 /** @file Owns publication within this feature. */
 
 import type { MaterialVersionDetailDto } from '@study/contracts';
-
-import type { Transaction } from '#server/platform/definitions/define-store';
+import type { Transaction } from '@study/server';
 
 export function published(tx: Transaction, version: MaterialVersionDetailDto) {
   if (version.status !== 'published') return;

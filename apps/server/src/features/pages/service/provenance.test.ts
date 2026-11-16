@@ -1,4 +1,5 @@
 import { plainBlock } from '@study/contracts';
+import { ServerContext, Database } from '@study/server';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies exact citation locations and atomic provenance validation with SQLite.    │
@@ -15,8 +16,6 @@ import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 
 import { Pages } from '#server/features/pages/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 import { deletionDocument } from '#testing/material-deletion';
 
 test.server.stable(

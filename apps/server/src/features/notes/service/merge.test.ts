@@ -1,4 +1,5 @@
 import { sql } from '@study/db';
+import { ServerContext, Database } from '@study/server';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies atomic manual merges preserve independent notebook content and originals. │
@@ -19,8 +20,6 @@ import { Projects } from '#server/features/projects/index';
 import { Recordings } from '#server/features/recordings/index';
 import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 import { deletionDocument } from '#testing/material-deletion';
 
 import { Notes } from './index.ts';

@@ -1,6 +1,7 @@
 /** @file Owns deletion within this feature. */
 
 import type { SourceId } from '@study/contracts';
+import { transaction } from '@study/server';
 import { Effect } from 'effect';
 
 import { SourceStore } from '#server/features/sources/store/index';
@@ -9,7 +10,6 @@ import {
   SourceRetirementStore
 } from '#server/features/sources/store/retirement';
 import { Workflows } from '#server/features/workflows/index';
-import { transaction } from '#server/platform/definitions/define-store';
 
 export function sourceDeletionOperations() {
   return {

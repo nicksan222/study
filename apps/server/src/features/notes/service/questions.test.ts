@@ -1,4 +1,5 @@
 import { workflowEvents, workflow_executions } from '@study/db';
+import { ServerContext, Database, decodeEvent } from '@study/server';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises persisted question classification and targeted answer request behavior.  │
@@ -18,9 +19,6 @@ import { Effect, Layer } from 'effect';
 import { Notes } from '#server/features/notes/index';
 import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { decodeEvent } from '#server/platform/workflows/events';
 import { withTestPublication } from '#testing/publication';
 
 test.server.stable.for([1, 2] as const)(

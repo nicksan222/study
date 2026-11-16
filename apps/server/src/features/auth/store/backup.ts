@@ -1,10 +1,9 @@
 /** @file Builds auth backup queries and mutations with bound store resources. */
 
 import { preferences, sql } from '@study/db';
+import { storeQuery } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeQuery } from '#server/platform/definitions/define-store';
 
 import { scope } from './account.ts';
 import { providerScope } from './scopes.ts';

@@ -14,9 +14,8 @@
 
 import { pageVersionIdSchema } from '@study/contracts';
 import { sql } from '@study/db';
+import { defineStore, storeQuery } from '@study/server';
 import { Schema } from 'effect';
-
-import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 
 export const PageBodyRetirementStore = defineStore({
   name: 'study/PageBodyRetirementStore',

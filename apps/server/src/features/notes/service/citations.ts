@@ -14,10 +14,10 @@
 import { StudyError } from '@study/contracts';
 import type { chatMessageSchema } from '@study/contracts';
 import { validBlockTextRange } from '@study/contracts';
+import type { Transaction } from '@study/server';
 
 import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
-import type { Transaction } from '#server/platform/definitions/define-store';
 
 type Message = typeof chatMessageSchema.Type;
 

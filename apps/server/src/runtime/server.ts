@@ -15,10 +15,9 @@
  */
 
 import { StudyRpc } from '@study/contracts';
+import { serveRpc } from '@study/server';
 import { Effect, Exit, Layer, Scope } from 'effect';
 import { HttpRouter } from 'effect/http';
-
-import { serveRpc } from '#server/platform/rpc/bun';
 
 import { authCallbackRoutes } from './auth-callback.ts';
 import { runNative } from './layers.ts';

@@ -16,8 +16,7 @@ import { StudyError } from '@study/contracts';
 import type { PartId, NoteId } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import { message_parts, messages } from '@study/db';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
+import type { StoreResources } from '@study/server';
 
 export function makeThread({ db }: StoreResources) {
   function assertThreadRoot(noteId: NoteId, threadRoot: PartId) {

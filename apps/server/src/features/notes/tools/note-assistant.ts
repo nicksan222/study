@@ -20,12 +20,12 @@ import * as d from '@study/contracts';
 import * as ds from '@study/contracts';
 import * as sources from '@study/contracts';
 import { documentSchema } from '@study/contracts';
+import { defineTool } from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
-import { defineTool } from '#server/platform/definitions/define-agent';
 
 const pageSummary = Schema.Struct({
   id: ds.summarySchema.fields.id,

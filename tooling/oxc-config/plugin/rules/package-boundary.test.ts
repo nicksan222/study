@@ -86,7 +86,10 @@ test.unit.stable(
           'apps/client/src/bad.ts',
           '@study/client cannot depend on @study/server; use its owning layer.'
         ],
-        ['apps/client/src/root.ts', '@study/server is not a public package export.'],
+        [
+          'apps/client/src/root.ts',
+          '@study/client cannot depend on @study/server; use its owning layer.'
+        ],
         ['apps/client/src/node.ts', '@study/client cannot import Node builtins in browser code.'],
         [
           'apps/client/src/private.ts',

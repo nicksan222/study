@@ -14,13 +14,10 @@
 import { failureSchema } from '@study/contracts';
 import { materialHistoryPruneRequestedSchema } from '@study/contracts';
 import { historyPruneSchema } from '@study/contracts';
+import { Database, defineWorkflow, defineWorkflowHandler, cleanupActivity } from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { Materials } from '#server/features/materials/index';
-import { Database } from '#server/platform/database/database';
-import { defineWorkflow } from '#server/platform/definitions/define-workflow';
-import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
-import { cleanupActivity } from '#server/platform/workflows/cleanup';
 
 export const materialHistoryWorkflow = defineWorkflow({
   name: 'material-history-prune',

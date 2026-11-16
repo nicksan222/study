@@ -1,10 +1,10 @@
 /** @file Composes system application operations behind the feature boundary. */
 
 import type { backupScopeSchema } from '@study/contracts';
+import { defineService } from '@study/server';
+import type { Transaction } from '@study/server';
 
 import { BackupScopeStore } from '#server/features/system/store/backup';
-import { defineService } from '#server/platform/definitions/define-service';
-import type { Transaction } from '#server/platform/definitions/define-store';
 
 import { systemBackupOperations } from './backups.ts';
 import { systemOperations } from './system.ts';

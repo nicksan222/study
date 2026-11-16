@@ -11,8 +11,7 @@
  */
 
 import type { setCitationsInputSchema } from '@study/contracts';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
+import type { StoreResources } from '@study/server';
 
 import { makeExactInputs } from './exact-inputs.ts';
 import { makeReads } from './reads.ts';

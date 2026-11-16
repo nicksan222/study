@@ -16,10 +16,9 @@ import { StudyError } from '@study/contracts';
 import { messageIdSchema, projectIdSchema, noteIdSchema, sourceIdSchema } from '@study/contracts';
 import { eq } from '@study/db';
 import { note_recording_posts, messages, notes, sources } from '@study/db';
+import { defineStore, storeMutation } from '@study/server';
 import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
-
-import { defineStore, storeMutation } from '#server/platform/definitions/define-store';
 
 const inputSchema = Schema.Struct({
   requestId: Schema.String,

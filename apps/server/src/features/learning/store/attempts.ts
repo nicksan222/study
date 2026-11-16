@@ -16,6 +16,8 @@ import {
 } from '@study/contracts';
 import * as s from '@study/db';
 import { and, eq, sql } from '@study/db';
+import { storeMutation, storeQuery, decodeEvent } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Option, Schema } from 'effect';
 
 import { makeAnswerQuestion } from '#server/features/learning/store/answer-question';
@@ -25,9 +27,6 @@ import { makeGradingSnapshot } from '#server/features/learning/store/grading-sna
 import { makeListAttempts } from '#server/features/learning/store/list-attempts';
 import { makeQuiz } from '#server/features/learning/store/quiz';
 import { makeStartQuiz } from '#server/features/learning/store/start-quiz';
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeMutation, storeQuery } from '#server/platform/definitions/define-store';
-import { decodeEvent } from '#server/platform/workflows/events';
 
 export const optional = <T>(f: () => T) => {
   try {

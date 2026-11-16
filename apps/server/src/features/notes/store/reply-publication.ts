@@ -23,11 +23,9 @@ import {
   sources,
   sql
 } from '@study/db';
+import { storeMutation, unixSeconds } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeMutation } from '#server/platform/definitions/define-store';
-import { unixSeconds } from '#server/platform/time/index';
 
 import {
   citationExcerpt,

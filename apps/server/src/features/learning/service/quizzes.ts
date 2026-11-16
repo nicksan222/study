@@ -8,15 +8,11 @@ import type {
   publishGradeInputSchema,
   startQuizInputSchema
 } from '@study/contracts';
+import { publicationTransaction, transaction, useStore } from '@study/server';
 import { CryptoHasher } from 'bun';
 import { Effect } from 'effect';
 
 import { AttemptStore, GradingSnapshotStore } from '#server/features/learning/store/index';
-import {
-  publicationTransaction,
-  transaction,
-  useStore
-} from '#server/platform/definitions/define-store';
 
 export function* learningQuizOperations() {
   const readGradingSnapshotStore = yield* useStore(GradingSnapshotStore);

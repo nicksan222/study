@@ -11,12 +11,12 @@ import type {
   selectionReferenceSchema
 } from '@study/contracts';
 import { NoteMode, StudyError, selectionReferenceKey } from '@study/contracts';
+import { createEvidenceCatalog } from '@study/server';
 import { Effect } from 'effect';
 
 import { assistantAgent } from '#server/features/notes/agents/assistant';
 import { noteAssistantAgent } from '#server/features/notes/agents/note-assistant';
 import { replyAgent } from '#server/features/notes/agents/reply';
-import { createEvidenceCatalog } from '#server/platform/ai/evidence';
 
 export function selectionCatalog(snapshot: typeof replySnapshotSchema.Type) {
   const catalog = createEvidenceCatalog<{

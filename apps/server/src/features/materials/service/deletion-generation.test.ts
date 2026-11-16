@@ -13,13 +13,13 @@ import { eq, sql } from '@study/db';
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import * as s from '@study/db';
+import { workflowStore } from '@study/server';
 import { test } from '@study/testing';
 /** Generated learning output deletion releases evidence pins and retires only its original native ownership. */
 import { Effect } from 'effect';
 
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
-import { workflowStore } from '#server/platform/workflows/store';
 import { learningGeneration, queueLearningGeneration } from '#testing/learning-generation';
 import { acceptMaterialDeletion, cleanupMaterial } from '#testing/material-deletion';
 import { assertScrubbed } from '#testing/note-deletion';

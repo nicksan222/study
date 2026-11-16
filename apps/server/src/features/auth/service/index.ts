@@ -1,8 +1,9 @@
 /** @file Composes auth application operations behind the feature boundary. */
 
+import { defineService } from '@study/server';
+import type { Transaction } from '@study/server';
+
 import { AuthBackupStore, AuthStore } from '#server/features/auth/store/index';
-import { defineService } from '#server/platform/definitions/define-service';
-import type { Transaction } from '#server/platform/definitions/define-store';
 
 import { makeAuth } from './session.ts';
 

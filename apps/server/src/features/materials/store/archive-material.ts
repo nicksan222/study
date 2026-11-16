@@ -15,11 +15,11 @@
 import type { MaterialId } from '@study/contracts';
 import { eq } from '@study/db';
 import * as s from '@study/db';
+import type { StoreResources } from '@study/server';
 
 import { required, makeReads } from '#server/features/materials/store/reads';
 import { materialIntegrity } from '#server/features/materials/store/transactions';
 import { now } from '#server/features/materials/store/writes';
-import type { StoreResources } from '#server/platform/definitions/define-store';
 
 export function makeArchiveMaterial(resources: StoreResources) {
   const { db, timestampClock } = resources;

@@ -13,15 +13,13 @@ import { defaultQuizSettings } from '@study/contracts';
  */
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
+import { ServerContext, Database, decodeEvent } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
 import { Settings } from '#server/features/settings/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { decodeEvent } from '#server/platform/workflows/events';
 
 import { Learning } from './index.ts';
 
@@ -123,9 +121,7 @@ test.server.stable(
           const { AttemptStore } = yield* Effect.promise(
             () => import('#server/features/learning/store/index')
           );
-          const { transaction } = yield* Effect.promise(
-            () => import('#server/platform/definitions/define-store')
-          );
+          const { transaction } = yield* Effect.promise(() => import('@study/server'));
 
           yield* transaction((tx) =>
             tx.store(AttemptStore).publishGrade({

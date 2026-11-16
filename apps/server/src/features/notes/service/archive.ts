@@ -12,9 +12,9 @@
 
 import type { NoteId } from '@study/contracts';
 import type { ArchivedNoteItem } from '@study/contracts';
+import type { Transaction } from '@study/server';
 
 import { NoteArchiveStore } from '#server/features/notes/store/archive';
-import type { Transaction } from '#server/platform/definitions/define-store';
 
 /** Iterate bounded archive reads within one SQLite snapshot; no archived item is hidden by a cap. */
 export function allArchivedItems(tx: Transaction, noteId: NoteId) {

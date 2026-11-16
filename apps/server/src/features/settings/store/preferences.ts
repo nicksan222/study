@@ -13,10 +13,9 @@ import {
   workspacePreferencesSchema
 } from '@study/contracts';
 import { preferences, sql } from '@study/db';
+import { storeMutation, storeQuery } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 
 const values = Schema.Record(Schema.String, Schema.MutableJson);
 

@@ -28,9 +28,8 @@ import {
   message_versions,
   notes
 } from '@study/db';
+import { defineStore, storeQuery, storeMutation } from '@study/server';
 import { Option, Schema } from 'effect';
-
-import { defineStore, storeQuery, storeMutation } from '#server/platform/definitions/define-store';
 
 export const AssistantChatStartStore = defineStore({
   name: 'study/AssistantChatStartStore',

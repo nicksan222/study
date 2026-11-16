@@ -1,11 +1,10 @@
 /** @file Owns system within this feature. */
 
 import type { materialSearchInputSchema, searchInputSchema } from '@study/contracts';
+import { useStore, WorkerLifecycle } from '@study/server';
 import { Effect } from 'effect';
 
 import { HealthStore, SystemStore } from '#server/features/system/store/index';
-import { useStore } from '#server/platform/definitions/define-store';
-import { WorkerLifecycle } from '#server/platform/workflows/lifecycle';
 
 import { healthData } from './health.ts';
 

@@ -3,6 +3,8 @@
 import type * as r from '@study/contracts';
 import type { PageVersionId } from '@study/contracts';
 import { StudyError, executionIdSchema } from '@study/contracts';
+import { transaction, WorkflowControl } from '@study/server';
+import type { Transaction } from '@study/server';
 import { Effect, Option, Schema } from 'effect';
 
 import { PageBodyRetirementStore } from '#server/features/pages/store/body-retirement';
@@ -12,9 +14,6 @@ import {
   PagesStore
 } from '#server/features/pages/store/index';
 import { Workflows } from '#server/features/workflows/index';
-import type { Transaction } from '#server/platform/definitions/define-store';
-import { transaction } from '#server/platform/definitions/define-store';
-import { WorkflowControl } from '#server/platform/workflows/control';
 
 /** Canonical retirement and private native retirement share one rollback boundary. */
 function retireBodyWorkflows(tx: Transaction, ids: readonly PageVersionId[]) {

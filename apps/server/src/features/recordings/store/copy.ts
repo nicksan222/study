@@ -16,9 +16,8 @@ import { StudyError } from '@study/contracts';
 import { copyNoteContentSchema, recordingCopySchema } from '@study/contracts';
 import { eq, inArray } from '@study/db';
 import * as s from '@study/db';
+import { defineStore, storeMutation } from '@study/server';
 import { Schema } from 'effect';
-
-import { defineStore, storeMutation } from '#server/platform/definitions/define-store';
 
 export const RecordingCopyStore = defineStore({
   name: 'study/RecordingCopyStore',

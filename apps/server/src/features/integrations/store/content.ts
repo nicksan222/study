@@ -14,10 +14,9 @@ import { sourceIdSchema } from '@study/contracts';
 import { integrationImportIdSchema, integrationNoteSchema } from '@study/contracts';
 import { and, eq, inArray } from '@study/db';
 import { integration_import_notes, integration_import_files } from '@study/db';
+import { defineStore, storeMutation, storeQuery } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 
 const keySchema = Schema.Struct({ id: integrationImportIdSchema, key: Schema.String });
 

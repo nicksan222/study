@@ -1,8 +1,7 @@
 /** @file Owns errors within this feature. */
 
 import { StudyError } from '@study/contracts';
-
-import { classifyError } from '#server/platform/errors/classify-error';
+import { classifyError } from '@study/server';
 
 export function authFailure(cause: unknown): StudyError {
   if (cause instanceof StudyError) return cause;

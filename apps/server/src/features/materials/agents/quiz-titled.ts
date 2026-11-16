@@ -14,8 +14,7 @@
 import { promptInputSchema } from '@study/contracts';
 import { titledQuizGenerationOutputSchema } from '@study/contracts';
 import { AgentRule } from '@study/contracts';
-
-import { defineAgent } from '#server/platform/definitions/define-agent';
+import { defineAgent } from '@study/server';
 
 import { titleInstructions } from './generated-title.ts';
 import { quizAgent } from './quiz.ts';

@@ -15,15 +15,18 @@ import { sql } from '@study/db';
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import { preferences } from '@study/db';
+import {
+  AuthManager,
+  SignIn,
+  ChatGptSession,
+  ServerContext,
+  Database,
+  transaction
+} from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Fiber, Layer } from 'effect';
 
 import { Auth } from '#server/features/auth/index';
-import { AuthManager, SignIn } from '#server/platform/ai/auth/index';
-import { ChatGptSession } from '#server/platform/ai/auth/service';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { transaction } from '#server/platform/definitions/define-store';
 
 test.server.stable(
   'auth uses private SQLite account and guards refresh rotation',

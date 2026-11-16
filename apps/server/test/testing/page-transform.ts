@@ -17,6 +17,15 @@ import type { materialFlashcardsContentInputSchema } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
 import * as s from '@study/db';
 import type { createTestDatabase } from '@study/db/testing';
+import { agentsLayer } from '@study/server';
+import { createChatGptModel } from '@study/server';
+import { AuthManager } from '@study/server';
+import { ServerContext } from '@study/server';
+import { Database } from '@study/server';
+import { WorkflowConfiguration } from '@study/server';
+import { cancelExecution, WorkflowControl } from '@study/server';
+import { workflowEngineLayer } from '@study/server';
+import { decodeEvent } from '@study/server';
 import { createTestResources } from '@study/testing/resources';
 import { Effect, Layer } from 'effect';
 import type { MessageStorage, Sharding } from 'effect/cluster';
@@ -44,15 +53,6 @@ import {
   sourceIngestionWorkflow,
   sourceCorrectionWorkflow
 } from '#server/features/sources/workflows/index';
-import { layer as agentsLayer } from '#server/platform/ai/agents';
-import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
-import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
-import { cancelExecution, WorkflowControl } from '#server/platform/workflows/control';
-import { workflowEngineLayer } from '#server/platform/workflows/engine';
-import { decodeEvent } from '#server/platform/workflows/events';
 import { withTestAdmission } from '#testing/workflow-admission';
 
 type Reply =

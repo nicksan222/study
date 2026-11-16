@@ -23,6 +23,16 @@ import { contentInputKey, contentInputSchema } from '@study/contracts';
 import { materialGenerationPublicationSchema } from '@study/contracts';
 import type { quizGenerationConfigSchema } from '@study/contracts';
 import type { MaterialContentInput } from '@study/contracts';
+import {
+  generateAgent,
+  Database,
+  defineActivity,
+  publicationActivity,
+  defineWorkflow,
+  defineWorkflowHandler,
+  retryResumableActivity
+} from '@study/server';
+import type { ContextPreparation, AgentDefinition } from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { flashcardsAgent } from '#server/features/materials/agents/flashcards';
@@ -34,14 +44,6 @@ import {
   assertQuizConfig
 } from '#server/features/materials/decoders/question-spec';
 import { Materials } from '#server/features/materials/service/index';
-import { generateAgent } from '#server/platform/ai/agents';
-import type { ContextPreparation } from '#server/platform/ai/context-preparation/index';
-import { Database } from '#server/platform/database/database';
-import { defineActivity, publicationActivity } from '#server/platform/definitions/define-activity';
-import type { AgentDefinition } from '#server/platform/definitions/define-agent';
-import { defineWorkflow } from '#server/platform/definitions/define-workflow';
-import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
-import { retryResumableActivity } from '#server/platform/workflows/retry';
 
 export const materialGenerationWorkflow = defineWorkflow({
   name: 'material-generation',

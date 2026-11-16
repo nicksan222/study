@@ -15,11 +15,11 @@
 import type { MaterialId, NoteId } from '@study/contracts';
 import { and, desc, eq } from '@study/db';
 import * as s from '@study/db';
+import type { StoreResources } from '@study/server';
 
 import { makeReads } from '#server/features/materials/store/reads';
 import { materialIntegrity } from '#server/features/materials/store/transactions';
 import { makeWrites } from '#server/features/materials/store/writes';
-import type { StoreResources } from '#server/platform/definitions/define-store';
 
 export function makeNoteMembership(resources: StoreResources) {
   const { db: store } = resources;

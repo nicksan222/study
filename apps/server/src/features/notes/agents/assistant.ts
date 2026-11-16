@@ -14,13 +14,13 @@
 
 import { replyInputSchema, replyOutputSchema } from '@study/contracts';
 import { AgentRule } from '@study/contracts';
+import { defineAgent } from '@study/server';
 
 import { noteTools } from '#server/features/notes/tools/notes';
 import { pageTools } from '#server/features/notes/tools/pages';
 import { settingsTools } from '#server/features/notes/tools/settings';
 import { subjectTools } from '#server/features/notes/tools/subjects';
 import { themeTools } from '#server/features/notes/tools/themes';
-import { defineAgent } from '#server/platform/definitions/define-agent';
 
 /** A noteal study partner with explicit, schema-checked local capabilities. */
 export const assistantAgent = defineAgent({

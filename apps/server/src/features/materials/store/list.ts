@@ -19,10 +19,10 @@ import type {
 } from '@study/contracts';
 import * as s from '@study/db';
 import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lt, sql } from '@study/db';
+import type { StoreResources } from '@study/server';
 
 import { makeReads, required } from '#server/features/materials/store/reads';
 import { makeWrites } from '#server/features/materials/store/writes';
-import type { StoreResources } from '#server/platform/definitions/define-store';
 
 type Input = typeof materialsInputSchema.Type;
 

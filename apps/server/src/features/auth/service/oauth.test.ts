@@ -16,16 +16,13 @@ import { sql } from '@study/db';
  */
 import { preferences } from '@study/db';
 import type { Db } from '@study/db';
+import { AuthManager, ChatGptSession, ServerContext, Database } from '@study/server';
+import type { Account, AccessSeed } from '@study/server';
 import { test } from '@study/testing';
 import type { Context } from 'effect';
 import { Effect, Fiber, Layer } from 'effect';
 
 import { Auth } from '#server/features/auth/index';
-import { AuthManager } from '#server/platform/ai/auth/index';
-import type { Account, AccessSeed } from '#server/platform/ai/auth/index';
-import { ChatGptSession } from '#server/platform/ai/auth/service';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 
 async function peer({ assert: assertions }: Pick<test.server.Context, 'assert'>) {
   const assert: test.Assert = assertions;

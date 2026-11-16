@@ -15,8 +15,7 @@
 import type { dueCardsInputSchema } from '@study/contracts';
 import { and, asc, eq, gt, isNull, lte, or, sql } from '@study/db';
 import * as s from '@study/db';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
+import type { StoreResources } from '@study/server';
 
 import { projectMaterialScope } from './project-scope.ts';
 import { now } from './quiz.ts';

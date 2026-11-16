@@ -14,9 +14,8 @@ import { noteIdSchema, pageIdSchema } from '@study/contracts';
 import { integrationImportIdSchema } from '@study/contracts';
 import { eq } from '@study/db';
 import { integration_receipts } from '@study/db';
+import { defineStore, storeMutation, storeQuery } from '@study/server';
 import { Option, Schema } from 'effect';
-
-import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 
 const receiptSchema = Schema.Struct({
   identity: Schema.String,

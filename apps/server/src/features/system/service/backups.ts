@@ -1,11 +1,9 @@
 /** @file Owns backups within this feature. */
 
 import type { BackupId, acceptRestoreSchema } from '@study/contracts';
+import { BackupStorage, normalizeError } from '@study/server';
+import type { ManagedBackups } from '@study/server';
 import { Effect } from 'effect';
-
-import type { ManagedBackups } from '#server/platform/database/backups';
-import { BackupStorage } from '#server/platform/database/backups';
-import { normalizeError } from '#server/platform/errors/classify-error';
 
 export function* systemBackupOperations() {
   const storage = yield* BackupStorage;

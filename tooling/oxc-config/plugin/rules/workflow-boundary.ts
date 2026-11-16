@@ -24,11 +24,11 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import {
+  importTarget,
   canonicalImport,
   featureRole,
   importedValue,
-  moduleEdges,
-  targetPath
+  moduleEdges
 } from '../architecture-imports.ts';
 import { effectBindings } from '../effect-bindings.ts';
 import {
@@ -82,7 +82,7 @@ export default defineRule({
         const def = binding(context, resolveValue(context, object))?.defs[0]?.node;
 
         return def?.type === 'ImportNamespaceSpecifier'
-          ? classify(name, targetPath(context.filename, def.parent.source.value))
+          ? classify(name, importTarget(context, def, name))
           : null;
       };
 
@@ -113,10 +113,7 @@ export default defineRule({
       const def = binding(context, node)?.defs[0]?.node;
 
       if (def?.type === 'ImportSpecifier')
-        return classify(
-          def.imported.name ?? def.imported.value,
-          targetPath(context.filename, def.parent.source.value)
-        );
+        return classify(def.imported.name ?? def.imported.value, importTarget(context, def));
 
       if (constantDeclarator(def)) {
         if (def.id.type === 'ObjectPattern') {

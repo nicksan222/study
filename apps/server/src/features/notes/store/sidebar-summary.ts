@@ -17,9 +17,8 @@ import { setNoteSettledInputSchema } from '@study/contracts';
 import { noteSummariesSchema } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import { notes, note_deletions, note_sidebar_preferences } from '@study/db';
+import { defineStore, storeQuery, storeMutation } from '@study/server';
 import { Schema } from 'effect';
-
-import { defineStore, storeQuery, storeMutation } from '#server/platform/definitions/define-store';
 
 /** Aggregate the canonical memberships and workflow receipts in a single database read. */
 export const NoteSummaryStore = defineStore({

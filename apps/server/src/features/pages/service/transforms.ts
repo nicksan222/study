@@ -15,6 +15,7 @@ import { StudyError } from '@study/contracts';
 import type { exactInputSchema } from '@study/contracts';
 import type { pageTransformContextSchema } from '@study/contracts';
 import * as t from '@study/contracts';
+import type { Transaction } from '@study/server';
 
 import { intentHash } from '#server/features/pages/decoders/intent';
 import { validatePageTransform } from '#server/features/pages/decoders/page-transform';
@@ -24,7 +25,6 @@ import {
   PageVersionsStore
 } from '#server/features/pages/store/index';
 import { PageTransformsStore } from '#server/features/pages/store/transforms';
-import type { Transaction } from '#server/platform/definitions/define-store';
 
 type Context = typeof pageTransformContextSchema.Type;
 

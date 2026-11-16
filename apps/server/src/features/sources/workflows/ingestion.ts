@@ -10,6 +10,14 @@ import {
   sniff,
   sourceProcessingRequestedSchema
 } from '@study/contracts';
+import {
+  generateAgent,
+  defineActivity,
+  resumableActivity,
+  defineWorkflow,
+  defineWorkflowHandler,
+  fetchPage
+} from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { Settings } from '#server/features/settings/index';
@@ -21,11 +29,6 @@ import { decodeOffice } from '#server/features/sources/decoders/office';
 import { decodeText } from '#server/features/sources/decoders/text';
 import { visionDocument } from '#server/features/sources/decoders/vision';
 import { Sources } from '#server/features/sources/service/index';
-import { generateAgent } from '#server/platform/ai/agents';
-import { defineActivity, resumableActivity } from '#server/platform/definitions/define-activity';
-import { defineWorkflow } from '#server/platform/definitions/define-workflow';
-import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
-import { fetchPage } from '#server/platform/http/index';
 
 import { noticeSourceFailure, publishSource } from './internal/publication.ts';
 

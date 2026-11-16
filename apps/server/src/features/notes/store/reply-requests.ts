@@ -3,9 +3,8 @@
 import { replyRequestSchema, replySnapshotInputSchema } from '@study/contracts';
 /** Owns reply requests within this feature. */
 import { eq, note_reply_requests } from '@study/db';
+import { defineStore, storeQuery } from '@study/server';
 import { Option, Schema } from 'effect';
-
-import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 
 import { makeReplyAttachments } from './reply-attachments.ts';
 import { codec } from './reply-schemas.ts';

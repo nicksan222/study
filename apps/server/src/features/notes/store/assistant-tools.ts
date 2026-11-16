@@ -18,9 +18,8 @@ import {
 } from '@study/contracts';
 import { and, eq } from '@study/db';
 import { assistant_tool_receipts } from '@study/db';
+import { defineStore, storeMutation } from '@study/server';
 import { Option, Schema } from 'effect';
-
-import { defineStore, storeMutation } from '#server/platform/definitions/define-store';
 
 const json = Schema.fromJsonString(Schema.Json);
 

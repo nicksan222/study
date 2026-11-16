@@ -1,12 +1,12 @@
 /** @file Owns evidence within this feature. */
 
 import type * as evidence from '@study/contracts';
+import { transaction, useStore } from '@study/server';
 
 import {
   PageAnnotationHistoryStore,
   PageAnnotationsStore
 } from '#server/features/pages/store/annotations';
-import { transaction, useStore } from '#server/platform/definitions/define-store';
 
 import { assessCitation, citationAssessments } from './assessments.ts';
 import { annotationChanged } from './publication.ts';

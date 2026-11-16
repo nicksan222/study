@@ -1,4 +1,6 @@
 import { AgentRule } from '@study/contracts';
+import { Agents, generateAgent } from '@study/server';
+import { defineAgent, defineTool } from '@study/server';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises shared typed mocks through the real application's AI dependencies.       │
@@ -13,9 +15,7 @@ import { AgentRule } from '@study/contracts';
 import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
 
-import { Agents, generateAgent } from '#server/platform/ai/agents';
 import { adaptTool } from '#server/platform/ai/tool-adapter';
-import { defineAgent, defineTool } from '#server/platform/definitions/define-agent';
 
 const agent = defineAgent({
   id: 'testing-summary',

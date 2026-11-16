@@ -12,6 +12,8 @@ import type {
 } from '@study/contracts';
 import { NoteMode, StudyError } from '@study/contracts';
 import { text } from '@study/localization';
+import { transaction, impactToken } from '@study/server';
+import type { Transaction } from '@study/server';
 import { Effect, Option } from 'effect';
 
 import { NoteModeStore } from '#server/features/notes/store/assistant';
@@ -22,9 +24,6 @@ import { ReplyStore } from '#server/features/notes/store/reply-operations';
 import { ReplyRequestStore } from '#server/features/notes/store/reply-requests';
 import { ReplyVersionStore } from '#server/features/notes/store/reply-versions';
 import { NoteSelectionStore } from '#server/features/notes/store/selection';
-import type { Transaction } from '#server/platform/definitions/define-store';
-import { transaction } from '#server/platform/definitions/define-store';
-import { impactToken } from '#server/platform/definitions/impact-token';
 
 import { makeAssistantNotes } from './assistant.ts';
 import { assertCapturedTarget, captureContext } from './context.ts';

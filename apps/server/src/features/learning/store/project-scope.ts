@@ -15,8 +15,7 @@ import { StudyError } from '@study/contracts';
 import type { ProjectId } from '@study/contracts';
 import { eq, inArray } from '@study/db';
 import * as s from '@study/db';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
+import type { StoreResources } from '@study/server';
 
 export function projectMaterialScope(db: StoreResources['db'], projectId?: ProjectId) {
   if (projectId === undefined) return undefined;

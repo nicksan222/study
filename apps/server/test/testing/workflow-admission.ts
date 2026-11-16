@@ -14,10 +14,9 @@
 import { StudyError } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import { workflow_executions } from '@study/db';
+import type { ServerContext } from '@study/server';
 import { Effect, Option, Schema } from 'effect';
 import { WorkflowEngine, Workflow } from 'effect/workflow';
-
-import type { ServerContext } from '#server/platform/database/context';
 
 /** Direct engine tests explicitly commit the domain admission required by publication. */
 export function admitTestExecution(

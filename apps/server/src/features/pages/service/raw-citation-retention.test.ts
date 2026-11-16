@@ -1,4 +1,5 @@
 import { sql } from '@study/db';
+import { transaction } from '@study/server';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Retained raw citations protect exact authored bodies after private capture         │
@@ -17,7 +18,6 @@ import { Effect } from 'effect';
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
 import { Workflows } from '#server/features/workflows/index';
-import { transaction } from '#server/platform/definitions/define-store';
 import { deletionDocument } from '#testing/material-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';

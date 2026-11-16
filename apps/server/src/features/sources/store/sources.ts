@@ -16,12 +16,10 @@ import {
 } from '@study/contracts';
 import * as tables from '@study/db';
 import { and, desc, eq, lt } from '@study/db';
+import { storeMutation, storeQuery, unixSeconds } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { CryptoHasher } from 'bun';
 import { Option, Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeMutation, storeQuery } from '#server/platform/definitions/define-store';
-import { unixSeconds } from '#server/platform/time/index';
 
 import { sourceDeletionBlockers } from './retention.ts';
 import { checkedBytes, makeHelpers } from './rows.ts';

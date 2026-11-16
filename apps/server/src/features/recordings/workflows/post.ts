@@ -9,15 +9,17 @@ import {
   recordingPostSchema,
   sourceIdSchema
 } from '@study/contracts';
+import {
+  Database,
+  publicationActivity,
+  defineWorkflow,
+  defineWorkflowHandler
+} from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { Notes } from '#server/features/notes/index';
 import { Recordings } from '#server/features/recordings/service/index';
 import { Sources } from '#server/features/sources/index';
-import { Database } from '#server/platform/database/database';
-import { publicationActivity } from '#server/platform/definitions/define-activity';
-import { defineWorkflow } from '#server/platform/definitions/define-workflow';
-import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 
 export const recordingPostWorkflow = defineWorkflow({
   name: 'recording-post',

@@ -29,12 +29,9 @@ import {
   recordings,
   sql
 } from '@study/db';
+import { requireRow, storeMutation, storeQuery, unixSeconds } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Option, Schema } from 'effect';
-
-import { requireRow } from '#server/platform/database/rows';
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeMutation, storeQuery } from '#server/platform/definitions/define-store';
-import { unixSeconds } from '#server/platform/time/index';
 
 const projectMembership = (project: ProjectId | null | undefined) =>
   project === undefined

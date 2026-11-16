@@ -6,8 +6,7 @@ import {
   replyVersionInputSchema
 } from '@study/contracts';
 import { and, eq, message_versions, messages } from '@study/db';
-
-import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
+import { defineStore, storeQuery } from '@study/server';
 
 import { makeHelpers } from './message-rows.ts';
 

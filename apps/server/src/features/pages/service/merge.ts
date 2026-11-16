@@ -12,11 +12,11 @@
 
 import { StudyError } from '@study/contracts';
 import * as t from '@study/contracts';
+import type { Transaction } from '@study/server';
 import { Schema, Option } from 'effect';
 
 import { PagesStore, PageVersionsStore } from '#server/features/pages/store/index';
 import { PageTransformsStore } from '#server/features/pages/store/transforms';
-import type { Transaction } from '#server/platform/definitions/define-store';
 
 /** Exact immutable versions are the durable capture; no synthetic note is created. */
 export function mergeContext(

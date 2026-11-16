@@ -2,12 +2,11 @@
 
 import type * as input from '@study/contracts';
 import type { ContentInput } from '@study/contracts';
+import { defineService, transaction } from '@study/server';
+import type { Transaction } from '@study/server';
 
 import { MaterialBackupStore } from '#server/features/materials/store/backup';
 import { MaterialGenerationStore, MaterialsStore } from '#server/features/materials/store/index';
-import { defineService } from '#server/platform/definitions/define-service';
-import type { Transaction } from '#server/platform/definitions/define-store';
-import { transaction } from '#server/platform/definitions/define-store';
 
 import { assertContentCitation, assertContentInputs, readContentInput } from './content-inputs.ts';
 import { deletionParticipantsLayer, materialDeletionOperations } from './deletion.ts';

@@ -15,13 +15,12 @@ import { createBlock } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
 import type { Db } from '@study/db';
+import { ServerContext, Database } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 
 import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 import { makeMaterialOutput } from '#testing/material-output';
 import { createUnregisteredSource } from '#testing/source';
 

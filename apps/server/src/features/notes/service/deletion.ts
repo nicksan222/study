@@ -1,6 +1,8 @@
 /** @file Owns deletion within this feature. */
 
 import type { ErrorKind, NoteId, noteDeletionSchema } from '@study/contracts';
+import { publicationTransaction, transaction } from '@study/server';
+import type { Transaction } from '@study/server';
 import { Option } from 'effect';
 
 import { NoteAssistantStore } from '#server/features/notes/store/assistant';
@@ -11,8 +13,6 @@ import {
 } from '#server/features/notes/store/deletion';
 import { Pages } from '#server/features/pages/index';
 import { Workflows } from '#server/features/workflows/index';
-import type { Transaction } from '#server/platform/definitions/define-store';
-import { publicationTransaction, transaction } from '#server/platform/definitions/define-store';
 
 function deletionCorrelations(tx: Transaction, id: NoteId) {
   return tx.store(NoteDeletionCorrelationStore).deletionCorrelation(id).correlations;

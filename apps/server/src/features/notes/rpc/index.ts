@@ -14,10 +14,10 @@
  */
 
 import { NotesRpc } from '@study/contracts';
+import { defineRpc } from '@study/server';
 
 import { Notes } from '#server/features/notes/service/index';
 import { suggestTransformField } from '#server/features/notes/service/transform-suggestion';
-import { defineRpc } from '#server/platform/definitions/define-rpc';
 
 export const NotesRpcLive = defineRpc(NotesRpc, { notes: Notes }, ({ notes }) => ({
   'notes.mergeNotes': notes.mergeNotes,

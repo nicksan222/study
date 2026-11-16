@@ -1,10 +1,10 @@
 /** @file Owns generation events within this feature. */
 
 import type { NoteId, replyRequestSchema } from '@study/contracts';
+import type { Transaction } from '@study/server';
 import { Option } from 'effect';
 
 import { TitleStore } from '#server/features/notes/store/title';
-import type { Transaction } from '#server/platform/definitions/define-store';
 
 /** Captures at most one automatic title request per provisional note revision. */
 export function scheduleAutomaticTitle(tx: Transaction, noteId: NoteId) {

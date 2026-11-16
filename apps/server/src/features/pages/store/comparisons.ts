@@ -1,9 +1,8 @@
 /** @file Builds pages comparisons queries and mutations with bound store resources. */
 
 import * as e from '@study/contracts';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeQuery } from '#server/platform/definitions/define-store';
+import { storeQuery } from '@study/server';
+import type { StoreResources } from '@study/server';
 
 import { makePageDomain } from './domain.ts';
 

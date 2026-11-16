@@ -7,9 +7,8 @@ import {
   updateNoteSelectionSchema
 } from '@study/contracts';
 import { and, eq, notes } from '@study/db';
+import { defineStore, storeMutation, storeQuery } from '@study/server';
 import { Schema } from 'effect';
-
-import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 
 import { makeContextReads } from './context-reads.ts';
 import { targetsCodec } from './context-schemas.ts';

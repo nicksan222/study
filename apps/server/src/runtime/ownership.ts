@@ -10,4 +10,4 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-export { acquireDatabaseOwnership } from '#server/platform/database/ownership';
+export { acquireDatabaseOwnership } from '@study/server';

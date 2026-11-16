@@ -1,9 +1,8 @@
 /** @file Owns practice controls within this feature. */
 
 import { practiceInputSchema } from '@study/contracts';
+import { defineStore, storeQuery } from '@study/server';
 import { Option, Schema } from 'effect';
-
-import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 
 import { controlSchema } from './practice-schemas.ts';
 import { makePractice } from './practice.ts';

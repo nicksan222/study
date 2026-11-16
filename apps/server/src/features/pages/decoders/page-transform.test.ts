@@ -16,10 +16,9 @@ import { materialGenerationInputSchema } from '@study/contracts';
 import { runSelectionContextSchema } from '@study/contracts';
 import { transformPublicationSchema, transformRequestSchema } from '@study/contracts';
 import { createBlock } from '@study/contracts';
+import { standardSchema } from '@study/server';
 import { test } from '@study/testing';
 import { Schema } from 'effect';
-
-import { standardSchema } from '#server/platform/ai/schema';
 
 import { authorizedTransformAssets, validatePageTransform } from './page-transform.ts';
 

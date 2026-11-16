@@ -18,10 +18,9 @@ import type { ContentInput } from '@study/contracts';
 import { learningCitationSchema } from '@study/contracts';
 import { and, asc, eq } from '@study/db';
 import * as s from '@study/db';
+import { contentInputColumns } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import { contentInputColumns } from '#server/platform/database/content-input';
-import type { StoreResources } from '#server/platform/definitions/define-store';
 
 const citationCodec = Schema.fromJsonString(Schema.toCodecJson(learningCitationSchema));
 

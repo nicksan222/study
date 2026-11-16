@@ -13,11 +13,11 @@
 import * as r from '@study/contracts';
 import { noteSchema } from '@study/contracts';
 import * as p from '@study/contracts';
+import { defineTool } from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { Notes } from '#server/features/notes/index';
 import { Projects } from '#server/features/projects/index';
-import { defineTool } from '#server/platform/definitions/define-agent';
 
 export const noteTools = {
   list_notes: defineTool({

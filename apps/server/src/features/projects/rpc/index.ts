@@ -14,9 +14,9 @@
  */
 
 import { ProjectsRpc } from '@study/contracts';
+import { defineRpc } from '@study/server';
 
 import { Projects } from '#server/features/projects/service/index';
-import { defineRpc } from '#server/platform/definitions/define-rpc';
 
 export const ProjectsRpcLive = defineRpc(ProjectsRpc, { projects: Projects }, ({ projects }) => ({
   'projects.addMaterial': projects.addMaterial,

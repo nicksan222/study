@@ -12,8 +12,7 @@
  */
 
 import { Db, sql } from '@study/db';
-
-import { initializeWorkflowInfrastructure } from '#server/platform/workflows/engine';
+import { initializeWorkflowInfrastructure } from '@study/server';
 
 import { runNative } from './layers.ts';
 

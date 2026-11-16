@@ -16,20 +16,21 @@
 
 import { StudyError } from '@study/contracts';
 import { cancelExecutionInputSchema } from '@study/contracts';
+import {
+  classifyError,
+  observeOperation,
+  safeMetadata,
+  discardInterruptedAgentProgress,
+  WorkflowConfiguration,
+  notifyConfigurationChanged,
+  cancelExecution,
+  workflowStore,
+  dispatchPending,
+  refreshExecutionSnapshots
+} from '@study/server';
+import type { ServerContext } from '@study/server';
 import { Cause, Effect, Fiber, Queue, Semaphore, Schema } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
-
-import type { ServerContext } from '#server/platform/database/context';
-import { classifyError } from '#server/platform/errors/classify-error';
-import { observeOperation, safeMetadata } from '#server/platform/observability/index';
-import { discardInterruptedAgentProgress } from '#server/platform/workflows/agent-progress';
-import {
-  WorkflowConfiguration,
-  notifyConfigurationChanged
-} from '#server/platform/workflows/configuration';
-import { cancelExecution } from '#server/platform/workflows/control';
-import { workflowStore } from '#server/platform/workflows/store';
-import { dispatchPending, refreshExecutionSnapshots } from '#server/platform/workflows/triggers';
 
 import { createWorkflowRuntime } from './layers.ts';
 import type { createNativeRuntime } from './layers.ts';

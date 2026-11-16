@@ -11,10 +11,9 @@ import type {
   setProjectIconInputSchema
 } from '@study/contracts';
 import { StudyError } from '@study/contracts';
+import { transaction, useStore, pageById } from '@study/server';
 
 import { ProjectsStore } from '#server/features/projects/store/index';
-import { transaction, useStore } from '#server/platform/definitions/define-store';
-import { pageById } from '#server/platform/definitions/page-by-id';
 
 function nameOf(value: string) {
   const name = value.trim();

@@ -14,9 +14,8 @@ import { noteIdSchema } from '@study/contracts';
 import { NoteMode } from '@study/contracts';
 import { and, eq } from '@study/db';
 import { notes } from '@study/db';
+import { defineStore, storeQuery } from '@study/server';
 import { Schema } from 'effect';
-
-import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 
 export const NotebookStore = defineStore({
   name: 'study/NoteNotebookStore',

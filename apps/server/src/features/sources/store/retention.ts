@@ -12,8 +12,7 @@
 
 import type { SourceId } from '@study/contracts';
 import { sql } from '@study/db';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
+import type { StoreResources } from '@study/server';
 
 export function sourceDeletionBlockers({ db }: Pick<StoreResources, 'db'>, sourceId: SourceId) {
   const blockedBy: ('exact_inputs' | 'image_assets')[] = [];

@@ -14,15 +14,12 @@ import { AuthRpc } from '@study/contracts';
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import { preferences } from '@study/db';
+import { AuthManager, ChatGptSession, ServerContext, Database } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
 import { Auth } from '#server/features/auth/index';
-import { AuthManager } from '#server/platform/ai/auth/index';
-import { ChatGptSession } from '#server/platform/ai/auth/service';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 import { testLiveQueries } from '#testing/live-queries';
 
 import { AuthRpcLive } from './index.ts';

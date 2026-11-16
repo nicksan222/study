@@ -3,8 +3,7 @@
 import type * as e from '@study/contracts';
 import type * as evidence from '@study/contracts';
 import type { Page, PageVersionId } from '@study/contracts';
-
-import type { Transaction } from '#server/platform/definitions/define-store';
+import type { Transaction } from '@study/server';
 
 function pagePublished(tx: Transaction, versionId: PageVersionId) {
   const eventId = crypto.randomUUID();

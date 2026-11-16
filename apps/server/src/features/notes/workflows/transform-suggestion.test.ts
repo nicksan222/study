@@ -13,6 +13,15 @@ import { defaultAgentRules } from '@study/contracts';
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import { sql } from '@study/db';
+import {
+  agentsLayer,
+  ServerContext,
+  Database,
+  normalizeError,
+  WorkflowConfiguration,
+  workflowEngineLayer,
+  dispatchPending
+} from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import type { Context } from 'effect';
@@ -22,13 +31,6 @@ import { Notes } from '#server/features/notes/service/index';
 import { suggestTransformField } from '#server/features/notes/service/transform-suggestion';
 import { Pages } from '#server/features/pages/index';
 import { Settings } from '#server/features/settings/index';
-import { layer as agentsLayer } from '#server/platform/ai/agents';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { normalizeError } from '#server/platform/errors/classify-error';
-import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
-import { workflowEngineLayer } from '#server/platform/workflows/engine';
-import { dispatchPending } from '#server/platform/workflows/triggers';
 import { deletionDocument } from '#testing/material-deletion';
 import { withTestPublication } from '#testing/publication';
 

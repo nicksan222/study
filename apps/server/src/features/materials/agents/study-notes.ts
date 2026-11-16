@@ -15,8 +15,7 @@
 import { materialStudyNotesSchema as studyNotesSchema } from '@study/contracts';
 import { promptInputSchema } from '@study/contracts';
 import { AgentRule } from '@study/contracts';
-
-import { defineAgent } from '#server/platform/definitions/define-agent';
+import { defineAgent } from '@study/server';
 
 export const studyNotesAgent = defineAgent({
   id: 'study-notes',

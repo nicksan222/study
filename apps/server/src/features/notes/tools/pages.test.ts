@@ -1,4 +1,5 @@
 import { createBlock } from '@study/contracts';
+import { ServerContext, Database } from '@study/server';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Verifies authored page tools retain retry receipts and conflict alternatives.      │
@@ -12,9 +13,6 @@ import { createBlock } from '@study/contracts';
  */
 import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
-
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 
 import { noteTools } from './notes.ts';
 import { pageTools } from './pages.ts';

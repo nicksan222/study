@@ -10,12 +10,11 @@ import {
   sourceProcessingRequestedSchema,
   sourceProjectChangedSchema
 } from '@study/contracts';
+import { defineWorkflow, defineWorkflowHandler } from '@study/server';
 import { Effect, Result, Schema } from 'effect';
 import { DurableDeferred } from 'effect/workflow';
 
 import { Notes } from '#server/features/notes/service/index';
-import { defineWorkflow } from '#server/platform/definitions/define-workflow';
-import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 
 import { attachmentGate } from './internal/attachment-gate.ts';
 import { noteReplyWorkflow } from './reply.ts';

@@ -4,6 +4,8 @@ import type * as e from '@study/contracts';
 import type * as r from '@study/contracts';
 import type * as t from '@study/contracts';
 import type { NoteId } from '@study/contracts';
+import { defineService } from '@study/server';
+import type { Transaction } from '@study/server';
 import { Option } from 'effect';
 
 import { PageBackupStore } from '#server/features/pages/store/backup';
@@ -14,8 +16,6 @@ import {
   PagesStore
 } from '#server/features/pages/store/index';
 import { PageTransformsStore } from '#server/features/pages/store/transforms';
-import { defineService } from '#server/platform/definitions/define-service';
-import type { Transaction } from '#server/platform/definitions/define-store';
 
 import { pageEditingOperations } from './editing.ts';
 import { pageEvidenceOperations } from './evidence.ts';

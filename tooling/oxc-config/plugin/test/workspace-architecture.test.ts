@@ -160,7 +160,11 @@ test.unit.stable(
       },
       'apps/server': {
         ...valid['apps/server'],
-        exports: { '.': './src/index.ts', './client': './src/client/index.ts' }
+        exports: {
+          '.': './src/platform/index.ts',
+          './client': './src/client/index.ts',
+          './private': './src/private.ts'
+        }
       }
     });
 

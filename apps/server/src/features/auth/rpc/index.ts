@@ -13,9 +13,9 @@
  */
 
 import { AuthRpc } from '@study/contracts';
+import { defineRpc } from '@study/server';
 
 import { Auth } from '#server/features/auth/service/index';
-import { defineRpc } from '#server/platform/definitions/define-rpc';
 
 export const AuthRpcLive = defineRpc(AuthRpc, { auth: Auth }, ({ auth }) => ({
   'auth.providers': () => auth.providers(),

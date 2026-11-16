@@ -9,6 +9,7 @@ import {
 } from '@study/contracts';
 import * as s from '@study/db';
 import { eq } from '@study/db';
+import type { StoreResources } from '@study/server';
 import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
 
@@ -17,7 +18,6 @@ import {
   assertQuestionSpec,
   assertQuizConfig
 } from '#server/features/materials/decoders/question-spec';
-import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { makeCreateMaterial } from './create-material.ts';
 import { makeGenerationEvents } from './generation-events.ts';

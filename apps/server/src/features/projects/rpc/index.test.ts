@@ -14,13 +14,12 @@ import type { ProjectId } from '@study/contracts';
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import { ProjectsRpc } from '@study/contracts';
+import { ServerContext, Database } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer, Option } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
 import { Projects } from '#server/features/projects/service/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 import { testLiveQueries } from '#testing/live-queries';
 
 import { ProjectsRpcLive } from './index.ts';

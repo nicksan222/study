@@ -13,11 +13,11 @@
 import * as e from '@study/contracts';
 import * as r from '@study/contracts';
 import * as s from '@study/contracts';
+import { defineTool } from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
-import { defineTool } from '#server/platform/definitions/define-agent';
 
 export const pageTools = {
   list_pages: defineTool({

@@ -13,11 +13,11 @@
 import { StudyError } from '@study/contracts';
 import type { NoteId } from '@study/contracts';
 import type { createNoteInputSchema } from '@study/contracts';
+import { transaction } from '@study/server';
 import { Option } from 'effect';
 
 import { NoteStore } from '#server/features/notes/store/index';
 import { NotebookStore } from '#server/features/notes/store/notebooks';
-import { transaction } from '#server/platform/definitions/define-store';
 
 /** Exact names are scoped to their subject; retries retain the earliest matching note. */
 export const ensureNote = (input: typeof createNoteInputSchema.Type) =>

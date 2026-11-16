@@ -1,13 +1,13 @@
 /** @file Owns library within this feature. */
 
 import type * as input from '@study/contracts';
+import { transaction, useStore } from '@study/server';
 
 import {
   MaterialCitationsStore,
   MaterialVersionsStore,
   MaterialsStore
 } from '#server/features/materials/store/index';
-import { transaction, useStore } from '#server/platform/definitions/define-store';
 
 import { assertContentCitation, assertContentInputs } from './content-inputs.ts';
 import { published } from './publication.ts';

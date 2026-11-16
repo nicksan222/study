@@ -19,6 +19,17 @@ import { plainBlock } from '@study/contracts';
 import type { Db } from '@study/db';
 import { sql } from '@study/db';
 import * as tables from '@study/db';
+import {
+  agentsLayer,
+  createChatGptModel,
+  AuthManager,
+  ServerContext,
+  Database,
+  normalizeError,
+  WorkflowConfiguration,
+  workflowEngineLayer,
+  decodeEvent
+} from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
@@ -33,15 +44,6 @@ import {
   sourceIngestionWorkflow,
   sourceIngestionHandler
 } from '#server/features/sources/workflows/index';
-import { layer as agentsLayer } from '#server/platform/ai/agents';
-import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
-import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { normalizeError } from '#server/platform/errors/classify-error';
-import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
-import { workflowEngineLayer } from '#server/platform/workflows/engine';
-import { decodeEvent } from '#server/platform/workflows/events';
 import { testLiveQueries } from '#testing/live-queries';
 
 function admitted(database: { readonly orm: Db['orm'] }, tag: string, id: string) {
@@ -267,14 +269,14 @@ test.server.stable(
   async ({ databases, createAiMock, assert: assertions }) => {
     const assert: test.Assert = assertions;
 
-    const { dispatchPending } = await import('#server/platform/workflows/triggers');
-    const { reconcileCancellation } = await import('#server/platform/workflows/cancellation');
+    const { dispatchPending } = await import('@study/server');
+    const { reconcileCancellation } = await import('@study/server');
     const { sourceIngestionRegistration } =
       await import('#server/features/sources/workflows/index');
-    const { workflowStore } = await import('#server/platform/workflows/store');
+    const { workflowStore } = await import('@study/server');
     const { workflow_executions } = await import('@study/db');
     const { SourceStore } = await import('#server/features/sources/store/index');
-    const { transaction } = await import('#server/platform/definitions/define-store');
+    const { transaction } = await import('@study/server');
     const location = await databases();
     const context = new ServerContext(await location.open());
     using mock = createAiMock();
@@ -670,9 +672,7 @@ test.server.stable(
             const { SourceStore } = yield* Effect.promise(
               () => import('#server/features/sources/store/index')
             );
-            const { transaction } = yield* Effect.promise(
-              () => import('#server/platform/definitions/define-store')
-            );
+            const { transaction } = yield* Effect.promise(() => import('@study/server'));
             const web = yield* transaction((tx) =>
               tx.store(SourceStore).createSource({
                 name: 'Web',
@@ -1046,7 +1046,7 @@ test.server.stable(
     const { sourceCorrectionWorkflow, sourceCorrectionHandler } = await import('./index.ts');
     const { sql } = await import('@study/db');
     const { SourceStore } = await import('#server/features/sources/store/index');
-    const { transaction } = await import('#server/platform/definitions/define-store');
+    const { transaction } = await import('@study/server');
     const location = await databases();
     let context = new ServerContext(await location.open());
     const services = () =>

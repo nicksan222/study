@@ -12,9 +12,9 @@
  */
 
 import type { historyVersionIdsSchema } from '@study/contracts';
+import type { Transaction } from '@study/server';
 
 import { LearningMaterialHistoryStore } from '#server/features/learning/store/material-history';
-import type { Transaction } from '#server/platform/definitions/define-store';
 
 export function prepareMaterialHistory(tx: Transaction, ids: typeof historyVersionIdsSchema.Type) {
   return tx.store(LearningMaterialHistoryStore).prepare(ids);

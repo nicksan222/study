@@ -15,10 +15,9 @@
 import { materialIdSchema } from '@study/contracts';
 import { inArray } from '@study/db';
 import * as s from '@study/db';
+import { defineStore, storeMutation } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import { defineStore, storeMutation } from '#server/platform/definitions/define-store';
-import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { makeMaterialRetirement } from './material-retirement.ts';
 

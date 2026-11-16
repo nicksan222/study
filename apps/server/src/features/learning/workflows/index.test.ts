@@ -19,6 +19,18 @@ import { plainBlock } from '@study/contracts';
 import { executionIdSchema } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
+import {
+  agentsLayer,
+  ServerContext,
+  Database,
+  normalizeError,
+  reconcileCancellation,
+  WorkflowConfiguration,
+  cancelExecution,
+  workflowEngineLayer,
+  decodeEvent,
+  withPublicationGuard
+} from '@study/server';
 import { test } from '@study/testing';
 import type { Context } from 'effect';
 import { Effect, Layer, Option, Schema } from 'effect';
@@ -29,16 +41,6 @@ import { Learning } from '#server/features/learning/service/index';
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
 import { Settings } from '#server/features/settings/index';
-import { layer as agentsLayer } from '#server/platform/ai/agents';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { normalizeError } from '#server/platform/errors/classify-error';
-import { reconcileCancellation } from '#server/platform/workflows/cancellation';
-import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
-import { cancelExecution } from '#server/platform/workflows/control';
-import { workflowEngineLayer } from '#server/platform/workflows/engine';
-import { decodeEvent } from '#server/platform/workflows/events';
-import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { withTestAdmission } from '#testing/workflow-admission';
 
 import {

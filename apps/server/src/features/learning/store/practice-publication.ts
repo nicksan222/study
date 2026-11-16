@@ -4,10 +4,9 @@ import type { MaterialVersionId } from '@study/contracts';
 import { contentInputKey, materialGenerationPayloadSchema } from '@study/contracts';
 import * as s from '@study/db';
 import { and, eq, inArray } from '@study/db';
+import { invalid } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Schema } from 'effect';
-
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { invalid } from '#server/platform/errors/domain-error';
 
 import { makeAnswerQuestion } from './answer-question.ts';
 import { makePracticeQueries } from './practice-queries.ts';

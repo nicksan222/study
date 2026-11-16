@@ -13,9 +13,9 @@
  */
 
 import { RecordingsRpc } from '@study/contracts';
+import { defineRpc } from '@study/server';
 
 import { Recordings } from '#server/features/recordings/service/index';
-import { defineRpc } from '#server/platform/definitions/define-rpc';
 
 export const RecordingsRpcLive = defineRpc(
   RecordingsRpc,

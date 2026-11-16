@@ -16,14 +16,14 @@ import { AgentRule } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
 import { executionIdSchema } from '@study/contracts';
 import { workflow_executions } from '@study/db';
+import { generateAgent, agentsLayer as layer } from '@study/server';
+import { defineAgent } from '@study/server';
+import { observeAgentProgress } from '@study/server';
 import { test } from '@study/testing';
 import { Deferred, Effect, Fiber, Schema, Stream } from 'effect';
 import { Workflow, WorkflowEngine } from 'effect/workflow';
 
 import { makeStudyClient } from '#server/client/index';
-import { generateAgent, layer } from '#server/platform/ai/agents';
-import { defineAgent } from '#server/platform/definitions/define-agent';
-import { observeAgentProgress } from '#server/platform/workflows/agent-progress';
 import { serve } from '#server/runtime/index';
 
 function controlledModel() {

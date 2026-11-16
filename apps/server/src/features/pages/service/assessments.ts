@@ -15,13 +15,13 @@ import { StudyError } from '@study/contracts';
 import * as c from '@study/contracts';
 import { pageCitationSchema as citationSchema, exactInputSchema } from '@study/contracts';
 import type { ExactPageInput } from '@study/contracts';
+import type { Transaction } from '@study/server';
 import { Schema } from 'effect';
 
 import { validRange } from '#server/features/pages/decoders/range';
 import { PageCitationAssessmentsStore } from '#server/features/pages/store/assessments';
 import { PagesStore, PageVersionsStore } from '#server/features/pages/store/index';
 import { Sources } from '#server/features/sources/index';
-import type { Transaction } from '#server/platform/definitions/define-store';
 
 function evidenceBody(tx: Transaction, input: ExactPageInput) {
   if (input.kind === 'page') {

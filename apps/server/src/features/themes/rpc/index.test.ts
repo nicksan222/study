@@ -1,4 +1,5 @@
 import { ThemesRpc } from '@study/contracts';
+import { ServerContext, Database } from '@study/server';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises theme catalog RPC calls, selection, import, and typed errors against     │
@@ -18,8 +19,6 @@ import { Effect, Layer, Option } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
 import { Themes } from '#server/features/themes/index';
-import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
 import { testLiveQueries } from '#testing/live-queries';
 
 import { ThemesRpcLive } from './index.ts';

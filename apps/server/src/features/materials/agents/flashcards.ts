@@ -15,9 +15,7 @@
 import { promptInputSchema } from '@study/contracts';
 import { materialFlashcardsContentInputSchema } from '@study/contracts';
 import { AgentRule } from '@study/contracts';
-
-import { sourcesTool } from '#server/platform/ai/captured-sources-tool';
-import { defineAgent } from '#server/platform/definitions/define-agent';
+import { sourcesTool, defineAgent } from '@study/server';
 
 import { materialStudyContext } from './study-context.ts';
 

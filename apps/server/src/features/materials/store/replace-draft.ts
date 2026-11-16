@@ -19,11 +19,11 @@ type Input = typeof replaceDraftInputSchema.Type;
 
 import * as s from '@study/db';
 import { eq } from '@study/db';
+import type { StoreResources } from '@study/server';
 
 import { makeReads, required } from '#server/features/materials/store/reads';
 import { materialIntegrity } from '#server/features/materials/store/transactions';
 import { makeWrites, now } from '#server/features/materials/store/writes';
-import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { makeContent } from './content.ts';
 

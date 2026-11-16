@@ -14,11 +14,9 @@
 import { StudyError } from '@study/contracts';
 import type { runSelectionContextSchema } from '@study/contracts';
 import type { transformSuggestionInputSchema } from '@study/contracts';
+import { WorkflowControl, triggeredExecutionId } from '@study/server';
 import { Effect, Option } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
-
-import { WorkflowControl } from '#server/platform/workflows/control';
-import { triggeredExecutionId } from '#server/platform/workflows/triggers';
 
 import { Notes } from './index.ts';
 import { transformSuggestionWorkflow } from './transform-suggestion-definition.ts';

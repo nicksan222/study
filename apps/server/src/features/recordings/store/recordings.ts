@@ -9,12 +9,11 @@ import {
   recordingViewSchema
 } from '@study/contracts';
 import { and, desc, eq, lt, notes, recording_chunks, recordings, sql } from '@study/db';
+import { storeMutation, storeQuery, unixSeconds } from '@study/server';
+import type { StoreResources } from '@study/server';
 import { Option, Schema } from 'effect';
 
 import { MAX_RECORDING_SAMPLES } from '#server/features/recordings/codecs/audio';
-import type { StoreResources } from '#server/platform/definitions/define-store';
-import { storeMutation, storeQuery } from '#server/platform/definitions/define-store';
-import { unixSeconds } from '#server/platform/time/index';
 
 import { makeHelpers, required } from './rows.ts';
 

@@ -1,6 +1,7 @@
 /** @file Owns history within this feature. */
 
 import type { sourceHistoryInputSchema, sourceHistoryRetireSchema } from '@study/contracts';
+import { transaction, useStore } from '@study/server';
 import { Effect } from 'effect';
 
 import {
@@ -8,7 +9,6 @@ import {
   SourceHistoryStore
 } from '#server/features/sources/store/history';
 import { Workflows } from '#server/features/workflows/index';
-import { transaction, useStore } from '#server/platform/definitions/define-store';
 
 export function* sourceHistoryOperations() {
   const histories = yield* useStore(SourceHistoryStore);
