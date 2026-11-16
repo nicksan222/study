@@ -3,12 +3,7 @@ import type { materialGenerationSnapshotSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { QuizIcon, FlashcardsIcon, StopIcon, WorkActivityIcon, CancelIcon } from '@study/icons';
 import { RetryButton } from '@study/ui';
-import {
-  ContextMenu,
-  ContextMenuTrigger,
-  ContextMenuPopup,
-  ContextMenuItem
-} from '@study/ui';
+import { ContextMenu, ContextMenuTrigger, ContextMenuPopup, ContextMenuItem } from '@study/ui';
 import { ErrorState } from '@study/ui';
 import { IconButton } from '@study/ui';
 import { Sidebar } from '@study/ui';
