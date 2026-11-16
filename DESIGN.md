@@ -139,3 +139,41 @@ body while keeping the title and actions visible.
 Shared `@study/ui/toast` provides localized operation feedback. Notifications follow
 new committed outcomes rather than replaying cached receipts. Backup rows show useful
 dates and sizes; operation identifiers and diagnostic receipts stay out of normal UI.
+
+## Landing website
+
+The landing is a concise, serious SaaS product page with Cal.com-inspired proportions,
+macOS desktop staging and native HTML product examples. Use the app’s dark semantic
+palette and locally bundled Google Sans Flex for marketing copy; embedded app components
+retain the app's Inter Variable stack. Inset navigation, a broad centered headline
+and a prominent blue Download Study action lead into a live study page. Product sections
+show note capture and sources, questions and citations, page refinement, flashcards and
+all seven exercise formats. Examples import the same shared presentation components as
+the app, including composer, editor, citations, practice, sources, search and settings.
+They receive local state and authored sample answers, without account access or simulated AI.
+The macOS wallpaper-backed desktop frame belongs to the hero and product examples,
+including the examples beside documentation steps. Keep each example independently
+usable rather than replacing the wallpaper frames with plain panels or a shared sticky
+stage. The desktop stage owns its menu, wallpaper and window chrome; content reflows on mobile.
+The macOS Monterey dark wallpaper image comes from the [512 Pixels wallpaper archive](https://512pixels.net/projects/default-mac-wallpapers-in-5k/),
+[source image](https://media.512pixels.net/wp-content/uploads/2025/06/12-Dark-thumbnail.jpg),
+served locally as a 1920-pixel WebP background.
+A prominent ownership section states that study data lives on the learner’s computer;
+AI tasks send the required material through the learner’s ChatGPT plan. Keep all four
+platform downloads explicit. No autoplay walkthroughs, paper cards, invented metrics
+or testimonials. Documentation uses the same desktop and interactive example components.
+Respect reduced motion and keep prose styling outside app views.
+The homepage title keeps its words stable and folds the note, page and practice glyphs
+into one inline fan. Its fan and ownership underline complete one short entrance, then
+remain still; reduced motion shows the final composition immediately. Supporting links
+use brief color and underline feedback. Keep feature copy in clear lead and supporting
+paragraphs. Documentation titles stay static, with a compact chapter bar that marks the
+current reading section and native disclosures that preserve keyboard behavior.
+The closing section uses plain ownership facts, unboxed platform download rows and a
+compact footer. Keep decorative glyphs and repeated button containers out of this area;
+all four platform choices and installation/release information remain explicit. The
+installation guide uses the same download component with a compact guide presentation.
+The middle varies its editorial rhythm while retaining every desktop frame: saved note
+and answered-question samples lead into a wider document-refinement band, followed by
+flashcard recall and practice. Use explicit localized lead/detail copy, concise links
+and a quiet seven-format legend; avoid repeating the same half-width row for every feature.

@@ -6,11 +6,11 @@ import type { MaterialVersionDetailDto } from '@study/contracts/materials/schema
 import { rpc } from '@study/contracts/react';
 import { defaultQuizSettings } from '@study/contracts/settings/types';
 import { StartIcon, GradeIcon } from '@study/icons';
-import { questionNumber, reviewProgress, questionCount } from '@study/localization';
+import { questionNumber, questionCount } from '@study/localization';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
-import { NextButton } from '@study/ui/navigation-button';
 import { Practice } from '@study/ui/practice';
+import { QuizSessionView, QuizFinishView } from '@study/ui/quiz-session-view';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
 import { useRef, useState } from 'react';
@@ -20,6 +20,7 @@ import { useNativeAction } from '#client/lib/effect/native.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { AttemptState } from './attempt-state';
+import { ClientPracticePresentation } from './presentation';
 import { QuizGenerationAction } from './quiz-generation';
 import { QuizQuestion } from './quiz-question';
 import { QuizResults } from './quiz-results';
@@ -188,39 +189,37 @@ function AttemptQuestions({
   const error = answerError ? <OperationError /> : undefined;
 
   return (
-    <Practice.Active ref={heading} tabIndex={-1}>
-      <Practice.ProgressHeading>
-        <span>{question ? questionNumber(locale, index + 1) : t('PracticeAllAnswered')}</span>
-        <span>{reviewProgress(locale, answered, attempt.questions.length)}</span>
-      </Practice.ProgressHeading>
-      <Practice.Progress
-        max={attempt.questions.length}
-        value={answered}
-        aria-label={t('PracticeProgress')}
-      />
-      {question ? (
-        <QuizQuestion
-          key={String(question.id)}
-          question={question}
-          last={answered === attempt.questions.length - 1}
-          pending={pending}
-          error={error}
-          previous={previous}
-          review={review}
-          submit={(value) =>
-            submit({ attemptId: attempt.id, questionId: question.id, answer: value })
-          }
-        />
-      ) : (
-        <QuizFinish
-          attempt={attempt}
-          select={select}
-          finishing={finishing}
-          finish={finish}
-          finishError={finishError}
-        />
-      )}
-    </Practice.Active>
+    <ClientPracticePresentation>
+      <QuizSessionView
+        heading={heading}
+        label={question ? questionNumber(locale, index + 1) : t('PracticeAllAnswered')}
+        answered={answered}
+        total={attempt.questions.length}
+      >
+        {question ? (
+          <QuizQuestion
+            key={String(question.id)}
+            question={question}
+            last={answered === attempt.questions.length - 1}
+            pending={pending}
+            error={error}
+            previous={previous}
+            review={review}
+            submit={(value) =>
+              submit({ attemptId: attempt.id, questionId: question.id, answer: value })
+            }
+          />
+        ) : (
+          <QuizFinish
+            attempt={attempt}
+            select={select}
+            finishing={finishing}
+            finish={finish}
+            finishError={finishError}
+          />
+        )}
+      </QuizSessionView>
+    </ClientPracticePresentation>
   );
 }
 
@@ -326,43 +325,18 @@ function QuizFinish({
   const { t, locale } = useI18n();
 
   return (
-    <Practice.Stage>
-      <Practice.StageBody>
-        <Practice.Intro>
-          <h2>{t('QuizReviewAnswers')}</h2>
-          <p>{t('PracticeFinishHint')}</p>
-        </Practice.Intro>
-        <Practice.ReviewList>
-          {attempt.questions.map((item, position) => (
-            <Practice.ReviewItem key={String(item.id)}>
-              <div>
-                <small>{questionNumber(locale, position + 1)}</small>
-                <h3>{item.prompt}</h3>
-                <p>{savedAnswer(t, item) ?? t('PracticeUnanswered')}</p>
-              </div>
-              <Button
-                variant="ghost"
-                onClick={() => select(position)}
-                disabled={finishing}
-                aria-label={`${t('QuizEditAnswer')}: ${questionNumber(locale, position + 1)}`}
-              >
-                {t('QuizEditAnswer')}
-              </Button>
-            </Practice.ReviewItem>
-          ))}
-        </Practice.ReviewList>
-        {finishError && <OperationError retry={() => finish()} />}
-      </Practice.StageBody>
-      <Practice.StageFooter>
-        <Practice.FooterContext>
-          <Practice.MutedText>{t('PracticeQuizSaveHint')}</Practice.MutedText>
-        </Practice.FooterContext>
-        <NextButton
-          disabled={finishing}
-          onClick={() => finish()}
-          label={t(finishing ? 'PracticeSaving' : 'PracticeFinishQuiz')}
-        ></NextButton>
-      </Practice.StageFooter>
-    </Practice.Stage>
+    <QuizFinishView
+      rows={attempt.questions.map((item, position) => ({
+        key: String(item.id),
+        number: questionNumber(locale, position + 1),
+        prompt: item.prompt,
+        answer: savedAnswer(t, item) ?? t('PracticeUnanswered'),
+        editLabel: `${t('QuizEditAnswer')}: ${questionNumber(locale, position + 1)}`
+      }))}
+      select={select}
+      finishing={finishing}
+      finish={finish}
+      error={finishError ? <OperationError retry={finish} /> : undefined}
+    />
   );
 }

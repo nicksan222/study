@@ -1,11 +1,12 @@
 import { quizAttemptCompletedSchema } from '@study/contracts/learning/schemas';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
+import { MatchingReviewView as MatchingReview } from '@study/ui/matching-review-view';
 import { render, screen, within } from '@testing-library/react';
 import { Schema } from 'effect';
 import { expect } from 'vite-plus/test';
 
-import { MatchingReview } from './matching-review';
+import { ClientPracticePresentation } from './presentation';
 
 const a = '11111111-1111-4111-8111-111111111111';
 
@@ -62,7 +63,11 @@ testStable('matching review labels selected and correct associations for each te
 
   if (question.kind !== 'matching') throw Error('wrong fixture');
 
-  render(<MatchingReview question={question} />);
+  render(
+    <ClientPracticePresentation>
+      <MatchingReview question={question} />
+    </ClientPracticePresentation>
+  );
   const nucleus = screen.getByText('Nucleus').parentElement!;
 
   expect(within(nucleus).getByText(catalogs.english.YourAnswer + ':')).toBeInTheDocument();

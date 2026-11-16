@@ -139,7 +139,7 @@ testStable(
     expect(screen.getByAltText('Original figure')).toBeInTheDocument();
     expect(editorToDocument(documentToEditor(document), document)).toEqual(document);
     expect(onChange).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Text style' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Text style: / }));
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Heading' }));
     await waitFor(() => expect(onChange).toHaveBeenCalled());
     const edited = editorToDocument(onChange.mock.calls.at(-1)![0], document);
@@ -174,7 +174,7 @@ testStable(
         placeholder="Write"
       />
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Text style' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Text style: / }));
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Heading' }));
     await waitFor(() => expect(onChange).toHaveBeenCalled());
     const result = editorToDocument(onChange.mock.calls.at(-1)![0], document);
@@ -579,7 +579,7 @@ testStable('read-only rendering preserves anchors and removes editing controls',
     `block-${block.id}`
   );
   expect(container.querySelector('[contenteditable="false"]')).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'Text style' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /^Text style: / })).not.toBeInTheDocument();
   fireEvent.contextMenu(screen.getByText('Source heading'));
   expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   expect(onChange).not.toHaveBeenCalled();

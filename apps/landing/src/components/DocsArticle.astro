@@ -1,0 +1,51 @@
+---
+import { landingCopy } from '@study/localization/landing';
+import Icon from './Icon.astro';
+import DocView from './DocView.astro';
+import ReadingNavigation from './ReadingNavigation.astro';
+import { slug } from '../i18n/docs';
+import type { Doc } from '../i18n/docs';
+import { href, repo, t } from '../i18n/strings';
+import type { Lang } from '../i18n/strings';
+
+interface Props { lang: Lang; doc: Doc; previous?: Doc; next?: Doc; headings: { depth: number; slug: string; text: string }[]; }
+
+const { lang, doc, previous, next, headings } = Astro.props;
+
+const s = t(lang);
+
+const link = (d: Doc) => href(lang, `docs/${slug(d)}/`);
+---
+          <article>
+            <nav class="all-guides" aria-label={s.docs.title}><a href={href(lang, 'docs/')}>{s.docs.title}</a><span aria-hidden="true">/</span><span aria-current="page">{doc.data.title}</span></nav>
+            <header class="doc-hero">
+            <h1>{doc.data.headline}</h1>
+            <div class="doc-introduction"><p class="lead">{doc.data.description}</p>
+            <a class="doc-download" href={`${href(lang)}#download`}>{s.nav.download} <Icon name="arrow-right" size={16} /></a></div>
+            </header>
+            {doc.data.stage && <div class="hero-stage"><h2 class="visually-hidden">{doc.data.title}</h2><DocView example={doc.data.stage.example} phase={doc.data.stage.phase} /></div>}
+            {headings.length > 0 && <nav class="chapter-nav" data-reading-nav aria-label={landingCopy[lang].docsOnThisPage}><ol>{headings.filter((h) => h.depth === 2).map((h) => <li><a data-reading-link href={`#${h.slug}`}>{h.text}</a></li>)}</ol></nav>}
+            <div class="prose">
+              <slot />
+            </div>
+            <nav class="turn" aria-label={s.docs.turn}>
+              {previous ? (
+                <a href={link(previous)} class="turn-prev">
+                  <span>{s.docs.previous}</span>
+                  {previous.data.title}
+                </a>
+              ) : (
+                <span />
+              )}
+              {next && (
+                <a href={link(next)} class="turn-next">
+                  <span>{s.docs.next}</span>
+                  {next.data.title}
+                </a>
+              )}
+            </nav>
+            <p class="edit">
+              <a href={`${repo}/edit/main/apps/landing/${doc.filePath}`}>{s.docs.edit}</a>
+            </p>
+          </article>
+<ReadingNavigation />

@@ -242,20 +242,8 @@
   },
   // Astro's native compiler consumes this pinned transitive runtime without a source import.
   "ignoreDependencies": ["@emnapi/runtime"],
-  // Compile-only contracts and the subprocess-only fixture are entry points.
-  // Vite aliases production hooks to these exact build-only fixture exports.
-  "ignoreExports": [
-    {
-      "file": "apps/landing/src/previews/ai-readiness.ts",
-      "exports": ["useAiReadiness"]
-    },
-    {
-      "file": "apps/landing/src/previews/workspace-preferences.ts",
-      "exports": ["useWorkspacePreferences"]
-    }
-  ],
   "entry": [
-    // The client package also exposes fixture views; its HTML application remains a runtime root.
+    // The client HTML application is a runtime root.
     "apps/client/src/main.tsx",
     "packages/localization/test/api.types.ts",
     "packages/testing/test/api.types.ts",

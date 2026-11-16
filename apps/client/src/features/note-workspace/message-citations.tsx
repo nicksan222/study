@@ -4,7 +4,7 @@ import { rpc } from '@study/contracts/react';
 import { anchorLabel, text } from '@study/localization';
 import type { Locale } from '@study/localization';
 import { ChatMessageText, ChatQuestionAnswer } from '@study/ui/chat';
-import { Citation, CitationEvidence, CitationSources } from '@study/ui/citation';
+import { EvidenceReference as EvidenceControl, CitationSources } from '@study/ui/citation';
 import { useCallback } from 'react';
 import type { ReactNode } from 'react';
 
@@ -36,40 +36,36 @@ function EvidenceReference({
   const location = citationLocation(locale, citation.anchor);
 
   return (
-    <Citation
+    <EvidenceControl
       marker={citation.marker}
       label={t('NoteOpenCitation', { number: citation.marker, source: citation.sourceName })}
       sourceName={inline ? undefined : citation.sourceName}
       closeLabel={t('Close')}
-    >
-      <CitationEvidence
-        action={
-          citation.input && (
-            <CapturedInputLink input={citation.input} name={t('NoteCitationTakeMeThere')} action />
-          )
-        }
-        title={
-          citation.input ? (
-            <CapturedInputLink input={citation.input} name={citation.sourceName} />
-          ) : (
-            citation.sourceName
-          )
-        }
-        location={location}
-        quote={
-          citation.evidence?.availability === 'available'
-            ? citation.evidence.excerpt
-            : citation.quote
-        }
-        precision={t(
-          citation.precision === 'exact'
-            ? 'NoteExactEvidence'
-            : citation.precision === 'approximate'
-              ? 'NoteApproximateEvidence'
-              : 'NoteEvidenceUnavailable'
-        )}
-      />
-    </Citation>
+
+      action={
+        citation.input && (
+          <CapturedInputLink input={citation.input} name={t('NoteCitationTakeMeThere')} action />
+        )
+      }
+      title={
+        citation.input ? (
+          <CapturedInputLink input={citation.input} name={citation.sourceName} />
+        ) : (
+          citation.sourceName
+        )
+      }
+      location={location}
+      quote={
+        citation.evidence?.availability === 'available' ? citation.evidence.excerpt : citation.quote
+      }
+      precision={t(
+        citation.precision === 'exact'
+          ? 'NoteExactEvidence'
+          : citation.precision === 'approximate'
+            ? 'NoteApproximateEvidence'
+            : 'NoteEvidenceUnavailable'
+      )}
+    />
   );
 }
 

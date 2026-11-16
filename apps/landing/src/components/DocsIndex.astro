@@ -1,0 +1,45 @@
+---
+import { landingCopy } from '@study/localization/landing';
+import Icon from './Icon.astro';
+import ReadingNavigation from './ReadingNavigation.astro';
+import { sections, slug } from '../i18n/docs';
+import type { Doc } from '../i18n/docs';
+import { href, t } from '../i18n/strings';
+import type { Lang } from '../i18n/strings';
+
+interface Props { lang: Lang; all: Doc[]; }
+
+const { lang, all } = Astro.props;
+
+const s = t(lang);
+
+const link = (d: Doc) => href(lang, `docs/${slug(d)}/`);
+---
+          <div class="docs-directory">
+            <h1>{s.docs.title}</h1>
+            <p class="lead">{s.docs.lead}</p>
+            <nav class="directory-topics" data-reading-nav aria-label={landingCopy[lang].docsOnThisPage}>{sections.map((section) => <a data-reading-link href={`#guides-${section}`}>{s.docs.sections[section]}</a>)}</nav>
+            {sections.map((section) => (
+              <section class="index-group" id={`guides-${section}`}>
+                <div class="index-section-copy"><h2>{s.docs.sections[section]}</h2>
+                <p class="index-intro">{s.docs.sectionDescriptions[section]}</p>
+                </div>
+                <ul>
+                  {all
+                    .filter((d) => d.data.section === section)
+                    .map((d) => (
+                      <li>
+                        <a href={link(d)}>
+                          <span class="index-title">
+                            {d.data.title}
+                          </span>
+                          <span class="index-desc">{d.data.description}</span>
+                          <Icon name="arrow-right" size={18} />
+                        </a>
+                      </li>
+                    ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+<ReadingNavigation />

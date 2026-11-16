@@ -20,7 +20,6 @@ import { StructuredTableDialog } from './structured-editor-table';
 import type { EditorImageReference, StructuredEditorLabels } from './structured-editor-types';
 
 export type { Editor as StructuredEditorInstance } from '@tiptap/core';
-export type { StructuredEditorLabels } from './structured-editor-types';
 
 export type StructuredEditorValue = JSONContent;
 
@@ -377,9 +376,9 @@ function useStructuredEditor(
       attributes: {
         role: readOnly ? 'document' : 'textbox',
         'aria-label': label,
-        'aria-multiline': 'true',
+        ...(!readOnly && { 'aria-multiline': 'true' }),
         'data-placeholder': placeholder,
-        spellcheck: String(spellcheck),
+        spellcheck: String(spellcheck ?? true),
         style: `font-size: ${fontSize}px`
       }
     },

@@ -1,29 +1,58 @@
 ---
 title: Risposte e citazioni
+headline: Fai domande mentre impari.
 description: Fai domande sul materiale di studio e controlla le fonti di una risposta.
 section: capture
 order: 3
-shot: docs-source
-shotAlt: La fonte cell-biology.txt aperta in Study.
-shotCaption: Study in italiano con materiale di biologia di esempio in inglese.
+stage:
+  example: answer
 ---
+
+import DocStep from '../../../components/DocStep.astro';
 
 Una risposta utile ti aiuta a capire il tuo materiale e ti permette di verificarne le fonti. In una [nota](../notes/), usa **Chiedi a Study** per una richiesta esplicita oppure l'azione per rispondere a una domanda salvata.
 
+<DocStep number={1} example="answer">
+<header slot="intro">
+
 ## Domande e appunti
+
+Conserva le domande accanto agli appunti e chiedi aiuto in modo esplicito.
+
+</header>
 
 Puoi classificare una voce come domanda o appunto. Le risposte automatiche sono una preferenza dell'area di lavoro; puoi lasciarle disattivate e chiedere tu una risposta. Non serve aggiungere una menzione `@study` a ogni domanda.
 
 Le risposte usano la tua connessione a ChatGPT. Un accesso mancante o un'operazione fallita compaiono accanto al lavoro che richiede attenzione. Prima di riprovare, controlla la domanda e il materiale selezionato.
 
+</DocStep>
+
+<DocStep number={2} example="sources">
+<header slot="intro">
+
 ## Controlla la fonte
+
+Segui una citazione fino al materiale su cui si basa la risposta.
+
+</header>
 
 Quando una risposta include citazioni, usale per leggere il passaggio su cui si basa. Una citazione indica una fonte e una posizione, come una pagina PDF, un momento di una registrazione o un intervallo di testo. Leggi anche il contesto, non solo la frase citata.
 
 Se il passaggio non sostiene la risposta, fidati della fonte e approfondisci la differenza. Una citazione permette di controllare un'affermazione, ma non garantisce che sia corretta.
 
+</DocStep>
+
+<DocStep number={3} example="page">
+<header slot="intro">
+
 ## Tieni presenti le versioni
+
+Rivedi le modifiche e conserva la versione che vuoi studiare.
+
+</header>
 
 Appunti, risposte e pagine hanno versioni distinte. Quando rivedi un risultato precedente o confronti le modifiche, controlla quale versione stai leggendo. Rivedi le tue modifiche e le riscritture proposte prima di usare il risultato per studiare.
 
 Quando vuoi raccogliere ciò che hai imparato, [trasforma le note salvate in una pagina](../pages/) e usa quel pagina per le [esercitazioni](../practice/).
+
+</DocStep>

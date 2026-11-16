@@ -7,13 +7,14 @@ import {
   AddIcon,
   DeleteIcon
 } from '@study/icons';
+import { ColorSchemeControls } from '@study/ui/appearance-controls';
 import { Button } from '@study/ui/button';
 import { downloadFile } from '@study/ui/download';
 import { IconButton } from '@study/ui/icon-button';
 import { Settings } from '@study/ui/settings';
 import { defaultThemeId, serializeTheme } from '@study/ui/theme';
 import type { ThemeFile } from '@study/ui/theme';
-import { ThemeSwatches, ThemeWireframe } from '@study/ui/theme-preview';
+import { ThemeSwatches } from '@study/ui/theme-preview';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -40,23 +41,18 @@ export function ColorScheme({
   const theme = data.themes.find((item) => item.id === (data.selected ?? defaultThemeId)) ?? {};
 
   return (
-    <Settings.Section variant="color-scheme" title={showHeading ? t('ColorScheme') : undefined}>
-      <Settings.ChoiceGroup label={t('ColorScheme')}>
-        {(['system', 'light', 'dark'] as const).map((value) => (
-          <Settings.Choice
-            key={value}
-            label={t(
-              value === 'system' ? 'SystemAppearance' : value === 'light' ? 'Light' : 'Dark'
-            )}
-            selected={mode === value}
-            disabled={model.pending}
-            onSelect={() => model.setAppearance(value)}
-          >
-            <ThemeWireframe theme={theme} appearance={value} />
-          </Settings.Choice>
-        ))}
-      </Settings.ChoiceGroup>
-    </Settings.Section>
+    <ColorSchemeControls
+      title={showHeading ? t('ColorScheme') : undefined}
+      label={t('ColorScheme')}
+      theme={theme}
+      disabled={model.pending}
+      choices={(['system', 'light', 'dark'] as const).map((value) => ({
+        value,
+        label: t(value === 'system' ? 'SystemAppearance' : value === 'light' ? 'Light' : 'Dark'),
+        selected: mode === value
+      }))}
+      onSelect={model.setAppearance}
+    />
   );
 }
 

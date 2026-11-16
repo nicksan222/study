@@ -1,24 +1,37 @@
 import { glob } from 'astro/loaders';
-// The docs, one Markdown page per feature in each language: MDX when it shows captures of
-// the app inline (see astro.config.mjs). A page's file name is its slug, and the English
-// and Italian pages of one feature share it.
+// Each localized guide owns its copy and example composition; its filename is the route slug.
 import { defineCollection, z } from 'astro:content';
 
 /** The sidebar's sections, in order; their names are in strings.ts. */
 export const sections = ['start', 'capture', 'pages', 'practice', 'reference'] as const;
 
 const docs = defineCollection({
-  loader: glob({ pattern: '{en,it}/*.{md,mdx}', base: './src/content/docs' }),
+  loader: glob({ pattern: '{en,it}/*.mdx', base: './src/content/docs' }),
   schema: z.object({
     title: z.string(),
     description: z.string(),
+    headline: z.string(),
+    stage: z
+      .object({
+        example: z.enum([
+          'note',
+          'answer',
+          'page',
+          'flashcards',
+          'quiz',
+          'sources',
+          'search',
+          'settings',
+
+          'activity',
+          'install'
+        ]),
+        phase: z.enum(['start', 'result']).optional()
+      })
+      .optional(),
     // The sidebar groups pages by section, then sorts them by order.
     section: z.enum(sections),
-    order: z.number(),
-    // The capture at the top of the page, from src/assets/shots by name (note, citation, …).
-    shot: z.string().optional(),
-    shotAlt: z.string().optional(),
-    shotCaption: z.string().optional()
+    order: z.number()
   })
 });
 

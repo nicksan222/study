@@ -16,3 +16,7 @@ export * from './counts.ts';
 export * from './time.ts';
 export * from './anchors.ts';
 export * from './mentions.ts';
+export { noteEditorLabels, structuredEditorLabels } from './editor-labels.ts';
+export { interfaceControlLabels } from './appearance-labels.ts';
+
+export { createPracticePresentation } from './practice-labels.ts';

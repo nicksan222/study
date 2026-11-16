@@ -43,7 +43,7 @@
 .study-practice-library-heading p {
   max-width: 42rem;
   margin: 0;
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
   font-size: 0.9375rem;
   line-height: 1.7;
 }
@@ -70,7 +70,7 @@
 
 .study-practice-outline-list li > span:first-child {
   grid-row: span 2;
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
   font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
 }
@@ -84,7 +84,7 @@
 
 .study-practice-outline-kind {
   grid-column: 2;
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
   font-size: 0.75rem;
   line-height: 1.6;
 }
@@ -105,7 +105,7 @@
 
 .study-practice-muted,
 .study-practice-library-age {
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
   font-size: 0.8125rem;
   line-height: 1.65;
 }
@@ -135,7 +135,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
 }
@@ -205,7 +205,7 @@
 }
 
 .study-practice-short-answer > label {
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
   font-size: 0.875rem;
   font-weight: 550;
 }
@@ -269,7 +269,7 @@
   place-items: center;
   border: 1px solid var(--border);
   border-radius: 0.25rem;
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
   font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
 }
@@ -353,7 +353,6 @@
   padding: 0 0.3rem;
   font-size: 0.6875rem;
   font-family: inherit;
-  opacity: 0.75;
 }
 .study-practice-ratings {
   display: grid;
@@ -387,7 +386,7 @@
   font-variant-numeric: tabular-nums;
 }
 .study-practice-score > span {
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
   font-size: 0.875rem;
   font-weight: 400;
   letter-spacing: normal;
@@ -416,14 +415,14 @@
 }
 .study-practice-result small,
 .study-practice-result-label {
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
   font-size: 0.75rem;
 }
 .study-practice-result summary > svg {
   width: 1rem;
   height: 1rem;
   flex-shrink: 0;
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
 }
 .study-practice-result[open] summary > svg {
   transform: rotate(180deg);
@@ -434,7 +433,7 @@
   height: 1.75rem;
   place-items: center;
   border-radius: 50%;
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
   background: var(--muted);
 }
 .study-practice-verdict[data-verdict='correct'] {
@@ -487,7 +486,7 @@
   flex: 0 0 2rem;
   height: 2rem;
   place-items: center;
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
 }
 .study-practice-library-icon svg {
   width: 1.125rem;
@@ -505,13 +504,13 @@
   overflow-wrap: anywhere;
 }
 .study-practice-library-label > span {
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
   font-size: 0.8125rem;
 }
 .study-practice-library-row > svg {
   flex-shrink: 0;
   width: 1rem;
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
 }
 .study-practice-library-row:hover {
   background: var(--accent);
@@ -539,7 +538,7 @@
   width: 2rem;
   height: 2rem;
   margin-bottom: 0.5rem;
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
 }
 .study-practice-complete h2,
 .study-practice-empty h3 {
@@ -552,7 +551,7 @@
 .study-practice-empty p {
   max-width: 32rem;
   margin: 0 0 0.5rem;
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
   font-size: 0.875rem;
   line-height: 1.7;
 }
@@ -695,6 +694,9 @@
   gap: 0.75rem;
   min-width: 0;
 }
+.study-practice-footer-context > .study-practice-muted {
+  color: var(--foreground);
+}
 .study-practice-review-list {
   margin: 2rem 0 0;
   padding: 0;
@@ -721,14 +723,14 @@
 }
 .study-practice-review-item p {
   margin: 0;
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
   font-size: 0.875rem;
   line-height: 1.7;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 .study-practice-review-item small {
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
   font-size: 0.75rem;
 }
 @media (max-width: 600px) {
@@ -934,7 +936,7 @@
   gap: 0.625rem;
   min-height: 3.5rem;
   padding-block: 0.875rem;
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
@@ -1035,7 +1037,7 @@
 }
 .study-practice-explanation p {
   margin: 0.5rem 0 0;
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
   font-size: 0.9375rem;
   line-height: 1.7;
   overflow-wrap: anywhere;
@@ -1126,7 +1128,7 @@
   overflow-wrap: anywhere;
 }
 .study-practice-ordering-number {
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
   font-variant-numeric: tabular-nums;
 }
 .study-practice-ordering-actions {
@@ -1179,7 +1181,7 @@
 .study-practice-result-note h3,
 .study-practice-preview[data-results='true'] .study-practice-explanation h3 {
   margin: 0 0 0.5rem;
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
   font-size: 0.8125rem;
   font-weight: 500;
   line-height: 1.6;

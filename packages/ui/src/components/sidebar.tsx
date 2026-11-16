@@ -265,8 +265,12 @@ function NavigationItem({
   );
 }
 
-function Items({ className, ...props }: ComponentProps<'nav'>) {
-  return <nav {...props} className={cn('study-note-list', className)} />;
+function Items({ className, render, ...props }: useRender.ComponentProps<'nav'>) {
+  return useRender({
+    defaultTagName: 'nav',
+    render,
+    props: { ...props, className: cn('study-note-list', className) }
+  });
 }
 
 function Message({ className, ...props }: ComponentProps<'p'>) {

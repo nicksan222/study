@@ -1,0 +1,30 @@
+---
+import { createElement } from 'react';
+import { renderToString } from 'react-dom/server';
+import { StudyExampleBody } from './StudyExampleBody';
+import type { StudyExampleProps } from './StudyExampleBody';
+import '../styles/study-example.css';
+
+interface Props extends StudyExampleProps {}
+
+const { lang, kind, phase } = Astro.props;
+
+const props = { lang, kind, phase };
+
+const prefix = `study-${crypto.randomUUID()}-`;
+
+const html = renderToString(createElement(StudyExampleBody, props), { identifierPrefix: prefix });
+---
+<div data-study-example={JSON.stringify(props)} data-example-prefix={prefix} set:html={html}></div>
+<script>
+  import { createElement } from 'react';
+  import { hydrateRoot } from 'react-dom/client';
+  import { StudyExampleBody } from './StudyExampleBody';
+  import type { StudyExampleProps } from './StudyExampleBody';
+
+  for (const element of document.querySelectorAll<HTMLElement>('[data-study-example]')) {
+    const props = JSON.parse(element.dataset.studyExample ?? '{}') as StudyExampleProps;
+
+    hydrateRoot(element, createElement(StudyExampleBody, props), { identifierPrefix: element.dataset.examplePrefix });
+  }
+</script>

@@ -28,7 +28,11 @@ export function ContextMenuPopup({ className, children, ...props }: Primitive.Po
   return (
     <Primitive.Portal>
       <Primitive.Positioner className="study-menu-positioner" sideOffset={4}>
-        <Primitive.Popup className={cn('study-menu-popup', className)} {...props}>
+        <Primitive.Popup
+          data-study-ui-portal=""
+          className={cn('study-menu-popup', className)}
+          {...props}
+        >
           <div className="study-menu-scroll">{children}</div>
         </Primitive.Popup>
       </Primitive.Positioner>

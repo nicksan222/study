@@ -20,6 +20,7 @@ import { IconButton } from '@study/ui/icon-button';
 import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
 import { Sidebar as SidebarUI } from '@study/ui/sidebar';
+import { SidebarSearchResults as SearchResults } from '@study/ui/sidebar-search-results';
 import { Spinner } from '@study/ui/spinner';
 import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
@@ -82,34 +83,6 @@ function searchPresentation(kind: SidebarModel['hits'][number]['kind']) {
   }
 }
 
-function SidebarSearchHit({
-  global,
-  project,
-  clearSearch,
-  hit
-}: Pick<SidebarModel, 'global' | 'project' | 'clearSearch'> & {
-  hit: SidebarModel['hits'][number];
-}) {
-  const { t } = useI18n();
-  const { Icon, label } = searchPresentation(hit.kind);
-
-  return (
-    <SidebarUI.Item
-      label={hit.title}
-      icon={<Icon aria-hidden="true" />}
-      context={t(label)}
-      description={hit.excerpt}
-      title={hit.title}
-      render={
-        <Link
-          {...searchResultLocation(hit, global ? undefined : project?.toString())}
-          onClick={clearSearch}
-        />
-      }
-    />
-  );
-}
-
 function SidebarSearchResults({
   global,
   project,
@@ -121,19 +94,33 @@ function SidebarSearchResults({
   const { t } = useI18n();
 
   return (
-    <SidebarUI.Items aria-label={t('Search')} aria-busy={canSearch && !result}>
-      {canSearch && !result && <Loading layout="sidebar" label={t('Searching')} />}
-      <SidebarSearchStatus result={result} empty={hits.length === 0} />
-      {hits.map((hit) => (
-        <SidebarSearchHit
-          key={searchResultKey(hit)}
-          global={global}
-          project={project}
-          clearSearch={clearSearch}
-          hit={hit}
-        />
-      ))}
-    </SidebarUI.Items>
+    <SearchResults
+      label={t('Search')}
+      pending={canSearch && !result}
+      feedback={
+        <>
+          {canSearch && !result && <Loading layout="sidebar" label={t('Searching')} />}
+          <SidebarSearchStatus result={result} empty={hits.length === 0} />
+        </>
+      }
+      items={hits.map((hit) => {
+        const { Icon, label } = searchPresentation(hit.kind);
+
+        return {
+          key: searchResultKey(hit),
+          title: hit.title,
+          excerpt: hit.excerpt,
+          context: t(label),
+          icon: <Icon aria-hidden="true" />,
+          render: (
+            <Link
+              {...searchResultLocation(hit, global ? undefined : project?.toString())}
+              onClick={clearSearch}
+            />
+          )
+        };
+      })}
+    />
   );
 }
 

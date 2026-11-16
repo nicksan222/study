@@ -1,16 +1,25 @@
 ---
 title: Practice
+headline: Put what you know to the test.
 description: Choose your pages, generate exercises and work through saved quizzes with feedback.
 section: practice
 order: 1
-shot: docs-practice
-shotAlt: The overview of a saved practice quiz before starting an attempt.
-shotCaption: Study running with sample biology material.
+stage:
+  example: quiz
 ---
+
+import DocStep from '../../../components/DocStep.astro';
 
 Practice starts from [Pages](../pages/). You choose what to practise, generate a saved set, and work through it at your own pace.
 
+<DocStep number={1} example="quiz">
+<header slot="intro">
+
 ## Generate a set
+
+Choose your pages and the kind of practice you need.
+
+</header>
 
 Open **Practice** in your subject and choose **Generate practice**. The source picker lists the subject's pages. All are selected initially; leave out any you do not want, and keep the selection to at most 20.
 
@@ -18,20 +27,49 @@ Choose exercises or [flashcards](../flashcards/). Add an optional instruction to
 
 If there are no pages yet, create one first. An unprocessed attachment or unsaved note is not a substitute for a selected page.
 
+</DocStep>
+
+<DocStep number={2} example="quiz">
+<header slot="intro">
+
 ## Work through questions
+
+Answer each question and use its feedback to check your understanding.
+
+</header>
 
 The supported exercise formats include multiple choice, written answers, matching pairs and putting items in order. The chosen generation settings determine what appears in a set.
 
 Start a quiz attempt, answer the questions, and use **Next** to continue. Submitted answers are saved as you go. When you return to an unfinished attempt, you can resume it.
 
+</DocStep>
+
+<DocStep number={3} example="quiz" phase="result">
+<header slot="intro">
+
 ## Review your results
+
+Look back at your answers to find what needs another pass.
+
+</header>
 
 Review saved attempts to see your answers and the available scores, explanations and feedback. If a score is still pending, Study shows that state rather than inventing a result.
 
 Use the linked source pages to revisit the material behind the set. If you discover a problem in your notes, correct the page and generate another set from the revised material.
 
+</DocStep>
+
+<DocStep number={4} example="quiz" phase="result">
+<header slot="intro">
+
 ## Keep useful sets
+
+Return to saved sets and practise again when you need to.
+
+</header>
 
 You can generate more than one set from the same pages, with different instructions or question settings. Archive material when you no longer want it in the active list; the archive lets you preview and restore it.
 
 For another way to rehearse the same ideas, use [flashcards](../flashcards/).
+
+</DocStep>

@@ -1,0 +1,58 @@
+<script>
+  for (const navigation of document.querySelectorAll<HTMLElement>('[data-reading-nav]')) {
+    const links = [...navigation.querySelectorAll<HTMLAnchorElement>('[data-reading-link]')];
+    const sections = links.map((link) => document.getElementById(decodeURIComponent(link.hash.slice(1))));
+    let frame = 0;
+    let active = -2;
+
+    function update() {
+      frame = 0;
+      const line = Math.min(180, window.innerHeight / 3);
+      let current = -1;
+
+      for (const [index, section] of sections.entries()) {
+        if (section && section.getBoundingClientRect().top <= line) current = index;
+      }
+
+      if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2)
+        current = sections.length - 1;
+
+      if (current === active) return;
+
+      active = current;
+
+      for (const [index, link] of links.entries()) {
+        if (index === current) link.setAttribute('aria-current', 'location');
+        else link.removeAttribute('aria-current');
+      }
+    }
+
+    function revealCurrent() {
+      const scroller = navigation.querySelector<HTMLElement>('ol') ?? navigation;
+      const link = links[active];
+
+      if (!link || scroller.scrollWidth <= scroller.clientWidth) return;
+
+      const bounds = scroller.getBoundingClientRect();
+      const item = link.getBoundingClientRect();
+
+      if (item.left < bounds.left) scroller.scrollLeft -= bounds.left - item.left;
+      else if (item.right > bounds.right) scroller.scrollLeft += item.right - bounds.right;
+    }
+
+    function schedule() {
+      if (!frame) frame = requestAnimationFrame(update);
+    }
+
+    function settle() {
+      cancelAnimationFrame(frame);
+      update();
+      revealCurrent();
+    }
+
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('scrollend', settle);
+    window.addEventListener('resize', settle, { passive: true });
+    update();
+  }
+</script>

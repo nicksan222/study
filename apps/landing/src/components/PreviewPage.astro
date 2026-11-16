@@ -1,0 +1,22 @@
+---
+import Base from '#landing/layouts/Base.astro';
+import DocView from '#landing/components/DocView.astro';
+import type { PreviewFeature, DocExample } from '#landing/i18n/doc-examples.ts';
+import { t } from '#landing/i18n/strings.ts';
+import type { Lang } from '#landing/i18n/strings.ts';
+
+interface Props { lang: Lang; feature: PreviewFeature }
+
+const { lang, feature } = Astro.props;
+
+const example: DocExample = feature === 'source' ? 'sources' : feature;
+
+const s = t(lang);
+---
+<Base lang={lang} title={s.workflow.titleSample} description={s.home.lead} path={`previews/${feature}/`} immersive>
+  <meta slot="head" name="robots" content="noindex" />
+  <main id="main" class="preview-frame"><DocView lang={lang} example={example} /></main>
+</Base>
+<style>
+  .preview-frame { padding: clamp(12px, 3vw, 32px); }
+</style>

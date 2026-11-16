@@ -1,13 +1,10 @@
 ---
-// The landing page, in either language: the sections in components/landing/, in order. It
-// opens on an interactive lecture, follows notes into pages and study material,
-// then lets visitors try the tools. Detailed library and privacy stories stay optional.
+// Static product overview, ownership details and direct platform downloads.
 import Base from '../layouts/Base.astro';
+import SiteNav from './SiteNav.astro';
 import Hero from './landing/Hero.astro';
-import Workflow from './landing/Workflow.astro';
-import Capabilities from './landing/Capabilities.astro';
-import Learn from './landing/Learn.astro';
 import Yours from './landing/Yours.astro';
+import Capabilities from './landing/Capabilities.astro';
 import Download from './landing/Download.astro';
 import { t } from '../i18n/strings';
 import type { Lang } from '../i18n/strings';
@@ -20,26 +17,15 @@ interface Props {
 const { lang } = Astro.props;
 
 const s = t(lang);
+
 ---
 
-<Base lang={lang} title={s.meta.title} description={s.meta.description} path="" quietDownload>
-  <!-- Ink and type animate only with a script and motion allowed; set before first paint. -->
-  <script is:inline>
-    if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
-      document.documentElement.classList.add('js-ink');
-    }
-  </script>
-  <main id="main" class="landing">
+<Base lang={lang} title={s.meta.title} description={s.meta.description} path="" immersive>
+<SiteNav lang={lang} />
+  <main id="main" class="landing" tabindex="-1">
     <Hero lang={lang} />
-    <Workflow lang={lang} />
-    <Learn lang={lang} />
-    <div class="landing-details frame">
-      <Capabilities lang={lang} />
-      <details class="landing-detail">
-        <summary>{s.yours.more}</summary>
-        <Yours lang={lang} />
-      </details>
-    </div>
+    <Capabilities lang={lang} />
+    <Yours lang={lang} />
     <Download lang={lang} />
   </main>
 </Base>

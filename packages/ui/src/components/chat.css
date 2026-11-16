@@ -164,7 +164,7 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
   cursor: pointer;
 }
 .notebook-rail-tick {
@@ -335,7 +335,7 @@
   font-size: 0.6875rem;
   line-height: 1.5;
   font-variant-numeric: tabular-nums;
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
 }
 .note-version-label[data-latest] {
   padding: 0.125rem 0.25rem;

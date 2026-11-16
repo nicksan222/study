@@ -1,11 +1,12 @@
 import { quizAttemptCompletedSchema } from '@study/contracts/learning/schemas';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
+import { OrderingResultView as OrderingResult } from '@study/ui/ordering-result-view';
 import { render, screen, within } from '@testing-library/react';
 import { Schema } from 'effect';
 import { assert, expect } from 'vite-plus/test';
 
-import { OrderingResult } from './ordering-result';
+import { ClientPracticePresentation } from './presentation';
 
 testStable('completed ordering shows the learner and correct sequences separately', () => {
   const attempt = Schema.decodeUnknownSync(quizAttemptCompletedSchema)({
@@ -40,7 +41,11 @@ testStable('completed ordering shows the learner and correct sequences separatel
 
   assert.ok(question.kind === 'ordering');
 
-  render(<OrderingResult question={question} />);
+  render(
+    <ClientPracticePresentation>
+      <OrderingResult question={question} />
+    </ClientPracticePresentation>
+  );
   const learner = screen.getByRole('list', { name: catalogs.english.YourAnswer });
   const correct = screen.getByRole('list', { name: catalogs.english.RightAnswer });
 

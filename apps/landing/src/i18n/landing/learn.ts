@@ -68,9 +68,6 @@ export const learnEn = {
   }
 } as const;
 
-/** Which of the quiz's choices is right, the same in every language. */
-export const quizAnswer = 1;
-
 export const learnIt: Shape<typeof learnEn> = {
   stage: {
     title: 'Una lezione, tre modi per impararla.',

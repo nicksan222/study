@@ -1,25 +1,55 @@
 ---
 title: Impostazioni
+headline: Adatta Study al tuo modo di lavorare.
 description: Personalizza l'area di lavoro, collega ChatGPT e scegli come scrivere, leggere e ripassare.
 section: reference
 order: 4
+stage:
+  example: settings
 ---
+
+import DocStep from '../../../components/DocStep.astro';
 
 Apri **Impostazioni** dalla barra laterale. La navigazione separa aspetto, scrittura, lettura, IA, esercitazioni e dati. Usa la ricerca nelle impostazioni per trovare la sezione che ti serve.
 
+<DocStep kind="reference" example="settings">
+<header slot="intro">
+
 ## Lingua e aspetto
+
+Scegli la lingua e l’aspetto più adatti a te.
+
+</header>
 
 Scegli English o Italiano nelle impostazioni generali. L'aspetto comprende schema colori, libreria dei temi, dimensione del testo, contrasto e animazioni dei pannelli. Scegli le opzioni che rendono comoda la lettura.
 
 Le impostazioni della barra laterale regolano densità, visualizzazione degli orari e conteggi delle pagine. Questi comandi cambiano la presentazione dell'area di lavoro, non il contenuto che studi.
 
+</DocStep>
+
+<DocStep kind="reference" example="note">
+<header slot="intro">
+
 ## Scrittura e lettura
+
+Regola il modo in cui scrivi, salvi e leggi il tuo materiale.
+
+</header>
 
 Le impostazioni di scrittura comprendono intervallo di salvataggio automatico, dimensione del testo dell'editor, controllo ortografico e salvataggio degli appunti con Invio. Ctrl Invio (Cmd Invio su macOS) salva dal riquadro della nota indipendentemente dalla preferenza per Invio.
 
 Le impostazioni di lettura comprendono dimensione del testo e formato di esportazione predefinito. Alcune preferenze numeriche hanno un'azione **Salva**: usala per confermare il valore e controlla eventuali messaggi di validazione o salvataggio.
 
+</DocStep>
+
+<DocStep kind="reference" example="settings">
+<header slot="intro">
+
 ## ChatGPT e comportamento dell'IA
+
+Controlla la connessione a ChatGPT e quando viene avviato il lavoro del modello.
+
+</header>
 
 La sezione dell'account permette di accedere con ChatGPT o disconnettersi. Quando richiesto, completa l'accesso nel browser e torna a Study.
 
@@ -27,14 +57,34 @@ Le impostazioni dei modelli scelgono il modello per ogni fascia di attività. Le
 
 L'utilizzo mostra l'attività dei modelli registrata. Le prestazioni regolano quanto lavoro può essere eseguito in parallelo e quanto può restare in coda.
 
+</DocStep>
+
+<DocStep kind="reference" example="flashcards">
+<header slot="intro">
+
 ## Preferenze per il ripasso
+
+Imposta le preferenze che vuoi usare quando ti eserciti.
+
+</header>
 
 Le impostazioni delle flashcard regolano quante nuove carte entrano nei ripassi quotidiani. Quelle dei quiz comprendono numero e tipi di domande, ordine casuale, opzioni per domanda e difficoltà. Rivedi queste preferenze quando vuoi un formato diverso per le prossime esercitazioni.
 
 Vedi [esercitazioni](../practice/) e [flashcard](../flashcards/) per usare il materiale risultante.
 
+</DocStep>
+
+<DocStep kind="reference">
+<header slot="intro">
+
 ## Materie e dati
+
+Gestisci le materie e controlla le opzioni di backup prima di modificare i dati salvati.
+
+</header>
 
 Le impostazioni delle materie ne gestiscono i dettagli. Quelle dei dati permettono di creare backup, controllare i backup salvati e importarne uno. Rivedi l'anteprima e la conferma prima di ripristinare o rimuovere dati.
 
 Se un'impostazione non si carica o non si salva, usa l'azione per riprovare e controlla il risultato. Chiudere la finestra non conferma che una modifica in corso sia stata salvata.
+
+</DocStep>
