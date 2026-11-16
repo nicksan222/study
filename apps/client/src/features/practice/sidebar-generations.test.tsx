@@ -5,7 +5,7 @@ import { executionIdSchema } from '@study/contracts';
 import type { executionSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Effect, Schema } from 'effect';
 import { expect, vi } from 'vite-plus/test';
@@ -100,7 +100,9 @@ testStable(
     await user.click(
       await screen.findByRole('button', { name: 'Stop generating Cell division quiz' })
     );
-    expect(await screen.findByRole('alert')).toHaveTextContent(en.PracticeGenerationStopError);
+    expect(
+      await screen.findByRole('status', { name: en.PracticeGenerationStopStatus })
+    ).toBeVisible();
     expect(screen.getByText(generation.title)).toBeVisible();
     await user.pointer({ target: screen.getByText(generation.title), keys: '[MouseRight]' });
     expect(
@@ -114,12 +116,14 @@ testStable(
   async () => {
     mount(false, true);
     expect(await screen.findByText(generation.title)).toBeVisible();
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
-    const recovery = screen.getByRole('alert', { name: en.PracticeGenerationFailed });
-
-    expect(within(recovery).getByRole('button', { name: en.Retry })).toBeEnabled();
     expect(
-      within(recovery).getByRole('button', { name: 'Stop generating Cell division quiz' })
+      await screen.findByRole('status', { name: en.PracticeGenerationFailedStatus })
+    ).toBeVisible();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    expect(screen.getByRole('button', { name: en.Retry })).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: 'Stop generating Cell division quiz' })
     ).toBeEnabled();
     expect(screen.queryByLabelText(en.AgentActivitySteps)).not.toBeInTheDocument();
     expect(
@@ -138,7 +142,9 @@ testStable(
       Effect.fail(new StudyError('transient', 'Lost receipt'))
     );
     await user.click(await screen.findByRole('button', { name: en.Retry }));
-    expect(await screen.findByRole('alert', { name: 'Could not confirm the retry' })).toBeVisible();
+    expect(
+      await screen.findByRole('status', { name: en.PracticeGenerationRetryStatus })
+    ).toBeVisible();
     const first = fixture.retry.mock.calls[0]![0];
 
     await waitFor(() =>
@@ -184,7 +190,7 @@ testStable(
       Effect.fail(new StudyError('transient', 'Lost receipt'))
     );
     await user.click(await screen.findByRole('button', { name: en.Retry }));
-    await screen.findByRole('alert', { name: en.PracticeGenerationRetryError });
+    await screen.findByRole('status', { name: en.PracticeGenerationRetryStatus });
     const first = fixture.retry.mock.calls[0]![0];
 
     fixture.mounted.rerender(<></>);
@@ -214,6 +220,63 @@ testStable(
       limit: 30
     });
     expect(fixture.retry).toHaveBeenCalledTimes(1);
+  }
+);
+
+testStable(
+  'preserves a newer uncertain retry when an older receipt arrives after remount',
+  async () => {
+    const user = userEvent.setup();
+    const fixture = mount(false, true);
+    const receipt = Promise.withResolvers<typeof generation>();
+
+    fixture.retry.mockImplementationOnce(() => Effect.promise(() => receipt.promise));
+    await user.click(await screen.findByRole('button', { name: en.Retry }));
+    await waitFor(() => expect(fixture.retry).toHaveBeenCalledTimes(1));
+    const first = fixture.retry.mock.calls[0]![0];
+
+    fixture.runs.mockImplementation(({ eventId }) =>
+      Effect.succeed({
+        items:
+          eventId === first.retryId
+            ? [
+                {
+                  id: executionIdSchema.make('older-failed-retry'),
+                  workflow: 'material-generation/v1',
+                  correlationId: generation.id,
+                  status: 'completed',
+                  outcome: 'failure',
+                  failureKind: 'invalid_input',
+                  configurationWaitReason: null,
+                  canCancel: false,
+                  createdAtMs: 1n,
+                  updatedAtMs: 2n
+                }
+              ]
+            : [],
+        next: null
+      })
+    );
+    fixture.mounted.rerender(<></>);
+    fixture.mounted.rerender(
+      <PracticeSidebarGenerations project={project} subjects={[]} query="" enabled />
+    );
+    await fixture.notify();
+    fixture.retry.mockImplementationOnce(() =>
+      Effect.fail(new StudyError('transient', 'Lost newer receipt'))
+    );
+    await user.click(await screen.findByRole('button', { name: en.Retry }));
+    await screen.findByRole('status', { name: en.PracticeGenerationRetryStatus });
+    const second = fixture.retry.mock.calls[1]![0];
+
+    expect(second.retryId).not.toBe(first.retryId);
+    await act(async () => {
+      receipt.resolve(generation);
+      await receipt.promise;
+    });
+    await user.click(await screen.findByRole('button', { name: en.Retry }));
+    await waitFor(() => expect(fixture.retry).toHaveBeenCalledTimes(3));
+    expect(fixture.retry.mock.calls[2]![0]).toEqual(second);
   }
 );
 

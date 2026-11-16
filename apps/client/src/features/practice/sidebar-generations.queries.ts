@@ -30,7 +30,10 @@ export function useGenerationRetry(requestId: string) {
 
       registry.set(atom, { key, acknowledged: false });
       void operation.mutate({ requestId, retryId: key }).then(
-        () => registry.set(atom, { key, acknowledged: true }),
+        () =>
+          registry.update(atom, (current) =>
+            current?.key === key ? { ...current, acknowledged: true } : current
+          ),
         () => {}
       );
     }

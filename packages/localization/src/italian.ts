@@ -434,6 +434,9 @@ export const italian = Object.freeze({
   AgentActivityRecentSteps: 'Sono mostrati i passaggi più recenti.',
   AgentActivityWaiting: 'In attesa del prossimo passaggio…',
   AgentActivityUnavailable: 'I dettagli dei passaggi non sono disponibili.',
+  PracticeGenerationFailedStatus: 'Non riuscita',
+  PracticeGenerationRetryStatus: 'Tentativo da confermare',
+  PracticeGenerationStopStatus: 'Arresto non riuscito',
   PracticeGenerationFailed: 'Generazione non riuscita',
   PracticeGenerationFailedDescription:
     'I tuoi contenuti sono conservati. Riprova la generazione o interrompila per rimuoverla.',

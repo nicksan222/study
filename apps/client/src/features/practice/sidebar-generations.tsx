@@ -1,8 +1,14 @@
 import type { ProjectId } from '@study/contracts';
 import type { materialGenerationSnapshotSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { QuizIcon, FlashcardsIcon, StopIcon, WorkActivityIcon, CancelIcon } from '@study/icons';
-import { RetryButton } from '@study/ui';
+import {
+  QuizIcon,
+  FlashcardsIcon,
+  StopIcon,
+  WorkActivityIcon,
+  CancelIcon,
+  RetryIcon
+} from '@study/icons';
 import { ContextMenu, ContextMenuTrigger, ContextMenuPopup, ContextMenuItem } from '@study/ui';
 import { ErrorState } from '@study/ui';
 import { IconButton } from '@study/ui';
@@ -70,20 +76,30 @@ function GenerationCard({ generation, subjects }: { generation: Generation; subj
     failed,
     retrying: retry.isPending
   });
-  const status = t(activity.label);
+  const status = t(generationLabel(activity.label, stop.isError, retry.isError));
   const controls = (
-    <Sidebar.NoteRowActions placement="inline">
-      {failed && <RetryButton label={t('Retry')} disabled={stop.isPending} onClick={retry.retry} />}
-      <Sidebar.SettleAction
-        aria-label={stopLabel}
-        title={stopLabel}
+    <>
+      {failed && (
+        <IconButton
+          label={t('Retry')}
+          variant="ghost-muted"
+          size="icon-tiny"
+          disabled={stop.isPending}
+          onClick={retry.retry}
+        >
+          <RetryIcon aria-hidden="true" />
+        </IconButton>
+      )}
+      <IconButton
+        label={stopLabel}
+        variant="ghost-muted"
+        size="icon-tiny"
         disabled={stop.isPending}
         onClick={() => void stop.mutate({ requestId: generation.id }).catch(() => {})}
       >
-        <StopIcon aria-hidden="true" />
-        {t('StopJob')}
-      </Sidebar.SettleAction>
-    </Sidebar.NoteRowActions>
+        <CancelIcon aria-hidden="true" />
+      </IconButton>
+    </>
   );
 
   return (
@@ -92,43 +108,24 @@ function GenerationCard({ generation, subjects }: { generation: Generation; subj
         <ContextMenuTrigger render={<div />}>
           <Sidebar.Item
             label={generation.title}
+            activity={
+              activity.status === 'failed' || stop.isError || retry.isError
+                ? 'attention'
+                : activity.status
+            }
             context={owner?.name ?? t(label)}
             icon={<Icon aria-hidden="true" />}
-            title={generation.title}
-            render={<div />}
-          />
-          <Sidebar.WorkProgress>
-            {failed ? (
-              <ErrorState
-                layout="sidebar"
-                title={t('PracticeGenerationFailed')}
-                action={controls}
-              />
-            ) : (
+            description={
               <AgentActivity
                 correlationId={generation.id}
                 label={status}
-                status={activity.status}
-                action={
-                  <IconButton
-                    label={stopLabel}
-                    variant="ghost-muted"
-                    disabled={stop.isPending}
-                    onClick={() => void stop.mutate({ requestId: generation.id }).catch(() => {})}
-                  >
-                    <CancelIcon aria-hidden="true" />
-                  </IconButton>
-                }
+                status={stop.isError || retry.isError ? 'failed' : activity.status}
+                action={controls}
               />
-            )}
-            {retry.isError && (
-              <ErrorState
-                layout="sidebar"
-                title={t('PracticeGenerationRetryError')}
-                description={t('PracticeGenerationRetryErrorDescription')}
-              />
-            )}
-          </Sidebar.WorkProgress>
+            }
+            title={generation.title}
+            render={<div />}
+          />
         </ContextMenuTrigger>
         <ContextMenuPopup>
           <ContextMenuItem onClick={() => setDetailsOpen(true)}>
@@ -151,16 +148,8 @@ function GenerationCard({ generation, subjects }: { generation: Generation; subj
         open={detailsOpen}
         onOpenChange={setDetailsOpen}
       >
-        {failed && (
-          <ErrorState
-            title={t('PracticeGenerationFailed')}
-            description={t('PracticeGenerationFailedDescription')}
-          />
-        )}
+        <GenerationFailureDetails failed={failed} retry={retry.isError} stop={stop.isError} />
       </AgentActivityDetails>
-      {stop.isError && (
-        <Sidebar.Message role="alert">{t('PracticeGenerationStopError')}</Sidebar.Message>
-      )}
     </Sidebar.NoteEntry>
   );
 }
@@ -176,9 +165,51 @@ function generationActivity({
 }) {
   if (stopping) return { label: 'PracticeGenerationStopping', status: 'stopping' } as const;
 
-  if (failed) return { label: 'AgentActivityDetails', status: 'failed' } as const;
+  if (failed) return { label: 'PracticeGenerationFailedStatus', status: 'failed' } as const;
 
   if (retrying) return { label: 'PracticeGenerationRetrying', status: 'waiting' } as const;
 
   return { label: 'PracticeGenerationRunning', status: 'running' } as const;
+}
+
+function generationLabel(
+  label: ReturnType<typeof generationActivity>['label'],
+  stop: boolean,
+  retry: boolean
+) {
+  if (stop) return 'PracticeGenerationStopStatus';
+
+  if (retry) return 'PracticeGenerationRetryStatus';
+
+  return label;
+}
+
+function GenerationFailureDetails({
+  failed,
+  retry,
+  stop
+}: {
+  failed: boolean;
+  retry: boolean;
+  stop: boolean;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <>
+      {failed && (
+        <ErrorState
+          title={t('PracticeGenerationFailed')}
+          description={t('PracticeGenerationFailedDescription')}
+        />
+      )}
+      {retry && (
+        <ErrorState
+          title={t('PracticeGenerationRetryError')}
+          description={t('PracticeGenerationRetryErrorDescription')}
+        />
+      )}
+      {stop && <ErrorState title={t('PracticeGenerationStopError')} />}
+    </>
+  );
 }

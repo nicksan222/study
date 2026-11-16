@@ -202,6 +202,9 @@
   text-decoration: none;
   text-align: start;
 }
+.study-note-row[data-activity] {
+  background: color-mix(in srgb, var(--sidebar-row-hover) 55%, transparent);
+}
 .study-note-row:hover {
   background: var(--sidebar-row-hover);
 }
@@ -325,6 +328,11 @@
   line-height: 1.25rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.study-note-row[data-activity] .study-item-kind {
+  display: flex;
+  align-items: center;
+  min-block-size: 1.25rem;
 }
 .study-shell[data-sidebar-collapsed='true'] .study-item-kind {
   display: none;
@@ -930,15 +938,6 @@
   inset-block-start: 0.375rem;
   inset-block-end: auto;
 }
-.study-note-row-actions[data-placement='inline'] {
-  position: static;
-  margin: 0;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.375rem;
-  opacity: 1;
-  pointer-events: auto;
-}
 .study-note-entry:has(.study-note-row-actions[data-placement='top']):is(:hover, :focus-within)
   time {
   visibility: hidden;
@@ -1314,12 +1313,4 @@ button.study-note-row {
 .study-note-row[data-sidebar-shortcut] .study-note-meta > :first-child,
 .study-sidebar[data-shortcuts-visible] .study-note-row-actions {
   visibility: hidden;
-}
-
-.study-sidebar-work-progress {
-  min-width: 0;
-  margin: 0 0.625rem 0.5rem;
-}
-.study-shell[data-sidebar-collapsed='true'] .study-sidebar-work-progress {
-  display: none;
 }

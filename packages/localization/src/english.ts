@@ -426,6 +426,9 @@ export const english = Object.freeze({
   AgentActivityRecentSteps: 'Showing the most recent steps.',
   AgentActivityWaiting: 'Waiting for the next step…',
   AgentActivityUnavailable: 'Step details are unavailable.',
+  PracticeGenerationFailedStatus: 'Failed',
+  PracticeGenerationRetryStatus: 'Retry unconfirmed',
+  PracticeGenerationStopStatus: 'Could not stop',
   PracticeGenerationFailed: 'Generation failed',
   PracticeGenerationFailedDescription:
     'Your inputs are kept. Retry generation, or stop to dismiss it.',

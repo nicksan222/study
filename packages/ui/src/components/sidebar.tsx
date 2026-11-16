@@ -5,6 +5,7 @@ import type { ComponentProps, CSSProperties, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import { cn } from '../utils.ts';
+import type { AiActivityState } from './ai-button.tsx';
 import { Button } from './button.tsx';
 import {
   Combobox,
@@ -435,11 +436,6 @@ function SearchField({
   );
 }
 
-/** Keeps expandable background work beneath its owning sidebar row. */
-function WorkProgress(props: ComponentProps<'div'>) {
-  return <div {...props} className="study-sidebar-work-progress" />;
-}
-
 function NoteActivity({ running, ...props }: ComponentProps<'span'> & { running?: boolean }) {
   return <span {...props} className="study-note-activity" data-running={running || undefined} />;
 }
@@ -452,7 +448,7 @@ function NoteRowActions({
   className,
   placement = 'bottom',
   ...props
-}: ComponentProps<'div'> & { placement?: 'top' | 'bottom' | 'inline' }) {
+}: ComponentProps<'div'> & { placement?: 'top' | 'bottom' }) {
   return (
     <div
       {...props}
@@ -760,6 +756,7 @@ function Item({
   context,
   timestamp,
   description,
+  activity,
   selection,
   render,
   className,
@@ -771,6 +768,7 @@ function Item({
   context?: ReactNode;
   timestamp?: ReactNode;
   description?: ReactNode;
+  activity?: AiActivityState;
   selection?: boolean;
 }) {
   return useRender({
@@ -780,6 +778,7 @@ function Item({
       ...props,
       title: props.title ?? (typeof label === 'string' ? label : undefined),
       'data-layout': layout,
+      'data-activity': activity,
       'data-selecting': selection !== undefined || undefined,
       'aria-pressed': selection,
       type: render ? undefined : 'button',
@@ -977,7 +976,6 @@ export const Sidebar = {
   NoteEntry,
   NoteRowActions,
   NoteActivity,
-  WorkProgress,
   NoteCount,
   SettleAction,
   Message,

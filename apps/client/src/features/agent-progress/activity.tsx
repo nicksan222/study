@@ -35,11 +35,14 @@ export function AgentActivity({
         ? t('AgentActivityCompacting')
         : label;
 
+  const state = current ? 'running' : activityState(status);
+
   return (
     <AiActivity
       action={action}
       label={phaseLabel}
-      state={current ? 'running' : activityState(status)}
+      state={state}
+      variant={state === 'attention' || state === 'waiting' ? 'chip' : 'plain'}
     />
   );
 }

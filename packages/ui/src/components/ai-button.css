@@ -49,6 +49,12 @@ button[data-ai-working='true']:disabled {
   font-size: 0.75rem;
   line-height: 1.5;
 }
+.ui-ai-activity-status[data-variant='chip'] {
+  gap: 0.375rem;
+  border-radius: var(--control-radius);
+  padding-inline: 0.375rem;
+  background: var(--muted);
+}
 .ui-ai-activity-status > :is(svg, .ui-ai-icon) {
   width: 0.875rem;
   height: 0.875rem;
