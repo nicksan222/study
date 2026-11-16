@@ -32,7 +32,7 @@ testStable(
         'apps/server/src/import-equals.ts': "import colors = require('@study/theme/private');\n",
         'apps/server/src/root.ts': "import { StudyError } from '@study/contracts';\n",
         'apps/client/src/approved.ts':
-          "import '@study/contracts/react'; import '@study/ui/theme.css'; import '@study/ui/styles.css';\n",
+          "import '@study/contracts/react'; import '@study/ui/theme.css'; import '@study/ui/styles.css'; import '@study/ui/presentation.css';\n",
         'apps/client/src/app-facets.ts': `import '@study/server/runtime';
  import '@study/server/runtime/database';
  import '@study/client/feature-previews/catalog';

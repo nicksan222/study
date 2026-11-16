@@ -1,32 +1,28 @@
 ---
 import Icon from '../Icon.astro';
-import { t } from '#landing/i18n/strings.ts';
+import MacDesktopFrame from '../MacDesktopFrame.astro';
+import StudyExample from '../StudyExample.astro';
+import { href, t } from '#landing/i18n/strings.ts';
 import type { Lang } from '#landing/i18n/strings.ts';
 
-interface Props {
-  lang: Lang;
-}
+interface Props { lang: Lang }
 
 const { lang } = Astro.props;
 
-const c = t(lang).capabilities;
+const c = t(lang).home;
 
-const icons = ['notebook-text', 'file-text', 'circle-question-mark', 'list-checks', 'workflow', 'folder-open'];
+const kinds = ['note', 'answer', 'page', 'flashcards'] as const;
+
+const stories = c.productStory;
 ---
-<details class="capabilities landing-detail">
-  <summary>{c.title}</summary>
-  <div class="capability-list">
-    {c.items.map((item, i) => <article>
-      <Icon name={icons[i]} size={20} />
-      <div><h3>{item.title}</h3><p>{item.body}</p></div>
-    </article>)}
-  </div>
-</details>
-<style>
-  .capability-list { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-6) var(--s-8); padding: var(--s-6) 0; }
-  article { display: grid; grid-template-columns: 24px 1fr; gap: var(--s-3); align-items: start; }
-  article > :global(svg) { margin-top: 3px; color: var(--primary); }
-  h3 { font-size: 17px; letter-spacing: -.02em; line-height: 1.35; }
-  article p { color: var(--ink-2); font-size: 14px; margin-top: var(--s-2); line-height: 1.65; }
-  @media(max-width: 700px) { .capability-list { grid-template-columns: 1fr; } }
-</style>
+<div class="product-sections frame" id="product">
+  {stories.map((item, index) => <section class:list={['product-feature', `product-feature-${kinds[index]}`, { 'feature-reversed': index === 1 || index === 3 }]} aria-labelledby={`product-${index}`}>
+    <div class="product-feature-copy"><h2 id={`product-${index}`}>{item.title}{item.emphasis && <> <span>{item.emphasis}</span></>}</h2><div class="product-feature-body"><p class="feature-lead">{item.lead}</p>{item.detail && <p>{item.detail}</p>}<a class="text-link" href={href(lang, item.target)}>{item.link}<Icon name="arrow-right" size={16} /></a></div></div>
+    <MacDesktopFrame lang={lang} compact={index !== 2}><StudyExample lang={lang} kind={kinds[index]!} phase={index < 2 ? 'result' : undefined} /></MacDesktopFrame>
+  </section>)}
+  <section class="practice-feature" aria-labelledby="practice-title">
+    <h2 id="practice-title">{c.practiceTitle}</h2>
+    <div class="practice-feature-copy"><p>{c.practiceLead}</p><a class="text-link" href={href(lang, 'docs/practice/')}>{c.practiceLink}<Icon name="arrow-right" size={16} /></a><ul class="quiz-formats">{c.quizFormats.map((format) => <li>{format}</li>)}</ul></div>
+    <div class="practice-example"><MacDesktopFrame lang={lang}><StudyExample lang={lang} kind="quiz" /></MacDesktopFrame></div>
+  </section>
+</div>

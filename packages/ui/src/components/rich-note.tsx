@@ -383,7 +383,7 @@ function RichNoteFormatting({
               variant="ghost-muted"
               size="sm"
               disabled={disabled}
-              aria-label={labels.textStyle}
+              aria-label={`${labels.textStyle}: ${labels[state.heading ? 'heading' : state.subheading ? 'subheading' : 'paragraph']}`}
             />
           }
         >

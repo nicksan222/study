@@ -1,29 +1,58 @@
 ---
 title: Flashcard
+headline: Trasforma le tue pagine in flashcard.
 description: Genera carte dalle pagine selezionate, scopri le risposte e valuta quanto ricordi.
 section: practice
 order: 2
-shot: docs-flashcards
-shotAlt: Una flashcard sulla traduzione aperta per il ripasso in Study.
-shotCaption: Study in italiano con materiale di biologia di esempio in inglese.
+stage:
+  example: flashcards
 ---
+
+import DocStep from '../../../components/DocStep.astro';
 
 Le flashcard danno alle idee nei tuoi [pagine](../pages/) un'altra forma: una domanda da ricordare e una risposta da controllare.
 
+<DocStep number={1} example="flashcards">
+<header slot="intro">
+
 ## Crea un insieme
+
+Scegli le tue pagine e crea schede sul materiale che vuoi ricordare.
+
+</header>
 
 Apri **Esercitazioni**, scegli l'azione per generare esercitazioni e seleziona le flashcard. Scegli fino a 20 pagine di partenza e aggiungi un argomento facoltativo. La generazione usa la tua connessione a ChatGPT e salva il risultato.
 
 Puoi creare più insiemi con fonti o istruzioni diverse. Ogni insieme si basa sulle versioni delle pagine scelte al momento della generazione.
 
+</DocStep>
+
+<DocStep number={2} example="flashcards">
+<header slot="intro">
+
 ## Ripassa
+
+Prova a ricordare la risposta prima di mostrarla, poi valuta quanto bene la ricordavi.
+
+</header>
 
 Apri l'insieme salvato. Prova a ricordare la risposta prima di mostrarla con **Mostra risposta** o Spazio. Poi valuta quanto ricordavi: **Di nuovo**, **Difficile**, **Bene** o **Facile**. I tasti da 1 a 4 scelgono le stesse valutazioni dopo che la risposta è visibile.
 
 Quando ripassi in una materia, Study carica le carte in scadenza per quell'insieme. Quando non ce ne sono, puoi scegliere di ripetere le flashcard per rivederle tutte.
 
+</DocStep>
+
+<DocStep number={3} example="page">
+<header slot="intro">
+
 ## Mantieni utile il materiale
+
+Rivedi le pagine di origine quando una scheda ha bisogno di più contesto.
+
+</header>
 
 Se una carta non è chiara, controlla le pagine collegate. Rivedi la pagina e genera un nuovo insieme quando vuoi riportare le modifiche nelle carte. Archivia gli insiemi che non usi più; dall'archivio puoi vederne l'anteprima e ripristinarli.
 
 Per applicare le stesse idee con delle domande, prova gli [esercizi](../practice/).
+
+</DocStep>

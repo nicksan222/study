@@ -5,6 +5,7 @@
   "compilerOptions": {
     "paths": {
       "#brand/*": ["../../packages/ui/assets/*"]
-    }
+    },
+    "jsx": "react-jsx"
   }
 }

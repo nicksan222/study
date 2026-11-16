@@ -6,10 +6,6 @@
   "imports": {
     "#client/*": "./src/*"
   },
-  "exports": {
-    "./feature-previews": "./src/feature-previews/index.tsx",
-    "./feature-previews/catalog": "./src/feature-previews/catalog.ts"
-  },
   "scripts": {
     "dev": "bun --bun vp dev",
     "build": "bun --bun vp build",

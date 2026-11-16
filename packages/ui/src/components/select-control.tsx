@@ -41,7 +41,11 @@ export function SelectControl({
           alignItemWithTrigger={false}
           sideOffset={4}
         >
-          <Select.Popup className="study-select-popup" data-option-text={optionText}>
+          <Select.Popup
+            data-study-ui-portal=""
+            className="study-select-popup"
+            data-option-text={optionText}
+          >
             <Select.ScrollUpArrow className="study-select-scroll-arrow" aria-hidden="true">
               <ScrollOptionsUpIcon size={16} />
             </Select.ScrollUpArrow>

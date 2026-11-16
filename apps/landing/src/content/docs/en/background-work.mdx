@@ -1,26 +1,58 @@
 ---
 title: Background work
+headline: Keep track of work in progress.
 description: Follow generation and source processing, and recover work that needs your attention.
 section: reference
 order: 3
+stage:
+  example: activity
 ---
+
+import DocStep from '../../../components/DocStep.astro';
 
 Reading source material, transforming notes and generating practice can continue while you work. Study shows the status beside the note, page or practice material involved.
 
+<DocStep number={1} example="activity">
+<header slot="intro">
+
 ## Follow the operation
+
+Follow an operation where you started it and see its current status.
+
+</header>
 
 A note shows pending source conversion and answer or transformation work. Practice generation has its own progress entry in the sidebar and makes the saved set available when ready.
 
 An accepted request can still be waiting or running. Read the current status before starting the same operation again. Saved content and the in-progress operation are separate: an existing page can remain available while another result is being prepared.
 
+</DocStep>
+
+<DocStep number={2} example="activity">
+<header slot="intro">
+
 ## Stop or retry
+
+Stop unwanted work or use the recovery action offered after a failure.
+
+</header>
 
 Use the stop or cancel action offered by the operation. Cancellation can take time; wait for the reported outcome rather than assuming the result from a click alone.
 
 When work fails, read its explanation and use the available retry action. Check your ChatGPT connection for model work and the source status for file conversion. A failed or empty extraction is not a completed source page.
 
+</DocStep>
+
+<DocStep number={3} example="note">
+<header slot="intro">
+
 ## Return to saved work
+
+Come back to your saved material after work finishes.
+
+</header>
 
 Study keeps saved work and durable operation state in its database. After reopening the app, check the operation's current status before retrying. Unsaved composer text is not part of a saved note transformation.
 
 For the complete path, see [notes](../notes/), [pages](../pages/) and [practice](../practice/).
+
+</DocStep>

@@ -7,14 +7,7 @@ import type {
   Source
 } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import {
-  RetryButton,
-  Button,
-  ErrorState,
-  Loading,
-  StatusMessage,
-  WorkspaceDeskSurface as Desk
-} from '@study/ui';
+import { RetryButton, Button, ErrorState, Loading, SourceContent, StatusMessage } from '@study/ui';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 
@@ -155,12 +148,13 @@ function SourceBody({
     );
 
   return (
-    <Desk.Editor>
-      <Button size="sm" variant="outline" disabled={pending} onClick={onCopy}>
-        {t(pending ? 'NoteSaving' : 'PageEditCopy')}
-      </Button>
+    <SourceContent
+      copyLabel={t(pending ? 'NoteSaving' : 'PageEditCopy')}
+      pending={pending}
+      onCopy={onCopy}
+    >
       <RetainedDocumentPreview document={document} snapshotId={snapshotId} />
-    </Desk.Editor>
+    </SourceContent>
   );
 }
 

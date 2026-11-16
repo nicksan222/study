@@ -1,0 +1,26 @@
+---
+import Logo from './Logo.astro';
+import { href, repo, t } from '../i18n/strings';
+import type { Lang } from '../i18n/strings';
+
+interface Props { lang: Lang; path?: string; }
+
+const { lang, path = '' } = Astro.props;
+
+const s = t(lang);
+
+const c = s.home;
+
+const other: Lang = lang === 'en' ? 'it' : 'en';
+---
+<header class="landing-nav frame">
+  <a class="landing-wordmark" href={href(lang)}><Logo size={28} /><span>Study</span></a>
+  <nav aria-label="Study">
+    <a class="nav-product" href={path ? `${href(lang)}#product` : '#product'}>{c.product}</a>
+    <a class="nav-privacy" href={path ? `${href(lang)}#yours` : '#yours'}>{c.privacy}</a>
+    <a class="nav-extra" href={href(lang, 'docs/')}>{s.nav.docs}</a>
+    <a class="nav-extra" href={repo}>GitHub</a>
+    <a href={href(other, path)} hreflang={other} lang={other}>{other.toUpperCase()}</a>
+  <a class="nav-download" href={path ? `${href(lang)}#download` : '#download'}>{c.download}</a>
+  </nav>
+</header>

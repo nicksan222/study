@@ -1,0 +1,48 @@
+---
+import { href, t } from '#landing/i18n/strings.ts';
+import type { Lang } from '#landing/i18n/strings.ts';
+
+interface Props {
+  lang: Lang;
+  class?: string;
+  compact?: boolean;
+}
+
+const { lang, class: className, compact = false } = Astro.props;
+---
+
+<figure class:list={['mac-desktop-figure', className]}>
+  <div class:list={['mac-desktop', { compact }]}>
+    <div class="mac-menu" aria-hidden="true"><strong>Study</strong><span>{t(lang).examples.notes}</span><span>{t(lang).examples.pages}</span><span>{t(lang).examples.practice}</span><svg viewBox="0 0 20 16" width="16" height="14"><path d="M2 5a12 12 0 0 1 16 0M5 8a8 8 0 0 1 10 0M8 11a3 3 0 0 1 4 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg></div>
+    <div class="mac-wallpaper" aria-hidden="true" style={`background-image: url("${href('en', 'images/macos-wallpaper.webp')}")`}></div>
+    <div class="mac-window">
+      <div class="mac-window-bar" aria-hidden="true"><span class="mac-window-controls"><i></i><i></i><i></i></span><span>Study</span></div>
+      <slot />
+    </div>
+  </div>
+</figure>
+
+<style>
+  .mac-desktop-figure { margin: 0; min-width: 0; }
+  .mac-desktop { padding: clamp(56px, 6vw, 80px) clamp(24px, 5vw, 64px) clamp(28px, 4vw, 56px); border-radius: 16px; position: relative; isolation: isolate; overflow: hidden; background-color: #26366d;  background-position: center; background-size: cover; }
+  .mac-wallpaper { position: absolute; inset: 0; z-index: -1; overflow: hidden; background: #26366d center / cover no-repeat; }
+  .mac-menu { position: absolute; inset: 0 0 auto; height: 28px; display: flex; align-items: center; gap: 20px; padding-inline: 20px; color: #f5f6ff; background: rgb(15 29 55 / 38%); font-size: 11px; }
+  .mac-menu svg { margin-left: auto; }
+  .mac-window { display: block; overflow: hidden; border-radius: 10px; text-decoration: none; color: var(--ink); background: var(--sidebar); box-shadow: 0 18px 52px rgb(0 0 0 / 30%); }
+  .mac-window-bar { position: relative; display: flex; justify-content: center; align-items: center; height: 32px; font-size: 12px; font-weight: 500; color: var(--ink-2); background: var(--sidebar); }
+  .mac-window-controls { position: absolute; left: 13px; display: flex; gap: 7px; }
+  .mac-window-controls i { display: block; width: 10px; height: 10px; border-radius: 50%; background: #ff6058; }
+  .mac-window-controls i:nth-child(2) { background: #febc2e; }
+  .mac-window-controls i:nth-child(3) { background: #28c840; }
+  .compact { padding: 48px 26px 26px; }
+  @media (max-width: 640px) {
+    .mac-desktop { padding: 42px 12px 16px; border-radius: 12px; }
+  .mac-window { border-radius: 7px; }
+    .mac-window-bar { height: 25px; font-size: 10px; }
+    .mac-window-controls { left: 8px; gap: 4px; }
+    .mac-window-controls i { width: 7px; height: 7px; }
+    .compact { padding: 40px 10px 14px; }
+    .mac-menu { height: 25px; gap: 14px; padding-inline: 14px; font-size: 10px; }
+    .mac-menu span { display: none; }
+  }
+</style>

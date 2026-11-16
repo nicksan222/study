@@ -8,14 +8,14 @@ import {
   DeleteIcon
 } from '@study/icons';
 import {
+  ColorSchemeControls,
   Button,
   downloadFile,
   IconButton,
   Settings,
   defaultThemeId,
   serializeTheme,
-  ThemeSwatches,
-  ThemeWireframe
+  ThemeSwatches
 } from '@study/ui';
 import type { ThemeFile } from '@study/ui';
 import { useState } from 'react';
@@ -44,23 +44,18 @@ export function ColorScheme({
   const theme = data.themes.find((item) => item.id === (data.selected ?? defaultThemeId)) ?? {};
 
   return (
-    <Settings.Section variant="color-scheme" title={showHeading ? t('ColorScheme') : undefined}>
-      <Settings.ChoiceGroup label={t('ColorScheme')}>
-        {(['system', 'light', 'dark'] as const).map((value) => (
-          <Settings.Choice
-            key={value}
-            label={t(
-              value === 'system' ? 'SystemAppearance' : value === 'light' ? 'Light' : 'Dark'
-            )}
-            selected={mode === value}
-            disabled={model.pending}
-            onSelect={() => model.setAppearance(value)}
-          >
-            <ThemeWireframe theme={theme} appearance={value} />
-          </Settings.Choice>
-        ))}
-      </Settings.ChoiceGroup>
-    </Settings.Section>
+    <ColorSchemeControls
+      title={showHeading ? t('ColorScheme') : undefined}
+      label={t('ColorScheme')}
+      theme={theme}
+      disabled={model.pending}
+      choices={(['system', 'light', 'dark'] as const).map((value) => ({
+        value,
+        label: t(value === 'system' ? 'SystemAppearance' : value === 'light' ? 'Light' : 'Dark'),
+        selected: mode === value
+      }))}
+      onSelect={model.setAppearance}
+    />
   );
 }
 

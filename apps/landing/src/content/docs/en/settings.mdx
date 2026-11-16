@@ -1,25 +1,55 @@
 ---
 title: Settings
+headline: Make Study fit the way you work.
 description: Adjust the workspace, connect ChatGPT and choose how you write, read and practise.
 section: reference
 order: 4
+stage:
+  example: settings
 ---
+
+import DocStep from '../../../components/DocStep.astro';
 
 Open **Settings** from the sidebar. Its navigation separates appearance, writing, reading, AI, practice and data. Use the settings search to find the relevant section.
 
+<DocStep kind="reference" example="settings">
+<header slot="intro">
+
 ## Language and appearance
+
+Choose the language and appearance that work for you.
+
+</header>
 
 Choose English or Italiano in the general settings. Appearance includes the color scheme, theme library, text size, contrast and panel animation controls. Choose the settings that make the workspace comfortable to read.
 
 Sidebar settings adjust density, time display and page counts. These controls change how the workspace is presented, rather than changing your study content.
 
+</DocStep>
+
+<DocStep kind="reference" example="note">
+<header slot="intro">
+
 ## Writing and reading
+
+Adjust how you write, save and read your material.
+
+</header>
 
 Writing settings include autosave timing, editor font size, spellcheck and whether Enter saves a note. Ctrl Enter (Cmd Enter on macOS) saves from the note composer regardless of the Enter preference.
 
 Reading settings include reader font size and the default export format. Some numeric preferences have a **Save** action; use it to confirm the value and check any validation or save feedback.
 
+</DocStep>
+
+<DocStep kind="reference" example="settings">
+<header slot="intro">
+
 ## ChatGPT and AI behavior
+
+Review your ChatGPT connection and control when model work runs.
+
+</header>
 
 The account section lets you sign in with ChatGPT or sign out. Complete browser sign-in when prompted, then return to Study.
 
@@ -27,14 +57,34 @@ Model settings select the model for each task tier. Instructions customize the a
 
 Usage shows recorded model activity. Performance controls how much work can run in parallel and how much can wait in the queue.
 
+</DocStep>
+
+<DocStep kind="reference" example="flashcards">
+<header slot="intro">
+
 ## Practice defaults
+
+Set the defaults you want to use when practising.
+
+</header>
 
 Flashcard settings control how many new cards can enter your daily reviews. Quiz settings include question count, question types, shuffling, options per question and difficulty. Review these defaults when you want future practice to use a different format.
 
 See [practice](../practice/) and [flashcards](../flashcards/) for how to use the resulting material.
 
+</DocStep>
+
+<DocStep kind="reference">
+<header slot="intro">
+
 ## Subjects and data
+
+Manage subjects and review backup controls before changing saved data.
+
+</header>
 
 Subject settings manage subject details. Data settings let you create a backup, inspect saved backups and import a backup. Review the preview and confirmation before restoring or removing data.
 
 If a setting fails to load or save, use its retry action and check the reported result. Closing the dialog does not prove that a pending change was saved.
+
+</DocStep>

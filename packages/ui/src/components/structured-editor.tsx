@@ -376,9 +376,9 @@ function useStructuredEditor(
       attributes: {
         role: readOnly ? 'document' : 'textbox',
         'aria-label': label,
-        'aria-multiline': 'true',
+        ...(!readOnly && { 'aria-multiline': 'true' }),
         'data-placeholder': placeholder,
-        spellcheck: String(spellcheck),
+        spellcheck: String(spellcheck ?? true),
         style: `font-size: ${fontSize}px`
       }
     },

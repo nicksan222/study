@@ -5,8 +5,7 @@ import type { Locale } from '@study/localization';
 import {
   ChatMessageText,
   ChatQuestionAnswer,
-  Citation,
-  CitationEvidence,
+  EvidenceReference as EvidenceControl,
   CitationSources
 } from '@study/ui';
 import { useCallback } from 'react';
@@ -40,40 +39,36 @@ function EvidenceReference({
   const location = citationLocation(locale, citation.anchor);
 
   return (
-    <Citation
+    <EvidenceControl
       marker={citation.marker}
       label={t('NoteOpenCitation', { number: citation.marker, source: citation.sourceName })}
       sourceName={inline ? undefined : citation.sourceName}
       closeLabel={t('Close')}
-    >
-      <CitationEvidence
-        action={
-          citation.input && (
-            <CapturedInputLink input={citation.input} name={t('NoteCitationTakeMeThere')} action />
-          )
-        }
-        title={
-          citation.input ? (
-            <CapturedInputLink input={citation.input} name={citation.sourceName} />
-          ) : (
-            citation.sourceName
-          )
-        }
-        location={location}
-        quote={
-          citation.evidence?.availability === 'available'
-            ? citation.evidence.excerpt
-            : citation.quote
-        }
-        precision={t(
-          citation.precision === 'exact'
-            ? 'NoteExactEvidence'
-            : citation.precision === 'approximate'
-              ? 'NoteApproximateEvidence'
-              : 'NoteEvidenceUnavailable'
-        )}
-      />
-    </Citation>
+
+      action={
+        citation.input && (
+          <CapturedInputLink input={citation.input} name={t('NoteCitationTakeMeThere')} action />
+        )
+      }
+      title={
+        citation.input ? (
+          <CapturedInputLink input={citation.input} name={citation.sourceName} />
+        ) : (
+          citation.sourceName
+        )
+      }
+      location={location}
+      quote={
+        citation.evidence?.availability === 'available' ? citation.evidence.excerpt : citation.quote
+      }
+      precision={t(
+        citation.precision === 'exact'
+          ? 'NoteExactEvidence'
+          : citation.precision === 'approximate'
+            ? 'NoteApproximateEvidence'
+            : 'NoteEvidenceUnavailable'
+      )}
+    />
   );
 }
 

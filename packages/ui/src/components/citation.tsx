@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { Button } from './button';
 
 /** A numbered evidence reference with a keyboard and touch accessible preview. */
-export function Citation({
+function Citation({
   marker,
   label,
   sourceName,
@@ -25,11 +25,16 @@ export function Citation({
         aria-label={label}
       >
         <span className="citation-number">{marker}</span>
-        {sourceName && <span className="citation-source-name">{sourceName}</span>}
+        {sourceName && (
+          <>
+            {' '}
+            <span className="citation-source-name">{sourceName}</span>
+          </>
+        )}
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner sideOffset={8} align="start" className="citation-positioner">
-          <Popover.Popup className="citation-preview" aria-label={label}>
+          <Popover.Popup data-study-ui-portal="" className="citation-preview" aria-label={label}>
             <Popover.Close
               render={<Button size="icon-sm" variant="ghost-muted" />}
               className="citation-close"
@@ -54,7 +59,7 @@ export function CitationSources({ label, children }: { label: string; children: 
   );
 }
 
-export function CitationEvidence({
+function CitationEvidence({
   title,
   location,
   quote,
@@ -77,5 +82,40 @@ export function CitationEvidence({
         {action}
       </div>
     </>
+  );
+}
+
+/** Shared evidence control; source navigation remains supplied by the application. */
+export function EvidenceReference({
+  marker,
+  label,
+  sourceName,
+  closeLabel,
+  title,
+  location,
+  quote,
+  precision,
+  action
+}: {
+  marker: number;
+  label: string;
+  sourceName?: string;
+  closeLabel: string;
+  title: ReactNode;
+  location?: string;
+  quote: string;
+  precision: string;
+  action?: ReactNode;
+}) {
+  return (
+    <Citation marker={marker} label={label} sourceName={sourceName} closeLabel={closeLabel}>
+      <CitationEvidence
+        title={title}
+        location={location}
+        quote={quote}
+        precision={precision}
+        action={action}
+      />
+    </Citation>
   );
 }

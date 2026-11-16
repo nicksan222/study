@@ -6,7 +6,8 @@ const libraryExportFacets: Readonly<Record<string, readonly string[]>> = {
   localization: [],
   testing: ['vitest', 'react/setup'],
   theme: [],
-  ui: ['theme.css', 'styles.css']
+  // Embedded app surfaces share component CSS without the full application shell reset.
+  ui: ['theme.css', 'styles.css', 'presentation.css']
 };
 
 const applicationExportFacets: Readonly<Record<string, readonly string[]>> = {

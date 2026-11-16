@@ -42,6 +42,7 @@ export function MenuPopup({
         sideOffset={sideOffset}
       >
         <MenuPrimitive.Popup
+          data-study-ui-portal=""
           className={cn('study-menu-popup', className)}
           data-slot="menu-popup"
           {...props}

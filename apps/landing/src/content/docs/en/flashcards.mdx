@@ -1,29 +1,58 @@
 ---
 title: Flashcards
+headline: Turn your pages into flashcards.
 description: Generate cards from selected pages, reveal the answers and rate your recall.
 section: practice
 order: 2
-shot: docs-flashcards
-shotAlt: A translation flashcard open for review in Study.
-shotCaption: Study running with sample biology material.
+stage:
+  example: flashcards
 ---
+
+import DocStep from '../../../components/DocStep.astro';
 
 Flashcards give the ideas in your [pages](../pages/) another form: a prompt to recall, then an answer to check.
 
+<DocStep number={1} example="flashcards">
+<header slot="intro">
+
 ## Create a set
+
+Choose your pages and create cards for the material you want to remember.
+
+</header>
 
 Open **Practice**, choose **Generate practice**, and select flashcards. Choose up to 20 source pages and add an optional focus. Generation runs through your ChatGPT connection and saves the resulting set.
 
 You can create several sets with different source selections or instructions. The set is based on the page versions chosen at generation time.
 
+</DocStep>
+
+<DocStep number={2} example="flashcards">
+<header slot="intro">
+
 ## Review
+
+Try to recall the answer before revealing it, then rate your recall.
+
+</header>
 
 Open the saved set. Try to recall the answer before revealing it with **Show answer** or Space. Then rate your recall: **Again**, **Hard**, **Good** or **Easy**. The number keys 1 to 4 select the same ratings after the answer is visible.
 
 When reviewing within a subject, Study loads the cards due for that set. When no cards are due, you can choose **Replay flashcards** to work through the set again.
 
+</DocStep>
+
+<DocStep number={3} example="page">
+<header slot="intro">
+
 ## Keep the material useful
+
+Review the source pages when a card needs more context.
+
+</header>
 
 Check the linked source pages if a card is unclear. Revise the page and generate a new set when you want your changes reflected in the cards. Archive sets you no longer use; the archive lets you preview and restore them.
 
 For applying the same ideas in questions, try [practice exercises](../practice/).
+
+</DocStep>
