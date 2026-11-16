@@ -1,3 +1,4 @@
+export type { AiActivityState } from './components/ai-button.tsx';
 export { useNowMinute } from './clock.ts';
 export { LoadMoreButton, RetryButton } from './components/action-button.tsx';
 export { ActionGroup } from './components/action-group.tsx';
@@ -63,6 +64,7 @@ export {
 } from './components/dialog-styles.ts';
 export {
   Dialog,
+  DialogBody,
   DialogClose,
   DialogDescription,
   DialogFooter,

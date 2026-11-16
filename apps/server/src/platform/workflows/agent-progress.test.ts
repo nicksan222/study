@@ -55,10 +55,10 @@ testStable(
     const read = () => agentProgressSnapshot(context, { executionId });
     const snapshots: string[] = [];
     const unsubscribe = context.subscribe(() => snapshots.push(read()[0]?.text ?? ''));
-    const emit = (event: Parameters<typeof observe>[0]['event']) =>
+    const emit = (event: Parameters<typeof observe>[0]['event'], run = 'agent') =>
       Effect.runPromise(
         observe({
-          runId: agentRunIdSchema.make('agent'),
+          runId: agentRunIdSchema.make(run),
           agentId: 'reply',
           mode: 'text',
           event
@@ -73,6 +73,15 @@ testStable(
       unsubscribe();
       await emit({ type: 'complete' });
       expect(read()[0]?.status).toBe('completed');
+      await emit({ type: 'start' }, 'next-section');
+      expect(read().map((run) => run.runId)).toEqual(['agent', 'next-section']);
+      expect(read()[0]?.text).toBe('Hello');
+      await emit({ type: 'complete' }, 'next-section');
+
+      for (let index = 0; index <= 100; index++) await emit({ type: 'start' }, `section-${index}`);
+
+      expect(read()).toHaveLength(100);
+      expect(read().at(-1)?.runId).toBe('section-100');
       context.db.orm
         .update(workflow_executions)
         .set({ generation: 2 })
@@ -92,6 +101,67 @@ testStable(
       expect(read()).toEqual([]);
     } finally {
       unsubscribe();
+      context.close();
+      await location.cleanup();
+    }
+  }
+);
+
+testStable.each(['preparing', 'compacting', 'generating', undefined] as const)(
+  'persists semantic phase %s across reconnects and failures',
+  async (phase) => {
+    const location = await createTestDatabase();
+    let context = new ServerContext(await location.open());
+    const executionId = executionIdSchema.make('phase-run');
+    const instance = WorkflowEngine.WorkflowInstance.initial(definition, executionId);
+    const emit = (event: Parameters<ReturnType<typeof observeAgentProgress>>[0]['event']) =>
+      Effect.runPromise(
+        observeAgentProgress(context)({
+          runId: agentRunIdSchema.make('phase-agent'),
+          agentId: 'reply',
+          phase,
+          mode: 'text',
+          event
+        }).pipe(Effect.provideService(WorkflowEngine.WorkflowInstance, instance))
+      );
+    const read = () => agentProgressSnapshot(context, { executionId })[0];
+
+    try {
+      context.db.orm
+        .insert(workflow_executions)
+        .values({
+          execution_id: executionId,
+          workflow_tag: definition._tag,
+          version: 1,
+          payload: '{}',
+          status: 'running',
+          created_at: 0n,
+          updated_at: 0n
+        })
+        .run();
+      await emit({ type: 'start' });
+      await emit({ type: 'text-delta', text: 'Partial' });
+      expect(read()).toMatchObject({
+        phase: phase ?? 'generating',
+        status: 'running',
+        text: 'Partial'
+      });
+      context.close();
+      context = new ServerContext(await location.open());
+      expect(read()).toMatchObject({
+        phase: phase ?? 'generating',
+        status: 'running',
+        text: 'Partial'
+      });
+      await emit({ type: 'failed', kind: 'transient' });
+      context.close();
+      context = new ServerContext(await location.open());
+      expect(read()).toMatchObject({
+        phase: phase ?? 'generating',
+        status: 'failed',
+        failureKind: 'transient'
+      });
+    } finally {
       context.close();
       await location.cleanup();
     }

@@ -202,6 +202,9 @@
   text-decoration: none;
   text-align: start;
 }
+.study-note-row[data-activity] {
+  background: color-mix(in srgb, var(--sidebar-row-hover) 55%, transparent);
+}
 .study-note-row:hover {
   background: var(--sidebar-row-hover);
 }
@@ -325,6 +328,11 @@
   line-height: 1.25rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.study-note-row[data-activity] .study-item-kind {
+  display: flex;
+  align-items: center;
+  min-block-size: 1.25rem;
 }
 .study-shell[data-sidebar-collapsed='true'] .study-item-kind {
   display: none;

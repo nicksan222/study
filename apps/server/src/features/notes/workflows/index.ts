@@ -55,6 +55,7 @@ import type { AgentEnvironment } from '#server/platform/definitions/define-agent
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { impactToken } from '#server/platform/definitions/impact-token';
+import { normalizeError } from '#server/platform/errors/classify-error';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
 
 export const noteReplyWorkflow = defineWorkflow({
@@ -140,7 +141,10 @@ export const noteReplyHandler = ({ event }: typeof noteReplyWorkflow.payloadSche
           return publication;
         }
 
-        const catalog = selectionCatalog(snapshot);
+        const catalog = yield* Effect.try({
+          try: () => selectionCatalog(snapshot),
+          catch: normalizeError
+        });
         const seen = new Set<string>();
 
         for (const attachment of snapshot.messages.flatMap((message) => message.attachments)) {
@@ -165,20 +169,24 @@ export const noteReplyHandler = ({ event }: typeof noteReplyWorkflow.payloadSche
               )
             );
 
-          catalog.addDocument({
-            key,
-            name: attachment.sourceName,
-            reference: {
-              input: {
-                kind: 'source',
-                sourceId: attachment.sourceId,
-                revision: attachment.revision,
-                snapshotId: attachment.snapshotId
-              },
-              sourceId: attachment.sourceId,
-              documentId: attachment.snapshotId
-            },
-            blocks: document.blocks
+          yield* Effect.try({
+            try: () =>
+              catalog.addDocument({
+                key,
+                name: attachment.sourceName,
+                reference: {
+                  input: {
+                    kind: 'source',
+                    sourceId: attachment.sourceId,
+                    revision: attachment.revision,
+                    snapshotId: attachment.snapshotId
+                  },
+                  sourceId: attachment.sourceId,
+                  documentId: attachment.snapshotId
+                },
+                blocks: document.blocks
+              }),
+            catch: normalizeError
           });
         }
 

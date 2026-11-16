@@ -26,7 +26,7 @@
 
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { featureRole, serverPath, targetPath } from '../architecture-imports.ts';
+import { featureRole, importedValue, serverPath, targetPath } from '../architecture-imports.ts';
 import { effectBindings } from '../effect-bindings.ts';
 import { binding, constantDeclarator, enterNode } from '../lexical-bindings.ts';
 
@@ -169,6 +169,15 @@ export default defineRule({
       return false;
     }
 
+    function preparation(node: any): boolean {
+      const value = importedValue(context, node);
+
+      return (
+        value?.target === 'platform/ai/context-preparation/index' &&
+        value.name === 'defineContextPreparation'
+      );
+    }
+
     function checkExport(node: any, value: any): void {
       const init = unwrap(value);
 
@@ -180,9 +189,12 @@ export default defineRule({
           'FunctionDeclaration',
           'Literal'
         ].includes(init.type) &&
-        (init.type !== 'CallExpression' || !target(init.callee))
+        (init.type !== 'CallExpression' || (!target(init.callee) && !preparation(init.callee)))
       )
-        context.report({ node, message: 'Agent exports must use defineAgent.' });
+        context.report({
+          node,
+          message: 'Agent exports must use defineAgent or defineContextPreparation.'
+        });
     }
 
     function invalidConfiguration(
@@ -208,6 +220,55 @@ export default defineRule({
       );
     }
 
+    function configuration(node: any) {
+      const config = unwrap(node.arguments[0]);
+      const properties = config?.type === 'ObjectExpression' ? config.properties : [];
+      const values = new Map(
+        properties
+          .filter((p: any) => p.type === 'Property')
+          .map((p: any) => [p.key.name ?? p.key.value, p.value])
+      );
+
+      return { properties, values };
+    }
+
+    function preparationStep(node: any): boolean {
+      const step = unwrap(node);
+
+      if (
+        step?.type !== 'ObjectExpression' ||
+        step.properties.some((property: any) => property.type === 'SpreadElement')
+      )
+        return false;
+
+      const agent = unwrap(
+        step.properties.find(
+          (property: any) =>
+            property.type === 'Property' && (property.key.name ?? property.key.value) === 'agent'
+        )?.value
+      );
+
+      if (agent?.type === 'CallExpression') return target(agent.callee);
+
+      const value = importedValue(context, agent);
+
+      return !!value?.target && /^features\/.+\/agents\//.test(value.target);
+    }
+
+    function checkPreparation(node: any) {
+      const { properties, values } = configuration(node);
+
+      if (
+        properties.some((p: any) => p.type === 'SpreadElement') ||
+        !preparationStep(values.get('map')) ||
+        !preparationStep(values.get('reduce'))
+      )
+        context.report({
+          node,
+          message: 'Context preparation must use canonical agent definitions.'
+        });
+    }
+
     return {
       ImportDeclaration: effects.imports,
       ExportNamedDeclaration(node) {
@@ -224,15 +285,11 @@ export default defineRule({
         checkExport(node, node.declaration);
       },
       CallExpression(node) {
+        if (preparation(node.callee)) return checkPreparation(node);
+
         if (!target(node.callee)) return;
 
-        const config = unwrap(node.arguments[0]);
-        const properties = config?.type === 'ObjectExpression' ? config.properties : [];
-        const values = new Map(
-          properties
-            .filter((p: any) => p.type === 'Property')
-            .map((p: any) => [p.key.name ?? p.key.value, p.value])
-        );
+        const { properties, values } = configuration(node);
         const keys = new Set(
           properties
             .filter((p: any) => p.type === 'Property')

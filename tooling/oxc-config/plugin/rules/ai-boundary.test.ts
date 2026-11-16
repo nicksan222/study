@@ -145,3 +145,23 @@ checkpoint({name: 'bad', execute: function* () { return yield* generateAgent(age
     assert.ok(diagnostics[0]!.message.includes('preflight'));
   }
 );
+
+testStable(
+  'shared context preparation owns agent plumbing while callers retain checkpoint and preflight fences',
+  async () => {
+    const diagnostics = await lintRule('ai-boundary', {
+      'src/platform/ai/context-preparation/agent.ts':
+        "import {generateAgent} from '#server/platform/ai/agents'; generateAgent(agent, input, {maxRetries:0, preflight:check}); generateAgent(agent, input);",
+      'src/platform/ai/context-preparation/unrelated.ts':
+        "import {generateAgent} from '#server/platform/ai/agents'; generateAgent(agent, input, {maxRetries:0, preflight:check});",
+      'src/features/example/workflows/document.ts':
+        "import {defineActivity} from '#server/platform/definitions/define-activity'; import * as api from '#server/platform/ai/agents'; const generate = api.generateAgent; generate(agent,input,{maxRetries:0,preflight}); defineActivity({execute:function*(){ yield* generate(agent,input,{maxRetries:0,preflight}); yield* generate(agent,input,{}); }});",
+      'src/features/example/service/direct.ts':
+        "import {generateAgent} from '#server/platform/ai/agents'; generateAgent(agent,input,{preflight});",
+      'src/features/example/service/index.ts':
+        "import * as api from '#server/platform/ai/agents'; const {generateAgent: run} = api; run(agent,input,{preflight}); function shadow(run) {run(agent,input);}"
+    });
+
+    assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
+  }
+);

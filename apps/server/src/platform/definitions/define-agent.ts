@@ -20,6 +20,8 @@ import type { AgentRule, ModelTier, StudyError, sourceEvidenceSchema } from '@st
 import type { ModelMessage } from 'ai';
 import type { Effect, Schema } from 'effect';
 
+import type { ContextPreparation } from '#server/platform/ai/context-preparation/agent';
+
 export type CitationEvidence = typeof sourceEvidenceSchema.Type;
 
 /** Exact decoded calls supplied to runtime model and tool dependency adapters. */
@@ -94,6 +96,8 @@ export interface AgentDefinition<
   Output extends Schema.ConstraintDecoder<unknown>,
   Requirements = never
 > {
+  /** Source-consuming agents declare preparation once; the common runner requires captured inputs. */
+  context?: ContextPreparation<Requirements>;
   id: string;
   input: Input;
   output: Output;

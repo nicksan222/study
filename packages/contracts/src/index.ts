@@ -1,9 +1,12 @@
+export { materialStudyNotesSchema } from './ai/material-study-notes.ts';
 export type { AssistantToolName } from './ai/assistant-tools.ts';
 export { assistantToolNameSchema } from './ai/assistant-tools.ts';
 export { compactionInputSchema, compactionOutputSchema } from './ai/compaction.ts';
 export { gradeInputSchema, gradeOutputSchema } from './ai/grade.ts';
 export { pageTransformOutputSchema } from './ai/page-transform.ts';
 export {
+  agentPhaseSchema,
+  agentProgressLimit,
   agentObservationSchema,
   agentProgressInputSchema,
   agentProgressPageSchema,

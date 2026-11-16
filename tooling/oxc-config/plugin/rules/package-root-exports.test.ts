@@ -1,7 +1,18 @@
 import { testStable } from '@study/testing/vitest';
 import { expect } from 'vite-plus/test';
 
+import { packageExportIssues } from '../package-export-policy.ts';
 import { lintRule } from '../test/utils.ts';
+
+testStable('the server testing facet stays inside its feature-service fixtures', () => {
+  expect(
+    packageExportIssues('apps/server', { './testing': './test/testing/study-materials.ts' })
+  ).toEqual([]);
+  expect(packageExportIssues('apps/server', { './testing': './test/private.ts' })).toHaveLength(1);
+  expect(
+    packageExportIssues('apps/server', { './client': './test/testing/study-materials.ts' })
+  ).toHaveLength(1);
+});
 
 testStable(
   'workspace libraries are imported through their root with only approved facets',

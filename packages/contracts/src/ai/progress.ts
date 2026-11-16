@@ -7,6 +7,8 @@ export const agentRunIdSchema = Schema.String.check(Schema.isBetweenLength(1, 25
   Schema.brand('AgentRunId')
 );
 
+export const agentPhaseSchema = Schema.Literals(['generating', 'preparing', 'compacting']);
+
 const agentToolDetailSchema = Schema.Struct({
   text: Schema.String.check(Schema.isMaxLength(12000)),
   truncated: Schema.Boolean
@@ -33,6 +35,7 @@ export const agentUpdateSchema = Schema.Union([
 export const agentObservationSchema = Schema.Struct({
   runId: agentRunIdSchema,
   agentId: Schema.String,
+  phase: Schema.optional(agentPhaseSchema),
   mode: Schema.Literals(['text', 'object']),
   event: Schema.Union([
     agentUpdateSchema,
@@ -57,6 +60,7 @@ export const agentProgressSchema = Schema.Struct({
   executionId: executionIdSchema,
   executionStatus: executionSchema.fields.status,
   agentId: Schema.String,
+  phase: Schema.optional(agentPhaseSchema),
   mode: Schema.Literals(['text', 'object']),
   status: Schema.Literals(['running', 'completed', 'failed', 'cancelled']),
   failureKind: Schema.NullOr(errorKindSchema),
@@ -71,4 +75,8 @@ export const agentProgressInputSchema = Schema.Union([
   Schema.Struct({ correlationId: Schema.String.check(Schema.isBetweenLength(1, 256)) })
 ]);
 
-export const agentProgressPageSchema = Schema.Array(agentProgressSchema);
+export const agentProgressLimit = 100;
+
+export const agentProgressPageSchema = Schema.Array(agentProgressSchema).check(
+  Schema.isMaxLength(agentProgressLimit)
+);

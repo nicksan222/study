@@ -851,3 +851,51 @@ function holdAfterPublication(published: Deferred.Deferred<void>, finish: Deferr
       )
     );
 }
+
+for (const size of [90_000]) {
+  testStable(
+    `oversized captured Page input (${size}) fails with typed admission error before dispatch`,
+    async () => {
+      const fixture = await pageTransformFixture();
+
+      try {
+        const setup = await Effect.runPromise(
+          capture([paragraph('\u0000'.repeat(size))]).pipe(Effect.provide(fixture.domain()))
+        );
+        const event = fixture.authoredEvent(setup.request.id);
+        const executionId = `oversized-${size}`;
+        const failure = await Effect.runPromise(
+          Effect.scoped(
+            Effect.gen(function* () {
+              const engine = yield* WorkflowEngine.WorkflowEngine;
+
+              yield* engine.register(pageTransformWorkflow, pageTransformHandler);
+
+              return yield* withTestAdmission(
+                fixture.context,
+                pageTransformWorkflow,
+                executionId,
+                { event },
+                engine.execute(pageTransformWorkflow, { executionId, payload: { event } })
+              ).pipe(Effect.catch((error) => Effect.succeed(error.kind)));
+            }).pipe(Effect.provide(fixture.services()))
+          )
+        );
+
+        assert.strictEqual(failure, 'not_enough');
+        assert.strictEqual(fixture.bodies.length, 0);
+        assert.strictEqual(fixture.context.db.orm.select().from(s.pages).all().length, 1);
+        assert.strictEqual(
+          fixture.context.db.orm
+            .select()
+            .from(s.page_transform_requests)
+            .where(eq(s.page_transform_requests.id, setup.request.id))
+            .get()?.result_version_id,
+          null
+        );
+      } finally {
+        await fixture.close();
+      }
+    }
+  );
+}

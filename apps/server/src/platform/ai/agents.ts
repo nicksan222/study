@@ -40,6 +40,13 @@ import {
 
 import { makeAdmission } from '#server/platform/ai/admission';
 import type { Admission } from '#server/platform/ai/admission';
+import type {
+  ContextOptions,
+  ContextPreparation,
+  ContextAgentResult,
+  ContextServices
+} from '#server/platform/ai/context-preparation/agent';
+import { AiPhase } from '#server/platform/ai/phase';
 import { scopedAgentProgress } from '#server/platform/ai/progress';
 import { withRequestCheck } from '#server/platform/ai/providers/request-check';
 import { adaptProviderTool } from '#server/platform/ai/providers/tools';
@@ -113,8 +120,110 @@ function failure(error: unknown): StudyError {
   return new StudyError('transient', 'Agent request failed', { cause: error });
 }
 
-/** Consume the agent stream and return only its schema-validated completion value. */
+/** Context definitions require captured sources and keep their reference type in returned evidence. */
 export function generateAgent<
+  I extends Schema.ConstraintDecoder<unknown>,
+  O extends Schema.ConstraintDecoder<unknown>,
+  Requirements = never,
+  Ref = never,
+  R = never,
+  PreparationRequirements = never
+>(
+  definition: Omit<AgentDefinition<I, O, Requirements>, 'context'> & {
+    context: ContextPreparation<PreparationRequirements>;
+  },
+  input: I['Type'],
+  options: AgentOptions & ContextOptions<Ref, R>
+): Effect.Effect<
+  ContextAgentResult<O['Type'], Ref>,
+  StudyError,
+  Agents | Requirements | PreparationRequirements | R | ContextServices
+>;
+
+export function generateAgent<
+  I extends Schema.ConstraintDecoder<unknown>,
+  O extends Schema.ConstraintDecoder<unknown>,
+  Requirements = never
+>(
+  definition: AgentDefinition<I, O, Requirements> & { context?: undefined },
+  input: I['Type'],
+  options?: AgentOptions
+): Effect.Effect<O['Type'], StudyError, Agents | Requirements>;
+
+export function generateAgent<
+  I extends Schema.ConstraintDecoder<unknown>,
+  O extends Schema.ConstraintDecoder<unknown>,
+  Requirements,
+  Ref,
+  R
+>(
+  definition: AgentDefinition<I, O, Requirements>,
+  input: I['Type'],
+  options: AgentOptions & Partial<ContextOptions<Ref, R>> = {}
+) {
+  if (!definition.context) return generatePlainAgent(definition, input, options);
+
+  if (!options.sources || !options.scope || !options.preflight)
+    return Effect.fail(
+      new StudyError(
+        'invalid_input',
+        'Context agents require captured sources, preflight and a stable scope'
+      )
+    );
+
+  const { context, ...plain } = definition;
+  const contextOptions = {
+    sources: options.sources,
+    scope: options.scope,
+    preflight: options.preflight
+  };
+
+  return Effect.gen(function* () {
+    yield* agentLimits(options);
+    const validated = yield* Effect.try({
+      try: () => Schema.decodeUnknownSync(Schema.toType(definition.input))(input),
+      catch: (cause) => new StudyError('invalid_input', 'Invalid agent input', { cause })
+    });
+    const originalPrompt = yield* Effect.try({
+      try: () => definition.prompt(validated),
+      catch: (cause) => new StudyError('invalid_input', 'Invalid agent prompt', { cause })
+    });
+    const prepared = yield* context.prepare(originalPrompt, contextOptions);
+    const services = yield* Effect.context<R>();
+    const preflight = contextOptions.preflight.pipe(
+      Effect.provideContext(services),
+      Effect.asVoid,
+      Effect.mapError((error) =>
+        error instanceof StudyError
+          ? error
+          : new StudyError(error.kind, error.message, {
+              retryAfterMs: error.retryAfterMs,
+              ...(error.resource ? { resource: error.resource } : {})
+            })
+      )
+    );
+
+    yield* preflight;
+    const agents = yield* Agents;
+    const output = yield* generatePlainAgent({ ...plain, prompt: () => prepared.prompt }, input, {
+      ...options,
+      preflight
+    }).pipe(
+      Effect.provideService(Agents, {
+        ...agents,
+        searchSources: (query) =>
+          preflight.pipe(Effect.andThen(Effect.sync(() => prepared.search(query))))
+      })
+    );
+
+    yield* preflight;
+
+    return { output, evidence: prepared.evidence, coverage: prepared.coverage };
+  });
+}
+
+/** Consume the agent stream and return only its schema-validated completion value. */
+function generatePlainAgent<
   I extends Schema.ConstraintDecoder<unknown>,
   O extends Schema.ConstraintDecoder<unknown>,
   Requirements = never
@@ -149,6 +258,9 @@ export function streamAgent<
   input: I['Type'],
   options: AgentOptions = {}
 ): Stream.Stream<AgentProgress<O['Type']>, StudyError, Agents | Requirements> {
+  if (definition.context)
+    return Stream.fail(new StudyError('unsupported', 'Context agents require durable generation'));
+
   /** Capture one run identity and preserve its scoped ownership through all observations. */
   function* runAgentStream(queue: Queue.Queue<AgentProgress<O['Type']>, StudyError | Cause.Done>) {
     const service = yield* Agents;
@@ -194,6 +306,7 @@ export function streamAgent<
     const run = {
       runId: agentRunIdSchema.make(crypto.randomUUID()),
       agentId: definition.id,
+      phase: yield* AiPhase,
       mode: definition.mode ?? ('text' as const)
     };
     const progress = yield* scopedAgentProgress(

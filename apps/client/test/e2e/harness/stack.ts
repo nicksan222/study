@@ -10,14 +10,15 @@ import { creationResponse } from './creation-response.ts';
 import { captureTimestampClock } from './profile.ts';
 
 /** Each test owns a real application, database and preview; disposal follows acquisition order in reverse. */
-export async function openWebStack() {
+export async function openWebStack(options: Pick<Parameters<typeof App.open>[0], 'ai'> = {}) {
   await using resources = new AsyncDisposableStack();
   const database = await createTestDatabase();
 
   resources.defer(() => database.cleanup());
   const app = await App.open({
     path: await database.prepare(),
-    timestampClock: captureTimestampClock()
+    timestampClock: captureTimestampClock(),
+    ...options
   });
 
   resources.defer(() => app.close());
@@ -65,6 +66,8 @@ export async function openWebStack() {
 
   return {
     url: `http://127.0.0.1:${address.port}`,
+    app,
+    rpcUrl: server.url,
     loseCreationResponse: creation.arm,
     [Symbol.asyncDispose]: () => owner.disposeAsync()
   };
