@@ -132,7 +132,7 @@ test.stable("real value", ({ onTestFinished, assert }) => {
       }
     );
 
-    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 5, JSON.stringify(diagnostics));
     assert.strictEqual(
       diagnostics.filter(({ code }) => code.includes('no-restricted-properties')).length,
       2

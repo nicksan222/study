@@ -220,7 +220,8 @@ function assertExpiredScope(
 
 test.stable(
   'opens a private WAL connection with foreign keys and a busy timeout, and persists across reopen',
-  ({ createTestDatabase }) => fixture({ createTestDatabase }, privateConnection)
+  ({ createTestDatabase, assert, expect }) =>
+    fixture({ createTestDatabase }, (path) => privateConnection({ assert, expect }, path))
 );
 
 test.stable(
@@ -275,17 +276,20 @@ test.stable(
 
 test.stable(
   'nested commits return callback values and roll back with the outer transaction',
-  ({ createTestDatabase }) => fixture({ createTestDatabase }, nestedCommits)
+  ({ createTestDatabase, assert, expect }) =>
+    fixture({ createTestDatabase }, (path) => nestedCommits({ assert, expect }, path))
 );
 
 test.stable(
   'a caught nested failure rolls back its savepoint and preserves outer writes',
-  ({ createTestDatabase }) => fixture({ createTestDatabase }, caughtNestedFailure)
+  ({ createTestDatabase, assert, expect }) =>
+    fixture({ createTestDatabase }, (path) => caughtNestedFailure({ assert, expect }, path))
 );
 
 test.stable(
   'rejects native async callbacks before invocation and rolls back thenable callbacks',
-  ({ createTestDatabase }) => fixture({ createTestDatabase }, rejectedAsyncCallbacks)
+  ({ createTestDatabase, assert, expect }) =>
+    fixture({ createTestDatabase }, (path) => rejectedAsyncCallbacks({ assert, expect }, path))
 );
 
 async function expiredAsyncScopes({

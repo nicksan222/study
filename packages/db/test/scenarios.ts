@@ -18,7 +18,8 @@ const runner = baseTest.stable
       dir: fixture.dir,
       path: fixture.path,
       prepare: fixture.prepare,
-      open: (options) => resources.acquire(() => fixture.open(options)),
+      open: (...args: Parameters<typeof fixture.open>) =>
+        resources.acquire(() => fixture.open(...args)),
       cleanup: owned.close,
       [Symbol.asyncDispose]: owned.close
     };

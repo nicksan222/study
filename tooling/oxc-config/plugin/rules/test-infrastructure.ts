@@ -348,7 +348,7 @@ function callbackForTest(context: any, node: any): any | undefined {
 
     if (
       canonicalTestBody(registration) ||
-      ['test.beforeEach', 'test.afterEach'].includes(registration?.name)
+      ['test.beforeEach', 'test.afterEach'].includes(registration?.name ?? '')
     )
       return owner;
   }
@@ -534,7 +534,7 @@ function checkOpaqueFixtureParameter(context: any, node: any): void {
 
   if (
     !canonicalTestBody(registration) &&
-    !['test.beforeEach', 'test.afterEach'].includes(registration?.name)
+    !['test.beforeEach', 'test.afterEach'].includes(registration?.name ?? '')
   )
     return;
 
