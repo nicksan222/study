@@ -144,3 +144,29 @@ export const run = E.fnUntraced(function* () {
     ).toStrictEqual(['apps/server/src/features/notes/workflows/bad.ts']);
   }
 );
+
+test.stable(
+  'workflow indexes collect registrations while execution helpers stay private',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    expect(
+      await lint(
+        { assert },
+        {
+          'notes/workflows/index.ts': `export { noteReplyWorkflow, noteReplyHandler, noteReplyRegistration } from './reply.ts';`,
+          'notes/workflows/internal/context.ts': `export function prepareContext() { return {}; }`,
+          'sources/workflows/index.ts': `export { prepareContext } from './internal/context.ts';`,
+          'pages/workflows/index.ts': `export { noteReplyRegistration } from '../../notes/workflows/reply.ts';`,
+          'materials/workflows/index.ts': `export * from './generation.ts';`,
+          'learning/workflows/grading.ts': `export function unregistered() { return {}; }`
+        }
+      )
+    ).toStrictEqual([
+      'learning/workflows/grading.ts',
+      'materials/workflows/index.ts',
+      'pages/workflows/index.ts',
+      'sources/workflows/index.ts'
+    ]);
+  }
+);

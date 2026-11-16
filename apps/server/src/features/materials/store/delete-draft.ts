@@ -1,0 +1,59 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Deletes an unpublished draft version while preserving published material history.  │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Restricts deletion to drafts so published version history stays durable.               │
+ * │ - Keeps persistence inputs and results typed for service-layer composition.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Typed store helpers own database access; the materials service applies policy and        │
+ * │ composes these private operations.                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
+import type { deleteDraftInputSchema } from '@study/contracts';
+import { StudyError } from '@study/contracts';
+
+import type { StoreResources } from '#server/platform/definitions/define-store';
+
+type Input = typeof deleteDraftInputSchema.Type;
+
+import * as s from '@study/db';
+import { eq } from '@study/db';
+
+import { makeContent } from '#server/features/materials/store/content';
+import { makeReads } from '#server/features/materials/store/reads';
+import { materialIntegrity } from '#server/features/materials/store/transactions';
+
+export function makeDeleteDraft(resources: StoreResources) {
+  const { db } = resources;
+  const store = db;
+  const { removeContent } = makeContent(resources);
+  const { versionRow } = makeReads(resources);
+  const deleteDraft = (input: Input) =>
+    materialIntegrity(() => {
+      const version = versionRow(input.id, true),
+        db = store.orm;
+
+      if (
+        db
+          .select()
+          .from(s.material_versions)
+          .where(eq(s.material_versions.material_id, version.material_id))
+          .all().length === 1
+      )
+        throw new StudyError('invalid_input', 'Cannot delete the only material version');
+
+      removeContent(input.id);
+      db.delete(s.material_versions).where(eq(s.material_versions.id, input.id)).run();
+
+      return {
+        id: input.id
+      };
+    });
+
+  return {
+    deleteDraft
+  };
+}

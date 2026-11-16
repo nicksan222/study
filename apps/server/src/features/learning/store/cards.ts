@@ -1,83 +1,74 @@
-/**
- * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Queries and mutates learning flashcard records.                                    │
- * │                                                                                          │
- * │ Responsibilities:                                                                        │
- * │ - Stores flashcard content and review scheduling fields for learning operations.         │
- * │ - Keeps persistence inputs and results typed for service-layer composition.              │
- * │                                                                                          │
- * │ Boundaries:                                                                              │
- * │ Typed store helpers own database access; the learning service applies policy and         │
- * │ composes these private operations.                                                       │
- * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
- */
+/** @file Builds learning cards queries and mutations with bound store resources. */
 
-import { StudyError } from '@study/contracts';
-import type { MaterialVersionId, MaterialCardId } from '@study/contracts';
-import { and, eq } from '@study/db';
+import {
+  cardInputSchema,
+  cardSchema,
+  dueCardSchema,
+  dueCardsInputSchema,
+  reviewCardInputSchema,
+  reviewSettingsSchema,
+  reviewedCardSchema
+} from '@study/contracts';
 import * as s from '@study/db';
+import { eq } from '@study/db';
+import { Schema } from 'effect';
 
+import { makeCards } from '#server/features/learning/store/card-operations';
+import { makeDueCards } from '#server/features/learning/store/due-cards';
+import { makeReviewMaterialCard } from '#server/features/learning/store/review-material-card';
 import type { StoreResources } from '#server/platform/definitions/define-store';
-import type { Memory } from '#server/platform/scheduling/fsrs';
-import { newMemory } from '#server/platform/scheduling/fsrs';
+import { storeMutation, storeQuery } from '#server/platform/definitions/define-store';
+import { unixSeconds } from '#server/platform/time/index';
 
-import { makeQuiz } from './quiz.ts';
+import { optional } from './attempts.ts';
 
-const states = {
-  new: 0,
-  learning: 1,
-  review: 2,
-  relearning: 3
-} as const;
-
-/** Scheduling belongs to stable card identity, independently of its versioned content. */
-export function makeCards(resources: StoreResources) {
-  const { db } = resources;
-  const { published } = makeQuiz(resources);
-
-  function cardSnapshot(versionId: MaterialVersionId, cardId: MaterialCardId) {
-    published(versionId, 'flashcards');
-    const entry = db.orm
-      .select()
-      .from(s.material_flashcard_entries)
-      .where(
-        and(
-          eq(s.material_flashcard_entries.version_id, versionId),
-          eq(s.material_flashcard_entries.card_id, cardId)
-        )
-      )
-      .get();
-
-    if (!entry) throw new StudyError('not_found', 'card snapshot missing');
-
-    return entry;
-  }
-
-  function cardMemory(cardId: MaterialCardId, at: bigint): Memory {
-    const schedule = db.orm
-      .select()
-      .from(s.material_card_schedules)
-      .where(eq(s.material_card_schedules.card_id, cardId))
-      .get();
-
-    if (!schedule) return newMemory(at);
-
-    return {
-      stability: schedule.stability,
-      difficulty: schedule.difficulty,
-      reps: Number(schedule.reps),
-      lapses: Number(schedule.lapses),
-      due: schedule.due,
-      state: states[schedule.state],
-      lastReview: schedule.last_review,
-      elapsedDays: Number(schedule.elapsed_days),
-      scheduledDays: Number(schedule.scheduled_days),
-      learningSteps: Number(schedule.learning_steps)
-    };
-  }
+export function makeCardStore(resources: StoreResources) {
+  const { db, clock } = resources;
+  const { cardSnapshot } = makeCards(resources);
+  const { dueCards } = makeDueCards(resources);
+  const { reviewMaterialCard } = makeReviewMaterialCard(resources);
+  const card = (input: typeof cardInputSchema.Type) => ({
+    snapshot: cardSnapshot(input.versionId, input.cardId),
+    schedule:
+      db.orm
+        .select()
+        .from(s.material_card_schedules)
+        .where(eq(s.material_card_schedules.card_id, input.cardId))
+        .get() ?? null
+  });
 
   return {
-    cardSnapshot,
-    cardMemory
+    queries: {
+      card: storeQuery({
+        role: 'required',
+        input: cardInputSchema,
+        output: cardSchema,
+        run: card
+      }),
+      findCard: storeQuery({
+        role: 'optional',
+        input: cardInputSchema,
+        output: Schema.Option(cardSchema),
+        run: (input) => optional(() => card(input))
+      }),
+      cards: storeQuery({
+        role: 'collection',
+        input: Schema.Struct({
+          ...dueCardsInputSchema.fields,
+          ...reviewSettingsSchema.fields
+        }),
+        output: Schema.Array(dueCardSchema),
+        run: (input) => dueCards(input).items
+      })
+    },
+    mutations: {
+      reviewCard: storeMutation({
+        changes: ['learning'],
+        input: reviewCardInputSchema,
+        output: reviewedCardSchema,
+        run: (input) =>
+          reviewMaterialCard(input.versionId, input.cardId, input.rating, unixSeconds(clock))
+      })
+    }
   };
 }

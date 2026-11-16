@@ -11,18 +11,20 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts';
-import { materialVersionIdSchema } from '@study/contracts';
-import { MAX_EXPORT_BYTES } from '@study/contracts';
-import { materialCitationSchema } from '@study/contracts';
-import { and, asc, eq, gt } from '@study/db';
+import {
+  MAX_EXPORT_BYTES,
+  StudyError,
+  materialCitationSchema,
+  materialVersionIdSchema
+} from '@study/contracts';
 import * as s from '@study/db';
+import { and, asc, eq, gt } from '@study/db';
 import { Schema } from 'effect';
 
 import { exportBudget } from '#server/platform/content-export/budget';
 import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 
-import { makeCitations } from './citations.ts';
+import { makeCitations } from './citation-operations.ts';
 import { makeReads } from './reads.ts';
 
 /** Resolves and budgets each citation before retaining it, with a one-Document cache. */
