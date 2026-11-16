@@ -66,7 +66,7 @@ const labels = {
   superscript: 'Superscript'
 };
 
-test.stable(
+test.unit.stable(
   'retains imported rich structures, source anchors and block identity through the real editor',
   async ({ vi, render, expect, screen, fireEvent, waitFor }) => {
     const content: BlockContent[] = [
@@ -147,7 +147,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'edits formatting without flattening neighboring tables and gives split blocks fresh identities',
   async ({ vi, render, fireEvent, screen, waitFor, expect }) => {
     const document = {
@@ -188,7 +188,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps the caret and undo history when newly authored blocks receive database identities',
   async ({ render, screen, act, expect, waitFor }) => {
     function Controlled() {
@@ -249,7 +249,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'inserts a table through the document controls and preserves it as canonical content',
   async ({ vi, render, fireEvent, screen, within, waitFor, expect }) => {
     const document = blankDocument();
@@ -286,7 +286,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'inserts an uploaded image as a durable source reference and displays the image',
   async ({ vi, render, fireEvent, screen, waitFor, expect }) => {
     const document = blankDocument();
@@ -321,7 +321,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps merged table cells and column widths through a native Tiptap edit and canonical round trip',
   async ({ vi, render, screen, act, waitFor, expect }) => {
     const document = {
@@ -378,7 +378,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'right-click formatting applies to the selected text and leaves its neighbors unchanged',
   async ({ vi, render, screen, act, fireEvent, within, waitFor, expect }) => {
     const document = {
@@ -420,7 +420,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'right-clicking an image selects it and edits its description without changing its retained identity',
   async ({ vi, render, screen, fireEvent, within, expect, waitFor }) => {
     const document = {
@@ -474,7 +474,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'adds a link to the selected text and retains its formatting through save and reload',
   async ({ vi, render, screen, act, fireEvent, within, waitFor, expect }) => {
     const document = {
@@ -523,7 +523,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'right-clicking a table cell offers native row actions even when the caret was outside the table',
   async ({ vi, render, fireEvent, screen, within, waitFor, expect }) => {
     const document = {
@@ -559,7 +559,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'read-only rendering preserves anchors and removes editing controls',
   ({ vi, render, expect, screen, fireEvent }) => {
     const block = createBlock({ type: 'heading', level: 2, inlines: plain('Source heading') });
@@ -587,7 +587,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'source previews retain list continuations, explicit numbering and reference destinations',
   ({ vi, render, expect, screen }) => {
     const document = {
@@ -649,7 +649,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'splitting authored content keeps original anchors and continues explicit list numbering',
   ({ render, screen, act, expect }) => {
     const paragraph = createBlock({ type: 'paragraph', inlines: plain('Paragraph') });

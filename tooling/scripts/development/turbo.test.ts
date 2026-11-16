@@ -27,7 +27,7 @@ async function fixture({
   temporaryDirectory,
   spawnTestProcess,
   assert: assertions
-}: Pick<test.Context, 'temporaryDirectory' | 'spawnTestProcess' | 'assert'>) {
+}: Pick<test.unit.Context, 'temporaryDirectory' | 'spawnTestProcess' | 'assert'>) {
   const assert: test.Assert = assertions;
   const temporary = await temporaryDirectory();
   const path = temporary.path;
@@ -146,7 +146,7 @@ async function fixture({
   };
 }
 
-test.stable(
+test.unit.stable(
   'CI gate groups cover the full check, including the packaged runtime',
   async ({ assert: assertions, temporaryDirectory, spawnTestProcess }) => {
     const assert: test.Assert = assertions;
@@ -201,7 +201,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'browser comparison keeps its build prerequisite and forwards runner options',
   async ({ assert: assertions, temporaryDirectory, spawnTestProcess }) => {
     const assert: test.Assert = assertions;
@@ -220,7 +220,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'a failed runtime preparation prevents its smoke test from running',
   async ({ assert: assertions, temporaryDirectory, spawnTestProcess }) => {
     const assert: test.Assert = assertions;
@@ -239,7 +239,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'failed formatting leaves independent native gates runnable',
   async ({ assert: assertions, temporaryDirectory, spawnTestProcess }) => {
     const assert: test.Assert = assertions;
@@ -263,7 +263,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'CI overlaps the client build with independent tooling tests',
   async ({ assert: assertions, temporaryDirectory, spawnTestProcess }) => {
     const assert: test.Assert = assertions;
@@ -298,7 +298,7 @@ test.stable(
   }
 );
 
-test.stable.for([
+test.unit.stable.for([
   {
     script: 'gen:check',
     required: ['//#gen:theme:check', '@study/db#gen:check'],
@@ -339,7 +339,7 @@ test.stable.for([
   }
 );
 
-test.stable(
+test.unit.stable(
   'Turbo selects dirty, untracked, staged and renamed packages plus their consumers',
   async ({ assert: assertions, temporaryDirectory, spawnTestProcess }) => {
     const assert: test.Assert = assertions;
@@ -373,7 +373,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shared configuration selects every package and invalid SCM bases fail visibly',
   async ({ assert: assertions, temporaryDirectory, spawnTestProcess }) => {
     const assert: test.Assert = assertions;
@@ -400,7 +400,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'Turbo restores build outputs from cache and invalidates changed dependency inputs',
   async ({ assert: assertions, temporaryDirectory, spawnTestProcess }) => {
     const assert: test.Assert = assertions;
@@ -436,7 +436,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shared test setup and native permissions affect the owning tasks',
   async ({ assert: assertions, temporaryDirectory, spawnTestProcess }) => {
     const assert: test.Assert = assertions;
@@ -469,7 +469,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'deterministic unit tests are reusable while server tests always execute',
   async ({ assert: assertions, temporaryDirectory, spawnTestProcess }) => {
     const assert: test.Assert = assertions;
@@ -493,7 +493,7 @@ test.stable(
   }
 );
 
-test.stable.for([
+test.unit.stable.for([
   'SIGINT',
   'SIGTERM',
   ...(process.platform === 'win32' ? [] : ['SIGHUP' as const, 'SIGQUIT' as const])

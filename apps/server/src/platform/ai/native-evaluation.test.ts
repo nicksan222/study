@@ -26,7 +26,7 @@ import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 
 // This deliberately narrow, test-only bridge handles the single initial prompt
 // needed to measure Effect's object-with-tools behavior, not production traffic.
-test.stable(
+test.unit.stable(
   'native structured generation stops after a grounded tool call',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

@@ -22,7 +22,7 @@ import { acceptance, backupFixture } from '#testing/managed-backups';
 import { admitTestExecution } from '#testing/workflow-admission';
 
 for (const operation of ['answer', 'rewrite', 'ask'] as const)
-  test.stable(
+  test.server.stable(
     `restored pending ${operation} preserves its pending shell, history and admitted intent`,
     async ({ assert: assertions, expect }) => {
       const assert: test.Assert = assertions;
@@ -156,7 +156,7 @@ for (const operation of ['answer', 'rewrite', 'ask'] as const)
     }
   );
 
-test.stable(
+test.server.stable(
   'an unused retained capture preserves its authority after restore',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -218,7 +218,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'a completed native answer and pending rewrite both survive restore',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

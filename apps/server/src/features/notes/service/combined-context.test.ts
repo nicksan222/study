@@ -25,7 +25,7 @@ import { testLiveQueries } from '#testing/live-queries';
 import { deletionDocument } from '#testing/material-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
-test.stable(
+test.server.stable(
   'combined capture pins selected notes and shared sources, replays exactly and retires on source-note deletion',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

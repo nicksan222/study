@@ -17,15 +17,15 @@ import { Effect } from 'effect';
 
 import { makeStudyClient } from '#server/client/index';
 
-test.stable(
+test.server.stable(
   'a pending reply survives abrupt Bun server process death without duplicates',
   async ({ databases, expect, spawnTestProcess, waitFor, assert: assertions }) => {
     const assert: test.Assert = assertions;
 
     const location = await databases();
-    const children: ReturnType<test.Context['spawnTestProcess']>[] = [];
+    const children: ReturnType<test.server.Context['spawnTestProcess']>[] = [];
 
-    async function start({ spawnTestProcess }: Pick<test.Context, 'spawnTestProcess'>) {
+    async function start({ spawnTestProcess }: Pick<test.server.Context, 'spawnTestProcess'>) {
       const env: Record<string, string | undefined> = {
         ...process.env,
         STUDY_DATABASE: location.path
@@ -134,7 +134,7 @@ test.stable(
 );
 
 async function waitForReply(
-  { waitFor, assert: assertions }: Pick<test.Context, 'waitFor' | 'assert'>,
+  { waitFor, assert: assertions }: Pick<test.server.Context, 'waitFor' | 'assert'>,
   location: Awaited<ReturnType<typeof createTestDatabase>>
 ) {
   const assert: test.Assert = assertions;

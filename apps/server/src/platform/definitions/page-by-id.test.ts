@@ -17,7 +17,7 @@ import { Effect } from 'effect';
 
 import { pageById } from '#server/platform/definitions/page-by-id';
 
-test.stable(
+test.unit.stable(
   'ID pages only probe full pages and never expose a cursor for the final page',
   async ({ expect }) => {
     const calls: { limit: number; before?: number }[] = [];
@@ -56,7 +56,7 @@ test.stable(
   }
 );
 
-test.stable('ID pages preserve lookahead failures', async ({ assert: assertions }) => {
+test.unit.stable('ID pages preserve lookahead failures', async ({ assert: assertions }) => {
   const assert: test.Assert = assertions;
 
   const failure = { kind: 'transient' };

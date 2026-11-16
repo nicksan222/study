@@ -39,7 +39,7 @@ const workflow = defineWorkflow({
   idempotencyKey: ({ event }) => event.eventId
 });
 
-test.stable(
+test.server.stable(
   'registration retains native definition, derived version and independent subscriptions',
   ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -237,7 +237,7 @@ const event = (id: string) =>
     documentId: 3n
   });
 
-test.stable(
+test.server.stable(
   'registration preserves dispatch duplicate subscription and synchronous policy validation',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -282,7 +282,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'reused registrations resolve each engine environment and preserve execution scopes',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

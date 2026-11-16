@@ -65,7 +65,7 @@ async function fixture(databases: Databases) {
   };
 }
 
-test.stable(
+test.server.stable(
   'an image exclusive to a losing autosave retains its association and exact snapshot after reopen',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -176,7 +176,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'authored restoration keeps its exact source revision after replacement without following the mutable source head',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

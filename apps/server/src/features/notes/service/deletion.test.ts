@@ -41,7 +41,7 @@ import {
 import { pageTransformFixture } from '#testing/page-transform';
 import { withTestAdmission } from '#testing/workflow-admission';
 
-test.stable(
+test.server.stable(
   'native deletion RPC commits an idempotent unavailable barrier and scrubs queued captures after reopen',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -203,7 +203,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'deletion intent/outbox failure rolls back the barrier and note removal',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -245,7 +245,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'failed cleanup remains inspectable and retries the same logical deletion after restart',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -310,7 +310,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'pending deletion can retry its terminal attempt after cleanup and failure settlement both fail',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -367,7 +367,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'completed library publication wins deletion while native payload copies are fenced and scrubbed',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -488,7 +488,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'late provider response after acceptance cannot publish or repopulate native checkpoints',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -540,7 +540,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'native suspended Activity state is retired without cancelling an independent library execution',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -655,7 +655,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'kept and applied authored results preserve independent proposals and receipts after raw note deletion',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

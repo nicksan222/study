@@ -69,7 +69,7 @@ const message = Schema.decodeUnknownSync(chatMessageSchema)({
 function Provider({
   rpcHandlersTransport,
   children
-}: Pick<test.Context, 'rpcHandlersTransport'> & { children: React.ReactNode }) {
+}: Pick<test.unit.Context, 'rpcHandlersTransport'> & { children: React.ReactNode }) {
   const fixture = rpcHandlersTransport({
     'pages.pages': rpc.materials,
     'notes.thread': ({ noteId, before, limit }) => rpc.thread(noteId, before, limit),
@@ -96,7 +96,7 @@ function Notebook() {
 }
 
 function mount(
-  { render, rpcHandlersTransport }: Pick<test.Context, 'render' | 'rpcHandlersTransport'>,
+  { render, rpcHandlersTransport }: Pick<test.unit.Context, 'render' | 'rpcHandlersTransport'>,
   noteId?: typeof id,
   board = false
 ) {
@@ -118,7 +118,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   rpc = __mockState.rpc;
@@ -140,19 +140,19 @@ test.beforeEach(async ({ mock }) => {
   WorkspaceContext = __mockModule2.WorkspaceContext;
 });
 
-test.beforeEach(({ vi }) => {
+test.unit.beforeEach(({ vi }) => {
   vi.clearAllMocks();
   rpc.thread.mockResolvedValue({ items: [], next: null });
   rpc.materials.mockResolvedValue({ items: [], nextCursor: null });
   rpc.generations.mockResolvedValue({ items: [], next: null });
   Element.prototype.scrollIntoView = vi.fn();
 });
-test.afterEach(({ cleanup, vi }) => {
+test.unit.afterEach(({ cleanup, vi }) => {
   cleanup();
   vi.restoreAllMocks();
 });
 
-test.stable(
+test.unit.stable(
   'shows a starter index hint without fetching note content',
   ({ expect, screen, render, rpcHandlersTransport }) => {
     mount({ render, rpcHandlersTransport });
@@ -161,7 +161,7 @@ test.stable(
     expect(rpc.materials).not.toHaveBeenCalled();
   }
 );
-test.stable(
+test.unit.stable(
   'jumps and focuses actual rendered note, attachment and document targets without preview dialogs',
   async ({ screen, within, expect, vi, userEvent, render, rpcHandlersTransport }) => {
     const attached = Schema.decodeUnknownSync(chatMessageSchema)({
@@ -212,7 +212,7 @@ test.stable(
     expect(rpc.generations).not.toHaveBeenCalled();
   }
 );
-test.stable(
+test.unit.stable(
   'loads earlier notes into both the index and the rendered notebook through authoritative bounded pages',
   async ({ screen, fireEvent, within, expect, render, rpcHandlersTransport }) => {
     rpc.thread.mockImplementation((_id, _before, limit) =>
@@ -228,7 +228,7 @@ test.stable(
     expect(rpc.thread).toHaveBeenCalledWith(id, undefined, 60);
   }
 );
-test.stable(
+test.unit.stable(
   'respects reduced motion when jumping to a notebook entry',
   async ({ screen, within, vi, fireEvent, expect, render, rpcHandlersTransport }) => {
     rpc.thread.mockResolvedValue({ items: [message], next: null });
@@ -244,7 +244,7 @@ test.stable(
     expect(scroll).toHaveBeenCalledWith({ behavior: 'auto', block: 'start', inline: 'nearest' });
   }
 );
-test.stable(
+test.unit.stable(
   'does not claim an empty index while data is pending or has failed',
   async ({ expect, screen, render, rpcHandlersTransport }) => {
     rpc.thread.mockRejectedValue(new Error('Read failed'));
@@ -254,7 +254,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'previews a note from the tiny rail on both hover and keyboard focus',
   async ({
     screen,
@@ -284,7 +284,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps notebook content ordered and jumpable without repeated dates or timeline wrappers',
   async ({ screen, within, expect, render, rpcHandlersTransport }) => {
     rpc.thread.mockResolvedValue({ items: [message], next: null });
@@ -302,7 +302,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains rich document headings and lists in the unboxed notebook',
   async ({ render, screen, expect, within, rpcHandlersTransport }) => {
     rpc.thread.mockResolvedValue({

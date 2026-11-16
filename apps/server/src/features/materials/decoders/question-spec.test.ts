@@ -28,7 +28,7 @@ const choice = {
   ]
 };
 
-test.stable(
+test.unit.stable(
   'a captured question specification enforces count and selected kind',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

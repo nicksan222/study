@@ -8,7 +8,7 @@ import { authoredPage } from '../document-editing/test-support';
 import { deferred } from '../material-library/test/support';
 import { ExactAuthoredPageContent } from './exact-page';
 
-test.stable(
+test.unit.stable(
   'retries the exact document and individual image, distinguishes loading, and releases URLs on replacement/unmount',
   async ({ vi, rpcHandlersTransport, render, userEvent, screen, expect, act, waitFor }) => {
     const document = authoredPage(41n).version!;
@@ -111,7 +111,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retries one failed image without reacquiring an already displayed neighbor',
   async ({ vi, rpcHandlersTransport, render, screen, userEvent, expect }) => {
     const base = authoredPage(41n).version!;

@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'requires destructive database mutations to have a guard',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -16,7 +16,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'guards executed mutations and top-level SQL predicates',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -43,7 +43,7 @@ function g(d) { d.sql\`DELETE FROM x\`;
   }
 );
 
-test.stable(
+test.unit.stable(
   'upserts stay targeted while trivial predicates and later unguarded statements fail',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -64,7 +64,7 @@ ctx.db.orm.delete(table).where(sql\`id=1\`).run();
   }
 );
 
-test.stable(
+test.unit.stable(
   'unconditional OR branches fail while a false conjunct does not become a tautology',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -81,7 +81,7 @@ sql\`DELETE FROM projects WHERE (1=1) OR (id=2)\`;`
   }
 );
 
-test.stable(
+test.unit.stable(
   'recognizes bound store resources while respecting shadowed names',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -99,7 +99,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'recognizes a named make callback and resource object aliases',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -118,7 +118,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'tracks contextual resource objects and destructured aliases into helpers',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -137,7 +137,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'tracks aliased and namespace StoreResources helper parameters',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -154,7 +154,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'tracks resources through an aliased store descriptor',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

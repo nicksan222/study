@@ -1,7 +1,7 @@
 import { test } from '@study/testing';
 import { sql as dbSql } from 'drizzle-orm';
 
-test.stable(
+test.server.stable(
   'migrated pruning guards retain current roots, require exact proof and forbid body resurrection',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -58,7 +58,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'upgraded membership proof counts retained newer roots and binds exact operation and candidate ownership',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -135,7 +135,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'exact raw attachment pins reject forged source or extraction ownership while preserving current source roots',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

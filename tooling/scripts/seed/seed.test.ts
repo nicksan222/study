@@ -12,7 +12,7 @@ const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFile
 
 const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
-test.stable(
+test.server.stable(
   'replaces all old content with readable, linked pages and repeatable study data',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -92,27 +92,30 @@ test.stable(
   }
 );
 
-test.stable('refuses an owned database without modifying it', async ({ databases, expect }) => {
-  const location = await databases();
-  const db = await location.open();
+test.server.stable(
+  'refuses an owned database without modifying it',
+  async ({ databases, expect }) => {
+    const location = await databases();
+    const db = await location.open();
 
-  db.close();
+    db.close();
 
-  const before = new Uint8Array(await Bun.file(location.path).arrayBuffer());
-  const owner = await acquireDatabaseOwnership(location.path);
+    const before = new Uint8Array(await Bun.file(location.path).arrayBuffer());
+    const owner = await acquireDatabaseOwnership(location.path);
 
-  try {
-    await expect(seedDatabase(location.path)).rejects.toMatchObject({ kind: 'transient' });
-    expect(new Uint8Array(await Bun.file(location.path).arrayBuffer())).toEqual(before);
-    expect(await Effect.runPromise(fs.readDirectory(location.dir))).toEqual([
-      location.path.split('/').at(-1)
-    ]);
-  } finally {
-    await owner.release();
+    try {
+      await expect(seedDatabase(location.path)).rejects.toMatchObject({ kind: 'transient' });
+      expect(new Uint8Array(await Bun.file(location.path).arrayBuffer())).toEqual(before);
+      expect(await Effect.runPromise(fs.readDirectory(location.dir))).toEqual([
+        location.path.split('/').at(-1)
+      ]);
+    } finally {
+      await owner.release();
+    }
   }
-});
+);
 
-test.stable(
+test.server.stable(
   'creates a missing parent directory and leaves no staging database',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -127,7 +130,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'bun seed honors STUDY_DATABASE and help leaves its target untouched',
   async ({ resources, temporaryDirectory, spawnTestProcessSync, expect }) => {
     const temporary = await temporaryDirectory();
@@ -154,7 +157,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'reset does not migrate the database being discarded',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -175,7 +178,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'busy SQLite writers prevent replacement and retain the original content',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -218,7 +221,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'a missing target cannot replay orphaned WAL pages over the seeded database',
   async ({ databases, spawnTestProcessSync, expect }) => {
     const location = await databases();

@@ -44,7 +44,7 @@ const meta = {
 const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] });
 
-test.stable(
+test.server.stable(
   'quick-note RPC captures exact note pages and publishes one independent derivative atomically',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -312,7 +312,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'cancelled and deleted note captures reject retries and late publication without saved output',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

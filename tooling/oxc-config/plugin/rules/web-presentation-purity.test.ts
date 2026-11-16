@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'views cannot fetch, run page hooks or own application state',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -29,7 +29,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'views accept presentation hooks, declarative links and type-only contracts',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -55,7 +55,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'presentation cannot access browser globals or hide DOM mutations behind aliases',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -82,7 +82,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'presentation permits shadowed names and prop callbacks',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -104,7 +104,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'extension-correct localization aliases remain presentation-safe',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

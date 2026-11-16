@@ -18,16 +18,16 @@ const declarations = [
   { selector: 'Program > VariableDeclaration' }
 ];
 
-const classifiedTestBlocks = [
-  'test.stable',
-  'test.stable.extend',
-  'test.stable.each',
-  'test.stable.for',
-  'test.stable.concurrent',
-  'test.regression',
-  'test.migration',
-  'test.characterization'
-];
+const classifiedTestBlocks = ['unit', 'server', 'browser'].flatMap((environment) => [
+  `test.${environment}.stable`,
+  `test.${environment}.stable.extend`,
+  `test.${environment}.stable.each`,
+  `test.${environment}.stable.for`,
+  `test.${environment}.stable.concurrent`,
+  `test.${environment}.regression`,
+  `test.${environment}.migration`,
+  `test.${environment}.characterization`
+]);
 
 export const lint = {
   plugins: [
@@ -224,7 +224,7 @@ export const lint = {
     'vitest/require-to-throw-message': 'off',
     // Ref-backed shared controls need a separate React Compiler compatibility audit.
     'react/refs': 'off',
-    // Oxlint does not recognize classified registrations such as test.stable for this rule.
+    // Oxlint does not recognize classified registrations such as test.unit.stable for this rule.
     'vitest/no-conditional-expect': 'off'
   },
   overrides: [

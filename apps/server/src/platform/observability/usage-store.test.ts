@@ -19,7 +19,7 @@ import { transaction, useStore } from '#server/platform/definitions/define-store
 
 import { UsageStore } from './usage-store.ts';
 
-test.stable(
+test.server.stable(
   'usage persists across reopen, deduplicates calls and filters by provider and time',
   async ({ databases, expect }) => {
     const location = await databases();

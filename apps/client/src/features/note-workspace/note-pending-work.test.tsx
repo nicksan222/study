@@ -32,7 +32,7 @@ const row: typeof noteWorkItemSchema.Type = {
 function mount({
   rpcHandlersTransport,
   render
-}: Pick<test.Context, 'rpcHandlersTransport' | 'render'>) {
+}: Pick<test.unit.Context, 'rpcHandlersTransport' | 'render'>) {
   const fixture = rpcHandlersTransport({
     'notes.noteWork': api.work,
     'workflows.cancelExecution': api.cancel,
@@ -54,7 +54,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   api = __mockState.api;
@@ -76,12 +76,12 @@ test.beforeEach(async ({ mock }) => {
   NotePendingWork = __mockModule0.NotePendingWork;
 });
 
-test.beforeEach(({ vi }) => vi.resetAllMocks());
-test.afterEach(({ cleanup }) => {
+test.unit.beforeEach(({ vi }) => vi.resetAllMocks());
+test.unit.afterEach(({ cleanup }) => {
   cleanup();
 });
 
-test.stable(
+test.unit.stable(
   'stops the exact execution safely and waits for committed cancellation',
   async ({ screen, expect, fireEvent, waitFor, act, rpcHandlersTransport, render }) => {
     let stopping = false;
@@ -116,7 +116,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shows the operation and waiting state while keeping live details collapsed',
   async ({ screen, expect, fireEvent, rpcHandlersTransport, render }) => {
     api.work.mockResolvedValue({
@@ -146,7 +146,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'uses domain cancellation for transforms and reconciles a lost response without replay',
   async ({ fireEvent, screen, expect, rpcHandlersTransport, render }) => {
     const transform = { ...row, kind: 'transform', title: 'Study guide' };
@@ -166,7 +166,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains honest cancellation error and disables replay until refreshed',
   async ({ fireEvent, screen, expect, rpcHandlersTransport, render }) => {
     api.work.mockResolvedValue({ items: [row], next: null });
@@ -179,7 +179,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shows actionable guidance for configuration waits',
   async ({ expect, screen, rpcHandlersTransport, render }) => {
     api.work.mockResolvedValue({

@@ -33,7 +33,7 @@ import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';
 import { withTestAdmission, admitTestExecution } from '#testing/workflow-admission';
 
-test.stable(
+test.server.stable(
   'canonical status, ownership and correlation queries bind directly with typed aggregate results',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -108,7 +108,7 @@ test.stable(
 );
 
 for (const state of ['running', 'suspended'] as const) {
-  test.stable(
+  test.server.stable(
     `pending retry waits for every exact current native execution while ${state}, then rejects stale settlement`,
     async ({ databases, expect, assert: assertions }) => {
       const assert: test.Assert = assertions;

@@ -32,7 +32,7 @@ import { admitTestExecution } from '#testing/workflow-admission';
 import { recordingPostHandler, recordingPostWorkflow } from './index.ts';
 
 for (const deleteCommittedMessage of [false, true])
-  test.stable(
+  test.server.stable(
     `same-version recording replay after reopen preserves ${deleteCommittedMessage ? 'deleted' : 'retained'} messages`,
     async ({ databases, assert: assertions, expect }) => {
       const assert: test.Assert = assertions;

@@ -25,7 +25,7 @@ import { deletionDocument } from '#testing/material-deletion';
 
 import { Notes } from './index.ts';
 
-test.stable(
+test.server.stable(
   'merges independent message histories, archives originals, and queues the title atomically',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -88,7 +88,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'failed merges roll back copies and archiving, and reject changed intents',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -153,7 +153,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'copies attachment memberships once, keeps active links, and preserves attachments-only notes',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -265,7 +265,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'merges histories larger than the title context window without losing messages',
   async ({ databases, expect }) => {
     const location = await databases();

@@ -32,7 +32,7 @@ function frame(contents: string): string {
 
 const guide = frame(contents);
 
-test.stable(
+test.unit.stable(
   'production config rejects undocumented custom lint implementations',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -48,7 +48,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'requires a purpose, prevented failure and both examples before imports',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -92,7 +92,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'allows framed guides, licenses, CRLF and helpers without a lint implementation',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -113,7 +113,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'recognizes imported aliases and namespaces without confusing shadowed bindings',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -132,7 +132,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'requires the padded frame around rule explanations',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

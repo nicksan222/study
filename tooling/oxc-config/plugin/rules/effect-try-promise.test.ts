@@ -5,7 +5,7 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 const message =
   'Use Effect.tryPromise to preserve fallible promise failures in the typed error channel.';
 
-test.stable(
+test.unit.stable(
   'requires Effect.tryPromise for promise failures and accepts typed mapping',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -31,7 +31,7 @@ E.promise(() => fetch("/"));`
     );
   }
 );
-test.stable(
+test.unit.stable(
   'resolves imported namespaces, named imports, const aliases and shadowing',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -58,7 +58,7 @@ function f(E: any, operation: any) {
   }
 );
 
-test.stable(
+test.unit.stable(
   'resolves destructured constants and nested namespaces with shadowing',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -81,7 +81,7 @@ function f(unsafe: any) {
   }
 );
 
-test.stable(
+test.unit.stable(
   'requires browser promise failures to use Effect.tryPromise',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'requires page presentation and behavioral tests beside each page',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -22,7 +22,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'accepts tested static pages without inventing asynchronous logic',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -43,7 +43,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps route modules declarative and page composition free of state',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -65,7 +65,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'route components cannot hide lifecycle ownership behind imported hooks or inline functions',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -89,7 +89,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'route boundaries reference imported components and may validate or redirect inline',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

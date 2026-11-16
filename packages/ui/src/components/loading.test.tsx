@@ -3,7 +3,7 @@ import { createRef } from 'react';
 
 import { Loading, LoadingSkeleton } from './loading';
 
-test.stable(
+test.unit.stable(
   'announces an inline load once and hides the decorative spinner',
   ({ render, screen, expect }) => {
     render(<Loading label="Loading subjects" />);
@@ -17,7 +17,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'supports panel and sidebar layouts without caller styling',
   ({ render, expect, screen }) => {
     const { rerender } = render(<Loading label="Loading study" layout="panel" />);
@@ -29,7 +29,7 @@ test.stable(
   }
 );
 
-test.stable('forwards a ref and descriptive attributes', ({ render, expect, screen }) => {
+test.unit.stable('forwards a ref and descriptive attributes', ({ render, expect, screen }) => {
   const ref = createRef<HTMLSpanElement>();
 
   render(
@@ -40,7 +40,7 @@ test.stable('forwards a ref and descriptive attributes', ({ render, expect, scre
   expect(ref.current).toHaveAttribute('aria-describedby', 'search-help');
 });
 
-test.stable(
+test.unit.stable(
   'gives skeletons one localized announcement and hides placeholder content',
   ({ render, screen, expect }) => {
     const { container } = render(<LoadingSkeleton label="Caricamento studio" layout="sidebar" />);

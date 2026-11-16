@@ -18,7 +18,7 @@ import { sql } from '@study/db';
 import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
 
-test.stable(
+test.server.stable(
   'a reply requested over RPC reaches the durable sign-in wait',
   { timeout: 10000 },
   async ({ rpc, pollUntil, assert: assertions }) => {
@@ -93,7 +93,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'atomic Ask returns its note and exact request over native HTTP RPC after process reopen',
   async ({ rpc, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -145,7 +145,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'native Material search binds bounded canonical targets without mixing catalog kinds',
   async ({ rpc, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -186,7 +186,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'plain note edits survive closing and reopening native HTTP RPC',
   async ({ rpc, assert: assertions }) => {
     const assert: test.Assert = assertions;

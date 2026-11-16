@@ -71,7 +71,7 @@ async function fixture(databases: Databases) {
   };
 }
 
-test.stable(
+test.server.stable(
   'exact authored readers and source-owned image revisions retain independent identities across reopen',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -177,7 +177,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'authored history retirement removes its exact reader body while an independent version retains image bytes',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

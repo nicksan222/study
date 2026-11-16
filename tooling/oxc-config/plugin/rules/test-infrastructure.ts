@@ -106,7 +106,9 @@ function temporaryStorage(context: any, node: any): boolean {
 function canonicalTestBody(registration: any): boolean {
   return (
     registration?.source === '@study/testing' &&
-    /^test\.(?:stable|regression|migration|characterization)(?:\.|$)/.test(registration.name)
+    /^test\.(?:unit|server|browser)\.(?:stable|regression|migration|characterization)(?:\.|$)/.test(
+      registration.name
+    )
   );
 }
 
@@ -301,7 +303,7 @@ function checkNestedRegistration(context: any, node: any): void {
 
   if (
     registration?.source === '@study/testing' &&
-    registration.name === 'test.stable' &&
+    /^test\.(?:unit|server|browser)\.stable$/.test(registration.name) &&
     nestedRegistration(node)
   )
     context.report({ node, messageId: 'registration' });
@@ -348,7 +350,7 @@ function callbackForTest(context: any, node: any): any | undefined {
 
     if (
       canonicalTestBody(registration) ||
-      ['test.beforeEach', 'test.afterEach'].includes(registration?.name ?? '')
+      /^test\.(?:unit|server|browser)\.(?:beforeEach|afterEach)$/.test(registration?.name ?? '')
     )
       return owner;
   }
@@ -477,6 +479,9 @@ function mockTarget(node: any): string | undefined {
 }
 
 const testNamespaceMembers = new Set([
+  'unit',
+  'server',
+  'browser',
   'stable',
   'regression',
   'migration',
@@ -534,7 +539,7 @@ function checkOpaqueFixtureParameter(context: any, node: any): void {
 
   if (
     !canonicalTestBody(registration) &&
-    !['test.beforeEach', 'test.afterEach'].includes(registration?.name ?? '')
+    !/^test\.(?:unit|server|browser)\.(?:beforeEach|afterEach)$/.test(registration?.name ?? '')
   )
     return;
 

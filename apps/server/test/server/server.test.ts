@@ -20,7 +20,7 @@ import * as schema from '@study/db';
 import { test } from '@study/testing';
 import { Effect, Option, Schema } from 'effect';
 
-function failureKind({ assert: assertions }: Pick<test.Context, 'assert'>, error: unknown) {
+function failureKind({ assert: assertions }: Pick<test.server.Context, 'assert'>, error: unknown) {
   const assert: test.Assert = assertions;
 
   assert.ok(error && typeof error === 'object' && 'kind' in error);
@@ -28,7 +28,7 @@ function failureKind({ assert: assertions }: Pick<test.Context, 'assert'>, error
   return error.kind;
 }
 
-test.stable(
+test.server.stable(
   'native HTTP RPC preserves int64 IDs, bytes, typed failures and settings',
   async ({ rpc, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -98,7 +98,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'native listener enforces browser origins and exposes the RPC endpoint',
   async ({ rpc, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -145,7 +145,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'closing the listener terminates an incomplete request and rejects new connections',
   { timeout: 5000 },
   async ({ rpc, assert: assertions, withinTestDeadline, expect }) => {
@@ -183,7 +183,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'HTTP message attachments retain explicit source identity across collections',
   async ({ rpc, assert: assertions }) => {
     const assert: test.Assert = assertions;

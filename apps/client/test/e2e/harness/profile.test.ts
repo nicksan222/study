@@ -3,7 +3,7 @@ import { Clock, Effect, Fiber } from 'effect';
 
 import { captureProfile, captureTimestampClock } from './profile.ts';
 
-test.stable(
+test.unit.stable(
   'canonical wall time keeps real monotonic time, sleeps and cancellation',
   async ({ expect }) => {
     const clock = captureTimestampClock();

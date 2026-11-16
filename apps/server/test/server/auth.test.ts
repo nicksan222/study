@@ -21,7 +21,7 @@ import { Effect, Fiber } from 'effect';
 
 import { makeStudyClient } from '#server/client/index';
 
-function failureKind({ assert: assertions }: Pick<test.Context, 'assert'>, error: unknown) {
+function failureKind({ assert: assertions }: Pick<test.server.Context, 'assert'>, error: unknown) {
   const assert: test.Assert = assertions;
 
   assert.ok(error && typeof error === 'object' && 'kind' in error);
@@ -29,7 +29,7 @@ function failureKind({ assert: assertions }: Pick<test.Context, 'assert'>, error
   return error.kind;
 }
 
-function callback({ assert: assertions }: Pick<test.Context, 'assert'>, address: string) {
+function callback({ assert: assertions }: Pick<test.server.Context, 'assert'>, address: string) {
   const assert: test.Assert = assertions;
 
   const authorization = new URL(address);
@@ -41,7 +41,7 @@ function callback({ assert: assertions }: Pick<test.Context, 'assert'>, address:
   return url;
 }
 
-async function listenerClosed({ expect }: Pick<test.Context, 'expect'>, url: URL) {
+async function listenerClosed({ expect }: Pick<test.server.Context, 'expect'>, url: URL) {
   await expect(
     Bun.connect({
       hostname: url.hostname,
@@ -54,13 +54,13 @@ async function listenerClosed({ expect }: Pick<test.Context, 'expect'>, url: URL
 }
 
 async function waitForSocketEvent(
-  { withinTestDeadline }: Pick<test.Context, 'withinTestDeadline'>,
+  { withinTestDeadline }: Pick<test.server.Context, 'withinTestDeadline'>,
   event: Promise<void>
 ) {
   await withinTestDeadline(event);
 }
 
-test.stable(
+test.server.stable(
   'ChatGPT sign-in opens a real loopback callback with PKCE and can be cancelled',
   async ({ rpc, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -104,7 +104,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'duplicate finish rejects while the admitted sign-in still awaits its callback',
   async ({ rpc, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -146,7 +146,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'cancel rejects a pending finish and cannot leave credentials behind',
   async ({ rpc, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -189,7 +189,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'interrupting an HTTP finish closes its callback listener',
   async ({ rpc, assert: assertions, withinTestDeadline, expect }) => {
     const assert: test.Assert = assertions;
@@ -254,7 +254,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'stale attempt IDs cannot finish or cancel a replacement sign-in',
   async ({ rpc, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -301,7 +301,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'a mismatched callback state rejects sign-in without saving an account',
   async ({ rpc, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -339,7 +339,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'sign-out cancels admission and preserves default and saved preferences across reopen',
   async ({ rpc, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -436,7 +436,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'application shutdown closes an unfinished sign-in callback',
   async ({ rpc, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -461,7 +461,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'ChatGPT host identity is valid, distinct, and survives server restart',
   async ({ endpoints, expect }) => {
     const first = await endpoints();

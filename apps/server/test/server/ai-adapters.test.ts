@@ -28,7 +28,7 @@ const agent = defineAgent({
   prompt: ({ topic }) => topic
 });
 
-test.stable(
+test.server.stable(
   'shared one-shot mocks use the real application agent and tool adapters',
   async ({ resources: resourcesFixture, createAiMock, expect }) => {
     const resources = resourcesFixture;

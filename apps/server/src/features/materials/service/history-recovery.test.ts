@@ -22,7 +22,7 @@ import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';
 
 for (const failSettlement of [false, true]) {
-  test.stable(
+  test.server.stable(
     `injected cleanup failure ${failSettlement ? 'and failed state persistence' : 'with durable failure'} rolls back and recovers after reopen`,
     async ({ databases, expect, assert: assertions }) => {
       const assert: test.Assert = assertions;

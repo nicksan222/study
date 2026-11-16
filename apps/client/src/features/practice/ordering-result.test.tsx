@@ -6,7 +6,7 @@ import { Schema } from 'effect';
 
 import { ClientPracticePresentation } from './presentation';
 
-test.stable(
+test.unit.stable(
   'completed ordering shows the learner and correct sequences separately',
   ({ assert: assertions, render, screen, expect, within }) => {
     const assert: test.Assert = assertions;

@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'service factories use the domain identity in service and index entries',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -29,7 +29,7 @@ export class Jobs extends Context.Service()("study/Jobs") {}`,
   }
 );
 
-test.stable(
+test.unit.stable(
   'service identity checks follow aliases without accepting shadowed factories',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -51,7 +51,7 @@ export const Jobs = build(custom);`
   }
 );
 
-test.stable(
+test.unit.stable(
   'feature service uses canonical platform factory and identity',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

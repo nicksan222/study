@@ -32,7 +32,7 @@ function mount(
     vi,
     rpcHandlersTransport,
     render
-  }: Pick<test.Context, 'vi' | 'rpcHandlersTransport' | 'render'>,
+  }: Pick<test.unit.Context, 'vi' | 'rpcHandlersTransport' | 'render'>,
   fail = false,
   failed = false
 ) {
@@ -85,7 +85,7 @@ function mount(
   };
 }
 
-test.stable(
+test.unit.stable(
   'recovers a running request and stops it from its sidebar card',
   async ({ userEvent, expect, screen, waitFor, vi, rpcHandlersTransport, render }) => {
     const user = userEvent.setup();
@@ -99,7 +99,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps a failed stop visible and offers the stop again in its context menu',
   async ({ userEvent, screen, expect, vi, rpcHandlersTransport, render }) => {
     const user = userEvent.setup();
@@ -119,7 +119,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'replaces a failed stop with the current retry status',
   async ({ userEvent, screen, expect, vi, rpcHandlersTransport, render }) => {
     const user = userEvent.setup();
@@ -141,7 +141,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains failed work with recovery actions and keeps history out of the sidebar',
   async ({ expect, screen, vi, rpcHandlersTransport, render }) => {
     mount({ vi, rpcHandlersTransport, render }, false, true);
@@ -162,7 +162,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'reuses an uncertain retry identity and waits for that exact admitted attempt',
   async ({ userEvent, screen, expect, waitFor, vi, rpcHandlersTransport, render }) => {
     const user = userEvent.setup();
@@ -210,7 +210,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'recovers a lost retry receipt after remount without creating another attempt',
   async ({ userEvent, screen, expect, vi, rpcHandlersTransport, render }) => {
     const user = userEvent.setup();
@@ -253,7 +253,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'preserves a newer uncertain retry when an older receipt arrives after remount',
   async ({ userEvent, screen, waitFor, expect, act, vi, rpcHandlersTransport, render }) => {
     const user = userEvent.setup();
@@ -310,7 +310,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'opens work details on demand from the current status context menu',
   async ({ userEvent, screen, expect, within, waitFor, vi, rpcHandlersTransport, render }) => {
     const user = userEvent.setup();

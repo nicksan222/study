@@ -12,15 +12,15 @@ let api: ReturnType<typeof createMocks>;
 
 const project = projectIdSchema.make(2n);
 
-let cache: ReturnType<test.Context['rpcTestTransport']>;
+let cache: ReturnType<test.unit.Context['rpcTestTransport']>;
 
-test.beforeEach(({ mock, vi, rpcTestTransport }) => {
+test.unit.beforeEach(({ mock, vi, rpcTestTransport }) => {
   api = createMocks(mock);
   vi.useFakeTimers();
   api.search.mockResolvedValue({ hits: [] });
   cache = rpcTestTransport(async (_tag, input) => api.search(input));
 });
-test.afterEach(({ cleanup, vi }) => {
+test.unit.afterEach(({ cleanup, vi }) => {
   cleanup();
   vi.useRealTimers();
 });
@@ -29,7 +29,7 @@ function wrapper({ children }: { children: ReactNode }) {
   return <cache.wrapper>{children}</cache.wrapper>;
 }
 
-test.stable(
+test.unit.stable(
   'debounces the latest query and keeps server search scoped to the selected subject',
   async ({ renderHook, act, vi, expect }) => {
     const view = renderHook(
@@ -59,7 +59,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'cancels a pending debounce when its owner unmounts',
   async ({ renderHook, act, vi, expect }) => {
     const view = renderHook(
@@ -82,7 +82,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'leaves document filtering local and removes subject restrictions from global search',
   async ({ renderHook, act, vi, expect }) => {
     const view = renderHook(

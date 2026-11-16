@@ -7,7 +7,7 @@ import {
   observeSystemAppearance
 } from './theme.ts';
 
-test.stable(
+test.unit.stable(
   'resolves appearance and merges common and variant overrides',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -25,7 +25,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'store snapshots are immutable, stable, and notify only on changes',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -55,7 +55,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'DOM adapter removes stale variables when themes change and cleans up',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -79,7 +79,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'system appearance observer updates store and removes listener',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -105,7 +105,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'undefined overrides inherit common colors or release the previous override',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -125,7 +125,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'document adapter restores existing inline declarations and priorities',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

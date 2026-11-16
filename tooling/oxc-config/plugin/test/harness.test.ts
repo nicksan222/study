@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from './utils.ts';
 
-test.stable(
+test.unit.stable(
   'isolated rule ignores unrelated default lint violations',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -15,7 +15,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'isolated rule loads the plugin and reports its diagnostic and path',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

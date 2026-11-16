@@ -6,11 +6,11 @@ import { App } from '../app/app';
 
 const pages = ['Notes', 'Projects', 'Flashcards', 'Practice'] as const;
 
-test.beforeEach(() => {
+test.unit.beforeEach(() => {
   history.replaceState(null, '', '/');
 });
 
-test.stable.for(pages)(
+test.unit.stable.for(pages)(
   'renders the %s route without network access',
   async (page, { rpc, vi, render, expect, screen }) => {
     history.replaceState(null, '', `/${page.toLowerCase()}`);
@@ -37,7 +37,7 @@ test.stable.for(pages)(
   }
 );
 
-test.stable(
+test.unit.stable(
   'opens settings over the current page and restores focus without changing the URL',
   async ({ rpc, userEvent, render, expect, screen, waitFor }) => {
     const user = userEvent.setup();
@@ -83,7 +83,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'opens the appearance popup from its direct settings route',
   async ({ rpc, render, expect, screen }) => {
     history.replaceState(null, '', '/settings');
@@ -96,7 +96,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps Settings reachable while the sidebar is collapsed',
   async ({ rpc, userEvent, render, screen, expect, waitFor }) => {
     const user = userEvent.setup();

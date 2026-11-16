@@ -36,7 +36,7 @@ let deletion: ReturnType<typeof createDeletion>;
 
 let SidebarNoteActions: typeof __StudyMockType0.SidebarNoteActions;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   titles = createTitles(mock);
   notices = createNotices(mock);
   deletion = createDeletion(mock);
@@ -55,7 +55,10 @@ const id = Schema.decodeUnknownSync(noteIdSchema)(9007199254740993n);
 
 const en = catalogs.english;
 
-function mount({ rpcTestTransport, render }: Pick<test.Context, 'rpcTestTransport' | 'render'>) {
+function mount({
+  rpcTestTransport,
+  render
+}: Pick<test.unit.Context, 'rpcTestTransport' | 'render'>) {
   deletion.read.mockRejectedValue(new StudyError('not_found', 'No deletion'));
   titles.executions.mockResolvedValue({ items: [], next: null });
   const client = rpcTestTransport(async (tag, input) => {
@@ -96,11 +99,11 @@ function mount({ rpcTestTransport, render }: Pick<test.Context, 'rpcTestTranspor
   return router;
 }
 
-test.afterEach(({ vi }) => {
+test.unit.afterEach(({ vi }) => {
   vi.clearAllMocks();
 });
 
-test.stable(
+test.unit.stable(
   'opens note actions with right click and cancels deletion without a mutation',
   async ({ fireEvent, screen, userEvent, expect, within, waitFor, rpcTestTransport, render }) => {
     mount({ rpcTestTransport, render });
@@ -122,7 +125,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'opens the canonical note path from the context menu without adding row controls',
   async ({ fireEvent, screen, expect, userEvent, waitFor, rpcTestTransport, render }) => {
     const router = mount({ rpcTestTransport, render });
@@ -139,7 +142,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'deletes only the exact note after explicit confirmation',
   async ({ userEvent, fireEvent, screen, expect, within, waitFor, rpcTestTransport, render }) => {
     deletion.remove.mockReturnValue(new Promise(() => {}));
@@ -185,7 +188,7 @@ function receipt(status: 'failed' | 'completed') {
   });
 }
 
-test.stable(
+test.unit.stable(
   'announces an owned retry completion once and does not announce cached receipts',
   async ({ userEvent, fireEvent, screen, within, waitFor, expect, rpcTestTransport, render }) => {
     mount({ rpcTestTransport, render });
@@ -225,7 +228,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'offers page creation in the note context menu',
   async ({ fireEvent, screen, expect, rpcTestTransport, render }) => {
     mount({ rpcTestTransport, render });
@@ -238,7 +241,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'regenerates the selected note title without navigating',
   async ({ fireEvent, screen, userEvent, waitFor, expect, rpcTestTransport, render }) => {
     titles.request.mockResolvedValue({ noteId: id, requestId: 'title-request' });
@@ -256,7 +259,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'reports title request failures and allows another attempt',
   async ({ userEvent, fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     titles.request.mockRejectedValue(new Error('Offline'));

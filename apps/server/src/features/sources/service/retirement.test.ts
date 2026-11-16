@@ -27,7 +27,7 @@ import { withTestPublication } from '#testing/publication';
 
 import { Sources } from './index.ts';
 
-test.stable(
+test.server.stable(
   'source deletion scrubs native captures before interrupting a retired provider execution',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -108,7 +108,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'raw reply captures pin pending and ready source revisions until their note is deleted',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -216,7 +216,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'source preview protects external authored images while allowing deletion of its own canonical image extraction',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

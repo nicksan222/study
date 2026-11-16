@@ -27,7 +27,7 @@ import { testLiveQueries } from '#testing/live-queries';
 
 import { AuthRpcLive } from './index.ts';
 
-test.stable(
+test.server.stable(
   'auth RPC exposes only public account and operations',
   async ({ databases, expect }) => {
     const location = await databases();

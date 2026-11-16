@@ -10,7 +10,7 @@ import { summary } from '#client/features/material-library/test/support.tsx';
 import { LibraryListView } from '../library/library-list.view';
 
 for (const kind of ['quiz', 'flashcards'] as const) {
-  test.stable(
+  test.unit.stable(
     `${kind} sidebar items expose scoped destinations and archive without opening the row`,
     async ({ userEvent, vi, rpcHandlersTransport, renderInRouter, screen, expect, waitFor }) => {
       const user = userEvent.setup();

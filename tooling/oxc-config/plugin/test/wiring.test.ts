@@ -6,7 +6,7 @@ const rules = ['alpha'];
 
 const configured = { 'study/alpha': 'error' };
 
-test.stable(
+test.unit.stable(
   'wiring rejects missing, unknown, disabled and untested rules',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -29,7 +29,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'production registry, config and sibling test files agree',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

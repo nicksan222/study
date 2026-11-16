@@ -31,7 +31,7 @@ const lanes = [
   'landing'
 ];
 
-test.stable(
+test.unit.stable(
   'all CI lanes start independently and feed the required merge gate',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -51,7 +51,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'browser shards run the full catalog without cancelling sibling diagnostics',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -74,7 +74,7 @@ test.stable(
   }
 );
 
-test.stable.for(['success', 'failure', 'cancelled', 'skipped', 'missing'])(
+test.unit.stable.for(['success', 'failure', 'cancelled', 'skipped', 'missing'])(
   'the required gate handles a %s lane result without allowing an unsafe merge',
   async (status, { temporaryDirectory, spawnTestProcess, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -106,7 +106,7 @@ test.stable.for(['success', 'failure', 'cancelled', 'skipped', 'missing'])(
   }
 );
 
-test.stable(
+test.unit.stable(
   'release publication waits for four independent platform builds without a matrix',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

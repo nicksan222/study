@@ -14,7 +14,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   api = __mockState.api;
@@ -42,12 +42,12 @@ test.beforeEach(async ({ mock }) => {
   PagesPage = __mockModule0.PagesPage;
 });
 
-test.afterEach(({ cleanup, vi }) => {
+test.unit.afterEach(({ cleanup, vi }) => {
   cleanup();
   vi.clearAllMocks();
 });
 
-test.stable(
+test.unit.stable(
   'pages open directly without a selection button',
   async ({ rpcTestTransport, render, screen, expect }) => {
     const pages = [1n, 2n].map((id) => ({
@@ -86,7 +86,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'archived pages can be browsed without selecting them for another merge',
   async ({ rpcTestTransport, userEvent, render, screen, expect }) => {
     api.pages.mockResolvedValue({ items: [], nextCursor: null });

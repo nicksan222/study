@@ -15,7 +15,7 @@ import { test } from '@study/testing';
 import { runIntegrationTests } from './environment.ts';
 import { integrationFixture } from './fixture.ts';
 
-test.stable.for(['success', 'test-failure'])(
+test.unit.stable.for(['success', 'test-failure'])(
   'integration execution preserves native reports and the %s exit code, then cleans up',
   async (mode, { expect }) => {
     await using context = await integrationFixture(mode);
@@ -38,7 +38,7 @@ test.stable.for(['success', 'test-failure'])(
   }
 );
 
-test.stable.for([
+test.unit.stable.for([
   { mode: 'build-failure', error: 'build' },
   { mode: 'create-failure', error: 'create' },
   { mode: 'start-failure', error: 'invalid exit status' },
@@ -57,7 +57,7 @@ test.stable.for([
   }
 );
 
-test.stable(
+test.unit.stable(
   'interrupted integration execution removes its container and image',
   async ({ waitFor, expect }) => {
     await using context = await integrationFixture('interrupt');

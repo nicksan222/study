@@ -72,7 +72,7 @@ async function withServer(
   }
 }
 
-test.stable(
+test.unit.stable(
   'serves unary values, typed failures and binary codecs over HTTP',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -95,7 +95,7 @@ test.stable(
   }
 );
 
-test.stable('cancels a streaming handler when its client scope closes', async ({ expect }) => {
+test.unit.stable('cancels a streaming handler when its client scope closes', async ({ expect }) => {
   await withServer(async (url, ended) => {
     const values = await Effect.runPromise(
       Effect.scoped(
@@ -117,7 +117,7 @@ test.stable('cancels a streaming handler when its client scope closes', async ({
   });
 });
 
-test.stable(
+test.unit.stable(
   'allows desktop origins and rejects other origins before handling requests',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -143,7 +143,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retries discovery on a later call without replaying the failed call',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -176,7 +176,7 @@ test.stable(
   }
 );
 
-test.stable('disposes active handlers when the server shuts down', async () => {
+test.unit.stable('disposes active handlers when the server shuts down', async () => {
   await withServer(async (url, ended, _calls, shutdown) => {
     let started!: () => void;
     const first = new Promise<void>((resolve) => {

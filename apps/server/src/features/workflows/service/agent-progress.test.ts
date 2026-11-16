@@ -25,7 +25,7 @@ import { Database } from '#server/platform/database/database';
 import { observeAgentProgress } from '#server/platform/workflows/agent-progress';
 import { WorkflowControl } from '#server/platform/workflows/control';
 
-test.stable(
+test.server.stable(
   'coalesces commit bursts before rereading the latest preview',
   async ({ databases, expect }) => {
     const location = await databases();

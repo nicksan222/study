@@ -20,7 +20,7 @@ import { Effect, Option } from 'effect';
 import { makeStudyClient } from '#server/client/index';
 import { serve } from '#server/runtime/index';
 
-test.stable(
+test.server.stable(
   'scoped native client exchanges projects, settings, bytes and typed errors over HTTP',
   async ({ resources: database, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

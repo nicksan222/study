@@ -22,7 +22,7 @@ import { cancelExecution } from './control.ts';
 import { workflowEngineLayer } from './engine.ts';
 import { workflowStore } from './store.ts';
 
-test.stable(
+test.server.stable(
   'explicit cancellation waits for local provider cleanup before terminal domain state',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

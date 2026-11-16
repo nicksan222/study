@@ -5,7 +5,7 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 const message =
   'Preserve typed failures instead of converting them to defects with Effect.orDie or Effect.orDieWith.';
 
-test.stable(
+test.unit.stable(
   'reports unsafe Effect.orDie calls and accepts typed failures',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -31,7 +31,7 @@ E.orDie(E.fail("bad"));`
     );
   }
 );
-test.stable(
+test.unit.stable(
   'resolves imported namespaces, named imports, const aliases and shadowing',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -58,7 +58,7 @@ function f(E: any, operation: any) {
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps browser failures typed instead of calling Effect.orDie',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

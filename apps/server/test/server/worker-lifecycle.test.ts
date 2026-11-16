@@ -19,7 +19,7 @@ import { workflow_executions, workflow_agent_progress } from '@study/db';
 import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 
-test.stable(
+test.server.stable(
   'a start queued behind stop restarts the worker',
   async ({ server: serverFixture, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -37,7 +37,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'close rejects a queued start and leaves the worker stopped',
   async ({ server: serverFixture, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -56,14 +56,16 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'concurrent native fibers share one worker and stop idempotently',
   async ({ server: serverFixture, assert: assertions }) => {
     const assert: test.Assert = assertions;
 
     const { app } = serverFixture;
 
-    function* verifySharedWorkerLifecycle({ assert: assertions }: Pick<test.Context, 'assert'>) {
+    function* verifySharedWorkerLifecycle({
+      assert: assertions
+    }: Pick<test.server.Context, 'assert'>) {
       const assert: test.Assert = assertions;
 
       yield* Effect.all(
@@ -82,7 +84,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'shutdown interrupts safe cancellation waiting for an active provider',
   { timeout: 10000 },
   async ({ server: serverFixture, onTestFinished, assert: assertions, expect }) => {
@@ -172,7 +174,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'stopped concurrent cancellations and start share one embedded runtime',
   async ({ server: serverFixture, expect }) => {
     const { Layer } = await import('effect');
@@ -205,7 +207,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'stopped cancellation persists intent without acquiring the embedded runner',
   async ({ server: serverFixture, expect }) => {
     const { Layer } = await import('effect');
@@ -245,7 +247,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'restart after failed disposal preserves previews owned by the retained runtime',
   async ({ server: serverFixture, expect }) => {
     const { app } = serverFixture;
@@ -310,7 +312,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'recovery discards interrupted previews but preserves completed and concurrent steps',
   async ({ server: serverFixture, expect }) => {
     const { app } = serverFixture;

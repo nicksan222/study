@@ -32,7 +32,7 @@ import { materialRpcHandlers } from '#testing/material-rpc';
 
 import { safeExportLink, escapeHtml } from './export-serializer.ts';
 
-test.stable(
+test.server.stable(
   'export primitives reject active protocols and escape text and attributes',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -51,7 +51,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'native export is deterministic, exact, escaped and fenced by deletion acceptance',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -324,7 +324,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'export budget counts escaped UTF-8 exactly and rejects before reading later evidence',
   ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

@@ -45,7 +45,7 @@ const content = (text: string) => ({
   cards: [{ front: text, back: 'Answer' }]
 });
 
-test.stable(
+test.server.stable(
   'native RPC deletes only its exact learning output, preserving shared authored evidence, raw captures and independent outputs',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -178,7 +178,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'learning deletion preview rejects substituted identity, new versions and newly attached notes without persisting a barrier',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -224,7 +224,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'learning deletion barrier and outbox roll back together on event persistence failure',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -265,7 +265,7 @@ test.stable(
 );
 
 for (const doubleFailure of [false, true])
-  test.stable(
+  test.server.stable(
     `failed cleanup retries after restart and fences stale completion (failure settlement blocked=${doubleFailure})`,
     async ({ databases, assert: assertions, expect }) => {
       const assert: test.Assert = assertions;
@@ -362,7 +362,7 @@ for (const doubleFailure of [false, true])
     }
   );
 
-test.stable(
+test.server.stable(
   'native retirement rejects late checkpoints and deferred delivery while unrelated execution survives',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

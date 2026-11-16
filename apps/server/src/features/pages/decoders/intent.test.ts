@@ -15,7 +15,7 @@ import { Schema } from 'effect';
 
 import { intentHash } from './intent.ts';
 
-test.stable(
+test.unit.stable(
   'page intents retain persisted receipt digests across renamed identities',
   ({ expect }) => {
     const schema = Schema.Struct({
@@ -46,7 +46,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'historical intent encoding preserves annotation notes and canonical body keys',
   ({ expect }) => {
     const document = {

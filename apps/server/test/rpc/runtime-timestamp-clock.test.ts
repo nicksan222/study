@@ -16,7 +16,7 @@ import { test } from '@study/testing';
 import { Clock, Context, Effect } from 'effect';
 import { TestClock } from 'effect/testing';
 
-test.stable(
+test.server.stable(
   'App store timestamps remain fixed while the runtime clock advances',
   async ({ resources: database, expect }) => {
     const timestampClock = await Effect.runPromise(

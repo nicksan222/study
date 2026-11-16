@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRulePaths } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'disposable runners disable disk transforms and contract fixtures own temporary paths',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -34,7 +34,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'computed runner options cannot hide a later cache override',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

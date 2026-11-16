@@ -39,7 +39,7 @@ function mount(
     vi,
     rpcHandlersTransport,
     render
-  }: Pick<test.Context, 'vi' | 'rpcHandlersTransport' | 'render'>,
+  }: Pick<test.unit.Context, 'vi' | 'rpcHandlersTransport' | 'render'>,
   owner = { ...original, title: 'Mechanics' }
 ) {
   const rpc = {
@@ -54,7 +54,7 @@ function mount(
   return { notify: fixture.notify, rpc };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
   const __mockModule0 = await import('../document-editing/test-support');
 
@@ -67,11 +67,11 @@ test.beforeEach(async ({ mock }) => {
   target = initializeTarget();
 });
 
-test.afterEach(({ cleanup, vi }) => {
+test.unit.afterEach(({ cleanup, vi }) => {
   cleanup();
   vi.resetAllMocks();
 });
-test.stable(
+test.unit.stable(
   'labels the retained authored version and excerpts only its selected range',
   async ({ expect, screen, vi, rpcHandlersTransport, render }) => {
     const { rpc } = mount({ vi, rpcHandlersTransport, render });
@@ -85,7 +85,7 @@ test.stable(
     expect(screen.queryByText('Keep selected outside')).toBeNull();
   }
 );
-test.stable(
+test.unit.stable(
   'does not display excerpts under a different authored owner identity',
   async ({ expect, screen, vi, rpcHandlersTransport, render }) => {
     mount({ vi, rpcHandlersTransport, render }, authoredPage(32n, 'Different owner', 52n));
@@ -93,7 +93,7 @@ test.stable(
     expect(screen.queryByText('selected')).toBeNull();
   }
 );
-test.stable(
+test.unit.stable(
   'updates the catalog title without replacing retained content with the current authored version',
   async ({ expect, screen, act, vi, rpcHandlersTransport, render }) => {
     const { notify, rpc } = mount(
@@ -119,7 +119,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps the full selected content behind a native disclosure',
   async ({ userEvent, expect, screen, vi, rpcHandlersTransport, render }) => {
     const user = userEvent.setup();

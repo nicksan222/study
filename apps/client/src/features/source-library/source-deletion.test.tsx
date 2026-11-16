@@ -11,15 +11,15 @@ import {
 } from '../material-library/test/support';
 
 async function openDeletion(
-  { screen }: Pick<test.Context, 'screen'>,
-  user: ReturnType<test.Context['userEvent']['setup']>
+  { screen }: Pick<test.unit.Context, 'screen'>,
+  user: ReturnType<test.unit.Context['userEvent']['setup']>
 ) {
   await user.click(await screen.findByRole('button', { name: catalogs.english.SourceDeleteTitle }));
 
   return screen.findByRole('alertdialog');
 }
 
-test.stable(
+test.unit.stable(
   'previews source revisions and requires its exact name before deleting while preserving unrelated authored content',
   async ({ userEvent, expect, within, waitFor, screen, vi, render, rpcHandlersTransport }) => {
     const rpc = materialRpc({ vi });
@@ -60,7 +60,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps exact input pins visible and disables deletion without hiding retained source content',
   async ({ userEvent, expect, within, screen, vi, render, rpcHandlersTransport }) => {
     const rpc = materialRpc({ vi });
@@ -99,7 +99,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'recovers a lost deletion response through durable source absence and returns to Notes',
   async ({ userEvent, within, waitFor, expect, screen, vi, render, rpcHandlersTransport }) => {
     const rpc = materialRpc({ vi });

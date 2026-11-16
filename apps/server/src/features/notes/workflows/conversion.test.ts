@@ -41,7 +41,7 @@ let context: ServerContext;
 
 let auth: AuthManager;
 
-test.beforeEach(async ({ databases }) => {
+test.server.beforeEach(async ({ databases }) => {
   const location = await databases();
 
   context = new ServerContext(await location.open());
@@ -53,12 +53,15 @@ test.beforeEach(async ({ databases }) => {
   );
 });
 
-test.afterEach(async () => {
+test.server.afterEach(async () => {
   await auth.dispose();
   context.close();
 });
 
-function workflowServices({ expect }: Pick<test.Context, 'expect'>, model: AgentsConfig['model']) {
+function workflowServices(
+  { expect }: Pick<test.server.Context, 'expect'>,
+  model: AgentsConfig['model']
+) {
   const domain = Layer.mergeAll(Notes.layer, Sources.layer, Settings.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -80,7 +83,7 @@ function workflowServices({ expect }: Pick<test.Context, 'expect'>, model: Agent
   );
 }
 
-test.stable(
+test.server.stable(
   'conversion executes on the small tier, captures only its target and checkpoints publication',
   async ({ createAiMock, expect }) => {
     using mock = createAiMock();
@@ -290,7 +293,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'exhausted automatic conversions unblock replies and retry their captured input',
   async ({ expect }) => {
     let calls = 0;

@@ -92,7 +92,7 @@ function setup() {
   });
 }
 
-test.stable(
+test.server.stable(
   'source history respects authored and raw citation pins even after private reply captures have gone',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -195,7 +195,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'source history preview fences new publication and rolls body removal back with its outbox',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -296,7 +296,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'deletes only the selected attachment extraction through the history boundary',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

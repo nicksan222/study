@@ -31,7 +31,7 @@ function source(db: TestDb, kind: 'audio' | 'video' | 'image' | 'link' = 'audio'
 }
 
 async function fixture(
-  { expect }: Pick<test.Context, 'expect'>,
+  { expect }: Pick<test.server.Context, 'expect'>,
   databases: Databases,
   run: (db: TestDb) => void
 ) {
@@ -48,9 +48,9 @@ function pin(db: TestDb, revision = 1, snapshotId = 1) {
   );
 }
 
-test.stable(
+test.server.stable(
   'learning consumes an immutable exact source extraction rather than a source-backed Material',
-  async ({ databases, assert: assertions, expect }: test.Context) => {
+  async ({ databases, assert: assertions, expect }: test.server.Context) => {
     const assert: test.Assert = assertions;
 
     return await fixture({ expect }, databases, (db) => {
@@ -79,7 +79,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'publishing a learning draft after source replacement keeps its captured old extraction',
   async ({ databases, expect }) =>
     await fixture({ expect }, databases, (db) => {
@@ -101,9 +101,9 @@ test.stable(
     })
 );
 
-test.stable(
+test.server.stable(
   'exact source ownership rejects another source paired with the original snapshot',
-  async ({ databases, assert: assertions, expect }: test.Context) => {
+  async ({ databases, assert: assertions, expect }: test.server.Context) => {
     const assert: test.Assert = assertions;
 
     return await fixture({ expect }, databases, (db) => {
@@ -129,9 +129,9 @@ test.stable(
 );
 
 for (const kind of ['audio', 'video', 'image', 'link'] as const)
-  test.stable(
+  test.server.stable(
     `retained ${kind} source revisions seal exact format, URI and bytes independently of replacement`,
-    async ({ databases, assert: assertions, expect }: test.Context) => {
+    async ({ databases, assert: assertions, expect }: test.server.Context) => {
       const assert: test.Assert = assertions;
 
       return await fixture({ expect }, databases, (db) => {

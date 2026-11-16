@@ -17,7 +17,7 @@ import { Schema } from 'effect';
 
 import { healthData } from './health.ts';
 
-test.stable(
+test.server.stable(
   'health reports the lifecycle state in the canonical health shape',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -31,7 +31,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'search input rejects out-of-bounds limits and invalid project IDs',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

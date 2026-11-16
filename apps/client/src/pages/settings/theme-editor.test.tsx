@@ -10,7 +10,7 @@ let ThemeEditor: typeof __StudyMockType0.ThemeEditor;
 
 let toastManager: typeof UiModule.toastManager;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   mock('@study/ui', async (load) => {
     const actual = await load<typeof UiModule>();
 
@@ -22,7 +22,7 @@ test.beforeEach(async ({ mock }) => {
   ThemeEditor = __studyMockModule0.ThemeEditor;
 });
 
-test.stable(
+test.unit.stable(
   'requires the deletion phrase before deleting the selected theme and announcing success',
   async ({ vi, render, screen, within, userEvent, expect, waitFor }) => {
     const remove = vi.fn().mockResolvedValue(undefined);

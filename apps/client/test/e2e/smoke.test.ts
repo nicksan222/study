@@ -3,7 +3,7 @@ import { test } from '@study/testing';
 
 const copy = catalogs.english;
 
-test.stable(
+test.browser.stable(
   'Notes preserve multiple edits after reopening',
   async ({ page, expectScreenshot, expect }) => {
     const content = Array.from(

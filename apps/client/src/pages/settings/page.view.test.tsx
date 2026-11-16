@@ -5,7 +5,7 @@ import { LanguageProvider } from '#client/lib/i18n.tsx';
 
 import { PageView } from './page.view';
 
-test.stable(
+test.unit.stable(
   'composes an appearance-only popup with accessible scheme and theme selection',
   async ({ vi, render, expect, screen, userEvent }) => {
     const select = vi.fn();
@@ -44,7 +44,7 @@ test.stable(
   }
 );
 
-function appearanceModel({ vi }: Pick<test.Context, 'vi'>) {
+function appearanceModel({ vi }: Pick<test.unit.Context, 'vi'>) {
   return {
     data: {
       settings: { appearance: 2 as const, language: 1 as const, zoomPercent: 100, onboarded: true },
@@ -66,7 +66,7 @@ function appearanceModel({ vi }: Pick<test.Context, 'vi'>) {
   };
 }
 
-test.stable(
+test.unit.stable(
   'validates pasted JSON before importing and keeps invalid input available to correct',
   async ({ userEvent, render, vi, screen, expect }) => {
     const model = appearanceModel({ vi });
@@ -89,7 +89,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'duplicates protected themes into a portable editable definition',
   async ({ userEvent, render, vi, expect, screen }) => {
     const model = appearanceModel({ vi });
@@ -108,7 +108,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'supports arrow keys for scheme selection',
   async ({ userEvent, render, vi, screen, expect }) => {
     const model = appearanceModel({ vi });
@@ -122,7 +122,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'filters the theme library through settings search',
   async ({ vi, userEvent, render, screen, expect }) => {
     const model = appearanceModel({ vi });
@@ -139,7 +139,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shows only working interface controls and saves their committed values',
   async ({ render, vi, screen, fireEvent, expect }) => {
     const model = appearanceModel({ vi });
@@ -160,7 +160,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'groups settings navigation and shows relevant cross-section search results',
   ({ vi, render, screen, within, expect }) => {
     const onSectionChange = vi.fn();
@@ -237,7 +237,7 @@ test.stable(
   }
 );
 
-test.stable.for([
+test.unit.stable.for([
   ['Concurrent', 'Performance', 'performance'],
   ['Search logs', 'Analytics', 'analytics'],
   ['Sidebar spacing', 'Sidebar', 'sidebar'],
@@ -267,7 +267,7 @@ test.stable.for([
   }
 );
 
-test.stable.for(['english', 'italian'] as const)(
+test.unit.stable.for(['english', 'italian'] as const)(
   'finds automatic answers in the dedicated behavior section in %s',
   (locale, { vi, render, screen, fireEvent, within, expect }) => {
     const onSectionChange = vi.fn();
@@ -293,7 +293,7 @@ test.stable.for(['english', 'italian'] as const)(
 );
 
 for (const locale of ['english', 'italian'] as const) {
-  test.stable(
+  test.unit.stable(
     `finds updates through settings search in ${locale}`,
     ({ vi, render, fireEvent, within, screen, expect }) => {
       const change = vi.fn();

@@ -20,7 +20,7 @@ import { createApiKeyModel } from './api-key-model.ts';
 import { apiKeyProviders, getApiKeyProvider } from './registry.ts';
 import { adaptProviderTool } from './tools.ts';
 
-test.stable(
+test.unit.stable(
   'compatible providers stream schema-validated JSON without requiring strict JSON Schema',
   async ({ expect }) => {
     let body: { response_format?: unknown; messages: unknown[]; tools: unknown[] } | undefined;
@@ -91,7 +91,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'Gemini 2 keeps function tools without mixing incompatible grounding tools',
   ({ expect }) => {
     const legacy = getApiKeyProvider('google').createModel({
@@ -109,7 +109,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'queued models resolve replacement keys on each call and reject removed keys before transport',
   async ({ expect }) => {
     let key: string | undefined = 'first-key';
@@ -138,24 +138,27 @@ test.stable(
   }
 );
 
-test.stable('API-key models use bounded HTTP bodies and reject redirects', async ({ expect }) => {
-  let redirect: RequestRedirect | undefined;
-  const model = createApiKeyModel(
-    getApiKeyProvider('deepseek'),
-    'deepseek-flash',
-    async () => 'test-key',
-    async (_url, init) => {
-      redirect = init?.redirect;
+test.unit.stable(
+  'API-key models use bounded HTTP bodies and reject redirects',
+  async ({ expect }) => {
+    let redirect: RequestRedirect | undefined;
+    const model = createApiKeyModel(
+      getApiKeyProvider('deepseek'),
+      'deepseek-flash',
+      async () => 'test-key',
+      async (_url, init) => {
+        redirect = init?.redirect;
 
-      return new Response('{}', {
-        headers: {
-          'content-type': 'application/json',
-          'content-length': String(32 * 1024 * 1024 + 1)
-        }
-      });
-    }
-  );
+        return new Response('{}', {
+          headers: {
+            'content-type': 'application/json',
+            'content-length': String(32 * 1024 * 1024 + 1)
+          }
+        });
+      }
+    );
 
-  await expect(model.doGenerate({ prompt: [] })).rejects.toMatchObject({ kind: 'transient' });
-  expect(redirect).toBe('error');
-});
+    await expect(model.doGenerate({ prompt: [] })).rejects.toMatchObject({ kind: 'transient' });
+    expect(redirect).toBe('error');
+  }
+);

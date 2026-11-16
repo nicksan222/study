@@ -2,22 +2,22 @@ import { test } from '@study/testing';
 
 import { lintRulePaths } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'test fixture parameters are explicitly destructured while case data stays positional',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
 
     const paths = await lintRulePaths({ assert }, 'test-infrastructure', {
       'apps/client/src/opaque.test.ts': `import { test } from '@study/testing';
-      test.stable('opaque', (context) => context.expect(true).toBe(true));`,
+      test.unit.stable('opaque', (context) => context.expect(true).toBe(true));`,
       'apps/client/src/opaque-after-hook.test.ts': `import { test } from '@study/testing';
-      test.afterEach((context) => context.expect(true).toBe(true));`,
+      test.unit.afterEach((context) => context.expect(true).toBe(true));`,
       'apps/client/src/opaque-hook.test.ts': `import { test } from '@study/testing';
-      test.beforeEach((context) => context.expect(true).toBe(true));`,
+      test.unit.beforeEach((context) => context.expect(true).toBe(true));`,
       'apps/client/src/valid.test.ts': `import { test } from '@study/testing';
-      test.stable('no fixtures', () => {});
-      test.stable.each([1])('case data', (value) => { void value; });
-      test.stable.for([1])('case and fixtures', (value, { expect }) => { expect(value).toBe(1); });`
+      test.unit.stable('no fixtures', () => {});
+      test.unit.stable.each([1])('case data', (value) => { void value; });
+      test.unit.stable.for([1])('case and fixtures', (value, { expect }) => { expect(value).toBe(1); });`
     });
 
     expect(paths).toEqual([
@@ -28,7 +28,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'module mocks come from lazy callback fixtures instead of the test namespace',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -41,12 +41,12 @@ test.stable(
       'apps/client/src/hoisted.test.ts': `import { test } from '@study/testing';
       const state = test.hoisted(() => ({}));`,
       'apps/client/src/native.test.ts': `import { test } from '@study/testing';
-      test.stable('module', () => test.vi.doMock('#client/lib/host.ts', () => ({})));`,
+      test.unit.stable('module', () => test.vi.doMock('#client/lib/host.ts', () => ({})));`,
       'apps/client/src/alias.test.ts': `import { test } from '@study/testing';
       const moduleMock = test.vi.mock;
       moduleMock('#client/lib/host.ts', () => ({}));`,
       'apps/client/src/scoped.test.ts': `import { test } from '@study/testing';
-      test.stable('module', async ({ mock, expect }) => {
+      test.unit.stable('module', async ({ mock, expect }) => {
         mock('#client/lib/host.ts', () => ({}));
         const host = await import('#client/lib/host.ts');
         expect(host).toBeDefined();
@@ -63,7 +63,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'callback module mocks require a dynamic subject import but ignore type-only imports and mock functions',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -71,37 +71,37 @@ test.stable(
     const paths = await lintRulePaths({ assert }, 'test-infrastructure', {
       'apps/client/src/static-subject.test.ts': `import { test } from '@study/testing';
       import { useHost } from '#client/lib/host.ts';
-      test.stable('mocked subject', async ({ mock }) => {
+      test.unit.stable('mocked subject', async ({ mock }) => {
         mock('#client/lib/host.ts', () => ({ useHost: () => null }));
         await import('#client/lib/host.ts');
         void useHost;
       });`,
       'apps/client/src/aliased-static-subject.test.ts': `import { test } from '@study/testing';
       import { useHost } from '#client/lib/host.ts';
-      test.stable('aliased mock fixture', async ({ mock: register }) => {
+      test.unit.stable('aliased mock fixture', async ({ mock: register }) => {
         register('#client/lib/host.ts', () => ({ useHost: () => null }));
         void useHost;
       });`,
       'apps/client/src/side-effect-static-subject.test.ts': `import { test } from '@study/testing';
       import '#client/lib/host.ts';
-      test.beforeEach(({ mock }) => mock('#client/lib/host.ts', () => ({})));`,
+      test.unit.beforeEach(({ mock }) => mock('#client/lib/host.ts', () => ({})));`,
       'apps/client/src/for-static-subject.test.ts': `import { test } from '@study/testing';
       import { useHost } from '#client/lib/host.ts';
-      test.stable.for([1])('mock fixture after case args', async (_value, { mock }) => {
+      test.unit.stable.for([1])('mock fixture after case args', async (_value, { mock }) => {
         const register = mock;
         register('#client/lib/host.ts', () => ({ useHost: () => null }));
         void useHost;
       });`,
       'apps/client/src/type-only-subject.test.ts': `import { test } from '@study/testing';
       import type { Host } from '#client/lib/host.ts';
-      test.stable('typed subject', async ({ mock }) => {
+      test.unit.stable('typed subject', async ({ mock }) => {
         const register = mock;
         register('#client/lib/host.ts', () => ({}));
         let host: Host | undefined;
         void host;
       });`,
       'apps/client/src/ordinary-mock-function.test.ts': `import { test } from '@study/testing';
-      test.stable('ordinary mock function', async () => {
+      test.unit.stable('ordinary mock function', async () => {
         const mock = (source: string) => source;
         mock('#client/lib/host.ts');
       });`
@@ -116,36 +116,36 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'test-body helpers must come from callback parameters in tests and test helpers',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
 
     const paths = await lintRulePaths({ assert }, 'test-infrastructure', {
       'apps/client/src/namespace-helper.test.ts': `import { test } from '@study/testing';
-      test.stable('helper', () => test.expect(true).toBe(true));`,
+      test.unit.stable('helper', () => test.expect(true).toBe(true));`,
       'apps/client/src/namespace-alias.test.ts': `import { test } from '@study/testing';
-      test.stable('helper', () => {
+      test.unit.stable('helper', () => {
         const { assert: assertion } = test;
         assertion.ok(true);
       });`,
       'apps/client/src/three-argument-expect.test.ts': `import { test } from '@study/testing';
-      test.stable('diagnostic arity', ({ expect: assertion }) => {
+      test.unit.stable('diagnostic arity', ({ expect: assertion }) => {
         assertion(true, 'diagnostic', 'unsupported extra argument');
       });`,
       'apps/client/src/fixture-rest.test.ts': `import { test } from '@study/testing';
-      test.stable('opaque fixture rest', ({ expect, ...helpers }) => {
+      test.unit.stable('opaque fixture rest', ({ expect, ...helpers }) => {
         helpers.expect(true).toBe(true);
       });`,
       'apps/client/src/fixture-spread.test.ts': `import { test } from '@study/testing';
-      test.stable('opaque fixture spread', (context) => {
+      test.unit.stable('opaque fixture spread', (context) => {
         const helpers = { ...context };
         void helpers;
       });`,
       'apps/client/src/namespace-spread.test.ts': `import { test } from '@study/testing';
       const helpers = { ...test };`,
       'apps/client/src/case-rest.test.ts': `import { test } from '@study/testing';
-      test.stable.for([{ value: 1, extra: 2 }])('case rest', ({ value, ...rest }, { expect }) => {
+      test.unit.stable.for([{ value: 1, extra: 2 }])('case rest', ({ value, ...rest }, { expect }) => {
         expect(value + rest.extra).toBe(3);
       });`,
       'apps/client/src/test/helper-utils.ts': `import { test } from '@study/testing';
@@ -155,13 +155,13 @@ test.stable(
       'apps/client/src/lib/test-helper.ts': `import { test } from '@study/testing';
       export const waitForReady = () => test.waitFor(() => true);`,
       'apps/client/src/fixture-helper.test.ts': `import { test } from '@study/testing';
-      test.stable('fixture helper', ({ expect, screen }) => {
+      test.unit.stable('fixture helper', ({ expect, screen }) => {
         expect(screen.queryByRole('button')).toBeNull();
       });`,
       'apps/client/src/allowed-test-namespace.test.ts': `import { test } from '@study/testing';
-      test.describe('group', () => {});
-      test.beforeEach(() => {});
-      test.stable('classified', () => {});`
+      test.unit.describe('group', () => {});
+      test.unit.beforeEach(() => {});
+      test.unit.stable('classified', () => {});`
     });
 
     expect(paths).toEqual([
@@ -178,7 +178,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'application source cannot import test-only public facets',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -207,21 +207,21 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'integration runner tests remain subject to shared resource ownership rules',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
 
     const paths = await lintRulePaths({ assert }, 'test-infrastructure', {
       'tooling/testing/integrations/runner.test.ts': `import { test } from '@study/testing';
-      test.stable('process cleanup', async () => { Bun.spawn(['bun', 'server.ts']); });`
+      test.unit.stable('process cleanup', async () => { Bun.spawn(['bun', 'server.ts']); });`
     });
 
     expect(paths).toEqual(['tooling/testing/integrations/runner.test.ts']);
   }
 );
 
-test.stable(
+test.unit.stable(
   'application tests cannot construct database or server fixtures directly',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -229,21 +229,21 @@ test.stable(
     const paths = await lintRulePaths({ assert }, 'test-infrastructure', {
       'packages/db/test/bad.test.ts': `import { createTestDatabase } from '@study/db/testing';
       import { test } from '@study/testing';
-      test.stable('database', async () => { const fixture = await createTestDatabase(); });`,
+      test.unit.stable('database', async () => { const fixture = await createTestDatabase(); });`,
       'apps/server/test/bad.test.ts': `import { createServerFixture } from '@study/server/testing';
       import { test } from '@study/testing';
-      test.stable('RPC', async () => { await using fixture = await createServerFixture(); });`,
+      test.unit.stable('RPC', async () => { await using fixture = await createServerFixture(); });`,
       'apps/server/test/testing/owned.ts': `import { createServerFixture } from '@study/server/testing';
       export const fixture = () => createServerFixture();`,
       'apps/client/src/bad.test.ts': `import { Db } from '@study/db';
       import { test } from '@study/testing';
-      test.stable('database', async () => { await Db.open(':memory:'); });`,
+      test.unit.stable('database', async () => { await Db.open(':memory:'); });`,
       'apps/server/test/server-open.test.ts': `import { App } from '@study/server/testing';
       import { test } from '@study/testing';
-      test.stable('server', async () => { await App.open(); });`,
+      test.unit.stable('server', async () => { await App.open(); });`,
       'apps/server/test/server-test.test.ts': `import { createServerTest } from '#testing/server-test';
       import { test } from '@study/testing';
-      test.stable('server', async () => { await createServerTest(); });`
+      test.unit.stable('server', async () => { await createServerTest(); });`
     });
 
     expect([...new Set(paths)]).toEqual([
@@ -256,7 +256,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'ordinary tests use the public facade instead of low-level testing facets',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -284,7 +284,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'fixture subject tests may import the primitives they are specifically testing',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -292,7 +292,7 @@ test.stable(
     const paths = await lintRulePaths({ assert }, 'test-infrastructure', {
       'packages/db/test/testing.test.ts': `import { test } from '@study/testing';
       import { createTestDatabase } from '@study/db/testing';
-      test.stable('fixture disposal', async () => { await using fixture = await test.createTestDatabase(); });`,
+      test.unit.stable('fixture disposal', async () => { await using fixture = await test.createTestDatabase(); });`,
       'packages/testing/test/resources.test.ts': `import { temporaryDirectory } from '@study/testing/resources';`,
       'packages/testing/test/process.test.ts': `import { spawnScopedProcess } from '@study/testing/process';`,
       'packages/testing/test/ordinary.test.ts': `import { temporaryDirectory } from '@study/testing/resources';`
@@ -302,15 +302,15 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'public namespace cannot expose fixture constructors to ordinary tests',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
 
     const paths = await lintRulePaths({ assert }, 'test-infrastructure', {
       'apps/server/test/direct.test.ts': `import { test } from '@study/testing';
-      test.stable('database', async () => { await test.createTestDatabase(); });
-      test.stable('server', async () => { await test.createServerFixture(); });`,
+      test.unit.stable('database', async () => { await test.createTestDatabase(); });
+      test.unit.stable('server', async () => { await test.createServerFixture(); });`,
       'apps/server/test/testing/scenarios.ts': `import { test } from '@study/testing';
       test.createServerFixture();`
     });
@@ -319,25 +319,25 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'canonical application callbacks are direct test registrations',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
 
     const paths = await lintRulePaths({ assert }, 'test-infrastructure', {
       'apps/client/src/valid.test.ts': `import {test} from '#client/test/scenarios.tsx';
-test.stable('reader', async ({react}) => { await react.render(<div />); });`,
+test.unit.stable('reader', async ({react}) => { await react.render(<div />); });`,
       'apps/server/test/valid.test.ts': `import {test} from '#testing/scenarios';
-test.stable('service', async ({server}) => { await server.run(); });`,
+test.unit.stable('service', async ({server}) => { await server.run(); });`,
       'apps/client/src/hidden.test.ts': `import {test} from '#client/test/scenarios.tsx';
-function wrap(fn) { return test.stable('reader', fn); }`
+function wrap(fn) { return test.unit.stable('reader', fn); }`
     });
 
     expect(paths).toEqual(['apps/client/src/valid.test.ts']);
   }
 );
 
-test.stable(
+test.unit.stable(
   'fixture directories and sleep loops use the canonical resource and observation helpers',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -368,7 +368,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'tests use shared resource lifetimes and native polling instead of local machinery',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -387,7 +387,7 @@ test.stable(
       'apps/server/test/poll.test.ts': 'await Bun.sleep(50);',
       'apps/server/test/temp.test.ts': "import { $ } from 'bun'; await $`mktemp -d`;",
       'apps/server/test/good.test.ts': `import { test } from '@study/testing';
-test.stable('uses shared helpers', async ({ spawnTestProcess, waitFor }) => {
+test.unit.stable('uses shared helpers', async ({ spawnTestProcess, waitFor }) => {
   spawnTestProcess(['bun', 'server.ts']);
   await waitFor(() => true);
 });`,
@@ -407,7 +407,7 @@ test.stable('uses shared helpers', async ({ spawnTestProcess, waitFor }) => {
   }
 );
 
-test.stable(
+test.unit.stable(
   'runner construction and configuration belong to the shared testing owners',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -420,21 +420,21 @@ test.stable(
       'apps/client/src/policy.test.ts':
         "import { vi as runner } from 'vite-plus/test'; runner.setConfig({retry: 3});",
       'apps/client/src/registration.test.ts': `import { test } from '@study/testing';
- export function check(name: string, fn: any) { test.stable(name, fn);
+ export function check(name: string, fn: any) { test.unit.stable(name, fn);
  }`,
       'apps/client/src/test/setup.ts': `import * as testing from '@testing-library/react';
  const setup = testing.configure;
  setup({asyncUtilTimeout: 1});
 `,
       'apps/client/src/arrow.ts': `import { test } from '@study/testing';
- export const check = (fn: any) => test.stable('wrapped', fn);
+ export const check = (fn: any) => test.unit.stable('wrapped', fn);
 `,
       'apps/client/src/function.ts': `import { test } from '@study/testing';
- export const check = function(fn: any) { test.stable('wrapped', fn);
+ export const check = function(fn: any) { test.unit.stable('wrapped', fn);
  };
 `,
       'apps/client/src/good.test.ts':
-        "import { test } from '@study/testing'; test.stable('renders', () => {});",
+        "import { test } from '@study/testing'; test.unit.stable('renders', () => {});",
       'packages/testing/src/react/setup.ts':
         "import { configure } from '@testing-library/react'; configure({asyncUtilTimeout: 5000});",
       'tooling/testing/runner.ts':

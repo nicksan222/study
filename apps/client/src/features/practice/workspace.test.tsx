@@ -8,7 +8,7 @@ for (const [width, initiallyOpen] of [
   [960, true],
   [992, true]
 ] as const) {
-  test.stable(
+  test.unit.stable(
     `uses the available ${width}px container to initialize practice actions`,
     async ({ vi, userEvent, render, screen, expect }) => {
       vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(width);

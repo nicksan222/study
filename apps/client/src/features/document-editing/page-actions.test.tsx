@@ -21,8 +21,8 @@ const receipt = (expected = 101n, submitted = 103n) =>
   });
 
 async function edit(
-  { screen }: Pick<test.Context, 'screen'>,
-  user: ReturnType<test.Context['userEvent']['setup']>
+  { screen }: Pick<test.unit.Context, 'screen'>,
+  user: ReturnType<test.unit.Context['userEvent']['setup']>
 ) {
   await user.click(await screen.findByRole('button', { name: copy.PageEdit }));
   const textbox = screen.getByRole('textbox', { name: `${copy.PageText} 1` });
@@ -31,7 +31,7 @@ async function edit(
   await user.type(textbox, 'My unsaved correction');
 }
 
-test.stable(
+test.unit.stable(
   'authored draft survives route absence and is removed only by explicit discard',
   async ({ rpcTestTransport, render, userEvent, screen, expect }) => {
     const fixture = rpcTestTransport(async (tag) => {
@@ -67,7 +67,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'explicit save and undo retries retain exact payload identities after lost responses',
   async ({ rpcTestTransport, render, userEvent, screen, expect, waitFor }) => {
     const saves: (typeof saveSchema.Type)[] = [];
@@ -113,7 +113,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'rapid repeated save activation cannot start a concurrent write',
   async ({ vi, rpcTestTransport, render, userEvent, screen, fireEvent, waitFor, expect }) => {
     let complete!: (value: unknown) => void;

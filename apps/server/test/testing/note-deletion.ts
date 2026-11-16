@@ -36,7 +36,7 @@ import { withTestAdmission, refreshTestExecution } from '#testing/workflow-admis
 
 type DeletionFixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
-type TestAssertion = Pick<test.Context, 'assert'>['assert'];
+type TestAssertion = Pick<test.server.Context, 'assert'>['assert'];
 
 const meta = {
   extractor: null,

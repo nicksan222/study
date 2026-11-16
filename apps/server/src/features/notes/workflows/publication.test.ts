@@ -35,7 +35,7 @@ import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { withTestAdmission } from '#testing/workflow-admission';
 
-test.stable(
+test.server.stable(
   'guarded publication validates captured citations and replays without writes',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -50,7 +50,7 @@ test.stable(
       function* verifyGuardedCitationPublication({
         assert: assertions,
         expect
-      }: Pick<test.Context, 'assert' | 'expect'>) {
+      }: Pick<test.server.Context, 'assert' | 'expect'>) {
         const assert: test.Assert = assertions;
 
         const project = yield* (yield* Projects).createProject({ name: 'Publication' });

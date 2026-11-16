@@ -9,7 +9,7 @@ const options = [
   { value: 'dark', label: 'Dark' }
 ];
 
-test.stable(
+test.unit.stable(
   'shows option labels and commits string values through keyboard selection',
   async ({ userEvent, vi, render, screen, expect, waitFor }) => {
     const user = userEvent.setup();
@@ -50,7 +50,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'dismisses with Escape and outside click without changing the selected value',
   async ({ userEvent, vi, render, screen, expect, waitFor }) => {
     const user = userEvent.setup();
@@ -77,7 +77,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'does not open or change when disabled',
   async ({ userEvent, vi, render, screen, expect }) => {
     const user = userEvent.setup();
@@ -103,7 +103,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps disabled options visible while skipping them during keyboard selection',
   async ({ userEvent, vi, render, screen, expect }) => {
     const user = userEvent.setup();

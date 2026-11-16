@@ -28,7 +28,7 @@ import { Database } from '#server/platform/database/database';
 import { serveRpc } from '#server/platform/rpc/bun';
 import { testLiveQueries } from '#testing/live-queries';
 
-test.stable(
+test.server.stable(
   'native scoped HTTP RPC reaches Source SQLite transactions and closes its listener',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

@@ -34,7 +34,7 @@ const runnerArgs = [
   '--silent=false'
 ];
 
-test.stable(
+test.unit.stable(
   'pure tests never acquire an unused database fixture',
   async ({ temporaryDirectory, spawnTestProcess, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -66,7 +66,7 @@ for (const mode of [
   'retry-async',
   'api-reuse'
 ] as const) {
-  test.stable(
+  test.unit.stable(
     `automatic fixture cleans databases after ${mode}`,
     async ({ spawnTestProcess, assert: assertions }) => {
       const assert: test.Assert = assertions;
@@ -135,7 +135,7 @@ for (const mode of [
   );
 }
 
-test.stable(
+test.unit.stable(
   'concurrent test files use separate databases and remove them',
   async ({ spawnTestProcess, assert: assertions }) => {
     const assert: test.Assert = assertions;

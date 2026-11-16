@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { NotebookComposer } from './notebook-composer';
 
-test.stable(
+test.unit.stable(
   'keeps capture controlled and delegates saving to its owner',
   ({ vi, render, fireEvent, screen, expect }) => {
     const change = vi.fn();

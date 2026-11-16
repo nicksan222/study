@@ -2,7 +2,7 @@ import { test, createTestApi } from '@study/testing/vitest';
 
 import { assertTestDefinition, classificationLabel } from '../src/classification.ts';
 
-test.stable(
+test.unit.stable(
   'Vitest registration preserves context and timeout options',
   { timeout: 2000 },
   ({ task, expect }) => {
@@ -10,13 +10,13 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'test body tools are native lazy fixtures',
   ({ assert: assertions, expectTypeOf, mock, policy, vi, waitFor, expect }) => {
     const assert: test.Assert = assertions;
 
     type Tools = Pick<
-      test.Context,
+      test.unit.Context,
       'assert' | 'expect' | 'expectTypeOf' | 'mock' | 'policy' | 'vi' | 'waitFor'
     >;
 
@@ -45,9 +45,9 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'typed assert fixture preserves assertion narrowing',
-  ({ assert: assertions, expect }: test.Context) => {
+  ({ assert: assertions, expect }: test.unit.Context) => {
     const assert: test.Assert = assertions;
     const value = (): string | undefined => 'available';
     const candidate = value();
@@ -57,25 +57,28 @@ test.stable(
   }
 );
 
-test.stable.for([
+test.unit.stable.for([
   [1, 'one'],
   [2, 'two']
 ] as const)('parameterized registration preserves values: %s', ([value, label], { expect }) => {
   expect(label).toBe(value === 1 ? 'one' : 'two');
 });
 
-test.regression({ regression: 'evidence_integrity' })('regression label', ({ task, expect }) => {
-  expect(task.name).toBe('[regression:evidence_integrity] regression label');
-});
+test.unit.regression({ regression: 'evidence_integrity' })(
+  'regression label',
+  ({ task, expect }) => {
+    expect(task.name).toBe('[regression:evidence_integrity] regression label');
+  }
+);
 
-test.migration({ migration: 'source_upgrade', retention: 'permanent' })(
+test.unit.migration({ migration: 'source_upgrade', retention: 'permanent' })(
   'migration label',
   ({ task, expect }) => {
     expect(task.name).toBe('[migration:source_upgrade:permanent] migration label');
   }
 );
 
-test.characterization({
+test.unit.characterization({
   migration: 'source_upgrade',
   retention: 'temporary',
   removeWhen: 'Fixture completes'
@@ -83,7 +86,7 @@ test.characterization({
   expect(task.name).toBe('[characterization:source_upgrade:temporary] characterization label');
 });
 
-test.stable(
+test.unit.stable(
   'JavaScript callers cannot bypass classification metadata or skip coverage',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -113,11 +116,11 @@ test.stable(
   }
 );
 
-const fixtureStable = test.stable.extend('answer', { scope: 'worker' }, () => 42);
+const fixtureStable = test.unit.stable.extend('answer', { scope: 'worker' }, () => 42);
 
 fixtureStable(
   'extended worker fixtures retain classification and values',
-  ({ answer, task, assert: assertions }: test.Context & { answer: number }) => {
+  ({ answer, task, assert: assertions }: test.unit.Context & { answer: number }) => {
     const assert: test.Assert = assertions;
 
     assert.strictEqual(answer, 42);
@@ -128,14 +131,17 @@ fixtureStable(
   }
 );
 
-test.stable('extended registrations reject skip and focus modifiers at runtime', ({ expect }) => {
-  for (const modifier of ['skip', 'only', 'todo', 'fails'])
-    expect(() => Reflect.get(fixtureStable, modifier)).toThrow('Classified tests');
-});
+test.unit.stable(
+  'extended registrations reject skip and focus modifiers at runtime',
+  ({ expect }) => {
+    for (const modifier of ['skip', 'only', 'todo', 'fails'])
+      expect(() => Reflect.get(fixtureStable, modifier)).toThrow('Classified tests');
+  }
+);
 
-test.stable.extend('answer', { scope: 'worker' }, () => 42).override('answer', () => 43)(
+test.unit.stable.extend('answer', { scope: 'worker' }, () => 42).override('answer', () => 43)(
   'fixture overrides preserve their key, value and classification',
-  ({ answer, task, assert: assertions }: test.Context & { answer: number }) => {
+  ({ answer, task, assert: assertions }: test.unit.Context & { answer: number }) => {
     const assert: test.Assert = assertions;
 
     assert.strictEqual(answer, 43);
@@ -146,7 +152,7 @@ test.stable.extend('answer', { scope: 'worker' }, () => 42).override('answer', (
   }
 );
 
-test.stable.for([{ value: 42 }])(
+test.unit.stable.for([{ value: 42 }])(
   'native for preserves values and classification',
   (item, { task, expect }) => {
     expect(item.value).toBe(42);
@@ -154,7 +160,7 @@ test.stable.for([{ value: 42 }])(
   }
 );
 
-test.stable.concurrent(
+test.unit.stable.concurrent(
   'native concurrent retains classification',
   ({ task, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -165,7 +171,7 @@ test.stable.concurrent(
 
 fixtureStable.for([{ value: 2 }])(
   'extended native for retains fixtures',
-  (item, { answer, task, assert: assertions }: test.Context & { answer: number }) => {
+  (item, { answer, task, assert: assertions }: test.unit.Context & { answer: number }) => {
     const assert: test.Assert = assertions;
 
     assert.strictEqual(item.value + answer, 44);
@@ -173,7 +179,7 @@ fixtureStable.for([{ value: 2 }])(
   }
 );
 
-test.stable('classified adapters expose only supported registration methods', ({ expect }) => {
+test.unit.stable('classified adapters expose only supported registration methods', ({ expect }) => {
   expect(Reflect.get(fixtureStable, 'beforeEach')).toBeUndefined();
   expect(Reflect.get(fixtureStable, 'futureNativeMethod')).toBeUndefined();
 
@@ -182,7 +188,7 @@ test.stable('classified adapters expose only supported registration methods', ({
 });
 
 const prepared = createTestApi(
-  test.stable.extend('answer', ({ task: _task }, { onCleanup }) => {
+  test.unit.stable.extend('answer', ({ task: _task }, { onCleanup }) => {
     onCleanup(() => {
       released += 1;
     });

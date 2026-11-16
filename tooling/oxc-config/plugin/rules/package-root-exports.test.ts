@@ -3,17 +3,22 @@ import { test } from '@study/testing';
 import { packageExportIssues } from '../package-export-policy.ts';
 import { lintRule } from '../test/utils.ts';
 
-test.stable('the server testing facet stays inside its feature-service fixtures', ({ expect }) => {
-  expect(packageExportIssues('apps/server', { './testing': './test/testing/fixture.ts' })).toEqual(
-    []
-  );
-  expect(packageExportIssues('apps/server', { './testing': './test/private.ts' })).toHaveLength(1);
-  expect(
-    packageExportIssues('apps/server', { './client': './test/testing/fixture.ts' })
-  ).toHaveLength(1);
-});
+test.unit.stable(
+  'the server testing facet stays inside its feature-service fixtures',
+  ({ expect }) => {
+    expect(
+      packageExportIssues('apps/server', { './testing': './test/testing/fixture.ts' })
+    ).toEqual([]);
+    expect(packageExportIssues('apps/server', { './testing': './test/private.ts' })).toHaveLength(
+      1
+    );
+    expect(
+      packageExportIssues('apps/server', { './client': './test/testing/fixture.ts' })
+    ).toHaveLength(1);
+  }
+);
 
-test.stable(
+test.unit.stable(
   'workspace libraries are imported through their root with only approved facets',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -68,7 +73,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'known packages reject unknown facets and app roots without exports',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

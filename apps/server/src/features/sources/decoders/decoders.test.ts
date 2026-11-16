@@ -20,7 +20,7 @@ import { decodeText } from '#server/features/sources/decoders/text';
 
 const bytes = (value: string) => new TextEncoder().encode(value);
 
-test.stable('text decoding preserves UTF-8 byte anchors and markdown fences', ({ expect }) => {
+test.unit.stable('text decoding preserves UTF-8 byte anchors and markdown fences', ({ expect }) => {
   const result = decodeText({
     bytes: bytes('# Caffè\n\n```ts\nline\n\nmore\n```\n'),
     kind: 'text',
@@ -40,16 +40,19 @@ test.stable('text decoding preserves UTF-8 byte anchors and markdown fences', ({
   ).toThrow(expect.objectContaining({ kind: 'invalid_input' }));
 });
 
-test.stable('PDF decoding validates and counts pages', async ({ assert: assertions, expect }) => {
-  const assert: test.Assert = assertions;
+test.unit.stable(
+  'PDF decoding validates and counts pages',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  const fixture = await Bun.file(new URL('./fixtures/two-pages.pdf', import.meta.url)).bytes();
+    const fixture = await Bun.file(new URL('./fixtures/two-pages.pdf', import.meta.url)).bytes();
 
-  assert.strictEqual(await decodePdf(fixture), 2);
-  await expect(decodePdf(bytes('not a PDF'))).rejects.toMatchObject({ kind: 'invalid_input' });
-});
+    assert.strictEqual(await decodePdf(fixture), 2);
+    await expect(decodePdf(bytes('not a PDF'))).rejects.toMatchObject({ kind: 'invalid_input' });
+  }
+);
 
-test.stable(
+test.unit.stable(
   'vision transcription preserves page anchors and rejects incomplete or reordered pages',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -80,38 +83,41 @@ test.stable(
   }
 );
 
-test.stable('HTML extracts visible content and preserves URL fragments', async ({ expect }) => {
-  const { decodeHtml } = await import('#server/features/sources/decoders/html');
-  const document = decodeHtml({
-    bytes: bytes(
-      '<header>hidden</header><main><h1 id="top">Title</h1><p>Body &amp; detail</p><nav>menu</nav><style>bad</style><script>bad</script></main>'
-    ),
-    url: 'https://example.test/'
-  });
-
-  expect(document.blocks.map((block) => block.text)).toStrictEqual(['Title', 'Body & detail']);
-  expect(document.blocks[0].anchor).toStrictEqual({
-    type: 'url',
-    url: 'https://example.test/',
-    fragment: 'top'
-  });
-  expect(
-    decodeHtml({
+test.unit.stable(
+  'HTML extracts visible content and preserves URL fragments',
+  async ({ expect }) => {
+    const { decodeHtml } = await import('#server/features/sources/decoders/html');
+    const document = decodeHtml({
       bytes: bytes(
-        '<main><div>Intro <b>detail</b></div><ul><li>Parent<ul><li>Child</li></ul>After</li></ul></main>'
-      )
-    }).blocks.map((block) => [block.kind, block.text])
-  ).toStrictEqual([
-    ['paragraph', 'Intro detail'],
-    ['list_item', 'Parent\nChild\nAfter']
-  ]);
+        '<header>hidden</header><main><h1 id="top">Title</h1><p>Body &amp; detail</p><nav>menu</nav><style>bad</style><script>bad</script></main>'
+      ),
+      url: 'https://example.test/'
+    });
 
-  expect(
-    decodeHtml({ bytes: bytes('<main><p>Attachment</p></main>') }).blocks[0].anchor
-  ).toStrictEqual({ type: 'paragraph', index: 1 });
-});
+    expect(document.blocks.map((block) => block.text)).toStrictEqual(['Title', 'Body & detail']);
+    expect(document.blocks[0].anchor).toStrictEqual({
+      type: 'url',
+      url: 'https://example.test/',
+      fragment: 'top'
+    });
+    expect(
+      decodeHtml({
+        bytes: bytes(
+          '<main><div>Intro <b>detail</b></div><ul><li>Parent<ul><li>Child</li></ul>After</li></ul></main>'
+        )
+      }).blocks.map((block) => [block.kind, block.text])
+    ).toStrictEqual([
+      ['paragraph', 'Intro detail'],
+      ['list_item', 'Parent\nChild\nAfter']
+    ]);
 
-test.stable(
+    expect(
+      decodeHtml({ bytes: bytes('<main><p>Attachment</p></main>') }).blocks[0].anchor
+    ).toStrictEqual({ type: 'paragraph', index: 1 });
+  }
+);
+
+test.unit.stable(
   'Office decoders preserve structures and reject malformed or oversized archives',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -173,7 +179,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'deterministic rich decoders retain nested lists, cell boundaries, language, links and supported marks',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -223,7 +229,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'Markdown retains nested lists, cell boundaries, code language and inline formatting',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -261,7 +267,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'Office retains extracted marks and cells and reports nested-table loss',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -298,7 +304,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'source anchor validation rejects nonfinite, fractional, reversed and nonpositive locations centrally',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -319,7 +325,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'HTML preserves empty list ancestors without inventing continuations',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -354,7 +360,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'HTML table cells retain paragraphs, empty paragraphs and surrounding inline text',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -383,7 +389,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'HTML groups loose phrasing without breaking words or losing inline marks',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -422,7 +428,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'HTML list wrappers preserve descendants, paragraph boundaries and continuations',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -465,7 +471,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'HTML structural and unknown wrappers retain nested flow without splitting phrasing',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -517,7 +523,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'generated Unicode paragraphs retain exact UTF-8 source anchor slices',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

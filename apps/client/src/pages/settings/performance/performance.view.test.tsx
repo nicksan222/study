@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { PerformanceSettingsView } from './performance.view';
 
-function model({ vi }: Pick<test.Context, 'vi'>) {
+function model({ vi }: Pick<test.unit.Context, 'vi'>) {
   return {
     data: { maxConcurrentAi: 2, maxQueuedAi: 16 },
     active: {
@@ -30,7 +30,7 @@ function model({ vi }: Pick<test.Context, 'vi'>) {
   };
 }
 
-test.stable(
+test.unit.stable(
   'exposes both limits with bounds and disables unchanged saves',
   ({ render, screen, expect, vi }) => {
     render(<PerformanceSettingsView model={model({ vi })} />);
@@ -49,7 +49,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'submits a changed setting through its form and links validation to the input',
   ({ render, screen, fireEvent, expect, vi }) => {
     const state = model({ vi });
@@ -70,10 +70,13 @@ test.stable(
   }
 );
 
-test.stable('offers retry after a load failure', ({ render, fireEvent, screen, expect, vi }) => {
-  const state = { ...model({ vi }), data: undefined, error: true };
+test.unit.stable(
+  'offers retry after a load failure',
+  ({ render, fireEvent, screen, expect, vi }) => {
+    const state = { ...model({ vi }), data: undefined, error: true };
 
-  render(<PerformanceSettingsView model={state} />);
-  fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-  expect(state.retry).toHaveBeenCalledOnce();
-});
+    render(<PerformanceSettingsView model={state} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(state.retry).toHaveBeenCalledOnce();
+  }
+);

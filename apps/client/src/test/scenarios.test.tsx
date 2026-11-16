@@ -6,7 +6,7 @@ import { test } from '@study/testing';
 import { useI18n } from '#client/lib/i18n.tsx';
 import { useGeneralSettings } from '#client/pages/settings/general/use-general.ts';
 
-test.stable.for(['before opening', 'during opening'] as const)(
+test.unit.stable.for(['before opening', 'during opening'] as const)(
   'closed page starters release setup %s',
   async (phase, { page, rpc, expect }) => {
     const opening = phase === 'during opening' ? page.open('/notes') : undefined;
@@ -19,7 +19,7 @@ test.stable.for(['before opening', 'during opening'] as const)(
   }
 );
 
-test.stable.for(['alias', 'url'] as const)(
+test.unit.stable.for(['alias', 'url'] as const)(
   'callback module mocks resolve client targets through %s',
   async (source, { mock, expect }) => {
     const readiness = mock.fn(() => 'ready');
@@ -36,7 +36,7 @@ test.stable.for(['alias', 'url'] as const)(
   }
 );
 
-test.stable.extend('locale', 'italian')(
+test.unit.stable.extend('locale', 'italian')(
   'React starters provide RPC, localization, hook rendering and planned failure recovery',
   async ({ react, rpc, expect }) => {
     const settings: AppSettings = { language: 2, appearance: 3, zoomPercent: 125, onboarded: true };
@@ -72,7 +72,7 @@ test.stable.extend('locale', 'italian')(
   }
 );
 
-test.stable(
+test.unit.stable(
   'React starters restore the default locale and have no prior subscriptions',
   ({ react, rpc, expect }) => {
     expect(rpc.activeSubscriptions()).toBe(0);
@@ -88,7 +88,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'page starters open the real route with default RPC snapshots and accept live updates',
   async ({ page, rpc, expect }) => {
     const view = await page.open('/notes');
@@ -107,7 +107,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'closing a page releases its router history and RPC subscriptions',
   async ({ page, rpc, vi, expect }) => {
     const view = await page.open('/notes');

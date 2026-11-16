@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'rejects upward dependencies, cross-page imports and private feature imports',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -23,7 +23,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'allows composition, same-domain internals and explicit feature entry points',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -45,7 +45,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'restricts the raw transport and root-level application files',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -64,7 +64,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'canonical folders, type imports and alternate loaders cannot bypass ownership',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -89,7 +89,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'permits Query while keeping raw RPC in the transport adapter',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -108,7 +108,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'Material routes compose the feature entrypoint while internals stay feature-owned',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -144,7 +144,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'private web aliases preserve downward ownership and transport restrictions',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -166,7 +166,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'only the isolated feature preview layer may compose private feature views',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -188,7 +188,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'raw RPC execution is limited to the single runtime transport adapter',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

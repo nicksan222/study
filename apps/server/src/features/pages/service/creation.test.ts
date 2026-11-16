@@ -32,7 +32,7 @@ const document = {
   }
 };
 
-test.stable(
+test.server.stable(
   'empty document creation replays its exact key and descriptions use guarded independent metadata',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

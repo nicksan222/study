@@ -15,7 +15,7 @@ import { test } from '@study/testing';
 import { getApiKeyProvider } from './registry.ts';
 import { withRequestCheck } from './request-check.ts';
 
-test.stable(
+test.unit.stable(
   'preflight blocks API-key model requests before the transport sees credentials',
   async ({ expect }) => {
     let requests = 0;

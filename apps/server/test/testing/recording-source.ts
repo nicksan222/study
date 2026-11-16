@@ -28,7 +28,7 @@ import { withTestAdmission } from '#testing/workflow-admission';
 
 type SourceFixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
-type TestAssertion = Pick<test.Context, 'assert'>['assert'];
+type TestAssertion = Pick<test.server.Context, 'assert'>['assert'];
 
 export async function recordingSource(f: SourceFixture, assert: TestAssertion) {
   const post = await Effect.runPromise(

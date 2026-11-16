@@ -23,13 +23,13 @@ import { withTestPublication } from '#testing/publication';
 
 let context: ServerContext;
 
-test.beforeEach(async ({ databases }) => {
+test.server.beforeEach(async ({ databases }) => {
   const location = await databases();
 
   context = new ServerContext(await location.open());
 });
 
-test.afterEach(() => context.close());
+test.server.afterEach(() => context.close());
 
 function services() {
   return Layer.mergeAll(Notes.layer, Sources.layer, Settings.layer).pipe(
@@ -37,7 +37,7 @@ function services() {
   );
 }
 
-test.stable(
+test.server.stable(
   'conversion deduplicates requests, preserves originals and retains results after edits',
   async ({ expect }) => {
     await Effect.runPromise(
@@ -88,7 +88,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'automatic conversion is opt-in and uses the same durable request as the button',
   async ({ expect }) => {
     await Effect.runPromise(
@@ -150,7 +150,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'failed conversions retain their payload, unblock replies and support exact retry or discard',
   async ({ expect }) => {
     await Effect.runPromise(
@@ -212,7 +212,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'failed conversion retry rejects a base version that is no longer active',
   async ({ expect }) => {
     await Effect.runPromise(
@@ -250,7 +250,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'Ask schedules automatic conversion once after capturing its original reply input',
   async ({ expect }) => {
     await Effect.runPromise(

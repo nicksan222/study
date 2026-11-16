@@ -82,11 +82,11 @@ function fixture(text = 'Exact 😀 target') {
   return { request, context };
 }
 
-function oversized({ expect }: Pick<test.Context, 'expect'>, run: () => unknown) {
+function oversized({ expect }: Pick<test.unit.Context, 'expect'>, run: () => unknown) {
   expect(run).toThrowError(expect.objectContaining({ kind: 'not_enough' }));
 }
 
-test.stable(
+test.unit.stable(
   'Page prompts preserve exact rich editable targets and captured Unicode',
   ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -105,7 +105,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'Page prompt admission accounts for all serialized input bytes without changing the target',
   ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -128,7 +128,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'Page transforms still require the exact whole-document editable target',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -150,7 +150,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'Page prompts include only captured support excerpts with their exact identities',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

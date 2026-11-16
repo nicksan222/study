@@ -1,6 +1,6 @@
 import { test } from '@study/testing';
 
-test.beforeEach(({ rpc }) => {
+test.unit.beforeEach(({ rpc }) => {
   rpc.givenWorkspace();
 });
 import { createMemoryHistory, redirect } from '@tanstack/react-router';
@@ -10,12 +10,12 @@ import { createAppRouter } from './router';
 
 const originalUrl = window.location.href;
 
-test.afterEach(({ vi }) => {
+test.unit.afterEach(({ vi }) => {
   vi.unstubAllGlobals();
   jsdom.reconfigure({ url: originalUrl });
 });
 
-test.stable.for([
+test.unit.stable.for([
   { url: 'tauri://localhost', origin: 'tauri://localhost', calculationOrigin: 'http://localhost' },
   { url: 'tauri://localhost', origin: 'null', calculationOrigin: 'http://localhost' },
   {
@@ -55,7 +55,7 @@ test.stable.for([
   }
 );
 
-test.stable(
+test.unit.stable(
   'preserves project identity, navigation history, and external URL safety',
   async ({ vi, expect }) => {
     vi.stubGlobal('origin', 'tauri://localhost');
@@ -103,7 +103,7 @@ test.stable(
   }
 );
 
-test.stable.for([
+test.unit.stable.for([
   { zoom: '', reduced: false, enabled: false },
   { zoom: '100%', reduced: false, enabled: true },
   { zoom: '125%', reduced: false, enabled: false },

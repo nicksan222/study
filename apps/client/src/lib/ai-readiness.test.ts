@@ -8,7 +8,7 @@ function createMocks(mock: test.Mock) {
 
 let settings: ReturnType<typeof createMocks>;
 
-test.beforeEach(({ mock }) => {
+test.unit.beforeEach(({ mock }) => {
   settings = createMocks(mock);
 });
 
@@ -30,8 +30,8 @@ const data = {
   }
 };
 
-test.describe('AI readiness', () => {
-  test.stable('checks the configured provider for each tier', ({ expect }) => {
+test.unit.describe('AI readiness', () => {
+  test.unit.stable('checks the configured provider for each tier', ({ expect }) => {
     expect(aiReadiness(data, 'tiny')).toBe(false);
     expect(aiReadiness(data, 'medium')).toBe(true);
     expect(aiReadiness({ ...data, status: { ...data.status, signedIn: true } }, 'smart')).toBe(
@@ -47,7 +47,7 @@ test.describe('AI readiness', () => {
   });
 });
 
-test.stable(
+test.unit.stable(
   'readiness distinguishes loading and failure and refreshes after configuration changes',
   async ({ rpcTestTransport, renderHook, expect, act, waitFor }) => {
     let finish: (value: typeof data) => void = () => {};

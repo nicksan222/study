@@ -19,7 +19,7 @@ function contrast(a: string, b: string) {
   return (values[0]! + 0.05) / (values[1]! + 0.05);
 }
 
-test.stable(
+test.server.stable(
   'the curated catalog includes complete accessible light and dark palettes',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -49,7 +49,7 @@ test.stable(
 );
 
 function verifyContrast(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
   colors: NonNullable<ReturnType<typeof parseTheme>['light']>,
   id: string,
   mode: string

@@ -27,7 +27,7 @@ import { Database } from '#server/platform/database/database';
 
 import { Learning } from './index.ts';
 
-test.stable(
+test.server.stable(
   'ordering attempts hide canonical order, restore permutations and grade exactly',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

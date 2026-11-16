@@ -10,13 +10,13 @@ import type { AiReadiness } from './ai-readiness';
 
 let currentReadiness: AiReadiness;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   currentReadiness = 'ready';
   mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => currentReadiness }));
   ({ AiActionButton } = await import('./ai-action-button.tsx'));
 });
 
-test.stable(
+test.unit.stable(
   'blocks each unavailable state and becomes actionable after setup',
   async ({ vi, userEvent, render, screen, expect, fireEvent }) => {
     const click = vi.fn();

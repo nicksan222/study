@@ -45,7 +45,7 @@ const meta = {
 type Fixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
 function generationEvent(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
   f: Fixture,
   requestId: string
 ): typeof pageGenerationRequestedSchema.Type {
@@ -64,7 +64,7 @@ function generationEvent(
 }
 
 function create(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
   title: string,
   blocks = [paragraph('alpha evidence')]
 ) {
@@ -88,7 +88,7 @@ function create(
 }
 
 function assertIndependentImage(
-  { assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>,
+  { assert: assertions, expect }: Pick<test.server.Context, 'assert' | 'expect'>,
   independent: PageVersion,
   proposal: PageVersion
 ) {
@@ -101,7 +101,10 @@ function assertIndependentImage(
   assert.notStrictEqual(independent.document.blocks[1]!.id, proposal.document.blocks[1]!.id);
 }
 
-function assessApplied({ assert: assertions }: Pick<test.Context, 'assert'>, version: PageVersion) {
+function assessApplied(
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
+  version: PageVersion
+) {
   const assert: test.Assert = assertions;
 
   return Effect.gen(function* () {
@@ -136,7 +139,7 @@ function assessApplied({ assert: assertions }: Pick<test.Context, 'assert'>, ver
 }
 
 function assertSupport(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
   docs: Context.Service.Shape<typeof Pages>,
   versionId: PageVersion['id'],
   state: 'assessed' | 'stale' | undefined
@@ -199,7 +202,7 @@ for (const scenario of [
   'selection_changed',
   'message_changed'
 ] as const)
-  test.stable(
+  test.server.stable(
     `native authored proposal ${scenario} preserves exact receipts, alternatives, citations and independent retention`,
     async ({ databases, assert: assertions, expect }) => {
       const assert: test.Assert = assertions;
@@ -515,7 +518,7 @@ for (const scenario of [
   );
 
 for (const barrier of ['cancel', 'delete'] as const)
-  test.stable(
+  test.server.stable(
     `authored proposal ${barrier} before native execution fences late publication`,
     async ({ databases, expect, assert: assertions }) => {
       const assert: test.Assert = assertions;
@@ -575,7 +578,7 @@ for (const barrier of ['cancel', 'delete'] as const)
     }
   );
 
-test.stable(
+test.server.stable(
   'stored block and passage selection does not narrow automatic whole-document target captures',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

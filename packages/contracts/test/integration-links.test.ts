@@ -1,7 +1,7 @@
 import { validDocumentHref } from '@study/contracts';
 import { test } from '@study/testing';
 
-test.stable.for([
+test.unit.stable.for([
   ['/note/1', true],
   ['/note/42#Cell%20division', true],
   ['https://example.org/note', true],

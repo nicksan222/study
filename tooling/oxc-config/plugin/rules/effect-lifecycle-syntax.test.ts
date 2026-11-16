@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { positive } from './effect-lifecycle-syntax.ts';
 
-test.stable(
+test.unit.stable(
   'lifecycle counts must be safe integers so counters can make progress',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

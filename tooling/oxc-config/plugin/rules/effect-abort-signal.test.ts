@@ -4,7 +4,7 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message = 'Pass the Effect.tryPromise cancellation signal to fetch.';
 
-test.stable(
+test.unit.stable(
   'requires server fetches to preserve the shutdown signal',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -26,7 +26,7 @@ E.tryPromise(() => arbitraryPromise());`,
   }
 );
 
-test.stable(
+test.unit.stable(
   'finds fetch aliases in object callbacks and return bodies',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -51,7 +51,7 @@ attempt(() => native(url));`
   }
 );
 
-test.stable(
+test.unit.stable(
   'accepts object callbacks and native fetch aliases with signal',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -66,21 +66,24 @@ E.tryPromise({ try: (signal) => request(url, { signal }), catch: (error) => erro
   }
 );
 
-test.stable('ignores unrelated or shadowed fetch APIs', async ({ assert: assertions, expect }) => {
-  const assert: test.Assert = assertions;
+test.unit.stable(
+  'ignores unrelated or shadowed fetch APIs',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  const diagnostics = await lintRule({ assert }, 'effect-abort-signal', {
-    'src/workers/example.ts': String.raw`import { Effect } from "effect";
+    const diagnostics = await lintRule({ assert }, 'effect-abort-signal', {
+      'src/workers/example.ts': String.raw`import { Effect } from "effect";
 function f(fetch) {
   return Effect.tryPromise(() => fetch(url));
 }
 Effect.tryPromise(() => other.fetch(url));`
-  });
+    });
 
-  assertDiagnostics({ assert, expect }, 'effect-abort-signal', diagnostics, []);
-});
+    assertDiagnostics({ assert, expect }, 'effect-abort-signal', diagnostics, []);
+  }
+);
 
-test.stable(
+test.unit.stable(
   'rejects a signal from an unrelated variable',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -97,7 +100,7 @@ Effect.tryPromise((signal) => fetch(url, { signal: other.signal }));`
   }
 );
 
-test.stable(
+test.unit.stable(
   'requires browser Effect operations to use the native cancellation signal',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -118,7 +121,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'propagates the signal from native callback bridges',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -153,7 +156,7 @@ function f(E: any) {
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains cancellation checks for extracted bridge callbacks',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -174,7 +177,7 @@ Effect.tryPromise(request);`
   }
 );
 
-test.stable(
+test.unit.stable(
   'attributes nested fetches to their nearest native cancellation bridge',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

@@ -32,7 +32,7 @@ import { validPageTransformOutput } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
 for (const action of ['apply', 'keep'] as const)
-  test.stable(
+  test.server.stable(
     `completed proposal ${action} receipt replays after restore while a new key retains normal proposal validation`,
     async ({ databases, assert: assertions, expect }) => {
       const assert: test.Assert = assertions;
@@ -170,7 +170,7 @@ for (const action of ['apply', 'keep'] as const)
     }
   );
 
-test.stable(
+test.server.stable(
   'pending generation, practice and open-answer grading remain admitted after import',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -302,7 +302,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'pending source correction retains completed extraction and durable outbox intent',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

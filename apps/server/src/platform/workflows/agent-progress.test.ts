@@ -29,7 +29,7 @@ const definition = Workflow.make('progress-test', {
   idempotencyKey: ({ id }) => id
 });
 
-test.stable(
+test.server.stable(
   'progress commits before notification and reads durable snapshots without the observer',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -106,7 +106,7 @@ test.stable(
 );
 
 for (const phase of ['preparing', 'compacting', 'generating', undefined] as const)
-  test.stable(
+  test.server.stable(
     `persists semantic phase ${phase ?? 'default'} across reconnects and failures`,
     async ({ databases, expect }) => {
       const location = await databases();

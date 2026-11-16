@@ -3,7 +3,7 @@ import { test } from '@study/testing';
 import { lintRulePaths } from '../test/utils.ts';
 
 async function lint(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.unit.Context, 'assert'>,
   files: Record<string, string>
 ) {
   const assert: test.Assert = assertions;
@@ -11,7 +11,7 @@ async function lint(
   return await lintRulePaths({ assert }, 'structured-logging', files);
 }
 
-test.stable(
+test.unit.stable(
   'centralizes effect logging and requires safe annotations',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -51,7 +51,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'the worker terminal owner can log static failures without raw causes',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

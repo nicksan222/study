@@ -24,7 +24,7 @@ const definition = Workflow.make('publication-test', {
   idempotencyKey: ({ id }) => id
 });
 
-test.stable(
+test.server.stable(
   'publication fences cancellation, supersession, retirement and escaped guards',
   async ({ databases, expect }) => {
     const location = await databases();

@@ -33,7 +33,7 @@ import { testLiveQueries } from '#testing/live-queries';
 import { withTestPublication } from '#testing/publication';
 
 function requireRow<T>(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
   value: T | null | undefined
 ): T {
   const assert: test.Assert = assertions;
@@ -55,7 +55,7 @@ const meta = {
   omissions: []
 };
 
-test.stable(
+test.server.stable(
   'source correction and replacement retain exact citations, independent authored copies and user judgments',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -87,7 +87,7 @@ test.stable(
               { type: 'text', lineStart: 0, lineEnd: 0, start: 0, end: 'A😀B original'.length }
             );
             const publish = (
-              { assert: assertions }: Pick<test.Context, 'assert'>,
+              { assert: assertions }: Pick<test.server.Context, 'assert'>,
               document: { blocks: (typeof block)[]; meta: typeof meta }
             ) => {
               const assert: test.Assert = assertions;

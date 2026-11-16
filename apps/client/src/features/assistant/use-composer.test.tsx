@@ -13,7 +13,7 @@ function Composer({ send }: { send: () => boolean }) {
   );
 }
 
-test.stable(
+test.unit.stable(
   'focuses the shared chat input only after an accepted send and respects composition and multiline input',
   async ({ vi, userEvent, render, screen, fireEvent, expect }) => {
     const send = vi.fn(() => true);

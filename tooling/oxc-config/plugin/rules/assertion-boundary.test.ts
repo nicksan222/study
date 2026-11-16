@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'rejects assertion modules and test-runner imports in production code',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -24,7 +24,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'blocks runner wrappers in production while permitting the canonical adapter and test helpers',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -47,7 +47,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'allows the public test policy only in canonical runner configuration files',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

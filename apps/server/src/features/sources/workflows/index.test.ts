@@ -62,7 +62,7 @@ function admitted(database: { readonly orm: Db['orm'] }, tag: string, id: string
   return id;
 }
 
-test.stable(
+test.server.stable(
   'native ingestion lets quick notes capture a historic exact source extraction without projections',
   async ({ databases, createAiMock, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -112,7 +112,7 @@ test.stable(
             yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
 
             function* ingest(
-              { assert: assertions }: Pick<test.Context, 'assert'>,
+              { assert: assertions }: Pick<test.server.Context, 'assert'>,
               revision: number
             ) {
               const assert: test.Assert = assertions;
@@ -262,7 +262,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'superseded requests cannot publish and a cancelled pending execution stays unpublished',
   async ({ databases, createAiMock, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -408,7 +408,7 @@ test.stable(
 );
 
 for (const input of ['attachment', 'link'] as const)
-  test.stable(
+  test.server.stable(
     `${input} PDF transcription is checkpointed and replayed after reopening SQLite`,
     async ({ databases, assert: assertions, expect }) => {
       const assert: test.Assert = assertions;
@@ -571,7 +571,7 @@ for (const input of ['attachment', 'link'] as const)
     }
   );
 
-test.stable(
+test.server.stable(
   'ingestion publishes visible HTML, delimited text and Office documents',
   async ({ databases, createAiMock, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -757,7 +757,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'link ingestion follows redirects and anchors HTML to the final URI',
   async ({ databases, assert: assertions, createAiMock }) => {
     const assert: test.Assert = assertions;
@@ -841,7 +841,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'link fetch checkpoint survives SQLite reopen without another request',
   async ({ databases, assert: assertions, createAiMock }) => {
     const assert: test.Assert = assertions;
@@ -950,7 +950,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'interrupting link ingestion closes the active HTTP request',
   async ({ databases, assert: assertions, createAiMock }) => {
     const assert: test.Assert = assertions;
@@ -1038,7 +1038,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'correction workflow publishes a new anchored document without changing history',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

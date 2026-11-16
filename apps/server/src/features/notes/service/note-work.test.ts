@@ -26,7 +26,7 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { testLiveQueries } from '#testing/live-queries';
 
-test.stable(
+test.server.stable(
   'note work RPC scopes active executions, paginates, and preserves canonical cancellation state',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

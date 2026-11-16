@@ -27,7 +27,7 @@ function Draft({ save }: { save: () => Promise<void> }) {
   );
 }
 
-test.stable.for(['english', 'italian'] as const)(
+test.unit.stable.for(['english', 'italian'] as const)(
   'live outage recovery in %s preserves drafts and portals without replaying writes',
   async (locale, { vi, rpcTestTransport, render, waitFor, expect, screen, fireEvent, act }) => {
     const health = vi.fn().mockResolvedValue(healthy);

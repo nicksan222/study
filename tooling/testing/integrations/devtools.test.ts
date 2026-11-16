@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { connectDevTools } from './devtools.ts';
 
-test.stable(
+test.unit.stable(
   'a DevTools disconnect rejects pending and future evaluations',
   async ({ expect, withinTestDeadline }) => {
     const server = Bun.serve({

@@ -51,7 +51,7 @@ function admit(context: ServerContext, tag: string, id: string) {
 }
 
 for (const kind of ['auth', 'config', 'model_unavailable'] as const)
-  test.stable(
+  test.server.stable(
     `${kind} configuration waits survive reopening and retry only when the fingerprint changes`,
     async ({ databases, assert: assertions, pollUntil }) => {
       const assert: test.Assert = assertions;
@@ -91,7 +91,7 @@ for (const kind of ['auth', 'config', 'model_unavailable'] as const)
           Layer.succeed(WorkflowConfiguration, { revision: Effect.sync(() => revision) })
         );
       const awaitStatus = (
-        { pollUntil }: Pick<test.Context, 'pollUntil'>,
+        { pollUntil }: Pick<test.server.Context, 'pollUntil'>,
         engine: WorkflowEngine.WorkflowEngine['Service'],
         expected: 'Suspended' | 'Complete'
       ) =>
@@ -180,7 +180,7 @@ for (const kind of ['auth', 'config', 'model_unavailable'] as const)
     }
   );
 
-test.stable(
+test.server.stable(
   'configuration changes during a failed call are retained, and cancelled waits never retry',
   async ({ databases, assert: assertions, pollUntil }) => {
     const assert: test.Assert = assertions;
@@ -226,7 +226,7 @@ test.stable(
         Effect.gen(function* () {
           const engine = yield* WorkflowEngine.WorkflowEngine;
           const wait = (
-            { pollUntil }: Pick<test.Context, 'pollUntil'>,
+            { pollUntil }: Pick<test.server.Context, 'pollUntil'>,
             id: string,
             expected: 'Complete' | 'Suspended'
           ) =>
@@ -284,7 +284,7 @@ test.stable(
 );
 
 for (const kind of ['invalid_input', 'transient'] as const) {
-  test.stable(
+  test.server.stable(
     `${kind} failures respect terminal classification and durable retry limits`,
     async ({ databases, pollUntil, assert: assertions }) => {
       const assert: test.Assert = assertions;
@@ -343,7 +343,7 @@ for (const kind of ['invalid_input', 'transient'] as const) {
   );
 }
 
-test.stable(
+test.server.stable(
   'configuration reasons stay correlated to their own execution in detail and lists',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -419,7 +419,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'configuration revisions cannot exceed the total activity attempt bound',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -511,7 +511,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'configuration revision changes exhaust the bounded total attempt budget',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -601,7 +601,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'local AI saturation uses durable waits without exhausting provider retry budget',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

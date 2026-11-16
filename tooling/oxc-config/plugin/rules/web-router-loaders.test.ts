@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'library and practice routes declare loading and search dependencies',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -31,7 +31,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'allows loaded routes, redirects, and pages without data requirements',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -59,7 +59,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'canonical Material browse and read routes retain loader requirements',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

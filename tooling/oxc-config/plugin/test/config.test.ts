@@ -9,7 +9,7 @@ const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
 // These fixtures exercise other policies; keep their module purposes documented.
 const lintFiles: typeof lintSources = async (
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.unit.Context, 'assert'>,
   files,
   ...options
 ) => {
@@ -24,7 +24,7 @@ const lintFiles: typeof lintSources = async (
   );
 };
 
-test.stable(
+test.unit.stable(
   'whole import type remains enforced by built-in rules without a boundary false positive',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -43,7 +43,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'server cross-directory imports use package aliases and sibling imports stay legal',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -67,7 +67,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'Bun resolves package roots and explicit testing facets',
   ({ spawnTestProcessSync, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -103,7 +103,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'server tests reject Node mock imports and context mocking through built-in rules',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -113,7 +113,7 @@ test.stable(
       {
         'test/mock-context.test.ts': String.raw`import { test } from "@study/testing";
 
-test.stable("mocked method", (t) => {
+test.unit.stable("mocked method", (t) => {
   t.mock.method(Math, "random", () => 0.5);
 });`,
         'test/mock-import.ts':
@@ -125,7 +125,7 @@ test.stable("mocked method", (t) => {
 }`,
         'test/real.test.ts': String.raw`import { test } from "@study/testing";
 
-test.stable("real value", ({ onTestFinished, assert }) => {
+test.unit.stable("real value", ({ onTestFinished, assert }) => {
   onTestFinished(() => {});
   assert.strictEqual(Math.max(1, 2), 2);
 });`
@@ -149,7 +149,7 @@ test.stable("real value", ({ onTestFinished, assert }) => {
   }
 );
 
-test.stable(
+test.unit.stable(
   'server tests reject Vitest and Jest mocking imports',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -180,7 +180,7 @@ test.stable(
   }
 );
 
-test.stable('production config loads the Study plugin', async ({ assert: assertions }) => {
+test.unit.stable('production config loads the Study plugin', async ({ assert: assertions }) => {
   const assert: test.Assert = assertions;
 
   const diagnostics = await lintFiles(
@@ -198,38 +198,44 @@ test.stable('production config loads the Study plugin', async ({ assert: asserti
   );
 });
 
-test.stable('production config enforces package boundaries', async ({ assert: assertions }) => {
-  const assert: test.Assert = assertions;
+test.unit.stable(
+  'production config enforces package boundaries',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  const diagnostics = await lintFiles(
-    { assert },
-    {
-      'src/package-smoke.ts': "import '@study/ui';\n"
-    }
-  );
+    const diagnostics = await lintFiles(
+      { assert },
+      {
+        'src/package-smoke.ts': "import '@study/ui';\n"
+      }
+    );
 
-  assert.ok(
-    diagnostics.some(
-      ({ code, filename }) =>
-        code === 'study(package-boundary)' && filename.endsWith('/src/package-smoke.ts')
-    )
-  );
-});
+    assert.ok(
+      diagnostics.some(
+        ({ code, filename }) =>
+          code === 'study(package-boundary)' && filename.endsWith('/src/package-smoke.ts')
+      )
+    );
+  }
+);
 
-test.stable('production config enforces database ownership', async ({ assert: assertions }) => {
-  const assert: test.Assert = assertions;
+test.unit.stable(
+  'production config enforces database ownership',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  const diagnostics = await lintFiles(
-    { assert },
-    {
-      'src/database-smoke.ts': "import { DatabaseSync } from 'node:sqlite';\n"
-    }
-  );
+    const diagnostics = await lintFiles(
+      { assert },
+      {
+        'src/database-smoke.ts': "import { DatabaseSync } from 'node:sqlite';\n"
+      }
+    );
 
-  assert.ok(diagnostics.some(({ code }) => code === 'study(database-ownership)'));
-});
+    assert.ok(diagnostics.some(({ code }) => code === 'study(database-ownership)'));
+  }
+);
 
-test.stable(
+test.unit.stable(
   'production config rejects direct Drizzle imports outside the database package',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -245,7 +251,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'future contracts subpaths are checked against explicit manifest exports',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -267,7 +273,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'production config enables feature orchestration, native clock and metric cardinality',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -290,7 +296,7 @@ Metric.withAttributes({ requestId: "id" });`
   }
 );
 
-test.stable(
+test.unit.stable(
   'Vitest expectations accept a diagnostic message and reject a third argument',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -299,7 +305,7 @@ test.stable(
       { assert },
       {
         'src/shared/message.test.ts': String.raw`import { test } from "@study/testing";
-test.stable("message", ({ expect }) => {
+test.unit.stable("message", ({ expect }) => {
   expect(1, "context").toBe(1);
 });`
       }
@@ -310,7 +316,7 @@ test.stable("message", ({ expect }) => {
       { assert },
       {
         'src/shared/message.test.ts': String.raw`import { test } from "@study/testing";
-test.stable("message", ({ expect }) => {
+test.unit.stable("message", ({ expect }) => {
   expect(1, "context", "extra").toBe(1);
 });`
       }

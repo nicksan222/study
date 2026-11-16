@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'shared UI components reject local style props but native wrappers and type imports remain legal',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -24,7 +24,7 @@ export const view = <div className="layout"><Control className="p-2" /><Shell.He
   }
 );
 
-test.stable(
+test.unit.stable(
   'computed literal style props cannot bypass shared UI variants',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

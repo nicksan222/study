@@ -19,7 +19,7 @@ let AiWritingSettings: typeof __StudyMockType0.AiWritingSettings;
 
 let WritingSettings: typeof __StudyMockType0.WritingSettings;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   api = createApi(mock);
   mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
   const __studyMockModule0 = await import('./workspace-settings');
@@ -28,7 +28,7 @@ test.beforeEach(async ({ mock }) => {
   WritingSettings = __studyMockModule0.WritingSettings;
 });
 
-test.beforeEach(({ vi }) => {
+test.unit.beforeEach(({ vi }) => {
   vi.clearAllMocks();
   api.read.mockResolvedValue(defaultWorkspacePreferences);
   api.strategies.mockResolvedValue([
@@ -37,7 +37,7 @@ test.beforeEach(({ vi }) => {
 });
 
 function mount(
-  { rpcTestTransport, render }: Pick<test.Context, 'rpcTestTransport' | 'render'>,
+  { rpcTestTransport, render }: Pick<test.unit.Context, 'rpcTestTransport' | 'render'>,
   ai = false
 ) {
   const fixture = rpcTestTransport(async (tag, input) => {
@@ -64,7 +64,7 @@ function mount(
   return fixture;
 }
 
-test.stable(
+test.unit.stable(
   'retains a rejected numeric draft through recovery and retries the exact value',
   async ({
     screen,
@@ -110,7 +110,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'saves a switch and reflects the confirmed persisted value',
   async ({ screen, expect, fireEvent, waitFor, rpcTestTransport, render }) => {
     api.save.mockImplementation(async (value) => {
@@ -131,7 +131,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps automatic answers opt-in and persists the confirmed preference',
   async ({ screen, expect, fireEvent, waitFor, rpcTestTransport, render }) => {
     api.save.mockImplementation(async (value) => {
@@ -154,7 +154,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'offers manual conversion by default and discovers the available method',
   async ({ expect, screen, rpcTestTransport, render }) => {
     mount({ rpcTestTransport, render }, true);
@@ -165,7 +165,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'persists automatic conversion only after an explicit mode selection',
   async ({ userEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     api.save.mockImplementation(async (value) => {
@@ -192,7 +192,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'replaces an unavailable saved strategy even when only one method is available',
   async ({ userEvent, expect, screen, waitFor, rpcTestTransport, render }) => {
     api.read.mockResolvedValue({
@@ -225,7 +225,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'recovers strategy discovery through its retry action',
   async ({ userEvent, expect, screen, rpcTestTransport, render }) => {
     api.strategies.mockRejectedValueOnce(new Error('Disconnected'));

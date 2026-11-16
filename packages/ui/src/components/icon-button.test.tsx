@@ -3,7 +3,7 @@ import { test } from '@study/testing';
 import { IconButton } from './icon-button';
 import { TooltipProvider } from './tooltip';
 
-test.stable(
+test.unit.stable(
   'keeps disabled action help reachable without enabling its action',
   async ({ vi, userEvent, render, screen, expect }) => {
     const activate = vi.fn();

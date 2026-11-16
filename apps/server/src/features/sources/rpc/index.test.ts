@@ -25,7 +25,7 @@ import { testLiveQueries } from '#testing/live-queries';
 
 import { SourcesRpcLive } from './index.ts';
 
-test.stable(
+test.server.stable(
   'RPC handlers use the source service and return canonical failures',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

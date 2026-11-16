@@ -11,7 +11,7 @@ let authoredPage: typeof __MockType0.authoredPage;
 
 let EvidenceDetails: typeof __MockType1.EvidenceDetails;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   mock('#client/features/source-library/input-link', () => ({
     CapturedInputLink: ({ name }: { name: string }) => <span>{name}</span>
   }));
@@ -23,7 +23,7 @@ test.beforeEach(async ({ mock }) => {
   EvidenceDetails = __mockModule1.EvidenceDetails;
 });
 
-test.stable.for([false, true])(
+test.unit.stable.for([false, true])(
   'shows unavailable message evidence with citations: %s',
   async (cited, { rpcHandlersTransport, render, userEvent, screen, expect }) => {
     const document = authoredPage(41n, 'An answer', 101n);
@@ -66,7 +66,7 @@ test.stable.for([false, true])(
   }
 );
 
-test.stable.for([
+test.unit.stable.for([
   ['assessed', 'contradicts', catalogs.english.PageContradicts, catalogs.english.PageUserAssessed],
   ['stale', 'uncertain', catalogs.english.PageUncertain, catalogs.english.PageStale],
   ['unavailable', 'supports', catalogs.english.PageSupports, catalogs.english.ReaderUnavailable]

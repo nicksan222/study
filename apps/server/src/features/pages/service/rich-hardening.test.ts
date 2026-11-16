@@ -39,7 +39,7 @@ const meta = {
 const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] });
 
-test.stable(
+test.server.stable(
   'a retained separator-only learning request cannot retry after reopen or emit new work',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -141,7 +141,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'invalid rich input rolls back and retained conflict drafts reject canonical projection and payload corruption after reopen',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -254,7 +254,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'authored image replacement and body retirement release only owned roots while independent copies retain exact bytes',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

@@ -4,13 +4,13 @@ import { LanguageProvider } from '#client/lib/i18n.tsx';
 
 import { UsageSettings } from './index';
 
-function createRequest({ vi }: Pick<test.Context, 'vi'>) {
+function createRequest({ vi }: Pick<test.unit.Context, 'vi'>) {
   return vi.fn();
 }
 
 let request: ReturnType<typeof createRequest>;
 
-test.beforeEach(({ vi }) => {
+test.unit.beforeEach(({ vi }) => {
   request = createRequest({ vi });
 });
 
@@ -25,7 +25,7 @@ const totals = {
   incomplete: 0
 };
 
-test.stable(
+test.unit.stable(
   'shows reported totals, switches breakdowns and refreshes the selected time range',
   async ({ vi, rpcTestTransport, userEvent, render, expect, screen, waitFor }) => {
     const call = vi.mocked(request).mockResolvedValue({
@@ -63,7 +63,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'explains empty history in Italian without presenting invented usage',
   async ({ vi, rpcTestTransport, render, expect, screen }) => {
     vi.mocked(request).mockResolvedValue({

@@ -23,7 +23,7 @@ import { Database } from '#server/platform/database/database';
 
 import { Learning } from './index.ts';
 
-test.stable(
+test.server.stable(
   'matching saves associations, hides mappings, grades each pair and rejects foreign permutations',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

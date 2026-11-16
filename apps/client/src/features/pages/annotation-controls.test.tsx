@@ -33,7 +33,7 @@ const annotation = Schema.decodeUnknownSync(annotationSchema)({
 
 const target = annotation.target;
 
-function createRpc({ vi }: Pick<test.Context, 'vi'>) {
+function createRpc({ vi }: Pick<test.unit.Context, 'vi'>) {
   return {
     'pages.annotation': vi.fn(),
     'pages.reviseAnnotation': vi.fn(),
@@ -45,7 +45,7 @@ function createRpc({ vi }: Pick<test.Context, 'vi'>) {
 
 let rpc: ReturnType<typeof createRpc>;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
   const __mockModule0 = await import('./annotation-controls');
 
@@ -58,7 +58,7 @@ test.beforeEach(async ({ mock }) => {
   savedDraft = __mockModule2.savedDraft;
 });
 
-test.beforeEach(({ vi }) => {
+test.unit.beforeEach(({ vi }) => {
   rpc = createRpc({ vi });
   vi.clearAllMocks();
   rpc['pages.versions'].mockResolvedValue({ items: [], nextCursor: null });
@@ -70,7 +70,7 @@ test.beforeEach(({ vi }) => {
 function mount({
   rpcHandlersTransport,
   render
-}: Pick<test.Context, 'rpcHandlersTransport' | 'render'>) {
+}: Pick<test.unit.Context, 'rpcHandlersTransport' | 'render'>) {
   const harness = rpcHandlersTransport(rpc);
   let registry: AtomRegistry.AtomRegistry | undefined;
   const wrapper = ({ children }: { children: ReactNode }) => (
@@ -102,7 +102,7 @@ function mount({
   };
 }
 
-test.stable(
+test.unit.stable(
   'does not erase a newer draft when an older save completes',
   async ({ userEvent, screen, act, expect, rpcHandlersTransport, render }) => {
     let finish!: (value: unknown) => void;
@@ -137,7 +137,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains edits on conflict and requires explicit adoption before using the new revision',
   async ({ userEvent, screen, expect, rpcHandlersTransport, render }) => {
     rpc['pages.reviseAnnotation'].mockResolvedValue({
@@ -158,7 +158,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains drafts across caller remount and isolates another connection registry',
   async ({ userEvent, screen, expect, rpcHandlersTransport, render }) => {
     const user = userEvent.setup();
@@ -175,7 +175,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'blocks uncertain writes until a successful canonical revision refresh',
   async ({ userEvent, screen, expect, waitFor, rpcHandlersTransport, render }) => {
     rpc['pages.reviseAnnotation'].mockRejectedValue(new StudyError('transient', 'lost'));
@@ -192,24 +192,27 @@ test.stable(
   }
 );
 
-test.stable('keeps unsaved note edits while acknowledging reanchor or delete', ({ expect }) => {
-  const draft = {
-    current: annotation,
-    generation: 2,
-    note: 'Unsaved',
-    kind: 'note' as const,
-    pending: true,
-    uncertain: false
-  };
+test.unit.stable(
+  'keeps unsaved note edits while acknowledging reanchor or delete',
+  ({ expect }) => {
+    const draft = {
+      current: annotation,
+      generation: 2,
+      note: 'Unsaved',
+      kind: 'note' as const,
+      pending: true,
+      uncertain: false
+    };
 
-  expect(savedDraft(draft, -1, { ...annotation, revision: 2n })).toMatchObject({
-    note: 'Unsaved',
-    pending: false,
-    current: { revision: 2n }
-  });
-});
+    expect(savedDraft(draft, -1, { ...annotation, revision: 2n })).toMatchObject({
+      note: 'Unsaved',
+      pending: false,
+      current: { revision: 2n }
+    });
+  }
+);
 
-test.stable(
+test.unit.stable(
   'deletes only after confirmation and keeps paginated deleted revisions accessible',
   async ({ userEvent, expect, screen, within, waitFor, rpcHandlersTransport, render }) => {
     const deleted = { ...annotation, revision: 2n, deleted: true, operation: 'delete' };
@@ -258,7 +261,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'commits the previewed exact target with the expected revision without saving unrelated note edits',
   async ({ userEvent, screen, act, waitFor, expect, rpcHandlersTransport, render }) => {
     const user = userEvent.setup();
@@ -288,7 +291,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'saving note content preserves an independently selected reanchor target',
   ({ expect }) => {
     const next = { ...target, range: { ...target.range, start: 1, end: 3 } };

@@ -6,7 +6,7 @@ import { Effect } from 'effect';
 
 import { seedDatabase } from './seed.ts';
 
-test.stable(
+test.server.stable(
   'seeded coursework opens through the real application RPC without workers or external requests',
   async ({ databases, resources, expect }) => {
     const location = await databases();

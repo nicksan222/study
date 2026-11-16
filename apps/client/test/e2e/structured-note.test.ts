@@ -27,7 +27,7 @@ const original = [
   '## Conclusion\nEND-OF-LECTURE: retain every observation and its original order.'
 ].join('\n\n');
 
-test.stable(
+test.browser.stable(
   'Structured lecture notes preserve edits and readable layout',
   async ({ page, expectScreenshot, expect }) => {
     await page.goto('/notes');
@@ -44,7 +44,10 @@ test.stable(
     const scrollHost = page.locator('[data-notebook-scroll-host]');
 
     // Plain notes have one text node: geometry tracks its position; captures show the visible lines.
-    const fullyVisible = async ({ expect }: Pick<test.Context, 'expect'>, target: Locator) => {
+    const fullyVisible = async (
+      { expect }: Pick<test.browser.Context, 'expect'>,
+      target: Locator
+    ) => {
       await expect(target).toBeInViewport({ ratio: 1 });
       await expect
         .poll(async () => {

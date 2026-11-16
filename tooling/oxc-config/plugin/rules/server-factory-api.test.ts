@@ -4,7 +4,7 @@ import { lintFiles } from '../test/utils.ts';
 
 const store = "import * as api from '#server/platform/definitions/define-store';";
 
-test.stable(
+test.unit.stable(
   'RPC exports require canonical imported factories including aliases and nested paths',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -29,7 +29,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'workflow exports require canonical definitions and registrations',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -58,7 +58,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'store operations require the correct canonical branded descriptor constructor',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -78,7 +78,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'services reject raw Database and obsolete imported store bindings without property bans',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -105,24 +105,27 @@ test.stable(
   }
 );
 
-test.stable('transaction aliases reject asynchronous callbacks', async ({ assert: assertions }) => {
-  const assert: test.Assert = assertions;
+test.unit.stable(
+  'transaction aliases reject asynchronous callbacks',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  const results = await lintFiles(
-    { assert },
-    {
-      'src/features/a/service/index.ts': `${store} const {transaction: run} = api; run(async tx => tx.store(Store));`,
-      'src/features/b/service/index.ts': `${store} const ns = api; const run = ns.publicationTransaction; run(tx => fetch('url'));`,
-      'src/features/c/service/index.ts':
-        'function transaction(fn) { return fn(); } transaction(async () => fetch("url"));'
-    },
-    'synchronous-transactions'
-  );
+    const results = await lintFiles(
+      { assert },
+      {
+        'src/features/a/service/index.ts': `${store} const {transaction: run} = api; run(async tx => tx.store(Store));`,
+        'src/features/b/service/index.ts': `${store} const ns = api; const run = ns.publicationTransaction; run(tx => fetch('url'));`,
+        'src/features/c/service/index.ts':
+          'function transaction(fn) { return fn(); } transaction(async () => fetch("url"));'
+      },
+      'synchronous-transactions'
+    );
 
-  assert.strictEqual(results.length, 1);
-});
+    assert.strictEqual(results.length, 1);
+  }
+);
 
-test.stable(
+test.unit.stable(
   'publication transaction aliases cannot perform I/O',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -142,7 +145,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'native feature conversion stays behind canonical factories',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -165,7 +168,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'backend useStore is not a React hook and frontend hook rules stay enforced',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -189,7 +192,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'canonical bindings resist fake modules, type imports, cyclic aliases and nested namespace destructuring',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -224,7 +227,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'Database namespace reads and default store imports retain precise boundaries',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -250,7 +253,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'local native conversion aliases cannot bypass factories while shadowed imports stay unrelated',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -274,7 +277,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'unregistered workflow factories cannot publish an alternate registration API',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -300,7 +303,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'spreading query descriptors cannot bypass required literal roles',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -317,7 +320,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'nested store destructuring enforces obsolete bindings without trusting shadows or type imports',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -342,7 +345,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'const aliases preserve local destructured native conversion provenance and cycle protection',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

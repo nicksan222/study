@@ -22,7 +22,7 @@ import { admitPending, dispatchPending } from '#server/platform/workflows/trigge
 import type { Trigger } from '#server/platform/workflows/triggers';
 
 for (const reason of ['cancelled', 'depth'] as const)
-  test.stable(
+  test.server.stable(
     `a full batch of ${reason} intent cannot starve a subsequent event`,
     async ({ databases, expect }) => {
       const location = await databases();

@@ -21,7 +21,7 @@ import { Effect } from 'effect';
 import { makeStudyClient } from '#server/client/index';
 import { serve } from '#server/runtime/index';
 
-test.stable(
+test.server.stable(
   'source workflow survives restart and makes its content discoverable',
   { timeout: 15000 },
   async ({ resources: location, assert: assertions, pollUntil }) => {
@@ -92,7 +92,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'reply workflow records a durable sign-in wait across restart',
   { timeout: 15000 },
   async ({ resources: location, pollUntil, assert: assertions }) => {

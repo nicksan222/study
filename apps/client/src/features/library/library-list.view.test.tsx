@@ -4,7 +4,7 @@ import { test } from '@study/testing';
 
 import { LibraryListView } from './library-list.view';
 
-test.stable(
+test.unit.stable(
   'renders loading and empty states from props',
   async ({ renderInRouter, expect, screen }) => {
     renderInRouter(
@@ -21,7 +21,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retries a failed load through its callback without executing transport work',
   async ({ vi, userEvent, renderInRouter, screen, expect }) => {
     const reload = vi.fn();
@@ -42,7 +42,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'replaces its loading announcement with the empty practice list after a completed load',
   ({ render, expect, screen }) => {
     const props = {

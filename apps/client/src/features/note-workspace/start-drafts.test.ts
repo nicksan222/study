@@ -11,7 +11,7 @@ import {
   startFiles
 } from './start-drafts.queries';
 
-test.stable(
+test.unit.stable(
   'reuses one draft per subject and retains independent unassigned content',
   ({ expect }) => {
     const cache = AtomRegistry.make();
@@ -33,7 +33,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'confirmation clears only submitted text and file occurrences, preserving newer work',
   ({ expect }) => {
     const cache = AtomRegistry.make();

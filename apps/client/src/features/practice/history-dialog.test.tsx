@@ -92,7 +92,7 @@ function mount(
     vi,
     render,
     rpcHandlersTransport
-  }: Pick<test.Context, 'vi' | 'render' | 'rpcHandlersTransport'>,
+  }: Pick<test.unit.Context, 'vi' | 'render' | 'rpcHandlersTransport'>,
   empty = false,
   italian = false
 ) {
@@ -150,8 +150,8 @@ function mount(
 }
 
 async function openHistory(
-  { screen }: Pick<test.Context, 'screen'>,
-  user: ReturnType<test.Context['userEvent']['setup']>,
+  { screen }: Pick<test.unit.Context, 'screen'>,
+  user: ReturnType<test.unit.Context['userEvent']['setup']>,
   italian = false
 ) {
   const copy = italian ? catalogs.italian : en;
@@ -162,7 +162,7 @@ async function openHistory(
   return screen.findByRole('dialog', { name: copy.PracticeAttempts });
 }
 
-test.stable(
+test.unit.stable(
   'automatically previews saved answers and resumes the same attempt without creating or changing one',
   async ({ userEvent, expect, within, waitFor, vi, screen, render, rpcHandlersTransport }) => {
     const { rpc, router } = mount({ vi, render, rpcHandlersTransport });
@@ -193,7 +193,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'searches statuses and automatically renders completed attempts with the existing results view',
   async ({ userEvent, within, expect, vi, screen, render, rpcHandlersTransport }) => {
     const { rpc } = mount({ vi, render, rpcHandlersTransport });
@@ -228,7 +228,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shows the shared empty state when no attempts exist without requesting an attempt',
   async ({ userEvent, expect, within, vi, screen, render, rpcHandlersTransport }) => {
     const { rpc } = mount({ vi, render, rpcHandlersTransport }, true);
@@ -241,7 +241,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'saved true or false history uses localized radio controls',
   async ({ userEvent, expect, within, vi, screen, render, rpcHandlersTransport }) => {
     const { rpc } = mount({ vi, render, rpcHandlersTransport });
@@ -272,7 +272,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'saved true or false history uses Italian radio controls',
   async ({ userEvent, expect, within, vi, screen, render, rpcHandlersTransport }) => {
     const { rpc } = mount({ vi, render, rpcHandlersTransport }, false, true);

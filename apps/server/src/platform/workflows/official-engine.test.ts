@@ -22,7 +22,7 @@ import { Activity, DurableClock, DurableDeferred, Workflow } from 'effect/workfl
 
 import { crashLayer, crashWorkflow } from '#testing/official-crash-runner';
 
-test.stable(
+test.server.stable(
   'official SQL engine preserves accepted work, activity replies and durable waits across restart',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -120,7 +120,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'official interruption persists across reopening and does not run a cancelled activity',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -183,7 +183,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'SIGKILL after official acceptance before receipt acknowledgment safely redelivers without repeating persisted activity',
   async ({ databases, spawnTestProcess, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -232,7 +232,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'official SQL writer and domain writer contend on the same SQLite file and release transaction locks',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

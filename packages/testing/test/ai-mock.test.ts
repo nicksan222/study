@@ -11,12 +11,12 @@ const agent = {
 const tool = { input: Schema.Struct({ id: Schema.Int }), output: Schema.String };
 
 const resolveModel = (
-  mock: ReturnType<test.Context['createAiMock']>,
+  mock: ReturnType<test.unit.Context['createAiMock']>,
   definition: typeof agent,
   input = { text: 'one' }
 ) => Effect.runPromise(mock.runtime.model('tiny', { definition, input }));
 
-test.stable(
+test.unit.stable(
   'agent definitions infer and validate exact one-shot inputs and outputs',
   async ({ createAiMock, expect }) => {
     const mock = createAiMock();
@@ -38,7 +38,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'schema violations are rejected before registering an expectation',
   ({ createAiMock, expect }) => {
     const mock = createAiMock();
@@ -57,7 +57,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'input mismatch cannot consume a later expectation or disappear from verification',
   async ({ createAiMock, expect }) => {
     const mock = createAiMock();
@@ -76,7 +76,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'concurrent calls consume separate plans and each held call has its own gate',
   async ({ createAiMock, expect }) => {
     const mock = createAiMock();
@@ -98,7 +98,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'cancelled provider calls settle their expectation without returning a success',
   async ({ createAiMock, expect }) => {
     const mock = createAiMock();
@@ -118,7 +118,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'tool mocks return decoded schema values and never invoke an actual tool',
   async ({ createAiMock, expect }) => {
     const mock = createAiMock();
@@ -156,7 +156,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'Effect interruption cancels a held tool expectation without executing its thunk',
   async ({ createAiMock, expect }) => {
     const mock = createAiMock();
@@ -180,7 +180,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'same agent id with distinct contracts stays isolated while prompt clones keep identity',
   async ({ createAiMock, expect }) => {
     const mock = createAiMock();
@@ -205,7 +205,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'bigint agent outputs cross the JSON codec boundary and stream through model events',
   async ({ createAiMock, expect }) => {
     const mock = createAiMock();
@@ -230,7 +230,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'one explicit failure preserves the supplied error and later success needs a new plan',
   async ({ createAiMock, expect }) => {
     const mock = createAiMock();
@@ -254,14 +254,17 @@ test.stable(
   }
 );
 
-test.stable('using scopes verify unused expectations automatically', ({ expect, createAiMock }) => {
-  expect(() => {
-    using mock = createAiMock();
+test.unit.stable(
+  'using scopes verify unused expectations automatically',
+  ({ expect, createAiMock }) => {
+    expect(() => {
+      using mock = createAiMock();
 
-    mock.next(agent, { input: { text: 'one' }, output: { count: 1 } });
-  }).toThrow('AI mock verification failed');
+      mock.next(agent, { input: { text: 'one' }, output: { count: 1 } });
+    }).toThrow('AI mock verification failed');
 
-  using empty = createAiMock();
+    using empty = createAiMock();
 
-  empty.verify();
-});
+    empty.verify();
+  }
+);

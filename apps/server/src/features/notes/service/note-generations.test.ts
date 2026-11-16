@@ -24,7 +24,7 @@ import { deletionDocument } from '#testing/material-deletion';
 import { cleanup } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
-test.stable(
+test.server.stable(
   'note generation RPC discovers bounded exact requests across reopen, cancellation and note retirement',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

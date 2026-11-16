@@ -5,7 +5,7 @@ import { Schema } from 'effect';
 
 import { usePageBrowse } from './use-page-browse';
 
-test.stable(
+test.unit.stable(
   'changing the page browser owner discards a slower previous-owner snapshot',
   async ({ vi, rpcHandlersTransport, renderHook, waitFor, expect, act }) => {
     const first = projectIdSchema.make(1n);

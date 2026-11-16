@@ -10,7 +10,7 @@ let dataOwner: typeof __StudyMockType0.dataOwner;
 
 let BackupNotifications: typeof __StudyMockType1.BackupNotifications;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
   mock('@study/contracts/react', () => ({
     rpc: {
@@ -31,7 +31,7 @@ test.beforeEach(async ({ mock }) => {
   BackupNotifications = __studyMockModule1.BackupNotifications;
 });
 
-test.stable(
+test.unit.stable(
   'announces only the confirmed operation and does not replay it on later discovery',
   async ({ vi, render, act, waitFor, expect }) => {
     const registry = AtomRegistry.make();

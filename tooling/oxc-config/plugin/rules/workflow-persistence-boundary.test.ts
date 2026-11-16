@@ -3,7 +3,7 @@ import { test } from '@study/testing';
 import { lintRule, lintRulePaths } from '../test/utils.ts';
 
 async function lint(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.unit.Context, 'assert'>,
   files: Record<string, string>
 ) {
   const assert: test.Assert = assertions;
@@ -19,7 +19,7 @@ ${source}`
   return await lintRulePaths({ assert }, 'workflow-persistence-boundary', sources);
 }
 
-test.stable(
+test.unit.stable(
   'only progress persistence and retirement cleanup may write generation previews',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -50,7 +50,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'restricts workflow table mutations to their exact owners while allowing reads',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -93,7 +93,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'resolves imported tables through aliases, destructuring, wrappers and lexical scopes',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -117,7 +117,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'recognizes raw SQL writes without treating reads or values as mutations',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -147,7 +147,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'each protected table is restricted to its mapped owners',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -181,7 +181,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'unrelated APIs and SQL identifiers are not workflow writers',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -209,7 +209,7 @@ for (const identifier of ['constructor', '__proto__', 'ordinary']) {
     `WITH ${identifier} AS (SELECT 1) DELETE FROM workflow_events WHERE id = 1`,
     `SELECT ${identifier} FROM ordinary; DELETE FROM workflow_events WHERE id = 1`
   ]) {
-    test.stable(
+    test.unit.stable(
       `detects protected SQL writes after ${statement}`,
       async ({ expect, assert: assertions }) => {
         const assert: test.Assert = assertions;
@@ -228,7 +228,7 @@ db.execute(${JSON.stringify(statement)});`
   }
 }
 
-test.stable(
+test.unit.stable(
   'retirement may write its fences but progress and event mutations retain existing canonical owners',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -268,7 +268,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'Material cleanup cannot acquire domain execution, progress, event or fence writer authority',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -297,7 +297,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'history participants cannot mutate domain payloads, progress, waits or fences',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -334,7 +334,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'snapshot sanitizers cannot clear native payloads or receipts outside the canonical workflow owners',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -362,7 +362,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'official SQL infrastructure has no first-party schema or writer owner',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -404,7 +404,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'checks trigger body writes and created schema object names',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

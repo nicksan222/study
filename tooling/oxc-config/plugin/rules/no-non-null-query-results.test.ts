@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'rejects non-null assertions on missing query results',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -20,7 +20,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'no-non-null-query-results handles aliases and avoids unrelated bindings',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -36,7 +36,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'missing rows cannot be asserted into required query results',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

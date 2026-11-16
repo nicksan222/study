@@ -52,7 +52,7 @@ const document = (blocks: Block[]) => ({
 const json = (value: unknown) =>
   JSON.stringify(value, (_, item: unknown) => (typeof item === 'bigint' ? String(item) : item));
 
-function providerPrompt({ assert: assertions }: Pick<test.Context, 'assert'>, body: string) {
+function providerPrompt({ assert: assertions }: Pick<test.server.Context, 'assert'>, body: string) {
   const assert: test.Assert = assertions;
 
   const request = JSON.parse(body);
@@ -113,7 +113,7 @@ function capturedBlockIds(capture: CapturedContext, selectedId: Block['id']) {
 }
 
 function assertProviderCapture(
-  { expect, assert: assertions }: Pick<test.Context, 'expect' | 'assert'>,
+  { expect, assert: assertions }: Pick<test.server.Context, 'expect' | 'assert'>,
   { captured, instructions }: ReturnType<typeof providerPrompt>,
   capture: CapturedContext,
   input: CapturedContext['inputs'][number] | undefined
@@ -158,7 +158,7 @@ function assertProviderCapture(
 }
 
 function assertGeneratedIdentity(
-  { assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>,
+  { assert: assertions, expect }: Pick<test.server.Context, 'assert' | 'expect'>,
   value: {
     versionId: PageVersionId;
     requestId: string;
@@ -213,7 +213,7 @@ function assertGeneratedIdentity(
   });
 }
 
-test.stable(
+test.server.stable(
   'A-target, B-target and no-target requests discriminate exact rich captures and preserve only target IDs',
   { timeout: 20000 },
   async ({ databases, assert: assertions, expect }) => {
@@ -460,7 +460,7 @@ test.stable(
 );
 
 for (const barrier of ['cancel', 'delete'] as const) {
-  test.stable(
+  test.server.stable(
     `target proposal ${barrier} during the native output Activity fences all late publication`,
     { timeout: 15000 },
     async ({ databases, assert: assertions, expect }) => {

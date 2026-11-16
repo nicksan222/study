@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'no-error-message-matching guards production and accepts safe alternatives',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -20,7 +20,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'no-error-message-matching handles aliases and avoids unrelated bindings',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -41,7 +41,7 @@ function nested(error) { if (error.message.includes('x')) run();
   }
 );
 
-test.stable(
+test.unit.stable(
   'collection ambiguity and missing receipts branch on typed kinds',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

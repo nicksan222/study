@@ -16,7 +16,7 @@ let api: ReturnType<typeof createApi>;
 
 let AgentRulesSettings: typeof __StudyMockType0.AgentRulesSettings;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   api = createApi(mock);
   mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
   const __studyMockModule0 = await import('./agent-rules');
@@ -24,13 +24,16 @@ test.beforeEach(async ({ mock }) => {
   AgentRulesSettings = __studyMockModule0.AgentRulesSettings;
 });
 
-test.beforeEach(({ vi }) => {
+test.unit.beforeEach(({ vi }) => {
   vi.clearAllMocks();
   api.read.mockResolvedValue(defaultAgentRules);
   api.save.mockResolvedValue({});
 });
 
-function mount({ rpcTestTransport, render }: Pick<test.Context, 'rpcTestTransport' | 'render'>) {
+function mount({
+  rpcTestTransport,
+  render
+}: Pick<test.unit.Context, 'rpcTestTransport' | 'render'>) {
   const fixture = rpcTestTransport(async (tag, input) => {
     if (tag === 'settings.agentRules') return api.read();
 
@@ -53,7 +56,7 @@ function mount({ rpcTestTransport, render }: Pick<test.Context, 'rpcTestTranspor
   return fixture;
 }
 
-test.stable(
+test.unit.stable(
   'keeps drafts when switching tasks and saves all categories explicitly',
   async ({ userEvent, screen, expect, fireEvent, waitFor, rpcTestTransport, render }) => {
     mount({ rpcTestTransport, render });
@@ -88,7 +91,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'preserves unsaved text after failure and retries the same change',
   async ({ screen, fireEvent, expect, rpcTestTransport, render }) => {
     api.save.mockRejectedValueOnce(new Error('Unavailable'));
@@ -104,7 +107,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shows a recoverable load failure without editable defaults',
   async ({ expect, screen, fireEvent, rpcTestTransport, render }) => {
     api.read.mockRejectedValueOnce(new Error('Unavailable'));

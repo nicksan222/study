@@ -2,7 +2,7 @@ import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 import { Option } from 'effect';
 
-test.stable(
+test.unit.stable(
   'redirects Home to the note starter with the selected project',
   async ({ page, rpc, waitFor, expect }) => {
     rpc.given({ 'projects.findProject': Option.none() });
@@ -13,7 +13,7 @@ test.stable(
   }
 );
 
-test.stable.for(['english', 'italian'] as const)(
+test.unit.stable.for(['english', 'italian'] as const)(
   'opens the note composer immediately in %s',
   async (locale, { page, expect, screen, within }) => {
     await page.open('/notes', { locale });

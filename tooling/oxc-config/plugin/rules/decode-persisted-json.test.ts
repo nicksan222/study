@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'requires persisted JSON to be schema-decoded before use',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -19,7 +19,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'decode-persisted-json handles aliases and avoids unrelated bindings',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -35,19 +35,22 @@ test.stable(
   }
 );
 
-test.stable('decode-persisted-json covers direct unsafe forms', async ({ assert: assertions }) => {
-  const assert: test.Assert = assertions;
+test.unit.stable(
+  'decode-persisted-json covers direct unsafe forms',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  const diagnostics = await lintRule({ assert }, 'decode-persisted-json', {
-    'src/bad.ts': 'const domain: Body = JSON.parse(row.body);',
-    'src/good.ts': 'const raw: unknown = JSON.parse(row.body);'
-  });
+    const diagnostics = await lintRule({ assert }, 'decode-persisted-json', {
+      'src/bad.ts': 'const domain: Body = JSON.parse(row.body);',
+      'src/good.ts': 'const raw: unknown = JSON.parse(row.body);'
+    });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
-});
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+  }
+);
 
-test.stable(
+test.unit.stable(
   'rich block persistence uses the canonical codec instead of a public type assertion',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -66,7 +69,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'captured preferences and context use canonical schema codecs at persistence reads',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -86,7 +89,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'durable citation targets and transform reports use canonical codecs instead of unchecked casts',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -112,7 +115,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'annotation history and assessment payloads require canonical schema decoding',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -138,7 +141,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retired intents and native attempt metadata require codecs at typed read boundaries',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

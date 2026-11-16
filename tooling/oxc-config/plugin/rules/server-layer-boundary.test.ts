@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'RPC adapters delegate subscriptions instead of owning database capabilities',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -22,7 +22,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'store network calls follow global fetch aliases without matching shadows',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -40,7 +40,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'real SQLite tests can inspect persistence and runtime while production adapters cannot',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -56,7 +56,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'feature roles enforce private stores and public cross-feature services',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -79,7 +79,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'feature boundaries inspect aliases and loaders without confusing shadowed require',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -95,7 +95,7 @@ function f(require: (x: string) => void) { require('#server/features/source/sour
   }
 );
 
-test.stable(
+test.unit.stable(
   'feature public indexes cannot expose stores and only stores own database access',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -113,7 +113,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'feature public exports and adapters retain role boundaries',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -129,7 +129,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'plain role filenames enforce the same boundaries as suffixed filenames',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -147,7 +147,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'platform capabilities are valid service dependencies but private store type exports are not',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -165,7 +165,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'FSRS has one platform adapter rather than feature-specific copies',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -180,7 +180,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'preferences are private to settings, auth, and themes stores',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -206,7 +206,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'preferences checks respect shadows, type imports, and unrelated tables',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -228,7 +228,7 @@ const { preferences } = tables;
   }
 );
 
-test.stable(
+test.unit.stable(
   'runtime assembles feature workflows only through the dispatch and recovery registry',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -246,7 +246,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'cross-feature capture uses public synchronous participants without exposing private selection stores',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -272,7 +272,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'note transform coordinators use public participants and cannot import another feature private stores',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -297,7 +297,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'proposal coordinators compose public Materials participants instead of reaching into private stores',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -322,7 +322,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'note evidence composition consumes the public Materials participant and keeps all evidence stores private',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -350,7 +350,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'deletion coordinators compose public Materials and Workflows retirement participants',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -377,7 +377,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'Material cleanup composes public synchronous participants and cannot expose or import private retirement stores',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -408,7 +408,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'history pruning composes public participants without exposing private ownership stores',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -439,7 +439,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'backup participants are injected by runtime and feature coordinators cannot acquire runtime or foreign stores',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

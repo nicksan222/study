@@ -34,7 +34,7 @@ import { withTestAdmission } from '#testing/workflow-admission';
 
 import { noteQuestionHandler, noteQuestionWorkflow } from './question.ts';
 
-test.stable(
+test.server.stable(
   'classifier resumes persisted events and checkpoints generation; opt-out and obsolete work are safe',
   async ({ databases, createAiMock, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -47,7 +47,7 @@ test.stable(
       Layer.merge(Notes.layer, Settings.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
-    const services = ({ expect }: Pick<test.Context, 'expect'>) =>
+    const services = ({ expect }: Pick<test.server.Context, 'expect'>) =>
       Layer.mergeAll(
         domain(),
         agentsLayer({
@@ -94,7 +94,7 @@ test.stable(
         .all()
         .map((e) => decodeEvent(e.payload))
         .find((e) => e.type === 'NoteQuestionRequested' && e.messageId === id);
-    const execute = ({ expect }: Pick<test.Context, 'expect'>, raw: unknown, id: string) =>
+    const execute = ({ expect }: Pick<test.server.Context, 'expect'>, raw: unknown, id: string) =>
       Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {

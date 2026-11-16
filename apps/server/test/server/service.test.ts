@@ -18,7 +18,7 @@ import { Effect } from 'effect';
 import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
 
-test.stable(
+test.server.stable(
   'native projects and source inputs persist after reopening the real application',
   async ({ server: serverFixture, assert: assertions }) => {
     const assert: test.Assert = assertions;

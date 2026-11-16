@@ -4,7 +4,7 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message = 'Read native clocks only in platform/time; consume testable time elsewhere.';
 
-test.stable(
+test.unit.stable(
   'recognizes native clocks and aliases while permitting parsing, owner, tests and shadowing',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -35,7 +35,7 @@ function f(Date: any, performance: any) {
     );
   }
 );
-test.stable(
+test.unit.stable(
   'recognizes node clock imports and destructured clock methods',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -63,7 +63,7 @@ function f(perf: any) {
   }
 );
 
-test.stable(
+test.unit.stable(
   'Date function calls read the clock even with arguments, while shadows remain legal',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -91,7 +91,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'managed artifact timestamps use the injected native clock',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

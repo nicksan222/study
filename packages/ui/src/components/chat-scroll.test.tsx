@@ -26,7 +26,7 @@ function dimensions(host: HTMLElement, height: number) {
   Object.defineProperty(host, 'clientHeight', { configurable: true, value: 200 });
 }
 
-test.stable(
+test.unit.stable(
   'uses the workspace scroll host for reading position and the Latest action',
   async ({ render, vi, fireEvent, screen, expect }) => {
     const view = render(<Note />);
@@ -48,7 +48,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'preserves the reader position when older entries are prepended in the workspace host',
   async ({ render, fireEvent, screen, waitFor, expect }) => {
     const view = render(<Note />);

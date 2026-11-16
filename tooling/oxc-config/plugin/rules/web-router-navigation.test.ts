@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'rejects manual browser navigation and raw search decoding',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -28,7 +28,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'allows the router adapter, transport discovery and external links',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -48,7 +48,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'host environment reads do not permit navigation or leak into feature modules',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -68,7 +68,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'destructured browser aliases cannot bypass TanStack navigation',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -92,7 +92,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects hash history and nonstandard internal paths including route declarations',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -112,7 +112,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'permits browser history, kebab-case paths and parameterized route segments',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -131,7 +131,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'Home project links and collection destinations use router search rather than manual browser navigation',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -161,7 +161,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'proposal result and captured input links use typed route search for exact versions',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -199,7 +199,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'permits bound TanStack index route IDs while retaining strict actual navigation paths',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

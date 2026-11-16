@@ -20,7 +20,7 @@ import { Themes } from '#server/features/themes/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 
-test.stable(
+test.server.stable(
   'themes catalog, mutations and selection preserve transactional rules',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

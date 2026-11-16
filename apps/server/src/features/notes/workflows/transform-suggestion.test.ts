@@ -34,7 +34,7 @@ import { withTestPublication } from '#testing/publication';
 
 import { transformSuggestionRegistration } from './transform-suggestion.ts';
 
-test.stable(
+test.server.stable(
   'transform suggestions use saved combined context, tiny models, checkpoint results and reject changed evidence',
   async ({ resources: location, createAiMock, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -47,7 +47,10 @@ test.stable(
       Layer.mergeAll(Notes.layer, Settings.layer, Pages.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
-    const services = ({ assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>) => {
+    const services = ({
+      assert: assertions,
+      expect
+    }: Pick<test.server.Context, 'assert' | 'expect'>) => {
       const assert: test.Assert = assertions;
 
       return Layer.mergeAll(
@@ -117,7 +120,7 @@ test.stable(
         )
       );
       const execute = (
-        { assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>,
+        { assert: assertions, expect }: Pick<test.server.Context, 'assert' | 'expect'>,
         field: 'title' | 'instruction',
         intentKey: string,
         noteId = first.id,
@@ -241,7 +244,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'live suggestion RPC uses the worker engine and returns sign-in errors without hanging',
   async ({ rpc, assert: assertions }) => {
     const assert: test.Assert = assertions;

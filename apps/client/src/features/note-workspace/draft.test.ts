@@ -6,7 +6,7 @@ import { acceptText, prepareAsk } from './draft';
 
 const noteId = Schema.decodeUnknownSync(noteIdSchema)(9007199254740993n);
 
-test.stable(
+test.unit.stable(
   'replays the exact Ask after a transport failure even when the draft, revision and preferences change',
   ({ expect }) => {
     const original = prepareAsk(
@@ -29,7 +29,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'preserves typing that happened after submission when its receipt arrives',
   ({ expect }) => {
     const attempt = prepareAsk(
@@ -47,7 +47,7 @@ test.stable(
   }
 );
 
-test.stable('clears submitted text only after a successful receipt', ({ expect }) => {
+test.unit.stable('clears submitted text only after a successful receipt', ({ expect }) => {
   expect(
     acceptText({ text: 'Saved note', instruction: '', noteAttempt: 'Saved note' }, 'Saved note')
   ).toEqual({ text: '', instruction: '', askAttempt: undefined, noteAttempt: undefined });

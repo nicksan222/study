@@ -7,7 +7,7 @@ import type * as __StudyMockType0 from '#client/pages/settings/study/quiz-settin
 
 let QuizSettings: typeof __StudyMockType0.QuizSettings;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
   const __studyMockModule0 = await import('./quiz-settings');
 
@@ -15,7 +15,7 @@ test.beforeEach(async ({ mock }) => {
 });
 
 function mount(
-  { vi, rpcTestTransport, render }: Pick<test.Context, 'vi' | 'rpcTestTransport' | 'render'>,
+  { vi, rpcTestTransport, render }: Pick<test.unit.Context, 'vi' | 'rpcTestTransport' | 'render'>,
   kind?: 'matching'
 ) {
   const api = {
@@ -45,7 +45,7 @@ function mount(
   return { ...fixture, api };
 }
 
-test.stable(
+test.unit.stable(
   'persists quiz order while preserving count, type, and answer settings',
   async ({ screen, waitFor, expect, fireEvent, vi, rpcTestTransport, render }) => {
     const { api } = mount({ vi, rpcTestTransport, render });
@@ -78,7 +78,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains confirmed settings when saving fails and provides recovery',
   async ({ screen, waitFor, expect, fireEvent, vi, rpcTestTransport, render }) => {
     const { api } = mount({ vi, rpcTestTransport, render });
@@ -101,7 +101,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'persists new quiz choice count and difficulty in study settings',
   async ({ userEvent, screen, waitFor, expect, vi, rpcTestTransport, render }) => {
     const { api } = mount({ vi, rpcTestTransport, render });
@@ -141,7 +141,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'saves matching defaults independently of quiz defaults',
   async ({ screen, waitFor, expect, userEvent, vi, rpcTestTransport, render }) => {
     const { api } = mount({ vi, rpcTestTransport, render }, 'matching');

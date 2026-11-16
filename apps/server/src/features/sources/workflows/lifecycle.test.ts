@@ -30,14 +30,17 @@ import {
   sourceCorrectionHandler
 } from './index.ts';
 
-test.stable(
+test.server.stable(
   'native source ingestion, correction and reprocessing retain independent exact history across reopen without projections',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
 
     const f = await pageTransformFixture(databases);
     const domain = () => Learning.layer.pipe(Layer.provideMerge(f.domain()));
-    const event = ({ assert: assertions }: Pick<test.Context, 'assert'>, requestId: string) => {
+    const event = (
+      { assert: assertions }: Pick<test.server.Context, 'assert'>,
+      requestId: string
+    ) => {
       const assert: test.Assert = assertions;
 
       const row = f.context.db.orm.get(
@@ -264,7 +267,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'unsupported native extraction keeps the original bytes and creates no fake source material',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

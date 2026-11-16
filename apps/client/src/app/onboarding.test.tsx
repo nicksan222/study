@@ -13,7 +13,7 @@ let ReplayOnboarding: typeof __StudyMockType0.ReplayOnboarding;
 
 let OnboardingProvider: typeof __StudyMockType1.OnboardingProvider;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   api = createApi(mock);
   mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
   mock('#client/pages/settings/general/index.tsx', () => ({
@@ -36,12 +36,12 @@ test.beforeEach(async ({ mock }) => {
   OnboardingProvider = __studyMockModule1.OnboardingProvider;
 });
 
-test.afterEach(({ vi }) => {
+test.unit.afterEach(({ vi }) => {
   vi.resetAllMocks();
 });
 
 function mount(
-  { rpcTestTransport, render }: Pick<test.Context, 'rpcTestTransport' | 'render'>,
+  { rpcTestTransport, render }: Pick<test.unit.Context, 'rpcTestTransport' | 'render'>,
   onboarded = false,
   loadError = false
 ) {
@@ -62,7 +62,7 @@ function mount(
   );
 }
 
-test.stable(
+test.unit.stable(
   'shows first run, supports back, and saves completion before closing',
   async ({ screen, fireEvent, expect, waitFor, rpcTestTransport, render }) => {
     mount({ rpcTestTransport, render });
@@ -115,7 +115,7 @@ test.stable(
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   }
 );
-test.stable(
+test.unit.stable(
   'does not reopen completed onboarding until replay, which starts at welcome',
   async ({ screen, expect, fireEvent, waitFor, rpcTestTransport, render }) => {
     mount({ rpcTestTransport, render }, true);
@@ -131,7 +131,7 @@ test.stable(
     await screen.findByRole('heading', { name: 'OnboardingWelcomeTitle' });
   }
 );
-test.stable(
+test.unit.stable(
   'retains the flow on save failure and allows retry',
   async ({ screen, fireEvent, expect, waitFor, rpcTestTransport, render }) => {
     mount({ rpcTestTransport, render });
@@ -146,7 +146,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps first run closed when settings cannot be loaded',
   async ({ waitFor, expect, screen, rpcTestTransport, render }) => {
     mount({ rpcTestTransport, render }, false, true);

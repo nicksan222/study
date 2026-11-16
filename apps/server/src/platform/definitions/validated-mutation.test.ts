@@ -40,7 +40,7 @@ const probe = defineStore({
   })
 });
 
-test.stable(
+test.server.stable(
   'validated mutation rejects inputs and rolls back a typed store write on failure',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

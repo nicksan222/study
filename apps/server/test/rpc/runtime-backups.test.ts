@@ -43,7 +43,7 @@ const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFile
 
 const path = await Effect.runPromise(Effect.provide(Path.Path, BunPath.layer));
 
-test.stable(
+test.server.stable(
   'native RPC creates, inspects and exports a backup without changing live content',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -85,7 +85,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'backup compaction removes private auth markers from all exported bytes; restore requires fresh sign-in',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -163,7 +163,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'Materials, Pages, managed BLOBs, collections, notes and annotations roundtrip on startup',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -341,7 +341,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'corrupt checksum, unsupported schema, missing original BLOB and malformed canonical Document never touch live data',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -408,7 +408,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'acceptance is exact and idempotent; stale target/token and overlapping backup work are rejected',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -470,7 +470,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'later deletion barriers block old backup acceptance; fresh-machine import retains existing tombstones',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -523,7 +523,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'unfinished cleanup rejects backup creation and is preserved for its owning retry',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -553,7 +553,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'staged corruption reports activation failure, preserves old target and permits an explicit retry',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -600,7 +600,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'crash after replacement reconciles to new state before workers start; captured durable intent remains available',
   { timeout: 60000 },
   async ({ task: _task, assert: assertions, expect }) => {
@@ -697,7 +697,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'artifact deletion is bounded to an opaque managed identity and never removes live or external files',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -726,7 +726,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'restored databases receive a durable revision generation before RPC acquisition',
   async ({ expect }) => {
     const fixture = await backupFixture();

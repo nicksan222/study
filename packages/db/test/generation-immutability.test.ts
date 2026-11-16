@@ -6,7 +6,7 @@ import type { Db } from '../src/index.ts';
 type Databases = () => Promise<{ open(): Promise<Db>; cleanup(): Promise<void> }>;
 
 function assertThrowsMatching(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
   run: () => unknown,
   matches: (error: unknown) => boolean
 ) {
@@ -68,7 +68,7 @@ async function fixture(databases: Databases, scoped = false, autoTitle = false) 
   };
 }
 
-test.stable(
+test.server.stable(
   'automatic titles permit bounded generated names while ordinary requests keep exact title intent',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -93,7 +93,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'automatic titles reject unbounded or blank names and malformed title intent',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -122,7 +122,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'a receipt cannot select an unrelated draft',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -141,7 +141,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'captured generation intent and ordered inputs cannot be rewritten or deleted',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -173,7 +173,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'a completed receipt stays bound to its published output and permits project deletion',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -200,7 +200,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'closed scopes fence direct publication of a valid generated draft',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -222,7 +222,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'generation publication rejects a captured input removed from its collection',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -242,7 +242,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'the first generation receipt rejects an input removed after output publication',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -266,7 +266,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'a committed generation receipt remains stable after its input leaves the collection',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -300,7 +300,7 @@ test.stable(
 );
 
 for (const stage of ['publication', 'receipt']) {
-  test.stable(
+  test.server.stable(
     `every captured input needs membership at first ${stage}, even when shared elsewhere`,
     async ({ databases, assert: assertions, expect }) => {
       const assert: test.Assert = assertions;
@@ -355,7 +355,7 @@ for (const stage of ['publication', 'receipt']) {
   );
 }
 
-test.stable(
+test.server.stable(
   'publication cannot replace a captured revision with another revision of the same member',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

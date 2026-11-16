@@ -20,7 +20,7 @@ import { Projects } from '#server/features/projects/index';
 
 import { Notes } from './index.ts';
 
-test.stable(
+test.server.stable(
   'edits preserve and renumber surviving citation evidence without changing historical versions',
   async ({ server: serverFixture, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

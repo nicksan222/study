@@ -18,7 +18,7 @@ const id = noteIdSchema.make(14n);
 
 const clients: AtomRegistry.AtomRegistry[] = [];
 
-function mount({ render }: Pick<test.Context, 'render'>, entry: Attachment) {
+function mount({ render }: Pick<test.unit.Context, 'render'>, entry: Attachment) {
   const client = AtomRegistry.make();
 
   clients.push(client);
@@ -35,7 +35,7 @@ function mount({ render }: Pick<test.Context, 'render'>, entry: Attachment) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   mock('#client/lib/i18n.tsx', () => ({
     useI18n: () => ({ t: (key: string) => key, locale: 'english' })
   }));
@@ -48,13 +48,13 @@ test.beforeEach(async ({ mock }) => {
   attachmentState = __mockModule1.attachmentState;
 });
 
-test.afterEach(({ cleanup, vi }) => {
+test.unit.afterEach(({ cleanup, vi }) => {
   cleanup();
   clients.splice(0).forEach((client) => client.dispose());
   vi.unstubAllGlobals();
 });
 
-test.stable(
+test.unit.stable(
   'keeps ready files in a separate compact tray with an accessible icon remove action',
   async ({ screen, expect, fireEvent, waitFor, render }) => {
     const file = new File(['notes'], 'A very long document filename.pdf', {
@@ -76,7 +76,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shows uploading state without offering an unsafe in-flight removal',
   ({ expect, screen, render }) => {
     mount(
@@ -88,7 +88,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps uncertain upload guidance and requires the acknowledgement action instead of retrying',
   ({ expect, screen, render }) => {
     mount(
@@ -102,7 +102,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'uses a local image preview and releases its URL when the attachment is removed',
   async ({ vi, waitFor, expect, fireEvent, screen, render }) => {
     const createObjectURL = vi.fn(() => 'blob:local-preview');
@@ -127,7 +127,7 @@ test.stable(
   }
 );
 
-test.stable.for([
+test.unit.stable.for([
   ['audio', 'audio/mpeg'],
   ['video', 'video/mp4']
 ] as const)(

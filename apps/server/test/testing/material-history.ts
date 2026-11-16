@@ -34,7 +34,7 @@ import { testLiveQueries } from '#testing/live-queries';
 import type { MaterialDeletionFixture } from '#testing/material-deletion';
 import { admitTestExecution, refreshTestExecution } from '#testing/workflow-admission';
 
-type TestAssertion = Pick<test.Context, 'assert'>['assert'];
+type TestAssertion = Pick<test.server.Context, 'assert'>['assert'];
 
 function historyEvent(f: MaterialDeletionFixture, operationId: string, assert: TestAssertion) {
   const event = f.context.db.orm

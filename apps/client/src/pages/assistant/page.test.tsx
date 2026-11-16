@@ -1,7 +1,7 @@
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 
-test.stable.for(['english', 'italian'] as const)(
+test.unit.stable.for(['english', 'italian'] as const)(
   'opens Assistant as a full page in %s',
   async (locale, { page, expect, screen }) => {
     await page.open('/assistant', { locale });
@@ -20,7 +20,7 @@ test.stable.for(['english', 'italian'] as const)(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps Assistant drafts across page navigation',
   async ({ page, userEvent, screen, waitFor, expect, act }) => {
     const { router } = await page.open('/assistant');

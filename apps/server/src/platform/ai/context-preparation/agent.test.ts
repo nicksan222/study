@@ -93,7 +93,7 @@ const preparationDefinition = {
 
 const preparation = defineContextPreparation(preparationDefinition);
 
-function contextTypeContracts({ expectTypeOf }: Pick<test.Context, 'expectTypeOf'>) {
+function contextTypeContracts({ expectTypeOf }: Pick<test.server.Context, 'expectTypeOf'>) {
   const definition = { ...replyAgent, context: preparation };
 
   // @ts-expect-error A context-consuming agent cannot omit its captured inputs and ownership checks.
@@ -108,7 +108,7 @@ function contextTypeContracts({ expectTypeOf }: Pick<test.Context, 'expectTypeOf
 
 void contextTypeContracts;
 
-test.stable(
+test.server.stable(
   'invalid invocation limits reject before any preparation model work',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -148,7 +148,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'prepared context can recover an omitted original through scoped search',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -323,7 +323,7 @@ async function run<A, E>(
   }
 }
 
-test.stable(
+test.server.stable(
   'context agents accept decoded codec inputs before preparing their prompt',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -362,7 +362,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'reuses preparation across distinct agents without extra model work for small inputs',
   async ({ databases, expectTypeOf, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -436,7 +436,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'rejects oversized prompts before admitting provider work',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -469,7 +469,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'binds source tools to each run without mutating the caller environment',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -479,7 +479,7 @@ test.stable(
       id: 'prepared-searching',
       tools: { sources: sourcesTool }
     });
-    const check = ({ assert: assertions }: Pick<test.Context, 'assert'>, label: string) => {
+    const check = ({ assert: assertions }: Pick<test.server.Context, 'assert'>, label: string) => {
       const assert: test.Assert = assertions;
 
       return Effect.gen(function* () {
@@ -525,7 +525,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'retains explicit selected original ranges and excludes unselected evidence',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -575,7 +575,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'preparation agents search only their piece or reduction originals',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -654,7 +654,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'invalid final agent input fails before multi-piece provider work',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -690,7 +690,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'compresses one piece when the assembled final prompt cannot pass directly',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -735,7 +735,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'rejects missing captured context at runtime and prevents streaming bypass',
   async ({ databases, expectTypeOf, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -762,7 +762,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'reduction groups include prompt escaping and instruction overhead in their budget',
   async ({ databases, createAiMock, assert: assertions }) => {
     const assert: test.Assert = assertions;

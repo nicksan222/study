@@ -1,6 +1,6 @@
 import { test } from '@study/testing';
 
-test.stable(
+test.unit.stable(
   'leaves the practice workspace empty for selection from the sidebar',
   async ({ page, expect, screen }) => {
     await page.open('/flashcards');

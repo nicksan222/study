@@ -10,7 +10,7 @@ const provider = {
   defaults: { tiny: 'claude-sonnet-4-6', medium: 'claude-sonnet-4-6', smart: 'claude-sonnet-4-6' }
 };
 
-test.stable(
+test.unit.stable(
   'provider keys are password inputs, saved explicitly, and cleared after success',
   async ({ vi, render, screen, expect, userEvent, waitFor }) => {
     const save = vi.fn().mockResolvedValue(undefined);
@@ -30,7 +30,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'a failed key save preserves the draft for retry',
   async ({ vi, render, screen, userEvent, waitFor, expect }) => {
     const save = vi.fn().mockRejectedValue(new Error('offline'));

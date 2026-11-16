@@ -13,11 +13,11 @@ function createApi(mock: test.Mock) {
 
 let api: ReturnType<typeof createApi>;
 
-test.beforeEach(({ mock }) => {
+test.unit.beforeEach(({ mock }) => {
   api = createApi(mock);
 });
 
-test.stable(
+test.unit.stable(
   'retains local drafts while incorporating refreshed preferences from another window',
   async ({ rpcTestTransport, renderHook, waitFor, expect, act }) => {
     api.read.mockResolvedValue(defaultAgentRules);

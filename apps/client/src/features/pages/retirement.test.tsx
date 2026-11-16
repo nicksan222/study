@@ -16,7 +16,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   navigate = __mockState.navigate;
@@ -31,7 +31,7 @@ test.beforeEach(async ({ mock }) => {
 });
 
 for (const uncertain of [false, true])
-  test.stable(
+  test.unit.stable(
     `retirement ${uncertain ? 'keeps unknown outcome explicit without replay' : 'completes only after the canonical mutation receipt'}`,
     async ({ vi, rpcHandlersTransport, renderHook, act, waitFor, expect }) => {
       const page = authoredPage(10n, 'Private body', 101n);

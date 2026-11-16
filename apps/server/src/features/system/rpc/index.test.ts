@@ -20,7 +20,7 @@ import { Effect } from 'effect';
 import { makeStudyClient } from '#server/client/index';
 import { serve } from '#server/runtime/index';
 
-test.stable(
+test.server.stable(
   'native System RPC returns published quiz search identities',
   async ({ resources: location, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

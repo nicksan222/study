@@ -8,7 +8,7 @@ let usePage: typeof NotePageModule.usePage;
 
 let noteId: bigint | undefined;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   noteId = undefined;
   mock('@tanstack/react-router', () => ({
     useParams: () => ({ noteId }),
@@ -18,7 +18,7 @@ test.beforeEach(async ({ mock }) => {
   ({ usePage } = await import('./use-page.ts'));
 });
 
-test.stable(
+test.unit.stable(
   'preserves validated identity beyond JavaScript number precision and clears it on index',
   ({ rpcTestTransport, renderHook, expect }) => {
     const id = Schema.decodeUnknownSync(noteIdSchema)(9007199254740993n);

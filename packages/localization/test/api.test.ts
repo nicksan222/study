@@ -1,7 +1,7 @@
 import { catalogs, createLocalization, text } from '@study/localization';
 import { test } from '@study/testing';
 
-test.stable(
+test.unit.stable(
   'translations require parameters and replace them literally',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -17,7 +17,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'localizations are immutable, isolated, and safe to destructure',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -45,7 +45,7 @@ test.stable(
   }
 );
 
-test.stable('date options accept individual Intl fields', ({ assert: assertions }) => {
+test.unit.stable('date options accept individual Intl fields', ({ assert: assertions }) => {
   const assert: test.Assert = assertions;
 
   const l = createLocalization('english');
@@ -53,7 +53,7 @@ test.stable('date options accept individual Intl fields', ({ assert: assertions 
   assert.strictEqual(l.date(0, { year: 'numeric', timeZone: 'UTC' }), '1970');
 });
 
-test.stable(
+test.unit.stable(
   'catalog exports cannot mutate existing or future translators',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

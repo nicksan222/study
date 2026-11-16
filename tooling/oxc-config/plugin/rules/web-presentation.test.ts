@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'web markup cannot bypass shared presentation with native styles',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -22,7 +22,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'only the web bootstrap imports approved global stylesheets',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -42,7 +42,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'web composition remains free to use semantic props and unstyled HTML',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

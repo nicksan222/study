@@ -22,7 +22,7 @@ import { assistantAgent } from '#server/features/notes/agents/assistant';
 import { noteAssistantAgent } from '#server/features/notes/agents/note-assistant';
 import { defineAgent, defineTool } from '#server/platform/definitions/define-agent';
 
-test.stable(
+test.unit.stable(
   'defineAgent preserves schemas and rejects invalid identifiers',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -43,7 +43,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'agent declarations require a nonempty selection of known user rules',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -71,7 +71,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'tool declarations require a wiki and bind execution to canonical schemas',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -106,7 +106,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'Assistant tool names and localized capability catalog stay exhaustive',
   ({ expectTypeOf, expect }) => {
     const scoped = noteAssistantAgent(noteIdSchema.make(1n));

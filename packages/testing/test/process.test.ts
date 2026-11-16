@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 const owned: number[] = [];
 
-test.stable(
+test.unit.stable(
   'shared process ownership stops commands still running when their test ends',
   async ({ spawnTestProcess, expect }) => {
     const child = spawnTestProcess(
@@ -25,7 +25,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shared synchronous command execution preserves exit status and output',
   ({ spawnTestProcessSync, expect }) => {
     const result = spawnTestProcessSync([
@@ -39,7 +39,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shared fixture directories are removed after failures',
   async ({ expect, temporaryDirectory }) => {
     let path = '';
@@ -58,7 +58,7 @@ test.stable(
   }
 );
 
-test.stable.for(['array', 'object'])(
+test.unit.stable.for(['array', 'object'])(
   'synchronous commands cannot ignore the shared timeout (%s options)',
   (form, { spawnTestProcessSync, expect }) => {
     const cmd = [
@@ -75,7 +75,7 @@ test.stable.for(['array', 'object'])(
   }
 );
 
-test.stable('completed tests release their owned processes', ({ assert: assertions }) => {
+test.unit.stable('completed tests release their owned processes', ({ assert: assertions }) => {
   const assert: test.Assert = assertions;
 
   for (const pid of owned) assert.throws(() => process.kill(pid, 0));

@@ -65,7 +65,7 @@ function mount(
     vi,
     rpcHandlersTransport,
     render
-  }: Pick<test.Context, 'vi' | 'rpcHandlersTransport' | 'render'>,
+  }: Pick<test.unit.Context, 'vi' | 'rpcHandlersTransport' | 'render'>,
   project = true,
   paginated = false,
   empty = false
@@ -118,7 +118,7 @@ function mount(
   return { rpc, notify: transport.notify };
 }
 
-test.stable(
+test.unit.stable(
   'opens the sidebar archive, previews saved content, and restores through the real mutation',
   async ({ userEvent, screen, expect, within, waitFor, vi, rpcHandlersTransport, render }) => {
     const { rpc } = mount({ vi, rpcHandlersTransport, render });
@@ -155,7 +155,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'pages through the global archive, and searches quizzes and flashcards',
   async ({ userEvent, screen, within, expect, vi, rpcHandlersTransport, render }) => {
     const { rpc } = mount({ vi, rpcHandlersTransport, render }, false, true);
@@ -189,7 +189,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'uses the shared empty presentation and automatically previews available archived items',
   async ({ userEvent, screen, within, expect, vi, rpcHandlersTransport, render }) => {
     const { rpc, notify } = mount({ vi, rpcHandlersTransport, render }, true, false, true);

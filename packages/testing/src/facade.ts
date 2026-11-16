@@ -15,6 +15,9 @@ export function createTestFacade<T extends object>(): T {
 
       if (!api) throw new Error('Testing API is unavailable: configure the shared runner setup');
 
+      if (!Reflect.has(api, property))
+        throw new Error(`Testing API namespace is unavailable: ${String(property)}`);
+
       return Reflect.get(api, property);
     }
   });

@@ -28,7 +28,7 @@ import { withTestPublication } from '#testing/publication';
 
 import { Notes } from './index.ts';
 
-test.stable(
+test.server.stable(
   'notes support normalized creation, bounded pagination and missing reads',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -98,7 +98,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'messages retain immutable versions and paginate in chronological order',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -200,7 +200,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'explicit attachment snapshots share sources across collections and survive source deletion',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -279,7 +279,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'editing and deleting messages update note ordering with a composite cursor',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -339,7 +339,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'message validation rejects invalid text, incomplete versions, and foreign versions',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -409,7 +409,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'reply request persists its context and rejects another pending request',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -496,7 +496,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'reply snapshots retain historical attachments after reopen and reprocessing',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -625,7 +625,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'outbox failure rolls back reply request and pending message',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -668,7 +668,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'reply captures pending attachments and invalidates deleted context',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -780,7 +780,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'reply history includes every active note and rejects excess total text',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -834,7 +834,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'untitled notes capture title requests and reject stale context',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -906,7 +906,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'title context retains every active note within its text budget',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -943,7 +943,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'titles respect the aggregate text budget and do not require ready attachment content_snapshots',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -1006,7 +1006,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'attachment threads are isolated, owned and paginated',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -1167,7 +1167,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'posting a message can request a reply explicitly or by assistant mention',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -1234,7 +1234,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'note source links survive raw message deletion while authored documents keep independent project lifetime',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -1314,7 +1314,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'deletes an exact note version, preserves other items, and protects the final version',
   async ({ databases, expect }) => {
     const location = await databases();

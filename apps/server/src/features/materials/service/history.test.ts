@@ -29,7 +29,7 @@ import { cleanup as cleanupNote } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';
 
-test.stable(
+test.server.stable(
   'retention policy and explicit candidate scope have positive finite bounds',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -50,7 +50,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'native RPC prunes exact learning history while preserving its current version and an independent output',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -188,7 +188,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'preview invalidates on new content, scope cannot expand, drafts are protected and no-op is explicit',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -301,7 +301,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'cleanup failure remains visible, retry advances exactly once and stale settlement cannot complete a newer attempt',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -393,7 +393,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'authored exact captures block body retirement until raw note cleanup, while fresh work uses the independent current head',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -542,7 +542,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'history candidate batches are deterministic oldest-first and bounded to one hundred identities',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
