@@ -68,5 +68,5 @@ use your ChatGPT provider sign-in. The accepted structure and tradeoffs are reco
 
 ## License
 
-[Apache 2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT), at your option.
-[NOTICE](NOTICE) lists bundled third-party files.
+[Apache 2.0](.github/LICENSE-APACHE) or [MIT](.github/LICENSE-MIT), at your option.
+[NOTICE](.github/NOTICE) lists bundled third-party files.
