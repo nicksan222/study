@@ -60,6 +60,7 @@ testE2e(
     });
     await expectAccessibility('generation-details');
     await details.getByRole('button', { name: copy.Close }).click();
+    await expect(details).toHaveCount(0);
     const stopAction = sidebar.getByRole('button', {
       name: copy.PracticeGenerationStop.replace('{title}', title)
     });
@@ -67,6 +68,9 @@ testE2e(
     await stopAction.press('Shift+F10');
     await page.getByRole('menuitem', { name: copy.AgentActivityDetails }).press('Enter');
     await expect(details).toBeVisible();
+    await expect(details.getByRole('button', { name: copy.Close })).toBeFocused();
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    await expect(page.getByRole('tooltip')).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(details).toHaveCount(0);
 
