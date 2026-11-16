@@ -346,7 +346,11 @@ function callbackForTest(context: any, node: any): any | undefined {
 
     const registration = importedValue(context, registrationCallee(owner));
 
-    if (canonicalTestBody(registration) || registration?.name === 'test.beforeEach') return owner;
+    if (
+      canonicalTestBody(registration) ||
+      ['test.beforeEach', 'test.afterEach'].includes(registration?.name)
+    )
+      return owner;
   }
 
   return undefined;
@@ -528,29 +532,26 @@ function hasRestProperty(pattern: any): boolean {
 function checkOpaqueFixtureParameter(context: any, node: any): void {
   const registration = importedValue(context, registrationCallee(node));
 
-  if (!canonicalTestBody(registration) && registration?.name !== 'test.beforeEach') return;
+  if (
+    !canonicalTestBody(registration) &&
+    !['test.beforeEach', 'test.afterEach'].includes(registration?.name)
+  )
+    return;
+
+  // Native each callbacks receive case data, not the test fixture object.
+  if (registration?.name.endsWith('.each')) return;
 
   const parameter = mockFixtureParameter(context, node);
+
+  if (parameter && parameter.type !== 'ObjectPattern')
+    context.report({ node: parameter, messageId: 'opaqueTestFixtures' });
 
   if (hasRestProperty(parameter))
     context.report({ node: parameter, messageId: 'opaqueTestFixtures' });
 }
 
 function checkOpaqueFixtureSpread(context: any, node: any): void {
-  if (testNamespace(context, node.argument)) {
-    context.report({ node, messageId: 'opaqueTestFixtures' });
-
-    return;
-  }
-
-  const callback = callbackForTest(context, node);
-  const parameter = callback && mockFixtureParameter(context, callback);
-
-  if (
-    node.argument.type === 'Identifier' &&
-    parameter?.type === 'Identifier' &&
-    binding(context, node.argument) === binding(context, parameter)
-  )
+  if (testNamespace(context, node.argument))
     context.report({ node, messageId: 'opaqueTestFixtures' });
 }
 

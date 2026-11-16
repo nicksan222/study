@@ -3,6 +3,32 @@ import { test } from '@study/testing';
 import { lintRulePaths } from '../test/utils.ts';
 
 test.stable(
+  'test fixture parameters are explicitly destructured while case data stays positional',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const paths = await lintRulePaths({ assert }, 'test-infrastructure', {
+      'apps/client/src/opaque.test.ts': `import { test } from '@study/testing';
+      test.stable('opaque', (context) => context.expect(true).toBe(true));`,
+      'apps/client/src/opaque-after-hook.test.ts': `import { test } from '@study/testing';
+      test.afterEach((context) => context.expect(true).toBe(true));`,
+      'apps/client/src/opaque-hook.test.ts': `import { test } from '@study/testing';
+      test.beforeEach((context) => context.expect(true).toBe(true));`,
+      'apps/client/src/valid.test.ts': `import { test } from '@study/testing';
+      test.stable('no fixtures', () => {});
+      test.stable.each([1])('case data', (value) => { void value; });
+      test.stable.for([1])('case and fixtures', (value, { expect }) => { expect(value).toBe(1); });`
+    });
+
+    expect(paths).toEqual([
+      'apps/client/src/opaque-after-hook.test.ts',
+      'apps/client/src/opaque-hook.test.ts',
+      'apps/client/src/opaque.test.ts'
+    ]);
+  }
+);
+
+test.stable(
   'module mocks come from lazy callback fixtures instead of the test namespace',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
