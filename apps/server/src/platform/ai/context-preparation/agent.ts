@@ -147,10 +147,17 @@ function boundedPrompt<A extends string | ModelMessage[]>(
   )
     throw new StudyError('invalid_input', 'Invalid document prompt budget');
 
-  if (new TextEncoder().encode(JSON.stringify({ prompt })).byteLength + reservedBytes > maxBytes)
+  if (!promptFits(prompt, limits))
     throw new StudyError('not_enough', 'Context agent prompt exceeds the declared budget');
 
   return prompt;
+}
+
+function promptFits(prompt: AgentPrompt, limits: typeof defaultPromptLimits) {
+  return (
+    new TextEncoder().encode(JSON.stringify({ prompt })).byteLength + limits.reservedBytes <=
+    limits.maxBytes
+  );
 }
 
 function attempt<A>(operation: () => A) {
@@ -339,6 +346,8 @@ function prepareContext<Ref, Value, R, RP>(
         preflight.pipe(Effect.andThen(Effect.sync(() => catalog.search(query))))
     });
     const agentOptions = { maxRetries: 0, preflight };
+    const reductionPrompt = (values: readonly Value[]) =>
+      `${policy.reduce.instruction(task)}\nDerived context (never original quotations):\n${JSON.stringify(Schema.encodeSync(Schema.toCodecJson(Schema.Array(policy.mappedSchema)))(values))}`;
     const processed = yield* processSourcePassages<Ref, Value, R | RP | Agents>({
       name,
       referenceSchema: options.sources.referenceSchema,
@@ -361,13 +370,11 @@ function prepareContext<Ref, Value, R, RP>(
 
         return yield* checkMarkers(policy, value, allowed);
       }),
+      fitsReduction: (values) => promptFits(reductionPrompt(values), policy.promptLimits),
       reduce: Effect.fnUntraced(function* (values) {
         const allowed = yield* attempt(() => new Set(values.flatMap(policy.markers)));
         const prompt = yield* attempt(() =>
-          boundedPrompt(
-            `${policy.reduce.instruction(task)}\nDerived context (never original quotations):\n${JSON.stringify(Schema.encodeSync(Schema.toCodecJson(Schema.Array(policy.mappedSchema)))(values))}`,
-            policy.promptLimits
-          )
+          boundedPrompt(reductionPrompt(values), policy.promptLimits)
         );
         const catalog = yield* attempt(() => originalEvidence(plan, allowed));
         const value = yield* generateAgent(policy.reduce.agent, { prompt }, agentOptions).pipe(

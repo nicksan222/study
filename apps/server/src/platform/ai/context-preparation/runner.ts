@@ -100,6 +100,8 @@ export function processSourcePassages<Ref, Value, R>(options: {
     context: ReductionContext,
     plan: SourcePassagePlan<Ref>
   ) => Effect.Effect<Value, Failure, R>;
+  /** Additional wire-envelope budget, measured using the same prompt sent to the model. */
+  readonly fitsReduction?: (values: readonly Value[], context: ReductionContext) => boolean;
   readonly limits: ContextReductionLimits;
 }) {
   return Effect.gen(function* () {
@@ -158,8 +160,13 @@ export function processSourcePassages<Ref, Value, R>(options: {
         const context = { level, index: next.length };
         const group = yield* Effect.try({
           try: () =>
-            reductionGroup(values, offset, context, limits, (item) =>
-              Schema.encodeSync(jsonSchema)(item)
+            reductionGroup(
+              values,
+              offset,
+              context,
+              limits,
+              (item) => Schema.encodeSync(jsonSchema)(item),
+              options.fitsReduction
             ),
           catch: (cause) =>
             cause instanceof StudyError
@@ -182,11 +189,6 @@ export function processSourcePassages<Ref, Value, R>(options: {
         );
       }
 
-      if (next.length >= values.length)
-        return yield* Effect.fail(
-          new StudyError('not_enough', 'Document reduction budget cannot combine results')
-        );
-
       values = next;
     }
 
@@ -201,16 +203,19 @@ function reductionGroup<Value>(
   offset: number,
   context: ReductionContext,
   limits: ContextReductionLimits,
-  encode: (value: Value) => unknown
+  encode: (value: Value) => unknown,
+  fits?: (values: readonly Value[], context: ReductionContext) => boolean
 ) {
   const group: Value[] = [];
 
   while (offset < values.length && group.length < limits.maxFanout) {
     const value = values[offset]!;
 
+    const candidate = [...group, value];
+
     if (
-      serializedBytes({ ...context, values: [...group, value].map(encode) }) >
-      limits.maxReductionBytes
+      serializedBytes({ ...context, values: candidate.map(encode) }) > limits.maxReductionBytes ||
+      (fits && !fits(candidate, context))
     )
       break;
 

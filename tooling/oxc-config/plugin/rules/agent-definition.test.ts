@@ -120,3 +120,25 @@ testStable('context preparation declarations reuse canonical feature agents', as
   assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ filename }) => /(?:inline|fake-preparation)\.ts$/.test(filename)));
 });
+
+testStable(
+  'context preparation steps reject spreads that can override canonical agents',
+  async () => {
+    for (const step of ['map', 'reduce']) {
+      for (const properties of ['agent, ...overrides', '...overrides, agent']) {
+        const diagnostics = await lintRule('agent-definition', {
+          'src/features/example/agents/preparation.ts': `import {defineContextPreparation} from '#server/platform/ai/context-preparation/index';
+import {agent} from '#server/features/example/agents/notes';
+const overrides = {agent: {generate() {}}};
+export const policy = defineContextPreparation({${step}: {${properties}}, ${step === 'map' ? 'reduce' : 'map'}: {agent}});`
+        });
+
+        assert.strictEqual(
+          diagnostics.length,
+          1,
+          JSON.stringify({ step, properties, diagnostics })
+        );
+      }
+    }
+  }
+);

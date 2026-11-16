@@ -41,9 +41,9 @@ const limits: ContextReductionLimits = {
   maxLevels: 8
 };
 
-const makePlan = () =>
+const makePlan = (text = 'abcde') =>
   planSourcePassages({
-    documents: [{ key: 'one', name: 'Exact', reference: 'v1', document: document(['abcde']) }],
+    documents: [{ key: 'one', name: 'Exact', reference: 'v1', document: document([text]) }],
     referenceSchema,
     limits: {
       maxPieceChars: 1,
@@ -342,6 +342,35 @@ testStable(
       context.close();
       await location.cleanup();
     }
+  }
+);
+
+testStable(
+  'singleton reductions can compact inputs before a later level combines them',
+  async () => {
+    const groups: { level: number; count: number }[] = [];
+    const execute = processSourcePassages({
+      name: 'compact-singletons',
+      referenceSchema,
+      mappedSchema: Schema.String,
+      plan: makePlan('ab'),
+      limits: { ...limits, maxResultBytes: 100, maxReductionBytes: 100 },
+      preflight: Effect.void,
+      map: () => Effect.succeed('a'.repeat(60)),
+      reduce: (values, context) =>
+        Effect.sync(() => {
+          groups.push({ level: context.level, count: values.length });
+
+          return context.level === 0 ? 'x' : values.join('');
+        })
+    }).pipe(Effect.map((result) => result.value));
+
+    assert.equal(await run(execute, Schema.String), 'xx');
+    assert.deepEqual(groups, [
+      { level: 0, count: 1 },
+      { level: 0, count: 1 },
+      { level: 1, count: 2 }
+    ]);
   }
 );
 

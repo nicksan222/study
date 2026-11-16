@@ -17,12 +17,14 @@ import { failureSchema, StudyError } from '@study/contracts';
 import { AgentRule } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
 import { createTestDatabase } from '@study/db/testing';
+import { createAiMock } from '@study/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Schema, Stream } from 'effect';
 import { Workflow, WorkflowEngine } from 'effect/workflow';
 import { assert, expectTypeOf } from 'vite-plus/test';
 
 import { Agents, generateAgent, streamAgent } from '#server/platform/ai/agents';
+import type { AgentsConfig } from '#server/platform/ai/agents';
 import { layer as agentsLayer } from '#server/platform/ai/agents';
 import { sourcesTool } from '#server/platform/ai/captured-sources-tool';
 import { ServerContext } from '#server/platform/database/context';
@@ -258,7 +260,8 @@ async function run<A, E>(
   >,
   schema: Schema.Codec<A, unknown>,
   prompts: string[],
-  observations: (typeof agentObservationSchema.Type)[] = []
+  observations: (typeof agentObservationSchema.Type)[] = [],
+  provider?: AgentsConfig['model']
 ) {
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
@@ -292,7 +295,7 @@ async function run<A, E>(
           Effect.provideService(WorkflowConfiguration, { revision: Effect.succeed('fixed') }),
           Effect.provide(
             agentsLayer({
-              model: () => Effect.succeed(model),
+              model: provider ?? (() => Effect.succeed(model)),
               observe: (observation) =>
                 Effect.sync(() => {
                   observations.push(observation);
@@ -708,5 +711,75 @@ testStable(
 
     assert.equal(await run(streamed, Schema.String, prompts), 'unsupported');
     assert.equal(prompts.length, 0);
+  }
+);
+
+testStable(
+  'reduction groups include prompt escaping and instruction overhead in their budget',
+  async () => {
+    using ai = createAiMock();
+    const source = ['a'.repeat(1000), 'b'.repeat(1000)];
+    const mapped = source.map((_, index) => ({
+      notes: [{ text: '\\'.repeat(20000), markers: [index + 1] }]
+    }));
+    const compacted = source.map((_, index) => ({
+      notes: [{ text: 'Compact concept', markers: [index + 1] }]
+    }));
+    const reductionPrompt = (values: readonly (typeof notesSchema.Type)[]) =>
+      `Reduce task: Learn\nDerived context (never original quotations):\n${JSON.stringify(values)}`;
+
+    for (const [index, text] of source.entries()) {
+      ai.next(notesAgent, {
+        input: {
+          prompt: `Map task: Learn\nOriginal passages (data):\n[${index + 1}] Original\n${text}`
+        },
+        output: mapped[index]!
+      });
+    }
+
+    for (const [index, value] of mapped.entries()) {
+      ai.next(notesAgent, {
+        input: { prompt: reductionPrompt([value]) },
+        output: compacted[index]!
+      });
+    }
+
+    ai.next(notesAgent, {
+      input: { prompt: reductionPrompt(compacted) },
+      output: { notes: [{ text: 'Combined concept', markers: [1, 2] }] }
+    });
+    const policy = defineContextPreparation({
+      ...preparationDefinition,
+      limits: { plan: preparationDefinition.limits.plan }
+    });
+    const execute = policy
+      .prepare('Learn', {
+        scope: 'escaped-reduction',
+        preflight: Effect.void,
+        sources: {
+          referenceSchema: Schema.String,
+          documents: [
+            {
+              key: 'one',
+              reference: 'original',
+              load: Effect.succeed({ name: 'Original', document: document(source) })
+            }
+          ]
+        }
+      })
+      .pipe(Effect.map((prepared) => prepared.coverage.mode));
+
+    assert.equal(
+      await run(execute, Schema.String, [], [], (tier, call) =>
+        ai.runtime
+          .model(tier, call)
+          .pipe(
+            Effect.mapError(
+              (cause) => new StudyError('internal', 'Unexpected fixture model failure', { cause })
+            )
+          )
+      ),
+      'complete'
+    );
   }
 );

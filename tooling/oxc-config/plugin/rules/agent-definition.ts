@@ -235,7 +235,11 @@ export default defineRule({
     function preparationStep(node: any): boolean {
       const step = unwrap(node);
 
-      if (step?.type !== 'ObjectExpression') return false;
+      if (
+        step?.type !== 'ObjectExpression' ||
+        step.properties.some((property: any) => property.type === 'SpreadElement')
+      )
+        return false;
 
       const agent = unwrap(
         step.properties.find(

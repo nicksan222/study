@@ -92,7 +92,8 @@ export class Workers {
           throw new StudyError('cancelled', 'Workflow worker is closing');
 
         if (this.state.tag === 'stopped') {
-          discardInterruptedAgentProgress(this.store);
+          if (!this.workflowRuntime) discardInterruptedAgentProgress(this.store);
+
           this.state = { tag: 'running', consumer: this.startConsumer() };
         }
       })
