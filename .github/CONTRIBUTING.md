@@ -269,7 +269,7 @@ platform `release/bundle` directory. CI uses the same Tauri config at
 
 Unless you explicitly state otherwise, any contribution you intentionally submit for
 inclusion in Study, as defined in the Apache-2.0 license, is dual licensed under
-[Apache 2.0](../LICENSE-APACHE) or [MIT](../LICENSE-MIT), without any additional terms or
+[Apache 2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT), without any additional terms or
 conditions.
 
 The TypeScript server uses Drizzle with schema modules in `packages/db/src/schema`.

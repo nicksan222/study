@@ -19,7 +19,8 @@ desktop or running broad checks so other agents do not duplicate or disrupt the 
 For a visible UI change, inspect the real app at the relevant window sizes and run one
 `/impeccable critique <target>` pass for hierarchy, clarity and interaction. Use
 `/impeccable audit <target>` when accessibility, layout or input behavior is in scope.
-Follow the installed skill's setup and use the project's `PRODUCT.md` and `DESIGN.md`.
+Follow the installed skill's setup, using `README.md` for product context and
+`packages/ui` for the design system; do not create separate product or design documents.
 Send concrete findings with source locations and screenshots to the lead; do not
 redesign without an assignment.
 
