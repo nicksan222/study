@@ -111,6 +111,23 @@ testStable(
   }
 );
 
+testStable('replaces a failed stop with the current retry status', async () => {
+  const user = userEvent.setup();
+
+  mount(true, true);
+
+  await user.click(
+    await screen.findByRole('button', { name: 'Stop generating Cell division quiz' })
+  );
+  await screen.findByRole('status', { name: en.PracticeGenerationStopStatus });
+  await user.click(screen.getByRole('button', { name: en.Retry }));
+
+  expect(await screen.findByRole('status', { name: en.PracticeGenerationRetrying })).toBeVisible();
+  expect(
+    screen.queryByRole('status', { name: en.PracticeGenerationStopStatus })
+  ).not.toBeInTheDocument();
+});
+
 testStable(
   'retains failed work with recovery actions and keeps history out of the sidebar',
   async () => {

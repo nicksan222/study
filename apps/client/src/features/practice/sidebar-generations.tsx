@@ -85,7 +85,10 @@ function GenerationCard({ generation, subjects }: { generation: Generation; subj
           variant="ghost-muted"
           size="icon-tiny"
           disabled={stop.isPending}
-          onClick={retry.retry}
+          onClick={() => {
+            stop.reset();
+            retry.retry();
+          }}
         >
           <RetryIcon aria-hidden="true" />
         </IconButton>
