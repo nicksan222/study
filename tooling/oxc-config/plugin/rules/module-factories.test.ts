@@ -3,7 +3,7 @@ import { test } from '@study/testing';
 import { lintRulePaths } from '../test/utils.ts';
 
 async function lint(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.unit.Context, 'assert'>,
   files: Record<string, string>
 ) {
   const assert: test.Assert = assertions;
@@ -17,7 +17,7 @@ async function lint(
   );
 }
 
-test.stable(
+test.unit.stable(
   'only canonical factory results and their service layers are public',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -66,7 +66,7 @@ export const bad = () => 1;`,
   }
 );
 
-test.stable(
+test.unit.stable(
   'store entry requires an exported factory even when it contains only private helpers',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -84,7 +84,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'nested entry modules cannot avoid canonical construction',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -101,7 +101,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'snapshot participants stay attached to the canonical service rather than detached public helpers',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -123,7 +123,7 @@ export const validateBackup = (tx) => tx.store(Store).validate(undefined);`
   }
 );
 
-test.stable(
+test.unit.stable(
   'native generator functions must still be registered workflow handlers',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -145,7 +145,7 @@ export const run = E.fnUntraced(function* () {
   }
 );
 
-test.stable(
+test.unit.stable(
   'workflow indexes collect registrations while execution helpers stay private',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

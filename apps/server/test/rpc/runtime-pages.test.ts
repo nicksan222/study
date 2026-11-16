@@ -20,7 +20,7 @@ import { Effect } from 'effect';
 import { makeStudyClient } from '#server/client/index';
 import { serve } from '#server/runtime/index';
 
-test.stable(
+test.server.stable(
   'native HTTP runtime exposes independent Pages and persists exact saves, annotations and archive',
   async ({ server: serverFixture, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

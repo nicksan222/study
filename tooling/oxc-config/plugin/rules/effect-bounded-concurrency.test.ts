@@ -4,7 +4,7 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message = 'Use a finite positive concurrency limit for variable Effect batches.';
 
-test.stable(
+test.unit.stable(
   'requires bounded concurrency for server batches',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -28,7 +28,7 @@ E.forEach(items, work, { concurrency: "unbounded" });`
   }
 );
 
-test.stable(
+test.unit.stable(
   'tracks named imports and rejects opaque limits and curried unbounded batches',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -46,7 +46,7 @@ collect(items, { concurrency: count });`
   }
 );
 
-test.stable(
+test.unit.stable(
   'ignores shadowed APIs and accepts literal record batches',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -63,7 +63,7 @@ function f(E) {
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects invalid numeric limits and spread batches',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -81,7 +81,7 @@ E.forEach(items, work, { concurrency: 0 });`
   }
 );
 
-test.stable(
+test.unit.stable(
   'requires bounded concurrency for browser Effect batches',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

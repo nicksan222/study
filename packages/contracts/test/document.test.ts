@@ -12,7 +12,7 @@ import {
 import type { BlockContent, Inline } from '../src/sources/schemas.ts';
 import { canonicalText, anchorSchema } from '../src/sources/schemas.ts';
 
-test.stable(
+test.unit.stable(
   'editor ranges use exact UTF-16 boundaries independently of source byte positions',
   ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -79,7 +79,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'source anchors reject nonfinite, unsafe, reversed and unsupported locations centrally',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -111,7 +111,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'Unicode editor offsets agree with independently enumerated code point boundaries',
   ({ expect }) => {
     fc.assert(
@@ -209,7 +209,7 @@ const content: fc.Arbitrary<BlockContent> = fc.oneof(
   })
 );
 
-test.stable(
+test.unit.stable(
   'rich content JSON roundtrips preserve every inline and canonical projection',
   ({ expect }) => {
     fc.assert(

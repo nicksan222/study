@@ -78,7 +78,7 @@ function setup(fixture: Fixture) {
 }
 
 function eventFor(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
   fixture: Fixture,
   requestId: string
 ) {
@@ -112,7 +112,7 @@ function reply(fixture: Fixture) {
   );
 }
 
-test.stable(
+test.server.stable(
   'merge publishes once, retains exact inputs and archives originals only on success',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -190,7 +190,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'a concurrent edit fences real merge publication and keeps both originals visible',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -236,7 +236,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'cancelling while the provider runs fences late publication without archiving originals',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -311,7 +311,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'duplicate merge inputs are rejected and older pending work stays reachable',
   async ({ databases, expect }) => {
     const fixture = await pageTransformFixture(databases);

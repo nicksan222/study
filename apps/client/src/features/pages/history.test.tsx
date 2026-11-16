@@ -13,7 +13,7 @@ import {
 
 const t = catalogs.english;
 
-test.stable(
+test.unit.stable(
   'opens an exact authored history version and explicitly returns to its independent current head',
   async ({ userEvent, within, screen, expect, act, waitFor, vi, render, rpcHandlersTransport }) => {
     const rpc = materialRpc({ vi });
@@ -52,7 +52,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'selects distinct source extractions within one original revision without following the latest extraction',
   async ({ within, screen, userEvent, expect, waitFor, vi, render, rpcHandlersTransport }) => {
     const rpc = materialRpc({ vi });
@@ -125,7 +125,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'follows same-owner exact URL changes, current selection and browser history without falling back from missing versions',
   async ({ screen, expect, act, vi, render, rpcHandlersTransport }) => {
     const rpc = materialRpc({ vi });
@@ -150,7 +150,7 @@ test.stable(
     );
 
     await screen.findByText('URL exact A');
-    const go = async ({ act }: Pick<test.Context, 'act'>, pageVersion?: string) =>
+    const go = async ({ act }: Pick<test.unit.Context, 'act'>, pageVersion?: string) =>
       act(async () => {
         await view.router.navigate({
           to: '/pages/$pageId',

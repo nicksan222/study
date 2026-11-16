@@ -12,7 +12,7 @@ let message: AssistantHarness['message'];
 
 let mountAssistant: AssistantHarness['mountAssistant'];
 
-test.beforeEach(({ assistant, mock }) => {
+test.unit.beforeEach(({ assistant, mock }) => {
   readiness.state = 'ready';
   mock('#client/lib/ai-readiness-notice.tsx', () => ({ AiReadinessNotice: () => null }));
   mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => readiness.state }));
@@ -21,7 +21,7 @@ test.beforeEach(({ assistant, mock }) => {
   mountAssistant = assistant.mountAssistant;
 });
 
-test.stable(
+test.unit.stable(
   'reuses the same intent after an uncertain send failure and preserves the draft',
   async ({ screen, waitFor, expect, fireEvent }) => {
     api.ask.mockRejectedValueOnce(new Error('Connection lost'));
@@ -44,7 +44,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'editing the next draft cannot detach an in-flight send or allow a second send',
   async ({ screen, waitFor, expect, fireEvent }) => {
     api.ask.mockImplementation(() => new Promise(() => {}));
@@ -63,7 +63,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'renders saved user and Assistant messages separately with safe Markdown',
   async ({ screen, expect }) => {
     api.thread.mockResolvedValue({
@@ -83,7 +83,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'creates a separate chat and restores the earlier chat draft from the history card',
   async ({ screen, waitFor, expect, fireEvent }) => {
     api.chats.mockResolvedValue({
@@ -126,7 +126,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shows an estimated context ring that includes the unsent draft',
   async ({ screen, expect, fireEvent }) => {
     await mountAssistant();
@@ -141,7 +141,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'an idle chat does not keep polling its history and context',
   async ({ screen, waitFor, expect, vi, act }) => {
     await mountAssistant();
@@ -164,7 +164,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'a delayed send only clears its original chat draft after creating another chat',
   async ({ screen, waitFor, expect, fireEvent, act }) => {
     let finish!: (value: Awaited<ReturnType<typeof api.ask>>) => void;
@@ -203,7 +203,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'blocks new sends while setup is needed and keeps the draft editable',
   async ({ screen, waitFor, expect, fireEvent }) => {
     readiness.state = 'setup';
@@ -224,7 +224,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'server snapshots refresh committed content while the local question draft survives',
   async ({ screen, waitFor, expect, fireEvent, act }) => {
     const { notify } = await mountAssistant();

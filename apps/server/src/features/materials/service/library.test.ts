@@ -54,7 +54,7 @@ const authored = () => ({
 });
 
 function createAuthored(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
   projectId: typeof projectIdSchema.Type,
   title: string
 ) {
@@ -78,7 +78,7 @@ function createAuthored(
   );
 }
 
-test.stable(
+test.server.stable(
   'native RPC creates an uncollected material shared by quick notes and preserves it after note deletion',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -156,7 +156,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'flat collections organize shared materials and notes without owning source bytes or lineage',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -285,7 +285,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'generation scope stays exact across shared membership removal, reopen and last collection deletion',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

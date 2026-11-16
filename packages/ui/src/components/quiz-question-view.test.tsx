@@ -3,7 +3,7 @@ import { test } from '@study/testing';
 import { PracticePresentationProvider } from './practice-presentation';
 import { QuizQuestionView } from './quiz-question-view';
 
-test.stable(
+test.unit.stable(
   'the shared multiple choice editor retains selections and submits a complete response',
   ({ vi, render, expect, screen, fireEvent }) => {
     const submit = vi.fn();

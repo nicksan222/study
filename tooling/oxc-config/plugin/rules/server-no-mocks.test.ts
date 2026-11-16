@@ -5,7 +5,7 @@ import { assertDiagnostics, lintFiles, lintRule } from '../test/utils.ts';
 const message =
   'Server tests must use real dependencies, not mock APIs or fabricated database contexts.';
 
-test.stable(
+test.unit.stable(
   'server tests reject mock module access and fabricated database contexts',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -60,7 +60,7 @@ const db = createTestDatabase();
   }
 );
 
-test.stable(
+test.unit.stable(
   'allows assertion exports while rejecting mock exports in production config',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

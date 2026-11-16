@@ -27,7 +27,7 @@ const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFile
 const paths = await Effect.runPromise(Effect.provide(Path.Path, BunPath.layer));
 
 async function childOwner(
-  { spawnTestProcess }: Pick<test.Context, 'spawnTestProcess'>,
+  { spawnTestProcess }: Pick<test.server.Context, 'spawnTestProcess'>,
   path: string
 ) {
   let received!: (message: unknown) => void;
@@ -58,7 +58,7 @@ async function childOwner(
   return { child, exited, message };
 }
 
-test.stable(
+test.server.stable(
   'same-path startup rejects before touching an active backup scratch or restore journal',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -87,7 +87,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'canonical relative and symlink aliases share ownership and hardlinks are rejected',
   async ({ expect }) => {
     const f = await backupFixture();
@@ -114,7 +114,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'distinct paths and in-memory instances have independent path leases',
   async ({ createServerFixture, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -135,7 +135,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'failed activation releases ownership so the same canonical target can retry',
   async ({ createServerFixture, expect }) => {
     await using location = await createServerFixture();
@@ -162,7 +162,7 @@ test.stable(
 );
 
 for (const termination of ['close', 'SIGKILL'] as const)
-  test.stable(
+  test.server.stable(
     `supported private/development App overlap rejects and ${termination} releases ownership`,
     { timeout: 15000 },
     async ({ createServerFixture, expect, spawnTestProcess }) => {
@@ -198,7 +198,7 @@ for (const termination of ['close', 'SIGKILL'] as const)
     }
   );
 
-test.stable(
+test.server.stable(
   'an unrelated TCP listener does not block Linux database ownership',
   async ({ createServerFixture, expect }) => {
     await using location = await createServerFixture();
@@ -244,7 +244,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'a second supported App cannot acquire a target while its restart owner is active',
   async ({ expect, assert: assertions, spawnTestProcess }) => {
     const assert: test.Assert = assertions;
@@ -285,7 +285,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'failed ordinary database acquisition releases its lease and auth owner for retry',
   async ({ createServerFixture, expect }) => {
     await using location = await createServerFixture();
@@ -304,7 +304,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'a competing process cannot remove the real scratch of an in-progress backup',
   // Real App startup and owned backup cleanup use the runner's integration deadline.
   // IPC state and exact scratch bytes establish ownership, not subprocess startup speed.
@@ -376,7 +376,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'future official migration history blocks startup without changing data or retaining ownership',
   async ({ createServerFixture, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

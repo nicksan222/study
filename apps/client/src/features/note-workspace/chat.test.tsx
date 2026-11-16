@@ -1,7 +1,7 @@
 import { test } from '@study/testing';
 import { ChatNote, ChatMessage, ChatMessageText, ChatMessageActionToolbar } from '@study/ui';
 
-test.stable(
+test.unit.stable(
   'keeps the reading anchor on older-page insertion and follows new arrivals only at the end',
   ({ render, screen, fireEvent, expect }) => {
     const view = render(
@@ -46,7 +46,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps quick notes literal and exposes their actions to keyboard users',
   ({ render, expect, screen }) => {
     render(

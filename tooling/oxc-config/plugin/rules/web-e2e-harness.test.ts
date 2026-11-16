@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule, lintRulePaths } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'native fixture options do not register a browser journey',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -13,8 +13,8 @@ test.stable(
       {
         'apps/client/test/e2e/model.test.ts': `
       import { test } from '@study/testing';
-      test.stable.use({ aiEnabled: true });
-      test.stable('Material generation retains progress', async ({ page, expectScreenshot, expect }) => {
+      test.browser.stable.use({ aiEnabled: true });
+      test.browser.stable('Material generation retains progress', async ({ page, expectScreenshot, expect }) => {
         await page.goto('/practice');
         await expectScreenshot('ready', { target: 'viewport', ready: () => expect(page.getByRole('heading')).toBeVisible() });
       });
@@ -27,7 +27,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'journeys use the public test API and await explicit screenshot readiness',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -38,7 +38,7 @@ test.stable(
       {
         'apps/client/test/e2e/good.test.ts': `
         import { test } from '@study/testing';
-        test.stable('Notes retain edits', async ({ page, expectScreenshot, expect }) => {
+        test.browser.stable('Notes retain edits', async ({ page, expectScreenshot, expect }) => {
           await page.goto('/notes');
           await expectScreenshot('ready', {
             target: 'viewport',
@@ -47,10 +47,10 @@ test.stable(
         });
           `,
         'apps/client/test/e2e/bad.test.ts':
-          "import { test } from '@study/testing'; test.stable('Notes retain edits', async ({ page }) => { await page.goto('/notes'); });",
+          "import { test } from '@study/testing'; test.browser.stable('Notes retain edits', async ({ page }) => { await page.goto('/notes'); });",
         'apps/client/test/e2e/old.test.ts': `
         import { test } from '@study/testing';
-        test.stable('Notes retain edits', async ({ checkpoint }) => {
+        test.browser.stable('Notes retain edits', async ({ checkpoint }) => {
           await checkpoint('ready', {
             target: 'viewport',
             ready: () => expect(page.getByRole('heading')).toBeVisible()
@@ -65,7 +65,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'browser specs cannot own resources, mock requests or use fixed waits',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -86,7 +86,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'aliases cannot conceal interception or global timers',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -105,7 +105,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'opaque, concurrent and parameterized registrations cannot bypass fixture checks',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -115,7 +115,7 @@ test.stable(
       'web-e2e-harness',
       {
         'apps/client/test/e2e/bad.test.ts':
-          "import { test } from '@study/testing'; test.stable('opaque', callback); test.stable.concurrent('parallel', async () => {}); test.stable.each([1])('parameterized', async () => {});"
+          "import { test } from '@study/testing'; test.browser.stable('opaque', callback); test.browser.stable.concurrent('parallel', async () => {}); test.browser.stable.each([1])('parameterized', async () => {});"
       },
       true
     );
@@ -124,7 +124,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'unawaited captures, missing readiness and anonymous titles fail conventions',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -135,10 +135,10 @@ test.stable(
       {
         'apps/client/test/e2e/bad.test.ts': `
         import { test } from '@study/testing';
-        test.stable('W001', async ({ expectScreenshot }) => {
+        test.browser.stable('W001', async ({ expectScreenshot }) => {
           await expectScreenshot('ready', { target: 'viewport' });
         });
-        test.stable('Notes retain edits', async ({ expectScreenshot }) => {
+        test.browser.stable('Notes retain edits', async ({ expectScreenshot }) => {
           expectScreenshot('ready', {
             target: 'viewport',
             ready: () => expect(page.getByRole('heading')).toBeVisible()
@@ -153,7 +153,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'empty readiness callbacks and internal fixture imports cannot bypass conventions',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -165,7 +165,7 @@ test.stable(
         'apps/client/test/e2e/bad.test.ts': `
         import { test } from '@study/testing';
         import { testWeb } from './harness/worker.ts';
-        test.stable('Notes retain edits', async ({ expectScreenshot }) => {
+        test.browser.stable('Notes retain edits', async ({ expectScreenshot }) => {
           await expectScreenshot('ready', { target: 'viewport', ready: async () => {} });
         });
         Bun.sleep(10);
@@ -178,30 +178,33 @@ test.stable(
   }
 );
 
-test.stable('only direct public runtime imports are accepted', async ({ assert: assertions }) => {
-  const assert: test.Assert = assertions;
+test.unit.stable(
+  'only direct public runtime imports are accepted',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  const diagnostics = await lintRule(
-    { assert },
-    'web-e2e-harness',
-    {
-      'apps/client/test/e2e/bad.test.ts':
-        "import { test as hidden } from '@study/testing'; hidden.stable('Notes retain edits', async () => {});",
-      'apps/client/test/e2e/aliased.test.ts': "import { test as hidden } from '@study/testing';",
-      'apps/client/test/e2e/removed.test.ts': "import { expect } from './harness/assertions.ts';",
-      'apps/client/test/e2e/reexport.test.ts': "export { test as run } from '@study/testing';",
-      'apps/client/test/e2e/export-all.test.ts': "export * from '@study/testing';",
-      'apps/client/test/e2e/dynamic.test.ts': "const harness = await import('@study/testing');",
-      'apps/client/test/e2e/types.test.ts':
-        "import type { test } from '@study/testing'; export type { test } from '@study/testing';"
-    },
-    true
-  );
+    const diagnostics = await lintRule(
+      { assert },
+      'web-e2e-harness',
+      {
+        'apps/client/test/e2e/bad.test.ts':
+          "import { test as hidden } from '@study/testing'; hidden.stable('Notes retain edits', async () => {});",
+        'apps/client/test/e2e/aliased.test.ts': "import { test as hidden } from '@study/testing';",
+        'apps/client/test/e2e/removed.test.ts': "import { expect } from './harness/assertions.ts';",
+        'apps/client/test/e2e/reexport.test.ts': "export { test as run } from '@study/testing';",
+        'apps/client/test/e2e/export-all.test.ts': "export * from '@study/testing';",
+        'apps/client/test/e2e/dynamic.test.ts': "const harness = await import('@study/testing');",
+        'apps/client/test/e2e/types.test.ts':
+          "import type { test } from '@study/testing'; export type { test } from '@study/testing';"
+      },
+      true
+    );
 
-  assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
+  }
+);
 
-test.stable(
+test.unit.stable(
   'browser interactions use locators while keyboard input and navigation remain valid',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -254,7 +257,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'public helpers reject browser DOM shortcuts, selector actions, coordinates and forced actions',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -331,7 +334,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'screenshot readiness must await or return a matcher in its own callback',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -355,7 +358,7 @@ test.stable(
         { assert },
         'web-e2e-harness',
         {
-          'apps/client/test/e2e/readiness.test.ts': `import { test } from '@study/testing'; test.stable('Notes retain edits', async ({ page, expectScreenshot, expect }) => { await expectScreenshot('ready', { target: 'viewport', ready: ${ready} }); });`
+          'apps/client/test/e2e/readiness.test.ts': `import { test } from '@study/testing'; test.browser.stable('Notes retain edits', async ({ page, expectScreenshot, expect }) => { await expectScreenshot('ready', { target: 'viewport', ready: ${ready} }); });`
         },
         true
       );
@@ -365,7 +368,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'forced locator options follow static spreads in last-property order',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -420,7 +423,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'typed browser parameter patterns reject selector actions and allow locator actions',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -452,7 +455,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'direct journey callbacks cannot escape into DOM or raw transports',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -470,7 +473,7 @@ test.stable(
       rejected.map((action, index) => [
         `apps/client/test/e2e/direct-${index}.test.ts`,
         `import { test } from '@study/testing';
-     test.stable('Recovery retains the draft', async ({ page: browser, expectScreenshot }) => {
+     test.browser.stable('Recovery retains the draft', async ({ page: browser, expectScreenshot }) => {
        ${action}
        await expectScreenshot('ready', { target: 'viewport', ready: () => expect(browser.getByRole('heading')).toBeVisible() });
      });`
@@ -484,7 +487,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'public locator file drops need no DOM dispatch escape',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -516,14 +519,14 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'journey names describe behavior instead of workflow tracker IDs',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
 
     const journey = `
     import { test } from '@study/testing';
-    test.stable('Read and reopen a Markdown source', async ({ page, expectScreenshot, expect }) => {
+    test.browser.stable('Read and reopen a Markdown source', async ({ page, expectScreenshot, expect }) => {
       await page.goto('/notes');
       await expectScreenshot('source-top', { target: 'viewport', ready: () => expect(page.getByRole('heading')).toBeVisible() });
     });

@@ -15,7 +15,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   save = __mockState.save;
@@ -26,7 +26,7 @@ test.beforeEach(async ({ mock }) => {
   SubjectIconEditor = __mockModule0.SubjectIconEditor;
 });
 
-test.afterEach(() => save.mockReset());
+test.unit.afterEach(() => save.mockReset());
 
 const project = Schema.decodeUnknownSync(projectSchema)({
   id: 91n,
@@ -38,7 +38,7 @@ const project = Schema.decodeUnknownSync(projectSchema)({
 });
 
 function mount(
-  { rpcTestTransport, render }: Pick<test.Context, 'rpcTestTransport' | 'render'>,
+  { rpcTestTransport, render }: Pick<test.unit.Context, 'rpcTestTransport' | 'render'>,
   icon: ProjectIcon = automaticProjectIcon
 ) {
   const transport = rpcTestTransport(async (tag, input) => {
@@ -52,7 +52,7 @@ function mount(
   });
 }
 
-test.stable(
+test.unit.stable(
   'saves a valid custom monogram with exact subject identity, closing the reviewed dialog',
   async ({ fireEvent, screen, expect, waitFor, rpcTestTransport, render }) => {
     save.mockImplementation(async (input) => ({ ...project, icon: input.icon }));
@@ -77,7 +77,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'restores automatic mode without storing the derived initials',
   async ({ fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     save.mockResolvedValue(project);
@@ -91,7 +91,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains custom letters on save failure and allows explicit retry',
   async ({ fireEvent, screen, expect, rpcTestTransport, render }) => {
     save.mockRejectedValue(new Error('offline'));
@@ -108,7 +108,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'saves a searched symbol with its selected color and survives reopening the editor',
   async ({ fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     save.mockImplementation(async (input) => ({ ...project, icon: input.icon }));
@@ -138,7 +138,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'saves a selected emoji as a typed icon rather than a monogram',
   async ({ fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     save.mockImplementation(async (input) => ({ ...project, icon: input.icon }));
@@ -156,7 +156,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains unsaved icon choices across repeated mode clicks and switching modes',
   ({ fireEvent, screen, expect, rpcTestTransport, render }) => {
     mount({ rpcTestTransport, render });

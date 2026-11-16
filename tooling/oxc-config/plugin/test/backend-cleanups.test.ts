@@ -12,7 +12,7 @@ const cases = [
 ];
 
 for (const { rule, bad, good } of cases) {
-  test.stable(
+  test.unit.stable(
     `backend cleanup policy rejects ${rule} regressions`,
     async ({ assert: assertions }) => {
       const assert: test.Assert = assertions;

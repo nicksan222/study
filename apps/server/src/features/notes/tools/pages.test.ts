@@ -42,7 +42,7 @@ const body = (text: string) => ({
   }
 });
 
-test.stable(
+test.server.stable(
   'document tools retain retries and conflicts while updating metadata and links',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

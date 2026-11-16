@@ -14,7 +14,7 @@ import { Effect, Schema } from 'effect';
 import { materialId, versionId } from './identity';
 import { learningVersion, materialRpc, mountLibraryRoute } from './test/support';
 
-test.stable(
+test.unit.stable(
   'rejects a foreign Material version before rendering extraction or exposing its original',
   async ({ expect, within, screen, vi, render, rpcHandlersTransport }) => {
     const rpc = materialRpc({ vi });
@@ -34,7 +34,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'loads history only on opening, refreshes the bounded prefix and preserves collection on selection',
   async ({ userEvent, screen, expect, within, vi, render, rpcHandlersTransport }) => {
     const rpc = materialRpc({ vi });
@@ -92,7 +92,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'preserves the collection while moving from historical to current content',
   async ({ screen, userEvent, expect, render, rpcHandlersTransport, vi }) => {
     const { router } = mountLibraryRoute(
@@ -109,7 +109,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'opens deletion through reader Actions and recovers accepted cleanup after the reader becomes fenced',
   async ({ vi, userEvent, screen, expect, within, render, rpcHandlersTransport }) => {
     const preview = Schema.decodeUnknownSync(materialDeletionPreviewSchema)({
@@ -196,7 +196,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'reports CSV structure loss without an unrelated image warning',
   async ({ vi, screen, waitFor, expect, userEvent, render, rpcHandlersTransport }) => {
     const rpc = materialRpc({ vi });

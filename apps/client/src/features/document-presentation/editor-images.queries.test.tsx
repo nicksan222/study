@@ -31,7 +31,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   rpc = __mockState.rpc;
@@ -49,7 +49,7 @@ test.beforeEach(async ({ mock }) => {
   useDocumentEditorImages = __mockModule2.useDocumentEditorImages;
 });
 
-test.beforeEach(({ vi }) => {
+test.unit.beforeEach(({ vi }) => {
   vi.resetAllMocks();
   const NativeURL = URL;
 
@@ -62,13 +62,13 @@ test.beforeEach(({ vi }) => {
   );
   createUrl.mockReturnValue('blob:exact-image');
 });
-test.afterEach(({ cleanup, vi }) => {
+test.unit.afterEach(({ cleanup, vi }) => {
   cleanup();
   vi.unstubAllGlobals();
 });
 
 function mount(
-  { rpcTestTransport, render }: Pick<test.Context, 'rpcTestTransport' | 'render'>,
+  { rpcTestTransport, render }: Pick<test.unit.Context, 'rpcTestTransport' | 'render'>,
   document = blankDocument()
 ) {
   const fixture = rpcTestTransport(async (tag, input) => {
@@ -115,7 +115,7 @@ function file(name: string, type: string, bytes: Uint8Array) {
   return value;
 }
 
-test.stable(
+test.unit.stable(
   'retains uploaded image bytes in the document subject before returning a canonical reference',
   async ({ expect, rpcTestTransport, render }) => {
     rpc.create.mockResolvedValue({
@@ -139,7 +139,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects non-image files before creating a source',
   async ({ expect, rpcTestTransport, render }) => {
     const view = mount({ rpcTestTransport, render });
@@ -153,7 +153,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'resolves the exact revision and revokes its preview after availability fails',
   async ({ waitFor, expect, act, rpcTestTransport, render }) => {
     const sourceId = sourceIdSchema.make(17n);

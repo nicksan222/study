@@ -3,7 +3,7 @@ import { Schema } from 'effect';
 
 import { replySnapshotSchema } from '../src/notes/schemas.ts';
 
-test.stable(
+test.unit.stable(
   'conversion provenance requires its captured target and cannot decorate other operations',
   ({ expect }) => {
     const decode = Schema.decodeUnknownSync(replySnapshotSchema);

@@ -35,7 +35,7 @@ import { withTestAdmission } from '#testing/workflow-admission';
 
 import { noteTitleHandler, noteTitleWorkflow } from './title.ts';
 
-test.stable(
+test.server.stable(
   'title workflow checkpoints and fences stale and renamed notes',
   async ({ databases, createAiMock, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -92,7 +92,7 @@ test.stable(
         return { note, message };
       };
       const request = async (
-        { assert: assertions }: Pick<test.Context, 'assert'>,
+        { assert: assertions }: Pick<test.server.Context, 'assert'>,
         noteId: Awaited<ReturnType<typeof make>>['note']['id']
       ) => {
         const assert: test.Assert = assertions;
@@ -238,7 +238,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'explicit title requests replace existing titles and fence subsequent manual edits',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -289,7 +289,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'automatic note titles are opt-in, durable, replay-safe and respect user titles',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -350,7 +350,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'automatic titles and replies commit together while title snapshots skip pending assistants',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -411,7 +411,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'reply publication refreshes automatic titles durably and idempotently without replacing user titles',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

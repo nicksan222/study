@@ -23,7 +23,7 @@ import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';
 
 for (const mode of ['history', 'delete'] as const)
-  test.stable(
+  test.server.stable(
     `raw exact authored citation blocks ${mode} after private capture retirement until its raw message is deleted`,
     async ({ databases, assert: assertions, expect }) => {
       const assert: test.Assert = assertions;

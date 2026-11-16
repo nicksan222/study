@@ -22,7 +22,7 @@ import { makeStudyClient, workflowSnapshots } from '#server/client/index';
 import { serve } from '#server/runtime/index';
 
 for (const hinted of [true, false])
-  test.stable(
+  test.server.stable(
     `workflow subscription reseeds, follows ${hinted ? 'commit hints' : 'unhinted commits'}, and releases its listener`,
     async ({ resources: location, assert: assertions }) => {
       const assert: test.Assert = assertions;

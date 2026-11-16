@@ -29,7 +29,7 @@ import { testLiveQueries } from '#testing/live-queries';
 
 import { LearningRpcLive } from './index.ts';
 
-test.stable(
+test.server.stable(
   'native learning RPC maps missing attempts to typed failures',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -68,7 +68,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'native practice RPC starts, reads, and stops project practice',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -143,7 +143,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'native ordering RPC keeps answers private and restores the committed sequence',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

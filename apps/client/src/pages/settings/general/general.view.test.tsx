@@ -4,7 +4,7 @@ import { LanguageProvider } from '#client/lib/i18n.tsx';
 
 import { GeneralSettingsView } from './general.view';
 
-function model({ vi }: Pick<test.Context, 'vi'>) {
+function model({ vi }: Pick<test.unit.Context, 'vi'>) {
   return {
     data: { language: 1 as const, appearance: 3 as const, zoomPercent: 125, onboarded: true },
     loading: false,
@@ -15,7 +15,7 @@ function model({ vi }: Pick<test.Context, 'vi'>) {
   };
 }
 
-test.stable(
+test.unit.stable(
   'labels the language selector and disables it while saving',
   ({ render, expect, screen, vi }) => {
     render(<GeneralSettingsView model={{ ...model({ vi }), pending: true }} />);
@@ -24,7 +24,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'localizes the preferences and offers retry after a failed load',
   ({ render, expect, screen, vi }) => {
     const state = { ...model({ vi }), data: undefined, error: true };

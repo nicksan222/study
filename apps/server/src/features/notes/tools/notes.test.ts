@@ -21,7 +21,7 @@ import { subjectTools } from './subjects.ts';
 
 const environment = { language: 'en', searchSources: () => Effect.succeed([]) };
 
-test.stable(
+test.server.stable(
   'notebook tools scope exact-name retries, page history and preserve memberships',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

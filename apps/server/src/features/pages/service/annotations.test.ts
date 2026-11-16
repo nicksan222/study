@@ -42,7 +42,7 @@ const meta = {
 const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: ['strong'] }] });
 
-test.stable(
+test.server.stable(
   'standalone authored annotation CRUD preserves exact rich Unicode history, conflicts, outbox atomicity and reopen',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

@@ -43,7 +43,7 @@ import { withTestAdmission } from '#testing/workflow-admission';
 
 import { materialGenerationWorkflow, materialGenerationHandler } from './generation.ts';
 
-test.stable(
+test.server.stable(
   'rejects mismatched generation event before reaching a provider',
   async ({ databases, createAiMock, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -141,7 +141,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'generates and publishes all material kinds with captured evidence and replays receipts',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -311,7 +311,7 @@ test.stable(
         }).pipe(Effect.scoped, Effect.provide(services()))
       );
       const generate = async (
-        { expect, assert: assertions }: Pick<test.Context, 'expect' | 'assert'>,
+        { expect, assert: assertions }: Pick<test.server.Context, 'expect' | 'assert'>,
         kind: 'flashcards' | 'quiz',
         content: unknown,
         failure?: 'publication',
@@ -538,7 +538,7 @@ test.stable(
       function assertQuizQuestionShapes({
         assert: assertions,
         expect
-      }: Pick<test.Context, 'assert' | 'expect'>) {
+      }: Pick<test.server.Context, 'assert' | 'expect'>) {
         const assert: test.Assert = assertions;
 
         assert.ok(quiz);
@@ -619,7 +619,7 @@ test.stable(
         );
       }
 
-      const request = async ({ assert: assertions }: Pick<test.Context, 'assert'>) => {
+      const request = async ({ assert: assertions }: Pick<test.server.Context, 'assert'>) => {
         const assert: test.Assert = assertions;
 
         await Effect.runPromise(
@@ -866,7 +866,7 @@ test.stable(
 );
 
 function assertEventType<T extends ReturnType<typeof decodeEvent>['type']>(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
   event: ReturnType<typeof decodeEvent> | undefined,
   type: T,
   message: string

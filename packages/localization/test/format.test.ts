@@ -9,7 +9,7 @@ import {
   mediaSize,
   secondsTaken
 } from '../src/index.ts';
-test.stable('catalog and formatting match the Rust examples', ({ assert: assertions }) => {
+test.unit.stable('catalog and formatting match the Rust examples', ({ assert: assertions }) => {
   const assert: test.Assert = assertions;
 
   assert.strictEqual(text('italian', 'Home'), 'Panoramica');
@@ -39,7 +39,7 @@ import {
   citationLabel,
   mentionSuggestions
 } from '../src/index.ts';
-test.stable('counts, dates, anchors and mentions', ({ assert: assertions, expect }) => {
+test.unit.stable('counts, dates, anchors and mentions', ({ assert: assertions, expect }) => {
   const assert: test.Assert = assertions;
 
   assert.strictEqual(fileCount('english', 1), '1 file');
@@ -74,7 +74,7 @@ test.stable('counts, dates, anchors and mentions', ({ assert: assertions, expect
 });
 
 import { createLocalization, countText } from '../src/index.ts';
-test.stable('localized plurals cover zero, one and many in both locales', ({ expect }) => {
+test.unit.stable('localized plurals cover zero, one and many in both locales', ({ expect }) => {
   for (const [locale, expected] of [
     ['english', ['0 sources', '1 source', '3 sources']],
     ['italian', ['0 fonti', '1 fonte', '3 fonti']]
@@ -82,18 +82,26 @@ test.stable('localized plurals cover zero, one and many in both locales', ({ exp
     expect([0, 1, 3].map((count) => countText(locale, 'source', count))).toStrictEqual(expected);
   }
 });
-test.stable('locale-bound and server translations remain isolated', ({ assert: assertions }) => {
-  const assert: test.Assert = assertions;
+test.unit.stable(
+  'locale-bound and server translations remain isolated',
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  const english = createLocalization('english');
-  const italian = createLocalization('italian');
+    const english = createLocalization('english');
+    const italian = createLocalization('italian');
 
-  assert.strictEqual(english.t('Home'), 'Overview');
-  assert.strictEqual(italian.t('Home'), 'Panoramica');
-  assert.strictEqual(text('english', 'Home'), 'Overview');
-  assert.strictEqual(text('italian', 'Home'), 'Panoramica');
-});
+    assert.strictEqual(english.t('Home'), 'Overview');
+    assert.strictEqual(italian.t('Home'), 'Panoramica');
+    assert.strictEqual(text('english', 'Home'), 'Overview');
+    assert.strictEqual(text('italian', 'Home'), 'Panoramica');
+  }
+);
 
-test.stable('English and Italian catalogs have exactly the same message keys', ({ expect }) => {
-  expect(Object.keys(catalogs.italian).sort()).toStrictEqual(Object.keys(catalogs.english).sort());
-});
+test.unit.stable(
+  'English and Italian catalogs have exactly the same message keys',
+  ({ expect }) => {
+    expect(Object.keys(catalogs.italian).sort()).toStrictEqual(
+      Object.keys(catalogs.english).sort()
+    );
+  }
+);

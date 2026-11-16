@@ -73,7 +73,7 @@ const definition = defineAgent({
   prompt: (input) => input
 });
 
-test.stable(
+test.server.stable(
   'HTTP streams intermediate agent snapshots, reseeds reconnects, and releases viewers without cancelling work',
   async ({ resources: location, expect }) => {
     const app = await location.openApp({ path: location.path });

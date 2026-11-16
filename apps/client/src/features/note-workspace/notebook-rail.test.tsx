@@ -1,14 +1,14 @@
 import { test } from '@study/testing';
 import { NotebookRail } from '@study/ui';
 
-test.afterEach(({ vi }) => vi.restoreAllMocks());
+test.unit.afterEach(({ vi }) => vi.restoreAllMocks());
 
 function mount({
   render,
   screen,
   within,
   vi
-}: Pick<test.Context, 'render' | 'screen' | 'within' | 'vi'>) {
+}: Pick<test.unit.Context, 'render' | 'screen' | 'within' | 'vi'>) {
   render(
     <>
       <NotebookRail.Root label="Notebook navigation">
@@ -47,7 +47,7 @@ function mount({
 const scale = (marker: HTMLElement) =>
   Number(marker.style.getPropertyValue('--notebook-marker-scale') || 1);
 
-test.stable(
+test.unit.stable(
   'starts every marker at rest and magnifies a smooth symmetric neighborhood without moving hitboxes',
   ({ expect, fireEvent, render, screen, within, vi }) => {
     const { rail, markers } = mount({ render, screen, within, vi });
@@ -70,7 +70,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'uses the same tapered wave for keyboard focus, keeps it on pointer leave, and resets after blur',
   ({ act, expect, fireEvent, screen, render, within, vi }) => {
     const { rail, markers } = mount({ render, screen, within, vi });

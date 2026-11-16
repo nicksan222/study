@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { vaultFiles } from './files';
 
-test.stable(
+test.unit.stable(
   'strips only the selected root and excludes private vault configuration before reading',
   async ({ expect }) => {
     const note = new File(['# Cells'], 'Cells.md');

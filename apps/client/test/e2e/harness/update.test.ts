@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { temporaryArtifacts } from './temporary.ts';
 
-test.stable(
+test.unit.stable(
   'updates find the selected client capture even when invoked from another directory',
   async ({ spawnTestProcess, expect, onTestFinished }) => {
     const root = await temporaryArtifacts({ onTestFinished });
@@ -37,7 +37,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'updater accepts shared safe names and rejects unsafe or unscoped selections',
   async ({ spawnTestProcess, expect }) => {
     for (const scope of [

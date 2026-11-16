@@ -48,7 +48,7 @@ const content = (value: string) => ({
   }
 });
 
-test.stable(
+test.server.stable(
   'native selection guards exact historic ranges, captures once and survives edits and reopen',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -403,7 +403,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'reply outbox rejection rolls back the logical context and retry uses original message versions',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -441,7 +441,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'active membership controls capture independently of selection and all notes are retained',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -616,7 +616,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'active image documents retain whole bodies and exact asset revisions despite manual range selection',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -786,7 +786,7 @@ test.stable(
 );
 
 function assertRetainedCitationShapes(
-  { assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>,
+  { assert: assertions, expect }: Pick<test.server.Context, 'assert' | 'expect'>,
   read: typeof chatMessageSchema.Type,
   anchor: Extract<(typeof chatMessageSchema.Type.citations)[number]['anchor'], { type: 'text' }>,
   versionId: PageVersionId,
@@ -816,7 +816,7 @@ function assertRetainedCitationShapes(
   assert.ok(attachment!.quote === 'Retained attachment');
 }
 
-test.stable(
+test.server.stable(
   'retained legacy and attachment citations keep bounded precision; wrong exact identities never use latest content',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -1000,7 +1000,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'native capture rejects foreign or deleted boundaries and preserves exact bounded replay',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

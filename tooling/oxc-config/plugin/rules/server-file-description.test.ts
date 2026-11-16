@@ -3,7 +3,7 @@ import { test } from '@study/testing';
 import { header } from '../test/file-description.ts';
 import { lintFiles, lintRule, lintRulePaths } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'requires purpose comments only in server production modules',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -24,7 +24,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'accepts concise purpose comments without framing, quotas or section templates',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -44,7 +44,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects absent, empty, placeholder, late and nested purpose comments',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -66,7 +66,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'production config accepts plain purpose comments and exempts tests',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

@@ -25,7 +25,7 @@ import { deletionDocument } from '#testing/material-deletion';
 import { cleanup } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
-test.stable(
+test.server.stable(
   'native authored project links are idempotent and project/note deletion preserves independent versions',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

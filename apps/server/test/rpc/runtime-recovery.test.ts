@@ -20,7 +20,7 @@ import { Effect } from 'effect';
 import { makeStudyClient } from '#server/client/index';
 import { serve } from '#server/runtime/index';
 
-test.stable(
+test.server.stable(
   'a failed dispatcher tick recovers without restarting the application',
   { timeout: 5000 },
   async ({ resources: location, pollUntil, assert: assertions }) => {

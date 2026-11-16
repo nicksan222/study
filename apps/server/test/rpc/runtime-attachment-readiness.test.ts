@@ -22,7 +22,7 @@ import { makeStudyClient } from '#server/client/index';
 import { Notes } from '#server/features/notes/index';
 import { serve } from '#server/runtime/index';
 
-test.stable(
+test.server.stable(
   'HTTP attachment replies wake through registered source subscriptions before waiting for authentication',
   { timeout: 15000 },
   async ({ server: serverFixture, assert: assertions, pollUntil }) => {
@@ -56,7 +56,7 @@ test.stable(
     function* verifyAttachmentReadinessWake({
       pollUntil,
       assert: assertions
-    }: Pick<test.Context, 'pollUntil' | 'assert'>) {
+    }: Pick<test.server.Context, 'pollUntil' | 'assert'>) {
       const assert: test.Assert = assertions;
 
       const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });

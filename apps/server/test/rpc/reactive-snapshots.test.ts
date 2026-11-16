@@ -21,7 +21,7 @@ import { Deferred, Effect, Fiber, Result, Stream } from 'effect';
 import { makeStudyClient } from '#server/client/index';
 import { serve } from '#server/runtime/index';
 
-test.stable(
+test.server.stable(
   'native live RPC reflects another client mutation and keeps concurrent results separate',
   async ({ resources: fixture, expect }) => {
     const app = await fixture.openApp({ path: fixture.path });
@@ -79,7 +79,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'navigation counts are not capped by mounted windows and exclude unpublished pages',
   async ({ resources: fixture, expect }) => {
     const app = await fixture.openApp({ path: fixture.path });

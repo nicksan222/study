@@ -16,7 +16,7 @@ const original = [
 
 const updated = `${original}\n\nFOLLOW-UP OBSERVATION: the afternoon river gauge rose by two centimetres; compare this changed reading with the retained morning observations before opening the garden tomorrow.`;
 
-test.stable(
+test.browser.stable(
   'Recover a committed creation after losing its receipt',
   async ({ page, expectScreenshot, loseCreationResponse, expect }) => {
     await page.goto('/notes');

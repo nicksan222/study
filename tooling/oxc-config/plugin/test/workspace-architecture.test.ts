@@ -23,7 +23,7 @@ const valid = {
   }
 };
 
-test.stable(
+test.unit.stable(
   'the lockfile cannot split Effect schema identity or Drizzle instances',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -48,7 +48,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'workspace ownership rejects misplaced AI providers and Drizzle dependencies',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -66,7 +66,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shared AI mocks may implement the provider protocol without owning real providers',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -94,7 +94,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'contracts expose browser-safe explicit entrypoints and cannot gain implementation dependencies',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -117,7 +117,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'Effect consumers share an exact v4 version and AI dependencies stay in the server',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -132,7 +132,7 @@ test.stable(
   }
 );
 
-test.stable('optional contract React bindings use official Effect state', ({ expect }) => {
+test.unit.stable('optional contract React bindings use official Effect state', ({ expect }) => {
   expect(
     workspaceArchitecture({
       ...valid,
@@ -145,7 +145,7 @@ test.stable('optional contract React bindings use official Effect state', ({ exp
   ).toEqual([]);
 });
 
-test.stable(
+test.unit.stable(
   'package manifests expose root APIs and only explicit approved facets',
   ({ expect }) => {
     const issues = workspaceArchitecture({

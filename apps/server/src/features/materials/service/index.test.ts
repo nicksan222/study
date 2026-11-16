@@ -33,7 +33,7 @@ const content = {
   cards: [{ front: 'A', back: 'B' }]
 };
 
-test.stable(
+test.server.stable(
   'materials versions, links, citations and note membership preserve SQLite invariants',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -219,7 +219,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'native materials RPC uses the service and maps canonical failures',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

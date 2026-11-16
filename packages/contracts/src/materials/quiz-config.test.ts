@@ -7,7 +7,7 @@ import {
   titledFlashcardsGenerationOutputSchema
 } from './schemas.ts';
 
-test.stable(
+test.unit.stable(
   'quiz generation settings are bounded, quiz-only and separate from slot specifications',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -46,7 +46,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'automatic titles retain explicit request titles and require bounded generated output titles',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

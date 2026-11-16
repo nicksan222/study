@@ -16,7 +16,7 @@ import { test } from '@study/testing';
 
 import { encodeRecordingWav } from './audio.ts';
 
-test.stable(
+test.unit.stable(
   'encodes signed PCM samples as 16 kHz mono 16-bit WAV',
   ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -38,7 +38,7 @@ test.stable(
   }
 );
 
-test.stable('rejects empty, malformed and over-one-hour PCM', ({ assert: assertions }) => {
+test.unit.stable('rejects empty, malformed and over-one-hour PCM', ({ assert: assertions }) => {
   const assert: test.Assert = assertions;
 
   assert.throws(() => encodeRecordingWav([]));

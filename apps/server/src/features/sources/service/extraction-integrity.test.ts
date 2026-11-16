@@ -22,7 +22,7 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
 
-test.stable(
+test.server.stable(
   'an unpinned published source extraction is immutable until its retained identity is released',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

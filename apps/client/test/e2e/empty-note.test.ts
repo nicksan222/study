@@ -3,7 +3,7 @@ import { test } from '@study/testing';
 
 const copy = catalogs.english;
 
-test.stable(
+test.browser.stable(
   'Empty note drafts recover without creating notebooks',
   async ({ page, expectScreenshot, expect }) => {
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
@@ -20,7 +20,7 @@ test.stable(
       'Final observation: the corrected draft is complete.'
     ].join('\n\n');
 
-    async function reachableControls({ expect }: Pick<test.Context, 'expect'>) {
+    async function reachableControls({ expect }: Pick<test.browser.Context, 'expect'>) {
       for (const control of [composer, attach, save]) {
         await expect(control).toBeInViewport({ ratio: 1 });
 
@@ -49,7 +49,7 @@ test.stable(
       if (await save.isEnabled()) await save.click({ trial: true });
     }
 
-    async function invalidDraft({ expect }: Pick<test.Context, 'expect'>) {
+    async function invalidDraft({ expect }: Pick<test.browser.Context, 'expect'>) {
       await expect(save).toBeDisabled();
       await expect(save).not.toHaveAttribute('aria-busy', 'true');
       await composer.press('Control+Enter');

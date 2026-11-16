@@ -47,7 +47,7 @@ function wav() {
   return bytes;
 }
 
-test.stable(
+test.server.stable(
   'recording imports are fenced, atomic, and replayed only for identical inputs',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -67,7 +67,9 @@ test.stable(
         sql`INSERT INTO notes (id,title,title_source,created_at,updated_at) VALUES (1,'one','user',1,1)`
       );
 
-      function* verifyRecordingImports({ assert: assertions }: Pick<test.Context, 'assert'>) {
+      function* verifyRecordingImports({
+        assert: assertions
+      }: Pick<test.server.Context, 'assert'>) {
         const assert: test.Assert = assertions;
 
         const sources = yield* Sources;
@@ -88,7 +90,7 @@ test.stable(
         function runWorkflow({
           expect,
           assert: assertions
-        }: Pick<test.Context, 'expect' | 'assert'>) {
+        }: Pick<test.server.Context, 'expect' | 'assert'>) {
           const assert: test.Assert = assertions;
 
           return Activity.make({

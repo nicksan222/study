@@ -56,7 +56,7 @@ function message(text: string, versionId = 10n, basedOn: bigint | null = null) {
 const registries: AtomRegistry.AtomRegistry[] = [];
 
 function mount(
-  { rpcTestTransport, renderHook }: Pick<test.Context, 'rpcTestTransport' | 'renderHook'>,
+  { rpcTestTransport, renderHook }: Pick<test.unit.Context, 'rpcTestTransport' | 'renderHook'>,
   page: PageTarget = target,
   registry = AtomRegistry.make()
 ) {
@@ -88,7 +88,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   preferences = __mockState.preferences;
@@ -102,17 +102,17 @@ test.beforeEach(async ({ mock }) => {
   usePageAutosave = __mockModule0.usePageAutosave;
 });
 
-test.beforeEach(({ vi }) => {
+test.unit.beforeEach(({ vi }) => {
   vi.useFakeTimers();
   vi.resetAllMocks();
 });
-test.afterEach(({ cleanup, vi }) => {
+test.unit.afterEach(({ cleanup, vi }) => {
   cleanup();
   registries.splice(0).forEach((registry) => registry.dispose());
   vi.useRealTimers();
 });
 
-test.stable(
+test.unit.stable(
   'autosaves every three seconds, serializes writes and preserves typing during a pending save',
   async ({ act, vi, expect, rpcTestTransport, renderHook }) => {
     let accept!: (value: ReturnType<typeof message>) => void;
@@ -156,7 +156,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains an uncertain creation across remounts and retries its exact capture identity only on request',
   async ({ act, vi, expect, rpcTestTransport, renderHook }) => {
     api.post
@@ -184,7 +184,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps local changes when another writer advances the active version',
   async ({ act, vi, expect, rpcTestTransport, renderHook }) => {
     api.edit.mockRejectedValue(new StudyError('invalid_input', 'conflict'));
@@ -210,7 +210,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'flushes edits typed during a save when their document tab closes',
   async ({ act, vi, expect, rpcTestTransport, renderHook }) => {
     let accept!: (value: ReturnType<typeof message>) => void;
@@ -241,7 +241,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'reconciles a lost edit receipt without creating a duplicate version',
   async ({ act, vi, expect, rpcTestTransport, renderHook }) => {
     api.edit.mockRejectedValue(new StudyError('transient', 'Lost receipt'));
@@ -264,7 +264,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'waits for the configured autosave interval before creating a page',
   async ({ act, vi, expect, rpcTestTransport, renderHook }) => {
     preferences.autosaveIntervalSeconds = 8;

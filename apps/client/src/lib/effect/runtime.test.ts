@@ -4,17 +4,17 @@ import { Effect } from 'effect';
 
 import { runRequest } from './runtime';
 
-test.stable('preserves expected failures and their retry metadata', async ({ expect }) => {
+test.unit.stable('preserves expected failures and their retry metadata', async ({ expect }) => {
   const error = new StudyError('rate_limited', 'limited', { retryAfterMs: 300 });
 
   await expect(runRequest(Effect.fail(error))).rejects.toBe(error);
 });
 
-test.stable('returns successful values', async ({ expect }) => {
+test.unit.stable('returns successful values', async ({ expect }) => {
   expect(await runRequest(Effect.succeed(42))).toBe(42);
 });
 
-test.stable(
+test.unit.stable(
   'keeps unexpected defects as internal failures with their cause',
   async ({ expect }) => {
     await expect(runRequest(Effect.die(new Error('defect')))).rejects.toMatchObject({
@@ -24,7 +24,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'forwards interruption to the transport without presenting an error',
   async ({ expect }) => {
     const controller = new AbortController();
@@ -53,19 +53,22 @@ test.stable(
   }
 );
 
-test.stable('does not start an operation when its owner is already aborted', async ({ expect }) => {
-  const controller = new AbortController();
+test.unit.stable(
+  'does not start an operation when its owner is already aborted',
+  async ({ expect }) => {
+    const controller = new AbortController();
 
-  controller.abort();
-  let started = false;
+    controller.abort();
+    let started = false;
 
-  await expect(
-    runRequest(
-      Effect.sync(() => {
-        started = true;
-      }),
-      controller.signal
-    )
-  ).rejects.toMatchObject({ name: 'AbortError' });
-  expect(started).toBe(false);
-});
+    await expect(
+      runRequest(
+        Effect.sync(() => {
+          started = true;
+        }),
+        controller.signal
+      )
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(started).toBe(false);
+  }
+);

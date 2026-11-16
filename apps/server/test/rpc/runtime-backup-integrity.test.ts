@@ -30,7 +30,7 @@ const png = Buffer.from(
   'base64'
 );
 
-test.stable(
+test.server.stable(
   'rechecksummed theme, asset revision, migration receipt and virtual schema tampering is rejected',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -175,7 +175,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'manifest and byte bounds reject malformed transport without allocating managed artifacts',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -232,7 +232,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'listing preserves incompatible artifacts while returning usable backups',
   async ({ expect }) => {
     const f = await backupFixture();

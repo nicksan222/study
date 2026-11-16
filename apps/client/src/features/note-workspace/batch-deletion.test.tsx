@@ -26,7 +26,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   rpc = __mockState.rpc;
@@ -39,7 +39,7 @@ test.beforeEach(async ({ mock }) => {
   NoteBatchDeleteDialog = __mockModule0.NoteBatchDeleteDialog;
 });
 
-test.afterEach(({ cleanup, vi }) => {
+test.unit.afterEach(({ cleanup, vi }) => {
   cleanup();
   vi.resetAllMocks();
 });
@@ -49,7 +49,7 @@ function mount(
     vi,
     rpcHandlersTransport,
     render
-  }: Pick<test.Context, 'vi' | 'rpcHandlersTransport' | 'render'>,
+  }: Pick<test.unit.Context, 'vi' | 'rpcHandlersTransport' | 'render'>,
   onDeleted = vi.fn()
 ) {
   if (!rpc.read.getMockImplementation()) rpc.read.mockResolvedValue(null);
@@ -89,7 +89,7 @@ function mount(
   return { ...render(node()), node, close, onDeleted };
 }
 
-test.stable(
+test.unit.stable(
   'does not delete anything when batch confirmation is cancelled',
   async ({ fireEvent, screen, expect, vi, rpcHandlersTransport, render }) => {
     mount({ vi, rpcHandlersTransport, render });
@@ -97,7 +97,7 @@ test.stable(
     expect(rpc.remove).not.toHaveBeenCalled();
   }
 );
-test.stable(
+test.unit.stable(
   'keeps the reviewed selection fixed and retries only a failed note after a partial success',
   async ({ fireEvent, screen, waitFor, expect, vi, rpcHandlersTransport, render }) => {
     const receipt = (id: NoteId) => ({
@@ -140,7 +140,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'treats an already completed target as satisfied and deletes only the remaining target',
   async ({ fireEvent, screen, waitFor, expect, vi, rpcHandlersTransport, render }) => {
     const receipt = {
@@ -165,7 +165,7 @@ test.stable(
     await waitFor(() => expect(rpc.remove).toHaveBeenCalledExactlyOnceWith(second));
   }
 );
-test.stable(
+test.unit.stable(
   'allows cancelling before confirmation when another deletion is already pending',
   async ({ screen, expect, fireEvent, vi, rpcHandlersTransport, render }) => {
     rpc.read.mockResolvedValue({

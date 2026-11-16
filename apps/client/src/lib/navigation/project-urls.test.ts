@@ -12,7 +12,7 @@ import { validateSearch } from './route-contract';
 
 const url = (path: string) => new URL(path, 'http://localhost');
 
-test.stable.for([
+test.unit.stable.for([
   'notes',
   'pages',
   'practice',
@@ -27,7 +27,7 @@ test.stable.for([
   );
 });
 
-test.stable(
+test.unit.stable(
   'uses the path project over a conflicting query, without applying the prefix twice',
   ({ expect }) => {
     expect(canonicalProjectHref('/projects/2/pages?project=3&pageVersion=8')).toBe(
@@ -44,7 +44,7 @@ test.stable(
   }
 );
 
-test.stable.for(['0', '-1', '1.5', 'wrong', '9223372036854775808', '0002'])(
+test.unit.stable.for(['0', '-1', '1.5', 'wrong', '9223372036854775808', '0002'])(
   'does not decode an invalid project identity %s into a global document route',
   (project, { expect }) => {
     const external = url(`/projects/${project}/pages`);
@@ -55,14 +55,17 @@ test.stable.for(['0', '-1', '1.5', 'wrong', '9223372036854775808', '0002'])(
   }
 );
 
-test.stable('leaves global destinations alone and supports project-root links', ({ expect }) => {
-  expect(canonicalProjectHref('/pages?pageVersion=8#note')).toBe('/pages?pageVersion=8#note');
-  expect(canonicalProjectHref('/projects')).toBe('/projects');
-  expect(canonicalProjectHref('/?project=2')).toBe('/projects/2');
-  expect(projectUrlRewrite.input({ url: url('/projects/2') })?.pathname).toBe('/projects');
-});
+test.unit.stable(
+  'leaves global destinations alone and supports project-root links',
+  ({ expect }) => {
+    expect(canonicalProjectHref('/pages?pageVersion=8#note')).toBe('/pages?pageVersion=8#note');
+    expect(canonicalProjectHref('/projects')).toBe('/projects');
+    expect(canonicalProjectHref('/?project=2')).toBe('/projects/2');
+    expect(projectUrlRewrite.input({ url: url('/projects/2') })?.pathname).toBe('/projects');
+  }
+);
 
-test.stable(
+test.unit.stable(
   'matches direct project paths, publishes scoped links, switches projects, and restores scope on back',
   async ({ expect }) => {
     const root = createRootRoute({ validateSearch });

@@ -11,7 +11,7 @@ const labels = {
   confirmation: { identity: 'backup-1', value: 'delete', label: 'Type delete to confirm.' }
 };
 
-test.stable(
+test.unit.stable(
   'focuses Cancel, uses alert semantics and leaves confirmation ownership with the caller',
   async ({ userEvent, vi, render, screen, expect, waitFor }) => {
     const user = userEvent.setup();
@@ -44,7 +44,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'blocks duplicate confirm, Cancel and Escape while the operation is pending',
   async ({ userEvent, vi, render, screen, expect, fireEvent }) => {
     const user = userEvent.setup();
@@ -65,7 +65,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'does not dismiss on outside pointer interaction and returns focus after Cancel',
   async ({ userEvent, render, screen, expect, waitFor }) => {
     const user = userEvent.setup();
@@ -98,7 +98,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'resets exact confirmation when the target, required phrase or open note changes',
   async ({ userEvent, vi, render, screen, expect }) => {
     const user = userEvent.setup();
@@ -145,7 +145,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'does not accept leading or trailing whitespace as the exact confirmation phrase',
   ({ vi, render, fireEvent, screen, expect }) => {
     const confirm = vi.fn();
@@ -158,7 +158,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps Cancel focused without scrolling long reviewed content away on open',
   async ({ vi, render, waitFor, expect, screen }) => {
     const focus = vi.spyOn(HTMLElement.prototype, 'focus');
@@ -175,7 +175,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'review-only dialogs hide typed intent and cannot invoke deletion',
   async ({ vi, render, expect, screen }) => {
     const confirm = vi.fn();

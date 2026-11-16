@@ -12,8 +12,8 @@ let TargetPicker: typeof __MockType1.TargetPicker;
 let EvidenceTarget: typeof __MockType1.EvidenceTarget;
 
 function setup(
-  { rpcHandlersTransport, render }: Pick<test.Context, 'rpcHandlersTransport' | 'render'>,
-  handlers: Parameters<test.Context['rpcHandlersTransport']>[0],
+  { rpcHandlersTransport, render }: Pick<test.unit.Context, 'rpcHandlersTransport' | 'render'>,
+  handlers: Parameters<test.unit.Context['rpcHandlersTransport']>[0],
   child: ReactNode
 ) {
   const harness = rpcHandlersTransport(handlers);
@@ -21,7 +21,7 @@ function setup(
   return { ...render(<harness.wrapper>{child}</harness.wrapper>), ...harness };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
   const __mockModule0 = await import('../document-editing/test-support');
 
@@ -32,7 +32,7 @@ test.beforeEach(async ({ mock }) => {
   EvidenceTarget = __mockModule1.EvidenceTarget;
 });
 
-test.stable(
+test.unit.stable(
   'selects one canonical block and rejects a split UTF-16 surrogate pair',
   async ({ vi, userEvent, screen, fireEvent, expect, rpcHandlersTransport, render }) => {
     const owner = authoredPage(41n, 'A😀BC', 101n);
@@ -87,7 +87,7 @@ function retainedTarget() {
   return { owner, version, target };
 }
 
-test.stable(
+test.unit.stable(
   'a retained reference never follows a different document identity',
   async ({ expect, screen, rpcHandlersTransport, render }) => {
     const { version, target } = retainedTarget();
@@ -107,7 +107,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'a mounted retained reference discards its body after a committed retirement hint',
   async ({ vi, screen, act, waitFor, expect, rpcHandlersTransport, render }) => {
     const { version, target } = retainedTarget();

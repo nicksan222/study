@@ -86,7 +86,7 @@ export function summary(id = 41n) {
   return Schema.decodeUnknownSync(materialSummarySchema)(material(id));
 }
 
-export function materialRpc({ vi }: Pick<test.Context, 'vi'>) {
+export function materialRpc({ vi }: Pick<test.unit.Context, 'vi'>) {
   return {
     'pages.count': vi.fn<StudyClient['pages.count']>().mockReturnValue(Effect.succeed(0n)),
     'materials.count': vi.fn<StudyClient['materials.count']>().mockReturnValue(Effect.succeed(1n)),
@@ -216,7 +216,7 @@ export function mountLibraryRoute(
     render,
     rpcHandlersTransport,
     vi
-  }: Pick<test.Context, 'render' | 'rpcHandlersTransport' | 'vi'>,
+  }: Pick<test.unit.Context, 'render' | 'rpcHandlersTransport' | 'vi'>,
   initial = '/pages',
   rpc = materialRpc({ vi })
 ) {
@@ -235,7 +235,7 @@ export function mountLibraryRoute(
 }
 
 export async function locationIs(
-  { waitFor }: Pick<test.Context, 'waitFor'>,
+  { waitFor }: Pick<test.unit.Context, 'waitFor'>,
   router: ReturnType<typeof createAppRouter>,
   pathname: string
 ) {

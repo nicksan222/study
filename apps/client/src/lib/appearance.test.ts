@@ -10,7 +10,7 @@ function createMocks(mock: test.Mock) {
 
 let api: ReturnType<typeof createMocks>;
 
-test.beforeEach(({ mock, rpcTestTransport }) => {
+test.unit.beforeEach(({ mock, rpcTestTransport }) => {
   api = createMocks(mock);
   const fixture = rpcTestTransport(async (tag, input) => {
     if (tag === 'settings.appSettings')
@@ -30,9 +30,9 @@ test.beforeEach(({ mock, rpcTestTransport }) => {
 
 let restore: (() => void) | undefined;
 
-test.afterEach(() => restore?.());
+test.unit.afterEach(() => restore?.());
 
-test.stable(
+test.unit.stable(
   'applies the saved theme and appearance to the document',
   async ({ waitFor, expect }) => {
     api.settings.mockResolvedValue({ appearance: 1 });
@@ -58,7 +58,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps the default dark palette available when the server is unavailable',
   async ({ expect }) => {
     api.settings.mockRejectedValue(new Error('offline'));
@@ -70,7 +70,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'follows system appearance changes and removes the listener on disposal',
   async ({ vi, waitFor, expect }) => {
     let change: ((event: { matches: boolean }) => void) | undefined;
@@ -102,7 +102,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'skips an active navigation snapshot before changing root zoom',
   async ({ vi, expect, waitFor }) => {
     let cancel: () => void = () => {};

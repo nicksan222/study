@@ -4,7 +4,7 @@ import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 import type { Locator } from 'playwright';
 
-test.stable.use({ aiEnabled: true, video: { mode: 'on', size: { width: 2560, height: 1440 } } });
+test.browser.use({ aiEnabled: true, video: { mode: 'on', size: { width: 2560, height: 1440 } } });
 
 const copy = catalogs.english;
 
@@ -27,7 +27,7 @@ async function itemSize(sidebar: Locator, title: string) {
   return { width: box.width, height: box.height };
 }
 
-test.stable(
+test.browser.stable(
   'Material generation progress and recovery',
   async ({ page, study, ai, expectScreenshot, expectAccessibility, expect }) => {
     const fixture = await study.seed();
@@ -233,7 +233,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'Long study notes prepare every section before final material',
   async ({ page, study, ai, expectScreenshot, expectAccessibility, expect }) => {
     const fixture = await study.seed(`${study.lecture}\n\n`.repeat(180));
@@ -358,7 +358,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'Quiz generation uses the selected notes and saved question settings',
   async ({ page, study, ai, expectScreenshot, expectAccessibility, expect }) => {
     const fixture = await study.seed();

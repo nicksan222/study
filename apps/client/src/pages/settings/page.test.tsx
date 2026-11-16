@@ -1,7 +1,7 @@
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 
-test.stable.for(['english', 'italian'] as const)(
+test.unit.stable.for(['english', 'italian'] as const)(
   'opens the Settings page in %s',
   async (locale, { page, expect, screen }) => {
     const { router } = await page.open('/settings?project=9007199254740993', { locale });

@@ -15,7 +15,7 @@ import { test } from '@study/testing';
 import { buildContext } from './environment.ts';
 import { fs, path, run } from './filesystem.ts';
 
-test.stable(
+test.unit.stable(
   'default build context resolves the workspace from the server package',
   async ({ expect }) => {
     const serverRoot = path.resolve(import.meta.dirname, '../../../apps/server');
@@ -40,7 +40,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'build contexts preserve sources below a dist parent and omit secrets and dependencies',
   async ({ temporaryDirectory, expect }) => {
     await using temporary = await temporaryDirectory({ prefix: 'study-build-context-' });
@@ -94,7 +94,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'the integration install layer contains every locked workspace manifest',
   async ({ expect }) => {
     const root = new URL('../../../', import.meta.url);

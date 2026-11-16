@@ -40,7 +40,7 @@ const meta = {
   omissions: []
 };
 
-test.stable(
+test.server.stable(
   'native saves race on one expected revision, retain both rich alternatives and replay after reopen',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -264,55 +264,60 @@ test.stable(
   }
 );
 
-test.stable('retires only one selected authored note version', async ({ databases, expect }) => {
-  const location = await databases();
-  const context = new ServerContext(await location.open());
-  const layer = Pages.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
+test.server.stable(
+  'retires only one selected authored note version',
+  async ({ databases, expect }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const layer = Pages.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const pages = yield* Pages;
-        const original = yield* pages.create({
-          createKey: 'single-version-delete',
-          inputs: [],
-          citations: [],
-          title: 'Notes',
-          document: { blocks: [paragraph('First')], meta }
-        });
-        const second = yield* pages.save({
-          pageId: original.id,
-          expectedVersionId: original.version!.id,
-          key: 'second',
-          document: { blocks: [paragraph('Second')], meta }
-        });
-        const third = yield* pages.save({
-          pageId: original.id,
-          expectedVersionId: second.submittedVersionId,
-          key: 'third',
-          document: { blocks: [paragraph('Third')], meta }
-        });
-        const scope = {
-          pageId: original.id,
-          keepLatest: 1,
-          versionId: second.submittedVersionId
-        };
-        const preview = yield* pages.previewHistory(scope);
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const pages = yield* Pages;
+          const original = yield* pages.create({
+            createKey: 'single-version-delete',
+            inputs: [],
+            citations: [],
+            title: 'Notes',
+            document: { blocks: [paragraph('First')], meta }
+          });
+          const second = yield* pages.save({
+            pageId: original.id,
+            expectedVersionId: original.version!.id,
+            key: 'second',
+            document: { blocks: [paragraph('Second')], meta }
+          });
+          const third = yield* pages.save({
+            pageId: original.id,
+            expectedVersionId: second.submittedVersionId,
+            key: 'third',
+            document: { blocks: [paragraph('Third')], meta }
+          });
+          const scope = {
+            pageId: original.id,
+            keepLatest: 1,
+            versionId: second.submittedVersionId
+          };
+          const preview = yield* pages.previewHistory(scope);
 
-        expect(preview.versionIds).toEqual([second.submittedVersionId]);
-        yield* pages.retireHistory({ ...scope, token: preview.token });
-        expect((yield* pages.version({ id: original.version!.id })).document.blocks.length).toBe(1);
-        expect(
-          (yield* pages.version({ id: third.submittedVersionId })).document.blocks.length
-        ).toBe(1);
-        expect((yield* Effect.flip(pages.version({ id: second.submittedVersionId }))).kind).toBe(
-          'not_found'
-        );
-        expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toEqual([]);
-      }).pipe(Effect.provide(layer))
-    );
-  } finally {
-    context.close();
-    await location.cleanup();
+          expect(preview.versionIds).toEqual([second.submittedVersionId]);
+          yield* pages.retireHistory({ ...scope, token: preview.token });
+          expect((yield* pages.version({ id: original.version!.id })).document.blocks.length).toBe(
+            1
+          );
+          expect(
+            (yield* pages.version({ id: third.submittedVersionId })).document.blocks.length
+          ).toBe(1);
+          expect((yield* Effect.flip(pages.version({ id: second.submittedVersionId }))).kind).toBe(
+            'not_found'
+          );
+          expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toEqual([]);
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);

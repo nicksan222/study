@@ -39,7 +39,7 @@ const meta = {
   omissions: []
 };
 
-test.stable(
+test.server.stable(
   'sidebar summaries count distinct attached generated documents and report durable work',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

@@ -4,7 +4,7 @@ import { test } from '@study/testing';
 import { Effect } from 'effect';
 
 import { materialRpc, mountLibraryRoute, importedSource } from '../material-library/test/support';
-test.stable(
+test.unit.stable(
   'keeps unavailable historical extraction unavailable without falling back to current content or bytes',
   async ({ expect, within, screen, vi, render, rpcHandlersTransport }) => {
     const rpc = materialRpc({ vi });
@@ -34,7 +34,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'exports the selected historical version with its exact retained bytes, MIME and filename',
   async ({
     vi,
@@ -130,7 +130,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'reports an unavailable historical original without requesting a current-version or Source fallback',
   async ({ screen, userEvent, expect, within, vi, render, rpcHandlersTransport }) => {
     const rpc = materialRpc({ vi });

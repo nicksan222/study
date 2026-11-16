@@ -22,7 +22,7 @@ import { transaction } from '#server/platform/definitions/define-store';
 
 import { ensureNote } from './ensure-note.ts';
 
-test.stable(
+test.server.stable(
   'named notebook lookup uses exact titles, active notebooks, earliest IDs and collection scope',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

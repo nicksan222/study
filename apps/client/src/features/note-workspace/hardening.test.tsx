@@ -92,7 +92,7 @@ let NoteWorkspace: typeof __MockType10.NoteWorkspace;
 let rpc: ReturnType<typeof createMockState>['rpc'];
 
 function testFixture(
-  { rpcHandlersTransport }: Pick<test.Context, 'rpcHandlersTransport'>,
+  { rpcHandlersTransport }: Pick<test.unit.Context, 'rpcHandlersTransport'>,
   client: AtomRegistry.AtomRegistry
 ) {
   return rpcHandlersTransport(
@@ -205,14 +205,14 @@ function cache() {
 
 const fixtures = new WeakMap<
   AtomRegistry.AtomRegistry,
-  ReturnType<test.Context['rpcHandlersTransport']>
+  ReturnType<test.unit.Context['rpcHandlersTransport']>
 >();
 
 const notify = (client: AtomRegistry.AtomRegistry) =>
   fixtures.get(client)?.notify() ?? Promise.resolve([]);
 
 function mount(
-  { render, rpcHandlersTransport }: Pick<test.Context, 'render' | 'rpcHandlersTransport'>,
+  { render, rpcHandlersTransport }: Pick<test.unit.Context, 'render' | 'rpcHandlersTransport'>,
   children: ReactNode,
   client = cache(),
   search = '',
@@ -293,7 +293,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   rpc = __mockState.rpc;
@@ -341,7 +341,7 @@ test.beforeEach(async ({ mock }) => {
   pickerPage = initializePickerPage();
 });
 
-test.beforeEach(({ vi }) => {
+test.unit.beforeEach(({ vi }) => {
   vi.resetAllMocks();
   rpc.projects.mockResolvedValue({ items: [], next: null });
   rpc.notes.mockResolvedValue({ items: [], next: null });
@@ -373,13 +373,13 @@ test.beforeEach(({ vi }) => {
     excludedMessages: 0
   });
 });
-test.afterEach(({ vi }) => {
+test.unit.afterEach(({ vi }) => {
   vi.restoreAllMocks();
 
   for (const client of caches.splice(0)) client.dispose();
 });
 
-test.stable.for(['pending', 'failed', 'completed'] as const)(
+test.unit.stable.for(['pending', 'failed', 'completed'] as const)(
   'recovers a cold deleted page with a %s receipt',
   async (status, { fireEvent, screen, waitFor, expect, render, rpcHandlersTransport }) => {
     rpc.note.mockRejectedValue(new StudyError('not_found', 'Deleted'));
@@ -423,7 +423,7 @@ test.stable.for(['pending', 'failed', 'completed'] as const)(
   }
 );
 
-test.stable(
+test.unit.stable(
   'requires successful list review and deliberate acknowledgment before another ambiguous create',
   async ({ fireEvent, waitFor, expect, screen, render, rpcHandlersTransport }) => {
     rpc.create.mockRejectedValue(new StudyError('transient', 'Receipt lost'));
@@ -459,7 +459,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'allows another create after a definite invalid-input rejection without replaying automatically',
   async ({ fireEvent, waitFor, expect, screen, render, rpcHandlersTransport }) => {
     rpc.create.mockRejectedValue(new StudyError('invalid_input', 'Rejected before commit'));
@@ -476,7 +476,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'persists an ambiguous retry key across remounts and waits for its exact execution before another retry',
   async ({ fireEvent, screen, waitFor, expect, act, render, rpcHandlersTransport }) => {
     rpc.executions.mockImplementation(({ eventId }) => ({
@@ -539,7 +539,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps cancelled transforms terminal and offers a fresh transform instead',
   async ({ screen, expect, fireEvent, waitFor, render, rpcHandlersTransport }) => {
     rpc.generation.mockResolvedValue(generation({ cancelled: true }));
@@ -559,7 +559,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'exposes operation toggle state and contextual version groups',
   async ({ screen, expect, fireEvent, waitFor, within, render, rpcHandlersTransport }) => {
     const client = cache();
@@ -618,7 +618,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'uses the routed project filter before pagination and trusts the server page',
   async ({ expect, screen, fireEvent, waitFor, render, rpcHandlersTransport }) => {
     const project = Schema.decodeUnknownSync(projectIdSchema)(9007199254740995n);
@@ -649,7 +649,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'renders question and answer in one entry and keeps the question toggle beside deletion',
   async ({ expect, screen, within, fireEvent, render, rpcHandlersTransport }) => {
     const message = Schema.decodeUnknownSync(chatMessageSchema)({
@@ -739,7 +739,7 @@ function citationMessage() {
   });
 }
 
-test.stable.for(['pending', 'writing'] as const)(
+test.unit.stable.for(['pending', 'writing'] as const)(
   'keeps %s rewrite content and citation evidence on the displayed parent version',
   async (status, { expect, screen, waitFor, fireEvent, render, rpcHandlersTransport }) => {
     const saved = citationMessage();
@@ -787,7 +787,7 @@ test.stable.for(['pending', 'writing'] as const)(
   }
 );
 
-test.stable(
+test.unit.stable(
   'queries citations for the exact viewed historical version, with no active-version fallback',
   async ({ waitFor, expect, screen, fireEvent, render, rpcHandlersTransport }) => {
     const message = citationMessage();
@@ -838,7 +838,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'hides captured instructions after a failed exact-context read while retaining retry identity',
   async ({ expect, screen, act, waitFor, fireEvent, render, rpcHandlersTransport }) => {
     const client = cache();
@@ -870,7 +870,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'opens work details from the menu and recovers the exact reply context after failure',
   async ({ screen, expect, fireEvent, act, waitFor, render, rpcHandlersTransport }) => {
     const message = Schema.decodeUnknownSync(chatMessageSchema)({
@@ -937,7 +937,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'starts from a notebook draft, retaining later typing until creation is confirmed',
   async ({ fireEvent, waitFor, expect, screen, act, render, rpcHandlersTransport }) => {
     const creation = deferred<typeof noteSchema.Type>();
@@ -971,7 +971,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains the start draft through an uncertain creation and remount',
   async ({ fireEvent, waitFor, expect, screen, render, rpcHandlersTransport }) => {
     rpc.create.mockRejectedValue(new StudyError('transient', 'Receipt lost'));
@@ -993,7 +993,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'replaces a failed note landing page with the shared error state and recovers on retry',
   async ({ screen, expect, within, fireEvent, render, rpcHandlersTransport, waitFor }) => {
     rpc.notes.mockRejectedValue(new StudyError('transient', 'Offline'));
@@ -1008,7 +1008,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'fences repeated start shortcuts before the creation receipt arrives',
   async ({ fireEvent, waitFor, expect, screen, render, rpcHandlersTransport }) => {
     rpc.create.mockReturnValue(new Promise(() => {}));
@@ -1024,7 +1024,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'hands starter files to the confirmed note once and creates in the routed subject',
   async ({ vi, fireEvent, screen, expect, waitFor, act, render, rpcHandlersTransport }) => {
     const project = Schema.decodeUnknownSync(projectIdSchema)(9007199254740995n);
@@ -1071,7 +1071,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains selected files across an uncertain create and starter remount',
   async ({ vi, fireEvent, screen, waitFor, expect, render, rpcHandlersTransport }) => {
     rpc.create.mockRejectedValue(new StudyError('transient', 'Receipt lost'));
@@ -1096,7 +1096,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps the active composer mounted while a missing deletion receipt is refreshed',
   async ({ screen, fireEvent, waitFor, expect, act, render, rpcHandlersTransport }) => {
     rpc.note.mockResolvedValue({
@@ -1143,7 +1143,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'blocks editing and file drops after a failed deletion refresh despite a cached missing receipt',
   async ({ vi, screen, fireEvent, waitFor, expect, act, render, rpcHandlersTransport }) => {
     rpc.note.mockResolvedValue({
@@ -1183,7 +1183,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'withdraws delete confirmation after a failed deletion refresh while keeping it during a pending refresh',
   async ({ screen, fireEvent, waitFor, expect, act, render, rpcHandlersTransport }) => {
     rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
@@ -1224,7 +1224,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'fences notebook drops while a shared deletion mutation is pending',
   async ({ vi, waitFor, expect, screen, fireEvent, within, render, rpcHandlersTransport }) => {
     rpc.note.mockResolvedValue({
@@ -1266,7 +1266,7 @@ test.stable(
   }
 );
 
-test.stable.for(['', '?project=9007199254740997'])(
+test.unit.stable.for(['', '?project=9007199254740997'])(
   'uses the active note authoritative owner in the direct path breadcrumb %s',
   async (search, { screen, expect, within, render, rpcHandlersTransport }) => {
     const owner = Schema.decodeUnknownSync(projectSchema)({
@@ -1313,7 +1313,7 @@ test.stable.for(['', '?project=9007199254740997'])(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps vertical note actions inside the default card and restores dialog focus and drafts',
   async ({
     screen,
@@ -1371,7 +1371,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains the notebook edit fence after an uncertain deletion request and remount',
   async ({ vi, waitFor, expect, screen, fireEvent, within, act, render, rpcHandlersTransport }) => {
     rpc.note.mockResolvedValue({
@@ -1426,7 +1426,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'does not replay a deletion success notification when reopening a completed note',
   async ({ vi, screen, fireEvent, waitFor, expect, act, render, rpcHandlersTransport }) => {
     rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
@@ -1468,7 +1468,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'announces completion once when deleting from the active workspace dialog',
   async ({ vi, fireEvent, screen, within, waitFor, expect, act, render, rpcHandlersTransport }) => {
     rpc.note.mockResolvedValue({
@@ -1519,7 +1519,7 @@ async function openStarterComposer({
   waitFor,
   screen,
   fireEvent
-}: Pick<test.Context, 'waitFor' | 'screen' | 'fireEvent'>) {
+}: Pick<test.unit.Context, 'waitFor' | 'screen' | 'fireEvent'>) {
   const entry = await waitFor(
     () =>
       screen.queryByRole('textbox', { name: 'NoteCompose' }) ??
@@ -1531,7 +1531,7 @@ async function openStarterComposer({
   return screen.findByRole('textbox', { name: 'NoteCompose' });
 }
 
-test.stable(
+test.unit.stable(
   'ignores obsolete selection drafts when starting a note transformation',
   async ({ fireEvent, screen, waitFor, expect, render, rpcHandlersTransport }) => {
     const client = cache();

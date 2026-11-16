@@ -7,7 +7,7 @@ import { Db } from '../src/db.ts';
 
 const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
 
-test.stable(
+test.server.stable(
   'fixture disposal closes owned connections and removes files after an exception',
   async ({ expect, createTestDatabase, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -33,7 +33,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'fixture preparation is explicit and supports direct connections',
   async ({ createTestDatabase, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -56,7 +56,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'isolated fixtures use real migrated databases and remove their files',
   async ({ createTestDatabase, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -89,7 +89,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'reopening a fixture preserves writes instead of restoring the empty template',
   async ({ createTestDatabase, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -118,7 +118,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'custom migration folders bypass the default database template',
   async ({ createTestDatabase, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

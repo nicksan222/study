@@ -7,7 +7,7 @@ import type * as __StudyMockType0 from '#client/app/shell/default-context-menu.t
 
 let DefaultContextMenu: typeof __StudyMockType0.DefaultContextMenu;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   mock('#client/features/pages/index.ts', () => ({
     useNewBlankPage: () => ({ pending: false, create: async () => true })
   }));
@@ -18,7 +18,7 @@ test.beforeEach(async ({ mock }) => {
 
 const en = catalogs.english;
 
-test.stable(
+test.unit.stable(
   'offers creation and scoped destinations on otherwise unhandled content',
   async ({ renderInRouter, fireEvent, screen, expect, userEvent, waitFor }) => {
     renderInRouter(
@@ -43,7 +43,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'lets nested custom menus and handlers take precedence over the fallback',
   async ({ renderInRouter, fireEvent, screen, expect, userEvent, waitFor }) => {
     renderInRouter(

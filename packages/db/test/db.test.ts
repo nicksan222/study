@@ -8,7 +8,7 @@ import type { DbTransaction } from '../src/index.ts';
 import { material_generation_scopes, projects } from '../src/schema.ts';
 
 async function fixture(
-  { createTestDatabase }: Pick<test.Context, 'createTestDatabase'>,
+  { createTestDatabase }: Pick<test.server.Context, 'createTestDatabase'>,
   run: (path: string) => void | Promise<void>
 ) {
   const location = await createTestDatabase();
@@ -37,7 +37,7 @@ function values(db: Db) {
 }
 
 async function privateConnection(
-  { assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>,
+  { assert: assertions, expect }: Pick<test.server.Context, 'assert' | 'expect'>,
   path: string
 ) {
   const assert: test.Assert = assertions;
@@ -80,7 +80,7 @@ async function privateConnection(
 }
 
 async function nestedCommits(
-  { assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>,
+  { assert: assertions, expect }: Pick<test.server.Context, 'assert' | 'expect'>,
   path: string
 ) {
   const assert: test.Assert = assertions;
@@ -127,7 +127,7 @@ async function nestedCommits(
 }
 
 async function caughtNestedFailure(
-  { assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>,
+  { assert: assertions, expect }: Pick<test.server.Context, 'assert' | 'expect'>,
   path: string
 ) {
   const assert: test.Assert = assertions;
@@ -156,7 +156,7 @@ async function caughtNestedFailure(
 }
 
 async function rejectedAsyncCallbacks(
-  { assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>,
+  { assert: assertions, expect }: Pick<test.server.Context, 'assert' | 'expect'>,
   path: string
 ) {
   const assert: test.Assert = assertions;
@@ -196,7 +196,7 @@ async function rejectedAsyncCallbacks(
 }
 
 function assertExpiredCommit(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
   db: DbTransaction
 ) {
   const assert: test.Assert = assertions;
@@ -205,7 +205,7 @@ function assertExpiredCommit(
 }
 
 function assertExpiredScope(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
   db: DbTransaction
 ) {
   const assert: test.Assert = assertions;
@@ -218,13 +218,13 @@ function assertExpiredScope(
   );
 }
 
-test.stable(
+test.server.stable(
   'opens a private WAL connection with foreign keys and a busy timeout, and persists across reopen',
   ({ createTestDatabase, assert, expect }) =>
     fixture({ createTestDatabase }, (path) => privateConnection({ assert, expect }, path))
 );
 
-test.stable(
+test.server.stable(
   'opens an in-memory database and closes the underlying connection',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -237,9 +237,9 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'existing database preflight initializes SQLite in a fresh process',
-  ({ spawnTestProcess, assert: assertions, expect, createTestDatabase }: test.Context) => {
+  ({ spawnTestProcess, assert: assertions, expect, createTestDatabase }: test.server.Context) => {
     const assert: test.Assert = assertions;
 
     return fixture({ createTestDatabase }, async (path) => {
@@ -274,19 +274,19 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'nested commits return callback values and roll back with the outer transaction',
   ({ createTestDatabase, assert, expect }) =>
     fixture({ createTestDatabase }, (path) => nestedCommits({ assert, expect }, path))
 );
 
-test.stable(
+test.server.stable(
   'a caught nested failure rolls back its savepoint and preserves outer writes',
   ({ createTestDatabase, assert, expect }) =>
     fixture({ createTestDatabase }, (path) => caughtNestedFailure({ assert, expect }, path))
 );
 
-test.stable(
+test.server.stable(
   'rejects native async callbacks before invocation and rolls back thenable callbacks',
   ({ createTestDatabase, assert, expect }) =>
     fixture({ createTestDatabase }, (path) => rejectedAsyncCallbacks({ assert, expect }, path))
@@ -295,7 +295,7 @@ test.stable(
 async function expiredAsyncScopes({
   assert: assertions,
   expect
-}: Pick<test.Context, 'assert' | 'expect'>) {
+}: Pick<test.server.Context, 'assert' | 'expect'>) {
   const assert: test.Assert = assertions;
 
   const db = await Db.open(':memory:');
@@ -327,14 +327,14 @@ async function expiredAsyncScopes({
   }
 }
 
-test.stable(
+test.server.stable(
   'expired async scopes cannot use orm, raw SQL, or start transactions',
   expiredAsyncScopes
 );
 
-test.stable(
+test.server.stable(
   'boolean columns retain true and false alongside bigint integers across transactions and reopen',
-  ({ assert: assertions, expect, createTestDatabase }: test.Context) => {
+  ({ assert: assertions, expect, createTestDatabase }: test.server.Context) => {
     const assert: test.Assert = assertions;
 
     return fixture({ createTestDatabase }, async (path) => {
@@ -394,9 +394,9 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'transaction capabilities expire after commit',
-  ({ assert: assertions, expect, createTestDatabase }: test.Context) => {
+  ({ assert: assertions, expect, createTestDatabase }: test.server.Context) => {
     const assert: test.Assert = assertions;
 
     return fixture({ createTestDatabase }, async (path) => {
@@ -433,7 +433,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'SQLite cannot load extensions from SQL after vector setup',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -448,9 +448,9 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'root access cannot replace a transaction capability',
-  ({ assert: assertions, expect, createTestDatabase }: test.Context) => {
+  ({ assert: assertions, expect, createTestDatabase }: test.server.Context) => {
     const assert: test.Assert = assertions;
 
     return fixture({ createTestDatabase }, async (path) => {
@@ -473,7 +473,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'ORM-level transactions cannot bypass database capabilities',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -499,7 +499,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'CTE APIs and builders expire with their transaction capability',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -534,7 +534,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'captured root CTE APIs cannot execute inside a transaction',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

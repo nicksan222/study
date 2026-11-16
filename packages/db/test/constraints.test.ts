@@ -10,7 +10,7 @@ import * as schema from '../src/schema.ts';
 const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
 function assertThrowsMatching(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
   run: () => unknown,
   matches: (error: unknown) => boolean
 ) {
@@ -99,7 +99,7 @@ function checkViolation(error: unknown): boolean {
   );
 }
 
-test.stable(
+test.server.stable(
   'message instructions are nullable but otherwise nonblank and bounded',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -131,7 +131,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'message citations enforce unsigned 32 bit positive markers',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -161,7 +161,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'fresh baseline preserves populated references and message search triggers across reopen',
   async ({ onTestFinished, temporaryDirectory, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -245,7 +245,7 @@ test.stable(
 
 for (const table of ['message_versions'] as const)
   for (const keepLowerRow of [false, true])
-    test.stable(
+    test.server.stable(
       `fresh baseline preserves deleted ${table} identities across reopen with ${keepLowerRow ? 'surviving rows' : 'an empty table'}`,
       async ({ onTestFinished, temporaryDirectory, assert: assertions, expect }) => {
         const assert: test.Assert = assertions;

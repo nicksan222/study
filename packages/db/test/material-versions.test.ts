@@ -63,7 +63,7 @@ function publish(db: Db, id: bigint) {
   db.orm.run(sql`UPDATE material_versions SET status='published',published_at=2 WHERE id=${id}`);
 }
 
-test.stable(
+test.server.stable(
   'materials enforce kind and version identity while note selection crosses collections',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -93,7 +93,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'publication rejects absent or incomplete payloads and freezes content and identities',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -133,7 +133,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'multi-input provenance crosses collections, stays published-only and is sealed at publication',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -178,7 +178,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'revision history supports branching within one material and preserves exact versions',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -215,7 +215,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'source originals own media bytes independently of learning and authored storage',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -237,7 +237,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'authored versions own canonical snapshots and freeze their underlying blocks',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -262,7 +262,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'collection deletion preserves source bytes, authored versions, learning and independent note attachments',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -296,7 +296,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'correct quiz answers roundtrip through the ORM boolean codec',
   async ({ databases, expect }) => {
     const db = await fixture(databases);
@@ -320,7 +320,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'draft learning inputs reference exact source extractions independently of collection organization',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -340,7 +340,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'authored publication rejects malformed canonical anchors',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -361,7 +361,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'scheduling fields declared bigint reject fractional storage',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -382,7 +382,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'removing a draft learning artifact preserves a source-owned extraction snapshot',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -400,7 +400,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'material citations enforce positive unsigned 32 bit markers',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -429,7 +429,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'fresh canonical migrations preserve all published citation mutation guards',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

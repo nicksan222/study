@@ -24,7 +24,7 @@ const original = [
   'Ultima riga: finché c’è luce, il giardino cresce. 🌍 家族 👨‍👩‍👧‍👦 نهاية الملاحظات.'
 ].join('\n\n');
 
-test.stable(
+test.browser.stable(
   'Bilingual notes preserve Unicode edits search and locale changes',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');

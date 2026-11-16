@@ -2,17 +2,20 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable('requires SQL null checks to use IS NULL semantics', async ({ assert: assertions }) => {
-  const assert: test.Assert = assertions;
+test.unit.stable(
+  'requires SQL null checks to use IS NULL semantics',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  const diagnostics = await lintRule({ assert }, 'sql-null-comparison', {
-    'src/bad.ts': "import { eq } from '@study/db'; eq(items.id, null);"
-  });
+    const diagnostics = await lintRule({ assert }, 'sql-null-comparison', {
+      'src/bad.ts': "import { eq } from '@study/db'; eq(items.id, null);"
+    });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  }
+);
 
-test.stable(
+test.unit.stable(
   'recognizes aliases and ignores quoted or commented SQL and shadowed names',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -38,7 +41,7 @@ d.sql\`NULL = x\`;`,
   }
 );
 
-test.stable(
+test.unit.stable(
   'NULL assignments are valid while comparisons in WHERE and assignment expressions fail',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

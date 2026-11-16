@@ -10,7 +10,7 @@ const question = {
   explanation: 'Mitochondria produce ATP.'
 };
 
-test.stable(
+test.unit.stable(
   'fill-in-the-blank questions require exactly one blank and a reference answer',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

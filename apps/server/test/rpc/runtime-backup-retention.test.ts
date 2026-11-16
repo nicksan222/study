@@ -28,7 +28,7 @@ import { setup, cleanup as cleanupNote, assertScrubbed } from '#testing/note-del
 import { pageTransformFixture } from '#testing/page-transform';
 
 for (const kind of ['file', 'image'] as const)
-  test.stable(
+  test.server.stable(
     `authored retirement preserves independent ${kind} source pins and revoked exports after restore`,
     async ({ databases, assert: assertions, expect }) => {
       const assert: test.Assert = assertions;
@@ -154,7 +154,7 @@ for (const kind of ['file', 'image'] as const)
     }
   );
 
-test.stable(
+test.server.stable(
   'authored history retirement protects exact dependents before restoring unavailable bodies and independent current history',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -258,7 +258,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'completed note cleanup roundtrips content-free private captures and independent library history',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

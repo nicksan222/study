@@ -33,7 +33,7 @@ const input = (text = '# Cells\n\nSee [[DNA]].') => ({
   ]
 });
 
-test.stable(
+test.server.stable(
   'imports through real HTTP RPC and native Workflow into editable note documents',
   async ({ server: serverFixture, expect, observeUntil, snapshotValues }) => {
     const fixture = serverFixture;
@@ -87,7 +87,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'resumes a cancelled import after destination reservation without duplicate notes',
   async ({ server: serverFixture, expect }) => {
     const fixture = serverFixture;
@@ -145,7 +145,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'reports changed link destinations for review when previously excluded notes are included',
   async ({ server: serverFixture, expect }) => {
     const fixture = serverFixture;
@@ -178,7 +178,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'shares one retained attachment Source across notes in the same vault import',
   async ({ server: serverFixture, expect }) => {
     const fixture = serverFixture;
@@ -227,7 +227,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'replays a start, resumes after restart, skips unchanged notes and reports changed-note conflicts',
   async ({ resources: resourcesFixture, expect }) => {
     const fixture = resourcesFixture;
@@ -275,7 +275,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'cancels before publication and excludes selected notes without creating notes',
   async ({ server: serverFixture, expect }) => {
     const fixture = serverFixture;
@@ -298,7 +298,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'can cancel and settle an import after its destination project is deleted',
   async ({ server: serverFixture, expect }) => {
     const fixture = serverFixture;
@@ -342,7 +342,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'a cancelled preview cannot bypass import confirmation through retry',
   async ({ server: serverFixture, expect }) => {
     const fixture = serverFixture;
@@ -364,7 +364,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'a finish failure preserves imported items and retries without republishing documents',
   async ({ server: serverFixture, expect }) => {
     const fixture = serverFixture;

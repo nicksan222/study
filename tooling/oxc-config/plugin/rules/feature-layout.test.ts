@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'requires canonical feature role folders and bound resource APIs',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -33,7 +33,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps feature entry exports on the public service boundary',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -48,7 +48,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects public aliases and nested entrypoint loopholes',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -68,7 +68,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'detects aliased resource types without confusing domain fields',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -90,44 +90,50 @@ test.stable(
   }
 );
 
-test.stable('requires make to return bound descriptor groups', async ({ assert: assertions }) => {
-  const assert: test.Assert = assertions;
+test.unit.stable(
+  'requires make to return bound descriptor groups',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  const diagnostics = await lintRule({ assert }, 'feature-layout', {
-    'src/features/a/store/index.ts': `import { defineStore } from '#server/platform/definitions/define-store'; defineStore({make: () => ({})});`,
-    'src/features/b/store/index.ts': `import { defineStore } from '#server/platform/definitions/define-store'; defineStore({make: () => ({queries: {}, mutations: {}})});`
-  });
-
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-});
-
-test.stable('bound aliases preserve each persistence boundary', async ({ assert: assertions }) => {
-  const assert: test.Assert = assertions;
-
-  const prefix = `import { defineStore, storeMutation } from '#server/platform/definitions/define-store'; import { notes, workflow_executions } from '@study/db'; defineStore({make: resources => { const {db} = resources; const alias = db; return {queries: {}, mutations: {save: storeMutation({run(input) { `;
-  const suffix = ` }})}}; }});`;
-  const cases: [string, string][] = [
-    ['executed-query', 'alias.orm.select().from(notes);'],
-    ['guarded-mutations', 'alias.orm.delete(notes).run();'],
-    ['synchronous-transactions', 'alias.transaction(async () => 1);'],
-    ['feature-persistence-boundary', 'alias.orm.update(notes).set({}).where(predicate).run();'],
-    [
-      'workflow-persistence-boundary',
-      'alias.orm.update(workflow_executions).set({}).where(predicate).run();'
-    ]
-  ];
-
-  for (const [rule, operation] of cases) {
-    const diagnostics = await lintRule({ assert }, rule, {
-      'src/features/projects/store/index.ts': prefix + operation + suffix
+    const diagnostics = await lintRule({ assert }, 'feature-layout', {
+      'src/features/a/store/index.ts': `import { defineStore } from '#server/platform/definitions/define-store'; defineStore({make: () => ({})});`,
+      'src/features/b/store/index.ts': `import { defineStore } from '#server/platform/definitions/define-store'; defineStore({make: () => ({queries: {}, mutations: {}})});`
     });
 
-    assert.strictEqual(diagnostics.length, 1, `${rule}: ${JSON.stringify(diagnostics)}`);
-    assert.strictEqual(diagnostics[0]?.code, `study(${rule})`);
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   }
-});
+);
 
-test.stable(
+test.unit.stable(
+  'bound aliases preserve each persistence boundary',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+
+    const prefix = `import { defineStore, storeMutation } from '#server/platform/definitions/define-store'; import { notes, workflow_executions } from '@study/db'; defineStore({make: resources => { const {db} = resources; const alias = db; return {queries: {}, mutations: {save: storeMutation({run(input) { `;
+    const suffix = ` }})}}; }});`;
+    const cases: [string, string][] = [
+      ['executed-query', 'alias.orm.select().from(notes);'],
+      ['guarded-mutations', 'alias.orm.delete(notes).run();'],
+      ['synchronous-transactions', 'alias.transaction(async () => 1);'],
+      ['feature-persistence-boundary', 'alias.orm.update(notes).set({}).where(predicate).run();'],
+      [
+        'workflow-persistence-boundary',
+        'alias.orm.update(workflow_executions).set({}).where(predicate).run();'
+      ]
+    ];
+
+    for (const [rule, operation] of cases) {
+      const diagnostics = await lintRule({ assert }, rule, {
+        'src/features/projects/store/index.ts': prefix + operation + suffix
+      });
+
+      assert.strictEqual(diagnostics.length, 1, `${rule}: ${JSON.stringify(diagnostics)}`);
+      assert.strictEqual(diagnostics[0]?.code, `study(${rule})`);
+    }
+  }
+);
+
+test.unit.stable(
   'resolves resource aliases and namespace types while restricting construction to stores',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -155,7 +161,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'respects shadowed namespace type bindings and cyclic aliases',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -168,7 +174,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'current ServerContext aliases retain resource and persistence ownership',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -192,7 +198,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'allows an optional typed bound canonical reader after the one resource parameter',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -209,7 +215,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects required dependencies, untyped optional arguments and extra resource parameters',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

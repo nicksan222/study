@@ -22,7 +22,7 @@ import { Projects } from '#server/features/projects/index';
 const mode = process.env.STUDY_TEST_SCENARIO;
 
 if (mode === 'unused') {
-  test.stable('pure tests do not allocate database fixtures', async ({ expect }) => {
+  test.server.stable('pure tests do not allocate database fixtures', async ({ expect }) => {
     const fixtures = await Array.fromAsync(
       new Bun.Glob('study-test-*').scan({ cwd: process.env.TMPDIR!, onlyFiles: false })
     );
@@ -32,7 +32,7 @@ if (mode === 'unused') {
 }
 
 if (mode === 'setup-failure') {
-  test.stable('fails after fixture setup', async ({ resources }) => {
+  test.server.stable('fails after fixture setup', async ({ resources }) => {
     const { path } = resources;
 
     await Bun.write(path, 'setup failed');
@@ -50,7 +50,7 @@ if (
   mode !== 'api-reuse' &&
   mode !== 'unused'
 )
-  void test.stable('first isolated database', async ({ server: f, assert: assertions }) => {
+  void test.server.stable('first isolated database', async ({ server: f, assert: assertions }) => {
     const assert: test.Assert = assertions;
 
     console.log('FIXTURE_PATH', JSON.stringify(f.path));
@@ -95,7 +95,7 @@ if (
   });
 
 if (mode === 'success') {
-  void test.stable('second isolated database', async ({ server: f, expect }) => {
+  void test.server.stable('second isolated database', async ({ server: f, expect }) => {
     console.log('FIXTURE_PATH', JSON.stringify(f.path));
     expect(
       (
@@ -115,7 +115,7 @@ if (mode === 'concurrent') {
   });
   const paths: string[] = [];
 
-  test.stable.concurrent.for(['a', 'b'])(
+  test.server.stable.concurrent.for(['a', 'b'])(
     'concurrent database %s',
     async (name, { resources, assert: assertions }) => {
       const assert: test.Assert = assertions;
@@ -145,7 +145,7 @@ if (mode === 'concurrent') {
 }
 
 if (mode === 'retry-sync' || mode === 'retry-async') {
-  void test.stable(
+  void test.server.stable(
     'failed close is retried by teardown',
     async ({ resources: database, assert: assertions, expect }) => {
       const assert: test.Assert = assertions;
@@ -188,7 +188,7 @@ if (mode === 'retry-sync' || mode === 'retry-async') {
 }
 
 if (mode === 'api-reuse') {
-  void test.stable(
+  void test.server.stable(
     'canonical test helper reuses the app and supports low-level access',
     async ({ server: first, rpc, resources: low, assert: assertions }) => {
       const assert: test.Assert = assertions;

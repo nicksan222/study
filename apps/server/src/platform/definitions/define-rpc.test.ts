@@ -45,7 +45,7 @@ const Streams = RpcGroup.make(
   Rpc.make('test.stream', { success: Schema.String, error: failureSchema, stream: true })
 );
 
-test.stable(
+test.unit.stable(
   'maps StudyError through native RPC without losing retryAfterMs',
   async ({ expect }) => {
     const layer = defineRpc(
@@ -72,7 +72,7 @@ class Initialization extends Context.Service<Initialization, string>()('test/Rpc
 
 class Operation extends Context.Service<Operation, string>()('test/RpcOperation') {}
 
-test.stable(
+test.unit.stable(
   'handler creation is lazy and scoped, and operations retain their dependencies',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -129,7 +129,7 @@ test.stable(
 );
 
 for (const wrapped of [false, true])
-  test.stable(`stream StudyError mapping, effect wrapped: ${wrapped}`, async ({ expect }) => {
+  test.unit.stable(`stream StudyError mapping, effect wrapped: ${wrapped}`, async ({ expect }) => {
     const error = new StudyError('transient', 'retry', { retryAfterMs: 17 });
     const stream = Stream.concat(Stream.succeed('first'), Stream.fail(error));
     const layer = wrapped
@@ -148,7 +148,7 @@ for (const wrapped of [false, true])
     expect(result).toStrictEqual({ kind: 'transient', message: 'retry', retryAfterMs: 17 });
   });
 
-test.stable('native dequeue handlers retain streaming failures', async ({ expect }) => {
+test.unit.stable('native dequeue handlers retain streaming failures', async ({ expect }) => {
   const layer = defineRpc(
     Streams,
     Effect.succeed({
@@ -179,49 +179,52 @@ test.stable('native dequeue handlers retain streaming failures', async ({ expect
   expect(result).toStrictEqual({ kind: 'transient', message: 'queue failed', retryAfterMs: 9 });
 });
 
-test.stable('stream cancellation releases the handler resource', async ({ assert: assertions }) => {
-  const assert: test.Assert = assertions;
+test.unit.stable(
+  'stream cancellation releases the handler resource',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  let released = 0;
-  const release = Effect.sync(() => {
-    released++;
-  });
+    let released = 0;
+    const release = Effect.sync(() => {
+      released++;
+    });
 
-  await Effect.runPromise(
-    Effect.scoped(
-      Effect.gen(function* () {
-        const started = yield* Deferred.make<void>();
-        const layer = defineRpc(
-          Streams,
-          Effect.succeed({
-            'test.stream': () =>
-              Effect.succeed(
-                Stream.unwrap(
-                  Effect.acquireRelease(Deferred.succeed(started, undefined), () => release).pipe(
-                    Effect.as(Stream.never)
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const started = yield* Deferred.make<void>();
+          const layer = defineRpc(
+            Streams,
+            Effect.succeed({
+              'test.stream': () =>
+                Effect.succeed(
+                  Stream.unwrap(
+                    Effect.acquireRelease(Deferred.succeed(started, undefined), () => release).pipe(
+                      Effect.as(Stream.never)
+                    )
                   )
                 )
-              )
-          })
-        );
-
-        yield* Effect.gen(function* () {
-          const client = yield* RpcTest.makeClient(Streams, { flatten: true });
-          const fiber = yield* client('test.stream', undefined).pipe(
-            Stream.runDrain,
-            Effect.forkChild
+            })
           );
 
-          yield* Deferred.await(started);
-          yield* Fiber.interrupt(fiber);
-        }).pipe(Effect.provide(layer));
-      })
-    )
-  );
-  assert.strictEqual(released, 1);
-});
+          yield* Effect.gen(function* () {
+            const client = yield* RpcTest.makeClient(Streams, { flatten: true });
+            const fiber = yield* client('test.stream', undefined).pipe(
+              Stream.runDrain,
+              Effect.forkChild
+            );
 
-test.stable(
+            yield* Deferred.await(started);
+            yield* Fiber.interrupt(fiber);
+          }).pipe(Effect.provide(layer));
+        })
+      )
+    );
+    assert.strictEqual(released, 1);
+  }
+);
+
+test.unit.stable(
   'preserves unrelated typed errors, initialization failures and defects',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -348,7 +351,7 @@ function typeAssertions() {
 
 void typeAssertions;
 
-test.stable(
+test.unit.stable(
   'RPC harness acquires named dependencies lazily in declaration order',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'requires browser-safe contract values to use Effect schemas',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -18,7 +18,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'recognizes Effect schema aliases and leaves unrelated values and derived types alone',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -43,7 +43,7 @@ function f(S: any) { return S.Unknown;
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects exported aliases to handwritten objects and inferred database types',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -62,7 +62,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects handwritten brands tied to imported Effect Brand',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -83,7 +83,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'export lists, nested handwritten shapes and structural brands cannot bypass canonical schemas',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -104,7 +104,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'native RPC declarations specify payload, success and error schemas',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -126,7 +126,7 @@ function f(Rpc: any) { Rpc.make('c', {});
   }
 );
 
-test.stable(
+test.unit.stable(
   'rich content remains schema-derived rather than a parallel public editor payload',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -151,7 +151,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'run metadata derives from schemas instead of unchecked preference or parallel context objects',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -176,7 +176,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'Material deletion scope and status derive from canonical schemas rather than parallel unchecked payloads',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -201,7 +201,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'history policies, exact candidates and native operations derive from checked schemas',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -236,7 +236,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'backup descriptors and restore acknowledgements use checked canonical schemas',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -265,7 +265,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'optional React implementations may describe generic bindings while wire declarations remain schema checked',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

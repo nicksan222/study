@@ -4,7 +4,7 @@ import { Schema } from 'effect';
 import { sourcePageInputSchema, sourceProcessingSchema } from '../src/sources/rpc.ts';
 import { sourceSchema } from '../src/sources/schemas.ts';
 
-test.stable(
+test.unit.stable(
   'source pages require a bounded limit and preserve 64-bit cursors',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -25,7 +25,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'source processing identities survive the native JSON codec',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -49,7 +49,7 @@ test.stable(
   }
 );
 
-test.stable('canonical source bytes and large IDs have native wire codecs', ({ expect }) => {
+test.unit.stable('canonical source bytes and large IDs have native wire codecs', ({ expect }) => {
   const codec = Schema.toCodecJson(sourceSchema);
   const source = Schema.decodeUnknownSync(sourceSchema)({
     id: 9007199254740993n,

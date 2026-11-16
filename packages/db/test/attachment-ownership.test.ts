@@ -26,9 +26,9 @@ async function fixture(databases: Databases, run: (db: Db) => void) {
   }
 }
 
-test.stable(
+test.server.stable(
   'explicit attachment selection crosses collections and still rejects missing sources',
-  async ({ databases, assert: assertions }: test.Context) => {
+  async ({ databases, assert: assertions }: test.server.Context) => {
     const assert: test.Assert = assertions;
 
     return await fixture(databases, (db) => {
@@ -49,7 +49,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'source cleanup and note or project cascades remain possible',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

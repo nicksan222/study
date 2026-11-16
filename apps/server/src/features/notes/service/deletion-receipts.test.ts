@@ -28,7 +28,7 @@ import {
 } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
-test.stable(
+test.server.stable(
   'exact authored apply and keep receipts reject substituted intent across note deletion and reopen',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -74,7 +74,7 @@ test.stable(
       const checkReplay = ({
         expect,
         assert: assertions
-      }: Pick<test.Context, 'expect' | 'assert'>) => {
+      }: Pick<test.server.Context, 'expect' | 'assert'>) => {
         const assert: test.Assert = assertions;
 
         return Effect.runPromise(
@@ -108,7 +108,7 @@ test.stable(
       const rejectForged = ({
         assert: assertions,
         expect
-      }: Pick<test.Context, 'assert' | 'expect'>) => {
+      }: Pick<test.server.Context, 'assert' | 'expect'>) => {
         const assert: test.Assert = assertions;
 
         for (const mutation of [

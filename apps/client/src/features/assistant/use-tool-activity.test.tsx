@@ -50,13 +50,13 @@ let message: AssistantHarness['message'];
 
 let mountAssistant: AssistantHarness['mountAssistant'];
 
-test.beforeEach(({ assistant }) => {
+test.unit.beforeEach(({ assistant }) => {
   api = assistant.api;
   message = assistant.message;
   mountAssistant = assistant.mountAssistant;
 });
 
-test.stable(
+test.unit.stable(
   'saved calls expand with real inputs and results and reload with the exact reply version',
   async ({ screen, expect, fireEvent }) => {
     api.thread.mockResolvedValue(savedThread());
@@ -97,7 +97,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'open tool details stay open when streaming settles into the saved reply',
   async ({ screen, fireEvent, expect, act }) => {
     api.thread.mockResolvedValue({
@@ -131,7 +131,7 @@ test.stable(
   }
 );
 
-test.stable.for(['failed', 'cancelled'] as const)(
+test.unit.stable.for(['failed', 'cancelled'] as const)(
   'settles %s calls honestly without a fake result',
   async (status, { screen, expect, fireEvent }) => {
     api.thread.mockResolvedValue(savedThread());
@@ -155,7 +155,7 @@ test.stable.for(['failed', 'cancelled'] as const)(
   }
 );
 
-test.stable(
+test.unit.stable(
   'repeated calls stay separate, and large or unsafe result text stays a bounded preview',
   async ({ screen, expect, fireEvent, within }) => {
     api.thread.mockResolvedValue(savedThread());
@@ -195,7 +195,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'receives later tool activity after an initially empty live snapshot',
   async ({ waitFor, expect, act, screen }) => {
     api.thread.mockResolvedValue({
@@ -214,7 +214,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'legacy calls without stored details remain inspectable',
   async ({ screen, fireEvent, expect }) => {
     api.thread.mockResolvedValue(savedThread());
@@ -238,7 +238,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'failed activity requests offer a retry that loads the saved calls',
   async ({ fireEvent, screen, expect, waitFor }) => {
     api.thread.mockResolvedValue(savedThread());
@@ -255,7 +255,7 @@ test.stable(
 async function expandSavedActivity({
   screen,
   fireEvent
-}: Pick<test.Context, 'screen' | 'fireEvent'>) {
+}: Pick<test.unit.Context, 'screen' | 'fireEvent'>) {
   const summary = await screen.findByRole('button', {
     name: /(?:Actions (?:completed|failed|stopped)|Working) ·/
   });

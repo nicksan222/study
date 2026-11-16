@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'keeps protocol execution in the application composition boundary',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -23,7 +23,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'allows canonical facade, local atoms, schemas and runtime composition',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -45,7 +45,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps React out of React-free protocol contracts',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -65,7 +65,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'permits only the actual optional React modules and approved composition imports',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

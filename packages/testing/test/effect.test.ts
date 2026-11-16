@@ -1,7 +1,7 @@
 import { test } from '@study/testing';
 import { Deferred, Effect, Stream } from 'effect';
 
-test.stable(
+test.unit.stable(
   'stream observations return the matching snapshot and release the subscription',
   async ({ expect, runTestEffect, observeUntil }) => {
     let released = false;
@@ -21,7 +21,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'stream observations preserve typed failures and reject exhausted observations',
   async ({ runTestEffect, observeUntil, expect }) => {
     const failure = { kind: 'unavailable' };
@@ -36,7 +36,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'test cancellation interrupts owned Effect work and awaits its finalizers',
   async ({ runTestEffect, expect }) => {
     const controller = new AbortController();

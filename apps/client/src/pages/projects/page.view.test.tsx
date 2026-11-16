@@ -4,7 +4,7 @@ import { LanguageProvider } from '#client/lib/i18n.tsx';
 
 import { PageView } from './page.view';
 
-test.stable.for(['english', 'italian'] as const)(
+test.unit.stable.for(['english', 'italian'] as const)(
   'keeps the unselected workspace quiet in %s',
   (locale, { render, expect, screen }) => {
     render(

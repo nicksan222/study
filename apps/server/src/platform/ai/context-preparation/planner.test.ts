@@ -42,7 +42,7 @@ function plan(input: Document, options?: Partial<typeof limits>) {
   });
 }
 
-test.stable(
+test.unit.stable(
   'reconstructs more than 100k characters, 200 blocks and oversized Unicode blocks exactly',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -74,7 +74,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects whole-plan exhaustion and invalid limits with canonical typed failures',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -90,7 +90,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps explicit selected scope and rejects invalid or overlapping selections',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -124,7 +124,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'bounds encoded bigint content references and preserves exact message references',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -169,7 +169,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'counts metadata for empty blocks and rejects duplicate document keys',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -197,7 +197,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'bounds canonical Unicode ranges with no omitted characters',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -216,7 +216,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'accepts feature reference codecs whose encoded and decoded shapes differ',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -242,7 +242,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'validates persisted plan markers and encoded metadata bounds',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -270,7 +270,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'byte-budget search finds fitting prefixes after a surrogate pair',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

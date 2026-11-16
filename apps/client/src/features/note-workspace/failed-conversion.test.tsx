@@ -52,7 +52,7 @@ const message = Schema.decodeUnknownSync(chatMessageSchema)({
   ]
 });
 
-let fixture: ReturnType<test.Context['rpcHandlersTransport']>;
+let fixture: ReturnType<test.unit.Context['rpcHandlersTransport']>;
 
 function Provider({ children }: { children: ReactNode }) {
   return <fixture.wrapper>{children}</fixture.wrapper>;
@@ -68,7 +68,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   api = __mockState.api;
@@ -87,7 +87,7 @@ test.beforeEach(async ({ mock }) => {
   FailedMessageConversion = __mockModule1.FailedMessageConversion;
 });
 
-test.beforeEach(({ vi, rpcHandlersTransport }) => {
+test.unit.beforeEach(({ vi, rpcHandlersTransport }) => {
   vi.resetAllMocks();
   vi.mocked(useAiReadiness).mockReturnValue('ready');
   fixture = rpcHandlersTransport({
@@ -116,11 +116,11 @@ test.beforeEach(({ vi, rpcHandlersTransport }) => {
   });
   api.discard.mockResolvedValue(message);
 });
-test.afterEach(({ cleanup }) => {
+test.unit.afterEach(({ cleanup }) => {
   cleanup();
 });
 
-test.stable.for(['retry', 'discard'] as const)(
+test.unit.stable.for(['retry', 'discard'] as const)(
   'exposes %s for a failed conversion without changing its original input',
   async (action, { render, expect, screen, waitFor, fireEvent }) => {
     render(
@@ -147,7 +147,7 @@ test.stable.for(['retry', 'discard'] as const)(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps recovery retries blocked while another version has active work',
   async ({ render, waitFor, expect, screen }) => {
     const busy = Schema.decodeUnknownSync(chatMessageSchema)({
@@ -178,7 +178,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'blocks AI conversion recovery without setup while preserving discard',
   async ({ vi, render, waitFor, expect, screen, fireEvent }) => {
     vi.mocked(useAiReadiness).mockReturnValue('setup');

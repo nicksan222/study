@@ -3,7 +3,7 @@ import { test } from '@study/testing';
 import { lintRule } from '../test/utils.ts';
 
 async function lint(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.unit.Context, 'assert'>,
   source: string,
   path = 'apps/client/src/features/example/example.tsx'
 ) {
@@ -12,7 +12,7 @@ async function lint(
   return await lintRule({ assert }, 'shared-ui-patterns', { [path]: source }, true);
 }
 
-test.stable(
+test.unit.stable(
   'enforces shared recovery actions including imported aliases',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -35,7 +35,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'enforces shared pagination while allowing owner-specific action labels',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -55,7 +55,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'requires tooltip-backed icon actions without confusing text buttons',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -75,7 +75,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'standardizes operation announcements while preserving prose',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -85,7 +85,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'standardizes expandable sections and permits the package implementation',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -103,7 +103,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'standardizes selected-item headings using imported aliases',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -120,7 +120,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'standardizes selection empty states without banning content containers',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -140,7 +140,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'standardizes search scaffolding only on selection surfaces',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -157,7 +157,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'requires shared selectable rows rather than assembling labels and icons',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -177,7 +177,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'requires primitive-backed shared dialog dismissal',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -197,7 +197,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'standardizes labelled text controls but permits native document inputs',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -214,7 +214,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'standardizes directional actions while keeping unrelated icons available',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -234,7 +234,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'standardizes dialog heading composition using imported aliases',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -251,7 +251,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'standardizes settings switches without banning custom setting actions',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -271,7 +271,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'standardizes settings selects and retains custom compound rows',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -291,7 +291,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'standardizes numeric preferences without moving persistence into UI',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -311,7 +311,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'resolves aliases and namespaces without flagging shadowed or unrelated controls',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -343,7 +343,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'standardizes labelled settings ranges while allowing embedded range editors',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

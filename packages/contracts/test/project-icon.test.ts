@@ -3,7 +3,7 @@ import { Schema } from 'effect';
 
 import { projectInitials, projectIconSchema } from '../src/projects/schemas.ts';
 
-test.stable(
+test.unit.stable(
   'subject initials are deterministic Unicode-aware monograms',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -20,7 +20,7 @@ test.stable(
       assert.strictEqual(projectInitials(name!), initials);
   }
 );
-test.stable(
+test.unit.stable(
   'subject icon variants validate their own values and a closed color palette',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

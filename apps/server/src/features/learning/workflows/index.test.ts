@@ -52,7 +52,7 @@ import {
   practicePublicationHandler
 } from './index.ts';
 
-test.stable(
+test.server.stable(
   'grading checkpoints provider output and fences stale and manual submissions',
   async ({ databases, createAiMock, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -154,7 +154,7 @@ test.stable(
         Effect.flatMap(Learning, (learning) => learning.startQuiz({ versionId: version.id }))
       );
       const submit = async (
-        { assert: assertions }: Pick<test.Context, 'assert'>,
+        { assert: assertions }: Pick<test.server.Context, 'assert'>,
         answer: string
       ) => {
         const assert: test.Assert = assertions;
@@ -329,7 +329,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'practice slot workflow reuses its generation request and ignores manual publication',
   async ({ databases, assert: assertions, expect, pollUntil }) => {
     const assert: test.Assert = assertions;

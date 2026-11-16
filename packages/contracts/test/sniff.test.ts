@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { sniff, viewerExtension } from '../src/sources/sniff.ts';
 
-test.stable(
+test.unit.stable(
   'detects signatures and preserves office formats stored in zip containers',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

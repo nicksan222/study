@@ -3,7 +3,7 @@ import { test } from '@study/testing';
 import { lintRule } from '../test/utils.ts';
 import { hasRawColor, hasRawColorClass, cssColorViolations } from '../theme-color-values.ts';
 
-test.stable(
+test.unit.stable(
   'raw CSS colors are rejected but semantic colors and ordinary words are allowed',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -30,7 +30,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'raw Tailwind palette and arbitrary colors are rejected without matching semantic classes',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -60,7 +60,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'CSS checks declarations while ignoring comments and non-color text',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -73,7 +73,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'theme colors rule detects raw JSX styles and palette classes without flagging prose or semantic utilities',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -102,7 +102,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'theme colors rule covers template values, SVG fills and named arbitrary colors',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -125,7 +125,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shared feature previews retain semantic app colors while landing art stays independent',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

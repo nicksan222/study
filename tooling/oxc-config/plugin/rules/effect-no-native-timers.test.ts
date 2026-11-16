@@ -5,7 +5,7 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 const message =
   'Use Effect.sleep or a scoped Effect schedule instead of native timers in application operations.';
 
-test.stable(
+test.unit.stable(
   'uses Effect scheduling instead of native server timers',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -23,7 +23,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects imported timers and global aliases',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -41,7 +41,7 @@ tick(work, 10);`
   }
 );
 
-test.stable(
+test.unit.stable(
   'permits the native callback transport adapter',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -54,7 +54,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'ignores unrelated methods and shadowed globals',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -71,7 +71,7 @@ other.setTimeout();`
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects native abort deadlines while preserving cancellation composition',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -98,7 +98,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'uses Effect scheduling instead of native browser timers',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -119,7 +119,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'allows a debounce timeout owned by a React hook effect',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

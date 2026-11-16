@@ -25,7 +25,7 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
 
-test.stable(
+test.server.stable(
   'auth uses private SQLite account and guards refresh rotation',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -83,7 +83,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'persisted account is public-safe and refresh rotation is atomic',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -146,7 +146,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'concurrent finish rejects and cancelling closes the real listener',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -195,7 +195,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'failed sign-out persistence restores the account and session',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -249,7 +249,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'closing the service scope closes an unfinished listener',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -285,7 +285,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'cancelling during listener acquisition releases the acquired listener',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -344,45 +344,48 @@ test.stable(
   }
 );
 
-test.stable('API keys stay private and persist independently', async ({ databases, expect }) => {
-  const location = await databases();
-  const context = new ServerContext(await location.open());
-  const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
-  const layer = Auth.layer.pipe(
-    Layer.provideMerge(Layer.succeed(Database, { store: context })),
-    Layer.provide(Layer.succeed(ChatGptSession, { manager, issuer: 'http://localhost' }))
-  );
-
-  try {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const auth = yield* Auth;
-        const before = yield* auth.credentialGeneration();
-
-        yield* auth.saveApiKey({ provider: 'anthropic', apiKey: 'test-secret' });
-        expect(yield* auth.apiKey('anthropic')).toBe('test-secret');
-        expect(yield* auth.credentialGeneration()).not.toBe(before);
-        const catalog = yield* auth.providers();
-
-        expect(catalog.find((provider) => provider.id === 'anthropic')?.configured).toBe(true);
-        expect(JSON.stringify(catalog)).not.toContain('test-secret');
-        expect(
-          (yield* Effect.flip(auth.saveApiKey({ provider: 'unknown', apiKey: 'test' }))).kind
-        ).toBe('invalid_input');
-        expect(
-          (yield* Effect.flip(auth.saveApiKey({ provider: 'anthropic', apiKey: ' ' }))).kind
-        ).toBe('invalid_input');
-        expect(yield* transaction(Auth.validateBackup)).toBe(false);
-        yield* transaction(Auth.sanitizeBackup);
-        expect(yield* transaction(Auth.validateBackup)).toBe(true);
-        expect((yield* auth.providers()).every((provider) => !provider.configured)).toBe(true);
-        yield* auth.saveApiKey({ provider: 'anthropic', apiKey: 'replacement-secret' });
-        yield* auth.saveApiKey({ provider: 'anthropic', apiKey: null });
-        expect((yield* Effect.flip(auth.apiKey('anthropic'))).kind).toBe('auth');
-      }).pipe(Effect.provide(layer), Effect.scoped)
+test.server.stable(
+  'API keys stay private and persist independently',
+  async ({ databases, expect }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+    const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
+    const layer = Auth.layer.pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context })),
+      Layer.provide(Layer.succeed(ChatGptSession, { manager, issuer: 'http://localhost' }))
     );
-  } finally {
-    context.close();
-    await location.cleanup();
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const auth = yield* Auth;
+          const before = yield* auth.credentialGeneration();
+
+          yield* auth.saveApiKey({ provider: 'anthropic', apiKey: 'test-secret' });
+          expect(yield* auth.apiKey('anthropic')).toBe('test-secret');
+          expect(yield* auth.credentialGeneration()).not.toBe(before);
+          const catalog = yield* auth.providers();
+
+          expect(catalog.find((provider) => provider.id === 'anthropic')?.configured).toBe(true);
+          expect(JSON.stringify(catalog)).not.toContain('test-secret');
+          expect(
+            (yield* Effect.flip(auth.saveApiKey({ provider: 'unknown', apiKey: 'test' }))).kind
+          ).toBe('invalid_input');
+          expect(
+            (yield* Effect.flip(auth.saveApiKey({ provider: 'anthropic', apiKey: ' ' }))).kind
+          ).toBe('invalid_input');
+          expect(yield* transaction(Auth.validateBackup)).toBe(false);
+          yield* transaction(Auth.sanitizeBackup);
+          expect(yield* transaction(Auth.validateBackup)).toBe(true);
+          expect((yield* auth.providers()).every((provider) => !provider.configured)).toBe(true);
+          yield* auth.saveApiKey({ provider: 'anthropic', apiKey: 'replacement-secret' });
+          yield* auth.saveApiKey({ provider: 'anthropic', apiKey: null });
+          expect((yield* Effect.flip(auth.apiKey('anthropic'))).kind).toBe('auth');
+        }).pipe(Effect.provide(layer), Effect.scoped)
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);

@@ -18,7 +18,7 @@ function fixture(overrides: Record<string, string> = {}): Record<string, string>
   };
 }
 
-test.stable(
+test.unit.stable(
   'integration providers require tests and an installation in the shared image',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -45,7 +45,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'provider tests cannot create a separate Docker runtime',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -66,7 +66,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'integration fixtures reject invalid installation paths and private Dockerfiles',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -93,7 +93,7 @@ test.stable(
   }
 );
 
-test.stable.for([
+test.unit.stable.for([
   "const docker = (_args: string[]) => {}; docker(['build', '--file', 'private/Dockerfile']);",
   "Bun.spawn(['docker', 'build', '--file', 'private/Dockerfile', '.']);",
   "Bun.spawn({cmd: ['docker', 'build', '--file', 'private/Dockerfile', '.']});"
@@ -116,7 +116,7 @@ test.stable.for([
   }
 );
 
-test.stable(
+test.unit.stable(
   'every provider must have discoverable integration tests',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -132,7 +132,7 @@ test.stable(
   }
 );
 
-test.stable.for([
+test.unit.stable.for([
   "Bun.spawn({ cmd: ['docker', 'run', 'other'] });",
   "const command = ['docker', 'run', 'other']; Bun.spawn(command);",
   'Bun.$`docker run other`;'
@@ -156,7 +156,7 @@ test.stable.for([
   }
 );
 
-test.stable(
+test.unit.stable(
   'Docker command data and ordinary templates are not process launches',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

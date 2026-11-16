@@ -18,7 +18,7 @@ import { useSourceProcessingExecution, useSourceCopy } from './source-panel.quer
 
 const source = sourceIdSchema.make(7n);
 
-function createRpc({ vi }: Pick<test.Context, 'vi'>) {
+function createRpc({ vi }: Pick<test.unit.Context, 'vi'>) {
   return {
     copy: vi.fn<StudyClient['pages.copySource']>(),
     processing: vi.fn<StudyClient['sources.sourceProcessing']>(),
@@ -28,12 +28,12 @@ function createRpc({ vi }: Pick<test.Context, 'vi'>) {
 
 let rpc: ReturnType<typeof createRpc>;
 
-test.afterEach(({ cleanup, vi }) => {
+test.unit.afterEach(({ cleanup, vi }) => {
   cleanup();
   vi.resetAllMocks();
 });
 
-test.beforeEach(({ vi }) => {
+test.unit.beforeEach(({ vi }) => {
   rpc = createRpc({ vi });
 });
 
@@ -59,7 +59,7 @@ function processing(requestId: string | null) {
   return Effect.succeed({ sourceId: source, revision: 1, requestId, documentId: null });
 }
 
-test.stable(
+test.unit.stable(
   'keeps an uncertain exact copy request across caller remount and newer source extraction',
   async ({ rpcHandlersTransport, render, act, expect, waitFor }) => {
     const note = noteIdSchema.make(8n);
@@ -138,7 +138,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'live processing follows the current request and never presents an unrelated workflow outcome',
   async ({ rpcHandlersTransport, renderHook, waitFor, expect, act }) => {
     const harness = rpcHandlersTransport({
@@ -209,7 +209,7 @@ const failureScenarios = [
   )
 ] as const;
 
-test.stable.for(failureScenarios)(
+test.unit.stable.for(failureScenarios)(
   'renders canonical failure and configuration waits for %s, then recovers to extracted content',
   async ([_scenarioName, scenario], { expect, screen, act, vi, render, rpcHandlersTransport }) => {
     const copy = catalogs.english;

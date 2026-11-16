@@ -31,7 +31,7 @@ import { testLiveQueries } from '#testing/live-queries';
 
 import { SettingsRpcLive } from './index.ts';
 
-test.stable(
+test.server.stable(
   'settings RPC exposes typed settings and maps service failures',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -123,7 +123,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'saving concurrency immediately resizes the shared gate after commit and preserves active work',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

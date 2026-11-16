@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'rejects asynchronous database transaction callbacks in production',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -27,7 +27,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'synchronous-transactions handles aliases and avoids unrelated bindings',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -49,7 +49,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'transactions recognize Effect namespace, const aliases and named async callbacks',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -77,7 +77,7 @@ function f(E) { db.transaction(() => E.succeed(1));
   }
 );
 
-test.stable(
+test.unit.stable(
   'named block callbacks and constant database aliases stay synchronous',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -99,7 +99,7 @@ function next() { return Promise.resolve(2);
   }
 );
 
-test.stable(
+test.unit.stable(
   'factory-owned database callbacks cannot start asynchronous transactions',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

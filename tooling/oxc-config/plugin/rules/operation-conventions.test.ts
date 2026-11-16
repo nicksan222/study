@@ -3,7 +3,7 @@ import { test } from '@study/testing';
 import { lintRulePaths } from '../test/utils.ts';
 
 async function lint(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.unit.Context, 'assert'>,
   files: Record<string, string>
 ) {
   const assert: test.Assert = assertions;
@@ -11,7 +11,7 @@ async function lint(
   return await lintRulePaths({ assert }, 'operation-conventions', files);
 }
 
-test.stable(
+test.unit.stable(
   'rejects invalid query roles and unbounded collection inputs',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -100,7 +100,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'schema field composition relies on runtime bounds when the imported shape is opaque',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -134,7 +134,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'requires canonical roles on queries returned by store factories',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -156,7 +156,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'generation queries allow descriptive names while retaining canonical roles',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -201,7 +201,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'proposal, receipt, comparison and context-validity queries allow semantic names',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -230,7 +230,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'deletion queries can share the required role within one store',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -255,7 +255,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'material deletion queries allow descriptive status and preview names',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -284,7 +284,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'history queries allow multiple descriptive required reads',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -316,7 +316,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'document readers and reply provenance can coexist in one private store',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -350,7 +350,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'export aggregates allow descriptive names while collections still require limits',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -380,7 +380,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'allows several semantic queries per role through aliases and spreads',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -407,7 +407,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects operation identifiers outside lower camel case in either group',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -430,7 +430,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'requires canonical constructors for semantic queries and mutations',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -454,7 +454,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects missing, unknown and malformed literal query roles',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -479,7 +479,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'descriptive operation names preserve descriptor and persistence boundary checks',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -514,7 +514,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'service reads allow conventional verb-based names',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

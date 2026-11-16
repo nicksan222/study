@@ -30,7 +30,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   api = __mockState.api;
@@ -45,12 +45,15 @@ test.beforeEach(async ({ mock }) => {
   document = initializeDocument();
 });
 
-test.afterEach(({ cleanup, vi }) => {
+test.unit.afterEach(({ cleanup, vi }) => {
   cleanup();
   vi.resetAllMocks();
 });
 
-function mount({ rpcTestTransport, render }: Pick<test.Context, 'rpcTestTransport' | 'render'>) {
+function mount({
+  rpcTestTransport,
+  render
+}: Pick<test.unit.Context, 'rpcTestTransport' | 'render'>) {
   const harness = rpcTestTransport(async (tag, input) => {
     if (tag === 'pages.page') return document;
 
@@ -87,7 +90,7 @@ function mount({ rpcTestTransport, render }: Pick<test.Context, 'rpcTestTranspor
   return harness;
 }
 
-test.stable(
+test.unit.stable(
   'provides shared page actions and requires the existing delete confirmation before any removal',
   async ({ fireEvent, screen, expect, userEvent, rpcTestTransport, render }) => {
     mount({ rpcTestTransport, render });

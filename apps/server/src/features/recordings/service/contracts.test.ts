@@ -15,7 +15,7 @@ import { appendRecordingInputSchema, recordingPageInputSchema } from '@study/con
 import { test } from '@study/testing';
 import { Schema } from 'effect';
 
-test.stable(
+test.server.stable(
   'recording append accepts only bounded signed 16-bit PCM',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -31,7 +31,7 @@ test.stable(
   }
 );
 
-test.stable('recording pages are bounded', ({ assert: assertions }) => {
+test.server.stable('recording pages are bounded', ({ assert: assertions }) => {
   const assert: test.Assert = assertions;
 
   const decode = Schema.decodeUnknownSync(recordingPageInputSchema);

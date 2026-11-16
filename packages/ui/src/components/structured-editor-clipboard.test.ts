@@ -6,19 +6,22 @@ import { copyEditorSelection } from './structured-editor-clipboard';
 
 const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
 
-test.afterEach(({ vi }) => {
+test.unit.afterEach(({ vi }) => {
   vi.unstubAllGlobals();
 
   if (originalClipboard) Object.defineProperty(navigator, 'clipboard', originalClipboard);
   else Reflect.deleteProperty(navigator, 'clipboard');
 });
 
-function clipboard({ vi }: Pick<test.Context, 'vi'>, writeText: (text: string) => Promise<void>) {
+function clipboard(
+  { vi }: Pick<test.unit.Context, 'vi'>,
+  writeText: (text: string) => Promise<void>
+) {
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
   vi.stubGlobal('ClipboardItem', undefined);
 }
 
-test.stable(
+test.unit.stable(
   'cuts only after the clipboard accepts the selected content and keeps native undo',
   async ({ expect, vi }) => {
     const editor = new Editor({ extensions: [StarterKit], content: '<p>Selected neighbor</p>' });
@@ -37,7 +40,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains selected content when clipboard permission is denied',
   async ({ expect, vi }) => {
     const editor = new Editor({ extensions: [StarterKit], content: '<p>Keep this text</p>' });
@@ -56,7 +59,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps content when editing is disabled while clipboard permission is pending',
   async ({ expect, vi }) => {
     const editor = new Editor({ extensions: [StarterKit], content: '<p>Keep this text</p>' });

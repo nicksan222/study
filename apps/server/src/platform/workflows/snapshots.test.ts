@@ -21,7 +21,7 @@ import { scrubRetiredExecution } from '#server/platform/workflows/store';
 import { refreshExecutionSnapshots } from '#server/platform/workflows/triggers';
 import { admitTestExecution } from '#testing/workflow-admission';
 
-test.stable(
+test.server.stable(
   'unsupported workflow versions become durably blocked',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -90,7 +90,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'unchanged durable snapshots do not publish hints or keep the worker awake',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -163,7 +163,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'restart retires official replies for already completed domain work',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -242,7 +242,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'retirement between polling and snapshot commit cannot restore private output',
   async ({ databases, expect }) => {
     const location = await databases();

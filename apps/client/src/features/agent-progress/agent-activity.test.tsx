@@ -20,7 +20,7 @@ const run = {
   tools: []
 };
 
-test.stable(
+test.unit.stable(
   'shows only the active phase without steps, raw output or internal identifiers',
   async ({ rpcTestTransport, render, expect, screen }) => {
     const fixture = rpcTestTransport(async () => [
@@ -43,7 +43,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps the latest live phase when a newer concurrent run has finished',
   async ({ rpcTestTransport, render, expect, screen }) => {
     const fixture = rpcTestTransport(async () => [
@@ -59,7 +59,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'authoritative failure overrides stale running phase without animation',
   async ({ rpcTestTransport, render, expect, screen }) => {
     const fixture = rpcTestTransport(async () => [{ ...run, phase: 'compacting' }]);
@@ -75,7 +75,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps text drafts out of the compact sidebar activity',
   async ({ rpcTestTransport, render, expect, screen }) => {
     const fixture = rpcTestTransport(async () => [
@@ -90,7 +90,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'ignores unfinished previews from an execution that already ended',
   async ({ rpcTestTransport, render, expect, screen }) => {
     const fixture = rpcTestTransport(async () => [

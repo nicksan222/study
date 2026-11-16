@@ -13,7 +13,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   api = __mockState.api;
@@ -26,12 +26,12 @@ test.beforeEach(async ({ mock }) => {
   MergePagesDialog = __mockModule0.MergePagesDialog;
 });
 
-test.afterEach(({ cleanup, vi }) => {
+test.unit.afterEach(({ cleanup, vi }) => {
   cleanup();
   vi.clearAllMocks();
 });
 
-test.stable(
+test.unit.stable(
   'merge explains archival, requires a title and submits selected exact versions in the UI language',
   async ({ userEvent, rpcTestTransport, vi, render, expect, screen, waitFor }) => {
     const user = userEvent.setup();

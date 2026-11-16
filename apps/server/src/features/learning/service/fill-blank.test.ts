@@ -25,7 +25,7 @@ import { decodeEvent } from '#server/platform/workflows/events';
 
 import { Learning } from './index.ts';
 
-test.stable(
+test.server.stable(
   'blank practice persists, hides answers, filters kinds and settles a grade after completion',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

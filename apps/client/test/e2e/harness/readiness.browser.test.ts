@@ -3,7 +3,7 @@ import { test } from '@study/testing';
 import { screenshotAssertions, baselinePath } from './screenshots.ts';
 
 // These exercise the harness contract itself, rather than pretending synthetic HTML is an app journey.
-test.stable(
+test.browser.stable(
   'screenshot readiness has a deadline and rejects a stable loading state',
   async ({ page, expect }, info) => {
     await page.setContent('<p>Loading</p>');
@@ -35,7 +35,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'missing references fail without creating a baseline',
   async ({ page, expect }, info) => {
     await page.setContent('<div style="width:100px;height:100px;background:black"></div>');
@@ -59,7 +59,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'screenshot comparison allows isolated drift but rejects larger and resized changes',
   async ({ page, resources, expect }, info) => {
     const workflow = `drift-${crypto.randomUUID()}`;
@@ -126,7 +126,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'capture anchors a zoomed scroller at its end from every starting position',
   async ({ page, resources, expect }, info) => {
     const workflow = `scroll-end-${crypto.randomUUID()}`;

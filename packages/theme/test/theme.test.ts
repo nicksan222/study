@@ -8,7 +8,7 @@ import {
   renderThemeCss
 } from '../src/index.ts';
 
-test.stable(
+test.unit.stable(
   'portable themes round trip and reject unsafe or unknown data',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -40,7 +40,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'normalizes metadata and accepts supported CSS color spaces in every variant',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -73,7 +73,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects invalid containers, metadata, palettes, and context-dependent colors with a typed error',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -118,7 +118,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'accepts boundary metadata and payload sizes and every registered semantic color role',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -132,7 +132,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'export validates, normalizes and round trips without mutating its input',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -158,18 +158,21 @@ test.stable(
   }
 );
 
-test.stable('CSS rendering merges common colors before each appearance override', ({ expect }) => {
-  const css = renderThemeCss({
-    version: 1,
-    id: 'css',
-    name: 'CSS',
-    colors: { primary: 'red', foreground: 'white' },
-    light: { primary: 'blue' },
-    dark: { background: 'black' }
-  });
+test.unit.stable(
+  'CSS rendering merges common colors before each appearance override',
+  ({ expect }) => {
+    const css = renderThemeCss({
+      version: 1,
+      id: 'css',
+      name: 'CSS',
+      colors: { primary: 'red', foreground: 'white' },
+      light: { primary: 'blue' },
+      dark: { background: 'black' }
+    });
 
-  expect(css).toMatch(/:root \{\n  --primary: blue;\n  --foreground: white;/);
-  expect(css).toMatch(
-    /:root\.dark \{\n  --primary: red;\n  --foreground: white;\n  --background: black;/
-  );
-});
+    expect(css).toMatch(/:root \{\n  --primary: blue;\n  --foreground: white;/);
+    expect(css).toMatch(
+      /:root\.dark \{\n  --primary: red;\n  --foreground: white;\n  --background: black;/
+    );
+  }
+);

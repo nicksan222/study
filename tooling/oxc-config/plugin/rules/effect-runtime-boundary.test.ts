@@ -5,7 +5,7 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 const message =
   'Run Effects and construct ManagedRuntime only at approved application runtime boundaries.';
 
-test.stable(
+test.unit.stable(
   'limits runtime execution to the approved scoped adapters',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -31,7 +31,7 @@ E.runPromise(E.void);`
     );
   }
 );
-test.stable(
+test.unit.stable(
   'resolves imported namespaces, named imports, const aliases and shadowing',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -58,7 +58,7 @@ function f(E: any, operation: any) {
   }
 );
 
-test.stable(
+test.unit.stable(
   'permits runtime adapters and tests but checks domain fixtures',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -82,7 +82,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'requires the durable worker to use scoped fibers rather than execute a detached runtime',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -103,7 +103,7 @@ await Effect.runPromise(Fiber.interrupt(fiber));`
   }
 );
 
-test.stable(
+test.unit.stable(
   'target architecture limits execution and runtime construction to their explicit owners',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -127,7 +127,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'context-taking runners stay at the scoped callback or synchronous observation bridge',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -151,7 +151,7 @@ Effect.runPromise(task);`,
   }
 );
 
-test.stable(
+test.unit.stable(
   'only the exported HTTP Promise bridge can execute an HTTP Effect',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -180,7 +180,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'only the browser runtime adapter may execute browser operations',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -202,7 +202,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'backup policy composition reuses the managed runtime instead of adding a synchronous runner',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -220,7 +220,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'only named filesystem bridges may run their corresponding Effects',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -271,7 +271,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'filesystem sync acquisition remains private',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

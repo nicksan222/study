@@ -1,6 +1,6 @@
 import { test } from '@study/testing';
 
-test.stable(
+test.server.stable(
   'practice keeps bounded immutable slots and durable control epochs',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

@@ -6,13 +6,13 @@ let api: AssistantHarness['api'];
 
 let mount: AssistantHarness['mountAssistant'];
 
-test.beforeEach(({ assistant, mock }) => {
+test.unit.beforeEach(({ assistant, mock }) => {
   mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
   api = assistant.api;
   mount = assistant.mountAssistant;
 });
 
-test.stable(
+test.unit.stable(
   'sends only nonblank user messages and supports multiline drafts',
   async ({ userEvent, screen, waitFor, expect }) => {
     const user = userEvent.setup();

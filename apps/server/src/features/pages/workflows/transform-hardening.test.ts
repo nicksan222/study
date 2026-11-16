@@ -58,7 +58,7 @@ const notes = [
   { kind: 'limit' as const, explanation: 'Captured evidence only', blockOrdinals: [0] }
 ];
 
-function capture({ assert: assertions }: Pick<test.Context, 'assert'>, blocks: Block[]) {
+function capture({ assert: assertions }: Pick<test.server.Context, 'assert'>, blocks: Block[]) {
   const assert: test.Assert = assertions;
 
   return Effect.gen(function* () {
@@ -101,7 +101,7 @@ function capture({ assert: assertions }: Pick<test.Context, 'assert'>, blocks: B
   });
 }
 
-test.stable(
+test.server.stable(
   'actual provider JSON images persist as canonical bigint assets and survive reopen/replay',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -209,7 +209,7 @@ test.stable(
 );
 
 for (const mode of ['fake-id', 'fake-revision', 'alt-range'] as const) {
-  test.stable(
+  test.server.stable(
     mode === 'alt-range'
       ? 'stored alt-text range still captures the whole document image'
       : `provider JSON ${mode} cannot publish unauthorized images`,
@@ -349,7 +349,7 @@ for (const mode of ['fake-id', 'fake-revision', 'alt-range'] as const) {
   );
 }
 
-test.stable(
+test.server.stable(
   'transient provider retry keeps the exact original capture after current input and selection change',
   { timeout: 15000 },
   async ({ databases, assert: assertions, expect }) => {
@@ -479,7 +479,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'native cancellation before provider response fences publication and never resumes or retries',
   { timeout: 15000 },
   async ({ databases, assert: assertions }) => {
@@ -583,7 +583,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'committed publication wins actual native pending and unsafe cancellation before terminal checkpoint',
   { timeout: 15000 },
   async ({ databases, assert: assertions, pollUntil }) => {
@@ -692,7 +692,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'provider markers preserve distinct whole-block evidence after note deletion',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -788,7 +788,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'provider report ordinals cannot reference an unavailable output block',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -835,7 +835,7 @@ test.stable(
 );
 
 for (const barrier of ['cancel', 'note-delete'] as const) {
-  test.stable(
+  test.server.stable(
     `native ${barrier} preflight prevents provider dispatch`,
     async ({ databases, expect, assert: assertions }) => {
       const assert: test.Assert = assertions;
@@ -886,7 +886,7 @@ function holdAfterPublication(published: Deferred.Deferred<void>, finish: Deferr
 }
 
 for (const size of [90_000]) {
-  test.stable(
+  test.server.stable(
     `oversized captured Page input (${size}) fails with typed admission error before dispatch`,
     async ({ databases, assert: assertions }) => {
       const assert: test.Assert = assertions;

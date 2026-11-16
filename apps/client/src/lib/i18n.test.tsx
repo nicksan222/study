@@ -13,8 +13,8 @@ function Copy({ name }: { name: string }) {
   );
 }
 
-test.describe('desktop language provider', () => {
-  test.stable(
+test.unit.describe('desktop language provider', () => {
+  test.unit.stable(
     'switches independently and preserves the server locale',
     ({ render, expect, screen, cleanup }) => {
       const view = (locale: 'english' | 'italian') => (
@@ -41,9 +41,12 @@ test.describe('desktop language provider', () => {
     }
   );
 
-  test.stable('defaults to English outside a provider', ({ render, expect, screen, cleanup }) => {
-    render(<Copy name="default" />);
-    expect(screen.getByTestId('default').textContent).toBe('english:Overview:1,234');
-    cleanup();
-  });
+  test.unit.stable(
+    'defaults to English outside a provider',
+    ({ render, expect, screen, cleanup }) => {
+      render(<Copy name="default" />);
+      expect(screen.getByTestId('default').textContent).toBe('english:Overview:1,234');
+      cleanup();
+    }
+  );
 });

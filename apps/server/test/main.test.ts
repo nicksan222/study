@@ -20,7 +20,7 @@ import { Effect } from 'effect';
 import { makeStudyClient } from '#server/client/index';
 
 for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
-  test.stable(
+  test.server.stable(
     `server entry serves native RPC and shuts down on ${shutdown}`,
     async ({
       resources: resourcesFixture,

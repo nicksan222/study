@@ -4,7 +4,7 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message = 'Use Effect.forkScoped so background fibers have an owning scope.';
 
-test.stable(
+test.unit.stable(
   'requires server fibers to stay under an explicit owner',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -26,24 +26,27 @@ function f(E) {
   }
 );
 
-test.stable('tracks namespace, named and const aliases', async ({ assert: assertions, expect }) => {
-  const assert: test.Assert = assertions;
+test.unit.stable(
+  'tracks namespace, named and const aliases',
+  async ({ assert: assertions, expect }) => {
+    const assert: test.Assert = assertions;
 
-  const diagnostics = await lintRule({ assert }, 'effect-scoped-fibers', {
-    'src/workers/example.ts': String.raw`import * as E from "effect/Effect";
+    const diagnostics = await lintRule({ assert }, 'effect-scoped-fibers', {
+      'src/workers/example.ts': String.raw`import * as E from "effect/Effect";
 import { forkDetach as detach } from "effect/Effect";
 const run = E.forkDetach;
 run(work);
 detach(work);`
-  });
+    });
 
-  assertDiagnostics({ assert, expect }, 'effect-scoped-fibers', diagnostics, [
-    ['src/workers/example.ts', message],
-    ['src/workers/example.ts', message]
-  ]);
-});
+    assertDiagnostics({ assert, expect }, 'effect-scoped-fibers', diagnostics, [
+      ['src/workers/example.ts', message],
+      ['src/workers/example.ts', message]
+    ]);
+  }
+);
 
-test.stable(
+test.unit.stable(
   'permits only the explicit application root',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -56,7 +59,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains enforcement in other runtime modules',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -71,7 +74,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'tracks destructured aliases and ignores their local shadows',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -91,7 +94,7 @@ function f(detach) {
   }
 );
 
-test.stable(
+test.unit.stable(
   'requires browser fibers to stay under an explicit owner',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -112,7 +115,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects inline scopes without a retained owner in both forkIn forms',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

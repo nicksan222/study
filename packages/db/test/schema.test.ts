@@ -12,7 +12,7 @@ const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFile
 const { dirname, join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
 function assertThrowsMatching(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.unit.Context, 'assert'>,
   run: () => unknown,
   matches: (error: unknown) => boolean
 ) {
@@ -30,7 +30,7 @@ function assertThrowsMatching(
 }
 
 async function fixture(
-  { temporaryDirectory }: Pick<test.Context, 'temporaryDirectory'>,
+  { temporaryDirectory }: Pick<test.unit.Context, 'temporaryDirectory'>,
   run: (path: string) => Promise<void>
 ) {
   await using folder = await temporaryDirectory({ prefix: 'study-schema-' });
@@ -38,7 +38,7 @@ async function fixture(
   await run(join(folder.path, 'study.db'));
 }
 
-test.stable(
+test.unit.stable(
   'the Drizzle baseline initializes every modeled table and current code vocabulary',
   ({ expect, temporaryDirectory }) =>
     fixture({ temporaryDirectory }, async (path) => {
@@ -76,9 +76,9 @@ test.stable(
     })
 );
 
-test.stable(
+test.unit.stable(
   'Drizzle reads and writes identities beyond Number precision without losing references',
-  ({ assert: assertions, temporaryDirectory }: test.Context) => {
+  ({ assert: assertions, temporaryDirectory }: test.unit.Context) => {
     const assert: test.Assert = assertions;
 
     return fixture({ temporaryDirectory }, async (path) => {
@@ -147,7 +147,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'Drizzle generation is stable and leaves SQL-managed FTS outside schema diffs',
   async ({ temporaryDirectory, spawnTestProcess, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

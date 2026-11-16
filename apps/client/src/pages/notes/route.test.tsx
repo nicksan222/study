@@ -1,7 +1,7 @@
 import { noteIdSchema, projectIdSchema } from '@study/contracts';
 import { test } from '@study/testing';
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   mock('#client/pages/notes/page.view.tsx', () => ({
     PageView: ({ id }: { id?: bigint }) => (
       <div data-testid="note-route">{id === undefined ? 'starter' : String(id)}</div>
@@ -9,7 +9,7 @@ test.beforeEach(async ({ mock }) => {
   }));
 });
 
-test.beforeEach(({ rpc }) => {
+test.unit.beforeEach(({ rpc }) => {
   rpc.given({
     'notes.note': {
       id: noteIdSchema.make(9007199254740993n),
@@ -23,7 +23,7 @@ test.beforeEach(({ rpc }) => {
   });
 });
 
-test.stable(
+test.unit.stable(
   'parses a note path without losing precision and keeps the subject search',
   async ({ page, expect, screen }) => {
     const { router } = await page.open('/notes/9007199254740993?project=9007199254740995');
@@ -37,12 +37,12 @@ test.stable(
   }
 );
 
-test.stable('keeps the starter at the notes index', async ({ page, expect, screen }) => {
+test.unit.stable('keeps the starter at the notes index', async ({ page, expect, screen }) => {
   await page.open('/notes');
   expect(await screen.findByTestId('note-route')).toHaveTextContent('starter');
 });
 
-test.stable.for(['0', '-1', '1.5', 'text', '9223372036854775808'])(
+test.unit.stable.for(['0', '-1', '1.5', 'text', '9223372036854775808'])(
   'rejects an invalid note path identity %s',
   async (identity, { page, waitFor, expect, screen }) => {
     const { router } = await page.open('/notes/' + identity);
@@ -52,7 +52,7 @@ test.stable.for(['0', '-1', '1.5', 'text', '9223372036854775808'])(
   }
 );
 
-test.stable(
+test.unit.stable(
   'canonicalizes an unscoped note URL to its authoritative subject',
   async ({ page, expect, screen, waitFor }) => {
     const { router } = await page.open('/notes/9007199254740993');
@@ -66,7 +66,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'corrects a foreign subject prefix instead of exposing a mismatched note',
   async ({ page, expect, screen, waitFor }) => {
     const { router } = await page.open('/projects/2/notes/9007199254740993');

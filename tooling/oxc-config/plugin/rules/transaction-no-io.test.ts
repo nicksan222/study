@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'rejects network requests inside database transactions while allowing tests',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -21,7 +21,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'transaction-no-io handles aliases and avoids unrelated bindings',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -41,7 +41,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'named transaction callbacks cannot hide external I/O behind database aliases',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

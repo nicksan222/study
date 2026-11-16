@@ -5,7 +5,7 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 const message =
   'Metric attributes must use bounded literal labels or safeMetricLabels from platform/observability.';
 
-test.stable(
+test.unit.stable(
   'checks Effect metric attributes with aliases and shadowing',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -36,7 +36,7 @@ unrelated.withAttributes(labels);`
     );
   }
 );
-test.stable(
+test.unit.stable(
   'checks tuple attributes, constructor options and namespace helper',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -60,7 +60,7 @@ M.withAttributes(obs.safeMetricLabels(input));`
   }
 );
 
-test.stable(
+test.unit.stable(
   'allows bounded enum members and rejects computed identifiers',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -79,7 +79,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'checks contextual Effect metric attributes',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

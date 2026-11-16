@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'rejects dynamic sql.raw input in production while allowing constants and tests',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -19,7 +19,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'parameterized-sql handles aliases and avoids unrelated bindings',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -39,7 +39,7 @@ query.raw(\`SELECT \${input}\`);`,
   }
 );
 
-test.stable(
+test.unit.stable(
   'constant database aliases do not permit connection-level SQL execution',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -55,7 +55,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'facade sql aliases and namespaces retain parameter binding checks',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

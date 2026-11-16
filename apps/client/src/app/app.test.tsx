@@ -3,7 +3,7 @@ import { test } from '@study/testing';
 
 import { App } from './app';
 
-test.stable.for(['/', '/unknown'])(
+test.unit.stable.for(['/', '/unknown'])(
   'opens the note starter for %s',
   async (url, { rpc, render, expect, screen }) => {
     history.replaceState(null, '', url);
@@ -16,7 +16,7 @@ test.stable.for(['/', '/unknown'])(
   }
 );
 
-test.stable(
+test.unit.stable(
   'opens a lowercase deep link without hash routing',
   async ({ rpc, render, screen, expect }) => {
     history.replaceState(null, '', '/notes?project=9007199254740993');

@@ -50,7 +50,7 @@ import {
   noteAttachmentWakeRegistration
 } from './index.ts';
 
-test.stable(
+test.server.stable(
   'indexed source wakes the dispatched reply using its persisted receipt',
   async ({ databases, createAiMock, assert: assertions, pollUntil, expect }) => {
     const assert: test.Assert = assertions;
@@ -474,7 +474,7 @@ test.stable(
                 assert: assertions,
                 pollUntil,
                 expect
-              }: Pick<test.Context, 'assert' | 'pollUntil' | 'expect'>,
+              }: Pick<test.server.Context, 'assert' | 'pollUntil' | 'expect'>,
               mode:
                 | 'delete'
                 | 'replace'
@@ -612,7 +612,7 @@ test.stable(
               function* invalidateSource({
                 assert: assertions,
                 expect
-              }: Pick<test.Context, 'assert' | 'expect'>) {
+              }: Pick<test.server.Context, 'assert' | 'expect'>) {
                 const assert: test.Assert = assertions;
 
                 if (mode === 'replace')
@@ -701,7 +701,9 @@ test.stable(
               );
               yield* assertReplyCompleted({ pollUntil });
 
-              function* assertReplyCompleted({ pollUntil }: Pick<test.Context, 'pollUntil'>) {
+              function* assertReplyCompleted({
+                pollUntil
+              }: Pick<test.server.Context, 'pollUntil'>) {
                 yield* pollUntil(
                   engine.poll(noteReplyWorkflow, nextReceipt.executionId),
                   (observed) => Option.isSome(observed) && observed.value._tag === 'Complete',
@@ -747,7 +749,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'a pending reply survives reopening and protects its source until raw note deletion',
   async ({ databases, createAiMock, pollUntil, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -944,7 +946,7 @@ test.stable(
 );
 
 function assertEventType<T extends ReturnType<typeof decodeEvent>['type']>(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
   event: ReturnType<typeof decodeEvent> | undefined,
   type: T,
   message: string
@@ -955,7 +957,7 @@ function assertEventType<T extends ReturnType<typeof decodeEvent>['type']>(
 }
 
 function assertWakeEvent(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
   event: ReturnType<typeof decodeEvent> | undefined
 ): asserts event is Extract<
   ReturnType<typeof decodeEvent>,

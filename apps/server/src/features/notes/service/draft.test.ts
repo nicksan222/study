@@ -22,7 +22,7 @@ import { Database } from '#server/platform/database/database';
 
 import { Notes } from './index.ts';
 
-test.stable(
+test.server.stable(
   'new notes reuse one empty draft across concurrent requests and collections',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -69,7 +69,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'new notes preserve captured work and explicitly named notes',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -135,7 +135,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'first send atomically creates a visible note and first message',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

@@ -27,7 +27,7 @@ const fetchPage = (
   } = {}
 ) => Effect.runPromise(fetchPageEffect(url, options), { signal: options.signal });
 
-test.stable('HTTP transport failures preserve their private cause', async ({ expect }) => {
+test.unit.stable('HTTP transport failures preserve their private cause', async ({ expect }) => {
   await expect(fetchPage('http://127.0.0.1:0')).rejects.toSatisfy(
     (error: unknown) =>
       error instanceof Error &&
@@ -37,7 +37,7 @@ test.stable('HTTP transport failures preserve their private cause', async ({ exp
   );
 });
 
-test.stable(
+test.unit.stable(
   'HTTP redirects, response size, timeout and cancellation are bounded',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -116,7 +116,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'HTTP status failures are typed and interruption closes an in-flight request',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -176,7 +176,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'bounded POST reads token responses and times out while reading the body',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -219,7 +219,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'streaming fetch keeps its scoped request alive until cancellation',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -264,7 +264,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'streaming fetch enforces byte limits without a content length',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -303,7 +303,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'streaming fetch body deadline follows the native clock',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

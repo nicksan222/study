@@ -5,7 +5,7 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 const message =
   'Handle or propagate Effect failures explicitly instead of silently discarding them.';
 
-test.stable(
+test.unit.stable(
   'reports swallowed Effect failures and accepts explicit recovery',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -37,7 +37,7 @@ E.catchCause(() => E.succeed(undefined));`
     );
   }
 );
-test.stable(
+test.unit.stable(
   'resolves imported namespaces, named imports, const aliases and shadowing',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -64,7 +64,7 @@ function f(E: any, operation: any) {
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects silent statement blocks and allows explicit propagation and tagged recovery',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -97,7 +97,7 @@ E.catchTag("Missing", () => E.succeed(null));`
   }
 );
 
-test.stable(
+test.unit.stable(
   'reports swallowed browser Effect failures and accepts explicit recovery',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -118,7 +118,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'checks extracted recovery handlers without following mutable or shadowed functions',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -156,7 +156,7 @@ function same(same: any) {
   }
 );
 
-test.stable(
+test.unit.stable(
   'accepts explicit recovery values while rejecting discarded failures',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

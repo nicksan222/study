@@ -3,7 +3,7 @@ import { Schema } from 'effect';
 
 import { projectIdSchema } from '../src/ids.ts';
 
-test.stable('project IDs are positive signed 64-bit integers', ({ assert: assertions }) => {
+test.unit.stable('project IDs are positive signed 64-bit integers', ({ assert: assertions }) => {
   const assert: test.Assert = assertions;
 
   const decode = Schema.decodeUnknownSync(projectIdSchema);

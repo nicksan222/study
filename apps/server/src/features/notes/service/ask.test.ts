@@ -31,7 +31,7 @@ import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';
 
 // No workers or providers are started: publication is controlled through the existing test fence.
-test.stable(
+test.server.stable(
   'Ask fences stale windows, replays full intent once, rolls back outbox failure and reopens exact versions',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -365,7 +365,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'Ask binds ordered attachments to its intent and rejects changed order without writes',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -426,7 +426,7 @@ test.stable(
 );
 
 for (const mode of ['history', 'material', 'note'] as const) {
-  test.stable(
+  test.server.stable(
     `Ask cannot resurrect after note cleanup and exact pins protect ${mode} retirement`,
     async ({ databases, assert: assertions, expect }) => {
       const assert: test.Assert = assertions;

@@ -3,9 +3,9 @@ import { useState } from 'react';
 
 import { Sidebar } from './sidebar';
 
-test.beforeEach(() => localStorage.clear());
+test.unit.beforeEach(() => localStorage.clear());
 
-test.stable(
+test.unit.stable(
   'resizes by dragging its edge and remembers the committed width',
   ({ render, screen, fireEvent, expect }) => {
     const { container } = render(
@@ -35,7 +35,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'supports keyboard resizing and resets with a double click',
   async ({ userEvent, render, screen, expect, fireEvent }) => {
     const user = userEvent.setup();
@@ -65,7 +65,7 @@ test.stable(
   }
 );
 
-test.stable('removes the resize rail when collapsed', ({ render, expect, screen }) => {
+test.unit.stable('removes the resize rail when collapsed', ({ render, expect, screen }) => {
   render(
     <Sidebar.Frame collapsed resizeLabel="Resize sidebar" resizeHint="Drag to resize">
       <aside />
@@ -75,7 +75,7 @@ test.stable('removes the resize rail when collapsed', ({ render, expect, screen 
   expect(screen.queryByRole('separator')).not.toBeInTheDocument();
 });
 
-test.stable(
+test.unit.stable(
   'clamps a restored width and tracks smaller viewports without losing the preference',
   ({ render, expect, screen, fireEvent }) => {
     localStorage.setItem('sidebar-test', '900');
@@ -108,7 +108,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'places trailing footer actions in a dedicated slot and respects utility variants',
   ({ render, screen, expect }) => {
     render(
@@ -126,7 +126,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'searches subject identities while preserving their metadata and current selection',
   async ({ userEvent, vi, render, expect, screen }) => {
     const user = userEvent.setup();
@@ -168,7 +168,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'supports keyboard selection and returns focus when the subject picker closes',
   async ({ userEvent, vi, render, screen, expect, waitFor }) => {
     const user = userEvent.setup();
@@ -215,7 +215,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps settled-group disclosure usable in the collapsed rail',
   async ({ userEvent, render, screen, expect }) => {
     const user = userEvent.setup();
@@ -239,7 +239,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'preserves supporting activity and counts in compact note rows',
   ({ render, screen, expect }) => {
     render(
@@ -264,7 +264,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'slides settled content closed before removing the native open state and restores it on reopening',
   async ({ render, screen, fireEvent, expect, waitFor }) => {
     render(
@@ -291,7 +291,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps a reopened settled group open when the previous close transition finishes',
   async ({ render, screen, fireEvent, waitFor, expect }) => {
     render(
@@ -309,7 +309,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'closes settled content immediately when reduced motion is enabled',
   ({ vi, render, screen, fireEvent, expect }) => {
     const media = vi
@@ -333,7 +333,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'caps populated sections without reserving a share for empty sections or draft cards',
   async ({ vi, render, screen, expect, waitFor }) => {
     const geometry = vi
@@ -388,7 +388,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'sidebar names include the visible navigation count and note metadata',
   ({ render, expect, screen }) => {
     render(

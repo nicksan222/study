@@ -5,7 +5,7 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 const message =
   'Use cleanupActivity for unsafe workflow retirement so cancellation precedes guarded cleanup and failure settlement.';
 
-test.stable(
+test.unit.stable(
   'workflow cleanup cannot duplicate unsafe cancellation orchestration',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

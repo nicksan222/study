@@ -49,7 +49,7 @@ const document = {
   }
 };
 
-test.stable(
+test.server.stable(
   'snapshots survive replacement and stale publications leave no document',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -289,7 +289,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'source reads distinguish absence and enforce bounded pagination',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

@@ -15,7 +15,7 @@ import { Deferred, Effect, Fiber } from 'effect';
 
 const options = { attempts: 3, interval: 0, message: 'observation did not settle' };
 
-test.stable(
+test.unit.stable(
   'polling stops on the first ready observation and returns it',
   async ({ pollUntil, expect }) => {
     for (const target of [1, 3]) {
@@ -34,7 +34,7 @@ test.stable(
   }
 );
 
-test.stable('polling exhausts its exact observation budget', async ({ expect, pollUntil }) => {
+test.unit.stable('polling exhausts its exact observation budget', async ({ expect, pollUntil }) => {
   let reads = 0;
   let last = 0;
 
@@ -55,7 +55,7 @@ test.stable('polling exhausts its exact observation budget', async ({ expect, po
   expect(last).toBe(3);
 });
 
-test.stable(
+test.unit.stable(
   'polling propagates typed failures without retrying them',
   async ({ pollUntil, expect }) => {
     let reads = 0;
@@ -77,28 +77,31 @@ test.stable(
   }
 );
 
-test.stable('interrupting polling stops further observations', async ({ pollUntil, expect }) => {
-  let reads = 0;
+test.unit.stable(
+  'interrupting polling stops further observations',
+  async ({ pollUntil, expect }) => {
+    let reads = 0;
 
-  await Effect.runPromise(
-    Effect.scoped(
-      Effect.gen(function* () {
-        const observed = yield* Deferred.make<void>();
-        const fiber = yield* pollUntil(
-          Effect.gen(function* () {
-            reads++;
-            yield* Deferred.succeed(observed, undefined);
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const observed = yield* Deferred.make<void>();
+          const fiber = yield* pollUntil(
+            Effect.gen(function* () {
+              reads++;
+              yield* Deferred.succeed(observed, undefined);
 
-            return false;
-          }),
-          (value) => value,
-          { ...options, interval: '1 hour' }
-        ).pipe(Effect.forkChild);
+              return false;
+            }),
+            (value) => value,
+            { ...options, interval: '1 hour' }
+          ).pipe(Effect.forkChild);
 
-        yield* Deferred.await(observed);
-        yield* Fiber.interrupt(fiber);
-        expect(reads).toBe(1);
-      })
-    )
-  );
-});
+          yield* Deferred.await(observed);
+          yield* Fiber.interrupt(fiber);
+          expect(reads).toBe(1);
+        })
+      )
+    );
+  }
+);

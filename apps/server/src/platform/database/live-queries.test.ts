@@ -19,7 +19,7 @@ import { Database } from './database.ts';
 import { LiveQueries, liveQueriesLayer } from './live-queries.ts';
 
 for (const hinted of [true, false]) {
-  test.stable(
+  test.server.stable(
     `live snapshots converge after ${hinted ? 'hinted' : 'missed-hint'} writes`,
     async ({ databases, expect }) => {
       const fixture = await databases();
@@ -79,7 +79,7 @@ for (const hinted of [true, false]) {
   );
 }
 
-test.stable(
+test.server.stable(
   'a write racing a composed snapshot cannot publish mixed committed state',
   async ({ databases, expect }) => {
     const fixture = await databases();
@@ -130,44 +130,47 @@ test.stable(
   }
 );
 
-test.stable('releasing a live reader interrupts its in-flight read', async ({ databases }) => {
-  const fixture = await databases();
-  const reader = new ServerContext(await fixture.open());
+test.server.stable(
+  'releasing a live reader interrupts its in-flight read',
+  async ({ databases }) => {
+    const fixture = await databases();
+    const reader = new ServerContext(await fixture.open());
 
-  try {
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const live = yield* LiveQueries;
-          const started = yield* Deferred.make<void>();
-          const stopped = yield* Deferred.make<void>();
-          const read = Effect.andThen(Deferred.succeed(started, undefined), Effect.never).pipe(
-            Effect.ensuring(Deferred.succeed(stopped, undefined))
-          );
-          const fiber = yield* live
-            .watch(['settings'], read)
-            .pipe(Stream.runDrain, Effect.forkChild);
+    try {
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const live = yield* LiveQueries;
+            const started = yield* Deferred.make<void>();
+            const stopped = yield* Deferred.make<void>();
+            const read = Effect.andThen(Deferred.succeed(started, undefined), Effect.never).pipe(
+              Effect.ensuring(Deferred.succeed(stopped, undefined))
+            );
+            const fiber = yield* live
+              .watch(['settings'], read)
+              .pipe(Stream.runDrain, Effect.forkChild);
 
-          yield* Deferred.await(started);
-          yield* Fiber.interrupt(fiber);
-          yield* Deferred.await(stopped);
-        })
-      ).pipe(
-        Effect.provide(
-          liveQueriesLayer({ reconciliationMs: 20 }).pipe(
-            Layer.provide(Layer.succeed(Database, { store: reader }))
-          )
-        ),
-        Effect.timeout('3 seconds')
-      )
-    );
-  } finally {
-    reader.close();
-    await fixture.cleanup();
+            yield* Deferred.await(started);
+            yield* Fiber.interrupt(fiber);
+            yield* Deferred.await(stopped);
+          })
+        ).pipe(
+          Effect.provide(
+            liveQueriesLayer({ reconciliationMs: 20 }).pipe(
+              Layer.provide(Layer.succeed(Database, { store: reader }))
+            )
+          ),
+          Effect.timeout('3 seconds')
+        )
+      );
+    } finally {
+      reader.close();
+      await fixture.cleanup();
+    }
   }
-});
+);
 
-test.stable(
+test.server.stable(
   'domain failure remains observed and recovers on a later committed dependency change',
   async ({ databases, expect }) => {
     const fixture = await databases();
@@ -224,7 +227,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'shared heartbeat keeps idle streams alive without rereading snapshots',
   async ({ databases, expect }) => {
     const fixture = await databases();
@@ -265,7 +268,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'a failed revision read emits a transient snapshot and a fresh subscription can recover',
   async ({ databases, expect }) => {
     const fixture = await databases();
@@ -325,7 +328,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'slow refreshes announce waiting before the next authoritative snapshot',
   async ({ databases, expect }) => {
     const fixture = await databases();
@@ -389,7 +392,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'the shared reconciler recovers a failed tick and still notices a missed hint',
   async ({ databases, expect }) => {
     const fixture = await databases();

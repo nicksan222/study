@@ -39,7 +39,7 @@ function createMockState() {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState();
 
   readiness = __mockState.readiness;
@@ -54,7 +54,7 @@ test.beforeEach(async ({ mock }) => {
   QuizQuestion = __mockModule1.QuizQuestion;
 });
 
-test.stable(
+test.unit.stable(
   'requires an answer and preserves multiple selections when submitting',
   async ({ vi, userEvent, render, expect, screen }) => {
     const submit = vi.fn();
@@ -69,7 +69,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'selects answers by number and submits from the keyboard',
   async ({ vi, userEvent, render, expect }) => {
     const submit = vi.fn();
@@ -81,7 +81,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps open answers editable and submits trimmed text',
   async ({ vi, userEvent, render, screen, expect }) => {
     const submit = vi.fn();
@@ -103,7 +103,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'blank answers restore saved text and submit with Enter without leaking the answer',
   async ({ vi, userEvent, render, screen, expect }) => {
     const submit = vi.fn();
@@ -132,7 +132,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'confirming an IME composition does not submit a blank answer',
   ({ vi, render, screen, expect, fireEvent }) => {
     const submit = vi.fn();
@@ -159,7 +159,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'matching restores associations and supports keyboard selection without submitting from a select',
   async ({ vi, userEvent, render, screen, expect }) => {
     const submit = vi.fn();
@@ -218,7 +218,7 @@ test.stable(
     });
   }
 );
-test.stable(
+test.unit.stable(
   'true or false restores a single radio response and uses localized labels',
   async ({ vi, userEvent, render, expect, screen }) => {
     const submit = vi.fn();
@@ -249,7 +249,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'Italian true or false controls localize canonical truth tokens',
   ({ render, expect, screen }) => {
     const question = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
@@ -279,7 +279,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'ordering restores saved permutations and moves steps with keyboard buttons',
   async ({ vi, userEvent, render, expect, screen }) => {
     const submit = vi.fn();
@@ -320,11 +320,11 @@ test.stable(
 
 let readiness: ReturnType<typeof createMockState>['readiness'];
 
-test.afterEach(() => {
+test.unit.afterEach(() => {
   readiness.value = 'ready';
 });
 
-test.stable(
+test.unit.stable(
   'preserves typed answers but blocks AI grading until setup is ready',
   async ({ vi, userEvent, render, screen, expect }) => {
     readiness.value = 'setup';
@@ -346,7 +346,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps deterministic answers usable without provider setup',
   async ({ vi, userEvent, render, expect }) => {
     readiness.value = 'setup';

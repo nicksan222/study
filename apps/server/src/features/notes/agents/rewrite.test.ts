@@ -16,7 +16,7 @@ import { test } from '@study/testing';
 import { rewriteAgent } from './rewrite.ts';
 
 for (const origin of ['improve', 'summarize'] as const)
-  test.stable(
+  test.unit.stable(
     `rewrite ${origin} keeps the captured target immediately before the task`,
     ({ expect }) => {
       const messages = [
@@ -36,7 +36,7 @@ for (const origin of ['improve', 'summarize'] as const)
     }
   );
 
-test.stable(
+test.unit.stable(
   'rewrite instruction and preferences appear once in the task, outside captured text',
   ({ expect }) => {
     const messages = [{ role: 'user' as const, content: 'Rewrite this passage' }];

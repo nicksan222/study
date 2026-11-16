@@ -1,6 +1,6 @@
 import { test } from '@study/testing';
 
-test.stable.for(['english', 'italian'] as const)(
+test.unit.stable.for(['english', 'italian'] as const)(
   'opens the Practice page in %s',
   async (locale, { page, expect, screen }) => {
     const { router } = await page.open('/practice?project=9007199254740993', { locale });

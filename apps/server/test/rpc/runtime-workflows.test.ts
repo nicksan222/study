@@ -28,7 +28,7 @@ const isCancelledSource = (item: { workflow: string; status: string }) =>
 
 const isCompleted = (item: { status: string }) => item.status === 'completed';
 
-test.stable(
+test.server.stable(
   'native workflow RPC exposes bounded status and persists cancellation while the worker is stopped',
   { timeout: 10000 },
   async ({ resources: location, expect, pollUntil, assert: assertions }) => {
@@ -151,7 +151,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'workflow status distinguishes terminal failures and paginates without exposing checkpoints',
   { timeout: 10000 },
   async ({ resources: location, pollUntil, expect, assert: assertions }) => {
@@ -261,7 +261,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'unsafe workflow cancellation aborts an active real HTTP fetch',
   { timeout: 10000 },
   async ({ resources: location, onTestFinished, assert: assertions }) => {

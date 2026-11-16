@@ -6,7 +6,10 @@ import { assertSnapshotComparison } from './preflight.ts';
 import { temporaryArtifacts } from './temporary.ts';
 
 async function fixture(
-  { spawnTestProcess, onTestFinished }: Pick<test.Context, 'spawnTestProcess' | 'onTestFinished'>,
+  {
+    spawnTestProcess,
+    onTestFinished
+  }: Pick<test.unit.Context, 'spawnTestProcess' | 'onTestFinished'>,
   titles: string[],
   suite = ''
 ) {
@@ -29,13 +32,13 @@ async function fixture(
   );
 
   for (const [index, title] of titles.entries()) {
-    const registration = `test.stable(${JSON.stringify(title)}, {tag: ['@journey', ${JSON.stringify(`@workflow:${workflowName(title)}`)}]}, async () => { await Bun.write(${JSON.stringify(`${directory}/${index}.txt`)}, 'executed'); });`;
+    const registration = `test.browser.stable(${JSON.stringify(title)}, {tag: ['@journey', ${JSON.stringify(`@workflow:${workflowName(title)}`)}]}, async () => { await Bun.write(${JSON.stringify(`${directory}/${index}.txt`)}, 'executed'); });`;
 
     await Bun.write(
       `${directory}/${index}.spec.ts`,
       `
       import { test } from '@study/testing';
-      ${suite ? `test.describe(${JSON.stringify(suite)}, () => { ${registration} });` : registration}
+      ${suite ? `test.browser.describe(${JSON.stringify(suite)}, () => { ${registration} });` : registration}
     `
     );
   }
@@ -66,7 +69,7 @@ async function fixture(
   };
 }
 
-test.stable.for([
+test.unit.stable.for([
   ['Notes retain edits', 'Notes: retain edits'],
   ['Notes retain edits', 'Notes retain edits'],
   ['Notes\nretain edits', 'Notes retain edits'],
@@ -86,7 +89,7 @@ test.stable.for([
   }
 );
 
-test.stable.for(['', 'Editor "quoted" \\ path > [draft]?'])(
+test.unit.stable.for(['', 'Editor "quoted" \\ path > [draft]?'])(
   'native catalog selects exact nested titles in %s',
   async (suite, { expect, spawnTestProcess, onTestFinished }) => {
     const titles = [
@@ -104,7 +107,7 @@ test.stable.for(['', 'Editor "quoted" \\ path > [draft]?'])(
   }
 );
 
-test.stable.for(['--update-snapshots', '--ignore-snapshots'])(
+test.unit.stable.for(['--update-snapshots', '--ignore-snapshots'])(
   'native snapshot overrides fail before running a journey: %s',
   async (flag, { expect, spawnTestProcess, onTestFinished }) => {
     const { directory, run } = await fixture({ onTestFinished, spawnTestProcess }, [
@@ -118,7 +121,7 @@ test.stable.for(['--update-snapshots', '--ignore-snapshots'])(
   }
 );
 
-test.stable(
+test.unit.stable(
   'per-comparison policy rejects UI run overrides and ignored snapshots',
   ({ expect }) => {
     expect(() => assertSnapshotComparison('none', false)).not.toThrow();
@@ -134,11 +137,11 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'native shards partition every journey and distribute settings cases within one file',
   async ({ expect, spawnTestProcess }) => {
     async function catalog(
-      { spawnTestProcess, expect }: Pick<test.Context, 'spawnTestProcess' | 'expect'>,
+      { spawnTestProcess, expect }: Pick<test.unit.Context, 'spawnTestProcess' | 'expect'>,
       shard?: string
     ) {
       const child = spawnTestProcess(

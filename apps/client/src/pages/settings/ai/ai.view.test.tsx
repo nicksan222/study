@@ -9,7 +9,7 @@ let AiAccountSettingsView: typeof __StudyMockType0.AiAccountSettingsView;
 
 let AiModelSettingsView: typeof __StudyMockType0.AiModelSettingsView;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   mock('#client/lib/i18n.tsx', () => ({
     useI18n: () => createLocalization('italian')
   }));
@@ -19,7 +19,7 @@ test.beforeEach(async ({ mock }) => {
   AiModelSettingsView = __studyMockModule0.AiModelSettingsView;
 });
 
-function settingsModel({ vi }: Pick<test.Context, 'vi'>): AiSettingsModel {
+function settingsModel({ vi }: Pick<test.unit.Context, 'vi'>): AiSettingsModel {
   return {
     data: {
       status: { signedIn: true, email: 'learner@example.com', sharing: false },
@@ -44,7 +44,7 @@ function settingsModel({ vi }: Pick<test.Context, 'vi'>): AiSettingsModel {
   };
 }
 
-test.stable(
+test.unit.stable(
   'keeps account actions separate from localized model controls without requests',
   ({ vi, render, expect, screen }) => {
     const fetch = vi.spyOn(globalThis, 'fetch');
@@ -65,7 +65,7 @@ test.stable(
   }
 );
 
-function withAnthropic({ vi }: Pick<test.Context, 'vi'>) {
+function withAnthropic({ vi }: Pick<test.unit.Context, 'vi'>) {
   const model = settingsModel({ vi });
 
   model.data = {
@@ -89,7 +89,7 @@ function withAnthropic({ vi }: Pick<test.Context, 'vi'>) {
   return model;
 }
 
-test.stable(
+test.unit.stable(
   'credential selection renders exactly one provider dropdown and password input',
   ({ render, expect, screen, vi }) => {
     const model = withAnthropic({ vi });
@@ -101,7 +101,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'model dropdowns offer registered provider models and commit the selected ID',
   async ({ render, expect, screen, userEvent, vi }) => {
     const model = withAnthropic({ vi });
@@ -131,7 +131,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'a single choice changes provider and model together',
   async ({ render, userEvent, screen, expect, vi }) => {
     const model = withAnthropic({ vi });
@@ -148,7 +148,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'saved custom models retain their selected provider and label',
   async ({ render, expect, screen, userEvent, vi }) => {
     const model = withAnthropic({ vi });
@@ -170,7 +170,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'signed-out ChatGPT is absent unless it is the saved choice, which stays disabled',
   async ({ render, userEvent, screen, expect, vi }) => {
     const model = withAnthropic({ vi });
@@ -192,7 +192,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'an API provider without a key retains only its disabled saved model',
   async ({ render, expect, screen, userEvent, vi }) => {
     const model = withAnthropic({ vi });
@@ -227,7 +227,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'without credentials all saved choices remain visible and controls are disabled',
   ({ render, screen, expect, vi }) => {
     const model = withAnthropic({ vi });

@@ -7,7 +7,7 @@ import { sql } from '../src/index.ts';
 
 const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
-test.stable(
+test.server.stable(
   'online backup delivers completion while the event loop is otherwise idle',
   async ({ databases, spawnTestProcess, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -38,7 +38,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'online backup during a concurrent transaction yields one coherent committed snapshot',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -90,7 +90,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'supported snapshots reject extra executable schema before writable acquisition',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -118,7 +118,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'snapshot allocation bounds reject before creating a destination file',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

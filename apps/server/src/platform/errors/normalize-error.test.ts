@@ -17,7 +17,7 @@ import { test } from '@study/testing';
 
 import { normalizeError } from '#server/platform/errors/classify-error';
 
-test.stable(
+test.unit.stable(
   'normalization preserves domain failure identity and retry metadata',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -30,7 +30,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'normalization classifies unknown causes without exposing their messages',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

@@ -1,9 +1,11 @@
+import { createBrowserTestApi } from '@study/testing/playwright';
+
 import type { ExpectScreenshot } from './screenshots.ts';
 import { test as harness } from './testing.ts';
 import type { Journey } from './testing.ts';
 
 /** Direct native registration preserves authored source locations, file filtering and worker scheduling. */
-const testE2e = harness.stable.extend<{
+const testE2e = harness.browser.stable.extend<{
   expectScreenshot: ExpectScreenshot;
   loseCreationResponse: Journey['loseCreationResponse'];
 }>({
@@ -12,4 +14,4 @@ const testE2e = harness.stable.extend<{
 });
 
 /** Application journeys acquire the full real stack through their classified registration. */
-export const test = { ...harness, stable: testE2e };
+export const test = { browser: createBrowserTestApi(testE2e) };

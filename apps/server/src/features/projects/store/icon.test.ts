@@ -22,7 +22,7 @@ import { transaction, useStore } from '#server/platform/definitions/define-store
 
 import { ProjectsStore } from './index.ts';
 
-test.stable(
+test.server.stable(
   'custom subject icon persists across SQLite reopen and automatic mode restores title-derived identity',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -93,7 +93,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'rich icons persist their typed variant and color across SQLite reopen',
   async ({ databases, expect }) => {
     const location = await databases();

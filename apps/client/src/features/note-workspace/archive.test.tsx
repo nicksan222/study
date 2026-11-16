@@ -30,9 +30,9 @@ function initializeItem() {
 
 let item: ReturnType<typeof initializeItem>;
 
-let fixture: ReturnType<test.Context['rpcHandlersTransport']>;
+let fixture: ReturnType<test.unit.Context['rpcHandlersTransport']>;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
   mock('#client/features/document-presentation', async (importOriginal) => ({
     ...(await importOriginal()),
@@ -53,19 +53,19 @@ test.beforeEach(async ({ mock }) => {
   item = initializeItem();
 });
 
-test.afterEach(({ cleanup, vi }) => {
+test.unit.afterEach(({ cleanup, vi }) => {
   cleanup();
   vi.resetAllMocks();
 });
 
-function mount({ render }: Pick<test.Context, 'render'>, children = <ArchivePanel id={id} />) {
+function mount({ render }: Pick<test.unit.Context, 'render'>, children = <ArchivePanel id={id} />) {
   render(children, { wrapper: fixture.wrapper });
 
   return fixture;
 }
 
 function setup(
-  { vi, rpcHandlersTransport }: Pick<test.Context, 'vi' | 'rpcHandlersTransport'>,
+  { vi, rpcHandlersTransport }: Pick<test.unit.Context, 'vi' | 'rpcHandlersTransport'>,
   items = [item]
 ) {
   const rpc = {
@@ -87,7 +87,7 @@ function setup(
   return rpc;
 }
 
-test.stable(
+test.unit.stable(
   'previews archived content read-only and restores the note membership',
   async ({ fireEvent, screen, expect, waitFor, vi, rpcHandlersTransport, render }) => {
     const rpc = setup({ vi, rpcHandlersTransport });
@@ -111,7 +111,7 @@ test.stable(
     await waitFor(() => expect(screen.queryByText('Archived physics content')).toBeNull());
   }
 );
-test.stable(
+test.unit.stable(
   'searches only this note archive and distinguishes no matches from empty',
   async ({ screen, fireEvent, expect, vi, rpcHandlersTransport, render }) => {
     setup({ vi, rpcHandlersTransport });
@@ -122,7 +122,7 @@ test.stable(
     expect(screen.queryByRole('button', { name: 'Physics' })).toBeNull();
   }
 );
-test.stable(
+test.unit.stable(
   'shows honest empty and failed archive reads',
   async ({ waitFor, expect, screen, act, vi, rpcHandlersTransport, render }) => {
     const rpc = setup({ vi, rpcHandlersTransport }, []);
@@ -151,7 +151,7 @@ function SharedRestore() {
   );
 }
 
-test.stable(
+test.unit.stable(
   'fences duplicate archive changes across mounted observers and recovers from failure',
   async ({ screen, fireEvent, waitFor, expect, act, vi, rpcHandlersTransport, render }) => {
     const rpc = setup({ vi, rpcHandlersTransport });
@@ -180,7 +180,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'protects permanent deletion and disables Restore while its confirmation is open',
   async ({ fireEvent, screen, expect, vi, rpcHandlersTransport, render }) => {
     const rpc = setup({ vi, rpcHandlersTransport });

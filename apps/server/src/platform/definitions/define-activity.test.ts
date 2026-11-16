@@ -28,7 +28,7 @@ import { admitTestExecution } from '#testing/workflow-admission';
 
 class Input extends Context.Service<Input, string>()('test/ActivityInput') {}
 
-test.stable(
+test.server.stable(
   'activity harness keeps native replay identity and lazy generator requirements',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -74,7 +74,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'activity harness preserves the canonical failure kind on the native error channel',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -110,7 +110,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'publication activities capture real domain authorization inside execution',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -164,7 +164,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'resumable checkpoint keeps terminal failures and honors a zero retry budget',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

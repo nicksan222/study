@@ -50,7 +50,7 @@ function Picker() {
   );
 }
 
-test.stable(
+test.unit.stable(
   'uses the same custom/automatic identity in the trigger and searchable keyboard picker',
   async ({ react, expect, within }) => {
     react.render(<Picker />);

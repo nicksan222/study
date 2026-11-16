@@ -20,7 +20,7 @@ import { useStore } from '#server/platform/definitions/define-store';
 
 import { ExecutionStore } from './index.ts';
 
-test.stable(
+test.server.stable(
   'workflow filters find a source outcome behind unrelated newer wake executions in one bounded read',
   async ({ databases, expect }) => {
     const fixture = await databases();

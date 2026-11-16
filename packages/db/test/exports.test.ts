@@ -3,7 +3,7 @@ import { test } from '@study/testing';
 import * as database from '../src/index.ts';
 import { projects } from '../src/schema.ts';
 
-test.stable(
+test.server.stable(
   'database facade executes parameterized queries and schema predicates on its connection',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

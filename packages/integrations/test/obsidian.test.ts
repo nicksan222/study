@@ -7,7 +7,7 @@ const file = (path: string, text: string) => ({
   content: Buffer.from(text).toString('base64')
 });
 
-test.stable(
+test.unit.stable(
   'imports nested vault notes, preserving metadata, links, embeds and original bytes',
   ({ expect }) => {
     const plan = integrationProvider('obsidian').capabilities.import!.plan({
@@ -49,7 +49,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'reports ambiguous and missing references without discarding note text or inventing targets',
   ({ expect }) => {
     const plan = integrationProvider('obsidian').capabilities.import!.plan({
@@ -70,16 +70,19 @@ test.stable(
   }
 );
 
-test.stable.for(['../escape.md', '/absolute.md', 'a/../../escape.md', 'C:\\escape.md', 'a\\b.md'])(
-  'rejects unsafe vault entry %s',
-  (path, { expect }) => {
-    expect(() =>
-      integrationProvider('obsidian').capabilities.import!.plan({ files: [file(path, 'text')] })
-    ).toThrow();
-  }
-);
+test.unit.stable.for([
+  '../escape.md',
+  '/absolute.md',
+  'a/../../escape.md',
+  'C:\\escape.md',
+  'a\\b.md'
+])('rejects unsafe vault entry %s', (path, { expect }) => {
+  expect(() =>
+    integrationProvider('obsidian').capabilities.import!.plan({ files: [file(path, 'text')] })
+  ).toThrow();
+});
 
-test.stable(
+test.unit.stable(
   'rejects duplicate paths and invalid text encoding; reports empty notes',
   ({ expect }) => {
     const provider = integrationProvider('obsidian').capabilities.import!;
@@ -92,7 +95,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'discovers provider capabilities without advertising unsupported export',
   ({ expect }) => {
     expect(integrationProviders()).toEqual([{ id: 'obsidian', capabilities: ['import'] }]);

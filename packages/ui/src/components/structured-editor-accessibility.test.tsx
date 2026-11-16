@@ -6,7 +6,7 @@ import type { StructuredEditorLabels } from './structured-editor-types';
 
 const labels = new Proxy({} as StructuredEditorLabels, { get: (_, key) => String(key) });
 
-test.stable(
+test.unit.stable(
   'read-only documents omit textbox-only multiline semantics',
   ({ render, expect, screen }) => {
     render(
@@ -26,7 +26,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'portalled citation evidence preserves its presentation boundary',
   ({ render, fireEvent, screen, expect }) => {
     render(

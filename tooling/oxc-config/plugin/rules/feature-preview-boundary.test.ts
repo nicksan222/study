@@ -3,7 +3,7 @@ import { test } from '@study/testing';
 import { lintRule } from '../test/utils.ts';
 
 async function lint(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.unit.Context, 'assert'>,
   source: string,
   path = 'apps/landing/src/components/previews/Example.tsx'
 ) {
@@ -12,7 +12,7 @@ async function lint(
   return await lintRule({ assert }, 'feature-preview-boundary', { [path]: source }, true);
 }
 
-test.stable(
+test.unit.stable(
   'fixture entry renders actual feature components instead of parallel preview controls',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -46,7 +46,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'canonical fixture previews cannot import production hooks or transport even through loader edges',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -73,7 +73,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'preview fixtures reject direct network access and permit injected feature data',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -95,7 +95,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'narrative animations and documentation prose stay outside preview enforcement',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

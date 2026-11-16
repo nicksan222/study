@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { useRangeControl } from './use-range-control';
 
-test.stable(
+test.unit.stable(
   'restores the committed value after a failed save without resubmitting on blur',
   ({ vi, renderHook, act, expect }) => {
     const save = vi.fn();

@@ -34,7 +34,7 @@ const workflow = Workflow.make('cancel-recovery-test', {
 });
 
 for (const accepted of [false, true, 'completed'] as const)
-  test.stable(
+  test.server.stable(
     `cancel intent survives restart with accepted=${accepted} and retirement clears official messages`,
     async ({ databases, expect }) => {
       const location = await databases();

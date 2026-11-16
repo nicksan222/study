@@ -1,6 +1,6 @@
 import { test } from '@study/testing';
 
-test.stable(
+test.browser.stable(
   'visible substring rejects clipped and obscured text inside one prewrapped paragraph',
   async ({ page, expect }) => {
     await page.setViewportSize({ width: 800, height: 600 });

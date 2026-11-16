@@ -7,7 +7,10 @@ let ExecutionStatus: typeof __MockType0.ExecutionStatus;
 
 let api: ReturnType<typeof createMockState>['api'];
 
-function mount({ rpcTestTransport, render }: Pick<test.Context, 'rpcTestTransport' | 'render'>) {
+function mount({
+  rpcTestTransport,
+  render
+}: Pick<test.unit.Context, 'rpcTestTransport' | 'render'>) {
   const fixture = rpcTestTransport(async () => {
     const page = await api.executions();
 
@@ -32,7 +35,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   api = __mockState.api;
@@ -52,7 +55,7 @@ test.beforeEach(async ({ mock }) => {
   ExecutionStatus = __mockModule0.ExecutionStatus;
 });
 
-test.stable(
+test.unit.stable(
   'shows real request work in chronological muted rows',
   async ({ screen, expect, within, rpcTestTransport, render }) => {
     api.executions.mockResolvedValue({
@@ -85,7 +88,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps actionable authentication errors below the work row',
   async ({ expect, screen, rpcTestTransport, render }) => {
     api.executions.mockResolvedValue({
@@ -108,7 +111,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'explains a configuration wait and offers settings',
   async ({ screen, expect, rpcTestTransport, render }) => {
     api.executions.mockResolvedValue({
@@ -136,7 +139,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'labels unsupported persisted work as blocked with its typed error',
   async ({ expect, screen, rpcTestTransport, render }) => {
     api.executions.mockResolvedValue({

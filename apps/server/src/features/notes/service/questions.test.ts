@@ -23,7 +23,7 @@ import { Database } from '#server/platform/database/database';
 import { decodeEvent } from '#server/platform/workflows/events';
 import { withTestPublication } from '#testing/publication';
 
-test.stable.for([1, 2] as const)(
+test.server.stable.for([1, 2] as const)(
   'marking a question starts one answer version and publishes question and answer in place in language %s',
   async (language, { databases, expect }) => {
     const location = await databases();
@@ -104,7 +104,7 @@ test.stable.for([1, 2] as const)(
   }
 );
 
-test.stable(
+test.server.stable(
   'abandoning an in-place answer preserves the question and permits a fresh answer',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -151,7 +151,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'question answers capture their exact target and deduplicate per version',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -222,7 +222,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'classification persists, fences stale work and preserves manual overrides',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -319,7 +319,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'automatic and manual answers share one durable receipt; archive and override fence generation',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -405,7 +405,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'explicit Ask and requested replies are reused by automatic answering',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -490,7 +490,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'empty attachment captures and inactive-version deletion do not schedule classification',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -553,7 +553,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'deleting a question cascades its pending answer and fences late publication',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -608,7 +608,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'unavailable evidence preserves automatic classification and rejects a manual answer atomically',
   async ({ databases, expect }) => {
     const location = await databases();

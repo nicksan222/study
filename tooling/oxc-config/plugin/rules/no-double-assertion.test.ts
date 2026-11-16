@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'rejects chained type assertions that bypass type checking',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -18,7 +18,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'allows single assertions and skips tests while catching angle assertions',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

@@ -17,7 +17,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   api = __mockState.api;
@@ -30,15 +30,15 @@ test.beforeEach(async ({ mock }) => {
   NewBlankPage = __mockModule0.NewBlankPage;
 });
 
-test.beforeEach(({ vi }) => {
+test.unit.beforeEach(({ vi }) => {
   vi.resetAllMocks();
   api.owner.mockReturnValue({ create: api.create, pending: false, error: undefined });
   api.create.mockResolvedValue({ id: pageIdSchema.make(5n) });
   api.navigate.mockResolvedValue(undefined);
 });
-test.afterEach(({ cleanup }) => cleanup());
+test.unit.afterEach(({ cleanup }) => cleanup());
 
-test.stable(
+test.unit.stable(
   'opens a subject-owned blank page directly in the shared editor',
   async ({ render, userEvent, screen, expect, waitFor }) => {
     const project = projectIdSchema.make(2n);
@@ -58,7 +58,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'reopens the known document after a navigation failure without creating a duplicate',
   async ({ render, userEvent, screen, waitFor, expect }) => {
     api.navigate.mockRejectedValueOnce(new Error('Navigation unavailable'));

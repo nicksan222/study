@@ -30,7 +30,7 @@ import { Settings } from '#server/features/settings/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 
-test.stable(
+test.server.stable(
   'settings defaults, updates, model selection and rollback use SQLite',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -150,7 +150,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'appearance controls persist bounded preferences independently of app settings',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -201,7 +201,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'concurrency settings persist and reject invalid limits without changing saved capacity',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -253,7 +253,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'workspace preferences persist in SQLite, merge new defaults and reject invalid updates',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -314,22 +314,25 @@ test.stable(
   }
 );
 
-test.stable('older quiz preferences receive generation defaults during decoding', ({ expect }) => {
-  const previous = {
-    questionCount: 3,
-    questionOrder: 'source',
-    shuffleChoices: true,
-    questionKind: 'choice'
-  };
+test.server.stable(
+  'older quiz preferences receive generation defaults during decoding',
+  ({ expect }) => {
+    const previous = {
+      questionCount: 3,
+      questionOrder: 'source',
+      shuffleChoices: true,
+      questionKind: 'choice'
+    };
 
-  expect(Schema.decodeUnknownSync(quizSettingsSchema)(previous)).toEqual({
-    ...previous,
-    choiceCount: 4,
-    difficulty: 'balanced'
-  });
-});
+    expect(Schema.decodeUnknownSync(quizSettingsSchema)(previous)).toEqual({
+      ...previous,
+      choiceCount: 4,
+      difficulty: 'balanced'
+    });
+  }
+);
 
-test.stable(
+test.server.stable(
   'agent rules persist, merge missing fields and reject oversized updates atomically',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -372,7 +375,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'registered provider models round-trip and reject undeclared model IDs',
   async ({ databases, expect }) => {
     const location = await databases();

@@ -22,7 +22,7 @@ function spanName(span: Tracer.AnySpan) {
   return span._tag === 'Span' ? span.name : 'external';
 }
 
-test.stable('only approved scalar operation metadata reaches the log sink', ({ expect }) => {
+test.server.stable('only approved scalar operation metadata reaches the log sink', ({ expect }) => {
   expect(
     safeMetadata({
       requestId: 'r1',
@@ -35,7 +35,7 @@ test.stable('only approved scalar operation metadata reaches the log sink', ({ e
   ).toStrictEqual({ requestId: 'r1', attempt: 2, entity: 'project' });
 });
 
-test.stable(
+test.server.stable(
   'operation logs inherit only allowed annotations and carry a span',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -76,7 +76,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'operation metrics record outcomes and release active operations without inheriting identifiers',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -149,7 +149,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'metric labels admit only canonical finite values and hooks ignore ambient attributes',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

@@ -1,6 +1,6 @@
 import { test } from '@study/testing';
 
-test.stable(
+test.server.stable(
   'generation scope closure and identity survive direct writes and allow project cascades',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -27,7 +27,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'scoped generation requests require a live scope in their own project',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

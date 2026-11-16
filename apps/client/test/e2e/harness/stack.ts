@@ -5,7 +5,7 @@ import { testPolicy } from '@study/testing';
 import { runTestEffect } from '@study/testing/effect';
 import { createTestResources } from '@study/testing/resources';
 import { studyRpcProxy } from '@study/tooling/development/rpc-proxy';
-import { Effect } from 'effect';
+import { Effect, Exit, Scope } from 'effect';
 import { preview } from 'vite-plus';
 
 import { creationResponse } from './creation-response.ts';
@@ -26,9 +26,20 @@ export async function openWebStack(
   });
 
   await app.workers.start();
-  await runTestEffect(
+  const scope = Scope.makeUnsafe();
+
+  resources.defer(() => Effect.runPromise(Scope.close(scope, Exit.void)));
+  const client = await Effect.runPromise(
+    Scope.provide(makeStudyClient(StudyRpc, { baseUrl: server.url }), scope)
+  );
+  const rpc = {
+    client,
+    runPromise: <A, E>(effect: Effect.Effect<A, E, Scope.Scope>) =>
+      runTestEffect(Scope.provide(effect, scope), { timeout: testPolicy.processStartupTimeout })
+  };
+
+  await rpc.runPromise(
     Effect.gen(function* () {
-      const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
       const settings = yield* client['settings.appSettings']({});
 
       yield* client['settings.saveAppSettings']({
@@ -38,8 +49,7 @@ export async function openWebStack(
         zoomPercent: 125,
         onboarded: true
       });
-    }),
-    { timeout: testPolicy.processStartupTimeout }
+    })
   );
   const creation = creationResponse();
 
@@ -66,6 +76,7 @@ export async function openWebStack(
 
   return {
     app,
+    rpc,
     url: `http://127.0.0.1:${address.port}`,
     loseCreationResponse: creation.arm,
     [Symbol.asyncDispose]: owner.close

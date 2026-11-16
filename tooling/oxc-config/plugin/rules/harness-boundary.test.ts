@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'public runtime exports and extracted open methods cannot bypass fixture ownership',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -22,7 +22,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'production code cannot import test resources and tests acquire apps through the owned harness',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -45,7 +45,7 @@ const app = A.open({ path: ":memory:" });`,
   }
 );
 
-test.stable(
+test.unit.stable(
   'resource ownership survives namespaces and constant aliases with lexical shadowing',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -67,7 +67,7 @@ Alias.open({ path: ":memory:" });`
   }
 );
 
-test.stable(
+test.unit.stable(
   'relative namespace imports cannot open applications outside the harness',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

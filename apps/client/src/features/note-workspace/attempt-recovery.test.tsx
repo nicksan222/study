@@ -57,7 +57,7 @@ function RecoveryProvider({
 }: {
   registry: AtomRegistry.AtomRegistry;
   children: ReactNode;
-  rpcTestTransport: Pick<test.Context, 'rpcTestTransport'>['rpcTestTransport'];
+  rpcTestTransport: Pick<test.unit.Context, 'rpcTestTransport'>['rpcTestTransport'];
 }) {
   const fixture = useMemo(
     () =>
@@ -93,7 +93,7 @@ function RecoveryProvider({
 }
 
 function mount(
-  { render, rpcTestTransport }: Pick<test.Context, 'render' | 'rpcTestTransport'>,
+  { render, rpcTestTransport }: Pick<test.unit.Context, 'render' | 'rpcTestTransport'>,
   node: ReactNode,
   client = AtomRegistry.make()
 ) {
@@ -119,7 +119,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   reads = __mockState.reads;
@@ -165,19 +165,19 @@ test.beforeEach(async ({ mock }) => {
   UnavailableAttempt = __mockModule5.UnavailableAttempt;
 });
 
-test.beforeEach(({ vi }) => {
+test.unit.beforeEach(({ vi }) => {
   vi.resetAllMocks();
   vi.mocked(useAiReadiness).mockReturnValue('ready');
   reads.selection.mockResolvedValue({ revision: 8n, targets: [] });
   reads.thread.mockResolvedValue({ items: [], next: null });
   reads.runs.mockResolvedValue({ items: [], next: null });
 });
-test.afterEach(({ cleanup }) => {
+test.unit.afterEach(({ cleanup }) => {
   cleanup();
   clients.splice(0).forEach((client) => client.dispose());
 });
 
-test.stable.for(['selection', 'thread', 'runs'] as const)(
+test.unit.stable.for(['selection', 'thread', 'runs'] as const)(
   'requires successful %s reconciliation and loses review authorization on remount',
   async (failedRead, { vi, fireEvent, screen, expect, render, rpcTestTransport }) => {
     const abandon = vi.fn();
@@ -221,7 +221,7 @@ test.stable.for(['selection', 'thread', 'runs'] as const)(
   }
 );
 
-test.stable(
+test.unit.stable(
   'abandons a retained unavailable Ask after review and resumes plain capture with its attachments',
   async ({ vi, fireEvent, screen, act, expect, waitFor, render, rpcTestTransport }) => {
     vi.mocked(uploadSource).mockResolvedValue({ id: 44n } as Awaited<
@@ -265,7 +265,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains transform pending ownership and immutable retry inputs across remount and edited fields',
   async ({ vi, fireEvent, screen, waitFor, expect, act, render, rpcTestTransport }) => {
     const capture = deferred<Awaited<ReturnType<typeof captureContext>>>();
@@ -374,7 +374,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'does not authorize abandonment until all reconciliation reads have completed',
   async ({ vi, fireEvent, screen, waitFor, expect, act, render, rpcTestTransport }) => {
     const runs = deferred<{ items: never[]; next: null }>();
@@ -399,7 +399,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'combines externally selected notes into one immutable document attempt with optional instructions',
   async ({ vi, fireEvent, screen, waitFor, expect, render, rpcTestTransport }) => {
     vi.mocked(captureContext).mockRejectedValue(new StudyError('transient', 'Retry later'));
@@ -450,7 +450,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps document recovery separate for different selected groups with the same first note',
   async ({ vi, fireEvent, screen, waitFor, expect, render, rpcTestTransport }) => {
     vi.mocked(captureContext).mockRejectedValue(new StudyError('transient', 'Retry later'));

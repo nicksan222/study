@@ -1,6 +1,6 @@
 import { createStudyMaterials } from '@study/server/testing';
 import { testPolicy, createAiMock } from '@study/testing';
-import { testBrowser } from '@study/testing/playwright';
+import { createBrowserTestApi, testBrowser } from '@study/testing/playwright';
 import { expect } from '@study/testing/playwright';
 import { createTestResources } from '@study/testing/resources';
 import type { Page } from 'playwright';
@@ -23,6 +23,7 @@ type Fixtures = {
   aiEnabled: boolean;
   ai: ReturnType<typeof createAiMock>;
   app: Awaited<ReturnType<typeof openWebStack>>['app'];
+  rpc: Awaited<ReturnType<typeof openWebStack>>['rpc'];
   resources: ReturnType<typeof createTestResources>;
   webStack: Awaited<ReturnType<typeof openWebStack>>;
   journey: Journey;
@@ -39,6 +40,7 @@ const testHarness = testBrowser.extend<Fixtures>({
     await provide(mock);
   },
   app: async ({ webStack }, provide) => provide(webStack.app),
+  rpc: async ({ webStack }, provide) => provide(webStack.rpc),
   resources: async ({ browserName: _browserName }, provide) => {
     await using resources = createTestResources();
 
@@ -109,13 +111,5 @@ const withTools = testHarness.extend<{
     provide(createTestResources)
 });
 
-/** Focused browser harness cases use the same explicit stable namespace. */
-export const test = {
-  stable: withTools,
-  describe: withTools.describe,
-  use: withTools.use,
-  beforeEach: withTools.beforeEach,
-  afterEach: withTools.afterEach,
-  beforeAll: withTools.beforeAll,
-  afterAll: withTools.afterAll
-};
+/** Focused browser harness cases use the same environment and classification APIs. */
+export const test = { browser: createBrowserTestApi(withTools) };

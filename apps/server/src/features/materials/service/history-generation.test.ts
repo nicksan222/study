@@ -30,7 +30,7 @@ import { pageTransformFixture } from '#testing/page-transform';
 type Fixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
 function assertRetired(
-  { assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>,
+  { assert: assertions, expect }: Pick<test.server.Context, 'assert' | 'expect'>,
   f: Fixture,
   requestId: string
 ) {
@@ -57,7 +57,7 @@ function assertRetired(
 }
 
 for (const attemptInputFirst of [false, true])
-  test.stable(
+  test.server.stable(
     `generated learning history preserves exact ownership when authored input retirement is ${attemptInputFirst ? 'attempted first' : 'not requested'}`,
     async ({ databases, assert: assertions, expect }) => {
       const assert: test.Assert = assertions;
@@ -180,7 +180,7 @@ for (const attemptInputFirst of [false, true])
     }
   );
 
-test.stable(
+test.server.stable(
   'completed learning generation cleanup proof rejects restoring private payload, result, pins or ownership',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

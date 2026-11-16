@@ -1,7 +1,7 @@
 import { test } from '@study/testing';
 import { sql } from 'drizzle-orm';
 
-test.stable(
+test.server.stable(
   'raw reply retirement fences publication and capture resurrection independently of learning cleanup',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

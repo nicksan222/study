@@ -35,7 +35,7 @@ const observations = Array.from(
     '- Record the time and water level.\n- Preserve the location of the marked post.'
 );
 
-test.stable(
+test.browser.stable(
   'Create and reopen three file-only notes',
   async ({ page, expectScreenshot, expect }) => {
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
@@ -46,7 +46,7 @@ test.stable(
     const urls: string[] = [];
 
     async function sourceReady(
-      { expect }: Pick<test.Context, 'expect'>,
+      { expect }: Pick<test.browser.Context, 'expect'>,
       file: (typeof files)[number]
     ) {
       await expect(panel.getByRole('heading', { name: file.name, exact: true })).toBeVisible();
@@ -66,7 +66,7 @@ test.stable(
       }
     }
 
-    async function previewControls({ expect }: Pick<test.Context, 'expect'>) {
+    async function previewControls({ expect }: Pick<test.browser.Context, 'expect'>) {
       const close = page.getByRole('button', { name: copy.NoteClosePage, exact: true });
       const expand = page.getByRole('button', { name: copy.NoteExpandEditor, exact: true });
 
@@ -77,7 +77,7 @@ test.stable(
     }
 
     async function scrollLongSource(
-      { expect }: Pick<test.Context, 'expect'>,
+      { expect }: Pick<test.browser.Context, 'expect'>,
       file: (typeof files)[number]
     ) {
       const first = preview.getByText(file.first, { exact: true });

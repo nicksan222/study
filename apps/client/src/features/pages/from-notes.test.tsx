@@ -13,7 +13,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   api = __mockState.api;
@@ -40,9 +40,9 @@ test.beforeEach(async ({ mock }) => {
   PagesFromNotes = __mockModule0.PagesFromNotes;
 });
 
-test.afterEach(({ cleanup }) => cleanup());
+test.unit.afterEach(({ cleanup }) => cleanup());
 
-test.stable(
+test.unit.stable(
   'selects only scoped notes and hands multiple selections to the existing transform dialog',
   async ({ rpcTestTransport, userEvent, render, screen, expect }) => {
     const projectId = projectIdSchema.make(2n);

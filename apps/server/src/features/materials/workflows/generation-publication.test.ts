@@ -28,7 +28,7 @@ import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { admitTestExecution } from '#testing/workflow-admission';
 
-test.stable(
+test.server.stable(
   'guarded generation publishes once and replays its receipt',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -527,7 +527,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'receipt persists across reopen and a new workflow execution',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -538,7 +538,7 @@ test.stable(
     let versionId: PageVersionId;
     let resultId = 0n as MaterialVersionId;
     const run = async (
-      { assert: assertions }: Pick<test.Context, 'assert'>,
+      { assert: assertions }: Pick<test.server.Context, 'assert'>,
       executionId: string,
       replay: boolean
     ) => {

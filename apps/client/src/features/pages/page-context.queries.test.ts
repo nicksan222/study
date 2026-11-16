@@ -29,7 +29,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   api = __mockState.api;
@@ -39,7 +39,7 @@ test.beforeEach(async ({ mock }) => {
   attachPageToNote = __mockModule0.attachPageToNote;
 });
 
-test.beforeEach(({ vi, rpcHandlersTransport }) => {
+test.unit.beforeEach(({ vi, rpcHandlersTransport }) => {
   vi.resetAllMocks();
   api.attach.mockResolvedValue(undefined);
   api.update.mockResolvedValue({ revision: 13n, targets: [] });
@@ -52,7 +52,7 @@ test.beforeEach(({ vi, rpcHandlersTransport }) => {
   configureRpcTransport(harness.transport);
 });
 
-test.stable(
+test.unit.stable(
   'adds the exact document version using the current selection revision while preserving other context',
   async ({ expect }) => {
     const existing = {
@@ -74,7 +74,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'does not duplicate already selected document context when retried',
   async ({ expect }) => {
     api.selection.mockResolvedValue({ revision: 13n, targets: [target] });
@@ -83,7 +83,7 @@ test.stable(
   }
 );
 
-test.stable('does not continue after attachment fails', async ({ expect }) => {
+test.unit.stable('does not continue after attachment fails', async ({ expect }) => {
   api.attach.mockRejectedValue(new Error('Unavailable'));
   await expect(attachPageToNote(input)).rejects.toMatchObject({ message: 'Unavailable' });
   expect(api.selection).not.toHaveBeenCalled();

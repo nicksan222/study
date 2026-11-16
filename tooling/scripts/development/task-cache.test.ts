@@ -6,7 +6,7 @@ import { maintainTaskCaches, pruneTaskCache } from './task-cache.ts';
 
 const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
 
-test.stable(
+test.unit.stable(
   'task cache evicts old archives with their sidecars and preserves unrelated files',
   async ({ temporaryDirectory, expect }) => {
     await using temp = await temporaryDirectory({ prefix: 'study-task-cache-' });
@@ -35,7 +35,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'transform cache eviction bounds revision history without following symlinks',
   async ({ temporaryDirectory, expect }) => {
     await using temp = await temporaryDirectory({ prefix: 'study-transform-cache-' });
@@ -55,7 +55,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'a broken Turbo cache does not disable transform-cache retirement',
   async ({ temporaryDirectory, expect }) => {
     await using temp = await temporaryDirectory({ prefix: 'study-independent-caches-' });

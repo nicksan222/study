@@ -26,7 +26,7 @@ import { pageTransformFixture } from '#testing/page-transform';
 const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 
 for (const owner of ['none', 'draft', 'published'] as const)
-  test.stable(
+  test.server.stable(
     `image source deletion respects ${owner} authored ownership and rejects every acquisition after final release`,
     async ({ databases, assert: assertions, expect }) => {
       const assert: test.Assert = assertions;
@@ -173,7 +173,7 @@ for (const owner of ['none', 'draft', 'published'] as const)
     }
   );
 
-test.stable(
+test.server.stable(
   'image saves validate the submitted exact image revision and retained editing identity before any write',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

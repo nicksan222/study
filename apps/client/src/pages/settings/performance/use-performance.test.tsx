@@ -8,7 +8,7 @@ function createApi(mock: test.Mock) {
 
 let api: ReturnType<typeof createApi>;
 
-test.beforeEach(({ mock }) => {
+test.unit.beforeEach(({ mock }) => {
   api = createApi(mock);
   api.load.mockResolvedValue({ maxConcurrentAi: 2, maxQueuedAi: 16 });
   api.save.mockResolvedValue({});
@@ -17,7 +17,7 @@ test.beforeEach(({ mock }) => {
 function setup({
   rpcTestTransport,
   renderHook
-}: Pick<test.Context, 'rpcTestTransport' | 'renderHook'>) {
+}: Pick<test.unit.Context, 'rpcTestTransport' | 'renderHook'>) {
   const fixture = rpcTestTransport(async (tag, input) => {
     if (tag === 'settings.concurrencySettings') return api.load();
 
@@ -35,7 +35,7 @@ function setup({
   return renderHook(() => usePerformanceSettings(), { wrapper: fixture.wrapper });
 }
 
-test.stable(
+test.unit.stable(
   'rejects invalid active and queue limits without sending a request',
   async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
     const { result } = setup({ rpcTestTransport, renderHook });
@@ -58,7 +58,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'saves zero queue capacity while preserving active capacity and its unsaved draft',
   async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
     const { result } = setup({ rpcTestTransport, renderHook });
@@ -77,7 +77,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'does not save unchanged values and retains a failed draft before explicit retry',
   async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
     const { result } = setup({ rpcTestTransport, renderHook });
@@ -95,7 +95,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'exposes loading failures and retries to recover saved limits',
   async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
     api.load.mockRejectedValueOnce(new Error('offline'));

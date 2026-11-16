@@ -10,7 +10,7 @@ let authoredPage: typeof __MockType0.authoredPage;
 
 let AuthoredPageReader: typeof __MockType1.AuthoredPageReader;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
   mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
     useWorkspacePreferences: () => ({ autosaveIntervalSeconds: 3600 })
@@ -49,7 +49,7 @@ test.beforeEach(async ({ mock }) => {
   AuthoredPageReader = __mockModule1.AuthoredPageReader;
 });
 
-test.afterEach(({ cleanup, vi }) => {
+test.unit.afterEach(({ cleanup, vi }) => {
   cleanup();
 
   vi.clearAllMocks();
@@ -60,7 +60,7 @@ function mount(
     vi,
     rpcHandlersTransport,
     render
-  }: Pick<test.Context, 'vi' | 'rpcHandlersTransport' | 'render'>,
+  }: Pick<test.unit.Context, 'vi' | 'rpcHandlersTransport' | 'render'>,
   initialVersion?: string,
   refreshedPage?: Promise<void>
 ) {
@@ -105,7 +105,7 @@ function mount(
   return { rpc, current, old, view, harness };
 }
 
-test.stable(
+test.unit.stable(
   'version arrows replace content in the same editor and keep old content read-only',
   async ({ screen, waitFor, expect, fireEvent, vi, rpcHandlersTransport, render }) => {
     mount({ vi, rpcHandlersTransport, render });
@@ -132,7 +132,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'an old-version deep link uses the editor and can make that content current',
   async ({ screen, fireEvent, waitFor, expect, vi, rpcHandlersTransport, render }) => {
     const refreshed = Promise.withResolvers<void>();
@@ -160,7 +160,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'updates the selected version when the deep link changes in place',
   async ({ screen, expect, vi, rpcHandlersTransport, render }) => {
     const { current, view, harness } = mount({ vi, rpcHandlersTransport, render }, '20');

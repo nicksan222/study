@@ -22,7 +22,7 @@ import { assertScrubbed, cleanup, validPageTransformOutput } from '#testing/note
 import { pageTransformFixture } from '#testing/page-transform';
 
 for (const mode of ['history', 'delete'] as const)
-  test.stable(
+  test.server.stable(
     `generated authored ${mode} preserves receipt identities and scrubs instructions on entity deletion`,
     async ({ databases, assert: assertions, expect }) => {
       const assert: test.Assert = assertions;

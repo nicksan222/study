@@ -19,7 +19,7 @@ import { Deferred, Effect, Fiber, Metric, Result } from 'effect';
 
 import { AiWorkload, makeAdmission, withAdmissionSettings } from '#server/platform/ai/admission';
 
-test.stable(
+test.unit.stable(
   'limits active work, interrupts queued work without dispatch, and releases on failure',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -81,7 +81,7 @@ test.stable(
   }
 );
 
-test.stable('rejects invalid capacity at construction', ({ assert: assertions }) => {
+test.unit.stable('rejects invalid capacity at construction', ({ assert: assertions }) => {
   const assert: test.Assert = assertions;
 
   for (const concurrency of [0, 9, 1.5, Infinity, NaN]) {
@@ -89,14 +89,14 @@ test.stable('rejects invalid capacity at construction', ({ assert: assertions })
   }
 });
 
-test.stable(
+test.unit.stable(
   'holds a permit until a stream consumer ends and releases it on interruption',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
 
     const { Queue, Stream } = await import('effect');
 
-    function* verifyStreamPermit({ assert: assertions }: Pick<test.Context, 'assert'>) {
+    function* verifyStreamPermit({ assert: assertions }: Pick<test.unit.Context, 'assert'>) {
       const assert: test.Assert = assertions;
 
       const gate = makeAdmission({ concurrency: 1, maxWaiting: 1 });
@@ -119,14 +119,14 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'layer reuse shares the owner across independent consumers and releases on defect',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
 
     const { AiAdmission, admissionLayer } = await import('#server/platform/ai/admission');
 
-    function* verifySharedAdmission({ assert: assertions }: Pick<test.Context, 'assert'>) {
+    function* verifySharedAdmission({ assert: assertions }: Pick<test.unit.Context, 'assert'>) {
       const assert: test.Assert = assertions;
 
       const owner = makeAdmission({ concurrency: 1, maxWaiting: 0 });
@@ -163,7 +163,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'closing a scope interrupts active and waiting fibers',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -198,7 +198,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'resizing starts queued work when raised and preserves active work when lowered',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -255,7 +255,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'refreshes persisted limits before new work using the same admission owner',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -294,7 +294,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'bulk saturation reserves admission for interactive work and releases interrupted capacity',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -335,7 +335,7 @@ test.stable(
   }
 );
 
-test.stable('interrupting admitted bulk work releases its capacity', async ({ expect }) => {
+test.unit.stable('interrupting admitted bulk work releases its capacity', async ({ expect }) => {
   await Effect.runPromise(
     Effect.gen(function* () {
       const gate = makeAdmission({ concurrency: 1, maxWaiting: 0 });

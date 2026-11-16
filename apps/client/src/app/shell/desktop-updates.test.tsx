@@ -11,7 +11,7 @@ let native: ReturnType<typeof createNative>;
 
 let DesktopUpdates: typeof __StudyMockType0.DesktopUpdates;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   native = createNative(mock);
   mock('#client/lib/host.ts', () => ({
     hostCapabilities: () => ({ updates: native.enabled, diagnostics: native.enabled }),
@@ -26,24 +26,24 @@ test.beforeEach(async ({ mock }) => {
   DesktopUpdates = __studyMockModule0.DesktopUpdates;
 });
 
-test.beforeEach(({ vi }) => {
+test.unit.beforeEach(({ vi }) => {
   native.enabled = true;
   native.invoke.mockReset();
   vi.spyOn(toastManager, 'add').mockReturnValue('update-toast');
   vi.spyOn(toastManager, 'close').mockImplementation(() => {});
 });
 
-function mount({ render }: Pick<test.Context, 'render'>) {
+function mount({ render }: Pick<test.unit.Context, 'render'>) {
   return render(<DesktopUpdates />);
 }
 
-test.stable('does not call desktop commands in the browser', ({ expect, render }) => {
+test.unit.stable('does not call desktop commands in the browser', ({ expect, render }) => {
   native.enabled = false;
   mount({ render });
   expect(native.invoke).not.toHaveBeenCalled();
 });
 
-test.stable(
+test.unit.stable(
   'waits for consent before installing and offers retry after a failed install',
   async ({ waitFor, expect, vi, act, render }) => {
     native.invoke.mockResolvedValueOnce('0.1.42').mockRejectedValueOnce(new Error('offline'));
@@ -83,7 +83,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps unavailable updates and offline checks quiet',
   async ({ waitFor, expect, render }) => {
     native.invoke.mockResolvedValueOnce(null);

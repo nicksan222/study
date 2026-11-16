@@ -1,7 +1,7 @@
 import { test } from '@study/testing';
 import { sql } from 'drizzle-orm';
 
-test.stable(
+test.server.stable(
   'learning tables enforce typed content and ownership',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -110,7 +110,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'quiz publication validates blank prompts, truth tokens and ordering content',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

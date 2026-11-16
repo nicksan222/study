@@ -32,7 +32,7 @@ let NoteStart: typeof __StudyMockType0.NoteStart;
 
 let App: typeof __StudyMockType1.App;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   api = createApi(mock);
   mock('#client/features/note-workspace/workspace.tsx', () => ({
     NoteWorkspace: ({ id }: { id?: bigint }) => (id ? null : <NoteStart />)
@@ -77,7 +77,7 @@ const summary = (item: {
   });
 };
 
-function sidebarTransport({ rpcTestTransport }: Pick<test.Context, 'rpcTestTransport'>) {
+function sidebarTransport({ rpcTestTransport }: Pick<test.unit.Context, 'rpcTestTransport'>) {
   let created: (typeof subjects)[number] | undefined;
   const note = (value: { id: bigint; projectIds?: bigint[] }) => ({
     title: 'Note',
@@ -197,7 +197,7 @@ async function renderWithNavigation({
   screen,
   userEvent,
   rpcTestTransport
-}: Pick<test.Context, 'render' | 'screen' | 'userEvent' | 'rpcTestTransport'>) {
+}: Pick<test.unit.Context, 'render' | 'screen' | 'userEvent' | 'rpcTestTransport'>) {
   const fixture = sidebarTransport({ rpcTestTransport });
 
   configureRpcTransport(fixture.transport);
@@ -214,7 +214,7 @@ const subjects = [
   { id: 2n, name: 'History', examOn: null, createdAt: 0n, updatedAt: 0n }
 ];
 
-test.beforeEach(() => {
+test.unit.beforeEach(() => {
   history.replaceState(null, '', '/projects/1/notes/42');
   api.note.mockReset().mockResolvedValue({ id: 42n, projectIds: [1n] });
   api.projects.mockResolvedValue({ items: subjects });
@@ -248,7 +248,7 @@ test.beforeEach(() => {
   api.createNote.mockReset().mockResolvedValue({ id: 7n });
 });
 
-test.stable(
+test.unit.stable(
   'switches subjects while keeping the section and clearing the selected item',
   async ({ userEvent, screen, waitFor, expect, render, rpcTestTransport }) => {
     const user = userEvent.setup();
@@ -261,7 +261,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'searches within the selected subject and opens a result',
   async ({ userEvent, screen, expect, waitFor, render, rpcTestTransport }) => {
     api.search.mockResolvedValue({
@@ -290,7 +290,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'opens one local draft in the selected subject without persisting an empty note',
   async ({ userEvent, screen, within, waitFor, expect, render, rpcTestTransport }) => {
     const user = userEvent.setup();
@@ -318,7 +318,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'does not search another subject when the URL subject is missing',
   async ({ userEvent, screen, expect, within, waitFor, render, rpcTestTransport }) => {
     history.replaceState(null, '', '/projects/99/notes');
@@ -341,7 +341,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'opens search from the collapsed rail with the keyboard shortcut',
   async ({ userEvent, screen, waitFor, expect, render, rpcTestTransport }) => {
     const user = userEvent.setup();
@@ -354,7 +354,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'creates a subject from the toolbar and selects it',
   async ({ userEvent, screen, expect, waitFor, render, rpcTestTransport }) => {
     api.createProject.mockResolvedValue({ ...subjects[0], id: 3n, name: 'Physics' });
@@ -370,7 +370,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'searches note content across subjects when no subject is selected',
   async ({ userEvent, screen, waitFor, expect, render, rpcTestTransport }) => {
     history.replaceState(null, '', '/notes');
@@ -390,7 +390,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'lets the keyboard search and dismiss the subject picker',
   async ({ userEvent, screen, waitFor, expect, render, rpcTestTransport }) => {
     const user = userEvent.setup();
@@ -411,7 +411,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'ignores a subject list fetched before a new subject was created',
   async ({ userEvent, screen, waitFor, expect, act, within, render, rpcTestTransport }) => {
     const user = userEvent.setup();
@@ -450,7 +450,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'searches note content without a sidebar filter control',
   async ({ userEvent, screen, expect, waitFor, render, rpcTestTransport }) => {
     const user = userEvent.setup();
@@ -470,7 +470,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'uses the body for notes and a labeled navigation block above settings',
   async ({ userEvent, screen, expect, waitFor, render, rpcTestTransport }) => {
     const user = userEvent.setup();
@@ -500,7 +500,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'lists flashcards and quizzes together and follows material pagination',
   async ({ userEvent, screen, expect, waitFor, render, rpcTestTransport }) => {
     api.materials.mockImplementation(({ cursor }) =>
@@ -549,7 +549,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'loads later project and note pages',
   async ({ userEvent, screen, expect, render, rpcTestTransport }) => {
     api.projects.mockImplementation(({ before }) =>
@@ -592,7 +592,7 @@ test.stable(
   }
 );
 
-test.stable.for([
+test.unit.stable.for([
   ['flashcards', '/projects/1/flashcards/8'],
   ['quiz', '/projects/1/practice/8']
 ])(
@@ -627,7 +627,7 @@ test.stable.for([
   }
 );
 
-test.stable(
+test.unit.stable(
   'preserves projects loaded while project creation is in flight',
   async ({ userEvent, screen, act, expect, render, rpcTestTransport }) => {
     let finishLoad!: (value: { items: typeof subjects; next: null }) => void;
@@ -662,7 +662,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'first send adds a note to the sidebar and permits another lazy note',
   async ({ userEvent, screen, within, waitFor, expect, act, render, rpcTestTransport }) => {
     let finish!: (value: { items: [] }) => void;
@@ -744,7 +744,7 @@ test.stable(
   }
 );
 
-test.stable.for(['/notes/42', '/projects/2/notes/42'])(
+test.unit.stable.for(['/notes/42', '/projects/2/notes/42'])(
   'uses the actual note owner for direct and mismatched links: %s',
   async (url, { expect, screen, userEvent, waitFor, render, rpcTestTransport }) => {
     history.replaceState(null, '', url);
@@ -764,7 +764,7 @@ test.stable.for(['/notes/42', '/projects/2/notes/42'])(
   }
 );
 
-test.stable(
+test.unit.stable(
   'does not reveal a foreign subject while note ownership is loading',
   async ({ expect, screen, userEvent, render, rpcTestTransport }) => {
     history.replaceState(null, '', '/projects/2/notes/42');
@@ -777,7 +777,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps projectless notes independent of a foreign query parameter',
   async ({ waitFor, expect, screen, render, userEvent, rpcTestTransport }) => {
     history.replaceState(null, '', '/projects/2/notes/42');
@@ -788,7 +788,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retries a failed note owner read from the subject picker error',
   async ({ screen, userEvent, expect, render, rpcTestTransport }) => {
     api.note.mockRejectedValue(new Error('offline'));
@@ -801,7 +801,7 @@ test.stable(
   }
 );
 
-test.stable.for(['/pages/10', '/projects/2/pages/10'])(
+test.unit.stable.for(['/pages/10', '/projects/2/pages/10'])(
   'uses route-owned document context and shows only pages in the sidebar: %s',
   async (url, { userEvent, expect, screen, waitFor, render, rpcTestTransport }) => {
     history.replaceState(null, '', url);
@@ -838,7 +838,7 @@ test.stable.for(['/pages/10', '/projects/2/pages/10'])(
   }
 );
 
-test.stable(
+test.unit.stable(
   'opens Pages between Notes and Practice with a pages-only sidebar',
   async ({ userEvent, within, screen, expect, waitFor, render, rpcTestTransport }) => {
     api.pages.mockResolvedValue({

@@ -6,13 +6,13 @@ let usePage: typeof ProjectPageModule.usePage;
 
 let project: string | undefined;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   project = undefined;
   mock('@tanstack/react-router', () => ({ useSearch: () => ({ project }) }));
   ({ usePage } = await import('./use-page.ts'));
 });
 
-test.stable(
+test.unit.stable(
   'preserves subject precision and clears the unselected workspace',
   ({ renderHook, expect }) => {
     project = '9007199254740993';

@@ -42,7 +42,7 @@ function document(contents: BlockContent[]): typeof documentSchema.Type {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
     useWorkspacePreferences: () => ({ ...defaultWorkspacePreferences, readerFontSize: 22 })
   }));
@@ -54,7 +54,7 @@ test.beforeEach(async ({ mock }) => {
   DocumentReader = __mockModule1.DocumentReader;
 });
 
-test.stable(
+test.unit.stable(
   'preserves heading, inline marks, table paragraphs, code, list nesting and stable block anchors',
   ({ render, expect, screen }) => {
     const { container } = render(
@@ -113,7 +113,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'discloses omissions and unavailable exact image revisions in both languages without requesting current bytes',
   ({ render, expect, screen }) => {
     const image: BlockContent = {
@@ -141,7 +141,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps parent continuations after intervening nested list content',
   ({ render, expect }) => {
     const { container } = render(

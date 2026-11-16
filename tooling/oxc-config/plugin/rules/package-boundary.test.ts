@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule, root } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'the database testing entry owns fixtures without allowing production testing dependencies',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -22,7 +22,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'package ownership, public exports, and browser entrypoints are enforced',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -117,7 +117,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'source and test directory imports cannot bypass package boundaries',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -153,7 +153,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'the client build config can read test policy without exposing it to app code',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -174,7 +174,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'browser source forbids Node builtins but colocated tests and support may use them',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -203,7 +203,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'manifest exports honor blocked exact and more specific patterns and conditional root',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -247,7 +247,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'the theme engine remains browser-safe while UI and server can consume its public API',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -269,7 +269,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'contracts are recognized and unknown workspace packages fail closed',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -290,7 +290,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'checks typed and aliased loader edges while honoring shadowing',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -314,7 +314,7 @@ function f(require: (s: string) => void) { require('@study/missing');
   }
 );
 
-test.stable(
+test.unit.stable(
   'loader edges follow lexical bindings and direct createRequire calls',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -344,7 +344,7 @@ req('@study/missing');
   }
 );
 
-test.stable(
+test.unit.stable(
   'database storage may reuse canonical contract ID types without depending on server implementation',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -366,7 +366,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'landing consumes only the explicit feature preview export from client',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -401,7 +401,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'only explicit web E2E runtime harness files can own server resources',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

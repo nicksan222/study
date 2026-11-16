@@ -76,7 +76,7 @@ async function preparePlugin(
 }
 
 async function runLint(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.unit.Context, 'assert'>,
   directory: string,
   server: string,
   plugin: string,
@@ -136,7 +136,7 @@ async function runLint(
 }
 
 export async function lintFiles(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.unit.Context, 'assert'>,
   files: Record<string, string>,
   rule?: string,
   workspace = false,
@@ -163,7 +163,7 @@ export async function lintFiles(
 }
 
 export function lintRule(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.unit.Context, 'assert'>,
   rule: string,
   files: Record<string, string>,
   workspace = false,
@@ -176,7 +176,7 @@ export function lintRule(
 
 /** Run workspace fixtures through the shared runner and retain their supplied paths. */
 export async function lintRulePaths(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.unit.Context, 'assert'>,
   rule: string,
   files: Record<string, string>
 ): Promise<string[]> {
@@ -196,7 +196,7 @@ export async function lintRulePaths(
 }
 
 export function checkWiring(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.unit.Context, 'assert'>,
   rules: string[],
   configured: Record<string, unknown>,
   testFiles: string[],
@@ -228,7 +228,7 @@ export function checkWiring(
 }
 
 export function assertDiagnostics(
-  { expect, assert: assertions }: Pick<test.Context, 'expect' | 'assert'>,
+  { expect, assert: assertions }: Pick<test.unit.Context, 'expect' | 'assert'>,
   rule: string,
   diagnostics: Diagnostic[],
   expected: [string, string][]
@@ -250,7 +250,7 @@ export function assertDiagnostics(
 }
 
 function assertLintStatus(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.unit.Context, 'assert'>,
   status: number | null,
   stderr: string,
   stdout: string

@@ -1,6 +1,6 @@
 import { test } from '@study/testing';
 
-test.stable(
+test.unit.stable(
   'every registered native adapter command is granted to the production main window',
   async ({ assert, expect }) => {
     const source = await Bun.file(new URL('../src/lib.rs', import.meta.url)).text();

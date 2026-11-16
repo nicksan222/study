@@ -22,7 +22,7 @@ import { makeStudyClient } from '#server/client/index';
 import { Sources } from '#server/features/sources/index';
 import { serve } from '#server/runtime/index';
 
-test.stable(
+test.server.stable(
   'runtime consumes source requests made over HTTP and recovers pending requests on reopen',
   { timeout: 15000 },
   async ({ resources: location, pollUntil, assert: assertions }) => {
@@ -56,7 +56,7 @@ test.stable(
       function* verifyRecoveredSource({
         pollUntil,
         assert: assertions
-      }: Pick<test.Context, 'pollUntil' | 'assert'>) {
+      }: Pick<test.server.Context, 'pollUntil' | 'assert'>) {
         const assert: test.Assert = assertions;
 
         const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
@@ -100,7 +100,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'running worker processes a source created through HTTP',
   { timeout: 10000 },
   async ({ resources: location, pollUntil, assert: assertions }) => {
@@ -147,7 +147,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'HTTP source upload retains exact original bytes and extraction history without authoring or projecting a Material',
   { timeout: 15000 },
   async ({ resources: location, assert: assertions, expect, pollUntil }) => {
@@ -171,7 +171,7 @@ test.stable(
             });
 
             function* waitForExtraction(
-              { pollUntil, assert: assertions }: Pick<test.Context, 'pollUntil' | 'assert'>,
+              { pollUntil, assert: assertions }: Pick<test.server.Context, 'pollUntil' | 'assert'>,
               text: string
             ) {
               const assert: test.Assert = assertions;

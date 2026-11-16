@@ -2,7 +2,7 @@ import { createTestDatabase } from '@study/db/testing';
 import { createTestResources } from '@study/testing/resources';
 import { createTestApi, test as baseTest } from '@study/testing/vitest';
 
-const runner = baseTest.stable
+const runner = baseTest.unit.stable
   .extend('resources', async ({ task: _task }, { onCleanup }) => {
     const resources = createTestResources();
 
@@ -28,5 +28,8 @@ const runner = baseTest.stable
   .extend('db', async ({ database }) => database.open())
   .extend('createTestDatabase', { scope: 'worker' }, () => createTestDatabase);
 
-/** One public test API for real, isolated Drizzle and SQLite tests. */
-export const test: ReturnType<typeof createTestApi<typeof runner>> = createTestApi(runner);
+/** Database tests expose shared unit fixtures and isolated SQLite fixtures. */
+export const test = {
+  unit: baseTest.unit,
+  server: createTestApi(runner)
+};

@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'rejects lossy numeric conversions of identifiers while allowing counts',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -18,7 +18,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'no-lossy-ids handles aliases and avoids unrelated bindings',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -33,7 +33,7 @@ test.stable(
   }
 );
 
-test.stable('no-lossy-ids covers direct unsafe forms', async ({ assert: assertions }) => {
+test.unit.stable('no-lossy-ids covers direct unsafe forms', async ({ assert: assertions }) => {
   const assert: test.Assert = assertions;
 
   const diagnostics = await lintRule({ assert }, 'no-lossy-ids', {
@@ -45,7 +45,7 @@ test.stable('no-lossy-ids covers direct unsafe forms', async ({ assert: assertio
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
-test.stable(
+test.unit.stable(
   'editing tokens and captured target identities stay lossless across native prompt and replay boundaries',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -70,7 +70,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'annotation and historic source identities stay lossless while SQLite editor offsets become numbers',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -94,7 +94,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'deletion and retired receipt identities remain lossless while attempt counters are numeric',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -112,7 +112,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'Material cleanup members, original sources and retained candidate identities stay lossless',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -128,7 +128,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'history candidates and exact attachment roots remain lossless across preview and SQL proofs',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -146,7 +146,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'backup inventories keep exact content identities while bounded scope counts remain numeric',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -162,7 +162,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'workspace project selections and membership identities stay lossless',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

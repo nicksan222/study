@@ -25,7 +25,7 @@ import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model'
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 import { defineAgent } from '#server/platform/definitions/define-agent';
 
-test.stable(
+test.unit.stable(
   'queued agents cannot preflight or dispatch until admitted and cancelled waiters never dispatch',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

@@ -33,7 +33,7 @@ let dataOwner: typeof __StudyMockType1.dataOwner;
 
 let useDataSettings: typeof __StudyMockType1.useDataSettings;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   rpc = createRpc(mock);
   mock('#client/pages/settings/data/files.ts', async (load) => ({
     ...(await load<typeof MockModule0>()),
@@ -120,7 +120,7 @@ function client() {
   return AtomRegistry.make();
 }
 
-test.beforeEach(({ vi }) => {
+test.unit.beforeEach(({ vi }) => {
   Object.values(rpc).forEach((mock) => mock.mockReset());
   vi.mocked(downloadBackup).mockReset();
   rpc.list.mockResolvedValue([backup]);
@@ -129,7 +129,7 @@ test.beforeEach(({ vi }) => {
   rpc.preview.mockResolvedValue(preview);
 });
 
-test.stable(
+test.unit.stable(
   'exposes read failure separately, and reconciles canonical discovery on reopen',
   async ({ expect }) => {
     const owner = dataOwner(client());
@@ -147,7 +147,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'synchronously excludes duplicate actions across section remounts',
   async ({ renderHook, waitFor, expect, act }) => {
     const shared = client();
@@ -184,7 +184,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains ambiguous submitted identity, does not retry, and requires explicit reviewed reconciliation',
   async ({ expect }) => {
     const owner = dataOwner(client());
@@ -201,7 +201,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains a known receipt if subsequent discovery fails without calling it uncertain',
   async ({ expect }) => {
     const owner = dataOwner(client());
@@ -215,7 +215,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects changed and blocked previews and submits only the exact reviewed acceptance',
   async ({ expect }) => {
     const owner = dataOwner(client());
@@ -256,7 +256,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'blocks acceptance with a retained recovery copy and invalidates previews after reconciliation',
   async ({ expect }) => {
     const owner = dataOwner(client());
@@ -271,7 +271,7 @@ test.stable(
   }
 );
 
-test.stable('does not treat failed downloads as uncertain mutations', async ({ expect }) => {
+test.unit.stable('does not treat failed downloads as uncertain mutations', async ({ expect }) => {
   const shared = client();
   const owner = dataOwner(shared);
 
@@ -282,7 +282,7 @@ test.stable('does not treat failed downloads as uncertain mutations', async ({ e
   expect(owner.state.uncertain).toBeUndefined();
 });
 
-test.stable(
+test.unit.stable(
   'enforces managed capacity without counting external downloads',
   async ({ vi, expect }) => {
     const owner = dataOwner(client());
@@ -306,7 +306,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains an ambiguous import separately from file validation and never resubmits it on reopen',
   async ({ expect }) => {
     const shared = client();
@@ -331,7 +331,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'discovers canonical restart-required status even when the managed list cannot load',
   async ({ expect }) => {
     const owner = dataOwner(client());
@@ -346,7 +346,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'downloads a known snapshot after list failure without unlocking list-dependent writes',
   async ({ expect }) => {
     const owner = dataOwner(client());
@@ -368,7 +368,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'allows explicit recovery discard with fresh status even when no list has ever loaded',
   async ({ expect }) => {
     const owner = dataOwner(client());
@@ -385,7 +385,7 @@ test.stable(
   }
 );
 
-test.stable.for(['restart-required', 'failed-status-read'])(
+test.unit.stable.for(['restart-required', 'failed-status-read'])(
   'keeps recovery discard locked for %s despite retained recovery information',
   async (mode, { expect }) => {
     const owner = dataOwner(client());
@@ -404,7 +404,7 @@ test.stable.for(['restart-required', 'failed-status-read'])(
   }
 );
 
-test.stable(
+test.unit.stable(
   'requires explicit acknowledgment after an uncertain discard and successful independent status discovery',
   async ({ expect }) => {
     const owner = dataOwner(client());
@@ -427,7 +427,7 @@ test.stable(
   }
 );
 
-test.stable.for(['delete', 'discard'] as const)(
+test.unit.stable.for(['delete', 'discard'] as const)(
   'does not acknowledge uncertain %s after a later failed discovery',
   async (kind, { expect }) => {
     const owner = dataOwner(client());
@@ -452,7 +452,7 @@ test.stable.for(['delete', 'discard'] as const)(
   }
 );
 
-test.stable(
+test.unit.stable(
   'does not reconcile an uncertain delete using status alone when list discovery fails',
   async ({ expect }) => {
     const owner = dataOwner(client());
@@ -472,7 +472,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps the shared owner locked during file reads and late import completion after remount',
   async ({ renderHook, waitFor, expect, act }) => {
     const shared = client();
@@ -535,7 +535,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'serializes exact-ID download against discovery without retaining byte payloads in owner state',
   async ({ expect, waitFor }) => {
     const shared = client();

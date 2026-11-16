@@ -24,7 +24,7 @@ import { transaction, useStore } from '#server/platform/definitions/define-store
 import { unixSeconds } from '#server/platform/time/index';
 
 function checkAdvancingEligibility(
-  { assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>,
+  { assert: assertions, expect }: Pick<test.server.Context, 'assert' | 'expect'>,
   context: ServerContext
 ) {
   const assert: test.Assert = assertions;
@@ -79,7 +79,7 @@ function checkAdvancingEligibility(
   }).pipe(Effect.provideService(Database, { store: context }));
 }
 
-test.stable(
+test.server.stable(
   'future cards become due as operational time advances with fixed note timestamps',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -116,7 +116,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'default store contexts preserve clock identity through nested transactions',
   async ({ databases, expect }) => {
     const location = await databases();
