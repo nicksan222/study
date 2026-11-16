@@ -15,6 +15,7 @@ testE2e(
     const dialog = page.getByRole('dialog', { name: copy.Settings });
 
     await expect(dialog).toBeVisible();
+    await expect(dialog).toBeFocused();
     await expectScreenshot('settings', {
       target: dialog,
       ready: () => expect(dialog).toBeVisible()
