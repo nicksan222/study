@@ -8,7 +8,7 @@ import {
 const valid = {
   'apps/server': {
     name: '@study/server',
-    dependencies: { effect: '4.0.7', ai: '6.0.316', '@study/contracts': '*' }
+    dependencies: { effect: '4.0.7', '@effect/ai-openai': '4.0.7', '@study/contracts': '*' }
   },
   'packages/contracts': {
     name: '@study/contracts',
@@ -58,7 +58,7 @@ test.unit.stable(
       ...valid,
       'apps/client': {
         name: '@study/client',
-        optionalDependencies: { '@ai-sdk/openai': '3.0.132', 'drizzle-orm': '1' }
+        optionalDependencies: { '@effect/ai-openai': '4.0.7', 'drizzle-orm': '1' }
       }
     });
 
@@ -67,7 +67,7 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'shared AI mocks may implement the provider protocol without owning real providers',
+  'shared AI mocks use native Effect without owning real providers',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
 
@@ -76,7 +76,7 @@ test.unit.stable(
         ...valid,
         'packages/testing': {
           exports: { '.': './src/index.ts' },
-          dependencies: { '@ai-sdk/provider': '3.0.19' }
+          dependencies: { effect: '4.0.7' }
         }
       })
     ).toStrictEqual([]);
@@ -171,5 +171,27 @@ test.unit.stable(
     expect(issues.some((issue) => issue.includes('packages/ui'))).toBe(true);
     expect(issues.some((issue) => issue.includes('packages/testing'))).toBe(true);
     expect(issues.some((issue) => issue.includes('apps/server'))).toBe(true);
+  }
+);
+
+test.unit.stable(
+  'retired SDK dependencies are rejected in every workspace and manifest section',
+  ({ expect }) => {
+    const issues = workspaceArchitecture({
+      ...valid,
+      'apps/server': {
+        ...valid['apps/server'],
+        dependencies: { ...valid['apps/server'].dependencies, ai: '6' },
+        devDependencies: { '@ai-sdk/provider': '3' }
+      },
+      'packages/testing': {
+        exports: { '.': './src/index.ts' },
+        peerDependencies: { '@ai-sdk/provider': '3' },
+        optionalDependencies: { '@ai-sdk/openai': '3' }
+      }
+    });
+
+    expect(issues).toHaveLength(4);
+    expect(issues.every((issue) => issue.includes('retired'))).toBe(true);
   }
 );

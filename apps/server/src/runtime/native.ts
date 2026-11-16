@@ -25,7 +25,6 @@ import {
   createApiKeyModel,
   createChatGptModel,
   getApiKeyProvider,
-  adaptCredentialReader,
   BackupStorage,
   ManagedBackups,
   Database,
@@ -154,7 +153,7 @@ export function nativeLayers(
 
       return {
         observe: observeAgentProgress(store),
-        now: () => store.clock.currentTimeMillisUnsafe(),
+        now: () => store.timestampClock.currentTimeMillisUnsafe(),
         recordUsage: (record) =>
           transaction((tx) => tx.store(UsageStore).record(record)).pipe(
             Effect.provideService(Database, { store }),
@@ -176,7 +175,7 @@ export function nativeLayers(
                           createApiKeyModel(
                             getApiKeyProvider(provider),
                             modelId,
-                            adaptCredentialReader(auth.apiKey(provider)),
+                            auth.apiKey(provider),
                             request
                           ),
                         catch: () => new StudyError('config', 'Could not initialize AI provider')

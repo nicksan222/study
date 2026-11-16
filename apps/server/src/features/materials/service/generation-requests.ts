@@ -5,6 +5,7 @@ import type {
   ErrorKind,
   ProjectId,
   materialGenerationInputSchema,
+  materialGenerationHistoryReferencesSchema,
   materialGenerationPublicationSchema
 } from '@study/contracts';
 import { publicationTransaction, transaction } from '@study/server';
@@ -22,6 +23,19 @@ import { assertGenerationActive, emitGenerationPublication } from './generation.
 
 export function materialGenerationOperations() {
   return {
+    materialGenerationHistory: (value: {
+      requestId: string;
+      snapshot?: typeof materialGenerationHistoryReferencesSchema.Type;
+    }) =>
+      transaction((tx) => {
+        assertGenerationActive(tx, value.requestId);
+        const store = tx.store(MaterialGenerationStore);
+        const request = store.materialGeneration(value);
+
+        assertContentInputs(tx, request.inputs, request.projectId, true);
+
+        return store.generationHistory({ request, snapshot: value.snapshot });
+      }),
     openGenerationScope: (value: { scopeId: string; projectId: ProjectId }) =>
       transaction((tx) => tx.store(MaterialGenerationStore).openScope(value)),
     closeGenerationScope: (value: { scopeId: string; projectId: ProjectId }) =>

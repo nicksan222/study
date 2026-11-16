@@ -19,6 +19,8 @@ import { defineAgent } from '@study/server';
 
 export const studyNotesAgent = defineAgent({
   id: 'study-notes',
+  purpose: 'prepare',
+  recordInput: false,
   input: promptInputSchema,
   output: studyNotesSchema,
   prompt: ({ prompt }) => prompt,

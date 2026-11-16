@@ -3,7 +3,7 @@ import { test } from '@study/testing';
 import { lintRule } from '../test/utils.ts';
 
 test.unit.stable(
-  'keeps AI SDK access inside the platform runtime',
+  'rejects retired SDK imports outside the platform runtime',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
 
@@ -21,12 +21,13 @@ test.unit.stable(
     const assert: test.Assert = assertions;
 
     const diagnostics = await lintRule({ assert }, 'ai-boundary', {
-      'src/platform/ai/providers/a.ts': `import { generateText as generate } from 'ai';
- const run = generate;
+      'src/platform/ai/schema.ts': `import { LanguageModel as Model } from 'effect/ai';
+ const run = Model.generateText;
  run({});
  function f(run: () => void) { run();
  }`,
-      'src/platform/ai/agents.ts': "import { generateText } from 'ai'; generateText({});"
+      'src/platform/ai/agents.ts':
+        "import { LanguageModel } from 'effect/ai'; LanguageModel.generateText({});"
     });
 
     assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
@@ -34,7 +35,7 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'feature agents and tools use narrow capabilities and only platform AI owns SDK access',
+  'feature agents and tools use narrow capabilities and reject retired SDKs',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
 
@@ -45,7 +46,8 @@ test.unit.stable(
  import './source.store';
 `,
       'src/features/source/source.tool.ts': "import './source.service'; import './source.store';",
-      'src/platform/ai/agents.ts': "import { generateText } from 'ai'; generateText({});"
+      'src/platform/ai/agents.ts':
+        "import { LanguageModel } from 'effect/ai'; LanguageModel.generateText({});"
     });
 
     assert.strictEqual(diagnostics.length, 5, JSON.stringify(diagnostics));
@@ -67,7 +69,8 @@ import {Effect} from 'effect';
 import {generateAgent} from '#server/platform/ai/agents';
 generateAgent(agent,input);
 Activity.make({execute:Effect.gen(function*(){return yield* generateAgent(agent,input,{maxRetries:0,preflight:Effect.void});})});`,
-      'src/platform/ai/agents.ts': "import {streamText} from 'ai'; streamText({});"
+      'src/platform/ai/agents.ts':
+        "import {LanguageModel} from 'effect/ai'; LanguageModel.streamText({});"
     });
 
     assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
@@ -95,17 +98,18 @@ function f(alias) {alias(agent,input);}`,
 );
 
 test.unit.stable(
-  'the agent factory may describe SDK messages but cannot execute SDK generation',
+  'feature declarations and prompts may use native AI without executing models',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
 
     const diagnostics = await lintRule({ assert }, 'ai-boundary', {
       'src/platform/definitions/define-agent.ts':
-        "import type {ModelMessage} from 'ai'; import {generateText} from 'ai';",
-      'src/features/sources/service.ts': "import type {ModelMessage} from 'ai';"
+        "import type {Prompt} from 'effect/ai'; import {LanguageModel} from 'effect/ai'; LanguageModel.generateText({});",
+      'src/features/sources/agents/transcribe.ts':
+        "import {Prompt} from 'effect/ai'; const input = Prompt.make('hello');"
     });
 
-    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   }
 );
 
@@ -194,5 +198,73 @@ test.unit.stable(
     });
 
     assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
+  }
+);
+
+test.unit.stable(
+  'typed feature procedures own checkpointed model calls and still require preflight',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+    const diagnostics = await lintRule({ assert }, 'ai-boundary', {
+      'src/features/materials/procedures/generate.ts': `
+import { defineProcedure } from '#server/platform/definitions/define-procedure';
+import { generateAgent } from '#server/platform/ai/agents';
+const valid = defineProcedure({ execute: (input) => generateAgent(agent,input,{preflight:check,maxRetries:0}) });
+const invalid = defineProcedure({ execute: (input) => generateAgent(agent,input,{maxRetries:0}) });
+generateAgent(agent,input,{preflight:check,maxRetries:0});`
+    });
+
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  }
+);
+
+test.unit.stable(
+  'retired SDK imports are forbidden even for runtime types and test helpers',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+    const diagnostics = await lintRule(
+      { assert },
+      'ai-boundary',
+      {
+        'apps/server/src/platform/ai/agents.ts': "import {generateText} from 'ai';",
+        'apps/server/src/platform/definitions/define-agent.ts':
+          "import type {LanguageModelV3} from '@ai-sdk/provider';",
+        'packages/testing/src/mock.ts': "import type {LanguageModelV3} from '@ai-sdk/provider';",
+        'apps/client/src/page.ts': "import {OpenAiLanguageModel} from '@effect/ai-openai';",
+        'apps/server/src/platform/ai/providers/openai.ts':
+          "import {OpenAiLanguageModel} from '@effect/ai-openai';"
+      },
+      true
+    );
+
+    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+  }
+);
+
+test.unit.stable(
+  'native generation aliases stay inside runtime and provider ownership',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+    const diagnostics = await lintRule({ assert }, 'ai-boundary', {
+      'src/features/source/service.ts': `import * as Native from 'effect/ai/LanguageModel'; const {generateObject: generate} = Native; const alias = generate; alias({}); function shadow(alias) { alias({}); }`,
+      'src/platform/ai/other.ts': `import * as AI from 'effect/ai'; const {LanguageModel: LM} = AI; LM.streamText({});`,
+      'src/platform/ai/providers/native.ts': `import {LanguageModel} from 'effect/ai'; LanguageModel.generateText({});`,
+      'src/platform/ai/context-preparation/agent.ts': `import type {Prompt} from 'effect/ai'; import {LanguageModel} from 'effect/ai'; LanguageModel.generateText({});`
+    });
+
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+  }
+);
+
+test.unit.stable(
+  'native service instances cannot bypass generation ownership',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
+    const diagnostics = await lintRule({ assert }, 'ai-boundary', {
+      'src/features/source/service.ts': `import {LanguageModel} from 'effect/ai'; const model = yield* LanguageModel.LanguageModel; const alias = model; alias.generateText({});`,
+      'src/platform/ai/providers/native.ts': `import {generateAgent} from '#server/platform/ai/agents'; generateAgent(agent,input,{maxRetries:0,preflight});`
+    });
+
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );

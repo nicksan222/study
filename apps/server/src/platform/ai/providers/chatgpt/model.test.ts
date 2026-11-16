@@ -14,16 +14,12 @@ import { pageTransformOutputSchema } from '@study/contracts';
  * │ closes that peer.                                                                        │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-import { defaultAgentRules } from '@study/contracts';
 import { test } from '@study/testing';
-import { Output, streamText } from 'ai';
-import { Effect } from 'effect';
+import { Effect, Schema, Stream } from 'effect';
+import { LanguageModel } from 'effect/ai';
 
-import { titleAgent } from '#server/features/notes/agents/title';
-import { generateAgent, layer } from '#server/platform/ai/agents';
 import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
-import { standardSchema } from '#server/platform/ai/schema';
 
 test.unit.stable(
   'Responses adapter retries 401 with rotated OAuth token and consumes SSE',
@@ -65,10 +61,39 @@ test.unit.stable(
           {
             type: 'response.output_item.added',
             output_index: 0,
-            item: { type: 'message', id: 'item' }
+            item: {
+              type: 'message',
+              id: 'item',
+              role: 'assistant',
+              content: [],
+              status: 'in_progress'
+            }
           },
-          { type: 'response.output_text.delta', item_id: 'item', delta: 'Biology' },
-          { type: 'response.completed', response: {} }
+          {
+            type: 'response.output_text.delta',
+            item_id: 'item',
+            output_index: 0,
+            content_index: 0,
+            delta: 'Biology'
+          },
+          {
+            type: 'response.completed',
+            response: {
+              id: 'resp',
+              created_at: 1,
+              model: 'gpt-test',
+              output: [
+                {
+                  type: 'message',
+                  id: 'item',
+                  role: 'assistant',
+                  status: 'completed',
+                  content: [{ type: 'output_text', text: 'Biology', annotations: [] }]
+                }
+              ],
+              usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 }
+            }
+          }
         ])
           events += `data: ${JSON.stringify(event)}\n\n`;
 
@@ -95,19 +120,15 @@ test.unit.stable(
         baseUrl: base
       });
       const result = await Effect.runPromise(
-        generateAgent(titleAgent, { prompt: 'Cells' }).pipe(
-          Effect.provide(
-            layer({
-              model: () => Effect.succeed(model),
-              language: 'en',
-              rules: Effect.succeed(defaultAgentRules),
-              searchSources: () => Effect.succeed([])
-            })
-          )
-        )
+        LanguageModel.generateText({
+          prompt: [
+            { role: 'system', content: 'Write a study note title.' },
+            { role: 'user', content: 'Cells' }
+          ]
+        }).pipe(Effect.provide(model))
       );
 
-      assert.ok(result === 'Biology');
+      assert.ok(result.text === 'Biology');
       expect(headers).toStrictEqual(['Bearer original', 'Bearer renewed']);
       assert.ok(bodies[1].stream === true);
       assert.ok(bodies[1].store === false);
@@ -122,7 +143,8 @@ test.unit.stable(
 
 test.unit.stable(
   'page generation transmits a closed strict schema through the Responses adapter',
-  async ({ expect }) => {
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
     let body: { text: { format: { type: string; strict: boolean; schema: unknown } } } | undefined;
     const output = {
       blocks: [
@@ -147,10 +169,39 @@ test.unit.stable(
           {
             type: 'response.output_item.added',
             output_index: 0,
-            item: { type: 'message', id: 'item' }
+            item: {
+              type: 'message',
+              id: 'item',
+              role: 'assistant',
+              content: [],
+              status: 'in_progress'
+            }
           },
-          { type: 'response.output_text.delta', item_id: 'item', delta: JSON.stringify(output) },
-          { type: 'response.completed', response: {} }
+          {
+            type: 'response.output_text.delta',
+            item_id: 'item',
+            output_index: 0,
+            content_index: 0,
+            delta: JSON.stringify(output)
+          },
+          {
+            type: 'response.completed',
+            response: {
+              id: 'resp',
+              created_at: 1,
+              model: 'gpt-test',
+              output: [
+                {
+                  type: 'message',
+                  id: 'item',
+                  role: 'assistant',
+                  status: 'completed',
+                  content: [{ type: 'output_text', text: JSON.stringify(output), annotations: [] }]
+                }
+              ],
+              usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 }
+            }
+          }
         ])
           events += `data: ${JSON.stringify(event)}\n\n`;
 
@@ -178,13 +229,30 @@ test.unit.stable(
         modelId: 'gpt-test',
         baseUrl: `http://127.0.0.1:${address.port}`
       });
-      const result = streamText({
-        model,
-        prompt: 'Write a page.',
-        output: Output.object({ schema: standardSchema(pageTransformOutputSchema) })
-      });
+      const prepared = model.withOutputSchema?.(pageTransformOutputSchema);
 
-      expect(await result.output).toStrictEqual(output);
+      assert.ok(prepared);
+
+      const parts = await Effect.runPromise(
+        LanguageModel.streamText({ prompt: 'Write a page.' }).pipe(
+          Stream.runCollect,
+          Effect.provide(prepared.model)
+        )
+      );
+      const text = parts
+        .flatMap((part) => (part.type === 'text-delta' ? [part.delta] : []))
+        .join('');
+      const result = Schema.decodeUnknownSync(prepared.codec)(JSON.parse(text));
+
+      expect(result).toStrictEqual({
+        ...output,
+        blocks: [
+          {
+            type: 'paragraph',
+            inlines: [{ type: 'link', text: 'Cells', href: 'https://example.com' }]
+          }
+        ]
+      });
       expect(body?.text.format.type).toBe('json_schema');
       expect(body?.text.format.strict).toBe(true);
       let objects = 0;
@@ -213,6 +281,73 @@ test.unit.stable(
     } finally {
       await auth.dispose();
       await server.stop(true);
+    }
+  }
+);
+
+test.unit.stable(
+  'ChatGPT rejects missing, incomplete and failed terminal events without exposing provider details',
+  async ({ expect }) => {
+    const auth = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
+
+    await auth.replace(
+      { subject: 'u', clientId: 'c', sharing: true, refreshToken: 'test' },
+      { accessToken: 'secret-access-token', expiresIn: 3600 }
+    );
+
+    try {
+      for (const terminal of [undefined, 'response.incomplete', 'response.failed', 'error']) {
+        const response = {
+          id: 'resp',
+          created_at: 1,
+          model: 'gpt-test',
+          output: [],
+          status: terminal === 'response.failed' ? 'failed' : 'incomplete',
+          incomplete_details: { reason: 'max_output_tokens' },
+          usage: { input_tokens: 7, output_tokens: 3, total_tokens: 10 }
+        };
+        const events = [
+          { type: 'response.created', response: { id: 'resp', created_at: 1, model: 'gpt-test' } }
+        ];
+        const wire: unknown[] = [...events];
+
+        if (terminal)
+          wire.push(
+            terminal === 'error'
+              ? { type: 'error', code: 'failed', message: 'private-provider-detail', param: null }
+              : { type: terminal, response }
+          );
+
+        const model = createChatGptModel({
+          auth,
+          modelId: 'gpt-test',
+          fetch: async () =>
+            new Response(wire.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(''), {
+              headers: { 'content-type': 'text/event-stream' }
+            })
+        });
+        const reported: (number | undefined)[] = [];
+        const result = await Effect.runPromiseExit(
+          LanguageModel.streamText({ prompt: 'Hello' }).pipe(
+            Stream.tap((part) =>
+              Effect.sync(() => {
+                if (part.type === 'finish') reported.push(part.usage.inputTokens.total);
+              })
+            ),
+            Stream.runCollect,
+            Effect.provide(model)
+          )
+        );
+
+        expect(result._tag).toBe('Failure');
+        expect(reported).toStrictEqual(
+          terminal === 'response.incomplete' || terminal === 'response.failed' ? [7] : []
+        );
+        expect(String(result)).not.toContain('private-provider-detail');
+        expect(String(result)).not.toContain('secret-access-token');
+      }
+    } finally {
+      await auth.dispose();
     }
   }
 );

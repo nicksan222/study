@@ -4,7 +4,7 @@
  * │ registry.                                                                                │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Owns Mistral AI identity, suggested models and SDK configuration.                      │
+ * │ - Owns Mistral AI identity, suggested models and provider configuration.                      │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
  * │ Provider credentials are supplied by Auth; feature agents consume the shared model       │

@@ -63,3 +63,6 @@ export { settledAgentTool } from './tool-state';
 export { AgentActivity } from './activity';
 
 export { AgentActivityDetails } from './activity-details';
+
+export type { AgentActivityStatus } from './activity';
+export { workflowLabel } from './workflow-label';

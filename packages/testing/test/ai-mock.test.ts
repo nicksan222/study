@@ -1,5 +1,6 @@
 import { test } from '@study/testing';
-import { Effect, Fiber, Schema } from 'effect';
+import { Effect, Exit, Fiber, Schema, Stream } from 'effect';
+import { LanguageModel } from 'effect/ai';
 
 const agent = {
   id: 'counter',
@@ -16,6 +17,9 @@ const resolveModel = (
   input = { text: 'one' }
 ) => Effect.runPromise(mock.runtime.model('tiny', { definition, input }));
 
+const generate = (model: Awaited<ReturnType<typeof resolveModel>>) =>
+  Effect.runPromise(LanguageModel.generateText({ prompt: [] }).pipe(Effect.provide(model)));
+
 test.unit.stable(
   'agent definitions infer and validate exact one-shot inputs and outputs',
   async ({ createAiMock, expect }) => {
@@ -27,12 +31,12 @@ test.unit.stable(
     const model = await resolveModel(mock, agent);
 
     expect(() => mock.verify()).toThrow('AI mock verification failed');
-    const result = await model.doGenerate({ prompt: [] });
+    const result = await generate(model);
 
-    expect(result.content).toEqual([{ type: 'text', text: '{"count":1}' }]);
+    expect(result.text).toBe('{"count":1}');
     expect((await expected.called).input.text).toBe('one');
     mock.verify();
-    expect((await model.doGenerate({ prompt: [] })).content).toEqual(result.content);
+    expect((await generate(model)).text).toBe(result.text);
     await expect(resolveModel(mock, agent)).rejects.toThrow('unplanned');
     expect(() => mock.verify()).toThrow('AI mock verification failed');
   }
@@ -66,12 +70,10 @@ test.unit.stable(
     mock.next(agent, { input: { text: 'second' }, output: { count: 2 } });
     const wrong = await resolveModel(mock, agent, { text: 'second' });
 
-    await expect(wrong.doGenerate({ prompt: [] })).rejects.toThrow('unexpected input');
+    await expect(generate(wrong)).rejects.toThrow('unexpected input');
     const second = await resolveModel(mock, agent, { text: 'second' });
 
-    expect((await second.doGenerate({ prompt: [] })).content).toEqual([
-      { type: 'text', text: '{"count":2}' }
-    ]);
+    expect((await generate(second)).text).toBe('{"count":2}');
     expect(() => mock.verify()).toThrow('AI mock verification failed');
   }
 );
@@ -84,13 +86,13 @@ test.unit.stable(
     const second = mock.next(agent, { input: { text: 'two' }, output: { count: 2 }, hold: true });
     const one = await resolveModel(mock, agent);
     const two = await resolveModel(mock, agent, { text: 'two' });
-    const oneResult = one.doGenerate({ prompt: [] });
-    const twoResult = two.doGenerate({ prompt: [] });
+    const oneResult = generate(one);
+    const twoResult = generate(two);
 
     expect((await first.called).input).toEqual({ text: 'one' });
     expect((await second.called).input).toEqual({ text: 'two' });
     second.release();
-    expect((await twoResult).content).toEqual([{ type: 'text', text: '{"count":2}' }]);
+    expect((await twoResult).text).toBe('{"count":2}');
     expect(() => mock.verify()).toThrow();
     first.release();
     await oneResult;
@@ -104,16 +106,14 @@ test.unit.stable(
     const mock = createAiMock();
     const expected = mock.next(agent, { input: { text: 'one' }, output: { count: 1 }, hold: true });
     const model = await resolveModel(mock, agent);
-    const controller = new AbortController();
-    const result = model.doGenerate({ prompt: [], abortSignal: controller.signal }).then(
-      () => undefined,
-      (error: unknown) => error
+    const fiber = await Effect.runPromise(
+      LanguageModel.generateText({ prompt: [] }).pipe(Effect.provide(model), Effect.forkDetach)
     );
 
     await expected.called;
-    controller.abort();
+    await Effect.runPromise(Fiber.interrupt(fiber));
     await expected.aborted;
-    expect(await result).toMatchObject({ name: 'AbortError' });
+    expect(Exit.hasInterrupts(await Effect.runPromise(Fiber.await(fiber)))).toBe(true);
     mock.verify();
   }
 );
@@ -195,12 +195,8 @@ test.unit.stable(
     const otherModel = await resolveModel(mock, other);
     const cloneModel = await resolveModel(mock, { ...agent });
 
-    expect((await otherModel.doGenerate({ prompt: [] })).content).toEqual([
-      { type: 'text', text: '{"count":2}' }
-    ]);
-    expect((await cloneModel.doGenerate({ prompt: [] })).content).toEqual([
-      { type: 'text', text: '{"count":1}' }
-    ]);
+    expect((await generate(otherModel)).text).toBe('{"count":2}');
+    expect((await generate(cloneModel)).text).toBe('{"count":1}');
     mock.verify();
   }
 );
@@ -215,8 +211,9 @@ test.unit.stable(
     const model = await Effect.runPromise(
       mock.runtime.model('tiny', { definition, input: { text: 'one' } })
     );
-    const result = await model.doStream({ prompt: [] });
-    const parts = await Array.fromAsync(result.stream);
+    const parts = await Effect.runPromise(
+      LanguageModel.streamText({ prompt: [] }).pipe(Stream.runCollect, Effect.provide(model))
+    );
     const text = parts
       .filter((part) => part.type === 'text-delta')
       .map((part) => part.delta)
@@ -225,6 +222,14 @@ test.unit.stable(
     expect(
       Schema.decodeUnknownSync(Schema.toCodecJson(definition.output))(JSON.parse(text))
     ).toEqual({ count: 3n });
+    const structured = await Effect.runPromise(
+      LanguageModel.generateObject({
+        prompt: [],
+        schema: definition.output
+      }).pipe(Effect.provide(model))
+    );
+
+    expect(structured.value).toEqual({ count: 3n });
     expect(parts.at(-1)?.type).toBe('finish');
     mock.verify();
   }
@@ -238,18 +243,14 @@ test.unit.stable(
 
     mock.failNext(agent, { input: { text: 'one' }, error: failure });
     const model = await resolveModel(mock, agent);
-    const rejected = await Promise.resolve(model.doGenerate({ prompt: [] })).catch(
-      (error: unknown) => error
-    );
+    const rejected = await Promise.resolve(generate(model)).catch((error: unknown) => error);
 
-    expect(rejected).toBe(failure);
+    expect(rejected).toMatchObject({ cause: failure });
     mock.next(agent, { input: { text: 'one' }, output: { count: 5 } });
-    await expect(model.doGenerate({ prompt: [] })).rejects.toBe(failure);
+    await expect(generate(model)).rejects.toMatchObject({ cause: failure });
     const later = await resolveModel(mock, agent);
 
-    expect((await later.doGenerate({ prompt: [] })).content).toEqual([
-      { type: 'text', text: '{"count":5}' }
-    ]);
+    expect((await generate(later)).text).toBe('{"count":5}');
     mock.verify();
   }
 );
@@ -268,3 +269,48 @@ test.unit.stable(
     empty.verify();
   }
 );
+
+test.unit.stable(
+  'text agents use native text generation and streaming',
+  async ({ createAiMock, expect }) => {
+    const mock = createAiMock();
+    const definition = { ...agent, mode: 'text' as const, output: Schema.String };
+
+    mock.next(definition, { input: { text: 'one' }, output: 'A literal answer' });
+    const model = await Effect.runPromise(
+      mock.runtime.model('tiny', { definition, input: { text: 'one' } })
+    );
+    const result = await generate(model);
+    const parts = await Effect.runPromise(
+      LanguageModel.streamText({ prompt: [] }).pipe(Stream.runCollect, Effect.provide(model))
+    );
+
+    expect(result.text).toBe('A literal answer');
+    expect(
+      parts
+        .filter((part) => part.type === 'text-delta')
+        .map((part) => part.delta)
+        .join('')
+    ).toBe(result.text);
+    mock.verify();
+  }
+);
+
+test.unit.stable('interruption cancels held native streams', async ({ createAiMock, expect }) => {
+  const mock = createAiMock();
+  const held = mock.next(agent, { input: { text: 'one' }, output: { count: 1 }, hold: true });
+  const model = await resolveModel(mock, agent);
+  const fiber = await Effect.runPromise(
+    LanguageModel.streamText({ prompt: [] }).pipe(
+      Stream.runCollect,
+      Effect.provide(model),
+      Effect.forkDetach
+    )
+  );
+
+  await held.called;
+  await Effect.runPromise(Fiber.interrupt(fiber));
+  await held.aborted;
+  expect(Exit.hasInterrupts(await Effect.runPromise(Fiber.await(fiber)))).toBe(true);
+  mock.verify();
+});

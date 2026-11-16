@@ -8,7 +8,7 @@
  * │                                                                                          │
  * │ Boundaries:                                                                              │
  * │ This is the provider export surface; session.ts owns OAuth state, signin.ts owns the     │
- * │ loopback flow, and model.ts adapts Responses to AI SDK.                                  │
+ * │ loopback flow, and model.ts adapts Responses to Effect AI.                                  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 

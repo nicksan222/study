@@ -12,7 +12,7 @@ import { agentRunIdSchema } from '@study/contracts';
  */
 import type { agentProgressPageSchema } from '@study/contracts';
 import { executionIdSchema } from '@study/contracts';
-import { workflow_executions } from '@study/db';
+import { aiUsage, workflow_executions } from '@study/db';
 import { ServerContext, Database, observeAgentProgress, WorkflowControl } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Fiber, Layer, Queue, Stream } from 'effect';
@@ -82,6 +82,32 @@ test.server.stable(
           expect((yield* Queue.take(pages))[0]).toMatchObject({
             text: 'abtail',
             status: 'completed'
+          });
+          context.transaction(['settings'], ({ db }) => {
+            db.orm
+              .insert(aiUsage)
+              .values({
+                id: 'late-usage',
+                runId: 'burst-agent',
+                agent: 'reply',
+                provider: 'test',
+                model: 'test',
+                timestamp: 0,
+                input: 20,
+                output: 5,
+                cacheRead: 0,
+                cacheWrite: 0,
+                reasoning: 0,
+                incomplete: true
+              })
+              .run();
+          });
+          yield* TestClock.adjust('100 millis');
+          expect(yield* Queue.size(pages)).toBe(1);
+          expect((yield* Queue.take(pages))[0]?.usage).toEqual({
+            input: 20,
+            output: 5,
+            requests: 1
           });
           yield* Fiber.interrupt(viewer);
         }).pipe(

@@ -4,7 +4,7 @@
  * │ provider registry.                                                                       │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Owns Fireworks AI identity, suggested models and SDK configuration.                    │
+ * │ - Owns Fireworks AI identity, suggested models and provider configuration.                    │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
  * │ Provider credentials are supplied by Auth; feature agents consume the shared model       │

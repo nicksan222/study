@@ -31,13 +31,12 @@ export function dependencyIdentity(
   return issues;
 }
 
-function misplacedAiDependency(path: string, name: string): boolean {
-  if (path === 'apps/server') return false;
+function aiDependencyIssue(path: string, name: string): string | undefined {
+  if (name === 'ai' || name.startsWith('@ai-sdk/'))
+    return `${path}: ${name} is retired; use native Effect AI.`;
 
-  // Shared mocks implement the SDK protocol; real provider integrations remain server-owned.
-  if (path === 'packages/testing' && name === '@ai-sdk/provider') return false;
-
-  return name === 'ai' || name.startsWith('@ai-sdk/');
+  if (name.startsWith('@effect/ai-') && path !== 'apps/server')
+    return `${path}: ${name} belongs exclusively to apps/server.`;
 }
 
 function dependencyIssues(
@@ -52,8 +51,9 @@ function dependencyIssues(
     if (/^drizzle-(?:orm|kit)(?:\/|$)/.test(name) && path !== 'packages/db')
       issues.push(`${path}: ${name} belongs exclusively to @study/db.`);
 
-    if (misplacedAiDependency(path, name))
-      issues.push(`${path}: ${name} belongs exclusively to apps/server.`);
+    const aiIssue = aiDependencyIssue(path, name);
+
+    if (aiIssue) issues.push(aiIssue);
 
     if (
       path === 'packages/contracts' &&

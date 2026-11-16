@@ -1,18 +1,4 @@
 import type { ProjectId } from '@study/contracts';
-/**
- * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Exercises durable source ingestion and correction workflows, including decoder and │
- * │ agent outcomes with SQLite state.                                                        │
- * │                                                                                          │
- * │ Responsibilities:                                                                        │
- * │ - Exercises native ingestion publishes an anchored text document through Sources.        │
- * │ - Checks focused behavior using the file’s test fixtures.                                │
- * │                                                                                          │
- * │ Boundaries:                                                                              │
- * │ Builds feature behavior through its service, store, RPC, or workflow test layer;         │
- * │ fixtures stay local to these tests.                                                      │
- * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
- */
 import { NotesRpc } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
@@ -45,6 +31,21 @@ import {
   sourceIngestionHandler
 } from '#server/features/sources/workflows/index';
 import { testLiveQueries } from '#testing/live-queries';
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises durable source ingestion and correction workflows, including decoder and │
+ * │ agent outcomes with SQLite state.                                                        │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exercises native ingestion publishes an anchored text document through Sources.        │
+ * │ - Checks focused behavior using the file’s test fixtures.                                │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Builds feature behavior through its service, store, RPC, or workflow test layer;         │
+ * │ fixtures stay local to these tests.                                                      │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+import { textResponseEvents } from '#testing/responses';
 
 function admitted(database: { readonly orm: Db['orm'] }, tag: string, id: string) {
   database.orm
@@ -437,25 +438,14 @@ for (const input of ['attachment', 'link'] as const)
           requestBody = JSON.parse(body);
           let events = '';
 
-          for (const event of [
-            { type: 'response.created', response: { id: 'resp', created_at: 1, model: 'test' } },
-            {
-              type: 'response.output_item.added',
-              output_index: 0,
-              item: { type: 'message', id: 'item' }
-            },
-            {
-              type: 'response.output_text.delta',
-              item_id: 'item',
-              delta: JSON.stringify({
-                pages: [
-                  { page: 1, blocks: [{ kind: 'heading', text: 'One' }] },
-                  { page: 2, blocks: [{ kind: 'paragraph', text: 'Two' }] }
-                ]
-              })
-            },
-            { type: 'response.completed', response: {} }
-          ])
+          for (const event of textResponseEvents(
+            JSON.stringify({
+              pages: [
+                { page: 1, blocks: [{ kind: 'heading', text: 'One' }] },
+                { page: 2, blocks: [{ kind: 'paragraph', text: 'Two' }] }
+              ]
+            })
+          ))
             events += `data: ${JSON.stringify(event)}\n\n`;
 
           return new Response(events + 'data: [DONE]\n\n', {

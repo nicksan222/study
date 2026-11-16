@@ -190,6 +190,7 @@ test.unit.stable(
       'Models by task',
       'Custom instructions',
       'AI behavior',
+      'AI activity',
       'AI usage',
       'Performance',
       'Flashcards',

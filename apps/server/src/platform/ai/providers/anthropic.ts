@@ -4,7 +4,7 @@
  * │ registry.                                                                                │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Owns Anthropic identity, suggested models and SDK configuration.                       │
+ * │ - Owns Anthropic identity, suggested models and provider configuration.                       │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
  * │ Provider credentials are supplied by Auth; feature agents consume the shared model       │
@@ -12,21 +12,79 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createAnthropic } from '@ai-sdk/anthropic';
+import { AnthropicClient, AnthropicLanguageModel, AnthropicTool } from '@effect/ai-anthropic';
+import { Effect, Layer, Schema } from 'effect';
+import { AnthropicStructuredOutput, Model } from 'effect/ai';
 
-import { defineApiKeyProvider, sdkFetch } from './definition.ts';
+import type { AiModel } from '#server/platform/ai/model';
+
+import type { ApiKeyModelOptions } from './definition.ts';
+import { defineApiKeyProvider } from './definition.ts';
 import { withProviderTools } from './tools.ts';
+import { providerHttpLayer } from './transport.ts';
 
 export const anthropic = defineApiKeyProvider({
   id: 'anthropic',
   name: 'Anthropic',
   models: ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5'],
   defaults: { tiny: 'claude-haiku-5-5', medium: 'claude-sonnet-5-5', smart: 'claude-opus-5-5' },
-  createModel: ({ apiKey, modelId, fetch }) =>
-    withProviderTools(
-      createAnthropic({ apiKey, fetch: fetch ? sdkFetch(fetch) : undefined })(modelId),
-      {
-        web_search: createAnthropic().tools.webSearch_20250305({})
-      }
-    )
+  createModel: createAnthropicModel
 });
+
+function createAnthropicModel(options: ApiKeyModelOptions): AiModel {
+  const clientLayer = Layer.effect(
+    AnthropicClient.AnthropicClient,
+    Effect.gen(function* () {
+      const client = yield* AnthropicClient.make({});
+      const format = options.outputSchema
+        ? {
+            type: 'json_schema' as const,
+            schema: Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Json))(
+              AnthropicStructuredOutput.toCodecAnthropic(options.outputSchema).jsonSchema
+            )
+          }
+        : undefined;
+
+      return {
+        ...client,
+        createMessage: (input) =>
+          client.createMessage({
+            ...input,
+            payload: {
+              ...input.payload,
+              output_config: format
+                ? { ...input.payload.output_config, format }
+                : input.payload.output_config
+            }
+          }),
+        createMessageStream: (input) =>
+          client.createMessageStream({
+            ...input,
+            payload: {
+              ...input.payload,
+              output_config: format
+                ? { ...input.payload.output_config, format }
+                : input.payload.output_config
+            }
+          })
+      } satisfies typeof client;
+    })
+  ).pipe(Layer.provide(providerHttpLayer(options, 'x-api-key')));
+
+  return Object.assign(
+    withProviderTools(
+      Model.make(
+        'anthropic' as string,
+        options.modelId,
+        AnthropicLanguageModel.layer({ model: options.modelId }).pipe(Layer.provide(clientLayer))
+      ),
+      { web_search: AnthropicTool.WebSearch_20250305({}) }
+    ),
+    {
+      withOutputSchema: (schema: Schema.Top & Schema.ConstraintDecoder<unknown>) => ({
+        model: createAnthropicModel({ ...options, outputSchema: schema }),
+        codec: AnthropicStructuredOutput.toCodecAnthropic(schema).codec
+      })
+    }
+  );
+}

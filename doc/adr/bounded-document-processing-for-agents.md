@@ -1,7 +1,7 @@
 # Bounded context preparation for agents
 
 - Status: Accepted
-- Date: 2026-11-15
+- Date: 2026-11-16
 
 ## Decision
 
@@ -106,9 +106,10 @@ publication remains a feature-owned transaction guarded by current domain
 authority. Finishing some pieces does not authorize publishing a partial result
 as a completed whole-input operation.
 
-Preserve persisted workflow and Activity identities and result schemas. Changes
-to orchestration require replay tests with existing completed replies and pending
-work; they must not redispatch historical initiating events as new jobs.
+Preserve workflow and Activity identities and result schemas for restart recovery
+within the installed definition. Application updates may invalidate pending work
+and require explicit user retry, following the durable-work policy. Do not
+redispatch historical initiating events as new jobs.
 
 ## Enforcement
 

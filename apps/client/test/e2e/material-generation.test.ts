@@ -1,8 +1,10 @@
 import { StudyError } from '@study/contracts';
+import type { ProjectId } from '@study/contracts';
 import { Appearance, Language, defaultQuizSettings } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 import type { Locator } from 'playwright';
+import type { Page } from 'playwright';
 
 test.browser.use({ aiEnabled: true, video: { mode: 'on', size: { width: 2560, height: 1440 } } });
 
@@ -29,10 +31,10 @@ async function itemSize(sidebar: Locator, title: string) {
 
 test.browser.stable(
   'Material generation progress and recovery',
-  async ({ page, study, ai, expectScreenshot, expectAccessibility, expect }) => {
+  async ({ page, study, expectScreenshot, expectAccessibility, expect }) => {
     const fixture = await study.seed();
     const title = 'Cell division flashcards';
-    const expected = ai.next(study.agents.flashcards, {
+    const expected = study.generate(study.agents.flashcards, {
       input: { prompt: `Title: ${title}\nStudent instruction (data): ` },
       output: cards,
       hold: true
@@ -57,15 +59,19 @@ test.browser.stable(
     const workingSize = await itemSize(sidebar, title);
 
     await expect(sidebar.getByText('Step 1', { exact: true })).toHaveCount(0);
-    await page
-      .getByRole('status', { name: copy.PracticeGenerationRunning })
-      .click({ button: 'right' });
+    await page.getByRole('status', { name: copy.AgentRunFlashcards }).click({ button: 'right' });
     await page.getByRole('menuitem', { name: copy.AgentActivityDetails }).click();
     const details = page.getByRole('dialog', { name: copy.AgentActivityDetails });
 
     await expectScreenshot('running-details', {
       target: details,
-      ready: () => expect(details.getByText('Step 1', { exact: true })).toBeVisible()
+      ready: () =>
+        expect(
+          details.getByRole('button', {
+            name: `${copy.AgentRunFlashcards} ${copy['workspace.state.running']}`,
+            exact: true
+          })
+        ).toBeVisible()
     });
     await expectAccessibility('generation-details');
     await details.getByRole('button', { name: copy.Close }).click();
@@ -77,7 +83,14 @@ test.browser.stable(
     await stopAction.press('Shift+F10');
     await page.getByRole('menuitem', { name: copy.AgentActivityDetails }).press('Enter');
     await expect(details).toBeVisible();
-    await expect(details.getByRole('button', { name: copy.Close })).toBeFocused();
+    await expect(
+      details
+        .getByRole('button', {
+          name: `${copy.AgentRunMaterial} ${copy['workspace.state.running']}`,
+          exact: true
+        })
+        .first()
+    ).toBeFocused();
     await expect(page.getByRole('menu')).toHaveCount(0);
     await expect(page.getByRole('tooltip')).toHaveCount(0);
     await page.keyboard.press('Escape');
@@ -102,12 +115,17 @@ test.browser.stable(
         expect(page.getByText('What does mitosis produce?', { exact: true })).toBeVisible()
     });
 
+    const history = study.history(version);
     const failedTitle = 'Cell division review';
 
-    ai.failNext(study.agents.flashcards, {
-      input: { prompt: `Title: ${failedTitle}\nStudent instruction (data): ` },
-      error: new StudyError('invalid_input', 'Controlled generation failure')
-    });
+    study.failGeneration(
+      study.agents.flashcards,
+      {
+        input: { prompt: `Title: ${failedTitle}\nStudent instruction (data): ` },
+        error: new StudyError('invalid_input', 'Controlled generation failure')
+      },
+      history
+    );
     const failed = await study.request({
       title: failedTitle,
       projectId: fixture.project.id,
@@ -170,41 +188,51 @@ test.browser.stable(
     await expectAccessibility('generation-recovery-italian');
     await study.settings({ appearance: Appearance.DARK, language: Language.ENGLISH });
     await page.reload();
-    const retry = ai.next(study.agents.flashcards, {
-      input: { prompt: `Title: ${failedTitle}\nStudent instruction (data): ` },
-      output: cards,
-      hold: true
-    });
+    const retry = study.generate(
+      study.agents.flashcards,
+      {
+        input: { prompt: `Title: ${failedTitle}\nStudent instruction (data): ` },
+        output: {
+          kind: 'flashcards',
+          cards: [{ front: 'Which division preserves chromosome number?', back: 'Mitosis. [1]' }]
+        },
+        hold: true
+      },
+      history
+    );
 
     await page.getByRole('button', { name: copy.Retry, exact: true }).click();
     await retry.called;
     await expect(page.getByRole('button', { name: copy.Retry, exact: true })).toHaveCount(0);
     await expectScreenshot('retrying', {
       target: page.locator('aside.study-sidebar'),
-      ready: () =>
-        expect(page.getByRole('status', { name: copy.PracticeGenerationRetrying })).toBeVisible()
+      ready: () => expect(page.getByRole('status', { name: copy.AgentRunFlashcards })).toBeVisible()
     });
     expect(await itemSize(sidebar, failedTitle)).toEqual(workingSize);
     await expectAccessibility('generation-retrying');
     retry.release();
     await expect.poll(async () => (await study.snapshot(failed.id)).resultVersionId).not.toBeNull();
-    await expect(page.getByRole('status', { name: copy.PracticeGenerationRetrying })).toHaveCount(
-      0
-    );
+    await expect(page.getByRole('status', { name: copy.AgentRunFlashcards })).toHaveCount(0);
     const retryVersion = await study.published(failed.id);
 
     await page.goto(`/flashcards/${retryVersion.material_id}?project=${fixture.project.id}`);
     await expectScreenshot('retry-ready', {
       target: 'viewport',
       ready: () =>
-        expect(page.getByText('What does mitosis produce?', { exact: true })).toBeVisible()
+        expect(
+          page.getByText('Which division preserves chromosome number?', { exact: true })
+        ).toBeVisible()
     });
     const stoppedTitle = 'Cell division extra practice';
-    const stopping = ai.next(study.agents.flashcards, {
-      input: { prompt: `Title: ${stoppedTitle}\nStudent instruction (data): ` },
-      output: cards,
-      hold: true
-    });
+    const stopping = study.generate(
+      study.agents.flashcards,
+      {
+        input: { prompt: `Title: ${stoppedTitle}\nStudent instruction (data): ` },
+        output: cards,
+        hold: true
+      },
+      study.history(retryVersion, version)
+    );
     const stopped = await study.request({
       title: stoppedTitle,
       projectId: fixture.project.id,
@@ -223,7 +251,7 @@ test.browser.stable(
       target: page.locator('aside.study-sidebar'),
       ready: () => expect(page.getByText(stoppedTitle, { exact: true })).toHaveCount(0)
     });
-    stopping.release();
+    stopping.release(false);
     await expect
       .poll(async () =>
         (await study.executions(stopped.id)).items.some((run) => run.status === 'cancelled')
@@ -239,10 +267,17 @@ test.browser.stable(
     const fixture = await study.seed(`${study.lecture}\n\n`.repeat(180));
     const title = 'Full lecture flashcards';
     const context = await study.contextInputs(fixture, title);
+    const candidateContext = await study.contextInputs(fixture, title, 'candidate');
+
     const maps = context.maps.map((call) =>
       ai.next(study.agents.studyNotes, { ...call, hold: true })
     );
     const reduction = ai.next(study.agents.studyNotes, { ...context.reduce, hold: true });
+
+    for (const call of candidateContext.maps) ai.next(study.agents.studyNotes, call);
+
+    ai.next(study.agents.studyNotes, candidateContext.reduce);
+
     const tail = context.reduce.output.notes.at(-1)!.markers[0]!;
     const output = {
       kind: 'flashcards' as const,
@@ -254,7 +289,7 @@ test.browser.stable(
         }
       ]
     };
-    const final = ai.next(study.agents.flashcards, {
+    const final = study.generate(study.agents.flashcards, {
       input: { prompt: `Title: ${title}\nStudent instruction (data): ` },
       output,
       hold: true
@@ -297,21 +332,24 @@ test.browser.stable(
     await final.called;
     await expectScreenshot('final-generation', {
       target: sidebar,
-      ready: () =>
-        expect(page.getByRole('status', { name: copy.PracticeGenerationRunning })).toBeVisible()
+      ready: () => expect(page.getByRole('status', { name: copy.AgentRunFlashcards })).toBeVisible()
     });
     expect(await itemSize(sidebar, title)).toEqual(preparingSize);
     await expectAccessibility('generation-current-phase');
     await expect(sidebar.getByText('Step 1', { exact: true })).toHaveCount(0);
-    await page
-      .getByRole('status', { name: copy.PracticeGenerationRunning })
-      .click({ button: 'right' });
+    await page.getByRole('status', { name: copy.AgentRunFlashcards }).click({ button: 'right' });
     await page.getByRole('menuitem', { name: copy.AgentActivityDetails }).click();
     const details = page.getByRole('dialog', { name: copy.AgentActivityDetails });
 
     await expectScreenshot('preparation-details', {
       target: details,
-      ready: () => expect(details.getByText('Step 4', { exact: true })).toBeVisible()
+      ready: () =>
+        expect(
+          details.getByRole('button', {
+            name: `${copy.AgentRunFlashcards} ${copy['workspace.state.running']}`,
+            exact: true
+          })
+        ).toBeVisible()
     });
     await details.getByRole('button', { name: copy.Close }).click();
     await page.setViewportSize({ width: 1280, height: 900 });
@@ -322,7 +360,7 @@ test.browser.stable(
     await expectScreenshot('italian-narrow', {
       target: 'viewport',
       ready: () =>
-        expect(page.getByRole('status', { name: italian.PracticeGenerationRunning })).toBeVisible()
+        expect(page.getByRole('status', { name: italian.AgentRunFlashcards })).toBeVisible()
     });
     expect(await itemSize(sidebar, title)).toEqual(preparingSize);
     await expectAccessibility('generation-italian-narrow');
@@ -360,7 +398,7 @@ test.browser.stable(
 
 test.browser.stable(
   'Quiz generation uses the selected notes and saved question settings',
-  async ({ page, study, ai, expectScreenshot, expectAccessibility, expect }) => {
+  async ({ page, study, expectScreenshot, expectAccessibility, expect }) => {
     const fixture = await study.seed();
 
     await study.quizPreferences({
@@ -370,7 +408,7 @@ test.browser.stable(
       questionKind: 'open',
       difficulty: 'balanced'
     });
-    const generated = ai.next(study.agents.quiz, {
+    const generated = study.generate(study.agents.quiz, {
       input: {
         prompt: `Title: ${copy.SidebarQuiz}\nStudent instruction (data): \nQuiz requirements: produce exactly 2 questions. Question kind: only open questions. Every choice question must contain exactly 3 answer options. Difficulty: balanced (a balance of recall, understanding and application).`
       },
@@ -415,8 +453,7 @@ test.browser.stable(
     expect(active).toHaveLength(1);
     await expectScreenshot('quiz-running', {
       target: page.locator('aside.study-sidebar'),
-      ready: () =>
-        expect(page.getByRole('status', { name: copy.PracticeGenerationRunning })).toBeVisible()
+      ready: () => expect(page.getByRole('status', { name: copy.AgentRunQuiz })).toBeVisible()
     });
     generated.release();
     await expect
@@ -437,5 +474,366 @@ test.browser.stable(
         ).toBeVisible()
     });
     await expectAccessibility('generated-quiz');
+  }
+);
+
+type NoveltyScenario = 'exact repair' | 'semantic repair' | 'exhausted repair' | 'invalid review';
+
+type NoveltyJourney = Pick<
+  test.browser.Context,
+  'page' | 'study' | 'expectScreenshot' | 'expectAccessibility' | 'expect'
+>;
+
+function noveltyOutput(kind: 'quiz' | 'flashcards', prompt: string) {
+  return kind === 'quiz'
+    ? {
+        title: 'Cell division checkpoint',
+        content: {
+          kind: 'quiz' as const,
+          questions: [
+            {
+              kind: 'open' as const,
+              prompt,
+              referenceAnswer: prompt.includes('molecule') ? 'DNA.' : 'Two daughter cells.',
+              explanation: 'Mitosis preserves chromosome number. [1]'
+            }
+          ]
+        }
+      }
+    : {
+        kind: 'flashcards' as const,
+        cards: [
+          {
+            front: prompt,
+            back: prompt.includes('molecule')
+              ? 'DNA is copied before cell division. [1]'
+              : 'Mitosis produces two daughter cells. [1]'
+          }
+        ]
+      };
+}
+
+function noveltyReview(scenario: NoveltyScenario) {
+  return scenario === 'invalid review'
+    ? { duplicates: [{ index: 1, reason: 'history_duplicate' as const }] }
+    : scenario === 'semantic repair'
+      ? {
+          duplicates: [{ index: 0, reason: 'history_duplicate' as const }]
+        }
+      : { duplicates: [] };
+}
+
+async function noveltyJourney(
+  { page, study, expectScreenshot, expectAccessibility, expect }: NoveltyJourney,
+  kind: 'quiz' | 'flashcards',
+  scenario: NoveltyScenario
+) {
+  const fixture = await study.seed();
+  const agent = kind === 'quiz' ? study.agents.quiz : study.agents.flashcards;
+  const output = (prompt: string) => noveltyOutput(kind, prompt);
+  const priorTitle = 'Prior cell division practice';
+  const priorPrompt = 'What does mitosis produce?';
+
+  study.generate(agent, {
+    input: { prompt: `Title: ${priorTitle}\nStudent instruction (data): ` },
+    output: output(priorPrompt)
+  });
+  const prior = await study.request({
+    title: priorTitle,
+    kind,
+    autoTitle: kind === 'quiz',
+    projectId: fixture.project.id,
+    inputs: [fixture.input]
+  });
+
+  await expect.poll(async () => (await study.snapshot(prior.id)).resultVersionId).not.toBeNull();
+  const history = study.history(await study.published(prior.id));
+  const title = `Cell division ${scenario}`;
+  const duplicate = scenario === 'exact repair' || scenario === 'exhausted repair';
+  const freshPrompt = 'Which molecule is copied before cell division?';
+  const candidate = output(
+    duplicate ? priorPrompt : 'How many daughter cells result from mitosis?'
+  );
+  const review = noveltyReview(scenario);
+  const repairable = scenario !== 'invalid review';
+  const controlled = study.novelty(
+    agent,
+    {
+      input: { prompt: `Title: ${title}\nStudent instruction (data): ` },
+      output: candidate,
+      review,
+      ...(repairable
+        ? { repair: output(scenario === 'exhausted repair' ? priorPrompt : freshPrompt) }
+        : {})
+    },
+    history
+  );
+  const request = await study.request({
+    title,
+    kind,
+    autoTitle: kind === 'quiz',
+    projectId: fixture.project.id,
+    inputs: [fixture.input]
+  });
+
+  await controlled.firstReview.called;
+  await page.goto(`/practice?project=${fixture.project.id}`);
+  await page.getByText(title, { exact: true }).click({ button: 'right' });
+  await page.getByRole('menuitem', { name: copy.AgentActivityDetails }).click();
+  const details = page.getByRole('dialog', { name: copy.AgentActivityDetails });
+
+  const activeReview = details
+    .getByRole('button', {
+      name: `${copy.AgentRunNovelty} ${copy['workspace.state.running']}`,
+      exact: true
+    })
+    .last();
+
+  await expectScreenshot('review-inspector', {
+    target: details,
+    ready: async () => {
+      await expect(activeReview).toBeVisible();
+      await activeReview.scrollIntoViewIfNeeded();
+    }
+  });
+
+  if (repairable) {
+    controlled.firstReview.release();
+    await controlled.repair!.called;
+    const activeRepair = details.getByRole('button', {
+      name: `${kind === 'quiz' ? copy.AgentRunQuiz : copy.AgentRunFlashcards} ${copy['workspace.state.running']}`,
+      exact: true
+    });
+
+    await expectScreenshot('repair-inspector', {
+      target: details,
+      ready: async () => {
+        await expect(activeRepair).toBeVisible();
+        await activeRepair.scrollIntoViewIfNeeded();
+      }
+    });
+    controlled.repair!.release();
+    await controlled.secondReview!.called;
+    controlled.secondReview!.release();
+  } else controlled.firstReview.release();
+
+  return noveltyOutcome(
+    { page, study, expectScreenshot, expectAccessibility, expect },
+    {
+      scenario,
+      kind,
+      requestId: request.id,
+      projectId: fixture.project.id,
+      details,
+      freshPrompt,
+      priorPrompt
+    }
+  );
+}
+
+async function noveltyOutcome(
+  { page, study, expectScreenshot, expectAccessibility, expect }: NoveltyJourney,
+  {
+    scenario,
+    kind,
+    requestId,
+    projectId,
+    details,
+    freshPrompt,
+    priorPrompt
+  }: {
+    scenario: NoveltyScenario;
+    kind: 'quiz' | 'flashcards';
+    requestId: string;
+    projectId: ProjectId;
+    details: Locator;
+    freshPrompt: string;
+    priorPrompt: string;
+  }
+) {
+  if (scenario === 'exhausted repair' || scenario === 'invalid review') {
+    const error = scenario === 'exhausted repair' ? 'not_enough' : 'invalid_input';
+
+    await expect.poll(async () => (await study.snapshot(requestId)).errorKind).toBe(error);
+    await expectScreenshot('failed-inspector', {
+      target: details,
+      ready: () =>
+        expect(
+          details.getByText(copy.AgentActivityStepFailed, { exact: true }).first()
+        ).toBeVisible()
+    });
+    expect((await study.snapshot(requestId)).resultVersionId).toBeNull();
+    await expectAccessibility('novelty-failure-inspector');
+  } else {
+    await expect.poll(async () => (await study.snapshot(requestId)).resultVersionId).not.toBeNull();
+    const version = await study.published(requestId);
+
+    await expect(details).toHaveCount(0);
+    await page.goto(
+      `${kind === 'quiz' ? '/practice' : '/flashcards'}/${version.material_id}?project=${projectId}`
+    );
+    await expectScreenshot('repaired-material', {
+      target: 'viewport',
+      ready: () =>
+        kind === 'quiz'
+          ? expect(
+              page.getByRole('button', { name: copy.PracticeStartQuiz, exact: true })
+            ).toBeVisible()
+          : expect(page.getByText(freshPrompt, { exact: true })).toBeVisible()
+    });
+    const prompts =
+      version.content.kind === 'quiz'
+        ? version.content.questions.map((question) => question.prompt)
+        : version.content.cards.map((card) => card.front);
+
+    expect(prompts).toContain(freshPrompt);
+    expect(prompts).not.toContain(priorPrompt);
+    await expectAccessibility('novelty-repaired-material');
+
+    return reopenPublishedInspector({ expect }, page, kind);
+  }
+
+  return details;
+}
+
+async function reopenPublishedInspector(
+  { expect }: Pick<test.browser.Context, 'expect'>,
+  page: Page,
+  kind: 'quiz' | 'flashcards'
+) {
+  await page.getByRole('button', { name: copy.Settings, exact: true }).click();
+  const settings = page.getByRole('dialog', { name: copy.Settings });
+
+  await settings.getByRole('button', { name: copy.AiActivityTitle, exact: true }).click();
+  const history = settings
+    .getByRole('button')
+    .filter({ hasText: copy['workspace.task.material-generation'] });
+  const inspector = page.getByRole('dialog', { name: copy.AgentActivityDetails });
+  const label = kind === 'quiz' ? copy.AgentRunQuiz : copy.AgentRunFlashcards;
+
+  await expect(history).toHaveCount(2);
+
+  for (const item of await history.all()) {
+    await item.click();
+    const completed = inspector.getByRole('button', {
+      name: `${label} ${copy.AgentActivityStepComplete}`,
+      exact: true
+    });
+
+    await expect(completed.first()).toBeVisible();
+
+    if ((await completed.count()) === 2) {
+      await completed.last().scrollIntoViewIfNeeded();
+
+      return inspector;
+    }
+
+    await inspector.getByRole('button', { name: copy.Close }).click();
+  }
+
+  throw new Error('Published repaired generation is missing from activity history');
+}
+
+test.browser.stable(
+  'Quiz novelty exact repair',
+  async ({ page, study, expectScreenshot, expectAccessibility, expect }) => {
+    const target = await noveltyJourney(
+      { page, study, expectScreenshot, expectAccessibility, expect },
+      'quiz',
+      'exact repair'
+    );
+
+    await expectScreenshot('outcome', { target, ready: () => expect(target).toBeVisible() });
+  }
+);
+
+test.browser.stable(
+  'Quiz novelty semantic repair',
+  async ({ page, study, expectScreenshot, expectAccessibility, expect }) => {
+    const target = await noveltyJourney(
+      { page, study, expectScreenshot, expectAccessibility, expect },
+      'quiz',
+      'semantic repair'
+    );
+
+    await expectScreenshot('outcome', { target, ready: () => expect(target).toBeVisible() });
+  }
+);
+
+test.browser.stable(
+  'Quiz novelty exhausted repair',
+  async ({ page, study, expectScreenshot, expectAccessibility, expect }) => {
+    const target = await noveltyJourney(
+      { page, study, expectScreenshot, expectAccessibility, expect },
+      'quiz',
+      'exhausted repair'
+    );
+
+    await expectScreenshot('outcome', { target, ready: () => expect(target).toBeVisible() });
+  }
+);
+
+test.browser.stable(
+  'Quiz novelty invalid review',
+  async ({ page, study, expectScreenshot, expectAccessibility, expect }) => {
+    const target = await noveltyJourney(
+      { page, study, expectScreenshot, expectAccessibility, expect },
+      'quiz',
+      'invalid review'
+    );
+
+    await expectScreenshot('outcome', { target, ready: () => expect(target).toBeVisible() });
+  }
+);
+
+test.browser.stable(
+  'Flashcards novelty exact repair',
+  async ({ page, study, expectScreenshot, expectAccessibility, expect }) => {
+    const target = await noveltyJourney(
+      { page, study, expectScreenshot, expectAccessibility, expect },
+      'flashcards',
+      'exact repair'
+    );
+
+    await expectScreenshot('outcome', { target, ready: () => expect(target).toBeVisible() });
+  }
+);
+
+test.browser.stable(
+  'Flashcards novelty semantic repair',
+  async ({ page, study, expectScreenshot, expectAccessibility, expect }) => {
+    const target = await noveltyJourney(
+      { page, study, expectScreenshot, expectAccessibility, expect },
+      'flashcards',
+      'semantic repair'
+    );
+
+    await expectScreenshot('outcome', { target, ready: () => expect(target).toBeVisible() });
+  }
+);
+
+test.browser.stable(
+  'Flashcards novelty exhausted repair',
+  async ({ page, study, expectScreenshot, expectAccessibility, expect }) => {
+    const target = await noveltyJourney(
+      { page, study, expectScreenshot, expectAccessibility, expect },
+      'flashcards',
+      'exhausted repair'
+    );
+
+    await expectScreenshot('outcome', { target, ready: () => expect(target).toBeVisible() });
+  }
+);
+
+test.browser.stable(
+  'Flashcards novelty invalid review',
+  async ({ page, study, expectScreenshot, expectAccessibility, expect }) => {
+    const target = await noveltyJourney(
+      { page, study, expectScreenshot, expectAccessibility, expect },
+      'flashcards',
+      'invalid review'
+    );
+
+    await expectScreenshot('outcome', { target, ready: () => expect(target).toBeVisible() });
   }
 );

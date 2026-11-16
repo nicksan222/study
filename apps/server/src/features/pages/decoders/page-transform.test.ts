@@ -16,7 +16,6 @@ import { materialGenerationInputSchema } from '@study/contracts';
 import { runSelectionContextSchema } from '@study/contracts';
 import { transformPublicationSchema, transformRequestSchema } from '@study/contracts';
 import { createBlock } from '@study/contracts';
-import { standardSchema } from '@study/server';
 import { test } from '@study/testing';
 import { Schema } from 'effect';
 
@@ -267,11 +266,16 @@ test.unit.stable(
       blocks: [{ type: 'image', sourceId: '1', revision: 1, alt: 'alpha image' }],
       notes: [{ kind: 'limit', explanation: 'No external verification', blockOrdinals: [] }]
     };
-    const result = await standardSchema(pageTransformOutputSchema)['~standard'].validate(
+    const result = Schema.decodeUnknownSync(Schema.toCodecJson(pageTransformOutputSchema))(
       JSON.parse(JSON.stringify(output))
     );
 
-    assert.strictEqual(result.issues, undefined);
+    assert.deepEqual(result.blocks[0], {
+      type: 'image',
+      sourceId: '1',
+      revision: 1,
+      alt: 'alpha image'
+    });
   }
 );
 

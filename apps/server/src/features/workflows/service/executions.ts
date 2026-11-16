@@ -2,6 +2,7 @@
 
 import type {
   agentProgressInputSchema,
+  agentProgressSchema,
   cancelExecutionInputSchema,
   executionsInputSchema
 } from '@study/contracts';
@@ -72,13 +73,7 @@ export function* makeWorkflows() {
           Stream.mapEffect(() => agentProgress(input)),
           Stream.changesWith(
             (a, b) =>
-              a.length === b.length &&
-              a.every(
-                (run, index) =>
-                  run.runId === b[index]?.runId &&
-                  run.revision === b[index]?.revision &&
-                  run.executionStatus === b[index]?.executionStatus
-              )
+              a.length === b.length && a.every((run, index) => unchangedProgress(run, b[index]))
           )
         )
       ),
@@ -90,4 +85,30 @@ export function* makeWorkflows() {
     cancelExecution: (input: typeof cancelExecutionInputSchema.Type) =>
       control.cancel(input).pipe(Effect.andThen(store.execution(input.id)))
   };
+}
+
+/** Accounting may settle after the last progress revision, including after cancellation. */
+function unchangedProgress(
+  run: typeof agentProgressSchema.Type,
+  other: typeof agentProgressSchema.Type | undefined
+) {
+  if (!other) return false;
+
+  return (
+    run.runId === other.runId &&
+    run.revision === other.revision &&
+    run.executionStatus === other.executionStatus &&
+    unchangedUsage(run.usage, other.usage)
+  );
+}
+
+function unchangedUsage(
+  a: (typeof agentProgressSchema.Type)['usage'],
+  b: (typeof agentProgressSchema.Type)['usage']
+) {
+  if (a === b) return true;
+
+  if (!a || !b) return false;
+
+  return a.input === b.input && a.output === b.output && a.requests === b.requests;
 }

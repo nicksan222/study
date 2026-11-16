@@ -1,7 +1,7 @@
 import { StudyError } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Checks provider registration, public metadata and SDK model construction without   │
+ * │ @file Checks provider registration, public metadata and Effect model construction without   │
  * │ live credentials.                                                                        │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
@@ -12,6 +12,8 @@ import { StudyError } from '@study/contracts';
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import { test } from '@study/testing';
+import { Effect } from 'effect';
+import { LanguageModel, Model } from 'effect/ai';
 
 import { anthropic } from './anthropic.ts';
 import { apiKeyProviders, getApiKeyProvider, providerCatalog } from './registry.ts';
@@ -33,13 +35,14 @@ test.unit.stable('unknown providers fail before a request can be constructed', (
 });
 
 test.unit.stable(
-  'each registry entry constructs an AI SDK v3 model with the requested id',
-  ({ expect }) => {
+  'each registry entry constructs a native Effect model with the requested id',
+  async ({ expect }) => {
     for (const provider of apiKeyProviders) {
       const model = provider.createModel({ apiKey: 'test-key', modelId: 'test-model' });
 
-      expect(model.specificationVersion).toBe('v3');
-      expect(model.modelId).toBe('test-model');
+      expect(await Effect.runPromise(Model.ModelName.pipe(Effect.provide(model)))).toBe(
+        'test-model'
+      );
     }
   }
 );
@@ -137,11 +140,11 @@ test.unit.stable(
             return fetch(new URL(target.pathname + target.search, base), init);
           }
         });
-        const result = await model.doGenerate({
-          prompt: [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }]
-        });
+        const result = await Effect.runPromise(
+          LanguageModel.generateText({ prompt: 'Hello' }).pipe(Effect.provide(model))
+        );
 
-        expect(result.content).toContainEqual({ type: 'text', text: 'Hello' });
+        expect(result.text).toBe('Hello');
         expect(target?.origin).toBe(expectedOrigins[provider.id]);
         expect(authorization).toBe(
           provider.id === 'anthropic' || provider.id === 'google'
@@ -151,7 +154,7 @@ test.unit.stable(
 
         if (provider.id !== 'google') expect(requestedModel).toBe('test-model');
 
-        expect(result.finishReason.unified).toBe('stop');
+        expect(result.finishReason).toBe('stop');
       }
     } finally {
       await server.stop(true);

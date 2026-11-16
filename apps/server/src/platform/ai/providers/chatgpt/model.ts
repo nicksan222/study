@@ -1,31 +1,23 @@
-/**
- * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Adapts the signed in ChatGPT plan to AI SDK with OAuth and validated streaming.    │
- * │                                                                                          │
- * │ Responsibilities:                                                                        │
- * │ - Supplies tokens, request ownership checks and native provider capabilities.            │
- * │                                                                                          │
- * │ Boundaries:                                                                              │
- * │ ChatGPT session management owns live credentials; feature agents consume the shared SDK  │
- * │ interface.                                                                               │
- * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
- */
-
-import { createOpenAI } from '@ai-sdk/openai';
-import type { LanguageModelV3StreamPart as ImportedLanguageModelV3StreamPart } from '@ai-sdk/provider';
-import type {
-  LanguageModelV3,
-  LanguageModelV3CallOptions,
-  LanguageModelV3Content,
-  LanguageModelV3GenerateResult
-} from '@ai-sdk/provider';
+/** @file Native OpenAI Responses model using the signed-in ChatGPT plan and bounded OAuth transport. */
+import { OpenAiClient, OpenAiLanguageModel, OpenAiSchema } from '@effect/ai-openai';
 import { StudyError } from '@study/contracts';
+import { Effect, Layer, Option, Schema, Stream } from 'effect';
 import type { Clock } from 'effect';
+import { AiError, Model, OpenAiStructuredOutput } from 'effect/ai';
+import {
+  FetchHttpClient,
+  HttpClient,
+  HttpClientError,
+  HttpClientRequest,
+  HttpClientResponse
+} from 'effect/http';
 
-import type { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
-import { chatGptTools } from '#server/platform/ai/providers/chatgpt/tools';
-import { sdkFetch } from '#server/platform/ai/providers/definition';
-import { streamingFetch } from '#server/platform/http/index';
+import { AiRequestCheck } from '#server/platform/ai/model';
+import type { AiModel } from '#server/platform/ai/model';
+import { providerFetch } from '#server/platform/ai/providers/transport';
+
+import type { AuthManager } from './session.ts';
+import { chatGptTools } from './tools.ts';
 
 class ChatGptRequestError extends StudyError {
   readonly kind: 'auth' | 'rate_limited' | 'transient' | 'unsupported';
@@ -55,282 +47,235 @@ async function waitForToken(auth: AuthManager, signal?: AbortSignal | null): Pro
   });
 }
 
-/** Verify a terminal Responses event without buffering the full answer. */
-function requireTerminal(response: Response): Response {
-  if (!response.body) throw new ChatGptRequestError('transient');
-
-  const decoder = new TextDecoder();
-  let line = '';
-  let terminal = false;
-  const check = (value: string) => {
-    if (!value.startsWith('data:')) return;
-
-    try {
-      const event: unknown = JSON.parse(value.slice(5).trim());
-
-      if (
-        event !== null &&
-        typeof event === 'object' &&
-        'type' in event &&
-        typeof event.type === 'string' &&
-        ['response.completed', 'response.incomplete', 'response.failed', 'error'].includes(
-          event.type
-        )
-      )
-        terminal = true;
-    } catch {
-      /* The SDK validates event data. */
-    }
-  };
-  const body = response.body.pipeThrough(
-    new TransformStream<Uint8Array, Uint8Array>({
-      transform(chunk, controller) {
-        line += decoder.decode(chunk, { stream: true });
-
-        if (line.length > 1024 * 1024) throw new ChatGptRequestError('transient');
-
-        const lines = line.split('\n');
-
-        line = lines.pop() ?? '';
-
-        for (const item of lines) check(item.trimEnd());
-
-        controller.enqueue(chunk);
-      },
-      flush() {
-        line += decoder.decode();
-        check(line.trimEnd());
-
-        if (!terminal) throw new ChatGptRequestError('transient');
-      }
-    })
-  );
-
-  return new Response(body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: response.headers
-  });
-}
-
-type RequestCheck = (signal: AbortSignal | undefined) => Promise<void>;
-
-export interface ChatGptModel extends LanguageModelV3 {
-  providerTools: typeof chatGptTools;
-  withRequestCheck(check: RequestCheck): ChatGptModel;
-}
+export type ChatGptModel = AiModel;
 
 export interface ChatGptModelOptions {
   auth: AuthManager;
   modelId: string;
   baseUrl?: string;
   fetch?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
-  beforeRequest?: RequestCheck;
   clock?: Clock.Clock;
+  outputSchema?: Schema.Top & Schema.ConstraintDecoder<unknown>;
 }
 
-/** OpenAI Responses on the signed-in ChatGPT plan. */
+function streamFailure() {
+  return AiError.make({
+    module: 'ChatGptModel',
+    method: 'response',
+    reason: new AiError.UnknownError({
+      description: 'ChatGPT response incomplete or failed'
+    })
+  });
+}
+
+/** OpenAI's native decoder owns Responses SSE; this fence requires a successful terminal event. */
 export function createChatGptModel({
   auth,
   modelId,
   baseUrl = 'https://api.openai.com/v1',
-  fetch: request = fetch,
-  beforeRequest,
-  clock = auth.clock
+  fetch: request = globalThis.fetch,
+  clock = auth.clock,
+  outputSchema
 }: ChatGptModelOptions): ChatGptModel {
   if (!modelId) throw new Error('A ChatGPT model ID is required');
 
-  const provider = createOpenAI({
-    baseURL: baseUrl,
-    apiKey: 'oauth',
-    fetch: sdkFetch(async (url, init) => {
-      const signal = init?.signal;
+  const http = Layer.effect(
+    HttpClient.HttpClient,
+    Effect.gen(function* () {
+      const client = yield* HttpClient.HttpClient;
 
-      for (let attempt = 0; attempt < 2; attempt++) {
-        signal?.throwIfAborted();
-
-        const token = await waitForToken(auth, signal);
-
-        signal?.throwIfAborted();
-
-        const headers = new Headers(init?.headers);
-
-        headers.set('authorization', `Bearer ${token}`);
-        headers.set('accept', 'text/event-stream');
-        await beforeRequest?.(signal ?? undefined);
-
-        signal?.throwIfAborted();
-
-        const response = await streamingFetch(
-          url,
-          {
-            ...init,
-            headers,
-            redirect: 'error'
-          },
-          { fetch: request, timeoutMs: 120_000, maxBytes: 32 * 1024 * 1024, clock }
-        );
-
-        if (response.status === 401 && attempt === 0) {
-          await response.body?.cancel();
-          auth.refused(token);
-          continue;
-        }
-
-        if (response.ok) return requireTerminal(response);
-
-        const code = await responseErrorCode(response);
-        const kind = requestFailureKind(code, response.status);
-
-        throw new ChatGptRequestError(kind);
-      }
-
-      throw new Error('ChatGPT authorization failed');
+      return HttpClient.make((original) => chatHttpRequest(client, original, auth));
     })
-  });
-  const inner = provider.responses(modelId);
-  const prepare = (options: LanguageModelV3CallOptions): LanguageModelV3CallOptions => {
-    const system = options.prompt
-      .filter((item) => item.role === 'system')
-      .map((item) => item.content)
-      .join('\n\n');
+  ).pipe(
+    Layer.provide(FetchHttpClient.layer),
+    Layer.provide(Layer.succeed(FetchHttpClient.Fetch, providerFetch({ fetch: request, clock }))),
+    Layer.provide(Layer.succeed(FetchHttpClient.RequestInit, { redirect: 'error' }))
+  );
+  const clientLayer = Layer.effect(
+    OpenAiClient.OpenAiClient,
+    Effect.gen(function* () {
+      const client = yield* OpenAiClient.make({ apiUrl: baseUrl });
+      const createResponseStream: typeof client.createResponseStream = (payload) =>
+        Effect.gen(function* () {
+          const system: string[] = [];
+          const input =
+            typeof payload.input === 'string'
+              ? payload.input
+              : payload.input?.filter((item) => {
+                  if ('role' in item && (item.role === 'system' || item.role === 'developer')) {
+                    system.push(...systemText(item.content));
 
-    return {
-      ...options,
-      temperature: undefined,
-      topP: undefined,
-      maxOutputTokens: undefined,
-      prompt: options.prompt.filter((item) => item.role !== 'system'),
-      providerOptions: {
-        ...options.providerOptions,
-        openai: {
-          ...options.providerOptions?.openai,
-          instructions: system,
-          store: false,
-          systemMessageMode: 'remove'
-        }
-      }
-    };
-  };
-  const doStream: LanguageModelV3['doStream'] = async (options) => {
-    let result: Awaited<ReturnType<typeof inner.doStream>>;
+                    return false;
+                  }
 
-    try {
-      result = await inner.doStream(prepare(options));
-    } catch (error) {
-      if (options.abortSignal?.aborted) throw options.abortSignal.reason;
+                  return true;
+                });
+          const [response, events] = yield* client.createResponseStream({
+            ...payload,
+            input,
+            instructions: [payload.instructions, ...system].filter(Boolean).join('\n\n'),
+            text: outputSchema
+              ? {
+                  ...payload.text,
+                  format: {
+                    type: 'json_schema',
+                    name: 'response',
+                    strict: true,
+                    schema: OpenAiStructuredOutput.toCodecOpenAI(outputSchema).jsonSchema
+                  }
+                }
+              : payload.text,
+            store: false,
+            temperature: undefined,
+            top_p: undefined,
+            max_output_tokens: undefined
+          });
+          let completed = false;
 
-      throwProviderFailure(error);
-    }
+          return [
+            response,
+            events.pipe(
+              Stream.mapEffect((event) => {
+                if (event.type === 'error') return Effect.fail(streamFailure());
 
-    const reader = result.stream.getReader();
-    const stream = new ReadableStream<ImportedLanguageModelV3StreamPart>({
-      async pull(controller) {
-        try {
-          const item = await reader.read();
+                if (
+                  event.type === 'response.failed' &&
+                  event.response &&
+                  typeof event.response === 'object'
+                )
+                  return Effect.succeed({
+                    ...event,
+                    response: { ...event.response, error: undefined }
+                  });
 
-          if (item.done) {
-            controller.close();
+                if (event.type === 'response.completed') completed = true;
 
-            return;
-          }
-
-          controller.enqueue(
-            item.value.type === 'error'
-              ? { type: 'error', error: new ChatGptRequestError('transient') }
-              : item.value
-          );
-        } catch {
-          if (options.abortSignal?.aborted) controller.error(options.abortSignal.reason);
-          else controller.error(new ChatGptRequestError('transient'));
-        }
-      },
-      async cancel(reason) {
-        await reader.cancel(reason);
-      }
-    });
-
-    return { ...result, stream };
-  };
-
-  return {
-    specificationVersion: 'v3',
-    provider: 'chatgpt',
-    providerTools: chatGptTools,
-    withRequestCheck: (check) =>
-      createChatGptModel({
-        auth,
-        modelId,
-        baseUrl,
-        fetch: request,
-        clock,
-        beforeRequest: async (signal) => {
-          await beforeRequest?.(signal);
-          await check(signal);
-        }
-      }),
-    modelId,
-    supportedUrls: inner.supportedUrls,
-    doStream,
-    async doGenerate(options): Promise<LanguageModelV3GenerateResult> {
-      const streamed = await doStream(options);
-      const content: LanguageModelV3Content[] = [];
-      const text = new Map<string, { type: 'text' | 'reasoning'; text: string }>();
-      let finish:
-        | Extract<
-            Awaited<ReturnType<typeof doStream>>['stream'] extends ReadableStream<infer T>
-              ? T
-              : never,
-            { type: 'finish' }
-          >
-        | undefined;
-      let warnings: LanguageModelV3GenerateResult['warnings'] = [];
-      let metadata: LanguageModelV3GenerateResult['response'];
-
-      function appendText(part: ImportedLanguageModelV3StreamPart) {
-        if (part.type === 'text-start' || part.type === 'reasoning-start') {
-          const item = {
-            type: part.type === 'text-start' ? ('text' as const) : ('reasoning' as const),
-            text: ''
-          };
-
-          text.set(part.id, item);
-          content.push(item);
-        } else if (part.type === 'text-delta' || part.type === 'reasoning-delta') {
-          const item = text.get(part.id);
-
-          if (item) item.text += part.delta;
-        } else return false;
-
-        return true;
-      }
-
-      for await (const part of streamed.stream) {
-        if (part.type === 'stream-start') warnings = part.warnings;
-        else if (part.type === 'response-metadata')
-          metadata = {
-            id: part.id,
-            timestamp: part.timestamp,
-            modelId: part.modelId
-          };
-        else if (appendText(part)) continue;
-        else if (isContentPart(part)) content.push(part);
-        else if (part.type === 'error') throw new Error('ChatGPT stream failed');
-        else if (part.type === 'finish') finish = part;
-      }
-
-      if (!finish) throw new Error('ChatGPT response incomplete or failed');
+                return Effect.succeed(event);
+              }),
+              Stream.concat(
+                Stream.fromEffect(
+                  Effect.suspend(() => (completed ? Effect.void : Effect.fail(streamFailure())))
+                ).pipe(Stream.drain)
+              )
+            )
+          ] as const;
+        });
 
       return {
-        content,
-        finishReason: finish.finishReason,
-        usage: finish.usage,
-        providerMetadata: finish.providerMetadata,
-        warnings,
-        response: metadata
-      };
+        ...client,
+        createResponseStream,
+        createResponse: (payload) =>
+          Effect.gen(function* () {
+            const [response, events] = yield* createResponseStream(payload);
+            const terminal = yield* Stream.runCollect(
+              events.pipe(Stream.filter((event) => event.type === 'response.completed'))
+            );
+            const completed = terminal[0];
+
+            if (!completed || completed.type !== 'response.completed')
+              return yield* Effect.fail(streamFailure());
+
+            const body = yield* Schema.decodeUnknownEffect(OpenAiSchema.Response)(
+              completed.response
+            ).pipe(Effect.mapError(() => streamFailure()));
+
+            return [body, response] as const;
+          })
+      } satisfies typeof client;
+    })
+  ).pipe(Layer.provide(http));
+
+  return Object.assign(
+    Model.make(
+      'chatgpt' as string,
+      modelId,
+      OpenAiLanguageModel.layer({ model: modelId, config: { store: false } }).pipe(
+        Layer.provide(clientLayer)
+      )
+    ),
+    {
+      providerTools: chatGptTools,
+      withOutputSchema: (schema: Schema.Top & Schema.ConstraintDecoder<unknown>) => ({
+        model: createChatGptModel({
+          auth,
+          modelId,
+          baseUrl,
+          fetch: request,
+          clock,
+          outputSchema: schema
+        }),
+        codec: OpenAiStructuredOutput.toCodecOpenAI(schema).codec
+      })
     }
-  };
+  );
+}
+
+function systemText(content: unknown): string[] {
+  if (typeof content === 'string') return [content];
+
+  if (!Array.isArray(content)) return [];
+
+  return content.flatMap((part: unknown) =>
+    part && typeof part === 'object' && 'text' in part && typeof part.text === 'string'
+      ? [part.text]
+      : []
+  );
+}
+
+function chatHttpRequest(
+  client: HttpClient.HttpClient,
+  original: HttpClientRequest.HttpClientRequest,
+  auth: AuthManager
+) {
+  return Effect.gen(function* () {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const token = yield* Effect.tryPromise({
+        try: (signal) => waitForToken(auth, signal),
+        catch: (cause) => cause
+      });
+
+      yield* yield* AiRequestCheck;
+      const outgoing = original.pipe(
+        HttpClientRequest.bearerToken(token),
+        HttpClientRequest.setHeader('accept', 'text/event-stream')
+      );
+      const response = yield* client.execute(outgoing);
+
+      if (response.status === 401 && attempt === 0) {
+        yield* Effect.tryPromise({
+          try: async () => {
+            await Option.getOrUndefined(HttpClientResponse.toWeb(response))?.body?.cancel();
+          },
+          catch: (cause) => cause
+        });
+        auth.refused(token);
+        continue;
+      }
+
+      if (response.status >= 200 && response.status < 300) return response;
+
+      const code = yield* Effect.tryPromise({
+        try: () => responseErrorCode(Option.getOrThrow(HttpClientResponse.toWeb(response))),
+        catch: (cause) => cause
+      });
+
+      return yield* Effect.fail(new ChatGptRequestError(requestFailureKind(code, response.status)));
+    }
+
+    return yield* Effect.fail(new ChatGptRequestError('auth'));
+  }).pipe(
+    Effect.catch((cause) =>
+      cause instanceof StudyError
+        ? Effect.die(cause)
+        : Effect.fail(
+            cause instanceof HttpClientError.HttpClientError
+              ? cause
+              : new HttpClientError.HttpClientError({
+                  reason: new HttpClientError.TransportError({ request: original, cause })
+                })
+          )
+    )
+  );
 }
 
 async function responseErrorCode(response: Response) {
@@ -370,29 +315,4 @@ function requestFailureKind(code: string, status: number) {
           : 'transient';
 
   return kind;
-}
-
-function throwProviderFailure(error: unknown): never {
-  if (error instanceof ChatGptRequestError || error instanceof StudyError) throw error;
-
-  if (
-    error &&
-    typeof error === 'object' &&
-    'cause' in error &&
-    (error.cause instanceof ChatGptRequestError || error.cause instanceof StudyError)
-  )
-    throw error.cause;
-
-  throw new ChatGptRequestError('transient');
-}
-
-function isContentPart(
-  part: ImportedLanguageModelV3StreamPart
-): part is Extract<
-  ImportedLanguageModelV3StreamPart,
-  { type: 'tool-call' | 'tool-result' | 'tool-approval-request' | 'file' | 'source' }
-> {
-  return ['tool-call', 'tool-result', 'tool-approval-request', 'file', 'source'].includes(
-    part.type
-  );
 }

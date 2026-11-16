@@ -52,6 +52,7 @@ export function learningGeneration(f: Fixture, assert: TestAssertion) {
 
 export function queueLearningGeneration(f: Fixture) {
   f.replies.push(
+    { kind: 'output', output: '{"focus":["Explore shared generation evidence"]}' },
     { kind: 'sources', query: 'generation evidence' },
     {
       kind: 'output',
@@ -59,6 +60,7 @@ export function queueLearningGeneration(f: Fixture) {
         kind: 'flashcards',
         cards: [{ front: 'GENERATED_HISTORICAL_BODY [1]', back: 'Shared generation evidence' }]
       }
-    }
+    },
+    { kind: 'output', output: '{"duplicates":[]}' }
   );
 }

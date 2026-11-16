@@ -1,3 +1,17 @@
+export {
+  materialNoveltyItemSchema,
+  materialGenerationHistorySchema,
+  materialGenerationHistoryReferencesSchema,
+  materialGenerationProcedureInputSchema,
+  materialGenerationHistoryInputSchema,
+  materialGenerationPlanProcedureInputSchema,
+  materialGenerationCandidateInputSchema,
+  materialNoveltyProcedureInputSchema,
+  materialGenerationPlanSchema,
+  materialNoveltyReviewSchema,
+  materialGenerationPlanInputSchema,
+  materialNoveltyReviewInputSchema
+} from './ai/material-generation.ts';
 export { materialStudyNotesSchema } from './ai/material-study-notes.ts';
 export type { AssistantToolName } from './ai/assistant-tools.ts';
 export { assistantToolNameSchema } from './ai/assistant-tools.ts';
@@ -12,6 +26,10 @@ export {
   agentProgressPageSchema,
   agentProgressSchema,
   agentRunIdSchema,
+  agentToolDetailSchema,
+  procedurePurposeSchema,
+  procedureTraceSchema,
+  procedureUsageSchema,
   agentToolProgressSchema,
   agentUpdateSchema
 } from './ai/progress.ts';

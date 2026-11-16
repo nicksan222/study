@@ -1,16 +1,4 @@
 import type { MessageId, NoteId, VersionId } from '@study/contracts';
-/**
- * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Exercises persisted Assistant notes through the native workflow and                │
- * │ streaming provider.                                                                      │
- * │                                                                                          │
- * │ Responsibilities:                                                                        │
- * │ - Verifies tool-free replies, idempotent sends and persisted history.                    │
- * │                                                                                          │
- * │ Boundaries:                                                                              │
- * │ Uses real SQLite and a local provider peer without accessing external accounts.          │
- * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
- */
 import { NoteMode } from '@study/contracts';
 import { defaultAgentRules } from '@study/contracts';
 import * as s from '@study/db';
@@ -33,6 +21,19 @@ import { settingsTools } from '#server/features/notes/tools/settings';
 import { subjectTools } from '#server/features/notes/tools/subjects';
 import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises persisted Assistant notes through the native workflow and                │
+ * │ streaming provider.                                                                      │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Verifies tool-free replies, idempotent sends and persisted history.                    │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Uses real SQLite and a local provider peer without accessing external accounts.          │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+import { textResponseEvents, toolResponseEvents } from '#testing/responses';
 import { withTestAdmission } from '#testing/workflow-admission';
 
 import { noteReplyHandler, noteReplyWorkflow } from './index.ts';
@@ -102,33 +103,15 @@ test.server.stable(
             ...callStep
           };
 
-          for (const event of [
-            { type: 'response.output_item.added', output_index: 0, item: call },
-            {
-              type: 'response.output_item.done',
-              output_index: 0,
-              item: { ...call, status: 'completed' }
-            },
-            { type: 'response.completed', response: {} }
-          ])
+          for (const event of toolResponseEvents(call))
             events += `data: ${JSON.stringify(event)}\n\n`;
 
           return new Response(events, { headers: { 'content-type': 'text/event-stream' } });
         }
 
-        for (const event of [
-          {
-            type: 'response.output_item.added',
-            output_index: 0,
-            item: { type: 'message', id: 'm' }
-          },
-          {
-            type: 'response.output_text.delta',
-            item_id: 'm',
-            delta: 'Hello **learner**. Index array[0], then consider [1].'
-          },
-          { type: 'response.completed', response: {} }
-        ])
+        for (const event of textResponseEvents(
+          'Hello **learner**. Index array[0], then consider [1].'
+        ))
           events += `data: ${JSON.stringify(event)}\n\n`;
 
         return new Response(events, { headers: { 'content-type': 'text/event-stream' } });

@@ -29,6 +29,8 @@ export const flashcardsAgent = defineAgent({
   tools: { sources: sourcesTool },
   mode: 'object',
   id: 'flashcards',
+  purpose: 'flashcards',
+  recordInput: false,
   customRules: [AgentRule.Flashcards],
   output: materialFlashcardsContentInputSchema,
   model: 'medium',

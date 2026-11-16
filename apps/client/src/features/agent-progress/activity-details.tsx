@@ -1,42 +1,15 @@
 import type { agentProgressInputSchema, agentProgressSchema } from '@study/contracts';
 import { agentProgressLimit } from '@study/contracts';
-import { CompletedIcon, ErrorIcon, CancelledIcon, ThinkingIcon } from '@study/icons';
-import {
-  Dialog,
-  DialogPopup,
-  DialogBody,
-  DialogHeading,
-  GenerationPreview,
-  Trace,
-  TraceLine,
-  TraceIcon,
-  TraceTitle,
-  TraceDescription
-} from '@study/ui';
+import { Dialog, DialogPopup, DialogBody, DialogHeading, Trace, TraceDescription } from '@study/ui';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import type { AgentActivityStatus as Status } from './activity';
-import { AgentToolCall } from './tool-call';
-import { settledAgentTool } from './tool-state';
+import { RunHistory } from './run-history';
 import { useAgentProgress } from './use-agent-progress';
 
 type Run = typeof agentProgressSchema.Type;
-
-const labels = {
-  running: 'workspace.state.running',
-  completed: 'AgentActivityStepComplete',
-  failed: 'AgentActivityStepFailed',
-  cancelled: 'AgentActivityStepCancelled'
-} as const;
-
-const icons = {
-  running: ThinkingIcon,
-  completed: CompletedIcon,
-  failed: ErrorIcon,
-  cancelled: CancelledIcon
-};
 
 /** The same persisted history opens on demand, outside the sidebar's compact status. */
 export function AgentActivityDetails({
@@ -82,39 +55,15 @@ function ActivityHistory({
       )}
       {progress.isError && <TraceDescription>{t('AgentActivityUnavailable')}</TraceDescription>}
       {!progress.isError && !runs.length && (
-        <TraceDescription>{t('AgentActivityWaiting')}</TraceDescription>
+        <TraceDescription>
+          {t(
+            status === 'running' || status === 'waiting' || status === 'stopping'
+              ? 'AgentActivityWaiting'
+              : 'AgentActivityEmpty'
+          )}
+        </TraceDescription>
       )}
-      {runs.map((run, index) => {
-        const Icon = icons[run.status];
-        const text = run.mode === 'text' ? run.text : undefined;
-
-        return (
-          <div key={run.runId}>
-            <TraceLine
-              status={
-                run.status === 'running' ? 'running' : run.status === 'failed' ? 'error' : undefined
-              }
-            >
-              <TraceIcon>
-                <Icon />
-              </TraceIcon>
-              <TraceTitle>{t('AgentActivityStep', { number: index + 1 })}</TraceTitle>
-              <TraceDescription>{t(labels[run.status])}</TraceDescription>
-            </TraceLine>
-            {run.tools.map((tool) => (
-              <AgentToolCall key={tool.toolCallId} tool={settledAgentTool(tool, run)} />
-            ))}
-            {text && (
-              <GenerationPreview
-                label={t(labels[run.status])}
-                text={text}
-                variant="compact"
-                streaming={run.status === 'running'}
-              />
-            )}
-          </div>
-        );
-      })}
+      <RunHistory runs={runs} />
     </Trace>
   );
 }

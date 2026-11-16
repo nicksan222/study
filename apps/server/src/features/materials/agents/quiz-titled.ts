@@ -23,6 +23,8 @@ import { materialStudyContext } from './study-context.ts';
 export const quizTitledAgent = defineAgent({
   context: materialStudyContext,
   id: 'quiz-titled',
+  purpose: 'quiz',
+  recordInput: false,
   customRules: [AgentRule.Quizzes, AgentRule.Titles],
   input: promptInputSchema,
   output: titledQuizGenerationOutputSchema,

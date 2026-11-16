@@ -15,8 +15,8 @@ import type { promptInputSchema } from '@study/contracts';
 import { StudyError } from '@study/contracts';
 import type { Failure } from '@study/contracts';
 import type { Document } from '@study/contracts';
-import type { ModelMessage } from 'ai';
 import { Effect, Schema } from 'effect';
+import { Prompt } from 'effect/ai';
 
 import { Agents, generateAgent } from '#server/platform/ai/agents';
 import { createPassageEvidenceCatalog } from '#server/platform/ai/evidence';
@@ -28,7 +28,7 @@ import type { SourcePassagePlan, SourcePlanLimits, SourceSelection } from './pla
 import { acceptSourcePlan, processSourcePassages } from './runner.ts';
 import type { ContextReductionLimits } from './runner.ts';
 
-type AgentPrompt = string | ModelMessage[];
+type AgentPrompt = Prompt.RawInput;
 
 export type ContextServices = Effect.Services<
   ReturnType<typeof processSourcePassages<string, string, never>>
@@ -132,10 +132,7 @@ function asStudyError(error: Failure) {
       });
 }
 
-function boundedPrompt<A extends string | ModelMessage[]>(
-  prompt: A,
-  limits: typeof defaultPromptLimits
-): A {
+function boundedPrompt<A extends AgentPrompt>(prompt: A, limits: typeof defaultPromptLimits): A {
   const { maxBytes, reservedBytes } = limits;
 
   if (
@@ -224,9 +221,7 @@ function originalEvidence<Ref>(
 }
 
 function appendContext(original: AgentPrompt, context: string): AgentPrompt {
-  return typeof original === 'string'
-    ? `${original}\n${context}`
-    : [...original, { role: 'user', content: context }];
+  return Prompt.concat(Prompt.make(original), Prompt.make(context));
 }
 
 function directContextPrompt<Ref>(

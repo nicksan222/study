@@ -1,5 +1,5 @@
-import type { LanguageModelV3 } from '@ai-sdk/provider';
-import { Effect, Schema } from 'effect';
+import { Effect, Layer, Schema, Stream } from 'effect';
+import { AiError, LanguageModel, Model, Response } from 'effect/ai';
 
 type PureCodec = Schema.ConstraintCodec<unknown, unknown, never, never>;
 
@@ -203,62 +203,70 @@ export function createAiMock() {
     return reserve(call).consume(call.input, signal);
   }
 
-  function model(call: Invocation): LanguageModelV3 {
+  function model(call: Invocation) {
     const plan = reserve(call);
     let outcome: Promise<MockResult> | undefined;
-    const text = async (signal?: AbortSignal) => {
-      signal?.throwIfAborted();
-      // Provider retries belong to this logical invocation, never the next expectation.
-      outcome ??= plan.consume(call.input, signal);
-      const { json: encoded } = await outcome;
+    const text = Effect.tryPromise({
+      try: async (signal) => {
+        signal.throwIfAborted();
+        // Provider retries belong to this logical invocation, never the next expectation.
+        outcome ??= plan.consume(call.input, signal);
+        const { json: encoded } = await outcome;
 
-      signal?.throwIfAborted();
+        signal.throwIfAborted();
 
-      if (call.definition.mode !== 'object' && typeof encoded !== 'string')
-        return fail('Text agent mock output must encode as a string');
+        if (call.definition.mode !== 'object' && typeof encoded !== 'string')
+          return fail('Text agent mock output must encode as a string');
 
-      return typeof encoded === 'string' && call.definition.mode !== 'object'
-        ? encoded
-        : JSON.stringify(encoded);
-    };
-    const usage = {
-      inputTokens: { total: 0, noCache: 0, cacheRead: 0, cacheWrite: 0 },
-      outputTokens: { total: 0, text: 0, reasoning: 0 }
-    };
-
-    return {
-      specificationVersion: 'v3',
-      provider: 'study-testing',
-      modelId: 'typed-mock',
-      supportedUrls: {},
-      async doGenerate(options) {
-        return {
-          content: [{ type: 'text', text: await text(options.abortSignal) }],
-          finishReason: { unified: 'stop', raw: 'stop' },
-          usage,
-          warnings: []
-        };
+        return typeof encoded === 'string' && call.definition.mode !== 'object'
+          ? encoded
+          : JSON.stringify(encoded);
       },
-      async doStream(options) {
-        const output = await text(options.abortSignal);
+      catch: (cause) =>
+        cause instanceof AiError.AiError
+          ? cause
+          : Object.assign(
+              AiError.make({
+                module: 'study-testing',
+                method: 'generateText',
+                reason: new AiError.UnknownError({
+                  description: cause instanceof Error ? cause.message : String(cause)
+                })
+              }),
+              { cause }
+            )
+    });
+    const finish = Response.makePart('finish', {
+      reason: 'stop',
+      usage: new Response.Usage({ inputTokens: { total: 0 }, outputTokens: { total: 0 } })
+    });
 
-        return {
-          stream: new ReadableStream({
-            start(controller) {
-              controller.enqueue({ type: 'text-start', id: 'output' });
-              controller.enqueue({ type: 'text-delta', id: 'output', delta: output });
-              controller.enqueue({ type: 'text-end', id: 'output' });
-              controller.enqueue({
-                type: 'finish',
-                finishReason: { unified: 'stop', raw: 'stop' },
-                usage
-              });
-              controller.close();
-            }
-          })
-        };
-      }
-    };
+    return Model.make(
+      'study-testing' as string,
+      'typed-mock',
+      Layer.effect(
+        LanguageModel.LanguageModel,
+        LanguageModel.make({
+          generateText: () =>
+            text.pipe(
+              Effect.map((output) => [Response.makePart('text', { text: output }), finish])
+            ),
+          streamText: () =>
+            Stream.unwrap(
+              text.pipe(
+                Effect.map((output) =>
+                  Stream.fromArray([
+                    Response.makePart('text-start', { id: 'output' }),
+                    Response.makePart('text-delta', { id: 'output', delta: output }),
+                    Response.makePart('text-end', { id: 'output' }),
+                    finish
+                  ])
+                )
+              )
+            )
+        })
+      )
+    );
   }
 
   function verify() {

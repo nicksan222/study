@@ -13,15 +13,17 @@
 import { agentRunIdSchema } from '@study/contracts';
 import { executionIdSchema } from '@study/contracts';
 import { eq } from '@study/db';
-import { workflow_executions } from '@study/db';
+import { aiUsage, workflow_executions } from '@study/db';
 import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
 import { Workflow, WorkflowEngine } from 'effect/workflow';
 
 import { ServerContext } from '#server/platform/database/context';
+import { liveClock } from '#server/platform/time/index';
 import {
   agentProgressSnapshot,
-  observeAgentProgress
+  observeAgentProgress,
+  discardInterruptedAgentProgress
 } from '#server/platform/workflows/agent-progress';
 
 const definition = Workflow.make('progress-test', {
@@ -97,6 +99,21 @@ test.server.stable(
         .run();
       await expect(emit({ type: 'text-delta', text: 'stale' })).rejects.toThrow();
       expect(read()).toEqual([]);
+      context.db.orm
+        .update(workflow_executions)
+        .set({ status: 'cancelled' })
+        .where(eq(workflow_executions.execution_id, executionId))
+        .run();
+      expect(read()[0]).toMatchObject({ text: 'Current', executionStatus: 'cancelled' });
+
+      for (const status of ['suspended', 'blocked'] as const) {
+        context.db.orm
+          .update(workflow_executions)
+          .set({ status, cancellation_mode: null })
+          .where(eq(workflow_executions.execution_id, executionId))
+          .run();
+        expect(read()[0]).toMatchObject({ text: 'Current', executionStatus: status });
+      }
     } finally {
       unsubscribe();
       context.close();
@@ -166,3 +183,98 @@ for (const phase of ['preparing', 'compacting', 'generating', undefined] as cons
       }
     }
   );
+
+test.server.stable(
+  'trace ancestry, terminal details and usage survive reopening; interrupted work stays recorded',
+  async ({ databases, expect }) => {
+    const location = await databases();
+    const operationalClock = { ...liveClock(), currentTimeMillisUnsafe: () => 999999 };
+    const timestampClock = { ...liveClock(), currentTimeMillisUnsafe: () => 123456 };
+    let context = new ServerContext(await location.open(), operationalClock, timestampClock);
+    const executionId = executionIdSchema.make('trace-run');
+    const runId = agentRunIdSchema.make('trace-agent');
+    const instance = WorkflowEngine.WorkflowInstance.initial(definition, executionId);
+    const emit = (event: Parameters<ReturnType<typeof observeAgentProgress>>[0]['event']) =>
+      Effect.runPromise(
+        observeAgentProgress(context)({
+          runId,
+          agentId: 'reply',
+          mode: 'object',
+          trace: {
+            kind: 'agent',
+            purpose: 'response',
+            parentRunId: agentRunIdSchema.make('parent'),
+            parentToolCallId: 'tool-1',
+            attempt: 2,
+            startedAtMs: 1n,
+            input: { text: 'input', truncated: false }
+          },
+          event
+        }).pipe(Effect.provideService(WorkflowEngine.WorkflowInstance, instance))
+      );
+    const read = () => agentProgressSnapshot(context, { executionId })[0];
+
+    try {
+      context.db.orm
+        .insert(workflow_executions)
+        .values({
+          execution_id: executionId,
+          workflow_tag: definition._tag,
+          version: 1,
+          payload: '{}',
+          status: 'running',
+          created_at: 0n,
+          updated_at: 0n
+        })
+        .run();
+      await emit({ type: 'start' });
+      context.db.orm
+        .insert(aiUsage)
+        .values(
+          [1, 2].map((index) => ({
+            id: `usage-${index}`,
+            runId,
+            agent: 'reply',
+            provider: 'test',
+            model: 'test',
+            timestamp: 0,
+            input: index * 10,
+            output: index * 2,
+            cacheRead: 0,
+            cacheWrite: 0,
+            reasoning: 0,
+            incomplete: false
+          }))
+        )
+        .run();
+      await emit({ type: 'complete', output: { text: 'result', truncated: false } });
+      context.close();
+      context = new ServerContext(await location.open(), operationalClock, timestampClock);
+      expect(read()).toMatchObject({
+        status: 'completed',
+        updatedAtMs: 123456n,
+        usage: { input: 30, output: 6, requests: 2 },
+        trace: {
+          parentRunId: 'parent',
+          parentToolCallId: 'tool-1',
+          attempt: 2,
+          input: { text: 'input' },
+          output: { text: 'result' },
+          finishedAtMs: 123456n
+        }
+      });
+      await emit({ type: 'start' });
+      await emit({ type: 'tool-start', toolCallId: 'pending', toolName: 'search' });
+      discardInterruptedAgentProgress(context);
+      expect(read()).toMatchObject({
+        status: 'cancelled',
+        failureKind: 'cancelled',
+        trace: { finishedAtMs: 123456n }
+      });
+      await expect(emit({ type: 'complete' })).rejects.toThrow();
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
+  }
+);

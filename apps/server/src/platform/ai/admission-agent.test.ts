@@ -1,4 +1,13 @@
 import { StudyError } from '@study/contracts';
+import { AgentRule } from '@study/contracts';
+import { defaultAgentRules } from '@study/contracts';
+import { test } from '@study/testing';
+import { Deferred, Effect, Fiber, Schema } from 'effect';
+
+import { generateAgent, layer } from '#server/platform/ai/agents';
+import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
+import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
+import { defineAgent } from '#server/platform/definitions/define-agent';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises AI admission at the agent boundary with a local Responses API peer. It   │
@@ -15,15 +24,7 @@ import { StudyError } from '@study/contracts';
  * │ and closes that peer.                                                                    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-import { AgentRule } from '@study/contracts';
-import { defaultAgentRules } from '@study/contracts';
-import { test } from '@study/testing';
-import { Deferred, Effect, Fiber, Schema } from 'effect';
-
-import { generateAgent, layer } from '#server/platform/ai/agents';
-import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
-import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
-import { defineAgent } from '#server/platform/definitions/define-agent';
+import { textResponseEvents } from '#testing/responses';
 
 test.unit.stable(
   'queued agents cannot preflight or dispatch until admitted and cancelled waiters never dispatch',
@@ -102,15 +103,7 @@ test.unit.stable(
           assert.strictEqual(queuedChecks, 0);
 
           for (const resolve of responses) {
-            const events = [
-              {
-                type: 'response.output_item.added',
-                output_index: 0,
-                item: { type: 'message', id: 'm' }
-              },
-              { type: 'response.output_text.delta', item_id: 'm', delta: 'ok' },
-              { type: 'response.completed', response: {} }
-            ]
+            const events = textResponseEvents('ok')
               .map((event) => `data: ${JSON.stringify(event)}\n\n`)
               .join('');
 
