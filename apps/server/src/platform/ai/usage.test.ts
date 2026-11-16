@@ -25,18 +25,21 @@ const usage = (
   outputTokens: { total: output, text: undefined, reasoning: 3 }
 });
 
-test.stable('cached input and reasoning remain subsets of the reported totals', ({ expect }) => {
-  expect(normalizeUsage(usage(100, 80, 10))).toEqual({
-    input: 100,
-    cacheRead: 80,
-    cacheWrite: 0,
-    output: 10,
-    reasoning: 3,
-    incomplete: false
-  });
-});
+test.unit.stable(
+  'cached input and reasoning remain subsets of the reported totals',
+  ({ expect }) => {
+    expect(normalizeUsage(usage(100, 80, 10))).toEqual({
+      input: 100,
+      cacheRead: 80,
+      cacheWrite: 0,
+      output: 10,
+      reasoning: 3,
+      incomplete: false
+    });
+  }
+);
 
-test.stable(
+test.unit.stable(
   'unknown and inconsistent counts are marked incomplete without inventing tokens',
   ({ expect }) => {
     expect(normalizeUsage(usage(undefined, undefined, undefined)).incomplete).toBe(true);
@@ -51,7 +54,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'provider strategies inherit per-call tracking for streaming and generation',
   async ({ expect }) => {
     const records: UsageRecord[] = [];

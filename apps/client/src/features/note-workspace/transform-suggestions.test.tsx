@@ -10,7 +10,7 @@ let api: ReturnType<typeof createMockState>['api'];
 
 const id = noteIdSchema.make(1n);
 
-let fixture: ReturnType<test.Context['rpcTestTransport']>;
+let fixture: ReturnType<test.unit.Context['rpcTestTransport']>;
 
 let revision = 1n;
 
@@ -24,7 +24,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   api = __mockState.api;
@@ -43,7 +43,7 @@ test.beforeEach(async ({ mock }) => {
   Transformation = __mockModule0.Transformation;
 });
 
-test.beforeEach(({ vi, rpcTestTransport }) => {
+test.unit.beforeEach(({ vi, rpcTestTransport }) => {
   vi.resetAllMocks();
   api.readiness = 'ready';
   revision = 1n;
@@ -71,11 +71,11 @@ test.beforeEach(({ vi, rpcTestTransport }) => {
     throw new StudyError('unsupported', tag);
   });
 });
-test.afterEach(({ cleanup }) => {
+test.unit.afterEach(({ cleanup }) => {
   cleanup();
 });
 
-function mount({ render }: Pick<test.Context, 'render'>, active = true) {
+function mount({ render }: Pick<test.unit.Context, 'render'>, active = true) {
   return render(
     <Provider>
       <Transformation id={id} active={active} />
@@ -92,7 +92,7 @@ function deferred() {
   return { promise, resolve };
 }
 
-test.stable(
+test.unit.stable(
   'generates each field independently and preserves edits during generation',
   async ({ waitFor, expect, screen, fireEvent, act, render }) => {
     const title = deferred();
@@ -123,7 +123,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'ignores old results after dismiss and reopen even when kept mounted',
   async ({ waitFor, expect, screen, fireEvent, act, render }) => {
     const title = deferred();
@@ -151,7 +151,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shows a field error without clearing the other field and allows retry',
   async ({ waitFor, expect, screen, fireEvent, render }) => {
     api.suggest
@@ -171,7 +171,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'ignores results after saved context changes or the selected notes change',
   async ({ waitFor, expect, screen, fireEvent, act, render }) => {
     const title = deferred();
@@ -214,7 +214,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'disables suggestions above twenty notes without truncating the selection',
   ({ render, expect, screen }) => {
     render(
@@ -235,7 +235,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'offers retry guidance for invalid model output',
   async ({ waitFor, expect, screen, fireEvent, render }) => {
     api.suggest.mockRejectedValue(new StudyError('transient', 'Invalid transform suggestion'));
@@ -249,7 +249,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'blocks new suggestions and page creation when setup is missing',
   async ({ expect, screen, waitFor, fireEvent, render }) => {
     api.readiness = 'setup';

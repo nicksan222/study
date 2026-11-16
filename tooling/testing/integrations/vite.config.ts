@@ -17,7 +17,7 @@ export default defineConfig({
   root: Bun.fileURLToPath(new URL('../../../', import.meta.url)),
   test: {
     name: 'integrations',
-    setupFiles: ['packages/testing/src/setup.ts'],
+    setupFiles: ['apps/server/test/testing/setup.ts'],
     reporters: [
       'verbose',
       ['junit', { outputFile: 'tooling/test-results/vitest/integrations.xml' }]

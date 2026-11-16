@@ -2,7 +2,7 @@ import { projectIdSchema, automaticProjectIcon } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 
-test.stable.for(['english', 'italian'] as const)(
+test.unit.stable.for(['english', 'italian'] as const)(
   'opens the Projects page in %s',
   async (locale, { page, rpc, expect, screen }) => {
     rpc.given({

@@ -20,11 +20,11 @@ function createApi(mock: test.Mock) {
 
 let api: ReturnType<typeof createApi>;
 
-test.beforeEach(({ mock }) => {
+test.unit.beforeEach(({ mock }) => {
   api = createApi(mock);
 });
 
-function fixture({ rpcTestTransport }: Pick<test.Context, 'rpcTestTransport'>) {
+function fixture({ rpcTestTransport }: Pick<test.unit.Context, 'rpcTestTransport'>) {
   return rpcTestTransport(async (tag, input) => {
     if (tag === 'integrations.imports') return api.imports();
 
@@ -59,7 +59,7 @@ function previewState(): typeof integrationImportSchema.Type {
   };
 }
 
-test.stable(
+test.unit.stable(
   'retains the reviewed import identity and exclusions when a start response is lost',
   async ({ renderHook, waitFor, expect, act, rpcTestTransport }) => {
     const state = previewState();
@@ -97,7 +97,7 @@ test.stable(
   }
 );
 
-test.stable.for([
+test.unit.stable.for([
   { attempt: 0, resumable: false },
   { attempt: 1, resumable: true }
 ])(

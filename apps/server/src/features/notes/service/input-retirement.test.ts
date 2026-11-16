@@ -37,7 +37,7 @@ import { withTestAdmission } from '#testing/workflow-admission';
 type Fixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
 function replyEvent(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
   f: Fixture,
   requestId: string
 ) {
@@ -58,7 +58,7 @@ function replyEvent(
 
 for (const kind of ['document', 'source'] as const)
   for (const second of [false, true])
-    test.stable(
+    test.server.stable(
       `${kind} exact reply ${second ? (kind === 'document' ? 'rewrite' : 'generated checkpoint') : 'pending capture'} protects history until explicit raw note cleanup`,
       async ({ databases, assert: assertions, expect }) => {
         const assert: test.Assert = assertions;

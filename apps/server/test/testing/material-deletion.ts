@@ -30,7 +30,7 @@ import { refreshTestExecution } from '#testing/workflow-admission';
 
 export type MaterialDeletionFixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
-type TestAssertion = Pick<test.Context, 'assert'>['assert'];
+type TestAssertion = Pick<test.server.Context, 'assert'>['assert'];
 
 export function acceptMaterialDeletion(fixture: MaterialDeletionFixture, materialId: MaterialId) {
   return Effect.runPromise(

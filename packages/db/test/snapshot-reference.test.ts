@@ -6,7 +6,7 @@ import { Db } from '../src/db.ts';
 
 const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
-test.stable(
+test.server.stable(
   'snapshot checks build one trusted reference but inspect every candidate',
   async ({ onTestFinished, createTestDatabase, vi, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

@@ -3,7 +3,7 @@ import { test } from '@study/testing';
 import { GenerationPreview } from './generation-preview';
 import { RichNoteContent } from './rich-note';
 
-test.stable(
+test.unit.stable(
   'typesets TeX before Markdown can consume delimiters or subscripts',
   ({ render, expect }) => {
     const view = render(
@@ -31,7 +31,7 @@ ${'`$literal$`'}
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps incomplete math readable and rejects trusted HTML commands',
   ({ render, expect }) => {
     const view = render(
@@ -44,7 +44,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'formats live previews and preserves existing word nodes as text arrives',
   ({ render, expect }) => {
     const view = render(<GenerationPreview label="Generating" text="First word" />);
@@ -61,7 +61,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps currency, escaped dollars and math inside code literal',
   ({ render, expect }) => {
     const view = render(

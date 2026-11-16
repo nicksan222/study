@@ -3,7 +3,7 @@ import { test } from '@study/testing';
 
 import { useAgentProgress } from './use-agent-progress';
 
-test.stable(
+test.unit.stable(
   'switching progress input ignores a late snapshot from the previous execution',
   async ({ rpcTestTransport, renderHook, waitFor, expect, act }) => {
     let resolveOld!: (value: unknown) => void;

@@ -5,7 +5,7 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 const message =
   'Use the native service.use callback instead of nesting Effect.flatMap around a service key.';
 
-test.stable(
+test.unit.stable(
   'service access uses native accessors across aliases and preserves unrelated effects',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

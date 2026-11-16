@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { RangeControl } from './range-control';
 
-test.stable(
+test.unit.stable(
   'keeps slider movement local until release and does not save twice on blur',
   ({ vi, render, screen, fireEvent, expect }) => {
     const onCommit = vi.fn();

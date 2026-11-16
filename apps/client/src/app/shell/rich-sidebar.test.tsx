@@ -22,7 +22,7 @@ let api: ReturnType<typeof createApi>;
 
 let RichSidebarNotes: typeof __StudyMockType0.RichSidebarNotes;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   api = createApi(mock);
   mock('#client/lib/i18n.tsx', () => ({
     useI18n: () => ({ t: (key: string) => key, locale: 'english', date: String })
@@ -34,7 +34,7 @@ test.beforeEach(async ({ mock }) => {
 
 let preferences = defaultWorkspacePreferences;
 
-function fixture({ rpcTestTransport }: Pick<test.Context, 'rpcTestTransport'>) {
+function fixture({ rpcTestTransport }: Pick<test.unit.Context, 'rpcTestTransport'>) {
   return rpcTestTransport(async (tag, input) => {
     if (tag === 'settings.sidebarSettings') return api.settings(input);
 
@@ -60,12 +60,12 @@ const notes = [1n, 2n, 3n].map((id) =>
   })
 );
 
-test.afterEach(({ cleanup }) => {
+test.unit.afterEach(({ cleanup }) => {
   cleanup();
   preferences = defaultWorkspacePreferences;
 });
 
-test.stable(
+test.unit.stable(
   'settles only notes meeting the saved document threshold and keeps running work open',
   async ({ render, screen, expect, within, fireEvent, act, waitFor, rpcTestTransport }) => {
     api.settings.mockResolvedValue({ settledPageThreshold: 2 });
@@ -161,7 +161,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'settles a row without navigating and persists an explicit reopen over the automatic threshold',
   async ({ render, screen, fireEvent, waitFor, expect, within, rpcTestTransport }) => {
     let override: boolean | null = null;
@@ -235,7 +235,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shows settled notes as compact recent rows with ten initially and twenty-five more per click',
   async ({ render, screen, expect, fireEvent, waitFor, within, rpcTestTransport }) => {
     const many = Array.from({ length: 40 }, (_, index) => ({
@@ -306,7 +306,7 @@ test.stable(
 function mountSelectionSidebar({
   render,
   rpcTestTransport
-}: Pick<test.Context, 'render' | 'rpcTestTransport'>) {
+}: Pick<test.unit.Context, 'render' | 'rpcTestTransport'>) {
   api.settings.mockResolvedValue({ settledPageThreshold: 1 });
   api.summaries.mockResolvedValue({
     items: notes.map((note) => ({
@@ -337,7 +337,7 @@ function mountSelectionSidebar({
   return router;
 }
 
-test.stable(
+test.unit.stable(
   'starts selection from a row context menu and creates one document from the selected rows without navigating',
   async ({ fireEvent, screen, expect, within, render, rpcTestTransport }) => {
     const router = mountSelectionSidebar({ render, rpcTestTransport });
@@ -377,7 +377,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'disables batch actions for zero selected rows and cancel returns to navigation',
   async ({ fireEvent, screen, expect, within, render, rpcTestTransport }) => {
     mountSelectionSidebar({ render, rpcTestTransport });
@@ -403,7 +403,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'opens deletion review for the selected notes without deleting on selection',
   async ({ fireEvent, screen, within, expect, render, rpcTestTransport }) => {
     mountSelectionSidebar({ render, rpcTestTransport });
@@ -425,7 +425,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps loaded settled rows available regardless of the sidebar height',
   async ({ vi, render, fireEvent, screen, waitFor, expect, within, rpcTestTransport }) => {
     const many = Array.from({ length: 7 }, (_, index) => ({
@@ -515,7 +515,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'uses keyboard row toggles without changing the sidebar density or navigating',
   async ({ screen, expect, fireEvent, userEvent, within, render, rpcTestTransport }) => {
     const router = mountSelectionSidebar({ render, rpcTestTransport });
@@ -538,7 +538,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'opens the conversion dialog from a row without navigating or settling it',
   async ({ screen, expect, within, fireEvent, render, rpcTestTransport }) => {
     const router = mountSelectionSidebar({ render, rpcTestTransport });
@@ -555,7 +555,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'offers merge only after selecting at least two notes',
   async ({ render, fireEvent, screen, expect, within, rpcTestTransport }) => {
     api.settings.mockResolvedValue({ settledPageThreshold: 1 });

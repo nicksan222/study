@@ -30,7 +30,7 @@ import { Database } from '#server/platform/database/database';
 
 import { Learning } from './index.ts';
 
-test.stable(
+test.server.stable(
   'missing attempts are optional or typed failures',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -73,7 +73,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'quiz submissions preserve snapshots, validate ownership and emit a durable event',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -494,7 +494,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'daily allowance limits new cards and review schedules persist',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -613,7 +613,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'practice starts idempotently with two captured pending slots',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

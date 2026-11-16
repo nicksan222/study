@@ -37,7 +37,7 @@ import { materialRpcHandlers } from '#testing/material-rpc';
 
 const text = (value: string) => [{ type: 'text' as const, text: value, marks: [] }];
 
-test.stable(
+test.server.stable(
   'rich authored pages round-trip native RPC and reopen with independent identities, exact assets and Unicode ranges',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

@@ -5,18 +5,18 @@ import type * as __MockType0 from './index';
 
 let AgentProgress: typeof __MockType0.AgentProgress;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
   const __mockModule0 = await import('./index');
 
   AgentProgress = __mockModule0.AgentProgress;
 });
 
-test.afterEach(({ cleanup }) => {
+test.unit.afterEach(({ cleanup }) => {
   cleanup();
 });
 
-test.stable(
+test.unit.stable(
   'renders intermediate text and tool activity, replaces reconnect snapshots, and releases the viewer',
   async ({ rpcTestTransport, render, screen, expect, act }) => {
     const run = {
@@ -75,7 +75,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'does not expose raw structured output as a finished document',
   async ({ rpcTestTransport, render, waitFor, expect, screen }) => {
     const fixture = rpcTestTransport(async () => [

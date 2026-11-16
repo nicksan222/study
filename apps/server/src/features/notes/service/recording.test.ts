@@ -30,7 +30,7 @@ import { admitTestExecution } from '#testing/workflow-admission';
 
 import { Notes } from './index.ts';
 
-test.stable(
+test.server.stable(
   'recording publication posts once and rejects changed or deleted results',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

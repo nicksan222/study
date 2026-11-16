@@ -90,7 +90,7 @@ function CanvasProvider({
   registry,
   children
 }: {
-  rpcHandlersTransport: test.Context['rpcHandlersTransport'];
+  rpcHandlersTransport: test.unit.Context['rpcHandlersTransport'];
   registry: AtomRegistry.AtomRegistry;
   children: ReactNode;
 }) {
@@ -128,7 +128,7 @@ function CanvasProvider({
 }
 
 function mount(
-  { render, rpcHandlersTransport }: Pick<test.Context, 'render' | 'rpcHandlersTransport'>,
+  { render, rpcHandlersTransport }: Pick<test.unit.Context, 'render' | 'rpcHandlersTransport'>,
   node: ReactNode,
   client = AtomRegistry.make()
 ) {
@@ -160,7 +160,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   rpc = __mockState.rpc;
@@ -217,7 +217,7 @@ test.beforeEach(async ({ mock }) => {
   NoteRuns = __mockModule6.NoteRuns;
 });
 
-test.beforeEach(({ vi }) => {
+test.unit.beforeEach(({ vi }) => {
   vi.resetAllMocks();
   rpc.message.mockResolvedValue(message);
   rpc.strategies.mockResolvedValue([
@@ -225,13 +225,13 @@ test.beforeEach(({ vi }) => {
   ]);
   rpc.pages.mockResolvedValue({ items: [], next: null });
 });
-test.afterEach(({ cleanup }) => {
+test.unit.afterEach(({ cleanup }) => {
   cleanup();
 
   for (const client of clients.splice(0)) client.dispose();
 });
 
-test.stable(
+test.unit.stable(
   'keeps an uncertain upload across remount and never automatically creates it twice',
   async ({ vi, act, fireEvent, screen, expect, render, rpcHandlersTransport }) => {
     vi.mocked(uploadSource).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
@@ -254,7 +254,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'sends attachment-only notes with accepted source IDs and does not upload again on send',
   async ({ vi, act, fireEvent, screen, waitFor, expect, render, rpcHandlersTransport }) => {
     vi.mocked(uploadSource).mockResolvedValue({ id: 44n } as Awaited<
@@ -280,7 +280,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps upload ownership while a receipt arrives after unmount',
   async ({ vi, act, fireEvent, screen, expect, render, rpcHandlersTransport }) => {
     let accept!: (value: Awaited<ReturnType<typeof uploadSource>>) => void;
@@ -311,7 +311,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains a definite rejection and only retries after a deliberate click',
   async ({ vi, act, fireEvent, screen, expect, render, rpcHandlersTransport }) => {
     vi.mocked(uploadSource)
@@ -334,7 +334,7 @@ test.stable(
   }
 );
 
-test.stable.for([
+test.unit.stable.for([
   ['NoteImprove', 'improve'],
   ['NoteSummarize', 'summarize']
 ] as const)(
@@ -369,7 +369,7 @@ test.stable.for([
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps the edit payload and write fence across remounts until the original receipt',
   async ({
     vi,
@@ -419,7 +419,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'does not rewrite a changed active version or silently use a historical version',
   async ({ act, fireEvent, screen, expect, render, rpcHandlersTransport }) => {
     rpc.message.mockResolvedValue({ ...message, activeVersionId: message.versions[0]!.id });
@@ -437,7 +437,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'offers explicit historical activation and sends setActiveVersion with its exact identity',
   async ({ vi, expect, screen, act, fireEvent, waitFor, render, rpcHandlersTransport }) => {
     vi.mocked(activateVersion).mockResolvedValue(message);
@@ -460,7 +460,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'never replays a rewrite after uncertain acceptance and remount',
   async ({ vi, act, fireEvent, screen, expect, render, rpcHandlersTransport }) => {
     vi.mocked(rewriteNote).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
@@ -483,7 +483,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'sends custom instructions only to the chosen message',
   async ({ vi, act, fireEvent, screen, waitFor, expect, render, rpcHandlersTransport }) => {
     vi.mocked(rewriteNote).mockResolvedValue({
@@ -517,7 +517,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'offers editing actions without Ask or Reanswer for existing entries',
   ({ expect, screen, render, rpcHandlersTransport }) => {
     const assistant = { ...message, role: 'assistant' as const, replyTo: message.id };
@@ -531,7 +531,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains exact retry identity for an Ask operation already stored before the capture-only UI',
   async ({ vi, expect, screen, fireEvent, waitFor, render, rpcHandlersTransport }) => {
     vi.mocked(ask).mockResolvedValue({ requestId: 'ask-exact' } as Awaited<ReturnType<typeof ask>>);
@@ -571,7 +571,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'discovers canonical runs on a cold mount, paginates exact cursors, and mounts only retained proposals',
   async ({ expect, screen, act, fireEvent, render, rpcHandlersTransport }) => {
     const run = {
@@ -626,7 +626,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'captures accepted files and plain text together without requesting a reply',
   async ({ vi, fireEvent, screen, expect, waitFor, render, rpcHandlersTransport }) => {
     vi.mocked(uploadSource).mockResolvedValue({ id: 47n } as Awaited<
@@ -651,7 +651,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps the original note and source payload after an uncertain post without replay',
   async ({ vi, act, fireEvent, screen, expect, render, rpcHandlersTransport }) => {
     vi.mocked(uploadSource).mockResolvedValue({ id: 48n } as Awaited<
@@ -684,7 +684,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'hands focus to the item editor and restores the invoking action on cancel',
   async ({ screen, act, fireEvent, waitFor, expect, render, rpcHandlersTransport }) => {
     mount({ render, rpcHandlersTransport }, actions());
@@ -707,7 +707,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps editing actions disabled on a historical version',
   ({ expect, screen, render, rpcHandlersTransport }) => {
     mount({ render, rpcHandlersTransport }, actions(message.versions[0]!.id));
@@ -717,7 +717,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'puts the saved task title above technical run details without inventing a date',
   async ({ expect, screen, render, rpcHandlersTransport }) => {
     rpc.pages.mockResolvedValue({
@@ -758,7 +758,7 @@ function VersionedNote({ value = message }: { value?: typeof message }) {
   );
 }
 
-test.stable(
+test.unit.stable(
   'browses exact saved versions with inline boundaries and a Latest badge without activating them',
   async ({ expect, screen, fireEvent, render, rpcHandlersTransport }) => {
     mount({ render, rpcHandlersTransport }, <VersionedNote />);
@@ -776,7 +776,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps version browsing disabled while an edit or uncertain write owns the note and restores it after review',
   async ({ vi, fireEvent, screen, waitFor, expect, render, rpcHandlersTransport }) => {
     vi.mocked(editNote).mockRejectedValue(new StudyError('transient', 'Uncertain edit'));
@@ -812,7 +812,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'labels the newest saved version Latest even when another version is active',
   ({ expect, screen, fireEvent, render, rpcHandlersTransport }) => {
     mount(
@@ -833,7 +833,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains the same action controls while browsing saved versions',
   ({ screen, expect, fireEvent, render, rpcHandlersTransport }) => {
     mount({ render, rpcHandlersTransport }, <VersionedNote />);
@@ -856,7 +856,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'protects an open edit from other toolbar actions',
   async ({ fireEvent, screen, waitFor, expect, render, rpcHandlersTransport }) => {
     mount({ render, rpcHandlersTransport }, <VersionedNote />);
@@ -874,7 +874,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'opens deliberate editing in a dialog while keeping the saved note in the notebook',
   async ({ fireEvent, screen, expect, waitFor, render, rpcHandlersTransport }) => {
     mount({ render, rpcHandlersTransport }, <VersionedNote />);
@@ -887,7 +887,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'opens note actions on right click and edits the exact selected note',
   async ({ fireEvent, screen, userEvent, expect, render, rpcHandlersTransport }) => {
     mount({ render, rpcHandlersTransport }, <VersionedNote />);
@@ -903,7 +903,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'restricts historical note context actions to activating the selected version',
   async ({ fireEvent, screen, expect, userEvent, render, rpcHandlersTransport }) => {
     mount({ render, rpcHandlersTransport }, <VersionedNote />);
@@ -928,7 +928,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps pending assistant message context actions disabled and hides note editing',
   async ({ fireEvent, screen, expect, render, rpcHandlersTransport }) => {
     const pending = {
@@ -951,7 +951,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps raw note deletion in both the toolbar and right-click menu',
   async ({
     expect,
@@ -982,7 +982,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'archives the exact note membership independently of permanent deletion',
   async ({ fireEvent, screen, userEvent, waitFor, expect, render, rpcHandlersTransport }) => {
     rpc.archive.mockResolvedValue(undefined);
@@ -1004,7 +1004,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'converts the selected active message version directly from its toolbar',
   async ({ fireEvent, screen, waitFor, expect, render, rpcHandlersTransport }) => {
     rpc.convert.mockResolvedValue({
@@ -1026,7 +1026,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retries the original conversion payload after viewing another version',
   async ({ fireEvent, screen, waitFor, expect, render, rpcHandlersTransport }) => {
     rpc.convert
@@ -1052,7 +1052,7 @@ test.stable(
   }
 );
 
-test.stable.for(['Copied text', ''])(
+test.unit.stable.for(['Copied text', ''])(
   'pasting files retains the clipboard text payload %j',
   async (text, { vi, fireEvent, screen, expect, waitFor, render, rpcHandlersTransport }) => {
     const file = new File(['pdf'], 'pasted.pdf', { type: 'application/pdf' });
@@ -1073,7 +1073,7 @@ test.stable.for(['Copied text', ''])(
   }
 );
 
-test.stable(
+test.unit.stable(
   'identifies the conversion icon on hover',
   async ({ userEvent, screen, expect, render, rpcHandlersTransport }) => {
     const user = userEvent.setup();

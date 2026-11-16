@@ -5,21 +5,21 @@
  * │ Prevents:                                                                                │
  * │ apps/client/test/e2e code outside harness/ owning browser/server resources, mocking      │
  * │ requests, using fixed waits, DOM handles/coordinate shortcuts or forced locator actions. │
- * │ Specs register test.stable directly, use behavior names and await a named screenshot.    │
+ * │ Specs use test.browser.stable, behavior names and awaited named screenshots.             │
  * │ ready callback returns or awaits an expect matcher. Alias tracking is intentionally      │
  * │ static.                                                                                  │
  * │                                                                                          │
  * │ Allowed:                                                                                 │
- * │   // apps/client/test/e2e/example.test.ts                                                │
- * │   import { test } from '@study/testing';                                                 │
- * │   test.stable('Notes retain edits', async ({ page, expectScreenshot, expect }) => {      │
- * │     await expectScreenshot('ready', { target: 'viewport',                                │
- * │       ready: () => expect(page.getByRole('heading')).toBeVisible() });                   │
- * │   });                                                                                    │
+ * │ // apps/client/test/e2e/example.test.ts                                                  │
+ * │ import { test } from '@study/testing';                                                   │
+ * │ test.browser.stable('Notes', async ({ page, expectScreenshot, expect }) => {             │
+ * │ await expectScreenshot('ready', { target: 'viewport',                                    │
+ * │ ready: () => expect(page.getByRole('heading')).toBeVisible() });                         │
+ * │ });                                                                                      │
  * │                                                                                          │
  * │ Rejected:                                                                                │
- * │   // apps/client/test/e2e/example.test.ts                                                │
- * │   await page.getByRole('button').click({ force: true });                                 │
+ * │ // apps/client/test/e2e/example.test.ts                                                  │
+ * │ await page.getByRole('button').click({ force: true });                                   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -413,18 +413,32 @@ export default defineRule({
       return method;
     }
 
+    function browserRegistration(node: any): boolean {
+      while (node?.type === 'CallExpression') node = node.callee;
+
+      while (node?.type === 'MemberExpression') {
+        if (memberName(node) === 'browser') return true;
+
+        node = node.object;
+      }
+
+      return false;
+    }
+
     function registration(node: any): boolean {
       const owner = root(node.callee);
-      const method = registrationMethod(node.callee);
 
       // Native fixture configuration does not register a browser journey.
       if (memberName(node.callee) === 'use' && canonical(owner)) return false;
 
+      return canonical(owner) && browserRegistration(node.callee) && journeyRegistration(node);
+    }
+
+    function journeyRegistration(node: any): boolean {
       return (
-        owner?.type === 'Identifier' &&
-        owner.name === 'test' &&
-        ['stable', 'regression', 'migration', 'characterization'].includes(method ?? '') &&
-        !(node.parent?.type === 'CallExpression' && node.parent.callee === node)
+        ['stable', 'regression', 'migration', 'characterization'].includes(
+          registrationMethod(node.callee) ?? ''
+        ) && !(node.parent?.type === 'CallExpression' && node.parent.callee === node)
       );
     }
 
@@ -507,7 +521,8 @@ export default defineRule({
         if (!canonical(root(node.callee))) {
           context.report({
             node,
-            message: 'Declare every browser journey directly with test.stable from @study/testing.'
+            message:
+              'Declare every browser journey directly with test.browser.stable from @study/testing.'
           });
 
           return;

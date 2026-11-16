@@ -4,7 +4,7 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message = 'Consume Effect computations with yield*, return, or an approved runtime boundary.';
 
-test.stable(
+test.unit.stable(
   'reports discarded Effects and accepts explicitly handled results',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -44,7 +44,7 @@ task();`
     );
   }
 );
-test.stable(
+test.unit.stable(
   'resolves imported namespaces, named imports, const aliases and shadowing',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -71,7 +71,7 @@ function f(E: any, operation: any) {
   }
 );
 
-test.stable(
+test.unit.stable(
   'checks known Effect values and pipelines without guessing arbitrary service returns',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -101,7 +101,7 @@ fn();`
   }
 );
 
-test.stable(
+test.unit.stable(
   'recognizes canonical Effect constants through imported aliases',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -123,7 +123,7 @@ done;`
   }
 );
 
-test.stable(
+test.unit.stable(
   'void and await do not execute Effects but terminal runtime pipelines do',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -144,7 +144,7 @@ void Effect.sync(() => work()).pipe(Effect.runPromise);`
   }
 );
 
-test.stable(
+test.unit.stable(
   'reports discarded browser Effects and accepts explicit handling',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -165,7 +165,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'consumes v4 constructors, scheduler values and untraced operations',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -205,7 +205,7 @@ function f(E: any) {
   }
 );
 
-test.stable(
+test.unit.stable(
   'recognizes applied data-last v4 computations',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -226,7 +226,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'permits functions with terminal transformations that change the return type',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

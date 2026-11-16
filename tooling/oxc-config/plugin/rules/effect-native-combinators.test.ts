@@ -4,7 +4,7 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message = 'Use Effect.flatten instead of an identity flatMap callback.';
 
-test.stable(
+test.unit.stable(
   'prefers native flatten for pure identity callbacks',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -42,7 +42,7 @@ function f(E: any) {
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps callback shadowing and return bindings distinct',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -63,7 +63,7 @@ flatMap(function x(value) {
   }
 );
 
-test.stable(
+test.unit.stable(
   'uses asVoid for pure output discard without removing callback work',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

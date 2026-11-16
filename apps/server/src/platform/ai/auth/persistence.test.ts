@@ -15,7 +15,7 @@ import { test } from '@study/testing';
 
 import { decodeAccount, encodeAccount } from '#server/platform/ai/auth/persistence';
 
-test.stable(
+test.unit.stable(
   'stored account round trips and rejects malformed credentials',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

@@ -28,7 +28,7 @@ import { transaction } from '#server/platform/definitions/define-store';
 import { serve } from '#server/runtime/index';
 
 for (const accountState of ['signed-out', 'not-shared'] as const)
-  test.stable(
+  test.server.stable(
     `an RPC open answer waits durably when ${accountState} and keeps a manual grade`,
     { timeout: 10000 },
     async ({ resources: location, pollUntil, assert: assertions }) => {

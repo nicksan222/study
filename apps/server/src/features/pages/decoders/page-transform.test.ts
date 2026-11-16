@@ -99,7 +99,7 @@ function fixture() {
   return { context, publication, image, output };
 }
 
-test.stable(
+test.unit.stable(
   'managed images require captured structured authorization; an alt-text range grants only text',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -183,7 +183,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'empty, malformed, reused identity, fabricated source anchor and unscoped citations reject',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -223,7 +223,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'learning generation requires a project while authored execution requires captured intent and unique operations',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -259,7 +259,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'provider JSON accepts authorized image identifiers without native bigint values',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -276,37 +276,40 @@ test.stable(
   }
 );
 
-test.stable('separator-only tables are not completed note-only Pages', ({ assert: assertions }) => {
-  const assert: test.Assert = assertions;
+test.unit.stable(
+  'separator-only tables are not completed note-only Pages',
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  const { context, publication } = fixture();
-  const table = createBlock({
-    type: 'table',
-    rows: [
-      {
-        cells: [
-          { header: false, paragraphs: [[]] },
-          { header: false, paragraphs: [[]] }
-        ]
-      }
-    ]
-  });
+    const { context, publication } = fixture();
+    const table = createBlock({
+      type: 'table',
+      rows: [
+        {
+          cells: [
+            { header: false, paragraphs: [[]] },
+            { header: false, paragraphs: [[]] }
+          ]
+        }
+      ]
+    });
 
-  assert.ok(table.text.trim());
-  assert.throws(() =>
-    validatePageTransform(
-      { ...context, inputs: [] },
-      {
-        ...publication,
-        citations: [],
-        document: { blocks: [table], meta },
-        report: { notes: [{ kind: 'limit', explanation: 'No evidence', blockIds: [] }] }
-      }
-    )
-  );
-});
+    assert.ok(table.text.trim());
+    assert.throws(() =>
+      validatePageTransform(
+        { ...context, inputs: [] },
+        {
+          ...publication,
+          citations: [],
+          document: { blocks: [table], meta },
+          report: { notes: [{ kind: 'limit', explanation: 'No evidence', blockIds: [] }] }
+        }
+      )
+    );
+  }
+);
 
-test.stable(
+test.unit.stable(
   'report-only evidence markers and captured target locations obey the same scope barrier',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

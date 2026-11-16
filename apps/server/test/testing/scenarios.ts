@@ -10,7 +10,7 @@ import { makeStudyClient } from '#server/client/index';
 import { createRpcFixture, createServerFixture } from './fixture.ts';
 import { inTestPhase } from './progress.ts';
 
-const runner = baseTest.stable
+const runner = baseTest.unit.stable
   .extend('resources', async ({ task: _task }, { onCleanup }) => {
     const resources = await createServerFixture();
 
@@ -140,5 +140,8 @@ const runner = baseTest.stable
   .extend('createTestDatabase', { scope: 'worker' }, () => createTestDatabase)
   .extend('snapshotValues', { scope: 'worker' }, () => snapshotValues);
 
-/** One classified test API; fixtures are lazily acquired only when requested. */
-export const test: ReturnType<typeof createTestApi<typeof runner>> = createTestApi(runner);
+/** Server tests expose shared unit fixtures and lazily acquired server fixtures. */
+export const test = {
+  unit: baseTest.unit,
+  server: createTestApi(runner)
+};

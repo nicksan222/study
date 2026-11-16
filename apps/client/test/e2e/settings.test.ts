@@ -7,7 +7,7 @@ import type { ExpectScreenshot } from './harness/screenshots.ts';
 
 const copy = catalogs.english;
 
-test.stable(
+test.browser.stable(
   'Closing Settings preserves the underlying route',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
@@ -33,7 +33,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'Settings search recovers from no matches and follows the persisted language',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     const italian = catalogs.italian;
@@ -110,7 +110,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'Writing settings validate every number and apply capture and page preferences',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
@@ -348,7 +348,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'Sidebar settings apply display preferences and validate settlement limits',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
@@ -519,7 +519,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'Reading settings reject invalid font sizes and persist every export format',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
@@ -619,7 +619,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'Automation settings persist detail conversion and automatic behavior',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
@@ -718,7 +718,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'Flashcards settings validate daily limits and persist review preferences',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
@@ -806,7 +806,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'Performance settings validate and persist independent concurrency limits',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
@@ -915,7 +915,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'Custom instructions validate save and reset every task draft',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
@@ -1076,7 +1076,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'Quiz settings persist every generation and shuffle option',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
@@ -1210,7 +1210,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'Fill blank settings persist independent generation preferences',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
@@ -1334,7 +1334,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'Ordering settings customize generation independently and survive reload',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
@@ -1458,7 +1458,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'Matching settings customize generation independently and survive reload',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
@@ -1582,7 +1582,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'True or false settings customize generation independently and survive reload',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
@@ -1706,7 +1706,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'General settings persist both languages and dismiss a replayed welcome',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
@@ -1781,7 +1781,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'Account settings expose sign in and keep provider credential drafts local',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
@@ -1855,7 +1855,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'Models settings retain all tier selections while signed out',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
@@ -1901,7 +1901,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'Usage settings filter and refresh real empty usage history',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
@@ -1961,7 +1961,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'Analytics settings explain that diagnostic controls require the desktop',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
@@ -1993,7 +1993,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'Updates settings explain browser limitations without offering native actions',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
@@ -2019,7 +2019,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'Integrations settings preview, cancel and import a real vault with warnings',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
@@ -2157,7 +2157,7 @@ const reviewTheme = {
   dark: {}
 };
 
-test.stable(
+test.browser.stable(
   'Appearance settings capture schemes sliders and the custom theme lifecycle',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
@@ -2473,7 +2473,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'Project settings validate names edit identities and guard deletion',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
@@ -2663,7 +2663,10 @@ test.stable(
   }
 );
 
-async function openProjectIconSettings({ expect }: Pick<test.Context, 'expect'>, page: Page) {
+async function openProjectIconSettings(
+  { expect }: Pick<test.browser.Context, 'expect'>,
+  page: Page
+) {
   await page.goto('/notes');
   await page.getByRole('combobox', { name: copy.ChooseProject }).click();
   await page
@@ -2698,7 +2701,7 @@ async function openProjectIconSettings({ expect }: Pick<test.Context, 'expect'>,
 }
 
 async function captureProjectIconChoices(
-  { expect }: Pick<test.Context, 'expect'>,
+  { expect }: Pick<test.browser.Context, 'expect'>,
   icon: Locator,
   group: Locator,
   prefix: string,
@@ -2722,7 +2725,7 @@ async function captureProjectIconChoices(
   await choices.nth(1).click();
 }
 
-test.stable(
+test.browser.stable(
   'Project settings search select and persist every symbol',
   async ({ page, expectScreenshot, expect }) => {
     const { dialog, icon, saveIcon } = await openProjectIconSettings({ expect }, page);
@@ -2755,7 +2758,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'Project settings select every emoji and color and persist the identity',
   async ({ page, expectScreenshot, expect }) => {
     const { dialog, navigation, icon, saveIcon } = await openProjectIconSettings({ expect }, page);
@@ -2803,7 +2806,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.browser.stable(
   'Data settings recover invalid imports and guard backup deletion and restore',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');

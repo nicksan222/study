@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'database connection and schema factories stay with their owners',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -119,7 +119,7 @@ const object = { sqliteTable };
   }
 );
 
-test.stable(
+test.unit.stable(
   'owner reexports cannot evade ownership by preceding imports',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -173,7 +173,7 @@ export type { table };
   }
 );
 
-test.stable(
+test.unit.stable(
   'snapshot machinery uses Db primitives without acquiring a second raw driver in runtime or storage',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -188,7 +188,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'the metadata wrapper may construct tables without exposing raw factories',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

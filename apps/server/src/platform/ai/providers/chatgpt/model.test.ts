@@ -25,7 +25,7 @@ import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model'
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 import { standardSchema } from '#server/platform/ai/schema';
 
-test.stable(
+test.unit.stable(
   'Responses adapter retries 401 with rotated OAuth token and consumes SSE',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -120,7 +120,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'page generation transmits a closed strict schema through the Responses adapter',
   async ({ expect }) => {
     let body: { text: { format: { type: string; strict: boolean; schema: unknown } } } | undefined;
@@ -189,7 +189,7 @@ test.stable(
       expect(body?.text.format.strict).toBe(true);
       let objects = 0;
 
-      function inspect({ expect }: Pick<test.Context, 'expect'>, value: unknown) {
+      function inspect({ expect }: Pick<test.unit.Context, 'expect'>, value: unknown) {
         if (Array.isArray(value)) value.forEach((arg0) => inspect({ expect }, arg0));
         else if (value !== null && typeof value === 'object') {
           if (

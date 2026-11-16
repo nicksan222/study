@@ -22,7 +22,7 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { testLiveQueries } from '#testing/live-queries';
 
-test.stable(
+test.server.stable(
   'acquisition atomically retains independent originals without authoring documents or source Materials',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -97,7 +97,7 @@ const originalFixtures = {
 };
 
 for (const kind of ['image', 'audio', 'video', 'link'] as const)
-  test.stable(
+  test.server.stable(
     `replacement from ${kind} retains original revision exports with independent source identity`,
     async ({ databases, assert: assertions, expect }) => {
       const assert: test.Assert = assertions;

@@ -16,7 +16,7 @@ const config = {
   dockerIgnore: await Bun.file(new URL('.devcontainer/Dockerfile.dockerignore', root)).text()
 };
 
-test.stable(
+test.unit.stable(
   'build storage configuration rejects cache bypasses, duplicate targets and broad Docker contexts',
   ({ expect }) => {
     expect(buildStoragePolicy(config)).toEqual([]);

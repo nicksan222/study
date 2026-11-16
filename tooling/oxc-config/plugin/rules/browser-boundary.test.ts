@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'browser entrypoints and contracts reject private value edges and contract type edges',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -27,18 +27,21 @@ test.stable(
   }
 );
 
-test.stable('browser entrypoints reject private server types', async ({ assert: assertions }) => {
-  const assert: test.Assert = assertions;
+test.unit.stable(
+  'browser entrypoints reject private server types',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  const diagnostics = await lintRule({ assert }, 'browser-boundary', {
-    'src/client/types.ts':
-      "import type { ServerContext } from '../runtime/context'; import type { AppRouter } from '../runtime/router'; import type { Secret } from '../domains/jobs/store';"
-  });
+    const diagnostics = await lintRule({ assert }, 'browser-boundary', {
+      'src/client/types.ts':
+        "import type { ServerContext } from '../runtime/context'; import type { AppRouter } from '../runtime/router'; import type { Secret } from '../domains/jobs/store';"
+    });
 
-  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+  }
+);
 
-test.stable('public root rejects private server types', async ({ assert: assertions }) => {
+test.unit.stable('public root rejects private server types', async ({ assert: assertions }) => {
   const assert: test.Assert = assertions;
 
   const diagnostics = await lintRule({ assert }, 'browser-boundary', {
@@ -49,7 +52,7 @@ test.stable('public root rejects private server types', async ({ assert: asserti
   assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-test.stable(
+test.unit.stable(
   'contracts admit Effect RPC but reject workflow engine and browser clients reject router types',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -70,7 +73,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'browser consumers use only the explicit native client entrypoint',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -89,7 +92,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'only the shared client host boundary can import native APIs',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

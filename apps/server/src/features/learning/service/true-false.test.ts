@@ -24,7 +24,7 @@ import { Database } from '#server/platform/database/database';
 import { Learning } from './index.ts';
 
 for (const truth of [true, false])
-  test.stable(
+  test.server.stable(
     `${truth ? 'True' : 'False'} statement attempts validate responses, resume and review both verdicts`,
     async ({ databases, assert: assertions }) => {
       const assert: test.Assert = assertions;

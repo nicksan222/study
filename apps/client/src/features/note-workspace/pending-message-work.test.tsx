@@ -27,7 +27,7 @@ const execution = {
   updatedAtMs: 1n
 };
 
-let fixture: ReturnType<test.Context['rpcHandlersTransport']>;
+let fixture: ReturnType<test.unit.Context['rpcHandlersTransport']>;
 
 function createMockState(mock: test.Mock) {
   return {
@@ -39,7 +39,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   api = __mockState.api;
@@ -50,7 +50,7 @@ test.beforeEach(async ({ mock }) => {
   PendingMessageWork = __mockModule0.PendingMessageWork;
 });
 
-test.beforeEach(({ vi, rpcHandlersTransport }) => {
+test.unit.beforeEach(({ vi, rpcHandlersTransport }) => {
   vi.resetAllMocks();
   fixture = rpcHandlersTransport({
     'notes.replyVersion': api.provenance,
@@ -60,15 +60,15 @@ test.beforeEach(({ vi, rpcHandlersTransport }) => {
   api.provenance.mockResolvedValue({ state: 'available', requestId: 'exact-request' });
   api.executions.mockResolvedValue({ items: [execution], next: null });
 });
-test.afterEach(({ cleanup }) => {
+test.unit.afterEach(({ cleanup }) => {
   cleanup();
 });
 
-function mount({ render }: Pick<test.Context, 'render'>) {
+function mount({ render }: Pick<test.unit.Context, 'render'>) {
   render(<PendingMessageWork {...target} />, { wrapper: fixture.wrapper });
 }
 
-test.stable(
+test.unit.stable(
   'cancels the exact pending version and waits for committed stopping state',
   async ({ screen, expect, fireEvent, waitFor, render }) => {
     api.cancel.mockImplementation(async () => {
@@ -95,7 +95,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps an ambiguous cancellation disabled until an explicit status refresh',
   async ({ fireEvent, screen, expect, waitFor, render }) => {
     api.cancel.mockRejectedValue(new Error('Offline'));

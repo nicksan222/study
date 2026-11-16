@@ -18,7 +18,7 @@ import { Effect } from 'effect';
 
 import { SignIn, acquireSignIn } from '#server/platform/ai/providers/chatgpt/signin';
 
-test.stable(
+test.unit.stable(
   'PKCE sign-in verifies identity and returns the issued account',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -67,7 +67,7 @@ test.stable(
   }
 );
 
-test.stable('abandoned sign-in expires and closes its listener', async ({ expect }) => {
+test.unit.stable('abandoned sign-in expires and closes its listener', async ({ expect }) => {
   await Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
@@ -86,7 +86,7 @@ test.stable('abandoned sign-in expires and closes its listener', async ({ expect
   );
 });
 
-test.stable(
+test.unit.stable(
   'disposing sign-in cancels a waiting finish and closes the listener',
   async ({ expect }) => {
     const signIn = await SignIn.start({
@@ -102,7 +102,7 @@ test.stable(
   }
 );
 
-test.stable('callback failure shows both localized messages', async ({ expect }) => {
+test.unit.stable('callback failure shows both localized messages', async ({ expect }) => {
   const signIn = await SignIn.start({
     issuer: 'https://auth.example',
     hostId: 'host'
@@ -119,7 +119,7 @@ test.stable('callback failure shows both localized messages', async ({ expect })
   await finishing;
 });
 
-test.stable(
+test.unit.stable(
   'malformed token response and ID claims do not leak their contents',
   async ({ expect }) => {
     for (const body of [
@@ -156,7 +156,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'sign-in deadline interrupts a stalled loopback token body and releases both connections',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -227,7 +227,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'browser callback bridge rejects stale states, replays, and cancelled attempts',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -263,7 +263,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'browser callback denial fails completion and releases the attempt',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -291,13 +291,13 @@ for (const callbackUrl of [
   'http://user@127.0.0.1:5173/auth/callback',
   'http://127.0.0.1:5173/auth/callback?code=x'
 ])
-  test.stable(`OAuth rejects an unsafe callback URL: ${callbackUrl}`, async ({ expect }) => {
+  test.unit.stable(`OAuth rejects an unsafe callback URL: ${callbackUrl}`, async ({ expect }) => {
     await expect(
       SignIn.start({ issuer: 'https://auth.example', hostId: 'host', callbackUrl })
     ).rejects.toThrow();
   });
 
-test.stable(
+test.unit.stable(
   'disposing sign-in closes a stalled callback connection',
   async ({ withinTestDeadline }) => {
     const signIn = await SignIn.start({ issuer: 'https://auth.example', hostId: 'host' });

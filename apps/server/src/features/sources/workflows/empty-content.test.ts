@@ -50,7 +50,7 @@ for (const [name, text] of [
   ['empty-cell.docx', ''],
   ['empty-table.docx', '']
 ] as const)
-  test.stable(
+  test.server.stable(
     `${name} settles empty extraction as failed and preserves original bytes`,
     async ({ databases, createAiMock, expect, assert: assertions }) => {
       const assert: test.Assert = assertions;

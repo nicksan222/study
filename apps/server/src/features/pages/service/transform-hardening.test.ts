@@ -60,7 +60,7 @@ function publish(f: Fixture, value: Publication) {
 }
 
 function create(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
   title: string,
   blocks = [paragraph('alpha evidence')]
 ) {
@@ -83,7 +83,10 @@ function create(
   );
 }
 
-function capture({ assert: assertions }: Pick<test.Context, 'assert'>, exactTarget: boolean) {
+function capture(
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
+  exactTarget: boolean
+) {
   const assert: test.Assert = assertions;
 
   return Effect.gen(function* () {
@@ -140,7 +143,7 @@ function capture({ assert: assertions }: Pick<test.Context, 'assert'>, exactTarg
   });
 }
 
-test.stable(
+test.server.stable(
   'whole captured blocks publish and exact citation identities and report hashes remain immutable across reopen',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -251,7 +254,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'canonical authored citations reject fabricated exact inputs and UTF16 splits while anchor-only provenance stays explicitly inexact',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -322,7 +325,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'note-only publication rejects separator-only tables without outputs, receipts, memberships or events',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -384,7 +387,7 @@ test.stable(
 );
 
 for (const table of ['page_proposals', 'page_transform_requests'] as const)
-  test.stable(
+  test.server.stable(
     `proposal publication rolls back ${table} failure before same-key retry and reopen`,
     async ({ databases, expect, assert: assertions }) => {
       const assert: test.Assert = assertions;

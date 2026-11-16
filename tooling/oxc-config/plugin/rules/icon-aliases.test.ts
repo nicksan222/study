@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRulePaths } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'icon library bindings require explicit purpose aliases',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

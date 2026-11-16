@@ -19,6 +19,7 @@
     "../scripts/seed/fixtures/files/**",
     "../../apps/client/test/e2e/environment.d.ts",
     "../../apps/client/test/e2e/*.test.ts",
-    "../../apps/client/test/e2e/harness/*.browser.test.ts"
+    "../../apps/client/test/e2e/harness/*.browser.test.ts",
+    "../../apps/client/test/e2e/harness/*.types.ts"
   ]
 }

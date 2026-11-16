@@ -4,11 +4,11 @@ import type { AssistantHarness } from '#client/test/assistant.tsx';
 
 let mount: AssistantHarness['mountAssistant'];
 
-test.beforeEach(({ assistant }) => {
+test.unit.beforeEach(({ assistant }) => {
   mount = assistant.mountAssistant;
 });
 
-test.stable(
+test.unit.stable(
   'does not send during input-method composition or dismiss on Escape',
   async ({ screen, waitFor, expect, fireEvent }) => {
     await mount();

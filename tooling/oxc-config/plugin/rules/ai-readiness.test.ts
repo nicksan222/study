@@ -4,7 +4,7 @@ import { lintRule } from '../test/utils.ts';
 
 const path = 'apps/client/src/features/example/action.tsx';
 
-test.stable(
+test.unit.stable(
   'requires guarded app AI buttons, including aliases and namespace imports',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -28,7 +28,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'allows the guarded component and presentation-only activity indicators',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

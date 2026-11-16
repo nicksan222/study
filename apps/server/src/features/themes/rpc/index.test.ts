@@ -24,7 +24,7 @@ import { testLiveQueries } from '#testing/live-queries';
 
 import { ThemesRpcLive } from './index.ts';
 
-test.stable(
+test.server.stable(
   'native themes RPC exposes the catalog and typed failures',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

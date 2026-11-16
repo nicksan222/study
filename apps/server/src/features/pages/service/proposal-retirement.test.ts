@@ -22,7 +22,7 @@ import { setup, cleanup, validPageTransformOutput } from '#testing/note-deletion
 import { pageTransformFixture } from '#testing/page-transform';
 
 for (const apply of [false, true])
-  test.stable(
+  test.server.stable(
     `completed ${apply ? 'applied' : 'kept'} proposal retains exact bases, evidence and replay identity independently of body retirement`,
     async ({ databases, assert: assertions, expect }) => {
       const assert: test.Assert = assertions;

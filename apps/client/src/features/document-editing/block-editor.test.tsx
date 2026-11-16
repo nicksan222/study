@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 import { BlockEditor, authoredCopy, blankDocument } from './block-editor';
 
-test.stable(
+test.unit.stable(
   'edits a text run without flattening marks, links or neighboring structures',
   async ({ render, screen, userEvent, expect }) => {
     const paragraph = createBlock({
@@ -70,7 +70,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'gives independent copies fresh authored identities while preserving rich content',
   ({ expect }) => {
     const block = createBlock(

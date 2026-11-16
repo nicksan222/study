@@ -14,7 +14,7 @@ let dataOwner: typeof __StudyMockType1.dataOwner;
 
 let useDataSettings: typeof __StudyMockType1.useDataSettings;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   mock('#client/pages/settings/data/use-data.ts', async (load) => ({
     ...(await load<typeof MockModule0>()),
     useDataSettings: mock.fn()
@@ -71,7 +71,7 @@ const backup = {
   compatibility: 'exact-schema' as const
 };
 
-function model({ vi }: Pick<test.Context, 'vi'>) {
+function model({ vi }: Pick<test.unit.Context, 'vi'>) {
   const owner = dataOwner(AtomRegistry.make());
 
   vi.spyOn(owner, 'refresh').mockResolvedValue(undefined);
@@ -108,13 +108,13 @@ function model({ vi }: Pick<test.Context, 'vi'>) {
   return { state, owner };
 }
 
-function supply({ vi }: Pick<test.Context, 'vi'>, value: ReturnType<typeof model>) {
+function supply({ vi }: Pick<test.unit.Context, 'vi'>, value: ReturnType<typeof model>) {
   vi.mocked(useDataSettings).mockReturnValue(value);
 }
 
-test.beforeEach(({ vi }) => vi.clearAllMocks());
+test.unit.beforeEach(({ vi }) => vi.clearAllMocks());
 
-test.stable(
+test.unit.stable(
   'shows complete scopes and requires deliberate acceptance of the exact reviewed backup',
   ({ render, expect, screen, fireEvent, vi }) => {
     const value = model({ vi });
@@ -137,7 +137,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'resets deliberate intent when the preview token changes and blocks barriers',
   ({ render, fireEvent, screen, expect, vi }) => {
     const value = model({ vi });
@@ -178,26 +178,29 @@ test.stable(
   }
 );
 
-test.stable('requires deliberate recovery discard', ({ render, expect, screen, fireEvent, vi }) => {
-  const value = model({ vi });
+test.unit.stable(
+  'requires deliberate recovery discard',
+  ({ render, expect, screen, fireEvent, vi }) => {
+    const value = model({ vi });
 
-  value.state.preview = undefined;
-  value.state.status = { ...value.state.status!, recoveryCopy: true };
-  supply({ vi }, value);
-  render(<DataSettings />);
-  expect(screen.getByText('DataRecovery')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'DataDiscard' }));
-  const buttons = screen.getAllByRole('button', { name: 'DataDiscard' });
+    value.state.preview = undefined;
+    value.state.status = { ...value.state.status!, recoveryCopy: true };
+    supply({ vi }, value);
+    render(<DataSettings />);
+    expect(screen.getByText('DataRecovery')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'DataDiscard' }));
+    const buttons = screen.getAllByRole('button', { name: 'DataDiscard' });
 
-  expect(buttons.at(-1)).toBeDisabled();
-  fireEvent.change(screen.getByRole('textbox', { name: 'DeleteConfirmationInstruction' }), {
-    target: { value: 'DeleteConfirmationWord' }
-  });
-  fireEvent.click(buttons.at(-1)!);
-  expect(value.owner.discard).toHaveBeenCalledOnce();
-});
+    expect(buttons.at(-1)).toBeDisabled();
+    fireEvent.change(screen.getByRole('textbox', { name: 'DeleteConfirmationInstruction' }), {
+      target: { value: 'DeleteConfirmationWord' }
+    });
+    fireEvent.click(buttons.at(-1)!);
+    expect(value.owner.discard).toHaveBeenCalledOnce();
+  }
+);
 
-test.stable(
+test.unit.stable(
   'keeps implementation identities out while replacement scope and consent stay visible',
   ({ render, expect, screen, vi }) => {
     supply({ vi }, model({ vi }));
@@ -214,7 +217,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps known downloads and deliberate recovery available when only the list is unavailable',
   ({ render, expect, screen, fireEvent, within, vi }) => {
     const value = model({ vi });
@@ -246,7 +249,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'renders distinct current and backup counts for every scope outside diagnostics',
   ({ render, screen, within, expect, vi }) => {
     const value = model({ vi });
@@ -301,7 +304,7 @@ test.stable(
   }
 );
 
-test.stable.for(['busy', 'uncertain', 'status-error', 'restart-required'])(
+test.unit.stable.for(['busy', 'uncertain', 'status-error', 'restart-required'])(
   'keeps recovery controls fenced for %s',
   (mode, { render, expect, screen, vi }) => {
     const value = model({ vi });
@@ -333,7 +336,7 @@ test.stable.for(['busy', 'uncertain', 'status-error', 'restart-required'])(
   }
 );
 
-test.stable(
+test.unit.stable(
   'requires a fresh deliberate confirmation each time snapshot deletion is opened',
   async ({ render, fireEvent, screen, expect, within, waitFor, vi }) => {
     const value = model({ vi });
@@ -371,7 +374,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps uncertainty visible and acknowledgment disabled until canonical discovery completes',
   ({ render, expect, screen, fireEvent, vi }) => {
     const value = model({ vi });
@@ -397,7 +400,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'opens the native backup picker from the shared choose-file button',
   ({ render, within, screen, vi, expect, fireEvent }) => {
     const value = model({ vi });
@@ -418,7 +421,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'does not replay a retained receipt as inline operation feedback',
   ({ render, expect, screen, vi }) => {
     const value = model({ vi });
@@ -436,7 +439,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps the exact restore review visible while pending and closes only after its committed receipt',
   async ({ vi, render, screen, fireEvent, expect, act, waitFor }) => {
     const value = model({ vi });
@@ -480,7 +483,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps an uncertain restore visible and fenced until the user returns to recovery',
   async ({ vi, render, fireEvent, screen, act, expect, within }) => {
     const value = model({ vi });
@@ -512,7 +515,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps deletion pending until a new receipt for the exact selected backup is confirmed',
   async ({ vi, render, fireEvent, screen, within, expect, act, waitFor }) => {
     const value = model({ vi });

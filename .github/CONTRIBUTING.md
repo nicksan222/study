@@ -282,8 +282,9 @@ Desktop, CLI, and web clients use the same typed procedures.
 operation. Tests use fresh SQLite databases and actual services. `apps/server/src/runtime/main.ts`
 starts and stops the server process. The app is local only; ChatGPT provider sign-in is retained.
 
-Test assertions come from `vite-plus/test`; classified registrations come from
-`@study/testing/vitest`. `node:assert` imports are forbidden. `bun run server:test`
+Tests import `test` from `@study/testing` and request native assertions as callback
+fixtures. Real server cases register with `test.server.stable`; pure logic uses
+`test.unit.stable`. `node:assert` imports are forbidden. `bun run server:test`
 runs the server and package suites; `bun run quality:test` runs lint, development,
 desktop permission, and shared runner tests. Server fixtures use Vitest lifecycle
 hooks to close resources before deleting SQLite files. Test-runner imports stay out
@@ -348,8 +349,8 @@ Playwright owns browsers, isolated contexts, worker scheduling, test timeouts, t
 failure screenshots and the HTML report. Application fixtures own the real database,
 RPC server and Vite preview through standard asynchronous disposal.
 
-Journeys import `testE2e` and Playwright `expect` from the shared harness. Define a
-journey directly: `testE2e('Notes preserve edits after reopening', async ({ page,
+Journeys import `test` from `@study/testing`. Define a journey directly:
+`test.browser.stable('Notes preserve edits after reopening', async ({ page, expect,
 expectScreenshot }) => { ... })`. The readable title also determines its baseline and
 artifact directory. Suite-wide preflight rejects duplicate normalized titles across files,
 including punctuation collisions, before any journey runs. Await named screenshots
@@ -494,15 +495,18 @@ Affected checks do not establish that the entire repository passes. `bun run che
 full CI gates remain required; native launchers and desktop lifecycle commands keep their
 existing interface. The standalone landing workspace is checked as an uncached root task.
 
-Tests import one facade. Runner configuration supplies the native fixture graph for that
-environment, so the test author does not choose a setup package or compose providers.
+Tests import one facade and name the execution environment explicitly: `test.unit` for
+logic and component tests, `test.server` for real database, services and RPC tests, and
+`test.browser` for Playwright journeys. Runner configuration supplies the corresponding
+fixture graph; unavailable environments and fixtures are rejected by TypeScript. There
+are no flat `test.stable` registrations or root-level hooks.
 
 ```tsx
 import { test } from '@study/testing';
 
 import { useGeneralSettings } from '#client/pages/settings/general/use-general.ts';
 
-test.stable('renders the saved settings', async ({ react, rpc, expect }) => {
+test.unit.stable('renders the saved settings', async ({ react, rpc, expect }) => {
   rpc.given({
     'settings.appSettings': { language: 1, appearance: 3, zoomPercent: 100, onboarded: true }
   });
@@ -515,12 +519,12 @@ test.stable('renders the saved settings', async ({ react, rpc, expect }) => {
 `mock` in the callback for spies and module mocks. Register a module mock before dynamically
 importing its subject; the fixture owns module-cache isolation and restores mocks on cleanup.
 Use canonical workspace aliases or package names for targets. Shared setup can request the
-same fixture through `test.beforeEach(async ({ mock }) => { ... })`.
+same fixture through `test.unit.beforeEach(async ({ mock }) => { ... })`.
 
 ```ts
 import { test } from '@study/testing';
 
-test.stable('browser host capabilities are explicit', async ({ mock, expect }) => {
+test.unit.stable('browser host capabilities are explicit', async ({ mock, expect }) => {
   mock('@tauri-apps/api/core', () => ({ isTauri: () => false, invoke: mock.fn() }));
   const { hostCapabilities } = await import('#client/lib/host.ts');
 
@@ -528,10 +532,12 @@ test.stable('browser host capabilities are explicit', async ({ mock, expect }) =
 });
 ```
 
-`vi` is a callback fixture for native clock and inspection utilities. Browser tests use the same public
-import and their native Playwright assertions and page fixtures. The `test` namespace is reserved for registration, classification, suites and hooks; Oxlint rejects runtime helpers and opaque context spreads.
+`vi` is a callback fixture for native clock and inspection utilities. Browser tests use `test.browser.stable` through the same public
+import and receive native Playwright assertions, page, screenshot and accessibility fixtures.
+Their `rpc.client` and `rpc.runPromise` support setup and checks against the page’s real server;
+the client scope closes before the server is released. The `test` namespace is reserved for registration, classification, suites and hooks; Oxlint rejects runtime helpers and opaque context spreads.
 
-TypeScript narrowing assertions require an explicitly typed local binding: request `{ assert: assertions }` and declare `const assert: test.Assert = assertions;`. Ordinary `expect` assertions need no extra annotation. Test helpers accept the utilities they need through explicit parameters typed with `Pick<test.Context, ...>`.
+TypeScript narrowing assertions require an explicitly typed local binding: request `{ assert: assertions }` and declare `const assert: test.Assert = assertions;`. Ordinary `expect` assertions need no extra annotation. Test helpers accept the utilities they need through explicit parameters typed with `Pick<test.unit.Context, ...>`.
 
 Fixtures initialize when requested through callback parameters, share their dependencies
 within that test, and release consumers before their backing resources. Pure tests open
@@ -540,7 +546,7 @@ no database or application. Parameterized cases that need fixtures use native `.
 ```ts
 import { test } from '@study/testing';
 
-test.stable.for(['english', 'italian'] as const)(
+test.unit.stable.for(['english', 'italian'] as const)(
   'opens Notes in %s',
   async (locale, { page, expect }) => {
     await page.open('/notes', { locale });
@@ -560,11 +566,12 @@ test.stable.for(['english', 'italian'] as const)(
 | `databases`   | An owned factory for tests requiring several independent databases or migration inputs.            |
 | `server`      | Real application, store and bound Effect service runtime; workers start explicitly.                |
 | Server `rpc`  | Real HTTP endpoint and scoped client, sharing the requested server; `reopen()` preserves its data. |
+| Browser `rpc` | Typed client and `runPromise`, connected to the same isolated server used by the browser page.     |
 
 Stable, regression, migration and characterization classifications share the prepared
-runner: `test.regression({ regression: 'evidence_integrity' })(name, callback)` receives
+runner: `test.server.regression({ regression: 'evidence_integrity' })(name, callback)` receives
 the same fixtures. Keep catalog metadata literal. For a localized React case, use
-`test.stable.extend('locale', 'italian')(name, callback)`.
+`test.unit.stable.extend('locale', 'italian')(name, callback)`.
 
 Request `runTestEffect` for scoped Effect execution and `observeUntil` for observable
 state. `pollUntil` is reserved for external engines without subscriptions and needs

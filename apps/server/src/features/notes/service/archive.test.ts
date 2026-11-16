@@ -18,7 +18,7 @@ import { Sources } from '#server/features/sources/index';
 import { deletionDocument } from '#testing/material-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
-test.stable(
+test.server.stable(
   'automatically includes active note items, archives reversibly, and preserves captured requests',
   async ({ databases, expect }) => {
     const f = await pageTransformFixture(databases);
@@ -114,7 +114,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'source archive is note-scoped and pending active material is never silently omitted',
   async ({ databases, expect }) => {
     const f = await pageTransformFixture(databases);
@@ -189,7 +189,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'archive mutation rejects an item owned by another note',
   async ({ databases, expect }) => {
     const f = await pageTransformFixture(databases);
@@ -223,7 +223,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'empty archives load and bounded reads retain every archived item',
   async ({ databases, expect }) => {
     const f = await pageTransformFixture(databases);

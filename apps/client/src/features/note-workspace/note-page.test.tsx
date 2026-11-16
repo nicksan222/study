@@ -58,7 +58,7 @@ let material: ReturnType<typeof initializeMaterial>;
 const registries: AtomRegistry.AtomRegistry[] = [];
 
 function mount<T>(
-  { rpcTestTransport, renderHook }: Pick<test.Context, 'rpcTestTransport' | 'renderHook'>,
+  { rpcTestTransport, renderHook }: Pick<test.unit.Context, 'rpcTestTransport' | 'renderHook'>,
   hook: () => T,
   registry = AtomRegistry.make()
 ) {
@@ -96,7 +96,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   api = __mockState.api;
@@ -117,23 +117,23 @@ test.beforeEach(async ({ mock }) => {
   material = initializeMaterial();
 });
 
-test.beforeEach(({ vi }) => {
+test.unit.beforeEach(({ vi }) => {
   vi.useFakeTimers();
   vi.resetAllMocks();
 });
-test.afterEach(({ cleanup, vi }) => {
+test.unit.afterEach(({ cleanup, vi }) => {
   cleanup();
   registries.splice(0).forEach((registry) => registry.dispose());
   vi.useRealTimers();
 });
 
-async function settle({ act, vi }: Pick<test.Context, 'act' | 'vi'>) {
+async function settle({ act, vi }: Pick<test.unit.Context, 'act' | 'vi'>) {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1);
   });
 }
 
-test.stable(
+test.unit.stable(
   'creates an empty real document attachment and reuses the exact creation receipt after uncertain transport',
   async ({ act, expect, rpcTestTransport, renderHook, vi }) => {
     api.create
@@ -163,7 +163,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'autosaves typed pages and flushes trailing edits after the tab closes',
   async ({ act, vi, expect, rpcTestTransport, renderHook }) => {
     let finish!: (value: typeof editOutcomeSchema.Type) => void;
@@ -199,7 +199,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'preserves a failed save payload and requires an explicit retry with the same save key',
   async ({ act, vi, expect, rpcTestTransport, renderHook }) => {
     api.save
@@ -222,7 +222,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains local edits on conflict until the user selects the saved version',
   async ({ act, vi, expect, rpcTestTransport, renderHook }) => {
     api.save.mockResolvedValue(saveReceipt('conflict', 12n, 10n));
@@ -245,7 +245,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'linked attachment pages remain bounded and request continuation only explicitly',
   async ({ expect, act, rpcTestTransport, renderHook, vi }) => {
     const item = material();
@@ -266,7 +266,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'creates a subject-owned blank document and retries the same receipt without attaching a note',
   async ({ act, expect, rpcTestTransport, renderHook, vi }) => {
     const projectId = projectIdSchema.make(7n);

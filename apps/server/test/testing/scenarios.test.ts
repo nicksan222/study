@@ -6,7 +6,7 @@ import { Effect } from 'effect';
 import { makeStudyClient } from '#server/client/index';
 import { Projects } from '#server/features/projects/index';
 
-test.stable(
+test.server.stable(
   'server scenario owns an isolated app and bound runtime',
   async ({ server, expect }) => {
     expect(server.app.store.db.orm.select().from(projects).all()).toHaveLength(0);
@@ -16,11 +16,14 @@ test.stable(
   }
 );
 
-test.stable('a later server scenario starts with a fresh database', async ({ server, expect }) => {
-  expect(server.app.store.db.orm.select().from(projects).all()).toHaveLength(0);
-});
+test.server.stable(
+  'a later server scenario starts with a fresh database',
+  async ({ server, expect }) => {
+    expect(server.app.store.db.orm.select().from(projects).all()).toHaveLength(0);
+  }
+);
 
-test.stable(
+test.server.stable(
   'owned endpoint factory isolates multiple RPC applications',
   async ({ endpoints, expect }) => {
     const first = await endpoints();
@@ -53,7 +56,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'RPC scenario exposes a working client and preserves data on reopen',
   async ({ rpc, expect }) => {
     expect((await rpc.runPromise(rpc.client['system.health']({}))).workersRunning).toBe(false);
@@ -70,7 +73,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'RPC scenario closes the endpoint even when a scoped client finalizer fails',
   async ({ rpc, expect }) => {
     await rpc.runPromise(Effect.addFinalizer(() => Effect.die(new Error('Client cleanup failed'))));

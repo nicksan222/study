@@ -51,7 +51,7 @@ const receipt = (outcome: 'applied' | 'kept' | 'conflict') =>
     replayed: false
   });
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
   mock('@tanstack/react-router', () => ({
     Link: ({ children }: { children: ReactNode }) => <span>{children}</span>
@@ -67,7 +67,7 @@ test.beforeEach(async ({ mock }) => {
 });
 
 for (const kind of ['apply', 'keep'] as const) {
-  test.stable(
+  test.unit.stable(
     `explicit ${kind} retry keeps the uncertain payload through live refresh and route remount`,
     async ({ rpcTestTransport, render, fireEvent, screen, act, expect }) => {
       const attempts: unknown[] = [];
@@ -122,7 +122,7 @@ for (const kind of ['apply', 'keep'] as const) {
   );
 }
 
-test.stable(
+test.unit.stable(
   'two rendered proposal controls share write ownership',
   async ({ rpcTestTransport, render, screen, fireEvent, waitFor, expect, act }) => {
     let resolve!: (value: unknown) => void;

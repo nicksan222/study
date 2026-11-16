@@ -5,7 +5,7 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 const message =
   'Use Effect for feature orchestration; native async, Promise construction and fetch belong at I/O boundaries.';
 
-test.stable(
+test.unit.stable(
   'checks canonical feature owners and respects shadowed globals and adapters',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -36,7 +36,7 @@ function local(fetch: any, Promise: any) {
   }
 );
 
-test.stable(
+test.unit.stable(
   'recognizes fallback fetch aliases in feature tool directories',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

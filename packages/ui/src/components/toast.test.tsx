@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { ToastProvider, toastManager } from './toast';
 
-test.stable(
+test.unit.stable(
   'shows standard success feedback and supports keyboard access and localized dismissal',
   async ({ userEvent, render, screen, expect, waitFor }) => {
     const user = userEvent.setup();
@@ -26,7 +26,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'localizes the notification region instead of exposing the primitive English default',
   ({ render, expect }) => {
     render(

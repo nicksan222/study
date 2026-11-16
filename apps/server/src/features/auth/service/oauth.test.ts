@@ -27,7 +27,7 @@ import { ChatGptSession } from '#server/platform/ai/auth/service';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 
-async function peer({ assert: assertions }: Pick<test.Context, 'assert'>) {
+async function peer({ assert: assertions }: Pick<test.server.Context, 'assert'>) {
   const assert: test.Assert = assertions;
 
   let nonce = '';
@@ -136,7 +136,7 @@ async function peer({ assert: assertions }: Pick<test.Context, 'assert'>) {
 type Databases = () => Promise<{ open(): Promise<Db>; cleanup(): Promise<void> }>;
 
 async function withAuth(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
   databases: Databases,
   run: (
     layer: Layer.Layer<Database | Context.Service.Identifier<typeof Auth>, unknown, never>,
@@ -170,7 +170,7 @@ async function withAuth(
   }
 }
 
-test.stable(
+test.server.stable(
   'successful OAuth finish persists only a public-safe account and changes generation on repeated sign-in',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -179,7 +179,7 @@ test.stable(
       function* verifyRepeatedSignIn({
         assert: assertions,
         expect
-      }: Pick<test.Context, 'assert' | 'expect'>) {
+      }: Pick<test.server.Context, 'assert' | 'expect'>) {
         const assert: test.Assert = assertions;
 
         const auth = yield* Auth;
@@ -230,7 +230,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'failed OAuth persistence restores the previous account and session',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -248,7 +248,9 @@ test.stable(
         .values({ scope: 'private.chatgpt', key: 'account', value: JSON.stringify(previous) })
         .run();
 
-      function* verifyAccountRestoration({ assert: assertions }: Pick<test.Context, 'assert'>) {
+      function* verifyAccountRestoration({
+        assert: assertions
+      }: Pick<test.server.Context, 'assert'>) {
         const assert: test.Assert = assertions;
 
         const auth = yield* Auth;
@@ -292,7 +294,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'refresh rotation settling during OAuth finish survives the sign-in commit',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -389,7 +391,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'interrupting finish aborts the token HTTP request and closes the listener',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -397,7 +399,7 @@ test.stable(
     await withAuth({ assert }, databases, async (layer, _context, oauth) => {
       oauth.blockToken();
 
-      function* verifySignInInterruption({ expect }: Pick<test.Context, 'expect'>) {
+      function* verifySignInInterruption({ expect }: Pick<test.server.Context, 'expect'>) {
         const auth = yield* Auth;
         const attempt = yield* auth.startSignIn({});
         const callback = oauth.callback(attempt.url);

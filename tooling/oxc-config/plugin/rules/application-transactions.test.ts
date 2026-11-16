@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'rejects nested ORM transactions in application code',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -16,7 +16,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'recognizes database aliases and preserves context and unrelated transactions',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

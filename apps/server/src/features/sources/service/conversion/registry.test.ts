@@ -18,7 +18,7 @@ import { DEFAULT_MAX_BYTES, document } from '#server/features/sources/decoders/c
 import type { ConversionContext, ConversionInput } from './registry.ts';
 import { makeConversionRegistry } from './registry.ts';
 
-test.stable(
+test.server.stable(
   'one registration exposes a strategy and routes conversions with validated output',
   async ({ expect }) => {
     const context: ConversionContext = { generate: () => Effect.die('Unexpected model call') };
@@ -55,19 +55,22 @@ test.stable(
   }
 );
 
-test.stable('a method for one input kind does not disable default PDF reading', ({ expect }) => {
-  const convert = () => Effect.die('Unexpected conversion');
-  const registry = makeConversionRegistry([
-    { id: 'default-pdf', label: 'ConversionChatGpt', supportedInputs: ['pdf'], convert },
-    { id: 'text-only', label: 'ConversionChatGpt', supportedInputs: ['text'], convert }
-  ]);
+test.server.stable(
+  'a method for one input kind does not disable default PDF reading',
+  ({ expect }) => {
+    const convert = () => Effect.die('Unexpected conversion');
+    const registry = makeConversionRegistry([
+      { id: 'default-pdf', label: 'ConversionChatGpt', supportedInputs: ['pdf'], convert },
+      { id: 'text-only', label: 'ConversionChatGpt', supportedInputs: ['text'], convert }
+    ]);
 
-  expect(registry.forInput('text-only', 'pdf').id).toBe('default-pdf');
-  expect(registry.forInput('text-only', 'text').id).toBe('text-only');
-  expect(() => registry.forInput('missing', 'pdf')).toThrow();
-});
+    expect(registry.forInput('text-only', 'pdf').id).toBe('default-pdf');
+    expect(registry.forInput('text-only', 'text').id).toBe('text-only');
+    expect(() => registry.forInput('missing', 'pdf')).toThrow();
+  }
+);
 
-test.stable(
+test.server.stable(
   'rejects empty or oversized inputs before invoking any conversion implementation',
   async ({ expect }) => {
     let calls = 0;

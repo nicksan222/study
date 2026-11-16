@@ -24,7 +24,7 @@ const runner = Bun.fileURLToPath(
 for (const mode of ['pass', 'fail', 'imported-fail']) {
   const fails = mode !== 'pass';
 
-  test.stable(
+  test.unit.stable(
     `progress keeps test results and filters diagnostics for ${mode}`,
     async ({ task: _task, temporaryDirectory, spawnTestProcess, expect }) => {
       const fs = await Effect.runPromise(
@@ -51,11 +51,11 @@ for (const mode of ['pass', 'fail', 'imported-fail']) {
       );
       await Bun.write(
         paths.join(directory, 'passing.test.mjs'),
-        `import { test } from '@study/testing'; test.stable('other passing result', ({ task: _task }) => console.log('other passing output'));`
+        `import { test } from '@study/testing'; test.unit.stable('other passing result', ({ task: _task }) => console.log('other passing output'));`
       );
       await Bun.write(
         definition,
-        `import { test } from '@study/testing'; import { assert } from 'vite-plus/test'; test.stable('visible test result', ({ task: _task }) => { console.log('fixture stdout'); console.error('fixture stderr'); console.debug('fixture phase'); if (${fails}) assert.fail('intentional failure'); });`
+        `import { test } from '@study/testing'; import { assert } from 'vite-plus/test'; test.unit.stable('visible test result', ({ task: _task }) => { console.log('fixture stdout'); console.error('fixture stderr'); console.debug('fixture phase'); if (${fails}) assert.fail('intentional failure'); });`
       );
 
       if (definition !== fixture) await Bun.write(fixture, `import './definition.mjs';`);
@@ -85,7 +85,7 @@ for (const mode of ['pass', 'fail', 'imported-fail']) {
   );
 }
 
-test.stable(
+test.unit.stable(
   'phase diagnostics preserve operation results and failures',
   async ({ task: _task, expect }) => {
     await expect(inTestPhase(undefined, 'success', async () => 42)).resolves.toBe(42);

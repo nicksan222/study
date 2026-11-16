@@ -9,7 +9,7 @@ import { replyInputSchema } from './reply.ts';
 import { sourcesInputSchema } from './sources.ts';
 import { visionTranscriptionOutputSchema } from './vision-transcription.ts';
 
-test.stable(
+test.unit.stable(
   'reply preserves message roles and rejects unsupported roles',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -25,7 +25,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'generation publication requires integer citation positions and branded markers',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -48,7 +48,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'vision output requires page blocks and sources query is nonempty',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -62,7 +62,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'quiz output requires exactly one correct answer for a single-choice question',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -94,7 +94,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'generation captures a quiz-only exact question specification',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

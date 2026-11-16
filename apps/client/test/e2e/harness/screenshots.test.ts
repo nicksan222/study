@@ -10,7 +10,7 @@ const snapshotPolicy = {
   project: { ignoreSnapshots: false }
 };
 
-test.stable('screenshot paths and scoped baseline updates fail closed', ({ expect }) => {
+test.unit.stable('screenshot paths and scoped baseline updates fail closed', ({ expect }) => {
   for (const name of ['../escape', '/absolute', '', 'a/b', 'x'.repeat(81)])
     expect(() => safeName(name)).toThrow();
 
@@ -33,7 +33,7 @@ test.stable('screenshot paths and scoped baseline updates fail closed', ({ expec
   expect(() => requireScreenshots(1)).not.toThrow();
 });
 
-test.stable(
+test.unit.stable(
   'expired readiness stages cannot resume screenshot browser work',
   async ({ expect, onTestFinished }) => {
     const { screenshotAssertions } = await import('./screenshots.ts');
@@ -97,7 +97,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'canonical capture blurs only the passive focused entry after readiness unless preserved',
   async ({ expect, onTestFinished }) => {
     const { screenshotAssertions } = await import('./screenshots.ts');
@@ -152,7 +152,7 @@ test.stable(
   }
 );
 
-test.stable.for(['all', 'changed'] as const)(
+test.unit.stable.for(['all', 'changed'] as const)(
   'comparison rejects a native UI policy changed after fixture creation: %s',
   async (mode, { expect, onTestFinished }) => {
     const { screenshotAssertions } = await import('./screenshots.ts');

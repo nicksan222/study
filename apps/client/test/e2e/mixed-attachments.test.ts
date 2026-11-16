@@ -61,7 +61,7 @@ const fixtureDirectory = new URL(
   import.meta.url
 );
 
-test.stable(
+test.browser.stable(
   'Mixed lecture retains ten attachments through extraction failures',
   async ({ page, expectScreenshot, expect }) => {
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
@@ -89,7 +89,7 @@ test.stable(
       'unsupported.bin'
     ];
 
-    async function identities({ expect }: Pick<test.Context, 'expect'>) {
+    async function identities({ expect }: Pick<test.browser.Context, 'expect'>) {
       await expect(entry).toHaveCount(1);
       await expect(
         entry.getByRole('button').filter({ hasText: /\.md|\.txt|\.pptx|\.docx|\.pdf|\.bin/ })
@@ -101,7 +101,7 @@ test.stable(
         );
     }
 
-    async function controls({ expect }: Pick<test.Context, 'expect'>) {
+    async function controls({ expect }: Pick<test.browser.Context, 'expect'>) {
       for (const label of [copy.NoteClosePage, copy.NoteExpandEditor]) {
         const control = page.getByRole('button', { name: label, exact: true });
 
@@ -114,7 +114,7 @@ test.stable(
     }
 
     async function openSource(
-      { expect }: Pick<test.Context, 'expect'>,
+      { expect }: Pick<test.browser.Context, 'expect'>,
       name: string,
       expected: string,
       occurrence = 0
@@ -257,7 +257,7 @@ test.stable(
     await expect(body).toHaveText(edited);
     await identities({ expect });
 
-    async function inspectLecture({ expect }: Pick<test.Context, 'expect'>) {
+    async function inspectLecture({ expect }: Pick<test.browser.Context, 'expect'>) {
       const label = entry.getByText(copy.NoteEntryNote, { exact: true });
 
       await label.scrollIntoViewIfNeeded();

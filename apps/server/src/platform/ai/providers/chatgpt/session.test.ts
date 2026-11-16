@@ -23,7 +23,7 @@ const account = {
   sharing: true
 };
 
-test.stable(
+test.unit.stable(
   'refresh is shared and persists the rotation before exposing access',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -68,7 +68,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'failed persistence must be retried before any access or another refresh',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -106,7 +106,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'replacement invalidates in-flight refresh before it can return a token',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -152,7 +152,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'seeded access and stale refusals do not cause gratuitous refresh',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -178,7 +178,7 @@ test.stable(
   }
 );
 
-test.stable('token endpoint failures do not expose response secrets', async ({ expect }) => {
+test.unit.stable('token endpoint failures do not expose response secrets', async ({ expect }) => {
   const auth = new AuthManager({
     issuer: 'https://example.test',
     saveRefresh: async () => {},
@@ -195,7 +195,7 @@ test.stable('token endpoint failures do not expose response secrets', async ({ e
   }
 });
 
-test.stable(
+test.unit.stable(
   'sign-out waits for in-flight persistence and never returns its access token',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -243,7 +243,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'replacement during response parsing preserves and reuses the rotated credential',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -310,7 +310,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'replacement retries a dirty rotation before restoring the same account',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -351,7 +351,7 @@ test.stable(
   }
 );
 
-test.stable('malformed refresh JSON never appears in the thrown error', async ({ expect }) => {
+test.unit.stable('malformed refresh JSON never appears in the thrown error', async ({ expect }) => {
   const auth = new AuthManager({
     issuer: 'https://example.test',
     saveRefresh: async () => {},
@@ -371,7 +371,7 @@ test.stable('malformed refresh JSON never appears in the thrown error', async ({
   }
 });
 
-test.stable(
+test.unit.stable(
   'a failed retirement keeps ownership and can be retried',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -406,7 +406,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'dispose closes admission and retains ownership until an admitted replacement retires',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -465,7 +465,7 @@ test.stable(
   }
 );
 
-test.stable('overlapping sign-out and replacement cannot both succeed', async ({ expect }) => {
+test.unit.stable('overlapping sign-out and replacement cannot both succeed', async ({ expect }) => {
   let entered!: () => void;
   let release!: () => void;
   const started = new Promise<void>((resolve) => {
@@ -505,7 +505,7 @@ test.stable('overlapping sign-out and replacement cannot both succeed', async ({
   }
 });
 
-test.stable(
+test.unit.stable(
   'sign-out is rejected while replacement is pending',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -551,7 +551,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'failed disposal retains ownership, blocks transitions and can be retried',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -583,7 +583,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'seed refresh follows the native clock against a loopback token endpoint',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

@@ -25,7 +25,7 @@ const note = {
 const success = (requestId: string | number = '42') =>
   bytes({ _tag: 'Exit', requestId, exit: { _tag: 'Success', value: note } });
 
-test.stable(
+test.unit.stable(
   'creation proof requires the exact operation and request id, never reads or uploads',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -65,7 +65,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'every byte split, including UTF-8 and the final newline, preserves complete Exit framing',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -84,7 +84,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'unarmed teardown rejects waiters and repeated arming is forbidden',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -99,7 +99,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'owner teardown terminates a creation response that arrives later',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -175,7 +175,7 @@ for (const cleanup of [
   'owner disposal',
   'failed Exit'
 ] as const) {
-  test.stable(
+  test.server.stable(
     `real committed creation loses only its receipt and drains on ${cleanup}`,
     async ({
       createTestResources,

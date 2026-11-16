@@ -31,7 +31,7 @@ const scopes = [
 
 const removed = 'river-removed.md';
 
-test.stable(
+test.browser.stable(
   'Scoped drafts survive navigation and save to their own projects',
   async ({ page, expectScreenshot, expect }) => {
     await page.goto('/notes');
@@ -43,7 +43,7 @@ test.stable(
     const saved = new Map<string, string>();
     const projects = new Map<string, string>();
 
-    async function controls({ expect }: Pick<test.Context, 'expect'>) {
+    async function controls({ expect }: Pick<test.browser.Context, 'expect'>) {
       for (const control of [
         composer,
         save,
@@ -56,7 +56,7 @@ test.stable(
     }
 
     async function assertDraft(
-      { expect }: Pick<test.Context, 'expect'>,
+      { expect }: Pick<test.browser.Context, 'expect'>,
       scope: (typeof scopes)[number],
       filenames: string[]
     ) {
@@ -76,7 +76,7 @@ test.stable(
     }
 
     async function selectScope(
-      { expect }: Pick<test.Context, 'expect'>,
+      { expect }: Pick<test.browser.Context, 'expect'>,
       scope: (typeof scopes)[number]
     ) {
       await picker.click();
@@ -87,7 +87,7 @@ test.stable(
       await page.getByRole('link', { name: scope.title }).click();
     }
 
-    async function visitOtherRoutes({ expect }: Pick<test.Context, 'expect'>) {
+    async function visitOtherRoutes({ expect }: Pick<test.browser.Context, 'expect'>) {
       await navigation.getByRole('link', { name: copy.SourcePage }).click();
       await expect(page).toHaveURL(/\/pages$/);
       await page.getByRole('button', { name: copy.Settings, exact: true }).click();
@@ -102,7 +102,7 @@ test.stable(
     }
 
     async function createDraft(
-      { expect }: Pick<test.Context, 'expect'>,
+      { expect }: Pick<test.browser.Context, 'expect'>,
       scope: (typeof scopes)[number],
       index: number
     ) {
@@ -215,7 +215,7 @@ test.stable(
     });
 
     async function assertSaved(
-      { expect }: Pick<test.Context, 'expect'>,
+      { expect }: Pick<test.browser.Context, 'expect'>,
       scope: (typeof scopes)[number]
     ) {
       await expect(picker).toHaveAccessibleName(scope.name);
@@ -240,7 +240,7 @@ test.stable(
     }
 
     async function source(
-      { expect }: Pick<test.Context, 'expect'>,
+      { expect }: Pick<test.browser.Context, 'expect'>,
       scope: (typeof scopes)[number]
     ) {
       const { entry } = await assertSaved({ expect }, scope);
@@ -268,7 +268,7 @@ test.stable(
     }
 
     async function saveDraft(
-      { expect }: Pick<test.Context, 'expect'>,
+      { expect }: Pick<test.browser.Context, 'expect'>,
       scope: (typeof scopes)[number]
     ) {
       if (scope === b) {

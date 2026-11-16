@@ -14,7 +14,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   api = __mockState.api;
@@ -26,9 +26,9 @@ test.beforeEach(async ({ mock }) => {
   NoteMergeDialog = __mockModule0.NoteMergeDialog;
 });
 
-test.afterEach(({ cleanup }) => cleanup());
+test.unit.afterEach(({ cleanup }) => cleanup());
 
-test.stable(
+test.unit.stable(
   'retries the reviewed note set with the same merge identity and opens the committed result',
   async ({ rpcTestTransport, vi, render, fireEvent, screen, expect, waitFor, cleanup }) => {
     const note = Schema.decodeUnknownSync(noteSchema)({

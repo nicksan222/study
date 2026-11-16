@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'feature writers respect table ownership while reads and shared pages remain available',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -31,7 +31,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'recognizes aliases and SQL without confusing unrelated APIs or reads',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -66,7 +66,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'every exported database table has an explicit ownership policy',
   async ({ expect }) => {
     const schema = await import('@study/db');
@@ -83,7 +83,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'table ownership applies to contextual native factory receivers',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -101,7 +101,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'collection membership writes stay with organization and the identity-creating feature',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -155,7 +155,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'source import receipts and extraction revisions remain source-owned across acquisition participants',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -187,7 +187,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'canonical asset roots are derived from blocks and cannot be written by features',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -221,7 +221,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'captured note context is note-owned while material selection pins stay material-owned',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -257,7 +257,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'learning generation receipts and citations remain material-owned while coordinators can only read them',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -288,7 +288,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'edit and proposal receipts stay Pages-owned and asset roots stay trigger-derived',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -323,7 +323,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'historic annotations and manual judgments stay Pages-owned while message citations stay Notes-owned',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -370,7 +370,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'deletion barriers are Notes-owned and proposal retirement proofs are Pages-owned',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -398,7 +398,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'Material deletion proofs stay with Materials and exact source extraction revisions stay with Sources',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -442,7 +442,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retired intents, exact version barriers and source extraction history have one owning feature',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -474,7 +474,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'history proof ownership survives table aliases and raw SQL across all synchronous participants',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -517,7 +517,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'System snapshot policy cannot gain credential, pending-shell or content writer authority',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -539,7 +539,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'features cannot advance shared revision metadata outside the transaction boundary',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

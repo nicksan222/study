@@ -16,7 +16,7 @@ let AnalyticsSettings: typeof __StudyMockType2.AnalyticsSettings;
 
 let downloadFile: typeof UiModule.downloadFile;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   mock('#client/lib/host.ts', () => ({
     diagnosticLog: mock.fn(),
     hostCapabilities: mock.fn()
@@ -43,7 +43,7 @@ const snapshot =
   '2026-01-01T00:00:00Z ERROR panic\n  stack: Needle\n2026-01-01T00:00:01Z INFO ready\n';
 
 function setup(
-  { render }: Pick<test.Context, 'render'>,
+  { render }: Pick<test.unit.Context, 'render'>,
   locale: 'english' | 'italian' = 'english'
 ) {
   const view = render(
@@ -57,7 +57,7 @@ function setup(
   };
 }
 
-test.stable(
+test.unit.stable(
   'searches continuation context and exports the entire snapshot',
   async ({ vi, userEvent, expect, screen, render }) => {
     vi.mocked(hostCapabilities).mockReturnValue({ updates: true, diagnostics: true });
@@ -89,7 +89,7 @@ test.stable(
   }
 );
 
-test.stable.for(['english', 'italian'] as const)(
+test.unit.stable.for(['english', 'italian'] as const)(
   'shows browser fallback in %s',
   (locale, { vi, expect, screen, render }) => {
     vi.mocked(hostCapabilities).mockReturnValue({ updates: false, diagnostics: false });
@@ -105,7 +105,7 @@ test.stable.for(['english', 'italian'] as const)(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shows loading, error and recovers to empty on refresh',
   async ({ vi, expect, screen, waitFor, userEvent, render }) => {
     vi.mocked(hostCapabilities).mockReturnValue({ updates: true, diagnostics: true });

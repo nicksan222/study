@@ -22,7 +22,7 @@ import { Database } from '#server/platform/database/database';
 
 import { Projects } from './index.ts';
 
-test.stable(
+test.server.stable(
   'projects enforce validation, distinguish missing records and page accurately',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -69,7 +69,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'large project IDs survive reads and deletion cascades, while constraints roll back',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

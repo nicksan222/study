@@ -1,5 +1,5 @@
 import { test } from '@study/testing';
-test.stable(
+test.unit.stable(
   'frontend registration retains the classification in runner output',
   ({ task, expect }) => {
     expect(task.name).toBe(
@@ -8,7 +8,7 @@ test.stable(
   }
 );
 
-test.stable.for([
+test.unit.stable.for([
   [1, 'one'],
   [2, 'two']
 ] as const)('keeps tuple inference for %s', ([number, label], { expect }) => {
@@ -19,7 +19,7 @@ test.stable.for([
   expect(typedLabel.length).toBe(3);
 });
 
-test.stable.for([{ name: 'case', value: 42 }])(
+test.unit.stable.for([{ name: 'case', value: 42 }])(
   'keeps object case inference',
   (item, { task, expect }) => {
     expect(item.value).toBe(42);

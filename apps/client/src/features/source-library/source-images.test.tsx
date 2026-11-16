@@ -11,7 +11,7 @@ import { importedSource, materialRpc } from '../material-library/test/support';
 import { SourcePanel } from './source-panel';
 
 for (const context of ['current', 'historical', 'note'] as const)
-  test.stable(
+  test.unit.stable(
     `renders retained source images in ${context}, isolates retry and cleans URLs across extraction identities`,
     async ({ vi, rpcHandlersTransport, render, screen, waitFor, expect, userEvent }) => {
       const rpc = materialRpc({ vi });

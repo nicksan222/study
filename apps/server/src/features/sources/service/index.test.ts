@@ -32,7 +32,7 @@ import { withTestAdmission } from '#testing/workflow-admission';
 
 import { Sources } from './index.ts';
 
-test.stable(
+test.server.stable(
   'sources service persists requests and pages, and rolls back invalid requests',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -109,7 +109,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'a failed event insertion rolls back source creation',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -176,7 +176,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'publication requires a real active workflow grant',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -213,7 +213,7 @@ test.stable(
       function* verifyActiveWorkflowGrant({
         assert: assertions,
         expect
-      }: Pick<test.Context, 'assert' | 'expect'>) {
+      }: Pick<test.server.Context, 'assert' | 'expect'>) {
         const assert: test.Assert = assertions;
 
         const sources = yield* Sources;
@@ -400,7 +400,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'replacement fences stale publication and search follows the current source project',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -548,7 +548,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'deleting a pending source fences publication and removes indexed content',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -578,7 +578,9 @@ test.stable(
     };
 
     try {
-      function* verifyDeletedSourceFencing({ assert: assertions }: Pick<test.Context, 'assert'>) {
+      function* verifyDeletedSourceFencing({
+        assert: assertions
+      }: Pick<test.server.Context, 'assert'>) {
         const assert: test.Assert = assertions;
 
         const sources = yield* Sources;
@@ -604,7 +606,7 @@ test.stable(
         });
         const engine = yield* WorkflowEngine.WorkflowEngine;
 
-        function runWorkflow({ assert: assertions }: Pick<test.Context, 'assert'>) {
+        function runWorkflow({ assert: assertions }: Pick<test.server.Context, 'assert'>) {
           const assert: test.Assert = assertions;
 
           return Effect.gen(function* () {
@@ -686,7 +688,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'uploads remain Sources and only an explicit authored copy pins source history, even when archived',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -760,7 +762,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'source export returns the stored bytes and canonical link URI',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -801,7 +803,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'correction compares the current document and fences previous requests',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -920,7 +922,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'assigning a ready unowned source emits an index event without reprocessing',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -996,7 +998,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'correction request rolls back when outbox insertion fails',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -1073,7 +1075,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'project reassignment preserves an explicit message attachment',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -1117,7 +1119,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'exact source extractions and note links never substitute a pending revision or author a document',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

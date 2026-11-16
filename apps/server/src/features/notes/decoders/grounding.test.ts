@@ -18,7 +18,7 @@ import { test } from '@study/testing';
 
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
 
-test.stable(
+test.unit.stable(
   'citations only resolve excerpts exposed by search',
   ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -47,27 +47,30 @@ test.stable(
   }
 );
 
-test.stable('bounds excerpts and deduplicates captured documents', ({ assert: assertions }) => {
-  const assert: test.Assert = assertions;
+test.unit.stable(
+  'bounds excerpts and deduplicates captured documents',
+  ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  const catalog = createEvidenceCatalog([]);
-  const document = {
-    key: '1:2',
-    reference: { sourceId: 1n as SourceId, documentId: 2n as ContentSnapshotId },
-    name: 'Notes',
-    blocks: Array.from({ length: 250 }, () => ({ text: 'a'.repeat(2000) }))
-  };
+    const catalog = createEvidenceCatalog([]);
+    const document = {
+      key: '1:2',
+      reference: { sourceId: 1n as SourceId, documentId: 2n as ContentSnapshotId },
+      name: 'Notes',
+      blocks: Array.from({ length: 250 }, () => ({ text: 'a'.repeat(2000) }))
+    };
 
-  catalog.addDocument(document);
-  catalog.addDocument(document);
-  const hits = catalog.search('a');
+    catalog.addDocument(document);
+    catalog.addDocument(document);
+    const hits = catalog.search('a');
 
-  assert.strictEqual(hits.length, 10);
-  assert.strictEqual(hits[0]!.text.length, 1004);
-  assert.throws(() => catalog.citations('Answer [101]'));
-});
+    assert.strictEqual(hits.length, 10);
+    assert.strictEqual(hits[0]!.text.length, 1004);
+    assert.throws(() => catalog.citations('Answer [101]'));
+  }
+);
 
-test.stable(
+test.unit.stable(
   'shared catalog preserves opaque material references',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -91,7 +94,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'evidence ranking preserves case-insensitive scores, marker ties and empty queries',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

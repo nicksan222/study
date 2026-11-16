@@ -46,7 +46,7 @@ const body = (text: string) => ({
   }
 });
 
-test.stable(
+test.server.stable(
   'note tools enforce scope for every note, document and source and preserve edit versions',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -204,7 +204,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'deleting a notebook retires scoped chat correlations before cascading its private messages',
   async ({ databases, expect }) => {
     const location = await databases();

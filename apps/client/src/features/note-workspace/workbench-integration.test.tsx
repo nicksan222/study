@@ -32,7 +32,7 @@ let NoteWorkbench: typeof __MockType5.NoteWorkbench;
 
 let rpc: ReturnType<typeof createMockState>['rpc'];
 
-function testFixture({ rpcHandlersTransport }: Pick<test.Context, 'rpcHandlersTransport'>) {
+function testFixture({ rpcHandlersTransport }: Pick<test.unit.Context, 'rpcHandlersTransport'>) {
   return rpcHandlersTransport({
     'pages.create': rpc.create,
     'pages.copySource': rpc.copy,
@@ -89,7 +89,7 @@ const noteId = noteIdSchema.make(12n);
 let created: ReturnType<typeof material> | undefined;
 
 function mount(
-  { render, rpcHandlersTransport }: Pick<test.Context, 'render' | 'rpcHandlersTransport'>,
+  { render, rpcHandlersTransport }: Pick<test.unit.Context, 'render' | 'rpcHandlersTransport'>,
   children: ReactNode
 ) {
   const Provider = testFixture({ rpcHandlersTransport }).wrapper;
@@ -118,7 +118,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   rpc = __mockState.rpc;
@@ -147,7 +147,7 @@ test.beforeEach(async ({ mock }) => {
   NoteWorkbench = __mockModule5.NoteWorkbench;
 });
 
-test.beforeEach(({ vi }) => {
+test.unit.beforeEach(({ vi }) => {
   vi.resetAllMocks();
   created = undefined;
   rpc.assistant.mockImplementation(async ({ noteId }: { noteId: bigint }) => ({
@@ -189,11 +189,11 @@ test.beforeEach(({ vi }) => {
     return created;
   });
 });
-test.afterEach(({ cleanup }) => {
+test.unit.afterEach(({ cleanup }) => {
   cleanup();
 });
 
-test.stable(
+test.unit.stable(
   'New page persists an empty attachment, adds its card, and opens its editable tab',
   async ({ fireEvent, screen, waitFor, expect, within, render, rpcHandlersTransport }) => {
     mount(
@@ -240,7 +240,7 @@ function ImportedPanel() {
   );
 }
 
-test.stable(
+test.unit.stable(
   'Edit a copy pins the exact source revision and opens its independent authored page',
   async ({ expect, screen, fireEvent, waitFor, render, rpcHandlersTransport }) => {
     mount({ render, rpcHandlersTransport }, <ImportedPanel />);
@@ -267,7 +267,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps vertical note actions in the default card and changes editor docking without creating another document',
   async ({ screen, expect, waitFor, within, fireEvent, render, rpcHandlersTransport }) => {
     const view = mount(
@@ -318,7 +318,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'opens the scoped assistant beside pages and preserves its unsent draft after closing the tab',
   async ({ fireEvent, screen, expect, waitFor, render, rpcHandlersTransport }) => {
     mount(

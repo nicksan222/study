@@ -25,7 +25,7 @@ import { testLiveQueries } from '#testing/live-queries';
 
 import { ProjectsRpcLive } from './index.ts';
 
-test.stable(
+test.server.stable(
   'native RPC handlers return projects and typed failures',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

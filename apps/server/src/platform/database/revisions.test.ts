@@ -28,7 +28,7 @@ function rollbackNestedPreference(tx: ServerTransactionContext) {
   throw new Error('nested rollback');
 }
 
-test.stable(
+test.server.stable(
   'durable revisions advance atomically and rollback preserves observations',
   async ({ databases, expect }) => {
     const fixture = await databases();
@@ -57,7 +57,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'separate connections observe committed revisions without commit hints',
   async ({ databases, expect }) => {
     const fixture = await databases();
@@ -83,7 +83,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'caught nested rollback advances no revisions and publishes no hints',
   async ({ databases, expect }) => {
     const fixture = await databases();
@@ -118,7 +118,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'consistent snapshots include their revision and generation rotation invalidates old counters',
   async ({ databases, expect }) => {
     const fixture = await databases();
@@ -144,7 +144,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'outer rollback removes successful nested revision bumps and state together',
   async ({ databases, expect }) => {
     const fixture = await databases();

@@ -2,9 +2,9 @@ import { test } from '@study/testing';
 
 import { WorkspaceCard } from './workspace';
 
-test.afterEach(({ cleanup }) => cleanup());
+test.unit.afterEach(({ cleanup }) => cleanup());
 
-test.stable(
+test.unit.stable(
   'toggles the associated panel by keyboard and preserves its draft',
   async ({ userEvent, render, screen, expect }) => {
     const user = userEvent.setup();

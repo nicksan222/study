@@ -8,13 +8,13 @@ import { ItemDeletionMenu } from '../note-workspace/item-deletion-menu';
 
 const en = catalogs.english;
 
-test.afterEach(({ cleanup, vi }) => {
+test.unit.afterEach(({ cleanup, vi }) => {
   cleanup();
 
   vi.clearAllMocks();
 });
 
-test.stable(
+test.unit.stable(
   'confirms one authored note revision separately from the full item',
   async ({
     vi,
@@ -121,7 +121,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shows a review-only list when the current version is the only version',
   async ({ rpcHandlersTransport, render, userEvent, screen, expect, within }) => {
     const document = authoredPage(41n, 'Only version', 101n);

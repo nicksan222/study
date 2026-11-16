@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'schema-validated transaction branches use the shared mutation harness',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

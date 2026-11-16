@@ -8,7 +8,7 @@ function createApi(mock: test.Mock) {
 
 let api: ReturnType<typeof createApi>;
 
-test.beforeEach(({ mock }) => {
+test.unit.beforeEach(({ mock }) => {
   api = createApi(mock);
   api.load.mockResolvedValue({ newCardsPerDay: 20 });
   api.save.mockResolvedValue({});
@@ -17,7 +17,7 @@ test.beforeEach(({ mock }) => {
 function setup({
   rpcTestTransport,
   renderHook
-}: Pick<test.Context, 'rpcTestTransport' | 'renderHook'>) {
+}: Pick<test.unit.Context, 'rpcTestTransport' | 'renderHook'>) {
   const fixture = rpcTestTransport(async (tag, input) => {
     if (tag === 'settings.reviewSettings') return api.load();
 
@@ -35,7 +35,7 @@ function setup({
   return renderHook(() => useStudySettings(), { wrapper: fixture.wrapper });
 }
 
-test.stable(
+test.unit.stable(
   'rejects empty, fractional and out-of-range values without sending a request',
   async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
     const { result } = setup({ rpcTestTransport, renderHook });
@@ -52,7 +52,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'saves zero and reloads the committed allowance',
   async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
     const { result } = setup({ rpcTestTransport, renderHook });
@@ -67,7 +67,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'restores the saved allowance on failure and recovers by retrying',
   async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
     const { result } = setup({ rpcTestTransport, renderHook });

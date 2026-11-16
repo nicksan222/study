@@ -1,21 +1,38 @@
-import type { TestEnvironment } from '@study/testing';
+import type { TestEnvironment, test as publicTest } from '@study/testing';
 // These public API checks are compiled, never executed.
 import { test } from '@study/testing/vitest';
 
 import type { Migration, Regression, Characterization } from '../src/classification.ts';
 
+type PublicUnitContext = publicTest.unit.Context;
+
+// @ts-expect-error flat classifications are unavailable
+type FlatClassification = typeof publicTest.stable;
+
+function flatClassificationType(value: FlatClassification): FlatClassification {
+  return value;
+}
+
+void flatClassificationType;
+
 function publicContract() {
-  test.stable('context inference', async ({ task, mock }) => {
+  test.unit.stable('context inference', async ({ task, mock }) => {
     const name: string = task.name;
     const scopedMock: test.Mock = mock;
 
     mock('@study/ui', async (load) => ({ ...(await load()), fixtureValue: true }));
     void [name, scopedMock];
   });
-  test.stable('options', { timeout: 1000, concurrent: true }, () => {});
-  test.regression({ regression: 'evidence_integrity' })('regression', () => {});
-  test.migration({ migration: 'source_upgrade', retention: 'permanent' })('migration', () => {});
-  test.characterization({
+  const context: PublicUnitContext = {} as PublicUnitContext;
+
+  void context;
+  test.unit.stable('options', { timeout: 1000, concurrent: true }, () => {});
+  test.unit.regression({ regression: 'evidence_integrity' })('regression', () => {});
+  test.unit.migration({ migration: 'source_upgrade', retention: 'permanent' })(
+    'migration',
+    () => {}
+  );
+  test.unit.characterization({
     migration: 'source_upgrade',
     retention: 'temporary',
     removeWhen: 'The old source format is unsupported'
@@ -39,9 +56,9 @@ function publicContract() {
   };
 
   // @ts-expect-error callbacks are required
-  test.stable('missing callback');
+  test.unit.stable('missing callback');
   // @ts-expect-error invalid runner option type
-  test.stable('invalid timeout', { timeout: 'slow' }, () => {});
+  test.unit.stable('invalid timeout', { timeout: 'slow' }, () => {});
   void [
     unknownRegression,
     unknownMigration,

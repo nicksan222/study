@@ -35,7 +35,7 @@ const clients: AtomRegistry.AtomRegistry[] = [];
 function mount({
   rpcHandlersTransport,
   render
-}: Pick<test.Context, 'rpcHandlersTransport' | 'render'>) {
+}: Pick<test.unit.Context, 'rpcHandlersTransport' | 'render'>) {
   const cache = AtomRegistry.make();
   const fixture = rpcHandlersTransport(
     {
@@ -101,7 +101,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   api = __mockState.api;
@@ -123,13 +123,13 @@ test.beforeEach(async ({ mock }) => {
   startDrafts = __mockModule2.startDrafts;
 });
 
-test.beforeEach(({ vi }) => vi.resetAllMocks());
-test.afterEach(({ cleanup }) => {
+test.unit.beforeEach(({ vi }) => vi.resetAllMocks());
+test.unit.afterEach(({ cleanup }) => {
   cleanup();
   clients.splice(0).forEach((cache) => cache.dispose());
 });
 
-test.stable(
+test.unit.stable(
   'opening, typing and switching subjects only cache drafts until first send',
   async ({ screen, fireEvent, act, expect, waitFor, rpcHandlersTransport, render }) => {
     const { cache, router } = mount({ rpcHandlersTransport, render });
@@ -160,7 +160,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'first send creates once, consumes its draft, and preserves later typing',
   async ({ screen, fireEvent, waitFor, expect, act, rpcHandlersTransport, render }) => {
     let resolve!: (value: unknown) => void;
@@ -205,7 +205,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'lost creation receipts retain the draft and prevent duplicate creation across remount',
   async ({ fireEvent, screen, waitFor, expect, act, rpcHandlersTransport, render }) => {
     api.create.mockRejectedValue(new StudyError('transient', 'Receipt lost'));

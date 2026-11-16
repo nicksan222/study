@@ -69,7 +69,7 @@ async function fixture(databases: Databases) {
 }
 
 for (const retirement of ['deletion', 'prune'] as const) {
-  test.stable(
+  test.server.stable(
     `exact authored export and ancestor ${retirement} honor retained descendant pins`,
     async ({ databases, assert: assertions, expect }) => {
       const assert: test.Assert = assertions;
@@ -166,7 +166,7 @@ for (const retirement of ['deletion', 'prune'] as const) {
   );
 }
 
-test.stable(
+test.server.stable(
   'native aid JSON decodes complete canonical versions and exact citations for every aid kind',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -312,7 +312,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'native CSV preserves quoted multiline text and neutralizes formula prefixes without altering ordinary text',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -385,7 +385,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'citation snapshot accepts its exact UTF-8 budget without expanding retained evidence bodies',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -503,7 +503,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'native capability reports local routes and keeps vision and absent-provider support conservative',
   async ({ databases, expect }) => {
     const f = await fixture(databases);
@@ -584,7 +584,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'JSON export budget matches UTF-8 at the public limit across controls, surrogates and cumulative values',
   ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

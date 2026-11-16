@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { ContextMenu, ContextMenuTrigger } from './context-menu';
 
-test.stable.for([false, true])(
+test.unit.stable.for([false, true])(
   'preserves trigger class callbacks with fill %s',
   (fill, { render, screen, expect }) => {
     render(

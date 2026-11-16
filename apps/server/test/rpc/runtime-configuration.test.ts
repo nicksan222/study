@@ -27,7 +27,7 @@ import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 
-test.stable(
+test.server.stable(
   'same-account credential replacement changes the durable nonsecret fingerprint',
   async ({ resources: location, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -79,7 +79,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'shared agent instructions resolve the current application language per operation',
   async ({ resources: location, assert: assertions }) => {
     const assert: test.Assert = assertions;

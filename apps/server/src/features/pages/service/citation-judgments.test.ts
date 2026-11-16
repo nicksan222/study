@@ -40,7 +40,7 @@ const meta = {
 const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: ['strong'] }] });
 
-test.stable(
+test.server.stable(
   'user judgments pin both rich ranges; claim edits, citation copies and restoration never inherit verification',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

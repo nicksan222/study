@@ -23,7 +23,7 @@ import { Sources } from '#server/features/sources/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 
-test.stable(
+test.server.stable(
   'authored images retain exact source bytes through replacement, unrelated draft cleanup and project deletion',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

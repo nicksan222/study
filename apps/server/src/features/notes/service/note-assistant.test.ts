@@ -17,7 +17,7 @@ import { Notes } from '#server/features/notes/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 
-test.stable(
+test.server.stable(
   'note chats are distinct, durable, excluded from global chats and scoped to a notebook',
   async ({ databases, expect }) => {
     const location = await databases();

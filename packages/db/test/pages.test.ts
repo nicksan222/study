@@ -25,7 +25,7 @@ async function fixture(databases: Databases) {
   return db;
 }
 
-test.stable(
+test.server.stable(
   'authored documents have independent identity and survive all note links being removed',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -43,7 +43,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'authored ancestry and edit receipts cannot refer to another document',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -70,7 +70,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'publication seals authored versions, ancestry and canonical blocks at SQLite level',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -95,7 +95,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'deleted Pages permit only metadata removal and cannot regain annotation content',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -136,7 +136,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'upgrading existing deleted Pages removes owned text without changing retained identities',
   async ({
     onTestFinished,
@@ -204,7 +204,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'publication cannot use empty, source-owned or already-owned snapshots',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -232,7 +232,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'authored publication rejects an exact input draft or retired dependent body',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

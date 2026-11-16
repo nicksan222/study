@@ -57,7 +57,7 @@ const items = defineStore({
   })
 });
 
-test.stable(
+test.server.stable(
   'a store binds per transaction and per application without sharing database handles',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -138,7 +138,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'store runs decoded operations on the real database and rejects leaked transaction views',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -174,7 +174,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'transaction rolls back a write when a later step throws',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -225,7 +225,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'rejects malformed operation names and decodes inputs before executing',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -275,7 +275,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'rejects asynchronous transaction results before committing',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -306,7 +306,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'rejects invalid roles and duplicate operation names',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -363,7 +363,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'rejects asynchronous mutation values even with permissive output and rolls back',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -421,7 +421,7 @@ function transactionTypeAssertions(context: ServerContext) {
 
 void transactionTypeAssertions;
 
-test.stable(
+test.server.stable(
   'transaction steps inherit the transaction span and emit safe timing',
   async ({ databases, expect }) => {
     const { Context, Logger, Option, References, Tracer } = await import('effect');
@@ -460,7 +460,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'collection queries enforce cardinality even with a permissive schema',
   async ({ databases, expect }) => {
     const store = defineStore({
@@ -497,7 +497,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'bounded pages are native query results and oversized arrays or pages are rejected',
   async ({ databases, expect }) => {
     let result: unknown = { items: [1], next: null };
@@ -546,7 +546,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'required queries normalize a typed missing row without non-null assertions',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -587,7 +587,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'store selection resolves Database only at execution and exposes only reads',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -630,7 +630,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'a reusable read and write effect select each provided SQLite database',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -694,7 +694,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'events use the database clock, roll back with state, and reject escaped emitters',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -769,7 +769,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'nested transactions use SQLite savepoints and expire only their own operations',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -897,7 +897,7 @@ function canonicalStoreTypeAssertions() {
 
 void canonicalStoreTypeAssertions;
 
-test.stable(
+test.server.stable(
   'unbranded and role-swapped operation descriptors fail at binding',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -958,7 +958,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'async callbacks are rejected before their continuation can escape the transaction',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -998,7 +998,7 @@ for (const [role, name] of [
   ['required', 'selection'],
   ['optional', 'existing']
 ] as const)
-  test.stable(
+  test.server.stable(
     'allows multiple descriptive ' + role + ' reads in one store',
     async ({ databases, expect }) => {
       const location = await databases();
@@ -1046,7 +1046,7 @@ for (const [role, name] of [
     }
   );
 
-test.stable(
+test.server.stable(
   'transaction ownership does not expose the root database after expiry',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

@@ -38,7 +38,7 @@ const body = (text: string) => ({
   }
 });
 
-test.stable(
+test.server.stable(
   'native authored assessments retain exact judgments, reject foreign passages, paginate and become stale independently of evidence availability',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

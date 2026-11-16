@@ -14,7 +14,7 @@ import {
 
 const schemas = { payload: { id: sourceIdSchema }, success: Schema.String, error: failureSchema };
 
-test.stable(
+test.unit.stable(
   'query and mutation constructors preserve native schemas and required policies',
   ({ expect }) => {
     const read = liveQuery('test.read', schemas, {
@@ -56,7 +56,7 @@ function invalidDeclarations() {
   mutation('empty', schemas, { changes: [] });
 }
 
-test.stable(
+test.unit.stable(
   'live queries derive a separate native stream without changing one-shot schemas',
   ({ expect }) => {
     const read = liveQuery('test.read', schemas, {
@@ -74,7 +74,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'live frames preserve typed domain failures and distinguish transport heartbeats',
   ({ expect }) => {
     const schema = liveFrameSchema(Schema.BigInt, failureSchema);

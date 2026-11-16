@@ -17,7 +17,7 @@ import { Schema } from 'effect';
 
 import { canonicalPageTransformOutput } from './page-transform-output.ts';
 
-test.stable(
+test.unit.stable(
   'target proposals retain unchanged rich identities once, including reordered duplicate blocks',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -56,7 +56,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'equal text projections do not reuse IDs for changed rich table marks or list numbering',
   ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

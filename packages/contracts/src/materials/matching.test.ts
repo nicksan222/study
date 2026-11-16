@@ -14,7 +14,7 @@ const matching = {
   ]
 };
 
-test.stable(
+test.unit.stable(
   'matching requires distinct nonempty terms and definitions and at least two pairs',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

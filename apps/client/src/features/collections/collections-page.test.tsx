@@ -50,7 +50,7 @@ function deferred<T>() {
 function mount({
   rpcHandlersTransport,
   render
-}: Pick<test.Context, 'rpcHandlersTransport' | 'render'>) {
+}: Pick<test.unit.Context, 'rpcHandlersTransport' | 'render'>) {
   const harness = rpcHandlersTransport(rpc);
   const root = createRootRoute({ component: Outlet });
   const router = createRouter({
@@ -74,7 +74,7 @@ function mount({
 }
 
 async function remount(
-  { act, screen }: Pick<test.Context, 'act' | 'screen'>,
+  { act, screen }: Pick<test.unit.Context, 'act' | 'screen'>,
   router: ReturnType<typeof mount>['router']
 ) {
   await act(async () => {
@@ -87,11 +87,11 @@ async function remount(
   await screen.findByRole('button', { name: t['collections.create'] });
 }
 
-function createName({ screen }: Pick<test.Context, 'screen'>) {
+function createName({ screen }: Pick<test.unit.Context, 'screen'>) {
   return screen.getAllByRole('textbox', { name: t['collections.name'] })[0]!;
 }
 
-function detail({ within, screen }: Pick<test.Context, 'within' | 'screen'>) {
+function detail({ within, screen }: Pick<test.unit.Context, 'within' | 'screen'>) {
   return within(screen.getByRole('region', { name: 'Biology' }));
 }
 
@@ -99,7 +99,7 @@ async function selectProject({
   act,
   fireEvent,
   screen
-}: Pick<test.Context, 'act' | 'fireEvent' | 'screen'>) {
+}: Pick<test.unit.Context, 'act' | 'fireEvent' | 'screen'>) {
   await act(async () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Biology' }));
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -125,7 +125,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   rpc = __mockState.rpc;
@@ -146,7 +146,7 @@ test.beforeEach(async ({ mock }) => {
   CollectionsPage = __mockModule2.CollectionsPage;
 });
 
-test.beforeEach(({ vi }) => {
+test.unit.beforeEach(({ vi }) => {
   vi.resetAllMocks();
   rpc['projects.projects'].mockReturnValue(Effect.succeed({ items: [project], next: null }));
   rpc['projects.project'].mockReturnValue(Effect.succeed(project));
@@ -154,7 +154,7 @@ test.beforeEach(({ vi }) => {
   rpc['notes.notes'].mockReturnValue(Effect.succeed({ items: [], next: null }));
 });
 
-test.stable(
+test.unit.stable(
   'excludes duplicate create across a route remount and preserves a newer draft after the late receipt',
   async ({ screen, act, fireEvent, expect, waitFor, rpcHandlersTransport, render }) => {
     const response = deferred<typeof project>();
@@ -200,7 +200,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'requires a fresh list review after settled ambiguous creation without replaying the write',
   async ({ screen, act, fireEvent, waitFor, expect, rpcHandlersTransport, render }) => {
     rpc['projects.createProject'].mockReturnValue(
@@ -242,7 +242,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'serializes rename through remount and retains edits made after submission',
   async ({ act, fireEvent, waitFor, expect, screen, rpcHandlersTransport, render, within }) => {
     const response = deferred<boolean>();
@@ -298,7 +298,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'reads the selected identity exactly when it is absent from the reloaded catalog and shows canonical rename data',
   async ({ screen, expect, within, rpcHandlersTransport, render, act, fireEvent }) => {
     const { router } = mount({ rpcHandlersTransport, render });
@@ -316,7 +316,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'treats a false rename receipt as missing and preserves its unsent name',
   async ({ act, fireEvent, screen, waitFor, expect, rpcHandlersTransport, render, within }) => {
     rpc['projects.renameProject'].mockReturnValue(Effect.succeed(false));
@@ -347,7 +347,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'hides stale selected controls and the accepted receipt when the exact project becomes missing',
   async ({ screen, act, fireEvent, waitFor, expect, rpcHandlersTransport, render }) => {
     rpc['projects.createProject'].mockReturnValue(Effect.succeed(project));
@@ -376,7 +376,7 @@ test.stable(
   }
 );
 
-test.stable.for(['materials', 'notes'] as const)(
+test.unit.stable.for(['materials', 'notes'] as const)(
   'reconciles an ambiguous %s membership response and supports explicit refresh without replay',
   async (
     kind,
@@ -470,7 +470,7 @@ test.stable.for(['materials', 'notes'] as const)(
   }
 );
 
-test.stable(
+test.unit.stable(
   'provides contextual empty guidance for catalog, members and picker',
   async ({ screen, act, waitFor, expect, fireEvent, rpcHandlersTransport, render }) => {
     rpc['projects.projects'].mockReturnValueOnce(Effect.succeed({ items: [], next: null }));
@@ -490,7 +490,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps typed invalid-input rejection editable without an ambiguous-create acknowledgement',
   async ({ screen, act, fireEvent, waitFor, expect, rpcHandlersTransport, render }) => {
     rpc['projects.createProject'].mockReturnValue(
@@ -517,7 +517,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'uses complete projectIds in the picker and reconciles a lost add response without replay',
   async ({ screen, act, fireEvent, expect, waitFor, within, rpcHandlersTransport, render }) => {
     let attached = false;
@@ -598,7 +598,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'requires the exact subject name and fences dismissal while its native deletion is pending',
   async ({
     fireEvent,
@@ -647,7 +647,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'does not announce a missing subject as deleted when the native receipt is false',
   async ({ fireEvent, screen, within, expect, rpcHandlersTransport, render, act }) => {
     rpc['projects.deleteProject'].mockReturnValue(Effect.succeed(false));

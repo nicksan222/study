@@ -16,7 +16,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   api = __mockState.api;
@@ -27,14 +27,14 @@ test.beforeEach(async ({ mock }) => {
   NoteTitleEdit = __mockModule0.NoteTitleEdit;
 });
 
-test.beforeEach(({ vi }) => vi.resetAllMocks());
+test.unit.beforeEach(({ vi }) => vi.resetAllMocks());
 
 function mount({
   rpcTestTransport,
   render,
   fireEvent,
   screen
-}: Pick<test.Context, 'rpcTestTransport' | 'render' | 'fireEvent' | 'screen'>) {
+}: Pick<test.unit.Context, 'rpcTestTransport' | 'render' | 'fireEvent' | 'screen'>) {
   const fixture = rpcTestTransport(async (_tag, input) => {
     const renamed = await api.rename(input);
 
@@ -52,7 +52,7 @@ function mount({
   fireEvent.click(screen.getByRole('button', { name: 'NoteRename' }));
 }
 
-test.stable(
+test.unit.stable(
   'saves a trimmed title for the exact note and refreshes navigation',
   async ({ screen, expect, fireEvent, waitFor, rpcTestTransport, render }) => {
     api.rename.mockResolvedValue({ id, title: 'Cell division' });
@@ -67,7 +67,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps a failed rename available to retry and rejects an empty title',
   async ({ screen, fireEvent, expect, rpcTestTransport, render }) => {
     api.rename.mockRejectedValue(new StudyError('transient', 'Offline'));
@@ -84,7 +84,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'cancels without saving',
   async ({ fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     mount({ rpcTestTransport, render, fireEvent, screen });

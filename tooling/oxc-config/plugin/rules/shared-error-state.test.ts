@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-async function lint({ assert: assertions }: Pick<test.Context, 'assert'>, source: string) {
+async function lint({ assert: assertions }: Pick<test.unit.Context, 'assert'>, source: string) {
   const assert: test.Assert = assertions;
 
   return await lintRule(
@@ -13,22 +13,25 @@ async function lint({ assert: assertions }: Pick<test.Context, 'assert'>, source
   );
 }
 
-test.stable('rejects custom alert prose and retry controls', async ({ assert: assertions }) => {
-  const assert: test.Assert = assertions;
+test.unit.stable(
+  'rejects custom alert prose and retry controls',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  const diagnostics = await lint(
-    { assert },
-    `
+    const diagnostics = await lint(
+      { assert },
+      `
     export function View() {
       return <div role="alert"><p>Could not load</p><button>Retry</button></div>;
     }
   `
-  );
+    );
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  }
+);
 
-test.stable(
+test.unit.stable(
   'checks boolean error branches, early returns, and status comparisons',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -50,7 +53,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'handles negation, compound guards, and error branches passed as props',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -71,7 +74,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'accepts canonical imports, aliases, namespaces, and feature wrappers',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -94,7 +97,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'does not trust a same-named local implementation or a shadowed import',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -114,7 +117,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'does not let the success branch supply the canonical error presentation',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -133,7 +136,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'accepts ordinary field validation, live statuses, and non-render error guards',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -157,7 +160,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'checks aliases of custom error markup and skips null recovery branches',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -180,7 +183,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'checks custom component alerts but accepts the canonical component itself',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -199,7 +202,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'ignores tests, server code and canonical UI implementations',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -219,7 +222,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'checks shared button aliases used as a whole error presentation',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -236,7 +239,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retains canonical Sidebar.Message alerts without allowing raw sidebar implementations',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -263,7 +266,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'checks named error presenters even when they omit alert semantics',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -281,7 +284,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'declared error presenters without function bodies do not crash traversal',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

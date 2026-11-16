@@ -13,7 +13,7 @@ function createOperations(mock: test.Mock) {
 
 let operations: ReturnType<typeof createOperations>;
 
-test.beforeEach(({ mock }) => {
+test.unit.beforeEach(({ mock }) => {
   operations = createOperations(mock);
 });
 
@@ -38,7 +38,7 @@ const data = {
 function mount({
   rpcTestTransport,
   renderHook
-}: Pick<test.Context, 'rpcTestTransport' | 'renderHook'>) {
+}: Pick<test.unit.Context, 'rpcTestTransport' | 'renderHook'>) {
   const fixture = rpcTestTransport(async (tag, input) => {
     if (tag === 'settings.saveLlmSettings')
       return operations.saveAiSettings(Schema.decodeUnknownSync(llmSettingsSchema)(input));
@@ -52,7 +52,7 @@ function mount({
   return renderHook(() => useProviderSettings(data), { wrapper: fixture.wrapper });
 }
 
-test.stable(
+test.unit.stable(
   'a combined selection saves its provider and model together and preserves other tiers',
   async ({ act, waitFor, expect, rpcTestTransport, renderHook }) => {
     const { result } = mount({ rpcTestTransport, renderHook });
@@ -75,7 +75,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'submits write-only credentials once and clears mutation presentation',
   async ({ act, expect, rpcTestTransport, renderHook }) => {
     const { result } = mount({ rpcTestTransport, renderHook });

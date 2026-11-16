@@ -3,7 +3,7 @@ import { Schema } from 'effect';
 
 import { materialSearchInputSchema } from '../src/system/rpc.ts';
 
-test.stable(
+test.unit.stable(
   'Material search trims queries and bounds work before dispatch',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

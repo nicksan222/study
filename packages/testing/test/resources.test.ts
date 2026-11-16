@@ -1,6 +1,6 @@
 import { test } from '@study/testing';
 
-test.stable(
+test.unit.stable(
   'resource disposal runs every cleanup in reverse order after a failure',
   async ({ createTestResources, expect }) => {
     const resources = createTestResources();
@@ -21,7 +21,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'managed resources share an in-flight close and retry failed early closes',
   async ({ createTestResources, expect }) => {
     await using resources = createTestResources();
@@ -50,7 +50,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'managed synchronous resources can close early without double disposal',
   async ({ createTestResources, expect }) => {
     await using resources = createTestResources();
@@ -67,7 +67,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'temporary fixtures support an owned parent directory',
   async ({ temporaryDirectory, expect }) => {
     await using parent = await temporaryDirectory();
@@ -77,12 +77,14 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'successful setup transfers resources without closing them before use',
   async ({ expect, createTestResources }) => {
     let closed = false;
 
-    async function acquire({ createTestResources }: Pick<test.Context, 'createTestResources'>) {
+    async function acquire({
+      createTestResources
+    }: Pick<test.unit.Context, 'createTestResources'>) {
       await using setup = createTestResources();
 
       setup.defer(() => {
@@ -100,7 +102,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'concurrent fixture closes await the same complete disposal',
   async ({ createTestResources, expect }) => {
     const resources = createTestResources();
@@ -116,7 +118,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'closed fixtures reject acquisition before opening another resource',
   async ({ createTestResources, expect }) => {
     const resources = createTestResources();
@@ -135,7 +137,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'closing during acquisition waits for and releases the resource',
   async ({ createTestResources, expect }) => {
     const resources = createTestResources();

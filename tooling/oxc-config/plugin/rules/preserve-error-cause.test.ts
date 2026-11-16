@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'preserves the caught error when wrapping it in a production Error',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -19,7 +19,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'preserve-error-cause handles aliases and avoids unrelated bindings',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -38,20 +38,23 @@ test.stable(
   }
 );
 
-test.stable('preserve-error-cause covers direct unsafe forms', async ({ assert: assertions }) => {
-  const assert: test.Assert = assertions;
+test.unit.stable(
+  'preserve-error-cause covers direct unsafe forms',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  const diagnostics = await lintRule({ assert }, 'preserve-error-cause', {
-    'src/bad.ts': "try { run(); } catch (cause) { throw new Error('operation failed'); }",
-    'src/good.ts':
-      "try { run(); } catch (cause) { if (!input.valid) throw new Error('input invalid'); throw cause; }"
-  });
+    const diagnostics = await lintRule({ assert }, 'preserve-error-cause', {
+      'src/bad.ts': "try { run(); } catch (cause) { throw new Error('operation failed'); }",
+      'src/good.ts':
+        "try { run(); } catch (cause) { if (!input.valid) throw new Error('input invalid'); throw cause; }"
+    });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
-});
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+  }
+);
 
-test.stable(
+test.unit.stable(
   'canonical contracts error wrappers retain their original cause',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

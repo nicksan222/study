@@ -19,7 +19,7 @@ import { serve } from '#server/runtime/index';
 
 const isSourceIngestion = (item: { workflow: string }) => item.workflow === 'source-ingestion/v1';
 
-test.stable(
+test.server.stable(
   'failed extraction leaves same-note sibling sources and original bytes usable over HTTP',
   { timeout: 15000 },
   async ({ server: serverFixture, pollUntil, assert: assertions, expect }) => {

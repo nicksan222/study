@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRulePaths } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'durable library identities cannot acquire collection ownership through schema aliases',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

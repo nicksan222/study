@@ -14,7 +14,7 @@ const presentation: PracticePresentation = {
   percentage: (value) => `${value * 100}%`
 };
 
-test.stable(
+test.unit.stable(
   'the shared card reveals, rates, blocks pending shortcuts and restarts completion',
   ({ vi, render, expect, screen, fireEvent }) => {
     const reveal = vi.fn();
@@ -53,7 +53,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'the shared results navigate stored answers and preserve pending grading',
   ({ render, expect, screen, fireEvent }) => {
     render(
@@ -96,7 +96,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'separate result views preserve their selected answer for the same question',
   ({ render, screen, expect }) => {
     const attempt: PracticeResultsModel = {

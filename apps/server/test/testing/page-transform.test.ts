@@ -17,7 +17,7 @@ import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 
 import { pageTransformFixture } from './page-transform.ts';
 
-test.stable(
+test.server.stable(
   'fixture acquisition failure releases peer/database and close releases auth exactly once',
   async ({ databases, expect }) => {
     const owner = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });

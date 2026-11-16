@@ -2,18 +2,21 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable('requires database query builders to be executed', async ({ assert: assertions }) => {
-  const assert: test.Assert = assertions;
+test.unit.stable(
+  'requires database query builders to be executed',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  const diagnostics = await lintRule({ assert }, 'executed-query', {
-    'src/bad.ts':
-      "import type { Db } from '@study/db'; function f(db: Db) { db.orm.select().from(items); }"
-  });
+    const diagnostics = await lintRule({ assert }, 'executed-query', {
+      'src/bad.ts':
+        "import type { Db } from '@study/db'; function f(db: Db) { db.orm.select().from(items); }"
+    });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  }
+);
 
-test.stable(
+test.unit.stable(
   'flags discarded query builders on typed database owners',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -38,7 +41,7 @@ return db.orm.select();
   }
 );
 
-test.stable(
+test.unit.stable(
   'factory query callbacks must execute discarded builders',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

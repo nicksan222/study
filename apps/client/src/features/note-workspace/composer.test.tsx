@@ -40,7 +40,7 @@ function createMockState() {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState();
 
   preferences = __mockState.preferences;
@@ -72,10 +72,10 @@ test.beforeEach(async ({ mock }) => {
   saveNote = __mockModule2.saveNote;
 });
 
-test.beforeEach(({ vi }) => vi.clearAllMocks());
+test.unit.beforeEach(({ vi }) => vi.clearAllMocks());
 
 function mount(
-  { rpcTestTransport, render }: Pick<test.Context, 'rpcTestTransport' | 'render'>,
+  { rpcTestTransport, render }: Pick<test.unit.Context, 'rpcTestTransport' | 'render'>,
   cache = AtomRegistry.make()
 ) {
   const { wrapper: Provider } = rpcTestTransport(async (tag) => {
@@ -94,7 +94,7 @@ function mount(
   };
 }
 
-test.stable(
+test.unit.stable(
   'captures a note without chat controls and preserves later typing after its save',
   async ({ vi, expect, screen, fireEvent, waitFor, act, rpcTestTransport, render }) => {
     let resolve!: (value: Awaited<ReturnType<typeof saveNote>>) => void;
@@ -119,7 +119,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'recovers an already stored ambiguous Ask after navigation without exposing new chat controls',
   async ({ vi, expect, screen, fireEvent, waitFor, rpcTestTransport, render }) => {
     vi.mocked(ask)
@@ -156,7 +156,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'does not automatically resubmit a note whose save was not confirmed',
   async ({ vi, fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     vi.mocked(saveNote).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
@@ -172,7 +172,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps plain capture available while selection edits remain unsaved',
   async ({ vi, fireEvent, screen, expect, waitFor, rpcTestTransport, render }) => {
     const cache = AtomRegistry.make();
@@ -188,7 +188,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'saves a note with the primary keyboard shortcut without asking for a reply',
   async ({ vi, fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     vi.mocked(saveNote).mockResolvedValue({} as Awaited<ReturnType<typeof saveNote>>);
@@ -202,7 +202,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps Enter and composition keystrokes in the notebook editor',
   ({ fireEvent, screen, expect, rpcTestTransport, render }) => {
     mount({ rpcTestTransport, render });
@@ -218,7 +218,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'optionally submits Enter while preserving Shift+Enter and composition',
   async ({ vi, screen, fireEvent, expect, waitFor, rpcTestTransport, render }) => {
     preferences.submitOnEnter = true;

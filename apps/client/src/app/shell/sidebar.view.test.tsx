@@ -10,7 +10,7 @@ let sidebarModel: typeof __StudyMockType0.sidebarModel;
 
 let SidebarView: typeof __StudyMockType1.SidebarView;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   mock('#client/app/shell/rich-sidebar.queries.ts', () => ({
     useSidebarProgress: () => ({
       settings: { data: { settledPageThreshold: 1 } },
@@ -27,7 +27,10 @@ test.beforeEach(async ({ mock }) => {
 });
 
 function renderSidebar(
-  { rpcTestTransport, renderInRouter }: Pick<test.Context, 'rpcTestTransport' | 'renderInRouter'>,
+  {
+    rpcTestTransport,
+    renderInRouter
+  }: Pick<test.unit.Context, 'rpcTestTransport' | 'renderInRouter'>,
   children: ReactNode
 ) {
   const fixture = rpcTestTransport(async () => defaultWorkspacePreferences);
@@ -35,7 +38,7 @@ function renderSidebar(
   return renderInRouter(<fixture.wrapper>{children}</fixture.wrapper>);
 }
 
-test.stable(
+test.unit.stable(
   'renders invalid subjects and invokes retry callbacks without fetching data',
   async ({ userEvent, vi, expect, screen, rpcTestTransport, renderInRouter }) => {
     const user = userEvent.setup();
@@ -59,7 +62,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'allows creating an unfiled note from an empty note list',
   async ({ userEvent, vi, expect, screen, rpcTestTransport, renderInRouter }) => {
     const user = userEvent.setup();
@@ -78,7 +81,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'announces note loading once through the shared indicator',
   async ({ expect, screen, rpcTestTransport, renderInRouter }) => {
     renderSidebar(
@@ -91,7 +94,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shows the shared search indicator while search results are pending',
   async ({ expect, screen, rpcTestTransport, renderInRouter }) => {
     renderSidebar(
@@ -104,7 +107,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shows localized loading in the subject picker',
   async ({ expect, screen, rpcTestTransport, renderInRouter }) => {
     renderSidebar(
@@ -116,7 +119,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps a saving subject disabled with one loading announcement in the dialog',
   async ({ screen, within, expect, rpcTestTransport, renderInRouter }) => {
     renderSidebar(
@@ -132,7 +135,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'offers page creation instead of note creation in Pages',
   async ({ expect, screen, rpcTestTransport, renderInRouter }) => {
     renderSidebar(
@@ -154,7 +157,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'does not offer note creation on unrelated pages',
   async ({ screen, expect, rpcTestTransport, renderInRouter }) => {
     renderSidebar(

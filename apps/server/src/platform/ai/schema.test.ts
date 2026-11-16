@@ -16,7 +16,7 @@ import { Schema } from 'effect';
 
 import { standardSchema } from '#server/platform/ai/schema';
 
-test.stable(
+test.unit.stable(
   'page output uses closed, required object fields without changing nullable content',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -25,7 +25,7 @@ test.stable(
     const document = adapter['~standard'].jsonSchema.input({ target: 'draft-07' });
     let objects = 0;
 
-    function inspect({ assert: assertions }: Pick<test.Context, 'assert'>, value: unknown) {
+    function inspect({ assert: assertions }: Pick<test.unit.Context, 'assert'>, value: unknown) {
       const assert: test.Assert = assertions;
 
       if (Array.isArray(value)) {
@@ -61,7 +61,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'encoded optional placeholders and genuine nullable values remain valid',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -82,7 +82,7 @@ test.stable(
   }
 );
 
-test.stable('dictionary value schemas retain their meaning', ({ assert: assertions }) => {
+test.unit.stable('dictionary value schemas retain their meaning', ({ assert: assertions }) => {
   const assert: test.Assert = assertions;
 
   const dictionary = Schema.Record(Schema.String, Schema.String);

@@ -17,11 +17,11 @@ function createApi(mock: test.Mock) {
 
 let api: ReturnType<typeof createApi>;
 
-test.beforeEach(({ mock }) => {
+test.unit.beforeEach(({ mock }) => {
   api = createApi(mock);
 });
 
-function wrapper({ rpcTestTransport }: Pick<test.Context, 'rpcTestTransport'>) {
+function wrapper({ rpcTestTransport }: Pick<test.unit.Context, 'rpcTestTransport'>) {
   let saved: WorkspacePreferences | undefined;
 
   return rpcTestTransport(async (tag, input) => {
@@ -40,7 +40,7 @@ function wrapper({ rpcTestTransport }: Pick<test.Context, 'rpcTestTransport'>) {
   }).wrapper;
 }
 
-test.stable(
+test.unit.stable(
   'uses canonical defaults when preferences cannot be loaded',
   async ({ renderHook, waitFor, expect, rpcTestTransport }) => {
     api.read.mockRejectedValue(new Error('Disconnected'));
@@ -53,7 +53,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'reads fresh preferences before a partial save and preserves another window’s changes',
   async ({ renderHook, waitFor, expect, act, rpcTestTransport }) => {
     const fresh = {

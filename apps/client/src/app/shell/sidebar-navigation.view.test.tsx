@@ -3,7 +3,7 @@ import { test } from '@study/testing';
 
 import { SidebarNavigation } from './sidebar-navigation.view';
 
-test.stable(
+test.unit.stable(
   'builds typed section links retaining the selected project and invokes navigation callbacks',
   async ({ vi, userEvent, renderInRouter, screen, expect }) => {
     const onNavigate = vi.fn();
@@ -29,7 +29,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shows section totals and emphasizes only the number for open work',
   async ({ renderInRouter, screen, expect }) => {
     renderInRouter(

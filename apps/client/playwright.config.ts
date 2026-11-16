@@ -23,7 +23,6 @@ export default defineConfig({
   outputDir: './test-results/playwright',
   preserveOutput: process.env.E2E_REVIEW ? 'always' : 'failures-only',
   reporter: [['list'], ['html', { outputFolder: './test-results/report', open: 'never' }]],
-  tag: '@stable',
   use: {
     browserName: 'chromium',
     locale: 'en-US',

@@ -30,7 +30,7 @@ let materialRpc: typeof __MockType3.materialRpc;
 
 let mountLibraryRoute: typeof __MockType3.mountLibraryRoute;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   mock('@study/ui', async (load) => {
     const actual = await load<typeof ToastModule>();
 
@@ -53,7 +53,7 @@ test.beforeEach(async ({ mock }) => {
   mountLibraryRoute = __mockModule3.mountLibraryRoute;
 });
 
-test.beforeEach(({ vi }) => vi.mocked(toastManager.add).mockClear());
+test.unit.beforeEach(({ vi }) => vi.mocked(toastManager.add).mockClear());
 
 function prunePreview() {
   return Schema.decodeUnknownSync(historyPreviewSchema)({
@@ -74,7 +74,7 @@ function prunePreview() {
   });
 }
 
-test.stable(
+test.unit.stable(
   'recovers failed durable deletion on a fresh reader whose content is already fenced',
   async ({ userEvent, screen, within, expect, vi, render, rpcHandlersTransport, waitFor }) => {
     const rpc = materialRpc({ vi });
@@ -129,7 +129,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'replays a lost prune acceptance after remount, retains its receipt, and starts a fresh next batch',
   async ({ vi, rpcHandlersTransport, userEvent, screen, within, expect, act, render }) => {
     const preview = prunePreview();
@@ -160,7 +160,7 @@ test.stable(
     );
 
     const harness = rpcHandlersTransport(rpc);
-    const mount = ({ render }: Pick<test.Context, 'render'>) =>
+    const mount = ({ render }: Pick<test.unit.Context, 'render'>) =>
       render(
         <harness.wrapper>
           <MaterialLifecycle id={materialId('41')} />
@@ -248,7 +248,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps a failed prune receipt in review and never announces it as queued or successful',
   async ({ vi, rpcHandlersTransport, render, userEvent, screen, within, expect }) => {
     const preview = prunePreview();

@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { assertCapturePlatform } from './environment.ts';
 
-test.stable(
+test.unit.stable(
   'capture platform accepts Linux x64 and rejects incompatible rendering platforms',
   ({ expect }) => {
     expect(() => assertCapturePlatform('linux', 'x64')).not.toThrow();

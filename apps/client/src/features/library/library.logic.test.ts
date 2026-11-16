@@ -4,7 +4,7 @@ import { Schema } from 'effect';
 
 import { libraryItems } from './library.logic';
 
-test.stable('filters practice materials by project and orders newest first', ({ expect }) => {
+test.unit.stable('filters practice materials by project and orders newest first', ({ expect }) => {
   const project = Schema.decodeUnknownSync(projectIdSchema)(1n);
   const materials = Schema.decodeUnknownSync(Schema.Array(materialSummarySchema))(
     [

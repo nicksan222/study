@@ -3,7 +3,7 @@ import { createRef } from 'react';
 
 import { List } from './list';
 
-test.stable(
+test.unit.stable(
   'keeps a rendered list row a native keyboard-operable button with its ref',
   async ({ vi, render, screen, expect, userEvent }) => {
     const click = vi.fn();

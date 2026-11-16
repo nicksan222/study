@@ -35,20 +35,20 @@ const message = Schema.decodeUnknownSync(chatMessageSchema)({
   citations: []
 });
 
-let fixture: ReturnType<test.Context['rpcHandlersTransport']>;
+let fixture: ReturnType<test.unit.Context['rpcHandlersTransport']>;
 
-test.afterEach(({ cleanup, vi }) => {
+test.unit.afterEach(({ cleanup, vi }) => {
   cleanup();
   vi.clearAllMocks();
 });
 
-function mount({ render }: Pick<test.Context, 'render'>) {
+function mount({ render }: Pick<test.unit.Context, 'render'>) {
   render(<MessageDeletion message={message} versionId={message.versions[0]!.id} />, {
     wrapper: fixture.wrapper
   });
 }
 
-test.stable(
+test.unit.stable(
   'confirms only the displayed revision and keeps item deletion separate',
   async ({ vi, rpcHandlersTransport, userEvent, screen, expect, within, waitFor, render }) => {
     const removeVersion = vi

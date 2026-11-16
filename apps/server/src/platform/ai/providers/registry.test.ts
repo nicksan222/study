@@ -16,7 +16,7 @@ import { test } from '@study/testing';
 import { anthropic } from './anthropic.ts';
 import { apiKeyProviders, getApiKeyProvider, providerCatalog } from './registry.ts';
 
-test.stable(
+test.unit.stable(
   'the provider registry exposes ten API-key providers without credentials',
   ({ expect }) => {
     expect(apiKeyProviders).toHaveLength(10);
@@ -28,11 +28,11 @@ test.stable(
   }
 );
 
-test.stable('unknown providers fail before a request can be constructed', ({ expect }) => {
+test.unit.stable('unknown providers fail before a request can be constructed', ({ expect }) => {
   expect(() => getApiKeyProvider('unknown')).toThrow(StudyError);
 });
 
-test.stable(
+test.unit.stable(
   'each registry entry constructs an AI SDK v3 model with the requested id',
   ({ expect }) => {
     for (const provider of apiKeyProviders) {
@@ -44,7 +44,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'all providers serialize credentials and parse their native protocol over HTTP',
   async ({ expect }) => {
     const expectedOrigins: Record<string, string> = {
@@ -159,7 +159,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'provider model options retain literal types and every tier default is selectable',
   ({ expectTypeOf, expect }) => {
     expectTypeOf(anthropic.models).toEqualTypeOf<

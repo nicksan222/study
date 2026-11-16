@@ -14,7 +14,7 @@ function Counter() {
   return createElement('button', { onClick: () => setCount(count + 1) }, `${label} ${count}`);
 }
 
-test.stable(
+test.unit.stable(
   'React harnesses bind providers and user interaction and release their rendered roots',
   async ({ expect }) => {
     const harness = createReactHarness(({ children }: { children: ReactNode }) =>
@@ -33,7 +33,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'hook harnesses retain typed props through rerender and use the same providers',
   ({ expect }) => {
     const harness = createReactHarness(({ children }: { children: ReactNode }) =>
@@ -57,7 +57,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shared React setup waits for delayed UI without case-specific timeouts',
   async ({ expect }) => {
     const button = document.createElement('button');
@@ -74,7 +74,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'React harnesses remove containers after failed rendering and reject use after close',
   ({ expect }) => {
     const harness = createReactHarness();

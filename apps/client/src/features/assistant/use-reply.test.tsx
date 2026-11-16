@@ -23,14 +23,14 @@ let message: AssistantHarness['message'];
 
 let mountAssistant: AssistantHarness['mountAssistant'];
 
-test.beforeEach(({ assistant, mock }) => {
+test.unit.beforeEach(({ assistant, mock }) => {
   mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
   api = assistant.api;
   message = assistant.message;
   mountAssistant = assistant.mountAssistant;
 });
 
-test.stable(
+test.unit.stable(
   'renders streamed snapshots without duplicating text and stops the exact execution',
   async ({ waitFor, expect, act, screen, fireEvent }) => {
     api.thread.mockResolvedValue({
@@ -77,7 +77,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'explains sign-in failures and retries the same Assistant message',
   async ({ expect, screen, fireEvent, waitFor }) => {
     api.thread.mockResolvedValue({

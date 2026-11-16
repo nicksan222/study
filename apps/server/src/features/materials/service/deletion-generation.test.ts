@@ -25,7 +25,7 @@ import { acceptMaterialDeletion, cleanupMaterial } from '#testing/material-delet
 import { assertScrubbed } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
-test.stable(
+test.server.stable(
   'generated learning deletion fences replay, releases exact authored evidence and never reassigns cleanup ownership',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

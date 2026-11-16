@@ -3,7 +3,7 @@ import { test } from '@study/testing';
 import { lintRulePaths } from '../test/utils.ts';
 
 async function lint(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.unit.Context, 'assert'>,
   files: Record<string, string>
 ) {
   const assert: test.Assert = assertions;
@@ -11,7 +11,7 @@ async function lint(
   return await lintRulePaths({ assert }, 'workflow-boundary', files);
 }
 
-test.stable(
+test.unit.stable(
   'keeps workflow constructors and memory infrastructure within their owners',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -52,7 +52,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'only the SQLite engine may grant a workflow activity lease',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -78,7 +78,7 @@ Layer.succeed(Owner,forged);`,
   }
 );
 
-test.stable(
+test.unit.stable(
   'only the platform engine grants activity and publication capabilities through aliases',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -110,7 +110,7 @@ function f(guard) { Context.make(guard, fake);
   }
 );
 
-test.stable(
+test.unit.stable(
   'publication guards are granted only by their actual platform owner',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -138,7 +138,7 @@ Layer.succeed(Guard, fake);`,
   }
 );
 
-test.stable(
+test.unit.stable(
   'destructuring does not grant permission to forge capabilities',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -165,7 +165,7 @@ function f(Guard) { Effect.provideService(task, Guard, {});
   }
 );
 
-test.stable(
+test.unit.stable(
   'note cleanup cannot forge publication or Activity ownership while invoking native retirement',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -192,7 +192,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'Material cleanup uses native Activities and cannot forge publication or execution ownership',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -219,7 +219,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'history cleanup retains native Activity publication ownership and cannot mint guards',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

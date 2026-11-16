@@ -9,7 +9,7 @@
  * │                                                                                          │
  * │ Allowed:                                                                                 │
  * │   import { test } from '@study/testing';                                                 │
- * │   test.stable('reads a note', () => {});                                                 │
+ * │   test.unit.stable('reads a note', () => {});                                            │
  * │                                                                                          │
  * │ Rejected:                                                                                │
  * │   import { test } from 'vite-plus/test';                                                 │
@@ -200,7 +200,7 @@ function scenarioExtensionBase(context: any, node: any): boolean {
 
   return (
     (base?.source === '@study/testing' || base?.source === '@study/testing/vitest') &&
-    (base.name === 'test.stable' || base.name === 'baseTest.stable')
+    (base.name === 'test.unit.stable' || base.name === 'baseTest.unit.stable')
   );
 }
 
@@ -355,11 +355,16 @@ export default defineRule({
 
       const value = importedValue(context, node);
 
-      if (!value || value.name.split('.').length !== 2) return false;
+      if (!value || value.name.split('.').length !== 3) return false;
 
-      const [rootName, method] = value.name.split('.');
+      const [rootName, environment, method] = value.name.split('.');
 
-      return rootName === 'test' && classifications.has(method!) && approved(root(node), 'test');
+      return (
+        rootName === 'test' &&
+        ['unit', 'server', 'browser'].includes(environment!) &&
+        classifications.has(method!) &&
+        approved(root(node), 'test')
+      );
     }
 
     function contextAnnotation(definition: any): boolean {
@@ -534,7 +539,8 @@ export default defineRule({
       if (node.callee.type !== 'MemberExpression') return;
 
       const value = importedValue(context, node.callee);
-      const kind = value?.name.startsWith('test.') ? value.name.slice(5) : undefined;
+      const parts = value?.name.split('.');
+      const kind = parts?.length === 3 ? parts[2] : undefined;
 
       if (
         !kind ||
@@ -608,6 +614,11 @@ export default defineRule({
     }
 
     function checkClassifiedMember(node: any): void {
+      const value = importedValue(context, node);
+
+      if (/^test\.(?:stable|regression|migration|characterization)(?:\.|$)/.test(value?.name ?? ''))
+        report(node, 'Classified tests must use test.unit, test.server or test.browser.');
+
       if (classification(node) && !immediateUse(node))
         report(node, 'Do not alias test modifiers; keep their classification visible.');
     }
@@ -638,7 +649,11 @@ export default defineRule({
       const name = memberName(node);
       const source = dynamicImportSource(context, root(node.object));
 
-      if (name === 'stable' && source !== undefined && !scenarioModules.has(source))
+      if (
+        ['stable', 'regression', 'migration', 'characterization'].includes(name ?? '') &&
+        source !== undefined &&
+        !scenarioModules.has(source)
+      )
         report(
           node,
           'Register scenario tests through their exact named starter import; namespaces and aliases are forbidden.'
@@ -648,17 +663,42 @@ export default defineRule({
     function registrationCall(node: any): void {
       const owner = root(node.callee);
       const value = importedValue(context, node.callee);
-      const testApi = /^test\.(?:stable|regression|migration|characterization)(?:\.|$)/.test(
-        value?.name ?? ''
-      );
+      const name = value?.name ?? '';
 
-      if (testApi && !approved(owner, 'test'))
-        report(node, 'Import the test namespace by its canonical name from @study/testing.');
-
-      if (testApi && nestedRegistration(node) && !testApiOwnerPath(filename))
-        report(node, 'Register tests directly; do not hide them in local wrapper functions.');
+      reportFlatRegistration(node, name);
+      reportFlatHook(node, name);
+      reportHiddenRegistration(node, owner, name);
 
       ordinaryRegistrationCall(node, owner);
+    }
+
+    function reportFlatRegistration(node: any, name: string): void {
+      if (/^test\.(?:stable|regression|migration|characterization)(?:\.|$)/.test(name))
+        report(node, 'Classified tests must use test.unit, test.server or test.browser.');
+    }
+
+    function reportFlatHook(node: any, name: string): void {
+      if (
+        /^test\.(?:describe|suite|beforeEach|afterEach|beforeAll|afterAll|each|for|concurrent|skip|only)(?:\.|$)/.test(
+          name
+        )
+      )
+        report(node, 'Test hooks and modifiers must use an explicit environment namespace.');
+    }
+
+    function reportHiddenRegistration(node: any, owner: any, name: string): void {
+      if (
+        !/^test\.(?:unit|server|browser)\.(?:stable|regression|migration|characterization)(?:\.|$)/.test(
+          name
+        )
+      )
+        return;
+
+      if (!approved(owner, 'test'))
+        report(node, 'Import the test namespace by its canonical name from @study/testing.');
+
+      if (nestedRegistration(node) && !testApiOwnerPath(filename))
+        report(node, 'Register tests directly; do not hide them in local wrapper functions.');
     }
 
     return {

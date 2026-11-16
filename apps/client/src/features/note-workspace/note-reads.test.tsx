@@ -5,7 +5,7 @@ import { Schema } from 'effect';
 import { useNoteList } from './note-reads';
 
 /** Interaction-level coverage; authoritative membership and transaction races are server tests. */
-test.stable(
+test.unit.stable(
   'keeps loaded note windows bounded, navigates beyond one hundred and resets on owner changes',
   async ({ rpcTestTransport, renderHook, waitFor, expect, act }) => {
     const items = Array.from({ length: 150 }, (_, index) => {

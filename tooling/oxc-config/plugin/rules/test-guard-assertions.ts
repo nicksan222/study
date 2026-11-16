@@ -8,14 +8,14 @@
  * │ failure branches remain available.                                                       │
  * │                                                                                          │
  * │ Allowed:                                                                                 │
- * │   // example.test.ts                                                                     │
- * │   import { test } from '@study/testing';                                                 │
- * │   test.stable('has a value', ({ expect }) => { expect(value).toBeDefined(); });          │
+ * │ // example.test.ts                                                                       │
+ * │ import { test } from '@study/testing';                                                   │
+ * │ test.unit.stable('has a value', ({ expect }) => { expect(value).toBeDefined(); });       │
  * │                                                                                          │
  * │ Rejected:                                                                                │
- * │   // example.test.ts                                                                     │
- * │   import { test } from '@study/testing';                                                 │
- * │   test.stable('has a value', () => { if (!value) return; });                             │
+ * │ // example.test.ts                                                                       │
+ * │ import { test } from '@study/testing';                                                   │
+ * │ test.unit.stable('has a value', () => { if (!value) return; });                          │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -32,10 +32,11 @@ const tests = new Set([
   'testRegression',
   'testMigration',
   'testCharacterization',
-  'test.stable',
-  'test.regression',
-  'test.migration',
-  'test.characterization'
+  ...['unit', 'server', 'browser'].flatMap((environment) =>
+    ['stable', 'regression', 'migration', 'characterization'].map(
+      (classification) => `test.${environment}.${classification}`
+    )
+  )
 ]);
 
 const modifiers = new Set(['each', 'for', 'concurrent', 'sequential', 'only', 'skip', 'todo']);
@@ -75,11 +76,13 @@ export default defineRule({
 
       if (base === '*') return tests.has(name) ? name : undefined;
 
+      if (base === 'test' && ['unit', 'server', 'browser'].includes(name)) return `test.${name}`;
+
       if (
-        base === 'test' &&
+        base?.startsWith('test.') &&
         ['stable', 'regression', 'migration', 'characterization'].includes(name)
       )
-        return `test.${name}`;
+        return `${base}.${name}`;
 
       return modifiers.has(name) ? base : undefined;
     }

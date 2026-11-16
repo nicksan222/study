@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'rejects relative imports that ascend two or more directories across module edge forms',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -28,7 +28,7 @@ require('../../x');`
   }
 );
 
-test.stable(
+test.unit.stable(
   'allows shallow and non-import strings and respects shadowed require',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

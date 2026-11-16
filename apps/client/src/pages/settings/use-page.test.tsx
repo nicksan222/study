@@ -19,7 +19,7 @@ let useAppearance: typeof __StudyMockType0.useAppearance;
 
 let usePage: typeof __StudyMockType0.usePage;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   router = createRouter(mock);
   api = createApi(mock);
   mock('@tanstack/react-router', () => ({
@@ -43,7 +43,7 @@ test.beforeEach(async ({ mock }) => {
 });
 
 function setup<T>(
-  { rpcTestTransport, renderHook }: Pick<test.Context, 'rpcTestTransport' | 'renderHook'>,
+  { rpcTestTransport, renderHook }: Pick<test.unit.Context, 'rpcTestTransport' | 'renderHook'>,
   hook: () => T
 ) {
   const fixture = rpcTestTransport(async (tag, input) => {
@@ -65,7 +65,7 @@ function setup<T>(
   return renderHook(hook, { wrapper: fixture.wrapper });
 }
 
-test.stable(
+test.unit.stable(
   'persists system appearance as a partial change and reloads committed data',
   async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
     const settings = { appearance: 2, language: 2, zoomPercent: 125, onboarded: true };
@@ -81,7 +81,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps the saved selection and exposes recovery when a mutation fails',
   async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
     api.load.mockResolvedValue({
@@ -99,7 +99,7 @@ test.stable(
   }
 );
 
-test.stable.for([
+test.unit.stable.for([
   [undefined, projectIdSchema.make(41n), projectIdSchema.make(41n), true] as const,
   ['41', undefined, projectIdSchema.make(41n), true] as const,
   [undefined, projectIdSchema.make(41n), projectIdSchema.make(42n), false] as const,
@@ -121,7 +121,7 @@ test.stable.for([
   }
 );
 
-test.stable(
+test.unit.stable(
   'clears a deleted stale URL subject without leaving the resolved note',
   ({ act, expect, rpcTestTransport, renderHook }) => {
     router.scope = { project: '41' };

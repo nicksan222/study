@@ -27,7 +27,7 @@ const caches: AtomRegistry.AtomRegistry[] = [];
 function mount({
   rpcTestTransport,
   renderHook
-}: Pick<test.Context, 'rpcTestTransport' | 'renderHook'>) {
+}: Pick<test.unit.Context, 'rpcTestTransport' | 'renderHook'>) {
   const client = AtomRegistry.make();
 
   caches.push(client);
@@ -81,7 +81,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   preferences = __mockState.preferences;
@@ -96,17 +96,17 @@ test.beforeEach(async ({ mock }) => {
   workbenchIdentity = __mockModule0.workbenchIdentity;
 });
 
-test.beforeEach(({ vi }) => {
+test.unit.beforeEach(({ vi }) => {
   vi.resetAllMocks();
   api.thread.mockResolvedValue({ items: [], next: null });
 });
 
-test.afterEach(({ cleanup }) => {
+test.unit.afterEach(({ cleanup }) => {
   cleanup();
   caches.splice(0).forEach((cache) => cache.dispose());
 });
 
-test.stable(
+test.unit.stable(
   'opens a persisted material once and refreshes a legacy page without converting a quick note',
   async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
     const view = mount({ rpcTestTransport, renderHook });
@@ -141,7 +141,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps tabs while hidden and selects the adjacent document when the active tab closes',
   async ({ act, waitFor, expect, rpcTestTransport, renderHook }) => {
     const view = mount({ rpcTestTransport, renderHook });
@@ -178,7 +178,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'isolates page tabs by note and restores them when returning to the note',
   async ({ act, waitFor, expect, rpcTestTransport, renderHook }) => {
     const view = mount({ rpcTestTransport, renderHook });
@@ -212,7 +212,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'uses the configured initial width until the user manually changes it',
   async ({ expect, act, waitFor, rpcTestTransport, renderHook }) => {
     preferences.expandPages = true;
@@ -230,7 +230,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps the action card visible until hidden and docks existing tabs without creating pages',
   async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
     const view = mount({ rpcTestTransport, renderHook });
@@ -266,7 +266,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'switches from an open editor back to its action card without dropping tabs',
   async ({ act, waitFor, expect, rpcTestTransport, renderHook }) => {
     const view = mount({ rpcTestTransport, renderHook });
@@ -280,7 +280,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'the note assistant is one document-style tab, survives hiding and stays scoped across note switches',
   async ({ act, waitFor, expect, rpcTestTransport, renderHook }) => {
     const view = mount({ rpcTestTransport, renderHook });

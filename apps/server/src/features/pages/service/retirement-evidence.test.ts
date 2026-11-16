@@ -21,7 +21,11 @@ import { Pages } from '#server/features/pages/index';
 import { deletionDocument } from '#testing/material-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
-function create({ assert: assertions }: Pick<test.Context, 'assert'>, title: string, text: string) {
+function create(
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
+  title: string,
+  text: string
+) {
   const assert: test.Assert = assertions;
 
   return Effect.flatMap(Pages, (docs) =>
@@ -41,7 +45,7 @@ function create({ assert: assertions }: Pick<test.Context, 'assert'>, title: str
   );
 }
 
-test.stable(
+test.server.stable(
   'entity deletion scrubs owned metadata and annotation history atomically across reopen',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -141,7 +145,7 @@ function target(version: PageVersion) {
   };
 }
 
-test.stable(
+test.server.stable(
   'history retirement hides annotations on removed bodies before pagination while retaining explicit note revision metadata',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -222,7 +226,10 @@ test.stable(
           };
         }).pipe(Effect.provide(f.domain()))
       );
-      const visible = ({ assert: assertions, expect }: Pick<test.Context, 'assert' | 'expect'>) => {
+      const visible = ({
+        assert: assertions,
+        expect
+      }: Pick<test.server.Context, 'assert' | 'expect'>) => {
         const assert: test.Assert = assertions;
 
         return Effect.runPromise(
@@ -283,7 +290,7 @@ test.stable(
 );
 
 for (const mode of ['delete', 'prune'] as const)
-  test.stable(
+  test.server.stable(
     `${mode} removes claim-owned judgments atomically while unrelated exact assessments remain`,
     async ({ databases, assert: assertions, expect }) => {
       const assert: test.Assert = assertions;
@@ -403,7 +410,7 @@ for (const mode of ['delete', 'prune'] as const)
   );
 
 for (const mode of ['delete', 'prune'] as const)
-  test.stable(
+  test.server.stable(
     `${mode} protects retained exact evidence through edits, conflicts and restores until every dependent body retires`,
     async ({ databases, assert: assertions, expect }) => {
       const assert: test.Assert = assertions;

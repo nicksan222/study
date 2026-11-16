@@ -71,7 +71,7 @@ const completed = Schema.decodeUnknownSync(quizAttemptCompletedSchema)({
 });
 
 function practiceRpc(
-  { vi }: Pick<test.Context, 'vi'>,
+  { vi }: Pick<test.unit.Context, 'vi'>,
   kind: 'quiz' | 'flashcards' = 'quiz',
   scoped = false
 ) {
@@ -184,7 +184,7 @@ function practiceRpc(
   return handlers;
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
   const __mockModule0 = await import('#client/features/material-library/test/support.tsx');
 
@@ -193,7 +193,7 @@ test.beforeEach(async ({ mock }) => {
   mountLibraryRoute = __mockModule0.mountLibraryRoute;
 });
 
-test.stable(
+test.unit.stable(
   'starts a quiz at its material path, saves an answer, and displays completed results',
   async ({ userEvent, screen, waitFor, expect, vi, render, rpcHandlersTransport }) => {
     const rpc = practiceRpc({ vi });
@@ -220,7 +220,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects a foreign attempt without exposing its questions',
   async ({ expect, within, screen, vi, render, rpcHandlersTransport }) => {
     const rpc = practiceRpc({ vi });
@@ -238,7 +238,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps a failed card rating on the revealed card and leaves successful ratings to the scheduler',
   async ({ userEvent, expect, screen, waitFor, vi, render, rpcHandlersTransport }) => {
     const rpc = practiceRpc({ vi }, 'flashcards');
@@ -302,7 +302,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'resumes a saved attempt directly without creating another',
   async ({ expect, screen, vi, render, rpcHandlersTransport }) => {
     const rpc = practiceRpc({ vi });
@@ -314,7 +314,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects a flashcard material opened through a quiz path',
   async ({ expect, within, screen, vi, render, rpcHandlersTransport }) => {
     const rpc = practiceRpc({ vi }, 'flashcards');
@@ -328,7 +328,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'answers a generated practice attempt through its owning slot',
   async ({ userEvent, screen, expect, vi, render, rpcHandlersTransport }) => {
     const rpc = practiceRpc({ vi });
@@ -350,7 +350,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'opens the immutable version used by a saved quiz attempt',
   async ({ userEvent, screen, waitFor, expect, vi, render, rpcHandlersTransport }) => {
     const rpc = practiceRpc({ vi });
@@ -367,7 +367,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'reviews only cards returned by the persisted due-card queue',
   async ({ expect, screen, vi, render, rpcHandlersTransport }) => {
     const rpc = practiceRpc({ vi }, 'flashcards', true);
@@ -397,7 +397,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shows that no review is due instead of replaying already scheduled cards',
   async ({ expect, screen, vi, render, rpcHandlersTransport }) => {
     const rpc = practiceRpc({ vi }, 'flashcards', true);
@@ -409,7 +409,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'uses the shared actions card and keeps the current answer when reviewing attempts',
   async ({ userEvent, screen, expect, within, waitFor, vi, render, rpcHandlersTransport }) => {
     const rpc = practiceRpc({ vi });
@@ -455,7 +455,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps the selected subject after archiving material shared by multiple subjects',
   async ({ userEvent, screen, waitFor, expect, vi, render, rpcHandlersTransport }) => {
     const rpc = practiceRpc({ vi });
@@ -480,7 +480,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'reviews saved answers and edits them before finishing in the same action footer',
   async ({ userEvent, screen, expect, vi, render, rpcHandlersTransport }) => {
     const rpc = practiceRpc({ vi });
@@ -509,7 +509,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps preferences in Settings and shows exact document sources without Archived',
   async ({ userEvent, screen, expect, within, vi, render, rpcHandlersTransport }) => {
     const rpc = practiceRpc({ vi });
@@ -546,7 +546,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'explicitly replays the full flashcard deck when no scheduled review is due',
   async ({ userEvent, screen, expect, vi, render, rpcHandlersTransport }) => {
     const rpc = practiceRpc({ vi }, 'flashcards', true);
@@ -562,7 +562,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'reviews text answers as labeled read-only content and keeps multiline feedback separate',
   async ({ screen, expect, within, vi, render, rpcHandlersTransport }) => {
     const rpc = practiceRpc({ vi });
@@ -610,7 +610,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'distinguishes pending grading from unanswered text and preserves result navigation',
   async ({ screen, expect, within, userEvent, vi, render, rpcHandlersTransport }) => {
     const rpc = practiceRpc({ vi });

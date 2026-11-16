@@ -20,7 +20,23 @@ export declare namespace test {
 
   export type Assert = TestAssert;
 
-  export type Context = TestContextOf<PublicTestApi>;
+  export namespace unit {
+    export type Context = PublicTestApi extends { readonly unit: infer Api }
+      ? TestContextOf<Api>
+      : never;
+  }
+
+  export namespace server {
+    export type Context = PublicTestApi extends { readonly server: infer Api }
+      ? TestContextOf<Api>
+      : never;
+  }
+
+  export namespace browser {
+    export type Context = PublicTestApi extends { readonly browser: infer Api }
+      ? TestContextOf<Api>
+      : never;
+  }
 }
 
 export { installTestApi } from './facade.ts';

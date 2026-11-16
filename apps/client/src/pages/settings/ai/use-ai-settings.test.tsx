@@ -31,7 +31,7 @@ let AiAccountSettings: typeof __StudyMockType0.AiAccountSettings;
 
 let AiModelSettings: typeof __StudyMockType0.AiModelSettings;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   runtime = createRuntime(mock);
   operations = createOperations(mock);
   mock('#client/lib/host.ts', async (importOriginal) => {
@@ -61,7 +61,7 @@ test.beforeEach(async ({ mock }) => {
   AiModelSettings = __studyMockModule0.AiModelSettings;
 });
 
-test.beforeEach(() => {
+test.unit.beforeEach(() => {
   runtime.native = false;
   runtime.openUrl.mockReset().mockResolvedValue(undefined);
 });
@@ -73,7 +73,7 @@ const settings = {
 } as const;
 
 function mount(
-  { vi, rpcTestTransport, render }: Pick<test.Context, 'vi' | 'rpcTestTransport' | 'render'>,
+  { vi, rpcTestTransport, render }: Pick<test.unit.Context, 'vi' | 'rpcTestTransport' | 'render'>,
   Section = AiAccountSettings
 ) {
   vi.mocked(operations.loadAiSettings).mockResolvedValue({
@@ -121,7 +121,7 @@ function mount(
   return render(<Section />, { wrapper: fixture.wrapper });
 }
 
-test.stable(
+test.unit.stable(
   'saves a canonical model change while preserving the other tiers',
   async ({ vi, userEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     vi.mocked(operations.saveAiSettings).mockResolvedValue({});
@@ -142,7 +142,7 @@ test.stable(
   }
 );
 
-function browserWindow({ vi }: Pick<test.Context, 'vi'>) {
+function browserWindow({ vi }: Pick<test.unit.Context, 'vi'>) {
   const popup = {
     location: { replace: vi.fn() },
     close: vi.fn(),
@@ -154,7 +154,7 @@ function browserWindow({ vi }: Pick<test.Context, 'vi'>) {
   return { popup, open };
 }
 
-function pendingSignIn({ vi }: Pick<test.Context, 'vi'>, attemptId: string) {
+function pendingSignIn({ vi }: Pick<test.unit.Context, 'vi'>, attemptId: string) {
   vi.mocked(operations.startChatGptSignIn).mockResolvedValue({
     url: 'https://auth.openai.com/test',
     attemptId
@@ -168,7 +168,7 @@ function pendingSignIn({ vi }: Pick<test.Context, 'vi'>, attemptId: string) {
   vi.mocked(operations.cancelChatGptSignIn).mockResolvedValue(true);
 }
 
-test.stable(
+test.unit.stable(
   'opens ChatGPT immediately and waits automatically with only a spinner',
   async ({ fireEvent, screen, expect, waitFor, vi, rpcTestTransport, render }) => {
     const { popup, open } = browserWindow({ vi });
@@ -198,7 +198,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'offers a recovery link when the browser blocks the sign-in tab',
   async ({ vi, fireEvent, screen, expect, waitFor, rpcTestTransport, render }) => {
     vi.spyOn(window, 'open').mockReturnValue(null);
@@ -217,7 +217,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'closes the sign-in tab when starting authorization fails',
   async ({ vi, fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     const { popup } = browserWindow({ vi });
@@ -230,7 +230,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'finishes automatically, refreshes the account, and closes the browser tab',
   async ({ vi, fireEvent, screen, expect, rpcTestTransport, render }) => {
     const { popup } = browserWindow({ vi });
@@ -253,7 +253,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'a failed sign-in clears the spinner and allows another attempt',
   async ({ vi, fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     const { popup } = browserWindow({ vi });
@@ -270,7 +270,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'a cancelled completion cannot clear or close its replacement sign-in',
   async ({ vi, fireEvent, screen, waitFor, expect, act, rpcTestTransport, render }) => {
     const { popup, open } = browserWindow({ vi });
@@ -306,7 +306,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'unsupported browser origins show localized sign-in guidance and close the blank tab',
   async ({ vi, fireEvent, screen, expect, rpcTestTransport, render }) => {
     const { popup } = browserWindow({ vi });
@@ -323,7 +323,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'native sign-in opens the system browser without a webview popup',
   async ({ fireEvent, screen, waitFor, expect, vi, rpcTestTransport, render }) => {
     runtime.native = true;
@@ -347,7 +347,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'a native browser launch failure cancels its attempt instead of waiting forever',
   async ({ fireEvent, screen, waitFor, expect, vi, rpcTestTransport, render }) => {
     runtime.native = true;

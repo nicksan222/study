@@ -41,7 +41,7 @@ import { withTestAdmission } from '#testing/workflow-admission';
 
 import { noteReplyHandler, noteReplyWorkflow } from './index.ts';
 
-test.stable(
+test.server.stable(
   'reply checkpoints plain output and fences stale context and fabricated citations',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -183,7 +183,7 @@ test.stable(
       const post = () =>
         run(Effect.flatMap(Notes, (c) => c.postMessage({ noteId: note.id, text: 'Question' })));
       const request = async (
-        { assert: assertions }: Pick<test.Context, 'assert'>,
+        { assert: assertions }: Pick<test.server.Context, 'assert'>,
         detail?: 'brief' | 'balanced' | 'detailed'
       ) => {
         const assert: test.Assert = assertions;
@@ -779,7 +779,7 @@ test.stable(
 
       async function assertLongHistoryPreservesEarlyMessages({
         assert: assertions
-      }: Pick<test.Context, 'assert'>) {
+      }: Pick<test.server.Context, 'assert'>) {
         const assert: test.Assert = assertions;
 
         const longNote = await run(
@@ -816,7 +816,7 @@ test.stable(
 );
 
 function assertEventType<T extends ReturnType<typeof decodeEvent>['type']>(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
   event: ReturnType<typeof decodeEvent> | undefined,
   type: T,
   message: string
@@ -827,7 +827,7 @@ function assertEventType<T extends ReturnType<typeof decodeEvent>['type']>(
 }
 
 function latestVersion(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
   versions: readonly (typeof messageVersionSchema.Type)[]
 ) {
   const assert: test.Assert = assertions;

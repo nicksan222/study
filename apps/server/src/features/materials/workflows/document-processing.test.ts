@@ -43,7 +43,7 @@ import { admitTestExecution, withTestAdmission } from '#testing/workflow-admissi
 import { materialGenerationHandler, materialGenerationWorkflow } from './generation.ts';
 
 async function generationFixture(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
   databases: (folder?: string) => Promise<Awaited<ReturnType<typeof createTestDatabase>>>,
   texts: string[],
   options: {
@@ -328,7 +328,7 @@ async function generationFixture(
   };
 }
 
-test.stable(
+test.server.stable(
   'maps every original block beyond the former prefix before one final quiz and replays it',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -380,7 +380,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'maps the canonical tail of one oversized block',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -410,7 +410,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'small generation exposes original passages inline without a notes request',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -434,7 +434,7 @@ for (const [name, options] of [
   ['multiplied final question count', { questionCount: 2 }],
   ['multiplied practice question count', { practice: true, questionCount: 2 }]
 ] as const) {
-  test.stable(
+  test.server.stable(
     `refuses ${name} without publishing`,
     async ({ databases, expect, assert: assertions }) => {
       const assert: test.Assert = assertions;
@@ -460,7 +460,7 @@ for (const [name, options] of [
   );
 }
 
-test.stable(
+test.server.stable(
   'stops before another piece when original input is archived during mapping',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -479,7 +479,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'stops before another piece when generation is canceled during mapping',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -522,7 +522,7 @@ function quizOutput(prompt: string, invalid = false, count = 1) {
   };
 }
 
-test.stable(
+test.server.stable(
   'replays a preexisting completed generate-material-1 reply through the current handler',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

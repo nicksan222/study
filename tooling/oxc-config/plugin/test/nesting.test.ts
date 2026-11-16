@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintFiles } from './utils.ts';
 
-test.stable(
+test.unit.stable(
   'production config rejects four nested control-flow blocks',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -38,13 +38,15 @@ test.stable(
   }
 );
 
-test.stable('production config rejects four nested callbacks', async ({ assert: assertions }) => {
-  const assert: test.Assert = assertions;
+test.unit.stable(
+  'production config rejects four nested callbacks',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  const diagnostics = await lintFiles(
-    { assert },
-    {
-      'apps/client/src/lib/callbacks.ts': `
+    const diagnostics = await lintFiles(
+      { assert },
+      {
+        'apps/client/src/lib/callbacks.ts': `
       export function nested(items) {
         return items.map((a) =>
           items.map((b) =>
@@ -55,19 +57,20 @@ test.stable('production config rejects four nested callbacks', async ({ assert: 
         );
       }
     `
-    },
-    undefined,
-    true
-  );
+      },
+      undefined,
+      true
+    );
 
-  assert.strictEqual(
-    diagnostics.filter(({ code }) => code === 'eslint(max-nested-callbacks)').length,
-    1,
-    JSON.stringify(diagnostics)
-  );
-});
+    assert.strictEqual(
+      diagnostics.filter(({ code }) => code === 'eslint(max-nested-callbacks)').length,
+      1,
+      JSON.stringify(diagnostics)
+    );
+  }
+);
 
-test.stable(
+test.unit.stable(
   'production config accepts guard clauses and three callback levels',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

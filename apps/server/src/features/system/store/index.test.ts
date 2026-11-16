@@ -24,7 +24,7 @@ import { deletionDocument } from '#testing/material-deletion';
 
 import { SystemStore } from './index.ts';
 
-test.stable(
+test.server.stable(
   'search reads bounded project and source projections from SQLite',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -67,7 +67,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'passage search retains anchors and ignores superseded documents',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -118,7 +118,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'search indexes only current published quiz material and prompts',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -206,7 +206,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'bounded global Material search fills results past archived matches and uses canonical identities',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -296,7 +296,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'authored search uses the independent document identity and only its visible published head',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

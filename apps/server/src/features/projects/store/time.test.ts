@@ -21,7 +21,7 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { transaction, useStore } from '#server/platform/definitions/define-store';
 
-test.stable(
+test.server.stable(
   'project timestamps use the captured native clock in SQLite transactions',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -61,7 +61,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'project stores retain their own SQLite context',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

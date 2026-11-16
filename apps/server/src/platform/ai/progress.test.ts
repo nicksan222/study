@@ -18,7 +18,7 @@ import { batchAgentProgress } from '#server/platform/ai/progress';
 
 type Event = (typeof agentObservationSchema.Type)['event'];
 
-test.stable.for<Event>([
+test.server.stable.for<Event>([
   { type: 'tool-start', toolCallId: 'call', toolName: 'sources' },
   { type: 'tool-finish', toolCallId: 'call', toolName: 'sources', outcome: 'success' },
   { type: 'complete' },
@@ -49,27 +49,30 @@ test.stable.for<Event>([
   ]);
 });
 
-test.stable('flushes large pending text without waiting for the timer', async ({ expect }) => {
-  const written: string[] = [];
-  const progress = batchAgentProgress((event) =>
-    Effect.sync(() => {
-      if (event.type === 'text-delta') written.push(event.text);
-    })
-  );
+test.server.stable(
+  'flushes large pending text without waiting for the timer',
+  async ({ expect }) => {
+    const written: string[] = [];
+    const progress = batchAgentProgress((event) =>
+      Effect.sync(() => {
+        if (event.type === 'text-delta') written.push(event.text);
+      })
+    );
 
-  await Effect.runPromise(
-    Effect.gen(function* () {
-      yield* progress.observe({ type: 'text-delta', text: 'first' });
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* progress.observe({ type: 'text-delta', text: 'first' });
 
-      for (let i = 0; i < 8; i++)
-        yield* progress.observe({ type: 'text-delta', text: 'x'.repeat(1024) });
-    })
-  );
+        for (let i = 0; i < 8; i++)
+          yield* progress.observe({ type: 'text-delta', text: 'x'.repeat(1024) });
+      })
+    );
 
-  expect(written).toEqual(['first', 'x'.repeat(4096), 'x'.repeat(4096)]);
-});
+    expect(written).toEqual(['first', 'x'.repeat(4096), 'x'.repeat(4096)]);
+  }
+);
 
-test.stable(
+test.server.stable(
   'a failed write cannot leak abandoned text into a later attempt',
   async ({ expect }) => {
     const written: Event[] = [];
@@ -100,7 +103,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'durable progress commits outside the provider permit owner before acknowledging delivery',
   async ({ expect }) => {
     const { Context } = await import('effect');

@@ -12,7 +12,7 @@ const policy = {
   unauthorized: () => false
 };
 
-test.stable(
+test.unit.stable(
   'live atoms share continuous latest snapshots and release the final subscription',
   async ({ vi, expect }) => {
     const registry = AtomRegistry.make({ defaultIdleTTL: 0, timeoutResolution: 1 });
@@ -51,7 +51,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'failed refresh preserves failure and previous value during reconnect',
   async ({ vi, expect }) => {
     const registry = AtomRegistry.make({ defaultIdleTTL: 0, timeoutResolution: 1 });
@@ -82,7 +82,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'authorization failures clear previously successful data and do not retry',
   async ({ vi, expect }) => {
     const registry = AtomRegistry.make({ defaultIdleTTL: 0, timeoutResolution: 1 });
@@ -112,7 +112,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'domain failures remain observed and recover on a later authoritative snapshot',
   async ({ vi, expect }) => {
     const registry = AtomRegistry.make({ defaultIdleTTL: 0, timeoutResolution: 1 });
@@ -143,7 +143,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'healthy heartbeat traffic prevents idle query reconnection without fabricating data',
   async ({ expect }) => {
     const registry = AtomRegistry.make({ defaultIdleTTL: 0, timeoutResolution: 1 });
@@ -168,7 +168,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'transient domain failures recover through bounded retries without a dependency change',
   async ({ vi, expect }) => {
     const registry = AtomRegistry.make({ defaultIdleTTL: 0, timeoutResolution: 1 });
@@ -194,7 +194,7 @@ test.stable(
   }
 );
 
-test.stable.for([NaN, Infinity, -1, 0, 0.5])(
+test.unit.stable.for([NaN, Infinity, -1, 0, 0.5])(
   'rejects invalid maximum reconnect delay %s',
   (reconnectMaxDelayMs, { expect }) => {
     expect(() =>
@@ -203,7 +203,7 @@ test.stable.for([NaN, Infinity, -1, 0, 0.5])(
   }
 );
 
-test.stable(
+test.unit.stable(
   'refreshing frames retain the prior snapshot and expose a slow read as stale and waiting',
   async ({ vi, expect }) => {
     const registry = AtomRegistry.make({ defaultIdleTTL: 0, timeoutResolution: 1 });
@@ -234,7 +234,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'remote defects are typed and recover according to the bounded read policy',
   async ({ vi, expect }) => {
     const registry = AtomRegistry.make({ defaultIdleTTL: 0, timeoutResolution: 1 });
@@ -278,7 +278,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'releasing a failed subscription cancels its pending defect retry',
   async ({ vi, expect }) => {
     const registry = AtomRegistry.make({ defaultIdleTTL: 0, timeoutResolution: 1 });
@@ -303,7 +303,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'pure stream interruption does not become a retryable remote defect',
   async ({ expect }) => {
     const registry = AtomRegistry.make({ defaultIdleTTL: 0, timeoutResolution: 1 });

@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'rejects direct agent definitions outside the canonical factory',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -22,7 +22,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'recognizes aliases without flagging unrelated or shadowed helpers',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -42,7 +42,7 @@ function f(make: any) { return make({});
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects inline schema shapes, constructed models and per-agent limits',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -57,7 +57,7 @@ export const a = define({ id: 'a', input: Schema.Struct({ id: Schema.String }), 
   }
 );
 
-test.stable(
+test.unit.stable(
   'checks wrapped aliased definitions, identity and canonical schemas',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -74,7 +74,7 @@ export const grade = defineAgent(cfg satisfies object);`,
   }
 );
 
-test.stable(
+test.unit.stable(
   'accepts canonical schema transformations and rejects unrelated schemas',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -93,7 +93,7 @@ defineAgent({ id: 'bad', input: z.string(), output: z.string(), model: 'tiny', i
   }
 );
 
-test.stable(
+test.unit.stable(
   'canonical schema composition permits codec options and rejects fake harness imports and raw exported agents',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -115,7 +115,7 @@ export const grade = defineAgent({id:'grade', input: Schema.Union([requestSchema
   }
 );
 
-test.stable(
+test.unit.stable(
   'local export lists and default exports cannot publish raw agents',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -129,7 +129,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'agents in feature-owned folders also require canonical definitions',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -142,7 +142,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'context preparation declarations reuse canonical feature agents',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -165,7 +165,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'context preparation steps reject spreads that can override canonical agents',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

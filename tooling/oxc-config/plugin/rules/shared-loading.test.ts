@@ -3,7 +3,7 @@ import { test } from '@study/testing';
 import { lintRule } from '../test/utils.ts';
 
 async function lint(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.unit.Context, 'assert'>,
   source: string,
   path = 'apps/client/src/features/example/example.tsx'
 ) {
@@ -12,7 +12,7 @@ async function lint(
   return await lintRule({ assert }, 'shared-loading', { [path]: source }, true);
 }
 
-test.stable(
+test.unit.stable(
   'allows component loading indicators and isLoading usage',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -33,7 +33,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects initial page loading returns including imported aliases',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -69,7 +69,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'allows page data guards and contextual component indicators',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -88,7 +88,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects custom loading text and raw animation in initial page returns',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -124,7 +124,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps the shared route pending boundary free of visual loading',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -142,7 +142,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'requires route definitions to reuse the shared pending boundary',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -160,7 +160,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'does not enforce loading presentation in server code or test examples',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -176,7 +176,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects initial page loading in concise arrows and page JSX',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

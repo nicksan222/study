@@ -65,7 +65,7 @@ function scriptedCall(
   ][step];
 }
 
-test.stable(
+test.server.stable(
   'Assistant uses durable capability-guided replies, retains history across reopen and stays out of notebooks',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -147,7 +147,7 @@ test.stable(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
     const execute = async (
-      { expect, assert: assertions }: Pick<test.Context, 'expect' | 'assert'>,
+      { expect, assert: assertions }: Pick<test.server.Context, 'expect' | 'assert'>,
       text: string,
       key: string,
       retryMessageId?: MessageId,
@@ -441,7 +441,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'Assistant can send a new turn after a cancelled reply without an unfinished shell',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -498,7 +498,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'Assistant bounds model context while retaining older persisted messages',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -540,7 +540,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'Assistant chats retain separate histories and replay new-chat intents',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -591,7 +591,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'Assistant retries an unfinished first reply while retaining its message identity',
   async ({ databases, expect }) => {
     const location = await databases();

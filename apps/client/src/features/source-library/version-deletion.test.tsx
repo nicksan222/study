@@ -9,13 +9,13 @@ import { SourceVersionDeletion } from './version-deletion';
 
 const en = catalogs.english;
 
-test.afterEach(({ cleanup, vi }) => {
+test.unit.afterEach(({ cleanup, vi }) => {
   cleanup();
 
   vi.clearAllMocks();
 });
 
-test.stable(
+test.unit.stable(
   'reviews and deletes only the chosen attachment version',
   async ({
     vi,

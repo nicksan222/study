@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'native service identity cannot be overwritten through aliases',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

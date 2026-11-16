@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
-test.stable('reports the prohibited pattern', async ({ assert: assertions }) => {
+test.unit.stable('reports the prohibited pattern', async ({ assert: assertions }) => {
   const assert: test.Assert = assertions;
 
   const diagnostics = await lintRule(
@@ -15,7 +15,7 @@ test.stable('reports the prohibited pattern', async ({ assert: assertions }) => 
   assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-test.stable(
+test.unit.stable(
   'checks imported Effect aliases, lazy IO, mapped promises and shadowing',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -38,7 +38,7 @@ Promise.all([Promise.resolve(1)]);`
   }
 );
 
-test.stable(
+test.unit.stable(
   'recognizes fs and Promise aliases and async try object while respecting resource path',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -60,7 +60,7 @@ all(items.map(task));`,
   }
 );
 
-test.stable(
+test.unit.stable(
   'deferred nested functions remain lazy and eager filesystem calls do not',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -86,7 +86,7 @@ Effect.sync(() => {
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects recognized database execution during store construction but allows deferred operations',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -99,7 +99,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'direct SQL execution stays deferred until a store operation runs',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -114,7 +114,7 @@ test.stable(
 
 const message = 'Keep Effect work lazy, synchronous where required, bounded and interruptible.';
 
-test.stable(
+test.unit.stable(
   'keeps throwing schema codecs out of infallible Effect constructors',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

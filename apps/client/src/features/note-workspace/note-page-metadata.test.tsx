@@ -12,7 +12,7 @@ let api: ReturnType<typeof createMockState>['api'];
 function mount({
   rpcTestTransport,
   renderHook
-}: Pick<test.Context, 'rpcTestTransport' | 'renderHook'>) {
+}: Pick<test.unit.Context, 'rpcTestTransport' | 'renderHook'>) {
   const fixture = rpcTestTransport(async (_tag, input) => api.description(input));
   const original = { ...material(), description: 'Original summary' };
 
@@ -28,7 +28,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   api = __mockState.api;
@@ -41,15 +41,15 @@ test.beforeEach(async ({ mock }) => {
   usePageMetadata = __mockModule1.usePageMetadata;
 });
 
-test.beforeEach(({ vi }) => {
+test.unit.beforeEach(({ vi }) => {
   vi.resetAllMocks();
   api.description.mockResolvedValue(material());
 });
-test.afterEach(({ cleanup }) => {
+test.unit.afterEach(({ cleanup }) => {
   cleanup();
 });
 
-test.stable(
+test.unit.stable(
   'updates document metadata with the expected stored description and trimmed title',
   async ({ act, expect, rpcTestTransport, renderHook }) => {
     const view = mount({ rpcTestTransport, renderHook });
@@ -69,7 +69,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps edits on a description conflict and does not rename the material',
   async ({ act, waitFor, expect, rpcTestTransport, renderHook }) => {
     const view = mount({ rpcTestTransport, renderHook });

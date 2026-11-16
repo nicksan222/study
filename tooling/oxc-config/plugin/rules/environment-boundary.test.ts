@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'rejects process.env reads outside startup configuration',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -18,7 +18,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'recognizes aliases and destructuring without confusing shadowed process',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -37,7 +37,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'traces process imports, global aliases and nested destructuring at startup boundaries',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

@@ -2,14 +2,14 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'requires assertions instead of return guards in test callbacks',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
 
     const diagnostics = await lintRule({ assert }, 'test-guard-assertions', {
       'src/a.test.ts': `import { test } from '@study/testing';
- const check = test.stable;
+ const check = test.unit.stable;
  check('x', () => { if (!x) return;
  if (!y) { throw new Error('missing');
  } [1].map(() => { return;
@@ -23,14 +23,14 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects unbraced guard throws while allowing a final callback return',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
 
     const diagnostics = await lintRule({ assert }, 'test-guard-assertions', {
       'src/a.test.ts': `import { test } from '@study/testing';
- test.stable('x', () => { if (!x) throw new Error('missing');
+ test.unit.stable('x', () => { if (!x) throw new Error('missing');
  return;
  });
 `
@@ -40,49 +40,49 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'tracks namespace and constant aliases while respecting shadowed Error and test bindings',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
 
     const diagnostics = await lintRule({ assert }, 'test-guard-assertions', {
       'src/aliases.test.ts': `import * as runner from 'vite-plus/test'; import { test } from '@study/testing';
-      const check = test.stable;
+      const check = test.unit.stable;
       check('alias', () => { if (!value) throw new Error('missing'); });
       runner.test.each([1])('namespace', () => { if (!value) return; });
-      function helper(test) { test.stable('local', () => { if (!value) return; }); }
-      test.stable('shadowed Error', () => { class Error {} if (!value) throw new Error(); });`
+      function helper(test) { test.unit.stable('local', () => { if (!value) return; }); }
+      test.unit.stable('shadowed Error', () => { class Error {} if (!value) throw new Error(); });`
     });
 
     assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
-test.stable(
+test.unit.stable(
   'preserves deliberate callback failures, helpers, and non-guard branches',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
 
     const diagnostics = await lintRule({ assert }, 'test-guard-assertions', {
       'src/callbacks.test.ts': `import { test } from '@study/testing';
-      test.stable('rollback', () => { transaction(() => { throw new Error('rollback'); }); });
-      test.stable('helper', () => { function helper() { if (!value) return; } helper(); });
-      test.stable('branch', () => { if (mode) { record(); throw new Error('injected'); } });
-      test.stable('done', () => { return; });`
+      test.unit.stable('rollback', () => { transaction(() => { throw new Error('rollback'); }); });
+      test.unit.stable('helper', () => { function helper() { if (!value) return; } helper(); });
+      test.unit.stable('branch', () => { if (mode) { record(); throw new Error('injected'); } });
+      test.unit.stable('done', () => { return; });`
     });
 
     assert.strictEqual(diagnostics.length, 0, JSON.stringify(diagnostics));
   }
 );
 
-test.stable(
+test.unit.stable(
   'preserves browser journey layout failure guards',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
 
     const diagnostics = await lintRule({ assert }, 'test-guard-assertions', {
       'apps/client/test/e2e/empty-note.test.ts': `import { test } from '@study/testing';
-      test.stable('empty note', () => { if (!top) throw new Error('Saved note has no layout box'); });`
+      test.unit.stable('empty note', () => { if (!top) throw new Error('Saved note has no layout box'); });`
     });
 
     expect(diagnostics).toHaveLength(0);

@@ -67,7 +67,7 @@ const trigger: Trigger = {
   enabled: () => true
 };
 
-test.stable('automatic trigger cycles are rejected', ({ assert: assertions }) => {
+test.server.stable('automatic trigger cycles are rejected', ({ assert: assertions }) => {
   const assert: test.Assert = assertions;
 
   assert.throws(
@@ -80,7 +80,7 @@ test.stable('automatic trigger cycles are rejected', ({ assert: assertions }) =>
   );
 });
 
-test.stable(
+test.server.stable(
   'bounded dispatch persists receipts after official acceptance and survives restart',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -143,7 +143,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'material publication events identify a published material version',
   ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -173,7 +173,7 @@ test.stable(
   }
 );
 
-test.stable('registered workflows accept canonical failure values', async ({ expect }) => {
+test.server.stable('registered workflows accept canonical failure values', async ({ expect }) => {
   const { sourceIngestionWorkflow } = await import('#server/features/sources/workflows/index');
   const failure = { kind: 'cancelled', message: 'superseded', retryAfterMs: null };
 
@@ -182,7 +182,7 @@ test.stable('registered workflows accept canonical failure values', async ({ exp
   );
 });
 
-test.stable(
+test.server.stable(
   'trigger graph fanout counts every subscription with the same source event',
   ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

@@ -49,7 +49,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   api = __mockState.api;
@@ -59,15 +59,18 @@ test.beforeEach(async ({ mock }) => {
   PagesSidebar = __mockModule0.PagesSidebar;
 });
 
-test.beforeEach(() => {
+test.unit.beforeEach(() => {
   preferences = defaultWorkspacePreferences;
   api.pages.mockReset().mockResolvedValue({ items: [], nextCursor: null });
 });
-test.afterEach(({ cleanup }) => {
+test.unit.afterEach(({ cleanup }) => {
   cleanup();
 });
 
-function show({ rpcTestTransport, render }: Pick<test.Context, 'rpcTestTransport' | 'render'>) {
+function show({
+  rpcTestTransport,
+  render
+}: Pick<test.unit.Context, 'rpcTestTransport' | 'render'>) {
   const harness = rpcTestTransport(async (tag, input) => {
     if (tag === 'pages.pages') return api.pages(input);
 
@@ -107,7 +110,7 @@ function show({ rpcTestTransport, render }: Pick<test.Context, 'rpcTestTransport
   return { notify: harness.notify, router };
 }
 
-test.stable(
+test.unit.stable(
   'shows only published, unarchived pages for the subject and opens their reader',
   async ({ userEvent, screen, expect, within, waitFor, act, rpcTestTransport, render }) => {
     api.pages.mockResolvedValue({
@@ -157,7 +160,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shows an empty document list and picks up a newly published document after a server change hint',
   async ({ expect, screen, act, rpcTestTransport, render }) => {
     const { notify } = show({ rpcTestTransport, render });
@@ -172,7 +175,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'loads additional document pages without dropping the current rows',
   async ({ userEvent, screen, expect, rpcTestTransport, render }) => {
     api.pages.mockImplementation(({ limit }) =>
@@ -193,7 +196,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps failed reads recoverable through retry',
   async ({ userEvent, expect, screen, rpcTestTransport, render }) => {
     api.pages.mockRejectedValueOnce(new Error('offline'));
@@ -207,7 +210,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'browses beyond one hundred rows in bounded live windows and returns to the newest window',
   async ({ userEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     const items = Array.from({ length: 151 }, (_, index) => document(BigInt(151 - index)));
@@ -243,7 +246,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'a committed list replacement updates membership and ordering without duplicate rows',
   async ({ screen, act, expect, rpcTestTransport, render }) => {
     api.pages.mockResolvedValue({ items: [document(2n), document(1n)], nextCursor: null });
@@ -265,7 +268,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'a committed cursor-anchor deletion resets the mounted window to a fresh authoritative first page',
   async ({ userEvent, screen, act, expect, rpcTestTransport, render }) => {
     let items = Array.from({ length: 151 }, (_, index) => document(BigInt(151 - index)));

@@ -5,7 +5,7 @@ import { Effect, FileSystem } from 'effect';
 import { sql } from '../src/index.ts';
 import { workflow_agent_progress } from '../src/schema.ts';
 
-test.stable(
+test.server.stable(
   'upgrading existing agent previews defaults their phase without losing progress',
   async ({ databases, temporaryDirectory, expect }) => {
     const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));

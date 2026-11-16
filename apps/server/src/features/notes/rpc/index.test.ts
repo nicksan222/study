@@ -28,7 +28,7 @@ import { testLiveQueries } from '#testing/live-queries';
 
 import { NotesRpcLive } from './index.ts';
 
-test.stable(
+test.server.stable(
   'native note RPC returns typed missing failures and optional reads',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -59,7 +59,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'native message RPC persists and reads a versioned message',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -158,7 +158,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'native RPC keeps attachment thread messages isolated',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -229,7 +229,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'native description RPC persists optional metadata with optimistic concurrency',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -340,7 +340,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'native message RPC preserves explicit document format independently of capture keys',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

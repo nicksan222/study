@@ -98,7 +98,7 @@ async function run<A, E>(
   }
 }
 
-test.stable(
+test.server.stable(
   'maps all pieces and reduces in deterministic bounded levels',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -146,7 +146,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'rejects oversized serialized output and cancellation before further units',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -200,7 +200,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'official SQLite restart and outer retry preserve child maps and completed outer replies',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -352,7 +352,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'singleton reductions can compact inputs before a later level combines them',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -383,7 +383,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'rejects reduction input overflow and finite-depth exhaustion',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -428,7 +428,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'checks authority again before returning a completed single piece',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -474,7 +474,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'persists feature bigint reference and mapped schemas through native Activities',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

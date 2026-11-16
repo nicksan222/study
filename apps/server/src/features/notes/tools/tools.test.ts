@@ -23,7 +23,7 @@ import { subjectTools } from './subjects.ts';
 
 const environment = { language: 'en', searchSources: () => Effect.succeed([]) };
 
-test.stable(
+test.server.stable(
   'settings patches preserve unrelated preferences and reject values outside canonical bounds',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -72,7 +72,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'subject creation reuses exact names and branded IDs round-trip through JSON tool schemas',
   async ({ databases, expect }) => {
     const location = await databases();

@@ -2,17 +2,20 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable('keeps AI SDK access inside the platform runtime', async ({ assert: assertions }) => {
-  const assert: test.Assert = assertions;
+test.unit.stable(
+  'keeps AI SDK access inside the platform runtime',
+  async ({ assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  const diagnostics = await lintRule({ assert }, 'ai-boundary', {
-    'src/domains/jobs/service.ts': "import { generateText } from 'ai';"
-  });
+    const diagnostics = await lintRule({ assert }, 'ai-boundary', {
+      'src/domains/jobs/service.ts': "import { generateText } from 'ai';"
+    });
 
-  assert.strictEqual(diagnostics.length, 1);
-});
+    assert.strictEqual(diagnostics.length, 1);
+  }
+);
 
-test.stable(
+test.unit.stable(
   'platform AI runtime owns generation and respects lexical shadowing',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -30,7 +33,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'feature agents and tools use narrow capabilities and only platform AI owns SDK access',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -49,7 +52,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'model work stays in checkpointed workflow activities',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -71,7 +74,7 @@ Activity.make({execute:Effect.gen(function*(){return yield* generateAgent(agent,
   }
 );
 
-test.stable(
+test.unit.stable(
   'destructured generation aliases cannot bypass checkpoint ownership',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -91,7 +94,7 @@ function f(alias) {alias(agent,input);}`,
   }
 );
 
-test.stable(
+test.unit.stable(
   'the agent factory may describe SDK messages but cannot execute SDK generation',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -106,7 +109,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'workflow model calls declare a last-boundary preflight and leave retries to activities',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -125,7 +128,7 @@ yield* generateAgent(agent,input,options);})});`
   }
 );
 
-test.stable(
+test.unit.stable(
   'extracted transform workflows retain explicit Activity ownership and provider preflight',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -153,7 +156,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'canonical activity harness owns generation and still requires request preflight',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -172,7 +175,7 @@ checkpoint({name: 'bad', execute: function* () { return yield* generateAgent(age
   }
 );
 
-test.stable(
+test.unit.stable(
   'shared context preparation owns agent plumbing while callers retain checkpoint and preflight fences',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

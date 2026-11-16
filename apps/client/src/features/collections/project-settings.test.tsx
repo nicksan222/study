@@ -35,7 +35,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   api = __mockState.api;
@@ -46,13 +46,13 @@ test.beforeEach(async ({ mock }) => {
   ProjectSettings = __mockModule0.ProjectSettings;
 });
 
-test.beforeEach(({ vi }) => {
+test.unit.beforeEach(({ vi }) => {
   vi.resetAllMocks();
   api.list.mockResolvedValue([first, second]);
 });
 
 function mount(
-  { rpcHandlersTransport, render }: Pick<test.Context, 'rpcHandlersTransport' | 'render'>,
+  { rpcHandlersTransport, render }: Pick<test.unit.Context, 'rpcHandlersTransport' | 'render'>,
   initialProject: ProjectId | null = second.id
 ) {
   const harness = rpcHandlersTransport({
@@ -79,7 +79,7 @@ function mount(
   };
 }
 
-test.stable(
+test.unit.stable(
   'edits the exact selected subject and refreshes canonical sidebar data after renaming',
   async ({ screen, expect, fireEvent, waitFor, rpcHandlersTransport, render }) => {
     api.rename.mockImplementation(async () => {
@@ -100,7 +100,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps unsaved names with their subject when navigating between list and details',
   async ({ userEvent, fireEvent, screen, expect, rpcHandlersTransport, render }) => {
     const user = userEvent.setup();
@@ -118,7 +118,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps the submitted name available after a failed rename',
   async ({ fireEvent, screen, waitFor, expect, rpcHandlersTransport, render }) => {
     api.rename.mockRejectedValue(new StudyError('transient', 'Offline'));
@@ -134,7 +134,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'opens the icon editor for the selected subject and persists its exact identity',
   async ({ fireEvent, screen, within, waitFor, expect, rpcHandlersTransport, render }) => {
     api.icon.mockImplementation(async (input) => ({ ...second, icon: input.icon }));
@@ -156,7 +156,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'requires exact-name confirmation and removes only the selected subject',
   async ({ fireEvent, screen, within, expect, waitFor, rpcHandlersTransport, render }) => {
     api.remove.mockImplementation(async () => {
@@ -178,7 +178,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shows a useful empty state without editable fields when no subjects exist',
   async ({ expect, screen, rpcHandlersTransport, render }) => {
     api.list.mockResolvedValue([]);
@@ -188,7 +188,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'opens the subjects index first and drills into the chosen subject',
   async ({ expect, screen, fireEvent, rpcHandlersTransport, render }) => {
     mount({ rpcHandlersTransport, render }, null);

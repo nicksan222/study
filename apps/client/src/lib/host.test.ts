@@ -30,7 +30,7 @@ let rpcBaseUrl: typeof __StudyMockType0.rpcBaseUrl;
 
 let signInOptions: typeof __StudyMockType0.signInOptions;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   native = createNative(mock);
   mock('@tauri-apps/api/core', () => ({ isTauri: () => native.enabled, invoke: native.invoke }));
   mock('@tauri-apps/plugin-opener', () => ({ openUrl: native.openUrl }));
@@ -47,13 +47,13 @@ test.beforeEach(async ({ mock }) => {
   signInOptions = __studyMockModule0.signInOptions;
 });
 
-test.beforeEach(() => {
+test.unit.beforeEach(() => {
   native.enabled = false;
   native.invoke.mockReset();
   native.openUrl.mockReset().mockResolvedValue(undefined);
 });
 
-test.stable(
+test.unit.stable(
   'browser RPC uses its reachable origin and exposes no native capabilities',
   async ({ expect }) => {
     expect(await rpcBaseUrl()).toBe(window.location.origin);
@@ -62,7 +62,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'desktop RPC discovers the private server and exposes native capabilities',
   async ({ expect }) => {
     native.enabled = true;
@@ -73,7 +73,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'desktop discovery propagates failure rather than using the browser origin',
   async ({ expect }) => {
     native.enabled = true;
@@ -88,18 +88,18 @@ for (const [origin, expected] of [
   ['http://[::1]:8080', 'http://127.0.0.1:8080/auth/callback'],
   ['http://localhost', 'http://127.0.0.1/auth/callback']
 ])
-  test.stable(`browser callback preserves the reachable port for ${origin}`, ({ expect }) => {
+  test.unit.stable(`browser callback preserves the reachable port for ${origin}`, ({ expect }) => {
     expect(browserSignInCallbackUrl(origin!)).toBe(expected);
   });
 
 for (const origin of ['https://host.example', 'http://192.168.1.2:5173', 'https://localhost:5173'])
-  test.stable(`unsupported browser origin fails before OAuth: ${origin}`, ({ expect }) => {
+  test.unit.stable(`unsupported browser origin fails before OAuth: ${origin}`, ({ expect }) => {
     expect(() => browserSignInCallbackUrl(origin)).toThrow(
       expect.objectContaining({ kind: 'unsupported' })
     );
   });
 
-test.stable('only browser sign-in overrides the native callback listener', ({ expect }) => {
+test.unit.stable('only browser sign-in overrides the native callback listener', ({ expect }) => {
   expect(signInOptions()).toEqual({
     callbackUrl: browserSignInCallbackUrl(window.location.origin)
   });
@@ -107,7 +107,7 @@ test.stable('only browser sign-in overrides the native callback listener', ({ ex
   expect(signInOptions()).toEqual({});
 });
 
-test.stable(
+test.unit.stable(
   'browser sign-in reserves a detached popup synchronously before authorization',
   async ({ vi, expect }) => {
     const popup = {
@@ -129,7 +129,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'blocked or closed sign-in popups report recovery without navigating',
   async ({ vi, expect }) => {
     const popup = {
@@ -153,7 +153,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'desktop sign-in opens the system browser and propagates launch failures',
   async ({ vi, expect }) => {
     native.enabled = true;
@@ -169,7 +169,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'desktop operations preserve native commands and the selected update version',
   async ({ expect }) => {
     native.enabled = true;

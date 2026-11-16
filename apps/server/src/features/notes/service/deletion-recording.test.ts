@@ -40,7 +40,7 @@ import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';
 import { withTestAdmission } from '#testing/workflow-admission';
 
-test.stable(
+test.server.stable(
   'deleting an in-flight recording fences late attachment and checkpoints while its independent source work survives',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

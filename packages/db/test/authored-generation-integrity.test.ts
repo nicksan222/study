@@ -110,7 +110,7 @@ const mutations = [
 ] as const;
 
 for (const [name, mutation, retained] of mutations)
-  test.stable(
+  test.server.stable(
     `authored generation receipt rejects ${name}`,
     async ({ databases, assert: assertions }) => {
       const assert: test.Assert = assertions;
@@ -179,7 +179,7 @@ const invalidCaptures = [
 ] as const;
 
 for (const [name, patch] of invalidCaptures)
-  test.stable(
+  test.server.stable(
     `authored first receipt rejects ${name}`,
     async ({ databases, assert: assertions }) => {
       const assert: test.Assert = assertions;
@@ -195,7 +195,7 @@ for (const [name, patch] of invalidCaptures)
     }
   );
 
-test.stable(
+test.server.stable(
   'an exact retained authored proposal commits one immutable result without publishing its draft',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -240,7 +240,7 @@ for (const [name, operation, outcome, current, result] of [
   ['draft independent result', 'keep', 'kept', 3, 4],
   ['unchanged target retained as independent', 'keep', 'kept', 3, 3]
 ] as const)
-  test.stable(
+  test.server.stable(
     `authored proposal receipts reject ${name}`,
     async ({ databases, assert: assertions }) => {
       const assert: test.Assert = assertions;
@@ -262,7 +262,7 @@ for (const [name, operation, outcome, current, result] of [
   );
 
 for (const result of [1, 3, 5])
-  test.stable(
+  test.server.stable(
     `generation cannot claim unrelated authored result ${result}`,
     async ({ databases, assert: assertions }) => {
       const assert: test.Assert = assertions;
@@ -282,7 +282,7 @@ for (const result of [1, 3, 5])
     }
   );
 
-test.stable(
+test.server.stable(
   'authored generation cannot claim another note as its publication metadata',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

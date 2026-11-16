@@ -3,13 +3,13 @@ import { test } from '@study/testing';
 
 import { toStudyError } from './errors';
 
-test.stable('preserves canonical failures', ({ expect }) => {
+test.unit.stable('preserves canonical failures', ({ expect }) => {
   const error = new StudyError('auth', 'login');
 
   expect(toStudyError(error)).toBe(error);
 });
 
-test.stable(
+test.unit.stable(
   'decodes structured server failures and retry hints without matching messages',
   ({ expect }) => {
     const error = { message: 'limited', kind: 'rate_limited', retryAfterMs: 500 };
@@ -21,7 +21,7 @@ test.stable(
   }
 );
 
-test.stable('classifies transport failures and retains their original cause', ({ expect }) => {
+test.unit.stable('classifies transport failures and retains their original cause', ({ expect }) => {
   const cause = new TypeError('network');
   const failure = toStudyError(cause);
 

@@ -19,7 +19,7 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { deletionDocument } from '#testing/material-deletion';
 
-test.stable(
+test.server.stable(
   'exact citations reject mismatched source anchors without committing a page',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

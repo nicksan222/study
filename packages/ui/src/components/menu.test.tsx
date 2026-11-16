@@ -3,9 +3,9 @@ import { test } from '@study/testing';
 import { Button } from './button';
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from './menu';
 
-test.afterEach(({ cleanup }) => cleanup());
+test.unit.afterEach(({ cleanup }) => cleanup());
 
-test.stable(
+test.unit.stable(
   'opens from the keyboard, skips disabled items, and restores trigger focus on Escape',
   async ({ userEvent, render, screen, expect, waitFor }) => {
     const user = userEvent.setup();
@@ -33,7 +33,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'runs a selected action, dismisses the menu, and dismisses on outside click',
   async ({ userEvent, vi, render, screen, expect, waitFor }) => {
     const user = userEvent.setup();
@@ -67,7 +67,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps keyboard operation when the trigger renders the shared Button',
   async ({ userEvent, render, screen, waitFor, expect }) => {
     const user = userEvent.setup();

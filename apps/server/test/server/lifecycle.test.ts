@@ -20,7 +20,7 @@ import { Database } from '#server/platform/database/database';
 import { useStore } from '#server/platform/definitions/define-store';
 import { App } from '#server/runtime/service';
 
-test.stable(
+test.server.stable(
   'application close is safe to call repeatedly',
   async ({ resources: resourcesFixture, expect }) => {
     const resources = resourcesFixture;
@@ -32,7 +32,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'worker stop and start are ordered, and application close rejects new starts',
   async ({ resources: resourcesFixture, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -57,7 +57,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'a rejected second application open never acquires another database',
   async ({ resources: resourcesFixture, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -76,7 +76,7 @@ test.stable(
 );
 
 for (const failPersistence of [false, true])
-  test.stable(
+  test.server.stable(
     `shutdown ${failPersistence ? 'can retry' : 'persists'} an in-flight credential rotation before releasing Auth and SQLite`,
     async ({ resources: resourcesFixture, onTestFinished, expect, assert: assertions }) => {
       const assert: test.Assert = assertions;
@@ -202,7 +202,7 @@ for (const failPersistence of [false, true])
     }
   );
 
-test.stable(
+test.server.stable(
   'failed database acquisition releases the process-wide auth owner',
   async ({ resources: resourcesFixture, expect }) => {
     const resources = resourcesFixture;

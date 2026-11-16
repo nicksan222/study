@@ -3,7 +3,7 @@ import { test } from '@study/testing';
 import { AiButton, AiActivity } from './ai-button';
 import { TooltipProvider } from './tooltip';
 
-test.stable(
+test.unit.stable(
   'keeps a pending AI action disabled while exposing its task on hover and keyboard focus',
   async ({ vi, userEvent, render, screen, expect }) => {
     const clicked = vi.fn();
@@ -35,7 +35,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shows the current task without requiring hover or keyboard discovery',
   async ({ render, screen, expect, within }) => {
     render(
@@ -51,7 +51,7 @@ test.stable(
   }
 );
 
-test.stable.for(['waiting', 'stopping', 'attention'] as const)(
+test.unit.stable.for(['waiting', 'stopping', 'attention'] as const)(
   'keeps %s work visible without an active-generation animation',
   (state, { render, screen, expect, within }) => {
     render(<AiActivity label="Current work" state={state} />);

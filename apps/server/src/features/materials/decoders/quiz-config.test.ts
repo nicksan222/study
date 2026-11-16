@@ -38,7 +38,7 @@ const quiz = (
   questions: Extract<MaterialContentInput, { kind: 'quiz' }>['questions']
 ): MaterialContentInput => ({ kind: 'quiz', questions });
 
-test.stable(
+test.unit.stable(
   'generation validates exact counts and every question kind and choice count',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -73,7 +73,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'blank-only generation rejects other kinds and ignores the choice count',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -91,7 +91,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'ordering-only generation enforces exact kind and count without choice options',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -112,7 +112,7 @@ test.stable(
     );
   }
 );
-test.stable(
+test.unit.stable(
   'matching-only generation preserves exact question counts and excludes other kinds',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -137,7 +137,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'boolean generation enforces its exact kind and count independently of choice preferences',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

@@ -23,7 +23,7 @@ let readiness: ReturnType<typeof createMockState>['readiness'];
 
 const en = catalogs.english;
 
-function rpcFixture({ vi }: Pick<test.Context, 'vi'>, linked = true) {
+function rpcFixture({ vi }: Pick<test.unit.Context, 'vi'>, linked = true) {
   const rpc = materialRpc({ vi });
 
   rpc['projects.projects'].mockReturnValue(
@@ -145,7 +145,7 @@ function createMockState() {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState();
 
   readiness = __mockState.readiness;
@@ -161,7 +161,7 @@ test.beforeEach(async ({ mock }) => {
   mountLibraryRoute = __mockModule0.mountLibraryRoute;
 });
 
-test.stable(
+test.unit.stable(
   'blocks generation while provider setup is needed',
   async ({ expect, screen, vi, render, rpcHandlersTransport }) => {
     readiness.state = 'setup';
@@ -180,7 +180,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'requires a subject before offering practice generation',
   async ({ expect, screen, vi, render, rpcHandlersTransport }) => {
     const rpc = rpcFixture({ vi });
@@ -191,7 +191,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'starts generation with saved settings and closes the dialog',
   async ({ userEvent, screen, within, waitFor, expect, vi, render, rpcHandlersTransport }) => {
     const rpc = rpcFixture({ vi });
@@ -223,7 +223,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps a rejected start recoverable without closing the dialog',
   async ({ userEvent, screen, within, expect, waitFor, vi, render, rpcHandlersTransport }) => {
     const rpc = rpcFixture({ vi });
@@ -256,7 +256,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'selects subject notes to create a quiz when the existing material has no provenance',
   async ({ userEvent, screen, within, expect, waitFor, vi, render, rpcHandlersTransport }) => {
     const rpc = rpcFixture({ vi }, false);
@@ -285,7 +285,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'generates flashcards from explicitly loaded pages with optional filtering',
   async ({ userEvent, waitFor, expect, screen, within, vi, render, rpcHandlersTransport }) => {
     const rpc = rpcFixture({ vi }, false);
@@ -362,7 +362,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'closes after acceptance while generation remains pending and can open a fresh form',
   async ({ userEvent, screen, within, waitFor, expect, vi, render, rpcHandlersTransport }) => {
     const rpc = rpcFixture({ vi });
@@ -397,7 +397,7 @@ for (const [kind, label] of [
   ['ordering', en.PracticeOrdering],
   ['true_false', en.PracticeTrueFalse]
 ] as const)
-  test.stable(
+  test.unit.stable(
     `generates ${kind} practice with its independent defaults`,
     async ({ userEvent, screen, within, waitFor, expect, vi, render, rpcHandlersTransport }) => {
       const rpc = rpcFixture({ vi });
@@ -436,7 +436,7 @@ for (const [kind, label] of [
     }
   );
 
-test.stable(
+test.unit.stable(
   'generates true or false practice with a typed kind and saved difficulty',
   async ({ userEvent, screen, within, waitFor, expect, vi, render, rpcHandlersTransport }) => {
     const rpc = rpcFixture({ vi });
@@ -466,7 +466,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'generates ordering practice with a typed kind and saved difficulty',
   async ({ userEvent, screen, within, waitFor, expect, vi, render, rpcHandlersTransport }) => {
     const rpc = rpcFixture({ vi });

@@ -46,7 +46,7 @@ const document = () => ({
 });
 
 function createEvidence(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
   input: { projectId: ProjectId; title: string }
 ) {
   const assert: test.Assert = assertions;
@@ -68,7 +68,7 @@ function createEvidence(
   );
 }
 
-test.stable(
+test.server.stable(
   'quiz settings persist as request intent and reject changed settings',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -148,7 +148,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'generation requests persist immutable published document inputs and an outbox event',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -197,7 +197,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'generation validation, rollback, RPC, and persistent snapshots',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -220,7 +220,7 @@ test.stable(
       function* verifyGenerationSnapshots({
         assert: assertions,
         expect
-      }: Pick<test.Context, 'assert' | 'expect'>) {
+      }: Pick<test.server.Context, 'assert' | 'expect'>) {
         const assert: test.Assert = assertions;
 
         const projects = yield* Projects;
@@ -412,7 +412,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'caller-owned generation keys replay the same request and reject changed intent',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -478,7 +478,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'generation scopes retain tombstones and fence requests by project and intent',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -559,7 +559,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'explicit generation retries are idempotent and require active captured intent',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -653,7 +653,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'active practice generations recover across reads and exclude cancelled and other subjects',
   async ({ databases, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

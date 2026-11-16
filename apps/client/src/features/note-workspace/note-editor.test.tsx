@@ -20,7 +20,7 @@ const labels = {
   redo: 'Redo'
 };
 
-test.stable(
+test.unit.stable(
   'renders saved Markdown as a document with headings, lists, emphasis and safe links',
   ({ render, expect, screen }) => {
     render(
@@ -37,7 +37,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'serializes formatting into Markdown and accepts external updates without echoing them',
   async ({ vi, render, fireEvent, screen, waitFor, expect }) => {
     const onChange = vi.fn();
@@ -67,7 +67,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'applies writing preferences to the editable document without changing its text',
   ({ vi, render, screen, expect }) => {
     const onChange = vi.fn();

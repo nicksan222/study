@@ -30,7 +30,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   answer = __mockState.answer;
@@ -57,12 +57,12 @@ test.beforeEach(async ({ mock }) => {
   QuestionActions = __mockModule1.QuestionActions;
 });
 
-test.beforeEach(({ vi }) => {
+test.unit.beforeEach(({ vi }) => {
   vi.clearAllMocks();
   vi.mocked(useAiReadiness).mockReturnValue('ready');
   executions.mockResolvedValue({ items: [] });
 });
-test.afterEach(({ vi }) => {
+test.unit.afterEach(({ vi }) => {
   vi.useRealTimers();
 });
 
@@ -109,7 +109,7 @@ function note(
 }
 
 function mount(
-  { rpcTestTransport, render }: Pick<test.Context, 'rpcTestTransport' | 'render'>,
+  { rpcTestTransport, render }: Pick<test.unit.Context, 'rpcTestTransport' | 'render'>,
   message = note(),
   versionId = message.activeVersionId!
 ) {
@@ -177,7 +177,7 @@ function mount(
   };
 }
 
-test.stable(
+test.unit.stable(
   'puts Answer inside the message toolbar instead of a separate action row',
   ({ within, screen, expect, rpcTestTransport, render }) => {
     mount({ rpcTestTransport, render });
@@ -188,7 +188,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'answers the displayed question once while its request is pending',
   async ({ screen, fireEvent, waitFor, expect, rpcTestTransport, render }) => {
     let resolve!: (value: unknown) => void;
@@ -214,7 +214,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'lets users correct automatic question detection',
   async ({ fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     mark.mockResolvedValueOnce(note('note'));
@@ -230,7 +230,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'lets users mark an ordinary note as a question',
   async ({ expect, screen, fireEvent, waitFor, rpcTestTransport, render }) => {
     mark.mockResolvedValueOnce(note());
@@ -247,7 +247,7 @@ test.stable(
   }
 );
 
-test.stable.for(['pending', 'complete'] as const)(
+test.unit.stable.for(['pending', 'complete'] as const)(
   'keeps an in-place %s answer in the original entry without a separate answer link',
   (status, { expect, screen, rpcTestTransport, render }) => {
     const message = note('question', 2n, 'answer-in-place');
@@ -281,7 +281,7 @@ test.stable.for(['pending', 'complete'] as const)(
   }
 );
 
-test.stable(
+test.unit.stable(
   'disables question mutations while browsing historical content',
   ({ expect, screen, rpcTestTransport, render }) => {
     const message = note();
@@ -296,7 +296,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'links to an existing answer instead of creating another',
   ({ vi, fireEvent, screen, expect, rpcTestTransport, render }) => {
     const target = document.createElement('div');
@@ -314,7 +314,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'offers a safe retry after an answer request fails',
   async ({ fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     answer
@@ -328,7 +328,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'does not classify assistant messages or document pages',
   ({ expect, screen, rpcTestTransport, render }) => {
     const message = note();
@@ -341,7 +341,7 @@ test.stable(
   }
 );
 
-test.stable.for(['failed', 'cancelled'])(
+test.unit.stable.for(['failed', 'cancelled'])(
   'retries a terminal %s answer through the same question target',
   async (state, { fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     executions.mockResolvedValue({
@@ -365,7 +365,7 @@ test.stable.for(['failed', 'cancelled'])(
   }
 );
 
-test.stable(
+test.unit.stable(
   'restores an archived answer through its note membership',
   async ({ fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     restore.mockResolvedValueOnce(undefined);
@@ -382,7 +382,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'uses the authoritative receipt after a linked answer is deleted',
   async ({ fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     answer.mockResolvedValueOnce({ messageId: 8n, requestId: 'old-request' });
@@ -398,7 +398,7 @@ test.stable(
   }
 );
 
-test.stable.for(['completed', 'cancelled', 'running'])(
+test.unit.stable.for(['completed', 'cancelled', 'running'])(
   'observes authoritative answer updates without a component polling timer: %s',
   async (status, { waitFor, expect, act, rpcTestTransport, render }) => {
     executions.mockResolvedValue({
@@ -414,7 +414,7 @@ test.stable.for(['completed', 'cancelled', 'running'])(
   }
 );
 
-test.stable(
+test.unit.stable(
   'blocks marking a note as a question without a provider but permits marking it back',
   ({ vi, screen, expect, fireEvent, rpcTestTransport, render }) => {
     vi.mocked(useAiReadiness).mockReturnValue('setup');
@@ -432,7 +432,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'removes an AI retry after provider setup is removed and restores it afterward',
   async ({ fireEvent, screen, vi, expect, rpcTestTransport, render }) => {
     answer.mockRejectedValueOnce(new StudyError('transient', 'Unavailable'));

@@ -17,7 +17,7 @@ let archiveHandler: ReturnType<typeof createMockState>['archiveHandler'];
 function Provider({
   rpcHandlersTransport,
   children
-}: Pick<test.Context, 'rpcHandlersTransport'> & { children: React.ReactNode }) {
+}: Pick<test.unit.Context, 'rpcHandlersTransport'> & { children: React.ReactNode }) {
   const fixture = rpcHandlersTransport({
     'sources.source': async ({ id }) => ({
       id,
@@ -44,7 +44,7 @@ function createMockState(mock: test.Mock) {
   };
 }
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState(mock);
 
   archiveHandler = __mockState.archiveHandler;
@@ -75,9 +75,9 @@ test.beforeEach(async ({ mock }) => {
   NotePageCard = __mockModule2.NotePageCard;
 });
 
-test.afterEach(({ cleanup }) => cleanup());
+test.unit.afterEach(({ cleanup }) => cleanup());
 
-test.stable.for([false, true])(
+test.unit.stable.for([false, true])(
   'opens the exact attachment from its context menu (compact: %s)',
   async (compact, { vi, render, screen, expect, fireEvent, userEvent, rpcHandlersTransport }) => {
     const open = vi.fn();
@@ -112,7 +112,7 @@ test.stable.for([false, true])(
   }
 );
 
-test.stable(
+test.unit.stable(
   'opens the exact authored page from its context menu',
   async ({ vi, render, expect, screen, fireEvent, userEvent, rpcHandlersTransport }) => {
     const document = authoredPage();
@@ -138,7 +138,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps unavailable attachment context actions disabled',
   async ({ render, vi, fireEvent, screen, expect, rpcHandlersTransport }) => {
     const part = Schema.decodeUnknownSync(messagePartSchema)({
@@ -165,7 +165,7 @@ test.stable(
   }
 );
 
-test.stable.for(['page', 'source'] as const)(
+test.unit.stable.for(['page', 'source'] as const)(
   'archives the exact %s membership in this note',
   async (kind, { vi, render, screen, expect, fireEvent, userEvent, rpcHandlersTransport }) => {
     const noteId = Schema.decodeUnknownSync(noteIdSchema)(15n);

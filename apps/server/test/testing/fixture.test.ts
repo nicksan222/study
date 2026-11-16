@@ -4,7 +4,7 @@ import { Effect } from 'effect';
 
 import { makeStudyClient } from '#server/client/index';
 
-test.stable(
+test.server.stable(
   'owned RPC applications preserve data when reopened and release the database',
   async ({ createServerFixture, expect }) => {
     await using fixture = await createServerFixture();

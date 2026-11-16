@@ -77,7 +77,7 @@ async function fixture(databases: Databases) {
   };
 }
 
-test.stable(
+test.server.stable(
   'native Pages RPC retains conflict alternatives and exact idempotent receipts across reopen',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -220,7 +220,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'editing ownership, transactional rollback and independent note membership are enforced',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -301,7 +301,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'source copies and message provenance pin exact inputs without giving notes ownership',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -395,7 +395,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'history and deletion require an exact preview, protect dependents, and retire bodies with backup integrity',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -476,7 +476,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'AI publication participant keeps one request intent and retains concurrent proposals',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -542,7 +542,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'exact citations, Unicode annotation history, image pins and inherited retired message identities are validated',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -742,7 +742,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'independent generated publication owns the first authored version and replays one typed request',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -812,7 +812,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'authored metadata and target proposals retain independent histories and exact replay',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -958,7 +958,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'history pagination follows logical numbers when exact version IDs have a different order',
   async ({ databases, assert: assertions }) => {
     const assert: test.Assert = assertions;

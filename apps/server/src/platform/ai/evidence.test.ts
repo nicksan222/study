@@ -21,11 +21,11 @@ const captured = (key: string, blocks: readonly { text: string; blockOrdinal?: n
   blocks
 });
 
-function exhausted({ expect }: Pick<test.Context, 'expect'>, run: () => unknown) {
+function exhausted({ expect }: Pick<test.unit.Context, 'expect'>, run: () => unknown) {
   expect(run).toThrowError(expect.objectContaining({ kind: 'not_enough' }));
 }
 
-test.stable(
+test.unit.stable(
   'evidence indexes blocks beyond the former count and character prefixes',
   ({ expect }) => {
     const blocks = Array.from({ length: 250 }, (_, index) => ({
@@ -47,7 +47,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'oversized blocks preserve exact original quotes, ordinals and references',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -70,7 +70,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'failed admission leaves marker identity and duplicate-key state intact',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -89,24 +89,27 @@ test.stable(
   }
 );
 
-test.stable('passage-count exhaustion and invalid quote bounds reject explicitly', ({ expect }) => {
-  exhausted({ expect }, () =>
-    createEvidenceCatalog([
-      captured(
-        'many',
-        Array.from({ length: 10001 }, () => ({ text: 'x' }))
-      )
-    ])
-  );
+test.unit.stable(
+  'passage-count exhaustion and invalid quote bounds reject explicitly',
+  ({ expect }) => {
+    exhausted({ expect }, () =>
+      createEvidenceCatalog([
+        captured(
+          'many',
+          Array.from({ length: 10001 }, () => ({ text: 'x' }))
+        )
+      ])
+    );
 
-  for (const quoteLimit of [0, -1, NaN, Infinity, 0.5]) {
-    expect(() =>
-      createEvidenceCatalog([{ ...captured('invalid', [{ text: 'alpha' }]), quoteLimit }])
-    ).toThrowError(expect.objectContaining({ kind: 'invalid_input' }));
+    for (const quoteLimit of [0, -1, NaN, Infinity, 0.5]) {
+      expect(() =>
+        createEvidenceCatalog([{ ...captured('invalid', [{ text: 'alpha' }]), quoteLimit }])
+      ).toThrowError(expect.objectContaining({ kind: 'invalid_input' }));
+    }
   }
-});
+);
 
-test.stable(
+test.unit.stable(
   'encoded search replies stay bounded and only emitted markers become citable',
   ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -130,7 +133,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'requested smaller quote bounds preserve the whole admitted text',
   ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -147,7 +150,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'explicit passage catalogs preserve sparse original marker identity and ranking',
   ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -168,7 +171,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'initial passage exposure is explicit and never authorizes omitted markers',
   ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -193,7 +196,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'explicit passage admission rejects invalid markers, passage bounds and duplicate identities',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -233,7 +236,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'explicit catalogs enforce whole-corpus bounds and bounded search exposure',
   ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -267,7 +270,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'passage admission captures marker and quote values before caller mutation',
   ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

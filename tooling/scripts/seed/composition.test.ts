@@ -42,7 +42,7 @@ function createSmallCourse(seed: SeedHarness) {
   });
 }
 
-test.stable(
+test.server.stable(
   'creator sequences reuse library fixtures across any number of notes',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -67,7 +67,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'cross-project fixture references abort the candidate and preserve the existing database',
   async ({ databases, expect }) => {
     const location = await databases();
@@ -107,7 +107,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'notes can mix multiple turns and omit unrelated fixture kinds',
   async ({ databases, expect }) => {
     const location = await databases();

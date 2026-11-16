@@ -4,7 +4,7 @@ import { useAppSettingsPatch } from './app-settings';
 
 const saved = { language: 2 as const, appearance: 3 as const, zoomPercent: 125, onboarded: true };
 
-test.stable(
+test.unit.stable(
   'partial appearance and language edits preserve freshly committed unrelated preferences',
   async ({ vi, rpcTestTransport, renderHook, act, expect }) => {
     const read = vi.fn().mockResolvedValue(saved);
@@ -26,7 +26,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'a failed freshness read never submits a guessed preference snapshot',
   async ({ vi, rpcTestTransport, renderHook, act, expect, waitFor }) => {
     const write = vi.fn();

@@ -39,7 +39,7 @@ function Destinations({ names, before }: { names: string[]; before?: ReactNode }
   );
 }
 
-test.stable(
+test.unit.stable(
   'opens the first nine current sidebar destinations with Command or Control',
   ({ render, fireEvent, expect, screen }) => {
     render(
@@ -68,7 +68,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'uses the updated rendered order without retaining old page or filter results',
   ({ render, fireEvent, expect, screen }) => {
     const view = render(<Destinations names={['old first', 'old second']} />);
@@ -84,7 +84,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'skips hidden, collapsed and disabled destinations and ignores section navigation',
   ({ render, fireEvent, expect, screen }) => {
     render(
@@ -123,7 +123,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'does not intercept modified shortcuts, composition, repeats or modal tasks',
   ({ render, fireEvent, expect, screen }) => {
     const view = render(
@@ -156,7 +156,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'allows switching while writing in a notebook or document editor',
   ({ render, fireEvent, screen, expect }) => {
     render(
@@ -174,7 +174,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shows numbered hints only while the navigation modifier is held',
   ({ render, screen, expect, fireEvent }) => {
     render(
@@ -201,7 +201,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'updates held-key hints when the current list changes and clears them for modal tasks',
   async ({ render, fireEvent, waitFor, expect, screen }) => {
     const view = render(<Destinations names={['one', 'two']} />);

@@ -14,7 +14,7 @@ const x = '33333333-3333-4333-8333-333333333333';
 
 const y = '44444444-4444-4444-8444-444444444444';
 
-test.stable(
+test.unit.stable(
   'matching review labels selected and correct associations for each term',
   ({ expect, render, screen, within }) => {
     const attempt = Schema.decodeUnknownSync(quizAttemptCompletedSchema)({

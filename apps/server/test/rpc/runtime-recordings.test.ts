@@ -19,7 +19,7 @@ import { Effect } from 'effect';
 import { makeStudyClient } from '#server/client/index';
 import { serve } from '#server/runtime/index';
 
-test.stable(
+test.server.stable(
   'HTTP recording capture hands durable WAV publication to the native worker',
   { timeout: 10000 },
   async ({ resources: location, assert: assertions, pollUntil, expect }) => {

@@ -5,7 +5,7 @@ import { Effect, FileSystem, Path } from 'effect';
 import { createMockScope } from '../src/mock.ts';
 import type * as MockDependency from './mock-dependency.ts';
 
-test.stable(
+test.unit.stable(
   'closed mock scopes reject registrations before changing modules or methods',
   ({ mock, expect }) => {
     const dependency = new URL('./mock-dependency.ts', import.meta.url);
@@ -19,7 +19,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejected closed-scope registration leaves the original module available',
   async ({ expect }) => {
     const subject = await import('./mock-subject.ts');
@@ -32,7 +32,7 @@ const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFile
 
 const paths = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
-test.stable(
+test.unit.stable(
   'mock fixture scopes dynamic module mocks and clears the module cache',
   async ({ mock, expect }) => {
     const dependency = new URL('./mock-dependency.ts', import.meta.url);
@@ -44,7 +44,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'mock fixture restores the original module for the next test',
   async ({ mock, expect }) => {
     const subject = await import('./mock-subject.ts');
@@ -58,7 +58,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'mock scopes resolve owner aliases and support native partial factories',
   async ({ task: _task, expect }) => {
     const source = '#testing/mock-dependency';
@@ -83,7 +83,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'mock fixture cleans module mocks after a failed test callback',
   async ({ task: _task, temporaryDirectory, spawnTestProcess, expect }) => {
     await using directory = await temporaryDirectory({ prefix: 'study-mock-scope-' });
@@ -118,13 +118,13 @@ test.stable(
     await Bun.write(
       fixture,
       `import { test } from '@study/testing';
-test.stable('first test fails with a mock active', async ({ mock, expect }) => {
+test.unit.stable('first test fails with a mock active', async ({ mock, expect }) => {
   mock(new URL('./dependency.mjs', import.meta.url), () => ({ value: 'mocked' }));
   const subject = await import('./subject.mjs');
   expect(subject.read()).toBe('mocked');
   throw new Error('intentional failure with mock active');
 });
-test.stable('following test sees the original module', async ({ mock, expect }) => {
+test.unit.stable('following test sees the original module', async ({ mock, expect }) => {
   const subject = await import('./subject.mjs');
   expect(subject.read()).toBe('original');
   await Bun.write(${JSON.stringify(restored)}, 'original');

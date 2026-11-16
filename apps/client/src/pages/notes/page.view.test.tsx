@@ -1,7 +1,7 @@
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 
-test.stable.for(['english', 'italian'] as const)(
+test.unit.stable.for(['english', 'italian'] as const)(
   'renders a new draft with the regular notebook layout in %s',
   async (locale, { page, expect, screen, within, fireEvent, waitFor }) => {
     const { router } = await page.open('/notes?project=9007199254740993', { locale });

@@ -48,7 +48,7 @@ function ScenarioToasts({ children }: { children: ReactNode }) {
   );
 }
 
-const testScenario = baseTest.stable
+const testScenario = baseTest.unit.stable
   .override('mock', ({ task: _task }, { onCleanup }) => {
     const mock = createMockScope({
       resolve: (source) =>
@@ -254,4 +254,4 @@ const withClientTools = withAssistant
   .extend('rpcValuesTransport', () => rpcValuesTransport)
   .extend('createRpcScenario', () => createRpcScenario);
 
-export const test = createTestApi(withClientTools);
+export const test = { unit: createTestApi(withClientTools) };

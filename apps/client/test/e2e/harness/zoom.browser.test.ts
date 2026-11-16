@@ -3,9 +3,9 @@ import { test } from '@study/testing';
 
 const copy = catalogs.english;
 
-test.stable.use({ captureWorkflow: 'closing-settings-preserves-the-underlying-route' });
+test.browser.use({ captureWorkflow: 'closing-settings-preserves-the-underlying-route' });
 
-test.stable(
+test.browser.stable(
   'persisted zoom keeps notebook scrolling inside the shell',
   async ({ journey: { page, expectScreenshot }, expect }) => {
     await page.goto('/notes');

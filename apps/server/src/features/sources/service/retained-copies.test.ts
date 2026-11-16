@@ -23,7 +23,7 @@ import { pageTransformFixture } from '#testing/page-transform';
 import { recordingSource } from '#testing/recording-source';
 
 for (const kind of ['file', 'image', 'recording'] as const)
-  test.stable(
+  test.server.stable(
     `independent ${kind} pins preserve exact exports until final source removal without affecting equal-hash bytes or raw PCM`,
     async ({ databases, assert: assertions, expect }) => {
       const assert: test.Assert = assertions;

@@ -27,7 +27,7 @@ import { assertScrubbed } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 import { admitTestExecution } from '#testing/workflow-admission';
 
-test.stable(
+test.server.stable(
   'unchanged original bytes survive obsolete extraction pruning while current and in-flight correction roots remain usable',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

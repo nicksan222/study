@@ -9,7 +9,7 @@ import { createServer } from 'vite-plus';
 
 import { studyRpcProxy } from './rpc-proxy.ts';
 
-test.stable(
+test.server.stable(
   'the browser dev proxy keeps appearance RPC connected across Vite restarts',
   async ({ databases, resources, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -27,7 +27,7 @@ test.stable(
 
     try {
       await web.listen();
-      const load = ({ assert: assertions }: Pick<test.Context, 'assert'>) => {
+      const load = ({ assert: assertions }: Pick<test.server.Context, 'assert'>) => {
         const assert: test.Assert = assertions;
 
         return Effect.runPromise(
@@ -63,7 +63,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'browser OAuth completes through the forwarded web port and persists the account',
   async ({ databases, resources, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -176,7 +176,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'eight live observers share one socket and leave unary RPC available',
   async ({ databases, resources, assert: assertions }) => {
     const assert: test.Assert = assertions;

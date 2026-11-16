@@ -4,7 +4,7 @@ import { Schema } from 'effect';
 import { failureSchema, StudyError } from '../src/errors.ts';
 
 for (const resource of [undefined, 'ai_capacity'] as const)
-  test.stable(
+  test.unit.stable(
     `failure JSON remains recognizable without a typed decoder: ${resource}`,
     ({ expect }) => {
       const failure = new StudyError('rate_limited', 'Busy', resource ? { resource } : undefined);

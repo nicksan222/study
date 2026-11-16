@@ -8,7 +8,7 @@ import { Effect } from 'effect';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
-test.stable(
+test.unit.stable(
   'snapshot fixtures reject unplanned endpoints instead of inventing empty data',
   async ({ rpcValuesTransport, expect }) => {
     const fixture = rpcValuesTransport({});
@@ -36,7 +36,7 @@ const note = (title: string): Note => ({
   updatedAt: 2n
 });
 
-test.stable(
+test.unit.stable(
   'RPC scenarios use typed snapshots and handlers and refresh mounted queries',
   async ({ createRpcScenario, renderHook, waitFor, expect, act }) => {
     const scenario = createRpcScenario();
@@ -72,7 +72,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'RPC scenarios report undeclared requests even if a view handles their errors',
   async ({ createRpcScenario, expect }) => {
     const scenario = createRpcScenario();
@@ -84,7 +84,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'notifications during a pending snapshot retain the latest refresh',
   async ({ rpcTestTransport, renderHook, act, waitFor, expect }) => {
     const entered = Promise.withResolvers<void>();
@@ -116,7 +116,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'canonical bigint inputs share one subscription and context replacement releases it',
   async ({ rpcTestTransport, renderHook, waitFor, expect }) => {
     const first = rpcTestTransport(async () => note('First'));
@@ -147,7 +147,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'disabled absent input does not manufacture a snapshot or open transport',
   ({ rpcTestTransport, renderHook, expect }) => {
     const fixture = rpcTestTransport(async () => {
@@ -163,7 +163,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'concurrent mutation calls retain their own results and never replay on recovery',
   async ({ renderHook, act, waitFor, expect }) => {
     const completions = new Map<number, (value: string) => void>();
@@ -216,7 +216,7 @@ function invalidHooks() {
   rpc.notes.rename.call({ id });
 }
 
-test.stable(
+test.unit.stable(
   'mutation reset clears submitted variables without cancelling the caller result',
   async ({ renderHook, act, waitFor, expect }) => {
     const task = deferred<string>();
@@ -241,7 +241,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'late mutation completion cannot publish into a replacement transport context',
   async ({ rpcTestTransport, renderHook, act, waitFor, expect }) => {
     const task = deferred<string>();
@@ -281,7 +281,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'omitted and undefined optional payload fields share an immutable canonical input',
   async ({ rpcTestTransport, renderHook, waitFor, expect }) => {
     const fixture = rpcTestTransport(async () => ({ items: [], next: null }));
@@ -328,7 +328,7 @@ function deferred<A>() {
 
 void invalidHooks;
 
-test.stable(
+test.unit.stable(
   'an uncertain mutation defect remains visible without replay',
   async ({ rpcTestTransport, renderHook, act, expect }) => {
     const defect = new Error('Remote mutation defect');

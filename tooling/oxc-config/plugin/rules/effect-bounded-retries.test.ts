@@ -5,7 +5,7 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 const message =
   'Bound retries with a finite times count or a bounded Schedule.recurs; use a bounded helper for opaque schedules.';
 
-test.stable(
+test.unit.stable(
   'keeps retries within the bounded server retry policy',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -25,7 +25,7 @@ E.retry(work, S.recurs(4));`,
   }
 );
 
-test.stable(
+test.unit.stable(
   'tracks named and namespace aliases and rejects infinite policies',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -44,7 +44,7 @@ again({ schedule: S.exponential("1 second") });`
   }
 );
 
-test.stable(
+test.unit.stable(
   'accepts options and v4 intersection schedules',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -60,7 +60,7 @@ E.retry(work, S.min([S.recurs(1), S.recurs(2)]));`
   }
 );
 
-test.stable(
+test.unit.stable(
   'does not prove runtime schedules or union with an unbounded branch',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -78,7 +78,7 @@ E.retry(work, S.min([S.forever, S.recurs(2)]));`
   }
 );
 
-test.stable(
+test.unit.stable(
   'ignores shadowed and unrelated retry methods',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -95,7 +95,7 @@ other.retry(work, policy);`
   }
 );
 
-test.stable(
+test.unit.stable(
   'does not assume an opaque schedule transformation preserves its bound',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -113,7 +113,7 @@ E.retry(work, S.recurs(2).pipe(S.union(S.forever)));`
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps browser Effect retries within the bounded retry policy',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

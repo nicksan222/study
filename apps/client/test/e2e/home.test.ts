@@ -3,7 +3,7 @@ import { test } from '@study/testing';
 
 const copy = catalogs.english;
 
-test.stable(
+test.browser.stable(
   'Home navigation reaches Projects',
   async ({ page, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/home');

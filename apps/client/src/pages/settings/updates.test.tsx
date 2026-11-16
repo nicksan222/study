@@ -15,7 +15,7 @@ let DesktopUpdates: typeof __StudyMockType0.DesktopUpdates;
 
 let UpdatesSettings: typeof __StudyMockType1.UpdatesSettings;
 
-test.beforeEach(async ({ mock }) => {
+test.unit.beforeEach(async ({ mock }) => {
   native = createNative(mock);
   mock('#client/lib/host.ts', () => ({
     hostCapabilities: () => ({ updates: native.enabled, diagnostics: native.enabled }),
@@ -32,7 +32,7 @@ test.beforeEach(async ({ mock }) => {
   UpdatesSettings = __studyMockModule1.UpdatesSettings;
 });
 
-test.beforeEach(() => {
+test.unit.beforeEach(() => {
   native.enabled = true;
   native.invoke.mockReset().mockImplementation((command) => {
     if (command === 'desktop_update_status')
@@ -42,11 +42,11 @@ test.beforeEach(() => {
   });
 });
 
-function mount({ render }: Pick<test.Context, 'render'>) {
+function mount({ render }: Pick<test.unit.Context, 'render'>) {
   return render(<UpdatesSettings />);
 }
 
-test.stable(
+test.unit.stable(
   'browser explains availability without invoking native commands',
   ({ expect, screen, render }) => {
     native.enabled = false;
@@ -59,7 +59,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'manual check reports current version only after a successful check',
   async ({ expect, screen, userEvent, render }) => {
     mount({ render });
@@ -71,7 +71,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'unsigned desktop builds cannot claim to be current',
   async ({ expect, screen, render }) => {
     native.invoke.mockResolvedValue({ version: '0.1.1', supported: false });
@@ -83,7 +83,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'retries a failed native capability query before enabling manual checks',
   async ({ expect, screen, userEvent, render }) => {
     native.invoke.mockRejectedValueOnce(new Error('connection unavailable'));
@@ -96,7 +96,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'check failure is recoverable and a new check clears the error',
   async ({ screen, userEvent, expect, render }) => {
     mount({ render });
@@ -113,7 +113,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'requires install consent, disables duplicate actions, and retries a failed install',
   async ({ screen, userEvent, expect, act, waitFor, render }) => {
     mount({ render });
@@ -148,7 +148,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'settings and background consent cannot start competing native installations',
   async ({ vi, render, userEvent, screen, waitFor, expect, act }) => {
     const notice = vi.spyOn(toastManager, 'add').mockReturnValue('update-notice');

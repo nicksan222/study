@@ -4,7 +4,7 @@ import { integer, text, blob, primaryKey } from '../src/schema-builder.ts';
 import * as schema from '../src/schema.ts';
 import { collectSchemaRegistry, defineTable } from '../src/table.ts';
 
-test.stable(
+test.server.stable(
   'schema registry discovers every declared table and all searchable entities',
   ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -25,7 +25,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'new entities and contributors are discovered without a separate registration list',
   ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -51,7 +51,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'registry rejects missing policies, duplicate entity identities and orphan contributors',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -107,7 +107,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'automatic entity declarations require explicit scope and visibility policies',
   ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -170,7 +170,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'automatic entity identity must be a single text or integer primary key',
   ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

@@ -1,9 +1,45 @@
 import AxeBuilder from '@axe-core/playwright';
 import type { Locator, Page } from 'playwright';
-import { test } from 'playwright/test';
+import { mergeTests, test } from 'playwright/test';
 import { expect as base } from 'playwright/test';
+import type { TestType } from 'playwright/test';
 
+import { classificationLabel } from './classification.ts';
+import type { Characterization, Migration, Regression } from './classification.ts';
 import { testPolicy } from './config.ts';
+
+/** Native fixture extension preserves Playwright's authored locations, filtering and fixture inference. */
+export function createBrowserTestApi<TestArgs extends object, WorkerArgs extends object>(
+  runner: TestType<TestArgs, WorkerArgs>
+) {
+  const registration = (label: string) =>
+    mergeTests(
+      runner,
+      test.extend<{ studyClassification: void }>({
+        studyClassification: [
+          async ({ browserName: _browserName }, provide, info) => {
+            info.annotations.push({ type: 'study:test-classification', description: label });
+            await provide();
+          },
+          { auto: true }
+        ]
+      })
+    );
+
+  return {
+    stable: registration('stable'),
+    regression: (metadata: Regression) => registration(classificationLabel('regression', metadata)),
+    migration: (metadata: Migration) => registration(classificationLabel('migration', metadata)),
+    characterization: (metadata: Characterization) =>
+      registration(classificationLabel('characterization', metadata)),
+    describe: runner.describe,
+    use: runner.use,
+    beforeEach: runner.beforeEach,
+    afterEach: runner.afterEach,
+    beforeAll: runner.beforeAll,
+    afterAll: runner.afterAll
+  };
+}
 
 /** A substring of a prewrapped paragraph needs its own rendered range, not the paragraph's box. */
 export const expect = base.extend({

@@ -69,7 +69,7 @@ function send(text: string, finish = true): Response {
 }
 
 async function peer(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
   handler: (req: Request, body: string) => Response | Promise<Response>,
   run: (base: string, auth: AuthManager) => Promise<void>
 ) {
@@ -115,7 +115,7 @@ function service(
   });
 }
 
-function mockService(mock: ReturnType<test.Context['createAiMock']>) {
+function mockService(mock: ReturnType<test.server.Context['createAiMock']>) {
   return layer({
     model: (tier, call) => mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError)),
     language: 'en',
@@ -124,7 +124,7 @@ function mockService(mock: ReturnType<test.Context['createAiMock']>) {
   });
 }
 
-test.stable(
+test.server.stable(
   'generates validated output through the Responses provider',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -148,7 +148,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'the harness publishes partial output before generation completes',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -221,23 +221,26 @@ test.stable(
   }
 );
 
-test.stable('rejects malformed structured output', async ({ expect, assert: assertions }) => {
-  const assert: test.Assert = assertions;
+test.server.stable(
+  'rejects malformed structured output',
+  async ({ expect, assert: assertions }) => {
+    const assert: test.Assert = assertions;
 
-  await peer(
-    { assert },
-    (_req) => send('{"count":"wrong"}'),
-    async (base, auth) => {
-      await expect(
-        Effect.runPromise(
-          generateAgent(objectDefinition, 'x').pipe(Effect.provide(service(base, auth)))
-        )
-      ).rejects.toThrow();
-    }
-  );
-});
+    await peer(
+      { assert },
+      (_req) => send('{"count":"wrong"}'),
+      async (base, auth) => {
+        await expect(
+          Effect.runPromise(
+            generateAgent(objectDefinition, 'x').pipe(Effect.provide(service(base, auth)))
+          )
+        ).rejects.toThrow();
+      }
+    );
+  }
+);
 
-test.stable(
+test.server.stable(
   'batches preview writes without delaying direct deltas or losing the final text',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -338,7 +341,7 @@ test.stable(
 );
 
 for (const intercepted of [false, true])
-  test.stable(
+  test.server.stable(
     `executes a validated source tool with runtime adapter ${intercepted}`,
     async ({ createAiMock, assert: assertions, expect }) => {
       const assert: test.Assert = assertions;
@@ -450,7 +453,7 @@ for (const intercepted of [false, true])
     }
   );
 
-test.stable(
+test.server.stable(
   'streams text before the provider completes and never completes a truncated response',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -558,7 +561,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'retries rate-limited requests up to the configured limit',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -586,7 +589,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'cancellation after a delta never publishes completion',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -661,7 +664,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'rejects empty model output without publishing completion',
   async ({ createAiMock, expect }) => {
     using mock = createAiMock();
@@ -682,7 +685,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'preserves note history in the native reply request',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -724,7 +727,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'the Assistant keeps its local tools without gaining web search',
   async ({ resources: resourcesFixture, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -758,7 +761,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'native web search completes inside the reply request without a local search executor',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -812,7 +815,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'agents without a web search declaration never receive native web search',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -838,7 +841,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'transcribes image and PDF bytes through the native vision API',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -878,7 +881,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'rejects invalid request limits before making a provider request',
   async ({ createAiMock, expect }) => {
     using mock = createAiMock();
@@ -898,7 +901,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'preserves the typed provider error after retries are exhausted',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -920,7 +923,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'canonical quiz agent accepts exactly one correct choice and rejects inconsistent answers',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -968,7 +971,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'generic model request checks fail in the typed lane before provider work',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -1012,7 +1015,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'slow consumers receive all large deltas and the validated completion',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -1068,7 +1071,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'never retries a failed response after publishing a delta',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -1128,7 +1131,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'local interruption closes the request without retries or durable cancellation',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -1177,7 +1180,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'decoder exceptions remain typed input failures before provider work',
   async ({ createAiMock, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -1203,7 +1206,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'injects only selected rules, composes title rules and reloads preferences for each run',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -1258,7 +1261,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'records provider usage even when an agent rejects the generated output',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -1289,7 +1292,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'retains provider-reported tokens when ChatGPT truncates a response',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -1352,7 +1355,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'decodes JSON optional identifiers in structured agent output before publication',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -1394,7 +1397,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'model adapters receive the actual agent contract and validated input',
   async ({ createAiMock, expect }) => {
     using mock = createAiMock();
@@ -1423,7 +1426,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'internal provider retries cannot consume the next agent invocation expectation',
   async ({ createAiMock, expect }) => {
     using mock = createAiMock();

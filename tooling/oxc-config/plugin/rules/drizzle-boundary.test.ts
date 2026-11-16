@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { lintRule } from '../test/utils.ts';
 
-test.stable(
+test.unit.stable(
   'Drizzle imports and exports belong exclusively to the database package',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -37,7 +37,7 @@ type Query = import('drizzle-orm').SQL;`,
   }
 );
 
-test.stable(
+test.unit.stable(
   'Drizzle require calls respect lexical bindings and createRequire aliases',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -69,7 +69,7 @@ load('drizzle-kit');`,
   }
 );
 
-test.stable(
+test.unit.stable(
   'Drizzle namespace createRequire and global loader forms stay behind the facade',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -99,7 +99,7 @@ module.require('drizzle-orm');
   }
 );
 
-test.stable(
+test.unit.stable(
   'TypeScript CommonJS import declarations cannot bypass the database facade',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -119,7 +119,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'schema declarations cannot bypass mandatory table metadata through raw Drizzle imports',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

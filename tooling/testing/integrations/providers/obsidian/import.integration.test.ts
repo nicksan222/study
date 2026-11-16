@@ -15,7 +15,7 @@ import { Effect } from 'effect';
 
 import { obsidianVault } from './fixture.ts';
 
-test.stable('Obsidian imports vault notes', { timeout: 60000 }, async ({ expect }) => {
+test.server.stable('Obsidian imports vault notes', { timeout: 60000 }, async ({ expect }) => {
   await Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
@@ -49,62 +49,68 @@ test.stable('Obsidian imports vault notes', { timeout: 60000 }, async ({ expect 
   );
 });
 
-test.stable('Obsidian preserves links and attachments', { timeout: 60000 }, async ({ expect }) => {
-  await Effect.runPromise(
-    Effect.scoped(
-      Effect.gen(function* () {
-        const vault = yield* obsidianVault('links-and-attachments');
+test.server.stable(
+  'Obsidian preserves links and attachments',
+  { timeout: 60000 },
+  async ({ expect }) => {
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const vault = yield* obsidianVault('links-and-attachments');
 
-        const result = yield* vault.import(['Excluded.md']);
+          const result = yield* vault.import(['Excluded.md']);
 
-        const documents = yield* vault.client['pages.pages']({ limit: 100, archived: false });
-        const cells = documents.items.find((item) => item.title === 'Cell biology');
+          const documents = yield* vault.client['pages.pages']({ limit: 100, archived: false });
+          const cells = documents.items.find((item) => item.title === 'Cell biology');
 
-        expect(cells).toBeTruthy();
-        const detail = yield* vault.client['pages.page']({ id: cells!.id });
+          expect(cells).toBeTruthy();
+          const detail = yield* vault.client['pages.page']({ id: cells!.id });
 
-        expect(detail.version).toBeTruthy();
-        expect(
-          detail.version!.document.blocks.some((block) => block.text.includes('genetic material'))
-        ).toBeTruthy();
-        const dnaNote = result.items.find((item) => item.key === 'Biology/DNA.md')!.noteId;
-        const links = detail
-          .version!.document.blocks.flatMap((block) =>
-            block.content.type === 'paragraph' ? block.content.inlines : []
-          )
-          .filter((inline) => inline.type === 'link');
+          expect(detail.version).toBeTruthy();
+          expect(
+            detail.version!.document.blocks.some((block) => block.text.includes('genetic material'))
+          ).toBeTruthy();
+          const dnaNote = result.items.find((item) => item.key === 'Biology/DNA.md')!.noteId;
+          const links = detail
+            .version!.document.blocks.flatMap((block) =>
+              block.content.type === 'paragraph' ? block.content.inlines : []
+            )
+            .filter((inline) => inline.type === 'link');
 
-        expect(links).toEqual([
-          { type: 'link', text: 'genetic material', href: `/note/${dnaNote}` }
-        ]);
-        const sources = yield* vault.client['sources.sources']({ limit: 100 });
-        const svg = sources.items.find((item) => item.name === 'cell.svg');
+          expect(links).toEqual([
+            { type: 'link', text: 'genetic material', href: `/note/${dnaNote}` }
+          ]);
+          const sources = yield* vault.client['sources.sources']({ limit: 100 });
+          const svg = sources.items.find((item) => item.name === 'cell.svg');
 
-        expect(svg).toBeTruthy();
-        const cellNote = result.items.find((item) => item.key === 'Biology/Cells.md')!.noteId;
-        const thread = yield* vault.client['notes.thread']({
-          noteId: cellNote!,
-          limit: 100
-        });
+          expect(svg).toBeTruthy();
+          const cellNote = result.items.find((item) => item.key === 'Biology/Cells.md')!.noteId;
+          const thread = yield* vault.client['notes.thread']({
+            noteId: cellNote!,
+            limit: 100
+          });
 
-        expect(
-          thread.items.flatMap((message) => message.parts).some((part) => part.sourceId === svg!.id)
-        ).toBeTruthy();
-        const exported = yield* vault.client['sources.exportRevision']({
-          sourceId: svg!.id,
-          revision: 1n
-        });
+          expect(
+            thread.items
+              .flatMap((message) => message.parts)
+              .some((part) => part.sourceId === svg!.id)
+          ).toBeTruthy();
+          const exported = yield* vault.client['sources.exportRevision']({
+            sourceId: svg!.id,
+            revision: 1n
+          });
 
-        expect(new TextDecoder().decode(exported.bytes)).toBe(
-          '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><circle cx="10" cy="10" r="8"/></svg>'
-        );
-      })
-    ),
-    { signal: AbortSignal.timeout(45000) }
-  );
-});
+          expect(new TextDecoder().decode(exported.bytes)).toBe(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><circle cx="10" cy="10" r="8"/></svg>'
+          );
+        })
+      ),
+      { signal: AbortSignal.timeout(45000) }
+    );
+  }
+);
 
-test.stable('Obsidian respects excluded notes', { timeout: 60000 }, async ({ expect }) => {
+test.server.stable('Obsidian respects excluded notes', { timeout: 60000 }, async ({ expect }) => {
   await Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
@@ -127,7 +133,7 @@ test.stable('Obsidian respects excluded notes', { timeout: 60000 }, async ({ exp
   );
 });
 
-test.stable(
+test.server.stable(
   'Reimporting an Obsidian vault avoids duplicates',
   { timeout: 60000 },
   async ({ expect }) => {

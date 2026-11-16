@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { downloadBackup, encodeBackupFile, MAX_ARTIFACT_BYTES } from './files';
 
-function artifact({ vi }: Pick<test.Context, 'vi'>, bytes: Uint8Array, size = bytes.length) {
+function artifact({ vi }: Pick<test.unit.Context, 'vi'>, bytes: Uint8Array, size = bytes.length) {
   const file = new File([Uint8Array.from(bytes).buffer], 'fixture.studybackup');
   const arrayBuffer = vi.fn(async () => Uint8Array.from(bytes).buffer);
 
@@ -12,16 +12,16 @@ function artifact({ vi }: Pick<test.Context, 'vi'>, bytes: Uint8Array, size = by
   return { file, arrayBuffer };
 }
 
-test.beforeEach(({ vi }) => {
+test.unit.beforeEach(({ vi }) => {
   vi.stubGlobal('URL', { createObjectURL: vi.fn(), revokeObjectURL: vi.fn() });
 });
-test.afterEach(({ vi }) => {
+test.unit.afterEach(({ vi }) => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   vi.useRealTimers();
 });
 
-test.stable(
+test.unit.stable(
   'bounds file size before reading and rejects a different encoding',
   async ({ expect, vi }) => {
     const oversized = artifact({ vi }, new Uint8Array(), MAX_ARTIFACT_BYTES + 1);
@@ -38,7 +38,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'transports the binary artifact as base64 without converting it to JSON or text',
   async ({ expect, vi }) => {
     const bytes = new Uint8Array([...new TextEncoder().encode('STUDYBK1\n'), 0, 255, 128, 3]);
@@ -48,7 +48,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'downloads exact binary bytes with an explicit filename and delayed Blob cleanup',
   async ({ vi, expect }) => {
     vi.useFakeTimers();
@@ -88,7 +88,7 @@ test.stable(
   }
 );
 
-test.stable('cleans up even when download dispatch fails', ({ vi, expect }) => {
+test.unit.stable('cleans up even when download dispatch fails', ({ vi, expect }) => {
   vi.useFakeTimers();
   vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:backup');
   const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
@@ -102,7 +102,7 @@ test.stable('cleans up even when download dispatch fails', ({ vi, expect }) => {
   expect(document.querySelector('a[download]')).toBeNull();
 });
 
-test.stable.for([1, -1])(
+test.unit.stable.for([1, -1])(
   'rejects file byte-count mismatch (%s) after reading',
   async (difference, { expect, vi }) => {
     const bytes = new TextEncoder().encode('STUDYBK1\nexample');
@@ -113,7 +113,7 @@ test.stable.for([1, -1])(
   }
 );
 
-test.stable(
+test.unit.stable(
   'allows the exact declared size boundary to be read but still validates actual length',
   async ({ expect, vi }) => {
     const value = artifact({ vi }, new TextEncoder().encode('STUDYBK1\n'), MAX_ARTIFACT_BYTES);
@@ -123,20 +123,23 @@ test.stable(
   }
 );
 
-test.stable('preserves bytes across base64 conversion chunk boundaries', async ({ expect, vi }) => {
-  const bytes = new Uint8Array(16403);
+test.unit.stable(
+  'preserves bytes across base64 conversion chunk boundaries',
+  async ({ expect, vi }) => {
+    const bytes = new Uint8Array(16403);
 
-  bytes.set(new TextEncoder().encode('STUDYBK1\n'));
-  bytes[8191] = 255;
-  bytes[8192] = 128;
-  bytes[16384] = 254;
-  bytes[16402] = 1;
-  const encoded = await encodeBackupFile(artifact({ vi }, bytes).file);
+    bytes.set(new TextEncoder().encode('STUDYBK1\n'));
+    bytes[8191] = 255;
+    bytes[8192] = 128;
+    bytes[16384] = 254;
+    bytes[16402] = 1;
+    const encoded = await encodeBackupFile(artifact({ vi }, bytes).file);
 
-  expect(Uint8Array.from(atob(encoded), (char) => char.charCodeAt(0))).toEqual(bytes);
-});
+    expect(Uint8Array.from(atob(encoded), (char) => char.charCodeAt(0))).toEqual(bytes);
+  }
+);
 
-test.stable(
+test.unit.stable(
   'rejects oversized encoded downloads before decoding or allocating a Blob URL',
   ({ vi, expect }) => {
     const decode = vi.spyOn(globalThis, 'atob');
@@ -149,7 +152,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'rejects invalid base64 without creating a Blob URL or download anchor',
   ({ expect }) => {
     expect(() => downloadBackup('%%%invalid', 'snapshot')).toThrow();

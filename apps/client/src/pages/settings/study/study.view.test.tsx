@@ -2,7 +2,7 @@ import { test } from '@study/testing';
 
 import { StudySettingsView } from './study.view';
 
-function model({ vi }: Pick<test.Context, 'vi'>) {
+function model({ vi }: Pick<test.unit.Context, 'vi'>) {
   return {
     data: { newCardsPerDay: 20 },
     draft: '20',
@@ -17,7 +17,7 @@ function model({ vi }: Pick<test.Context, 'vi'>) {
   };
 }
 
-test.stable(
+test.unit.stable(
   'exposes the actual integer bounds and leaves unchanged settings unsaved',
   ({ render, screen, expect, fireEvent, vi }) => {
     const state = model({ vi });
@@ -33,7 +33,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'shows an actionable validation message and prevents invalid saves',
   ({ render, expect, screen, vi }) => {
     render(
@@ -45,7 +45,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.unit.stable(
   'submits a valid changed value with Enter and links validation to its field',
   ({ render, screen, fireEvent, expect, vi }) => {
     const state = { ...model({ vi }), draft: '0', changed: true };

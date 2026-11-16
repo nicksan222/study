@@ -16,7 +16,7 @@ import { test } from '@study/testing';
 
 import { retryDisposition } from '#server/platform/workflows/retry';
 
-test.stable(
+test.server.stable(
   'classifies workflow failures without retrying terminal errors',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -39,7 +39,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'shutdown interruption does not settle a terminal domain failure',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

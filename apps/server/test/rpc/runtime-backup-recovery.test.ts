@@ -49,7 +49,7 @@ async function stagedFixture() {
   }
 }
 
-test.stable(
+test.server.stable(
   'failed staging write keeps the exact preview retryable and preserves the active target',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -80,7 +80,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'recovery-copy preparation failure preserves old state and failed discard remains retryable',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -129,7 +129,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'post-rename journal failure aborts startup and reconciles the applied identity on later restarts',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -198,7 +198,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'startup cleans interrupted private scratch and known writing files without removing artifacts',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -242,7 +242,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'a real SQLite read lock prevents the journal transition without replacing the current target',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -286,7 +286,7 @@ test.stable(
   }
 );
 
-test.stable(
+test.server.stable(
   'failed atomic rename leaves old data and pending intent for an explicit filesystem retry',
   async ({ expect, assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -348,7 +348,7 @@ test.stable(
 );
 
 if (process.platform === 'darwin')
-  test.stable(
+  test.server.stable(
     'SQLite runtime setup failure preserves accepted restore bytes for the next startup',
     async ({ spawnTestProcess, assert: assertions }) => {
       const assert: test.Assert = assertions;

@@ -20,7 +20,7 @@ import type { pageTransformFixture } from '#testing/page-transform';
 
 type Fixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
-type TestAssertion = Pick<test.Context, 'assert'>['assert'];
+type TestAssertion = Pick<test.unit.Context, 'assert'>['assert'];
 
 export function learningGeneration(f: Fixture, assert: TestAssertion) {
   return Effect.runPromise(

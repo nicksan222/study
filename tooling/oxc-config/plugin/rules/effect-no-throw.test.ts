@@ -4,7 +4,7 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message = 'Yield a typed failure instead of throwing StudyError inside an Effect generator.';
 
-test.stable(
+test.unit.stable(
   'reports thrown exceptions in Effect code and accepts typed failure constructors',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -37,7 +37,7 @@ E.gen(function* () {
   }
 );
 
-test.stable(
+test.unit.stable(
   'limits domain throw checks to the nearest imported Effect generator',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -71,7 +71,7 @@ E.gen(function* () {
   }
 );
 
-test.stable(
+test.unit.stable(
   'canonical server error imports retain typed Effect failure enforcement',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -88,7 +88,7 @@ const operation = Effect.gen(function* () {
   }
 );
 
-test.stable(
+test.unit.stable(
   'public contracts error imports preserve the same typed Effect failure boundary',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -105,7 +105,7 @@ Effect.gen(function* () {
   }
 );
 
-test.stable(
+test.unit.stable(
   'reports thrown browser Effect failures and accepts typed errors',
   async ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
@@ -132,7 +132,7 @@ export const task = Effect.gen(function* () {
   }
 );
 
-test.stable(
+test.unit.stable(
   'keeps typed failures in native untraced generators',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;

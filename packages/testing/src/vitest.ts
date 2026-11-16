@@ -1,3 +1,4 @@
+import type { TestType as BrowserTestType } from 'playwright/test';
 import {
   onTestFinished,
   test as nativeTest,
@@ -268,14 +269,17 @@ const preparedNativeTest = nativeTest
   .extend('createAiMock', () => createAiMock)
   .extend('spawnTestProcessSync', () => spawnTestProcessSync);
 
-export const test = createTestApi(preparedNativeTest);
+/** Native Vitest runner with the shared unit fixture set and explicit namespace. */
+export const test = { unit: createTestApi(preparedNativeTest) };
 
 export declare namespace test {
   export type Mock = MockScope;
 
   export type Assert = TestAssert;
 
-  export type Context = TestContextOf<typeof test>;
+  export namespace unit {
+    export type Context = TestContextOf<typeof test.unit>;
+  }
 }
 
 /** The native fixture context augmented with this environment's lazy registered fixtures. */
@@ -284,9 +288,11 @@ export type TestContextOf<Runner> =
     ? TestContext & Fixtures
     : Runner extends { readonly stable: Registration<infer Fixtures> }
       ? TestContext & Fixtures
-      : Runner extends { readonly stable: (...args: infer Args) => unknown }
-        ? Parameters<Extract<Args[number], (...args: any[]) => unknown>>[0]
-        : TestContext;
+      : Runner extends { readonly stable: infer Test }
+        ? TestContextOf<Test>
+        : Runner extends BrowserTestType<infer Fixtures, any>
+          ? Fixtures
+          : TestContext;
 
 export type TestAssert = typeof assert;
 

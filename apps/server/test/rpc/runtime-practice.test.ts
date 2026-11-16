@@ -40,7 +40,7 @@ for (const mode of [
   'archived-before-request',
   'transient-exhausted'
 ] as const)
-  test.stable(
+  test.server.stable(
     `HTTP practice ${mode} recovers, replenishes and stops without further provider work`,
     { timeout: 20000 },
     async ({ resources: resourcesFixture, assert: assertions, expect, pollUntil }) => {
@@ -238,7 +238,7 @@ for (const mode of [
             function* recoverFailedPractice({
               assert: assertions,
               pollUntil
-            }: Pick<test.Context, 'assert' | 'pollUntil'>) {
+            }: Pick<test.server.Context, 'assert' | 'pollUntil'>) {
               const assert: test.Assert = assertions;
 
               if (mode !== 'normal') {
@@ -343,7 +343,7 @@ for (const mode of [
             yield* client['system.startWorkers']({});
             yield* assertRefillDrained({ pollUntil });
 
-            function* assertRefillDrained({ pollUntil }: Pick<test.Context, 'pollUntil'>) {
+            function* assertRefillDrained({ pollUntil }: Pick<test.server.Context, 'pollUntil'>) {
               const refillSlot = refill.slots.find((slot) => slot.kind === 'open')!;
 
               yield* pollUntil(

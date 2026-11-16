@@ -34,7 +34,7 @@ const meta = {
 const paragraph = (text: string) =>
   createBlock({ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] });
 
-test.stable(
+test.server.stable(
   'native transform consumes immutable excerpts and policy, validates output, replays and fences note deletion',
   async ({ databases, assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
@@ -294,7 +294,7 @@ test.stable(
 );
 
 function assertReportTargets(
-  { assert: assertions }: Pick<test.Context, 'assert'>,
+  { assert: assertions }: Pick<test.server.Context, 'assert'>,
   blocks: readonly { id: string }[],
   targets: readonly string[]
 ) {
