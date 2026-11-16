@@ -1,6 +1,4 @@
-import { RetryButton } from '@study/ui/action-button';
-import { Button } from '@study/ui/button';
-import { Settings } from '@study/ui/settings';
+import { RetryButton, Button, Settings } from '@study/ui';
 
 import { useDesktopInstallation } from '#client/lib/desktop-updates.ts';
 import { useNativeAsync } from '#client/lib/effect/native.ts';

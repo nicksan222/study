@@ -23,7 +23,7 @@ import { messageConversionSchema } from './conversion.ts';
 
 export const titleSourceSchema = Schema.Literals(['generated', 'provisional', 'user']);
 
-export { messageRoleSchema, noteMessageSnapshotSchema };
+export { messageRoleSchema };
 
 export const versionStatusSchema = Schema.Literals(['complete', 'pending', 'writing', 'failed']);
 

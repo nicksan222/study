@@ -12,7 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { createVersionInputSchema } from '@study/contracts/materials/rpc';
+import type { createVersionInputSchema } from '@study/contracts';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 

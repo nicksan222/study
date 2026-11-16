@@ -11,14 +11,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { PageVersionId, VersionId } from '@study/contracts/ids';
-import { selectionReferenceKey } from '@study/contracts/notes/context';
-import { authoredContentSchema } from '@study/contracts/pages/schemas';
-import type { pageTransformContextSchema } from '@study/contracts/pages/transform';
-import type { transformPublicationSchema } from '@study/contracts/pages/transform';
-import { hasTextualContent } from '@study/contracts/sources/schemas';
-import type { documentSchema } from '@study/contracts/sources/schemas';
+import { StudyError } from '@study/contracts';
+import type { PageVersionId, VersionId } from '@study/contracts';
+import { selectionReferenceKey } from '@study/contracts';
+import { authoredContentSchema } from '@study/contracts';
+import type { pageTransformContextSchema } from '@study/contracts';
+import type { transformPublicationSchema } from '@study/contracts';
+import { hasTextualContent } from '@study/contracts';
+import type { documentSchema } from '@study/contracts';
 import { Schema } from 'effect';
 
 type Blocks = typeof documentSchema.Type.blocks;

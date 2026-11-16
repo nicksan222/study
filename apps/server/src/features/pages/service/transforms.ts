@@ -11,10 +11,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { exactInputSchema } from '@study/contracts/pages/schemas';
-import type { pageTransformContextSchema } from '@study/contracts/pages/transform';
-import * as t from '@study/contracts/pages/transform';
+import { StudyError } from '@study/contracts';
+import type { exactInputSchema } from '@study/contracts';
+import type { pageTransformContextSchema } from '@study/contracts';
+import * as t from '@study/contracts';
 
 import { intentHash } from '#server/features/pages/decoders/intent';
 import { validatePageTransform } from '#server/features/pages/decoders/page-transform';

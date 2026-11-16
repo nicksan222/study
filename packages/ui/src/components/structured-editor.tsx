@@ -20,7 +20,6 @@ import { StructuredTableDialog } from './structured-editor-table';
 import type { EditorImageReference, StructuredEditorLabels } from './structured-editor-types';
 
 export type { Editor as StructuredEditorInstance } from '@tiptap/core';
-export type { StructuredEditorLabels } from './structured-editor-types';
 
 export type StructuredEditorValue = JSONContent;
 

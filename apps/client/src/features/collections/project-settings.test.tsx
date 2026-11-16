@@ -1,6 +1,5 @@
-import { StudyError } from '@study/contracts/errors';
-import type { ProjectId } from '@study/contracts/ids';
-import { projectSchema } from '@study/contracts/projects/schemas';
+import { StudyError, projectSchema } from '@study/contracts';
+import type { ProjectId } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

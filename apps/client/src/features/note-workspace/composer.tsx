@@ -1,11 +1,7 @@
-import { StudyError } from '@study/contracts/errors';
-import type { NoteId } from '@study/contracts/ids';
+import { StudyError } from '@study/contracts';
+import type { NoteId } from '@study/contracts';
 import { SendIcon, ComposeIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
-import { ComposerSurface } from '@study/ui/composer';
-import { Loading } from '@study/ui/loading';
-import { Notebook } from '@study/ui/note-workspace';
-import { WorkspaceSurface } from '@study/ui/workspace';
+import { Button, ComposerSurface, Loading, Notebook, WorkspaceSurface } from '@study/ui';
 
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 

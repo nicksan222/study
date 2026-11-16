@@ -14,7 +14,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { executionSchema } from '@study/contracts/workflows/schemas';
+import type { executionSchema } from '@study/contracts';
 
 /** Durable completion and cancellation both fence future execution. */
 export function isTerminalExecution(status: (typeof executionSchema.Type)['status']): boolean {

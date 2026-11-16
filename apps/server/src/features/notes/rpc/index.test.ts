@@ -13,10 +13,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { NoteId } from '@study/contracts/ids';
-import { NotesRpc } from '@study/contracts/notes/rpc';
+import type { NoteId } from '@study/contracts';
+import { NotesRpc } from '@study/contracts';
 import { eq } from '@study/db';
-import { messages, note_deletions } from '@study/db/schema';
+import { messages, note_deletions } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option } from 'effect';
@@ -61,7 +61,7 @@ testStable('native note RPC returns typed missing failures and optional reads', 
 testStable('native message RPC persists and reads a versioned message', async () => {
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
-  const { projects } = await import('@study/db/schema');
+  const { projects } = await import('@study/db');
   const project = context.db.orm
     .insert(projects)
     .values({ name: 'RPC', created_at: 1n, updated_at: 1n })
@@ -155,7 +155,7 @@ testStable('native message RPC persists and reads a versioned message', async ()
 testStable('native RPC keeps attachment thread messages isolated', async () => {
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
-  const { projects, sources } = await import('@study/db/schema');
+  const { projects, sources } = await import('@study/db');
   const project = context.db.orm
     .insert(projects)
     .values({ name: 'RPC threads', created_at: 1n, updated_at: 1n })

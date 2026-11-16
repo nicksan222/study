@@ -12,7 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { pageVersionIdSchema } from '@study/contracts/ids';
+import { pageVersionIdSchema } from '@study/contracts';
 import { sql } from '@study/db';
 import { Schema } from 'effect';
 

@@ -10,16 +10,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { contentSnapshotIdSchema, sourceIdSchema } from '@study/contracts/ids';
-import type { ContentSnapshotId } from '@study/contracts/ids';
+import { StudyError } from '@study/contracts';
+import { contentSnapshotIdSchema, sourceIdSchema } from '@study/contracts';
+import type { ContentSnapshotId } from '@study/contracts';
 import {
   sourceHistoryInputSchema,
   sourceHistoryPreviewSchema,
   sourceHistoryRetireSchema
-} from '@study/contracts/sources/rpc';
+} from '@study/contracts';
 import { and, asc, eq, inArray, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
 

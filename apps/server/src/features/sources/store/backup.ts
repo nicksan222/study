@@ -12,10 +12,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { decodeBlockContent } from '@study/contracts/sources/document';
+import { StudyError } from '@study/contracts';
+import { decodeBlockContent } from '@study/contracts';
 import { eq, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
 

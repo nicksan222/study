@@ -12,7 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { healthSchema, searchInputSchema } from '@study/contracts/system/rpc';
+import { healthSchema, searchInputSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
 import { expect } from 'vite-plus/test';

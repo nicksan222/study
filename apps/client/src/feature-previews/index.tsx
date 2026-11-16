@@ -1,6 +1,8 @@
-import { quizAttemptInProgressSchema } from '@study/contracts/learning/schemas';
-import { materialVersionDetailSchema } from '@study/contracts/materials/schemas';
-import { documentSchema } from '@study/contracts/sources/schemas';
+import {
+  quizAttemptInProgressSchema,
+  materialVersionDetailSchema,
+  documentSchema
+} from '@study/contracts';
 import type { Locale } from '@study/localization';
 import { Schema } from 'effect';
 

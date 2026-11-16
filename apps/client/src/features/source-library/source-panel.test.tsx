@@ -1,7 +1,11 @@
-import { StudyError } from '@study/contracts/errors';
-import { sourceIdSchema, contentSnapshotIdSchema, noteIdSchema } from '@study/contracts/ids';
-import { executionIdSchema } from '@study/contracts/workflows/schemas';
-import type { executionSchema } from '@study/contracts/workflows/schemas';
+import {
+  StudyError,
+  sourceIdSchema,
+  contentSnapshotIdSchema,
+  noteIdSchema,
+  executionIdSchema
+} from '@study/contracts';
+import type { executionSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { act, cleanup, render, renderHook, screen, waitFor } from '@testing-library/react';

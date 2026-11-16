@@ -1,3 +1,23 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Prefer native flatten and asVoid over equivalent no-op callbacks.                  │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ In production server and client source, prevents identity flatMap and output-discarding  │
+ * │ map/as wrappers from obscuring intent; callbacks with actual work are left intact.       │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   Effect.flatten(task);                                                                  │
+ * │   Effect.asVoid(task);                                                                   │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   Effect.flatMap(task, value => value);                                                  │
+ * │   Effect.map(task, () => undefined);                                                     │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings, effectProduction } from '../effect-bindings.ts';

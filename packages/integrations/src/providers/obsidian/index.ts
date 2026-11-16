@@ -1,6 +1,6 @@
-import { StudyError } from '@study/contracts/errors';
-import { integrationPlanSchema } from '@study/contracts/integrations/schemas';
-import type { integrationWarningSchema } from '@study/contracts/integrations/schemas';
+import { StudyError } from '@study/contracts';
+import { integrationPlanSchema } from '@study/contracts';
+import type { integrationWarningSchema } from '@study/contracts';
 import { Schema } from 'effect';
 
 import type { IntegrationProvider } from '#integrations/capabilities';

@@ -1,4 +1,4 @@
-import type { Page } from '@study/contracts/pages/types';
+import type { Page } from '@study/contracts';
 import { rpc, useIndependentMutation } from '@study/contracts/react';
 import { useNavigate } from '@tanstack/react-router';
 import { Effect } from 'effect';

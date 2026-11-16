@@ -1,6 +1,6 @@
-import type { ProjectId } from '@study/contracts/ids';
+import type { ProjectId } from '@study/contracts';
 import { SettingsIcon } from '@study/icons';
-import { Sidebar } from '@study/ui/sidebar';
+import { Sidebar } from '@study/ui';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

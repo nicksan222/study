@@ -1,5 +1,5 @@
 import { Db } from '@study/db';
-import { projects } from '@study/db/schema';
+import { projects } from '@study/db';
 
 const path = process.argv[2];
 

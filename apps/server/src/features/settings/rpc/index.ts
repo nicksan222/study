@@ -12,7 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { SettingsRpc } from '@study/contracts/settings/rpc';
+import { SettingsRpc } from '@study/contracts';
 import { Effect } from 'effect';
 
 import { Settings } from '#server/features/settings/service/index';

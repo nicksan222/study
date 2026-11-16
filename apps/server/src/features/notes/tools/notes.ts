@@ -10,9 +10,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import * as r from '@study/contracts/notes/rpc';
-import { noteSchema } from '@study/contracts/notes/schemas';
-import * as p from '@study/contracts/projects/rpc';
+import * as r from '@study/contracts';
+import { noteSchema } from '@study/contracts';
+import * as p from '@study/contracts';
 import { Effect, Schema } from 'effect';
 
 import { Notes } from '#server/features/notes/index';

@@ -1,8 +1,5 @@
-import { StudyError } from '@study/contracts/errors';
-import {
-  MAX_INTEGRATION_BYTES,
-  integrationInputSchema
-} from '@study/contracts/integrations/schemas';
+import { StudyError } from '@study/contracts';
+import { MAX_INTEGRATION_BYTES, integrationInputSchema } from '@study/contracts';
 import { Schema } from 'effect';
 
 /** Portable relative paths only; no adapter may read the host filesystem. */

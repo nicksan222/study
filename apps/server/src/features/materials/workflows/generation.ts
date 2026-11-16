@@ -14,16 +14,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { promptInputSchema } from '@study/contracts/ai/shared';
-import { failureSchema, StudyError } from '@study/contracts/errors';
-import type { Failure } from '@study/contracts/errors';
-import { materialGenerationRequestedSchema } from '@study/contracts/events';
-import { materialVersionIdSchema } from '@study/contracts/ids';
-import { contentInputKey } from '@study/contracts/inputs';
-import type { ContentInput } from '@study/contracts/inputs';
-import { materialGenerationPublicationSchema } from '@study/contracts/materials/schemas';
-import type { quizGenerationConfigSchema } from '@study/contracts/materials/schemas';
-import type { MaterialContentInput } from '@study/contracts/materials/schemas';
+import type { promptInputSchema } from '@study/contracts';
+import { failureSchema, StudyError } from '@study/contracts';
+import type { Failure } from '@study/contracts';
+import { materialGenerationRequestedSchema } from '@study/contracts';
+import { materialVersionIdSchema } from '@study/contracts';
+import { contentInputKey } from '@study/contracts';
+import type { ContentInput } from '@study/contracts';
+import { materialGenerationPublicationSchema } from '@study/contracts';
+import type { quizGenerationConfigSchema } from '@study/contracts';
+import type { MaterialContentInput } from '@study/contracts';
 import { Effect, Schema } from 'effect';
 
 import { flashcardsAgent } from '#server/features/materials/agents/flashcards';

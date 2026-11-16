@@ -14,7 +14,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { DependencyScope } from '@study/contracts/protocol';
+import type { DependencyScope } from '@study/contracts';
 import { Db, sql } from '@study/db';
 import type { DbTransaction } from '@study/db';
 import type { Clock } from 'effect';

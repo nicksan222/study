@@ -10,9 +10,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import { and, eq } from '@study/db';
-import { note_retired_intents, workflow_retired_correlations } from '@study/db/schema';
+import { note_retired_intents, workflow_retired_correlations } from '@study/db';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 

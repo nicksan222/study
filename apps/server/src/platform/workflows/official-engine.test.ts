@@ -16,7 +16,7 @@ import { BunCrypto } from '@effect/platform-bun';
 import { SqliteClient } from '@effect/sql-sqlite-bun';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { spawnTestProcess } from '@study/testing/process';
+import { spawnTestProcess } from '@study/testing/vitest';
 import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Fiber, Layer, ManagedRuntime, Option, Schedule, Schema } from 'effect';
 import { ClusterWorkflowEngine, SingleRunner } from 'effect/cluster';

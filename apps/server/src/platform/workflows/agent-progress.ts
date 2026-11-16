@@ -14,15 +14,15 @@ import {
   agentObservationSchema,
   agentProgressSchema,
   agentToolProgressSchema
-} from '@study/contracts/ai/progress';
-import type { agentProgressInputSchema } from '@study/contracts/ai/progress';
-import { StudyError } from '@study/contracts/errors';
+} from '@study/contracts';
+import type { agentProgressInputSchema } from '@study/contracts';
+import { StudyError } from '@study/contracts';
 import { and, desc, eq, sql } from '@study/db';
 import {
   workflow_agent_progress,
   workflow_executions,
   workflow_retired_executions
-} from '@study/db/schema';
+} from '@study/db';
 import { Effect, Option, Schema } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
 

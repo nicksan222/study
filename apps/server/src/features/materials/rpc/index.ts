@@ -12,7 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { MaterialsRpc } from '@study/contracts/materials/rpc';
+import { MaterialsRpc } from '@study/contracts';
 import { Effect } from 'effect';
 
 import { Materials } from '#server/features/materials/service/index';

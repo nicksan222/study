@@ -1,3 +1,23 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keeps browser entrypoints and contracts independent of private server resources.   │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Client/UI/theme source, server public/client/shared entrypoints and contracts importing  │
+ * │ private server or database modules, including type edges. Contracts also reject workflow │
+ * │ engine imports. Browser consumers use @study/server/client; native imports belong only   │
+ * │ in apps/client/src/lib/host.ts. Module paths must be literal.                            │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/client/src/lib/effect/rpc.ts                                                   │
+ * │   import { makeStudyClient } from '@study/server/client';                                │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/client/src/features/example/api.ts                                             │
+ * │   import { Db } from '@study/db';                                                        │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { moduleEdges, serverPath, targetPath } from '../architecture-imports.ts';

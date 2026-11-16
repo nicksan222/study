@@ -11,9 +11,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { pageTransformOutputSchema } from '@study/contracts/ai/page-transform';
-import { promptInputSchema } from '@study/contracts/ai/shared';
-import { AgentRule } from '@study/contracts/settings/schemas';
+import { pageTransformOutputSchema } from '@study/contracts';
+import { promptInputSchema } from '@study/contracts';
+import { AgentRule } from '@study/contracts';
 
 import { sourcesTool } from '#server/platform/ai/captured-sources-tool';
 import { defineAgent } from '#server/platform/definitions/define-agent';

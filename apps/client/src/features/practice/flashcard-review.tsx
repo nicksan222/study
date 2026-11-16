@@ -1,13 +1,8 @@
-import type { ProjectId } from '@study/contracts/ids';
-import type { learningRatingSchema } from '@study/contracts/learning/schemas';
-import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
+import type { ProjectId, learningRatingSchema, MaterialVersionDetailDto } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { SelectedIcon, RetryIcon } from '@study/icons';
 import { reviewProgress } from '@study/localization';
-import { Button } from '@study/ui/button';
-import { ErrorState } from '@study/ui/error-state';
-import { Loading } from '@study/ui/loading';
-import { Practice } from '@study/ui/practice';
+import { Button, ErrorState, Loading, Practice } from '@study/ui';
 import { useEffect, useRef, useState } from 'react';
 
 import { useNativeAction } from '#client/lib/effect/native.ts';

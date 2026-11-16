@@ -1,3 +1,24 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Makes fixture previews render real feature presentation without production I/O.    │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Non-test apps/client/src/feature-previews modules importing production hooks/transport,  │
+ * │ accessing native network globals, or building duplicate native/shared controls. The      │
+ * │ public index.tsx must render an imported feature component; landing art is outside this  │
+ * │ scope.                                                                                   │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/client/src/feature-previews/index.tsx                                          │
+ * │   import { QuizQuestion } from '../features/practice/quiz-question';                     │
+ * │   export const Preview = () => <QuizQuestion {...fixture} />;                            │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/client/src/feature-previews/example.tsx                                        │
+ * │   const data = fetch('/api');                                                            │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { BunPath } from '@effect/platform-bun';
 import { Effect, Path } from 'effect';
 import { defineRule } from 'vite-plus/lint/plugins';
@@ -11,7 +32,24 @@ const { dirname, resolve } = Effect.runSync(Effect.provide(Path.Path, BunPath.la
 
 const controls = new Set(['button', 'input', 'select', 'textarea', 'option']);
 
-const sharedControls =
+const sharedControlNames = new Set([
+  'Button',
+  'Input',
+  'Textarea',
+  'SelectControl',
+  'SwitchControl',
+  'Checkbox',
+  'RadioGroup',
+  'RangeControl',
+  'NumberControl',
+  'IconButton',
+  'PreviousButton',
+  'NextButton',
+  'RetryButton',
+  'LoadMoreButton'
+]);
+
+const legacySharedControl =
   /^@study\/ui\/(?:button|input|textarea|select|switch|checkbox|radio|range|number|icon-button|navigation-button|action-button)(?:-|$)/;
 
 function featureComponent(filename: string, source: string): boolean {
@@ -35,17 +73,48 @@ export default defineRule({
     let renderedFeature = false;
     const bindings = effectBindings(context);
 
-    function componentImport(name: ESTree.JSXOpeningElement['name']): string | undefined {
-      if (name.type === 'JSXMemberExpression') return componentImport(name.object);
+    function namespaceComponent(
+      name: ESTree.JSXMemberExpression
+    ): { readonly source: string; readonly name: string } | undefined {
+      if (name.object.type !== 'JSXIdentifier') return;
 
-      if (name.type !== 'JSXIdentifier') return;
+      const definition = bindings.definition(name.object);
+      const declaration = definition?.parent;
 
+      if (
+        definition?.type !== 'ImportNamespaceSpecifier' ||
+        declaration?.type !== 'ImportDeclaration' ||
+        declaration.source.value !== '@study/ui'
+      )
+        return;
+
+      return { source: declaration.source.value, name: name.property.name };
+    }
+
+    function namedComponent(
+      name: ESTree.JSXIdentifier
+    ): { readonly source: string; readonly name: string } | undefined {
       const definition = bindings.definition(name);
+      const declaration = definition?.parent;
 
-      return definition?.parent?.type === 'ImportDeclaration' &&
-        definition.parent.importKind !== 'type'
-        ? definition.parent.source.value
-        : undefined;
+      if (declaration?.type !== 'ImportDeclaration' || declaration.importKind === 'type') return;
+
+      return {
+        source: declaration.source.value,
+        name:
+          definition.type === 'ImportSpecifier'
+            ? (definition.imported.name ?? definition.imported.value)
+            : name.name
+      };
+    }
+
+    function componentImport(
+      name: ESTree.JSXOpeningElement['name']
+    ): { readonly source: string; readonly name: string } | undefined {
+      if (name.type === 'JSXMemberExpression')
+        return namespaceComponent(name) ?? componentImport(name.object);
+
+      if (name.type === 'JSXIdentifier') return namedComponent(name);
     }
 
     function checkNetwork(node: ESTree.CallExpression | ESTree.NewExpression) {
@@ -90,13 +159,16 @@ export default defineRule({
       NewExpression: checkNetwork,
       JSXOpeningElement(node) {
         const name = node.name;
-        const source = componentImport(name);
+        const component = componentImport(name);
+        const source = component?.source;
 
         if (source && featureComponent(filename, source)) renderedFeature = true;
 
         if (
           (name.type === 'JSXIdentifier' && controls.has(name.name)) ||
-          (source && sharedControls.test(source))
+          (component &&
+            (legacySharedControl.test(component.source) ||
+              (component.source === '@study/ui' && sharedControlNames.has(component.name))))
         )
           context.report({
             node,

@@ -12,9 +12,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createBlock } from '@study/contracts/sources/document';
+import { createBlock } from '@study/contracts';
 import { eq, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 /** Roundtrips final-domain body retirement, exact source pins and private note cleanup. */
 import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';

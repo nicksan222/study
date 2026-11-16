@@ -14,8 +14,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { learningRatingSchema } from '@study/contracts/learning/schemas';
+import { StudyError } from '@study/contracts';
+import type { learningRatingSchema } from '@study/contracts';
 import { createEmptyCard, fsrs, Rating as FsrsRating } from 'ts-fsrs';
 import type { Card as FsrsCard, State } from 'ts-fsrs';
 

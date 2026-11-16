@@ -1,4 +1,4 @@
-import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
+import { defaultWorkspacePreferences } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { screen, within } from '@testing-library/react';

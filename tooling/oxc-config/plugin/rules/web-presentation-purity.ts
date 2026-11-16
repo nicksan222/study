@@ -1,3 +1,24 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Separates prop-driven client views and declarative logic from execution adapters.  │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Non-test client *.view.tsx importing execution/application hooks or accessing browser    │
+ * │ I/O globals; *.logic.ts/tsx cannot import React, router or UI values or render JSX. Both │
+ * │ reject await/new Promise. Views may use Link, useI18n, shared presentation hooks and     │
+ * │ prop callbacks; type-only imports are exempt.                                            │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/client/src/pages/home/page.view.tsx                                            │
+ * │   import { Link } from '@tanstack/react-router';                                         │
+ * │   const PageView = () => <Link to="/library" />;                                         │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/client/src/pages/home/page.view.tsx                                            │
+ * │   import { useState } from 'react';                                                      │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { moduleEdges } from '../architecture-imports.ts';
@@ -99,7 +120,7 @@ function impureViewImport(node: any, source: string): boolean {
   const names = importedNames(node);
   const hooks = names.some((name: string) => name.startsWith('use'));
   const presentationHook =
-    source.startsWith('@study/ui/') ||
+    source === '@study/ui' ||
     (/(?:^|\/)i18n(?:\.tsx?)?$/.test(source) && names.every((name: string) => name === 'useI18n'));
 
   return (

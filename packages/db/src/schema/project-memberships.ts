@@ -1,4 +1,4 @@
-import type { MaterialId, ProjectId, NoteId } from '@study/contracts/ids';
+import type { MaterialId, ProjectId, NoteId } from '@study/contracts';
 
 import {
   defineTable,

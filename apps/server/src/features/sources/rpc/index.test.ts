@@ -13,8 +13,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { ContentSnapshotId, SourceId } from '@study/contracts/ids';
-import { SourcesRpc } from '@study/contracts/sources/rpc';
+import type { ContentSnapshotId, SourceId } from '@study/contracts';
+import { SourcesRpc } from '@study/contracts';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option } from 'effect';

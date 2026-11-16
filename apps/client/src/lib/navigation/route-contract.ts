@@ -4,7 +4,7 @@ import {
   pageVersionIdSchema,
   quizAttemptIdSchema,
   projectIdSchema
-} from '@study/contracts/ids';
+} from '@study/contracts';
 import type { StaticMessageKey } from '@study/localization';
 import { Schema } from 'effect';
 

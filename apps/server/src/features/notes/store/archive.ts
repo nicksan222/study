@@ -10,14 +10,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { sourceIdSchema, pageIdSchema, messageIdSchema, partIdSchema } from '@study/contracts/ids';
-import type { NoteId } from '@study/contracts/ids';
+import { StudyError } from '@study/contracts';
+import { sourceIdSchema, pageIdSchema, messageIdSchema, partIdSchema } from '@study/contracts';
+import type { NoteId } from '@study/contracts';
 import {
   archivedNoteItemSchema,
   noteArchiveInputSchema,
   setNoteItemArchivedSchema
-} from '@study/contracts/notes/archive';
+} from '@study/contracts';
 import { and, desc, eq, isNull, isNotNull, lte, or, sql } from '@study/db';
 import {
   messages,
@@ -29,7 +29,7 @@ import {
   note_sources,
   pages,
   sources
-} from '@study/db/schema';
+} from '@study/db';
 import { Schema } from 'effect';
 
 import { defineStore, storeQuery, storeMutation } from '#server/platform/definitions/define-store';

@@ -2,18 +2,19 @@ import type {
   MatchingTermId,
   MatchingDefinitionId,
   QuizChoiceId,
-  QuizOrderingItemId
-} from '@study/contracts/ids';
-import type {
+  QuizOrderingItemId,
   quizAnswerSchema,
   quizAttemptInProgressSchema
-} from '@study/contracts/learning/schemas';
-import { Button } from '@study/ui/button';
-import { Input } from '@study/ui/input';
-import { NextButton, PreviousButton } from '@study/ui/navigation-button';
-import { Practice } from '@study/ui/practice';
-import { SelectControl } from '@study/ui/select-control';
-import { Textarea } from '@study/ui/textarea';
+} from '@study/contracts';
+import {
+  Button,
+  Input,
+  NextButton,
+  PreviousButton,
+  Practice,
+  SelectControl,
+  Textarea
+} from '@study/ui';
 import { useState, useEffect, useRef } from 'react';
 import type { ReactNode, KeyboardEvent } from 'react';
 

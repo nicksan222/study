@@ -1,9 +1,7 @@
-import type { PageId, PageVersionId } from '@study/contracts/ids';
-import type { Page, PageVersion } from '@study/contracts/pages/types';
+import type { PageId, PageVersionId, Page, PageVersion } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { SavedIcon, UnsavedIcon, SaveErrorIcon } from '@study/icons';
-import { Loading } from '@study/ui/loading';
-import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
+import { Loading, WorkspaceDeskSurface as Desk } from '@study/ui';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

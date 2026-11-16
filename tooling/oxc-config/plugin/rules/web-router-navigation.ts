@@ -1,3 +1,22 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keeps client navigation and search state on TanStack's typed router.               │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Non-test client code manipulating browser history/location, parsing URLSearchParams or   │
+ * │ using internal anchor hrefs. Internal path literals must be lowercase kebab-case without │
+ * │ trailing slashes; bound index file-route IDs may retain their slash. app/router.ts owns  │
+ * │ URL adaptation, lib/host.ts may read origin/protocol, and external anchors remain legal. │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { Link } from '@tanstack/react-router';                                         │
+ * │   const view = <Link to="/library" search={{ project: search.project }} />;              │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   const view = <a href="/library">{t('Library')}</a>;                                    │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { moduleEdges } from '../architecture-imports.ts';

@@ -13,7 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { WorkflowsRpc } from '@study/contracts/workflows/rpc';
+import { WorkflowsRpc } from '@study/contracts';
 import { Stream } from 'effect';
 
 import { Workflows } from '#server/features/workflows/service/index';

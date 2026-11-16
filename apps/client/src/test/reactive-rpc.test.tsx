@@ -1,4 +1,4 @@
-import { noteIdSchema } from '@study/contracts/ids';
+import { noteIdSchema } from '@study/contracts';
 import type { ProtocolTransport } from '@study/contracts/react';
 import { rpc, RpcProvider, useIndependentMutation } from '@study/contracts/react';
 import { testStable } from '@study/testing/vitest';

@@ -11,7 +11,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { jsonSchema, Output, streamText } from 'ai';
 import { expect } from 'vite-plus/test';

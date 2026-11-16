@@ -33,6 +33,7 @@ import featurePreviewBoundary from './rules/feature-preview-boundary.ts';
 import harnessBoundary from './rules/harness-boundary.ts';
 import iconAliases from './rules/icon-aliases.ts';
 import integrationTestEnvironment from './rules/integration-test-environment.ts';
+import lintRuleDescription from './rules/lint-rule-description.ts';
 import metricCardinality from './rules/metric-cardinality.ts';
 import nativeClock from './rules/native-clock.ts';
 import noDeepRelativeImports from './rules/no-deep-relative-imports.ts';
@@ -40,6 +41,7 @@ import noErrorMessageMatching from './rules/no-error-message-matching.ts';
 import noLossyIds from './rules/no-lossy-ids.ts';
 import noNonNullQueryResults from './rules/no-non-null-query-results.ts';
 import packageBoundary from './rules/package-boundary.ts';
+import packageRootExports from './rules/package-root-exports.ts';
 import parameterizedSql from './rules/parameterized-sql.ts';
 import preserveErrorCause from './rules/preserve-error-cause.ts';
 import serverFileDescription from './rules/server-file-description.ts';
@@ -118,10 +120,12 @@ export default definePlugin({
     'preserve-error-cause': preserveErrorCause,
 
     'server-file-description': serverFileDescription,
+    'lint-rule-description': lintRuleDescription,
     'server-no-mocks': serverNoMocks,
     'database-ownership': databaseOwnership,
     'browser-boundary': browserBoundary,
     'package-boundary': packageBoundary,
+    'package-root-exports': packageRootExports,
     'ai-readiness': aiReadiness,
     'feature-preview-boundary': featurePreviewBoundary,
     'integration-test-environment': integrationTestEnvironment,

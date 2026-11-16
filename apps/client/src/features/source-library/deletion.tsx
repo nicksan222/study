@@ -1,8 +1,5 @@
-import type { Source } from '@study/contracts/sources/schemas';
-import { Button } from '@study/ui/button';
-import { DangerDialog } from '@study/ui/danger-dialog';
-import { ErrorState } from '@study/ui/error-state';
-import { Loading } from '@study/ui/loading';
+import type { Source } from '@study/contracts';
+import { Button, DangerDialog, ErrorState, Loading } from '@study/ui';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

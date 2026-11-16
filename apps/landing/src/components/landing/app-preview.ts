@@ -1,4 +1,4 @@
-import { Button } from '@study/ui/button';
+import { Button } from '@study/ui';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 

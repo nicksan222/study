@@ -1,8 +1,13 @@
 import { RegistryContext, useAtomInitialValues, useAtomValue } from '@effect/atom-react';
-import { StudyError } from '@study/contracts/errors';
-import type { NoteId, MessageId, VersionId } from '@study/contracts/ids';
-import type { ChatMessage } from '@study/contracts/notes/messages';
-import type { postMessageInputSchema, editMessageInputSchema } from '@study/contracts/notes/rpc';
+import { StudyError } from '@study/contracts';
+import type {
+  NoteId,
+  MessageId,
+  VersionId,
+  ChatMessage,
+  postMessageInputSchema,
+  editMessageInputSchema
+} from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';

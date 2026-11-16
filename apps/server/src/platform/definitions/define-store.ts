@@ -15,9 +15,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { WorkflowEvent } from '@study/contracts/events';
-import type { DependencyScope } from '@study/contracts/protocol';
+import { StudyError } from '@study/contracts';
+import type { WorkflowEvent } from '@study/contracts';
+import type { DependencyScope } from '@study/contracts';
 import type { Db, DbTransaction } from '@study/db';
 import type { Clock, Context } from 'effect';
 import { Effect, Option, Schema } from 'effect';

@@ -1,8 +1,6 @@
-import type { ProjectId, PageId } from '@study/contracts/ids';
+import type { ProjectId, PageId } from '@study/contracts';
 import { CreatePageIcon } from '@study/icons';
-import { RetryButton } from '@study/ui/action-button';
-import { Button } from '@study/ui/button';
-import { ErrorState } from '@study/ui/error-state';
+import { RetryButton, Button, ErrorState } from '@study/ui';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 

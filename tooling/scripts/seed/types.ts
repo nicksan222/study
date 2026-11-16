@@ -1,6 +1,6 @@
-import type { materialContentInputSchema } from '@study/contracts/materials/schemas';
-import type { projectIconColors } from '@study/contracts/projects/schemas';
-import type { Block, Document } from '@study/contracts/sources/document';
+import type { materialContentInputSchema } from '@study/contracts';
+import type { projectIconColors } from '@study/contracts';
+import type { Block, Document } from '@study/contracts';
 
 /** Fixture content uses application contracts; creators allocate all durable identities. */
 export type SourceFixture = {

@@ -1,3 +1,22 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keep server feature roles and private capabilities behind their owners.            │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents features from importing foreign stores, bypassing public services or acquiring  │
+ * │ capabilities outside their role. Also confines preferences, FSRS, store network access   │
+ * │ and runtime workflow composition to their designated owners.                             │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/server/src/features/notes/service/read.ts                                      │
+ * │   import { Materials } from '#server/features/materials/index';                          │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/server/src/features/notes/service/read.ts                                      │
+ * │   import { MaterialVersionsStore } from '#server/features/materials/store/index';        │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import {

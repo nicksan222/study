@@ -1,4 +1,4 @@
-import { configurationWaitReasonSchema } from '@study/contracts/workflows/schemas';
+import { configurationWaitReasonSchema } from '@study/contracts';
 
 import { check, defineTable, primaryKey, sql, text } from '../schema-builder.ts';
 import { workflow_executions } from './workflows.ts';

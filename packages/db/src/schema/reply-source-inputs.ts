@@ -1,5 +1,5 @@
 /** Reply captures retain exact source bytes and their completed canonical extractions. */
-import type { ContentSnapshotId, PartId, SourceId } from '@study/contracts/ids';
+import type { ContentSnapshotId, PartId, SourceId } from '@study/contracts';
 
 import {
   defineTable,

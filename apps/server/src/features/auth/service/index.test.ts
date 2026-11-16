@@ -15,7 +15,7 @@
  */
 
 import { sql } from '@study/db';
-import { preferences } from '@study/db/schema';
+import { preferences } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Fiber, Layer } from 'effect';

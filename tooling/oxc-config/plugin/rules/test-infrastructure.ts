@@ -1,3 +1,23 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keep test resources, waiting and runner policy in shared tooling.                  │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents local process ownership, sleep-based waiting, temporary shell resources and     │
+ * │ runner configuration in tests. Shared testing owners are exempt; runner imports and      │
+ * │ custom testStable wrappers are restricted beyond test files too.                         │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // example.test.ts                                                                     │
+ * │   import { spawnTestProcess } from '@study/testing/vitest';                              │
+ * │   spawnTestProcess(['bun', 'server.ts']);                                                │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // example.test.ts                                                                     │
+ * │   Bun.spawn(['bun', 'server.ts']);                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { moduleEdges } from '../architecture-imports.ts';
@@ -50,7 +70,7 @@ export default defineRule({
   meta: {
     type: 'problem',
     messages: {
-      resource: 'Use @study/testing/process and @study/testing/resources for owned test resources.',
+      resource: 'Use @study/testing/vitest for process and resource test helpers.',
       polling:
         'Use native waitFor or expect.poll through the shared testing policy, not sleep loops.',
       policy:

@@ -1,8 +1,12 @@
-import type { NoteId } from '@study/contracts/ids';
+import type { NoteId } from '@study/contracts';
 import { OpenIcon, ArchiveIcon, PageIcon, CreatePageIcon, DeleteIcon } from '@study/icons';
-import { Dialog, DialogTrigger } from '@study/ui/dialog';
-import { SelectionSurface } from '@study/ui/selection';
-import { WorkspaceCard, WorkspaceChanges } from '@study/ui/workspace';
+import {
+  Dialog,
+  DialogTrigger,
+  SelectionSurface,
+  WorkspaceCard,
+  WorkspaceChanges
+} from '@study/ui';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 

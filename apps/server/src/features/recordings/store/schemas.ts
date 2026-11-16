@@ -12,8 +12,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { messageIdSchema, projectIdSchema, sourceIdSchema } from '@study/contracts/ids';
-import { recordingPostSchema } from '@study/contracts/recordings/schemas';
+import { messageIdSchema, projectIdSchema, sourceIdSchema } from '@study/contracts';
+import { recordingPostSchema } from '@study/contracts';
 import { Schema } from 'effect';
 
 const requestSchema = Schema.Struct({ requestId: Schema.String.check(Schema.isMinLength(1)) });

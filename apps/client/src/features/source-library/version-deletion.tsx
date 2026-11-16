@@ -1,9 +1,5 @@
-import type { ContentSnapshotId } from '@study/contracts/ids';
-import type { Source } from '@study/contracts/sources/schemas';
-import { Button } from '@study/ui/button';
-import { DangerDialog } from '@study/ui/danger-dialog';
-import { Loading } from '@study/ui/loading';
-import { VersionDeletionList } from '@study/ui/version-deletion-list';
+import type { ContentSnapshotId, Source } from '@study/contracts';
+import { Button, DangerDialog, Loading, VersionDeletionList } from '@study/ui';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 

@@ -1,5 +1,4 @@
-import { projectIdSchema } from '@study/contracts/ids';
-import { materialSummarySchema } from '@study/contracts/materials/schemas';
+import { projectIdSchema, materialSummarySchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
 import { expect } from 'vite-plus/test';

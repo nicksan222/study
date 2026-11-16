@@ -12,8 +12,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { runSelectionContextSchema } from '@study/contracts/notes/context';
+import { StudyError } from '@study/contracts';
+import type { runSelectionContextSchema } from '@study/contracts';
 import { Effect, Schema } from 'effect';
 
 import { titleAgent } from '#server/features/notes/agents/title';

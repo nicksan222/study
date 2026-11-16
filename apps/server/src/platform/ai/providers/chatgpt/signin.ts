@@ -15,8 +15,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { signInCallbackUrlSchema } from '@study/contracts/auth/schemas';
-import { StudyError } from '@study/contracts/errors';
+import { signInCallbackUrlSchema } from '@study/contracts';
+import { StudyError } from '@study/contracts';
 import { text } from '@study/localization';
 import { CryptoHasher, serve } from 'bun';
 import { Clock, Effect, Schema } from 'effect';

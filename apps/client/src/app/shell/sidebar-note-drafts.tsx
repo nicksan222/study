@@ -1,6 +1,6 @@
 import { RegistryContext, useAtomValue } from '@effect/atom-react';
 import { CreateNoteIcon, CloseIcon } from '@study/icons';
-import { Sidebar } from '@study/ui/sidebar';
+import { Sidebar } from '@study/ui';
 import { Link, useLocation, useNavigate, useSearch } from '@tanstack/react-router';
 import { useContext } from 'react';
 

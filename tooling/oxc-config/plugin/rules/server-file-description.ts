@@ -1,66 +1,31 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Require an opening module-purpose comment in server production source.             │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents server modules from omitting a useful @file purpose before their first token.   │
+ * │ Exempts tests, declarations and testing folders; placeholders do not qualify.            │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/server/src/runtime/main.ts                                                     │
+ * │   // Opening source text, with the comment delimiter split here:                         │
+ * │   '/** @file Starts the private server. *' + '/\nexport {};'                             │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/server/src/runtime/main.ts                                                     │
+ * │   export {};                                                                             │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
-const width = 88;
-
-const top = ' * ╭' + '─'.repeat(width + 2) + '╮';
-
-const bottom = ' * ╰' + '─'.repeat(width + 2) + '╯';
-
-function words(text: string): number {
-  return text.match(/\p{L}[\p{L}\p{N}'’-]*/gu)?.length ?? 0;
-}
-
-function detailed(text: string, minimum: number): boolean {
-  return words(text) >= minimum && !/\b(?:TODO|TBD|FIXME)\b/i.test(text);
-}
-
-function validSections(lines: string[]): boolean {
-  const text = lines.join('\n');
-  const sections =
-    /^@file ([\s\S]+?)\n\nResponsibilities:\n([\s\S]+?)\n\nBoundaries:\n([\s\S]+)$/.exec(text);
-
-  if (!sections) return false;
-
-  const [, overview, responsibilities, boundaries] = sections;
-  const bullets = responsibilities!.split(/\n(?=- )/);
-
-  return (
-    detailed(overview!, 6) &&
-    detailed(boundaries!, 6) &&
-    !/^(?:-\s|@\w+(?:\s|$))/m.test(boundaries!) &&
-    !/^@\w+(?:\s|$)/m.test(overview!) &&
-    bullets.every((bullet) => /^- \S[^\n]*(?:\n {2}\S[^\n]*)*$/.test(bullet) && detailed(bullet, 4))
-  );
-}
-
-function framedDescription(raw: string): boolean {
-  const lines = raw.replaceAll('\r\n', '\n').split('\n');
-
-  if (lines[0] !== '/**' || lines[1] !== top || lines.at(-2) !== bottom || lines.at(-1) !== ' */')
-    return false;
-
-  const content: string[] = [];
-
-  for (const line of lines.slice(2, -2)) {
-    if (!line.startsWith(' * │ ') || !line.endsWith(' │') || [...line].length !== width + 7)
-      return false;
-
-    content.push(line.slice(5, -2).trimEnd());
-  }
-
-  return validSections(content);
-}
-
+/** Require a module purpose without prescribing comment decoration or prose structure. */
 export default defineRule({
   meta: {
-    type: 'problem',
-    docs: {
-      description: 'Require framed server module guides with responsibilities and boundaries.'
-    },
+    type: 'suggestion',
+    docs: { description: 'Require a concise @file purpose in server production modules.' },
     messages: {
-      description:
-        'Start every server module with a framed @file guide: an overview (6+ words), Responsibilities: bullets (4+ words each), and Boundaries: prose (6+ words). Separate sections with blank rows, pad content to 88 columns inside │ borders, and use ╭/╰ borders with 90 ─ characters.',
-      spacing: 'Leave a blank line between the module guide and the code or comment that follows.'
+      description: 'Start server production modules with an @file comment describing their purpose.'
     }
   },
   create(context) {
@@ -69,32 +34,31 @@ export default defineRule({
     const path = filename.startsWith(cwd + '/') ? filename.slice(cwd.length) : filename;
     const workspace = path.match(/\/(?:apps|packages)\/[^/]+\//)?.[0];
 
-    if (workspace !== '/apps/server/' || !/\.[cm]?[jt]sx?$/.test(filename)) return {};
+    if (
+      workspace !== '/apps/server/' ||
+      !/\/apps\/server\/src\/.*\.[cm]?[jt]sx?$/.test(path) ||
+      /\.(?:test|spec|d)\.[cm]?[jt]sx?$|\/(?:test|tests|__tests__|testing)\//.test(path)
+    )
+      return {};
 
     return {
       Program(node) {
         const source = context.sourceCode;
-        const firstToken = source.getFirstToken(node);
-        const firstOffset = firstToken?.range[0] ?? source.text.length;
-        const comment = source
-          .getAllComments()
-          .find(
-            (candidate) =>
-              candidate.type === 'Block' &&
-              candidate.range[1] <= firstOffset &&
-              candidate.value.includes('@file')
+        const firstOffset = source.getFirstToken(node)?.range[0] ?? source.text.length;
+        const documented = source.getAllComments().some((comment) => {
+          if (comment.type !== 'Block' || comment.range[1] > firstOffset) return false;
+
+          const purpose = /(?:^|\s)@file[ \t]+([^\n\r]*)/.exec(comment.value)?.[1]?.trim();
+
+          return (
+            !!purpose &&
+            !purpose.startsWith('@') &&
+            !/\b(?:TODO|TBD|FIXME)\b/i.test(purpose) &&
+            /\p{L}/u.test(purpose)
           );
+        });
 
-        if (!comment || !framedDescription(source.text.slice(...comment.range))) {
-          context.report({ loc: { line: 1, column: 0 }, messageId: 'description' });
-
-          return;
-        }
-
-        const after = source.text.slice(comment.range[1]);
-
-        if (after.trim() && !/^\r?\n[ \t]*\r?\n/.test(after))
-          context.report({ loc: comment.loc, messageId: 'spacing' });
+        if (!documented) context.report({ loc: { line: 1, column: 0 }, messageId: 'description' });
       }
     };
   }

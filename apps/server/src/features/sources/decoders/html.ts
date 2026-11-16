@@ -12,9 +12,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createBlock } from '@study/contracts/sources/document';
-import type { Block, Document } from '@study/contracts/sources/document';
-import type { Inline, BlockContent } from '@study/contracts/sources/schemas';
+import { createBlock } from '@study/contracts';
+import type { Block, Document } from '@study/contracts';
+import type { Inline, BlockContent } from '@study/contracts';
 import { loadBuffer } from 'cheerio';
 
 import { checkAbort, document } from './common.ts';

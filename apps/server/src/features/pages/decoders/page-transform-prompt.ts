@@ -11,10 +11,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { PageVersionId } from '@study/contracts/ids';
-import type { pageTransformContextSchema } from '@study/contracts/pages/transform';
-import type { transformSnapshotSchema } from '@study/contracts/pages/transform';
+import { StudyError } from '@study/contracts';
+import type { PageVersionId } from '@study/contracts';
+import type { pageTransformContextSchema } from '@study/contracts';
+import type { transformSnapshotSchema } from '@study/contracts';
 
 import { authorizedTransformAssets } from './page-transform.ts';
 

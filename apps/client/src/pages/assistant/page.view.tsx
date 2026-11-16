@@ -1,7 +1,10 @@
-import { MessageScrollerLayout } from '@study/ui/message-scroller';
-import { Sidebar } from '@study/ui/sidebar';
-import { WorkspaceCard, WorkspaceSurface } from '@study/ui/workspace';
-import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
+import {
+  MessageScrollerLayout,
+  Sidebar,
+  WorkspaceCard,
+  WorkspaceSurface,
+  WorkspaceDeskSurface as Desk
+} from '@study/ui';
 
 import {
   AssistantHistory,

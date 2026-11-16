@@ -14,11 +14,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { ProjectId } from '@study/contracts/ids';
-import { MaterialsRpc, requestMaterialGenerationInputSchema } from '@study/contracts/materials/rpc';
-import { plainBlock } from '@study/contracts/sources/document';
+import type { ProjectId } from '@study/contracts';
+import { MaterialsRpc, requestMaterialGenerationInputSchema } from '@study/contracts';
+import { plainBlock } from '@study/contracts';
 import { sql } from '@study/db';
-import { workflowEvents } from '@study/db/schema';
+import { workflowEvents } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';

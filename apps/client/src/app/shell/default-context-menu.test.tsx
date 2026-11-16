@@ -1,12 +1,7 @@
-import { projectIdSchema } from '@study/contracts/ids';
+import { projectIdSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import {
-  ContextMenu,
-  ContextMenuTrigger,
-  ContextMenuPopup,
-  ContextMenuItem
-} from '@study/ui/context-menu';
+import { ContextMenu, ContextMenuTrigger, ContextMenuPopup, ContextMenuItem } from '@study/ui';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, vi } from 'vite-plus/test';

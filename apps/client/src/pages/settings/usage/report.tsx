@@ -1,7 +1,5 @@
-import type { UsageQuery, UsageReport } from '@study/contracts/settings/usage';
-import { Settings } from '@study/ui/settings';
-import { Toggle, ToggleGroup } from '@study/ui/toggle-group';
-import { Usage, UsageChart } from '@study/ui/usage';
+import type { UsageQuery, UsageReport } from '@study/contracts';
+import { Settings, Toggle, ToggleGroup, Usage, UsageChart } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

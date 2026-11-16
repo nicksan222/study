@@ -1,6 +1,6 @@
 import { BunPath } from '@effect/platform-bun';
-import { createBlock, plainBlock } from '@study/contracts/sources/document';
-import type { Block, Document } from '@study/contracts/sources/document';
+import { createBlock, plainBlock } from '@study/contracts';
+import type { Block, Document } from '@study/contracts';
 import { Effect, Path } from 'effect';
 
 import type { SourceFixture } from '../types.ts';

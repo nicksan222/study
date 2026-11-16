@@ -16,13 +16,13 @@
  */
 
 import type { LanguageModelV3 } from '@ai-sdk/provider';
-import { agentRunIdSchema } from '@study/contracts/ai/progress';
-import type { agentObservationSchema, agentUpdateSchema } from '@study/contracts/ai/progress';
-import type { ErrorKind } from '@study/contracts/errors';
-import { StudyError, isRetryable } from '@study/contracts/errors';
-import type { ModelTier } from '@study/contracts/settings/schemas';
-import type { AgentRules } from '@study/contracts/settings/types';
-import type { UsageRecord } from '@study/contracts/settings/usage';
+import { agentRunIdSchema } from '@study/contracts';
+import type { agentObservationSchema, agentUpdateSchema } from '@study/contracts';
+import type { ErrorKind } from '@study/contracts';
+import { StudyError, isRetryable } from '@study/contracts';
+import type { ModelTier } from '@study/contracts';
+import type { AgentRules } from '@study/contracts';
+import type { UsageRecord } from '@study/contracts';
 import { APICallError, streamText, Output, stepCountIs } from 'ai';
 import type { Cause } from 'effect';
 import {
@@ -46,12 +46,16 @@ import { adaptProviderTool } from '#server/platform/ai/providers/tools';
 import { standardSchema } from '#server/platform/ai/schema';
 import { adaptTool, adaptRequestCheck, adaptUsageRecorder } from '#server/platform/ai/tool-adapter';
 import { withUsageTracking } from '#server/platform/ai/usage';
-import type { AgentDefinition, AgentEnvironment } from '#server/platform/definitions/define-agent';
+import type {
+  AgentDefinition,
+  AgentEnvironment,
+  AiInvocation
+} from '#server/platform/definitions/define-agent';
 import { recordAiRetry } from '#server/platform/observability/index';
 
 export interface AgentsConfig extends AgentEnvironment {
   rules: Effect.Effect<AgentRules, StudyError>;
-  model: (tier: ModelTier) => Effect.Effect<LanguageModelV3, StudyError>;
+  model: (tier: ModelTier, call: AiInvocation) => Effect.Effect<LanguageModelV3, StudyError>;
   recordUsage?: (usage: UsageRecord) => Effect.Effect<void>;
   now?: () => number;
   observe?: (observation: typeof agentObservationSchema.Type) => Effect.Effect<void, StudyError>;
@@ -151,12 +155,12 @@ export function streamAgent<
     const { steps, retries } = yield* agentLimits(options);
 
     const validated = yield* Effect.try({
-      try: () => Schema.decodeUnknownSync(definition.input)(input),
+      try: () => Schema.decodeUnknownSync(Schema.toType(definition.input))(input),
       catch: () => new StudyError('invalid_input', 'Invalid agent input')
     });
     const outputSchema =
       definition.mode === 'object' ? Schema.toCodecJson(definition.output) : definition.output;
-    const model = yield* service.model(definition.model);
+    const model = yield* service.model(definition.model, { definition, input: validated });
     const language =
       typeof service.language === 'string' ? service.language : yield* service.language;
     const rules = yield* service.rules;

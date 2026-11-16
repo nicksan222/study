@@ -10,17 +10,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { ErrorKind } from '@study/contracts/errors';
-import {
-  integrationImportIdSchema,
-  previewIntegrationInputSchema
-} from '@study/contracts/integrations/schemas';
+import { StudyError } from '@study/contracts';
+import type { ErrorKind } from '@study/contracts';
+import { integrationImportIdSchema, previewIntegrationInputSchema } from '@study/contracts';
 import type {
   integrationImportKeySchema,
   integrationImportSchema,
   startIntegrationImportSchema
-} from '@study/contracts/integrations/schemas';
+} from '@study/contracts';
 import { integrationProvider, integrationProviders } from '@study/integrations';
 import { Effect, Schema } from 'effect';
 

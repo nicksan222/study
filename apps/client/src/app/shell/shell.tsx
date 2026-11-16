@@ -1,6 +1,5 @@
 import { rpc } from '@study/contracts/react';
-import { Shell as PageShell } from '@study/ui/shell';
-import { Sidebar as SidebarUI } from '@study/ui/sidebar';
+import { Shell as PageShell, Sidebar as SidebarUI } from '@study/ui';
 import { Outlet, useMatches, useSearch, useParams } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 

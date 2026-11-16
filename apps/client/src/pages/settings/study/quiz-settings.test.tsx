@@ -1,6 +1,5 @@
-import { quizSettingsSchema } from '@study/contracts/settings/schemas';
-import { defaultQuizSettings } from '@study/contracts/settings/types';
-import type { QuizSettings as QuizPreferences } from '@study/contracts/settings/types';
+import { quizSettingsSchema, defaultQuizSettings } from '@study/contracts';
+import type { QuizSettings as QuizPreferences } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

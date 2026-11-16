@@ -1,4 +1,4 @@
-import type { NoteId } from '@study/contracts/ids';
+import type { NoteId } from '@study/contracts';
 
 import { NoteWorkspace } from '#client/features/note-workspace/index.ts';
 

@@ -1,6 +1,6 @@
-import type { NoteId } from '@study/contracts/ids';
+import type { NoteId } from '@study/contracts';
 import { CollapseIcon } from '@study/icons';
-import { NotebookRail } from '@study/ui/notebook-rail';
+import { NotebookRail } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

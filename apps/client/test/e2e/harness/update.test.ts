@@ -1,4 +1,4 @@
-import { spawnTestProcess } from '@study/testing/process';
+import { spawnTestProcess } from '@study/testing/vitest';
 import { testStable } from '@study/testing/vitest';
 import { expect } from 'vite-plus/test';
 

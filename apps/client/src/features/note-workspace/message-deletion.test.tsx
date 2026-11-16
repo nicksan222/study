@@ -1,4 +1,4 @@
-import { chatMessageSchema } from '@study/contracts/notes/schemas';
+import { chatMessageSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';

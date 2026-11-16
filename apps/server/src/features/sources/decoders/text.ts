@@ -12,13 +12,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { createBlock } from '@study/contracts/sources/document';
-import type { Block } from '@study/contracts/sources/document';
-import type { Document } from '@study/contracts/sources/document';
-import type { BlockContent, Inline } from '@study/contracts/sources/schemas';
-import { validDocumentHref } from '@study/contracts/sources/schemas';
-import type { SourceKind } from '@study/contracts/sources/sniff';
+import { StudyError } from '@study/contracts';
+import { createBlock } from '@study/contracts';
+import type { Block } from '@study/contracts';
+import type { Document } from '@study/contracts';
+import type { BlockContent, Inline } from '@study/contracts';
+import { validDocumentHref } from '@study/contracts';
+import type { SourceKind } from '@study/contracts';
 
 type TextInput = { bytes: Uint8Array; kind: SourceKind; mime: string };
 

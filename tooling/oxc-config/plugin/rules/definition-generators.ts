@@ -1,3 +1,23 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Delegate service generator wrapping and RPC dependency binding to definition       │
+ * │ harnesses.                                                                               │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ In production server modules, prevents passing Effect.gen results to defineService and   │
+ * │ two-argument defineRpc calls that leave dependency acquisition outside the harness.      │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { defineService } from '#server/platform/definitions/define-service';           │
+ * │   defineService('study/X', function* () { return {}; });                                 │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   import { defineService } from '#server/platform/definitions/define-service';           │
+ * │   defineService('study/X', Effect.gen(function* () { return {}; }));                     │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { canonicalImport } from '../architecture-imports.ts';

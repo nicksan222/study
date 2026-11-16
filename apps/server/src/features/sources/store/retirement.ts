@@ -11,12 +11,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 /** Source retirement also removes private native processing captures. */
-import { sourceIdSchema } from '@study/contracts/ids';
-import { sourceDeletionPreviewSchema } from '@study/contracts/sources/rpc';
+import { sourceIdSchema } from '@study/contracts';
+import { sourceDeletionPreviewSchema } from '@study/contracts';
 import { eq, sql } from '@study/db';
-import { sources } from '@study/db/schema';
+import { sources } from '@study/db';
 import { Schema } from 'effect';
 
 import { defineStore, storeQuery } from '#server/platform/definitions/define-store';

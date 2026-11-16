@@ -1,5 +1,4 @@
-import type { ProjectId } from '@study/contracts/ids';
-import type { PageSummary } from '@study/contracts/pages/types';
+import type { ProjectId, PageSummary } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import {
   ArchiveIcon,
@@ -15,11 +14,12 @@ import {
   ContextMenuTrigger,
   ContextMenuPopup,
   ContextMenuItem,
-  ContextMenuSeparator
-} from '@study/ui/context-menu';
-import { Dialog, DialogPopup } from '@study/ui/dialog';
-import { DialogHeading } from '@study/ui/dialog-heading';
-import { Loading } from '@study/ui/loading';
+  ContextMenuSeparator,
+  Dialog,
+  DialogPopup,
+  DialogHeading,
+  Loading
+} from '@study/ui';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { ReactElement } from 'react';

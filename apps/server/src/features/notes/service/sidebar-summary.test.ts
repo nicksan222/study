@@ -14,9 +14,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { plainBlock } from '@study/contracts/sources/document';
+import { plainBlock } from '@study/contracts';
 import { eq } from '@study/db';
-import { workflow_executions } from '@study/db/schema';
+import { workflow_executions } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';

@@ -1,4 +1,4 @@
-import type { MaterialId, MaterialVersionId } from '@study/contracts/ids';
+import type { MaterialId, MaterialVersionId } from '@study/contracts';
 
 import { defineTable, sql, integer, text, check } from '../schema-builder.ts';
 import { cleanupAttemptColumns } from './column-types.ts';

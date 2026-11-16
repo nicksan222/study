@@ -15,7 +15,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import { Clock, Effect, Schema } from 'effect';
 
 import { requestBytes, runHttpPromise } from '#server/platform/http/index';

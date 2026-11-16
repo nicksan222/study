@@ -1,4 +1,4 @@
-import type { ProjectId, NoteId, SourceId } from '@study/contracts/ids';
+import type { ProjectId, NoteId, SourceId } from '@study/contracts';
 
 import { defineTable, sql, blob, check, integer, text } from '../schema-builder.ts';
 import { projects } from './sources.ts';

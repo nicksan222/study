@@ -1,3 +1,25 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Replace silent test guards and manual failures with assertions.                    │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents single-statement if guards in direct test callbacks from silently returning or  │
+ * │ throwing a plain Error. Helpers, nested callbacks and intentional multi-statement        │
+ * │ failure branches remain available.                                                       │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // example.test.ts                                                                     │
+ * │   import { testStable } from '@study/testing/vitest';                                    │
+ * │   import { expect } from 'vite-plus/test';                                               │
+ * │   testStable('has a value', () => { expect(value).toBeDefined(); });                     │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // example.test.ts                                                                     │
+ * │   import { testStable } from '@study/testing/vitest';                                    │
+ * │   testStable('has a value', () => { if (!value) return; });                              │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { binding, constantDeclarator, enterNode, memberName } from '../lexical-bindings.ts';

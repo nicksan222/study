@@ -1,4 +1,4 @@
-import { materialIdSchema } from '@study/contracts/ids';
+import { materialIdSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 
 import type { AppRouterContext } from '#client/app/router-context.ts';

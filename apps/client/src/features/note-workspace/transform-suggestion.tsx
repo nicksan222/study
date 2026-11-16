@@ -1,7 +1,6 @@
-import type { transformSuggestionInputSchema } from '@study/contracts/notes/rpc';
+import type { transformSuggestionInputSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { ErrorState } from '@study/ui/error-state';
-import { Notebook } from '@study/ui/note-workspace';
+import { ErrorState, Notebook } from '@study/ui';
 
 import { AiActionButton as AiButton } from '#client/lib/ai-action-button.tsx';
 import { toStudyError } from '#client/lib/study-client/errors.ts';

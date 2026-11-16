@@ -1,4 +1,4 @@
-import type { ContentSnapshotId } from '@study/contracts/ids';
+import type { ContentSnapshotId } from '@study/contracts';
 
 import { integer } from './schema-builder.ts';
 import type { AnySQLiteColumn } from './schema-builder.ts';

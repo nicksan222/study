@@ -1,7 +1,4 @@
 import { OpenIcon, MenuIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
-import { ComposerSurface } from '@study/ui/composer';
-import { cn } from '@study/ui/utils';
 import {
   createContext,
   useContext,
@@ -13,6 +10,9 @@ import {
 } from 'react';
 import type { ComponentProps, ReactNode, RefObject } from 'react';
 
+import { cn } from '../utils.ts';
+import { Button } from './button.tsx';
+import { ComposerSurface } from './composer.tsx';
 import { semanticPart as part } from './semantic-part';
 import { AttachmentIcon } from './workspace-desk';
 

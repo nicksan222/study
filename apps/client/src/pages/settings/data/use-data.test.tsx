@@ -1,10 +1,6 @@
 import { RegistryContext } from '@effect/atom-react';
-import { backupIdSchema, restoreTokenSchema } from '@study/contracts/system/backups';
-import type {
-  BackupManifest,
-  RestorePreview,
-  restoreStatusSchema
-} from '@study/contracts/system/backups';
+import { backupIdSchema, restoreTokenSchema } from '@study/contracts';
+import type { BackupManifest, RestorePreview, restoreStatusSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';

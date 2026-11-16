@@ -10,12 +10,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { NoteId } from '@study/contracts/ids';
-import type {
-  noteContextIntentSchema,
-  noteSelectionTargetSchema
-} from '@study/contracts/notes/context';
+import { StudyError } from '@study/contracts';
+import type { NoteId } from '@study/contracts';
+import type { noteContextIntentSchema, noteSelectionTargetSchema } from '@study/contracts';
 
 import { NoteMaterialMembershipStore } from '#server/features/notes/store/archive';
 import { Pages } from '#server/features/pages/index';

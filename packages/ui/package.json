@@ -7,15 +7,9 @@
     "#ui/*": "./src/*"
   },
   "exports": {
-    "./theme": "./src/theme.ts",
+    ".": "./src/index.ts",
     "./theme.css": "./src/theme.css",
-    "./styles.css": "./src/styles.css",
-    "./visible-animation": "./src/visible-animation.ts",
-    "./utils": "./src/utils.ts",
-    "./dialog-styles": "./src/components/dialog-styles.ts",
-    "./*": "./src/components/*.tsx",
-    "./download": "./src/download.ts",
-    "./clock": "./src/clock.ts"
+    "./styles.css": "./src/styles.css"
   },
   "scripts": {
     "test": "bun --bun vp test run --config ../../vite.config.ts --project @study/client packages/ui"

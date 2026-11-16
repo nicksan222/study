@@ -1,6 +1,6 @@
+import { defaultWorkspacePreferences } from '@study/contracts';
+import type { WorkspacePreferences } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
-import type { WorkspacePreferences } from '@study/contracts/settings/types';
 import { useState } from 'react';
 
 /** Product interaction defaults remain available while the authoritative preferences load. */

@@ -1,4 +1,4 @@
-import { projectIdSchema, pageIdSchema } from '@study/contracts/ids';
+import { projectIdSchema, pageIdSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

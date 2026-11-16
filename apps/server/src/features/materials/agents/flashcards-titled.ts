@@ -11,9 +11,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { promptInputSchema } from '@study/contracts/ai/shared';
-import { titledFlashcardsGenerationOutputSchema } from '@study/contracts/materials/schemas';
-import { AgentRule } from '@study/contracts/settings/schemas';
+import { promptInputSchema } from '@study/contracts';
+import { titledFlashcardsGenerationOutputSchema } from '@study/contracts';
+import { AgentRule } from '@study/contracts';
 
 import { defineAgent } from '#server/platform/definitions/define-agent';
 

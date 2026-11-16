@@ -15,11 +15,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { errorKindSchema } from '@study/contracts/errors';
-import type { ErrorKind } from '@study/contracts/errors';
-import { llmSettingsSchema } from '@study/contracts/settings/schemas';
-import type { ModelTier } from '@study/contracts/settings/schemas';
-import type { UsageRecord } from '@study/contracts/settings/usage';
+import { errorKindSchema } from '@study/contracts';
+import type { ErrorKind } from '@study/contracts';
+import { llmSettingsSchema } from '@study/contracts';
+import type { ModelTier } from '@study/contracts';
+import type { UsageRecord } from '@study/contracts';
 import type { Context } from 'effect';
 import { Clock, Effect, Exit, Metric, References } from 'effect';
 

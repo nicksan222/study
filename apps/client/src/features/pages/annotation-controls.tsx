@@ -1,13 +1,15 @@
-import { LoadMoreButton } from '@study/ui/action-button';
-import { Button } from '@study/ui/button';
-import { DangerDialog } from '@study/ui/danger-dialog';
-import { Disclosure } from '@study/ui/disclosure';
-import { ErrorState } from '@study/ui/error-state';
-import { Field } from '@study/ui/field';
-import { Loading } from '@study/ui/loading';
-import { SelectControl } from '@study/ui/select-control';
-import { StatusMessage } from '@study/ui/status-message';
-import { Textarea } from '@study/ui/textarea';
+import {
+  LoadMoreButton,
+  Button,
+  DangerDialog,
+  Disclosure,
+  ErrorState,
+  Field,
+  Loading,
+  SelectControl,
+  StatusMessage,
+  Textarea
+} from '@study/ui';
 
 import { useAnnotationControls } from './annotation-controls.queries';
 import type { Annotation, AnnotationDraft } from './annotation-state';

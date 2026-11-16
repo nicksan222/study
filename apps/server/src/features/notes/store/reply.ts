@@ -12,15 +12,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { noteGenerationRequestedSchema } from '@study/contracts/events';
-import { sourceIdSchema } from '@study/contracts/ids';
-import { versionIdSchema } from '@study/contracts/ids';
-import { selectionReferenceKey } from '@study/contracts/notes/context';
-import { runSelectionContextSchema } from '@study/contracts/notes/context';
-import { runPreferencesSchema } from '@study/contracts/notes/context';
-import type { messageConversionSchema } from '@study/contracts/notes/conversion';
-import { convertMessageInputSchema } from '@study/contracts/notes/conversion';
+import { StudyError } from '@study/contracts';
+import { noteGenerationRequestedSchema } from '@study/contracts';
+import { sourceIdSchema } from '@study/contracts';
+import { versionIdSchema } from '@study/contracts';
+import { selectionReferenceKey } from '@study/contracts';
+import { runSelectionContextSchema } from '@study/contracts';
+import { runPreferencesSchema } from '@study/contracts';
+import type { messageConversionSchema } from '@study/contracts';
+import { convertMessageInputSchema } from '@study/contracts';
 import {
   anchorSchema,
   reanswerInputSchema,
@@ -33,8 +33,8 @@ import {
   replyVersionInputSchema,
   replyVersionSchema,
   pendingReplyAttachmentSchema
-} from '@study/contracts/notes/schemas';
-import { NoteMode } from '@study/contracts/notes/schemas';
+} from '@study/contracts';
+import { NoteMode } from '@study/contracts';
 import { isNull, and, asc, desc, eq, sql } from '@study/db';
 import {
   blocks,
@@ -52,7 +52,7 @@ import {
   note_run_contexts,
   workflow_retired_correlations,
   workflowReceipts
-} from '@study/db/schema';
+} from '@study/db';
 import { text } from '@study/localization';
 import { Option, Schema } from 'effect';
 

@@ -14,7 +14,7 @@
 
 import { BunCrypto } from '@effect/platform-bun';
 import { SqliteClient } from '@effect/sql-sqlite-bun';
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import type { Context } from 'effect';
 import { Cause, Effect, Layer } from 'effect';
 import type { MessageStorage, Runners, Sharding } from 'effect/cluster';

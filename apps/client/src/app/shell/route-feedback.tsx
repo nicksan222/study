@@ -1,5 +1,4 @@
-import { RetryButton } from '@study/ui/action-button';
-import { ErrorState } from '@study/ui/error-state';
+import { RetryButton, ErrorState } from '@study/ui';
 import { useRouter } from '@tanstack/react-router';
 
 import { useI18n } from '#client/lib/i18n.tsx';

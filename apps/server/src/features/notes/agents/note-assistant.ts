@@ -10,9 +10,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { replyInputSchema, replyOutputSchema } from '@study/contracts/ai/reply';
-import type { NoteId } from '@study/contracts/ids';
-import { AgentRule } from '@study/contracts/settings/schemas';
+import { replyInputSchema, replyOutputSchema } from '@study/contracts';
+import type { NoteId } from '@study/contracts';
+import { AgentRule } from '@study/contracts';
 
 import { noteAssistantTools } from '#server/features/notes/tools/note-assistant';
 import { defineAgent } from '#server/platform/definitions/define-agent';

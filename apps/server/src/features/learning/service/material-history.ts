@@ -11,7 +11,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { historyVersionIdsSchema } from '@study/contracts/materials/history';
+import type { historyVersionIdsSchema } from '@study/contracts';
 
 import { LearningMaterialHistoryStore } from '#server/features/learning/store/material-history';
 import type { Transaction } from '#server/platform/definitions/define-store';

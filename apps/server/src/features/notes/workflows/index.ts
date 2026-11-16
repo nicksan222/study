@@ -13,7 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { failureSchema, StudyError } from '@study/contracts/errors';
+import { failureSchema, StudyError } from '@study/contracts';
 import {
   noteGenerationRequestedSchema,
   sourceIndexedSchema,
@@ -22,21 +22,14 @@ import {
   sourceProcessingFailedSchema,
   sourceProcessingRequestedSchema,
   sourceCorrectionRequestedSchema
-} from '@study/contracts/events';
-import { versionIdSchema } from '@study/contracts/ids';
-import type { ContentSnapshotId, SourceId } from '@study/contracts/ids';
-import { assistantMemorySchema, assistantContextBudget } from '@study/contracts/notes/assistant';
-import { selectionReferenceKey } from '@study/contracts/notes/context';
-import type {
-  selectionReferenceSchema,
-  selectionRangeSchema
-} from '@study/contracts/notes/context';
-import { runPreferencesSchema } from '@study/contracts/notes/context';
-import {
-  NoteMode,
-  publishReplyInputSchema,
-  replySnapshotSchema
-} from '@study/contracts/notes/schemas';
+} from '@study/contracts';
+import { versionIdSchema } from '@study/contracts';
+import type { ContentSnapshotId, SourceId } from '@study/contracts';
+import { assistantMemorySchema, assistantContextBudget } from '@study/contracts';
+import { selectionReferenceKey } from '@study/contracts';
+import type { selectionReferenceSchema, selectionRangeSchema } from '@study/contracts';
+import { runPreferencesSchema } from '@study/contracts';
+import { NoteMode, publishReplyInputSchema, replySnapshotSchema } from '@study/contracts';
 import { Clock, Effect, Option, Result, Schema } from 'effect';
 import type { Context } from 'effect';
 import { DurableDeferred } from 'effect/workflow';

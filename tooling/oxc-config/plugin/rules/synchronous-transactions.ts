@@ -1,3 +1,22 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Require synchronous callbacks at server transaction boundaries.                    │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents async callbacks and returned Promise or Effect work from escaping the SQLite    │
+ * │ transaction lifetime. Recognizes typed database owners and canonical transaction         │
+ * │ helpers, including constant aliases and named callbacks.                                 │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import type { Db } from '@study/db';                                                   │
+ * │   function write(db: Db) { db.transaction(() => 1); }                                    │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import type { Db } from '@study/db';                                                   │
+ * │   function write(db: Db) { db.transaction(async () => 1); }                              │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { canonicalImport, targetPath } from '../architecture-imports.ts';

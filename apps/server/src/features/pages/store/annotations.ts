@@ -11,11 +11,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { PageAnnotationId } from '@study/contracts/ids';
-import * as c from '@study/contracts/pages/evidence';
+import { StudyError } from '@study/contracts';
+import type { PageAnnotationId } from '@study/contracts';
+import * as c from '@study/contracts';
 import { and, desc, eq, lt, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { Schema } from 'effect';
 
 import { validRange } from '#server/features/pages/decoders/range';

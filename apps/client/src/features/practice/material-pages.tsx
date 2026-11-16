@@ -1,9 +1,8 @@
-import { materialVersionIdSchema } from '@study/contracts/ids';
-import type { PageId, PageVersionId, MaterialId } from '@study/contracts/ids';
+import { materialVersionIdSchema } from '@study/contracts';
+import type { PageId, PageVersionId, MaterialId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { OpenIcon, PageIcon } from '@study/icons';
-import { ErrorState } from '@study/ui/error-state';
-import { WorkspaceCard } from '@study/ui/workspace';
+import { ErrorState, WorkspaceCard } from '@study/ui';
 import { Link } from '@tanstack/react-router';
 
 import { useI18n } from '#client/lib/i18n.tsx';

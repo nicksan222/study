@@ -14,7 +14,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { ContentSnapshotId, SourceId } from '@study/contracts/ids';
+import type { ContentSnapshotId, SourceId } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { expect } from 'vite-plus/test';
 import { assert } from 'vite-plus/test';

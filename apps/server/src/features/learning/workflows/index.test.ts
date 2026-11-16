@@ -14,28 +14,29 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { failureSchema } from '@study/contracts/errors';
-import { defaultAgentRules } from '@study/contracts/settings/types';
-import { plainBlock } from '@study/contracts/sources/document';
-import { executionIdSchema } from '@study/contracts/workflows/schemas';
+import { failureSchema } from '@study/contracts';
+import { defaultAgentRules } from '@study/contracts';
+import { plainBlock } from '@study/contracts';
+import { executionIdSchema } from '@study/contracts';
 import { eq, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
+import { createAiMock } from '@study/testing';
 import { testStable } from '@study/testing/vitest';
 import type { Context } from 'effect';
 import { Effect, Layer, Option, Schema } from 'effect';
 import { Activity, DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';
 import { assert, expect } from 'vite-plus/test';
 
+import { learningGradeAgent } from '#server/features/learning/agents/learning-grade';
 import { Learning } from '#server/features/learning/service/index';
 import { Materials } from '#server/features/materials/index';
 import { Pages } from '#server/features/pages/index';
 import { Settings } from '#server/features/settings/index';
 import { layer as agentsLayer } from '#server/platform/ai/agents';
-import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
-import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { normalizeError } from '#server/platform/errors/classify-error';
 import { reconcileCancellation } from '#server/platform/workflows/cancellation';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 import { cancelExecution } from '#server/platform/workflows/control';
@@ -58,56 +59,13 @@ import {
 testStable(
   'grading checkpoints provider output and fences stale and manual submissions',
   async () => {
-    let calls = 0;
-    let duringCall: (() => Promise<void>) | undefined;
-    const peer = Bun.serve({
-      hostname: '127.0.0.1',
-      port: 0,
-      fetch: async (request) => {
-        let events = '';
-
-        await request.text();
-
-        calls++;
-
-        if (duringCall) {
-          const action = duringCall;
-
-          duringCall = undefined;
-          await action();
-        }
-
-        for (const event of [
-          { type: 'response.created', response: { id: 'resp', created_at: 1, model: 'test' } },
-          {
-            type: 'response.output_item.added',
-            output_index: 0,
-            item: { type: 'message', id: 'item' }
-          },
-          {
-            type: 'response.output_text.delta',
-            item_id: 'item',
-            delta: JSON.stringify({ verdict: 'partly', feedback: 'Good' })
-          },
-          { type: 'response.completed', response: {} }
-        ])
-          events += `data: ${JSON.stringify(event)}\n\n`;
-
-        return new Response(events + 'data: [DONE]\n\n', {
-          headers: { 'content-type': 'text/event-stream' }
-        });
-      }
-    });
-
-    assert.ok(peer.port, 'missing address');
-    const base = peer.url.origin;
-    const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
-
-    await auth.replace(
-      { subject: 'u', clientId: 'c', sharing: true, refreshToken: 'r' },
-      { accessToken: 'token', expiresIn: 3600 }
-    );
-    const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
+    using mock = createAiMock();
+    const grade = (answer: string, hold = false) =>
+      mock.next(learningGradeAgent, {
+        input: { prompt: JSON.stringify({ question: 'Question', reference: 'Reference', answer }) },
+        output: { verdict: 'partly', feedback: 'Good' },
+        hold
+      });
     const location = await createTestDatabase();
     let context = new ServerContext(await location.open());
     const services = () =>
@@ -122,7 +80,8 @@ testStable(
           )
           .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context }))),
         agentsLayer({
-          model: () => Effect.succeed(model),
+          model: (tier, call) =>
+            mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError)),
           language: 'en',
           rules: Effect.succeed(defaultAgentRules),
           searchSources: () => Effect.succeed([])
@@ -239,42 +198,53 @@ testStable(
       const current = await submit('same');
 
       await expect(execute(old, 'stale')).rejects.toSatisfy(() => true);
-      assert.strictEqual(calls, 0);
+      mock.verify();
       context.db.orm.run(
         sql`CREATE TRIGGER fail_grade BEFORE UPDATE OF score ON material_quiz_responses BEGIN SELECT RAISE(ABORT, 'publication unavailable'); END`
       );
+      grade('same');
       await expect(execute(current, 'failed-publication')).rejects.toSatisfy(() => true);
-      assert.strictEqual(calls, 1);
+      mock.verify();
       context.db.orm.run(sql`DROP TRIGGER fail_grade`);
+      grade('same');
       await execute(current, 'replay');
-      assert.strictEqual(calls, 2);
+      mock.verify();
       context.close();
       context = new ServerContext(await location.open());
       await execute(current, 'replay');
-      assert.strictEqual(calls, 2);
+      mock.verify();
       assert.strictEqual(context.db.orm.select().from(s.material_quiz_responses).get()?.score, 0.5);
       const racing = await submit('racing');
 
-      duringCall = async () => {
-        await submit('newer');
-      };
-      await expect(execute(racing, 'race')).rejects.toSatisfy(() => true);
+      const racingGrade = grade('racing', true);
+
+      await Promise.all([
+        expect(execute(racing, 'race')).rejects.toSatisfy(() => true),
+        (async () => {
+          await racingGrade.called;
+          await submit('newer');
+          racingGrade.release();
+        })()
+      ]);
       assert.ok(context.db.orm.select().from(s.material_quiz_responses).get()?.score === null);
       const manualRace = await submit('manual race');
 
-      duringCall = async () => {
-        await run(
-          Effect.flatMap(Learning, (learning) =>
-            learning.gradeResponse({
-              attemptId: attempt.id,
-              questionId: question.id,
-              score: 1,
-              feedback: 'Manual race'
-            })
-          )
-        );
-      };
-      await execute(manualRace, 'manual-race');
+      const manualGrade = grade('manual race', true);
+      const manualExecution = execute(manualRace, 'manual-race');
+
+      await manualGrade.called;
+      await run(
+        Effect.flatMap(Learning, (learning) =>
+          learning.gradeResponse({
+            attemptId: attempt.id,
+            questionId: question.id,
+            score: 1,
+            feedback: 'Manual race'
+          })
+        )
+      );
+      manualGrade.release();
+      await manualExecution;
       assert.strictEqual(context.db.orm.select().from(s.material_quiz_responses).get()?.score, 1);
       assert.ok(
         context.db.orm.select().from(s.material_quiz_responses).get()?.feedback === 'Manual race'
@@ -292,18 +262,19 @@ testStable(
         )
       );
       await expect(execute(manual, 'manual')).rejects.toSatisfy(() => true);
-      assert.strictEqual(calls, 4);
+      mock.verify();
       assert.strictEqual(context.db.orm.select().from(s.material_quiz_responses).get()?.score, 1);
       const finished = await submit('finished');
 
       await run(
         Effect.flatMap(Learning, (learning) => learning.finishQuiz({ attemptId: attempt.id }))
       );
+      grade('finished');
       const completed = await execute(finished, 'finished');
 
       assert.ok(completed.status === 'completed');
       assert.strictEqual(completed.scoring.score, 0.5);
-      assert.strictEqual(calls, 5);
+      mock.verify();
       expect(() =>
         context.db.orm
           .update(s.material_quiz_responses)
@@ -349,10 +320,8 @@ testStable(
         )
       ).rejects.toSatisfy(() => true);
     } finally {
-      await auth.dispose();
       context.close();
       await location.cleanup();
-      await peer.stop(true);
     }
   }
 );

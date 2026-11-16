@@ -1,8 +1,5 @@
+import { defaultAppearancePreferences, defaultWorkspacePreferences } from '@study/contracts';
 import { configureRpcTransport } from '@study/contracts/react';
-import {
-  defaultAppearancePreferences,
-  defaultWorkspacePreferences
-} from '@study/contracts/settings/types';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import { render } from '@testing-library/react';
 

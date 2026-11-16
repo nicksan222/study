@@ -1,4 +1,4 @@
-import type { ProjectId, NoteId } from '@study/contracts/ids';
+import type { ProjectId, NoteId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { Atom } from 'effect/reactivity';
 

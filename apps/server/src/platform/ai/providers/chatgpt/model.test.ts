@@ -14,8 +14,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { pageTransformOutputSchema } from '@study/contracts/ai/page-transform';
-import { defaultAgentRules } from '@study/contracts/settings/types';
+import { pageTransformOutputSchema } from '@study/contracts';
+import { defaultAgentRules } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { Output, streamText } from 'ai';
 import { Effect } from 'effect';

@@ -1,4 +1,4 @@
-import { agentProgressPageSchema } from '@study/contracts/ai/progress';
+import { agentProgressPageSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';

@@ -1,6 +1,7 @@
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { downloadFile } from '@study/ui/download';
+import type * as UiModule from '@study/ui';
+import { downloadFile } from '@study/ui';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, vi } from 'vite-plus/test';
@@ -11,7 +12,11 @@ import { LanguageProvider } from '#client/lib/i18n.tsx';
 import { AnalyticsSettings } from './analytics';
 
 vi.mock('#client/lib/host.ts', () => ({ diagnosticLog: vi.fn(), hostCapabilities: vi.fn() }));
-vi.mock('@study/ui/download', () => ({ downloadFile: vi.fn() }));
+vi.mock('@study/ui', async (load) => {
+  const actual = await load<typeof UiModule>();
+
+  return { ...actual, downloadFile: vi.fn() };
+});
 
 const snapshot =
   '2026-01-01T00:00:00Z ERROR panic\n  stack: Needle\n2026-01-01T00:00:01Z INFO ready\n';

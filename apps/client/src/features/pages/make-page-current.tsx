@@ -1,5 +1,5 @@
-import type { Page, PageVersion } from '@study/contracts/pages/types';
-import { Button } from '@study/ui/button';
+import type { Page, PageVersion } from '@study/contracts';
+import { Button } from '@study/ui';
 import { useEffect } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

@@ -12,11 +12,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { themePageInputSchema } from '@study/contracts/themes/rpc';
-import { themeFileSchema, themeCatalogEntrySchema } from '@study/contracts/themes/schemas';
+import { StudyError } from '@study/contracts';
+import { themePageInputSchema } from '@study/contracts';
+import { themeFileSchema, themeCatalogEntrySchema } from '@study/contracts';
 import { and, eq, gt, sql } from '@study/db';
-import { preferences, themes } from '@study/db/schema';
+import { preferences, themes } from '@study/db';
 import { Option, Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';

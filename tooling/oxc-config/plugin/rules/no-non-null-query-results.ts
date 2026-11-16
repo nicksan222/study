@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Require explicit handling of missing server query results.                         │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents assertions from hiding absent get, find or findFirst results and literal        │
+ * │ missing values. Required store queries can translate absence into typed failures.        │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   const row = db.orm.select().from(items).get();                                         │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   db.orm.select().from(items).get()!;                                                    │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { binding, memberName as property } from '../lexical-bindings.ts';

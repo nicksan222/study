@@ -1,4 +1,4 @@
-import { failureSchema, StudyError } from '@study/contracts/errors';
+import { failureSchema, StudyError } from '@study/contracts';
 import { Schema } from 'effect';
 
 const isFailure = Schema.is(failureSchema);

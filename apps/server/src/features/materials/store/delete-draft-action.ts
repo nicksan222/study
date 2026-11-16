@@ -12,15 +12,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { deleteDraftInputSchema } from '@study/contracts/materials/rpc';
+import { StudyError } from '@study/contracts';
+import type { deleteDraftInputSchema } from '@study/contracts';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
 type Input = typeof deleteDraftInputSchema.Type;
 
 import { eq } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 
 import { makeContent } from '#server/features/materials/store/content';
 import { makeReads } from '#server/features/materials/store/reads';

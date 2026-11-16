@@ -1,4 +1,4 @@
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { screen, waitFor, within } from '@testing-library/react';

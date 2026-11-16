@@ -1,5 +1,6 @@
-import { cn } from '@study/ui/utils';
 import type { ComponentProps } from 'react';
+
+import { cn } from '../utils.ts';
 
 /** Presents a decorative identity badge while leaving its accessible name to the surrounding control. */
 export function Identity({

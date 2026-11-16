@@ -12,9 +12,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { messageIdSchema } from '@study/contracts/ids';
-import type { MessageId, NoteId, VersionId } from '@study/contracts/ids';
+import { StudyError } from '@study/contracts';
+import { messageIdSchema } from '@study/contracts';
+import type { MessageId, NoteId, VersionId } from '@study/contracts';
 import {
   messageVersionCitationsSchema,
   updateMessageDescriptionInputSchema,
@@ -22,17 +22,9 @@ import {
   postMessageInputSchema,
   setActiveVersionInputSchema,
   threadInputSchema
-} from '@study/contracts/notes/rpc';
-import {
-  replyVersionInputSchema,
-  anchorSchema,
-  chatMessageSchema
-} from '@study/contracts/notes/schemas';
-import {
-  citedMarkers,
-  renumberCitations,
-  validateCitations
-} from '@study/contracts/sources/citations';
+} from '@study/contracts';
+import { replyVersionInputSchema, anchorSchema, chatMessageSchema } from '@study/contracts';
+import { citedMarkers, renumberCitations, validateCitations } from '@study/contracts';
 import { and, asc, desc, eq, isNull, lt, sql } from '@study/db';
 import {
   note_question_answers,
@@ -43,7 +35,7 @@ import {
   notes,
   note_deletions,
   sources
-} from '@study/db/schema';
+} from '@study/db';
 import { Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';

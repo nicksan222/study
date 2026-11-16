@@ -1,17 +1,20 @@
 import { RegistryContext, useAtomValue } from '@effect/atom-react';
-import { projectIdSchema } from '@study/contracts/ids';
-import type { NoteId } from '@study/contracts/ids';
+import { projectIdSchema } from '@study/contracts';
+import type { NoteId } from '@study/contracts';
 import { rpc, useIndependentMutation } from '@study/contracts/react';
 import { SendIcon, AttachmentIcon, CloseIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
-import { ComposerSurface } from '@study/ui/composer';
-import { IconButton } from '@study/ui/icon-button';
-import { Loading } from '@study/ui/loading';
-import { NoteStarter } from '@study/ui/note-start';
-import { Notebook } from '@study/ui/note-workspace';
-import { StatusMessage } from '@study/ui/status-message';
-import { WorkspaceCard, WorkspaceSurface } from '@study/ui/workspace';
-import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
+import {
+  Button,
+  ComposerSurface,
+  IconButton,
+  Loading,
+  NoteStarter,
+  Notebook,
+  StatusMessage,
+  WorkspaceCard,
+  WorkspaceSurface,
+  WorkspaceDeskSurface as Desk
+} from '@study/ui';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Effect, Schema } from 'effect';
 import { useContext, useEffect, useId, useState } from 'react';

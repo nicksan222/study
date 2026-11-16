@@ -1,5 +1,6 @@
-import { cn } from '@study/ui/utils';
 import type { ComponentProps } from 'react';
+
+import { cn } from '../utils.ts';
 
 export function Label({ className, htmlFor, children, ...props }: ComponentProps<'label'>) {
   return (

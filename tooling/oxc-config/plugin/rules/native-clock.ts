@@ -1,3 +1,21 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Centralize native clock reads in the server time platform owner.                   │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ In production server modules outside platform/time/index.ts, prevents Date(),            │
+ * │ zero-argument new Date(), Date.now, performance.now and process.hrtime reads from        │
+ * │ bypassing testable time. Explicit date parsing and construction from a supplied          │
+ * │ timestamp remain allowed.                                                                │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   const epoch = new Date(0);                                                             │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   const current = Date.now();                                                            │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings, serverProduction } from '../effect-bindings.ts';

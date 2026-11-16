@@ -1,5 +1,5 @@
-import type { quizAttemptCompletedSchema } from '@study/contracts/learning/schemas';
-import { Practice } from '@study/ui/practice';
+import type { quizAttemptCompletedSchema } from '@study/contracts';
+import { Practice } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

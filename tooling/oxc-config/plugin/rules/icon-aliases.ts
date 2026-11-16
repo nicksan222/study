@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Requires explicit aliases when library glyphs enter the shared icon vocabulary.    │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ packages/icons/src exposing lucide-react bindings without an explicit `as`, including    │
+ * │ unaliased type exports, namespace/wildcard access and dynamic loading. Alias spelling is │
+ * │ not checked; even an explicit same-name alias is accepted.                               │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   export { FileText as NoteIcon } from 'lucide-react';                                   │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   export { FileText } from 'lucide-react';                                               │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 import type { ESTree } from 'vite-plus/lint/plugins';
 

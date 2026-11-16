@@ -14,13 +14,37 @@ testStable('database connection and schema factories stay with their owners', as
         "import { migrateSync } from 'drizzle-orm/sqlite-core';\n",
       'packages/db/src/schema/leak.ts':
         "import { sqliteTable as table } from 'drizzle-orm/sqlite-core';\nexport { table };\n",
-      'packages/db/src/db.ts':
-        "import { DatabaseSync } from 'node:sqlite';\nexport { DatabaseSync };\nexport { migrateSync as expose } from 'drizzle-orm/sqlite-core';\nimport { migrateAsync as run } from 'drizzle-orm/sqlite-core';\nexport { run };\nimport { drizzle } from 'drizzle-orm/node-sqlite';\nimport { migrate } from 'drizzle-orm/node-sqlite/migrator';\n",
+      'packages/db/src/db.ts': `import { DatabaseSync } from 'node:sqlite';
+
+export { DatabaseSync };
+
+export { migrateSync as expose } from 'drizzle-orm/sqlite-core';
+
+import { migrateAsync as run } from 'drizzle-orm/sqlite-core';
+
+export { run };
+
+import { drizzle } from 'drizzle-orm/node-sqlite';
+
+import { migrate } from 'drizzle-orm/node-sqlite/migrator';
+
+`,
       'packages/db/src/schema/items.ts':
         "import { sqliteTable as table, sqliteView } from 'drizzle-orm/sqlite-core';\n",
       'packages/db/drizzle.config.ts': "import { defineConfig } from 'drizzle-kit';\n",
-      'apps/server/src/good.ts':
-        "import { eq, sql } from 'drizzle-orm';\nimport type { NodeSQLiteDatabase } from 'drizzle-orm/node-sqlite';\nimport type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';\nimport { Db } from '@study/db';\nconst sqliteTable = () => 1;\nconst object = { sqliteTable };\n",
+      'apps/server/src/good.ts': `import { eq, sql } from 'drizzle-orm';
+
+import type { NodeSQLiteDatabase } from 'drizzle-orm/node-sqlite';
+
+import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
+
+import { Db } from '@study/db';
+
+const sqliteTable = () => 1;
+
+const object = { sqliteTable };
+
+`,
       'apps/server/test/raw.test.ts': "import { DatabaseSync as Raw } from 'node:sqlite';\n",
       'apps/server/src/driver.ts': "export { drizzle as create } from 'drizzle-orm/node-sqlite';\n",
       'apps/server/src/migrator.ts': "export * from 'drizzle-orm/node-sqlite/migrator';\n",
@@ -92,10 +116,28 @@ testStable('owner reexports cannot evade ownership by preceding imports', async 
   const diagnostics = await lintRule(
     'database-ownership',
     {
-      'packages/db/src/db.ts':
-        "export { raw, driver, migrate };\nimport { DatabaseSync as raw } from 'node:sqlite';\nimport { drizzle as driver } from 'drizzle-orm/node-sqlite';\nimport { migrateSync as migrate } from 'drizzle-orm/sqlite-core';\nexport type { NodeSQLiteDatabase } from 'drizzle-orm/node-sqlite';\nexport type { raw };\n",
-      'packages/db/src/schema/example.ts':
-        "export { table, makeView };\nimport { sqliteTable as table, sqliteView as makeView } from 'drizzle-orm/sqlite-core';\nexport type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';\nexport type { table };\n"
+      'packages/db/src/db.ts': `export { raw, driver, migrate };
+
+import { DatabaseSync as raw } from 'node:sqlite';
+
+import { drizzle as driver } from 'drizzle-orm/node-sqlite';
+
+import { migrateSync as migrate } from 'drizzle-orm/sqlite-core';
+
+export type { NodeSQLiteDatabase } from 'drizzle-orm/node-sqlite';
+
+export type { raw };
+
+`,
+      'packages/db/src/schema/example.ts': `export { table, makeView };
+
+import { sqliteTable as table, sqliteView as makeView } from 'drizzle-orm/sqlite-core';
+
+export type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
+
+export type { table };
+
+`
     },
     true
   );

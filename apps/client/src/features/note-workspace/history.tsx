@@ -1,17 +1,22 @@
-import type { NoteId, VersionId, SourceId } from '@study/contracts/ids';
-import type { chatMessageSchema } from '@study/contracts/notes/schemas';
-import type { PageSummary } from '@study/contracts/pages/types';
+import type { NoteId, VersionId, SourceId, chatMessageSchema, PageSummary } from '@study/contracts';
 import { HistoryIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
-import { ChatNote, ChatMessage, ChatEntryLabel } from '@study/ui/chat';
-import { Dialog, DialogTrigger, DialogPopup, DialogFooter } from '@study/ui/dialog';
-import { DialogDismissButton } from '@study/ui/dialog-form-actions';
-import { DialogHeading } from '@study/ui/dialog-heading';
-import { Loading } from '@study/ui/loading';
-import { Notebook } from '@study/ui/note-workspace';
-import { StatusMessage } from '@study/ui/status-message';
-import { WorkspaceSurface } from '@study/ui/workspace';
-import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
+import {
+  Button,
+  ChatNote,
+  ChatMessage,
+  ChatEntryLabel,
+  Dialog,
+  DialogTrigger,
+  DialogPopup,
+  DialogFooter,
+  DialogDismissButton,
+  DialogHeading,
+  Loading,
+  Notebook,
+  StatusMessage,
+  WorkspaceSurface,
+  WorkspaceDeskSurface as Desk
+} from '@study/ui';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

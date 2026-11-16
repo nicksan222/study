@@ -1,6 +1,5 @@
-import type { PageId, PageVersionId } from '@study/contracts/ids';
-import { pageVersionIdSchema } from '@study/contracts/ids';
-import type { Page, PageVersion } from '@study/contracts/pages/types';
+import { pageVersionIdSchema } from '@study/contracts';
+import type { PageId, PageVersionId, Page, PageVersion } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { Schema } from 'effect';
 import { useCallback, useState } from 'react';

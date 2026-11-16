@@ -1,5 +1,5 @@
-import { pageIdSchema } from '@study/contracts/ids';
-import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
+import { pageIdSchema } from '@study/contracts';
+import { WorkspaceDeskSurface as Desk } from '@study/ui';
 import { useParams, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
 

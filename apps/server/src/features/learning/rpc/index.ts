@@ -13,7 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { LearningRpc } from '@study/contracts/learning/rpc';
+import { LearningRpc } from '@study/contracts';
 
 import { Learning } from '#server/features/learning/service/index';
 import { defineRpc } from '#server/platform/definitions/define-rpc';

@@ -1,10 +1,14 @@
-import type { ChatMessage } from '@study/contracts/notes/messages';
+import type { ChatMessage } from '@study/contracts';
 import { DescriptionIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
-import { Dialog, DialogTrigger, DialogPopup } from '@study/ui/dialog';
-import { DialogFormActions } from '@study/ui/dialog-form-actions';
-import { DialogHeading } from '@study/ui/dialog-heading';
-import { WorkspaceSurface } from '@study/ui/workspace';
+import {
+  Button,
+  Dialog,
+  DialogTrigger,
+  DialogPopup,
+  DialogFormActions,
+  DialogHeading,
+  WorkspaceSurface
+} from '@study/ui';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

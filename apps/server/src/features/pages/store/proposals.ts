@@ -11,10 +11,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import * as e from '@study/contracts/pages/editing';
-import { blockIdSchema } from '@study/contracts/sources/schemas';
+import * as e from '@study/contracts';
+import { blockIdSchema } from '@study/contracts';
 import { eq, and } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
 

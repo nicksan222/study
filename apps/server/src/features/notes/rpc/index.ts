@@ -13,7 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { NotesRpc } from '@study/contracts/notes/rpc';
+import { NotesRpc } from '@study/contracts';
 
 import { Notes } from '#server/features/notes/service/index';
 import { suggestTransformField } from '#server/features/notes/service/transform-suggestion';

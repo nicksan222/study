@@ -1,6 +1,4 @@
-import type { PageId, MaterialId, SourceId, NoteId } from '@study/contracts/ids';
-import type { ProjectId } from '@study/contracts/ids';
-import type { Project } from '@study/contracts/projects/schemas';
+import type { PageId, MaterialId, SourceId, NoteId, ProjectId, Project } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import {
   OpenIcon,
@@ -11,12 +9,7 @@ import {
   GeneralSettingsIcon,
   GenerateIcon
 } from '@study/icons';
-import { RetryButton } from '@study/ui/action-button';
-import { Button } from '@study/ui/button';
-import { ErrorState } from '@study/ui/error-state';
-import { List } from '@study/ui/list';
-import { Loading } from '@study/ui/loading';
-import { SubjectWorkspace } from '@study/ui/subject-workspace';
+import { RetryButton, Button, ErrorState, List, Loading, SubjectWorkspace } from '@study/ui';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';

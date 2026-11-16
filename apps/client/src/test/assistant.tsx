@@ -1,6 +1,10 @@
-import type { ChatMessage } from '@study/contracts/notes/messages';
-import { assistantAskInputSchema } from '@study/contracts/notes/rpc';
-import { chatMessageSchema, askResultSchema, noteSchema } from '@study/contracts/notes/schemas';
+import {
+  assistantAskInputSchema,
+  chatMessageSchema,
+  askResultSchema,
+  noteSchema
+} from '@study/contracts';
+import type { ChatMessage } from '@study/contracts';
 import { render } from '@testing-library/react';
 import { Schema } from 'effect';
 import { beforeEach, vi } from 'vite-plus/test';

@@ -11,9 +11,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { chatMessageSchema } from '@study/contracts/notes/schemas';
-import { validBlockTextRange } from '@study/contracts/sources/document';
+import { StudyError } from '@study/contracts';
+import type { chatMessageSchema } from '@study/contracts';
+import { validBlockTextRange } from '@study/contracts';
 
 import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';

@@ -1,3 +1,27 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keeps client routes declarative and requires neighboring page/view/logic tests.    │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Production client routes defining JSX, importing application hooks or exporting values   │
+ * │ other than Route; route component options must reference imported components. Page.tsx   │
+ * │ composition cannot import React/router lifecycle. Pages require                          │
+ * │ page.view.tsx/page.test.tsx; views, logic and use-*.ts hooks require their matching test │
+ * │ siblings. Test contents are not checked.                                                 │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/client/src/routes/library.tsx                                                  │
+ * │   import { createFileRoute } from '@tanstack/react-router';                              │
+ * │   import { ReaderPage } from '#client/features/material-library/index.ts';               │
+ * │   export const Route = createFileRoute('/materials/$materialId')({                       │
+ * │     component: ReaderPage });                                                            │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/client/src/routes/library.tsx                                                  │
+ * │   export const Extra = () => <main />;                                                   │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { BunPath } from '@effect/platform-bun';
 import { Effect, Path } from 'effect';
 import { defineRule } from 'vite-plus/lint/plugins';

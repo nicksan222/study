@@ -1,7 +1,10 @@
-import type { ErrorKind } from '@study/contracts/errors';
-import type { PageAnnotationId } from '@study/contracts/ids';
-import type { reviseAnnotationSchema } from '@study/contracts/pages/evidence';
-import type { annotationSchema, annotationOutcomeSchema } from '@study/contracts/pages/evidence';
+import type {
+  ErrorKind,
+  PageAnnotationId,
+  reviseAnnotationSchema,
+  annotationSchema,
+  annotationOutcomeSchema
+} from '@study/contracts';
 
 import type { Target } from './annotation-target';
 

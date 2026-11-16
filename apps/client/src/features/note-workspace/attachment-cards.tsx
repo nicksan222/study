@@ -1,12 +1,12 @@
-import type { NoteId, SourceId } from '@study/contracts/ids';
-import type { MessagePart } from '@study/contracts/notes/messages';
+import type { NoteId, SourceId, MessagePart, Source } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import type { Source } from '@study/contracts/sources/schemas';
 import { mediaSize } from '@study/localization';
-import { AttachmentPreview } from '@study/ui/attachment-preview';
-import { Notebook } from '@study/ui/note-workspace';
-import { WorkspaceAttachments } from '@study/ui/workspace';
-import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
+import {
+  AttachmentPreview,
+  Notebook,
+  WorkspaceAttachments,
+  WorkspaceDeskSurface as Desk
+} from '@study/ui';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';

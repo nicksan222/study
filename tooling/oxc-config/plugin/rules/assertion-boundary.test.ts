@@ -3,10 +3,18 @@ import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('reports assertion module edges and production runner imports', async () => {
+testStable('rejects assertion modules and test-runner imports in production code', async () => {
   const diagnostics = await lintRule('assertion-boundary', {
-    'src/a.ts': `import a from 'node:assert'; export * from 'assert/strict'; const b = require('node:assert/strict'); import('assert'); import { expect } from 'vite-plus/test';`,
-    'src/a.test.ts': `import { expect } from 'vite-plus/test'; const fixture = "import a from 'assert'"; function f(require: (x: string) => unknown) { require('assert'); }`
+    'src/a.ts': `import a from 'node:assert';
+ export * from 'assert/strict';
+ const b = require('node:assert/strict');
+ import('assert');
+ import { expect } from 'vite-plus/test';
+`,
+    'src/a.test.ts': `import { expect } from 'vite-plus/test';
+ const fixture = "import a from 'assert'";
+ function f(require: (x: string) => unknown) { require('assert');
+ }`
   });
 
   assert.strictEqual(diagnostics.length, 5, JSON.stringify(diagnostics));
@@ -20,7 +28,9 @@ testStable(
       {
         'apps/server/src/production.ts': "import { testStable } from '@study/testing/vitest';",
         'packages/testing/src/vitest.ts': "import { test } from 'vite-plus/test';",
-        'apps/server/test/testing/helper.ts': "import { assert } from 'vite-plus/test';"
+        'apps/server/test/testing/helper.ts': "import { assert } from 'vite-plus/test';",
+        'tooling/testing/integrations/fixture.ts':
+          "import { temporaryDirectory } from '@study/testing/vitest';"
       },
       true
     );

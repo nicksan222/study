@@ -1,8 +1,6 @@
-import type { MaterialId } from '@study/contracts/ids';
-import type { ProjectId } from '@study/contracts/ids';
+import type { MaterialId, ProjectId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { LoadMoreButton } from '@study/ui/action-button';
-import { Button } from '@study/ui/button';
+import { LoadMoreButton, Button } from '@study/ui';
 import { useParams, useSearch } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 

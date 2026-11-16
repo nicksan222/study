@@ -1,6 +1,7 @@
-import { Button } from '@study/ui/button';
-import { Input } from '@study/ui/input';
 import { useId } from 'react';
+
+import { Button } from './button.tsx';
+import { Input } from './input.tsx';
 
 export function NumberControl({
   label,

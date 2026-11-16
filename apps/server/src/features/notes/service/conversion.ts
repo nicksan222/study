@@ -11,9 +11,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { messageConversionSchema } from '@study/contracts/notes/conversion';
-import type { replySnapshotSchema } from '@study/contracts/notes/schemas';
+import { StudyError } from '@study/contracts';
+import type { messageConversionSchema } from '@study/contracts';
+import type { replySnapshotSchema } from '@study/contracts';
 import { Effect } from 'effect';
 import type { Context } from 'effect';
 

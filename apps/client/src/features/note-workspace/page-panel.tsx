@@ -1,7 +1,6 @@
-import type { NoteId } from '@study/contracts/ids';
+import type { NoteId } from '@study/contracts';
 import { SavedIcon, UnsavedIcon, SaveErrorIcon } from '@study/icons';
-import { Disclosure } from '@study/ui/disclosure';
-import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
+import { Disclosure, WorkspaceDeskSurface as Desk } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

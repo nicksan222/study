@@ -12,10 +12,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { MaterialId } from '@study/contracts/ids';
-import type { materialsInputSchema, countInputSchema } from '@study/contracts/materials/rpc';
+import type { MaterialId } from '@study/contracts';
+import type {
+  materialsInputSchema,
+  materialCountInputSchema as countInputSchema
+} from '@study/contracts';
 import { and, asc, desc, eq, gt, isNotNull, isNull, lt, inArray, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 
 import { makeReads, required } from '#server/features/materials/store/reads';
 import { makeWrites } from '#server/features/materials/store/writes';

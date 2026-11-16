@@ -12,12 +12,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { MaterialId, MaterialVersionId, ProjectId, NoteId } from '@study/contracts/ids';
-import type { ContentInput } from '@study/contracts/inputs';
-import type { createMaterialVersionInputSchema } from '@study/contracts/materials/schemas';
+import { StudyError } from '@study/contracts';
+import type { MaterialId, MaterialVersionId, ProjectId, NoteId } from '@study/contracts';
+import type { ContentInput } from '@study/contracts';
+import type { createMaterialVersionInputSchema } from '@study/contracts';
 import { and, eq, desc } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 

@@ -1,6 +1,5 @@
-import type { Project } from '@study/contracts/projects/schemas';
-import { Sidebar } from '@study/ui/sidebar';
-import { WorkspaceCard, WorkspaceSurface } from '@study/ui/workspace';
+import type { Project } from '@study/contracts';
+import { Sidebar, WorkspaceCard, WorkspaceSurface } from '@study/ui';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 

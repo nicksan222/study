@@ -1,5 +1,4 @@
-import { agentRunIdSchema } from '@study/contracts/ai/progress';
-import { executionIdSchema } from '@study/contracts/workflows/schemas';
+import { agentRunIdSchema, executionIdSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, vi } from 'vite-plus/test';

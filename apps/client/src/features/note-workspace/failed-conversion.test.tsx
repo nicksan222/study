@@ -1,4 +1,4 @@
-import { chatMessageSchema } from '@study/contracts/notes/schemas';
+import { chatMessageSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import type * as Router from '@tanstack/react-router';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';

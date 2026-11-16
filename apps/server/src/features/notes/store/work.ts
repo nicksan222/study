@@ -11,10 +11,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { noteWorkInputSchema, noteWorkKindSchema } from '@study/contracts/notes/work';
-import { executionIdSchema } from '@study/contracts/workflows/schemas';
+import { noteWorkInputSchema, noteWorkKindSchema } from '@study/contracts';
+import { executionIdSchema } from '@study/contracts';
 import { and, desc, inArray, or, sql } from '@study/db';
-import { workflow_executions } from '@study/db/schema';
+import { workflow_executions } from '@study/db';
 import { Schema } from 'effect';
 
 import { defineStore, storeQuery } from '#server/platform/definitions/define-store';

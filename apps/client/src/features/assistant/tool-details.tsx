@@ -1,11 +1,11 @@
-import type { agentToolProgressSchema } from '@study/contracts/ai/progress';
+import type { agentToolProgressSchema } from '@study/contracts';
 import {
   CodeBlock,
   CodeBlockHeader,
   CodeBlockTitle,
   CodeBlockContent,
   CodeBlockFooter
-} from '@study/ui/code-block';
+} from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

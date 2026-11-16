@@ -11,10 +11,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { pageGenerationRequestedSchema } from '@study/contracts/events';
-import type { messageIdSchema, noteIdSchema } from '@study/contracts/ids';
-import type { PageVersion } from '@study/contracts/pages/types';
-import { createBlock } from '@study/contracts/sources/document';
+import type { pageGenerationRequestedSchema } from '@study/contracts';
+import type { messageIdSchema, noteIdSchema } from '@study/contracts';
+import type { PageVersion } from '@study/contracts';
+import { createBlock } from '@study/contracts';
 import { sql } from '@study/db';
 import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';

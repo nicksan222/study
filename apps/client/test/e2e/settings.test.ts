@@ -1,4 +1,4 @@
-import { maxAgentRuleLength } from '@study/contracts/settings/schemas';
+import { maxAgentRuleLength } from '@study/contracts';
 import { catalogs } from '@study/localization';
 
 import { expect, testE2e } from './harness/index.ts';

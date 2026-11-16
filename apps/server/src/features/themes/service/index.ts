@@ -12,8 +12,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { themePageInputSchema } from '@study/contracts/themes/rpc';
+import { StudyError } from '@study/contracts';
+import type { themePageInputSchema } from '@study/contracts';
 import { parseTheme, serializeTheme } from '@study/theme';
 import { Effect } from 'effect';
 

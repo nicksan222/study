@@ -13,10 +13,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { defaultAgentRules } from '@study/contracts/settings/types';
+import { defaultAgentRules } from '@study/contracts';
 import { eq } from '@study/db';
-import * as tables from '@study/db/schema';
+import * as tables from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
+import { createAiMock } from '@study/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option } from 'effect';
 import type { MessageStorage, Sharding } from 'effect/cluster';
@@ -24,6 +25,7 @@ import { WorkflowEngine } from 'effect/workflow';
 import { expect } from 'vite-plus/test';
 import { assert } from 'vite-plus/test';
 
+import { replyAgent } from '#server/features/notes/agents/reply';
 import { Notes } from '#server/features/notes/service/index';
 import { Sources } from '#server/features/sources/service/index';
 import {
@@ -31,10 +33,9 @@ import {
   sourceIngestionWorkflow
 } from '#server/features/sources/workflows/index';
 import { layer as agentsLayer } from '#server/platform/ai/agents';
-import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
-import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { normalizeError } from '#server/platform/errors/classify-error';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 import { cancelExecution, WorkflowControl } from '#server/platform/workflows/control';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
@@ -58,50 +59,38 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
   let calls = 0;
-  const peer = Bun.serve({
-    hostname: '127.0.0.1',
-    port: 0,
-    fetch: async (request) => {
-      let events = '';
+  using mock = createAiMock();
 
-      await request.text();
-
-      calls++;
-
-      for (const event of [
-        { type: 'response.created', response: { id: 'resp', created_at: 1, model: 'test' } },
-        {
-          type: 'response.output_item.added',
-          output_index: 0,
-          item: { type: 'message', id: 'item' }
-        },
-        { type: 'response.output_text.delta', item_id: 'item', delta: 'Answer' },
-        { type: 'response.completed', response: {} }
-      ])
-        events += `data: ${JSON.stringify(event)}\n\n`;
-
-      return new Response(events + 'data: [DONE]\n\n', {
-        headers: { 'content-type': 'text/event-stream' }
-      });
-    }
+  mock.next(replyAgent, {
+    input: {
+      messages: [
+        { role: 'user', content: 'Question' },
+        { role: 'user', content: '\nPreferences: {"detail":"balanced"}' }
+      ]
+    },
+    output: 'Answer'
   });
-
-  assert.ok(peer.port, 'missing address');
-  const base = peer.url.origin;
-  const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
-
-  await auth.replace(
-    { subject: 'u', clientId: 'c', sharing: true, refreshToken: 'r' },
-    { accessToken: 'token', expiresIn: 3600 }
-  );
-  const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
+  mock.next(replyAgent, {
+    input: {
+      messages: [
+        { role: 'user', content: 'Root' },
+        { role: 'user', content: 'Question' },
+        { role: 'user', content: '\nPreferences: {"detail":"balanced"}' }
+      ]
+    },
+    output: 'Answer'
+  });
   const database = Layer.succeed(Database, { store: context });
   const services = Layer.mergeAll(
     database,
     Layer.merge(Notes.layer, Sources.layer).pipe(Layer.provideMerge(database)),
     Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
     agentsLayer({
-      model: () => Effect.succeed(model),
+      model: (tier, call) => {
+        calls++;
+
+        return mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError));
+      },
       language: 'en',
       rules: Effect.succeed(defaultAgentRules),
       searchSources: () => Effect.succeed([])
@@ -722,8 +711,6 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
       )
     );
   } finally {
-    await auth.dispose();
-    await peer.stop(true);
     context.close();
     await location.cleanup();
   }
@@ -734,8 +721,7 @@ testStable(
   async () => {
     const location = await createTestDatabase();
     let context = new ServerContext(await location.open());
-    const auth = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
-    const model = createChatGptModel({ auth, modelId: 'test', baseUrl: 'http://127.0.0.1' });
+    using mock = createAiMock();
     const services = () => {
       const database = Layer.succeed(Database, { store: context });
 
@@ -758,7 +744,8 @@ testStable(
         Layer.merge(Notes.layer, Sources.layer).pipe(Layer.provideMerge(database)),
         Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
         agentsLayer({
-          model: () => Effect.succeed(model),
+          model: (tier, call) =>
+            mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError)),
           language: 'en',
           rules: Effect.succeed(defaultAgentRules),
           searchSources: () => Effect.succeed([])
@@ -918,7 +905,6 @@ testStable(
         )
       );
     } finally {
-      await auth.dispose();
       context.close();
       await location.cleanup();
     }

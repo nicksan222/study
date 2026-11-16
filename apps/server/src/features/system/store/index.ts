@@ -12,12 +12,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { MaterialId, MaterialVersionId } from '@study/contracts/ids';
-import { materialKindSchema } from '@study/contracts/materials/schemas';
-import { searchInputSchema } from '@study/contracts/system/rpc';
-import { searchHitSchema } from '@study/contracts/system/schemas';
+import type { MaterialId, MaterialVersionId } from '@study/contracts';
+import { materialKindSchema } from '@study/contracts';
+import { searchInputSchema } from '@study/contracts';
+import { searchHitSchema } from '@study/contracts';
 import { eq, sql } from '@study/db';
-import * as schema from '@study/db/schema';
+import * as schema from '@study/db';
 import { Schema } from 'effect';
 
 import { defineStore, storeQuery } from '#server/platform/definitions/define-store';

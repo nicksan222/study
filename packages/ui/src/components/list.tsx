@@ -1,7 +1,8 @@
 import { mergeProps } from '@base-ui/react/merge-props';
 import { useRender } from '@base-ui/react/use-render';
-import { cn } from '@study/ui/utils';
 import type { ComponentPropsWithRef } from 'react';
+
+import { cn } from '../utils.ts';
 
 function Root({
   bleed = true,

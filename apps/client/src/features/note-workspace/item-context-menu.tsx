@@ -1,10 +1,5 @@
 import { OpenIcon } from '@study/icons';
-import {
-  ContextMenu,
-  ContextMenuTrigger,
-  ContextMenuPopup,
-  ContextMenuItem
-} from '@study/ui/context-menu';
+import { ContextMenu, ContextMenuTrigger, ContextMenuPopup, ContextMenuItem } from '@study/ui';
 import { cloneElement, useRef } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 

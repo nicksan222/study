@@ -1,4 +1,4 @@
-import type { noteWorkItemSchema } from '@study/contracts/notes/work';
+import type { noteWorkItemSchema } from '@study/contracts';
 import { rpc, useIndependentMutation } from '@study/contracts/react';
 import { Effect } from 'effect';
 

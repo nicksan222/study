@@ -12,9 +12,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { promptInputSchema } from '@study/contracts/ai/shared';
-import { materialFlashcardsContentInputSchema } from '@study/contracts/materials/schemas';
-import { AgentRule } from '@study/contracts/settings/schemas';
+import { promptInputSchema } from '@study/contracts';
+import { materialFlashcardsContentInputSchema } from '@study/contracts';
+import { AgentRule } from '@study/contracts';
 
 import { sourcesTool } from '#server/platform/ai/captured-sources-tool';
 import { defineAgent } from '#server/platform/definitions/define-agent';

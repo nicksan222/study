@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keep error handling independent of caught message text.                            │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents server and web branches from depending on unstable caught error wording. Checks │
+ * │ direct catch-binding message tests, comparisons and switch discriminants.                │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   try { run(); } catch (error) { if (error.code === 'SQLITE_BUSY') retry(); }            │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   try { run(); } catch (error) { if (error.message.includes('busy')) retry(); }          │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { memberName as property, binding } from '../lexical-bindings.ts';

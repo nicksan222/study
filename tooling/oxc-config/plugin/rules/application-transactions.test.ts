@@ -3,7 +3,7 @@ import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('reports application-transactions', async () => {
+testStable('rejects nested ORM transactions in application code', async () => {
   const diagnostics = await lintRule('application-transactions', {
     'src/bad.ts':
       "import type { Db } from '@study/db'; function f(db: Db) { db.orm.transaction(() => {}); }"
@@ -16,10 +16,17 @@ testStable(
   'recognizes database aliases and preserves context and unrelated transactions',
   async () => {
     const diagnostics = await lintRule('application-transactions', {
-      'src/bad.ts':
-        "import type { Db as Database } from '@study/db'; import type { ServerContext as C } from '#server/runtime/context'; function f(db: Database, ctx: C) { const alias = db; alias.transaction(() => {}); const database = ctx.db; database.orm.transaction(() => {}); }",
-      'src/good.ts':
-        "import type { ServerContext } from '#server/runtime/context'; function f(ctx: ServerContext, db) { ctx.transaction(() => {}); db.transaction(() => {}); }",
+      'src/bad.ts': `import type { Db as Database } from '@study/db';
+import type { ServerContext as C } from '#server/runtime/context';
+function f(db: Database, ctx: C) { const alias = db;
+alias.transaction(() => {});
+const database = ctx.db;
+database.orm.transaction(() => {});
+}`,
+      'src/good.ts': `import type { ServerContext } from '#server/runtime/context';
+ function f(ctx: ServerContext, db) { ctx.transaction(() => {});
+ db.transaction(() => {});
+ }`,
       'src/platform/database/context.ts':
         "import type { Db } from '@study/db'; function f(db: Db) { db.orm.transaction(() => {}); }",
       'src/fixture.test.ts':

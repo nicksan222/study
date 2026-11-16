@@ -1,5 +1,4 @@
-import { Notebook } from '@study/ui/note-workspace';
-import { Textarea } from '@study/ui/textarea';
+import { Notebook, Textarea } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

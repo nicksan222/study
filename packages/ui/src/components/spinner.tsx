@@ -1,8 +1,9 @@
 import { LoadingIcon } from '@study/icons';
-import { cn } from '@study/ui/utils';
-import { observeVisibleAnimation } from '@study/ui/visible-animation';
 import { cva } from 'class-variance-authority';
 import type { VariantProps } from 'class-variance-authority';
+
+import { cn } from '../utils.ts';
+import { observeVisibleAnimation } from '../visible-animation.ts';
 
 // No default size: inside a Button the parent's svg rule sizes the glyph.
 const spinnerVariants = cva('motion-safe:visible-animate-spin', {

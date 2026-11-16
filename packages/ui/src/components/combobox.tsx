@@ -1,8 +1,8 @@
 import { Combobox as Primitive } from '@base-ui/react/combobox';
 import { SelectedIcon, SearchIcon } from '@study/icons';
-import { cn } from '@study/ui/utils';
 import type * as React from 'react';
 
+import { cn } from '../utils.ts';
 import { Input } from './input';
 
 // Single-select pieces adapted from coss/ui's MIT-licensed combobox.

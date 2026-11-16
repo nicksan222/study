@@ -1,5 +1,4 @@
-import { Button } from '@study/ui/button';
-import { ErrorState } from '@study/ui/error-state';
+import { Button, ErrorState } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

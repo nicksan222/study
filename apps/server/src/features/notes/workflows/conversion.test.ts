@@ -11,14 +11,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import {
-  sourceProcessingRequestedSchema,
-  noteGenerationRequestedSchema
-} from '@study/contracts/events';
-import { defaultAgentRules } from '@study/contracts/settings/types';
-import { plainBlock } from '@study/contracts/sources/document';
-import { workflowEvents } from '@study/db/schema';
+import { sourceProcessingRequestedSchema, noteGenerationRequestedSchema } from '@study/contracts';
+import { defaultAgentRules } from '@study/contracts';
+import { plainBlock } from '@study/contracts';
+import { workflowEvents } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
+import { createAiMock } from '@study/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
@@ -26,12 +24,15 @@ import { afterEach, beforeEach, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Settings } from '#server/features/settings/index';
+import { textConversionAgent } from '#server/features/sources/agents/text-conversion';
 import { Sources } from '#server/features/sources/index';
+import type { AgentsConfig } from '#server/platform/ai/agents';
 import { layer as agentsLayer } from '#server/platform/ai/agents';
 import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { normalizeError } from '#server/platform/errors/classify-error';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
@@ -63,7 +64,7 @@ afterEach(async () => {
   await location.cleanup();
 });
 
-function workflowServices(model: ReturnType<typeof createChatGptModel>) {
+function workflowServices(model: AgentsConfig['model']) {
   const domain = Layer.mergeAll(Notes.layer, Sources.layer, Settings.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -76,10 +77,10 @@ function workflowServices(model: ReturnType<typeof createChatGptModel>) {
       language: 'english',
       rules: Effect.succeed(defaultAgentRules),
       searchSources: () => Effect.succeed([]),
-      model: (tier) => {
+      model: (tier, call) => {
         expect(tier).toBe('tiny');
 
-        return Effect.succeed(model);
+        return model(tier, call);
       }
     })
   );
@@ -88,27 +89,10 @@ function workflowServices(model: ReturnType<typeof createChatGptModel>) {
 testStable(
   'conversion executes on the small tier, captures only its target and checkpoints publication',
   async () => {
-    const bodies: string[] = [];
-    const model = createChatGptModel({
-      auth,
-      modelId: 'test',
-      fetch: async (_url, init) => {
-        bodies.push(await new Response(init?.body).text());
-        const events = [
-          {
-            type: 'response.output_item.added',
-            output_index: 0,
-            item: { type: 'message', id: 'm' }
-          },
-          { type: 'response.output_text.delta', item_id: 'm', delta: 'A complete paragraph.' },
-          { type: 'response.completed', response: {} }
-        ];
-
-        return new Response(
-          events.map((event) => 'data: ' + JSON.stringify(event) + '\n\n').join(''),
-          { headers: { 'content-type': 'text/event-stream' } }
-        );
-      }
+    using mock = createAiMock();
+    const conversion = mock.next(textConversionAgent, {
+      input: { text: 'A complete\nparagraph.' },
+      output: 'A complete paragraph.'
     });
 
     await Effect.runPromise(
@@ -169,9 +153,9 @@ testStable(
           expect(completed.activeVersionId).toBe(receipt.versionId);
           expect(completed.versions).toHaveLength(2);
           expect(completed.versions.at(-1)?.text).toBe('A complete paragraph.');
-          expect(bodies).toHaveLength(1);
-          expect(bodies[0]).not.toContain('Unrelated earlier message');
-          expect(bodies[0]).toContain('A complete\\nparagraph.');
+          expect((yield* Effect.promise(() => conversion.called)).input.text).toBe(
+            'A complete\nparagraph.'
+          );
           const sources = yield* Sources;
           const bytes = yield* Effect.promise(() =>
             Bun.file(
@@ -258,7 +242,7 @@ testStable(
 
           expect(pdf.parts).toEqual(attachment.parts);
           expect(pdf.versions.at(-1)?.text).toBe('First page\n\nSecond page');
-          expect(bodies).toHaveLength(1);
+          mock.verify();
           expect(
             (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
           ).toEqual(bytes);
@@ -300,7 +284,13 @@ testStable(
           expect((yield* c.message(threaded.id)).versions.at(-1)?.text).toBe(
             'First page\n\nSecond page'
           );
-        }).pipe(Effect.provide(workflowServices(model)))
+        }).pipe(
+          Effect.provide(
+            workflowServices((tier, call) =>
+              mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError))
+            )
+          )
+        )
       )
     );
   }
@@ -427,7 +417,7 @@ testStable(
             status: 'complete',
             text: 'Saved text.'
           });
-        }).pipe(Effect.provide(workflowServices(model)))
+        }).pipe(Effect.provide(workflowServices(() => Effect.succeed(model))))
       )
     );
   }

@@ -1,5 +1,5 @@
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
-import { versionIdSchema } from '@study/contracts/ids';
+import { versionIdSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { eq, sql } from 'drizzle-orm';
 import { Effect, FileSystem, Path, Schema } from 'effect';

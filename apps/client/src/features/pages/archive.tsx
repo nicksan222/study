@@ -1,12 +1,7 @@
-import type { PageId } from '@study/contracts/ids';
-import type { ProjectId } from '@study/contracts/ids';
-import type { PageSummary } from '@study/contracts/pages/types';
+import type { PageId, ProjectId, PageSummary } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { PageIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
-import { Dialog, DialogTrigger } from '@study/ui/dialog';
-import { Loading } from '@study/ui/loading';
-import { SelectionSurface as Surface } from '@study/ui/selection';
+import { Button, Dialog, DialogTrigger, Loading, SelectionSurface as Surface } from '@study/ui';
 import { useState } from 'react';
 
 import { CursorWindowActions } from '#client/lib/cursor-window.tsx';

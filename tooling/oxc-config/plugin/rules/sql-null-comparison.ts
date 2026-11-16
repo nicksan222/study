@@ -1,3 +1,21 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Use SQL null predicates instead of equality comparisons.                           │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents server Drizzle eq/ne and tagged SQL comparisons from silently producing UNKNOWN │
+ * │ for NULL. SQL assignments to NULL and quoted text remain allowed.                        │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { isNull } from '@study/db';                                                    │
+ * │   isNull(notes.title);                                                                   │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { eq } from '@study/db';                                                        │
+ * │   eq(notes.title, null);                                                                 │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { api, nullComparison } from './persistence-syntax.ts';

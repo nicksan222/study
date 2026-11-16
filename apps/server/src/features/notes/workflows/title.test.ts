@@ -13,23 +13,24 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { defaultAgentRules } from '@study/contracts/settings/types';
-import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
-import * as s from '@study/db/schema';
+import { defaultAgentRules } from '@study/contracts';
+import { defaultWorkspacePreferences } from '@study/contracts';
+import * as s from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
+import { createAiMock } from '@study/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import type { Context } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
 import { assert, expect } from 'vite-plus/test';
 
+import { titleAgent } from '#server/features/notes/agents/title';
 import { Notes } from '#server/features/notes/service/index';
 import { Settings } from '#server/features/settings/index';
 import { layer as agentsLayer } from '#server/platform/ai/agents';
-import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
-import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { normalizeError } from '#server/platform/errors/classify-error';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
@@ -42,51 +43,7 @@ testStable('title workflow checkpoints and fences stale and renamed notes', asyn
   const location = await createTestDatabase();
   let context = new ServerContext(await location.open());
   let calls = 0;
-  let during: (() => Promise<void>) | undefined;
-  let output = 'Cell Biology';
-  const bodies: string[] = [];
-  const peer = Bun.serve({
-    hostname: '127.0.0.1',
-    port: 0,
-    fetch: async (request) => {
-      let events = '';
-      const body = await request.text();
-
-      bodies.push(body);
-
-      calls++;
-      const action = during;
-
-      during = undefined;
-      await action?.();
-
-      for (const event of [
-        { type: 'response.created', response: { id: 'resp', created_at: 1, model: 'test' } },
-        {
-          type: 'response.output_item.added',
-          output_index: 0,
-          item: { type: 'message', id: 'item' }
-        },
-        { type: 'response.output_text.delta', item_id: 'item', delta: output },
-        { type: 'response.completed', response: {} }
-      ])
-        events += `data: ${JSON.stringify(event)}\n\n`;
-
-      return new Response(events + 'data: [DONE]\n\n', {
-        headers: { 'content-type': 'text/event-stream' }
-      });
-    }
-  });
-
-  assert.ok(peer.port, 'missing address');
-  const base = peer.url.origin;
-  const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
-
-  await auth.replace(
-    { subject: 'u', clientId: 'c', sharing: true, refreshToken: 'r' },
-    { accessToken: 'token', expiresIn: 3600 }
-  );
-  const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
+  using mock = createAiMock();
   const domain = () =>
     Layer.merge(Notes.layer, Settings.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -97,7 +54,11 @@ testStable('title workflow checkpoints and fences stale and renamed notes', asyn
       Layer.succeed(Database, { store: context }),
       Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
       agentsLayer({
-        model: () => Effect.succeed(model),
+        model: (tier, call) => {
+          calls++;
+
+          return mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError));
+        },
         language: Effect.succeed('en'),
         rules: Effect.succeed(defaultAgentRules),
         searchSources: () => Effect.succeed([])
@@ -161,6 +122,17 @@ testStable('title workflow checkpoints and fences stale and renamed notes', asyn
           }).pipe(Effect.provide(services()))
         )
       );
+    const plan = (event: Awaited<ReturnType<typeof request>>, output: string, hold = false) =>
+      mock.next(titleAgent, {
+        input: {
+          prompt: JSON.stringify({
+            title: event.title,
+            messages: event.messages.map(({ role, text }) => ({ role, text }))
+          })
+        },
+        output,
+        hold
+      });
     const first = await make();
     const stale = await request(first.note.id);
 
@@ -174,6 +146,8 @@ testStable('title workflow checkpoints and fences stale and renamed notes', asyn
 
     await expect(execute(old, 'old-title')).rejects.toSatisfy(() => true);
     assert.strictEqual(calls, 0);
+    const currentPlan = plan(current, 'Cell Biology');
+
     await execute(current, 'replay-title');
     assert.strictEqual(calls, 1);
     context.close();
@@ -185,7 +159,7 @@ testStable('title workflow checkpoints and fences stale and renamed notes', asyn
     );
     await execute(current, 'replay-title');
     assert.strictEqual(calls, 1, 'a committed title must replay without a new model call');
-    expect(bodies[0]!).toMatch(/Plants/);
+    expect((await currentPlan.called).input.prompt).toContain('Plants');
     const renamed = await make();
     const renamedRequest = await request(renamed.note.id);
 
@@ -197,23 +171,32 @@ testStable('title workflow checkpoints and fences stale and renamed notes', asyn
     const race = await make();
     const racing = await request(race.note.id);
 
-    during = async () => {
-      await run(Effect.flatMap(Notes, (c) => c.renameNote({ id: race.note.id, title: 'Mine' })));
-    };
-    await expect(execute(racing, 'race-title')).rejects.toSatisfy(() => true);
+    const racingPlan = plan(racing, 'Cell Biology', true);
+    const raceExecution = execute(racing, 'race-title');
+    const raceResult = raceExecution.then(
+      () => false,
+      () => true
+    );
+
+    await racingPlan.called;
+    await run(Effect.flatMap(Notes, (c) => c.renameNote({ id: race.note.id, title: 'Mine' })));
+    racingPlan.release();
+    expect(await raceResult).toBe(true);
     assert.ok((await run(Effect.flatMap(Notes, (c) => c.note(race.note.id)))).title === 'Mine');
     const invalid = await make();
 
-    output = 'x'.repeat(201);
-    await expect(execute(await request(invalid.note.id), 'invalid-title')).rejects.toSatisfy(
-      () => true
-    );
+    const invalidRequest = await request(invalid.note.id);
+
+    plan(invalidRequest, 'x'.repeat(201));
+    await expect(execute(invalidRequest, 'invalid-title')).rejects.toSatisfy(() => true);
     assert.ok(
       (await run(Effect.flatMap(Notes, (c) => c.note(invalid.note.id)))).titleSource ===
         'provisional'
     );
-    output = 'Valid retry';
-    await execute(await request(invalid.note.id), 'retry-title');
+    const retryRequest = await request(invalid.note.id);
+
+    plan(retryRequest, 'Valid retry');
+    await execute(retryRequest, 'retry-title');
     assert.ok(
       (await run(Effect.flatMap(Notes, (c) => c.note(invalid.note.id)))).title === 'Valid retry'
     );
@@ -235,7 +218,7 @@ testStable('title workflow checkpoints and fences stale and renamed notes', asyn
       mergeEvent.type === 'NoteTitleRequested',
       'merge must queue the existing title workflow'
     );
-    output = 'Combined Biology';
+    plan(mergeEvent, 'Combined Biology');
     await execute(mergeEvent, 'merged-title');
     expect((await run(Effect.flatMap(Notes, (c) => c.note(merged.id)))).title).toBe(
       'Combined Biology'
@@ -244,10 +227,8 @@ testStable('title workflow checkpoints and fences stale and renamed notes', asyn
       (await run(Effect.flatMap(Notes, (c) => c.note(mergeFirst.note.id)))).archivedAt
     ).not.toBeNull();
   } finally {
-    await auth.dispose();
     context.close();
     await location.cleanup();
-    await peer.stop(true);
   }
 });
 

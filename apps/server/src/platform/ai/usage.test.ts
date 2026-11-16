@@ -11,8 +11,8 @@
  */
 
 import type { LanguageModelV3, LanguageModelV3Usage } from '@ai-sdk/provider';
-import { agentRunIdSchema } from '@study/contracts/ai/progress';
-import type { UsageRecord } from '@study/contracts/settings/usage';
+import { agentRunIdSchema } from '@study/contracts';
+import type { UsageRecord } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { expect } from 'vite-plus/test';
 

@@ -10,12 +10,12 @@ async function lint(source: string, path = 'apps/client/src/features/example/exa
 testStable('enforces shared recovery actions including imported aliases', async () => {
   expect(
     await lint(
-      `import { Button as Action } from '@study/ui/button'; const view = <Action onClick={retry}>{t('Retry')}</Action>;`
+      `import { Button as Action } from '@study/ui'; const view = <Action onClick={retry}>{t('Retry')}</Action>;`
     )
   ).toHaveLength(1);
   expect(
     await lint(
-      `import { RetryButton } from '@study/ui/action-button'; const view = <RetryButton label={t('Retry')} onClick={retry} />;`
+      `import { RetryButton } from '@study/ui'; const view = <RetryButton label={t('Retry')} onClick={retry} />;`
     )
   ).toHaveLength(0);
   expect(
@@ -26,25 +26,23 @@ testStable('enforces shared recovery actions including imported aliases', async 
 testStable('enforces shared pagination while allowing owner-specific action labels', async () => {
   expect(
     await lint(
-      `import { Button } from '@study/ui/button'; const view = <Button disabled={pending}>{t('LibraryMore')}</Button>;`
+      `import { Button } from '@study/ui'; const view = <Button disabled={pending}>{t('LibraryMore')}</Button>;`
     )
   ).toHaveLength(1);
   expect(
-    await lint(
-      `import { Button } from '@study/ui/button'; const view = <Button>{t('PageEdit')}</Button>;`
-    )
+    await lint(`import { Button } from '@study/ui'; const view = <Button>{t('PageEdit')}</Button>;`)
   ).toHaveLength(0);
 });
 
 testStable('requires tooltip-backed icon actions without confusing text buttons', async () => {
   expect(
     await lint(
-      `import { Button } from '@study/ui/button'; const view = <Button size="icon-sm" aria-label={t('Close')}><X /></Button>;`
+      `import { Button } from '@study/ui'; const view = <Button size="icon-sm" aria-label={t('Close')}><X /></Button>;`
     )
   ).toHaveLength(1);
   expect(
     await lint(
-      `import { Button } from '@study/ui/button'; const view = <Button aria-label={label}>Visible action</Button>;`
+      `import { Button } from '@study/ui'; const view = <Button aria-label={label}>Visible action</Button>;`
     )
   ).toHaveLength(0);
 });
@@ -69,7 +67,7 @@ testStable('standardizes expandable sections and permits the package implementat
 testStable('standardizes selected-item headings using imported aliases', async () => {
   expect(
     await lint(
-      `import { SelectionSurface as Surface } from '@study/ui/selection'; const view = <Surface.Header><h2>Archive</h2></Surface.Header>;`
+      `import { SelectionSurface as Surface } from '@study/ui'; const view = <Surface.Header><h2>Archive</h2></Surface.Header>;`
     )
   ).toHaveLength(1);
   expect(await lint(`const view = <header><h2>Article heading</h2></header>;`)).toHaveLength(0);
@@ -78,12 +76,12 @@ testStable('standardizes selected-item headings using imported aliases', async (
 testStable('standardizes selection empty states without banning content containers', async () => {
   expect(
     await lint(
-      `import { SelectionSurface as Surface } from '@study/ui/selection'; const view = <Surface.Empty><strong>Empty</strong></Surface.Empty>;`
+      `import { SelectionSurface as Surface } from '@study/ui'; const view = <Surface.Empty><strong>Empty</strong></Surface.Empty>;`
     )
   ).toHaveLength(1);
   expect(
     await lint(
-      `import { SelectionSurface as Surface } from '@study/ui/selection'; const view = <Surface.EmptyState title="Empty" />;`
+      `import { SelectionSurface as Surface } from '@study/ui'; const view = <Surface.EmptyState title="Empty" />;`
     )
   ).toHaveLength(0);
 });
@@ -91,7 +89,7 @@ testStable('standardizes selection empty states without banning content containe
 testStable('standardizes search scaffolding only on selection surfaces', async () => {
   expect(
     await lint(
-      `import { SelectionSurface as S } from '@study/ui/selection'; const view = <S.Search><input type="search" /></S.Search>;`
+      `import { SelectionSurface as S } from '@study/ui'; const view = <S.Search><input type="search" /></S.Search>;`
     )
   ).toHaveLength(1);
   expect(
@@ -102,12 +100,12 @@ testStable('standardizes search scaffolding only on selection surfaces', async (
 testStable('requires shared selectable rows rather than assembling labels and icons', async () => {
   expect(
     await lint(
-      `import { SelectionSurface as S } from '@study/ui/selection'; const view = <S.Material><FileText /><span>Title</span></S.Material>;`
+      `import { SelectionSurface as S } from '@study/ui'; const view = <S.Material><FileText /><span>Title</span></S.Material>;`
     )
   ).toHaveLength(1);
   expect(
     await lint(
-      `import { SelectionSurface as S } from '@study/ui/selection'; const view = <S.Item label="Title" icon={<FileText />} />;`
+      `import { SelectionSurface as S } from '@study/ui'; const view = <S.Item label="Title" icon={<FileText />} />;`
     )
   ).toHaveLength(0);
 });
@@ -115,21 +113,19 @@ testStable('requires shared selectable rows rather than assembling labels and ic
 testStable('requires primitive-backed shared dialog dismissal', async () => {
   expect(
     await lint(
-      `import { DialogClose as Close } from '@study/ui/dialog'; const view = <Close render={<Button />}>Close</Close>;`
+      `import { DialogClose as Close } from '@study/ui'; const view = <Close render={<Button />}>Close</Close>;`
     )
   ).toHaveLength(1);
   expect(
     await lint(
-      `import { DialogDismissButton } from '@study/ui/dialog-form-actions'; const view = <DialogDismissButton label="Close" />;`
+      `import { DialogDismissButton } from '@study/ui'; const view = <DialogDismissButton label="Close" />;`
     )
   ).toHaveLength(0);
 });
 
 testStable('standardizes labelled text controls but permits native document inputs', async () => {
   expect(
-    await lint(
-      `import { Input } from '@study/ui/input'; const view = <label>Name<Input /></label>;`
-    )
+    await lint(`import { Input } from '@study/ui'; const view = <label>Name<Input /></label>;`)
   ).toHaveLength(1);
   expect(await lint(`const view = <label><input type="checkbox" />Choice</label>;`)).toHaveLength(
     0
@@ -139,12 +135,12 @@ testStable('standardizes labelled text controls but permits native document inpu
 testStable('standardizes directional actions while keeping unrelated icons available', async () => {
   expect(
     await lint(
-      `import { Button } from '@study/ui/button'; import { NextIcon } from '@study/icons'; const view = <Button>Next<NextIcon /></Button>;`
+      `import { Button } from '@study/ui'; import { NextIcon } from '@study/icons'; const view = <Button>Next<NextIcon /></Button>;`
     )
   ).toHaveLength(1);
   expect(
     await lint(
-      `import { Button } from '@study/ui/button'; const view = <Button>Open<ArrowUpRight /></Button>;`
+      `import { Button } from '@study/ui'; const view = <Button>Open<ArrowUpRight /></Button>;`
     )
   ).toHaveLength(0);
 });
@@ -152,7 +148,7 @@ testStable('standardizes directional actions while keeping unrelated icons avail
 testStable('standardizes dialog heading composition using imported aliases', async () => {
   expect(
     await lint(
-      `import { DialogHeader as Header } from '@study/ui/dialog'; const view = <Header><DialogTitle>Title</DialogTitle></Header>;`
+      `import { DialogHeader as Header } from '@study/ui'; const view = <Header><DialogTitle>Title</DialogTitle></Header>;`
     )
   ).toHaveLength(1);
   expect(await lint(`const view = <header><h1>Document content</h1></header>;`)).toHaveLength(0);
@@ -161,12 +157,12 @@ testStable('standardizes dialog heading composition using imported aliases', asy
 testStable('standardizes settings switches without banning custom setting actions', async () => {
   expect(
     await lint(
-      `import { Settings as S } from '@study/ui/settings'; import { SwitchControl } from '@study/ui/switch-control'; const view = <S.Row title="Title"><SwitchControl /></S.Row>;`
+      `import { Settings as S } from '@study/ui'; import { SwitchControl } from '@study/ui'; const view = <S.Row title="Title"><SwitchControl /></S.Row>;`
     )
   ).toHaveLength(1);
   expect(
     await lint(
-      `import { Settings as S } from '@study/ui/settings'; const view = <S.Row title="Title"><CustomAction /></S.Row>;`
+      `import { Settings as S } from '@study/ui'; const view = <S.Row title="Title"><CustomAction /></S.Row>;`
     )
   ).toHaveLength(0);
 });
@@ -174,12 +170,12 @@ testStable('standardizes settings switches without banning custom setting action
 testStable('standardizes settings selects and retains custom compound rows', async () => {
   expect(
     await lint(
-      `import { Settings } from '@study/ui/settings'; import { SelectControl } from '@study/ui/select-control'; const view = <Settings.Row title="Title"><SelectControl /></Settings.Row>;`
+      `import { Settings } from '@study/ui'; import { SelectControl } from '@study/ui'; const view = <Settings.Row title="Title"><SelectControl /></Settings.Row>;`
     )
   ).toHaveLength(1);
   expect(
     await lint(
-      `import { Settings } from '@study/ui/settings'; const view = <Settings.SelectRow title="Title" value="one" />;`
+      `import { Settings } from '@study/ui'; const view = <Settings.SelectRow title="Title" value="one" />;`
     )
   ).toHaveLength(0);
 });
@@ -187,12 +183,12 @@ testStable('standardizes settings selects and retains custom compound rows', asy
 testStable('standardizes numeric preferences without moving persistence into UI', async () => {
   expect(
     await lint(
-      `import { Settings } from '@study/ui/settings'; import { NumberControl } from '@study/ui/number-control'; const view = <Settings.Row title="Title"><NumberControl /></Settings.Row>;`
+      `import { Settings } from '@study/ui'; import { NumberControl } from '@study/ui'; const view = <Settings.Row title="Title"><NumberControl /></Settings.Row>;`
     )
   ).toHaveLength(1);
   expect(
     await lint(
-      `import { Settings } from '@study/ui/settings'; const view = <Settings.NumberRow title="Title" onSubmit={save} />;`
+      `import { Settings } from '@study/ui'; const view = <Settings.NumberRow title="Title" onSubmit={save} />;`
     )
   ).toHaveLength(0);
 });
@@ -202,22 +198,22 @@ testStable(
   async () => {
     expect(
       await lint(
-        `import * as UI from '@study/ui/button'; const view = <UI.Button>{t('Retry')}</UI.Button>;`
+        `import * as UI from '@study/ui'; const view = <UI.Button>{t('Retry')}</UI.Button>;`
       )
     ).toHaveLength(1);
     expect(
       await lint(
-        `import { Button } from '@study/ui/button'; function Custom({ Button }) { return <Button>{t('Retry')}</Button>; }`
+        `import { Button } from '@study/ui'; function Custom({ Button }) { return <Button>{t('Retry')}</Button>; }`
       )
     ).toHaveLength(0);
     expect(
       await lint(
-        `import { Button } from '@study/ui/button'; const view = <Button>{format('Retry')}</Button>;`
+        `import { Button } from '@study/ui'; const view = <Button>{format('Retry')}</Button>;`
       )
     ).toHaveLength(0);
     expect(
       await lint(
-        `import { Settings as S } from '@study/ui/settings'; const view = <S.Row title="Title"><SwitchControl /></S.Row>;`
+        `import { Settings as S } from '@study/ui'; const view = <S.Row title="Title"><SwitchControl /></S.Row>;`
       )
     ).toHaveLength(0);
   }
@@ -228,12 +224,12 @@ testStable(
   async () => {
     expect(
       await lint(
-        `import { Settings } from '@study/ui/settings'; import { RangeControl } from '@study/ui/range-control'; const view = <Settings.Row title="Title"><RangeControl /></Settings.Row>;`
+        `import { Settings } from '@study/ui'; import { RangeControl } from '@study/ui'; const view = <Settings.Row title="Title"><RangeControl /></Settings.Row>;`
       )
     ).toHaveLength(1);
     expect(
       await lint(
-        `import { RangeControl } from '@study/ui/range-control'; const view = <RangeControl label="Zoom" />;`
+        `import { RangeControl } from '@study/ui'; const view = <RangeControl label="Zoom" />;`
       )
     ).toHaveLength(0);
   }

@@ -11,10 +11,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import * as c from '@study/contracts/pages/evidence';
-import { citationSchema, exactInputSchema } from '@study/contracts/pages/schemas';
-import type { ExactPageInput } from '@study/contracts/pages/types';
+import { StudyError } from '@study/contracts';
+import * as c from '@study/contracts';
+import { pageCitationSchema as citationSchema, exactInputSchema } from '@study/contracts';
+import type { ExactPageInput } from '@study/contracts';
 import { Schema } from 'effect';
 
 import { validRange } from '#server/features/pages/decoders/range';

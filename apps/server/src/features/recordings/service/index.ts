@@ -12,13 +12,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { RecordingId, NoteId } from '@study/contracts/ids';
-import type { copyNoteContentSchema } from '@study/contracts/notes/notes';
+import type { RecordingId, NoteId } from '@study/contracts';
+import type { copyNoteContentSchema } from '@study/contracts';
 import type {
   postRecordingInputSchema,
   appendRecordingInputSchema,
   recordingPageInputSchema
-} from '@study/contracts/recordings/rpc';
+} from '@study/contracts';
 
 import { RecordingCopyStore } from '#server/features/recordings/store/copy';
 import {

@@ -1,7 +1,6 @@
-import type { learningExportFormatSchema } from '@study/contracts/materials/export';
-import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
+import type { learningExportFormatSchema, MaterialVersionDetailDto } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { downloadFile } from '@study/ui/download';
+import { downloadFile } from '@study/ui';
 
 type Format = typeof learningExportFormatSchema.Type;
 

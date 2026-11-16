@@ -1,7 +1,6 @@
 import { RegistryContext, useAtomValue } from '@effect/atom-react';
-import { StudyError } from '@study/contracts/errors';
-import type { NoteId, MessageId, VersionId } from '@study/contracts/ids';
-import type { chatMessageSchema } from '@study/contracts/notes/schemas';
+import { StudyError } from '@study/contracts';
+import type { NoteId, MessageId, VersionId, chatMessageSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { Atom } from 'effect/reactivity';
 import { useContext, useEffect, useRef } from 'react';

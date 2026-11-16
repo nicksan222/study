@@ -1,5 +1,4 @@
 import type { Locale } from './catalog.ts';
-import { joined } from './formatting.ts';
 import { text } from './i18n.ts';
 
 export type Day = { year: number; month: number; day: number };
@@ -43,17 +42,6 @@ export function age(l: Locale, s: number): string {
   return `${v}${l === 'english' ? en : it}`;
 }
 
-export const ago = (l: Locale, s: number) =>
-  s < 60 ? text(l, 'JustNow') : `${age(l, s)} ${l === 'english' ? 'ago' : 'fa'}`;
-
-export function jobDuration(s: number): string {
-  s = Math.max(0, s);
-
-  return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${s % 60} s`;
-}
-
-export const statusWithDuration = (status: string, s: number) => joined([status, jobDuration(s)]);
-
 export function recordingClock(s: number): string {
   const h = Math.floor(s / 3600),
     m = Math.floor(s / 60) % 60,
@@ -61,11 +49,6 @@ export function recordingClock(s: number): string {
 
   return h ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
 }
-
-export const recordingMoment = (l: Locale, ms: number) =>
-  l === 'english'
-    ? `at ${recordingClock(Math.floor(ms / 1000))} in the recording`
-    : `al minuto ${recordingClock(Math.floor(ms / 1000))} della registrazione`;
 
 export function timestamp(ms: number): string {
   const s = Math.floor(ms / 1000),
@@ -75,7 +58,7 @@ export function timestamp(ms: number): string {
   return h ? `${h}:${pad(m)}:${pad(s % 60)}` : `${m}:${pad(s % 60)}`;
 }
 
-export const timeOfDay = (h: number, m: number) => `${pad(h)}:${pad(m)}`;
+const timeOfDay = (h: number, m: number) => `${pad(h)}:${pad(m)}`;
 
 export function dayLabel(l: Locale, today: Day, d: Day): string {
   const n = diff(today, d);
@@ -99,9 +82,6 @@ export function moment(l: Locale, today: Day, d: Day, time: [number, number]): s
         ? `${d.day} ${month(l, d.month)} ${clock}`
         : `${d.day} ${month(l, d.month)} ${d.year}`;
 }
-
-export const recordingFileName = (l: Locale, d: Day, time: [number, number]) =>
-  `${text(l, 'RecordingNoteTitle')} ${date(d)} ${pad(time[0])}.${pad(time[1])}.wav`;
 
 export const pastedImageName = (l: Locale, d: Day, time: [number, number, number], ext: string) =>
   `${text(l, 'PastedImageName')} ${date(d)} ${time.map(pad).join('.')}.${ext}`;

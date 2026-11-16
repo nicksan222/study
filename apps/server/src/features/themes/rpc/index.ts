@@ -13,7 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { ThemesRpc } from '@study/contracts/themes/rpc';
+import { ThemesRpc } from '@study/contracts';
 
 import { Themes } from '#server/features/themes/service/index';
 import { defineRpc } from '#server/platform/definitions/define-rpc';

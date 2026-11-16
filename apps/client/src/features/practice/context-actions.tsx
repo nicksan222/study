@@ -1,10 +1,8 @@
-import { quizAttemptIdSchema } from '@study/contracts/ids';
-import type { ProjectId } from '@study/contracts/ids';
-import type { MaterialDetailDto } from '@study/contracts/materials/schemas';
+import { quizAttemptIdSchema } from '@study/contracts';
+import type { ProjectId, MaterialDetailDto } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { ArchiveIcon, OpenIcon, PageIcon, StartIcon, RetryIcon } from '@study/icons';
-import { ErrorState } from '@study/ui/error-state';
-import { WorkspaceCard } from '@study/ui/workspace';
+import { ErrorState, WorkspaceCard } from '@study/ui';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 
 import { useI18n } from '#client/lib/i18n.tsx';

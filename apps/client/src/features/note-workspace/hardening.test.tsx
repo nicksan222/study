@@ -1,15 +1,19 @@
-import { StudyError } from '@study/contracts/errors';
-import { projectIdSchema, noteIdSchema } from '@study/contracts/ids';
-import { noteSelectionSchema } from '@study/contracts/notes/context';
-import { noteDeletionSchema } from '@study/contracts/notes/deletion';
-import { chatMessageSchema, noteSchema } from '@study/contracts/notes/schemas';
-import { transformSnapshotSchema } from '@study/contracts/pages/transform';
-import { projectSchema } from '@study/contracts/projects/schemas';
-import { endpoints } from '@study/contracts/rpc';
-import { blockIdSchema } from '@study/contracts/sources/schemas';
-import { executionSchema } from '@study/contracts/workflows/schemas';
+import {
+  StudyError,
+  projectIdSchema,
+  noteIdSchema,
+  noteSelectionSchema,
+  noteDeletionSchema,
+  chatMessageSchema,
+  noteSchema,
+  transformSnapshotSchema,
+  projectSchema,
+  endpoints,
+  blockIdSchema,
+  executionSchema
+} from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
-import { toastManager } from '@study/ui/toast';
+import { toastManager } from '@study/ui';
 import {
   createMemoryHistory,
   createRootRoute,

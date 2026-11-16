@@ -1,4 +1,4 @@
-import type { ProjectId } from '@study/contracts/ids';
+import type { ProjectId } from '@study/contracts';
 
 import { defineTable, sql, check, integer, text } from '../schema-builder.ts';
 import { sqliteBoolean } from './column-types.ts';

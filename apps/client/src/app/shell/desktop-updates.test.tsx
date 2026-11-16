@@ -1,5 +1,5 @@
 import { testStable } from '@study/testing/vitest';
-import { toastManager } from '@study/ui/toast';
+import { toastManager } from '@study/ui';
 import { act, render, waitFor } from '@testing-library/react';
 import { beforeEach, expect, vi } from 'vite-plus/test';
 

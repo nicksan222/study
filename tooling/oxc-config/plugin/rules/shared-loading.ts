@@ -1,3 +1,25 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Reserves initial client page loading for the shared route transition.              │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Non-test client Page/PageView/Screen components rendering recognized loading visuals in  │
+ * │ loading branches. Routes use RoutePending or null for pendingComponent, and RoutePending │
+ * │ returns nothing visible. Contextual component indicators and null page guards remain     │
+ * │ legal.                                                                                   │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/client/src/routes/library.tsx                                                  │
+ * │   const options = { pendingComponent: RoutePending };                                    │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   function LibraryPage({ query }) {                                                      │
+ * │     if (query.isLoading) return <Spinner />;                                             │
+ * │     return <Content />;                                                                  │
+ * │   }                                                                                      │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 import type { ESTree } from 'vite-plus/lint/plugins';
 

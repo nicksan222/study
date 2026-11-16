@@ -1,8 +1,6 @@
-import { StudyError } from '@study/contracts/errors';
-import { noteSchema } from '@study/contracts/notes/schemas';
-import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
+import { StudyError, noteSchema, defaultWorkspacePreferences } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
-import { WorkspaceCard } from '@study/ui/workspace';
+import { WorkspaceCard } from '@study/ui';
 import {
   createRootRoute,
   createRoute,

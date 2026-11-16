@@ -10,7 +10,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { agentProgressInputSchema, agentProgressPageSchema } from '@study/contracts/ai/progress';
+import { agentProgressInputSchema, agentProgressPageSchema } from '@study/contracts';
 import { Schema } from 'effect';
 
 import { defineStore, storeQuery } from '#server/platform/definitions/define-store';

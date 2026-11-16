@@ -1,5 +1,4 @@
-import { noteSchema } from '@study/contracts/notes/schemas';
-import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
+import { noteSchema, defaultWorkspacePreferences } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import {
   createRootRoute,

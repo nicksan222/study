@@ -1,9 +1,9 @@
-import type { SourceId } from '@study/contracts/ids';
-import { encodeBlockContent } from '@study/contracts/sources/document';
-import type { Document } from '@study/contracts/sources/document';
-import { documentSchema } from '@study/contracts/sources/schemas';
+import type { SourceId } from '@study/contracts';
+import { encodeBlockContent } from '@study/contracts';
+import type { Document } from '@study/contracts';
+import { documentSchema } from '@study/contracts';
 import type { DbTransaction } from '@study/db';
-import { blocks, content_snapshots, chunks } from '@study/db/schema';
+import { blocks, content_snapshots, chunks } from '@study/db';
 import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
 

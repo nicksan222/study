@@ -16,8 +16,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { StudyError } from '@study/contracts/errors';
-import type { SourceId } from '@study/contracts/ids';
+import type { StudyError } from '@study/contracts';
+import type { SourceId } from '@study/contracts';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';

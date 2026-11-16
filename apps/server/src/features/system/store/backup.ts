@@ -13,7 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { backupScopeSchema } from '@study/contracts/system/backups';
+import { backupScopeSchema } from '@study/contracts';
 import { sql } from '@study/db';
 import type { SQL } from '@study/db';
 import { Schema } from 'effect';

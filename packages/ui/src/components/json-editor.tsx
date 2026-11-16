@@ -1,7 +1,8 @@
-import { Button } from '@study/ui/button';
-import { Dialog, DialogPopup, DialogHeader, DialogTitle, DialogFooter } from '@study/ui/dialog';
-import { Textarea } from '@study/ui/textarea';
 import { useId, useRef } from 'react';
+
+import { Button } from './button.tsx';
+import { Dialog, DialogPopup, DialogHeader, DialogTitle, DialogFooter } from './dialog.tsx';
+import { Textarea } from './textarea.tsx';
 
 interface DialogLabels {
   title: string;

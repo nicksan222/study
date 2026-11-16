@@ -1,7 +1,9 @@
-import { StudyError } from '@study/contracts/errors';
-import { chatMessageSchema } from '@study/contracts/notes/schemas';
-import { summarySchema as materialSummarySchema } from '@study/contracts/pages/schemas';
-import { sourceKinds } from '@study/contracts/sources/sniff';
+import {
+  StudyError,
+  chatMessageSchema,
+  summarySchema as materialSummarySchema,
+  sourceKinds
+} from '@study/contracts';
 import { mediaSize } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import {

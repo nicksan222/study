@@ -68,7 +68,17 @@ testStable(
     const diagnostics = await lintRule(
       'theme-colors',
       {
-        'apps/client/src/colors.tsx': `export const view = <div className="bg-background text-foreground"><p className="hover:border-t-red-500" style={{ color: "darkslateblue" }}>A blue sky</p><div className="[color:#abc]" /><div style={{ backgroundImage: "linear-gradient(red, blue)", "color": "red" }} /></div>;`
+        'apps/client/src/colors.tsx': `
+        export const view = (
+          <div className="bg-background text-foreground">
+            <p className="hover:border-t-red-500" style={{ color: 'darkslateblue' }}>
+              A blue sky
+            </p>
+            <div className="[color:#abc]" />
+            <div style={{ backgroundImage: 'linear-gradient(red, blue)', color: 'red' }} />
+          </div>
+        );
+      `
       },
       true
     );

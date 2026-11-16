@@ -1,16 +1,17 @@
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { CloseIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
+import { createContext, use, useState } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
+
+import { cn } from '../utils.ts';
+import { Button } from './button.tsx';
 import {
   DIALOG_BACKDROP_CLASS,
   DIALOG_MEDIA_BACKDROP_CLASS,
   DIALOG_MEDIA_POPUP_CLASS,
   DIALOG_MOBILE_SHEET_CLASS,
   DIALOG_POPUP_CLASS
-} from '@study/ui/dialog-styles';
-import { cn } from '@study/ui/utils';
-import { createContext, use, useState } from 'react';
-import type { ComponentProps, ReactNode } from 'react';
+} from './dialog-styles.ts';
 
 const ControlledOpenContext = createContext<boolean | undefined>(undefined);
 

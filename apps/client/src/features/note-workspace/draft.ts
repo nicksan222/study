@@ -1,4 +1,4 @@
-import type { SourceId } from '@study/contracts/ids';
+import type { SourceId } from '@study/contracts';
 import type { KeyboardEvent } from 'react';
 
 import type { AskInput } from './note-workspace.queries';

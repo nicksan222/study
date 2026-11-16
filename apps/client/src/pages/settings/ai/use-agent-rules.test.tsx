@@ -1,6 +1,5 @@
-import { AgentRule } from '@study/contracts/settings/schemas';
-import { defaultAgentRules } from '@study/contracts/settings/types';
-import type { AgentRules } from '@study/contracts/settings/types';
+import { AgentRule, defaultAgentRules } from '@study/contracts';
+import type { AgentRules } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { expect, vi } from 'vite-plus/test';

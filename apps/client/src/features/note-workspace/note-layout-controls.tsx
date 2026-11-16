@@ -1,8 +1,6 @@
-import type { NoteId } from '@study/contracts/ids';
+import type { NoteId } from '@study/contracts';
 import { DockBelowIcon, DockBesideIcon, GenerateIcon } from '@study/icons';
-import { IconButton } from '@study/ui/icon-button';
-import { WorkspaceCard } from '@study/ui/workspace';
-import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
+import { IconButton, WorkspaceCard, WorkspaceDeskSurface as Desk } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

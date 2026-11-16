@@ -1,4 +1,4 @@
-import { executionIdSchema } from '@study/contracts/workflows/schemas';
+import { executionIdSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { expect } from 'vite-plus/test';

@@ -1,13 +1,11 @@
-import { StudyError } from '@study/contracts/errors';
 import {
+  StudyError,
   materialDeletionPreviewSchema,
-  materialDeletionSchema
-} from '@study/contracts/materials/deletion';
-import {
+  materialDeletionSchema,
   materialVersionDetailSchema,
-  materialVersionSummarySchema
-} from '@study/contracts/materials/schemas';
-import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
+  materialVersionSummarySchema,
+  defaultWorkspacePreferences
+} from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { screen, waitFor, within } from '@testing-library/react';

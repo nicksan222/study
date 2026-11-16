@@ -12,11 +12,11 @@
  */
 
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import { sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { spawnTestProcess } from '@study/testing/process';
+import { spawnTestProcess } from '@study/testing/vitest';
 import { testStable } from '@study/testing/vitest';
 import { Effect, FileSystem, Path } from 'effect';
 import { assert, expect } from 'vite-plus/test';

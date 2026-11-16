@@ -10,10 +10,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyRpc } from '@study/contracts/rpc';
+import { StudyRpc } from '@study/contracts';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { spawnTestProcess } from '@study/testing/process';
+import { spawnTestProcess } from '@study/testing/vitest';
 import { testStable, waitFor } from '@study/testing/vitest';
 import { Effect } from 'effect';
 import { assert, expect } from 'vite-plus/test';

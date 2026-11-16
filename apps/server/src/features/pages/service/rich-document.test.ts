@@ -12,12 +12,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { sourceIdSchema } from '@study/contracts/ids';
-import { MaterialsRpc } from '@study/contracts/materials/rpc';
-import { NotesRpc } from '@study/contracts/notes/rpc';
-import { PagesRpc } from '@study/contracts/pages/rpc';
-import { createBlock, validBlockTextRange } from '@study/contracts/sources/document';
-import { documentSchema } from '@study/contracts/sources/schemas';
+import { sourceIdSchema } from '@study/contracts';
+import { MaterialsRpc } from '@study/contracts';
+import { NotesRpc } from '@study/contracts';
+import { PagesRpc } from '@study/contracts';
+import { createBlock, validBlockTextRange } from '@study/contracts';
+import { documentSchema } from '@study/contracts';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';

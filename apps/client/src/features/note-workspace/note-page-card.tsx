@@ -1,9 +1,6 @@
-import type { NoteId } from '@study/contracts/ids';
-import type { PageSummary } from '@study/contracts/pages/types';
+import type { NoteId, PageSummary } from '@study/contracts';
 import { PageIcon } from '@study/icons';
-import { ChatEntryLabel } from '@study/ui/chat';
-import { WorkspaceAttachments } from '@study/ui/workspace';
-import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
+import { ChatEntryLabel, WorkspaceAttachments, WorkspaceDeskSurface as Desk } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

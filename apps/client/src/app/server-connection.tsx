@@ -1,6 +1,5 @@
 import { rpc } from '@study/contracts/react';
-import { RetryButton } from '@study/ui/action-button';
-import { ErrorState } from '@study/ui/error-state';
+import { RetryButton, ErrorState } from '@study/ui';
 import { Activity, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 

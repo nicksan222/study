@@ -11,13 +11,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { PageVersionId, SourceId } from '@study/contracts/ids';
-import { pageVersionIdSchema } from '@study/contracts/ids';
-import { NotesRpc } from '@study/contracts/notes/rpc';
-import type { chatMessageSchema } from '@study/contracts/notes/schemas';
-import { createBlock } from '@study/contracts/sources/document';
+import type { PageVersionId, SourceId } from '@study/contracts';
+import { pageVersionIdSchema } from '@study/contracts';
+import { NotesRpc } from '@study/contracts';
+import type { chatMessageSchema } from '@study/contracts';
+import { createBlock } from '@study/contracts';
 import { eq, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';

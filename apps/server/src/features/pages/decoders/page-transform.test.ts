@@ -11,15 +11,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { pageTransformOutputSchema } from '@study/contracts/ai/page-transform';
-import { sourceIdSchema } from '@study/contracts/ids';
-import { materialGenerationInputSchema } from '@study/contracts/materials/schemas';
-import { runSelectionContextSchema } from '@study/contracts/notes/context';
-import {
-  transformPublicationSchema,
-  transformRequestSchema
-} from '@study/contracts/pages/transform';
-import { createBlock } from '@study/contracts/sources/document';
+import { pageTransformOutputSchema } from '@study/contracts';
+import { sourceIdSchema } from '@study/contracts';
+import { materialGenerationInputSchema } from '@study/contracts';
+import { runSelectionContextSchema } from '@study/contracts';
+import { transformPublicationSchema, transformRequestSchema } from '@study/contracts';
+import { createBlock } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
 import { assert } from 'vite-plus/test';

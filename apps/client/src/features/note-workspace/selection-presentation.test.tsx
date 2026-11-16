@@ -1,4 +1,4 @@
-import { noteSelectionTargetSchema } from '@study/contracts/notes/context';
+import { noteSelectionTargetSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

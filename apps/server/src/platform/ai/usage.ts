@@ -12,7 +12,7 @@
  */
 
 import type { LanguageModelV3, LanguageModelV3Usage } from '@ai-sdk/provider';
-import type { UsageRecord } from '@study/contracts/settings/usage';
+import type { UsageRecord } from '@study/contracts';
 import { wrapLanguageModel } from 'ai';
 
 /** SDK provider implementations are the strategies; accounting only consumes their canonical usage. */

@@ -12,7 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import { PDFDocument } from 'pdf-lib';
 
 export async function decodePdf(bytes: Uint8Array): Promise<number> {

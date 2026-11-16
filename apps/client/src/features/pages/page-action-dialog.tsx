@@ -1,5 +1,4 @@
-import { Dialog, DialogPopup } from '@study/ui/dialog';
-import { DialogHeading } from '@study/ui/dialog-heading';
+import { Dialog, DialogPopup, DialogHeading } from '@study/ui';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

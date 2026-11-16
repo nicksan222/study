@@ -1,7 +1,9 @@
-import { materialSummarySchema } from '@study/contracts/materials/schemas';
-import { automaticProjectIcon } from '@study/contracts/projects/schemas';
+import {
+  materialSummarySchema,
+  automaticProjectIcon,
+  defaultWorkspacePreferences
+} from '@study/contracts';
 import { configureRpcTransport } from '@study/contracts/react';
-import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { act, render, screen, waitFor, within } from '@testing-library/react';

@@ -12,11 +12,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { setNoteSettledInputSchema } from '@study/contracts/notes/rpc';
-import { noteSummariesSchema } from '@study/contracts/notes/schemas';
+import { StudyError } from '@study/contracts';
+import { setNoteSettledInputSchema } from '@study/contracts';
+import { noteSummariesSchema } from '@study/contracts';
 import { eq, sql } from '@study/db';
-import { notes, note_deletions, note_sidebar_preferences } from '@study/db/schema';
+import { notes, note_deletions, note_sidebar_preferences } from '@study/db';
 import { Schema } from 'effect';
 
 import { defineStore, storeQuery, storeMutation } from '#server/platform/definitions/define-store';

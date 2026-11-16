@@ -14,7 +14,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { sourcesOutputSchema } from '@study/contracts/ai/sources';
+import { sourcesOutputSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Schema, Stream } from 'effect';
 import type { Response } from 'effect/ai';

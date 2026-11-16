@@ -1,5 +1,4 @@
-import { projectIdSchema } from '@study/contracts/ids';
-import { StudyRpc } from '@study/contracts/rpc';
+import { projectIdSchema, StudyRpc } from '@study/contracts';
 import { createTestDatabase } from '@study/db/testing';
 import { makeStudyClient } from '@study/server/client';
 import { App, serve } from '@study/server/runtime';

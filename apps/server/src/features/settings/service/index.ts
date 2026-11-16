@@ -12,8 +12,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { JsonValue } from '@study/contracts/json';
+import { StudyError } from '@study/contracts';
+import type { JsonValue } from '@study/contracts';
 import {
   agentRulesSchema,
   quizSettingsSchema,
@@ -26,8 +26,8 @@ import {
   tierSetupSchema,
   materialSettingsSchema,
   reviewSettingsSchema
-} from '@study/contracts/settings/schemas';
-import type { AppSettings, LlmSettings } from '@study/contracts/settings/types';
+} from '@study/contracts';
+import type { AppSettings, LlmSettings } from '@study/contracts';
 import {
   defaultAgentRules,
   defaultQuizSettings,
@@ -39,8 +39,8 @@ import {
   defaultSidebarSettings,
   defaultConcurrencySettings,
   defaultAppearancePreferences
-} from '@study/contracts/settings/types';
-import type { UsageQuery } from '@study/contracts/settings/usage';
+} from '@study/contracts';
+import type { UsageQuery } from '@study/contracts';
 import { Effect, Schema } from 'effect';
 
 import { SettingsStore } from '#server/features/settings/store/index';
