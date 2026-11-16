@@ -124,3 +124,47 @@ testHarness(
     }
   }
 );
+
+testHarness(
+  'capture anchors a zoomed scroller at its end from every starting position',
+  async ({ page }, info) => {
+    await using resources = new AsyncDisposableStack();
+    const workflow = `scroll-end-${crypto.randomUUID()}`;
+    const screenshots = screenshotAssertions(
+      page,
+      workflow,
+      info.outputPath('contract'),
+      'contract',
+      info
+    );
+
+    await page.setContent(
+      '<html style="zoom:200%"><div id="scroller" style="width:200px;height:100px;overflow:auto"><div style="height:600px;background:linear-gradient(red,blue)">Content</div></div></html>'
+    );
+    const scroller = page.locator('#scroller');
+
+    for (const [name, initial] of [
+      ['top', 0],
+      ['middle', 250],
+      ['bottom', 500]
+    ] as const) {
+      await scroller.evaluate((el) => {
+        el.scrollTop = el.scrollHeight;
+      });
+      const reference = baselinePath('contract', workflow, name);
+
+      resources.defer(() => Bun.file(reference).delete());
+      await Bun.write(reference, await scroller.screenshot());
+      await scroller.evaluate((el, value) => {
+        el.scrollTop = value;
+      }, initial);
+      await screenshots.expectScreenshot(name, {
+        target: scroller,
+        scrollToEnd: scroller,
+        ready: () => expect(scroller).toBeVisible(),
+        timeoutMs: 2000
+      });
+      await expect(scroller).toHaveJSProperty('scrollTop', 500);
+    }
+  }
+);

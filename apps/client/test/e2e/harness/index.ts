@@ -64,7 +64,11 @@ export const testHarness = test.extend<Fixtures>({
         screenshots.expectScreenshot(name, {
           ...options,
           ready: async () => {
-            await expect(page.locator('html')).toHaveCSS('zoom', '1.25', { timeout: 30000 });
+            await expect(page.locator('html')).toHaveCSS(
+              'zoom',
+              String((options.zoomPercent ?? 125) / 100),
+              { timeout: 30000 }
+            );
             await options.ready();
           }
         })
