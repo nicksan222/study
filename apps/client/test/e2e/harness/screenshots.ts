@@ -115,6 +115,12 @@ export function screenshotAssertions(
 
           if (scrollToEnd) {
             fence();
+            // Root zoom can publish before its scroll geometry reaches the rendered frame.
+            await page.evaluate(async () => {
+              await new Promise<number>(requestAnimationFrame);
+              await new Promise<number>(requestAnimationFrame);
+            });
+            fence();
             await scrollToEnd.evaluate(
               (element) => {
                 element.scrollTop = element.scrollHeight;

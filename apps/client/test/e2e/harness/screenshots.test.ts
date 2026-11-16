@@ -37,10 +37,11 @@ testStable('screenshot paths and scoped baseline updates fail closed', () => {
 testStable('expired readiness stages cannot resume screenshot browser work', async () => {
   const { screenshotAssertions } = await import('./screenshots.ts');
 
-  for (const stage of ['ready', 'fonts', 'images', 'center']) {
+  for (const stage of ['ready', 'fonts', 'images', 'center', 'layout']) {
     const delayed = Promise.withResolvers<void>();
     const reached = Promise.withResolvers<void>();
     const calls: string[] = [];
+    let evaluations = 0;
     const pause = async (name: string) => {
       calls.push(name);
 
@@ -50,7 +51,7 @@ testStable('expired readiness stages cannot resume screenshot browser work', asy
       }
     };
     const page = {
-      evaluate: () => pause('fonts'),
+      evaluate: () => pause(evaluations++ ? 'layout' : 'fonts'),
       locator: () => ({ evaluate: () => pause('images'), count: async () => 0 }),
       screenshot: async (options: { path?: string }) => {
         calls.push(options.path ? 'diagnostic' : 'capture');
