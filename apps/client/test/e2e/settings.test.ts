@@ -15,20 +15,20 @@ testE2e(
     const dialog = page.getByRole('dialog', { name: copy.Settings });
 
     await expect(dialog).toBeVisible();
-    await expectAccessibility('settings');
     await expectScreenshot('settings', {
       target: dialog,
       ready: () => expect(dialog).toBeVisible()
     });
+    await expectAccessibility('settings');
     await dialog.getByRole('button', { name: copy.Close }).click();
     await expect(dialog).toBeHidden();
     await expect(page).toHaveURL(/\/notes$/);
     await expect(page.getByRole('textbox', { name: copy.NoteCompose })).toBeVisible();
-    await expectAccessibility('composer');
     await expectScreenshot('closed', {
       target: 'viewport',
       ready: () => expect(page.getByRole('textbox', { name: copy.NoteCompose })).toBeVisible()
     });
+    await expectAccessibility('composer');
   }
 );
 
@@ -97,11 +97,11 @@ testE2e(
     });
 
     await expect(font).toBeVisible();
-    await expectAccessibility('italian-reading');
     await expectScreenshot('italian-reading', {
       target: localized,
       ready: () => expect(font).toBeVisible()
     });
+    await expectAccessibility('italian-reading');
     await localizedSearch.press('Escape');
     await expect(localized).toBeHidden();
     await expect(page).toHaveURL(/\/notes$/);
@@ -175,11 +175,11 @@ testE2e(
     await writing.click();
     await autosave.fill('1.5');
     await expect(autosave).toHaveAttribute('aria-invalid', 'true');
-    await expectAccessibility('writing-invalid-light');
     await expectScreenshot('autosave-invalid-light', {
       target: dialog,
       ready: () => expect(autosave).toHaveAttribute('aria-invalid', 'true')
     });
+    await expectAccessibility('writing-invalid-light');
 
     for (const value of ['1', '30', '8']) {
       await autosave.fill(value);
@@ -339,11 +339,11 @@ testE2e(
     await expect(spellcheck).toBeChecked();
     await expect(enterCapture).not.toBeChecked();
     await expect(expand).not.toBeChecked();
-    await expectAccessibility('writing-persisted');
     await expectScreenshot('writing-persisted', {
       target: dialog,
       ready: () => expect(autosave).toHaveValue('8')
     });
+    await expectAccessibility('writing-persisted');
   }
 );
 
@@ -510,11 +510,11 @@ testE2e(
     await expect(
       dialog.getByRole('switch', { name: copy.WorkspacePageCounts, exact: true })
     ).toBeChecked();
-    await expectAccessibility('sidebar-persisted');
     await expectScreenshot('sidebar-persisted', {
       target: dialog,
       ready: () => expect(threshold).toHaveValue('7')
     });
+    await expectAccessibility('sidebar-persisted');
   }
 );
 
@@ -610,11 +610,11 @@ testE2e(
       await expect(save).toBeDisabled();
     }
 
-    await expectAccessibility('reading-persisted');
     await expectScreenshot('reading-persisted', {
       target: dialog,
       ready: () => expect(font).toHaveValue('20')
     });
+    await expectAccessibility('reading-persisted');
   }
 );
 
@@ -1047,11 +1047,11 @@ testE2e(
     await save.click();
     await expect(dialog.getByRole('status')).toHaveText(copy.AgentRulesSaved);
     await expect(save).toBeDisabled();
-    await expectAccessibility('instructions-restored');
     await expectScreenshot('instructions-defaults-saved', {
       target: dialog,
       ready: () => expect(dialog.getByRole('status')).toHaveText(copy.AgentRulesSaved)
     });
+    await expectAccessibility('instructions-restored');
     await page.reload();
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     await navigation.getByRole('button', { name: copy.AgentRulesTitle, exact: true }).click();
@@ -1981,11 +1981,11 @@ testE2e(
     await expect(
       dialog.getByRole('button', { name: copy.AnalyticsExport, exact: true })
     ).toHaveCount(0);
-    await expectAccessibility('analytics-browser-unavailable');
     await expectScreenshot('analytics-desktop-required', {
       target: dialog,
       ready: () => expect(dialog.getByText(copy.AnalyticsDesktop, { exact: true })).toBeVisible()
     });
+    await expectAccessibility('analytics-browser-unavailable');
   }
 );
 
@@ -2007,11 +2007,11 @@ testE2e(
     await expect(dialog.getByRole('button', { name: copy.UpdateInstall, exact: true })).toHaveCount(
       0
     );
-    await expectAccessibility('updates-browser-unavailable');
     await expectScreenshot('updates-browser-unavailable', {
       target: dialog,
       ready: () => expect(dialog.getByText(copy.UpdateUnavailable, { exact: true })).toBeVisible()
     });
+    await expectAccessibility('updates-browser-unavailable');
   }
 );
 
@@ -2116,7 +2116,6 @@ testE2e(
     await expect(
       dialog.getByRole('link', { name: copy.IntegrationOpenNote, exact: true })
     ).toHaveCount(1);
-    await expectAccessibility('integrations-completed');
     await expectScreenshot('vault-import-completed', {
       target: dialog,
       ready: () =>
@@ -2124,6 +2123,7 @@ testE2e(
           dialog.getByRole('link', { name: copy.IntegrationOpenNote, exact: true })
         ).toBeVisible()
     });
+    await expectAccessibility('integrations-completed');
     await page.reload();
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     await dialog
@@ -2460,12 +2460,12 @@ testE2e(
     await confirm.click();
     await expect(removal).toBeHidden();
     await expect(dialog.getByRole('button', { name: edited.name, exact: true })).toHaveCount(0);
-    await expectAccessibility('appearance-after-theme-removal');
     await expectScreenshot('theme-deleted', {
       target: dialog,
       ready: () =>
         expect(dialog.getByRole('button', { name: edited.name, exact: true })).toHaveCount(0)
     });
+    await expectAccessibility('appearance-after-theme-removal');
   }
 );
 
@@ -2651,11 +2651,11 @@ testE2e(
     await confirm.click();
     await expect(removal).toBeHidden();
     await expect(dialog.getByText(copy.NoProjectsYet, { exact: true })).toBeVisible();
-    await expectAccessibility('projects-after-delete');
     await expectScreenshot('projects-deleted', {
       target: dialog,
       ready: () => expect(dialog.getByText(copy.NoProjectsYet, { exact: true })).toBeVisible()
     });
+    await expectAccessibility('projects-after-delete');
   }
 );
 
@@ -2863,11 +2863,11 @@ testE2e(
 
     await expect(preview).toHaveCount(1);
     await expect(preview).toBeEnabled();
-    await expectAccessibility('saved-backup');
     await expectScreenshot('data-created', {
       target: dialog,
       ready: () => expect(preview).toBeEnabled()
     });
+    await expectAccessibility('saved-backup');
     const downloadEvent = page.waitForEvent('download');
 
     await downloadButton.click();
