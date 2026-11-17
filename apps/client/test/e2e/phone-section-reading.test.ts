@@ -66,11 +66,12 @@ test.browser.stable(
     await expectScreenshot('narrow-section-reading', {
       target: 'viewport',
       zoomPercent: 100,
+      scrollToEnd: page.locator('[data-notebook-scroll-host]'),
       ready: async () => {
         await expect(heading).toBeInViewport();
         await expect(
           page.getByRole('button', { name: copy.JumpToLatest, exact: true })
-        ).toHaveCount(0);
+        ).toBeHidden();
       }
     });
   }
