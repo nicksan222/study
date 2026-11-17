@@ -84,6 +84,7 @@ const popupClasses = {
   default: '',
   media: '',
   identity: 'ui-identity-dialog',
+  'notebook-editor': 'notebook-editor-dialog',
   'workspace-context': 'note-context-dialog',
   'practice-generation': 'study-generation-dialog'
 } as const;
@@ -105,13 +106,25 @@ function DialogPopup({
   keepMounted?: boolean;
   closeLabel: string;
   bottomStickOnMobile?: boolean;
-  variant?: 'default' | 'media' | 'identity' | 'workspace-context' | 'practice-generation';
+  variant?:
+    | 'default'
+    | 'media'
+    | 'identity'
+    | 'workspace-context'
+    | 'practice-generation'
+    | 'notebook-editor';
 }) {
   return (
     <DialogPortal keepMounted={keepMounted}>
       {/* Media opens from inside other overlays (a composer chip, a popover), so it sits above them. */}
       <DialogBackdrop
-        className={variant === 'media' ? 'z-[60]' : undefined}
+        className={
+          variant === 'media'
+            ? 'z-[60]'
+            : variant === 'notebook-editor'
+              ? 'notebook-editor-backdrop'
+              : undefined
+        }
         variant={variant === 'media' ? 'media' : 'default'}
       />
       <DialogViewport
