@@ -53,7 +53,7 @@ function useChatScroll({ itemCount, firstItemKey }: { itemCount: number; firstIt
     const observer = new ResizeObserver(() => {
       if (atBottom.current) viewport.scrollTop = viewport.scrollHeight;
 
-      previous.current.height = viewport.scrollHeight;
+      onScroll();
     });
 
     viewport.addEventListener('scroll', onScroll);
