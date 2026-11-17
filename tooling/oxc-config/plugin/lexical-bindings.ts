@@ -145,3 +145,22 @@ export function boundSpecifier(context: any, node: any, specifier: any): boolean
     binding(context, node)?.defs.some((definition: any) => definition.node === specifier)
   );
 }
+
+/** Resolve the member path assigned to a local name by an object binding pattern. */
+export function destructuredPath(pattern: any, target: string, names: string[]): string[] | null {
+  if (pattern.type === 'AssignmentPattern') return destructuredPath(pattern.left, target, names);
+
+  if (pattern.type === 'Identifier') return pattern.name === target ? names : null;
+
+  if (pattern.type !== 'ObjectPattern') return null;
+
+  for (const part of pattern.properties) {
+    if (!namedProperty(part)) continue;
+
+    const found = destructuredPath(part.value, target, [...names, part.key.name ?? part.key.value]);
+
+    if (found) return found;
+  }
+
+  return null;
+}

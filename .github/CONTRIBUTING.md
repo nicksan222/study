@@ -156,6 +156,13 @@ STUDY_VOICE_VAD=/absolute/path/silero-vad-v6.2-F32.gguf \
 bun --bun vp test run --config tooling/testing/voice/vite.config.ts
 ```
 
+To include the upstream Parakeet frame-boundary regression, download the two WAV
+attachments from [transcribe.cpp issue 252](https://github.com/handy-computer/transcribe.cpp/issues/252)
+to a directory outside the repository and set `STUDY_VOICE_REGRESSION_DIRECTORY` to that
+directory for the same command. These checks compare complete transcripts at the
+reported 5.04 s and 10.56 s lengths and with the last sample removed. The attachments
+are not redistributed because their report grants no explicit redistribution license.
+
 Run `bun gen` from the workspace root to generate database migrations and desktop routes.
 Run `bun gen:check` to check generated database outputs
 without changing the database schema. The equivalent package scripts are `bun run gen` and

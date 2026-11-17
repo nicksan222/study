@@ -13,12 +13,15 @@ test.unit.stable(
         'apps/client/src/features/notes/alias.ts': `import {rpc} from '@study/contracts/react'; const {voice: speech} = rpc; speech.transcribe.useMutation();`,
         'apps/client/src/features/notes/mic.ts': `const media = navigator.mediaDevices; media.getUserMedia({audio:true});`,
         'apps/client/src/pages/settings/raw.ts': `const Recorder = window.MediaRecorder; new Recorder(stream);`,
+        'apps/client/src/features/notes/nested.ts': `import {rpc} from '@study/contracts/react'; const {voice: {transcribe}} = rpc; transcribe.call({});`,
+        'apps/client/src/features/notes/nested-alias.ts': `import {rpc as api} from '@study/contracts/react'; const {voice: {transcribe: recognize}} = api; recognize.call({});`,
+        'apps/client/src/features/notes/nested-default.ts': `import {rpc} from '@study/contracts/react'; const {voice: {transcribe = fallback}} = rpc; transcribe.call({});`,
         'apps/client/src/features/notes/host.ts': `import {captureMicrophone as capture} from '#client/lib/host.ts'; capture({});`
       },
       true
     );
 
-    expect(diagnostics).toHaveLength(5);
+    expect(diagnostics).toHaveLength(8);
   }
 );
 
@@ -34,6 +37,7 @@ test.unit.stable(
           'apps/client/src/lib/effect/microphone.ts': `navigator.mediaDevices.getUserMedia({audio:true}); new MediaRecorder(stream);`,
           'apps/client/src/lib/host.ts': `export {captureMicrophone} from './effect/native.ts';`,
           'apps/client/src/features/notes/wrapped.tsx': `import {DictationButton} from '#client/features/voice/index.ts';`,
+          'apps/client/src/features/notes/local.ts': `const rpc = {voice: {transcribe: {call(){}}}}; const {voice: {transcribe}} = rpc; transcribe.call({});`,
           'apps/client/src/features/notes/other.ts': `const rpc = {voice: {transcribe(){}}}; rpc.voice.transcribe();`,
           'apps/client/src/features/notes/raw.test.ts': `navigator.mediaDevices.getUserMedia({audio:true});`
         },

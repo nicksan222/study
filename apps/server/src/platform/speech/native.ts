@@ -27,12 +27,7 @@ function libraryDirectory() {
   return Bun.fileURLToPath(new URL('.', resolve()));
 }
 
-export function transcribeNative(
-  modelPath: string,
-  vadPath: string,
-  samples: Float32Array,
-  filterSilence: boolean
-) {
+function openNativeLibrary() {
   const directory = libraryDirectory();
   const filename =
     process.platform === 'darwin'
@@ -62,18 +57,55 @@ export function transcribeNative(
   });
   const f = library.symbols;
 
-  function check(status: number) {
-    if (status !== 0)
-      throw new StudyError(
-        'model_unavailable',
-        `Speech inference failed with native status ${status}`
-      );
-  }
-
   function layout(id: number, size: number) {
     if (Number(f.transcribe_abi_struct_size(id)) !== size)
       throw new StudyError('unsupported', 'Speech library ABI does not match the pinned version');
   }
+
+  try {
+    if (f.transcribe_version().toString() !== '0.4.2')
+      throw new StudyError(
+        'unsupported',
+        'Speech library version does not match the pinned version'
+      );
+
+    layout(0, 32);
+    layout(1, 24);
+    layout(27, 32);
+    layout(28, 24);
+    const encoded = utf8(directory);
+
+    check(f.transcribe_init_backends(ptr(encoded)));
+
+    return library;
+  } catch (cause) {
+    library.close();
+
+    throw cause;
+  }
+}
+
+function check(status: number) {
+  if (status !== 0)
+    throw new StudyError(
+      'model_unavailable',
+      `Speech inference failed with native status ${status}`
+    );
+}
+
+/** Exercises the same library, ABI and backend initialization used for recognition. */
+export function probeNative() {
+  openNativeLibrary().close();
+}
+
+export function transcribeNative(
+  modelPath: string,
+  vadPath: string,
+  samples: Float32Array,
+  filterSilence: boolean
+) {
+  const library = openNativeLibrary();
+  const f = library.symbols;
 
   function load(path: string) {
     const parameters = new Uint8Array(32);
@@ -134,19 +166,6 @@ export function transcribeNative(
   let vadSession: Pointer | undefined;
 
   try {
-    if (f.transcribe_version().toString() !== '0.4.1')
-      throw new StudyError(
-        'unsupported',
-        'Speech library version does not match the pinned version'
-      );
-
-    layout(0, 32);
-    layout(1, 24);
-    layout(27, 32);
-    layout(28, 24);
-    const encoded = utf8(directory);
-
-    check(f.transcribe_init_backends(ptr(encoded)));
     let pcm = samples;
 
     if (filterSilence) pcm = filterAudio(samples);

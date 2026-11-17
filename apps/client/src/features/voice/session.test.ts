@@ -130,3 +130,31 @@ test.unit.stable(
     session.cancel(owner);
   }
 );
+
+test.unit.stable(
+  'reports recorder failure immediately and ignores callbacks from an abandoned capture',
+  async ({ expect, vi }) => {
+    const callbacks: { onError: () => void; onLimit: () => void }[] = [];
+    const captures: { stop: ReturnType<typeof vi.fn>; cancel: ReturnType<typeof vi.fn> }[] = [];
+    const session = new DictationSession(async (options) => {
+      callbacks.push(options);
+      const capture = { stop: vi.fn(async () => [0.5]), cancel: vi.fn() };
+
+      captures.push(capture);
+
+      return capture;
+    }, vi.fn());
+    const owner = Symbol();
+
+    await session.start(owner);
+    callbacks[0]!.onError?.();
+    expect(session.snapshot()).toMatchObject({ phase: 'error', owner, error: 'capture' });
+    expect(captures[0]!.cancel).toHaveBeenCalledOnce();
+    await session.start(owner);
+    callbacks[0]!.onError?.();
+    callbacks[0]!.onLimit();
+    expect(session.snapshot()).toMatchObject({ phase: 'recording', owner });
+    expect(captures[1]!.stop).not.toHaveBeenCalled();
+    session.cancel(owner);
+  }
+);

@@ -2,7 +2,7 @@
 import { StudyError, dictationInputSchema } from '@study/contracts';
 import { Schema } from 'effect';
 
-import { transcribeNative } from './native.ts';
+import { probeNative, transcribeNative } from './native.ts';
 
 const inputSchema = Schema.Struct({
   ...dictationInputSchema.fields,
@@ -12,15 +12,25 @@ const inputSchema = Schema.Struct({
 });
 
 try {
-  const input = Schema.decodeUnknownSync(inputSchema)(await Bun.stdin.json());
-  const text = transcribeNative(
-    input.modelPath,
-    input.vadPath,
-    Float32Array.from(input.samples, (sample) => sample / 32768),
-    input.filterSilence
-  );
+  const probe = process.argv.length === 3 && process.argv[2] === '--probe';
 
-  await Bun.write(Bun.stdout, JSON.stringify({ text }));
+  if (process.argv.length > 2 && !probe)
+    throw new StudyError('invalid_input', 'Invalid speech worker arguments');
+
+  if (probe) {
+    probeNative();
+    await Bun.write(Bun.stdout, JSON.stringify({ initialized: true }));
+  } else {
+    const input = Schema.decodeUnknownSync(inputSchema)(await Bun.stdin.json());
+    const text = transcribeNative(
+      input.modelPath,
+      input.vadPath,
+      Float32Array.from(input.samples, (sample) => sample / 32768),
+      input.filterSilence
+    );
+
+    await Bun.write(Bun.stdout, JSON.stringify({ text }));
+  }
 } catch (cause) {
   const kind = cause instanceof StudyError ? cause.kind : 'model_unavailable';
 

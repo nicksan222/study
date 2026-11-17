@@ -11,7 +11,7 @@ Bundled with the app
 - packages/ui/assets/icons/: Lucide icons, ISC license
   (packages/ui/assets/icons/LICENSE).
 
-- @transcribe-cpp/* 0.4.1: transcribe.cpp native speech runtime, MIT license
+- @transcribe-cpp/* 0.4.2: transcribe.cpp native speech runtime, MIT license
   (https://github.com/handy-computer/transcribe.cpp). The bundled platform packages
   retain their licenses/ directory, including ggml and bundled backend notices.
 

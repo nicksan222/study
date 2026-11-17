@@ -16,7 +16,12 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings, propertyName } from '../effect-bindings.ts';
-import { constantDeclarator, imported, lexicalResolver } from '../lexical-bindings.ts';
+import {
+  constantDeclarator,
+  destructuredPath,
+  imported,
+  lexicalResolver
+} from '../lexical-bindings.ts';
 import { webFile, webTarget } from '../web-files.ts';
 import { nativeGlobal } from './native-global.ts';
 
@@ -45,12 +50,9 @@ export default defineRule({
         if (definition.id.type !== 'ObjectPattern') return null;
 
         const base = rpc(definition.init, seen);
-        const property = definition.id.properties.find(
-          (item: any) => item.value?.name === node.name
-        );
-        const name = propertyName(property?.key);
+        const names = destructuredPath(definition.id, node.name, []);
 
-        return base && name ? `${base}.${name}` : null;
+        return base && names ? [base, ...names].join('.') : null;
       },
       (node, seen) => {
         const base = rpc(node.object, seen);

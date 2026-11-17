@@ -35,6 +35,14 @@ const target = annotation.target;
 
 function createRpc({ vi }: Pick<test.unit.Context, 'vi'>) {
   return {
+    'voice.status': vi.fn().mockResolvedValue({
+      state: 'ready',
+      downloadedBytes: 740749632,
+      totalBytes: 740749632,
+      modelId: 'parakeet-tdt-v3',
+      languages: ['en', 'it'],
+      languageDetection: 'automatic'
+    }),
     'pages.annotation': vi.fn(),
     'pages.reviseAnnotation': vi.fn(),
     'pages.annotationHistory': vi.fn(),
@@ -45,7 +53,14 @@ function createRpc({ vi }: Pick<test.unit.Context, 'vi'>) {
 
 let rpc: ReturnType<typeof createRpc>;
 
-test.unit.beforeEach(async ({ mock }) => {
+let captureCancelled: () => void;
+
+test.unit.beforeEach(async ({ mock, vi }) => {
+  captureCancelled = vi.fn();
+  mock('#client/lib/host.ts', () => ({
+    microphoneAvailable: () => true,
+    captureMicrophone: async () => ({ stop: async () => [], cancel: captureCancelled })
+  }));
   mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
   const __mockModule0 = await import('./annotation-controls');
 
@@ -89,6 +104,21 @@ function mount({
   return {
     ...render(<AnnotationControls annotation={annotation} />, { wrapper }),
     wrapper,
+    setDeleted(review: boolean) {
+      if (!registry) throw new Error('Draft registry not mounted');
+
+      const atom = annotationDrafts(annotation.id);
+      const current = registry.get(atom);
+
+      if (!current) throw new Error('Annotation draft not initialized');
+
+      const deleted = { ...current.current, deleted: true };
+
+      registry.set(
+        atom,
+        review ? { ...current, review: deleted } : { ...current, current: deleted }
+      );
+    },
     setTarget(target: AnnotationDraft['target']) {
       if (!registry) throw new Error('Draft registry not mounted');
 
@@ -310,3 +340,20 @@ test.unit.stable(
     );
   }
 );
+
+for (const review of [false, true]) {
+  test.unit.stable(
+    `cancels dictation when ${review ? 'a reviewed revision' : 'the current annotation'} is deleted`,
+    async ({ rpcHandlersTransport, render, screen, userEvent, act, expect }) => {
+      const view = mount({ rpcHandlersTransport, render });
+
+      expect(screen.getByLabelText('PageAnnotationNote')).toBeEnabled();
+      await userEvent.click(screen.getByRole('button', { name: 'VoiceStart' }));
+      await screen.findByRole('button', { name: 'VoiceStop' });
+      act(() => view.setDeleted(review));
+      expect(screen.getByLabelText('PageAnnotationNote')).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'VoiceStart' })).toBeDisabled();
+      expect(captureCancelled).toHaveBeenCalledOnce();
+    }
+  );
+}

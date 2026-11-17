@@ -37,7 +37,12 @@ function pcm16Mono16k(view: DataView, start: number) {
 
 /** Read the corpus' uncompressed mono 16 kHz PCM WAV without an external decoder. */
 export async function voiceSamplePcm(id: (typeof voiceSamples)[number]['id']) {
-  const bytes = await Bun.file(voiceSamplePath(id)).arrayBuffer();
+  return voiceFilePcm(voiceSamplePath(id));
+}
+
+/** Decode an explicitly supplied local regression recording; never fetch audio. */
+export async function voiceFilePcm(path: string) {
+  const bytes = await Bun.file(path).arrayBuffer();
   const view = new DataView(bytes);
   const text = (offset: number, length: number) =>
     new TextDecoder().decode(bytes.slice(offset, offset + length));

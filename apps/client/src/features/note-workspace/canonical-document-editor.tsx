@@ -1,6 +1,8 @@
+import { documentSchema } from '@study/contracts';
 import type { ContentSnapshotId, ProjectId } from '@study/contracts';
 import type { RichNoteEditorHandle, RichNoteSelection } from '@study/ui';
 import { StructuredEditor } from '@study/ui';
+import { Schema } from 'effect';
 import { useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 
@@ -16,6 +18,8 @@ import {
   useStructuredEditorLabels
 } from '../document-presentation';
 import type { EditableDocument } from '../document-presentation';
+
+const equalDocument = Schema.toEquivalence(documentSchema);
 
 /** Adapts the shared editor to Study's canonical, versioned document format. */
 export function CanonicalDocumentEditor({
@@ -42,7 +46,7 @@ export function CanonicalDocumentEditor({
   const value = useMemo(() => documentToEditor(document, images.urls), [document, images.urls]);
 
   const editor = useRef<RichNoteEditorHandle>(null);
-  const captured = useRef<{ value: typeof value; selection: RichNoteSelection } | undefined>(
+  const captured = useRef<{ document: EditableDocument; selection: RichNoteSelection } | undefined>(
     undefined
   );
 
@@ -66,11 +70,11 @@ export function CanonicalDocumentEditor({
               disabled={disabled}
               onCaptureStart={() => {
                 if (editor.current)
-                  captured.current = { value, selection: editor.current.selection() };
+                  captured.current = { document, selection: editor.current.selection() };
               }}
               onTranscript={(text) => {
                 editor.current?.restoreSelection(
-                  captured.current?.value === value
+                  captured.current && equalDocument(captured.current.document, document)
                     ? captured.current.selection
                     : { anchor: Number.MAX_SAFE_INTEGER, head: Number.MAX_SAFE_INTEGER }
                 );

@@ -5,6 +5,7 @@ import Image from '@tiptap/extension-image';
 import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 import { TableKit, TableCell, TableHeader } from '@tiptap/extension-table';
+import { TextSelection } from '@tiptap/pm/state';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
@@ -311,8 +312,8 @@ function useStructuredEditorHandle(ref: Ref<RichNoteEditorHandle> | undefined, e
         head: editor.state.selection.head
       }),
       restoreSelection: ({ anchor, head }) => {
-        const limit = (position: number) =>
-          Math.max(1, Math.min(position, editor.state.doc.content.size - 1));
+        const end = TextSelection.atEnd(editor.state.doc).to;
+        const limit = (position: number) => Math.max(1, Math.min(position, end));
 
         editor.commands.setTextSelection({ from: limit(anchor), to: limit(head) });
       },

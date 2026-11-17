@@ -33,16 +33,13 @@ with tempfile.TemporaryDirectory() as temporary:
     if sys.platform == "darwin":
         shutil.copy2(source / "libsqlite3.dylib", runtime / "libsqlite3.dylib")
     shutil.copytree(source / "server", runtime / "server", symlinks=True)
-    # A missing model is intentional: the production worker must first resolve the
-    # bundled speech library, initialize its backend and validate the pinned C ABI.
+    # Probe the production library, pinned ABI and backend setup without installing a model.
     speech = subprocess.run(
-        [str(bun), str(runtime / "server/apps/server/src/platform/speech/worker.ts")],
-        input=json.dumps({"samples": [0], "modelPath": str(runtime / "missing.gguf"),
-                          "vadPath": str(runtime / "missing-vad.gguf"), "filterSilence": False}),
+        [str(bun), str(runtime / "server/apps/server/src/platform/speech/worker.ts"), "--probe"],
         text=True, capture_output=True, timeout=60, cwd=temporary,
     )
-    if speech.returncode != 1 or json.loads(speech.stdout).get("kind") != "model_unavailable":
-        raise RuntimeError(f"Bundled speech runtime did not report the expected missing model: {speech.stderr}")
+    if speech.returncode != 0 or json.loads(speech.stdout) != {"initialized": True}:
+        raise RuntimeError(f"Bundled speech runtime initialization failed: {speech.stderr}")
     database = Path(temporary) / "study.sqlite"
     result = subprocess.run(
         [str(bun), str(runtime / "server/main.js")],

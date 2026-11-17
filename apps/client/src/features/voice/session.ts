@@ -20,6 +20,7 @@ export class DictationSession {
     private readonly acquire: (options: {
       signal: AbortSignal;
       onLimit: () => void;
+      onError: () => void;
     }) => Promise<MicrophoneCapture>,
     private readonly transcribe: (
       samples: number[],
@@ -61,7 +62,17 @@ export class DictationSession {
       const capture = await this.acquire({
         signal: controller.signal,
         onLimit: () => {
-          void this.stop(owner);
+          if (generation === this.generation) void this.stop(owner);
+        },
+        onError: () => {
+          if (generation !== this.generation || this.state.owner !== owner) return;
+
+          this.generation++;
+          controller.abort();
+          this.capture?.cancel();
+          this.capture = undefined;
+          this.samples = undefined;
+          this.publish({ phase: 'error', owner, transcript: '', error: 'capture' });
         }
       });
 

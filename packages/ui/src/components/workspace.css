@@ -83,6 +83,8 @@
   border-radius: 1.125rem;
   background: var(--card);
   color: var(--foreground);
+  /* Keep Chromium text fill in sync when the inherited theme changes after reload. */
+  -webkit-text-fill-color: currentColor;
   font-size: 0.8125rem;
   line-height: 1.5;
 }

@@ -20,10 +20,12 @@ export function microphoneAvailable() {
 
 export async function captureMicrophone({
   signal,
-  onLimit
+  onLimit,
+  onError
 }: {
   signal: AbortSignal;
   onLimit: () => void;
+  onError: () => void;
 }): Promise<MicrophoneCapture> {
   if (!microphoneAvailable())
     throw new StudyError('unsupported', 'Microphone capture requires a secure browser context');
@@ -73,6 +75,7 @@ export async function captureMicrophone({
   recorder.onerror = () => {
     stopTracks();
     fail(new StudyError('internal', 'Microphone recording failed'));
+    onError();
   };
   const stopTracks = () => {
     deadline.abort();

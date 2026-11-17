@@ -71,7 +71,11 @@ test.unit.stable(
       configurable: true
     });
     const controller = new AbortController();
-    const pending = captureMicrophone({ signal: controller.signal, onLimit: () => {} });
+    const pending = captureMicrophone({
+      signal: controller.signal,
+      onLimit: () => {},
+      onError: () => {}
+    });
 
     controller.abort();
     permission.resolve(fixture.stream);
@@ -86,7 +90,7 @@ test.unit.stable(
     const fixture = prepare(vi);
     const controller = new AbortController();
 
-    await captureMicrophone({ signal: controller.signal, onLimit: () => {} });
+    await captureMicrophone({ signal: controller.signal, onLimit: () => {}, onError: () => {} });
     expect(fixture.active()).toBe(true);
     controller.abort();
     expect(fixture.active()).toBe(false);
@@ -98,12 +102,15 @@ test.unit.stable(
   'releases recording resources after recorder failure and preserves the error',
   async ({ vi, expect }) => {
     const fixture = prepare(vi);
+    const onError = vi.fn();
     const capture = await captureMicrophone({
       signal: new AbortController().signal,
-      onLimit: () => {}
+      onLimit: () => {},
+      onError
     });
 
     Recorder.current.onerror?.();
+    expect(onError).toHaveBeenCalledOnce();
     expect(fixture.active()).toBe(false);
     await expect(capture.stop()).rejects.toThrow('Microphone recording failed');
   }

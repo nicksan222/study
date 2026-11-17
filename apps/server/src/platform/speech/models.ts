@@ -68,7 +68,12 @@ export class VoiceModels {
           break;
         }
       }
-    })());
+    })().catch((cause: unknown) => {
+      this.initialized = undefined;
+      this.ready = false;
+
+      throw cause;
+    }));
   }
 
   async status() {
@@ -155,10 +160,10 @@ export class VoiceModels {
     if (this.downloading)
       throw new StudyError('invalid_input', 'Cancel speech model installation before removing it');
 
+    this.ready = false;
+    this.downloaded = 0;
     await runFileSystemPromise(
       this.fs.remove(`${this.root}/ready`, { recursive: true, force: true })
     );
-    this.ready = false;
-    this.downloaded = 0;
   }
 }

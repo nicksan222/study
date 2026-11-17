@@ -4,7 +4,7 @@ import { transcribeNative } from '@study/server/testing';
 import { test } from '@study/testing';
 import { Effect } from 'effect';
 
-import { voiceSamplePcm, voiceSamples } from '../fixtures/voice/samples.ts';
+import { voiceFilePcm, voiceSamplePcm, voiceSamples } from '../fixtures/voice/samples.ts';
 
 function normalize(text: string) {
   return text
@@ -132,3 +132,38 @@ test.server.stable(
     );
   }
 );
+
+// Issue attachments stay external because the report grants no redistribution license.
+// https://github.com/handy-computer/transcribe.cpp/issues/252
+const regressionDirectory = process.env.STUDY_VOICE_REGRESSION_DIRECTORY;
+
+if (regressionDirectory) {
+  for (const clip of [
+    {
+      name: 'clip-5.04s-empty.wav',
+      samples: 80_640,
+      reference: 'By no possible supposition could this stranger, Fitzroy Simpson, have caused'
+    },
+    {
+      name: 'clip-10.56s-cut-off.wav',
+      samples: 168_960,
+      reference:
+        'His bridle is missing, so that Simpson must have put this on. Then, having left the door open behind him, he was leading the horse away over the moor,'
+    }
+  ])
+    test.server.stable(
+      `Native Parakeet preserves full text at the reported ${clip.name} mel-frame boundary`,
+      async ({ expect }) => {
+        const pcm = await voiceFilePcm(`${regressionDirectory}/${clip.name}`);
+
+        expect(pcm.length).toBe(clip.samples);
+
+        // Keep VAD disabled: changing the length before inference can hide this regression.
+        for (const trim of [0, 1]) {
+          const transcript = transcribeNative(model, vad, pcm.slice(0, pcm.length - trim), false);
+
+          expect(normalize(transcript)).toEqual(normalize(clip.reference));
+        }
+      }
+    );
+}

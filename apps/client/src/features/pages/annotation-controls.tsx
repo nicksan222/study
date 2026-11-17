@@ -40,15 +40,16 @@ function targetKey(target: NonNullable<AnnotationDraft['target']>) {
 function AnnotationForm({ view }: { view: AnnotationView }) {
   const { t, annotation, draft, setDeleting, reanchor, setReanchor, edit, mutate, blocked } = view;
 
+  const deleted = draft.current.deleted || draft.review?.deleted;
+
   return (
     <>
-      {draft.current.deleted || draft.review?.deleted ? (
-        <StatusMessage>{t('AnnotationDeleted')}</StatusMessage>
-      ) : null}
+      {deleted ? <StatusMessage>{t('AnnotationDeleted')}</StatusMessage> : null}
       <EvidenceTarget reference={{ kind: 'range', target: draft.current.target }} />
       <DictationTextarea
         label={t('PageAnnotationNote')}
         targetKey={annotation.id}
+        disabled={deleted}
         maxLength={100000}
         value={draft.note}
         onValueChange={(note) => edit({ note })}

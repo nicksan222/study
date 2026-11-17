@@ -1,6 +1,7 @@
-import { StudyError } from '@study/contracts';
+import { failureSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { Button, RetryButton, Loading, Settings } from '@study/ui';
+import { Schema } from 'effect';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -11,7 +12,7 @@ function useModelControls() {
   const remove = rpc.voice.remove.useMutation();
   const state = status.data?.state;
   const busy = cancel.isPending || remove.isPending;
-  const cancelled = install.error instanceof StudyError && install.error.kind === 'cancelled';
+  const cancelled = Schema.is(failureSchema)(install.error) && install.error.kind === 'cancelled';
   const error =
     status.isError || (install.isError && !cancelled) || cancel.isError || remove.isError;
 
