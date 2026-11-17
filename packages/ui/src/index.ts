@@ -214,6 +214,14 @@ export {
   ThemeFileError
 } from './theme.ts';
 export { cn } from './utils.ts';
+export { Badge } from './components/badge.tsx';
+export {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionTitle,
+  AccordionContent
+} from './components/accordion.tsx';
 export { observeVisibleAnimation } from './visible-animation.ts';
 
 export { ColorSchemeControls, InterfaceControls } from './components/appearance-controls.tsx';
