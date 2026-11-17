@@ -26,11 +26,7 @@ export function Composer({ id, onPage }: { id: NoteId; onPage?: () => void }) {
   const model = useComposer(id);
   const preferences = useWorkspacePreferences();
   const { t, draft, files, blocked, setDraft, submitNote } = model;
-  const [expanded, setExpanded] = useState(() => !!draft.text || files.items.length > 0);
-  const wasPending = useRef(model.pending);
-  const recovery = blocked || !!model.noteMutation.error || !!model.askMutation.error;
-  const required = recovery || files.items.length > 0;
-  const open = expanded || required;
+  const capture = useCaptureState(model);
   const input = useRef<HTMLTextAreaElement>(null);
   const dictation = useTextDictation({
     value: draft.text,
@@ -38,20 +34,8 @@ export function Composer({ id, onPage }: { id: NoteId; onPage?: () => void }) {
     input
   });
 
-  useEffect(() => {
-    if (wasPending.current && !model.pending && !recovery && !draft.text && !files.items.length)
-      setExpanded(false);
-
-    wasPending.current = model.pending;
-  }, [model.pending, recovery, draft.text, files.items.length]);
-
   return (
-    <Desk.Capture
-      open={open}
-      onOpenChange={required ? undefined : setExpanded}
-      label={t('NoteAddCapture')}
-      closeLabel={t('NoteHideCapture')}
-    >
+    <Desk.Capture {...capture} label={t('NoteAddCapture')} closeLabel={t('NoteHideCapture')}>
       <NotebookComposer
         inputRef={input}
         inputId={`note-note-${id}`}
@@ -90,7 +74,7 @@ export function Composer({ id, onPage }: { id: NoteId; onPage?: () => void }) {
         tools={
           <>
             <AttachmentPicker id={id} blocked={blocked} />
-            <DictationButton targetKey={id} {...dictation} disabled={blocked || !open} />
+            <DictationButton targetKey={id} {...dictation} disabled={blocked || !capture.open} />
             {onPage && (
               <Button variant="ghost-muted" size="sm" onClick={onPage} disabled={blocked}>
                 <ComposeIcon size={16} aria-hidden="true" />
@@ -103,6 +87,24 @@ export function Composer({ id, onPage }: { id: NoteId; onPage?: () => void }) {
       />
     </Desk.Capture>
   );
+}
+
+function useCaptureState(model: ComposerModel) {
+  const { draft, files, blocked } = model;
+  const [expanded, setExpanded] = useState(() => !!draft.text || files.items.length > 0);
+  const wasPending = useRef(model.pending);
+  const recovery = blocked || !!model.noteMutation.error || !!model.askMutation.error;
+  const required = recovery || files.items.length > 0;
+  const open = expanded || required;
+
+  useEffect(() => {
+    if (wasPending.current && !model.pending && !recovery && !draft.text && !files.items.length)
+      setExpanded(false);
+
+    wasPending.current = model.pending;
+  }, [model.pending, recovery, draft.text, files.items.length]);
+
+  return { open, onOpenChange: required ? undefined : setExpanded };
 }
 
 function AskRecovery({ model }: { model: ComposerModel }) {
