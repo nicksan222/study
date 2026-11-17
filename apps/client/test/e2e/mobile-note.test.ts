@@ -38,11 +38,13 @@ test.browser.stable(
     await expect(resume).toBeInViewport({ ratio: 1 });
     await expectScreenshot('paused-draft', {
       target: 'viewport',
+      scrollToEnd: page.locator('[data-notebook-scroll-host]'),
       ready: () => expect(resume).toBeVisible()
     });
     await resume.tap();
     await expect(editor).toHaveValue(changed);
     await page.setViewportSize({ width: 390, height: 520 });
+    await expect(dialog).toHaveCSS('translate', '0px');
     const save = dialog.getByRole('button', { name: copy.NoteSaveNote });
 
     await expect(save).toBeInViewport({ ratio: 1 });
