@@ -413,6 +413,8 @@ test.unit.stable(
     first.unmount();
     mount({ render, rpcHandlersTransport }, actions(), first.client);
     expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'NoteBackToNotebook' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'NoteDiscardEdits' })).toBeDisabled();
     await act(async () => accept(message));
     await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument());
     expect(editNote).toHaveBeenCalledTimes(1);
@@ -699,10 +701,10 @@ test.unit.stable(
       expect(screen.getByRole('textbox', { name: 'NoteEditNote' })).toHaveFocus()
     );
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'NoteCancel' }));
+      fireEvent.click(screen.getByRole('button', { name: 'NoteDiscardEdits' }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    expect(trigger).toHaveFocus();
+    await waitFor(() => expect(trigger).toHaveFocus());
     expect(screen.queryByRole('button', { name: 'NoteVersions' })).toBeNull();
   }
 );
@@ -787,7 +789,7 @@ test.unit.stable(
         screen.getByRole('button', { name: 'NotePreviousVersion', hidden: true })
       ).toBeDisabled()
     );
-    fireEvent.click(screen.getByRole('button', { name: 'NoteCancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'NoteDiscardEdits' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await waitFor(() =>
       expect(
@@ -867,10 +869,133 @@ test.unit.stable(
     expect(
       screen.getByRole('button', { name: 'NoteCustomTransform', hidden: true })
     ).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: 'NoteCancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'NoteDiscardEdits' }));
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'NoteImprove', hidden: true })).toBeEnabled()
     );
+  }
+);
+
+test.unit.stable(
+  'keeps a paused edit across remount and other actions until it is saved or discarded',
+  async ({ fireEvent, screen, expect, waitFor, render, rpcHandlersTransport }) => {
+    const first = mount({ render, rpcHandlersTransport }, <VersionedNote />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'NoteEditNote' }));
+    const input = await screen.findByRole('textbox', { name: 'NoteEditNote' });
+
+    fireEvent.change(input, { target: { value: 'A correction kept for later' } });
+    (input as HTMLTextAreaElement).setSelectionRange(4, 12, 'backward');
+    input.closest('.notebook-editor-body')!.scrollTop = 180;
+    fireEvent.click(screen.getByRole('button', { name: 'NoteBackToNotebook' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(editNote).not.toHaveBeenCalled();
+    first.unmount();
+    mount({ render, rpcHandlersTransport }, <VersionedNote />, first.client);
+    fireEvent.click(screen.getByRole('button', { name: 'NoteImprove', hidden: true }));
+    fireEvent.click(await screen.findByRole('button', { name: 'NoteCancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    fireEvent.click(screen.getByRole('button', { name: 'NoteEditNote' }));
+    expect(await screen.findByRole('textbox', { name: 'NoteEditNote' })).toHaveValue(
+      'A correction kept for later'
+    );
+    const resumed = screen.getByRole('textbox', { name: 'NoteEditNote' }) as HTMLTextAreaElement;
+
+    await waitFor(() => expect(resumed).toHaveFocus());
+    expect(resumed.selectionStart).toBe(4);
+    expect(resumed.selectionEnd).toBe(12);
+    expect(resumed.selectionDirection).toBe('backward');
+    expect(resumed.closest('.notebook-editor-body')!.scrollTop).toBe(180);
+    fireEvent.click(screen.getByRole('button', { name: 'NoteDiscardEdits' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    fireEvent.click(screen.getByRole('button', { name: 'NoteEditNote' }));
+    expect(await screen.findByRole('textbox', { name: 'NoteEditNote' })).toHaveValue(
+      'Current note'
+    );
+  }
+);
+
+test.unit.stable(
+  'preserves a conflicting draft and rebases it only after reviewing the latest saved note',
+  async ({ fireEvent, screen, expect, waitFor, render, rpcHandlersTransport }) => {
+    mount({ render, rpcHandlersTransport }, <VersionedNote />);
+    fireEvent.click(screen.getByRole('button', { name: 'NoteEditNote' }));
+    fireEvent.change(await screen.findByRole('textbox', { name: 'NoteEditNote' }), {
+      target: { value: 'My retained correction' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'NoteBackToNotebook' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    rpc.message.mockResolvedValue({ ...message, activeVersionId: message.versions[0]!.id });
+    fireEvent.click(screen.getByRole('button', { name: 'NoteContinueEditing' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'NoteSaveNote' }));
+    await screen.findByRole('alert');
+    expect(editNote).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'LibraryRefresh' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'NoteEditLatest' }));
+    expect(screen.getByRole('textbox', { name: 'NoteEditNote' })).toHaveValue(
+      'My retained correction'
+    );
+    expect(editNote).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
+    await waitFor(() =>
+      expect(editNote).toHaveBeenCalledWith({
+        messageId: message.id,
+        text: 'My retained correction'
+      })
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.queryByRole('button', { name: 'NoteContinueEditing' })).toBeNull();
+  }
+);
+
+test.unit.stable(
+  'keeps the rich editor selection when returning to the notebook and resuming',
+  async ({ fireEvent, screen, expect, waitFor, render, rpcHandlersTransport }) => {
+    const first = mount(
+      { render, rpcHandlersTransport },
+      <VersionedNote value={{ ...message, format: 'document' }} />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'NoteEditNote' }));
+    const editor = await screen.findByRole('textbox', { name: 'NoteEditNote' });
+
+    await waitFor(() => expect(editor).toHaveFocus());
+    const text = editor.querySelector('p')!.firstChild!;
+    const range = document.createRange();
+
+    range.setStart(text, 3);
+    range.setEnd(text, 7);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+    fireEvent.click(screen.getByRole('button', { name: 'NoteBackToNotebook' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    fireEvent.click(screen.getByRole('button', { name: 'NoteContinueEditing' }));
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'NoteEditNote' })).toHaveFocus()
+    );
+    expect(window.getSelection()!.anchorNode).toBe(
+      screen.getByRole('textbox', { name: 'NoteEditNote' }).querySelector('p')!.firstChild
+    );
+    expect(window.getSelection()!.anchorOffset).toBe(3);
+    expect(window.getSelection()!.focusOffset).toBe(7);
+    fireEvent.click(screen.getByRole('button', { name: 'NoteBackToNotebook' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(
+      first.client.get(messageActionDraft(id, message.id))?.pausedEdit?.position?.rich
+    ).toEqual({ anchor: 4, head: 8 });
+    first.unmount();
+    mount(
+      { render, rpcHandlersTransport },
+      <VersionedNote value={{ ...message, format: 'document' }} />,
+      first.client
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'NoteContinueEditing' }));
+    const resumed = await screen.findByRole('textbox', { name: 'NoteEditNote' });
+
+    await waitFor(() => expect(resumed).toHaveFocus());
+    expect(window.getSelection()!.anchorNode).toBe(resumed.querySelector('p')!.firstChild);
+    expect(window.getSelection()!.anchorOffset).toBe(3);
+    expect(window.getSelection()!.focusOffset).toBe(7);
   }
 );
 
@@ -881,7 +1006,7 @@ test.unit.stable(
     fireEvent.click(screen.getByRole('button', { name: 'NoteEditNote' }));
     expect(await screen.findByRole('dialog', { name: 'NoteEditNote' })).toBeVisible();
     expect(screen.getByText('Current note', { selector: 'p' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'NoteCancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'NoteDiscardEdits' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(editNote).not.toHaveBeenCalled();
   }
@@ -1084,5 +1209,27 @@ test.unit.stable(
     );
     await user.hover(await screen.findByRole('button', { name: 'NoteConvertText' }));
     expect(await screen.findByRole('tooltip')).toHaveTextContent('NoteConvertText');
+  }
+);
+
+test.unit.stable(
+  'ignores the save shortcut during IME composition and saves after confirmation',
+  async ({ fireEvent, screen, expect, waitFor, render, rpcHandlersTransport }) => {
+    mount({ render, rpcHandlersTransport }, <VersionedNote />);
+    fireEvent.click(screen.getByRole('button', { name: 'NoteEditNote' }));
+    const editor = await screen.findByRole('textbox', { name: 'NoteEditNote' });
+
+    fireEvent.change(editor, { target: { value: 'Confirmed 日本語' } });
+    fireEvent.keyDown(editor, { key: 'Enter', ctrlKey: true, isComposing: true });
+    expect(editor).toBeEnabled();
+    expect(editNote).not.toHaveBeenCalled();
+    expect(editor).toBeVisible();
+    fireEvent.keyDown(editor, { key: 'Enter', ctrlKey: true, isComposing: false });
+    await waitFor(() =>
+      expect(editNote).toHaveBeenCalledWith({
+        messageId: message.id,
+        text: 'Confirmed 日本語'
+      })
+    );
   }
 );
