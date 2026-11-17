@@ -1955,11 +1955,13 @@ test.browser.stable(
     await expect(empty).toBeVisible();
     await expect(dialog.getByRole('table')).toBeVisible();
     await expect(dialog.getByRole('img', { name: copy.UsageDaily, exact: true })).toBeVisible();
+
     for (const label of [copy.UsageAgents, copy.UsageByDay, copy.UsageModels]) {
       await dialog.getByRole('button', { name: label, exact: true }).click();
       await expect(empty).toBeVisible();
       await expect(dialog.getByRole('columnheader', { name: label, exact: true })).toBeVisible();
     }
+
     await expectAccessibility('usage-empty-filtered');
   }
 );
