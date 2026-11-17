@@ -1,11 +1,16 @@
 import { StudyError } from '@study/contracts';
 import type { NoteId } from '@study/contracts';
 import { ComposeIcon } from '@study/icons';
-import { Button, Loading, Notebook, NotebookComposer } from '@study/ui';
-import { useRef } from 'react';
+import {
+  Button,
+  Loading,
+  Notebook,
+  NotebookComposer,
+  WorkspaceDeskSurface as Desk
+} from '@study/ui';
+import { useEffect, useRef, useState } from 'react';
 
-import { DictationButton } from '#client/features/voice/index.ts';
-import { useTextDictation } from '#client/features/voice/index.ts';
+import { DictationButton, useTextDictation } from '#client/features/voice/index.ts';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
 import { AttachmentPicker, AttachmentTray } from './attachments';
@@ -21,7 +26,11 @@ export function Composer({ id, onPage }: { id: NoteId; onPage?: () => void }) {
   const model = useComposer(id);
   const preferences = useWorkspacePreferences();
   const { t, draft, files, blocked, setDraft, submitNote } = model;
-
+  const [expanded, setExpanded] = useState(() => !!draft.text || files.items.length > 0);
+  const wasPending = useRef(model.pending);
+  const recovery = blocked || !!model.noteMutation.error || !!model.askMutation.error;
+  const required = recovery || files.items.length > 0;
+  const open = expanded || required;
   const input = useRef<HTMLTextAreaElement>(null);
   const dictation = useTextDictation({
     value: draft.text,
@@ -29,56 +38,70 @@ export function Composer({ id, onPage }: { id: NoteId; onPage?: () => void }) {
     input
   });
 
+  useEffect(() => {
+    if (wasPending.current && !model.pending && !recovery && !draft.text && !files.items.length)
+      setExpanded(false);
+
+    wasPending.current = model.pending;
+  }, [model.pending, recovery, draft.text, files.items.length]);
+
   return (
-    <NotebookComposer
-      inputRef={input}
-      inputId={`note-note-${id}`}
-      label={t('NoteCompose')}
-      hint={t('NoteNotebookHint')}
-      placeholder={t('NoteComposeHint')}
-      submitLabel={t('NoteSaveNote')}
-      value={draft.text}
-      spellcheck={preferences.spellcheck}
-      onChange={(text) => setDraft((previous) => ({ ...previous, text }))}
-      onSubmit={submitNote}
-      disabled={blocked || model.filesBlocked || (!draft.text.trim() && !model.sourceIds.length)}
-      onDragOver={(event) => {
-        if (!blocked) event.preventDefault();
-      }}
-      onDrop={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-
-        if (!blocked) files.add(Array.from(event.dataTransfer.files));
-      }}
-      onPaste={(event) => {
-        if (event.clipboardData.files.length && !blocked) {
-          if (!event.clipboardData.getData('text/plain')) event.preventDefault();
-
-          files.add(Array.from(event.clipboardData.files));
-        }
-      }}
-      onKeyDown={(event) => {
-        if (isNoteSubmit(event, preferences.submitOnEnter)) {
+    <Desk.Capture
+      open={open}
+      onOpenChange={required ? undefined : setExpanded}
+      label={t('NoteAddCapture')}
+      closeLabel={t('NoteHideCapture')}
+    >
+      <NotebookComposer
+        inputRef={input}
+        inputId={`note-note-${id}`}
+        label={t('NoteCompose')}
+        hint={t('NoteNotebookHint')}
+        placeholder={t('NoteComposeHint')}
+        submitLabel={t('NoteSaveNote')}
+        value={draft.text}
+        spellcheck={preferences.spellcheck}
+        onChange={(text) => setDraft((previous) => ({ ...previous, text }))}
+        onSubmit={submitNote}
+        disabled={blocked || model.filesBlocked || (!draft.text.trim() && !model.sourceIds.length)}
+        onDragOver={(event) => {
+          if (!blocked) event.preventDefault();
+        }}
+        onDrop={(event) => {
           event.preventDefault();
-          submitNote();
+          event.stopPropagation();
+
+          if (!blocked) files.add(Array.from(event.dataTransfer.files));
+        }}
+        onPaste={(event) => {
+          if (event.clipboardData.files.length && !blocked) {
+            if (!event.clipboardData.getData('text/plain')) event.preventDefault();
+
+            files.add(Array.from(event.clipboardData.files));
+          }
+        }}
+        onKeyDown={(event) => {
+          if (isNoteSubmit(event, preferences.submitOnEnter)) {
+            event.preventDefault();
+            submitNote();
+          }
+        }}
+        attachments={<AttachmentTray id={id} blocked={blocked} />}
+        tools={
+          <>
+            <AttachmentPicker id={id} blocked={blocked} />
+            <DictationButton targetKey={id} {...dictation} disabled={blocked || !open} />
+            {onPage && (
+              <Button variant="ghost-muted" size="sm" onClick={onPage} disabled={blocked}>
+                <ComposeIcon size={16} aria-hidden="true" />
+                {t('NoteWritePage')}
+              </Button>
+            )}
+          </>
         }
-      }}
-      attachments={<AttachmentTray id={id} blocked={blocked} />}
-      tools={
-        <>
-          <AttachmentPicker id={id} blocked={blocked} />
-          <DictationButton targetKey={id} {...dictation} disabled={blocked} />
-          {onPage && (
-            <Button variant="ghost-muted" size="sm" onClick={onPage} disabled={blocked}>
-              <ComposeIcon size={16} aria-hidden="true" />
-              {t('NoteWritePage')}
-            </Button>
-          )}
-        </>
-      }
-      recovery={<ComposerRecovery model={model} />}
-    />
+        recovery={<ComposerRecovery model={model} />}
+      />
+    </Desk.Capture>
   );
 }
 

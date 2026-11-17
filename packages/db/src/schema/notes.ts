@@ -74,6 +74,24 @@ export const message_versions = defineTable({ role: 'contributes', entity: 'mess
   ]
 );
 
+/** Generated navigation metadata is version-bound and removed with its content. */
+export const message_section_titles = defineTable({ role: 'contributes', entity: 'message' })(
+  'message_section_titles',
+  {
+    version_id: integer()
+      .$type<VersionId>()
+      .primaryKey()
+      .references((): AnySQLiteColumn => message_versions.id, { onDelete: 'cascade' }),
+    title: text().notNull()
+  },
+  (t) => [
+    check(
+      'message_section_titles_title_check',
+      sql`length(trim(${t.title})) > 0 AND length(${t.title}) <= 80`
+    )
+  ]
+);
+
 export const message_parts = defineTable({ role: 'contributes', entity: 'message' })(
   'message_parts',
   {

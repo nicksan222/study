@@ -2,7 +2,7 @@ import { RegistryContext, useAtomValue } from '@effect/atom-react';
 import { projectIdSchema } from '@study/contracts';
 import type { NoteId } from '@study/contracts';
 import { rpc, useIndependentMutation } from '@study/contracts/react';
-import { SendIcon, AttachmentIcon, CloseIcon } from '@study/icons';
+import { AttachmentIcon, CloseIcon } from '@study/icons';
 import {
   Button,
   ComposerSurface,
@@ -37,6 +37,7 @@ import {
 } from './start-drafts.queries';
 import { creationFlow, startNote } from './start.queries';
 import { NoteError, NoteReadError } from './status';
+import { usePhoneLayout } from './use-phone-layout';
 import { WorkspaceContext } from './workspace-context';
 import { WorkspaceHeader } from './workspace-header';
 
@@ -159,7 +160,9 @@ export function NoteStart() {
   const { state, flow } = view;
   const subjects = rpc.projects.list.useQuery({ limit: 100 });
   const owner = subjects.data?.items.find((subject) => String(subject.id) === view.search.project);
-  const [cardVisible, setCardVisible] = useState(true);
+  const phone = usePhoneLayout();
+  const [cardPreference, setCardVisible] = useState<boolean>();
+  const cardVisible = cardPreference ?? !phone;
 
   if (state.isError && !flow.data.uncertain && !flow.data.id) {
     return <NoteReadError error={state.error} retry={() => void state.refetch()} layout="page" />;
@@ -196,17 +199,15 @@ export function NoteStart() {
                   </Notebook.History>
                   <CreationStatus view={view} />
                   <CreationRecovery view={view} />
+                  <Desk.InlineComposer>
+                    <StarterComposer view={view} />
+                  </Desk.InlineComposer>
                 </Desk.BoardBody>
               </Desk.Board>
               <WorkspaceContext hidden={!cardVisible} onDismiss={() => setCardVisible(false)} />
             </Desk.NotebookLayout>
           </Desk.ScrollArea>
           <Desk.NavigationHost />
-          <Desk.FloatingComposer>
-            <WorkspaceSurface.Dock>
-              <StarterComposer view={view} />
-            </WorkspaceSurface.Dock>
-          </Desk.FloatingComposer>
         </Desk.Notebook>
       </Desk.Root>
     </WorkspaceSurface.Root>
@@ -333,15 +334,14 @@ function StarterComposer({ view }: { view: StartView }) {
           </Notebook.FileButton>
         </Notebook.CaptureTools>
         <Notebook.Actions>
-          <WorkspaceSurface.ComposerSubmit
-            aria-label={t('NoteSaveNote')}
-            title={t('NoteSaveNote')}
+          <Button
+            size="sm"
             disabled={blocked || (!draft.data.trim() && files.data.length === 0)}
             aria-busy={view.flow.data.pending}
             onClick={beginNote}
           >
-            <SendIcon size={18} aria-hidden="true" />
-          </WorkspaceSurface.ComposerSubmit>
+            {t('NoteSaveNote')}
+          </Button>
         </Notebook.Actions>
       </ComposerSurface.Footer>
       <WorkspaceSurface.ComposerHint id="note-start-hint">

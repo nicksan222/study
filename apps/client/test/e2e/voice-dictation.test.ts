@@ -202,3 +202,50 @@ test.browser.stable(
     expect(status.state).toBe('missing');
   }
 );
+
+test.browser.stable(
+  'Closing saved notebook capture cancels transcription and preserves its draft',
+  async ({ page, rpc, voice, microphone, expect, expectScreenshot }) => {
+    await rpc.runPromise(rpc.client['voice.install']({}));
+    const note = await rpc.runPromise(rpc.client['notes.createUntitledNote']({}));
+
+    await page.goto('/notes/' + String(note.id));
+    const addCapture = page.getByRole('button', { name: copy.NoteAddCapture, exact: true });
+
+    await addCapture.click();
+    const composer = page.getByRole('textbox', { name: copy.NoteCompose });
+    const original = 'Keep this unsent observation when capture is closed.';
+
+    await composer.fill(original);
+    const pending = voice.next(
+      { text: 'A cancelled result must never enter this draft.' },
+      {
+        hold: true
+      }
+    );
+    const audioReady = microphone.nextAudio();
+
+    await page.getByRole('button', { name: copy.VoiceStart, exact: true }).click();
+    await microphone.requested;
+    microphone.release();
+    await expect(page.getByRole('button', { name: copy.VoiceStop, exact: true })).toBeVisible();
+    await audioReady;
+    await page.getByRole('button', { name: copy.VoiceStop, exact: true }).click();
+    await pending.called;
+    await expect(
+      page.getByRole('button', { name: copy.VoiceTranscribing, exact: true })
+    ).toBeDisabled();
+    await page.getByRole('button', { name: copy.NoteHideCapture, exact: true }).click();
+    await pending.aborted;
+    pending.release();
+    await expect(addCapture).toHaveAttribute('aria-expanded', 'false');
+    await expect(composer).toBeHidden();
+    await addCapture.click();
+    await expect(composer).toHaveValue(original);
+    await expect(page.getByRole('button', { name: copy.VoiceStart, exact: true })).toBeEnabled();
+    await expectScreenshot('capture-reopened-after-cancelled-transcription', {
+      target: 'viewport',
+      ready: () => expect(composer).toHaveValue(original)
+    });
+  }
+);

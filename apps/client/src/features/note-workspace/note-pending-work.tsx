@@ -92,6 +92,9 @@ function WorkRow({ item, refresh }: { item: NoteWorkItem; refresh: () => Promise
 
   return (
     <WorkspaceWork.Row>
+      <WorkspaceWork.ItemIcon>
+        <WorkActivityIcon aria-hidden="true" />
+      </WorkspaceWork.ItemIcon>
       <WorkspaceWork.Copy>
         <strong>{t(label)}</strong>
         {item.title && <WorkspaceWork.Status title={item.title}>{item.title}</WorkspaceWork.Status>}

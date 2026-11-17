@@ -16,6 +16,7 @@ import { notePageProposalOperations } from './page-proposals.ts';
 import { noteQuestionOperations } from './questions.ts';
 import { noteReplyOperations } from './replies.ts';
 import { noteRequestOperations } from './requests.ts';
+import { noteSectionTitleOperations } from './section-titles.ts';
 import { noteTitleOperations } from './titles.ts';
 
 export const Notes = defineService(
@@ -30,6 +31,7 @@ export const Notes = defineService(
       ...(yield* noteReplyOperations()),
       ...(yield* noteRequestOperations()),
       ...noteMessageOperations(),
+      ...noteSectionTitleOperations(),
       ...(yield* noteLibraryOperations()),
       ...noteDeletionOperations()
     };

@@ -17,8 +17,6 @@ import { contentInputKey, contentInputSchema } from '@study/contracts';
 import type { materialGenerationInputSchema } from '@study/contracts';
 import type { appSettingsSchema, quizSettingsSchema } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
-import { preferences } from '@study/db';
-import { encodeAccount } from '@study/server';
 import { planSourcePassages } from '@study/server';
 import type { createAiMock } from '@study/testing';
 import { Effect } from 'effect';
@@ -31,9 +29,9 @@ import { studyNotesAgent } from '#server/features/materials/agents/study-notes';
 import { materialGenerationPrompt } from '#server/features/materials/decoders/generation-novelty';
 import { Materials } from '#server/features/materials/index';
 import { questionAgent } from '#server/features/notes/agents/question';
+import { sectionTitleAgent } from '#server/features/notes/agents/section-title';
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
-import { Projects } from '#server/features/projects/index';
 import { Settings } from '#server/features/settings/index';
 import { Workflows } from '#server/features/workflows/index';
 import type { App } from '#server/runtime/index';
@@ -45,42 +43,27 @@ import {
   generationTestPlan,
   generationTestHistory
 } from '#testing/generation-expectations';
+import { connectStudyAccount, createNoteWorkspace, studyNotebook } from '#testing/note-workspace';
 
 const lecture =
   'Mitosis preserves chromosome number and produces two daughter cells. Chromosomes carry genetic information. DNA is copied before cell division.';
 
 /** Fixture data follows real feature services; only account credentials and model outcomes are synthetic. */
 async function studyMaterialFixture(app: App, ai: ReturnType<typeof createAiMock>, text = lecture) {
-  const account = JSON.stringify(
-    encodeAccount({ subject: 'e2e-student', clientId: 'e2e', refreshToken: null, sharing: true })
-  );
-
-  app.store.db.orm
-    .insert(preferences)
-    .values({
-      scope: 'private.chatgpt',
-      key: 'account',
-      value: account
-    })
-    .onConflictDoUpdate({
-      target: [preferences.scope, preferences.key],
-      set: {
-        value: account
-      }
-    })
-    .run();
+  connectStudyAccount(app);
 
   const classification = ai.next(questionAgent, {
     input: { text: text.trim() },
     output: { kind: 'note' }
   });
+  const sectionTitle = ai.next(sectionTitleAgent, {
+    input: { prompt: JSON.stringify({ text: text.trim() }) },
+    output: 'Cell division overview'
+  });
   const fixture = await app.nativeRuntime.runPromise(
     Effect.gen(function* () {
-      const project = yield* (yield* Projects).createProject({ name: 'Cell biology' });
+      const { project, note } = yield* studyNotebook('Cell division lecture');
       const notes = yield* Notes;
-      const note = yield* notes.createUntitledNote({ project: project.id });
-
-      yield* notes.renameNote({ id: note.id, title: 'Cell division lecture' });
       const message = yield* notes.postMessage({ noteId: note.id, text });
 
       if (!message.activeVersionId) throw new Error('Fixture note has no saved version');
@@ -114,7 +97,7 @@ async function studyMaterialFixture(app: App, ai: ReturnType<typeof createAiMock
     })
   );
 
-  await classification.called;
+  await Promise.all([classification.called, sectionTitle.called]);
 
   return fixture;
 }
@@ -149,6 +132,7 @@ function publishedMaterial(app: App, requestId: string) {
 /** Browser journeys share real feature operations and actual agent contracts. */
 export function createStudyMaterials(app: App, ai: ReturnType<typeof createAiMock>) {
   return {
+    notes: createNoteWorkspace(app, ai),
     agents: { flashcards: flashcardsAgent, studyNotes: studyNotesAgent, quiz: quizTitledAgent },
     generate: <A extends typeof flashcardsAgent | typeof quizTitledAgent>(
       target: A,

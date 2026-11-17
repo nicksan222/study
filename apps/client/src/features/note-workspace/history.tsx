@@ -18,6 +18,7 @@ import {
   WorkspaceDeskSurface as Desk
 } from '@study/ui';
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -37,22 +38,14 @@ import { notebookMessages, notebookTargetId, notebookTimeline } from './notebook
 import { NotebookNavigation } from './notebook-navigation';
 import { PendingMessageWork } from './pending-message-work';
 import { QuestionActions } from './question-actions';
+import { messageSectionTitle } from './section-title';
 import { NoteReadError } from './status';
 
 export { CapturedContext } from './captured-context';
 
 type Message = typeof chatMessageSchema.Type;
 
-export function History({
-  id,
-  onPage,
-  onOpen,
-  activePage,
-  pages = [],
-  onOpenPage,
-  onOpenSource,
-  activeAuthoredPage
-}: {
+type HistoryProps = {
   id: NoteId;
   onPage?: () => void;
   onOpen?: (message: Message) => void;
@@ -61,9 +54,35 @@ export function History({
   onOpenPage?: (material: PageSummary) => void;
   onOpenSource?: (source: { id: SourceId; name: string }) => void;
   activeAuthoredPage?: string;
-}) {
+  capture?: ReactNode;
+};
+
+type ThreadState = ReturnType<typeof useThreadPage>;
+
+/** A supplied window keeps the notebook and its context outline on the same loaded entries. */
+export function History({ state, ...props }: HistoryProps & { state?: ThreadState }) {
+  return state ? <HistoryContent {...props} state={state} /> : <HistoryRead {...props} />;
+}
+
+function HistoryRead(props: HistoryProps) {
+  const state = useThreadPage(props.id);
+
+  return <HistoryContent {...props} state={state} />;
+}
+
+function HistoryContent({
+  id,
+  onPage,
+  onOpen,
+  activePage,
+  pages = [],
+  onOpenPage,
+  onOpenSource,
+  activeAuthoredPage,
+  capture,
+  state
+}: HistoryProps & { state: ThreadState }) {
   const { t } = useI18n();
-  const state = useThreadPage(id);
   const messages = notebookMessages(id, state.data?.items ?? []);
   const entries = notebookTimeline(messages, pages);
 
@@ -129,6 +148,7 @@ export function History({
             )}
           </Notebook.IndexTarget>
         ))}
+        {capture}
       </Notebook.History>
     </ChatNote>
   );
@@ -237,7 +257,8 @@ function MessageEntry({
 
   return (
     <ChatMessage data-role={message.role}>
-      <ChatEntryLabel>{t(messageEntryLabel(message, version))}</ChatEntryLabel>
+      <SectionHeading message={message} version={contentVersion} />
+      <MessageEntryLabel message={message} version={version} />
       {!version && <StatusMessage>{t('NoteReadUnavailable')}</StatusMessage>}
       {version && (
         <MessageVersionBody
@@ -265,6 +286,18 @@ function MessageEntry({
   );
 }
 
+function SectionHeading({
+  message,
+  version
+}: {
+  message: Message;
+  version: Message['versions'][number] | undefined;
+}) {
+  const title = version ? messageSectionTitle(message, version.id) : undefined;
+
+  return title ? <Notebook.SectionTitle>{title}</Notebook.SectionTitle> : null;
+}
+
 /** Keep displayed content and evidence bound to the same immutable version. */
 function messageContentVersion(message: Message, version: Message['versions'][number] | undefined) {
   if (!version || version.status === 'complete' || version.text) return version;
@@ -282,6 +315,19 @@ function messageEntryLabel(message: Message, version: Message['versions'][number
   if (!version?.text.trim() && message.parts.length > 0) return 'NoteEntryAttachment';
 
   return 'NoteEntryNote';
+}
+
+function MessageEntryLabel({
+  message,
+  version
+}: {
+  message: Message;
+  version: Message['versions'][number] | undefined;
+}) {
+  const { t } = useI18n();
+  const label = messageEntryLabel(message, version);
+
+  return label === 'NoteEntryNote' ? null : <ChatEntryLabel>{t(label)}</ChatEntryLabel>;
 }
 
 function isQuestionVersion(message: Message, versionId: VersionId | undefined) {

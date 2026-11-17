@@ -22,6 +22,7 @@ export function WorkspaceHeader({
 
   return (
     <Sidebar.Topbar
+      variant="notebook"
       parent={
         owner ? (
           <WorkspaceSurface.SubjectIdentity>

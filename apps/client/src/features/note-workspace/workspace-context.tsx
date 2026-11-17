@@ -20,6 +20,7 @@ export function WorkspaceContext({
   id,
   children,
   actions,
+  outline,
   hidden,
   onDismiss,
   onOpenPage,
@@ -28,6 +29,7 @@ export function WorkspaceContext({
   id?: NoteId;
   children?: ReactNode;
   actions?: ReactNode;
+  outline?: ReactNode;
   hidden?: boolean;
   onDismiss?: () => void;
   onOpenPage?: (material: PageSummary) => void;
@@ -43,15 +45,18 @@ export function WorkspaceContext({
       onDismiss={onDismiss}
     >
       {actions}
-      <WorkspaceAttachments.Heading>
-        <AttachmentIcon size={13} aria-hidden="true" />
-        <h2>{t('NoteAttachments')}</h2>
-      </WorkspaceAttachments.Heading>
-      {id ? (
-        <NoteFiles key={String(id)} id={id} onOpenPage={onOpenPage} onOpenSource={onOpenSource} />
-      ) : (
-        <WorkspaceAttachments.Empty>{t('NoteAttachmentsStart')}</WorkspaceAttachments.Empty>
-      )}
+      {outline}
+      <WorkspaceAttachments.Section aria-label={t('NoteAttachments')}>
+        <WorkspaceAttachments.Heading>
+          <AttachmentIcon size={13} aria-hidden="true" />
+          <h2>{t('NoteAttachments')}</h2>
+        </WorkspaceAttachments.Heading>
+        {id ? (
+          <NoteFiles key={String(id)} id={id} onOpenPage={onOpenPage} onOpenSource={onOpenSource} />
+        ) : (
+          <WorkspaceAttachments.Empty>{t('NoteAttachmentsStart')}</WorkspaceAttachments.Empty>
+        )}
+      </WorkspaceAttachments.Section>
       {id && <NotePendingWork key={String(id)} id={id} />}
       {children}
     </WorkspaceCard.Root>

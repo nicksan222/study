@@ -220,8 +220,10 @@ test.browser.stable(
     ) {
       await expect(picker).toHaveAccessibleName(scope.name);
       await expect(picker).toContainText(scope.name);
-      await expect(composer).toHaveValue('');
-      await expect(save).toBeDisabled();
+      await expect(composer).toBeHidden();
+      await expect(
+        page.getByRole('button', { name: copy.NoteAddCapture, exact: true })
+      ).toHaveAttribute('aria-expanded', 'false');
       const notebook = page.getByRole('region', { name: copy.NoteNotebook });
       const entry = notebook.locator('[data-role="user"]');
 
@@ -284,15 +286,19 @@ test.browser.stable(
 
       await source({ expect }, scope);
       const body = notebook.locator('[data-slot="chat-message-text"]');
-      const heading = notebook.getByText(copy.NoteEntryNote, { exact: true });
+      const heading = body;
 
-      await heading.scrollIntoViewIfNeeded();
-      await expect(heading).toBeInViewport({ ratio: 1 });
+      await page
+        .getByRole('navigation', { name: copy.NoteOutline })
+        .getByRole('button')
+        .first()
+        .click();
+      await expect(heading).toHaveVisibleText(scope.title);
       await expectScreenshot(`${scope === a ? 'river' : 'orchard'}-saved-top`, {
         target: 'viewport',
         ready: async () => {
           await expect(body).toHaveText(scope.text);
-          await expect(heading).toBeInViewport({ ratio: 1 });
+          await expect(heading).toHaveVisibleText(scope.title);
         }
       });
       const initial = await body.boundingBox();
@@ -310,16 +316,18 @@ test.browser.stable(
         ready: () => expect(body).toHaveText(scope.text)
       });
       await scroll.press('End');
-      await expect(heading).not.toBeInViewport();
+      await expect(heading).not.toHaveVisibleText(scope.title);
       await expect
         .poll(async () => {
           const content = await body.boundingBox();
-          const dock = await page.locator('.workspace-desk-floating-composer').boundingBox();
+          const capture = await page.locator('.workspace-desk-capture').boundingBox();
 
-          return !!content && !!dock && content.y + content.height <= dock.y;
+          return !!content && !!capture && content.y + content.height <= capture.y;
         })
         .toBe(true);
-      await controls({ expect });
+      await expect(
+        page.getByRole('button', { name: copy.NoteAddCapture, exact: true })
+      ).toBeInViewport({ ratio: 1 });
       await expectScreenshot(`${scope === a ? 'river' : 'orchard'}-saved-destination`, {
         target: 'viewport',
         ready: async () => {

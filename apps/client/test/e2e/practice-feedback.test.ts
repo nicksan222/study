@@ -196,6 +196,7 @@ test.browser.stable(
     await page.keyboard.press('Enter');
     await expect(feedback).toHaveText(italian.PracticeFeedbackImmediately);
     await expect(feedback).toBeEnabled();
+    await expect(dialog).toBeInViewport({ ratio: 1 });
     await expectScreenshot('italian-feedback-setting', {
       target: dialog,
       ready: () => expect(feedback).toHaveText(italian.PracticeFeedbackImmediately)

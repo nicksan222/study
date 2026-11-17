@@ -34,6 +34,7 @@ import {
   noteQuestionRegistration,
   noteReplyRegistration,
   noteTitleRegistration,
+  noteSectionTitleRegistration,
   transformSuggestionRegistration
 } from '#server/features/notes/workflows/index';
 import { pageTransformRegistration } from '#server/features/pages/workflows/index';
@@ -56,6 +57,7 @@ const entries = [
   recordingPostRegistration,
   materialGenerationRegistration,
   noteTitleRegistration,
+  noteSectionTitleRegistration,
   noteQuestionRegistration,
   noteReplyRegistration,
   sourceIngestionRegistration,

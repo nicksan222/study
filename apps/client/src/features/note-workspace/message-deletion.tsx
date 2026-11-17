@@ -1,7 +1,7 @@
 import type { VersionId, ChatMessage } from '@study/contracts';
 import { rpc, useIndependentMutation } from '@study/contracts/react';
 import { RemoveFromPageIcon, DeleteIcon } from '@study/icons';
-import { DangerDialog, IconButton } from '@study/ui';
+import { DangerDialog, IconButton, Notebook } from '@study/ui';
 import { Effect } from 'effect';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -76,6 +76,7 @@ export function MessageDeletion({
             onClick={() => show('item')}
           >
             <DeleteIcon aria-hidden="true" />
+            <Notebook.ActionLabel>{t('NoteDeleteItem')}</Notebook.ActionLabel>
           </IconButton>
           <IconButton
             size="icon-sm"
@@ -86,6 +87,7 @@ export function MessageDeletion({
             onClick={() => show(versionId)}
           >
             <RemoveFromPageIcon aria-hidden="true" />
+            <Notebook.ActionLabel>{t('NoteDeleteVersion')}</Notebook.ActionLabel>
           </IconButton>
         </>
       )}

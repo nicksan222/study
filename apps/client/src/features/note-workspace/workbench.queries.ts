@@ -8,6 +8,7 @@ import { useWorkspacePreferences } from '#client/lib/study-client/workspace-pref
 import { useThreadPage } from './note-reads';
 import { pageIdentity } from './page-autosave.queries';
 import type { PageTarget } from './page-autosave.queries';
+import { usePhoneLayout } from './use-phone-layout';
 
 export type WorkbenchTarget =
   | { kind: 'assistant' }
@@ -43,6 +44,7 @@ const workbenchState = Atom.family((_id: NoteId) =>
 export function useWorkbench(id: NoteId) {
   const cache = useContext(RegistryContext);
   const preferences = useWorkspacePreferences();
+  const phone = usePhoneLayout();
   const atom = workbenchState(id);
   const model = useAtomValue(atom);
   const thread = useThreadPage(id);
@@ -96,12 +98,12 @@ export function useWorkbench(id: NoteId) {
     expanded: model.expanded ?? preferences.expandPages,
     tabs,
     dock: model.dock ?? 'side',
-    cardVisible: !model.visible && !model.cardHidden,
+    cardVisible: !model.visible && !(model.cardHidden ?? phone),
     toggleCard: () =>
       update((value) => ({
         ...value,
         visible: false,
-        cardHidden: value.visible ? false : !value.cardHidden
+        cardHidden: value.visible ? false : !(value.cardHidden ?? phone)
       })),
     hideCard: () => update((value) => ({ ...value, cardHidden: true })),
     showEditor: (dock: 'side' | 'bottom') =>

@@ -6,13 +6,15 @@ import {
   RefineIcon,
   AcceptIcon,
   ArchiveIcon,
-  ConvertToTextIcon
+  ConvertToTextIcon,
+  InfoIcon
 } from '@study/icons';
 import type { StaticMessageKey } from '@study/localization';
 import {
   Button,
   ChatMessageActionToolbar,
   Dialog,
+  DialogTrigger,
   DialogPopup,
   DialogHeading,
   Loading,
@@ -64,10 +66,6 @@ export function MessageActions({
           questionAction={questionAction}
         />
       </MessageContextMenu>
-      <AiReadinessNotice state={model.readiness} />
-      {model.conversion.available && model.conversion.readiness !== model.readiness && (
-        <AiReadinessNotice state={model.conversion.readiness} />
-      )}
       {model.conversion.mutation.error && (
         <NoteError error={model.conversion.mutation.error} retry={model.conversion.retry} />
       )}
@@ -130,16 +128,19 @@ function MessageToolbar({
     <ChatMessageActionToolbar
       aria-label={t('NoteItemActions')}
       data-open={!!draft.mode || undefined}
+      disclosureLabel={t('NoteItemActions')}
+      primaryAction={
+        message.role === 'user' && (
+          <MessageActionButton
+            model={model}
+            mode="edit"
+            disabled={!active}
+            label="NoteEditNote"
+            icon={<EditIcon size={15} aria-hidden="true" />}
+          />
+        )
+      }
     >
-      {message.role === 'user' && (
-        <MessageActionButton
-          model={model}
-          mode="edit"
-          disabled={!active}
-          label="NoteEditNote"
-          icon={<EditIcon size={15} aria-hidden="true" />}
-        />
-      )}
       {onVersionChange && (
         <MessageVersionStepper
           message={message}
@@ -179,6 +180,7 @@ function MessageToolbar({
         icon={<AcceptIcon size={15} aria-hidden="true" />}
       />
       <MessageConversionButton model={model} />
+      <MessageAvailability model={model} />
       {questionAction}
       <MessageArchiveButton model={model} />
       <MessageDeletion
@@ -190,6 +192,38 @@ function MessageToolbar({
         }
       />
     </ChatMessageActionToolbar>
+  );
+}
+
+function MessageAvailability({ model }: { model: MessageActionsModel }) {
+  const { t, readiness, conversion } = model;
+  const conversionNotice =
+    conversion.available && conversion.readiness !== 'ready' && conversion.readiness !== readiness;
+
+  if (readiness === 'ready' && !conversionNotice) return null;
+
+  return (
+    <Dialog>
+      <DialogTrigger
+        render={<Button size="icon-sm" variant="ghost-muted" />}
+        aria-label={t('NoteAiAvailability')}
+      >
+        <InfoIcon size={15} aria-hidden="true" />
+        <Notebook.ActionLabel>{t('NoteAiAvailability')}</Notebook.ActionLabel>
+      </DialogTrigger>
+      <DialogPopup closeLabel={t('Close')}>
+        <DialogHeading title={t('NoteAiAvailability')} density="compact" />
+        <WorkspaceSurface.ContextDialogBody>
+          <AiReadinessNotice state={readiness} />
+          {conversionNotice && (
+            <>
+              <Notebook.SectionTitle>{t('NoteConvertText')}</Notebook.SectionTitle>
+              <AiReadinessNotice state={conversion.readiness} />
+            </>
+          )}
+        </WorkspaceSurface.ContextDialogBody>
+      </DialogPopup>
+    </Dialog>
   );
 }
 
@@ -344,6 +378,9 @@ function MessageEditDialog({ model }: { model: MessageActionsModel }) {
           }
         />
         <WorkspaceSurface.ContextDialogBody>
+          {draft.mode && draft.mode !== 'edit' && draft.mode !== 'activate' && (
+            <AiReadinessNotice state={model.readiness} />
+          )}
           <MessageEditor model={model} />
           <MessageRecovery model={model} />
         </WorkspaceSurface.ContextDialogBody>

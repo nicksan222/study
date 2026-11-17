@@ -75,6 +75,7 @@ export { material_version_parents } from './schema.ts';
 export { material_versions } from './schema.ts';
 export { materials } from './schema.ts';
 export { message_parts } from './schema.ts';
+export { message_section_titles } from './schema.ts';
 export { message_versions } from './schema.ts';
 export { messages } from './schema.ts';
 export { note_context_pages } from './schema.ts';

@@ -691,7 +691,7 @@
   overflow-wrap: anywhere;
 }
 .note-context-dialog {
-  width: min(46rem, calc(100vw - 2rem));
+  width: min(46rem, 100%);
   max-width: 46rem;
 }
 .note-context-dialog-body {
@@ -1694,4 +1694,24 @@ summary.note-work-row:focus-visible {
 .ui-selection-detail-heading .study-practice-progress {
   max-width: 16rem;
   margin: 0.75rem 0 0;
+}
+
+@media (max-width: 600px) {
+  .note-context-dialog > [data-slot='dialog-header'],
+  .note-context-dialog > [data-slot='dialog-footer'],
+  .note-context-dialog-body {
+    padding-inline: 1rem;
+  }
+  .note-context-dialog > [data-slot='dialog-header'] {
+    padding-block-start: 1rem;
+  }
+  .note-context-dialog-body .ui-action-tooltip {
+    max-width: 100%;
+  }
+  .note-context-dialog-body [data-ai-working] {
+    max-width: 100%;
+    height: auto;
+    min-height: 2.5rem;
+    white-space: normal;
+  }
 }

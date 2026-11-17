@@ -197,6 +197,35 @@ test.browser.stable(
       });
     }
 
+    async function savedAttachment(
+      { expect }: Pick<test.browser.Context, 'expect'>,
+      file: (typeof files)[number],
+      index: number
+    ) {
+      await expect(noteLinks).toHaveCount(index + 1);
+      await expect(composer).toBeHidden();
+      await expect(
+        page.getByRole('button', { name: copy.NoteAddCapture, exact: true })
+      ).toHaveAttribute('aria-expanded', 'false');
+      await expect(page.locator('[data-slot="chat-message-text"]')).toHaveCount(1);
+      await expect(page.locator('[data-slot="chat-message-text"]')).toHaveText('');
+
+      const attachment = page.locator('[data-role="user"]').getByRole('button', {
+        name: file.name,
+        exact: true
+      });
+
+      await expect(attachment).toBeEnabled();
+
+      if (index === 0)
+        await expectScreenshot('file-saved-collapsed', {
+          target: 'viewport',
+          ready: () => expect(attachment).toBeEnabled()
+        });
+
+      return attachment;
+    }
+
     for (const [index, file] of files.entries()) {
       await page.goto('/notes');
       await expect(noteLinks).toHaveCount(index);
@@ -247,17 +276,8 @@ test.browser.stable(
       await expect(page).toHaveURL(/\/notes\/[^/?]+$/);
       expect(urls).not.toContain(page.url());
       urls.push(page.url());
-      await expect(noteLinks).toHaveCount(index + 1);
-      await expect(composer).toHaveValue('');
-      await expect(page.locator('[data-slot="chat-message-text"]')).toHaveCount(1);
-      await expect(page.locator('[data-slot="chat-message-text"]')).toHaveText('');
+      const attachment = await savedAttachment({ expect }, file, index);
 
-      const attachment = page.locator('[data-role="user"]').getByRole('button', {
-        name: file.name,
-        exact: true
-      });
-
-      await expect(attachment).toBeEnabled();
       await attachment.click();
       await sourceReady({ expect }, file);
       await previewControls({ expect });

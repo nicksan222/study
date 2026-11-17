@@ -16,9 +16,9 @@ export function Textarea({
     >
       <textarea
         className={cn(
-          'block w-full resize-y rounded-[inherit] bg-transparent p-3 text-sm leading-5 outline-none placeholder:text-placeholder disabled:cursor-not-allowed',
+          'block w-full resize-y rounded-[inherit] bg-transparent p-3 leading-5 outline-none placeholder:text-placeholder disabled:cursor-not-allowed',
           size === 'compact' ? 'min-h-24' : 'min-h-44',
-          font === 'mono' && 'text-xs',
+          font === 'mono' ? 'text-xs' : 'text-base sm:text-sm',
           className
         )}
         data-slot="textarea"

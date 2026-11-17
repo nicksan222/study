@@ -13,7 +13,7 @@
   width: 100%;
   height: min(48rem, 85dvh);
   max-width: 85rem;
-  max-height: calc(100dvh - 3rem);
+  max-height: 100%;
   font-size: 0.8125rem;
   line-height: 1.5;
   overflow: hidden;

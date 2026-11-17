@@ -185,6 +185,14 @@ export const noteQuestionRequestedSchema = Schema.Struct({
   versionId: versionIdSchema
 });
 
+export const noteSectionTitleRequestedSchema = Schema.Struct({
+  ...envelope,
+  type: Schema.Literal('NoteSectionTitleRequested'),
+  noteId: noteIdSchema,
+  messageId: messageIdSchema,
+  versionId: versionIdSchema
+});
+
 export const noteTitleRequestedSchema = Schema.Struct({
   ...envelope,
   type: Schema.Literal('NoteTitleRequested'),
@@ -259,6 +267,7 @@ export const workflowEventSchema = Schema.Union([
   noteTitleRequestedSchema,
   transformSuggestionRequestedSchema,
   noteQuestionRequestedSchema,
+  noteSectionTitleRequestedSchema,
   quizAnswerSubmittedSchema,
   practiceSlotRequestedSchema
 ]);

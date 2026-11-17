@@ -1,6 +1,6 @@
 import type { NoteId, PageId, SourceId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { Loading, WorkspaceSurface, WorkspaceDeskSurface as Desk } from '@study/ui';
+import { Loading, WorkspaceDeskSurface as Desk } from '@study/ui';
 
 import { CursorWindowActions } from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -13,6 +13,8 @@ import { History } from './history';
 import { NoteSummary } from './note-editor';
 import { NotePagePanel } from './note-page-panel';
 import { useLinkedPages, useNotePageCreation } from './note-page.queries';
+import { useThreadPage } from './note-reads';
+import { NotebookOutline } from './notebook-outline';
 import { PagePanel } from './page-panel';
 import { NoteReadError } from './status';
 import { useWorkbench, workbenchIdentity } from './workbench.queries';
@@ -49,6 +51,7 @@ export function NoteWorkbench({ id, onDelete }: { id: NoteId; onDelete: () => vo
   const { t } = useI18n();
   const model = useWorkbench(id);
   const pages = useLinkedPages(id);
+  const thread = useThreadPage(id);
   const creation = useNotePageCreation(id);
   const active = model.tabs.find((tab) => workbenchIdentity(tab) === model.active);
   const openPage = (material: { id: PageId; title: string }) =>
@@ -82,6 +85,8 @@ export function NoteWorkbench({ id, onDelete }: { id: NoteId; onDelete: () => vo
                 />
                 <History
                   id={id}
+                  state={thread}
+                  capture={<Composer id={id} onPage={create} />}
                   pages={pages.data?.items}
                   onOpenPage={openPage}
                   onOpenSource={openSource}
@@ -103,6 +108,14 @@ export function NoteWorkbench({ id, onDelete }: { id: NoteId; onDelete: () => vo
             </Desk.Board>
             <WorkspaceContext
               id={id}
+              outline={
+                <NotebookOutline
+                  id={id}
+                  thread={thread}
+                  pages={pages}
+                  onNavigate={model.hideCard}
+                />
+              }
               onOpenPage={openPage}
               onOpenSource={openSource}
               hidden={!model.cardVisible}
@@ -119,11 +132,6 @@ export function NoteWorkbench({ id, onDelete }: { id: NoteId; onDelete: () => vo
           </Desk.NotebookLayout>
         </Desk.ScrollArea>
         <Desk.NavigationHost />
-        <Desk.FloatingComposer>
-          <WorkspaceSurface.Dock>
-            <Composer id={id} onPage={create} />
-          </WorkspaceSurface.Dock>
-        </Desk.FloatingComposer>
       </Desk.Notebook>
 
       <EditorPanel id={id} model={model} active={active} create={create} openPage={openPage} />
