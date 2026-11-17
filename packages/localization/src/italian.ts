@@ -2,8 +2,18 @@ import type { english } from './english.ts';
 
 export const italian = Object.freeze({
   AnalyticsTitle: 'Analisi',
-  AnalyticsDescription:
-    'Eventi diagnostici recenti del desktop. La raccolta è limitata all’ultimo MiB o a 10.000 righe e può contenere percorsi di file sensibili. I log del server non sono inclusi.',
+  AnalyticsLogsTitle: 'Log diagnostici',
+  AnalyticsDescription: 'Consulta gli eventi recenti dell’app desktop di Study.',
+  AnalyticsDesktopTitle: 'Disponibile nell’app desktop',
+  AnalyticsSnapshotTitle: 'Informazioni sulle raccolte diagnostiche',
+  AnalyticsWindowTitle: 'Eventi recenti',
+  AnalyticsWindow: 'L’ultimo MiB o le ultime 10.000 righe, in base al limite raggiunto per primo.',
+  AnalyticsScopeTitle: 'Solo eventi del desktop',
+  AnalyticsScope:
+    'Le raccolte contengono la diagnostica dell’app desktop. I log del server non sono inclusi.',
+  AnalyticsPrivacyTitle: 'Controlla prima di condividere',
+  AnalyticsPrivacy:
+    'I log possono contenere percorsi di file sensibili. Controlla la raccolta prima di inviarla a qualcuno.',
   AnalyticsDesktop: 'Apri Study sul desktop per vedere i log diagnostici.',
   AnalyticsSearch: 'Cerca nei log',
   AnalyticsLevel: 'Gravità',

@@ -52,6 +52,7 @@ export {
   Database as DataStorageIcon,
   Trash2 as DeleteIcon,
   Text as DescriptionIcon,
+  Monitor as DesktopIcon,
   ChevronRight as DisclosureIcon,
   Dna as DnaIcon,
   PanelBottom as DockBelowIcon,

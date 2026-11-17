@@ -561,6 +561,35 @@
   margin: 0;
 }
 
+/* A feature-level unavailable state, distinct from an empty list or an error. */
+.settings-empty-feature {
+  align-items: flex-start;
+  gap: 0.875rem;
+  padding: 1.25rem;
+  border: 1px solid var(--ui-surface-border);
+  border-radius: 0.75rem;
+  background: var(--settings-card-surface);
+}
+.settings-empty-feature > svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-top: 0.125rem;
+  color: var(--contrast-muted-foreground);
+}
+.settings-empty-feature > div {
+  display: grid;
+  gap: 0.25rem;
+  max-width: 64ch;
+}
+.settings-empty-feature strong {
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.settings-empty-feature p {
+  line-height: 1.65;
+}
+
 .settings-range-control {
   display: flex;
   align-items: center;
