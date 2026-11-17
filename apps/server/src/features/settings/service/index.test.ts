@@ -48,6 +48,7 @@ test.server.stable(
           expect(yield* settings.quizSettings()).toStrictEqual(defaultQuizSettings);
           const quiz = {
             ...defaultQuizSettings,
+            feedbackTiming: 'immediate' as const,
             questionCount: 3,
             questionOrder: 'shuffle' as const,
             shuffleChoices: false,
@@ -325,6 +326,7 @@ test.server.stable(
 
     expect(Schema.decodeUnknownSync(quizSettingsSchema)(previous)).toEqual({
       ...previous,
+      feedbackTiming: 'end',
       choiceCount: 4,
       difficulty: 'balanced'
     });

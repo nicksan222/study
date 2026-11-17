@@ -65,6 +65,7 @@
   color: var(--sidebar-icon-color);
 }
 .settings-main {
+  container: settings-content / inline-size;
   min-width: 0;
   min-height: 0;
   display: flex;
@@ -929,4 +930,18 @@
 .settings-inline-form > [data-slot='input-control'] {
   flex: 1 1 8rem;
   width: 8rem;
+}
+
+@container settings-content (max-width: 32rem) {
+  .settings-row:has([role='combobox']) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+  .settings-row:has([role='combobox']) .settings-row-control {
+    justify-self: stretch;
+    max-width: none;
+  }
+  .settings-row-control .study-select-trigger {
+    width: 100%;
+  }
 }

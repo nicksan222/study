@@ -72,6 +72,9 @@ export const Practice = {
   ChoiceLetterText: semanticPart('span', 'study-practice-choice-letter'),
   Results: semanticPart('section', 'study-practice-results'),
   ResultsHeading: semanticPart('div', 'study-practice-results-heading'),
+  ReviewHeading: semanticPart('div', 'study-practice-review-heading'),
+  Feedback: semanticPart('div', 'study-practice-feedback'),
+  ResultContent: semanticPart('div', 'study-practice-result-content'),
   Score: semanticPart('p', 'study-practice-score'),
   ResultList: semanticPart('div', 'study-practice-result-list'),
   Result: semanticPart('details', 'study-practice-result'),
@@ -119,13 +122,13 @@ function ChoiceOption({
       <input {...input} checked={selected} />
       <Practice.ChoiceLetterText aria-hidden="true">{number}</Practice.ChoiceLetterText>
       <span>{text}</span>
-      {status && <Practice.MutedText>{status}</Practice.MutedText>}
-      {selected &&
-        (tone === 'incorrect' ? (
-          <IncorrectIcon aria-hidden="true" />
+      {status &&
+        (tone ? (
+          <span className="sr-only">{status}</span>
         ) : (
-          <CorrectIcon aria-hidden="true" />
+          <Practice.MutedText>{status}</Practice.MutedText>
         ))}
+      {selected && <CorrectIcon aria-hidden="true" data-feedback={Boolean(tone)} />}
     </Practice.Choice>
   );
 }
@@ -139,7 +142,7 @@ function Ordering({
   disabled,
   label
 }: {
-  items: readonly { key: string; text: string }[];
+  items: readonly { key: string; text: string; tone?: 'correct' | 'incorrect' }[];
   move?: (index: number, direction: -1 | 1) => void;
   moveUpLabel?: string;
   moveDownLabel?: string;
@@ -155,7 +158,7 @@ function Ordering({
       aria-live={move ? 'polite' : undefined}
     >
       {items.map((item, index) => (
-        <li key={item.key}>
+        <li key={item.key} data-tone={item.tone}>
           <span className="study-practice-ordering-number" aria-hidden="true">
             {index + 1}
           </span>
@@ -193,11 +196,24 @@ function Ordering({
 }
 
 /** Presents content-sized read-only answer text with an explicit accessible label. */
-function AnswerComparison({ label, children }: { label: string; children: ReactNode }) {
+function AnswerComparison({
+  label,
+  children,
+  tone
+}: {
+  label: string;
+  children: ReactNode;
+  tone?: 'correct' | 'incorrect';
+}) {
   const labelId = useId();
 
   return (
-    <div className="study-practice-answer-comparison" role="group" aria-labelledby={labelId}>
+    <div
+      className="study-practice-answer-comparison"
+      data-tone={tone}
+      role="group"
+      aria-labelledby={labelId}
+    >
       <h3 id={labelId}>{label}</h3>
       <p>{children}</p>
     </div>

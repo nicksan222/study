@@ -6,6 +6,7 @@ import {
   practiceInputSchema,
   practiceSchema,
   practiceSlotSchema,
+  quizSettingsSchema,
   projectIdSchema,
   publishPracticeSlotInputSchema,
   quizAttemptSchema,
@@ -94,9 +95,12 @@ export const PracticeStore = defineStore({
         }),
         publish: storeMutation({
           changes: ['learning'],
-          input: publishPracticeSlotInputSchema,
+          input: Schema.Struct({
+            ...publishPracticeSlotInputSchema.fields,
+            feedbackTiming: quizSettingsSchema.fields.feedbackTiming
+          }),
           output: Schema.NullOr(quizAttemptSchema),
-          run: (input) => publish(input.slotId, input.versionId)
+          run: (input) => publish(input.slotId, input.versionId, input.feedbackTiming)
         }),
         answer: storeMutation({
           changes: ['learning'],

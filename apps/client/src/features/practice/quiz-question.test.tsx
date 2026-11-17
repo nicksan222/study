@@ -1,6 +1,7 @@
 import { quizAttemptInProgressSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
+import type { PracticeResultQuestionModel } from '@study/ui';
 import { Schema } from 'effect';
 
 import type { AiReadiness } from '#client/lib/ai-readiness.ts';
@@ -356,5 +357,123 @@ test.unit.stable(
     render(<QuizQuestion question={attempt.questions[0]!} pending={false} submit={submit} last />);
     await user.keyboard('12{Enter}');
     expect(submit).toHaveBeenCalledWith({ type: 'choice', choiceIds: [5n, 6n] });
+  }
+);
+
+function gradedQuestion(
+  question: (typeof quizAttemptInProgressSchema.Type)['questions'][number]
+): PracticeResultQuestionModel {
+  const base = {
+    ...question,
+    explanation: 'The same question, now graded.',
+    feedback: null,
+    score: 1
+  };
+
+  return 'choices' in question
+    ? {
+        ...base,
+        kind: question.kind,
+        choices: question.choices.map((choice) => ({ ...choice, isCorrect: true })),
+        answer: question.answer
+      }
+    : question.kind === 'ordering'
+      ? {
+          ...base,
+          kind: question.kind,
+          items: question.items,
+          correctItemIds: question.items.map((item) => item.id),
+          answer: question.answer
+        }
+      : question.kind === 'matching'
+        ? {
+            ...base,
+            kind: question.kind,
+            terms: question.terms,
+            definitions: question.definitions,
+            pairs: question.terms.map((term, index) => ({
+              termId: term.id,
+              definitionId: question.definitions[index]!.id,
+              score: 1
+            })),
+            answer: question.answer
+          }
+        : {
+            ...base,
+            kind: question.kind,
+            referenceAnswer: 'Reference',
+            answer: question.answer
+          };
+}
+
+test.unit.stable(
+  'keeps every editor and the action button mounted through saving, pending grading and feedback',
+  async ({ vi, render, expect }) => {
+    const common = { id: 4n, position: 0n, prompt: 'A stable question', answer: null };
+    const questions = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
+      ...attempt,
+      questions: [
+        ...(['single_choice', 'multiple_choice', 'true_false'] as const).map((kind) => ({
+          ...common,
+          kind,
+          choices:
+            attempt.questions[0]!.kind === 'multiple_choice' ? attempt.questions[0]!.choices : []
+        })),
+        {
+          ...common,
+          kind: 'ordering',
+          items: [
+            { id: 8n, text: 'First' },
+            { id: 9n, text: 'Second' }
+          ]
+        },
+        {
+          ...common,
+          kind: 'matching',
+          terms: [
+            { id: '11111111-1111-4111-8111-111111111111', text: 'Term A' },
+            { id: '22222222-2222-4222-8222-222222222222', text: 'Term B' }
+          ],
+          definitions: [
+            { id: '11111111-1111-4111-8111-111111111111', text: 'Definition A' },
+            { id: '22222222-2222-4222-8222-222222222222', text: 'Definition B' }
+          ]
+        },
+        { ...common, kind: 'open' },
+        { ...common, kind: 'fill_blank' }
+      ]
+    }).questions;
+
+    for (const question of questions) {
+      const props = { question, submit: vi.fn(), last: true };
+      const view = render(<QuizQuestion {...props} pending={false} />);
+      const nodes = [
+        ...view.container.querySelectorAll('h2, fieldset, label, input, textarea, button')
+      ];
+
+      view.rerender(<QuizQuestion {...props} pending />);
+
+      for (const node of nodes) expect(node.isConnected).toBe(true);
+
+      view.rerender(<QuizQuestion {...props} pending response={{ next: vi.fn() }} />);
+      view.rerender(<QuizQuestion {...props} pending={false} response={{ next: vi.fn() }} />);
+
+      for (const node of nodes) expect(node.isConnected).toBe(true);
+
+      expect(view.container.querySelector('fieldset')).toBeDisabled();
+      const action = view.container.querySelector('.study-practice-stage-footer > button');
+
+      expect(action).toHaveFocus();
+      const result = gradedQuestion(question);
+
+      view.rerender(
+        <QuizQuestion {...props} pending={false} response={{ result, next: vi.fn() }} />
+      );
+
+      for (const node of nodes) expect(node.isConnected).toBe(true);
+
+      expect(action).toHaveFocus();
+      view.unmount();
+    }
   }
 );

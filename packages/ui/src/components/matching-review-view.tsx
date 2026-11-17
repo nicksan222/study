@@ -14,6 +14,7 @@ export function MatchingReviewView({ question }: { question: Question }) {
       {question.terms.map((term) => {
         const selected = question.answer?.associations.find((a) => a.termId === term.id);
         const correct = question.pairs.find((p) => p.termId === term.id);
+        const matched = correct?.score === 1;
         const text = (id: string | undefined) =>
           question.definitions.find((d) => d.id === id)?.text;
 
@@ -21,27 +22,25 @@ export function MatchingReviewView({ question }: { question: Question }) {
           <Practice.MatchingRow key={term.id}>
             <span>{term.text}</span>
             <Practice.MatchingReview>
-              <Practice.ResultVerdict
-                tone={
-                  correct?.score === 1 ? 'correct' : question.answer ? 'incorrect' : 'unanswered'
-                }
-              >
+              <span className="sr-only">
                 {t(
-                  correct?.score === 1
+                  matched
                     ? 'VerdictCorrect'
                     : question.answer
                       ? 'VerdictIncorrect'
                       : 'PracticeUnanswered'
                 )}
-              </Practice.ResultVerdict>
-              <p>
+              </span>
+              <p data-tone={question.answer ? (matched ? 'correct' : 'incorrect') : undefined}>
                 <Practice.MutedText>{t('YourAnswer')}: </Practice.MutedText>
                 {text(selected?.definitionId) ?? t('PracticeUnanswered')}
               </p>
-              <p>
-                <Practice.MutedText>{t('RightAnswer')}: </Practice.MutedText>
-                {text(correct?.definitionId)}
-              </p>
+              {!matched && (
+                <p data-tone="correct">
+                  <Practice.MutedText>{t('RightAnswer')}: </Practice.MutedText>
+                  {text(correct?.definitionId)}
+                </p>
+              )}
             </Practice.MatchingReview>
           </Practice.MatchingRow>
         );
