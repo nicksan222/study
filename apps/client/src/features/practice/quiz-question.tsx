@@ -2,7 +2,7 @@ import type { quizAnswerSchema, quizAttemptInProgressSchema } from '@study/contr
 import { quizAnswerSchema as answerSchema } from '@study/contracts';
 import { QuizQuestionView } from '@study/ui';
 import { Schema } from 'effect';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';
@@ -12,6 +12,7 @@ import { ClientPracticePresentation } from './presentation';
 export function QuizQuestion(props: {
   question: (typeof quizAttemptInProgressSchema.Type)['questions'][number];
   pending: boolean;
+  response?: ComponentProps<typeof QuizQuestionView>['response'];
   submit: (answer: typeof quizAnswerSchema.Type) => void;
   last: boolean;
   previous?: () => void;

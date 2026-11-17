@@ -82,6 +82,20 @@ function QuizSettingsPanel({
         {!kind && (
           <>
             <Settings.SelectRow
+              title={t('PracticeFeedbackTiming')}
+              description={t('PracticeFeedbackTimingHelp')}
+              value={config.feedbackTiming}
+              disabled={disabled}
+              options={[
+                { value: 'end', label: t('PracticeFeedbackAtEnd') },
+                { value: 'immediate', label: t('PracticeFeedbackImmediately') }
+              ]}
+              onValueChange={(feedbackTiming) => {
+                if (feedbackTiming === 'end' || feedbackTiming === 'immediate')
+                  model.update({ feedbackTiming });
+              }}
+            />
+            <Settings.SelectRow
               title={t('QuizQuestionKind')}
               description={t('QuizQuestionKindHelp')}
               value={config.questionKind}

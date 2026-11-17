@@ -214,7 +214,11 @@ test.unit.stable(
     ).toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: en.PracticeNextQuestion }));
     expect(within(dialog).getByRole('group', { name: en.YourAnswer })).toHaveTextContent('prime');
-    expect(within(dialog).getByRole('group', { name: en.RightAnswer })).toHaveTextContent('prime');
+    expect(within(dialog).queryByRole('group', { name: en.RightAnswer })).toBeNull();
+    expect(within(dialog).getByRole('group', { name: en.YourAnswer })).toHaveAttribute(
+      'data-tone',
+      'correct'
+    );
     expect(within(dialog).queryByRole('textbox', { name: en.YourAnswer })).toBeNull();
     expect(within(dialog).queryByRole('link', { name: en.PracticeResume })).toBeNull();
     expect(rpc['learning.attempt']).toHaveBeenLastCalledWith({ attemptId: completed.id });

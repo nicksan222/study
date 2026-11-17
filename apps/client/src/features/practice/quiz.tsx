@@ -1,8 +1,10 @@
-import { quizAttemptIdSchema, defaultQuizSettings } from '@study/contracts';
+import { quizAttemptIdSchema, defaultQuizSettings, quizAnswerSchema } from '@study/contracts';
 import type {
   ProjectId,
+  QuizQuestionId,
   answerQuestionInputSchema,
   quizAttemptInProgressSchema,
+  quizAttemptSchema,
   MaterialVersionDetailDto
 } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
@@ -22,6 +24,12 @@ import { ClientPracticePresentation } from './presentation';
 import { QuizGenerationAction } from './quiz-generation';
 import { QuizQuestion } from './quiz-question';
 import { QuizResults } from './quiz-results';
+
+type ResponseState = {
+  questionId: QuizQuestionId;
+  previouslyAnswered: boolean;
+  phase: 'saving' | 'saved';
+};
 
 type QuizSetupProps = { version: MaterialVersionDetailDto; projectId?: ProjectId; title?: string };
 
@@ -114,31 +122,61 @@ function QuizAttempt({
   material: MaterialVersionDetailDto['material_id'];
 }) {
   const state = rpc.learning.attempt.useQuery({ attemptId: id });
+  const committed = useCommittedAttempt(state.data);
   const heading = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<number | null>(null);
+  const [response, setResponse] = useState<ResponseState | null>(null);
   const answer = useNativeAction(async (input: typeof answerQuestionInputSchema.Type) => {
-    if (state.data?.practiceSlotId)
-      await rpc.learning.answerPracticeQuestion.call({
-        slotId: state.data.practiceSlotId,
-        answer: input.answer
-      });
-    else await rpc.learning.answerQuestion.call(input);
+    const index =
+      committed.attempt?.questions.findIndex((question) => question.id === input.questionId) ?? -1;
+    const submitted = {
+      questionId: input.questionId,
+      previouslyAnswered: committed.attempt?.questions[index]?.answer != null
+    };
 
-    setSelected(null);
-    heading.current?.focus();
+    setSelected(index);
+    setResponse({ ...submitted, phase: 'saving' });
+
+    try {
+      const saved = committed.attempt?.practiceSlotId
+        ? await rpc.learning.answerPracticeQuestion.call({
+            slotId: committed.attempt.practiceSlotId,
+            answer: input.answer
+          })
+        : await rpc.learning.answerQuestion.call(input);
+
+      committed.retain(saved, input.questionId);
+
+      setResponse({ ...submitted, phase: 'saved' });
+    } catch (error) {
+      setResponse(null);
+
+      throw error;
+    }
   });
   const finish = rpc.learning.finishQuiz.useMutation();
 
   return (
     <AttemptState state={state} material={material}>
-      {(attempt) =>
-        attempt.status === 'completed' ? (
+      {(live) => {
+        const attempt = committed.attempt ?? live;
+
+        return attempt.status === 'completed' ? (
           <QuizResults attempt={attempt} />
         ) : (
           <AttemptQuestions
             attempt={attempt}
             selected={selected}
-            select={setSelected}
+            response={response}
+            continueAfterFeedback={() => {
+              setResponse(null);
+              setSelected(null);
+              heading.current?.focus();
+            }}
+            select={(index) => {
+              setResponse(null);
+              setSelected(index);
+            }}
             heading={heading}
             pending={answer.isPending}
             submit={answer.mutate}
@@ -149,15 +187,54 @@ function QuizAttempt({
             answerError={answer.isError}
             finishError={finish.isError}
           />
-        )
-      }
+        );
+      }}
     </AttemptState>
   );
+}
+
+type Attempt = typeof quizAttemptSchema.Type;
+
+const encodeAnswer = Schema.encodeSync(Schema.toCodecJson(quizAnswerSchema));
+
+/** Keeps a committed mutation visible until its live query observes the saved answer. */
+function useCommittedAttempt(live: Attempt | undefined) {
+  const [receipt, setReceipt] = useState<{
+    attempt: Attempt;
+    before: Attempt | undefined;
+    questionId: QuizQuestionId;
+  } | null>(null);
+  const acknowledged = receipt !== null && acknowledgesReceipt(live, receipt);
+
+  if (acknowledged) setReceipt(null);
+
+  return {
+    attempt: receipt && !acknowledged ? receipt.attempt : live,
+    retain: (attempt: Attempt, questionId: QuizQuestionId) =>
+      setReceipt({ attempt, before: live, questionId })
+  };
+}
+
+function acknowledgesReceipt(
+  live: Attempt | undefined,
+  receipt: { attempt: Attempt; before: Attempt | undefined; questionId: QuizQuestionId }
+) {
+  if (!live || live === receipt.before) return false;
+
+  const key = (attempt: Attempt) => {
+    const answer = attempt.questions.find((question) => question.id === receipt.questionId)?.answer;
+
+    return answer ? JSON.stringify(encodeAnswer(answer)) : null;
+  };
+
+  return key(live) === key(receipt.attempt);
 }
 
 function AttemptQuestions({
   attempt,
   selected,
+  response,
+  continueAfterFeedback,
   select,
   heading,
   pending,
@@ -169,6 +246,8 @@ function AttemptQuestions({
 }: {
   attempt: typeof quizAttemptInProgressSchema.Type;
   selected: number | null;
+  response: ResponseState | null;
+  continueAfterFeedback: () => void;
   select: (index: number | null) => void;
   heading: RefObject<HTMLDivElement | null>;
   pending: boolean;
@@ -183,7 +262,7 @@ function AttemptQuestions({
   const question = attempt.questions[index];
   const answered = attempt.questions.filter((item) => item.answer !== null).length;
   const previous = index > 0 ? () => select(index - 1) : undefined;
-  const review = answered === attempt.questions.length ? () => select(null) : undefined;
+  const review = reviewAction(answered === attempt.questions.length, response, select);
   const error = answerError ? <OperationError /> : undefined;
 
   return (
@@ -198,7 +277,8 @@ function AttemptQuestions({
           <QuizQuestion
             key={String(question.id)}
             question={question}
-            last={answered === attempt.questions.length - 1}
+            response={questionResponse(attempt, response, continueAfterFeedback)}
+            last={index === attempt.questions.length - 1}
             pending={pending}
             error={error}
             previous={previous}
@@ -219,6 +299,26 @@ function AttemptQuestions({
       </QuizSessionView>
     </ClientPracticePresentation>
   );
+}
+
+function reviewAction(
+  allAnswered: boolean,
+  response: ResponseState | null,
+  select: (index: number | null) => void
+) {
+  if (!allAnswered || (response && !response.previouslyAnswered)) return undefined;
+
+  return () => select(null);
+}
+
+function questionResponse(
+  attempt: typeof quizAttemptInProgressSchema.Type,
+  response: ResponseState | null,
+  next: () => void
+) {
+  if (response?.phase !== 'saved') return undefined;
+
+  return { result: attempt.results?.find((result) => result.id === response.questionId), next };
 }
 
 export function OperationError({ retry }: { retry?: () => void }) {

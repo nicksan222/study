@@ -209,6 +209,7 @@ test.unit.stable(
     expect(router.state.location.search.attempt).toBe('70');
     await user.click(screen.getByRole('radio', { name: /Two/ }));
     await user.click(screen.getByRole('button', { name: en.SubmitAnswer }));
+    await user.click(await screen.findByRole('button', { name: en.PracticeNextQuestion }));
     await user.click(await screen.findByRole('button', { name: en.PracticeFinishQuiz }));
     expect(await screen.findByText('100%')).toBeInTheDocument();
     expect(screen.getByText('Two has exactly two divisors.')).toBeInTheDocument();
@@ -341,6 +342,7 @@ test.unit.stable(
 
     await user.click(await screen.findByRole('radio', { name: /Two/ }));
     await user.click(screen.getByRole('button', { name: en.SubmitAnswer }));
+    await user.click(await screen.findByRole('button', { name: en.PracticeNextQuestion }));
     await screen.findByRole('button', { name: en.PracticeFinishQuiz });
     expect(rpc['learning.answerPracticeQuestion']).toHaveBeenCalledExactlyOnceWith({
       slotId,
@@ -666,5 +668,171 @@ test.unit.stable(
     );
     expect(within(review).getByRole('button', { name: en.PracticeNextQuestion })).toBeDisabled();
     expect(within(review).getByRole('button', { name: en.QuizPrevious })).toBeEnabled();
+  }
+);
+
+for (const [score, verdict] of [
+  [1, 'VerdictCorrect'],
+  [0, 'VerdictIncorrect'],
+  [0.5, 'VerdictPartly'],
+  [null, 'PracticeUngraded']
+] as const)
+  test.unit.stable(
+    `immediate feedback pauses for the ${verdict} verdict before the final review`,
+    async ({ userEvent, screen, waitFor, expect, vi, render, rpcHandlersTransport }) => {
+      const rpc = practiceRpc({ vi });
+      const user = userEvent.setup();
+      const active = { ...initial, feedbackTiming: 'immediate' as const };
+      const saved = {
+        ...active,
+        questions: answered.questions,
+        results: [
+          {
+            ...completed.questions[0]!,
+            score,
+            feedback: 'Saved feedback',
+            grading: score === null ? ('ungraded' as const) : ('graded' as const)
+          }
+        ]
+      };
+
+      rpc['learning.attempt'].mockReturnValue(Effect.succeed(active));
+      rpc['learning.answerQuestion'].mockImplementation(() =>
+        Effect.sync(() => {
+          rpc['learning.attempt'].mockReturnValue(Effect.succeed(saved));
+
+          return saved;
+        })
+      );
+      mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?attempt=70', rpc);
+      await user.click(await screen.findByRole('radio', { name: /Two/ }));
+      await user.click(screen.getByRole('button', { name: en.SubmitAnswer }));
+      expect(await screen.findByText(en[verdict], { exact: true })).toBeInTheDocument();
+      expect(screen.getByText('Saved feedback')).toBeInTheDocument();
+      expect(screen.getByText('Two has exactly two divisors.')).toBeInTheDocument();
+      expect(screen.getByRole('radio', { name: /Correct answer/ })).toBeDisabled();
+      expect(screen.queryByRole('button', { name: en.PracticeFinishQuiz })).not.toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: en.PracticeNextQuestion }));
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: en.PracticeFinishQuiz })).toBeEnabled()
+      );
+    }
+  );
+
+test.unit.stable(
+  'uses the committed answer receipt while the live attempt snapshot is delayed',
+  async ({ vi, render, rpcHandlersTransport, userEvent, screen, expect }) => {
+    const rpc = practiceRpc({ vi });
+    const saved = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
+      ...answered,
+      feedbackTiming: 'immediate',
+      results: completed.questions
+    });
+    let hold = false;
+    let release!: (value: typeof saved) => void;
+    const snapshot = new Promise<typeof saved>((resolve) => {
+      release = resolve;
+    });
+
+    rpc['learning.attempt'].mockImplementation(() =>
+      hold
+        ? Effect.promise(() => snapshot)
+        : Effect.succeed({ ...initial, feedbackTiming: 'immediate' })
+    );
+    rpc['learning.answerQuestion'].mockImplementation(() =>
+      Effect.sync(() => {
+        hold = true;
+
+        return saved;
+      })
+    );
+    const user = userEvent.setup();
+
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?attempt=70', rpc);
+    await user.click(await screen.findByRole('radio', { name: /Two/ }));
+    await user.click(screen.getByRole('button', { name: en.SubmitAnswer }));
+
+    try {
+      expect(await screen.findByRole('status', { name: '' })).toHaveTextContent(en.VerdictCorrect);
+      await user.click(screen.getByRole('button', { name: en.PracticeNextQuestion }));
+      expect(await screen.findByRole('button', { name: en.PracticeFinishQuiz })).toBeEnabled();
+    } finally {
+      release(saved);
+    }
+  }
+);
+
+test.unit.stable(
+  'hands a committed pending answer back to live grading when the query catches up',
+  async ({ vi, render, rpcHandlersTransport, userEvent, screen, expect }) => {
+    const rpc = practiceRpc({ vi });
+    const textQuestion = {
+      id: question.id,
+      position: 0n,
+      kind: 'open',
+      prompt: 'Explain prime numbers.',
+      answer: null
+    };
+    const before = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
+      ...initial,
+      feedbackTiming: 'immediate',
+      questions: [textQuestion]
+    });
+    const saved = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
+      ...before,
+      questions: [{ ...textQuestion, answer: { type: 'open', answer: 'They are even.' } }],
+      results: [
+        {
+          ...textQuestion,
+          answer: { type: 'open', answer: 'They are even.' },
+          referenceAnswer: 'They have exactly two divisors.',
+          explanation: 'A prime has two divisors.',
+          score: null,
+          feedback: null,
+          grading: 'ungraded'
+        }
+      ]
+    });
+    const graded = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
+      ...saved,
+      results: [
+        {
+          ...saved.results![0],
+          score: 0,
+          feedback: 'Live grading corrected the answer.',
+          grading: 'graded'
+        }
+      ]
+    });
+    let hold = false;
+    let release!: (value: typeof graded) => void;
+    const snapshot = new Promise<typeof graded>((resolve) => {
+      release = resolve;
+    });
+
+    rpc['learning.attempt'].mockImplementation(() =>
+      hold ? Effect.promise(() => snapshot) : Effect.succeed(before)
+    );
+    rpc['learning.answerQuestion'].mockImplementation(() =>
+      Effect.sync(() => {
+        hold = true;
+
+        return saved;
+      })
+    );
+    const user = userEvent.setup();
+
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?attempt=70', rpc);
+    await user.type(await screen.findByRole('textbox', { name: en.YourAnswer }), 'They are even.');
+    await user.click(screen.getByRole('button', { name: en.SubmitAnswer }));
+
+    try {
+      expect(await screen.findByRole('status')).toHaveTextContent(en.PracticeUngraded);
+    } finally {
+      release(graded);
+    }
+
+    expect(await screen.findByText('Live grading corrected the answer.')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(en.VerdictIncorrect);
   }
 );

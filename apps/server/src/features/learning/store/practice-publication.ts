@@ -1,7 +1,11 @@
 /** @file Owns practice publication within this feature. */
 
-import type { MaterialVersionId } from '@study/contracts';
-import { contentInputKey, materialGenerationPayloadSchema } from '@study/contracts';
+import type { MaterialVersionId, QuizSettings } from '@study/contracts';
+import {
+  contentInputKey,
+  materialGenerationPayloadSchema,
+  defaultQuizSettings
+} from '@study/contracts';
 import * as s from '@study/db';
 import { and, eq, inArray } from '@study/db';
 import { invalid } from '@study/server';
@@ -63,7 +67,11 @@ export function makePracticePublication(resources: StoreResources) {
   }
 
   /** Accept only the exact choice or open question kind requested by an endless practice slot. */
-  function publish(slotId: string, versionId: MaterialVersionId) {
+  function publish(
+    slotId: string,
+    versionId: MaterialVersionId,
+    feedbackTiming: QuizSettings['feedbackTiming']
+  ) {
     const row = db.orm.select().from(slots).where(eq(slots.id, slotId)).get();
 
     if (!row) return null;
@@ -114,7 +122,10 @@ export function makePracticePublication(resources: StoreResources) {
     )
       invalid('invalid practice quiz publication');
 
-    const attempt = startQuiz({ versionId });
+    const attempt = startQuiz({
+      versionId,
+      configuration: { ...defaultQuizSettings, feedbackTiming }
+    });
 
     db.orm
       .update(slots)

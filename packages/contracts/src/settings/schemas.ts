@@ -98,6 +98,9 @@ const practiceGenerationSettingsSchema = Schema.Struct({
 });
 
 export const quizSettingsSchema = Schema.Struct({
+  feedbackTiming: Schema.Literals(['end', 'immediate']).pipe(
+    Schema.withDecodingDefault(Effect.succeed('end'))
+  ),
   practice: Schema.optional(
     Schema.Struct({
       fill_blank: Schema.optional(practiceGenerationSettingsSchema),

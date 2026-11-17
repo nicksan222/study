@@ -9,6 +9,7 @@ import { MatchingReviewView as MatchingReview } from './matching-review-view';
 import { OrderingResultView as OrderingResult } from './ordering-result-view';
 import { usePracticePresentation } from './practice-presentation';
 import type { PracticeResultsModel } from './practice-question-model';
+import { QuizSessionView } from './quiz-session-view';
 
 type Completed = PracticeResultsModel;
 
@@ -30,27 +31,28 @@ export function QuizResultsView({
   const headingId = useId();
 
   const body = (
-    <Practice.StageBody>
-      {presentation === 'page' && (
-        <Practice.ResultsHeading>
-          <div>
-            <h2 id={headingId}>{t('PracticeResults')}</h2>
-            <Practice.Muted role="status">
-              {t(attempt.scoring.complete ? 'PracticeResultsReady' : 'PracticeGradingPending')}
-            </Practice.Muted>
-          </div>
-          <OverallScore attempt={attempt} />
-        </Practice.ResultsHeading>
-      )}
-      {question && (
-        <ResultQuestion
-          key={String(question.id)}
-          question={question}
-          index={index}
-          total={attempt.questions.length}
-          showHeading
-        />
-      )}
+    <Practice.StageBody tabIndex={0}>
+      <Practice.ResultContent>
+        {presentation === 'page' && (
+          <Practice.ResultsHeading>
+            <div>
+              <h2 id={headingId}>{t('PracticeResults')}</h2>
+              <Practice.Muted role="status">
+                {t(attempt.scoring.complete ? 'PracticeResultsReady' : 'PracticeGradingPending')}
+              </Practice.Muted>
+            </div>
+            <OverallScore attempt={attempt} />
+          </Practice.ResultsHeading>
+        )}
+        {question && (
+          <QuizQuestionReviewView
+            key={String(question.id)}
+            question={question}
+            index={index}
+            total={attempt.questions.length}
+          />
+        )}
+      </Practice.ResultContent>
     </Practice.StageBody>
   );
   const controls = (
@@ -58,16 +60,24 @@ export function QuizResultsView({
       <Practice.FooterContext>
         <PreviousButton
           variant="ghost"
+          size={presentation === 'page' ? 'icon' : 'default'}
           disabled={index === 0}
           onClick={() => setIndex((value) => value - 1)}
-          label={t('QuizPrevious')}
+          label={
+            presentation === 'page' ? (
+              <span className="sr-only">{t('QuizPrevious')}</span>
+            ) : (
+              t('QuizPrevious')
+            )
+          }
         ></PreviousButton>
         {presentation === 'page' && (
           <NextButton
             variant="ghost"
+            size="icon"
             disabled={index >= attempt.questions.length - 1}
             onClick={() => setIndex((value) => value + 1)}
-            label={t('PracticeNextQuestion')}
+            label={<span className="sr-only">{t('PracticeNextQuestion')}</span>}
           ></NextButton>
         )}
       </Practice.FooterContext>
@@ -113,44 +123,108 @@ export function QuizResultsView({
     );
 
   return (
-    <Practice.Results aria-labelledby={headingId} data-presentation={presentation}>
-      {body}
-      <Practice.StageFooter>{controls}</Practice.StageFooter>
-    </Practice.Results>
+    <QuizSessionView
+      label={t('PracticeAllAnswered')}
+      answered={attempt.questions.length}
+      total={attempt.questions.length}
+    >
+      <Practice.Results aria-labelledby={headingId} data-presentation={presentation}>
+        {body}
+        <Practice.StageFooter>{controls}</Practice.StageFooter>
+      </Practice.Results>
+    </QuizSessionView>
   );
 }
 
 /** Separates the learner response, reference, feedback and explanation without offering editable answer fields. */
-function ResultQuestion({
+export function QuizQuestionReviewView({
   question,
   index,
-  total,
-  showHeading
+  total
 }: {
   question: Question;
-  index: number;
-  total: number;
-  showHeading: boolean;
+  index?: number;
+  total?: number;
 }) {
   const { t, questionNumber, reviewProgress } = usePracticePresentation();
   const selected = question.answer?.type === 'choice' ? question.answer.choiceIds : [];
 
   return (
     <Practice.Preview data-results="true">
-      {showHeading && (
-        <>
-          <Practice.ProgressHeading role="status" aria-live="polite">
-            <span>
-              {questionNumber(index + 1)} · {reviewProgress(index + 1, total)}
-            </span>
-            <Practice.ResultVerdict tone={verdictTone(question)}>
-              {t(verdict(question))}
-            </Practice.ResultVerdict>
-          </Practice.ProgressHeading>
-          <Practice.Prompt>{question.prompt}</Practice.Prompt>
-        </>
+      {index !== undefined && total !== undefined && (
+        <Practice.MutedText>
+          {questionNumber(index + 1)} · {reviewProgress(index + 1, total)}
+        </Practice.MutedText>
       )}
+      <Practice.ReviewHeading>
+        <Practice.Prompt>{question.prompt}</Practice.Prompt>
+        <span
+          className={question.score === null ? undefined : 'sr-only'}
+          role="status"
+          aria-live="polite"
+        >
+          {t(verdict(question))}
+        </span>
+      </Practice.ReviewHeading>
       <ResultAnswers question={question} selected={selected} />
+      <QuestionNotes question={question} />
+    </Practice.Preview>
+  );
+}
+
+/** Adds reference material below the mounted editor without replacing its controls. */
+export function QuizQuestionFeedbackView({ question }: { question: Question }) {
+  const { t } = usePracticePresentation();
+
+  return (
+    <>
+      <span
+        className={question.score === null ? undefined : 'sr-only'}
+        role="status"
+        aria-live="polite"
+      >
+        {t(verdict(question))}
+      </span>
+      {question.score !== 1 && question.kind === 'ordering' && (
+        <Practice.Ordering
+          label={t('RightAnswer')}
+          items={question.correctItemIds.map((id) => ({
+            key: String(id),
+            text: question.items.find((item) => item.id === id)!.text,
+            tone: 'correct'
+          }))}
+        />
+      )}
+      {question.kind === 'matching' &&
+        question.pairs
+          .filter((pair) => pair.score !== 1)
+          .map((pair) => (
+            <Practice.AnswerComparison
+              key={pair.termId}
+              label={question.terms.find((term) => term.id === pair.termId)!.text}
+              tone="correct"
+            >
+              {question.definitions.find((definition) => definition.id === pair.definitionId)?.text}
+            </Practice.AnswerComparison>
+          ))}
+      {(question.kind === 'open' || question.kind === 'fill_blank') &&
+        question.score !== null &&
+        question.score !== 1 &&
+        question.referenceAnswer && (
+          <Practice.AnswerComparison label={t('RightAnswer')} tone="correct">
+            {question.referenceAnswer}
+          </Practice.AnswerComparison>
+        )}
+      <QuestionNotes question={question} />
+    </>
+  );
+}
+
+function QuestionNotes({ question }: { question: Question }) {
+  const { t } = usePracticePresentation();
+
+  return (
+    <>
       {question.feedback && (
         <Practice.ResultNote>
           <h3>{t('PracticeFeedback')}</h3>
@@ -161,17 +235,8 @@ function ResultQuestion({
         <h3>{t('PracticeArchiveExplanation')}</h3>
         <p>{question.explanation}</p>
       </Practice.Explanation>
-    </Practice.Preview>
+    </>
   );
-}
-
-/** Maps persisted grading state to a semantic tone without inferring a score for unanswered responses. */
-function verdictTone(question: Question) {
-  if (question.score === null) return question.answer ? 'pending' : 'unanswered';
-
-  if (question.score === 1) return 'correct';
-
-  return question.score === 0 ? 'incorrect' : 'partial';
 }
 
 /** Chooses localized verdict copy from the stored score and answer presence. */
@@ -218,16 +283,7 @@ function ResultAnswers({
       ) : question.kind === 'matching' ? (
         <MatchingReview question={question} />
       ) : !('choices' in question) ? (
-        <Practice.OpenAnswers>
-          <Practice.AnswerComparison label={t('YourAnswer')}>
-            {question.answer?.type === 'open' && question.answer.answer?.trim()
-              ? question.answer.answer
-              : t('PracticeUnanswered')}
-          </Practice.AnswerComparison>
-          <Practice.AnswerComparison label={t('RightAnswer')}>
-            {question.referenceAnswer ?? t('PracticeUngraded')}
-          </Practice.AnswerComparison>
-        </Practice.OpenAnswers>
+        <TextResultAnswers question={question} />
       ) : (
         <Practice.Answers aria-label={t('YourAnswer')}>
           {question.choices.map((choice, position) => (
@@ -263,5 +319,34 @@ function ResultAnswers({
         </Practice.Answers>
       )}
     </>
+  );
+}
+
+function TextResultAnswers({
+  question
+}: {
+  question: Extract<Question, { kind: 'open' | 'fill_blank' }>;
+}) {
+  const { t } = usePracticePresentation();
+
+  return (
+    <Practice.OpenAnswers>
+      <Practice.AnswerComparison
+        label={t('YourAnswer')}
+        tone={question.score === null ? undefined : question.score === 1 ? 'correct' : 'incorrect'}
+      >
+        {question.answer?.type === 'open' && question.answer.answer?.trim()
+          ? question.answer.answer
+          : t('PracticeUnanswered')}
+      </Practice.AnswerComparison>
+      {question.score !== 1 && (
+        <Practice.AnswerComparison
+          label={t('RightAnswer')}
+          tone={question.referenceAnswer === null ? undefined : 'correct'}
+        >
+          {question.referenceAnswer ?? t('PracticeUngraded')}
+        </Practice.AnswerComparison>
+      )}
+    </Practice.OpenAnswers>
   );
 }

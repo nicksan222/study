@@ -270,6 +270,11 @@ export const english = Object.freeze({
   QuizQuestionKind: 'Question type',
   QuizQuestionKindHelp: 'Choose question types for quiz attempts and newly created quizzes.',
   QuizKindAll: 'All types',
+  PracticeFeedbackTiming: 'Answer feedback',
+  PracticeFeedbackTimingHelp:
+    'Choose when quizzes and practice exercises show whether your answers are correct. Applies to new attempts.',
+  PracticeFeedbackAtEnd: 'At the end',
+  PracticeFeedbackImmediately: 'After each answer',
   QuizShuffleQuestions: 'Shuffle questions',
   QuizShuffleQuestionsHelp: 'Start each quiz with a different question order.',
   QuizShuffleChoices: 'Shuffle answers',

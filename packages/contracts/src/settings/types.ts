@@ -106,6 +106,7 @@ export type QuizSettings = typeof quizSettingsSchema.Type;
 export type SpecializedPracticeKind = keyof NonNullable<QuizSettings['practice']>;
 
 export const defaultQuizSettings: QuizSettings = {
+  feedbackTiming: 'end',
   questionCount: 10,
   questionOrder: 'source',
   shuffleChoices: true,

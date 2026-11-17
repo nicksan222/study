@@ -274,6 +274,11 @@ export const italian = Object.freeze({
   QuizQuestionKind: 'Tipo di domanda',
   QuizQuestionKindHelp: 'Scegli i tipi di domanda per i tentativi e per i nuovi quiz.',
   QuizKindAll: 'Tutti i tipi',
+  PracticeFeedbackTiming: 'Correzione delle risposte',
+  PracticeFeedbackTimingHelp:
+    'Scegli quando quiz ed esercizi mostrano se le risposte sono corrette. Si applica ai nuovi tentativi.',
+  PracticeFeedbackAtEnd: 'Alla fine',
+  PracticeFeedbackImmediately: 'Dopo ogni risposta',
   QuizShuffleQuestions: 'Mescola le domande',
   QuizShuffleQuestionsHelp: 'Inizia ogni quiz con un ordine diverso delle domande.',
   QuizShuffleChoices: 'Mescola le risposte',

@@ -247,7 +247,7 @@ export type {
   PracticeResultsModel
 } from './components/practice-question-model.tsx';
 export { QuizQuestionView } from './components/quiz-question-view.tsx';
-export { QuizResultsView } from './components/quiz-results-view.tsx';
+export { QuizResultsView, QuizQuestionReviewView } from './components/quiz-results-view.tsx';
 export { QuizSessionView, QuizFinishView } from './components/quiz-session-view.tsx';
 export { SidebarSearchResults } from './components/sidebar-search-results.tsx';
 export type { SidebarSearchItem } from './components/sidebar-search-results.tsx';

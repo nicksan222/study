@@ -1,0 +1,1 @@
+ALTER TABLE `material_quiz_attempts` ADD `feedback_timing` text DEFAULT 'end' NOT NULL;

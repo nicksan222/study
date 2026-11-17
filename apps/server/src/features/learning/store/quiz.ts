@@ -17,7 +17,7 @@ import type { QuizOrderingItemId } from '@study/contracts';
 import type { MaterialVersionId, QuizAttemptId } from '@study/contracts';
 import type { QuizQuestionId, QuizChoiceId } from '@study/contracts';
 import { orderingAnswerJsonSchema } from '@study/contracts';
-import type { quizAttemptInProgressSchema } from '@study/contracts';
+import type { quizAttemptInProgressSchema, quizAttemptCompletedSchema } from '@study/contracts';
 import { isTextQuestionKind } from '@study/contracts';
 import { and, asc, eq } from '@study/db';
 import * as s from '@study/db';
@@ -316,13 +316,6 @@ export function makeQuiz(resources: StoreResources) {
       startedAt: attempt.started_at
     };
 
-    if (attempt.status === 'in_progress')
-      return {
-        ...base,
-        status: 'in_progress' as const,
-        questions: items
-      };
-
     const openAnswers = db.orm
       .select({
         questionId: s.material_quiz_open_answers.question_id,
@@ -386,6 +379,16 @@ export function makeQuiz(resources: StoreResources) {
         }))
       };
     });
+
+    if (attempt.status === 'in_progress')
+      return {
+        ...base,
+        status: 'in_progress' as const,
+        feedbackTiming: attempt.feedback_timing,
+        questions: items,
+        results: visibleResults(attempt.feedback_timing, results)
+      };
+
     const graded = results.filter((q) => q.score !== null);
 
     return {
@@ -428,4 +431,12 @@ function responseGrading(response: typeof s.material_quiz_responses.$inferSelect
 /** Return the persisted structured answer, keeping unanswered questions explicit. */
 function storedResponse(response: typeof s.material_quiz_responses.$inferSelect | undefined) {
   return response?.answer ?? null;
+}
+
+/** Only submitted answers may disclose their correction before completion. */
+function visibleResults(
+  timing: 'end' | 'immediate',
+  results: (typeof quizAttemptCompletedSchema.Type)['questions']
+) {
+  return timing === 'immediate' ? results.filter((item) => item.answer !== null) : [];
 }

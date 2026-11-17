@@ -1,4 +1,4 @@
-import { StudyRpc } from '@study/contracts';
+import { StudyRpc, defaultQuizSettings } from '@study/contracts';
 import { plainBlock } from '@study/contracts';
 import { encodeAccount, ServerContext, Database, transaction } from '@study/server';
 import { test } from '@study/testing';
@@ -207,6 +207,12 @@ for (const mode of [
               medium: { provider: 1, model: 1 },
               smart: { provider: 1, model: 1 }
             });
+            yield* client['settings.saveQuizSettings']({
+              ...defaultQuizSettings,
+              feedbackTiming: mode === 'normal' ? 'immediate' : 'end',
+              questionKind: 'open',
+              questionCount: 1
+            });
             const initial = yield* client['learning.startPractice']({
               projectId: project.id,
               inputs: [{ kind: 'page', versionId: document.version!.id }]
@@ -286,6 +292,21 @@ for (const mode of [
                 (_, value) => (typeof value === 'bigint' ? String(value) : value)
               )
             );
+
+            for (const slot of ready.slots) {
+              const attempt = yield* client['learning.attempt']({ attemptId: slot.attemptId! });
+
+              assert.strictEqual(attempt.status, 'in_progress');
+
+              if (attempt.status === 'in_progress') {
+                assert.strictEqual(attempt.feedbackTiming, mode === 'normal' ? 'immediate' : 'end');
+                assert.strictEqual(attempt.questions.length, 1);
+                assert.ok(
+                  ['single_choice', 'multiple_choice'].includes(attempt.questions[0]!.kind)
+                );
+              }
+            }
+
             assert.strictEqual(
               generations,
               mode === 'invalid-model' ? 3 : mode === 'transient-exhausted' ? 10 : 2,
