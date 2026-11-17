@@ -55,6 +55,10 @@ for (const mode of [
 
       const resources = resourcesFixture;
       let generations = 0;
+      let providerCalls = 0;
+      let refilling = false;
+      const refillPlanning = Promise.withResolvers<void>();
+      const releaseRefillPlan = Promise.withResolvers<void>();
       let failedCalls = 0;
       let healthyStarts = 0;
       let outputs = 0;
@@ -79,6 +83,13 @@ for (const mode of [
               refresh_token: 'rotated',
               expires_in: 3600
             });
+          }
+
+          providerCalls++;
+
+          if (refilling && body.includes('Plan fresh learning coverage')) {
+            refillPlanning.resolve();
+            await releaseRefillPlan.promise;
           }
 
           const toolResult = body.includes('function_call_output');
@@ -145,6 +156,7 @@ for (const mode of [
       });
 
       resources.dispose(async () => {
+        releaseRefillPlan.resolve();
         await peer.stop(true);
       });
       assert.ok(peer.port, 'missing peer address');
@@ -329,6 +341,7 @@ for (const mode of [
               answer: { type: 'choice' as const, choiceIds: [question.choices[0]!.id] }
             };
 
+            refilling = true;
             yield* client['learning.answerPracticeQuestion'](input);
             yield* client['learning.answerPracticeQuestion'](input);
             const rejected = yield* Effect.flip(
@@ -345,11 +358,16 @@ for (const mode of [
             const refill = yield* client['learning.practice']({ projectId: project.id });
 
             expect(refill.slots.map((slot) => slot.kind)).toStrictEqual(['choice', 'open']);
+            // Stop with a provider response in flight, before the next generation stage can start.
+            yield* Effect.promise(() => refillPlanning.promise);
             const stopped = yield* client['learning.stopPractice']({ projectId: project.id });
 
             assert.ok(stopped.enabled === false);
             assert.strictEqual(stopped.slots.length, 0);
             const count = generations;
+            const callsAtStop = providerCalls;
+
+            releaseRefillPlan.resolve();
 
             yield* client['system.stopWorkers']({});
             yield* client['system.startWorkers']({});
@@ -366,6 +384,7 @@ for (const mode of [
             }
 
             assert.strictEqual(generations, count);
+            assert.strictEqual(providerCalls, callsAtStop);
             assert.strictEqual(yield* client['projects.deleteProject']({ id: project.id }), true);
             expect(app.store.db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
           })

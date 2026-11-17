@@ -59,6 +59,9 @@ test.browser.stable(
     });
     await more.tap();
     await page.setViewportSize({ width: 320, height: 640 });
+    await heading.tap();
+    await expect(more).not.toBeFocused();
+    await expect(first.locator('.chat-message-actions-toggle:hover')).toHaveCount(0);
     await expectScreenshot('narrow-section-reading', {
       target: 'viewport',
       zoomPercent: 100,
