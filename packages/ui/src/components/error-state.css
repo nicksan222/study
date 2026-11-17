@@ -77,29 +77,32 @@
   padding: 2rem;
   background: var(--background);
 }
-.ui-error-state[data-layout='sidebar'] {
+.ui-error-state:is([data-layout='sidebar'], [data-layout='compact']) {
   gap: 0.5rem;
   padding: 0.5rem 0;
 }
-.ui-error-state[data-layout='sidebar'] .ui-error-state-icon {
+.ui-error-state:is([data-layout='sidebar'], [data-layout='compact']) .ui-error-state-icon {
   width: 1rem;
   height: 1.25rem;
   background: none;
 }
-.ui-error-state[data-layout='sidebar'] .ui-error-state-icon > svg {
+.ui-error-state:is([data-layout='sidebar'], [data-layout='compact']) .ui-error-state-icon > svg {
   width: 1rem;
   height: 1rem;
 }
-.ui-error-state[data-layout='sidebar'] h2 {
+.ui-error-state:is([data-layout='sidebar'], [data-layout='compact']) h2 {
   font-size: 0.75rem;
 }
-.ui-error-state[data-layout='sidebar'] .ui-error-state-description {
+.ui-error-state:is([data-layout='sidebar'], [data-layout='compact']) .ui-error-state-description {
   margin-top: 0.25rem;
   font-size: 0.75rem;
   line-height: 1.5;
 }
-.ui-error-state[data-layout='sidebar'] .ui-error-state-action {
+.ui-error-state:is([data-layout='sidebar'], [data-layout='compact']) .ui-error-state-action {
   margin-top: 0.5rem;
+}
+.ui-error-state[data-layout='compact'] .ui-error-state-description {
+  max-width: none;
 }
 
 .ui-error-state-description > p {

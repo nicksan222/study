@@ -40,9 +40,13 @@ test.unit.stable(
     const { screen } = react;
 
     react.render(<RunHistory runs={[base]} />);
-    expect(
-      screen.getByRole('button', { name: `${en.AgentRunQuiz} ${en.AgentActivityStepComplete}` })
-    ).toHaveAttribute('aria-expanded', 'true');
+    const step = screen.getByRole('button', {
+      name: `${en.AgentRunQuiz} ${en.AgentActivityStepComplete}`
+    });
+
+    expect(step).toHaveAttribute('aria-expanded', 'false');
+    await react.user.click(step);
+    expect(step).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText('Attempt 2')).toBeVisible();
     expect(screen.getByText('4 s')).toBeVisible();
     expect(screen.getByText('100 input tokens · 20 output tokens · 2 requests')).toBeVisible();
@@ -56,6 +60,34 @@ test.unit.stable(
     );
     expect(screen.getByText(en.AssistantToolTruncated)).toBeVisible();
     expect(screen.queryByText(base.agentId)).not.toBeInTheDocument();
+  }
+);
+
+test.unit.stable(
+  'new running steps open as history arrives while an explicit collapse is retained',
+  async ({ react, expect }) => {
+    const running: Run = { ...base, status: 'running' };
+    const next: Run = { ...running, runId: agentRunIdSchema.make('next') };
+    const incoming: Run = { ...running, runId: agentRunIdSchema.make('incoming') };
+    const view = react.render(<RunHistory runs={[running, next]} />);
+
+    await react.user.click(
+      react.screen.getAllByRole('button', {
+        name: `${en.AgentRunQuiz} ${en['workspace.state.running']}`
+      })[0]!
+    );
+    view.rerender(<RunHistory runs={[running, { ...next, status: 'completed' }, incoming]} />);
+    const steps = react.screen.getAllByRole('button', {
+      name: `${en.AgentRunQuiz} ${en['workspace.state.running']}`
+    });
+
+    expect(steps[0]).toHaveAttribute('aria-expanded', 'false');
+    expect(steps[1]).toHaveAttribute('aria-expanded', 'true');
+    expect(
+      react.screen.getByRole('button', {
+        name: `${en.AgentRunQuiz} ${en.AgentActivityStepComplete}`
+      })
+    ).toHaveAttribute('aria-expanded', 'false');
   }
 );
 
@@ -85,6 +117,9 @@ test.unit.stable(
           }
         ]}
       />
+    );
+    await react.user.click(
+      screen.getByRole('button', { name: `${en.AgentRunQuiz} ${en.AgentActivityStepComplete}` })
     );
     expect(
       screen.queryByRole('button', { name: `${en.AgentRunPlan} ${en.AgentActivityStepComplete}` })
@@ -123,6 +158,7 @@ test.unit.stable.extend('locale', 'italian')(
     );
     expect(screen.getByRole('button', { name: 'Passaggio 1 Non riuscito' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Creazione del quiz Completato' })).toBeVisible();
+    await react.user.click(screen.getByRole('button', { name: 'Creazione del quiz Completato' }));
     expect(screen.getAllByRole('button', { name: catalogs.italian.AgentRunDetails })).toHaveLength(
       2
     );
