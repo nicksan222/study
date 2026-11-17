@@ -64,11 +64,20 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'explains empty history in Italian without presenting invented usage',
+  'keeps the dashboard visible for empty history in Italian without inventing usage',
   async ({ vi, rpcTestTransport, render, expect, screen }) => {
     vi.mocked(request).mockResolvedValue({
       generatedAt: Date.now(),
-      totals: { ...totals, requests: 0 },
+      totals: {
+        input: 0,
+        cacheRead: 0,
+        cacheWrite: 0,
+        output: 0,
+        reasoning: 0,
+        requests: 0,
+        runs: 0,
+        incomplete: 0
+      },
       providers: [],
       models: [],
       agents: [],
@@ -85,7 +94,11 @@ test.unit.stable(
 
     try {
       expect(await screen.findByText(/Nessun utilizzo registrato/)).toBeInTheDocument();
-      expect(screen.queryByRole('table')).not.toBeInTheDocument();
+      expect(
+        screen.getByRole('img', { name: 'Token elaborati al giorno · UTC' })
+      ).toBeInTheDocument();
+      expect(screen.getByRole('table')).toBeInTheDocument();
+      expect(screen.getByText('0 richieste · 0 esecuzioni agente')).toBeInTheDocument();
     } finally {
       unmount();
     }
