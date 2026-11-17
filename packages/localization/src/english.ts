@@ -1242,6 +1242,11 @@ export const english = Object.freeze({
   NoteNotesEmpty: 'Start your first page',
   NoteNotesTitle: 'Your notes',
   NoteNotesHelp: 'Pages, quick thoughts, files, and replies. All together in this note.',
+  NoteAddCapture: 'Add to note',
+  NoteHideCapture: 'Close',
+  NoteOutline: 'In this note',
+  NoteOutlineScope: 'Currently loaded entries',
+  NoteOutlineEmpty: 'Your notes and pages will appear here.',
   NoteComposeHint: 'Add a note, idea, or attachment…',
   NoteDraftHelp:
     'Unsent text stays here while you navigate this app. Save note keeps it in the note; Ask saves the note and requests one reply.',

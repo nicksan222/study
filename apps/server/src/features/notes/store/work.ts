@@ -51,8 +51,10 @@ export const NoteWorkStore = defineStore({
             JOIN source_processing sp ON sp.source_id = p.source_id
             WHERE m.note_id = ${input.noteId} AND sp.request_id = ${correlation}
           )`;
-          const title = sql`json_extract(${workflow_executions.payload}, '$.event.type') = 'NoteTitleRequested'
-            AND json_extract(${workflow_executions.payload}, '$.event.noteId') = ${String(input.noteId)}`;
+          const title = sql`json_extract(${workflow_executions.payload}, '$.event.type') IN ('NoteTitleRequested', 'NoteSectionTitleRequested')
+            AND json_extract(${workflow_executions.payload}, '$.event.noteId') = ${String(input.noteId)}
+            AND NOT EXISTS (SELECT 1 FROM message_section_titles completed_title
+              WHERE completed_title.version_id = CAST(json_extract(${workflow_executions.payload}, '$.event.versionId') AS INTEGER))`;
 
           return db.orm
             .select({

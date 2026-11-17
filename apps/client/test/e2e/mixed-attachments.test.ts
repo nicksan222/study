@@ -109,8 +109,10 @@ test.browser.stable(
         await control.click({ trial: true });
       }
 
-      await expect(composer).toBeInViewport({ ratio: 1 });
-      await composer.click({ trial: true });
+      await expect(composer).toBeHidden();
+      await expect(
+        page.getByRole('button', { name: copy.NoteAddCapture, exact: true })
+      ).toHaveAttribute('aria-expanded', 'false');
     }
 
     async function openSource(
@@ -197,6 +199,10 @@ test.browser.stable(
 
     await expect(dialog.getByRole('textbox')).toHaveValue(original);
     await dialog.getByRole('textbox').fill(edited);
+    await expectScreenshot('mixed-edit-draft', {
+      target: dialog,
+      ready: () => expect(dialog.getByRole('textbox')).toHaveValue(edited)
+    });
     await dialog.getByRole('button', { name: copy.NoteSaveNote }).click();
     await expect(dialog).toBeHidden();
     await expect(body).toHaveText(edited);
@@ -258,10 +264,14 @@ test.browser.stable(
     await identities({ expect });
 
     async function inspectLecture({ expect }: Pick<test.browser.Context, 'expect'>) {
-      const label = entry.getByText(copy.NoteEntryNote, { exact: true });
+      const label = body;
 
-      await label.scrollIntoViewIfNeeded();
-      await expect(label).toBeInViewport({ ratio: 1 });
+      await page
+        .getByRole('navigation', { name: copy.NoteOutline })
+        .getByRole('button')
+        .first()
+        .click();
+      await expect(label).toHaveVisibleText('Mixed attachment field lecture — corrected');
 
       const scrollHost = page.locator('[data-notebook-scroll-host]');
 
@@ -283,32 +293,36 @@ test.browser.stable(
 
           if (text === correctedLast) {
             const lecture = await body.boundingBox();
-            const floating = await page.locator('.workspace-desk-floating-composer').boundingBox();
+            const floating = await page.locator('.workspace-desk-capture').boundingBox();
 
             expect(!!lecture && !!floating && lecture.y + lecture.height <= floating.y).toBe(true);
           }
         }).toPass({ timeout: 30_000, intervals: [0] });
         await expect.poll(async () => (await body.boundingBox())?.y).toBeLessThan(top.y);
-        await expect(composer).toBeInViewport({ ratio: 1 });
-        await composer.click({ trial: true });
+        await expect(composer).toBeHidden();
+        await expect(
+          page.getByRole('button', { name: copy.NoteAddCapture, exact: true })
+        ).toHaveAttribute('aria-expanded', 'false');
         // Return keyboard ownership to the scroll host after checking the composer.
         await scrollHost.click();
       }
 
-      await expect(label).not.toBeInViewport();
+      await expect(label).not.toHaveVisibleText('Mixed attachment field lecture — corrected');
       await expect(body).not.toHaveVisibleText('Mixed attachment field lecture — corrected');
       await expect(body).not.toHaveVisibleText(middle);
       await expect(body).toHaveVisibleText(correctedLast);
       await expect
         .poll(async () => {
           const lecture = await body.boundingBox();
-          const floating = await page.locator('.workspace-desk-floating-composer').boundingBox();
+          const floating = await page.locator('.workspace-desk-capture').boundingBox();
 
           return !!lecture && !!floating && lecture.y + lecture.height <= floating.y;
         })
         .toBe(true);
       await expect(body).toHaveText(edited);
-      await composer.click({ trial: true });
+      await expect(
+        page.getByRole('button', { name: copy.NoteAddCapture, exact: true })
+      ).toHaveAttribute('aria-expanded', 'false');
     }
 
     await inspectLecture({ expect });

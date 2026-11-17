@@ -12,7 +12,7 @@ import {
   DisclosureIcon,
   OpenIcon
 } from '@study/icons';
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import { Button } from './button';
@@ -44,7 +44,7 @@ function Root({
   );
 }
 
-/** Measures the floating input so the final notebook entry can always clear it. */
+/** Keeps the notebook viewport dimensions available to its reading and navigation surfaces. */
 
 function Notebook({ children }: { children: ReactNode }) {
   const root = useRef<HTMLDivElement>(null);
@@ -54,14 +54,18 @@ function Notebook({ children }: { children: ReactNode }) {
     const viewport = pane?.querySelector<HTMLElement>('[data-notebook-scroll-host]');
     const composer = pane?.querySelector<HTMLElement>('.workspace-desk-floating-composer');
 
-    if (!pane || !viewport || !composer) return;
+    if (!pane || !viewport) return;
 
     const measure = () => {
       pane.style.setProperty(
         '--notebook-scrollbar-width',
         String(viewport.offsetWidth - viewport.clientWidth) + 'px'
       );
-      pane.style.setProperty('--notebook-composer-height', String(composer.offsetHeight) + 'px');
+
+      pane.style.setProperty(
+        '--notebook-composer-height',
+        String(composer?.offsetHeight ?? 0) + 'px'
+      );
 
       if (viewport.clientHeight)
         pane.style.setProperty('--notebook-viewport-height', String(viewport.clientHeight) + 'px');
@@ -72,7 +76,9 @@ function Notebook({ children }: { children: ReactNode }) {
       typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure);
 
     observer?.observe(viewport);
-    observer?.observe(composer);
+
+    if (composer) observer?.observe(composer);
+
     window.addEventListener('resize', measure);
 
     return () => {
@@ -85,6 +91,87 @@ function Notebook({ children }: { children: ReactNode }) {
     <div ref={root} className="workspace-desk-notebook">
       {children}
     </div>
+  );
+}
+
+/** Reveals capture in the notebook flow and moves keyboard focus into the opened input. */
+function Capture({
+  open,
+  onOpenChange,
+  label,
+  closeLabel,
+  children
+}: {
+  open: boolean;
+  onOpenChange?: (open: boolean) => void;
+  label: string;
+  closeLabel: string;
+  children: ReactNode;
+}) {
+  const contentId = useId();
+  const content = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const previousOpen = useRef(open);
+
+  useLayoutEffect(() => {
+    if (open && !previousOpen.current) {
+      content.current?.querySelector('textarea')?.focus({ preventScroll: true });
+
+      if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
+        content.current?.scrollIntoView({ block: 'nearest' });
+    }
+
+    if (
+      !open &&
+      previousOpen.current &&
+      (content.current?.contains(document.activeElement) ||
+        document.activeElement === document.body)
+    )
+      trigger.current?.focus();
+
+    previousOpen.current = open;
+  }, [open]);
+
+  return (
+    <section className="workspace-desk-capture">
+      <Button
+        ref={trigger}
+        variant="ghost-muted"
+        size="sm"
+        aria-expanded={open}
+        aria-controls={contentId}
+        disabled={!onOpenChange}
+        onClick={() => onOpenChange?.(!open)}
+      >
+        {open ? (
+          <CloseIcon size={16} aria-hidden="true" />
+        ) : (
+          <AddIcon size={16} aria-hidden="true" />
+        )}
+        {open ? closeLabel : label}
+      </Button>
+      <div
+        ref={content}
+        id={contentId}
+        inert={!open}
+        aria-hidden={!open}
+        data-open={open || undefined}
+        className="workspace-desk-capture-content"
+        onTransitionEnd={(event) => {
+          if (
+            event.target === event.currentTarget &&
+            event.propertyName === 'grid-template-rows' &&
+            open &&
+            content.current?.contains(document.activeElement)
+          )
+            content.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }}
+      >
+        <div className="workspace-desk-capture-inner">
+          <div className="workspace-desk-capture-body">{children}</div>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -346,7 +433,9 @@ export const WorkspaceDeskSurface = {
   ScrollArea,
   NavigationHost,
   NotebookLayout: part('div', 'workspace-desk-notebook-layout'),
+  Capture,
   FloatingComposer: part('div', 'workspace-desk-floating-composer'),
+  InlineComposer: part('div', 'workspace-desk-inline-composer'),
   LayoutControls: part('div', 'workspace-desk-layout-controls'),
   Drafts: part('div', 'workspace-desk-drafts'),
   Header: part('header', 'workspace-desk-header'),

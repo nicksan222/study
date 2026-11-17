@@ -166,7 +166,10 @@ test.browser.stable(
       expect(urls).not.toContain(page.url());
       urls.push(page.url());
       await expect(noteLinks).toHaveCount(index + 1);
-      await expect(composer).toHaveValue('');
+      await expect(composer).toBeHidden();
+      await expect(
+        page.getByRole('button', { name: copy.NoteAddCapture, exact: true })
+      ).toHaveAttribute('aria-expanded', 'false');
       await expect(page.locator('[data-slot="chat-message-text"]')).toHaveCount(1);
       await expect(page.locator('[data-slot="chat-message-text"]')).toHaveText('');
 
@@ -176,6 +179,11 @@ test.browser.stable(
       });
 
       await expect(attachment).toBeEnabled();
+      if (index === 0)
+        await expectScreenshot('file-saved-collapsed', {
+          target: 'viewport',
+          ready: () => expect(attachment).toBeEnabled()
+        });
       await attachment.click();
       await sourceReady({ expect }, file);
       await previewControls({ expect });

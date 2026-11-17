@@ -421,3 +421,67 @@
   font-size: 0.75rem;
   line-height: 1.6;
 }
+
+/* The note outline follows the notebook's loaded chronology with quiet, readable targets. */
+.note-outline {
+  padding: 0 0.625rem 0.875rem;
+  border-block-end: 1px solid var(--ui-divider-border);
+}
+.note-outline > .note-page-index-heading {
+  padding-inline: 0.25rem;
+}
+.note-outline-scope {
+  margin: 0 0.25rem 0.625rem;
+  color: var(--contrast-muted-foreground);
+  font-size: 0.6875rem;
+  line-height: 1.5;
+}
+.note-outline-list {
+  display: grid;
+  gap: 0.125rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  max-height: 18rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--app-scrollbar-thumb) transparent;
+}
+.ui-workspace-card .note-outline-item {
+  align-items: flex-start;
+  padding: 0.5rem 0.625rem;
+}
+.ui-workspace-card .note-outline-item[aria-current='location'] {
+  background: var(--accent);
+  color: var(--foreground);
+}
+.note-outline-item > svg {
+  margin-block-start: 0.125rem;
+}
+.ui-workspace-card .note-outline-item > span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.note-outline-feedback {
+  display: grid;
+  gap: 0.5rem;
+  margin-block-start: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.ui-workspace-card.note-attachments-card:has(.note-outline) {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--app-scrollbar-thumb) transparent;
+}
+@container (max-width: 900px) {
+  .note-outline-list {
+    max-height: none;
+    overflow: visible;
+  }
+}

@@ -106,6 +106,7 @@ test.unit.stable(
         })
     );
     mount({ rpcTestTransport, render });
+    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
     expect(screen.queryByRole('button', { name: 'NoteAsk' })).toBeNull();
     expect(screen.queryByTitle('NoteGenerationPreferences')).toBeNull();
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Lecture notes' } });
@@ -161,6 +162,7 @@ test.unit.stable(
   async ({ vi, fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     vi.mocked(saveNote).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
     mount({ rpcTestTransport, render });
+    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Keep this note' } });
     await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'NoteSaveNote' }));
@@ -179,6 +181,7 @@ test.unit.stable(
 
     vi.mocked(saveNote).mockResolvedValue({} as Awaited<ReturnType<typeof saveNote>>);
     mount({ rpcTestTransport, render }, cache);
+    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A quick note' } });
     expect(screen.queryByRole('button', { name: 'NoteAsk' })).toBeNull();
     await waitFor(() => expect(screen.getByRole('button', { name: 'NoteSaveNote' })).toBeEnabled());
@@ -193,6 +196,7 @@ test.unit.stable(
   async ({ vi, fireEvent, screen, waitFor, expect, rpcTestTransport, render }) => {
     vi.mocked(saveNote).mockResolvedValue({} as Awaited<ReturnType<typeof saveNote>>);
     mount({ rpcTestTransport, render });
+    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
     fireEvent.change(screen.getByRole('textbox'), {
       target: { value: 'Rough lecture notes' }
     });
@@ -206,6 +210,7 @@ test.unit.stable(
   'keeps Enter and composition keystrokes in the notebook editor',
   ({ fireEvent, screen, expect, rpcTestTransport, render }) => {
     mount({ rpcTestTransport, render });
+    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'First line' } });
     fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' });
     fireEvent.keyDown(screen.getByRole('textbox'), {
@@ -224,6 +229,7 @@ test.unit.stable(
     preferences.submitOnEnter = true;
     vi.mocked(saveNote).mockImplementation(() => new Promise(() => {}));
     mount({ rpcTestTransport, render });
+    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
     const input = screen.getByRole('textbox');
 
     fireEvent.change(input, { target: { value: 'Quick thought' } });
@@ -233,5 +239,20 @@ test.unit.stable(
     fireEvent.keyDown(input, { key: 'Enter' });
     await waitFor(() => expect(saveNote).toHaveBeenCalledTimes(1));
     preferences.submitOnEnter = false;
+  }
+);
+
+test.unit.stable(
+  'keeps an unsent capture when its input is closed and reopened',
+  ({ fireEvent, screen, expect, rpcTestTransport, render }) => {
+    mount({ rpcTestTransport, render });
+    expect(screen.queryByRole('textbox')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Keep this rough thought' } });
+    fireEvent.click(screen.getByRole('button', { name: 'NoteHideCapture' }));
+    expect(screen.queryByRole('textbox')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
+    expect(screen.getByRole('textbox')).toHaveValue('Keep this rough thought');
+    expect(saveNote).not.toHaveBeenCalled();
   }
 );

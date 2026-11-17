@@ -14,6 +14,7 @@ function TransformOperation(props: Omit<ComponentPropsWithRef<typeof Button>, 'c
 }
 
 export const Notebook = {
+  SectionTitle: part('h3', 'note-section-title'),
   FieldHeading: part('div', 'note-field-heading'),
   TransformOperations: part('div', 'note-transform-operations'),
   TransformOperation,

@@ -89,32 +89,39 @@ test.browser.stable(
     await expect(page).toHaveURL(savedUrl);
     const notebook = page.getByRole('region', { name: copy.NoteNotebook });
     const body = notebook.locator('[data-slot="chat-message-text"]');
-    const label = notebook.getByText(copy.NoteEntryNote, { exact: true });
+    const label = body;
     const entry = notebook.locator('[id*="-message-"]');
 
     await expect(body).toHaveText(original);
     await expect(notebook.locator('[data-role="user"]')).toHaveCount(1);
     await entry.focus();
     await expect(entry).toBeFocused();
-    await label.scrollIntoViewIfNeeded();
-    await expect(label).toBeInViewport({ ratio: 1 });
+    await page
+      .getByRole('navigation', { name: copy.NoteOutline })
+      .getByRole('button')
+      .first()
+      .click();
+    await expect(label).toHaveVisibleText(original.split('\n')[0]!);
     const top = await body.boundingBox();
 
     for (let step = 0; step < 15; step++) await entry.press('ArrowDown');
 
     await expect.poll(async () => (await body.boundingBox())!.y).toBeLessThan(top!.y);
-    await expect(label).not.toBeInViewport();
+    await expect(label).not.toHaveVisibleText(original.split('\n')[0]!);
     await entry.press('End');
     await expect
       .poll(async () => {
         const end = await entry.boundingBox();
-        const dock = await page.locator('.workspace-desk-floating-composer').boundingBox();
+        const dock = await page.locator('.workspace-desk-capture').boundingBox();
 
         return !!end && !!dock && end.y + end.height <= dock.y;
       })
       .toBe(true);
-    await expect(composer).toBeInViewport({ ratio: 1 });
-    await expect(save).toBeInViewport({ ratio: 1 });
+    await expect(composer).toBeHidden();
+    await expect(
+      page.getByRole('button', { name: copy.NoteAddCapture, exact: true })
+    ).toBeInViewport({ ratio: 1 });
+    await expect(save).toBeHidden();
     await notebook.locator('[data-role="user"]').hover();
     await page.getByRole('button', { name: copy.NoteEditNote }).click();
     const dialog = page.getByRole('dialog', { name: copy.NoteEditNote });
@@ -122,6 +129,10 @@ test.browser.stable(
 
     await expect(editor).toHaveValue(original);
     await editor.fill(updated);
+    await expectScreenshot('recovered-edit-draft', {
+      target: dialog,
+      ready: () => expect(editor).toHaveValue(updated)
+    });
     await dialog.getByRole('button', { name: copy.NoteSaveNote }).click();
     await expect(dialog).toBeHidden();
     await expect(page).toHaveURL(savedUrl);
@@ -138,7 +149,7 @@ test.browser.stable(
     ).toHaveCount(1);
     await entry.focus();
     await entry.press('End');
-    await expect(label).not.toBeInViewport();
+    await expect(label).not.toHaveVisibleText(original.split('\n')[0]!);
     await expectScreenshot('reconciled-note', {
       target: 'viewport',
       ready: async () => {
@@ -147,8 +158,11 @@ test.browser.stable(
         await expect(body).toHaveText(updated);
         expect(await body.textContent()).toBe(updated);
         await expect(body).toBeInViewport();
-        await expect(composer).toBeInViewport({ ratio: 1 });
-        await expect(save).toBeInViewport({ ratio: 1 });
+        await expect(composer).toBeHidden();
+        await expect(
+          page.getByRole('button', { name: copy.NoteAddCapture, exact: true })
+        ).toBeInViewport({ ratio: 1 });
+        await expect(save).toBeHidden();
       }
     });
   }

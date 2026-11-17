@@ -283,10 +283,6 @@ test.unit.stable(
       .closest('[data-notebook-scroll-host]');
 
     expect(scrollHost).toContainElement(card);
-    expect(
-      view.container.querySelector('.ui-workspace-dock')?.closest('[data-notebook-scroll-host]')
-    ).toBeNull();
-
     await waitFor(() => expect(card).toBeVisible());
     expect(within(card).getByRole('button', { name: 'NoteTransform' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'NoteDockBelow' })).toBeDisabled();

@@ -233,19 +233,27 @@
 }
 [data-notebook-scroll-host] .chat-content {
   min-height: var(--notebook-viewport-height, 100%);
-  padding-block-end: calc(var(--notebook-composer-height, 10rem) + 3rem);
+  padding-block-end: 3rem;
 }
 [data-notebook-navigation-host] .notebook-rail {
   pointer-events: auto;
 }
 
 /* Writing reads as one notebook; files retain their own preview surfaces. */
+.note-section-title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.015em;
+  color: var(--foreground);
+}
 .workspace-desk-board .note-index-target {
-  padding: 0.5rem 1rem;
+  padding: 1.5rem 1rem;
   scroll-margin-block: 1.5rem;
 }
 .workspace-desk-board .note-index-target + .note-index-target {
-  border-block-start: 0;
+  border-block-start: 1px solid var(--ui-divider-border);
 }
 .workspace-desk-board .note-index-target > .chat-message {
   width: 100%;

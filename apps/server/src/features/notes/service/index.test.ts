@@ -655,7 +655,7 @@ test.server.stable(
               .from(workflowEvents)
               .all()
               .map((event) => event.type)
-          ).toStrictEqual(['NoteQuestionRequested']);
+          ).toStrictEqual(['NoteQuestionRequested', 'NoteSectionTitleRequested']);
         }).pipe(Effect.provide(layer))
       );
     } finally {

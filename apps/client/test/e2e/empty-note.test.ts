@@ -118,13 +118,19 @@ test.browser.stable(
     await expect(text).toHaveCount(1);
     expect(await text.textContent()).toBe(corrected);
     await expect(noteLinks).toHaveCount(1);
-    await expect(composer).toHaveValue('');
-    await reachableControls({ expect });
+    await expect(composer).toBeHidden();
+    await expect(
+      page.getByRole('button', { name: copy.NoteAddCapture, exact: true })
+    ).toHaveAttribute('aria-expanded', 'false');
 
-    const entryLabel = page.getByText(copy.NoteEntryNote, { exact: true });
+    const entryLabel = text;
 
-    await entryLabel.scrollIntoViewIfNeeded();
-    await expect(entryLabel).toBeInViewport({ ratio: 1 });
+    await page
+      .getByRole('navigation', { name: copy.NoteOutline })
+      .getByRole('button')
+      .first()
+      .click();
+    await expect(entryLabel).toHaveVisibleText(corrected.split('\n')[0]!);
     await expect.poll(async () => (await text.boundingBox())?.y).toBeGreaterThan(0);
 
     const top = await text.boundingBox();
@@ -132,16 +138,17 @@ test.browser.stable(
     if (!top) throw new Error('Saved note has no layout box');
 
     await scrollHost.press('End');
-    await expect(entryLabel).not.toBeInViewport();
+    await expect(entryLabel).not.toHaveVisibleText(corrected.split('\n')[0]!);
     await expect.poll(async () => (await text.boundingBox())?.y).toBeLessThan(top.y);
     await expect
       .poll(async () => {
         const noteBox = await text.boundingBox();
-        const composerBox = await page.locator('.workspace-desk-floating-composer').boundingBox();
+        const composerBox = await page.locator('.workspace-desk-capture').boundingBox();
 
         return noteBox && composerBox ? composerBox.y - (noteBox.y + noteBox.height) : -1;
       })
       .toBeGreaterThan(0);
+    await page.getByRole('button', { name: copy.NoteAddCapture, exact: true }).click();
     await reachableControls({ expect });
     await composer.click();
     await expect(composer).toBeFocused();

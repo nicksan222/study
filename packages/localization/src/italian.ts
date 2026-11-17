@@ -1268,6 +1268,11 @@ export const italian = Object.freeze({
   NoteNotesEmpty: 'Inizia la tua prima pagina',
   NoteNotesTitle: 'I tuoi appunti',
   NoteNotesHelp: 'Pagine, pensieri, file e risposte. Tutto insieme in questa nota.',
+  NoteAddCapture: 'Aggiungi alla nota',
+  NoteHideCapture: 'Chiudi',
+  NoteOutline: 'In questa nota',
+  NoteOutlineScope: 'Elementi attualmente caricati',
+  NoteOutlineEmpty: 'Qui appariranno i tuoi appunti e le tue pagine.',
   NoteComposeHint: 'Aggiungi un appunto, un’idea o un allegato…',
   NoteDraftHelp:
     'Il testo non inviato resta qui mentre navighi nell’app. Salva appunto lo conserva nella nota; Chiedi salva l’appunto e richiede una risposta.',

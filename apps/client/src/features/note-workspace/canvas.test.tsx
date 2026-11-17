@@ -237,6 +237,8 @@ test.unit.stable(
     vi.mocked(uploadSource).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
     const first = mount({ render, rpcHandlersTransport }, <Composer id={id} />);
 
+    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
+
     await act(async () => {
       fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
         target: { files: [new File(['notes'], 'notes.txt')] }
@@ -262,6 +264,7 @@ test.unit.stable(
     >);
     vi.mocked(saveNote).mockResolvedValue(message);
     mount({ render, rpcHandlersTransport }, <Composer id={id} />);
+    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
     await act(async () => {
       fireEvent.drop(screen.getByRole('region', { name: 'NoteCompose' }), {
         dataTransfer: { files: [new File(['notes'], 'notes.txt')] }
@@ -293,6 +296,8 @@ test.unit.stable(
     );
     const first = mount({ render, rpcHandlersTransport }, <Composer id={id} />);
 
+    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
+
     await act(async () => {
       fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
         target: { files: [new File(['n'], 'n.txt')] }
@@ -318,6 +323,7 @@ test.unit.stable(
       .mockRejectedValueOnce(new StudyError('invalid_input', 'Unsupported'))
       .mockResolvedValueOnce({ id: 46n } as Awaited<ReturnType<typeof uploadSource>>);
     mount({ render, rpcHandlersTransport }, <Composer id={id} />);
+    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
     await act(async () => {
       fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
         target: { files: [new File(['n'], 'n.txt')] }
@@ -634,6 +640,7 @@ test.unit.stable(
     >);
     vi.mocked(saveNote).mockResolvedValue(message);
     mount({ render, rpcHandlersTransport }, <Composer id={id} />);
+    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
     fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
       target: { files: [new File(['n'], 'n.txt')] }
     });
@@ -659,6 +666,8 @@ test.unit.stable(
     >);
     vi.mocked(saveNote).mockRejectedValue(new StudyError('transient', 'Unconfirmed'));
     const first = mount({ render, rpcHandlersTransport }, <Composer id={id} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
 
     await act(async () => {
       fireEvent.change(screen.getByLabelText('NoteAttachFiles'), {
@@ -1061,6 +1070,7 @@ test.unit.stable.for(['Copied text', ''])(
       ReturnType<typeof uploadSource>
     >);
     mount({ render, rpcHandlersTransport }, <Composer id={id} />);
+    fireEvent.click(screen.getByRole('button', { name: 'NoteAddCapture' }));
     const accepted = fireEvent.paste(screen.getByRole('textbox'), {
       clipboardData: {
         files: [file],

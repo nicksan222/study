@@ -257,9 +257,15 @@ test.browser.stable(
     const entries = notebook.locator('.chat-message-text');
 
     await expect(entries).toHaveText([draft]);
+    await page.getByRole('button', { name: copy.NoteAddCapture, exact: true }).click();
     await composer.fill('A second observation captured from the existing notebook.');
+    await expectScreenshot('existing-input-draft', {
+      target: 'viewport',
+      ready: () =>
+        expect(composer).toHaveValue('A second observation captured from the existing notebook.')
+    });
     await composer.press('Enter');
-    await expect(composer).toHaveValue('');
+    await expect(composer).toBeHidden();
     await expect(entries).toHaveText([
       draft,
       'A second observation captured from the existing notebook.'
@@ -268,6 +274,7 @@ test.browser.stable(
       target: 'viewport',
       ready: () => expect(entries).toHaveCount(2)
     });
+    await page.getByRole('button', { name: copy.NoteAddCapture, exact: true }).click();
     await page.getByRole('button', { name: copy.NoteWritePage, exact: true }).click();
     const editor = page.getByRole('textbox', { name: copy.NotePageEditor, exact: true });
 
@@ -309,6 +316,7 @@ test.browser.stable(
     });
     await dialog.getByRole('button', { name: copy.Close }).click();
     await page.reload();
+    await page.getByRole('button', { name: copy.NoteAddCapture, exact: true }).click();
     await expect(composer).toHaveAttribute('spellcheck', 'true');
     await composer.fill('Enter now inserts a newline rather than capturing.');
     await composer.press('ControlOrMeta+End');
@@ -321,7 +329,8 @@ test.browser.stable(
     });
     await composer.press('ControlOrMeta+Enter');
     await expect(entries).toHaveCount(3);
-    await expect(composer).toHaveValue('');
+    await expect(composer).toBeHidden();
+    await page.getByRole('button', { name: copy.NoteAddCapture, exact: true }).click();
     await page.getByRole('button', { name: copy.NoteWritePage, exact: true }).click();
     await expect(editor).toBeVisible();
     await expect(editor).toHaveCSS('font-size', '24px');

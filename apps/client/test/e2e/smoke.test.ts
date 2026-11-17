@@ -14,8 +14,21 @@ test.browser.stable(
 
     await page.goto('/notes');
     await page.getByRole('textbox', { name: copy.NoteCompose }).fill(content);
+    await expectScreenshot('starter-draft', {
+      target: 'viewport',
+      ready: () =>
+        expect(page.getByRole('textbox', { name: copy.NoteCompose })).toHaveValue(content)
+    });
     await page.getByRole('button', { name: copy.NoteSaveNote }).click();
     await expect(page).toHaveURL(/\/notes\/.+/);
+    await expectScreenshot('saved-collapsed', {
+      target: 'viewport',
+      ready: () =>
+        expect(page.getByRole('button', { name: copy.NoteAddCapture })).toHaveAttribute(
+          'aria-expanded',
+          'false'
+        )
+    });
     await page.getByRole('button', { name: copy.NoteEditNote }).focus();
     await page.keyboard.press('Enter');
     const dialog = page.getByRole('dialog', { name: copy.NoteEditNote });

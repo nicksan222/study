@@ -64,10 +64,6 @@ export function MessageActions({
           questionAction={questionAction}
         />
       </MessageContextMenu>
-      <AiReadinessNotice state={model.readiness} />
-      {model.conversion.available && model.conversion.readiness !== model.readiness && (
-        <AiReadinessNotice state={model.conversion.readiness} />
-      )}
       {model.conversion.mutation.error && (
         <NoteError error={model.conversion.mutation.error} retry={model.conversion.retry} />
       )}
@@ -331,6 +327,9 @@ function MessageEditDialog({ model }: { model: MessageActionsModel }) {
           }
         />
         <WorkspaceSurface.ContextDialogBody>
+          {draft.mode && draft.mode !== 'edit' && draft.mode !== 'activate' && (
+            <AiReadinessNotice state={model.readiness} />
+          )}
           <MessageEditor model={model} />
           <MessageRecovery model={model} />
         </WorkspaceSurface.ContextDialogBody>

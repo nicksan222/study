@@ -20,6 +20,7 @@ export function WorkspaceContext({
   id,
   children,
   actions,
+  outline,
   hidden,
   onDismiss,
   onOpenPage,
@@ -28,6 +29,7 @@ export function WorkspaceContext({
   id?: NoteId;
   children?: ReactNode;
   actions?: ReactNode;
+  outline?: ReactNode;
   hidden?: boolean;
   onDismiss?: () => void;
   onOpenPage?: (material: PageSummary) => void;
@@ -43,6 +45,7 @@ export function WorkspaceContext({
       onDismiss={onDismiss}
     >
       {actions}
+      {outline}
       <WorkspaceAttachments.Heading>
         <AttachmentIcon size={13} aria-hidden="true" />
         <h2>{t('NoteAttachments')}</h2>

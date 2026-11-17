@@ -29,6 +29,7 @@ import { scheduleAutomaticTitle } from './generation-events.ts';
 import { readWorkspacePreferences } from './preferences.ts';
 import { retainExplicitQuestionAnswer, scheduleQuestion } from './questions.ts';
 import { scheduleAutomaticConversion } from './request-targets.ts';
+import { scheduleSectionTitle } from './section-titles.ts';
 
 /** Recognizes whole assistant mention tokens without matching identifier suffixes. */
 function mentionsAssistant(text: string) {
@@ -42,6 +43,7 @@ export function postMessage(tx: Transaction, input: typeof postMessageInputSchem
   const message = tx.store(MessageStore).postMessage(input);
 
   scheduleQuestion(tx, message);
+  scheduleSectionTitle(tx, message);
 
   for (const sourceId of input.sourceIds ?? [])
     Sources.attachInTransaction(tx, { noteId: input.noteId, sourceId });
@@ -58,6 +60,8 @@ export function noteMessageOperations() {
         const messages = tx.store(MessageStore);
 
         const items = messages.messages(input);
+
+        for (const message of items) scheduleSectionTitle(tx, message);
 
         const first = items[0];
 
@@ -174,6 +178,7 @@ export function noteMessageOperations() {
         const edited = tx.store(MessageStore).editMessage(input);
 
         scheduleQuestion(tx, edited);
+        scheduleSectionTitle(tx, edited);
 
         return resolveMessageCitations(tx, edited);
       }),
@@ -182,6 +187,7 @@ export function noteMessageOperations() {
         const message = tx.store(MessageStore).editMessage(input);
 
         scheduleQuestion(tx, message);
+        scheduleSectionTitle(tx, message);
 
         return resolveMessageCitations(tx, message);
       }),
@@ -191,7 +197,10 @@ export function noteMessageOperations() {
         const previous = tx.store(MessageStore).message(input.messageId).activeVersionId;
         const message = tx.store(MessageStore).setActiveVersion(input);
 
-        if (previous !== message.activeVersionId) scheduleQuestion(tx, message, true);
+        if (previous !== message.activeVersionId) {
+          scheduleQuestion(tx, message, true);
+          scheduleSectionTitle(tx, message);
+        }
 
         return resolveMessageCitations(tx, message);
       }),
@@ -201,7 +210,10 @@ export function noteMessageOperations() {
         const previous = tx.store(MessageStore).message(input.messageId).activeVersionId;
         const message = tx.store(MessageStore).deleteMessageVersion(input);
 
-        if (previous !== message.activeVersionId) scheduleQuestion(tx, message, true);
+        if (previous !== message.activeVersionId) {
+          scheduleQuestion(tx, message, true);
+          scheduleSectionTitle(tx, message);
+        }
 
         return resolveMessageCitations(tx, message);
       }),

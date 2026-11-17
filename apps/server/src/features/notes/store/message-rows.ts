@@ -8,6 +8,7 @@ import {
   citations,
   eq,
   message_parts,
+  message_section_titles,
   message_versions,
   messages,
   note_question_answers,
@@ -56,6 +57,15 @@ export function makeHelpers({ db, clock, timestampClock }: StoreResources) {
 
     if (!m) return null;
 
+    const sectionTitle =
+      m.active_version_id === null
+        ? undefined
+        : db.orm
+            .select()
+            .from(message_section_titles)
+            .where(eq(message_section_titles.version_id, m.active_version_id))
+            .get();
+
     const answer = m.question_version_id
       ? db.orm
           .select({
@@ -85,6 +95,9 @@ export function makeHelpers({ db, clock, timestampClock }: StoreResources) {
 
     return {
       question: question(),
+      ...(sectionTitle
+        ? { sectionTitle: { versionId: sectionTitle.version_id, title: sectionTitle.title } }
+        : {}),
       id: m.id,
       noteId: m.note_id,
       role: m.role,

@@ -38,17 +38,21 @@ test.browser.stable(
     const notePath = new URL(noteUrl).pathname;
     const notebook = page.getByRole('region', { name: copy.NoteNotebook });
     const body = notebook.locator('.chat-message-text');
-    const entry = notebook.getByText(copy.NoteEntryNote, { exact: true });
+    const entry = body;
     const scrollHost = page.locator('[data-notebook-scroll-host]');
 
     await expect.poll(() => body.textContent()).toBe(original);
-    await entry.scrollIntoViewIfNeeded();
-    await expect(entry).toBeInViewport({ ratio: 1 });
+    await page
+      .getByRole('navigation', { name: copy.NoteOutline })
+      .getByRole('button')
+      .first()
+      .click();
+    await expect(entry).toHaveVisibleText(opening);
     await expectScreenshot('mixed-scripts', {
       target: 'viewport',
       ready: async () => {
         await expect(body).toHaveText(original);
-        await expect(entry).toBeInViewport({ ratio: 1 });
+        await expect(entry).toHaveVisibleText(opening);
       }
     });
 
@@ -61,25 +65,25 @@ test.browser.stable(
     await expect(body).toBeInViewport();
     await scrollHost.press('End');
     await expect.poll(async () => (await body.boundingBox())!.y).toBeLessThan(middle!.y - 100);
-    await expect(entry).not.toBeInViewport();
+    await expect(entry).not.toHaveVisibleText(opening);
     await expect
       .poll(async () => {
         const text = await body.boundingBox();
-        const floating = await page.locator('.workspace-desk-floating-composer').boundingBox();
+        const floating = await page.locator('.workspace-desk-capture').boundingBox();
 
         return !!text && !!floating && text.y + text.height <= floating.y;
       })
       .toBe(true);
-    await expect(composer).toBeInViewport({ ratio: 1 });
-    await expect(page.getByRole('button', { name: copy.NoteSaveNote })).toBeInViewport({
-      ratio: 1
-    });
+    await expect(composer).toBeHidden();
+    await expect(
+      page.getByRole('button', { name: copy.NoteAddCapture, exact: true })
+    ).toBeInViewport({ ratio: 1 });
     await expectScreenshot('mixed-scripts-bottom', {
       target: 'viewport',
       ready: async () => {
         await expect(body).toHaveText(original);
-        await expect(entry).not.toBeInViewport();
-        await expect(composer).toBeInViewport({ ratio: 1 });
+        await expect(entry).not.toHaveVisibleText(opening);
+        await expect(composer).toBeHidden();
       }
     });
 
@@ -206,7 +210,7 @@ test.browser.stable(
     await settings.getByRole('button', { name: italian.Close }).click();
     await page.goto(secondUrl);
     await page.reload();
-    await expect(page.getByRole('textbox', { name: italian.NoteCompose })).toBeVisible();
+    await expect(page.getByRole('button', { name: italian.NoteAddCapture })).toBeVisible();
     await page.getByRole('searchbox', { name: italian.Search, exact: true }).fill('lucciolaperché');
     await page.locator(`a[href="${notePath}"]`).filter({ hasText: 'lucciolaperché' }).click();
     await expect(page).toHaveURL(noteUrl);
@@ -215,16 +219,18 @@ test.browser.stable(
     await expect
       .poll(() => localizedNotebook.locator('.chat-message-text').textContent())
       .toBe(content);
-    const localizedEntry = localizedNotebook.getByText(italian.NoteEntryNote, { exact: true });
+    const localizedEntry = localizedNotebook.locator('.chat-message-text');
 
-    await localizedEntry.scrollIntoViewIfNeeded();
+    await page
+      .getByRole('navigation', { name: italian.NoteOutline })
+      .getByRole('button')
+      .first()
+      .click();
     await expectScreenshot('localized-reopened', {
       target: 'viewport',
       ready: async () => {
-        await expect(localizedEntry).toBeInViewport({ ratio: 1 });
-        await expect(page.getByRole('button', { name: italian.NoteSaveNote })).toBeInViewport({
-          ratio: 1
-        });
+        await expect(localizedEntry).toHaveVisibleText(content.split('\n')[0]!);
+        await expect(page.getByRole('textbox', { name: italian.NoteCompose })).toBeHidden();
         await expect(localizedNotebook.locator('.chat-message-text')).toHaveText(content);
       }
     });

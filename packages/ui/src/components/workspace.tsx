@@ -232,8 +232,26 @@ function AttachmentItem({
   );
 }
 
+function OutlineItem({
+  children,
+  icon,
+  ...props
+}: ComponentProps<typeof Button> & { icon: ReactNode }) {
+  return (
+    <Item {...props} size="sm" className="note-outline-item">
+      {icon}
+      <span>{children}</span>
+    </Item>
+  );
+}
+
 export const WorkspaceAttachments = {
   Heading: part('header', 'note-page-index-heading'),
+  Outline: part('nav', 'note-outline'),
+  OutlineList: part('ol', 'note-outline-list'),
+  OutlineItem,
+  OutlineScope: part('p', 'note-outline-scope'),
+  OutlineFeedback: part('div', 'note-outline-feedback'),
   Empty: part('p', 'note-page-index-empty'),
   List: part('div', 'note-page-index'),
   Rows: part('div', 'note-attachment-rows'),

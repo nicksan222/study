@@ -52,6 +52,7 @@ const groups: Record<string, string[]> = {
     'notes',
     'messages',
     'message_versions',
+    'message_section_titles',
     'message_parts',
     'citations',
     'note_recording_posts',
