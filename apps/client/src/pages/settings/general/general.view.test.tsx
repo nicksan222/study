@@ -20,7 +20,7 @@ test.unit.stable(
   ({ render, expect, screen, vi }) => {
     render(<GeneralSettingsView model={{ ...model({ vi }), pending: true }} />);
     expect(screen.getByRole('combobox', { name: 'Language' })).toBeDisabled();
-    expect(screen.getByRole('status')).toHaveTextContent('Saving');
+    expect(screen.queryByText('Saving')).toBeNull();
   }
 );
 

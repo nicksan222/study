@@ -5,6 +5,7 @@ import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
+import { validSettingsNumber, isPersistedNumberDraft } from '#client/lib/settings-autosave.ts';
 import { useConversionStrategies } from '#client/lib/study-client/conversion.queries.ts';
 import { useWorkspacePreferenceControls } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
@@ -20,7 +21,7 @@ function useControls() {
   return model;
 }
 
-/** Shares persisted state, save feedback, and retry recovery across a settings section. */
+/** Shares persisted preferences and failure recovery across a settings section. */
 function PreferenceSection({
   title,
   description,
@@ -35,7 +36,7 @@ function PreferenceSection({
   const { query, mutation } = model;
 
   return (
-    <Settings.Section title={t(title)}>
+    <Settings.Section title={t(title)} busy={mutation.isPending}>
       <Settings.Intro>{t(description)}</Settings.Intro>
       {(query.error || mutation.error) && (
         <Settings.Status
@@ -59,9 +60,6 @@ function PreferenceSection({
         <PreferenceContext value={model}>
           <Settings.Group>{children}</Settings.Group>
         </PreferenceContext>
-      )}
-      {mutation.isSuccess && !mutation.isPending && (
-        <Settings.Feedback role="status">{t('WorkspaceSettingsSaved')}</Settings.Feedback>
       )}
     </Settings.Section>
   );
@@ -118,16 +116,12 @@ function PreferenceNumber({
   const { t } = useI18n();
   const { query, mutation } = useControls();
   const [draft, setDraft] = useState<string>();
-  const [confirmed, setConfirmed] = useState<number>();
 
-  if (confirmed !== undefined && query.data?.[field] === confirmed) {
-    setConfirmed(undefined);
+  if (!mutation.isPending && !mutation.error && isPersistedNumberDraft(draft, query.data?.[field]))
     setDraft(undefined);
-  }
 
   const value = draft ?? String(query.data![field]);
-  const number = Number(value);
-  const valid = validPreferenceNumber(value, min, max);
+  const valid = validSettingsNumber(value, min, max);
 
   return (
     <Settings.NumberRow
@@ -136,18 +130,12 @@ function PreferenceNumber({
       min={min}
       max={max}
       value={value}
-      onValueChange={setDraft}
-      disabled={mutation.isPending}
-      submitDisabled={!valid || number === query.data![field]}
-      error={valid ? undefined : t('WorkspaceNumberValidation')}
-      submitLabel={t(mutation.isPending ? 'Saving' : 'Save')}
-      onSubmit={() => {
-        if (valid)
-          void mutation
-            .mutateAsync({ [field]: number })
-            .then(() => setConfirmed(number))
-            .catch(() => {});
+      onValueChange={(value) => {
+        setDraft(value);
+
+        if (validSettingsNumber(value, min, max)) mutation.mutate({ [field]: Number(value) });
       }}
+      error={valid ? undefined : t('WorkspaceNumberValidation')}
     />
   );
 }
@@ -358,10 +346,4 @@ function ConversionStrategySetting() {
       />
     </>
   );
-}
-
-function validPreferenceNumber(value: string, min: number, max: number) {
-  const number = Number(value);
-
-  return value.trim() !== '' && Number.isInteger(number) && number >= min && number <= max;
 }

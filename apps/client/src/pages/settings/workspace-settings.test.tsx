@@ -66,18 +66,7 @@ function mount(
 
 test.unit.stable(
   'retains a rejected numeric draft through recovery and retries the exact value',
-  async ({
-    screen,
-    fireEvent,
-    assert: assertions,
-    within,
-    expect,
-    waitFor,
-    rpcTestTransport,
-    render
-  }) => {
-    const assert: test.Assert = assertions;
-
+  async ({ screen, fireEvent, expect, waitFor, rpcTestTransport, render }) => {
     api.save
       .mockRejectedValueOnce(new Error('Save unavailable'))
       .mockImplementationOnce(async (value) => {
@@ -89,24 +78,18 @@ test.unit.stable(
     const input = await screen.findByRole('spinbutton', { name: 'WorkspaceAutosave' });
 
     fireEvent.change(input, { target: { value: '8' } });
-    const form = input.closest('form');
-
-    assert.ok(form, 'Autosave controls require a form');
-
-    fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
     expect(await screen.findByText('WorkspaceSettingsFailed')).toBeInTheDocument();
     expect(input).toHaveValue(8);
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     await waitFor(() => expect(screen.queryByText('WorkspaceSettingsFailed')).toBeNull());
     expect(input).toHaveValue(8);
-    fireEvent.click(within(form).getByRole('button', { name: 'Save' }));
-    await screen.findByText('WorkspaceSettingsSaved');
+    await waitFor(() => expect(api.save).toHaveBeenCalledTimes(2));
     expect(api.save).toHaveBeenNthCalledWith(2, {
       ...defaultWorkspacePreferences,
       autosaveIntervalSeconds: 8
     });
     expect(input).toHaveValue(8);
-    await waitFor(() => expect(within(form).getByRole('button', { name: 'Save' })).toBeDisabled());
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
   }
 );
 
@@ -127,7 +110,7 @@ test.unit.stable(
       expect(api.save).toHaveBeenCalledWith({ ...defaultWorkspacePreferences, spellcheck: false })
     );
     await waitFor(() => expect(toggle).not.toBeChecked());
-    expect(await screen.findByText('WorkspaceSettingsSaved')).toBeInTheDocument();
+    expect(screen.queryByRole('status')).toBeNull();
   }
 );
 

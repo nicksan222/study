@@ -45,7 +45,6 @@ test.unit.stable(
     for (const value of ['', '-1', '1.5', '10001']) {
       act(() => result.current.setDraft(value));
       expect(result.current.valid).toBe(false);
-      act(() => result.current.save());
     }
 
     expect(api.save).not.toHaveBeenCalled();
@@ -60,25 +59,54 @@ test.unit.stable(
     await waitFor(() => expect(result.current.draft).toBe('20'));
     api.load.mockResolvedValue({ newCardsPerDay: 0 });
     act(() => result.current.setDraft('0'));
-    act(() => result.current.save());
     await waitFor(() => expect(api.save).toHaveBeenCalledWith({ newCardsPerDay: 0 }));
     await waitFor(() => expect(result.current.data?.newCardsPerDay).toBe(0));
-    expect(result.current.changed).toBe(false);
+    expect(result.current.draft).toBe('0');
   }
 );
 
 test.unit.stable(
-  'restores the saved allowance on failure and recovers by retrying',
+  'retains the failed allowance and recovers by retrying',
   async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
     const { result } = setup({ rpcTestTransport, renderHook });
 
     await waitFor(() => expect(result.current.draft).toBe('20'));
-    api.save.mockRejectedValue(new Error('offline'));
+    api.save.mockRejectedValueOnce(new Error('offline'));
     act(() => result.current.setDraft('30'));
-    act(() => result.current.save());
     await waitFor(() => expect(result.current.error).toBe(true));
     expect(result.current.draft).toBe('30');
+    api.load.mockResolvedValue({ newCardsPerDay: 30 });
     act(() => result.current.retry());
     await waitFor(() => expect(result.current.error).toBe(false));
+    await waitFor(() => expect(result.current.data?.newCardsPerDay).toBe(30));
+  }
+);
+
+test.unit.stable(
+  'keeps the latest edit when it returns to the original value during a save',
+  async ({ waitFor, expect, act, rpcTestTransport, renderHook }) => {
+    let release!: () => void;
+    const blocked = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    api.save.mockImplementationOnce(async () => {
+      await blocked;
+
+      return {};
+    });
+    const { result } = setup({ rpcTestTransport, renderHook });
+
+    await waitFor(() => expect(result.current.draft).toBe('20'));
+    act(() => {
+      result.current.setDraft('30');
+      result.current.setDraft('20');
+    });
+    await waitFor(() => expect(api.save).toHaveBeenCalledWith({ newCardsPerDay: 30 }));
+    api.load.mockResolvedValue({ newCardsPerDay: 30 });
+    await act(async () => {
+      release();
+    });
+    await waitFor(() => expect(api.save).toHaveBeenLastCalledWith({ newCardsPerDay: 20 }));
   }
 );
