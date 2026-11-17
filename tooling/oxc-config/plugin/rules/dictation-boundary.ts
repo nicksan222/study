@@ -52,7 +52,9 @@ export default defineRule({
         const base = rpc(definition.init, seen);
         const names = destructuredPath(definition.id, node.name, []);
 
-        return base && names ? [base, ...names].join('.') : null;
+        return base && names
+          ? [base, ...names].join('.').replace(/^contracts\.rpc(?=\.|$)/, 'rpc')
+          : null;
       },
       (node, seen) => {
         const base = rpc(node.object, seen);
@@ -100,14 +102,20 @@ export default defineRule({
         if (node.callee.type === 'Identifier' && rpc(node.callee) === 'host.captureMicrophone')
           report(node);
 
-        const name = nativeGlobal(bindings, node.callee)?.replace(/^(?:window|globalThis)\./, '');
+        const name = nativeGlobal(bindings, node.callee)?.replace(
+          /^(?:(?:window|globalThis|self)\.)+/,
+          ''
+        );
 
         if (name === 'navigator.mediaDevices.getUserMedia') report(node);
       },
       NewExpression(node) {
         if (capture) return;
 
-        const name = nativeGlobal(bindings, node.callee)?.replace(/^window\./, '');
+        const name = nativeGlobal(bindings, node.callee)?.replace(
+          /^(?:(?:window|globalThis|self)\.)+/,
+          ''
+        );
 
         if (name === 'MediaRecorder') report(node);
       }

@@ -1,10 +1,14 @@
+import { BunPath } from '@effect/platform-bun';
 import { StudyRpc } from '@study/contracts';
 import { makeStudyClient } from '@study/server/client';
 import { transcribeNative } from '@study/server/testing';
 import { test } from '@study/testing';
-import { Effect } from 'effect';
+import { Effect, Path } from 'effect';
 
 import { voiceFilePcm, voiceSamplePcm, voiceSamples } from '../fixtures/voice/samples.ts';
+import { localModelFile } from './local-model-file.ts';
+
+const path = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
 function normalize(text: string) {
   return text
@@ -76,9 +80,7 @@ test.server.stable(
     const { server } = await resources.openRpc({
       voice: {
         fetch: async (url) => {
-          const file = files.find((candidate) =>
-            new URL(url).pathname.endsWith('/' + candidate.name!.split('/').at(-1))
-          );
+          const file = localModelFile(files, url, path);
 
           if (!file) throw new Error(`Unexpected speech fixture request: ${url}`);
 

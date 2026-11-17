@@ -1,6 +1,6 @@
 import type { effectBindings } from '../effect-bindings.ts';
 import { propertyName } from '../effect-bindings.ts';
-import { staticMember, enterNode } from '../lexical-bindings.ts';
+import { destructuredPath, staticMember, enterNode } from '../lexical-bindings.ts';
 
 export function nativeGlobal(
   bindings: ReturnType<typeof effectBindings>,
@@ -82,14 +82,7 @@ function aliasedGlobal(
 
     if (def.id.type === 'ObjectPattern') {
       const base = nativeGlobal(bindings, def.init, seen);
-      const item = def.id.properties.find(
-        (p: any) =>
-          p.type === 'Property' &&
-          p.value.type === 'Identifier' &&
-          p.value.name === node.name &&
-          (!p.computed || p.key.type === 'Literal')
-      );
-      const name = propertyName(item?.key);
+      const name = destructuredPath(def.id, node.name, [])?.join('.');
 
       return base && name
         ? ['globalThis', 'global'].includes(base)

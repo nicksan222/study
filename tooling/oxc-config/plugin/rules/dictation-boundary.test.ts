@@ -56,11 +56,42 @@ test.unit.stable(
       {
         'apps/client/src/features/notes/namespace.ts': `import * as host from '#client/lib/host.ts'; host.captureMicrophone({});`,
         'apps/client/src/features/notes/native.ts': `import {captureMicrophone} from '#client/lib/effect/native.ts'; captureMicrophone({});`,
+        'apps/client/src/features/notes/destructured-rpc.ts': `import * as contracts from '@study/contracts/react'; const {rpc: api} = contracts; api.voice.transcribe.call({});`,
+        'apps/client/src/features/notes/deep-rpc.ts': `import * as contracts from '@study/contracts/react'; const {rpc: {voice: {transcribe: recognize}}} = contracts; recognize.call({});`,
         'apps/client/src/features/notes/rpc.ts': `import * as contracts from '@study/contracts/react'; contracts.rpc.voice.transcribe.call({});`
       },
       true
     );
 
-    expect(diagnostics).toHaveLength(3);
+    expect(diagnostics).toHaveLength(5);
+  }
+);
+
+test.unit.stable(
+  'nested browser globals cannot bypass the shared dictation wrapper',
+  async ({ expect, assert }) => {
+    const diagnostics = await lintRule(
+      { assert },
+      'dictation-boundary',
+      {
+        'apps/client/src/features/notes/media.ts': `const {navigator: {mediaDevices}} = window; mediaDevices.getUserMedia({audio:true});`,
+        'apps/client/src/features/notes/recorder.ts': `const {window: {MediaRecorder: Recorder}} = globalThis; new Recorder(stream);`,
+        'apps/client/src/features/notes/default.ts': `const {navigator: {mediaDevices: media = fallback}} = window; media.getUserMedia({audio:true});`,
+        'apps/client/src/features/notes/self.ts': `const {self: {MediaRecorder: Recorder}} = window; new Recorder(stream);`
+      },
+      true
+    );
+
+    expect(diagnostics).toHaveLength(4);
+    expect(
+      await lintRule(
+        { assert },
+        'dictation-boundary',
+        {
+          'apps/client/src/features/notes/local-global.ts': `const window = {navigator: {mediaDevices: {getUserMedia(){}}}}; const {navigator: {mediaDevices}} = window; mediaDevices.getUserMedia();`
+        },
+        true
+      )
+    ).toEqual([]);
   }
 );
