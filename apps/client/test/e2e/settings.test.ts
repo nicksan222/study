@@ -1132,7 +1132,10 @@ test.browser.stable(
 
       for (const [index, value] of selection.values.entries()) {
         await selection.control.click();
-        await page.getByRole('option', { name: value, exact: true }).click();
+        const popup = page.locator('.study-select-popup[data-open]');
+
+        await expect(popup).toHaveCSS('opacity', '1');
+        await popup.getByRole('option', { name: value, exact: true }).click();
         await expect(selection.control).toHaveText(value);
         await expect(selection.control).toBeEnabled();
         await expectScreenshot(`quiz-selection-${controlIndex}-${index}`, {
