@@ -98,6 +98,11 @@ test.browser.stable(
     });
 
     await expect(font).toBeVisible();
+    const bounds = await localized.boundingBox();
+
+    expect(bounds).not.toBeNull();
+    expect(bounds!.y).toBeGreaterThanOrEqual(0);
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(900);
     await expectScreenshot('italian-reading', {
       target: localized,
       ready: () => expect(font).toBeVisible()
