@@ -45,11 +45,75 @@ test.browser.stable(
     const preview = panel.getByRole('document', { name: copy.NotePageEditor });
     const urls: string[] = [];
 
+    async function sourceActions(
+      { expect }: Pick<test.browser.Context, 'expect'>,
+      file: (typeof files)[number]
+    ) {
+      await expect(panel).not.toContainText(copy.ReaderOmissions);
+      const notes = panel.getByRole('button', { name: copy.ReaderExtractionNotes, exact: true });
+
+      await notes.focus();
+      await notes.press('Enter');
+      const details = page.getByRole('dialog', { name: copy.ReaderExtractionNotes, exact: true });
+
+      await expect(details).toContainText(copy.ReaderOmissions);
+      await expect(details.getByText(copy.ReaderOmitMarkup, { exact: true })).toBeVisible();
+      await details.getByRole('button', { name: copy.Close, exact: true }).click();
+      await expect(notes).toBeFocused();
+
+      const history = panel.getByRole('button', { name: copy.ReaderHistory, exact: true });
+
+      await history.focus();
+      await history.press('Enter');
+      const versions = page.getByRole('dialog', { name: copy.ReaderHistory, exact: true });
+      const version = versions.getByRole('button', {
+        name: new RegExp(`^${copy.ReaderVersion} 1`)
+      });
+
+      await expect(version).toBeVisible();
+      await expectScreenshot('source-history', {
+        target: 'viewport',
+        ready: async () => {
+          await expect(versions).toBeVisible();
+          await expect(version).toBeVisible();
+        }
+      });
+      await version.click();
+      await expect(versions).toBeHidden();
+      await expect(history).toBeFocused();
+      await sourceReady({ expect }, file);
+      await history.press('Enter');
+      await expect(version).toHaveAttribute('aria-current', 'true');
+      await versions.getByRole('button', { name: copy.ReaderCurrent, exact: true }).click();
+      await expect(versions).toBeHidden();
+      await expect(history).toBeFocused();
+
+      const actions = panel.getByRole('button', { name: copy.MediaActions, exact: true });
+
+      for (const name of [copy.SourceHistoryPrune, copy.SourceDeleteTitle]) {
+        await actions.focus();
+        await actions.press('Enter');
+        const item = page.getByRole('menuitem', { name, exact: true });
+
+        await expect(item).toBeVisible();
+        await item.focus();
+        await item.press('Enter');
+        const dialog = page.getByRole('alertdialog', { name, exact: true });
+
+        await expect(dialog).toBeVisible();
+        await dialog.getByRole('button', { name: copy.Cancel, exact: true }).click();
+        await expect(dialog).toBeHidden();
+        await expect(actions).toBeFocused();
+        await expect(preview.getByText(file.first, { exact: true })).toBeVisible();
+      }
+    }
+
     async function sourceReady(
       { expect }: Pick<test.browser.Context, 'expect'>,
       file: (typeof files)[number]
     ) {
-      await expect(panel.getByRole('heading', { name: file.name, exact: true })).toBeVisible();
+      await expect(panel.getByRole('heading', { name: file.name, exact: true })).toHaveCount(0);
+      await expect(page.getByRole('tab', { name: file.name, exact: true })).toBeVisible();
       await expect(preview).toBeVisible();
       await expect(preview).toHaveAttribute('contenteditable', 'false');
       await expect(preview.getByRole('heading', { name: file.title, exact: true })).toBeVisible();
@@ -197,6 +261,7 @@ test.browser.stable(
             await expect(preview).toHaveAttribute('contenteditable', 'false');
           }
         });
+        await sourceActions({ expect }, file);
       }
 
       if (index === 2) await scrollLongSource({ expect }, file);
@@ -235,6 +300,49 @@ test.browser.stable(
     await page.locator('[data-role="user"]').getByRole('button', { name: oldest.name }).click();
     await sourceReady({ expect }, oldest);
     await previewControls({ expect });
+
+    const italian = catalogs.italian;
+
+    await page.getByRole('button', { name: copy.Settings, exact: true }).click();
+    await page
+      .getByRole('dialog', { name: copy.Settings })
+      .getByRole('button', { name: copy.GeneralSettingsTitle, exact: true })
+      .click();
+    await page.getByRole('combobox', { name: copy.GeneralSettingsLanguage }).click();
+    await page.getByRole('option', { name: copy.ItalianOwnName, exact: true }).click();
+    const settings = page.getByRole('dialog', { name: italian.Settings });
+
+    await expect(
+      settings.getByRole('combobox', { name: italian.GeneralSettingsLanguage })
+    ).toHaveText(italian.ItalianOwnName);
+    await settings.getByRole('button', { name: italian.Close, exact: true }).click();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const actions = panel.getByRole('button', { name: italian.MediaActions, exact: true });
+
+    await actions.focus();
+    await actions.press('Enter');
+    await expect(
+      page.getByRole('menuitem', { name: italian.SourceDeleteTitle, exact: true })
+    ).toBeVisible();
+    await expect(page.getByRole('menu')).toBeInViewport({ ratio: 1 });
+    await expectScreenshot('source-actions-italian-narrow', {
+      target: 'viewport',
+      ready: async () => {
+        await expect(
+          panel.getByRole('button', { name: italian.PageEditCopy, exact: true })
+        ).toBeInViewport();
+        await expect(
+          panel.getByRole('button', { name: italian.ReaderOriginal, exact: true })
+        ).toBeInViewport();
+        await expect(
+          page.getByRole('menuitem', { name: italian.SourceHistoryPrune, exact: true })
+        ).toBeVisible();
+      }
+    });
+    await page
+      .getByRole('menuitem', { name: italian.SourceHistoryPrune, exact: true })
+      .press('Escape');
+    await expect(actions).toBeFocused();
     await page.goto('/notes');
     await page.reload();
     await expect(noteLinks).toHaveCount(3);

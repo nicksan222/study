@@ -996,6 +996,8 @@ export const english = Object.freeze({
   PageEditing: 'Page editing',
   PageEdit: 'Edit page',
   PageEditAnotherCopy: 'Make another editable copy',
+  ReaderExtractionNotes: 'Extraction notes',
+  SourceHistoryNoVersions: 'No saved versions yet.',
   SourceHistoryPrune: 'Remove older extractions',
   SourceHistoryHelp:
     'Remove older extracted text and image links from this source. Original files and their byte revisions remain available. Exact references in pages, notes and learning materials protect their extractions.',

@@ -1,5 +1,5 @@
 import { StudyError } from '@study/contracts';
-import { catalogs } from '@study/localization';
+import { catalogs, createLocalization } from '@study/localization';
 import { test } from '@study/testing';
 import { Effect } from 'effect';
 
@@ -12,6 +12,14 @@ import {
 } from '../material-library/test/support';
 
 const t = catalogs.english;
+const { date } = createLocalization('english');
+
+function extractionLabel(revision: bigint, createdAt: bigint) {
+  const version = `${t.ReaderVersion} ${revision}`;
+  const timestamp = date(createdAt, { dateStyle: 'medium', timeStyle: 'medium' });
+
+  return (name: string) => name.startsWith(version) && name.endsWith(timestamp);
+}
 
 test.unit.stable(
   'opens an exact authored history version and explicitly returns to its independent current head',
@@ -92,10 +100,12 @@ test.unit.stable(
     const user = userEvent.setup();
 
     expect(await main.findByText('Replacement extraction')).toBeVisible();
-    await user.click(main.getByText(t.ReaderHistory, { selector: 'summary' }));
+    await user.click(main.getByRole('button', { name: t.ReaderHistory }));
+    await screen.findByRole('dialog', { name: t.ReaderHistory });
+    const history = () => within(screen.getByRole('dialog', { name: t.ReaderHistory }));
     await user.click(
-      await main.findByRole('button', {
-        name: `${t.ReaderVersion} 1 · ${oldest.snapshotId}`
+      await history().findByRole('button', {
+        name: extractionLabel(1n, 1n)
       })
     );
     expect(await main.findByText('First extraction')).toBeVisible();
@@ -107,11 +117,8 @@ test.unit.stable(
         snapshotId: oldest.snapshotId
       })
     );
-    await user.click(
-      main.getByRole('button', {
-        name: `${t.ReaderVersion} 1 · ${corrected.snapshotId}`
-      })
-    );
+    await user.click(main.getByRole('button', { name: t.ReaderHistory }));
+    await user.click(history().getByRole('button', { name: extractionLabel(1n, 2n) }));
     expect(await main.findByText('Corrected extraction')).toBeVisible();
     expect(rpc['sources.extraction']).toHaveBeenLastCalledWith({
       sourceId,
@@ -120,7 +127,8 @@ test.unit.stable(
     });
     expect(rpc['pages.create']).not.toHaveBeenCalled();
     expect(rpc['materials.materialVersion']).not.toHaveBeenCalled();
-    await user.click(main.getByRole('button', { name: t.ReaderCurrent }));
+    await user.click(main.getByRole('button', { name: t.ReaderHistory }));
+    await user.click(history().getByRole('button', { name: t.ReaderCurrent }));
     expect(await main.findByText('Replacement extraction')).toBeVisible();
   }
 );

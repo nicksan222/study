@@ -1016,6 +1016,8 @@ export const italian = Object.freeze({
   PageEditing: 'Modifica della pagina',
   PageEdit: 'Modifica pagina',
   PageEditAnotherCopy: 'Crea un’altra copia modificabile',
+  ReaderExtractionNotes: 'Note sull’estrazione',
+  SourceHistoryNoVersions: 'Non ci sono ancora versioni salvate.',
   SourceHistoryPrune: 'Rimuovi le estrazioni precedenti',
   SourceHistoryHelp:
     'Rimuovi il testo estratto e i collegamenti alle immagini delle estrazioni precedenti di questa fonte. I file originali e le loro revisioni restano disponibili. I riferimenti esatti in pagine, note e materiali di studio proteggono le rispettive estrazioni.',
