@@ -9,6 +9,7 @@ async function expectSeparateControls(
   first: Locator,
   second: Locator
 ) {
+  await expect(second).toBeVisible();
   await expect
     .poll(async () => {
       if ((await first.count()) === 0) return true;
@@ -16,12 +17,12 @@ async function expectSeparateControls(
       const [a, b] = await Promise.all([first.boundingBox(), second.boundingBox()]);
 
       return (
-        !a ||
-        !b ||
-        a.x + a.width <= b.x ||
-        b.x + b.width <= a.x ||
-        a.y + a.height <= b.y ||
-        b.y + b.height <= a.y
+        b !== null &&
+        (!a ||
+          a.x + a.width <= b.x ||
+          b.x + b.width <= a.x ||
+          a.y + a.height <= b.y ||
+          b.y + b.height <= a.y)
       );
     })
     .toBe(true);
