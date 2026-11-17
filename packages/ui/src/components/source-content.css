@@ -9,10 +9,10 @@
 }
 
 .source-reader-header {
-  position: absolute;
   z-index: 2;
-  inset-block-start: 8px;
-  inset-inline-end: 12px;
+  flex: none;
+  align-self: flex-end;
+  margin: 8px 12px 0;
   display: flex;
   align-items: center;
   padding: 4px;
@@ -23,7 +23,8 @@
 }
 
 .source-reader-header:has(.source-reader-title) {
-  position: static;
+  align-self: stretch;
+  margin: 0;
   flex-wrap: wrap;
   gap: 12px;
   max-width: none;
@@ -112,7 +113,7 @@
 
 .source-reader .workspace-desk-editor .rich-note-content .tiptap {
   min-height: 100%;
-  padding-block: 4rem 3rem;
+  padding-block: 1rem 3rem;
 }
 
 .source-reader-notes {
@@ -128,7 +129,6 @@
 }
 
 .source-reader-header:has([role='alert'], [role='status']) {
-  position: static;
   align-self: stretch;
   max-width: none;
   margin: 8px 12px;

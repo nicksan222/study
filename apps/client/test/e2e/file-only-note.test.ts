@@ -1,5 +1,6 @@
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
+import type { Locator } from 'playwright';
 
 const copy = catalogs.english;
 
@@ -34,6 +35,21 @@ const observations = Array.from(
     (index === 14 ? `${middle}\n\n` : '') +
     '- Record the time and water level.\n- Preserve the location of the marked post.'
 );
+
+async function expectReaderClearOfControls(
+  { expect }: Pick<test.browser.Context, 'expect'>,
+  panel: Locator,
+  preview: Locator
+) {
+  const [controls, viewport] = await Promise.all([
+    panel.locator('header').boundingBox(),
+    preview.locator('..').boundingBox()
+  ]);
+
+  if (!controls || !viewport) throw new Error('Source controls or reader has no layout box');
+
+  expect(viewport.y).toBeGreaterThanOrEqual(controls.y + controls.height);
+}
 
 test.browser.stable(
   'Create and reopen three file-only notes',
@@ -131,6 +147,8 @@ test.browser.stable(
     }
 
     async function previewControls({ expect }: Pick<test.browser.Context, 'expect'>) {
+      await expectReaderClearOfControls({ expect }, panel, preview);
+
       const close = page.getByRole('button', { name: copy.NoteClosePage, exact: true });
       const expand = page.getByRole('button', { name: copy.NoteExpandEditor, exact: true });
 
