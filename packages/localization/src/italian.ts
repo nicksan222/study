@@ -216,7 +216,7 @@ export const italian = Object.freeze({
 
   AgentRulesTitle: 'Istruzioni personalizzate',
   AgentRulesIntro:
-    'Scegli un’attività e descrivi come deve lavorare Study. Salva le modifiche per applicarle alle esecuzioni future. Lascia un campo vuoto per usare le impostazioni predefinite. Le tue preferenze integrano le istruzioni dell’attività; i formati richiesti e la fedeltà alle fonti restano validi.',
+    'Scegli un’attività e descrivi come deve lavorare Study. Le modifiche si applicano alle esecuzioni future. Lascia un campo vuoto per usare le impostazioni predefinite. Le tue preferenze integrano le istruzioni dell’attività; i formati richiesti e la fedeltà alle fonti restano validi.',
   AgentRulesTask: 'Attività',
   AgentRulesPages: 'Pagine',
   AgentRulesPagesHelp:
@@ -244,9 +244,7 @@ export const italian = Object.freeze({
     'Guida la classificazione delle note salvate come domande. Ad esempio: considera domande le richieste di spiegare un concetto.',
   AgentRulesPlaceholder: 'Aggiungi le tue preferenze per questa attività…',
   AgentRulesUseDefault: 'Usa predefinite',
-  AgentRulesSaved: 'Istruzioni personalizzate salvate.',
-  AgentRulesSaveFailed:
-    'Impossibile salvare le istruzioni. Le modifiche sono ancora qui. Prova a salvare di nuovo.',
+  AgentRulesSaveFailed: 'Impossibile salvare le istruzioni. Le modifiche sono ancora qui. Riprova.',
   AgentRulesLoadFailed: 'Impossibile caricare le istruzioni personalizzate. Riprova.',
   NoteConversionFailed: 'Conversione del testo non riuscita',
   NoteConversionFailedHelp:
@@ -359,7 +357,8 @@ export const italian = Object.freeze({
     'L’impaginazione e la formattazione del file originale potrebbero non essere mantenute.',
 
   WorkspaceSettingsFailed: 'Impossibile salvare o caricare queste preferenze. Riprova.',
-  WorkspaceSettingsSaved: 'Modifiche salvate',
+  SettingsSaveFailed: 'Impossibile salvare le modifiche. Riprova.',
+  Saved: 'Salvato',
   WorkspaceNumberValidation: 'Inserisci un numero intero entro i limiti indicati.',
   WorkspaceWritingTitle: 'Scrittura',
   WorkspaceWritingDescription:

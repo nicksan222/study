@@ -10,7 +10,7 @@ export function SidebarSettings() {
   const model = useSidebarSettings();
 
   return (
-    <Settings.Section title={t('SidebarSettingsTitle')}>
+    <Settings.Section title={t('SidebarSettingsTitle')} busy={model.mutation.isPending}>
       {model.query.isPending && <Loading label={t('LoadingSettings')} />}
       {(model.query.error || model.mutation.error) && (
         <Settings.Status
@@ -37,11 +37,7 @@ export function SidebarSettings() {
             min={1}
             max={100}
             value={model.value}
-            disabled={model.mutation.isPending}
-            submitDisabled={!model.valid || !model.changed}
             onValueChange={model.setDraft}
-            onSubmit={model.save}
-            submitLabel={t(model.mutation.isPending ? 'Saving' : 'Save')}
             error={model.valid ? undefined : t('SidebarSettledValidation')}
           />
         </Settings.Group>

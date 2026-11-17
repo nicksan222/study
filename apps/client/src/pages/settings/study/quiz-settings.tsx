@@ -153,7 +153,6 @@ function QuizSettingsPanel({
           }}
         />
       </Settings.Group>
-      {model.pending && <Settings.Feedback role="status">{t('Saving')}</Settings.Feedback>}
     </Settings.Section>
   );
 }

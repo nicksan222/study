@@ -24,11 +24,11 @@ const tasks = {
   }
 } as const satisfies Record<AgentRuleKey, { title: StaticMessageKey; help: StaticMessageKey }>;
 
-/** Holds drafts across task changes and commits all edited preferences in one transaction. */
+/** Keeps task instructions editable while their changes are persisted. */
 export function AgentRulesSettings() {
   const { t } = useI18n();
   const model = useAgentRules();
-  const { query, mutation, rules, selected, changed } = model;
+  const { query, mutation, rules, selected } = model;
   const task = tasks[selected.key];
   const options = Object.values(AgentRule).map((value) => ({
     value: value.key,
@@ -36,7 +36,7 @@ export function AgentRulesSettings() {
   }));
 
   return (
-    <Settings.Section title={t('AgentRulesTitle')}>
+    <Settings.Section title={t('AgentRulesTitle')} busy={mutation.isPending}>
       <Settings.Intro>{t('AgentRulesIntro')}</Settings.Intro>
       {query.isPending && <Loading label={t('LoadingSettings')} layout="panel" />}
       {query.isError && (
@@ -53,7 +53,11 @@ export function AgentRulesSettings() {
           {t('AgentRulesLoadFailed')}
         </Settings.Status>
       )}
-      {mutation.isError && <Settings.Status>{t('AgentRulesSaveFailed')}</Settings.Status>}
+      {mutation.isError && (
+        <Settings.Status action={<RetryButton label={t('Retry')} onClick={model.retry} />}>
+          {t('AgentRulesSaveFailed')}
+        </Settings.Status>
+      )}
       {rules && (
         <>
           <Settings.Group>
@@ -61,7 +65,6 @@ export function AgentRulesSettings() {
               title={t('AgentRulesTask')}
               value={selected.key}
               options={options}
-              disabled={mutation.isPending}
               onValueChange={model.select}
             />
             <Settings.TextareaRow
@@ -70,28 +73,18 @@ export function AgentRulesSettings() {
               placeholder={t('AgentRulesPlaceholder')}
               value={rules[selected.key]}
               maxLength={maxAgentRuleLength}
-              disabled={mutation.isPending}
               onChange={(event) => model.update(event.target.value)}
             />
           </Settings.Group>
           <Settings.Actions>
             <Button
               variant="ghost"
-              disabled={mutation.isPending || !rules[selected.key]}
+              disabled={!rules[selected.key]}
               onClick={() => model.update('')}
             >
               {t('AgentRulesUseDefault')}
             </Button>
-            <Button
-              disabled={mutation.isPending || !changed}
-              onClick={() => mutation.mutate(rules)}
-            >
-              {t(mutation.isPending ? 'Saving' : 'Save')}
-            </Button>
           </Settings.Actions>
-          {mutation.isSuccess && !changed && (
-            <Settings.Feedback role="status">{t('AgentRulesSaved')}</Settings.Feedback>
-          )}
         </>
       )}
     </Settings.Section>

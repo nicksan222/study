@@ -1,5 +1,5 @@
 import type { aiProviderSchema } from '@study/contracts';
-import { Button, Input, Settings } from '@study/ui';
+import { Button, Input, Settings, toastManager } from '@study/ui';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -23,6 +23,8 @@ export function ProviderKeyRow({
     try {
       await save(provider.id, apiKey);
       setDraft('');
+
+      if (apiKey !== null) toastManager.add({ title: t('Saved'), type: 'success' });
     } catch {
       // The owning settings model exposes the failure and retry action.
     }

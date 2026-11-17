@@ -8,7 +8,7 @@ export function StudySettingsView({ model }: { model: ReturnType<typeof useStudy
   const { t } = useI18n();
 
   return (
-    <Settings.Section title={t('StudySettingsTitle')}>
+    <Settings.Section title={t('StudySettingsTitle')} busy={model.pending}>
       {model.error && (
         <Settings.Status
           action={
@@ -27,12 +27,8 @@ export function StudySettingsView({ model }: { model: ReturnType<typeof useStudy
             min={0}
             max={10000}
             value={model.draft}
-            disabled={model.pending}
-            submitDisabled={!model.valid || !model.changed}
             error={model.valid ? undefined : t('StudySettingsNewCardsValidation')}
             onValueChange={model.setDraft}
-            onSubmit={model.save}
-            submitLabel={t(model.pending ? 'Saving' : 'Save')}
           />
         </Settings.Group>
       )}

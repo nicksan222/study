@@ -20,8 +20,8 @@ export function NumberControl({
   min: number;
   max: number;
   onValueChange: (value: string) => void;
-  onSubmit: () => void;
-  submitLabel: string;
+  onSubmit?: () => void;
+  submitLabel?: string;
   disabled?: boolean;
   submitDisabled?: boolean;
   error?: string;
@@ -34,7 +34,7 @@ export function NumberControl({
       onSubmit={(event) => {
         event.preventDefault();
 
-        if (!disabled && !submitDisabled) onSubmit();
+        if (!disabled && !submitDisabled) onSubmit?.();
       }}
     >
       <Input
@@ -51,9 +51,11 @@ export function NumberControl({
         aria-describedby={error ? errorId : undefined}
         onChange={(event) => onValueChange(event.target.value)}
       />
-      <Button type="submit" variant="outline" size="sm" disabled={disabled || submitDisabled}>
-        {submitLabel}
-      </Button>
+      {onSubmit && (
+        <Button type="submit" variant="outline" size="sm" disabled={disabled || submitDisabled}>
+          {submitLabel}
+        </Button>
+      )}
       {error && (
         <p id={errorId} role="alert" className="w-full text-xs text-destructive">
           {error}

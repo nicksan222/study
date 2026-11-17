@@ -74,9 +74,9 @@ test.unit.stable(
 
     await waitFor(() => expect(view.result.current.query.isSuccess).toBe(true));
     await act(async () => {
-      await view.result.current.mutation.mutateAsync({ spellcheck: false });
+      view.result.current.mutation.mutate({ spellcheck: false });
     });
-    expect(api.save).toHaveBeenCalledWith({ ...fresh, spellcheck: false });
+    await waitFor(() => expect(api.save).toHaveBeenCalledWith({ ...fresh, spellcheck: false }));
     await waitFor(() =>
       expect(view.result.current.query.data).toEqual({ ...fresh, spellcheck: false })
     );
