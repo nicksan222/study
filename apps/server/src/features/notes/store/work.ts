@@ -18,6 +18,8 @@ import { workflow_executions } from '@study/db';
 import { defineStore, storeQuery } from '@study/server';
 import { Schema } from 'effect';
 
+import { activeMessageCondition } from './archive.ts';
+
 const ownedWorkSchema = Schema.Struct({
   executionId: executionIdSchema,
   createdAtMs: Schema.BigInt,
@@ -51,10 +53,21 @@ export const NoteWorkStore = defineStore({
             JOIN source_processing sp ON sp.source_id = p.source_id
             WHERE m.note_id = ${input.noteId} AND sp.request_id = ${correlation}
           )`;
-          const title = sql`json_extract(${workflow_executions.payload}, '$.event.type') IN ('NoteTitleRequested', 'NoteSectionTitleRequested')
-            AND json_extract(${workflow_executions.payload}, '$.event.noteId') = ${String(input.noteId)}
+          const sectionTitle = sql`json_extract(${workflow_executions.payload}, '$.event.type') = 'NoteSectionTitleRequested'
+            AND EXISTS (SELECT 1 FROM messages
+              JOIN message_versions ON message_versions.id = messages.active_version_id
+              JOIN notes ON notes.id = messages.note_id
+              WHERE messages.id = CAST(json_extract(${workflow_executions.payload}, '$.event.messageId') AS INTEGER)
+                AND messages.note_id = ${input.noteId}
+                AND message_versions.id = CAST(json_extract(${workflow_executions.payload}, '$.event.versionId') AS INTEGER)
+                AND message_versions.message_id = messages.id AND message_versions.status = 'complete'
+                AND messages.format = 'text' AND notes.mode = 'notebook' AND notes.archived_at IS NULL
+                AND ${activeMessageCondition()}
+                AND NOT EXISTS (SELECT 1 FROM note_deletions d WHERE d.note_id = notes.id))
             AND NOT EXISTS (SELECT 1 FROM message_section_titles completed_title
               WHERE completed_title.version_id = CAST(json_extract(${workflow_executions.payload}, '$.event.versionId') AS INTEGER))`;
+          const title = sql`(json_extract(${workflow_executions.payload}, '$.event.type') = 'NoteTitleRequested'
+            AND json_extract(${workflow_executions.payload}, '$.event.noteId') = ${String(input.noteId)}) OR (${sectionTitle})`;
 
           return db.orm
             .select({

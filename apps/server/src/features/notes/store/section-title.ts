@@ -83,7 +83,7 @@ export const SectionTitleStore = defineStore({
             noteId: noteIdSchema,
             text: Schema.String,
             title: Schema.NullOr(sectionTitleTextSchema),
-            scheduled: Schema.Boolean
+            requestEventIds: Schema.Array(Schema.String)
           }),
           run: (input) => {
             const value = current(input);
@@ -97,17 +97,22 @@ export const SectionTitleStore = defineStore({
               .from(message_section_titles)
               .where(eq(message_section_titles.version_id, version.id))
               .get();
-            const event = db.orm
+            const events = db.orm
               .select({ id: workflowEvents.eventId })
               .from(workflowEvents)
-              .where(eq(workflowEvents.eventId, `section-title/${input.messageId}/${version.id}`))
-              .get();
+              .where(
+                and(
+                  eq(workflowEvents.type, 'NoteSectionTitleRequested'),
+                  eq(workflowEvents.correlationId, `section-title/${input.messageId}/${version.id}`)
+                )
+              )
+              .all();
 
             return {
               noteId: message.note_id,
               text: version.text,
               title: title?.title ?? null,
-              scheduled: !!event
+              requestEventIds: events.map((event) => event.id)
             };
           }
         })

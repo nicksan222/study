@@ -247,7 +247,8 @@
 }
 @media (max-width: 959px), (max-height: 700px) {
   .ui-workspace[data-variant='desk'] {
-    height: 100dvh;
+    height: 100%;
+    min-height: 0;
   }
 }
 @container (max-width: 480px) {
@@ -746,6 +747,7 @@
   min-height: 0;
   overflow-y: auto;
   overflow-x: clip;
+  overflow-anchor: none;
   overscroll-behavior: contain;
   outline: none;
   scrollbar-width: thin;
@@ -895,4 +897,58 @@
   width: min(100%, 52rem);
   margin-inline: auto;
   padding: 0 clamp(1rem, 2cqi, 2rem) 3rem;
+}
+
+.note-mobile-layout-menu {
+  display: none;
+}
+.note-desktop-layout-control {
+  display: contents;
+}
+@media (max-width: 600px) {
+  .note-workspace-header {
+    gap: 0.375rem;
+    padding-inline: 0.5rem;
+  }
+  .note-workspace-header > span {
+    display: none;
+  }
+  .note-workspace-header .study-workspace-title {
+    flex: 1;
+  }
+  .note-workspace-header :is(button, [data-slot='menu-trigger']) {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+  .note-workspace-header .workspace-desk-layout-controls {
+    gap: 0;
+  }
+  .note-desktop-layout-control {
+    display: none;
+  }
+  .note-mobile-layout-menu {
+    display: inline-flex;
+  }
+  .workspace-desk-board .ui-workspace-heading {
+    display: none;
+  }
+  .workspace-desk-inline-composer {
+    padding: 1.25rem 1rem 2rem;
+  }
+  .workspace-desk-inline-composer .ui-composer-input {
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+  .workspace-desk-capture {
+    margin: 0.75rem 0 0;
+    padding-block-start: 0.625rem;
+  }
+  .workspace-desk-capture .ui-composer-input {
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+  .workspace-desk .ui-workspace-card {
+    margin: 0.5rem;
+    max-height: min(24rem, 65dvh);
+  }
 }

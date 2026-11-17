@@ -355,6 +355,34 @@ test.unit.stable(
 );
 
 test.unit.stable(
+  'opens phone notebooks with navigation closed and reveals search on request',
+  async ({ vi, userEvent, screen, waitFor, expect, render, rpcTestTransport }) => {
+    vi.stubGlobal('innerWidth', 390);
+
+    try {
+      const fixture = sidebarTransport({ rpcTestTransport });
+
+      configureRpcTransport(fixture.transport);
+      render(<App transport={fixture.transport} />);
+      const toggle = await screen.findByRole('button', { name: en.ToggleSidebar });
+
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(
+        screen.queryByRole('complementary', { name: en.SidebarNavigation })
+      ).not.toBeInTheDocument();
+      const user = userEvent.setup();
+
+      await user.keyboard('{Control>}k{/Control}');
+      await waitFor(() => expect(screen.getByRole('searchbox')).toHaveFocus());
+      await user.click(screen.getByRole('button', { name: en.ToggleSidebar }));
+      expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  }
+);
+
+test.unit.stable(
   'creates a subject from the toolbar and selects it',
   async ({ userEvent, screen, expect, waitFor, render, rpcTestTransport }) => {
     api.createProject.mockResolvedValue({ ...subjects[0], id: 3n, name: 'Physics' });

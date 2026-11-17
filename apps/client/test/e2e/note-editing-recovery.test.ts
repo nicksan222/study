@@ -28,6 +28,10 @@ test.browser.stable(
     await editor.press('ControlOrMeta+Home');
     await editor.press('PageDown');
     await expect(editor).not.toHaveJSProperty('scrollTop', 0);
+    await expectScreenshot('middle-observations', {
+      target: dialog,
+      ready: () => expect(editor).toHaveValue(original)
+    });
     await editor.press('ControlOrMeta+End');
     await expect(editor).toHaveJSProperty('selectionStart', original.length);
     await expectScreenshot('last-observation', {
@@ -41,6 +45,14 @@ test.browser.stable(
     await expect(dialog).toBeHidden();
     await page.reload();
     await expect(page.locator('.chat-message-text')).toHaveText(original + ' x');
+    await expectScreenshot('saved-fallback-edit', {
+      target: 'viewport',
+      ready: () =>
+        expect(page.getByRole('button', { name: copy.NoteAddCapture })).toHaveAttribute(
+          'aria-expanded',
+          'false'
+        )
+    });
   }
 );
 

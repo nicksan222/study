@@ -437,6 +437,8 @@ export const WorkspaceDeskSurface = {
   FloatingComposer: part('div', 'workspace-desk-floating-composer'),
   InlineComposer: part('div', 'workspace-desk-inline-composer'),
   LayoutControls: part('div', 'workspace-desk-layout-controls'),
+  MobileControls: part('span', 'note-mobile-layout-menu'),
+  DesktopControls: part('span', 'note-desktop-layout-control'),
   Drafts: part('div', 'workspace-desk-drafts'),
   Header: part('header', 'workspace-desk-header'),
   HeaderTitle: part('span', 'workspace-desk-header-title'),

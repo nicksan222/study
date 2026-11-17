@@ -108,7 +108,14 @@ export function NoteWorkbench({ id, onDelete }: { id: NoteId; onDelete: () => vo
             </Desk.Board>
             <WorkspaceContext
               id={id}
-              outline={<NotebookOutline id={id} thread={thread} pages={pages} />}
+              outline={
+                <NotebookOutline
+                  id={id}
+                  thread={thread}
+                  pages={pages}
+                  onNavigate={model.hideCard}
+                />
+              }
               onOpenPage={openPage}
               onOpenSource={openSource}
               hidden={!model.cardVisible}

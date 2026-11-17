@@ -12,11 +12,11 @@ import { useSidebarContext } from './sidebar-context.queries';
 
 /** Owns sidebar visibility and transfers keyboard search focus when the note navigation opens. */
 function useShellNavigation(notes: boolean, practice: boolean) {
-  const [open, setOpen] = useState(() => !practice || window.innerWidth >= 700);
+  const [open, setOpen] = useState(() => (!notes && !practice) || window.innerWidth >= 700);
   const focusSearch = useRef(false);
 
   useEffect(() => {
-    if (!practice) return;
+    if (!notes && !practice) return;
 
     const media = window.matchMedia('(min-width: 700px)');
     const resize = (event: MediaQueryListEvent) => setOpen(event.matches);
@@ -24,7 +24,7 @@ function useShellNavigation(notes: boolean, practice: boolean) {
     media.addEventListener('change', resize);
 
     return () => media.removeEventListener('change', resize);
-  }, [practice]);
+  }, [notes, practice]);
 
   useEffect(() => {
     if (!notes || open) return;

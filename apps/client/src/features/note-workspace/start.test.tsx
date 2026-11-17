@@ -229,3 +229,20 @@ test.unit.stable(
     expect(api.create).toHaveBeenCalledTimes(1);
   }
 );
+
+test.unit.stable(
+  'keeps the phone starter focused on capture until its context is requested',
+  async ({ vi, expect, screen, userEvent, rpcHandlersTransport, render }) => {
+    const media = window.matchMedia('(max-width: 600px)');
+
+    vi.spyOn(window, 'matchMedia').mockReturnValue({ ...media, matches: true });
+    mount({ rpcHandlersTransport, render });
+    const toggle = await screen.findByRole('button', { name: 'NoteActions' });
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  }
+);

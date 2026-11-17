@@ -69,9 +69,9 @@ test.browser.stable(
     await expect
       .poll(async () => {
         const text = await body.boundingBox();
-        const floating = await page.locator('.workspace-desk-capture').boundingBox();
+        const capture = await page.locator('.workspace-desk-capture').boundingBox();
 
-        return !!text && !!floating && text.y + text.height <= floating.y;
+        return !!text && !!capture && text.y + text.height <= capture.y;
       })
       .toBe(true);
     await expect(composer).toBeHidden();

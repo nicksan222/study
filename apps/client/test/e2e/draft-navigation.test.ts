@@ -320,9 +320,9 @@ test.browser.stable(
       await expect
         .poll(async () => {
           const content = await body.boundingBox();
-          const dock = await page.locator('.workspace-desk-capture').boundingBox();
+          const capture = await page.locator('.workspace-desk-capture').boundingBox();
 
-          return !!content && !!dock && content.y + content.height <= dock.y;
+          return !!content && !!capture && content.y + content.height <= capture.y;
         })
         .toBe(true);
       await expect(

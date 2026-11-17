@@ -8,7 +8,7 @@ import {
   ReplyIcon
 } from '@study/icons';
 import { Button, Loading, WorkspaceAttachments } from '@study/ui';
-import { useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 
 import { CursorWindowActions } from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -24,19 +24,28 @@ import {
 } from './notebook-index';
 import { messageSectionTitle } from './section-title';
 import { NoteReadError } from './status';
+import { usePhoneLayout } from './use-phone-layout';
 
 /** Uses the board's exact query windows so every outline target is present in the notebook. */
 export function NotebookOutline({
   id,
   thread,
-  pages
+  pages,
+  onNavigate
 }: {
   id: NoteId;
+  onNavigate?: () => void;
   thread: ReturnType<typeof useThreadPage>;
   pages: ReturnType<typeof useLinkedPages>;
 }) {
   const { t } = useI18n();
   const [active, setActive] = useState<string>();
+  const [navigation, setNavigation] = useState<{ target: string }>();
+  const phone = usePhoneLayout();
+
+  useLayoutEffect(() => {
+    if (navigation) jumpToNotebookTarget(navigation.target);
+  }, [navigation]);
   const entries = notebookTimeline(
     notebookMessages(id, thread.data?.items ?? []),
     pages.data?.items ?? []
@@ -64,7 +73,10 @@ export function NotebookOutline({
                 aria-current={active === target ? 'location' : undefined}
                 onClick={() => {
                   setActive(target);
-                  jumpToNotebookTarget(target);
+
+                  if (phone) onNavigate?.();
+
+                  setNavigation({ target });
                 }}
               >
                 <OutlineLabel entry={entry} />

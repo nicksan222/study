@@ -35,6 +35,7 @@ import {
 } from './start-drafts.queries';
 import { creationFlow, startNote } from './start.queries';
 import { NoteError, NoteReadError } from './status';
+import { usePhoneLayout } from './use-phone-layout';
 import { WorkspaceContext } from './workspace-context';
 import { WorkspaceHeader } from './workspace-header';
 
@@ -157,7 +158,9 @@ export function NoteStart() {
   const { state, flow } = view;
   const subjects = rpc.projects.list.useQuery({ limit: 100 });
   const owner = subjects.data?.items.find((subject) => String(subject.id) === view.search.project);
-  const [cardVisible, setCardVisible] = useState(true);
+  const phone = usePhoneLayout();
+  const [cardPreference, setCardVisible] = useState<boolean>();
+  const cardVisible = cardPreference ?? !phone;
 
   if (state.isError && !flow.data.uncertain && !flow.data.id) {
     return <NoteReadError error={state.error} retry={() => void state.refetch()} layout="page" />;

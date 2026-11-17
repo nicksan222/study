@@ -104,9 +104,9 @@ test.browser.stable(
     await expect
       .poll(async () => {
         const text = await body.boundingBox();
-        const floating = await page.locator('.workspace-desk-capture').boundingBox();
+        const capture = await page.locator('.workspace-desk-capture').boundingBox();
 
-        return !!text && !!floating && text.y + text.height <= floating.y;
+        return !!text && !!capture && text.y + text.height <= capture.y;
       })
       .toBe(true);
     await expect(composer).toBeHidden();
@@ -160,6 +160,9 @@ test.browser.stable(
       await expect(editor.locator(':scope:focus-visible')).toHaveCount(1);
       await fullyVisible({ expect }, dialog);
       await fullyVisible({ expect }, dialog.locator('.notebook-editor-body'));
+
+      if (before.startsWith('2.')) await editor.press('Control+Home');
+
       await editor.press('Tab');
       await expect(dialog.getByRole('button', { name: copy.NoteDiscardEdits })).toBeFocused();
       await page.keyboard.press('Tab');

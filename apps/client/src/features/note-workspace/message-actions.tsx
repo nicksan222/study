@@ -126,16 +126,19 @@ function MessageToolbar({
     <ChatMessageActionToolbar
       aria-label={t('NoteItemActions')}
       data-open={!!draft.mode || undefined}
+      disclosureLabel={t('NoteItemActions')}
+      primaryAction={
+        message.role === 'user' && (
+          <MessageActionButton
+            model={model}
+            mode="edit"
+            disabled={!active}
+            label="NoteEditNote"
+            icon={<EditIcon size={15} aria-hidden="true" />}
+          />
+        )
+      }
     >
-      {message.role === 'user' && (
-        <MessageActionButton
-          model={model}
-          mode="edit"
-          disabled={!active}
-          label="NoteEditNote"
-          icon={<EditIcon size={15} aria-hidden="true" />}
-        />
-      )}
       {onVersionChange && (
         <MessageVersionStepper
           message={message}

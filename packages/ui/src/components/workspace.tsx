@@ -5,6 +5,7 @@ import {
   useEffect,
   useId,
   useImperativeHandle,
+  useLayoutEffect,
   useRef,
   useState
 } from 'react';
@@ -115,6 +116,33 @@ function Dock({ className, ...props }: ComponentProps<'div'>) {
   return <div className={cn('ui-workspace-dock', className)} {...props} />;
 }
 
+type ReadingPosition = { viewport: HTMLElement; before: number; revealed: number };
+
+function revealPhoneCard(panel: HTMLElement | null): ReadingPosition | null {
+  if (!panel || !window.matchMedia('(max-width: 600px)').matches) return null;
+
+  const viewport = panel.closest<HTMLElement>('[data-notebook-scroll-host]');
+
+  if (!viewport) return null;
+
+  const before = viewport.scrollTop;
+  const bounds = viewport.getBoundingClientRect();
+  const scale = bounds.height / viewport.clientHeight;
+
+  viewport.scrollTop = before + (panel.getBoundingClientRect().top - bounds.top) / scale;
+
+  return { viewport, before, revealed: viewport.scrollTop };
+}
+
+function restoreReading(position: ReadingPosition | null) {
+  if (
+    position &&
+    !position.viewport.contains(document.activeElement) &&
+    position.viewport.scrollTop <= position.revealed + 1
+  )
+    position.viewport.scrollTop = position.before;
+}
+
 /** Styles a workspace context card with the optional changes presentation. */
 
 function Card({
@@ -126,6 +154,22 @@ function Card({
   const context = useContext(CardContext);
 
   const element = useRef<HTMLElement>(null);
+  const hidden = props.hidden ?? (context ? !context.open : undefined);
+
+  const previousHidden = useRef(hidden);
+  const readingPosition = useRef<ReadingPosition | null>(null);
+
+  useLayoutEffect(() => {
+    const wasHidden = previousHidden.current;
+
+    previousHidden.current = hidden;
+
+    if (wasHidden && !hidden) readingPosition.current = revealPhoneCard(element.current);
+    else if (!wasHidden && hidden) {
+      restoreReading(readingPosition.current);
+      readingPosition.current = null;
+    }
+  }, [hidden]);
 
   useImperativeHandle(props.ref, () => element.current!);
 
@@ -157,7 +201,7 @@ function Card({
       {...props}
       ref={element}
       id={context?.id ?? props.id}
-      hidden={props.hidden ?? (context ? !context.open : undefined)}
+      hidden={hidden}
       className={cn(
         'ui-workspace-card',
         variant === 'attachments' && 'note-attachments-card',

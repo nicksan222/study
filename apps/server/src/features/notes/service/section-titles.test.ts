@@ -4,30 +4,18 @@ import {
   message_versions,
   messages,
   sql,
-  workflowEvents
+  workflowEvents,
+  workflow_executions
 } from '@study/db';
-import { decodeEvent, Database, ServerContext } from '@study/server';
+import { ServerContext } from '@study/server';
 import { test } from '@study/testing';
-import { Effect, Layer } from 'effect';
+import { Effect } from 'effect';
 
 import { Notes } from '#server/features/notes/index';
-import { Settings } from '#server/features/settings/index';
+import { noteSectionTitleRegistration } from '#server/features/notes/workflows/section-title';
 import { withTestPublication } from '#testing/publication';
-
-function services(context: ServerContext) {
-  return Layer.merge(Notes.layer, Settings.layer).pipe(
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
-}
-
-function titleEvents(context: ServerContext) {
-  return context.db.orm
-    .select()
-    .from(workflowEvents)
-    .all()
-    .map((event) => decodeEvent(event.payload))
-    .filter((event) => event.type === 'NoteSectionTitleRequested');
-}
+import { domain as services, titleEvents } from '#testing/section-titles';
+import { admitTestExecution } from '#testing/workflow-admission';
 
 test.server.stable(
   'section titles deduplicate legacy backfill and commit atomically with new captures',
@@ -276,6 +264,84 @@ test.server.stable(
               .where(eq(message_section_titles.version_id, copied.activeVersionId!))
               .get()
           ).toBeUndefined();
+        }).pipe(Effect.provide(services(context)))
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
+  }
+);
+
+test.server.stable(
+  'section title work follows the current visible version rather than superseded or completed requests',
+  async ({ databases, expect }) => {
+    const location = await databases();
+    const context = new ServerContext(await location.open());
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const notes = yield* Notes;
+          const note = yield* notes.createNote({ title: 'Title work' });
+          const first = yield* notes.postMessage({
+            noteId: note.id,
+            text: 'Recall strengthens memory.',
+            requestReply: false
+          });
+          const initial = titleEvents(context)[0]!;
+
+          admitTestExecution(context, noteSectionTitleRegistration.definition, 'original-title', {
+            event: initial
+          });
+          context.db.orm
+            .update(workflow_executions)
+            .set({ status: 'suspended' })
+            .where(eq(workflow_executions.execution_id, 'original-title'))
+            .run();
+          expect(
+            (yield* notes.noteWork({ noteId: note.id, limit: 30 })).items.map(
+              (item) => item.requestId
+            )
+          ).toEqual([initial.correlationId]);
+          const edited = yield* notes.editMessage({
+            messageId: first.id,
+            text: 'Spaced practice improves later recall.'
+          });
+
+          expect((yield* notes.noteWork({ noteId: note.id, limit: 30 })).items).toHaveLength(0);
+          const current = titleEvents(context).find(
+            (event) => event.versionId === edited.activeVersionId
+          )!;
+
+          admitTestExecution(context, noteSectionTitleRegistration.definition, 'current-title', {
+            event: current
+          });
+          expect(
+            (yield* notes.noteWork({ noteId: note.id, limit: 30 })).items.map(
+              (item) => item.requestId
+            )
+          ).toEqual([current.correlationId]);
+          yield* notes.setItemArchived({
+            noteId: note.id,
+            target: { kind: 'message', id: first.id },
+            archived: true
+          });
+          expect((yield* notes.noteWork({ noteId: note.id, limit: 30 })).items).toHaveLength(0);
+          yield* notes.setItemArchived({
+            noteId: note.id,
+            target: { kind: 'message', id: first.id },
+            archived: false
+          });
+          yield* withTestPublication(
+            context,
+            notes.publishSectionTitle({
+              messageId: first.id,
+              expectedActiveVersionId: edited.activeVersionId!,
+              title: 'Spaced practice'
+            })
+          );
+          expect((yield* notes.noteWork({ noteId: note.id, limit: 30 })).items).toHaveLength(0);
         }).pipe(Effect.provide(services(context)))
       );
     } finally {

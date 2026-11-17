@@ -1,5 +1,5 @@
-import { ScrollToLatestIcon } from '@study/icons';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { ScrollToLatestIcon, OptionsIcon } from '@study/icons';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useId } from 'react';
 import type { ComponentPropsWithRef, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -210,13 +210,45 @@ export function ChatQuestionAnswer({
   );
 }
 
-export function ChatMessageActionToolbar({ className, ...props }: ComponentPropsWithRef<'div'>) {
+export function ChatMessageActionToolbar({
+  className,
+  primaryAction,
+  disclosureLabel,
+  children,
+  ...props
+}: ComponentPropsWithRef<'div'> & { primaryAction?: ReactNode; disclosureLabel?: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const id = useId();
+
   return (
     <div
       {...props}
       role="group"
       data-slot="chat-message-actions"
+      data-disclosure={disclosureLabel ? '' : undefined}
       className={cn('note-row-tools chat-message-actions', className)}
-    />
+    >
+      {primaryAction}
+      {disclosureLabel ? (
+        <>
+          <Button
+            className="chat-message-actions-toggle"
+            variant="ghost-muted"
+            size="icon-sm"
+            aria-label={disclosureLabel}
+            aria-expanded={expanded}
+            aria-controls={id}
+            onClick={() => setExpanded(!expanded)}
+          >
+            <OptionsIcon size={16} aria-hidden="true" />
+          </Button>
+          <div id={id} className="chat-message-actions-extra" data-expanded={expanded || undefined}>
+            {children}
+          </div>
+        </>
+      ) : (
+        children
+      )}
+    </div>
   );
 }

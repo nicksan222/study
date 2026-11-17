@@ -295,9 +295,9 @@ test.browser.stable(
 
           if (text === correctedLast) {
             const lecture = await body.boundingBox();
-            const floating = await page.locator('.workspace-desk-capture').boundingBox();
+            const capture = await page.locator('.workspace-desk-capture').boundingBox();
 
-            expect(!!lecture && !!floating && lecture.y + lecture.height <= floating.y).toBe(true);
+            expect(!!lecture && !!capture && lecture.y + lecture.height <= capture.y).toBe(true);
           }
         }).toPass({ timeout: 30_000, intervals: [0] });
         await expect.poll(async () => (await body.boundingBox())?.y).toBeLessThan(top.y);
@@ -316,9 +316,9 @@ test.browser.stable(
       await expect
         .poll(async () => {
           const lecture = await body.boundingBox();
-          const floating = await page.locator('.workspace-desk-capture').boundingBox();
+          const capture = await page.locator('.workspace-desk-capture').boundingBox();
 
-          return !!lecture && !!floating && lecture.y + lecture.height <= floating.y;
+          return !!lecture && !!capture && lecture.y + lecture.height <= capture.y;
         })
         .toBe(true);
       await expect(body).toHaveText(edited);

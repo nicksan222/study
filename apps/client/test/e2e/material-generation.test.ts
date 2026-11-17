@@ -99,7 +99,12 @@ test.browser.stable(
     await page.goto(`/notes/${fixture.note.id}`);
     await expectScreenshot('notes-work-running', {
       target: 'viewport',
-      ready: () => expect(page.getByRole('region', { name: copy.NoteNotebook })).toBeVisible()
+      ready: async () => {
+        await expect(page.getByRole('region', { name: copy.NoteNotebook })).toBeVisible();
+        await expect(
+          page.getByRole('heading', { name: 'Cell division overview', exact: true })
+        ).toBeVisible();
+      }
     });
     await page.goto(practice);
     expected.release();

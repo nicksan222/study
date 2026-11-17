@@ -9,8 +9,18 @@ import type {
   publishSectionTitleInputSchema,
   sectionTitleInputSchema
 } from '#server/features/notes/store/section-title';
+import { Workflows } from '#server/features/workflows/index';
 
-/** The committed event is also the deduplication receipt across reads and process restarts. */
+function requestStillOwned(tx: Transaction, correlationId: string, eventId: string) {
+  const runs = Workflows.correlatedExecutions(tx, correlationId, eventId);
+
+  // An undispatched receipt, pending retry or terminal failure keeps its original owner.
+  return (
+    !runs.length || runs.some((run) => run.status !== 'completed' || run.outcome !== 'success')
+  );
+}
+
+/** A restored section can renew successfully retired work without duplicating pending requests. */
 export function scheduleSectionTitle(tx: Transaction, message: ChatMessage) {
   const version = message.versions.find((item) => item.id === message.activeVersionId);
 
@@ -24,15 +34,21 @@ export function scheduleSectionTitle(tx: Transaction, message: ChatMessage) {
 
   const snapshot = store.sectionTitleSnapshot(input);
 
-  if (snapshot.title || snapshot.scheduled) return;
+  if (snapshot.title) return;
 
-  const eventId = `section-title/${message.id}/${version.id}`;
+  const correlationId = `section-title/${message.id}/${version.id}`;
+
+  if (snapshot.requestEventIds.some((id) => requestStillOwned(tx, correlationId, id))) return;
+
+  const eventId = snapshot.requestEventIds.length
+    ? `${correlationId}/${snapshot.requestEventIds.length + 1}`
+    : correlationId;
 
   tx.emit({
     type: 'NoteSectionTitleRequested',
     eventId,
     causationId: null,
-    correlationId: eventId,
+    correlationId,
     inputVersion: 1,
     depth: 0,
     noteId: message.noteId,
