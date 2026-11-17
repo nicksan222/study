@@ -63,3 +63,33 @@ test.unit.stable(
     await waitFor(() => expect(host.scrollTop).toBe(300));
   }
 );
+
+test.unit.stable(
+  'removes Latest when resizing makes the whole notebook visible without a scroll event',
+  async ({ render, vi, fireEvent, screen, waitFor, expect }) => {
+    let resize = () => {};
+
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(private callback: () => void) {}
+
+        observe(target: Element) {
+          if (target.hasAttribute('data-notebook-scroll-host')) resize = this.callback;
+        }
+
+        disconnect() {}
+      }
+    );
+    const view = render(<Note />);
+    const host = view.container.querySelector<HTMLElement>('[data-notebook-scroll-host]')!;
+
+    dimensions(host, 1000);
+    host.scrollTop = 0;
+    fireEvent.scroll(host);
+    await screen.findByRole('button', { name: 'Latest' });
+    dimensions(host, 200);
+    resize();
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Latest' })).toBeNull());
+  }
+);

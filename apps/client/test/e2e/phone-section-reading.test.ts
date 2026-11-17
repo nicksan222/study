@@ -66,7 +66,12 @@ test.browser.stable(
       target: 'viewport',
       zoomPercent: 100,
       scrollToEnd: page.locator('[data-notebook-scroll-host]'),
-      ready: () => expect(heading).toBeInViewport()
+      ready: async () => {
+        await expect(heading).toBeInViewport();
+        await expect(
+          page.getByRole('button', { name: copy.JumpToLatest, exact: true })
+        ).toBeHidden();
+      }
     });
   }
 );
