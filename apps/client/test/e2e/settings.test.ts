@@ -2006,12 +2006,9 @@ test.browser.stable(
       .getByRole('button', { name: italian.AnalyticsTitle, exact: true });
 
     await analyticsNavigation.click();
-    await analyticsNavigation.evaluate((element) =>
-      element.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'instant' })
-    );
     await localized.getByRole('heading', { name: italian.AnalyticsTitle, exact: true }).hover();
     await expectScreenshot('analytics-desktop-required-italian-narrow', {
-      target: localized,
+      target: localized.locator('.settings-main'),
       ready: () =>
         expect(localized.getByText(italian.AnalyticsDesktop, { exact: true })).toBeVisible()
     });
