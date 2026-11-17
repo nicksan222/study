@@ -92,6 +92,38 @@ test.unit.stable(
 );
 
 test.unit.stable(
+  'nested expansion choices survive a parent panel unmounting',
+  async ({ react, expect, waitFor }) => {
+    const { screen } = react;
+    const child: Run = {
+      ...base,
+      runId: agentRunIdSchema.make('nested'),
+      trace: { ...base.trace!, purpose: 'plan', parentRunId: base.runId }
+    };
+
+    react.render(<RunHistory runs={[base, child]} />);
+    const parent = screen.getByRole('button', {
+      name: `${en.AgentRunQuiz} ${en.AgentActivityStepComplete}`
+    });
+
+    await react.user.click(parent);
+    const nested = screen.getByRole('button', {
+      name: `${en.AgentRunPlan} ${en.AgentActivityStepComplete}`
+    });
+
+    await react.user.click(nested);
+    await react.user.click(parent);
+    await waitFor(() => expect(nested).not.toBeInTheDocument());
+    await react.user.click(parent);
+    expect(
+      screen.getByRole('button', {
+        name: `${en.AgentRunPlan} ${en.AgentActivityStepComplete}`
+      })
+    ).toHaveAttribute('aria-expanded', 'true');
+  }
+);
+
+test.unit.stable(
   'child work is revealed inside its parent tool, even when snapshots arrive out of order',
   async ({ react, expect, within }) => {
     const { screen } = react;

@@ -797,6 +797,17 @@ async function reopenPublishedInspector(
       'readonly',
       ''
     );
+    const parent = inspector
+      .getByRole('button', {
+        name: `${copy.AgentRunDraft} ${copy.AgentActivityStepComplete}`,
+        exact: true
+      })
+      .first();
+
+    await parent.press('Space');
+    await expect(run).toHaveCount(0);
+    await parent.press('Space');
+    await expect(completed.first()).toHaveAttribute('aria-expanded', 'true');
     await completed.first().press('Space');
 
     await inspector.getByRole('heading', { name: copy.AgentActivityDetails, exact: true }).click();
