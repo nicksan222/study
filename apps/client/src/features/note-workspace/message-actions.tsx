@@ -97,11 +97,11 @@ export function MessageActions({
         ))}
       <MessageNoteEditor model={model} recovery={<MessageRecovery model={model} />} />
       <MessageEditDialog model={model} />
+      {/* Keep the launcher available behind the modal for nested-dialog focus recovery. */}
       {draft.pausedEdit && (
         <Button
           variant="ghost-muted"
           size="sm"
-          hidden={!!draft.mode}
           disabled={model.blocked}
           onClick={() => model.open('edit')}
         >

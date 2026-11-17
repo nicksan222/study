@@ -10,6 +10,7 @@ import { useI18n } from '#client/lib/i18n.tsx';
 
 import { composerDraft } from './composer.queries';
 import { useMessageConversion } from './conversion.queries';
+import type { EditPosition } from './edit-position';
 import {
   activateVersion,
   ask,
@@ -36,6 +37,7 @@ type Attempt = {
 };
 
 type EditDraft = {
+  position?: EditPosition;
   targetVersionId: VersionId;
   targetText: string;
   targetNumber?: bigint;
@@ -43,6 +45,7 @@ type EditDraft = {
 };
 
 type State = {
+  position?: EditPosition;
   pausedEdit?: EditDraft;
   reviewedEditBase?: Omit<EditDraft, 'text'>;
   targetVersionId?: VersionId;
@@ -166,6 +169,7 @@ export function useMessageActions({
         document.activeElement instanceof HTMLElement ? document.activeElement : null;
       patch({
         mode,
+        position: undefined,
         targetVersionId: versionId,
         targetText: version?.text ?? '',
         targetNumber: version?.number,
@@ -182,16 +186,19 @@ export function useMessageActions({
       targetVersionId: draft.targetVersionId ?? versionId,
       targetText: draft.targetText ?? version?.text ?? '',
       targetNumber: draft.targetNumber,
-      text: draft.text
+      text: draft.text,
+      position: draft.position
     };
   }
 
-  function pauseEdit() {
-    if (!draft.attempt) patch({ mode: undefined, pausedEdit: editSnapshot() });
+  function pauseEdit(position?: EditPosition) {
+    if (!draft.attempt)
+      patch({ mode: undefined, position, pausedEdit: { ...editSnapshot(), position } });
   }
 
   function discardEdit() {
-    if (!draft.attempt) patch({ mode: undefined, pausedEdit: undefined, error: undefined });
+    if (!draft.attempt)
+      patch({ mode: undefined, pausedEdit: undefined, position: undefined, error: undefined });
   }
 
   function prepareQuotedAsk(attempt: Attempt): AskInput | undefined {

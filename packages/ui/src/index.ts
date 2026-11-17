@@ -118,7 +118,11 @@ export { Onboarding, OnboardingNotebook, OnboardingSetup } from './components/on
 export { PageOverview } from './components/page-overview.tsx';
 export { Practice } from './components/practice.tsx';
 export { RangeControl } from './components/range-control.tsx';
-export type { RichNoteLabels } from './components/rich-note.tsx';
+export type {
+  RichNoteLabels,
+  RichNoteSelection,
+  RichNoteEditorHandle
+} from './components/rich-note.tsx';
 export {
   RichNoteContent,
   RichNoteEditor,

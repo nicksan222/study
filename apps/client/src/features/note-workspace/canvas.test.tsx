@@ -882,9 +882,11 @@ test.unit.stable(
     const first = mount({ render, rpcHandlersTransport }, <VersionedNote />);
 
     fireEvent.click(screen.getByRole('button', { name: 'NoteEditNote' }));
-    fireEvent.change(await screen.findByRole('textbox', { name: 'NoteEditNote' }), {
-      target: { value: 'A correction kept for later' }
-    });
+    const input = await screen.findByRole('textbox', { name: 'NoteEditNote' });
+
+    fireEvent.change(input, { target: { value: 'A correction kept for later' } });
+    (input as HTMLTextAreaElement).setSelectionRange(4, 12, 'backward');
+    input.closest('.notebook-editor-body')!.scrollTop = 180;
     fireEvent.click(screen.getByRole('button', { name: 'NoteBackToNotebook' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(editNote).not.toHaveBeenCalled();
@@ -897,6 +899,13 @@ test.unit.stable(
     expect(await screen.findByRole('textbox', { name: 'NoteEditNote' })).toHaveValue(
       'A correction kept for later'
     );
+    const resumed = screen.getByRole('textbox', { name: 'NoteEditNote' }) as HTMLTextAreaElement;
+
+    await waitFor(() => expect(resumed).toHaveFocus());
+    expect(resumed.selectionStart).toBe(4);
+    expect(resumed.selectionEnd).toBe(12);
+    expect(resumed.selectionDirection).toBe('backward');
+    expect(resumed.closest('.notebook-editor-body')!.scrollTop).toBe(180);
     fireEvent.click(screen.getByRole('button', { name: 'NoteDiscardEdits' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     fireEvent.click(screen.getByRole('button', { name: 'NoteEditNote' }));
@@ -942,10 +951,11 @@ test.unit.stable(
 test.unit.stable(
   'keeps the rich editor selection when returning to the notebook and resuming',
   async ({ fireEvent, screen, expect, waitFor, render, rpcHandlersTransport }) => {
-    mount(
+    const first = mount(
       { render, rpcHandlersTransport },
       <VersionedNote value={{ ...message, format: 'document' }} />
     );
+
     fireEvent.click(screen.getByRole('button', { name: 'NoteEditNote' }));
     const editor = await screen.findByRole('textbox', { name: 'NoteEditNote' });
 
@@ -963,7 +973,27 @@ test.unit.stable(
     await waitFor(() =>
       expect(screen.getByRole('textbox', { name: 'NoteEditNote' })).toHaveFocus()
     );
-    expect(window.getSelection()!.anchorNode).toBe(text);
+    expect(window.getSelection()!.anchorNode).toBe(
+      screen.getByRole('textbox', { name: 'NoteEditNote' }).querySelector('p')!.firstChild
+    );
+    expect(window.getSelection()!.anchorOffset).toBe(3);
+    expect(window.getSelection()!.focusOffset).toBe(7);
+    fireEvent.click(screen.getByRole('button', { name: 'NoteBackToNotebook' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(
+      first.client.get(messageActionDraft(id, message.id))?.pausedEdit?.position?.rich
+    ).toEqual({ anchor: 4, head: 8 });
+    first.unmount();
+    mount(
+      { render, rpcHandlersTransport },
+      <VersionedNote value={{ ...message, format: 'document' }} />,
+      first.client
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'NoteContinueEditing' }));
+    const resumed = await screen.findByRole('textbox', { name: 'NoteEditNote' });
+
+    await waitFor(() => expect(resumed).toHaveFocus());
+    expect(window.getSelection()!.anchorNode).toBe(resumed.querySelector('p')!.firstChild);
     expect(window.getSelection()!.anchorOffset).toBe(3);
     expect(window.getSelection()!.focusOffset).toBe(7);
   }
@@ -1179,5 +1209,27 @@ test.unit.stable(
     );
     await user.hover(await screen.findByRole('button', { name: 'NoteConvertText' }));
     expect(await screen.findByRole('tooltip')).toHaveTextContent('NoteConvertText');
+  }
+);
+
+test.unit.stable(
+  'ignores the save shortcut during IME composition and saves after confirmation',
+  async ({ fireEvent, screen, expect, waitFor, render, rpcHandlersTransport }) => {
+    mount({ render, rpcHandlersTransport }, <VersionedNote />);
+    fireEvent.click(screen.getByRole('button', { name: 'NoteEditNote' }));
+    const editor = await screen.findByRole('textbox', { name: 'NoteEditNote' });
+
+    fireEvent.change(editor, { target: { value: 'Confirmed 日本語' } });
+    fireEvent.keyDown(editor, { key: 'Enter', ctrlKey: true, isComposing: true });
+    expect(editor).toBeEnabled();
+    expect(editNote).not.toHaveBeenCalled();
+    expect(editor).toBeVisible();
+    fireEvent.keyDown(editor, { key: 'Enter', ctrlKey: true, isComposing: false });
+    await waitFor(() =>
+      expect(editNote).toHaveBeenCalledWith({
+        messageId: message.id,
+        text: 'Confirmed 日本語'
+      })
+    );
   }
 );

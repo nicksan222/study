@@ -1,9 +1,11 @@
 import { Button, Dialog, DialogTitle, Notebook, NotebookEditor, PreviousButton } from '@study/ui';
+import type { RichNoteEditorHandle } from '@study/ui';
 import { useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
+import { initialEditPosition } from './edit-position';
 import type { useMessageActions } from './message-actions.queries';
 import { NoteEditor, NoteSummary } from './note-editor';
 
@@ -14,15 +16,9 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
   const { t, draft, patch } = model;
   const preferences = useWorkspacePreferences();
   const body = useRef<HTMLDivElement>(null);
-  const position = useRef({ scroll: 0, start: 0, end: 0 });
+  const richEditor = useRef<RichNoteEditorHandle>(null);
+  const position = useRef(initialEditPosition());
   const recordingPosition = useRef(false);
-  const richSelection = useRef<Range | null>(null);
-  const rememberSelection = () => {
-    const selection = window.getSelection();
-
-    if (selection?.rangeCount && body.current?.contains(selection.anchorNode))
-      richSelection.current = selection.getRangeAt(0).cloneRange();
-  };
   const pause = () => {
     // Native caret scrolling can precede its queued scroll/select events. Capture
     // the actual position before closing instead of relying on those events.
@@ -33,11 +29,14 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
     if (input) {
       position.current.start = input.selectionStart;
       position.current.end = input.selectionEnd;
+      position.current.direction = input.selectionDirection;
+      position.current.inputScroll = input.scrollTop;
     }
 
-    rememberSelection();
+    if (richEditor.current) position.current.rich = richEditor.current.selection();
+
     recordingPosition.current = false;
-    model.pauseEdit();
+    model.pauseEdit({ ...position.current });
   };
   const open = draft.mode === 'edit';
 
@@ -52,7 +51,6 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
         open={open}
         anchor={model.origin}
         aria-busy={!!draft.pending}
-        keepMounted={model.message.format === 'document' && (open || !!draft.pausedEdit)}
         closeLabel={t('NoteBackToNotebook')}
         finalFocus={() => {
           (model.launcher.current?.isConnected
@@ -63,6 +61,7 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
           return false;
         }}
         initialFocus={() => {
+          position.current = { ...(draft.position ?? initialEditPosition()) };
           recordingPosition.current = true;
           const input = body.current?.querySelector<HTMLElement>(
             'textarea, [contenteditable="true"]'
@@ -70,15 +69,17 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
 
           input?.focus({ preventScroll: true });
 
-          if (input instanceof HTMLTextAreaElement)
-            input.setSelectionRange(position.current.start, position.current.end);
-
-          if (input?.isContentEditable && richSelection.current?.startContainer.isConnected) {
-            const selection = window.getSelection();
-
-            selection?.removeAllRanges();
-            selection?.addRange(richSelection.current);
+          if (input instanceof HTMLTextAreaElement) {
+            input.setSelectionRange(
+              position.current.start,
+              position.current.end,
+              position.current.direction
+            );
+            input.scrollTop = position.current.inputScroll;
           }
+
+          if (richEditor.current && position.current.rich)
+            richEditor.current.restoreSelection(position.current.rich);
 
           if (body.current) body.current.scrollTop = position.current.scroll;
 
@@ -86,6 +87,7 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
         }}
         onKeyDown={(event) => {
           if (
+            !event.nativeEvent.isComposing &&
             (event.metaKey || event.ctrlKey) &&
             event.key === 'Enter' &&
             draft.text.trim() &&
@@ -129,6 +131,7 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
         >
           {model.message.format === 'document' ? (
             <NoteEditor
+              ref={richEditor}
               label={t('NoteEditNote')}
               value={draft.text}
               disabled={!!draft.attempt}
@@ -161,8 +164,7 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
               disabled={!!draft.attempt}
               aria-label={t('NoteDiscardEdits')}
               onClick={() => {
-                position.current = { scroll: 0, start: 0, end: 0 };
-                richSelection.current = null;
+                position.current = initialEditPosition();
                 model.discardEdit();
               }}
             >

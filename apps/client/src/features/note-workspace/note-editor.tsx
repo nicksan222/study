@@ -1,5 +1,6 @@
 import { RichNoteEditor, RichNoteContent, RichNoteSummary } from '@study/ui';
-import type { ReactNode } from 'react';
+import type { RichNoteEditorHandle } from '@study/ui';
+import type { Ref, ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
@@ -8,12 +9,14 @@ import { useNoteLabels } from '../document-presentation';
 
 /** Adapts the shared text editor to the note's bilingual controls. */
 export function NoteEditor({
+  ref,
   value,
   onChange,
   disabled,
   label,
   toolbarEnd
 }: {
+  ref?: Ref<RichNoteEditorHandle>;
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
@@ -26,6 +29,7 @@ export function NoteEditor({
 
   return (
     <RichNoteEditor
+      ref={ref}
       toolbarEnd={toolbarEnd}
       value={value}
       onChange={onChange}

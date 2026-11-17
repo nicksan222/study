@@ -78,8 +78,16 @@ test.browser.stable(
         await expect.poll(() => editor.boundingBox()).toEqual(editScroll);
         await dialog.getByRole('button', { name: copy.NoteBackToNotebook }).click();
         await expect(dialog).toBeHidden();
+        await page.getByRole('combobox', { name: copy.ChooseProject }).click();
+        await page.getByRole('link', { name: copy.Projects, exact: true }).click();
+        await expect(page).toHaveURL(/\/projects$/);
+        await page.goBack();
+        await expect(page).toHaveURL(noteUrl);
         await resume.click();
         await expect(editor).toHaveValue(content);
+        await expect(editor).toHaveJSProperty('selectionStart', caret);
+        await expect(dialog).toHaveCSS('translate', '0px');
+        await expect.poll(() => editor.boundingBox()).toEqual(editScroll);
         await page.emulateMedia({ reducedMotion: 'reduce' });
       }
 
