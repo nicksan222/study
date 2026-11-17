@@ -128,10 +128,13 @@ test.browser.stable(
         const save = dialog.getByRole('button', { name: copy.NoteSaveNote });
 
         await editor.press('Tab');
+        await expect(dialog.getByRole('button', { name: copy.NoteDiscardEdits })).toBeFocused();
+        await page.keyboard.press('Tab');
         await expect(save).toBeFocused();
         await expect(save).toBeInViewport({ ratio: 1 });
         await expect(save.locator(':scope:focus-visible')).toHaveCount(1);
         await save.press('Shift+Tab');
+        await page.keyboard.press('Shift+Tab');
         // Navigate from the document end so the first caret line owns the scroll position.
         await editor.press('ControlOrMeta+End');
         await editor.press('ControlOrMeta+Home');
@@ -236,5 +239,27 @@ test.browser.stable(
     await expect(page.getByRole('combobox', { name: italian.GeneralSettingsLanguage })).toHaveText(
       italian.ItalianOwnName
     );
+    await page
+      .getByRole('dialog', { name: italian.Settings })
+      .getByRole('button', { name: italian.Close })
+      .click();
+    await localizedNotebook.locator('[data-role="user"]').hover();
+    await page.getByRole('button', { name: italian.NoteEditNote }).click();
+    const localizedEditor = page.getByRole('dialog', { name: italian.NoteEditNote });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(
+      localizedEditor.getByRole('button', { name: italian.NoteBackToNotebook })
+    ).toBeInViewport({ ratio: 1 });
+    await expect(
+      localizedEditor.getByRole('button', { name: italian.NoteSaveNote })
+    ).toBeInViewport({ ratio: 1 });
+    await expectAccessibility('edit-note-italian-narrow');
+    await expectScreenshot('editing-italian-narrow', {
+      target: 'viewport',
+      ready: () => expect(localizedEditor.getByRole('textbox')).toHaveValue(content)
+    });
+    await localizedEditor.getByRole('button', { name: italian.NoteBackToNotebook }).click();
+    await expect(localizedEditor).toBeHidden();
   }
 );

@@ -33,8 +33,8 @@ import { FailedMessageConversion } from './failed-conversion';
 import { useMessageActions } from './message-actions.queries';
 import { MessageContextMenu } from './message-context-menu';
 import { MessageDeletion } from './message-deletion';
+import { MessageNoteEditor } from './message-note-editor';
 import { MessageVersionStepper } from './message-version-stepper';
-import { NoteEditor } from './note-editor';
 import { PendingMessageWork } from './pending-message-work';
 import { NoteError } from './status';
 
@@ -95,7 +95,20 @@ export function MessageActions({
             version={version}
           />
         ))}
+      <MessageNoteEditor model={model} recovery={<MessageRecovery model={model} />} />
       <MessageEditDialog model={model} />
+      {draft.pausedEdit && (
+        <Button
+          variant="ghost-muted"
+          size="sm"
+          hidden={!!draft.mode}
+          disabled={model.blocked}
+          onClick={() => model.open('edit')}
+        >
+          <EditIcon size={15} aria-hidden="true" />
+          {model.t('NoteContinueEditing')}
+        </Button>
+      )}
       {!draft.mode && <MessageRecovery model={model} />}
     </>
   );
@@ -298,7 +311,7 @@ function MessageEditDialog({ model }: { model: MessageActionsModel }) {
 
   return (
     <Dialog
-      open={!!draft.mode}
+      open={!!draft.mode && draft.mode !== 'edit'}
       onOpenChange={(open) => {
         if (!open && !draft.attempt) patch({ mode: undefined });
       }}
@@ -348,7 +361,6 @@ function MessageEditor({ model }: { model: MessageActionsModel }) {
         {draft.mode !== 'edit' && (
           <Notebook.TargetPreview>{draft.targetText}</Notebook.TargetPreview>
         )}
-        {draft.mode === 'edit' && <MessageTextEditor model={model} />}
         {(draft.mode === 'instruction' || draft.mode === 'ask') && (
           <Textarea
             aria-label={t('NoteInstructions')}
@@ -417,6 +429,7 @@ function MessageAttemptRecovery({ model }: { model: MessageActionsModel }) {
       <Button size="sm" variant="outline" onClick={review}>
         {t('LibraryRefresh')}
       </Button>
+      <MessageEditConflict model={model} />
       {(draft.reviewed ||
         (draft.error !== undefined && toStudyError(draft.error).kind === 'invalid_input')) && (
         <Button
@@ -430,6 +443,27 @@ function MessageAttemptRecovery({ model }: { model: MessageActionsModel }) {
         </Button>
       )}
     </Notebook.ActionRecovery>
+  );
+}
+
+function MessageEditConflict({ model }: { model: MessageActionsModel }) {
+  const { draft, t } = model;
+
+  if (
+    !draft.reviewedEditBase ||
+    draft.error === undefined ||
+    toStudyError(draft.error).kind !== 'invalid_input'
+  )
+    return null;
+
+  return (
+    <>
+      <p>{t('NoteEditConflictHelp')}</p>
+      <Notebook.TargetPreview>{draft.reviewedEditBase.targetText}</Notebook.TargetPreview>
+      <Button size="sm" variant="outline" onClick={model.editLatest}>
+        {t('NoteEditLatest')}
+      </Button>
+    </>
   );
 }
 
@@ -465,24 +499,4 @@ function messageActionLabel(mode: MessageActionsModel['draft']['mode']) {
   if (mode === 'ask') return 'NoteAsk';
 
   return 'NoteApplyAction';
-}
-
-function MessageTextEditor({ model }: { model: MessageActionsModel }) {
-  const { message, t, draft, patch } = model;
-
-  return message.format === 'document' ? (
-    <NoteEditor
-      label={t('NoteEditNote')}
-      value={draft.text}
-      disabled={!!draft.attempt}
-      onChange={(text) => patch({ text })}
-    />
-  ) : (
-    <Textarea
-      aria-label={t('NoteEditNote')}
-      value={draft.text}
-      disabled={!!draft.attempt}
-      onChange={(event) => patch({ text: event.target.value })}
-    />
-  );
 }

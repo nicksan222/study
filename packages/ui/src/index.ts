@@ -242,3 +242,5 @@ export type { SidebarSearchItem } from './components/sidebar-search-results.tsx'
 export { SourceContent } from './components/source-content.tsx';
 export { MatchingReviewView } from './components/matching-review-view.tsx';
 export { OrderingResultView } from './components/ordering-result-view.tsx';
+
+export { NotebookEditor } from './components/notebook-editor.tsx';

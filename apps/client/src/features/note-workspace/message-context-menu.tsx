@@ -15,7 +15,7 @@ import {
   ContextMenuItem,
   ContextMenuSeparator
 } from '@study/ui';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { ArchiveMenuItem } from './archive-menu-item';
@@ -37,7 +37,7 @@ const actions = [
 
 /** Exposes selection-aware message actions through the shared context menu. */
 export function MessageContextMenu({ model, children }: { model: Model; children: ReactNode }) {
-  const trigger = useRef<HTMLDivElement>(null);
+  const trigger = model.origin;
   const [workOpen, setWorkOpen] = useState(false);
   const [workTarget, setWorkTarget] = useState<MessageWorkTarget>();
 

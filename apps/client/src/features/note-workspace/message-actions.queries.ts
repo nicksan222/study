@@ -3,7 +3,7 @@ import { StudyError } from '@study/contracts';
 import type { NoteId, MessageId, VersionId, chatMessageSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { Atom } from 'effect/reactivity';
-import { useContext, useEffect, useRef } from 'react';
+import { useContext, useRef } from 'react';
 
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -23,6 +23,10 @@ type Message = typeof chatMessageSchema.Type;
 
 type Action = 'edit' | 'ask' | 'answer' | 'improve' | 'summarize' | 'instruction' | 'activate';
 
+function requiresAi(action: Action) {
+  return action !== 'edit' && action !== 'activate';
+}
+
 type Attempt = {
   action: Action;
   versionId: VersionId;
@@ -31,7 +35,16 @@ type Attempt = {
   askInput?: AskInput;
 };
 
+type EditDraft = {
+  targetVersionId: VersionId;
+  targetText: string;
+  targetNumber?: bigint;
+  text: string;
+};
+
 type State = {
+  pausedEdit?: EditDraft;
+  reviewedEditBase?: Omit<EditDraft, 'text'>;
   targetVersionId?: VersionId;
   targetText?: string;
   targetNumber?: bigint;
@@ -69,25 +82,18 @@ export function useMessageActions({
   const atom = messageActionDraft(message.noteId, message.id);
   const draft = useAtomValue(atom);
   const editor = useRef<HTMLElement>(null);
+  const origin = useRef<HTMLDivElement>(null);
   const launcher = useRef<HTMLElement | null>(null);
-  const previousMode = useRef<Action | undefined>(undefined);
-
-  useEffect(() => {
-    if (draft.mode && previousMode.current !== draft.mode)
-      (
-        editor.current?.querySelector<HTMLElement>('[contenteditable="true"], textarea') ??
-        editor.current?.querySelector<HTMLElement>('button:not(:disabled)')
-      )?.focus();
-    else if (!draft.mode && previousMode.current) launcher.current?.focus();
-
-    previousMode.current = draft.mode;
-  }, [draft.mode]);
   const patch = (value: Partial<State>) =>
     cache.update(atom, (previous) => ({ ...previous, ...value }));
   const selection = rpc.notes.noteSelection.useQuery({ noteId: message.noteId });
   const version = message.versions.find((item) => item.id === versionId);
   const active = versionId === message.activeVersionId;
   const blocked = !!draft.attempt || !!draft.pending || version?.status !== 'complete';
+
+  function canAct(action: Action) {
+    return !blocked && (!requiresAi(action) || readiness === 'ready');
+  }
 
   async function runAttempt(attempt: Attempt) {
     let requestId: string | undefined;
@@ -127,12 +133,24 @@ export function useMessageActions({
     )
       return;
 
-    patch({ pending: true, attempt, error: undefined, reviewed: false });
+    patch({
+      pending: true,
+      attempt,
+      error: undefined,
+      reviewed: false,
+      reviewedEditBase: undefined
+    });
 
     try {
       const requestId = await runAttempt(attempt);
 
-      patch({ attempt: undefined, mode: undefined, requestId, error: undefined });
+      patch({
+        attempt: undefined,
+        mode: undefined,
+        requestId,
+        error: undefined,
+        ...(attempt.action === 'edit' ? { pausedEdit: undefined } : {})
+      });
 
       if (attempt.action === 'activate') onActive();
     } catch (error) {
@@ -143,7 +161,7 @@ export function useMessageActions({
   }
 
   function open(mode: Action) {
-    if (!blocked && (['edit', 'activate'].includes(mode) || readiness === 'ready')) {
+    if (canAct(mode)) {
       launcher.current =
         document.activeElement instanceof HTMLElement ? document.activeElement : null;
       patch({
@@ -153,9 +171,27 @@ export function useMessageActions({
         targetNumber: version?.number,
         text: version?.text ?? '',
         instruction: '',
-        requestId: undefined
+        requestId: undefined,
+        ...(mode === 'edit' ? draft.pausedEdit : {})
       });
     }
+  }
+
+  function editSnapshot(): EditDraft {
+    return {
+      targetVersionId: draft.targetVersionId ?? versionId,
+      targetText: draft.targetText ?? version?.text ?? '',
+      targetNumber: draft.targetNumber,
+      text: draft.text
+    };
+  }
+
+  function pauseEdit() {
+    if (!draft.attempt) patch({ mode: undefined, pausedEdit: editSnapshot() });
+  }
+
+  function discardEdit() {
+    if (!draft.attempt) patch({ mode: undefined, pausedEdit: undefined, error: undefined });
   }
 
   function prepareQuotedAsk(attempt: Attempt): AskInput | undefined {
@@ -177,13 +213,7 @@ export function useMessageActions({
   }
 
   function submit() {
-    if (
-      !draft.mode ||
-      blocked ||
-      !version ||
-      (draft.mode !== 'edit' && draft.mode !== 'activate' && readiness !== 'ready')
-    )
-      return;
+    if (!draft.mode || !version || !canAct(draft.mode)) return;
 
     const attempt: Attempt = {
       action: draft.mode,
@@ -198,13 +228,48 @@ export function useMessageActions({
       if (!attempt.askInput) return;
     }
 
+    if (draft.mode === 'edit') patch({ pausedEdit: editSnapshot() });
+
     void execute(attempt);
+  }
+
+  function editLatest() {
+    if (
+      !draft.reviewed ||
+      !draft.reviewedEditBase ||
+      draft.pending ||
+      draft.attempt?.action !== 'edit'
+    )
+      return;
+
+    patch({
+      ...draft.reviewedEditBase,
+      text: draft.attempt?.text ?? draft.text,
+      mode: 'edit',
+      attempt: undefined,
+      pausedEdit: undefined,
+      error: undefined,
+      reviewed: false,
+      reviewedEditBase: undefined
+    });
   }
 
   async function review() {
     try {
-      await rpc.notes.message.read({ id: message.id });
-      patch({ reviewed: true });
+      const latest = await rpc.notes.message.read({ id: message.id });
+      const current = latest.versions.find((item) => item.id === latest.activeVersionId);
+
+      patch({
+        reviewed: true,
+        reviewedEditBase:
+          draft.attempt?.action === 'edit' && current
+            ? {
+                targetVersionId: current.id,
+                targetNumber: current.number,
+                targetText: current.text
+              }
+            : undefined
+      });
     } catch (error) {
       patch({ error, reviewed: false });
     }
@@ -220,6 +285,7 @@ export function useMessageActions({
     cache,
     draft,
     editor,
+    origin,
     launcher,
     patch,
     selection,
@@ -229,6 +295,9 @@ export function useMessageActions({
     execute,
     open,
     submit,
+    pauseEdit,
+    discardEdit,
+    editLatest,
     review
   };
 }

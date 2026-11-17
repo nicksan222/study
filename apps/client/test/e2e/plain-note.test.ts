@@ -46,6 +46,11 @@ test.browser.stable(
       ['Field observation 20.', 'Field observation 20: final count corrected.']
     ]) {
       await notebook.locator('[data-role="user"]').hover();
+      const readingPosition = await body.boundingBox();
+
+      if (before === 'Field observation 1.')
+        await page.emulateMedia({ reducedMotion: 'no-preference' });
+
       await page.getByRole('button', { name: copy.NoteEditNote }).click();
       const dialog = page.getByRole('dialog', { name: copy.NoteEditNote });
       const editor = dialog.getByRole('textbox', { name: copy.NoteEditNote });
@@ -53,6 +58,29 @@ test.browser.stable(
       await expect(editor).toHaveValue(content);
       content = content.replace(before!, after!);
       await editor.fill(content);
+
+      if (before === 'Field observation 1.') {
+        await editor.press('ControlOrMeta+End');
+        const caret = content.length;
+        const editScroll = await editor.boundingBox();
+
+        await editor.press('Escape');
+        await expect(dialog).toBeHidden();
+        await expect(body).toHaveText(original);
+        await expect.poll(() => body.boundingBox()).toEqual(readingPosition);
+        const resume = page.getByRole('button', { name: copy.NoteContinueEditing });
+
+        await expect(resume).toBeVisible();
+        await resume.click();
+        await expect(editor).toHaveValue(content);
+        await expect(editor).toHaveJSProperty('selectionStart', caret);
+        await expect.poll(() => editor.boundingBox()).toEqual(editScroll);
+        await dialog.getByRole('button', { name: copy.NoteBackToNotebook }).click();
+        await expect(dialog).toBeHidden();
+        await resume.click();
+        await expect(editor).toHaveValue(content);
+        await page.emulateMedia({ reducedMotion: 'reduce' });
+      }
 
       if (before === 'Field observation 11.') {
         await editor.press('ControlOrMeta+a');
@@ -65,12 +93,15 @@ test.browser.stable(
         await expect(editor).toBeFocused();
         await expect(editor.locator(':scope:focus-visible')).toHaveCount(1);
         await editor.press('Tab');
+        await expect(dialog.getByRole('button', { name: copy.NoteDiscardEdits })).toBeFocused();
+        await page.keyboard.press('Tab');
         const save = dialog.getByRole('button', { name: copy.NoteSaveNote });
 
         await expect(save).toBeFocused();
         await expect(save).toBeInViewport({ ratio: 1 });
         await expect(save).toHaveCSS('--tw-ring-inset', 'inset');
         await save.press('Shift+Tab');
+        await page.keyboard.press('Shift+Tab');
         await expect(editor).toBeFocused();
         await expectScreenshot('editing-middle', {
           target: dialog,
@@ -80,7 +111,9 @@ test.browser.stable(
         });
       }
 
-      await dialog.getByRole('button', { name: copy.NoteSaveNote }).click();
+      if (before === 'Field observation 1.') await editor.press('ControlOrMeta+Enter');
+      else await dialog.getByRole('button', { name: copy.NoteSaveNote }).click();
+
       await expect(dialog).toBeHidden();
       await expect(body).toHaveText(content);
       await page.goto('/projects');
@@ -138,6 +171,30 @@ test.browser.stable(
     await expect(
       page.getByRole('dialog', { name: copy.NoteEditNote }).getByRole('textbox')
     ).toHaveValue(content);
+    const editing = page.getByRole('dialog', { name: copy.NoteEditNote });
+
+    await page.setViewportSize({ width: 760, height: 900 });
+    await expect(editing.getByRole('button', { name: copy.NoteBackToNotebook })).toBeInViewport({
+      ratio: 1
+    });
+    await expect(editing.getByRole('button', { name: copy.NoteSaveNote })).toBeInViewport({
+      ratio: 1
+    });
+    await expectScreenshot('editing-compact', {
+      target: 'viewport',
+      ready: () => expect(editing.getByRole('textbox')).toHaveValue(content)
+    });
+    await editing.getByRole('textbox').fill('A discarded draft must never replace the saved note.');
+    await editing.getByRole('button', { name: copy.NoteDiscardEdits }).click();
+    await expect(editing).toBeHidden();
+    await expect(body).toHaveText(content);
+    await page.setViewportSize({ width: 2560, height: 1440 });
+    await notebook.locator('[data-role="user"]').hover();
+    await page.getByRole('button', { name: copy.NoteEditNote }).click();
+    await expect(editing.getByRole('textbox')).toHaveValue(content);
+    await editing.getByRole('button', { name: copy.NoteBackToNotebook }).click();
+    await expect(editing).toBeHidden();
+    await page.setViewportSize({ width: 2560, height: 1440 });
     await page.goto('/notes');
     await expect(
       page.getByRole('navigation', { name: copy.Notes, exact: true }).locator('a[href^="/notes/"]')
