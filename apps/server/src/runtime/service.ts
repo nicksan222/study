@@ -23,6 +23,7 @@ import {
   initializeWorkflowInfrastructure
 } from '@study/server';
 import type { AiRuntimeAdapters } from '@study/server';
+import type { VoiceRuntimeAdapters } from '@study/server';
 import { Cause, Clock, Effect, Exit, Queue, Scope } from 'effect';
 
 import { Auth } from '#server/features/auth/index';
@@ -71,6 +72,7 @@ export class App {
     timestampClock?: Clock.Clock;
     fetch?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
     ai?: AiRuntimeAdapters;
+    voice?: VoiceRuntimeAdapters;
     onPhase?: (phase: OpenPhase) => void;
   }): Promise<App> {
     const report = (phase: OpenPhase) => {
@@ -216,7 +218,8 @@ export class App {
               })
           },
           options.fetch,
-          options.ai
+          options.ai,
+          options.voice
         );
 
         runtime = yield* Effect.acquireRelease(

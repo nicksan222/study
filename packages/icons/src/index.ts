@@ -101,6 +101,7 @@ export {
   Merge as MergeIcon,
   User as MessageAuthorIcon,
   Microscope as MicroscopeIcon,
+  Mic as MicrophoneIcon,
   Minimize2 as MinimizeIcon,
   ArrowDown as MoveDownIcon,
   ArrowUp as MoveUpIcon,

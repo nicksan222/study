@@ -109,3 +109,6 @@ export function useNativeAction<I, A>(run: (input: I) => Promise<A>) {
     reset: () => setResult(AsyncResult.initial())
   };
 }
+
+export { microphoneAvailable, captureMicrophone } from './microphone.ts';
+export type { MicrophoneCapture } from './microphone.ts';

@@ -5,29 +5,10 @@ import { ComposerSurface } from './composer';
 import { Notebook } from './note-workspace';
 import { WorkspaceSurface } from './workspace';
 
-/** Controlled capture presentation; its owner handles attachments, persistence and recovery. */
-export function NotebookComposer({
-  role,
-  inputId,
-  label,
-  hint,
-  placeholder,
-  submitLabel,
-  value,
-  onChange,
-  onSubmit,
-  disabled,
-  spellcheck,
-  attachments,
-  tools,
-  recovery,
-  onPaste,
-  onKeyDown,
-  onDragOver,
-  onDrop
-}: {
+type NotebookComposerProps = {
   role?: ComponentProps<'section'>['role'];
   inputId: string;
+  inputRef?: ComponentProps<'textarea'>['ref'];
   label: string;
   hint: string;
   placeholder?: string;
@@ -44,7 +25,32 @@ export function NotebookComposer({
   onKeyDown?: ComponentProps<'textarea'>['onKeyDown'];
   onDragOver?: ComponentProps<'section'>['onDragOver'];
   onDrop?: ComponentProps<'section'>['onDrop'];
-}) {
+};
+
+/** Controlled capture presentation; its owner handles attachments, persistence and recovery. */
+export function NotebookComposer(props: NotebookComposerProps) {
+  const {
+    role,
+    inputId,
+    inputRef,
+    label,
+    hint,
+    placeholder,
+    submitLabel,
+    value,
+    onChange,
+    onSubmit,
+    disabled,
+    spellcheck,
+    attachments,
+    tools,
+    recovery,
+    onPaste,
+    onKeyDown,
+    onDragOver,
+    onDrop
+  } = props;
+
   return (
     <ComposerSurface.Root
       role={role}
@@ -57,6 +63,7 @@ export function NotebookComposer({
       {attachments}
       <ComposerSurface.Input
         id={inputId}
+        ref={inputRef}
         rows={1}
         value={value}
         spellCheck={spellcheck}

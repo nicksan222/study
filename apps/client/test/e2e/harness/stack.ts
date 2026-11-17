@@ -15,7 +15,7 @@ import { captureTimestampClock } from './profile.ts';
 export async function openWebStack(
   options: Pick<
     NonNullable<Parameters<Awaited<ReturnType<typeof createServerFixture>>['openApp']>[0]>,
-    'ai'
+    'ai' | 'voice'
   > = {}
 ) {
   await using resources = createTestResources();

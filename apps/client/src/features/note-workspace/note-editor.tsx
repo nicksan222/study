@@ -1,7 +1,9 @@
 import { RichNoteEditor, RichNoteContent, RichNoteSummary } from '@study/ui';
-import type { RichNoteEditorHandle } from '@study/ui';
+import type { RichNoteEditorHandle, RichNoteSelection } from '@study/ui';
+import { useRef } from 'react';
 import type { Ref, ReactNode } from 'react';
 
+import { DictationButton } from '#client/features/voice/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
@@ -14,7 +16,8 @@ export function NoteEditor({
   onChange,
   disabled,
   label,
-  toolbarEnd
+  toolbarEnd,
+  targetKey
 }: {
   ref?: Ref<RichNoteEditorHandle>;
   value: string;
@@ -22,15 +25,45 @@ export function NoteEditor({
   disabled?: boolean;
   label?: string;
   toolbarEnd?: ReactNode;
+  targetKey: string | number | bigint;
 }) {
   const { t } = useI18n();
   const labels = useNoteLabels();
   const preferences = useWorkspacePreferences();
 
+  const editor = useRef<RichNoteEditorHandle>(null);
+  const captured = useRef<{ value: string; selection: RichNoteSelection } | undefined>(undefined);
+
   return (
     <RichNoteEditor
-      ref={ref}
-      toolbarEnd={toolbarEnd}
+      ref={(handle) => {
+        editor.current = handle;
+
+        if (typeof ref === 'function') ref(handle);
+        else if (ref) ref.current = handle;
+      }}
+      toolbarEnd={
+        <>
+          {toolbarEnd}
+          <DictationButton
+            targetKey={targetKey}
+            disabled={disabled}
+            onCaptureStart={() => {
+              if (editor.current)
+                captured.current = { value, selection: editor.current.selection() };
+            }}
+            onTranscript={(text) => {
+              const selection =
+                captured.current?.value === value
+                  ? captured.current.selection
+                  : { anchor: Number.MAX_SAFE_INTEGER, head: Number.MAX_SAFE_INTEGER };
+
+              editor.current?.restoreSelection(selection);
+              editor.current?.insertPlainText(text);
+            }}
+          />
+        </>
+      }
       value={value}
       onChange={onChange}
       disabled={disabled}

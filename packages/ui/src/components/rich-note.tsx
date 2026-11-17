@@ -34,6 +34,7 @@ import {
 import type { ReactElement, ReactNode, Ref } from 'react';
 
 import { Button } from './button';
+import { insertEditorText } from './editor-text';
 import { Menu, MenuTrigger, MenuPopup, MenuItem } from './menu';
 import { blockNoteMath, inlineNoteMath, NoteMath } from './note-math';
 
@@ -86,6 +87,7 @@ export type RichNoteLabels = Record<
 export type RichNoteSelection = { anchor: number; head: number };
 
 export type RichNoteEditorHandle = {
+  insertPlainText: (text: string) => void;
   selection: () => RichNoteSelection;
   restoreSelection: (selection: RichNoteSelection) => void;
 };
@@ -140,6 +142,7 @@ export function RichNoteEditor({
   useImperativeHandle(
     ref,
     () => ({
+      insertPlainText: (text) => insertEditorText(editor, text),
       selection: () => {
         const selection = window.getSelection();
         const root = editor.view.dom;
@@ -162,7 +165,9 @@ export function RichNoteEditor({
         const limit = (position: number) => Math.max(0, Math.min(position, doc.content.size));
 
         editor.view.dispatch(
-          tr.setSelection(TextSelection.create(doc, limit(anchor), limit(head)))
+          tr.setSelection(
+            TextSelection.between(doc.resolve(limit(anchor)), doc.resolve(limit(head)))
+          )
         );
         editor.view.focus();
       }

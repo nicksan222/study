@@ -88,3 +88,6 @@ export const installDesktopUpdate = (expectedVersion: string) =>
   invoke<void>('install_update', { expectedVersion });
 
 export const diagnosticLog = () => invoke<string>('diagnostic_log');
+
+export { microphoneAvailable, captureMicrophone } from './effect/native.ts';
+export type { MicrophoneCapture } from './effect/native.ts';

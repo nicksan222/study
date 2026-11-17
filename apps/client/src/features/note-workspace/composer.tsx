@@ -2,7 +2,10 @@ import { StudyError } from '@study/contracts';
 import type { NoteId } from '@study/contracts';
 import { ComposeIcon } from '@study/icons';
 import { Button, Loading, Notebook, NotebookComposer } from '@study/ui';
+import { useRef } from 'react';
 
+import { DictationButton } from '#client/features/voice/index.ts';
+import { useTextDictation } from '#client/features/voice/index.ts';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
 import { AttachmentPicker, AttachmentTray } from './attachments';
@@ -19,8 +22,16 @@ export function Composer({ id, onPage }: { id: NoteId; onPage?: () => void }) {
   const preferences = useWorkspacePreferences();
   const { t, draft, files, blocked, setDraft, submitNote } = model;
 
+  const input = useRef<HTMLTextAreaElement>(null);
+  const dictation = useTextDictation({
+    value: draft.text,
+    onChange: (text) => setDraft((previous) => ({ ...previous, text })),
+    input
+  });
+
   return (
     <NotebookComposer
+      inputRef={input}
       inputId={`note-note-${id}`}
       label={t('NoteCompose')}
       hint={t('NoteNotebookHint')}
@@ -57,6 +68,7 @@ export function Composer({ id, onPage }: { id: NoteId; onPage?: () => void }) {
       tools={
         <>
           <AttachmentPicker id={id} blocked={blocked} />
+          <DictationButton targetKey={id} {...dictation} disabled={blocked} />
           {onPage && (
             <Button variant="ghost-muted" size="sm" onClick={onPage} disabled={blocked}>
               <ComposeIcon size={16} aria-hidden="true" />

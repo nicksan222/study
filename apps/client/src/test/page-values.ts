@@ -11,6 +11,15 @@ import type { Locale } from '../lib/i18n';
 /** Empty, bounded product snapshots for route presentation tests. Individual journeys supply their own fixtures. */
 export function pageTestValues(locale: Locale = 'english'): RpcFixtureValues {
   const snapshots: RpcFixtureValues = {
+    'voice.status': {
+      state: 'missing',
+      downloadedBytes: 0,
+      totalBytes: 740749632,
+      modelId: 'parakeet-tdt-v3',
+      languages: ['en', 'it'],
+      languageDetection: 'automatic'
+    },
+    'settings.voiceSettings': { filterSilence: true },
     'system.health': { protocolVersion: 1, workersRunning: true, testMode: false },
 
     'settings.appSettings': {

@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
 import { NumberControl } from './number-control';
 import { RangeControl } from './range-control';
@@ -68,11 +68,15 @@ export function RangeRow({
 
 /** Long-form preferences keep a full-width editor and its help text together. */
 export function TextareaRow({
+  action,
   title,
   description,
   controlLabel = title,
   ...control
-}: RowCopy & Omit<ComponentProps<typeof Textarea>, 'aria-label' | 'aria-describedby' | 'id'>) {
+}: RowCopy & { action?: ReactNode } & Omit<
+    ComponentProps<typeof Textarea>,
+    'aria-label' | 'aria-describedby' | 'id'
+  >) {
   const id = useId();
 
   return (
@@ -87,6 +91,7 @@ export function TextareaRow({
         aria-label={controlLabel}
         aria-describedby={description ? `${id}-help` : undefined}
       />
+      {action}
     </div>
   );
 }

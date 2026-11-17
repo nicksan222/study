@@ -128,12 +128,20 @@ test.browser.stable(
         const save = dialog.getByRole('button', { name: copy.NoteSaveNote });
 
         await editor.press('Tab');
+        await expect(
+          dialog.getByRole('button', { name: copy.VoiceStart, exact: true })
+        ).toBeFocused();
+        await page.keyboard.press('Tab');
         await expect(dialog.getByRole('button', { name: copy.NoteDiscardEdits })).toBeFocused();
         await page.keyboard.press('Tab');
         await expect(save).toBeFocused();
         await expect(save).toBeInViewport({ ratio: 1 });
         await expect(save.locator(':scope:focus-visible')).toHaveCount(1);
         await save.press('Shift+Tab');
+        await page.keyboard.press('Shift+Tab');
+        await expect(
+          dialog.getByRole('button', { name: copy.VoiceStart, exact: true })
+        ).toBeFocused();
         await page.keyboard.press('Shift+Tab');
         // Navigate from the document end so the first caret line owns the scroll position.
         await editor.press('ControlOrMeta+End');

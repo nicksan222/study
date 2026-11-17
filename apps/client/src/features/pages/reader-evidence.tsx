@@ -8,14 +8,13 @@ import {
   LoadMoreButton,
   Button,
   ErrorState,
-  Field,
   Loading,
   MaterialLibrary,
-  StatusMessage,
-  Textarea
+  StatusMessage
 } from '@study/ui';
 import { Schema } from 'effect';
 
+import { DictationTextarea } from '#client/features/voice/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { CapturedInputLink } from '../source-library';
@@ -231,14 +230,14 @@ function AnnotationCreation({ c, version }: { c: EvidenceController; version: Pa
               />
             </>
           )}
-          <Field label={<> {t('PageAnnotationNote')} </>}>
-            <Textarea
-              value={note}
-              disabled={busy}
-              maxLength={100000}
-              onChange={(event) => change({ note: event.target.value })}
-            />
-          </Field>
+          <DictationTextarea
+            label={t('PageAnnotationNote')}
+            targetKey={`${version.pageId}:${version.id}`}
+            value={note}
+            disabled={busy}
+            maxLength={100000}
+            onValueChange={(note) => change({ note })}
+          />
           <Button disabled={busy || Boolean(unresolved) || !range} onClick={c.saveAnnotation}>
             {t('PageSaveAnnotation')}
           </Button>

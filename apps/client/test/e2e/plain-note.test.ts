@@ -102,6 +102,10 @@ test.browser.stable(
         await expect(editor).toBeFocused();
         await expect(editor.locator(':scope:focus-visible')).toHaveCount(1);
         await editor.press('Tab');
+        await expect(
+          dialog.getByRole('button', { name: copy.VoiceStart, exact: true })
+        ).toBeFocused();
+        await page.keyboard.press('Tab');
         await expect(dialog.getByRole('button', { name: copy.NoteDiscardEdits })).toBeFocused();
         await page.keyboard.press('Tab');
         const save = dialog.getByRole('button', { name: copy.NoteSaveNote });
@@ -110,6 +114,10 @@ test.browser.stable(
         await expect(save).toBeInViewport({ ratio: 1 });
         await expect(save).toHaveCSS('--tw-ring-inset', 'inset');
         await save.press('Shift+Tab');
+        await page.keyboard.press('Shift+Tab');
+        await expect(
+          dialog.getByRole('button', { name: copy.VoiceStart, exact: true })
+        ).toBeFocused();
         await page.keyboard.press('Shift+Tab');
         await expect(editor).toBeFocused();
         await expectScreenshot('editing-middle', {

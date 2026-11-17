@@ -1,6 +1,47 @@
 import type { english } from './english.ts';
 
 export const italian = Object.freeze({
+  VoiceTitle: 'Voce',
+  VoiceStart: 'Avvia dettatura',
+  VoiceStop: 'Ferma e trascrivi',
+  VoiceStarting: 'Apertura microfono…',
+  VoiceTranscribing: 'Trascrizione…',
+  VoiceCancel: 'Annulla dettatura',
+  VoiceUnavailable: 'La dettatura richiede accesso al microfono su localhost o HTTPS',
+  VoiceCaptureFailed: 'Impossibile registrare. Consenti l’accesso al microfono e riprova.',
+  VoiceNoSpeech: 'Nessuna voce rilevata. Prova a registrare di nuovo.',
+  VoiceTranscriptionFailed:
+    'Trascrizione non riuscita. Riprova oppure annulla per scartare la registrazione.',
+  VoiceRecoveredTitle: 'Il dettato è al sicuro',
+  VoiceRecoveredHelp:
+    'Non è stato possibile inserire il testo. Copialo o libera spazio nel campo originale e riprova. Chiudendo scarti questa trascrizione.',
+  VoiceTranscript: 'Trascrizione',
+  VoiceCopied: 'Copiato',
+  VoiceInsert: 'Riprova inserimento',
+  VoiceSetupTitle: 'Scaricare la dettatura?',
+  VoiceSetupHelp:
+    'La dettatura funziona in locale. Scarica il modello vocale una volta, poi avvia la registrazione.',
+  VoiceModelDescription:
+    'Parakeet TDT 0.6B v3 · 741 MB incluso il filtro dei silenzi Silero. Non occorre scegliere un modello.',
+  VoiceModelFailed: 'Impossibile aggiornare il modello vocale. Controlla la connessione e riprova.',
+  VoiceModelReady: 'Modello installato. La dettatura è pronta.',
+  VoiceModelDownloading: 'Download e verifica…',
+  VoiceModelMissing: 'Il modello vocale non è installato.',
+  VoiceDownload: 'Scarica modello · 741 MB',
+  VoiceCancelDownload: 'Annulla download',
+  VoiceRemove: 'Rimuovi modello scaricato',
+  VoiceLanguage: 'Lingua di trascrizione',
+  VoiceAutomatic: 'Rilevamento automatico',
+  VoiceLanguages:
+    'Parakeet rileva automaticamente 25 lingue: bulgaro, croato, ceco, danese, olandese, inglese, estone, finlandese, francese, tedesco, greco, ungherese, italiano, lettone, lituano, maltese, polacco, portoghese, rumeno, russo, slovacco, sloveno, spagnolo, svedese e ucraino. Questo modello non permette di impostare manualmente la lingua.',
+  VoiceFilterSilence: 'Filtra i silenzi prima della trascrizione',
+  VoiceFilterSilenceHelp:
+    'Silero esclude l’audio senza parlato. Quando disponibili, vengono richieste cancellazione dell’eco e riduzione del rumore del microfono.',
+  VoicePrivacy:
+    'Le registrazioni vengono elaborate sul server Study collegato a questo browser o all’app desktop. L’audio non viene inviato a un fornitore IA né salvato come fonte.',
+  VoiceRecordingHelp:
+    'Fai clic sul microfono per iniziare; premi stop per inserire il testo. Esc annulla. Ogni registrazione dura fino a 60 secondi e non invia mai la bozza.',
+
   AnalyticsTitle: 'Analisi',
   AnalyticsLogsTitle: 'Log diagnostici',
   AnalyticsDescription: 'Consulta gli eventi recenti dell’app desktop di Study.',

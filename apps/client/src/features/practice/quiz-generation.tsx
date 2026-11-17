@@ -27,12 +27,12 @@ import {
   DialogHeading,
   ErrorState,
   Practice,
-  Settings,
-  Textarea
+  Settings
 } from '@study/ui';
 import type { SetStateAction } from 'react';
 import { useState, useCallback } from 'react';
 
+import { DictationTextarea } from '#client/features/voice/index.ts';
 import { AiActionButton as AiButton } from '#client/lib/ai-action-button.tsx';
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';
@@ -289,13 +289,14 @@ function GenerationPanel({
             </Practice.CustomizeSummary>
             <Practice.CustomizeBody>
               <Settings.Section title={t('PracticeGeneratePrompt')}>
-                <Textarea
+                <DictationTextarea
+                  targetKey={`${projectId}:${model.kind}`}
                   aria-label={t('PracticeGeneratePrompt')}
                   placeholder={t('PracticeGeneratePromptHint')}
                   value={model.instruction}
                   maxLength={100000}
                   disabled={model.busy}
-                  onChange={(event) => model.setInstruction(event.target.value)}
+                  onValueChange={model.setInstruction}
                 />
               </Settings.Section>
               <Settings.Intro>{t('PracticeGenerateAutomaticTitle')}</Settings.Intro>

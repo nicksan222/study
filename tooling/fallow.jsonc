@@ -261,7 +261,9 @@
     "apps/server/test/testing/scenarios.types.ts",
     "apps/client/test/e2e/harness/fixtures.types.ts",
     "apps/server/test/testing/automatic-fixture-scenario.ts",
-    "tooling/testing/integrations/run.ts"
+    "tooling/testing/integrations/run.ts",
+    // Explicit opt-in real speech integration runner; models are supplied by the caller.
+    "tooling/testing/voice/native.integration.ts"
   ],
   // Oxlint loads this plugin from the specifier in tooling/oxc-config/lint.ts.
   "framework": [

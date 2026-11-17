@@ -1,8 +1,10 @@
 import type { ContentSnapshotId, ProjectId } from '@study/contracts';
+import type { RichNoteEditorHandle, RichNoteSelection } from '@study/ui';
 import { StructuredEditor } from '@study/ui';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 
+import { DictationButton } from '#client/features/voice/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
@@ -22,7 +24,8 @@ export function CanonicalDocumentEditor({
   projectId,
   onChange,
   disabled,
-  toolbarEnd
+  toolbarEnd,
+  targetKey
 }: {
   document: EditableDocument;
   snapshotId: ContentSnapshotId;
@@ -30,6 +33,7 @@ export function CanonicalDocumentEditor({
   onChange: (document: EditableDocument) => void;
   disabled?: boolean;
   toolbarEnd?: ReactNode;
+  targetKey: string | number | bigint;
 }) {
   const { t } = useI18n();
   const labels = useStructuredEditorLabels();
@@ -37,18 +41,44 @@ export function CanonicalDocumentEditor({
   const images = useDocumentEditorImages(document, snapshotId, projectId);
   const value = useMemo(() => documentToEditor(document, images.urls), [document, images.urls]);
 
+  const editor = useRef<RichNoteEditorHandle>(null);
+  const captured = useRef<{ value: typeof value; selection: RichNoteSelection } | undefined>(
+    undefined
+  );
+
   return (
     <>
       {images.subscriptions}
       {images.error && <ContentReadError error={images.error} retry={images.retry} />}
       <StructuredEditor
+        ref={editor}
         value={value}
         uploadImage={images.upload}
         onChange={(next) => onChange(editorToDocument(next, document))}
         disabled={disabled}
         spellcheck={preferences.spellcheck}
         fontSize={preferences.editorFontSize}
-        toolbarEnd={toolbarEnd}
+        toolbarEnd={
+          <>
+            {toolbarEnd}
+            <DictationButton
+              targetKey={targetKey}
+              disabled={disabled}
+              onCaptureStart={() => {
+                if (editor.current)
+                  captured.current = { value, selection: editor.current.selection() };
+              }}
+              onTranscript={(text) => {
+                editor.current?.restoreSelection(
+                  captured.current?.value === value
+                    ? captured.current.selection
+                    : { anchor: Number.MAX_SAFE_INTEGER, head: Number.MAX_SAFE_INTEGER }
+                );
+                editor.current?.insertPlainText(text);
+              }}
+            />
+          </>
+        }
         label={t('NotePageEditor')}
         placeholder={t('NotePagePlaceholder')}
         labels={labels}

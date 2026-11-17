@@ -99,3 +99,5 @@ export async function createStudyMaterials(...args: Parameters<typeof makeStudyM
 
   return createStudyMaterials(...args);
 }
+
+export { createVoiceMock, transcribeNative } from './voice.ts';

@@ -7,9 +7,11 @@ import Superscript from '@tiptap/extension-superscript';
 import { TableKit, TableCell, TableHeader } from '@tiptap/extension-table';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactNode, RefObject } from 'react';
+import { useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import type { ReactNode, Ref, RefObject } from 'react';
 
+import { insertEditorText } from './editor-text';
+import type { RichNoteEditorHandle } from './rich-note';
 import { RichNoteEditorSurface } from './rich-note';
 import { StructuredEditorContextMenu } from './structured-editor-context-menu';
 import { StructuredEditorControls } from './structured-editor-controls';
@@ -156,6 +158,7 @@ const structuredEditorExtensions = [
 type EditorDialog = 'table' | 'link' | 'image';
 
 type StructuredEditorProps = {
+  ref?: Ref<RichNoteEditorHandle>;
   value: StructuredEditorValue;
   onChange: (value: StructuredEditorValue) => void;
   label: string;
@@ -205,18 +208,20 @@ function StructuredDocumentPreview(props: StructuredEditorProps) {
   );
 }
 
-function StructuredEditableEditor({
-  value,
-  onChange,
-  label,
-  placeholder,
-  labels,
-  toolbarEnd,
-  uploadImage,
-  disabled = false,
-  spellcheck = true,
-  fontSize = 16
-}: StructuredEditorProps) {
+function StructuredEditableEditor(props: Omit<StructuredEditorProps, 'readOnly'>) {
+  const {
+    ref,
+    value,
+    onChange,
+    label,
+    placeholder,
+    labels,
+    toolbarEnd,
+    uploadImage,
+    disabled = false,
+    spellcheck = true,
+    fontSize = 16
+  } = props;
   const images = useEditorImageInsertion(uploadImage);
   const imagePosition = useRef(0);
   const [dialog, setDialog] = useState<EditorDialog>();
@@ -230,6 +235,7 @@ function StructuredEditableEditor({
   );
 
   useEditorValue(editor, value);
+  useStructuredEditorHandle(ref, editor);
 
   const { file, chooseImage, upload } = useEditorFileInput(editor, uploadImage, images.insert);
 
@@ -293,6 +299,26 @@ function StructuredEditableEditor({
         imagePosition={imagePosition.current}
       />
     </>
+  );
+}
+
+function useStructuredEditorHandle(ref: Ref<RichNoteEditorHandle> | undefined, editor: Editor) {
+  useImperativeHandle(
+    ref,
+    () => ({
+      selection: () => ({
+        anchor: editor.state.selection.anchor,
+        head: editor.state.selection.head
+      }),
+      restoreSelection: ({ anchor, head }) => {
+        const limit = (position: number) =>
+          Math.max(1, Math.min(position, editor.state.doc.content.size - 1));
+
+        editor.commands.setTextSelection({ from: limit(anchor), to: limit(head) });
+      },
+      insertPlainText: (text) => insertEditorText(editor, text)
+    }),
+    [editor]
   );
 }
 

@@ -1,4 +1,4 @@
-import { createStudyMaterials } from '@study/server/testing';
+import { createStudyMaterials, createVoiceMock } from '@study/server/testing';
 import { testPolicy, createAiMock } from '@study/testing';
 import { createBrowserTestApi, testBrowser } from '@study/testing/playwright';
 import { expect } from '@study/testing/playwright';
@@ -7,6 +7,7 @@ import type { Page } from 'playwright';
 
 import { assertCapturePlatform } from './environment.ts';
 import { workflowName } from './identity.ts';
+import { controlMicrophone } from './microphone.ts';
 import { captureProfile } from './profile.ts';
 import { screenshotAssertions, updateAllowed } from './screenshots.ts';
 import type { ExpectScreenshot } from './screenshots.ts';
@@ -21,6 +22,9 @@ export type Journey = {
 type Fixtures = {
   study: Awaited<ReturnType<typeof createStudyMaterials>>;
   aiEnabled: boolean;
+  voiceEnabled: boolean;
+  voice: ReturnType<typeof createVoiceMock>;
+  microphone: Awaited<ReturnType<typeof controlMicrophone>>;
   ai: ReturnType<typeof createAiMock>;
   app: Awaited<ReturnType<typeof openWebStack>>['app'];
   rpc: Awaited<ReturnType<typeof openWebStack>>['rpc'];
@@ -34,6 +38,13 @@ type Fixtures = {
 const testHarness = testBrowser.extend<Fixtures>({
   study: async ({ app, ai }, provide) => provide(await createStudyMaterials(app, ai)),
   aiEnabled: [false, { option: true }],
+  voiceEnabled: [false, { option: true }],
+  microphone: async ({ page }, provide) => provide(await controlMicrophone(page)),
+  voice: async ({ browserName: _browserName }, provide) => {
+    using mock = createVoiceMock();
+
+    await provide(mock);
+  },
   ai: async ({ browserName: _browserName }, provide) => {
     using mock = createAiMock();
 
@@ -47,9 +58,12 @@ const testHarness = testBrowser.extend<Fixtures>({
     await provide(resources);
   },
   captureWorkflow: ['', { option: true }],
-  webStack: async ({ ai, aiEnabled }, provide) => {
+  webStack: async ({ ai, aiEnabled, voice, voiceEnabled }, provide) => {
     assertCapturePlatform();
-    await using stack = await openWebStack({ ai: aiEnabled ? ai.runtime : undefined });
+    await using stack = await openWebStack({
+      ai: aiEnabled ? ai.runtime : undefined,
+      voice: voiceEnabled ? voice.runtime : undefined
+    });
 
     await provide(stack);
   },

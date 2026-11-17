@@ -1,5 +1,44 @@
 // Canonical application message keys and interpolation parameters.
 export const english = Object.freeze({
+  VoiceTitle: 'Voice',
+  VoiceStart: 'Start dictation',
+  VoiceStop: 'Stop and transcribe',
+  VoiceStarting: 'Opening microphone…',
+  VoiceTranscribing: 'Transcribing…',
+  VoiceCancel: 'Cancel dictation',
+  VoiceUnavailable: 'Dictation requires microphone access on localhost or HTTPS',
+  VoiceCaptureFailed: 'Could not record. Allow microphone access, then try again.',
+  VoiceNoSpeech: 'No speech detected. Try recording again.',
+  VoiceTranscriptionFailed: 'Transcription failed. Retry or cancel to discard the recording.',
+  VoiceRecoveredTitle: 'Your dictation is safe',
+  VoiceRecoveredHelp:
+    'The text could not be inserted. Copy it, or make room in the original field and retry. Closing discards this transcript.',
+  VoiceTranscript: 'Transcript',
+  VoiceCopied: 'Copied',
+  VoiceInsert: 'Retry insertion',
+  VoiceSetupTitle: 'Download dictation?',
+  VoiceSetupHelp: 'Dictation runs locally. Download the speech model once, then start recording.',
+  VoiceModelDescription:
+    'Parakeet TDT 0.6B v3 · 741 MB including Silero silence filtering. No model selection is needed.',
+  VoiceModelFailed: 'Could not update the voice model. Check your connection and retry.',
+  VoiceModelReady: 'Model installed. Ready for dictation.',
+  VoiceModelDownloading: 'Downloading and verifying…',
+  VoiceModelMissing: 'The speech model is not installed.',
+  VoiceDownload: 'Download model · 741 MB',
+  VoiceCancelDownload: 'Cancel download',
+  VoiceRemove: 'Remove downloaded model',
+  VoiceLanguage: 'Transcription language',
+  VoiceAutomatic: 'Automatic detection',
+  VoiceLanguages:
+    'Parakeet detects 25 languages automatically: Bulgarian, Croatian, Czech, Danish, Dutch, English, Estonian, Finnish, French, German, Greek, Hungarian, Italian, Latvian, Lithuanian, Maltese, Polish, Portuguese, Romanian, Russian, Slovak, Slovenian, Spanish, Swedish and Ukrainian. This model does not offer a manual language override.',
+  VoiceFilterSilence: 'Filter silence before transcription',
+  VoiceFilterSilenceHelp:
+    'Silero skips non-speech audio. Microphone echo cancellation and noise suppression are requested when supported.',
+  VoicePrivacy:
+    'Recordings are processed on the Study server connected to this browser or desktop app. Audio is not sent to an AI provider or saved as a source.',
+  VoiceRecordingHelp:
+    'Click the microphone to start; click stop to insert text. Escape cancels. Each recording lasts up to 60 seconds and never submits your draft.',
+
   AnalyticsTitle: 'Analytics',
   AnalyticsLogsTitle: 'Diagnostic logs',
   AnalyticsDescription: 'Inspect recent events from the Study desktop app.',

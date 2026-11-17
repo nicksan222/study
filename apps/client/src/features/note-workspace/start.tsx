@@ -17,8 +17,10 @@ import {
 } from '@study/ui';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Effect, Schema } from 'effect';
-import { useContext, useEffect, useId, useState } from 'react';
+import { useContext, useEffect, useId, useRef, useState } from 'react';
 
+import { DictationButton } from '#client/features/voice/index.ts';
+import { useTextDictation } from '#client/features/voice/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 import { toStudyError } from '#client/lib/study-client/errors.ts';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
@@ -242,6 +244,12 @@ function StarterComposer({ view }: { view: StartView }) {
   const noteId = useId();
   const preferences = useWorkspacePreferences();
   const { cache, filesKey, files, draftKey, draft, blocked, beginNote } = view;
+  const input = useRef<HTMLTextAreaElement>(null);
+  const dictation = useTextDictation({
+    value: draft.data,
+    onChange: (text) => cache.set(startDraft(draftKey), text),
+    input
+  });
 
   return (
     <ComposerSurface.Root
@@ -287,6 +295,7 @@ function StarterComposer({ view }: { view: StartView }) {
       <Notebook.Label htmlFor={noteId}>{t('NoteCompose')}</Notebook.Label>
       <ComposerSurface.Input
         id={noteId}
+        ref={input}
         rows={1}
         spellCheck={preferences.spellcheck}
         aria-label={t('NoteCompose')}
@@ -304,6 +313,7 @@ function StarterComposer({ view }: { view: StartView }) {
       />
       <ComposerSurface.Footer variant="notebook">
         <Notebook.CaptureTools>
+          <DictationButton targetKey={draftKey} {...dictation} disabled={blocked} />
           <Notebook.FileButton title={t('NoteAttachFiles')}>
             <AttachmentIcon size={16} aria-hidden="true" />
             <span>{t('NoteAttach')}</span>

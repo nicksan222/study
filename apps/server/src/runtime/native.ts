@@ -41,6 +41,8 @@ import {
   WorkerLifecycle
 } from '@study/server';
 import type { AuthManager, ServerContext, AiRuntimeAdapters } from '@study/server';
+import { VoiceRuntime } from '@study/server';
+import type { VoiceRuntimeAdapters } from '@study/server';
 import { CryptoHasher } from 'bun';
 import { Effect, Layer, Logger } from 'effect';
 
@@ -68,6 +70,8 @@ import { System } from '#server/features/system/index';
 import { SystemRpcLive } from '#server/features/system/rpc/index';
 import { Themes } from '#server/features/themes/index';
 import { ThemesRpcLive } from '#server/features/themes/rpc/index';
+import { Voice } from '#server/features/voice/index';
+import { VoiceRpcLive } from '#server/features/voice/rpc/index';
 import { Workflows } from '#server/features/workflows/index';
 import { WorkflowsRpcLive } from '#server/features/workflows/rpc/index';
 
@@ -82,7 +86,8 @@ export function nativeLayers(
   lifecycle: WorkerLifecycle['Service'],
   control: WorkflowControl['Service'],
   request?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>,
-  ai?: AiRuntimeAdapters
+  ai?: AiRuntimeAdapters,
+  voice: VoiceRuntimeAdapters = {}
 ) {
   const admission = admissionLayer(makeAdmission());
 
@@ -95,6 +100,17 @@ export function nativeLayers(
   const lifecycleLayer = Layer.succeed(WorkerLifecycle, lifecycle);
 
   const services = Layer.mergeAll(
+    Voice.layer.pipe(
+      Layer.provide(
+        Layer.mergeAll(
+          Settings.layer,
+          Layer.succeed(VoiceRuntime, {
+            ...voice,
+            directory: store.db.path === ':memory:' ? undefined : `${store.db.path}.voice`
+          })
+        )
+      )
+    ),
     Sources.layer,
     Workflows.layer,
     Recordings.layer,
@@ -194,6 +210,7 @@ export function nativeLayers(
   );
 
   const handlers = Layer.mergeAll(
+    VoiceRpcLive,
     SourcesRpcLive,
     WorkflowsRpcLive,
     RecordingsRpcLive,

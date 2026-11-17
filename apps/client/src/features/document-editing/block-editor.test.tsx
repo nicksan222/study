@@ -6,7 +6,8 @@ import { BlockEditor, authoredCopy, blankDocument } from './block-editor';
 
 test.unit.stable(
   'edits a text run without flattening marks, links or neighboring structures',
-  async ({ render, screen, userEvent, expect }) => {
+  async ({ react, rpc, screen, userEvent, expect }) => {
+    rpc.givenWorkspace();
     const paragraph = createBlock({
       type: 'paragraph',
       inlines: [
@@ -51,7 +52,7 @@ test.unit.stable(
       );
     }
 
-    render(<Harness />);
+    react.render(<Harness />);
     const input = screen.getAllByRole('textbox')[0]!;
     const user = userEvent.setup();
 
@@ -84,5 +85,26 @@ test.unit.stable(
     expect(copy.blocks[0]!.content).toEqual(block.content);
     expect(copy.blocks[0]!.anchor).toEqual({ type: 'authored' });
     expect(document.blocks[0]!.id).toBe(block.id);
+  }
+);
+
+test.unit.stable(
+  'offers dictation for editable prose while keeping code and formulas as manual fields',
+  async ({ react, rpc, screen, expect }) => {
+    rpc.givenWorkspace();
+    const document = {
+      ...blankDocument(),
+      blocks: [
+        createBlock({ type: 'paragraph', inlines: [{ type: 'text', text: 'Prose', marks: [] }] }),
+        createBlock({ type: 'code', code: 'const x = 1;', language: 'typescript' }),
+        createBlock({ type: 'math', expression: 'x=1' })
+      ]
+    };
+
+    react.render(<BlockEditor document={document} change={() => {}} />);
+    expect(screen.getAllByRole('button', { name: /Dictation requires microphone/ })).toHaveLength(
+      1
+    );
+    expect(screen.getAllByRole('textbox')).toHaveLength(3);
   }
 );

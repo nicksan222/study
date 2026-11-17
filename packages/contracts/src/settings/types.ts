@@ -39,6 +39,7 @@ export const LlmModel = {
 export type LlmModel = (typeof LlmModel)[keyof typeof LlmModel];
 
 import type {
+  voiceSettingsSchema,
   agentRulesSchema,
   quizSettingsSchema,
   workspacePreferencesSchema,
@@ -137,3 +138,7 @@ export function practiceGenerationSettings(settings: QuizSettings, kind: Special
     }
   );
 }
+
+export type VoiceSettings = typeof voiceSettingsSchema.Type;
+
+export const defaultVoiceSettings: VoiceSettings = { filterSilence: true };

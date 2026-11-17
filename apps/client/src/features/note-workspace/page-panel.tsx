@@ -7,7 +7,7 @@ import { useI18n } from '#client/lib/i18n.tsx';
 import { Description } from './description';
 import { PageDetails } from './history';
 import { NoteEditor, NoteContent } from './note-editor';
-import { usePageAutosave } from './page-autosave.queries';
+import { pageIdentity, usePageAutosave } from './page-autosave.queries';
 import type { PageTarget } from './page-autosave.queries';
 import { SaveRecoveryNotice } from './save-recovery';
 
@@ -22,6 +22,7 @@ export function PagePanel({ id, target }: { id: NoteId; target: PageTarget }) {
       <SaveRecovery model={model} />
       <Desk.Editor>
         <NoteEditor
+          targetKey={`${id}:${pageIdentity(target)}`}
           value={draft.text}
           onChange={model.setText}
           toolbarEnd={

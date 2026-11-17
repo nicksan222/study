@@ -1,6 +1,7 @@
 //! Native window hosting the shared web app and its private TypeScript server.
 mod diagnostics;
 mod logging;
+mod microphone;
 mod server;
 mod transport;
 mod updater;
@@ -28,6 +29,7 @@ async fn diagnostic_log(app: tauri::AppHandle) -> Result<String, NativeError> {
 }
 pub fn run() {
     let result = tauri::Builder::default()
+        .on_permission_request(microphone::permission)
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(updater::PendingUpdate::default())
         .plugin(

@@ -15,6 +15,7 @@ import contextIdentity from './rules/context-identity.ts';
 import databaseOwnership from './rules/database-ownership.ts';
 import decodePersistedJson from './rules/decode-persisted-json.ts';
 import definitionGenerators from './rules/definition-generators.ts';
+import dictationBoundary from './rules/dictation-boundary.ts';
 import drizzleBoundary from './rules/drizzle-boundary.ts';
 import effectAbortSignal from './rules/effect-abort-signal.ts';
 import effectBoundedConcurrency from './rules/effect-bounded-concurrency.ts';
@@ -134,6 +135,7 @@ export default definePlugin({
     'shared-ui-variants': sharedUiVariants,
     'shared-ui-patterns': sharedUiPatterns,
     'web-boundaries': webBoundaries,
+    'dictation-boundary': dictationBoundary,
     'web-page-contract': webPageContract,
     'web-presentation-purity': webPresentationPurity,
     'web-query-contract': webQueryContract,

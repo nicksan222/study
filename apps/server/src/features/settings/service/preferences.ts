@@ -2,6 +2,8 @@
 
 import type { AppSettings, JsonValue } from '@study/contracts';
 import {
+  voiceSettingsSchema,
+  defaultVoiceSettings,
   Appearance,
   Language,
   agentRulesSchema,
@@ -43,6 +45,23 @@ export function* settingsPreferenceOperations() {
   const store = yield* useStore(SettingsStore);
 
   return {
+    voiceSettings: () =>
+      store.preference('voice').pipe(
+        Effect.map((v) => {
+          const resolved = { ...defaultVoiceSettings, ...v };
+
+          return Schema.is(voiceSettingsSchema)(resolved) ? resolved : defaultVoiceSettings;
+        })
+      ),
+    saveVoiceSettings: validatedMutation({
+      input: voiceSettingsSchema,
+      message: 'Invalid voice settings',
+      write: (tx, input) => {
+        tx.store(SettingsStore).saveVoiceSettings(input);
+
+        return {};
+      }
+    }),
     agentRules: () =>
       store.preference('agent-rules').pipe(
         Effect.map((values) => {

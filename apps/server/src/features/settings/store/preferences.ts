@@ -1,6 +1,7 @@
 /** @file Owns preferences within this feature. */
 
 import {
+  voiceSettingsSchema,
   agentRulesSchema,
   appSettingsSchema,
   appearancePreferencesSchema,
@@ -64,6 +65,12 @@ export function makeSettingsStore({ db, clock, timestampClock }: StoreResources)
       })
     },
     mutations: {
+      saveVoiceSettings: storeMutation({
+        changes: ['settings'],
+        input: voiceSettingsSchema,
+        output: Schema.Void,
+        run: (input) => replace('voice', { ...input })
+      }),
       saveAgentRules: storeMutation({
         changes: ['settings'],
         input: agentRulesSchema,

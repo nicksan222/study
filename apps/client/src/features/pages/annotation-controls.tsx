@@ -4,12 +4,12 @@ import {
   DangerDialog,
   Disclosure,
   ErrorState,
-  Field,
   Loading,
   SelectControl,
-  StatusMessage,
-  Textarea
+  StatusMessage
 } from '@study/ui';
+
+import { DictationTextarea } from '#client/features/voice/index.ts';
 
 import { useAnnotationControls } from './annotation-controls.queries';
 import type { Annotation, AnnotationDraft } from './annotation-state';
@@ -46,13 +46,13 @@ function AnnotationForm({ view }: { view: AnnotationView }) {
         <StatusMessage>{t('AnnotationDeleted')}</StatusMessage>
       ) : null}
       <EvidenceTarget reference={{ kind: 'range', target: draft.current.target }} />
-      <Field label={<> {t('PageAnnotationNote')} </>}>
-        <Textarea
-          maxLength={100000}
-          value={draft.note}
-          onChange={(e) => edit({ note: e.target.value })}
-        />
-      </Field>
+      <DictationTextarea
+        label={t('PageAnnotationNote')}
+        targetKey={annotation.id}
+        maxLength={100000}
+        value={draft.note}
+        onValueChange={(note) => edit({ note })}
+      />
       <SelectControl
         label={t('AnnotationKind')}
         value={draft.kind}

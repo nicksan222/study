@@ -1,6 +1,8 @@
 import { Effect, Layer, Schema, Stream } from 'effect';
 import { AiError, LanguageModel, Model, Response } from 'effect/ai';
 
+import { createControlledOperation } from './controlled-operation.ts';
+
 type PureCodec = Schema.ConstraintCodec<unknown, unknown, never, never>;
 
 interface Target {
@@ -32,15 +34,6 @@ interface Plan {
 interface MockResult {
   readonly value: unknown;
   readonly json: Schema.Json;
-}
-
-function deferred<A>() {
-  let resolve!: (value: A) => void;
-  const promise = new Promise<A>((yes) => {
-    resolve = yes;
-  });
-
-  return { promise, resolve };
 }
 
 const strict = { onExcessProperty: 'error' } as const;
@@ -83,30 +76,6 @@ function sameTarget(plan: Plan, call: Invocation) {
   );
 }
 
-async function wait(gate: Promise<void>, signal: AbortSignal | undefined, aborted: () => void) {
-  if (!signal) return gate;
-
-  let reject!: (reason: unknown) => void;
-  const interrupted = new Promise<never>((_resolve, no) => {
-    reject = no;
-  });
-  const abort = () => {
-    aborted();
-    reject(signal.reason);
-  };
-
-  signal.addEventListener('abort', abort, { once: true });
-
-  try {
-    if (signal.aborted) abort();
-
-    await Promise.race([gate, interrupted]);
-    signal.throwIfAborted();
-  } finally {
-    signal.removeEventListener('abort', abort);
-  }
-}
-
 /**
  * Typed one-shot expectations for actual agent/tool definitions and decoded schema values.
  * Internal provider retries reuse their invocation's outcome. Unexpected and unused calls
@@ -143,11 +112,15 @@ export function createAiMock() {
   ) {
     const inputCodec = codec(target.input);
     const expectedInput = canonical(inputCodec.encode(input));
-    const called = deferred<{ readonly input: T['input']['Type'] }>();
-    const aborted = deferred<void>();
-    const gate = deferred<void>();
-
-    if (!hold) gate.resolve();
+    const operation = createControlledOperation<{ readonly input: T['input']['Type'] }, MockResult>(
+      perform,
+      {
+        hold,
+        onSettled: () => {
+          plan.state = 'settled';
+        }
+      }
+    );
 
     const plan: Plan = {
       definition: target,
@@ -168,21 +141,14 @@ export function createAiMock() {
           return fail('AI mock received unexpected input for the next call');
 
         plan.state = 'running';
-        called.resolve({ input: inputCodec.decode(encoded) });
 
-        try {
-          await wait(gate.promise, signal, () => aborted.resolve());
-
-          return perform();
-        } finally {
-          plan.state = 'settled';
-        }
+        return operation.run({ input: inputCodec.decode(encoded) }, signal);
       }
     };
 
     plans.push(plan);
 
-    return { called: called.promise, release: () => gate.resolve(), aborted: aborted.promise };
+    return { called: operation.called, release: operation.release, aborted: operation.aborted };
   }
 
   function reserve(call: Invocation) {

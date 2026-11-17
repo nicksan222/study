@@ -3,6 +3,7 @@ import { Schema } from 'effect';
 import { failureSchema } from '../errors.ts';
 import { allDependencies, dependency, endpointGroup, liveQuery, mutation } from '../protocol.ts';
 import {
+  voiceSettingsSchema,
   agentRulesSchema,
   quizSettingsSchema,
   workspacePreferencesSchema,
@@ -19,6 +20,16 @@ import { usageQuerySchema, usageReportSchema } from './usage.ts';
 const saved = Schema.Struct({});
 
 export const settingsEndpoints = {
+  voiceSettings: liveQuery(
+    'settings.voiceSettings',
+    { payload: {}, success: voiceSettingsSchema, error: failureSchema },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  saveVoiceSettings: mutation(
+    'settings.saveVoiceSettings',
+    { payload: voiceSettingsSchema, success: saved, error: failureSchema },
+    { changes: [dependency.settings] }
+  ),
   usage: liveQuery(
     'settings.usage',
     {

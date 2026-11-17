@@ -17,6 +17,8 @@ import {
   WorkspaceDeskSurface as Desk
 } from '@study/ui';
 
+import { DictationButton } from '#client/features/voice/index.ts';
+import { useTextDictation } from '#client/features/voice/index.ts';
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -94,6 +96,11 @@ export function AssistantThread({ model, scoped = false }: { model: Model; scope
 
 export function AssistantComposer({ model }: { model: ComposerModel }) {
   const { t } = useI18n();
+  const dictation = useTextDictation({
+    value: model.draft,
+    onChange: model.setDraft,
+    input: model.input
+  });
 
   return (
     <Desk.FloatingComposer>
@@ -112,6 +119,11 @@ export function AssistantComposer({ model }: { model: ComposerModel }) {
             onKeyDown={model.onKeyDown}
           />
           <ComposerSurface.Footer variant="notebook">
+            <DictationButton
+              targetKey={model.note.data?.id}
+              {...dictation}
+              disabled={!model.history.isSuccess || model.blocked}
+            />
             {model.context.data && (
               <ContextUsage
                 value={model.context.data.estimatedTokens + Math.ceil(model.draft.length / 4)}

@@ -155,6 +155,7 @@ export const lint = {
     'study/shared-error-state': 'error',
     'study/web-presentation': 'error',
     'study/web-boundaries': 'error',
+    'study/dictation-boundary': 'error',
     'study/web-page-contract': 'error',
     'study/web-presentation-purity': 'error',
     'study/web-query-contract': 'error',

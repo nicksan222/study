@@ -139,6 +139,23 @@ exception for an independent feature-owned SQL join; changing its content or cop
 requires review again. These checks
 supplement the existing architecture lint and TypeScript checks.
 
+Voice browser journeys use `voiceEnabled: true` and the scoped `voice` fixture, alongside
+Chromium's fake audio input. `voice.next({ text }, { hold: true })` exposes `called`,
+`release()` and `aborted` signals for deterministic processing, recovery and cancellation
+screenshots. This replaces native inference while retaining the real app, SQLite, model
+installation checks and RPC. Human audio fixtures and their CC-BY-4.0 attribution live in
+`tooling/testing/fixtures/voice`.
+
+The separate native speech integration runs the pinned engine, model, service and HTTP RPC
+against those recordings. Install Voice explicitly in Study first, then point the test at
+its two GGUF files; the test never downloads models:
+
+```bash
+STUDY_VOICE_MODEL=/absolute/path/parakeet-tdt-0.6b-v3-Q8_0.gguf \
+STUDY_VOICE_VAD=/absolute/path/silero-vad-v6.2-F32.gguf \
+bun --bun vp test run --config tooling/testing/voice/vite.config.ts
+```
+
 Run `bun gen` from the workspace root to generate database migrations and desktop routes.
 Run `bun gen:check` to check generated database outputs
 without changing the database schema. The equivalent package scripts are `bun run gen` and
@@ -159,8 +176,9 @@ JavaScript package or Cargo build.
 ## Where data lives
 
 - `~/.local/share/study/`: the database (`study.sqlite3`) and `diagnostics.log`.
-- Existing local-model caches may remain from earlier releases; the retired server no
-  longer installs or uses them.
+- Explicitly installed dictation assets live beside the selected database in `<database>.voice/ready`.
+  Removing Voice deletes those downloadable assets; drafts and settings remain in SQLite.
+- Existing caches from retired local-model implementations are not imported or used.
 
 Existing data is retained. Native development selects `target/dev-data`; no reset or seed
 command is provided during the server transition.

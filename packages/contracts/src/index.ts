@@ -744,3 +744,16 @@ export {
   executionsInputSchema,
   executionsPageSchema
 } from './workflows/schemas.ts';
+
+export { voiceSettingsSchema } from './settings/schemas.ts';
+
+export {
+  dictationInputSchema,
+  MAX_DICTATION_SAMPLES,
+  voiceStatusSchema,
+  voiceEndpoints,
+  VoiceRpc
+} from './voice/rpc.ts';
+
+export { defaultVoiceSettings } from './settings/types.ts';
+export type { VoiceSettings } from './settings/types.ts';

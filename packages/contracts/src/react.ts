@@ -311,7 +311,10 @@ type Bound<E extends Endpoint> = E['kind'] extends 'query'
     }
   : E['kind'] extends 'mutation'
     ? {
-        readonly call: (input: Rpc.Payload<E['rpc']>) => Promise<Rpc.Success<E['rpc']>>;
+        readonly call: (
+          input: Rpc.Payload<E['rpc']>,
+          options?: { readonly signal?: AbortSignal }
+        ) => Promise<Rpc.Success<E['rpc']>>;
         readonly useMutation: () => MutationState<
           Rpc.Payload<E['rpc']>,
           Rpc.Success<E['rpc']>,

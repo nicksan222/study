@@ -1,10 +1,14 @@
 import { createBlock, canonicalText } from '@study/contracts';
 import type { BlockContent, Inline, documentSchema } from '@study/contracts';
 import { Button, DocumentEditing, Field, Textarea } from '@study/ui';
+import { createContext, useContext } from 'react';
 
+import { DictationTextarea } from '#client/features/voice/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 type Document = typeof documentSchema.Type;
+
+const BlockDictationDisabled = createContext(false);
 
 function InlineFields({
   items,
@@ -14,12 +18,13 @@ function InlineFields({
   change: (items: Inline[]) => void;
 }) {
   const { t } = useI18n();
+  const disabled = useContext(BlockDictationDisabled);
 
   return positions(items).map(({ value: item, position: index, key }) =>
     item.type === 'break' ? (
       <br key={key} />
     ) : (
-      <Field
+      <DictationTextarea
         key={key}
         label={
           <>
@@ -27,16 +32,12 @@ function InlineFields({
             {t('PageText')} {index + 1}{' '}
           </>
         }
-      >
-        <Textarea
-          value={item.text}
-          onChange={(event) =>
-            change(
-              items.map((value, i) => (i === index ? { ...item, text: event.target.value } : value))
-            )
-          }
-        />
-      </Field>
+        disabled={disabled}
+        value={item.text}
+        onValueChange={(text) =>
+          change(items.map((value, i) => (i === index ? { ...item, text } : value)))
+        }
+      />
     )
   );
 }
@@ -107,77 +108,81 @@ function ContentFields({
 export function BlockEditor({
   document,
   change,
-  disabled
+  disabled,
+  targetKey
 }: {
   document: Document;
   change: (document: Document) => void;
   disabled?: boolean;
+  targetKey?: string;
 }) {
   const { t } = useI18n();
 
   return (
-    <DocumentEditing.Blocks disabled={disabled}>
-      <p>{t('PageStructurePreserved')}</p>
-      {document.blocks.map((block, index) => (
-        <fieldset key={block.id}>
-          <legend>
-            {t('PageBlock')} {index + 1}
-          </legend>
-          <ContentFields
-            content={block.content}
-            change={(content) =>
-              change({
-                ...document,
-                blocks: document.blocks.map((value) =>
-                  value.id === block.id
-                    ? { ...value, content, text: canonicalText(content) }
-                    : value
-                )
-              })
-            }
-          />
-          <DocumentEditing.BlockActions>
-            <Button
-              variant="ghost"
-              disabled={index === 0}
-              onClick={() => {
-                const blocks = [...document.blocks];
-
-                [blocks[index - 1], blocks[index]] = [blocks[index]!, blocks[index - 1]!];
-                change({ ...document, blocks });
-              }}
-            >
-              {t('PageMoveUp')}
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() =>
+    <BlockDictationDisabled value={disabled === true}>
+      <DocumentEditing.Blocks disabled={disabled}>
+        <p>{t('PageStructurePreserved')}</p>
+        {document.blocks.map((block, index) => (
+          <fieldset key={`${targetKey ?? 'document'}:${block.id}`}>
+            <legend>
+              {t('PageBlock')} {index + 1}
+            </legend>
+            <ContentFields
+              content={block.content}
+              change={(content) =>
                 change({
                   ...document,
-                  blocks: document.blocks.filter((value) => value.id !== block.id)
+                  blocks: document.blocks.map((value) =>
+                    value.id === block.id
+                      ? { ...value, content, text: canonicalText(content) }
+                      : value
+                  )
                 })
               }
-            >
-              {t('PageRemoveBlock')}
-            </Button>
-          </DocumentEditing.BlockActions>
-        </fieldset>
-      ))}
-      <Button
-        variant="ghost"
-        onClick={() =>
-          change({
-            ...document,
-            blocks: [
-              ...document.blocks,
-              createBlock({ type: 'paragraph', inlines: [{ type: 'text', text: '', marks: [] }] })
-            ]
-          })
-        }
-      >
-        {t('PageAddParagraph')}
-      </Button>
-    </DocumentEditing.Blocks>
+            />
+            <DocumentEditing.BlockActions>
+              <Button
+                variant="ghost"
+                disabled={index === 0}
+                onClick={() => {
+                  const blocks = [...document.blocks];
+
+                  [blocks[index - 1], blocks[index]] = [blocks[index]!, blocks[index - 1]!];
+                  change({ ...document, blocks });
+                }}
+              >
+                {t('PageMoveUp')}
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() =>
+                  change({
+                    ...document,
+                    blocks: document.blocks.filter((value) => value.id !== block.id)
+                  })
+                }
+              >
+                {t('PageRemoveBlock')}
+              </Button>
+            </DocumentEditing.BlockActions>
+          </fieldset>
+        ))}
+        <Button
+          variant="ghost"
+          onClick={() =>
+            change({
+              ...document,
+              blocks: [
+                ...document.blocks,
+                createBlock({ type: 'paragraph', inlines: [{ type: 'text', text: '', marks: [] }] })
+              ]
+            })
+          }
+        >
+          {t('PageAddParagraph')}
+        </Button>
+      </DocumentEditing.Blocks>
+    </BlockDictationDisabled>
   );
 }
 

@@ -10,3 +10,23 @@ Bundled with the app
 
 - packages/ui/assets/icons/: Lucide icons, ISC license
   (packages/ui/assets/icons/LICENSE).
+
+- @transcribe-cpp/* 0.4.1: transcribe.cpp native speech runtime, MIT license
+  (https://github.com/handy-computer/transcribe.cpp). The bundled platform packages
+  retain their licenses/ directory, including ggml and bundled backend notices.
+
+Downloaded only when speech recognition is installed
+- Parakeet TDT 0.6B v3: NVIDIA, Creative Commons Attribution 4.0
+  (https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3).
+  GGUF Q8_0 conversion by Handy Computer
+  (https://huggingface.co/handy-computer/parakeet-tdt-0.6b-v3-gguf).
+- Silero VAD v6.2: Silero Team, MIT license
+  (https://github.com/snakers4/silero-vad).
+  GGUF conversion by Handy Computer
+  (https://huggingface.co/handy-computer/silero-vad-v6.2-gguf).
+
+Speech acquisition and native API use adapt T3 Code's MIT-licensed implementation
+(https://github.com/pingdotgg/t3code, Copyright (c) 2026 T3 Tools Inc.), pinned at
+439c96550c670281170b090e48ffd5ef32d16941; Study uses a Bun FFI binding and one fixed
+multilingual model instead of its Node binding and model catalog. The upstream
+permission notice is retained in .github/LICENSE-T3CODE.

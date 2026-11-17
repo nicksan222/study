@@ -14,13 +14,13 @@ import {
   Input,
   Notebook,
   StatusMessage,
-  Textarea,
   WorkspaceSurface
 } from '@study/ui';
 import { Link } from '@tanstack/react-router';
 import { Effect } from 'effect';
 import { useContext, useEffect, useRef } from 'react';
 
+import { DictationTextarea } from '#client/features/voice/index.ts';
 import { AiActionButton as AiButton } from '#client/lib/ai-action-button.tsx';
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';
@@ -255,12 +255,14 @@ function TransformFields({ model }: { model: TransformationModel }) {
         field="instruction"
       />
       <Notebook.Muted>{t('NoteInstructionsHelp')}</Notebook.Muted>
-      <Textarea
+      <DictationTextarea
+        targetKey={`${id}:${model.additionalNoteIds.join(',')}:${model.active}`}
         id={`transform-instruction-${id}`}
+        disabled={model.pending}
         maxLength={100000}
         value={draft.instruction}
         placeholder={t('NoteInstructionHint')}
-        onChange={(event) => setDraft({ instruction: event.target.value })}
+        onValueChange={(instruction) => setDraft({ instruction })}
       />
       <Notebook.Preferences>
         <summary>{t('PageAdvancedOptions')}</summary>

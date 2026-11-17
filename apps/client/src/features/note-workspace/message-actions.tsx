@@ -17,7 +17,6 @@ import {
   DialogHeading,
   Loading,
   Notebook,
-  Textarea,
   Tooltip,
   TooltipTrigger,
   TooltipPopup,
@@ -25,6 +24,7 @@ import {
 } from '@study/ui';
 import type { ReactNode } from 'react';
 
+import { DictationTextarea } from '#client/features/voice/index.ts';
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
 import { toStudyError } from '#client/lib/study-client/errors.ts';
 
@@ -362,12 +362,13 @@ function MessageEditor({ model }: { model: MessageActionsModel }) {
           <Notebook.TargetPreview>{draft.targetText}</Notebook.TargetPreview>
         )}
         {(draft.mode === 'instruction' || draft.mode === 'ask') && (
-          <Textarea
+          <DictationTextarea
+            targetKey={`${model.message.id}:${draft.targetVersionId}:${draft.mode}`}
             aria-label={t('NoteInstructions')}
             maxLength={draft.mode === 'instruction' ? 4000 : 100000}
             value={draft.instruction}
             disabled={!!draft.attempt}
-            onChange={(event) => patch({ instruction: event.target.value })}
+            onValueChange={(instruction) => patch({ instruction })}
           />
         )}
         <Notebook.Actions>

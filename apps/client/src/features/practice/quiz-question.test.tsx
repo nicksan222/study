@@ -45,6 +45,7 @@ test.unit.beforeEach(async ({ mock }) => {
 
   readiness = __mockState.readiness;
 
+  mock('#client/features/voice/button.tsx', () => ({ DictationButton: () => null }));
   mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => readiness.value }));
   mock('#client/lib/ai-readiness-notice.tsx', () => ({ AiReadinessNotice: () => null }));
   const __mockModule0 = await import('#client/lib/i18n.tsx');

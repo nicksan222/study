@@ -159,3 +159,5 @@ export const agentRulesSchema = Schema.Struct({
 export type AgentRule = (typeof AgentRule)[keyof typeof AgentRule];
 
 export type AgentRuleKey = AgentRule['key'];
+
+export const voiceSettingsSchema = Schema.Struct({ filterSilence: Schema.Boolean });

@@ -96,6 +96,7 @@ function PageDraft({ view }: { view: PageEditor }) {
       {draft && (
         <>
           <BlockEditor
+            targetKey={`${version.pageId}:${version.id}`}
             document={draft}
             change={change}
             disabled={busy || !!outcome || !!pendingSave}

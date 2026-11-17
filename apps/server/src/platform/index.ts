@@ -110,3 +110,8 @@ export {
   refreshExecutionSnapshots,
   triggeredExecutionId
 } from './workflows/triggers.ts';
+
+export { VoiceModels } from './speech/models.ts';
+export type { SpeechAsset } from './speech/models.ts';
+export { VoiceRuntime, transcribeInProcess } from './speech/runtime.ts';
+export type { VoiceRuntimeAdapters } from './speech/runtime.ts';

@@ -156,6 +156,10 @@ test.browser.stable(
       await fullyVisible({ expect }, dialog);
       await fullyVisible({ expect }, dialog.locator('.notebook-editor-body'));
       await editor.press('Tab');
+      await expect(
+        dialog.getByRole('button', { name: copy.VoiceStart, exact: true })
+      ).toBeFocused();
+      await page.keyboard.press('Tab');
       await expect(dialog.getByRole('button', { name: copy.NoteDiscardEdits })).toBeFocused();
       await page.keyboard.press('Tab');
       await expect(save).toBeFocused();

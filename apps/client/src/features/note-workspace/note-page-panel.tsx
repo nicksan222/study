@@ -47,6 +47,7 @@ function PageEditor({ page, actions, versionId }: { page: Page } & EditorActions
       {version !== undefined && (
         <Desk.Editor>
           <CanonicalDocumentEditor
+            targetKey={page.id}
             document={historical ? version.document : model.document}
             disabled={historical || exact.isFetching}
             snapshotId={version.snapshotId}

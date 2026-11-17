@@ -3,6 +3,8 @@ import type { RichNoteEditorHandle } from '@study/ui';
 import { useRef } from 'react';
 import type { ReactNode } from 'react';
 
+import { DictationButton } from '#client/features/voice/index.ts';
+import { useTextDictation } from '#client/features/voice/index.ts';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
 import { initialEditPosition } from './edit-position';
@@ -16,6 +18,12 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
   const { t, draft, patch } = model;
   const preferences = useWorkspacePreferences();
   const body = useRef<HTMLDivElement>(null);
+  const textInput = useRef<HTMLTextAreaElement>(null);
+  const dictation = useTextDictation({
+    value: draft.text,
+    onChange: (text) => patch({ text }),
+    input: textInput
+  });
   const richEditor = useRef<RichNoteEditorHandle>(null);
   const position = useRef(initialEditPosition());
   const recordingPosition = useRef(false);
@@ -131,6 +139,7 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
         >
           {model.message.format === 'document' ? (
             <NoteEditor
+              targetKey={`${model.message.id}:${draft.targetVersionId}:${draft.mode}`}
               ref={richEditor}
               label={t('NoteEditNote')}
               value={draft.text}
@@ -139,6 +148,7 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
             />
           ) : (
             <NotebookEditor.Text
+              ref={textInput}
               aria-label={t('NoteEditNote')}
               value={draft.text}
               disabled={!!draft.attempt}
@@ -158,6 +168,13 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
             {t(draft.text === draft.targetText ? 'NoteEditUnchanged' : 'NoteEditUnsaved')}
           </NotebookEditor.Status>
           <Notebook.Actions>
+            {model.message.format !== 'document' && (
+              <DictationButton
+                targetKey={`${model.message.id}:${draft.targetVersionId}:${draft.mode}`}
+                {...dictation}
+                disabled={!!draft.attempt}
+              />
+            )}
             <Button
               size="sm"
               variant="ghost"
