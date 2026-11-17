@@ -2260,12 +2260,20 @@ test.browser.stable(
       await expect(zoom).toHaveValue(String(value));
       await expect(zoom).toBeEnabled();
       await expectScreenshot(`zoom-boundary-${value}`, {
-        // Preserve the real viewport when the zoomed dialog is larger than the screen.
+        // Keep the real viewport while checking that enlarged settings remain contained.
         target: 'viewport',
         zoomPercent: value,
         center: zoom,
         scrollToEnd: value === 200 ? dialog.locator('.settings-scroll') : undefined,
-        ready: () => expect(zoom).toHaveValue(String(value))
+        ready: async () => {
+          await expect(zoom).toHaveValue(String(value));
+          const bounds = await dialog.boundingBox();
+          const viewport = page.viewportSize()!;
+
+          expect(bounds).not.toBeNull();
+          expect(bounds!.y).toBeGreaterThanOrEqual(0);
+          expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport.height);
+        }
       });
     }
 
