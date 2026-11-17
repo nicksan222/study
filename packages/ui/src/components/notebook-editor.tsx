@@ -78,8 +78,20 @@ function Popup({
   );
 }
 
+function Label({ full, compact }: { full: string; compact: string }) {
+  return (
+    <>
+      <span className="notebook-editor-label-wide">{full}</span>
+      <span className="notebook-editor-label-compact" aria-hidden="true">
+        {compact}
+      </span>
+    </>
+  );
+}
+
 export const NotebookEditor = {
   Popup,
+  Label,
   Header: part('header', 'notebook-editor-header'),
   Identity: part('div', 'notebook-editor-identity'),
   Subject: part('div', 'notebook-editor-subject'),

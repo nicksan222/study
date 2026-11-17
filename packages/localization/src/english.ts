@@ -782,7 +782,9 @@ export const english = Object.freeze({
   NoteEditLatest: 'Continue editing against latest',
   NoteEditConflictHelp:
     'This note changed. Review the latest saved text below before continuing with your draft. Saving will create a new version.',
+  NoteBackToNotebookShort: 'Back',
   NoteBackToNotebook: 'Back to notebook',
+  NoteDiscardEditsShort: 'Discard',
   NoteDiscardEdits: 'Discard changes',
   NoteContinueEditing: 'Continue editing',
   NoteEditUnsaved: 'Unsaved changes',

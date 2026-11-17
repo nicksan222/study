@@ -87,7 +87,13 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
       >
         <NotebookEditor.Header>
           <PreviousButton
-            label={t('NoteBackToNotebook')}
+            aria-label={t('NoteBackToNotebook')}
+            label={
+              <NotebookEditor.Label
+                full={t('NoteBackToNotebook')}
+                compact={t('NoteBackToNotebookShort')}
+              />
+            }
             size="sm"
             variant="ghost"
             disabled={!!draft.attempt}
@@ -142,16 +148,25 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
               size="sm"
               variant="ghost"
               disabled={!!draft.attempt}
+              aria-label={t('NoteDiscardEdits')}
               onClick={() => {
                 position.current = { scroll: 0, start: 0, end: 0 };
                 richSelection.current = null;
                 model.discardEdit();
               }}
             >
-              {t('NoteDiscardEdits')}
+              <NotebookEditor.Label
+                full={t('NoteDiscardEdits')}
+                compact={t('NoteDiscardEditsShort')}
+              />
             </Button>
-            <Button size="sm" disabled={model.blocked || !draft.text.trim()} onClick={model.submit}>
-              {t('NoteSaveNote')}
+            <Button
+              size="sm"
+              aria-label={t('NoteSaveNote')}
+              disabled={model.blocked || !draft.text.trim()}
+              onClick={model.submit}
+            >
+              <NotebookEditor.Label full={t('NoteSaveNote')} compact={t('Save')} />
             </Button>
           </Notebook.Actions>
           <NotebookEditor.Feedback>{recovery}</NotebookEditor.Feedback>

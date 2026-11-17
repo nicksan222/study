@@ -259,7 +259,23 @@ test.browser.stable(
       target: 'viewport',
       ready: () => expect(localizedEditor.getByRole('textbox')).toHaveValue(content)
     });
-    await localizedEditor.getByRole('button', { name: italian.NoteBackToNotebook }).click();
+    await page.setViewportSize({ width: 390, height: 520 });
+    const mobileText = localizedEditor.getByRole('textbox');
+    const mobileSave = localizedEditor.getByRole('button', { name: italian.NoteSaveNote });
+
+    await mobileText.fill(content + '\n\nCorrezione dal telefono.');
+    await expect(
+      localizedEditor.getByRole('button', { name: italian.NoteBackToNotebook })
+    ).toBeInViewport({ ratio: 1 });
+    await expect(mobileSave).toBeInViewport({ ratio: 1 });
+    await expectScreenshot('editing-italian-short-viewport', {
+      target: 'viewport',
+      ready: () => expect(mobileText).toHaveValue(content + '\n\nCorrezione dal telefono.')
+    });
+    await mobileSave.click();
     await expect(localizedEditor).toBeHidden();
+    await expect(localizedNotebook.locator('.chat-message-text')).toHaveText(
+      content + '\n\nCorrezione dal telefono.'
+    );
   }
 );

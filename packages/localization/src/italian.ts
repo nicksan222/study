@@ -799,7 +799,9 @@ export const italian = Object.freeze({
   NoteEditLatest: 'Continua a modificare l’ultima versione',
   NoteEditConflictHelp:
     'La nota è cambiata. Controlla il testo salvato più recente qui sotto prima di continuare con la bozza. Il salvataggio creerà una nuova versione.',
+  NoteBackToNotebookShort: 'Torna',
   NoteBackToNotebook: 'Torna al quaderno',
+  NoteDiscardEditsShort: 'Scarta',
   NoteDiscardEdits: 'Scarta modifiche',
   NoteContinueEditing: 'Continua a modificare',
   NoteEditUnsaved: 'Modifiche non salvate',
