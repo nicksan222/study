@@ -5,6 +5,7 @@ const copy = catalogs.english;
 
 test.browser.use({
   aiEnabled: true,
+  video: 'on',
   viewport: { width: 390, height: 844 },
   isMobile: true,
   hasTouch: true
@@ -65,7 +66,12 @@ test.browser.stable(
     await expectScreenshot('narrow-section-reading', {
       target: 'viewport',
       zoomPercent: 100,
-      ready: () => expect(heading).toBeInViewport()
+      ready: async () => {
+        await expect(heading).toBeInViewport();
+        await expect(
+          page.getByRole('button', { name: copy.JumpToLatest, exact: true })
+        ).toHaveCount(0);
+      }
     });
   }
 );

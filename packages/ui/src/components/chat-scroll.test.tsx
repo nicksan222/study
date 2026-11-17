@@ -63,3 +63,45 @@ test.unit.stable(
     await waitFor(() => expect(host.scrollTop).toBe(300));
   }
 );
+
+test.unit.stable(
+  'updates Latest after resizing while preserving readers and following the end',
+  async ({ render, vi, fireEvent, screen, act, expect }) => {
+    let resize = () => {};
+
+    vi.stubGlobal(
+      'ResizeObserver',
+      class implements ResizeObserver {
+        constructor(callback: ResizeObserverCallback) {
+          resize = () => callback([], this);
+        }
+
+        observe() {}
+
+        unobserve() {}
+
+        disconnect() {}
+      }
+    );
+
+    const view = render(<Note />);
+    const host = view.container.querySelector<HTMLElement>('[data-notebook-scroll-host]')!;
+
+    dimensions(host, 1000);
+    host.scrollTop = 100;
+    fireEvent.scroll(host);
+    expect(screen.getByRole('button', { name: 'Latest' })).toBeVisible();
+    dimensions(host, 900);
+    await act(async () => resize());
+    expect(host.scrollTop).toBe(100);
+    expect(screen.getByRole('button', { name: 'Latest' })).toBeVisible();
+    dimensions(host, 300);
+    await act(async () => resize());
+    expect(host.scrollTop).toBe(100);
+    expect(screen.queryByRole('button', { name: 'Latest' })).not.toBeInTheDocument();
+    dimensions(host, 1000);
+    await act(async () => resize());
+    expect(host.scrollTop).toBe(1000);
+    expect(screen.queryByRole('button', { name: 'Latest' })).not.toBeInTheDocument();
+  }
+);
