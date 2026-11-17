@@ -28,6 +28,11 @@ type Run = typeof agentProgressSchema.Type;
 
 type Node = { run: Run; index: number; children: Node[] };
 
+type ExpansionState = {
+  expanded: ReadonlyMap<string, boolean>;
+  change: (entries: readonly (readonly [string, boolean])[]) => void;
+};
+
 const labels = {
   running: 'workspace.state.running',
   completed: 'AgentActivityStepComplete',
@@ -69,14 +74,24 @@ function runTree(runs: readonly Run[]): Node[] {
 }
 
 export function RunHistory({ runs }: { runs: readonly Run[] }) {
-  return <RunNodes nodes={runTree(runs)} />;
+  const [expanded, setExpanded] = useState<ReadonlyMap<string, boolean>>(() => new Map());
+
+  return (
+    <RunNodes
+      nodes={runTree(runs)}
+      expansion={{
+        expanded,
+        change: (entries) => setExpanded((previous) => new Map([...previous, ...entries]))
+      }}
+    />
+  );
 }
 
-function RunNodes({ nodes }: { nodes: readonly Node[] }) {
-  const [expanded, setExpanded] = useState<ReadonlyMap<string, boolean>>(() => new Map());
+function RunNodes({ nodes, expansion }: { nodes: readonly Node[]; expansion: ExpansionState }) {
   const value = nodes
     .filter(
-      ({ run }) => expanded.get(run.runId) ?? (run.status === 'running' || run.status === 'failed')
+      ({ run }) =>
+        expansion.expanded.get(run.runId) ?? (run.status === 'running' || run.status === 'failed')
     )
     .map((node) => node.run.runId);
 
@@ -87,24 +102,21 @@ function RunNodes({ nodes }: { nodes: readonly Node[] }) {
       multiple
       value={value}
       onValueChange={(next) =>
-        setExpanded(
-          new Map([
-            ...expanded,
-            ...nodes
-              .filter(({ run }) => value.includes(run.runId) !== next.includes(run.runId))
-              .map(({ run }) => [run.runId, next.includes(run.runId)] as const)
-          ])
+        expansion.change(
+          nodes
+            .filter(({ run }) => value.includes(run.runId) !== next.includes(run.runId))
+            .map(({ run }) => [run.runId, next.includes(run.runId)] as const)
         )
       }
     >
       {nodes.map((node) => (
-        <RunNode key={node.run.runId} node={node} />
+        <RunNode key={node.run.runId} node={node} expansion={expansion} />
       ))}
     </Accordion>
   );
 }
 
-function RunNode({ node }: { node: Node }) {
+function RunNode({ node, expansion }: { node: Node; expansion: ExpansionState }) {
   const { t } = useI18n();
   const { run, children, index } = node;
   const trace = run.trace;
@@ -134,13 +146,14 @@ function RunNode({ node }: { node: Node }) {
           {run.tools.map((tool) => (
             <AgentToolCall key={tool.toolCallId} tool={settledAgentTool(tool, run)}>
               <RunNodes
+                expansion={expansion}
                 nodes={children.filter(
                   (child) => child.run.trace?.parentToolCallId === tool.toolCallId
                 )}
               />
             </AgentToolCall>
           ))}
-          <RunNodes nodes={detached} />
+          <RunNodes nodes={detached} expansion={expansion} />
         </Trace>
       </AccordionContent>
     </AccordionItem>
