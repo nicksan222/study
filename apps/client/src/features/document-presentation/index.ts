@@ -1,7 +1,5 @@
-export { DocumentReader } from './document-reader';
+export { DocumentOmissions, DocumentReader } from './document-reader';
 export { RetainedDocumentReader, RetainedDocumentPreview } from './retained-document-reader';
-
-export { HistoryDisclosure } from './history';
 
 export { ContentReadError } from './read-error';
 

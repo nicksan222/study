@@ -243,7 +243,7 @@ export { QuizResultsView } from './components/quiz-results-view.tsx';
 export { QuizSessionView, QuizFinishView } from './components/quiz-session-view.tsx';
 export { SidebarSearchResults } from './components/sidebar-search-results.tsx';
 export type { SidebarSearchItem } from './components/sidebar-search-results.tsx';
-export { SourceContent } from './components/source-content.tsx';
+export { SourceContent, SourceReader } from './components/source-content.tsx';
 export { MatchingReviewView } from './components/matching-review-view.tsx';
 export { OrderingResultView } from './components/ordering-result-view.tsx';
 

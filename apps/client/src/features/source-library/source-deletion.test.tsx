@@ -14,7 +14,10 @@ async function openDeletion(
   { screen }: Pick<test.unit.Context, 'screen'>,
   user: ReturnType<test.unit.Context['userEvent']['setup']>
 ) {
-  await user.click(await screen.findByRole('button', { name: catalogs.english.SourceDeleteTitle }));
+  await user.click(await screen.findByRole('button', { name: catalogs.english.MediaActions }));
+  await user.click(
+    await screen.findByRole('menuitem', { name: catalogs.english.SourceDeleteTitle })
+  );
 
   return screen.findByRole('alertdialog');
 }

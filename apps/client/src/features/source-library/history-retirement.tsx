@@ -1,5 +1,6 @@
 import type { Source } from '@study/contracts';
 import { Button, DangerDialog, ErrorState, Field, Input, Loading, StatusMessage } from '@study/ui';
+import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -56,10 +57,12 @@ function removalDisabled(view: View) {
 
 export function SourceHistoryRetirement({
   source,
-  onRetired
+  onRetired,
+  renderTrigger
 }: {
   source: Source;
   onRetired: () => void;
+  renderTrigger?: (show: () => void) => ReactNode;
 }) {
   const { t } = useI18n();
   const view = useSourceHistoryRetirement(source.id, onRetired);
@@ -68,9 +71,13 @@ export function SourceHistoryRetirement({
 
   return (
     <>
-      <Button variant="ghost" onClick={view.show}>
-        {t('SourceHistoryPrune')}
-      </Button>
+      {renderTrigger ? (
+        renderTrigger(view.show)
+      ) : (
+        <Button variant="ghost" onClick={view.show}>
+          {t('SourceHistoryPrune')}
+        </Button>
+      )}
       {view.state.notice && (
         <StatusMessage>
           {t(view.state.notice === 'removed' ? 'SourceHistoryRemoved' : 'SourceHistoryReconciled')}
