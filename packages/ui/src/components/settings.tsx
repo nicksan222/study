@@ -366,14 +366,19 @@ function Search({
 function Empty({
   children,
   title,
-  icon
+  icon,
+  variant = 'default'
 }: {
   children: ReactNode;
   title?: string;
   icon?: ReactNode;
+  variant?: 'default' | 'feature';
 }) {
   return (
-    <div role="status" className="settings-empty">
+    <div
+      role="status"
+      className={cn('settings-empty', variant === 'feature' && 'settings-empty-feature')}
+    >
       {icon}
       <div>
         {title && <strong>{title}</strong>}

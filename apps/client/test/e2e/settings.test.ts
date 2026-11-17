@@ -1990,6 +1990,32 @@ test.browser.stable(
       ready: () => expect(dialog.getByText(copy.AnalyticsDesktop, { exact: true })).toBeVisible()
     });
     await expectAccessibility('analytics-browser-unavailable');
+
+    await dialog
+      .getByRole('navigation')
+      .getByRole('button', { name: copy.GeneralSettingsTitle, exact: true })
+      .click();
+    await dialog.getByRole('combobox', { name: copy.GeneralSettingsLanguage }).click();
+    await page.getByRole('option', { name: copy.ItalianOwnName, exact: true }).click();
+    const italian = catalogs.italian;
+    const localized = page.getByRole('dialog', { name: italian.Settings });
+
+    await page.setViewportSize({ width: 700, height: 1000 });
+    const analyticsNavigation = localized
+      .getByRole('navigation')
+      .getByRole('button', { name: italian.AnalyticsTitle, exact: true });
+
+    await analyticsNavigation.click();
+    await analyticsNavigation.evaluate((element) =>
+      element.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'instant' })
+    );
+    await localized.getByRole('heading', { name: italian.AnalyticsTitle, exact: true }).hover();
+    await expectScreenshot('analytics-desktop-required-italian-narrow', {
+      target: localized,
+      ready: () =>
+        expect(localized.getByText(italian.AnalyticsDesktop, { exact: true })).toBeVisible()
+    });
+    await expectAccessibility('analytics-browser-unavailable-italian-narrow');
   }
 );
 

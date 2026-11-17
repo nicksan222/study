@@ -1,8 +1,17 @@
 // Canonical application message keys and interpolation parameters.
 export const english = Object.freeze({
   AnalyticsTitle: 'Analytics',
-  AnalyticsDescription:
-    'Recent desktop diagnostic events. The snapshot is limited to the newest 1 MiB or 10,000 lines and may contain sensitive file paths. Server logs are not included.',
+  AnalyticsLogsTitle: 'Diagnostic logs',
+  AnalyticsDescription: 'Inspect recent events from the Study desktop app.',
+  AnalyticsDesktopTitle: 'Available in the desktop app',
+  AnalyticsSnapshotTitle: 'About diagnostic snapshots',
+  AnalyticsWindowTitle: 'Recent events',
+  AnalyticsWindow: 'The newest 1 MiB or 10,000 lines, whichever limit is reached first.',
+  AnalyticsScopeTitle: 'Desktop events only',
+  AnalyticsScope: 'Snapshots contain desktop app diagnostics. Server logs are not included.',
+  AnalyticsPrivacyTitle: 'Review before sharing',
+  AnalyticsPrivacy:
+    'Logs may contain sensitive file paths. Check the snapshot before sending it to someone.',
   AnalyticsDesktop: 'Open Study on your desktop to view diagnostic logs.',
   AnalyticsSearch: 'Search logs',
   AnalyticsLevel: 'Severity',

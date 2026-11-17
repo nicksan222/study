@@ -1,3 +1,4 @@
+import { DesktopIcon } from '@study/icons';
 import {
   Button,
   DiagnosticText,
@@ -48,70 +49,91 @@ export function AnalyticsSettings() {
   });
 
   return (
-    <Settings.Section title={t('AnalyticsTitle')}>
-      <p>{t('AnalyticsDescription')}</p>
-      {!diagnostics ? (
-        <Settings.Status>{t('AnalyticsDesktop')}</Settings.Status>
-      ) : (
-        <>
-          <Usage.Toolbar>
-            <SearchField
-              aria-label={t('AnalyticsSearch')}
-              placeholder={t('AnalyticsSearch')}
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-            <SelectControl
-              label={t('AnalyticsLevel')}
-              value={level}
-              onValueChange={setLevel}
-              options={[
-                { value: '', label: t('AnalyticsAll') },
-                { value: 'TRACE', label: t('AnalyticsTrace') },
-                { value: 'DEBUG', label: t('AnalyticsDebug') },
-                { value: 'INFO', label: t('AnalyticsInfo') },
-                { value: 'WARN', label: t('AnalyticsWarning') },
-                { value: 'ERROR', label: t('AnalyticsErrorLevel') }
-              ]}
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={query.isFetching}
-              onClick={() => void query.refetch()}
-            >
-              {t('AnalyticsRefresh')}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!query.data}
-              onClick={() =>
-                downloadFile(
-                  'diagnostics.log',
-                  new Blob([query.data ?? ''], { type: 'text/plain;charset=utf-8' })
-                )
-              }
-            >
-              {t('AnalyticsExport')}
-            </Button>
-          </Usage.Toolbar>
-          {query.isPending && <Settings.Status>{t('AnalyticsLoading')}</Settings.Status>}
-          {query.isError && <Settings.Status>{t('AnalyticsError')}</Settings.Status>}
-          {query.data !== undefined && (
-            <>
-              <p>{t('AnalyticsCount', { shown: filtered.length, total: entries.length })}</p>
-              {entries.length === 0 ? (
-                <Settings.Status>{t('AnalyticsEmpty')}</Settings.Status>
-              ) : filtered.length === 0 ? (
-                <Settings.Status>{t('AnalyticsNoMatches')}</Settings.Status>
-              ) : (
-                <DiagnosticText>{filtered.join('')}</DiagnosticText>
-              )}
-            </>
-          )}
-        </>
-      )}
-    </Settings.Section>
+    <>
+      <Settings.Section title={t('AnalyticsLogsTitle')}>
+        <Settings.Intro>{t('AnalyticsDescription')}</Settings.Intro>
+        {!diagnostics ? (
+          <Settings.Empty
+            variant="feature"
+            title={t('AnalyticsDesktopTitle')}
+            icon={<DesktopIcon aria-hidden="true" />}
+          >
+            {t('AnalyticsDesktop')}
+          </Settings.Empty>
+        ) : (
+          <>
+            <Usage.Toolbar>
+              <SearchField
+                aria-label={t('AnalyticsSearch')}
+                placeholder={t('AnalyticsSearch')}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+              <SelectControl
+                label={t('AnalyticsLevel')}
+                value={level}
+                onValueChange={setLevel}
+                options={[
+                  { value: '', label: t('AnalyticsAll') },
+                  { value: 'TRACE', label: t('AnalyticsTrace') },
+                  { value: 'DEBUG', label: t('AnalyticsDebug') },
+                  { value: 'INFO', label: t('AnalyticsInfo') },
+                  { value: 'WARN', label: t('AnalyticsWarning') },
+                  { value: 'ERROR', label: t('AnalyticsErrorLevel') }
+                ]}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={query.isFetching}
+                onClick={() => void query.refetch()}
+              >
+                {t('AnalyticsRefresh')}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!query.data}
+                onClick={() =>
+                  downloadFile(
+                    'diagnostics.log',
+                    new Blob([query.data ?? ''], { type: 'text/plain;charset=utf-8' })
+                  )
+                }
+              >
+                {t('AnalyticsExport')}
+              </Button>
+            </Usage.Toolbar>
+            {query.isPending && <Settings.Status>{t('AnalyticsLoading')}</Settings.Status>}
+            {query.isError && <Settings.Status>{t('AnalyticsError')}</Settings.Status>}
+            {query.data !== undefined && (
+              <>
+                <p>{t('AnalyticsCount', { shown: filtered.length, total: entries.length })}</p>
+                {entries.length === 0 ? (
+                  <Settings.Status>{t('AnalyticsEmpty')}</Settings.Status>
+                ) : filtered.length === 0 ? (
+                  <Settings.Status>{t('AnalyticsNoMatches')}</Settings.Status>
+                ) : (
+                  <DiagnosticText>{filtered.join('')}</DiagnosticText>
+                )}
+              </>
+            )}
+          </>
+        )}
+      </Settings.Section>
+      <Settings.Section title={t('AnalyticsSnapshotTitle')}>
+        <Settings.Group>
+          <Settings.Row title={t('AnalyticsWindowTitle')} description={t('AnalyticsWindow')}>
+            {null}
+          </Settings.Row>
+          <Settings.Row title={t('AnalyticsScopeTitle')} description={t('AnalyticsScope')}>
+            {null}
+          </Settings.Row>
+          <Settings.Row title={t('AnalyticsPrivacyTitle')} description={t('AnalyticsPrivacy')}>
+            {null}
+          </Settings.Row>
+        </Settings.Group>
+      </Settings.Section>
+    </>
   );
 }
