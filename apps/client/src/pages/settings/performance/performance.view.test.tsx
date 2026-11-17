@@ -31,7 +31,7 @@ function model({ vi }: Pick<test.unit.Context, 'vi'>) {
 }
 
 test.unit.stable(
-  'exposes both limits with bounds and disables unchanged saves',
+  'exposes both limits with bounds and has no save buttons',
   ({ render, screen, expect, vi }) => {
     render(<PerformanceSettingsView model={model({ vi })} />);
     const active = screen.getByRole('spinbutton', { name: 'Concurrent AI requests' });
@@ -41,16 +41,12 @@ test.unit.stable(
     expect(active).toHaveAttribute('max', '8');
     expect(queued).toHaveAttribute('min', '0');
     expect(queued).toHaveAttribute('max', '64');
-    expect(
-      screen
-        .getAllByRole('button', { name: 'Save' })
-        .every((button) => button.hasAttribute('disabled'))
-    ).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
   }
 );
 
 test.unit.stable(
-  'submits a changed setting through its form and links validation to the input',
+  'changes a setting without submitting and links validation to the input',
   ({ render, screen, fireEvent, expect, vi }) => {
     const state = model({ vi });
 
@@ -58,8 +54,8 @@ test.unit.stable(
     const { rerender } = render(<PerformanceSettingsView model={state} />);
     const input = screen.getByRole('spinbutton', { name: 'Concurrent AI requests' });
 
-    fireEvent.submit(input.closest('form')!);
-    expect(state.active.save).toHaveBeenCalledOnce();
+    fireEvent.change(input, { target: { value: '3' } });
+    expect(state.active.setValue).toHaveBeenCalledWith('3');
     rerender(
       <PerformanceSettingsView
         model={{ ...state, active: { ...state.active, valid: false, value: '0' } }}

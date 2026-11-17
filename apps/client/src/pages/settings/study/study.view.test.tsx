@@ -7,13 +7,11 @@ function model({ vi }: Pick<test.unit.Context, 'vi'>) {
     data: { newCardsPerDay: 20 },
     draft: '20',
     valid: true,
-    changed: false,
     loading: false,
     pending: false,
     error: false,
     retry: vi.fn(),
-    setDraft: vi.fn(),
-    save: vi.fn()
+    setDraft: vi.fn()
   };
 }
 
@@ -27,7 +25,7 @@ test.unit.stable(
 
     expect(input).toHaveAttribute('min', '0');
     expect(input).toHaveAttribute('max', '10000');
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
     fireEvent.change(input, { target: { value: '0' } });
     expect(state.setDraft).toHaveBeenCalledWith('0');
   }
@@ -36,24 +34,22 @@ test.unit.stable(
 test.unit.stable(
   'shows an actionable validation message and prevents invalid saves',
   ({ render, expect, screen, vi }) => {
-    render(
-      <StudySettingsView model={{ ...model({ vi }), draft: '1.5', valid: false, changed: true }} />
-    );
+    render(<StudySettingsView model={{ ...model({ vi }), draft: '1.5', valid: false }} />);
     expect(screen.getByRole('spinbutton')).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByRole('alert')).toHaveTextContent('whole number from 0 to 10,000');
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
   }
 );
 
 test.unit.stable(
-  'submits a valid changed value with Enter and links validation to its field',
+  'changes a valid value without submitting and links validation to its field',
   ({ render, screen, fireEvent, expect, vi }) => {
-    const state = { ...model({ vi }), draft: '0', changed: true };
+    const state = { ...model({ vi }), draft: '0' };
     const { rerender } = render(<StudySettingsView model={state} />);
     const input = screen.getByRole('spinbutton');
 
-    fireEvent.submit(input.closest('form')!);
-    expect(state.save).toHaveBeenCalledOnce();
+    fireEvent.change(input, { target: { value: '30' } });
+    expect(state.setDraft).toHaveBeenCalledWith('30');
     rerender(<StudySettingsView model={{ ...state, valid: false }} />);
     expect(input).toHaveAttribute('aria-describedby', screen.getByRole('alert').id);
   }

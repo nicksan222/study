@@ -41,6 +41,7 @@ export function ThemeEditor({
       );
 
       await (editor.type === 'edit' ? model.saveTheme(contents) : model.importTheme(contents));
+      toastManager.add({ title: t('Saved'), type: 'success' });
       onClose();
     } catch {
       setError(true);

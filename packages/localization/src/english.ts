@@ -211,7 +211,7 @@ export const english = Object.freeze({
 
   AgentRulesTitle: 'Custom instructions',
   AgentRulesIntro:
-    'Choose a task and describe how Study should work. Save your changes to apply them to future runs. Leave a field empty to use the defaults. Your preferences supplement the task instructions; required formats and source accuracy still apply.',
+    'Choose a task and describe how Study should work. Changes apply to future runs. Leave a field empty to use the defaults. Your preferences supplement the task instructions; required formats and source accuracy still apply.',
   AgentRulesTask: 'Task',
   AgentRulesPages: 'Pages',
   AgentRulesPagesHelp:
@@ -239,9 +239,7 @@ export const english = Object.freeze({
     'Guide when a saved note is classified as a question. For example: treat requests to explain a concept as questions.',
   AgentRulesPlaceholder: 'Add your preferences for this task…',
   AgentRulesUseDefault: 'Use default',
-  AgentRulesSaved: 'Custom instructions saved.',
-  AgentRulesSaveFailed:
-    'Could not save your instructions. Your edits are still here. Try saving again.',
+  AgentRulesSaveFailed: 'Could not save your instructions. Your edits are still here. Try again.',
   AgentRulesLoadFailed: 'Could not load your custom instructions. Try again.',
   NoteConversionFailed: 'Text conversion failed',
   NoteConversionFailedHelp:
@@ -353,7 +351,8 @@ export const english = Object.freeze({
   ExportOmitSource: 'Original file layout and formatting may not be preserved.',
 
   WorkspaceSettingsFailed: 'Could not save or load these preferences. Try again.',
-  WorkspaceSettingsSaved: 'Changes saved',
+  SettingsSaveFailed: 'Could not save your changes. Try again.',
+  Saved: 'Saved',
   WorkspaceNumberValidation: 'Enter a whole number within the allowed range.',
   WorkspaceWritingTitle: 'Writing',
   WorkspaceWritingDescription:

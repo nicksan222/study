@@ -26,7 +26,7 @@ export function PerformanceSettingsView({
   ] as const;
 
   return (
-    <Settings.Section title={t('PerformanceSettingsTitle')}>
+    <Settings.Section title={t('PerformanceSettingsTitle')} busy={model.pending}>
       {model.error && (
         <Settings.Status
           action={
@@ -50,12 +50,8 @@ export function PerformanceSettingsView({
                 min={control.min}
                 max={control.max}
                 value={control.value}
-                disabled={model.pending}
-                submitDisabled={!control.valid || !control.changed}
                 error={control.valid ? undefined : t(row.validation)}
                 onValueChange={control.setValue}
-                onSubmit={control.save}
-                submitLabel={t(model.pending ? 'Saving' : 'Save')}
               />
             );
           })}

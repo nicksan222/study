@@ -128,9 +128,9 @@ test.browser.stable(
 
     await writing.click();
     const autosave = dialog.getByRole('spinbutton', { name: copy.WorkspaceAutosave, exact: true });
-    const saveAutosave = autosave.locator('xpath=ancestor::form').getByRole('button');
+    const writingSection = autosave.locator('xpath=ancestor::section[1]');
     const font = dialog.getByRole('spinbutton', { name: copy.WorkspaceEditorFont, exact: true });
-    const saveFont = font.locator('xpath=ancestor::form').getByRole('button');
+    const fontSection = font.locator('xpath=ancestor::section[1]');
     const spellcheck = dialog.getByRole('switch', { name: copy.WorkspaceSpellcheck, exact: true });
     const enterCapture = dialog.getByRole('switch', {
       name: copy.WorkspaceEnterCapture,
@@ -140,8 +140,8 @@ test.browser.stable(
 
     await expect(autosave).toHaveValue('3');
     await expect(font).toHaveValue('16');
-    await expect(saveAutosave).toBeDisabled();
-    await expect(saveFont).toBeDisabled();
+    await expect(writingSection).toHaveAttribute('aria-busy', 'false');
+    await expect(fontSection).toHaveAttribute('aria-busy', 'false');
     await expect(spellcheck).toBeChecked();
     await expect(enterCapture).not.toBeChecked();
     await expect(expand).not.toBeChecked();
@@ -159,10 +159,10 @@ test.browser.stable(
       await autosave.fill(value);
       await expect(autosave).toHaveAttribute('aria-invalid', 'true');
       await expect(dialog.getByRole('alert')).toHaveText(copy.WorkspaceNumberValidation);
-      await expect(saveAutosave).toBeDisabled();
+      await expect(writingSection).toHaveAttribute('aria-busy', 'false');
       await expectScreenshot(`autosave-invalid-${name}`, {
         target: dialog,
-        ready: () => expect(saveAutosave).toBeDisabled()
+        ready: () => expect(writingSection).toHaveAttribute('aria-busy', 'false')
       });
     }
 
@@ -185,11 +185,10 @@ test.browser.stable(
     for (const value of ['1', '30', '8']) {
       await autosave.fill(value);
       await expect(autosave).toHaveAttribute('aria-invalid', 'false');
-      await expect(saveAutosave).toBeEnabled();
-      await autosave.press('Enter');
-      await expect(saveAutosave).toBeDisabled();
+
+      await expect(writingSection).toHaveAttribute('aria-busy', 'false');
       await expect(autosave).toBeEnabled();
-      await expect(dialog.getByRole('status')).toHaveText(copy.WorkspaceSettingsSaved);
+      await expect(dialog.getByRole('status')).toHaveCount(0);
       await expectScreenshot(`autosave-saved-${value}`, {
         target: dialog,
         ready: () => expect(autosave).toHaveValue(value)
@@ -206,7 +205,7 @@ test.browser.stable(
       await font.fill(value);
       await expect(font).toHaveAttribute('aria-invalid', 'true');
       await expect(dialog.getByRole('alert')).toHaveText(copy.WorkspaceNumberValidation);
-      await expect(saveFont).toBeDisabled();
+      await expect(fontSection).toHaveAttribute('aria-busy', 'false');
       await expectScreenshot(`editor-font-invalid-${name}`, {
         target: dialog,
         ready: () => expect(font).toHaveAttribute('aria-invalid', 'true')
@@ -217,8 +216,8 @@ test.browser.stable(
       await font.fill(value);
       await expect(font).toHaveAttribute('aria-invalid', 'false');
       await expect(dialog.getByRole('alert')).toHaveCount(0);
-      await saveFont.click();
-      await expect(saveFont).toBeDisabled();
+
+      await expect(fontSection).toHaveAttribute('aria-busy', 'false');
       await expect(font).toBeEnabled();
       await expectScreenshot(`editor-font-saved-${value}`, {
         target: dialog,
@@ -459,10 +458,10 @@ test.browser.stable(
       name: copy.SidebarSettledThreshold,
       exact: true
     });
-    const save = threshold.locator('xpath=ancestor::form').getByRole('button');
+    const section = threshold.locator('xpath=ancestor::section[1]');
 
     await expect(threshold).toHaveValue('1');
-    await expect(save).toBeDisabled();
+    await expect(section).toHaveAttribute('aria-busy', 'false');
 
     for (const [name, value] of [
       ['empty', ''],
@@ -474,7 +473,7 @@ test.browser.stable(
       await threshold.fill(value);
       await expect(threshold).toHaveAttribute('aria-invalid', 'true');
       await expect(dialog.getByRole('alert')).toHaveText(copy.SidebarSettledValidation);
-      await expect(save).toBeDisabled();
+      await expect(section).toHaveAttribute('aria-busy', 'false');
       await expectScreenshot(`settlement-invalid-${name}`, {
         target: dialog,
         ready: () => expect(threshold).toHaveAttribute('aria-invalid', 'true')
@@ -487,9 +486,8 @@ test.browser.stable(
       await threshold.fill(value);
       await expect(threshold).toHaveAttribute('aria-invalid', 'false');
       await expect(dialog.getByRole('alert')).toHaveCount(0);
-      await expect(save).toBeEnabled();
-      await threshold.press('Enter');
-      await expect(save).toBeDisabled();
+
+      await expect(section).toHaveAttribute('aria-busy', 'false');
       await expect(threshold).toBeEnabled();
       await expectScreenshot(`settlement-saved-${value}`, {
         target: dialog,
@@ -531,11 +529,11 @@ test.browser.stable(
 
     await reading.click();
     const font = dialog.getByRole('spinbutton', { name: copy.WorkspaceReaderFont, exact: true });
-    const save = font.locator('xpath=ancestor::form').getByRole('button');
+    const section = font.locator('xpath=ancestor::section[1]');
     const format = dialog.getByRole('combobox', { name: copy.WorkspaceExportFormat, exact: true });
 
     await expect(font).toHaveValue('16');
-    await expect(save).toBeDisabled();
+    await expect(section).toHaveAttribute('aria-busy', 'false');
     await expect(format).toHaveText(copy.WorkspaceMarkdown);
     await expectScreenshot('reading-defaults', {
       target: dialog,
@@ -552,7 +550,7 @@ test.browser.stable(
       await font.fill(value);
       await expect(font).toHaveAttribute('aria-invalid', 'true');
       await expect(dialog.getByRole('alert')).toHaveText(copy.WorkspaceNumberValidation);
-      await expect(save).toBeDisabled();
+      await expect(section).toHaveAttribute('aria-busy', 'false');
       await expectScreenshot(`reader-font-invalid-${name}`, {
         target: dialog,
         ready: () => expect(font).toHaveAttribute('aria-invalid', 'true')
@@ -565,9 +563,8 @@ test.browser.stable(
       await font.fill(value);
       await expect(font).toHaveAttribute('aria-invalid', 'false');
       await expect(dialog.getByRole('alert')).toHaveCount(0);
-      await expect(save).toBeEnabled();
-      await font.press('Enter');
-      await expect(save).toBeDisabled();
+
+      await expect(section).toHaveAttribute('aria-busy', 'false');
       await expect(font).toBeEnabled();
       await expectScreenshot(`reader-font-saved-${value}`, {
         target: dialog,
@@ -608,7 +605,7 @@ test.browser.stable(
       await reading.click();
       await expect(format).toHaveText(label);
       await expect(font).toHaveValue('20');
-      await expect(save).toBeDisabled();
+      await expect(section).toHaveAttribute('aria-busy', 'false');
     }
 
     await expectScreenshot('reading-persisted', {
@@ -728,12 +725,10 @@ test.browser.stable(
 
     await navigation.getByRole('button', { name: copy.Flashcards, exact: true }).click();
     const limit = dialog.getByRole('spinbutton', { name: copy.StudySettingsNewCards, exact: true });
-    const save = limit
-      .locator('xpath=ancestor::form')
-      .getByRole('button', { name: copy.Save, exact: true });
+    const section = limit.locator('xpath=ancestor::section[1]');
 
     await expect(limit).toHaveValue('20');
-    await expect(save).toBeDisabled();
+    await expect(section).toHaveAttribute('aria-busy', 'false');
     await expectScreenshot('flashcards-default', {
       target: dialog,
       ready: () => expect(limit).toHaveValue('20')
@@ -743,7 +738,7 @@ test.browser.stable(
       await limit.fill(invalid);
       await expect(limit).toHaveAttribute('aria-invalid', 'true');
       await expect(dialog.getByRole('alert')).toHaveText(copy.StudySettingsNewCardsValidation);
-      await expect(save).toBeDisabled();
+      await expect(section).toHaveAttribute('aria-busy', 'false');
       await expectScreenshot(`flashcards-invalid-${index}`, {
         target: dialog,
         ready: () => expect(limit).toHaveAttribute('aria-invalid', 'true')
@@ -756,48 +751,49 @@ test.browser.stable(
       await limit.fill(value);
       await expect(limit).toHaveAttribute('aria-invalid', 'false');
       await expect(dialog.getByRole('alert')).toHaveCount(0);
-      await expect(save).toBeEnabled();
+
       await expectScreenshot(`flashcards-draft-${value}`, {
         target: dialog,
-        ready: () => expect(save).toBeEnabled()
+        ready: () => expect(section).toHaveAttribute('aria-busy', 'false')
       });
-      await limit.press('Enter');
-      await expect(save).toBeDisabled();
+
+      await expect(section).toHaveAttribute('aria-busy', 'false');
       await expect(limit).toBeEnabled();
       await expectScreenshot(`flashcards-saved-${value}`, {
         target: dialog,
-        ready: () => expect(save).toBeDisabled()
+        ready: () => expect(section).toHaveAttribute('aria-busy', 'false')
       });
     }
 
     await limit.fill('99');
-    await expect(save).toBeEnabled();
-    await expectScreenshot('flashcards-unsaved', {
+    await expect(section).toHaveAttribute('aria-busy', 'false');
+
+    await expectScreenshot('flashcards-autosaved', {
       target: dialog,
       ready: () => expect(limit).toHaveValue('99')
     });
     await dialog.getByRole('button', { name: copy.Close }).click();
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     await navigation.getByRole('button', { name: copy.Flashcards, exact: true }).click();
-    await expect(limit).toHaveValue('35');
-    await expectScreenshot('flashcards-discarded', {
+    await expect(limit).toHaveValue('99');
+    await expectScreenshot('flashcards-reopened', {
       target: dialog,
-      ready: () => expect(limit).toHaveValue('35')
+      ready: () => expect(limit).toHaveValue('99')
     });
     await page.reload();
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     await navigation.getByRole('button', { name: copy.Flashcards, exact: true }).click();
-    await expect(limit).toHaveValue('35');
-    await expect(save).toBeDisabled();
+    await expect(limit).toHaveValue('99');
+    await expect(section).toHaveAttribute('aria-busy', 'false');
     await expectScreenshot('flashcards-reloaded', {
       target: dialog,
-      ready: () => expect(limit).toHaveValue('35')
+      ready: () => expect(limit).toHaveValue('99')
     });
     // Capture readiness settles reloaded theme painting before Axe reads inherited text fill.
     await expectAccessibility('flashcards-reloaded');
     await limit.fill('20');
-    await save.click();
-    await expect(save).toBeDisabled();
+
+    await expect(section).toHaveAttribute('aria-busy', 'false');
     await expect(limit).toBeEnabled();
     await expectScreenshot('flashcards-restored', {
       target: dialog,
@@ -842,18 +838,16 @@ test.browser.stable(
 
     for (const [rowIndex, row] of rows.entries()) {
       const input = dialog.getByRole('spinbutton', { name: row.name, exact: true });
-      const save = input
-        .locator('xpath=ancestor::form')
-        .getByRole('button', { name: copy.Save, exact: true });
+      const section = input.locator('xpath=ancestor::section[1]');
 
       await expect(input).toHaveValue(row.initial);
-      await expect(save).toBeDisabled();
+      await expect(section).toHaveAttribute('aria-busy', 'false');
 
       for (const [index, invalid] of row.invalid.entries()) {
         await input.fill(invalid);
         await expect(input).toHaveAttribute('aria-invalid', 'true');
         await expect(dialog.getByRole('alert')).toHaveText(row.error);
-        await expect(save).toBeDisabled();
+        await expect(section).toHaveAttribute('aria-busy', 'false');
         await expectScreenshot(`performance-${rowIndex}-invalid-${index}`, {
           target: dialog,
           ready: () => expect(input).toHaveAttribute('aria-invalid', 'true')
@@ -864,17 +858,17 @@ test.browser.stable(
         await input.fill(value);
         await expect(input).toHaveAttribute('aria-invalid', 'false');
         await expect(dialog.getByRole('alert')).toHaveCount(0);
-        await expect(save).toBeEnabled();
+
         await expectScreenshot(`performance-${rowIndex}-draft-${value}`, {
           target: dialog,
-          ready: () => expect(save).toBeEnabled()
+          ready: () => expect(section).toHaveAttribute('aria-busy', 'false')
         });
-        await input.press('Enter');
-        await expect(save).toBeDisabled();
+
+        await expect(section).toHaveAttribute('aria-busy', 'false');
         await expect(input).toBeEnabled();
         await expectScreenshot(`performance-${rowIndex}-saved-${value}`, {
           target: dialog,
-          ready: () => expect(save).toBeDisabled()
+          ready: () => expect(section).toHaveAttribute('aria-busy', 'false')
         });
       }
     }
@@ -899,13 +893,11 @@ test.browser.stable(
 
     for (const [index, row] of rows.entries()) {
       const input = dialog.getByRole('spinbutton', { name: row.name, exact: true });
-      const save = input
-        .locator('xpath=ancestor::form')
-        .getByRole('button', { name: copy.Save, exact: true });
+      const section = input.locator('xpath=ancestor::section[1]');
 
       await input.fill(row.initial);
-      await save.click();
-      await expect(save).toBeDisabled();
+
+      await expect(section).toHaveAttribute('aria-busy', 'false');
       await expect(input).toBeEnabled();
       await expectScreenshot(`performance-restored-${index}`, {
         target: dialog,
@@ -925,7 +917,7 @@ test.browser.stable(
 
     await navigation.getByRole('button', { name: copy.AgentRulesTitle, exact: true }).click();
     const task = dialog.getByRole('combobox', { name: copy.AgentRulesTask, exact: true });
-    const save = dialog.getByRole('button', { name: copy.Save, exact: true });
+    const section = task.locator('xpath=ancestor::section[1]');
     const useDefault = dialog.getByRole('button', { name: copy.AgentRulesUseDefault, exact: true });
     const tasks = [
       copy.AgentRulesPages,
@@ -940,7 +932,7 @@ test.browser.stable(
     const pages = dialog.getByRole('textbox', { name: copy.AgentRulesPages, exact: true });
 
     await expect(pages).toHaveValue('');
-    await expect(save).toBeDisabled();
+    await expect(section).toHaveAttribute('aria-busy', 'false');
     await expect(useDefault).toBeDisabled();
     await expectScreenshot('instructions-default', {
       target: dialog,
@@ -956,19 +948,19 @@ test.browser.stable(
         ).toBeVisible()
     });
     await task.press('Escape');
-    await pages.fill('Unsaved instruction that must be discarded.');
-    await expect(save).toBeEnabled();
-    await expectScreenshot('instructions-unsaved', {
+    await pages.fill('Instruction that persists automatically.');
+
+    await expectScreenshot('instructions-autosaved', {
       target: dialog,
-      ready: () => expect(save).toBeEnabled()
+      ready: () => expect(section).toHaveAttribute('aria-busy', 'false')
     });
     await dialog.getByRole('button', { name: copy.Close }).click();
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     await navigation.getByRole('button', { name: copy.AgentRulesTitle, exact: true }).click();
-    await expect(pages).toHaveValue('');
-    await expectScreenshot('instructions-discarded', {
+    await expect(pages).toHaveValue('Instruction that persists automatically.');
+    await expectScreenshot('instructions-reopened', {
       target: dialog,
-      ready: () => expect(pages).toHaveValue('')
+      ready: () => expect(pages).toHaveValue('Instruction that persists automatically.')
     });
     await expect(pages).toHaveAttribute('maxlength', String(maxAgentRuleLength));
     await pages.fill('x'.repeat(maxAgentRuleLength + 1));
@@ -990,7 +982,7 @@ test.browser.stable(
       await editor.fill(
         `Prefer concise examples for ${title}.\nKeep this task-specific instruction ${index}.`
       );
-      await expect(save).toBeEnabled();
+
       await expect(useDefault).toBeEnabled();
       await expectScreenshot(`instructions-draft-${index}`, {
         target: dialog,
@@ -1006,12 +998,11 @@ test.browser.stable(
     await expect(pages).toHaveValue(
       `Prefer concise examples for ${copy.AgentRulesPages}.\nKeep this task-specific instruction 0.`
     );
-    await save.click();
-    await expect(save).toBeDisabled();
-    await expect(dialog.getByRole('status')).toHaveText(copy.AgentRulesSaved);
+
+    await expect(section).toHaveAttribute('aria-busy', 'false');
     await expectScreenshot('instructions-saved', {
       target: dialog,
-      ready: () => expect(dialog.getByRole('status')).toHaveText(copy.AgentRulesSaved)
+      ready: () => expect(section).toHaveAttribute('aria-busy', 'false')
     });
     await page.reload();
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
@@ -1027,8 +1018,7 @@ test.browser.stable(
         `Prefer concise examples for ${title}.\nKeep this task-specific instruction ${index}.`
       );
 
-      if (index === 0) await expect(save).toBeDisabled();
-      else await expect(save).toBeEnabled();
+      await expect(section).toHaveAttribute('aria-busy', 'false');
 
       await expectScreenshot(`instructions-reloaded-${index}`, {
         target: dialog,
@@ -1040,19 +1030,17 @@ test.browser.stable(
       await useDefault.click();
       await expect(editor).toHaveValue('');
       await expect(useDefault).toBeDisabled();
-      await expect(save).toBeEnabled();
+
       await expectScreenshot(`instructions-default-draft-${index}`, {
         target: dialog,
         ready: () => expect(editor).toHaveValue('')
       });
     }
 
-    await save.click();
-    await expect(dialog.getByRole('status')).toHaveText(copy.AgentRulesSaved);
-    await expect(save).toBeDisabled();
+    await expect(section).toHaveAttribute('aria-busy', 'false');
     await expectScreenshot('instructions-defaults-saved', {
       target: dialog,
-      ready: () => expect(dialog.getByRole('status')).toHaveText(copy.AgentRulesSaved)
+      ready: () => expect(section).toHaveAttribute('aria-busy', 'false')
     });
     await expectAccessibility('instructions-restored');
     await page.reload();
@@ -1067,7 +1055,7 @@ test.browser.stable(
 
       await expect(editor).toHaveValue('');
       await expect(useDefault).toBeDisabled();
-      await expect(save).toBeDisabled();
+      await expect(section).toHaveAttribute('aria-busy', 'false');
       await expectScreenshot(`instructions-default-reloaded-${index}`, {
         target: dialog,
         ready: () => expect(editor).toHaveValue('')
@@ -1144,7 +1132,10 @@ test.browser.stable(
 
       for (const [index, value] of selection.values.entries()) {
         await selection.control.click();
-        await page.getByRole('option', { name: value, exact: true }).click();
+        const popup = page.locator('.study-select-popup[data-open]');
+
+        await expect(popup).toHaveCSS('opacity', '1');
+        await popup.getByRole('option', { name: value, exact: true }).click();
         await expect(selection.control).toHaveText(value);
         await expect(selection.control).toBeEnabled();
         await expectScreenshot(`quiz-selection-${controlIndex}-${index}`, {
@@ -2372,6 +2363,16 @@ test.browser.stable(
     await expect(
       dialog.getByRole('button', { name: importedTheme.name, exact: true })
     ).toBeVisible();
+    const savedNotice = page.locator('.ui-toast').filter({ hasText: copy.Saved });
+
+    await expect(savedNotice).toBeVisible();
+    await savedNotice.hover();
+    await expectScreenshot('theme-save-notification', {
+      target: 'viewport',
+      ready: () => expect(savedNotice).toBeVisible()
+    });
+    await savedNotice.getByRole('button', { name: copy.Close, exact: true }).click();
+    await expect(savedNotice).toBeHidden();
     await expectScreenshot('theme-file-imported', {
       target: dialog,
       ready: () =>

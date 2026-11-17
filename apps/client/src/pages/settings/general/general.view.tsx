@@ -47,7 +47,6 @@ export function GeneralSettingsView({
           {showReplay && <ReplayOnboarding />}
         </Settings.Group>
       )}
-      {model.pending && <Loading label={t('Saving')} />}
     </Settings.Section>
   );
 }

@@ -159,16 +159,19 @@ function Section({
   actions,
   children,
   className,
-  variant = 'default'
+  variant = 'default',
+  busy
 }: {
   title?: string;
   actions?: ReactNode;
   children: ReactNode;
   className?: string;
   variant?: 'default' | 'color-scheme' | 'theme-library' | 'interface';
+  busy?: boolean;
 }) {
   return (
     <section
+      aria-busy={busy}
       className={cn('settings-section', variant !== 'default' && `settings-${variant}`, className)}
     >
       {(title || actions) && (

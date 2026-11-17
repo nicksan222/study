@@ -45,13 +45,11 @@ test.unit.stable(
     for (const value of ['', '0', '1.5', '9']) {
       act(() => result.current.active.setValue(value));
       expect(result.current.active.valid).toBe(false);
-      act(() => result.current.active.save());
     }
 
     for (const value of ['', '-1', '2.5', '65']) {
       act(() => result.current.queued.setValue(value));
       expect(result.current.queued.valid).toBe(false);
-      act(() => result.current.queued.save());
     }
 
     expect(api.save).not.toHaveBeenCalled();
@@ -64,16 +62,15 @@ test.unit.stable(
     const { result } = setup({ rpcTestTransport, renderHook });
 
     await waitFor(() => expect(result.current.queued.value).toBe('16'));
-    act(() => result.current.active.setValue('8'));
+    act(() => result.current.active.setValue(''));
     act(() => result.current.queued.setValue('0'));
     api.load.mockResolvedValue({ maxConcurrentAi: 2, maxQueuedAi: 0 });
-    act(() => result.current.queued.save());
     await waitFor(() =>
       expect(api.save).toHaveBeenCalledWith({ maxConcurrentAi: 2, maxQueuedAi: 0 })
     );
     await waitFor(() => expect(result.current.data?.maxQueuedAi).toBe(0));
     expect(result.current.queued.changed).toBe(false);
-    expect(result.current.active.value).toBe('8');
+    expect(result.current.active.value).toBe('');
   }
 );
 
@@ -83,13 +80,12 @@ test.unit.stable(
     const { result } = setup({ rpcTestTransport, renderHook });
 
     await waitFor(() => expect(result.current.active.value).toBe('2'));
-    act(() => result.current.active.save());
     expect(api.save).not.toHaveBeenCalled();
-    api.save.mockRejectedValue(new Error('offline'));
+    api.save.mockRejectedValueOnce(new Error('offline'));
     act(() => result.current.active.setValue('1'));
-    act(() => result.current.active.save());
     await waitFor(() => expect(result.current.error).toBe(true));
     expect(result.current.active.value).toBe('1');
+    api.load.mockResolvedValue({ maxConcurrentAi: 1, maxQueuedAi: 16 });
     act(() => result.current.retry());
     await waitFor(() => expect(result.current.error).toBe(false));
   }

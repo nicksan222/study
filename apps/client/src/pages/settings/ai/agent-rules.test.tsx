@@ -57,7 +57,7 @@ function mount({
 }
 
 test.unit.stable(
-  'keeps drafts when switching tasks and saves all categories explicitly',
+  'keeps drafts when switching tasks and automatically saves each category',
   async ({ userEvent, screen, expect, fireEvent, waitFor, rpcTestTransport, render }) => {
     mount({ rpcTestTransport, render });
     const user = userEvent.setup();
@@ -65,23 +65,21 @@ test.unit.stable(
 
     expect(pages).toHaveAttribute('maxlength', '8000');
     fireEvent.change(pages, { target: { value: 'Use clear headings.' } });
-    expect(api.save).not.toHaveBeenCalled();
+
     await user.click(screen.getByRole('combobox', { name: 'AgentRulesTask' }));
     await user.click(await screen.findByRole('option', { name: 'AgentRulesTitles' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'AgentRulesTitles' }), {
       target: { value: 'Use short titles.' }
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() =>
-      expect(api.save).toHaveBeenCalledExactlyOnceWith({
+      expect(api.save).toHaveBeenLastCalledWith({
         ...defaultAgentRules,
         pages: 'Use clear headings.',
         titles: 'Use short titles.'
       })
     );
-    expect(await screen.findByText('AgentRulesSaved')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'AgentRulesUseDefault' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() =>
       expect(api.save).toHaveBeenLastCalledWith({
         ...defaultAgentRules,
@@ -93,17 +91,17 @@ test.unit.stable(
 
 test.unit.stable(
   'preserves unsaved text after failure and retries the same change',
-  async ({ screen, fireEvent, expect, rpcTestTransport, render }) => {
+  async ({ screen, fireEvent, expect, waitFor, rpcTestTransport, render }) => {
     api.save.mockRejectedValueOnce(new Error('Unavailable'));
     mount({ rpcTestTransport, render });
     const input = await screen.findByRole('textbox', { name: 'AgentRulesPages' });
 
     fireEvent.change(input, { target: { value: 'Keep examples.' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByText('AgentRulesSaveFailed')).toBeInTheDocument();
     expect(input).toHaveValue('Keep examples.');
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    expect(await screen.findByText('AgentRulesSaved')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(screen.queryByText('AgentRulesSaveFailed')).toBeNull());
+    expect(api.save).toHaveBeenLastCalledWith({ ...defaultAgentRules, pages: 'Keep examples.' });
   }
 );
 
