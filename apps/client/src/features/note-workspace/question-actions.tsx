@@ -1,6 +1,6 @@
 import type { VersionId, ChatMessage } from '@study/contracts';
 import { AnswerQuestionIcon, InsertAnswerIcon, SaveAnswerIcon } from '@study/icons';
-import { IconButton, Tooltip, TooltipTrigger, TooltipPopup } from '@study/ui';
+import { IconButton, Notebook, Tooltip, TooltipTrigger, TooltipPopup } from '@study/ui';
 import type { ReactNode } from 'react';
 
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
@@ -97,6 +97,7 @@ function QuestionKindAction({ model }: { model: Model }) {
         ) : (
           <AnswerQuestionIcon size={15} aria-hidden="true" />
         )}
+        <Notebook.ActionLabel>{label}</Notebook.ActionLabel>
       </TooltipTrigger>
       <TooltipPopup>{model.isQuestion ? label : t('NoteMarkAsQuestionHelp')}</TooltipPopup>
     </Tooltip>
@@ -161,6 +162,7 @@ function QuestionToolbarButton({
         }
       >
         {children}
+        <Notebook.ActionLabel>{label}</Notebook.ActionLabel>
       </TooltipTrigger>
       <TooltipPopup>{label}</TooltipPopup>
     </Tooltip>

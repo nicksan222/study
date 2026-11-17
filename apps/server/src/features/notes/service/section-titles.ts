@@ -15,6 +15,7 @@ function requestStillOwned(tx: Transaction, correlationId: string, eventId: stri
   const runs = Workflows.correlatedExecutions(tx, correlationId, eventId);
 
   // An undispatched receipt, pending retry or terminal failure keeps its original owner.
+  // Retain cancellation too: reading a note must not restart work the user stopped.
   return (
     !runs.length || runs.some((run) => run.status !== 'completed' || run.outcome !== 'success')
   );

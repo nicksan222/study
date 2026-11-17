@@ -383,6 +383,34 @@ test.unit.stable(
 );
 
 test.unit.stable(
+  'closes desktop navigation when a phone enters Notes from another route',
+  async ({ vi, userEvent, screen, waitFor, expect, render, rpcTestTransport }) => {
+    vi.stubGlobal('innerWidth', 390);
+    history.replaceState(null, '', '/projects');
+
+    try {
+      const fixture = sidebarTransport({ rpcTestTransport });
+
+      configureRpcTransport(fixture.transport);
+      render(<App transport={fixture.transport} />);
+      const notes = (await screen.findAllByRole('link')).find(
+        (link) => link.getAttribute('href') === '/notes'
+      );
+
+      expect(notes).toBeDefined();
+      await userEvent.setup().click(notes!);
+      await waitFor(() => expect(location.pathname).toBe('/notes'));
+      expect(await screen.findByRole('button', { name: en.ToggleSidebar })).toHaveAttribute(
+        'aria-expanded',
+        'false'
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  }
+);
+
+test.unit.stable(
   'creates a subject from the toolbar and selects it',
   async ({ userEvent, screen, expect, waitFor, render, rpcTestTransport }) => {
     api.createProject.mockResolvedValue({ ...subjects[0], id: 3n, name: 'Physics' });

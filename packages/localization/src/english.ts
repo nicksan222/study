@@ -777,6 +777,7 @@ export const english = Object.freeze({
   NoteRunDetails: 'Run details and captured context',
   NoteRunRetired: 'This run was retired. Its content is no longer available.',
   NoteItemActions: 'Message actions',
+  NoteAiAvailability: 'AI availability',
   NoteEditHelp: 'Make changes to this note, then save when you are ready.',
   NoteActivateHelp: 'Make this saved version current. The other versions remain available.',
   AuthoredPageDelete: 'Remove page content',

@@ -794,6 +794,7 @@ export const italian = Object.freeze({
   NoteRunDetails: 'Dettagli e contesto acquisito',
   NoteRunRetired: 'Questa elaborazione è stata ritirata. Il contenuto non è più disponibile.',
   NoteItemActions: 'Azioni sul messaggio',
+  NoteAiAvailability: 'Disponibilità IA',
   NoteEditHelp: 'Modifica questo appunto, poi salva quando sei pronto.',
   NoteActivateHelp: 'Rendi attuale questa versione salvata. Le altre versioni restano disponibili.',
   AuthoredPageDelete: 'Rimuovi il contenuto della pagina',

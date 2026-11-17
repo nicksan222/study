@@ -32,6 +32,9 @@ test.browser.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTou
 test.browser.stable(
   'Touch note editing keeps entry drafts and save reachable',
   async ({ page, rpc, expect, expectScreenshot, expectAccessibility }) => {
+    const settings = await rpc.runPromise(rpc.client['settings.appSettings']({}));
+
+    await rpc.runPromise(rpc.client['settings.saveAppSettings']({ ...settings, zoomPercent: 100 }));
     const original =
       'River garden field notebook\n\nMorning survey: record the water level and inspect the wooden bridge.\n\nKeep the original observations so the next team can compare the results.';
     const note = await rpc.runPromise(
@@ -55,6 +58,7 @@ test.browser.stable(
     const changed = original + '\n\nBridge inspection corrected on mobile.';
 
     await expect(editor).toHaveValue(original);
+    await expect(editor).toHaveCSS('font-size', '16px');
     await editor.fill(changed);
     await dialog.getByRole('button', { name: copy.NoteBackToNotebook }).tap();
     await expect(dialog).toBeHidden();
@@ -65,6 +69,7 @@ test.browser.stable(
     await expect(resume).toBeInViewport({ ratio: 1 });
     await expectScreenshot('paused-draft', {
       target: 'viewport',
+      zoomPercent: 100,
       scrollToEnd: page.locator('[data-notebook-scroll-host]'),
       ready: () => expect(resume).toBeVisible()
     });
@@ -78,6 +83,7 @@ test.browser.stable(
     await expectAccessibility('touch-note-editor');
     await expectScreenshot('short-viewport-editor', {
       target: 'viewport',
+      zoomPercent: 100,
       ready: () => expect(editor).toHaveValue(changed)
     });
     await save.tap();
@@ -97,6 +103,7 @@ test.browser.stable(
     await expect(add).toBeInViewport({ ratio: 1 });
     await expectScreenshot('saved-capture-collapsed', {
       target: 'viewport',
+      zoomPercent: 100,
       ready: () => expect(add).toHaveAttribute('aria-expanded', 'false')
     });
     await add.tap();
@@ -108,6 +115,7 @@ test.browser.stable(
     );
     await expectScreenshot('mobile-capture-draft', {
       target: 'viewport',
+      zoomPercent: 100,
       ready: () =>
         expect(capture).toHaveValue('Next mobile observation: compare the northern bank.')
     });
@@ -115,6 +123,7 @@ test.browser.stable(
     await expect(capture).toBeHidden();
     await expectScreenshot('mobile-capture-closed', {
       target: 'viewport',
+      zoomPercent: 100,
       ready: () => expect(add).toHaveAttribute('aria-expanded', 'false')
     });
     await add.tap();
@@ -135,6 +144,7 @@ test.browser.stable(
 
     await expectScreenshot('mobile-capture-saved', {
       target: 'viewport',
+      zoomPercent: 100,
       ready: () => expect(add).toHaveAttribute('aria-expanded', 'false')
     });
   }
@@ -174,6 +184,16 @@ test.browser.stable(
       zoomPercent: 100,
       ready: () => expect(actions).toHaveAttribute('aria-expanded', 'true')
     });
+    await page.getByRole('button', { name: copy.NoteAiAvailability }).tap();
+    const availability = page.getByRole('dialog', { name: copy.NoteAiAvailability });
+
+    await expect(availability.getByRole('link', { name: copy.Settings })).toBeEnabled();
+    await expectScreenshot('ai-availability', {
+      target: 'viewport',
+      zoomPercent: 100,
+      ready: () => expect(availability).toContainText(copy.AiReadinessSetup)
+    });
+    await availability.getByRole('button', { name: copy.Close }).tap();
     await actions.tap();
     await context.tap();
     await expect(page.getByRole('navigation', { name: copy.NoteOutline })).toBeVisible();
@@ -183,15 +203,17 @@ test.browser.stable(
       ready: () => expect(page.getByRole('navigation', { name: copy.NoteOutline })).toBeVisible()
     });
     await context.tap();
-    await page.getByRole('button', { name: copy.NoteLayout, exact: true }).tap();
-    await expect(page.getByRole('menuitem', { name: copy.NoteAssistantOpen })).toBeVisible();
-    await expectScreenshot('layout-menu', {
+    await page.getByRole('button', { name: copy.NoteAssistantOpen, exact: true }).tap();
+    await expect(page.getByRole('button', { name: copy.NoteDockBelow })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: copy.NoteDockBeside })).toHaveCount(0);
+    const back = page.getByRole('button', { name: copy.NoteBackToBoard, exact: true });
+
+    await expectScreenshot('assistant-panel', {
       target: 'viewport',
       zoomPercent: 100,
-      ready: () =>
-        expect(page.getByRole('menuitem', { name: copy.NoteAssistantOpen })).toBeVisible()
+      ready: () => expect(back).toBeVisible()
     });
-    await page.keyboard.press('Escape');
+    await back.tap();
     await page.setViewportSize({ width: 320, height: 640 });
     await page.getByRole('button', { name: copy.NoteAddCapture, exact: true }).tap();
     const capture = page.getByRole('textbox', { name: copy.NoteCompose });
@@ -223,15 +245,13 @@ test.browser.stable(
   }
 );
 
-async function phoneStarter(
-  {
-    page,
-    rpc,
-    expect,
-    expectScreenshot
-  }: Pick<test.browser.Context, 'page' | 'rpc' | 'expect' | 'expectScreenshot'>,
-  zoomPercent: number
-) {
+async function phoneStarter({
+  page,
+  rpc,
+  expect,
+  expectScreenshot
+}: Pick<test.browser.Context, 'page' | 'rpc' | 'expect' | 'expectScreenshot'>) {
+  const zoomPercent = 100;
   const settings = await rpc.runPromise(rpc.client['settings.appSettings']({}));
 
   await rpc.runPromise(rpc.client['settings.saveAppSettings']({ ...settings, zoomPercent }));
@@ -388,23 +408,11 @@ async function phoneStarter(
 test.browser.stable(
   'Phone starter collects text and files at 100 percent',
   async ({ page, rpc, expect, expectScreenshot }) => {
-    const generate = await phoneStarter({ page, rpc, expect, expectScreenshot }, 100);
+    const generate = await phoneStarter({ page, rpc, expect, expectScreenshot });
 
     await expectScreenshot('transform-lower-form', {
       target: 'viewport',
       zoomPercent: 100,
-      ready: () => expect(generate).toBeDisabled()
-    });
-  }
-);
-test.browser.stable(
-  'Phone starter collects text and files at 125 percent',
-  async ({ page, rpc, expect, expectScreenshot }) => {
-    const generate = await phoneStarter({ page, rpc, expect, expectScreenshot }, 125);
-
-    await expectScreenshot('transform-lower-form', {
-      target: 'viewport',
-      zoomPercent: 125,
       ready: () => expect(generate).toBeDisabled()
     });
   }

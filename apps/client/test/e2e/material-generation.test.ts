@@ -877,9 +877,17 @@ test.browser.stable(
     await target.getByRole('button', { name: copy.AgentRunDetails }).first().click();
     await expect(target.getByRole('textbox', { name: copy.AssistantToolInput })).toBeVisible();
     await target.getByRole('button', { name: copy.AgentRunDetails }).first().click();
+    await target.getByRole('button', { name: copy.Close }).click();
+    await study.settings({ zoomPercent: 100 });
+    await page.reload();
+    await page
+      .getByText('Cell division exhausted repair', { exact: true })
+      .click({ button: 'right' });
+    await page.getByRole('menuitem', { name: copy.AgentActivityDetails }).click();
     await page.setViewportSize({ width: 390, height: 844 });
     await expectScreenshot('failed-inspector-narrow', {
       target,
+      zoomPercent: 100,
       ready: () => expect(root).toBeVisible()
     });
     await page.setViewportSize({ width: 2560, height: 1440 });
@@ -895,6 +903,7 @@ test.browser.stable(
     await page.setViewportSize({ width: 390, height: 844 });
     await expectScreenshot('failed-inspector-italian-light', {
       target: italian,
+      zoomPercent: 100,
       ready: () =>
         expect(
           italian.getByRole('button', {

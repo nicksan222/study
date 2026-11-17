@@ -6,13 +6,15 @@ import {
   RefineIcon,
   AcceptIcon,
   ArchiveIcon,
-  ConvertToTextIcon
+  ConvertToTextIcon,
+  InfoIcon
 } from '@study/icons';
 import type { StaticMessageKey } from '@study/localization';
 import {
   Button,
   ChatMessageActionToolbar,
   Dialog,
+  DialogTrigger,
   DialogPopup,
   DialogHeading,
   Loading,
@@ -178,6 +180,7 @@ function MessageToolbar({
         icon={<AcceptIcon size={15} aria-hidden="true" />}
       />
       <MessageConversionButton model={model} />
+      <MessageAvailability model={model} />
       {questionAction}
       <MessageArchiveButton model={model} />
       <MessageDeletion
@@ -189,6 +192,38 @@ function MessageToolbar({
         }
       />
     </ChatMessageActionToolbar>
+  );
+}
+
+function MessageAvailability({ model }: { model: MessageActionsModel }) {
+  const { t, readiness, conversion } = model;
+  const conversionNotice =
+    conversion.available && conversion.readiness !== 'ready' && conversion.readiness !== readiness;
+
+  if (readiness === 'ready' && !conversionNotice) return null;
+
+  return (
+    <Dialog>
+      <DialogTrigger
+        render={<Button size="icon-sm" variant="ghost-muted" />}
+        aria-label={t('NoteAiAvailability')}
+      >
+        <InfoIcon size={15} aria-hidden="true" />
+        <Notebook.ActionLabel>{t('NoteAiAvailability')}</Notebook.ActionLabel>
+      </DialogTrigger>
+      <DialogPopup closeLabel={t('Close')}>
+        <DialogHeading title={t('NoteAiAvailability')} density="compact" />
+        <WorkspaceSurface.ContextDialogBody>
+          <AiReadinessNotice state={readiness} />
+          {conversionNotice && (
+            <>
+              <Notebook.SectionTitle>{t('NoteConvertText')}</Notebook.SectionTitle>
+              <AiReadinessNotice state={conversion.readiness} />
+            </>
+          )}
+        </WorkspaceSurface.ContextDialogBody>
+      </DialogPopup>
+    </Dialog>
   );
 }
 

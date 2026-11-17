@@ -26,7 +26,7 @@ const original = [
 
 test.browser.stable(
   'Bilingual notes preserve Unicode edits search and locale changes',
-  async ({ page, expectScreenshot, expectAccessibility, expect }) => {
+  async ({ page, rpc, expectScreenshot, expectAccessibility, expect }) => {
     await page.goto('/notes');
     expect(page.viewportSize()).toEqual({ width: 2560, height: 1440 });
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
@@ -249,6 +249,12 @@ test.browser.stable(
       .getByRole('dialog', { name: italian.Settings })
       .getByRole('button', { name: italian.Close })
       .click();
+    const mobileSettings = await rpc.runPromise(rpc.client['settings.appSettings']({}));
+
+    await rpc.runPromise(
+      rpc.client['settings.saveAppSettings']({ ...mobileSettings, zoomPercent: 100 })
+    );
+    await page.reload();
     await localizedNotebook.locator('[data-role="user"]').hover();
     await page.getByRole('button', { name: italian.NoteEditNote }).click();
     const localizedEditor = page.getByRole('dialog', { name: italian.NoteEditNote });
@@ -263,6 +269,7 @@ test.browser.stable(
     await expectAccessibility('edit-note-italian-narrow');
     await expectScreenshot('editing-italian-narrow', {
       target: 'viewport',
+      zoomPercent: 100,
       ready: () => expect(localizedEditor.getByRole('textbox')).toHaveValue(content)
     });
     await page.setViewportSize({ width: 390, height: 520 });
@@ -276,6 +283,7 @@ test.browser.stable(
     await expect(mobileSave).toBeInViewport({ ratio: 1 });
     await expectScreenshot('editing-italian-short-viewport', {
       target: 'viewport',
+      zoomPercent: 100,
       ready: () => expect(mobileText).toHaveValue(content + '\n\nCorrezione dal telefono.')
     });
     await mobileSave.click();

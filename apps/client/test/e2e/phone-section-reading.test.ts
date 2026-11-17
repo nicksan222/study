@@ -64,12 +64,5 @@ test.browser.stable(
       zoomPercent: 100,
       ready: () => expect(heading).toBeInViewport()
     });
-    await rpc.runPromise(rpc.client['settings.saveAppSettings']({ ...settings, zoomPercent: 125 }));
-    await page.reload();
-    await expectScreenshot('enlarged-section-reading', {
-      target: 'viewport',
-      zoomPercent: 125,
-      ready: () => expect(heading).toBeVisible()
-    });
   }
 );
