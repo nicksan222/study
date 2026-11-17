@@ -183,6 +183,10 @@ const sections = [
     Icon: QuizSettingsIcon,
     keywords: [
       'QuizSettingsTitle',
+      'PracticeFeedbackTiming',
+      'PracticeFeedbackTimingHelp',
+      'PracticeFeedbackAtEnd',
+      'PracticeFeedbackImmediately',
       'QuizQuestionCount',
       'QuizQuestionKind',
       'QuizShuffleQuestions',

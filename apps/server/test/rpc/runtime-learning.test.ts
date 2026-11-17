@@ -1,4 +1,4 @@
-import { StudyRpc } from '@study/contracts';
+import { defaultQuizSettings, StudyRpc } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises open-answer grading over RPC while signed out or with sharing disabled.  │
@@ -82,15 +82,21 @@ for (const accountState of ['signed-out', 'not-shared'] as const)
                 }
               });
               const attempt = yield* client['learning.startQuiz']({
-                versionId: material.version.id
+                versionId: material.version.id,
+                configuration: { ...defaultQuizSettings, feedbackTiming: 'immediate' }
               });
               const questionId = attempt.questions[0]!.id;
 
-              yield* client['learning.answerQuestion']({
+              const answered = yield* client['learning.answerQuestion']({
                 attemptId: attempt.id,
                 questionId,
                 answer: { type: 'open', answer: 'Mitochondria' }
               });
+
+              assert.deepEqual(
+                answered.results?.map((result) => ({ score: result.score, text: result.feedback })),
+                [{ score: null, text: null }]
+              );
               yield* pollUntil(
                 Effect.sync(
                   () =>
@@ -104,12 +110,22 @@ for (const accountState of ['signed-out', 'not-shared'] as const)
                   message: 'grading should wait durably for model setup'
                 }
               );
-              yield* client['learning.gradeResponse']({
+              const graded = yield* client['learning.gradeResponse']({
                 attemptId: attempt.id,
                 questionId,
                 score: 1,
                 feedback: 'Reviewed manually'
               });
+
+              assert.deepEqual(
+                graded.results?.map((result) => ({ score: result.score, text: result.feedback })),
+                [
+                  {
+                    score: 1,
+                    text: 'Reviewed manually'
+                  }
+                ]
+              );
               const completed = yield* client['learning.finishQuiz']({ attemptId: attempt.id });
 
               assert.ok(completed.status === 'completed');

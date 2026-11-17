@@ -72,12 +72,8 @@ export function makeStartQuiz(resources: StoreResources) {
       .run();
   }
 
-  /** Captures the configured question selection and presentation atomically. */
-  const startQuiz = (input: Input) => {
-    published(input.versionId, 'quiz');
-
-    const configuration = input.configuration;
-    let selected = questions(input.versionId).filter(
+  function selectQuestions(versionId: Input['versionId'], configuration: Input['configuration']) {
+    let selected = questions(versionId).filter(
       (question) =>
         !configuration ||
         configuration.questionKind === 'all' ||
@@ -90,6 +86,16 @@ export function makeStartQuiz(resources: StoreResources) {
 
     if (configuration) selected = selected.slice(0, configuration.questionCount);
 
+    return selected;
+  }
+
+  /** Captures the configured question selection and presentation atomically. */
+  const startQuiz = (input: Input) => {
+    published(input.versionId, 'quiz');
+
+    const configuration = input.configuration;
+    const selected = selectQuestions(input.versionId, configuration);
+
     if (!selected.length) invalid('empty quiz selection');
 
     const row = requireRow(
@@ -98,6 +104,7 @@ export function makeStartQuiz(resources: StoreResources) {
         .values({
           version_id: input.versionId,
           status: 'in_progress',
+          feedback_timing: configuration?.feedbackTiming ?? 'end',
           started_at: now(clock)
         })
         .returning()

@@ -17,6 +17,7 @@ import { PracticeStore } from '#server/features/learning/store/practice';
 import { PracticeControlStore } from '#server/features/learning/store/practice-controls';
 import { PracticeSlotStore } from '#server/features/learning/store/practice-slots';
 import { Materials } from '#server/features/materials/index';
+import { Settings } from '#server/features/settings/index';
 
 export function* learningPracticeOperations() {
   const readPracticeStore = yield* useStore(PracticeStore);
@@ -26,6 +27,7 @@ export function* learningPracticeOperations() {
   const readPracticeControlStore = yield* useStore(PracticeControlStore);
 
   const materials = yield* Materials;
+  const settings = yield* Settings;
 
   const requestSlot = (
     tx: Transaction,
@@ -78,10 +80,15 @@ export function* learningPracticeOperations() {
 
       return yield* readPracticeStore.practice(input);
     }),
-    publishPracticeSlot: (input: typeof publishPracticeSlotInputSchema.Type) =>
-      publicationTransaction((tx) => {
-        return tx.store(PracticeStore).publish(input);
-      }),
+    publishPracticeSlot: Effect.fnUntraced(function* (
+      input: typeof publishPracticeSlotInputSchema.Type
+    ) {
+      const configuration = yield* settings.quizSettings();
+
+      return yield* publicationTransaction((tx) =>
+        tx.store(PracticeStore).publish({ ...input, feedbackTiming: configuration.feedbackTiming })
+      );
+    }),
     retryPracticeQuestion: (input: typeof retryPracticeQuestionInputSchema.Type) =>
       transaction((tx) => {
         const result = tx.store(PracticeStore).retry(input);

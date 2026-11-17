@@ -214,6 +214,9 @@ export const material_quiz_attempts = defineTable({
 })(
   'material_quiz_attempts',
   {
+    feedback_timing: text({ enum: ['end', 'immediate'] })
+      .notNull()
+      .default('end'),
     id: integer().$type<QuizAttemptId>().primaryKey({ autoIncrement: true }),
     version_id: integer().$type<MaterialVersionId>().notNull(),
     status: text({ enum: ['in_progress', 'completed'] }).notNull(),

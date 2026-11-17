@@ -233,6 +233,8 @@ const quizAttemptCompletedQuestionSchema = Schema.Union([
 ]);
 
 export const quizAttemptInProgressSchema = Schema.Struct({
+  results: Schema.optional(Schema.mutable(Schema.Array(quizAttemptCompletedQuestionSchema))),
+  feedbackTiming: Schema.optional(Schema.Literals(['end', 'immediate'])),
   practiceSlotId: Schema.optional(Schema.String.check(Schema.isUUID())),
   id: quizAttemptIdSchema,
   versionId: materialVersionIdSchema,

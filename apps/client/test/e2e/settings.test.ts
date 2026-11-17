@@ -1073,6 +1073,10 @@ test.browser.stable(
     const navigation = dialog.getByRole('navigation', { name: copy.Settings });
 
     await navigation.getByRole('button', { name: copy.SettingsQuizzes, exact: true }).click();
+    const feedback = dialog.getByRole('combobox', {
+      name: copy.PracticeFeedbackTiming,
+      exact: true
+    });
     const count = dialog.getByRole('combobox', { name: copy.QuizQuestionCount, exact: true });
     const kind = dialog.getByRole('combobox', { name: copy.QuizQuestionKind, exact: true });
     const choices = dialog.getByRole('combobox', { name: copy.QuizGenerateChoices, exact: true });
@@ -1086,6 +1090,7 @@ test.browser.stable(
       exact: true
     });
 
+    await expect(feedback).toHaveText(copy.PracticeFeedbackAtEnd);
     await expect(count).toHaveText('10');
     await expect(kind).toHaveText(copy.QuizKindAll);
     await expect(choices).toHaveText('4');
@@ -1117,6 +1122,14 @@ test.browser.stable(
           copy.QuizDifficultyEasy,
           copy.QuizDifficultyChallenging,
           copy.QuizDifficultyBalanced
+        ]
+      },
+      {
+        control: feedback,
+        values: [
+          copy.PracticeFeedbackImmediately,
+          copy.PracticeFeedbackAtEnd,
+          copy.PracticeFeedbackImmediately
         ]
       }
     ];
@@ -1167,6 +1180,7 @@ test.browser.stable(
     await page.reload();
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     await navigation.getByRole('button', { name: copy.SettingsQuizzes, exact: true }).click();
+    await expect(feedback).toHaveText(copy.PracticeFeedbackImmediately);
     await expect(count).toHaveText('6');
     await expect(kind).toHaveText(copy.QuizKindAll);
     await expect(choices).toHaveText('4');

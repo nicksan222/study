@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useId } from 'react';
-import type { ReactNode, KeyboardEvent } from 'react';
+import type { ReactNode, KeyboardEvent, RefObject } from 'react';
 
 import { Button } from '#ui/components/button.tsx';
 import { Input } from '#ui/components/input.tsx';
@@ -9,7 +9,12 @@ import { SelectControl } from '#ui/components/select-control.tsx';
 import { Textarea } from '#ui/components/textarea.tsx';
 
 import { usePracticePresentation } from './practice-presentation';
-import type { PracticeQuestionModel, PracticeAnswer } from './practice-question-model';
+import type {
+  PracticeQuestionModel,
+  PracticeAnswer,
+  PracticeResultQuestionModel
+} from './practice-question-model';
+import { QuizQuestionFeedbackView } from './quiz-results-view';
 
 type MatchingTermId = string;
 
@@ -34,7 +39,8 @@ export function QuizQuestionView({
   error,
   blocked = false,
   notice,
-  autoFocus = true
+  autoFocus = true,
+  response
 }: {
   question: Question;
   pending: boolean;
@@ -46,14 +52,103 @@ export function QuizQuestionView({
   blocked?: boolean;
   notice?: ReactNode;
   autoFocus?: boolean;
+  response?: { result?: PracticeResultQuestionModel; next: () => void };
 }) {
   const { t } = usePracticePresentation();
-  const prompt = useRef<HTMLHeadingElement>(null);
   const questionId = useId();
+  const submitted = response !== undefined;
+  const { prompt, action } = useQuestionFocus(question.id, autoFocus, submitted, pending);
+  const {
+    text,
+    setText,
+    selected,
+    selectChoice,
+    associations,
+    associate,
+    clear,
+    order,
+    setOrder,
+    valid,
+    answer
+  } = useAnswerDraft(question);
+  const { locked, submittable, canContinue } = questionInteraction(
+    valid,
+    pending,
+    blocked,
+    submitted
+  );
 
-  useEffect(() => {
-    if (autoFocus) prompt.current?.focus();
-  }, [question.id, autoFocus]);
+  /** Trims text answers and submits a single valid response while no save is pending. */
+  function send() {
+    if (!submittable) return;
+
+    submit(answer());
+  }
+
+  const submitResponse = response?.next ?? send;
+
+  return (
+    <Practice.Question
+      data-reviewed={submitted}
+      onKeyDown={(event) => questionKey(event, question, locked, send, selectChoice)}
+      onSubmit={(event) => {
+        event.preventDefault();
+
+        submitResponse();
+      }}
+    >
+      <Practice.StageBody>
+        <Practice.Prompt id={questionId} ref={prompt} tabIndex={-1}>
+          {question.prompt}
+        </Practice.Prompt>
+        <Practice.Muted>{t(questionHint(question.kind))}</Practice.Muted>
+        <Practice.Answers disabled={locked} aria-labelledby={questionId}>
+          <AnswerEditor
+            question={question}
+            pending={locked}
+            result={response?.result}
+            text={text}
+            setText={setText}
+            selected={selected}
+            select={selectChoice}
+            associations={associations}
+            associate={associate}
+            clear={clear}
+            order={order}
+            setOrder={setOrder}
+            send={send}
+          />
+        </Practice.Answers>
+        {!submitted && notice}
+        {error}
+        <QuestionFeedback result={response?.result} />
+      </Practice.StageBody>
+      <QuestionFooter
+        previous={previous}
+        review={review}
+        last={last}
+        valid={canContinue}
+        pending={pending}
+        action={action}
+        next={response?.next}
+      />
+    </Practice.Question>
+  );
+}
+
+function questionInteraction(
+  valid: boolean,
+  pending: boolean,
+  blocked: boolean,
+  submitted: boolean
+) {
+  const locked = pending || submitted;
+  const canSend = valid && !blocked;
+
+  return { locked, submittable: canSend && !locked, canContinue: submitted || canSend };
+}
+
+function useAnswerDraft(question: Question) {
   const restored = restoredAnswer(question.answer);
   const [text, setText] = useState(restored.text);
   const [selected, setSelected] = useState(restored.selected);
@@ -68,59 +163,47 @@ export function QuizQuestionView({
     ]);
   }
 
-  /** Trims text answers and submits a single valid response while no save is pending. */
-  function send() {
-    if (!valid || pending || blocked) return;
-
-    submit(answerValue(question, text, selected, associations, order));
-  }
-
   const selectChoice = (id: QuizChoiceId) =>
     setSelected((previous) => toggleChoice(previous, id, question.kind !== 'multiple_choice'));
 
-  return (
-    <Practice.Question
-      onKeyDown={(event) => questionKey(event, question, pending, send, selectChoice)}
-      onSubmit={(event) => {
-        event.preventDefault();
-        send();
-      }}
-    >
-      <Practice.StageBody>
-        <Practice.Prompt id={questionId} ref={prompt} tabIndex={-1}>
-          {question.prompt}
-        </Practice.Prompt>
-        <Practice.Muted>{t(questionHint(question.kind))}</Practice.Muted>
-        <Practice.Answers disabled={pending} aria-labelledby={questionId}>
-          <AnswerEditor
-            question={question}
-            pending={pending}
-            text={text}
-            setText={setText}
-            selected={selected}
-            select={selectChoice}
-            associations={associations}
-            associate={associate}
-            clear={(termId) =>
-              setAssociations((previous) => previous.filter((a) => a.termId !== termId))
-            }
-            order={order}
-            setOrder={setOrder}
-            send={send}
-          />
-        </Practice.Answers>
-        {notice}
-        {error}
-      </Practice.StageBody>
-      <QuestionFooter
-        previous={previous}
-        review={review}
-        last={last}
-        valid={valid && !blocked}
-        pending={pending}
-      />
-    </Practice.Question>
-  );
+  const clear = (termId: MatchingTermId) =>
+    setAssociations((previous) => previous.filter((association) => association.termId !== termId));
+
+  return {
+    text,
+    setText,
+    selected,
+    selectChoice,
+    associations,
+    associate,
+    clear,
+    order,
+    setOrder,
+    valid,
+    answer: () => answerValue(question, text, selected, associations, order)
+  };
+}
+
+function useQuestionFocus(id: bigint, autoFocus: boolean, submitted: boolean, pending: boolean) {
+  const prompt = useRef<HTMLHeadingElement>(null);
+  const action = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (submitted && !pending) action.current?.focus({ preventScroll: true });
+  }, [submitted, pending]);
+  useEffect(() => {
+    if (autoFocus) prompt.current?.focus();
+  }, [id, autoFocus]);
+
+  return { prompt, action };
+}
+
+function QuestionFeedback({ result }: { result?: PracticeResultQuestionModel }) {
+  return result ? (
+    <Practice.Feedback>
+      <QuizQuestionFeedbackView question={result} />
+    </Practice.Feedback>
+  ) : null;
 }
 
 function restoredAnswer(answer: Question['answer']) {
@@ -189,13 +272,17 @@ function QuestionFooter({
   review,
   last,
   valid,
-  pending
+  pending,
+  action,
+  next
 }: {
   previous?: () => void;
   review?: () => void;
   last: boolean;
   valid: boolean;
   pending: boolean;
+  action: RefObject<HTMLButtonElement | null>;
+  next?: () => void;
 }) {
   const { t } = usePracticePresentation();
 
@@ -221,9 +308,11 @@ function QuestionFooter({
         </Practice.MutedText>
       </Practice.FooterContext>
       <NextButton
-        type="submit"
+        ref={action}
+        type={next ? 'button' : 'submit'}
+        onClick={next}
         disabled={!valid || pending}
-        label={t(pending ? 'PracticeSaving' : 'SubmitAnswer')}
+        label={t(pending ? 'PracticeSaving' : next ? 'PracticeNextQuestion' : 'SubmitAnswer')}
       ></NextButton>
     </Practice.StageFooter>
   );
@@ -254,8 +343,10 @@ function MatchingAnswers({
   pending,
   associations,
   associate,
-  clear
+  clear,
+  result
 }: {
+  result?: PracticeResultQuestionModel;
   question: Extract<Question, { kind: 'matching' }>;
   pending: boolean;
   associations: Extract<Answer, { type: 'matching' }>['associations'];
@@ -267,7 +358,16 @@ function MatchingAnswers({
   return (
     <>
       {question.terms.map((term) => (
-        <Practice.MatchingRow key={term.id}>
+        <Practice.MatchingRow
+          key={term.id}
+          data-tone={
+            result?.kind === 'matching'
+              ? result.pairs.find((pair) => pair.termId === term.id)?.score === 1
+                ? 'correct'
+                : 'incorrect'
+              : undefined
+          }
+        >
           <span>{term.text}</span>
           <SelectControl
             optionText="wrap"
@@ -380,8 +480,10 @@ function choiceText(
 function ChoiceAnswers({
   question,
   selected,
-  select
+  select,
+  result
 }: {
+  result?: PracticeResultQuestionModel;
   question: Extract<Question, { choices: unknown }>;
   selected: QuizChoiceId[];
   select: (id: QuizChoiceId) => void;
@@ -396,6 +498,16 @@ function ChoiceAnswers({
           text={choiceText(t, question.kind, choice.text)}
           number={index + 1}
           selected={selected.includes(choice.id)}
+          tone={choiceTone(result, choice.id, selected)}
+          status={
+            result &&
+            'choices' in result &&
+            result.choices.find((item) => item.id === choice.id)?.isCorrect
+              ? t('ReaderCorrectAnswer')
+              : result && selected.includes(choice.id)
+                ? t('YourAnswer')
+                : undefined
+          }
           type={question.kind === 'multiple_choice' ? 'checkbox' : 'radio'}
           name="answer"
           value={String(choice.id)}
@@ -410,6 +522,7 @@ function ChoiceAnswers({
 function AnswerEditor({
   question,
   pending,
+  result,
   text,
   setText,
   selected,
@@ -423,6 +536,7 @@ function AnswerEditor({
 }: {
   question: Question;
   pending: boolean;
+  result?: PracticeResultQuestionModel;
   text: string;
   setText: (text: string) => void;
   selected: QuizChoiceId[];
@@ -440,7 +554,8 @@ function AnswerEditor({
     return (
       <Practice.Ordering
         label={t('YourAnswer')}
-        items={order.map((id) => ({
+        items={order.map((id, position) => ({
+          tone: orderingTone(result, id, position),
           key: String(id),
           text: question.items.find((item) => item.id === id)!.text
         }))}
@@ -467,11 +582,46 @@ function AnswerEditor({
         associations={associations}
         associate={associate}
         clear={clear}
+        result={result}
       />
     );
 
   if ('choices' in question)
-    return <ChoiceAnswers question={question} selected={selected} select={select} />;
+    return (
+      <ChoiceAnswers question={question} selected={selected} select={select} result={result} />
+    );
 
-  return <TextAnswer kind={question.kind} text={text} setText={setText} send={send} />;
+  return (
+    <div data-tone={textTone(result)}>
+      <TextAnswer kind={question.kind} text={text} setText={setText} send={send} />
+    </div>
+  );
+}
+
+function choiceTone(
+  result: PracticeResultQuestionModel | undefined,
+  id: bigint,
+  selected: bigint[]
+) {
+  if (!result || !('choices' in result)) return undefined;
+
+  if (result.choices.find((choice) => choice.id === id)?.isCorrect) return 'correct' as const;
+
+  return selected.includes(id) ? ('incorrect' as const) : undefined;
+}
+
+function orderingTone(
+  result: PracticeResultQuestionModel | undefined,
+  id: bigint,
+  position: number
+) {
+  if (result?.kind !== 'ordering') return undefined;
+
+  return result.correctItemIds[position] === id ? ('correct' as const) : ('incorrect' as const);
+}
+
+function textTone(result: PracticeResultQuestionModel | undefined) {
+  if (result?.score == null) return undefined;
+
+  return result.score === 1 ? 'correct' : 'incorrect';
 }

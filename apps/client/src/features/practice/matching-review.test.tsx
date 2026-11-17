@@ -15,7 +15,7 @@ const x = '33333333-3333-4333-8333-333333333333';
 const y = '44444444-4444-4444-8444-444444444444';
 
 test.unit.stable(
-  'matching review labels selected and correct associations for each term',
+  'matching review shows corrections only for mismatched associations',
   ({ expect, render, screen, within }) => {
     const attempt = Schema.decodeUnknownSync(quizAttemptCompletedSchema)({
       id: 1n,
@@ -63,7 +63,7 @@ test.unit.stable(
 
     if (question.kind !== 'matching') throw Error('wrong fixture');
 
-    render(
+    const view = render(
       <ClientPracticePresentation>
         <MatchingReview question={question} />
       </ClientPracticePresentation>
@@ -75,5 +75,22 @@ test.unit.stable(
     expect(within(nucleus).getByText('Builds proteins')).toBeInTheDocument();
     expect(within(nucleus).getByText('Stores DNA')).toBeInTheDocument();
     expect(within(nucleus).getByText(catalogs.english.VerdictIncorrect)).toBeInTheDocument();
+    const corrected = {
+      ...question,
+      score: 1,
+      answer: {
+        type: 'matching' as const,
+        associations: question.pairs.map(({ termId, definitionId }) => ({ termId, definitionId }))
+      },
+      pairs: question.pairs.map((pair) => ({ ...pair, score: 1 }))
+    };
+
+    view.rerender(
+      <ClientPracticePresentation>
+        <MatchingReview question={corrected} />
+      </ClientPracticePresentation>
+    );
+    expect(screen.getAllByText('Stores DNA')).toHaveLength(1);
+    expect(screen.getAllByText('Builds proteins')).toHaveLength(1);
   }
 );
