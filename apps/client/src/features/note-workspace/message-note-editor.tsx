@@ -24,6 +24,17 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
       richSelection.current = selection.getRangeAt(0).cloneRange();
   };
   const pause = () => {
+    // Native caret scrolling can precede its queued scroll/select events. Capture
+    // the actual position before closing instead of relying on those events.
+    if (body.current) position.current.scroll = body.current.scrollTop;
+
+    const input = body.current?.querySelector('textarea');
+
+    if (input) {
+      position.current.start = input.selectionStart;
+      position.current.end = input.selectionEnd;
+    }
+
     rememberSelection();
     recordingPosition.current = false;
     model.pauseEdit();

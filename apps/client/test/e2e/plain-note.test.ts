@@ -56,6 +56,7 @@ test.browser.stable(
       const editor = dialog.getByRole('textbox', { name: copy.NoteEditNote });
 
       await expect(editor).toHaveValue(content);
+      await expect(dialog).toHaveCSS('translate', '0px');
       content = content.replace(before!, after!);
       await editor.fill(content);
 
