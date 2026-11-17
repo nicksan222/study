@@ -40,7 +40,7 @@ test.browser.stable(
     const lectureUrl = page.url();
     const notebook = page.getByRole('region', { name: copy.NoteNotebook });
     const body = notebook.locator('.chat-message-text');
-    const label = notebook.getByText(copy.NoteEntryNote, { exact: true });
+    const label = body;
     const scrollHost = page.locator('[data-notebook-scroll-host]');
 
     // Plain notes have one text node: geometry tracks its position; captures show the visible lines.
@@ -67,8 +67,12 @@ test.browser.stable(
     };
 
     await expect(body).toHaveText(original);
-    await label.scrollIntoViewIfNeeded();
-    await fullyVisible({ expect }, label);
+    await page
+      .getByRole('navigation', { name: copy.NoteOutline })
+      .getByRole('button')
+      .first()
+      .click();
+    await expect(label).toHaveVisibleText(original.split('\n')[0]!);
     await expect(body).toHaveCSS('overflow-wrap', 'anywhere');
     await expect
       .poll(async () => {
@@ -80,16 +84,15 @@ test.browser.stable(
       .toBe(true);
     await expectScreenshot('structured-top', {
       target: 'viewport',
-      ready: () => expect(label).toBeInViewport({ ratio: 1 })
+      ready: () => expect(label).toHaveVisibleText(original.split('\n')[0]!)
     });
     const top = await body.boundingBox();
 
     for (let step = 0; step < 8; step++) await scrollHost.press('ArrowDown');
 
     await expect.poll(async () => (await body.boundingBox())!.y).toBeLessThan(top!.y);
-    await expect(label).not.toBeInViewport();
-    await fullyVisible({ expect }, composer);
-    await composer.focus();
+    await expect(label).not.toHaveVisibleText(original.split('\n')[0]!);
+    await expect(composer).toBeHidden();
     await expectScreenshot('wide-content', {
       target: 'viewport',
       ready: () => expect(body).toHaveText(original)
@@ -101,14 +104,16 @@ test.browser.stable(
     await expect
       .poll(async () => {
         const text = await body.boundingBox();
-        const floating = await page.locator('.workspace-desk-floating-composer').boundingBox();
+        const capture = await page.locator('.workspace-desk-capture').boundingBox();
 
-        return !!text && !!floating && text.y + text.height <= floating.y;
+        return !!text && !!capture && text.y + text.height <= capture.y;
       })
       .toBe(true);
-    await fullyVisible({ expect }, composer);
-    await fullyVisible({ expect }, page.getByRole('button', { name: copy.NoteSaveNote }));
-    await composer.focus();
+    await expect(composer).toBeHidden();
+    await fullyVisible(
+      { expect },
+      page.getByRole('button', { name: copy.NoteAddCapture, exact: true })
+    );
     await expectScreenshot('code-bottom', {
       target: 'viewport',
       ready: () => expect(body).toHaveText(original)
@@ -155,12 +160,19 @@ test.browser.stable(
       await expect(editor.locator(':scope:focus-visible')).toHaveCount(1);
       await fullyVisible({ expect }, dialog);
       await fullyVisible({ expect }, dialog.locator('.notebook-editor-body'));
+
+      if (before.startsWith('2.')) await editor.press('Control+Home');
+
       await editor.press('Tab');
       await expect(dialog.getByRole('button', { name: copy.NoteDiscardEdits })).toBeFocused();
       await page.keyboard.press('Tab');
       await expect(save).toBeFocused();
       await fullyVisible({ expect }, save);
       await expect(save.locator(':scope:focus-visible')).toHaveCount(1);
+      await expectScreenshot(before.startsWith('2.') ? 'editing-list' : 'editing-code', {
+        target: dialog,
+        ready: () => expect(editor).toHaveValue(content)
+      });
       await save.press('Enter');
       await expect(dialog).toBeHidden();
       await expect(body).toHaveText(content);

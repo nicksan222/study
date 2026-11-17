@@ -26,28 +26,32 @@ export function NoteLayoutControls({ id }: { id: NoteId }) {
         open={model.cardVisible}
         onOpenChange={model.toggleCard}
       />
-      <IconButton
-        size="icon-sm"
-        variant={model.visible && model.dock === 'bottom' ? 'secondary' : 'ghost-muted'}
-        label={t('NoteDockBelow')}
+      <Desk.DesktopControls>
+        <IconButton
+          size="icon-sm"
+          variant={model.visible && model.dock === 'bottom' ? 'secondary' : 'ghost-muted'}
+          label={t('NoteDockBelow')}
 
-        aria-pressed={model.visible && model.dock === 'bottom'}
-        disabled={unavailable}
-        onClick={() => model.showEditor('bottom')}
-      >
-        <DockBelowIcon aria-hidden="true" />
-      </IconButton>
-      <IconButton
-        size="icon-sm"
-        variant={model.visible && model.dock === 'side' ? 'secondary' : 'ghost-muted'}
-        label={t('NoteDockBeside')}
+          aria-pressed={model.visible && model.dock === 'bottom'}
+          disabled={unavailable}
+          onClick={() => model.showEditor('bottom')}
+        >
+          <DockBelowIcon aria-hidden="true" />
+        </IconButton>
+      </Desk.DesktopControls>
+      <Desk.DesktopControls>
+        <IconButton
+          size="icon-sm"
+          variant={model.visible && model.dock === 'side' ? 'secondary' : 'ghost-muted'}
+          label={t('NoteDockBeside')}
 
-        aria-pressed={model.visible && model.dock === 'side'}
-        disabled={unavailable}
-        onClick={() => model.showEditor('side')}
-      >
-        <DockBesideIcon aria-hidden="true" />
-      </IconButton>
+          aria-pressed={model.visible && model.dock === 'side'}
+          disabled={unavailable}
+          onClick={() => model.showEditor('side')}
+        >
+          <DockBesideIcon aria-hidden="true" />
+        </IconButton>
+      </Desk.DesktopControls>
     </Desk.LayoutControls>
   );
 }

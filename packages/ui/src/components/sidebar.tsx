@@ -295,18 +295,27 @@ function Main({ className, ...props }: ComponentProps<'main'>) {
 }
 
 function Topbar({
+  variant,
   parent,
   title,
   titleAction,
   children,
   ...props
 }: Omit<ComponentProps<'header'>, 'title'> & {
+  variant?: 'notebook';
   parent?: ReactNode;
   title: ReactNode;
   titleAction?: ReactNode;
 }) {
   return (
-    <header {...props} className={cn('study-workspace-header', props.className)}>
+    <header
+      {...props}
+      className={cn(
+        'study-workspace-header',
+        variant === 'notebook' && 'note-workspace-header',
+        props.className
+      )}
+    >
       {parent && (
         <>
           <span>{parent}</span>

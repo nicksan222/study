@@ -39,6 +39,7 @@ const deletionEventTypes = [
   'PagePublished',
   'NoteGenerationRequested',
   'NoteTitleRequested',
+  'NoteSectionTitleRequested',
   'TransformSuggestionRequested',
   'NoteQuestionRequested',
   'RecordingPostRequested',

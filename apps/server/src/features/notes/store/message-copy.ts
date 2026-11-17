@@ -57,6 +57,17 @@ function makeVersionCopy({ db }: StoreResources) {
         .get();
 
       versions.set(versionId, copy.id);
+      const title = db.orm
+        .select()
+        .from(s.message_section_titles)
+        .where(eq(s.message_section_titles.version_id, versionId))
+        .get();
+
+      if (title)
+        db.orm
+          .insert(s.message_section_titles)
+          .values({ version_id: copy.id, title: title.title })
+          .run();
 
       for (const citation of db.orm
         .select()

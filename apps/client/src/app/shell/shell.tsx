@@ -12,19 +12,29 @@ import { useSidebarContext } from './sidebar-context.queries';
 
 /** Owns sidebar visibility and transfers keyboard search focus when the note navigation opens. */
 function useShellNavigation(notes: boolean, practice: boolean) {
-  const [open, setOpen] = useState(() => !practice || window.innerWidth >= 700);
+  const responsive = notes || practice;
+  const [navigation, setNavigation] = useState(() => ({
+    responsive,
+    open: !responsive || window.innerWidth >= 700
+  }));
+  const { open } = navigation;
   const focusSearch = useRef(false);
 
+  if (navigation.responsive !== responsive) {
+    setNavigation({ responsive, open: !responsive || window.innerWidth >= 700 });
+  }
+
   useEffect(() => {
-    if (!practice) return;
+    if (!responsive) return;
 
     const media = window.matchMedia('(min-width: 700px)');
-    const resize = (event: MediaQueryListEvent) => setOpen(event.matches);
+    const resize = (event: MediaQueryListEvent) =>
+      setNavigation({ responsive, open: event.matches });
 
     media.addEventListener('change', resize);
 
     return () => media.removeEventListener('change', resize);
-  }, [practice]);
+  }, [responsive]);
 
   useEffect(() => {
     if (!notes || open) return;
@@ -34,7 +44,7 @@ function useShellNavigation(notes: boolean, practice: boolean) {
 
       event.preventDefault();
       focusSearch.current = true;
-      setOpen(true);
+      setNavigation((current) => ({ ...current, open: true }));
     };
 
     window.addEventListener('keydown', revealSearch);
@@ -52,7 +62,7 @@ function useShellNavigation(notes: boolean, practice: boolean) {
     visible: !notes || open,
     collapsed: !open,
     open,
-    toggle: () => setOpen((value) => !value)
+    toggle: () => setNavigation((current) => ({ ...current, open: !current.open }))
   };
 }
 

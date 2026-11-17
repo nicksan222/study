@@ -126,6 +126,7 @@ function Card({
   const context = useContext(CardContext);
 
   const element = useRef<HTMLElement>(null);
+  const hidden = props.hidden ?? (context ? !context.open : undefined);
 
   useImperativeHandle(props.ref, () => element.current!);
 
@@ -157,7 +158,7 @@ function Card({
       {...props}
       ref={element}
       id={context?.id ?? props.id}
-      hidden={props.hidden ?? (context ? !context.open : undefined)}
+      hidden={hidden}
       className={cn(
         'ui-workspace-card',
         variant === 'attachments' && 'note-attachments-card',
@@ -219,7 +220,7 @@ function AttachmentItem({
   tone?: ComponentProps<typeof AttachmentIcon>['tone'];
 }) {
   return (
-    <Button {...props} size="sm" variant="ghost" className={cn('note-attachment-item', className)}>
+    <Item {...props} size="sm" className={cn('note-attachment-item', className)}>
       <AttachmentIcon tone={tone} size="compact">
         {icon}
       </AttachmentIcon>
@@ -228,12 +229,31 @@ function AttachmentItem({
         <span className="note-attachment-meta">{meta}</span>
       </span>
       <OpenIcon className="note-attachment-open" aria-hidden="true" />
-    </Button>
+    </Item>
+  );
+}
+
+function OutlineItem({
+  children,
+  icon,
+  ...props
+}: ComponentProps<typeof Button> & { icon: ReactNode }) {
+  return (
+    <Item {...props} size="sm" className="note-outline-item">
+      {icon}
+      <span>{children}</span>
+    </Item>
   );
 }
 
 export const WorkspaceAttachments = {
+  Section: part('section', 'note-attachment-section'),
   Heading: part('header', 'note-page-index-heading'),
+  Outline: part('nav', 'note-outline'),
+  OutlineList: part('ol', 'note-outline-list'),
+  OutlineItem,
+  OutlineScope: part('p', 'note-outline-scope'),
+  OutlineFeedback: part('div', 'note-outline-feedback'),
   Empty: part('p', 'note-page-index-empty'),
   List: part('div', 'note-page-index'),
   Rows: part('div', 'note-attachment-rows'),
@@ -260,6 +280,7 @@ export const WorkspaceWork = {
   Heading: part('header', 'ui-workspace-work-heading'),
   List: part('ul', 'ui-workspace-work-list'),
   Row: part('li', 'ui-workspace-work-row'),
+  ItemIcon: part('span', 'ui-workspace-work-icon'),
   Copy: part('div', 'ui-workspace-work-copy'),
   Status: part('span', 'ui-workspace-work-status'),
   Progress: part('div', 'ui-workspace-work-progress'),

@@ -29,7 +29,7 @@ test.browser.stable(
 
     const notebook = page.getByRole('region', { name: copy.NoteNotebook });
     const body = notebook.locator('.chat-message-text');
-    const entry = notebook.getByText(copy.NoteEntryNote, { exact: true });
+    const add = page.getByRole('button', { name: copy.NoteAddCapture, exact: true });
     const scrollHost = page.locator('[data-notebook-scroll-host]');
     const noteUrl = page.url();
 
@@ -67,22 +67,27 @@ test.browser.stable(
         await dialog.getByRole('button', { name: copy.Close }).click();
       }
 
-      await entry.scrollIntoViewIfNeeded();
-      await expect(entry).toBeInViewport({ ratio: 1 });
+      await expect(composer).toBeHidden();
+      await scrollHost.press('Home');
+      await expect(body).toHaveVisibleText('Observation 0.');
       await scrollHost.press('End');
-      await expect(entry).not.toBeInViewport();
+      await expect(body).not.toHaveVisibleText('Observation 0.');
+      await expect(body).toHaveVisibleText('Observation 59.');
+      await expect(add).toBeInViewport({ ratio: 1 });
+      await add.click();
+      await expect(composer).toBeFocused();
       await expect
         .poll(async () => {
           const text = await body.boundingBox();
           const scroll = await scrollHost.boundingBox();
-          const floating = await page.locator('.workspace-desk-floating-composer').boundingBox();
+          const input = await composer.boundingBox();
 
           return (
             !!text &&
             !!scroll &&
-            !!floating &&
+            !!input &&
             text.y + text.height > scroll.y &&
-            text.y + text.height <= floating.y
+            text.y + text.height <= input.y
           );
         })
         .toBe(true);
@@ -104,6 +109,8 @@ test.browser.stable(
           );
         })
         .toBe(true);
+      await page.getByRole('button', { name: copy.NoteHideCapture, exact: true }).click();
+      await expect(composer).toBeHidden();
       await page.getByRole('combobox', { name: copy.ChooseProject }).click();
       await page.getByRole('link', { name: copy.Projects, exact: true }).click();
       await expect(page.getByRole('heading', { name: copy.Projects })).toBeInViewport({
@@ -111,6 +118,8 @@ test.browser.stable(
       });
       await page.goto(noteUrl);
       await expect(notebook).toContainText('Observation 59.');
+      await expect(composer).toBeHidden();
+      await expect(page.locator('html')).toHaveCSS('zoom', String(zoom / 100));
     }
 
     // Reuse the existing Settings reference at the canonical profile after exercising persisted changes.

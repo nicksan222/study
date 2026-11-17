@@ -7,6 +7,7 @@ import { useI18n } from '#client/lib/i18n.tsx';
 import { NoteSummary } from './note-editor';
 import { jumpToNotebookTarget, notebookTargetId } from './notebook-index';
 import type { notebookTimeline } from './notebook-index';
+import { messageSectionTitle } from './section-title';
 
 export function NotebookNavigation({
   id,
@@ -97,7 +98,7 @@ function MessageMarkers({
         kind={
           message.format === 'document' ? 'page' : message.role === 'assistant' ? 'reply' : 'note'
         }
-        label={<NoteSummary value={text} fallback={fallback} />}
+        label={messageSectionTitle(message) ?? <NoteSummary value={text} fallback={fallback} />}
         preview={text.slice(0, 320) || fallback}
         onSelect={() => jumpToNotebookTarget(target)}
       />

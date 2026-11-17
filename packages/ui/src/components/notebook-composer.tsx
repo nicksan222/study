@@ -1,6 +1,6 @@
-import { SendIcon } from '@study/icons';
 import type { ComponentProps, ReactNode } from 'react';
 
+import { Button } from './button';
 import { ComposerSurface } from './composer';
 import { Notebook } from './note-workspace';
 import { WorkspaceSurface } from './workspace';
@@ -69,14 +69,9 @@ export function NotebookComposer({
       <ComposerSurface.Footer variant="notebook">
         <Notebook.CaptureTools>{tools}</Notebook.CaptureTools>
         <Notebook.Actions>
-          <WorkspaceSurface.ComposerSubmit
-            aria-label={submitLabel}
-            title={submitLabel}
-            disabled={disabled}
-            onClick={onSubmit}
-          >
-            <SendIcon size={18} aria-hidden="true" />
-          </WorkspaceSurface.ComposerSubmit>
+          <Button size="sm" disabled={disabled} onClick={onSubmit}>
+            {submitLabel}
+          </Button>
         </Notebook.Actions>
       </ComposerSurface.Footer>
       <WorkspaceSurface.ComposerHint id={`${inputId}-help`}>{hint}</WorkspaceSurface.ComposerHint>

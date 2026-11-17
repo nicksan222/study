@@ -1108,6 +1108,8 @@ test.unit.stable(
     });
     rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
     const view = mount({ render, rpcHandlersTransport }, <NoteWorkspace id={id} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'NoteAddCapture' }));
     const input = await screen.findByRole('textbox', { name: 'NoteCompose' });
 
     fireEvent.change(input, { target: { value: 'Keep writing during refresh' } });
@@ -1158,6 +1160,8 @@ test.unit.stable(
       .spyOn(workspaceQueries, 'uploadSource')
       .mockReturnValue(new Promise(() => {}));
     const view = mount({ render, rpcHandlersTransport }, <NoteWorkspace id={id} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'NoteAddCapture' }));
     const input = await screen.findByRole('textbox', { name: 'NoteCompose' });
 
     fireEvent.change(input, { target: { value: 'Retained while status is unknown' } });
@@ -1168,7 +1172,7 @@ test.unit.stable(
       await view.notify().then(() => {});
     });
     await waitFor(() => expect(screen.queryByRole('textbox', { name: 'NoteCompose' })).toBeNull());
-    fireEvent.drop(view.container.querySelector('.note-canvas')!, {
+    fireEvent.drop(view.container.querySelector('.ui-workspace')!, {
       dataTransfer: { files: [new File(['Blocked'], 'blocked.txt')] }
     });
     expect(upload).not.toHaveBeenCalled();
@@ -1258,7 +1262,7 @@ test.unit.stable(
     fireEvent.click(await within(dialog).findByRole('button', { name: 'NoteConfirmDelete' }));
     await waitFor(() => expect(rpc.remove).toHaveBeenCalledExactlyOnceWith({ id }));
     await waitFor(() => expect(view.container.querySelector('.note-canvas textarea')).toBeNull());
-    fireEvent.drop(view.container.querySelector('.note-canvas')!, {
+    fireEvent.drop(view.container.querySelector('.ui-workspace')!, {
       dataTransfer: { files: [new File(['Blocked'], 'blocked.txt')] }
     });
     expect(upload).not.toHaveBeenCalled();
@@ -1409,7 +1413,7 @@ test.unit.stable(
     await waitFor(() => expect(rpc.remove).toHaveBeenCalledExactlyOnceWith({ id }));
     await waitFor(() => expect(screen.queryByText('NoteDeleting')).toBeNull());
     expect(view.container.querySelector('.note-canvas textarea')).toBeNull();
-    fireEvent.drop(view.container.querySelector('.note-canvas')!, {
+    fireEvent.drop(view.container.querySelector('.ui-workspace')!, {
       dataTransfer: { files: [new File(['Blocked'], 'blocked.txt')] }
     });
     expect(upload).not.toHaveBeenCalled();

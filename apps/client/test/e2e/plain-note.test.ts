@@ -20,21 +20,29 @@ test.browser.stable(
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
 
     await composer.fill(original);
+    await expectScreenshot('starter-draft', {
+      target: 'viewport',
+      ready: () => expect(composer).toHaveValue(original)
+    });
     await page.getByRole('button', { name: copy.NoteSaveNote }).click();
     await expect(page).toHaveURL(/\/notes\/.+/);
     const noteUrl = page.url();
     const notebook = page.getByRole('region', { name: copy.NoteNotebook });
     const body = notebook.locator('.chat-message-text');
-    const entryLabel = notebook.getByText(copy.NoteEntryNote, { exact: true });
+    const entryLabel = body;
 
     await expect(body).toHaveText(original);
-    await entryLabel.scrollIntoViewIfNeeded();
-    await expect(entryLabel).toBeInViewport({ ratio: 1 });
+    await page
+      .getByRole('navigation', { name: copy.NoteOutline })
+      .getByRole('button')
+      .first()
+      .click();
+    await expect(entryLabel).toHaveVisibleText(original.split('\n')[0]!);
     await expectScreenshot('saved-top', {
       target: 'viewport',
       ready: async () => {
         await expect(body).toHaveText(original);
-        await expect(entryLabel).toBeInViewport({ ratio: 1 });
+        await expect(entryLabel).toHaveVisibleText(original.split('\n')[0]!);
       }
     });
 
@@ -138,22 +146,26 @@ test.browser.stable(
     await expect(notebook.locator('[data-role="user"]')).toHaveCount(1);
     const scrollHost = page.locator('[data-notebook-scroll-host]');
 
-    await entryLabel.scrollIntoViewIfNeeded();
-    await expect(entryLabel).toBeInViewport({ ratio: 1 });
+    await page
+      .getByRole('navigation', { name: copy.NoteOutline })
+      .getByRole('button')
+      .first()
+      .click();
+    await expect(entryLabel).toHaveVisibleText(original.split('\n')[0]!);
     await scrollHost.click();
     await expect(scrollHost.locator(':scope:focus-visible')).toHaveCount(0);
     await expect(scrollHost).toHaveCSS('outline-style', 'none');
     await scrollHost.press('End');
-    await expect(entryLabel).not.toBeInViewport();
+    await expect(entryLabel).not.toHaveVisibleText(original.split('\n')[0]!);
     await expect(body).toBeInViewport();
-    await expect(composer).toBeInViewport({ ratio: 1 });
-    await expect(page.getByRole('button', { name: copy.NoteSaveNote })).toBeInViewport({
-      ratio: 1
-    });
+    await expect(composer).toBeHidden();
+    await expect(
+      page.getByRole('button', { name: copy.NoteAddCapture, exact: true })
+    ).toBeInViewport({ ratio: 1 });
     await expect
       .poll(async () => {
         const bodyBox = await body.boundingBox();
-        const composerBox = await page.locator('.workspace-desk-floating-composer').boundingBox();
+        const composerBox = await page.locator('.workspace-desk-capture').boundingBox();
 
         return !!bodyBox && !!composerBox && bodyBox.y + bodyBox.height <= composerBox.y;
       })
@@ -168,6 +180,36 @@ test.browser.stable(
         await expect(body).toHaveText(content);
       }
     });
+    await page.getByRole('button', { name: copy.NoteAddCapture, exact: true }).click();
+    await expect(composer).toBeFocused();
+    await expectScreenshot('inline-input-open', {
+      target: 'viewport',
+      ready: () => expect(composer).toBeFocused()
+    });
+    const followUp = 'A follow-up thought to keep while rereading the observations.';
+
+    await composer.fill(followUp);
+    await expectScreenshot('inline-draft', {
+      target: 'viewport',
+      ready: () => expect(composer).toHaveValue(followUp)
+    });
+    await page.getByRole('button', { name: copy.NoteHideCapture, exact: true }).click();
+    await expect(composer).toBeHidden();
+    await expectScreenshot('inline-draft-closed', {
+      target: 'viewport',
+      ready: () =>
+        expect(page.getByRole('button', { name: copy.NoteAddCapture })).toHaveAttribute(
+          'aria-expanded',
+          'false'
+        )
+    });
+    await page.getByRole('button', { name: copy.NoteAddCapture, exact: true }).click();
+    await expect(composer).toHaveValue(followUp);
+    await expectScreenshot('inline-draft-restored', {
+      target: 'viewport',
+      ready: () => expect(composer).toHaveValue(followUp)
+    });
+    await composer.fill('');
     await composer.click();
     await composer.press('ArrowLeft');
     await expect(composer).toBeFocused();

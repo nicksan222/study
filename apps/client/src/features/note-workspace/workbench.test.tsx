@@ -300,3 +300,19 @@ test.unit.stable(
     await waitFor(() => expect(view.result.current.tabs).toEqual([]));
   }
 );
+
+test.unit.stable(
+  'starts phone notes with reading visible and opens the context card on request',
+  async ({ vi, act, waitFor, expect, rpcTestTransport, renderHook }) => {
+    const media = window.matchMedia('(max-width: 600px)');
+
+    vi.spyOn(window, 'matchMedia').mockReturnValue({ ...media, matches: true });
+    const view = mount({ rpcTestTransport, renderHook });
+
+    await waitFor(() => expect(view.result.current.cardVisible).toBe(false));
+    act(() => view.result.current.toggleCard());
+    await waitFor(() => expect(view.result.current.cardVisible).toBe(true));
+    act(() => view.result.current.toggleCard());
+    await waitFor(() => expect(view.result.current.cardVisible).toBe(false));
+  }
+);

@@ -10,3 +10,5 @@ export { noteQuestionRegistration } from './question.ts';
 export { noteReplyHandler, noteReplyRegistration, noteReplyWorkflow } from './reply.ts';
 export { noteTitleRegistration } from './title.ts';
 export { transformSuggestionRegistration } from './transform-suggestion.ts';
+
+export { noteSectionTitleRegistration } from './section-title.ts';

@@ -13,7 +13,7 @@ import { NotesRpc } from '@study/contracts';
  */
 import { eq, sql } from '@study/db';
 import * as s from '@study/db';
-import { ServerContext, Database } from '@study/server';
+import { ServerContext, Database, decodeEvent } from '@study/server';
 import { test } from '@study/testing';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
@@ -129,7 +129,19 @@ test.server.stable(
             const result = duplicates[0]!;
 
             expect(duplicates[1]).toStrictEqual(result);
-            expect(counts().map((n, i) => n - empty[i]!)).toStrictEqual([2, 2, 1, 1, 2]);
+            expect(counts().map((n, i) => n - empty[i]!)).toStrictEqual([2, 2, 1, 1, 3]);
+            expect(
+              context.db.orm
+                .select()
+                .from(s.workflowEvents)
+                .all()
+                .map((event) => decodeEvent(event.payload))
+                .filter(
+                  (event) =>
+                    event.type === 'NoteSectionTitleRequested' &&
+                    event.messageId === result.userMessageId
+                )
+            ).toHaveLength(1);
             const captured = yield* rpc('notes.inspectNoteContext', {
               requestId: result.requestId
             });

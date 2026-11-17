@@ -27,6 +27,8 @@ import { Effect, Schema } from 'effect';
 import { questionAgent } from '#server/features/notes/agents/question';
 import { Notes } from '#server/features/notes/service/index';
 
+import { ignoreUnavailableNoteContent } from './internal/unavailable.ts';
+
 export const noteQuestionWorkflow = defineWorkflow({
   name: 'conversation-question',
   version: 1,
@@ -78,13 +80,7 @@ export const noteQuestionHandler = ({ event }: typeof noteQuestionWorkflow.paylo
 
       execute: c.publishQuestion({ ...input, ...output })
     });
-  }).pipe(
-    Effect.catch((error) =>
-      ['invalid_input', 'not_found', 'cancelled'].includes(error.kind)
-        ? Effect.void
-        : Effect.fail(error)
-    )
-  );
+  }).pipe(Effect.catch(ignoreUnavailableNoteContent));
 
 export const noteQuestionRegistration = defineWorkflowHandler(noteQuestionWorkflow, {
   execute: noteQuestionHandler,
