@@ -65,6 +65,7 @@ test.browser.stable(
     await expectScreenshot('narrow-section-reading', {
       target: 'viewport',
       zoomPercent: 100,
+      scrollToEnd: page.locator('[data-notebook-scroll-host]'),
       ready: () => expect(heading).toBeInViewport()
     });
   }
