@@ -12,9 +12,10 @@ import {
 } from '../material-library/test/support';
 
 const t = catalogs.english;
+
 const { date } = createLocalization('english');
 
-function extractionLabel(revision: bigint, createdAt: bigint) {
+function matchesExtraction(revision: bigint, createdAt: bigint) {
   const version = `${t.ReaderVersion} ${revision}`;
   const timestamp = date(createdAt, { dateStyle: 'medium', timeStyle: 'medium' });
 
@@ -103,9 +104,10 @@ test.unit.stable(
     await user.click(main.getByRole('button', { name: t.ReaderHistory }));
     await screen.findByRole('dialog', { name: t.ReaderHistory });
     const history = () => within(screen.getByRole('dialog', { name: t.ReaderHistory }));
+
     await user.click(
       await history().findByRole('button', {
-        name: extractionLabel(1n, 1n)
+        name: matchesExtraction(1n, 1n)
       })
     );
     expect(await main.findByText('First extraction')).toBeVisible();
@@ -118,7 +120,7 @@ test.unit.stable(
       })
     );
     await user.click(main.getByRole('button', { name: t.ReaderHistory }));
-    await user.click(history().getByRole('button', { name: extractionLabel(1n, 2n) }));
+    await user.click(history().getByRole('button', { name: matchesExtraction(1n, 2n) }));
     expect(await main.findByText('Corrected extraction')).toBeVisible();
     expect(rpc['sources.extraction']).toHaveBeenLastCalledWith({
       sourceId,

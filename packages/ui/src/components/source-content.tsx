@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactNode } from 'react';
+import type { ComponentProps } from 'react';
 
 import { Button } from './button';
 import { DialogPopup } from './dialog';
@@ -23,9 +23,7 @@ export const SourceReader = {
 };
 
 /** Retained content uses the same document surface as editable pages. */
-export function SourceContent({ children }: { children: ReactNode }) {
-  return <Desk.Editor>{children}</Desk.Editor>;
-}
+export const SourceContent = Desk.Editor;
 
 function DetailsPopup(props: Omit<ComponentProps<typeof DialogPopup>, 'className'>) {
   return <DialogPopup {...props} className="source-reader-popup" />;

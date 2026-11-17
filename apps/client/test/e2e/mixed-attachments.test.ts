@@ -123,7 +123,7 @@ test.browser.stable(
 
       await attachment.scrollIntoViewIfNeeded();
       await attachment.click();
-      await expect(panel.getByRole('heading', { name, exact: true })).toBeVisible();
+      await expect(page.getByRole('tab', { name, exact: true, selected: true })).toBeVisible();
       await expect(preview).toHaveAttribute('contenteditable', 'false');
       await expect(preview.getByText(expected, { exact: true })).toBeVisible();
       await expect(panel.getByText(copy.NotePending, { exact: true })).toHaveCount(0);
@@ -221,7 +221,7 @@ test.browser.stable(
 
     await entry.getByRole('button', { name: 'unsupported.bin', exact: true }).click();
     await expect(
-      panel.getByRole('heading', { name: 'unsupported.bin', exact: true })
+      page.getByRole('tab', { name: 'unsupported.bin', exact: true, selected: true })
     ).toBeVisible();
     await expect(panel.getByText(copy.SourceExtractionUnsupported, { exact: true })).toBeVisible();
     await expect(panel.getByText(copy.NotePending, { exact: true })).toHaveCount(0);
@@ -235,7 +235,9 @@ test.browser.stable(
       }
     });
     await entry.getByRole('button', { name: 'two-pages.pdf', exact: true }).click();
-    await expect(panel.getByRole('heading', { name: 'two-pages.pdf', exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('tab', { name: 'two-pages.pdf', exact: true, selected: true })
+    ).toBeVisible();
     await expect(panel.getByText(copy.NoteWaitAuth, { exact: true })).toBeVisible();
     await expect(panel.getByText(copy.NotePending, { exact: true })).toHaveCount(0);
     await panel.getByRole('link', { name: copy.Settings, exact: true }).click({ trial: true });
@@ -244,7 +246,7 @@ test.browser.stable(
       ready: async () => {
         await expect(panel.getByText(copy.NoteWaitAuth, { exact: true })).toBeVisible();
         await expect(
-          panel.getByRole('heading', { name: 'two-pages.pdf', exact: true })
+          page.getByRole('tab', { name: 'two-pages.pdf', exact: true, selected: true })
         ).toBeVisible();
       }
     });
