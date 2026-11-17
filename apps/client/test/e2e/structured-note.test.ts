@@ -142,7 +142,7 @@ test.browser.stable(
       await expect(editor).toHaveJSProperty('selectionStart', 0);
       await editor.press('Control+End');
       await expect(editor).toHaveJSProperty('selectionStart', content.length);
-      await expect(editor).not.toHaveJSProperty('scrollTop', 0);
+      await expect(dialog.locator('.notebook-editor-body')).not.toHaveJSProperty('scrollTop', 0);
       await editor.press('Home');
 
       for (let line = 0; line < 4; line++) await editor.press('ArrowUp');
@@ -159,8 +159,10 @@ test.browser.stable(
 
       await expect(editor.locator(':scope:focus-visible')).toHaveCount(1);
       await fullyVisible({ expect }, dialog);
-      await fullyVisible({ expect }, editor);
+      await fullyVisible({ expect }, dialog.locator('.notebook-editor-body'));
       await editor.press('Tab');
+      await expect(dialog.getByRole('button', { name: copy.NoteDiscardEdits })).toBeFocused();
+      await page.keyboard.press('Tab');
       await expect(save).toBeFocused();
       await fullyVisible({ expect }, save);
       await expect(save.locator(':scope:focus-visible')).toHaveCount(1);
@@ -205,7 +207,7 @@ test.browser.stable(
 
     await expect(editor).toHaveJSProperty('selectionStart', content.indexOf('record(25,'));
     await expect(editor).toBeFocused();
-    await fullyVisible({ expect }, editor);
+    await fullyVisible({ expect }, dialog.locator('.notebook-editor-body'));
     await fullyVisible({ expect }, dialog.getByRole('button', { name: copy.NoteSaveNote }));
     await expectScreenshot('edited-reopened', {
       target: dialog,

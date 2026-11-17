@@ -1,62 +1,111 @@
 import type { ContentSnapshotId, SourceId } from '@study/contracts';
-import { Button } from '@study/ui';
+import { HistoryIcon, SelectedIcon } from '@study/icons';
+import {
+  Button,
+  IconButton,
+  Dialog,
+  DialogTrigger,
+  DialogHeading,
+  SourceReader,
+  Loading,
+  LoadMoreButton,
+  StatusMessage
+} from '@study/ui';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
-import { HistoryDisclosure, ContentReadError } from '../document-presentation';
+import { ContentReadError } from '../document-presentation';
 import { useSourceHistory } from './history.queries';
 
 type Extraction = { revision: bigint; snapshotId: ContentSnapshotId };
 
+/** History is a separate reading task; selecting a version returns to the document. */
 export function SourceHistory({
   sourceId,
-  onSelect,
-  presentation = 'disclosure'
+  selected,
+  onSelect
 }: {
   sourceId: SourceId;
-  presentation?: 'disclosure' | 'inline';
+  selected?: Extraction;
   onSelect: (exact: Extraction | undefined) => void;
 }) {
-  const { t } = useI18n();
-  const [open, setOpen] = useState(presentation === 'inline');
+  const { t, date } = useI18n();
+  const [open, setOpen] = useState(false);
   const history = useSourceHistory(sourceId, open);
 
+  function select(exact: Extraction | undefined) {
+    onSelect(exact);
+    setOpen(false);
+  }
+
   return (
-    <HistoryDisclosure
-      presentation={presentation}
-      open={open}
-      onOpenChange={setOpen}
-      onCurrent={() => onSelect(undefined)}
-      error={
-        history.error && (
-          <ContentReadError error={history.error} retry={() => void history.refetch()} />
-        )
-      }
-      more={
-        history.data?.next
-          ? { pending: history.isFetching, load: () => void history.loadMore() }
-          : undefined
-      }
-    >
-      {history.hasPrevious && (
-        <Button variant="ghost" onClick={history.previous}>
-          {t('LibraryPrevious')}
-        </Button>
-      )}
-      <ul>
-        {history.data?.items.map((item) => (
-          <li key={`${item.revision}:${item.snapshotId}`}>
-            <Button
-              variant="ghost"
-              onClick={() => onSelect({ revision: item.revision, snapshotId: item.snapshotId })}
-            >
-              {t('ReaderVersion')} {String(item.revision)}
-              {presentation === 'disclosure' && <> · {String(item.snapshotId)}</>}
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<IconButton size="icon-sm" label={t('ReaderHistory')} />}>
+        <HistoryIcon aria-hidden="true" />
+      </DialogTrigger>
+      <SourceReader.DetailsPopup closeLabel={t('Close')}>
+        <DialogHeading title={t('ReaderHistory')} />
+        <SourceReader.HistoryBody>
+          <SourceReader.Version
+            variant="ghost"
+            aria-current={!selected ? 'true' : undefined}
+            onClick={() => select(undefined)}
+          >
+            <span>{t('ReaderCurrent')}</span>
+            {!selected && <SelectedIcon aria-hidden="true" />}
+          </SourceReader.Version>
+          {history.isFetching && !history.data && <Loading label={t('LoadingStudy')} />}
+          {history.error && (
+            <ContentReadError error={history.error} retry={() => void history.refetch()} />
+          )}
+          {history.data?.items.length === 0 && (
+            <StatusMessage>{t('SourceHistoryNoVersions')}</StatusMessage>
+          )}
+          <SourceReader.Versions>
+            {history.data?.items.map((item) => {
+              const active =
+                selected?.revision === item.revision && selected.snapshotId === item.snapshotId;
+
+              return (
+                <li key={`${item.revision}:${item.snapshotId}`}>
+                  <SourceReader.Version
+                    variant="ghost"
+                    aria-current={active ? 'true' : undefined}
+                    onClick={() => select(item)}
+                  >
+                    <SourceReader.VersionCopy>
+                      <span>
+                        {t('ReaderVersion')} {String(item.revision)}
+                      </span>
+                      <SourceReader.VersionDate
+                        dateTime={new Date(Number(item.createdAt) * 1000).toISOString()}
+                      >
+                        {date(item.createdAt, { dateStyle: 'medium', timeStyle: 'medium' })}
+                      </SourceReader.VersionDate>
+                    </SourceReader.VersionCopy>
+                    {active && <SelectedIcon aria-hidden="true" />}
+                  </SourceReader.Version>
+                </li>
+              );
+            })}
+          </SourceReader.Versions>
+          {history.hasPrevious && (
+            <Button variant="ghost" size="sm" onClick={history.previous}>
+              {t('LibraryPrevious')}
             </Button>
-          </li>
-        ))}
-      </ul>
-    </HistoryDisclosure>
+          )}
+          {history.data?.next && (
+            <LoadMoreButton
+              variant="ghost"
+              size="sm"
+              disabled={history.isFetching}
+              onClick={() => void history.loadMore()}
+              label={t('LibraryMore')}
+            />
+          )}
+        </SourceReader.HistoryBody>
+      </SourceReader.DetailsPopup>
+    </Dialog>
   );
 }

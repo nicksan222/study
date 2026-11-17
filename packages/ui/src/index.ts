@@ -118,7 +118,11 @@ export { Onboarding, OnboardingNotebook, OnboardingSetup } from './components/on
 export { PageOverview } from './components/page-overview.tsx';
 export { Practice } from './components/practice.tsx';
 export { RangeControl } from './components/range-control.tsx';
-export type { RichNoteLabels } from './components/rich-note.tsx';
+export type {
+  RichNoteLabels,
+  RichNoteSelection,
+  RichNoteEditorHandle
+} from './components/rich-note.tsx';
 export {
   RichNoteContent,
   RichNoteEditor,
@@ -239,6 +243,8 @@ export { QuizResultsView } from './components/quiz-results-view.tsx';
 export { QuizSessionView, QuizFinishView } from './components/quiz-session-view.tsx';
 export { SidebarSearchResults } from './components/sidebar-search-results.tsx';
 export type { SidebarSearchItem } from './components/sidebar-search-results.tsx';
-export { SourceContent } from './components/source-content.tsx';
+export { SourceContent, SourceReader } from './components/source-content.tsx';
 export { MatchingReviewView } from './components/matching-review-view.tsx';
 export { OrderingResultView } from './components/ordering-result-view.tsx';
+
+export { NotebookEditor } from './components/notebook-editor.tsx';

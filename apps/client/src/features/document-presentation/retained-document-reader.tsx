@@ -7,7 +7,7 @@ import { useI18n } from '#client/lib/i18n.tsx';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
 import { documentToEditor } from './document-editor-content';
-import { DocumentOmissions, DocumentReader } from './document-reader';
+import { DocumentReader } from './document-reader';
 import { useDocumentEditorImages } from './editor-images.queries';
 import { useStructuredEditorLabels } from './structured-editor-labels';
 
@@ -56,7 +56,6 @@ export function RetainedDocumentPreview({
 
   return (
     <>
-      <DocumentOmissions document={document} />
       {images.subscriptions}
       {images.error && (
         <ErrorState

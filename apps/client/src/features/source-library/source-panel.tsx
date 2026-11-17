@@ -7,13 +7,35 @@ import type {
   Source
 } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { RetryButton, Button, ErrorState, Loading, SourceContent, StatusMessage } from '@study/ui';
+import { DownloadIcon, EditIcon, OptionsIcon, DeleteIcon, InfoIcon } from '@study/icons';
+import {
+  RetryButton,
+  Button,
+  IconButton,
+  ErrorState,
+  Loading,
+  SourceContent,
+  SourceReader,
+  StatusMessage,
+  Menu,
+  MenuTrigger,
+  MenuPopup,
+  MenuItem,
+  MenuSeparator,
+  Dialog,
+  DialogTrigger,
+  DialogHeading
+} from '@study/ui';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
-import { RetainedDocumentPreview, ContentReadError } from '../document-presentation';
+import {
+  RetainedDocumentPreview,
+  ContentReadError,
+  DocumentOmissions
+} from '../document-presentation';
 import { SourceDeletion } from './deletion';
 import { SourceHistory } from './history';
 import { SourceHistoryRetirement } from './history-retirement';
@@ -24,30 +46,45 @@ import {
   useSourceCopy
 } from './source-panel.queries';
 
-function SourceHeader({
+function SourceManagement({
   source,
-  error,
-  retry,
   remove,
-  retire
+  retire,
+  container
 }: {
-  source?: Source;
-  error: unknown;
-  retry: () => void;
+  source: Source;
   remove: () => void;
   retire: () => void;
+  container: HTMLDivElement | null;
 }) {
+  const { t } = useI18n();
+
   return (
-    <>
-      {source && <h1>{source.name}</h1>}
-      {!!error && <ContentReadError error={error} retry={retry} />}
-      {source && !error && (
-        <>
-          <SourceDeletion source={source} onDeleted={remove} />
-          <SourceHistoryRetirement source={source} onRetired={retire} />
-        </>
+    <SourceDeletion
+      source={source}
+      onDeleted={remove}
+      renderTrigger={(showDelete) => (
+        <SourceHistoryRetirement
+          source={source}
+          onRetired={retire}
+          renderTrigger={(showRetire) => (
+            <Menu>
+              <MenuTrigger render={<IconButton size="icon-sm" label={t('MediaActions')} />}>
+                <OptionsIcon aria-hidden="true" />
+              </MenuTrigger>
+              <MenuPopup align="end" portalProps={{ container }}>
+                <MenuItem onClick={showRetire}>{t('SourceHistoryPrune')}</MenuItem>
+                <MenuSeparator />
+                <MenuItem variant="destructive" onClick={showDelete}>
+                  <DeleteIcon aria-hidden="true" />
+                  {t('SourceDeleteTitle')}
+                </MenuItem>
+              </MenuPopup>
+            </Menu>
+          )}
+        />
       )}
-    </>
+    />
   );
 }
 
@@ -58,13 +95,14 @@ function SourceOriginal({ sourceId, revision }: { sourceId: SourceId; revision?:
 
   return (
     <>
-      <Button
-        variant="ghost"
+      <IconButton
+        size="icon-sm"
+        label={t('ReaderOriginal')}
         disabled={download.pending > 0}
         onClick={() => void download.mutate(undefined)}
       >
-        {t('ReaderOriginal')}
-      </Button>
+        <DownloadIcon aria-hidden="true" />
+      </IconButton>
       {download.error && (
         <ErrorState
           title={t('ReaderOriginalUnavailable')}
@@ -125,16 +163,12 @@ function SourceBody({
   sourceId,
   document,
   snapshotId,
-  failed,
-  pending,
-  onCopy
+  failed
 }: {
   sourceId?: SourceId;
   document?: typeof documentSchema.Type;
   snapshotId?: ContentSnapshotId;
   failed: boolean;
-  pending: boolean;
-  onCopy: () => void;
 }) {
   const { t } = useI18n();
 
@@ -148,11 +182,7 @@ function SourceBody({
     );
 
   return (
-    <SourceContent
-      copyLabel={t(pending ? 'NoteSaving' : 'PageEditCopy')}
-      pending={pending}
-      onCopy={onCopy}
-    >
+    <SourceContent>
       <RetainedDocumentPreview document={document} snapshotId={snapshotId} />
     </SourceContent>
   );
@@ -163,6 +193,102 @@ function originalRevision(
   current: { revision: bigint } | null | undefined
 ) {
   return exact?.revision ?? current?.revision;
+}
+
+function SourceExtractionNotes({ document }: { document?: typeof documentSchema.Type }) {
+  const { t } = useI18n();
+
+  if (!document?.meta.omissions.length) return null;
+
+  return (
+    <Dialog>
+      <DialogTrigger render={<IconButton size="icon-sm" label={t('ReaderExtractionNotes')} />}>
+        <InfoIcon aria-hidden="true" />
+      </DialogTrigger>
+      <SourceReader.DetailsPopup closeLabel={t('Close')}>
+        <DialogHeading title={t('ReaderExtractionNotes')} />
+        <SourceReader.Notes>
+          <DocumentOmissions document={document} />
+        </SourceReader.Notes>
+      </SourceReader.DetailsPopup>
+    </Dialog>
+  );
+}
+
+function SourceToolbar({
+  sourceId,
+  noteId,
+  source,
+  extraction,
+  copy,
+  selected,
+  onSelect,
+  onCopy,
+  onDeleted
+}: {
+  sourceId: SourceId;
+  noteId?: NoteId;
+  source: ReturnType<typeof rpc.sources.get.useQuery>;
+  extraction: ReturnType<typeof useSourceExtraction>;
+  copy: ReturnType<typeof useSourceCopy>;
+  selected?: { revision: bigint; snapshotId: ContentSnapshotId };
+  onSelect: (exact: { revision: bigint; snapshotId: ContentSnapshotId } | undefined) => void;
+  onCopy: () => void;
+  onDeleted: () => void;
+}) {
+  const { t } = useI18n();
+  const [menuContainer, setMenuContainer] = useState<HTMLDivElement | null>(null);
+
+  return (
+    <SourceReader.Header>
+      {!noteId && source.data && <SourceReader.Title>{source.data.name}</SourceReader.Title>}
+      <SourceReader.Actions ref={setMenuContainer}>
+        <SourceOriginal
+          sourceId={sourceId}
+          revision={originalRevision(selected, extraction.data)}
+        />
+        {extraction.isSuccess && extraction.data && source.isSuccess && (
+          <IconButton
+            size="icon-sm"
+            label={t(copy.pending ? 'NoteSaving' : 'PageEditCopy')}
+            disabled={copy.pending}
+            onClick={onCopy}
+          >
+            <EditIcon aria-hidden="true" />
+          </IconButton>
+        )}
+        <SourceHistory sourceId={sourceId} selected={selected} onSelect={onSelect} />
+        <SourceExtractionNotes document={extraction.data?.document} />
+        {source.data && !source.error && (
+          <SourceManagement
+            source={source.data}
+            container={menuContainer}
+            remove={onDeleted}
+            retire={() => onSelect(undefined)}
+          />
+        )}
+      </SourceReader.Actions>
+    </SourceReader.Header>
+  );
+}
+
+function SourceReadErrors({
+  source,
+  extraction
+}: {
+  source: ReturnType<typeof rpc.sources.get.useQuery>;
+  extraction: ReturnType<typeof useSourceExtraction>;
+}) {
+  return (
+    <>
+      {source.error && (
+        <ContentReadError error={source.error} retry={() => void source.refetch()} />
+      )}
+      {extraction.error && (
+        <ContentReadError error={extraction.error} retry={() => void extraction.refetch()} />
+      )}
+    </>
+  );
 }
 
 export function SourcePanel({
@@ -201,20 +327,22 @@ export function SourcePanel({
   if (deleted) return <StatusMessage>{t('SourceDeletedNotice')}</StatusMessage>;
 
   return (
-    <>
-      <SourceHeader
-        source={source.data}
-        error={source.error}
-        retry={() => void source.refetch()}
-        remove={() => {
+    <SourceReader.Root>
+      <SourceToolbar
+        sourceId={sourceId}
+        noteId={noteId}
+        source={source}
+        extraction={state}
+        copy={copy}
+        selected={selected}
+        onSelect={setSelected}
+        onCopy={editCopy}
+        onDeleted={() => {
           setDeleted(true);
           onDeleted?.();
         }}
-        retire={() => setSelected(undefined)}
       />
-      <SourceHistory sourceId={sourceId} onSelect={setSelected} />
-      {state.error && <ContentReadError error={state.error} retry={() => void state.refetch()} />}
-      <SourceOriginal sourceId={sourceId} revision={originalRevision(selected, state.data)} />
+      <SourceReadErrors source={source} extraction={state} />
       {copy.page && (
         <Button variant="ghost" onClick={copy.acknowledge}>
           {t('PageEditAnotherCopy')}
@@ -226,9 +354,7 @@ export function SourcePanel({
         document={state.data?.document}
         snapshotId={state.data?.snapshotId}
         failed={!state.isSuccess || !source.isSuccess}
-        pending={copy.pending}
-        onCopy={editCopy}
       />
-    </>
+    </SourceReader.Root>
   );
 }

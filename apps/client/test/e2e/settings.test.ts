@@ -1953,10 +1953,15 @@ test.browser.stable(
       dialog.getByRole('button', { name: copy.UsageRefresh, exact: true })
     ).toBeEnabled();
     await expect(empty).toBeVisible();
-    await expect(dialog.getByRole('table')).toHaveCount(0);
-    await expect(dialog.getByRole('group', { name: copy.UsageBreakdown, exact: true })).toHaveCount(
-      0
-    );
+    await expect(dialog.getByRole('table')).toBeVisible();
+    await expect(dialog.getByRole('img', { name: copy.UsageDaily, exact: true })).toBeVisible();
+
+    for (const label of [copy.UsageAgents, copy.UsageByDay, copy.UsageModels]) {
+      await dialog.getByRole('button', { name: label, exact: true }).click();
+      await expect(empty).toBeVisible();
+      await expect(dialog.getByRole('columnheader', { name: label, exact: true })).toBeVisible();
+    }
+
     await expectAccessibility('usage-empty-filtered');
   }
 );

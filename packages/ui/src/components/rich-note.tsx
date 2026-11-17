@@ -15,6 +15,7 @@ import {
 import { generateText } from '@tiptap/core';
 import { Markdown, MarkdownManager } from '@tiptap/markdown';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
+import { TextSelection } from '@tiptap/pm/state';
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import type { Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -25,11 +26,12 @@ import {
   createContext,
   Fragment,
   useContext,
+  useImperativeHandle,
   useEffect,
   useMemo,
   useRef
 } from 'react';
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactElement, ReactNode, Ref } from 'react';
 
 import { Button } from './button';
 import { Menu, MenuTrigger, MenuPopup, MenuItem } from './menu';
@@ -81,8 +83,16 @@ export type RichNoteLabels = Record<
   string
 >;
 
+export type RichNoteSelection = { anchor: number; head: number };
+
+export type RichNoteEditorHandle = {
+  selection: () => RichNoteSelection;
+  restoreSelection: (selection: RichNoteSelection) => void;
+};
+
 /** Edits Markdown through Tiptap while keeping the caller's versioned text as the only persisted value. */
 export function RichNoteEditor({
+  ref,
   value,
   onChange,
   label,
@@ -99,6 +109,7 @@ export function RichNoteEditor({
   placeholder: string;
   labels: RichNoteLabels;
   toolbarEnd?: ReactNode;
+  ref?: Ref<RichNoteEditorHandle>;
   disabled?: boolean;
   spellcheck?: boolean;
   fontSize?: number;
@@ -125,6 +136,39 @@ export function RichNoteEditor({
       onChange(latest.current);
     }
   });
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      selection: () => {
+        const selection = window.getSelection();
+        const root = editor.view.dom;
+
+        if (
+          selection?.anchorNode &&
+          selection.focusNode &&
+          root.contains(selection.anchorNode) &&
+          root.contains(selection.focusNode)
+        )
+          return {
+            anchor: editor.view.posAtDOM(selection.anchorNode, selection.anchorOffset),
+            head: editor.view.posAtDOM(selection.focusNode, selection.focusOffset)
+          };
+
+        return { anchor: editor.state.selection.anchor, head: editor.state.selection.head };
+      },
+      restoreSelection: ({ anchor, head }) => {
+        const { doc, tr } = editor.state;
+        const limit = (position: number) => Math.max(0, Math.min(position, doc.content.size));
+
+        editor.view.dispatch(
+          tr.setSelection(TextSelection.create(doc, limit(anchor), limit(head)))
+        );
+        editor.view.focus();
+      }
+    }),
+    [editor]
+  );
 
   useEffect(() => {
     if (latest.current === value) return;

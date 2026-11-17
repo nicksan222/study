@@ -1,5 +1,5 @@
 import { defaultAppearancePreferences } from '@study/contracts';
-import { CompletedIcon, PageIcon, NoteIcon } from '@study/icons';
+import { CompletedIcon, PageIcon, NoteIcon, EditIcon } from '@study/icons';
 import {
   createLocalization,
   structuredEditorLabels,
@@ -11,7 +11,7 @@ import { ExecutionLog } from '@study/ui';
 import { RichNoteContent } from '@study/ui';
 import { Sidebar } from '@study/ui';
 import { SidebarSearchResults } from '@study/ui';
-import { SourceContent } from '@study/ui';
+import { SourceContent, SourceReader, IconButton } from '@study/ui';
 import { StructuredEditor } from '@study/ui';
 import type { StructuredEditorValue } from '@study/ui';
 import { useState, useSyncExternalStore } from 'react';
@@ -48,24 +48,34 @@ function SourceExample({ lang, ready }: ExampleProps) {
   const [value, setValue] = useState(() => sourceValue(c.source.heading, c.source.body));
 
   return (
-    <SourceContent
-      copyLabel={t('PageEditCopy')}
-      pending={!ready || editing}
-      onCopy={() => setEditing(true)}
-    >
-      {ready ? (
-        <StructuredEditor
-          value={value}
-          onChange={setValue}
-          readOnly={!editing}
-          label={t('NotePageEditor')}
-          placeholder={t('NotePagePlaceholder')}
-          labels={structuredEditorLabels(t)}
-        />
-      ) : (
-        <RichNoteContent value={`### ${c.source.heading}\n\n${c.source.body}`} />
-      )}
-    </SourceContent>
+    <SourceReader.Root>
+      <SourceReader.Header>
+        <SourceReader.Actions>
+          <IconButton
+            size="icon-sm"
+            label={t('PageEditCopy')}
+            disabled={!ready || editing}
+            onClick={() => setEditing(true)}
+          >
+            <EditIcon aria-hidden="true" />
+          </IconButton>
+        </SourceReader.Actions>
+      </SourceReader.Header>
+      <SourceContent>
+        {ready ? (
+          <StructuredEditor
+            value={value}
+            onChange={setValue}
+            readOnly={!editing}
+            label={t('NotePageEditor')}
+            placeholder={t('NotePagePlaceholder')}
+            labels={structuredEditorLabels(t)}
+          />
+        ) : (
+          <RichNoteContent value={`### ${c.source.heading}\n\n${c.source.body}`} />
+        )}
+      </SourceContent>
+    </SourceReader.Root>
   );
 }
 

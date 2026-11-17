@@ -59,7 +59,8 @@ async function review(
   }: Pick<test.unit.Context, 'screen' | 'within' | 'waitFor' | 'expect'>,
   user: ReturnType<test.unit.Context['userEvent']['setup']>
 ) {
-  await user.click(await screen.findByRole('button', { name: t.SourceHistoryPrune }));
+  await user.click(await screen.findByRole('button', { name: t.MediaActions }));
+  await user.click(await screen.findByRole('menuitem', { name: t.SourceHistoryPrune }));
   const dialog = await screen.findByRole('alertdialog');
   const name = within(dialog).getByRole('textbox', { name: t.SourceDeleteName });
 
@@ -120,7 +121,8 @@ test.unit.stable(
     await locationIs({ waitFor }, router, '/notes');
     await act(() => router.navigate({ to: '/sources/$sourceId', params: { sourceId: '7' } }));
     await locationIs({ waitFor }, router, '/sources/7');
-    await user.click(await screen.findByRole('button', { name: t.SourceHistoryPrune }));
+    await user.click(await screen.findByRole('button', { name: t.MediaActions }));
+    await user.click(await screen.findByRole('menuitem', { name: t.SourceHistoryPrune }));
     const reopened = await screen.findByRole('alertdialog');
 
     expect(within(reopened).getByRole('button', { name: t.SourceHistoryConfirm })).toBeDisabled();
@@ -150,7 +152,8 @@ test.unit.stable(
     );
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: t.SourceHistoryPrune }));
+    await user.click(await screen.findByRole('button', { name: t.MediaActions }));
+    await user.click(await screen.findByRole('menuitem', { name: t.SourceHistoryPrune }));
     const dialog = await screen.findByRole('alertdialog');
 
     expect(await within(dialog).findByText(t.SourceHistoryPinned)).toBeVisible();

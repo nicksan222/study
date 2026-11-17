@@ -1,9 +1,9 @@
 import { BackIcon, NextIcon } from '@study/icons';
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
 import { Button } from './button';
 
-type NavigationProps = Omit<ComponentProps<typeof Button>, 'children'> & { label: string };
+type NavigationProps = Omit<ComponentProps<typeof Button>, 'children'> & { label: ReactNode };
 
 /** Previous and next actions keep icon placement consistent, including submit and link actions. */
 export function PreviousButton({ label, variant = 'outline', ...props }: NavigationProps) {
