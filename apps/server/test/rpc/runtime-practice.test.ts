@@ -69,6 +69,16 @@ for (const mode of [
       };
       let invalidResponse = mode === 'invalid-model';
       let transient = mode === 'transient-exhausted';
+
+      async function beforeProviderResponse(body: string) {
+        providerCalls++;
+
+        if (refilling && body.includes('Plan fresh learning coverage')) {
+          refillPlanning.resolve();
+          await releaseRefillPlan.promise;
+        }
+      }
+
       const peer = Bun.serve({
         hostname: '127.0.0.1',
         port: 0,
@@ -85,12 +95,7 @@ for (const mode of [
             });
           }
 
-          providerCalls++;
-
-          if (refilling && body.includes('Plan fresh learning coverage')) {
-            refillPlanning.resolve();
-            await releaseRefillPlan.promise;
-          }
+          await beforeProviderResponse(body);
 
           const toolResult = body.includes('function_call_output');
           const open = body.includes('exactly one open question');
