@@ -46,15 +46,17 @@ export function WorkspaceContext({
     >
       {actions}
       {outline}
-      <WorkspaceAttachments.Heading>
-        <AttachmentIcon size={13} aria-hidden="true" />
-        <h2>{t('NoteAttachments')}</h2>
-      </WorkspaceAttachments.Heading>
-      {id ? (
-        <NoteFiles key={String(id)} id={id} onOpenPage={onOpenPage} onOpenSource={onOpenSource} />
-      ) : (
-        <WorkspaceAttachments.Empty>{t('NoteAttachmentsStart')}</WorkspaceAttachments.Empty>
-      )}
+      <WorkspaceAttachments.Section aria-label={t('NoteAttachments')}>
+        <WorkspaceAttachments.Heading>
+          <AttachmentIcon size={13} aria-hidden="true" />
+          <h2>{t('NoteAttachments')}</h2>
+        </WorkspaceAttachments.Heading>
+        {id ? (
+          <NoteFiles key={String(id)} id={id} onOpenPage={onOpenPage} onOpenSource={onOpenSource} />
+        ) : (
+          <WorkspaceAttachments.Empty>{t('NoteAttachmentsStart')}</WorkspaceAttachments.Empty>
+        )}
+      </WorkspaceAttachments.Section>
       {id && <NotePendingWork key={String(id)} id={id} />}
       {children}
     </WorkspaceCard.Root>

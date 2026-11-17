@@ -263,7 +263,7 @@ function AttachmentItem({
   tone?: ComponentProps<typeof AttachmentIcon>['tone'];
 }) {
   return (
-    <Button {...props} size="sm" variant="ghost" className={cn('note-attachment-item', className)}>
+    <Item {...props} size="sm" className={cn('note-attachment-item', className)}>
       <AttachmentIcon tone={tone} size="compact">
         {icon}
       </AttachmentIcon>
@@ -272,7 +272,7 @@ function AttachmentItem({
         <span className="note-attachment-meta">{meta}</span>
       </span>
       <OpenIcon className="note-attachment-open" aria-hidden="true" />
-    </Button>
+    </Item>
   );
 }
 
@@ -290,6 +290,7 @@ function OutlineItem({
 }
 
 export const WorkspaceAttachments = {
+  Section: part('section', 'note-attachment-section'),
   Heading: part('header', 'note-page-index-heading'),
   Outline: part('nav', 'note-outline'),
   OutlineList: part('ol', 'note-outline-list'),
@@ -322,6 +323,7 @@ export const WorkspaceWork = {
   Heading: part('header', 'ui-workspace-work-heading'),
   List: part('ul', 'ui-workspace-work-list'),
   Row: part('li', 'ui-workspace-work-row'),
+  ItemIcon: part('span', 'ui-workspace-work-icon'),
   Copy: part('div', 'ui-workspace-work-copy'),
   Status: part('span', 'ui-workspace-work-status'),
   Progress: part('div', 'ui-workspace-work-progress'),
