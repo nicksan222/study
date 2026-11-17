@@ -1,6 +1,12 @@
 import type { agentProgressSchema } from '@study/contracts';
 import { CompletedIcon, ErrorIcon, CancelledIcon, ThinkingIcon } from '@study/icons';
 import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionTitle,
+  AccordionContent,
+  Badge,
   Trace,
   TraceCollapsible,
   TraceCollapsibleTrigger,
@@ -8,9 +14,9 @@ import {
   TraceLine,
   TraceIcon,
   TraceTitle,
-  TraceDescription,
   ToolActivity
 } from '@study/ui';
+import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -21,6 +27,11 @@ import { settledAgentTool } from './tool-state';
 type Run = typeof agentProgressSchema.Type;
 
 type Node = { run: Run; index: number; children: Node[] };
+
+type ExpansionState = {
+  expanded: ReadonlyMap<string, boolean>;
+  change: (entries: readonly (readonly [string, boolean])[]) => void;
+};
 
 const labels = {
   running: 'workspace.state.running',
@@ -63,16 +74,49 @@ function runTree(runs: readonly Run[]): Node[] {
 }
 
 export function RunHistory({ runs }: { runs: readonly Run[] }) {
+  const [expanded, setExpanded] = useState<ReadonlyMap<string, boolean>>(() => new Map());
+
   return (
-    <>
-      {runTree(runs).map((node) => (
-        <RunNode key={node.run.runId} node={node} />
-      ))}
-    </>
+    <RunNodes
+      nodes={runTree(runs)}
+      expansion={{
+        expanded,
+        change: (entries) => setExpanded((previous) => new Map([...previous, ...entries]))
+      }}
+    />
   );
 }
 
-function RunNode({ node }: { node: Node }) {
+function RunNodes({ nodes, expansion }: { nodes: readonly Node[]; expansion: ExpansionState }) {
+  const value = nodes
+    .filter(
+      ({ run }) =>
+        expansion.expanded.get(run.runId) ?? (run.status === 'running' || run.status === 'failed')
+    )
+    .map((node) => node.run.runId);
+
+  if (!nodes.length) return null;
+
+  return (
+    <Accordion
+      multiple
+      value={value}
+      onValueChange={(next) =>
+        expansion.change(
+          nodes
+            .filter(({ run }) => value.includes(run.runId) !== next.includes(run.runId))
+            .map(({ run }) => [run.runId, next.includes(run.runId)] as const)
+        )
+      }
+    >
+      {nodes.map((node) => (
+        <RunNode key={node.run.runId} node={node} expansion={expansion} />
+      ))}
+    </Accordion>
+  );
+}
+
+function RunNode({ node, expansion }: { node: Node; expansion: ExpansionState }) {
   const { t } = useI18n();
   const { run, children, index } = node;
   const trace = run.trace;
@@ -85,41 +129,34 @@ function RunNode({ node }: { node: Node }) {
   );
 
   return (
-    <TraceCollapsible defaultOpen>
-      <TraceCollapsibleTrigger>
-        <TraceLine
-          status={
-            run.status === 'running' ? 'running' : run.status === 'failed' ? 'error' : undefined
-          }
-        >
-          <TraceIcon>
-            <Icon />
-          </TraceIcon>
-          <TraceTitle>{title}</TraceTitle>{' '}
-          <TraceDescription>{t(labels[run.status])}</TraceDescription>
-        </TraceLine>
-      </TraceCollapsibleTrigger>
-      <TraceCollapsibleContent layout="details">
+    <AccordionItem value={run.runId}>
+      <AccordionTrigger>
+        <TraceIcon>
+          <Icon />
+        </TraceIcon>
+        <AccordionTitle>{title}</AccordionTitle>{' '}
+        <Badge variant={run.status === 'failed' ? 'destructive' : 'outline'}>
+          {t(labels[run.status])}
+        </Badge>
+      </AccordionTrigger>
+      <AccordionContent>
         <RunMetadata run={run} />
         <RunPayload run={run} />
         <Trace>
           {run.tools.map((tool) => (
             <AgentToolCall key={tool.toolCallId} tool={settledAgentTool(tool, run)}>
-              <Trace>
-                {children
-                  .filter((child) => child.run.trace?.parentToolCallId === tool.toolCallId)
-                  .map((child) => (
-                    <RunNode key={child.run.runId} node={child} />
-                  ))}
-              </Trace>
+              <RunNodes
+                expansion={expansion}
+                nodes={children.filter(
+                  (child) => child.run.trace?.parentToolCallId === tool.toolCallId
+                )}
+              />
             </AgentToolCall>
           ))}
-          {detached.map((child) => (
-            <RunNode key={child.run.runId} node={child} />
-          ))}
+          <RunNodes nodes={detached} expansion={expansion} />
         </Trace>
-      </TraceCollapsibleContent>
-    </TraceCollapsible>
+      </AccordionContent>
+    </AccordionItem>
   );
 }
 

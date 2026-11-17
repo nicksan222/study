@@ -206,17 +206,19 @@ function GenerationFailureDetails({
     <>
       {failed && (
         <ErrorState
+          layout="compact"
           title={t('PracticeGenerationFailed')}
           description={t('PracticeGenerationFailedDescription')}
         />
       )}
       {retry && (
         <ErrorState
+          layout="compact"
           title={t('PracticeGenerationRetryError')}
           description={t('PracticeGenerationRetryErrorDescription')}
         />
       )}
-      {stop && <ErrorState title={t('PracticeGenerationStopError')} />}
+      {stop && <ErrorState layout="compact" title={t('PracticeGenerationStopError')} />}
     </>
   );
 }

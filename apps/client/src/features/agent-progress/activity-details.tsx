@@ -30,7 +30,7 @@ export function AgentActivityDetails({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPopup closeLabel={t('Close')}>
-        <DialogHeading title={t('AgentActivityDetails')} description={title} />
+        <DialogHeading density="compact" title={t('AgentActivityDetails')} description={title} />
         <DialogBody>
           {children}
           <ActivityHistory {...input} />
@@ -49,7 +49,7 @@ function ActivityHistory({
   const runs = progress.runs.map((run) => settleRun(run, status));
 
   return (
-    <Trace density="compact" aria-label={t('AgentActivitySteps')}>
+    <Trace aria-label={t('AgentActivitySteps')}>
       {runs.length === agentProgressLimit && (
         <TraceDescription>{t('AgentActivityRecentSteps')}</TraceDescription>
       )}

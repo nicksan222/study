@@ -258,6 +258,32 @@ test.browser.stable(
       )
       .toBe(true);
     expect((await study.snapshot(stopped.id)).resultVersionId).toBeNull();
+    await page.reload();
+    await page.getByRole('button', { name: copy.Settings, exact: true }).click();
+    const settings = page.getByRole('dialog', { name: copy.Settings });
+
+    await settings.getByRole('button', { name: copy.AiActivityTitle, exact: true }).click();
+    const stoppedTask = settings
+      .getByRole('button')
+      .filter({ hasText: copy['workspace.task.material-generation'] })
+      .first();
+
+    await expect(stoppedTask).toBeVisible();
+    await stoppedTask.click();
+    await expect(details).toBeVisible();
+    await expect(
+      details.getByRole('button', { name: new RegExp(` ${copy['workspace.state.running']}$`) })
+    ).toHaveCount(0);
+    await expectScreenshot('stopped-details', {
+      target: details,
+      ready: () => expect(details.getByLabel(copy.AgentActivitySteps)).toBeVisible()
+    });
+    await expectAccessibility('generation-cancelled-details');
+    await page.keyboard.press('Escape');
+    await expect(details).toHaveCount(0);
+    await expect(
+      settings.getByRole('button', { name: copy.AiActivityTitle, exact: true })
+    ).toBeVisible();
   }
 );
 
@@ -598,6 +624,14 @@ async function noveltyJourney(
   });
 
   if (repairable) {
+    const history = details.getByRole('button', {
+      name: `${copy.AgentRunHistory} ${copy.AgentActivityStepComplete}`,
+      exact: true
+    });
+
+    await expect(history).toHaveAttribute('aria-expanded', 'false');
+    await history.press('Space');
+    await expect(history).toHaveAttribute('aria-expanded', 'true');
     controlled.firstReview.release();
     await controlled.repair!.called;
     const activeRepair = details.getByRole('button', {
@@ -605,10 +639,22 @@ async function noveltyJourney(
       exact: true
     });
 
+    await expect(history).toHaveAttribute('aria-expanded', 'true');
+    await expect(
+      details
+        .getByRole('button', {
+          name: `${copy.AgentRunNovelty} ${copy.AgentActivityStepComplete}`,
+          exact: true
+        })
+        .first()
+    ).toHaveAttribute('aria-expanded', 'false');
+    await history.press('Space');
+    await details.getByRole('heading', { name: copy.AgentActivityDetails, exact: true }).click();
     await expectScreenshot('repair-inspector', {
       target: details,
       ready: async () => {
         await expect(activeRepair).toBeVisible();
+        await expect(activeRepair).toHaveAttribute('aria-expanded', 'true');
         await activeRepair.scrollIntoViewIfNeeded();
       }
     });
@@ -715,12 +761,56 @@ async function reopenPublishedInspector(
 
   for (const item of await history.all()) {
     await item.click();
+    await inspector
+      .getByRole('button', {
+        name: `${copy.AgentRunMaterial} ${copy.AgentActivityStepComplete}`,
+        exact: true
+      })
+      .click();
+
+    for (const draft of await inspector
+      .getByRole('button', {
+        name: `${copy.AgentRunDraft} ${copy.AgentActivityStepComplete}`,
+        exact: true
+      })
+      .all())
+      await draft.click();
+
     const completed = inspector.getByRole('button', {
       name: `${label} ${copy.AgentActivityStepComplete}`,
       exact: true
     });
 
     await expect(completed.first()).toBeVisible();
+    await expect(completed.first()).toHaveAttribute('aria-expanded', 'false');
+    await completed.first().press('Space');
+    const run = inspector
+      .getByRole('region', { name: `${label} ${copy.AgentActivityStepComplete}`, exact: true })
+      .first();
+
+    await run.getByRole('button', { name: copy.AgentRunDetails, exact: true }).click();
+    await expect(run.getByRole('textbox', { name: copy.AssistantToolOutput })).toBeVisible();
+    await expect(run.getByRole('textbox', { name: copy.AssistantToolOutput })).toHaveValue(
+      kind === 'quiz' ? /"questions"/ : /"cards"/
+    );
+    await expect(run.getByRole('textbox', { name: copy.AssistantToolOutput })).toHaveAttribute(
+      'readonly',
+      ''
+    );
+    const parent = inspector
+      .getByRole('button', {
+        name: `${copy.AgentRunDraft} ${copy.AgentActivityStepComplete}`,
+        exact: true
+      })
+      .first();
+
+    await parent.press('Space');
+    await expect(run).toHaveCount(0);
+    await parent.press('Space');
+    await expect(completed.first()).toHaveAttribute('aria-expanded', 'true');
+    await completed.first().press('Space');
+
+    await inspector.getByRole('heading', { name: copy.AgentActivityDetails, exact: true }).click();
 
     if ((await completed.count()) === 2) {
       await completed.last().scrollIntoViewIfNeeded();
@@ -770,6 +860,45 @@ test.browser.stable(
     );
 
     await expectScreenshot('outcome', { target, ready: () => expect(target).toBeVisible() });
+    const root = target.getByRole('button', {
+      name: `${copy.AgentRunMaterial} ${copy.AgentActivityStepFailed}`,
+      exact: true
+    });
+
+    await root.press('Enter');
+    await expect(root).toHaveAttribute('aria-expanded', 'false');
+    await root.press('Enter');
+    await expect(root).toHaveAttribute('aria-expanded', 'true');
+    await target.getByRole('button', { name: copy.AgentRunDetails }).first().click();
+    await expect(target.getByRole('textbox', { name: copy.AssistantToolInput })).toBeVisible();
+    await target.getByRole('button', { name: copy.AgentRunDetails }).first().click();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expectScreenshot('failed-inspector-narrow', {
+      target,
+      ready: () => expect(root).toBeVisible()
+    });
+    await page.setViewportSize({ width: 2560, height: 1440 });
+    await target.getByRole('button', { name: copy.Close }).click();
+    await study.settings({ appearance: Appearance.LIGHT, language: Language.ITALIAN });
+    await page.reload();
+    await page
+      .getByText('Cell division exhausted repair', { exact: true })
+      .click({ button: 'right' });
+    await page.getByRole('menuitem', { name: catalogs.italian.AgentActivityDetails }).click();
+    const italian = page.getByRole('dialog', { name: catalogs.italian.AgentActivityDetails });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expectScreenshot('failed-inspector-italian-light', {
+      target: italian,
+      ready: () =>
+        expect(
+          italian.getByRole('button', {
+            name: `${catalogs.italian.AgentRunMaterial} ${catalogs.italian.AgentActivityStepFailed}`,
+            exact: true
+          })
+        ).toBeVisible()
+    });
+    await expectAccessibility('novelty-failure-inspector-italian-light');
   }
 );
 
