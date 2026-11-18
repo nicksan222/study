@@ -26,7 +26,10 @@ test.browser.stable(
     await expect(editor).toBeFocused();
     await expectScreenshot('unchanged-editor', {
       target: dialog,
-      ready: () => expect(dialog.getByRole('status')).toHaveText(copy.NoteEditUnchanged)
+      ready: () =>
+        expect(dialog.getByRole('status').filter({ hasText: copy.NoteEditUnchanged })).toHaveText(
+          copy.NoteEditUnchanged
+        )
     });
     await editor.fill('');
     await expect(save).toBeDisabled();
@@ -61,7 +64,10 @@ test.browser.stable(
     await expect(save).toBeEnabled();
     await expectScreenshot('corrected-unsaved', {
       target: dialog,
-      ready: () => expect(dialog.getByRole('status')).toHaveText(copy.NoteEditUnsaved)
+      ready: () =>
+        expect(dialog.getByRole('status').filter({ hasText: copy.NoteEditUnsaved })).toHaveText(
+          copy.NoteEditUnsaved
+        )
     });
     await dialog.getByRole('button', { name: copy.NoteDiscardEdits }).click();
     await expect(dialog).toBeHidden();
@@ -72,7 +78,10 @@ test.browser.stable(
     await expect(editor).toHaveValue(original);
     await expectScreenshot('discard-restored-original', {
       target: dialog,
-      ready: () => expect(dialog.getByRole('status')).toHaveText(copy.NoteEditUnchanged)
+      ready: () =>
+        expect(dialog.getByRole('status').filter({ hasText: copy.NoteEditUnchanged })).toHaveText(
+          copy.NoteEditUnchanged
+        )
     });
     await editor.fill(corrected);
     await editor.press('ControlOrMeta+Enter');

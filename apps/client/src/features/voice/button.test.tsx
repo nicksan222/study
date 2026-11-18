@@ -352,7 +352,7 @@ test.unit.stable(
 
 test.unit.stable(
   'keeps the focused microphone action available when transcription fails',
-  async ({ render, screen, userEvent, expect }) => {
+  async ({ render, screen, userEvent, expect, waitFor }) => {
     render(<DictationButton onTranscript={() => {}} />);
     const trigger = screen.getByRole('button', { name: 'Start dictation' });
 
@@ -372,7 +372,7 @@ test.unit.stable(
     await userEvent.keyboard('{Enter}');
     expect(await screen.findByRole('dialog')).toBeVisible();
     await userEvent.keyboard('{Escape}');
-    expect(recovery).toHaveFocus();
+    await waitFor(() => expect(recovery).toHaveFocus());
   }
 );
 
