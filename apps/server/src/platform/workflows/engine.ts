@@ -13,7 +13,6 @@
  */
 
 import { BunCrypto } from '@effect/platform-bun';
-import { SqliteClient } from '@effect/sql-sqlite-bun';
 import { StudyError } from '@study/contracts';
 import type { Context } from 'effect';
 import { Cause, Effect, Layer } from 'effect';
@@ -22,6 +21,8 @@ import { ClusterWorkflowEngine, SingleRunner, SqlMessageStorage } from 'effect/c
 import type { WorkflowEngine } from 'effect/workflow';
 
 import type { ServerContext } from '#server/platform/database/context';
+
+import { workflowSqlClientLayer } from './sql-client.ts';
 
 /** Domain migrations and exclusive database ownership precede building this scoped layer. */
 export function workflowEngineLayer(context: ServerContext) {
@@ -39,7 +40,7 @@ export function workflowEngineLayer(context: ServerContext) {
         }
       })
     ),
-    Layer.provide(SqliteClient.layer({ filename: context.db.path })),
+    Layer.provide(workflowSqlClientLayer(context.db.path)),
     Layer.provide(BunCrypto.layer),
     Layer.catchCause((cause) =>
       Layer.effectContext(
@@ -64,7 +65,7 @@ export function workflowEngineLayer(context: ServerContext) {
 /** Runs only official SQL infrastructure migrations, without starting a runner. */
 export function initializeWorkflowInfrastructure(filename: string) {
   return Layer.build(SqlMessageStorage.layerMigrations({})).pipe(
-    Effect.provide(SqliteClient.layer({ filename })),
+    Effect.provide(workflowSqlClientLayer(filename)),
     Effect.scoped,
     Effect.asVoid,
     Effect.catchCause((cause) =>

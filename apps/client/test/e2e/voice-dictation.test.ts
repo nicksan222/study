@@ -32,6 +32,7 @@ test.browser.stable(
     for (let index = 0; index < 18; index++) await composer.press('Shift+ArrowRight');
 
     const failure = voice.next({ error: 'transient' }, { hold: true });
+    const firstAudio = microphone.nextAudio();
 
     await page.getByRole('button', { name: copy.VoiceStart, exact: true }).click();
     await microphone.requested;
@@ -51,6 +52,7 @@ test.browser.stable(
       target: 'viewport',
       ready: () => expect(composer).toHaveValue(original)
     });
+    await firstAudio;
     await page.getByRole('button', { name: copy.VoiceStop, exact: true }).click();
     const input = await failure.called;
 

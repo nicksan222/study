@@ -9,6 +9,7 @@ class Recorder {
   ondataavailable?: (event: BlobEvent) => void;
   onstop?: () => void;
   onerror?: () => void;
+  stopped = Promise.withResolvers<void>();
 
   constructor() {
     Recorder.current = this;
@@ -20,7 +21,10 @@ class Recorder {
 
   stop() {
     this.state = 'inactive';
-    queueMicrotask(() => this.onstop?.());
+    queueMicrotask(() => {
+      this.onstop?.();
+      this.stopped.resolve();
+    });
   }
 }
 
@@ -89,12 +93,39 @@ test.unit.stable(
   async ({ vi, expect }) => {
     const fixture = prepare(vi);
     const controller = new AbortController();
+    const onError = vi.fn();
 
-    await captureMicrophone({ signal: controller.signal, onLimit: () => {}, onError: () => {} });
+    await captureMicrophone({ signal: controller.signal, onLimit: () => {}, onError });
     expect(fixture.active()).toBe(true);
     controller.abort();
     expect(fixture.active()).toBe(false);
     expect(Recorder.current.state).toBe('inactive');
+    await Recorder.current.stopped.promise;
+    expect(onError).not.toHaveBeenCalled();
+  }
+);
+
+test.unit.stable(
+  'reports an unexpected track-ending stop and rejects partial audio',
+  async ({ vi, expect }) => {
+    const fixture = prepare(vi);
+    const onError = vi.fn();
+    const controller = new AbortController();
+    const capture = await captureMicrophone({
+      signal: controller.signal,
+      onLimit: () => {},
+      onError
+    });
+
+    try {
+      Recorder.current.state = 'inactive';
+      Recorder.current.onstop?.();
+      expect(fixture.active()).toBe(false);
+      expect(onError).toHaveBeenCalledOnce();
+      await expect(capture.stop()).rejects.toThrow('Microphone recording ended unexpectedly');
+    } finally {
+      controller.abort();
+    }
   }
 );
 

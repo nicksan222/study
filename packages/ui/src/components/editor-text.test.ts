@@ -37,3 +37,30 @@ test.unit.stable(
     }
   }
 );
+
+for (const newline of ['\n', '\r\n', '\r']) {
+  test.unit.stable(
+    `preserves literal multiline dictation in code blocks with ${JSON.stringify(newline)} separators`,
+    ({ expect }) => {
+      const editor = new Editor({
+        extensions: [StarterKit],
+        content: '<pre><code>Before selected after</code></pre>'
+      });
+
+      try {
+        editor.commands.setTextSelection({ from: 8, to: 16 });
+        const before = editor.getJSON();
+
+        insertEditorText(editor, `<tag>${newline}second${newline}${newline}last`);
+        expect(editor.getJSON().content?.[0]).toMatchObject({
+          type: 'codeBlock',
+          content: [{ type: 'text', text: 'Before <tag>\nsecond\n\nlast after' }]
+        });
+        editor.commands.undo();
+        expect(editor.getJSON()).toEqual(before);
+      } finally {
+        editor.destroy();
+      }
+    }
+  );
+}

@@ -95,3 +95,37 @@ test.unit.stable(
     ).toEqual([]);
   }
 );
+
+test.unit.stable(
+  'non-owner barrels cannot re-export raw microphone capabilities',
+  async ({ expect, assert }) => {
+    const diagnostics = await lintRule(
+      { assert },
+      'dictation-boundary',
+      {
+        'apps/client/src/features/notes/barrel.ts': `export {captureMicrophone} from '#client/lib/host.ts';`,
+        'apps/client/src/features/notes/alias.ts': `export {captureMicrophone as record} from '#client/lib/host.ts';`,
+        'apps/client/src/features/notes/wildcard.ts': `export * from '#client/lib/host.ts';`,
+        'apps/client/src/features/notes/native-export.ts': `export * as native from '#client/lib/effect/native.ts';`,
+        'apps/client/src/features/notes/relative-export.ts': `export {captureMicrophone} from '../../lib/host.ts';`
+      },
+      true
+    );
+
+    expect(diagnostics).toHaveLength(5);
+    expect(
+      await lintRule(
+        { assert },
+        'dictation-boundary',
+        {
+          'apps/client/src/lib/host.ts': `export {captureMicrophone} from './effect/native.ts';`,
+          'apps/client/src/features/voice/index.ts': `export * from '#client/lib/host.ts';`,
+          'apps/client/src/features/notes/types.ts': `export type * from '#client/lib/host.ts';`,
+          'apps/client/src/features/notes/availability.ts': `export {microphoneAvailable} from '#client/lib/host.ts';`,
+          'apps/client/src/features/notes/local-export.ts': `export {captureMicrophone} from './local.ts';`
+        },
+        true
+      )
+    ).toEqual([]);
+  }
+);

@@ -33,6 +33,11 @@ export default defineRule({
     if (!current || current.startsWith('features/voice/')) return {};
 
     const capture = current === 'lib/effect/microphone.ts';
+    const ownsHost = current === 'lib/host.ts' || current.startsWith('lib/effect/');
+    const protectedSource = (source: unknown) =>
+      !ownsHost &&
+      typeof source === 'string' &&
+      ['lib/host', 'lib/effect/native'].includes(webTarget(context.filename, source) ?? '');
     const bindings = effectBindings(context);
     const rpc = lexicalResolver(
       (node, seen) => {
@@ -85,16 +90,27 @@ export default defineRule({
           report(node);
       },
       ImportDeclaration(node) {
-        const target = webTarget(context.filename, node.source.value);
-        const ownsHost = current === 'lib/host.ts' || current.startsWith('lib/effect/');
-
-        if (ownsHost || !['lib/host', 'lib/effect/native'].includes(target ?? '')) return;
+        if (!protectedSource(node.source.value)) return;
 
         const raw = node.specifiers.some(
           (item: any) => propertyName(item.imported) === 'captureMicrophone'
         );
 
         if (raw) report(node);
+      },
+      ExportNamedDeclaration(node) {
+        if (node.exportKind === 'type' || !protectedSource(node.source?.value)) return;
+
+        if (
+          node.specifiers.some(
+            (item: any) =>
+              item.exportKind !== 'type' && propertyName(item.local) === 'captureMicrophone'
+          )
+        )
+          report(node);
+      },
+      ExportAllDeclaration(node) {
+        if (node.exportKind !== 'type' && protectedSource(node.source.value)) report(node);
       },
       CallExpression(node) {
         if (capture) return;

@@ -12,7 +12,7 @@ import {
   ErrorState,
   RetryButton
 } from '@study/ui';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 import { captureMicrophone, microphoneAvailable } from '#client/lib/host.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -51,7 +51,9 @@ function useDictation({
   const capturedTarget = useRef(targetKey);
   const callbacks = useRef({ onTranscript, onCaptureStart });
 
-  callbacks.current = { onTranscript, onCaptureStart };
+  useLayoutEffect(() => {
+    callbacks.current = { onTranscript, onCaptureStart };
+  }, [onTranscript, onCaptureStart]);
   const owned = state.owner === owner;
   const insert = () => session.insert(owner, (text) => callbacks.current.onTranscript(text));
 

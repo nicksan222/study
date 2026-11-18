@@ -1,4 +1,5 @@
 import { test } from '@study/testing';
+import { Suspense, startTransition, useState } from 'react';
 
 import type * as ButtonModule from './button';
 
@@ -109,5 +110,54 @@ test.unit.stable(
     expect(firstDraft).toBe('First draft');
     expect(secondDraft).toBe('Second draft');
     expect(screen.getByRole('button', { name: 'Start dictation' })).toBeEnabled();
+  }
+);
+
+test.unit.stable(
+  'keeps microphone actions bound to the committed destination during a suspended navigation',
+  async ({ render, screen, fireEvent, act, expect, vi }) => {
+    const committedCapture = vi.fn();
+    const suspendedCapture = vi.fn();
+    const pending = Promise.withResolvers<void>();
+    const navigationRendered = vi.fn();
+
+    function PendingDestination({ pendingNavigation }: { pendingNavigation: boolean }) {
+      if (pendingNavigation) {
+        navigationRendered();
+
+        throw pending.promise;
+      }
+
+      return <span>Committed destination</span>;
+    }
+
+    function Destinations() {
+      const [pendingNavigation, setPendingNavigation] = useState(false);
+
+      return (
+        <>
+          <button onClick={() => startTransition(() => setPendingNavigation(true))}>
+            Navigate
+          </button>
+          <Suspense fallback={<span>Opening destination</span>}>
+            <DictationButton
+              targetKey={pendingNavigation ? 'pending' : 'committed'}
+              onCaptureStart={pendingNavigation ? suspendedCapture : committedCapture}
+              onTranscript={() => {}}
+            />
+            <PendingDestination pendingNavigation={pendingNavigation} />
+          </Suspense>
+        </>
+      );
+    }
+
+    render(<Destinations />);
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Navigate' })));
+    expect(navigationRendered).toHaveBeenCalled();
+    expect(screen.getByText('Committed destination')).toBeVisible();
+    expect(screen.queryByText('Opening destination')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Start dictation' }));
+    expect(committedCapture).toHaveBeenCalledOnce();
+    expect(suspendedCapture).not.toHaveBeenCalled();
   }
 );

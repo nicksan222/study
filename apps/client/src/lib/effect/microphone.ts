@@ -71,13 +71,26 @@ export async function captureMicrophone({
   recorder.ondataavailable = (event) => {
     if (event.data.size) chunks.push(event.data);
   };
-  recorder.onstop = settle;
+  let stopping = false;
+
+  recorder.onstop = () => {
+    if (stopping) {
+      settle();
+
+      return;
+    }
+
+    stopTracks();
+    fail(new StudyError('internal', 'Microphone recording ended unexpectedly'));
+    onError();
+  };
   recorder.onerror = () => {
     stopTracks();
     fail(new StudyError('internal', 'Microphone recording failed'));
     onError();
   };
   const stopTracks = () => {
+    stopping = true;
     deadline.abort();
     signal.removeEventListener('abort', cancel);
 
