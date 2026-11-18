@@ -16,13 +16,13 @@ let CanonicalDocumentEditor: typeof Module.CanonicalDocumentEditor;
 
 let urls: Record<string, string>;
 
-let destination: RichNoteSelection | undefined;
+let destinations: RichNoteSelection[];
 
 const labels = new Proxy({} as StructuredEditorLabels, { get: (_, key) => String(key) });
 
 test.unit.beforeEach(async ({ mock }) => {
   urls = {};
-  destination = undefined;
+  destinations = [];
   mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
     useWorkspacePreferences: () => ({})
   }));
@@ -57,7 +57,7 @@ test.unit.beforeEach(async ({ mock }) => {
       useImperativeHandle(ref, () => ({
         selection: () => ({ kind: 'text', anchor: 3, head: 7 }),
         restoreSelection: (selection) => {
-          destination = selection;
+          destinations.push(selection);
         },
         insertPlainText() {}
       }));
@@ -104,11 +104,12 @@ for (const contentChanged of [false, true]) {
         />
       );
       fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
-      expect(destination).toEqual(
+      fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+      expect(destinations).toEqual([
         contentChanged
           ? { kind: 'text', anchor: Number.MAX_SAFE_INTEGER, head: Number.MAX_SAFE_INTEGER }
           : { kind: 'text', anchor: 3, head: 7 }
-      );
+      ]);
     }
   );
 }

@@ -1,6 +1,6 @@
 import { documentSchema } from '@study/contracts';
 import type { ContentSnapshotId, ProjectId } from '@study/contracts';
-import type { RichNoteEditorHandle, RichNoteSelection } from '@study/ui';
+import type { RichNoteEditorHandle } from '@study/ui';
 import { StructuredEditor } from '@study/ui';
 import { Schema } from 'effect';
 import { useMemo, useRef } from 'react';
@@ -18,6 +18,7 @@ import {
   useStructuredEditorLabels
 } from '../document-presentation';
 import type { EditableDocument } from '../document-presentation';
+import { useEditorDictation } from './use-editor-dictation';
 
 const equalDocument = Schema.toEquivalence(documentSchema);
 
@@ -46,9 +47,7 @@ export function CanonicalDocumentEditor({
   const value = useMemo(() => documentToEditor(document, images.urls), [document, images.urls]);
 
   const editor = useRef<RichNoteEditorHandle>(null);
-  const captured = useRef<{ document: EditableDocument; selection: RichNoteSelection } | undefined>(
-    undefined
-  );
+  const dictation = useEditorDictation(editor, document, equalDocument);
 
   return (
     <>
@@ -65,26 +64,7 @@ export function CanonicalDocumentEditor({
         toolbarEnd={
           <>
             {toolbarEnd}
-            <DictationButton
-              targetKey={targetKey}
-              disabled={disabled}
-              onCaptureStart={() => {
-                if (editor.current)
-                  captured.current = { document, selection: editor.current.selection() };
-              }}
-              onTranscript={(text) => {
-                editor.current?.restoreSelection(
-                  captured.current && equalDocument(captured.current.document, document)
-                    ? captured.current.selection
-                    : {
-                        kind: 'text',
-                        anchor: Number.MAX_SAFE_INTEGER,
-                        head: Number.MAX_SAFE_INTEGER
-                      }
-                );
-                editor.current?.insertPlainText(text);
-              }}
-            />
+            <DictationButton targetKey={targetKey} disabled={disabled} {...dictation} />
           </>
         }
         label={t('NotePageEditor')}

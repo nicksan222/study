@@ -7,18 +7,24 @@ let DictationButton: typeof ButtonModule.DictationButton;
 
 let recording: boolean;
 
+let emitAudio: (samples: number[]) => void;
+
 let finishTranscription: (value: { text: string }) => void;
+
+let failTranscription: (error: Error) => void;
 
 let transcription: Promise<{ text: string }>;
 
 test.unit.beforeEach(async ({ mock }) => {
   recording = false;
-  transcription = new Promise((resolve) => {
+  transcription = new Promise((resolve, reject) => {
     finishTranscription = resolve;
+    failTranscription = reject;
   });
   mock('#client/lib/host.ts', () => ({
     microphoneAvailable: () => true,
-    captureMicrophone: async () => {
+    captureMicrophone: async ({ onChunk }: { onChunk: (samples: number[]) => void }) => {
+      emitAudio = onChunk;
       recording = true;
 
       return {
@@ -45,6 +51,50 @@ test.unit.beforeEach(async ({ mock }) => {
   mock('#client/features/voice/model-controls.tsx', () => ({ VoiceModelControls: () => null }));
   DictationButton = (await import('./button')).DictationButton;
 });
+
+test.unit.stable(
+  'allows pointer cancellation of a failed recording through the same control',
+  async ({ render, screen, userEvent, expect, vi, waitFor }) => {
+    const onTranscript = vi.fn();
+
+    render(<DictationButton onTranscript={onTranscript} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Start dictation' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Stop and transcribe' }));
+    failTranscription(new Error('Unavailable'));
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Dictation recovery options' })
+    );
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await userEvent.click(screen.getByRole('button', { name: 'Dictation recovery options' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel dictation' }));
+    expect(screen.getAllByRole('button')).toEqual([
+      screen.getByRole('button', { name: 'Start dictation' })
+    ]);
+    expect(onTranscript).not.toHaveBeenCalled();
+  }
+);
+
+test.unit.stable(
+  'delivers speech to its consumer during recording through a single control',
+  async ({ render, screen, userEvent, act, expect, vi }) => {
+    const onTranscript = vi.fn();
+
+    render(<DictationButton onTranscript={onTranscript} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Start dictation' }));
+    const stop = await screen.findByRole('button', { name: 'Stop and transcribe' });
+
+    await act(async () => {
+      emitAudio([0.5]);
+      finishTranscription({ text: 'First segment' });
+      await transcription;
+    });
+    expect(onTranscript).toHaveBeenCalledExactlyOnceWith('First segment');
+    expect(stop).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getAllByRole('button')).toEqual([stop]);
+    expect(screen.queryByText('First segment')).not.toBeInTheDocument();
+  }
+);
 
 test.unit.stable(
   'stops recording when its draft becomes disabled',

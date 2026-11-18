@@ -1,5 +1,5 @@
 import { RichNoteEditor, RichNoteContent, RichNoteSummary } from '@study/ui';
-import type { RichNoteEditorHandle, RichNoteSelection } from '@study/ui';
+import type { RichNoteEditorHandle } from '@study/ui';
 import { useRef } from 'react';
 import type { Ref, ReactNode } from 'react';
 
@@ -8,6 +8,7 @@ import { useI18n } from '#client/lib/i18n.tsx';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
 import { useNoteLabels } from '../document-presentation';
+import { useEditorDictation } from './use-editor-dictation';
 
 /** Adapts the shared text editor to the note's bilingual controls. */
 export function NoteEditor({
@@ -32,7 +33,7 @@ export function NoteEditor({
   const preferences = useWorkspacePreferences();
 
   const editor = useRef<RichNoteEditorHandle>(null);
-  const captured = useRef<{ value: string; selection: RichNoteSelection } | undefined>(undefined);
+  const dictation = useEditorDictation(editor, value);
 
   return (
     <RichNoteEditor
@@ -45,27 +46,7 @@ export function NoteEditor({
       toolbarEnd={
         <>
           {toolbarEnd}
-          <DictationButton
-            targetKey={targetKey}
-            disabled={disabled}
-            onCaptureStart={() => {
-              if (editor.current)
-                captured.current = { value, selection: editor.current.selection() };
-            }}
-            onTranscript={(text) => {
-              const selection: RichNoteSelection =
-                captured.current?.value === value
-                  ? captured.current.selection
-                  : {
-                      kind: 'text',
-                      anchor: Number.MAX_SAFE_INTEGER,
-                      head: Number.MAX_SAFE_INTEGER
-                    };
-
-              editor.current?.restoreSelection(selection);
-              editor.current?.insertPlainText(text);
-            }}
-          />
+          <DictationButton targetKey={targetKey} disabled={disabled} {...dictation} />
         </>
       }
       value={value}

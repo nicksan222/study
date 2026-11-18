@@ -1,32 +1,72 @@
 import type { Editor } from '@tiptap/core';
-import { NodeSelection } from '@tiptap/pm/state';
+import { NodeSelection, TextSelection } from '@tiptap/pm/state';
+
+export type EditorTextOptions = { continuation?: boolean; focus?: boolean };
 
 /** Dictation enters the document as text nodes, never interpreted HTML or Markdown. */
-export function insertEditorText(editor: Editor, text: string) {
+export function insertEditorText(
+  editor: Editor,
+  text: string,
+  { continuation = false, focus = !continuation }: EditorTextOptions = {}
+) {
+  if (!text) return;
+
   const { selection } = editor.state;
 
   if (selection instanceof NodeSelection && !selection.node.isTextblock) {
     const content = literalContent(text.replace(/\r\n?/g, '\n'), false);
 
-    if (content.length)
-      editor.chain().focus().insertContentAt(selection.to, { type: 'paragraph', content }).run();
+    if (content.length) {
+      const chain = editor.chain();
+
+      if (focus) chain.focus();
+
+      chain.insertContentAt(selection.to, { type: 'paragraph', content }).run();
+    }
 
     return;
   }
 
-  insertInlineText(editor, text);
+  insertInlineText(editor, text, { continuation, focus });
 }
 
-function insertInlineText(editor: Editor, text: string) {
-  const { from, to } = editor.state.selection;
+function insertInlineText(
+  editor: Editor,
+  text: string,
+  { continuation, focus }: Required<EditorTextOptions>
+) {
+  const { from: selectionStart, to } = editor.state.selection;
+  const from = continuation ? to : selectionStart;
   const before = editor.state.doc.textBetween(Math.max(0, from - 1), from);
   const after = editor.state.doc.textBetween(to, Math.min(to + 1, editor.state.doc.content.size));
-  const prefix = before && !/\s$/.test(before) && text && !/^[\s,.;:!?]/.test(text) ? ' ' : '';
-  const suffix = after && !/^[\s,.;:!?]/.test(after) && text && !/\s$/.test(text) ? ' ' : '';
+  const { prefix, suffix } = surroundingSpaces(before, after, text);
   const value = (prefix + text + suffix).replace(/\r\n?/g, '\n');
   const content = literalContent(value, textOnlySelection(editor));
 
-  if (content.length) editor.chain().focus().insertContent(content).run();
+  if (content.length) {
+    const chain = editor.chain();
+
+    if (focus) chain.focus();
+
+    chain.insertContentAt({ from, to }, content);
+
+    // A later segment can start with punctuation before the separator we just added.
+    if (suffix)
+      chain.command(({ tr }) => {
+        tr.setSelection(TextSelection.create(tr.doc, tr.selection.from - suffix.length));
+
+        return true;
+      });
+
+    chain.run();
+  }
+}
+
+function surroundingSpaces(before: string, after: string, text: string) {
+  return {
+    prefix: before && !/\s$/.test(before) && !/^[\s,.;:!?]/.test(text) ? ' ' : '',
+    suffix: after && !/^[\s,.;:!?]/.test(after) && !/\s$/.test(text) ? ' ' : ''
+  };
 }
 
 function textOnlySelection(editor: Editor) {

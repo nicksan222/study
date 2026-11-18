@@ -11,6 +11,8 @@ export const italian = Object.freeze({
   VoiceUnavailable: 'La dettatura richiede accesso al microfono su localhost o HTTPS',
   VoiceCaptureFailed: 'Impossibile registrare. Consenti l’accesso al microfono e riprova.',
   VoiceNoSpeech: 'Nessuna voce rilevata. Prova a registrare di nuovo.',
+  VoiceRecoveryOptions: 'Opzioni di recupero del dettato',
+  VoiceTranscriptionFailedTitle: 'Trascrizione non riuscita',
   VoiceTranscriptionFailed:
     'Trascrizione non riuscita. Riprova oppure annulla per scartare la registrazione.',
   VoiceRecoveredTitle: 'Il dettato è al sicuro',

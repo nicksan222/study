@@ -10,6 +10,8 @@ export const english = Object.freeze({
   VoiceUnavailable: 'Dictation requires microphone access on localhost or HTTPS',
   VoiceCaptureFailed: 'Could not record. Allow microphone access, then try again.',
   VoiceNoSpeech: 'No speech detected. Try recording again.',
+  VoiceRecoveryOptions: 'Dictation recovery options',
+  VoiceTranscriptionFailedTitle: 'Transcription failed',
   VoiceTranscriptionFailed: 'Transcription failed. Retry or cancel to discard the recording.',
   VoiceRecoveredTitle: 'Your dictation is safe',
   VoiceRecoveredHelp:

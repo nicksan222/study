@@ -38,6 +38,7 @@ import { Button } from './button';
 import { captureEditorSelection, restoreEditorNodeSelection } from './editor-selection';
 import type { RichNoteSelection } from './editor-selection';
 import { insertEditorText } from './editor-text';
+import type { EditorTextOptions } from './editor-text';
 import { Menu, MenuTrigger, MenuPopup, MenuItem } from './menu';
 import { blockNoteMath, inlineNoteMath, NoteMath } from './note-math';
 
@@ -111,9 +112,9 @@ export type RichNoteLabels = Record<
 export type { RichNoteSelection } from './editor-selection';
 
 export type RichNoteEditorHandle = {
-  insertPlainText: (text: string) => void;
+  insertPlainText: (text: string, options?: EditorTextOptions) => void;
   selection: () => RichNoteSelection;
-  restoreSelection: (selection: RichNoteSelection) => void;
+  restoreSelection: (selection: RichNoteSelection, options?: { focus: boolean }) => void;
 };
 
 /** Edits Markdown through Tiptap while keeping the caller's versioned text as the only persisted value. */
@@ -166,7 +167,7 @@ export function RichNoteEditor({
   useImperativeHandle(
     ref,
     () => ({
-      insertPlainText: (text) => insertEditorText(editor, text),
+      insertPlainText: (text, options) => insertEditorText(editor, text, options),
       selection: () => {
         const captured = captureEditorSelection(editor);
 
@@ -189,8 +190,8 @@ export function RichNoteEditor({
 
         return captured;
       },
-      restoreSelection: (selection) => {
-        if (selection.kind === 'node') return restoreEditorNodeSelection(editor, selection);
+      restoreSelection: (selection, { focus } = { focus: true }) => {
+        if (selection.kind === 'node') return restoreEditorNodeSelection(editor, selection, focus);
 
         const { anchor, head } = selection;
         const { doc, tr } = editor.state;
@@ -201,7 +202,8 @@ export function RichNoteEditor({
             TextSelection.between(doc.resolve(limit(anchor)), doc.resolve(limit(head)))
           )
         );
-        editor.view.focus();
+
+        if (focus) editor.view.focus();
       }
     }),
     [editor]

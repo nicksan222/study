@@ -309,8 +309,8 @@ function useStructuredEditorHandle(ref: Ref<RichNoteEditorHandle> | undefined, e
     ref,
     () => ({
       selection: () => captureEditorSelection(editor),
-      restoreSelection: (selection) => {
-        if (selection.kind === 'node') return restoreEditorNodeSelection(editor, selection);
+      restoreSelection: (selection, { focus } = { focus: true }) => {
+        if (selection.kind === 'node') return restoreEditorNodeSelection(editor, selection, focus);
 
         const { anchor, head } = selection;
         const end = TextSelection.atEnd(editor.state.doc).to;
@@ -318,7 +318,7 @@ function useStructuredEditorHandle(ref: Ref<RichNoteEditorHandle> | undefined, e
 
         editor.commands.setTextSelection({ from: limit(anchor), to: limit(head) });
       },
-      insertPlainText: (text) => insertEditorText(editor, text)
+      insertPlainText: (text, options) => insertEditorText(editor, text, options)
     }),
     [editor]
   );

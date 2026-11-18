@@ -11,6 +11,8 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
+const ignoreTranscript = () => {};
+
 test.unit.stable(
   'releases a microphone granted after cancellation without transcribing',
   async ({ expect, vi }) => {
@@ -19,7 +21,7 @@ test.unit.stable(
     const transcribe = vi.fn();
     const session = new DictationSession(() => granted.promise, transcribe);
     const owner = Symbol();
-    const started = session.start(owner);
+    const started = session.start(owner, ignoreTranscript);
 
     session.cancel(owner);
     granted.resolve({ stop: async () => [0.5], cancel });
@@ -40,9 +42,10 @@ test.unit.stable(
       () => result.promise
     );
     const owner = Symbol();
+    const insert = vi.fn();
 
-    await session.start(owner);
-    await session.start(Symbol());
+    await session.start(owner, insert);
+    await session.start(Symbol(), insert);
     const stopped = session.stop(owner);
 
     expect(session.snapshot().phase).toBe('transcribing');
@@ -50,7 +53,7 @@ test.unit.stable(
     result.resolve({ text: 'Ciao, come stai?' });
     await stopped;
     expect(session.snapshot().phase).toBe('idle');
-    expect(session.snapshot().transcript).toBe('');
+    expect(insert).not.toHaveBeenCalled();
   }
 );
 
@@ -63,16 +66,18 @@ test.unit.stable(
       transcribe
     );
     const owner = Symbol();
-
-    await session.start(owner);
-    await session.stop(owner);
     const insert = vi.fn(() => {
       throw new Error('Draft full');
     });
 
-    session.insert(owner, insert);
-    expect(session.snapshot().phase).toBe('result');
-    expect(session.snapshot().transcript).toBe('Ciao, come stai?');
+    await session.start(owner, insert);
+    await session.stop(owner);
+    expect(insert).toHaveBeenCalledExactlyOnceWith('Ciao, come stai?');
+    expect(session.snapshot()).toMatchObject({
+      phase: 'result',
+      error: 'insert',
+      transcript: 'Ciao, come stai?'
+    });
     const retry = vi.fn();
 
     session.insert(owner, retry);
@@ -96,7 +101,7 @@ test.unit.stable(
     );
     const owner = Symbol();
 
-    await session.start(owner);
+    await session.start(owner, ignoreTranscript);
     await session.stop(owner);
     expect(session.snapshot().error).toBe('transcribe');
     await session.retry(owner);
@@ -119,13 +124,13 @@ test.unit.stable(
     );
     const owner = Symbol();
 
-    await session.start(owner);
+    await session.start(owner, ignoreTranscript);
     expect(session.snapshot().error).toBe('capture');
-    await session.start(owner);
+    await session.start(owner, ignoreTranscript);
     expect(session.snapshot().phase).toBe('recording');
     await session.stop(owner);
     expect(session.snapshot().error).toBe('empty');
-    await session.start(owner);
+    await session.start(owner, ignoreTranscript);
     expect(session.snapshot().phase).toBe('recording');
     session.cancel(owner);
   }
@@ -146,11 +151,11 @@ test.unit.stable(
     }, vi.fn());
     const owner = Symbol();
 
-    await session.start(owner);
+    await session.start(owner, ignoreTranscript);
     callbacks[0]!.onError?.();
     expect(session.snapshot()).toMatchObject({ phase: 'error', owner, error: 'capture' });
     expect(captures[0]!.cancel).toHaveBeenCalledOnce();
-    await session.start(owner);
+    await session.start(owner, ignoreTranscript);
     callbacks[0]!.onError?.();
     callbacks[0]!.onChunk([0.5]);
     expect(session.snapshot()).toMatchObject({ phase: 'recording', owner });
@@ -160,7 +165,7 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'streams ordered results while recording and inserts only after the final segment',
+  'delivers each ordered result while recording and after stopping',
   async ({ expect, vi }) => {
     const second = deferred<{ text: string }>();
     const requested = deferred<void>();
@@ -185,31 +190,29 @@ test.unit.stable(
     );
     const owner = Symbol();
 
-    session.subscribe(() => {
-      if (session.snapshot().transcript) partial.resolve();
+    const insert = vi.fn(() => {
+      partial.resolve();
     });
-    await session.start(owner, 10);
+
+    await session.start(owner, insert, 10);
     emit(Array(160_000).fill(0));
     await partial.promise;
-    expect(session.snapshot()).toMatchObject({ phase: 'recording', transcript: 'Prima frase.' });
-    const insert = vi.fn();
-
-    session.insert(owner, insert);
-    expect(insert).not.toHaveBeenCalled();
+    expect(session.snapshot().phase).toBe('recording');
+    expect(insert).toHaveBeenCalledExactlyOnceWith('Prima frase.');
     const stopped = session.stop(owner);
 
     await requested.promise;
     expect(lengths).toEqual([160_000, 1]);
     second.resolve({ text: 'Seconda frase.' });
     await stopped;
-    session.insert(owner, insert);
-    expect(insert).toHaveBeenCalledExactlyOnceWith('Prima frase. Seconda frase.');
+    expect(insert.mock.calls).toEqual([['Prima frase.'], ['Seconda frase.']]);
+    expect(session.snapshot().phase).toBe('idle');
   }
 );
 
 test.unit.stable(
   'stops on recognition backlog and retries only the unacknowledged audio in order',
-  async ({ expect }) => {
+  async ({ expect, vi }) => {
     let emit!: (samples: number[]) => void;
     const failed = Promise.withResolvers<{ text: string }>();
     const started = deferred<void>();
@@ -235,13 +238,14 @@ test.unit.stable(
     );
     const owner = Symbol();
     const partial = deferred<void>();
+    const insert = vi.fn((text: string) => {
+      if (text === '1') partial.resolve();
+    });
 
     session.subscribe(() => {
-      if (session.snapshot().transcript === '1') partial.resolve();
-
       if (session.snapshot().error === 'transcribe') retryReady.resolve();
     });
-    await session.start(owner);
+    await session.start(owner, insert);
     emit([1]);
     await partial.promise;
     emit([2]);
@@ -252,12 +256,13 @@ test.unit.stable(
     await retryReady.promise;
     await session.retry(owner);
     expect(calls).toEqual([1, 2, 2, 3, 4]);
-    expect(session.snapshot()).toMatchObject({ phase: 'result', transcript: '1 2 3 4' });
+    expect(insert.mock.calls).toEqual([['1'], ['2'], ['3'], ['4']]);
+    expect(session.snapshot().phase).toBe('idle');
   }
 );
 
 test.unit.stable(
-  'keeps confirmed speech for manual recovery after microphone failure',
+  'keeps delivered speech in its consumer and reports subsequent microphone failure',
   async ({ expect, vi }) => {
     let capture!: { onChunk: (samples: number[]) => void; onError: () => void };
     const partial = deferred<void>();
@@ -271,21 +276,77 @@ test.unit.stable(
     );
     const owner = Symbol();
 
-    session.subscribe(() => {
-      if (session.snapshot().transcript) partial.resolve();
+    const insert = vi.fn(() => {
+      partial.resolve();
     });
-    await session.start(owner);
+
+    await session.start(owner, insert);
     capture.onChunk([1]);
     await partial.promise;
     capture.onError();
     expect(session.snapshot()).toMatchObject({
-      phase: 'result',
-      error: 'interrupted',
-      transcript: 'Confirmed speech'
+      phase: 'error',
+      error: 'capture',
+      transcript: ''
     });
-    const insert = vi.fn();
-
-    session.insert(owner, insert);
     expect(insert).toHaveBeenCalledExactlyOnceWith('Confirmed speech');
+  }
+);
+
+test.unit.stable.for([false, true])(
+  'recovers only undelivered segments after insertion fails (retry needed: %s)',
+  async (retryNeeded, { expect, vi }) => {
+    let emit!: (samples: number[]) => void;
+    let failLast = retryNeeded;
+    const first = deferred<void>();
+    const recovery = deferred<void>();
+    const session = new DictationSession(
+      async ({ onChunk }) => {
+        emit = onChunk;
+
+        return { stop: async () => [3], cancel: () => {} };
+      },
+      async ([sample]) => {
+        if (sample === 3 && failLast) {
+          failLast = false;
+
+          throw new Error('Recognition unavailable');
+        }
+
+        return { text: String(sample) };
+      }
+    );
+    const owner = Symbol();
+    const insert = vi.fn((text: string) => {
+      if (text === '2') throw new Error('Editor unavailable');
+
+      first.resolve();
+    });
+
+    session.subscribe(() => {
+      if (session.snapshot().phase === 'result' || session.snapshot().error === 'transcribe')
+        recovery.resolve();
+    });
+    await session.start(owner, insert);
+    emit([1]);
+    await first.promise;
+    emit([2]);
+    await recovery.promise;
+
+    if (retryNeeded) {
+      expect(session.snapshot()).toMatchObject({
+        phase: 'error',
+        error: 'transcribe',
+        transcript: '2'
+      });
+      await session.retry(owner);
+    }
+
+    expect(insert.mock.calls).toEqual([['1'], ['2']]);
+    expect(session.snapshot()).toMatchObject({
+      phase: 'result',
+      error: 'insert',
+      transcript: '2 3'
+    });
   }
 );

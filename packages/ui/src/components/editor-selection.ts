@@ -19,7 +19,8 @@ export function captureEditorSelection(editor: Editor): RichNoteSelection {
 /** A stale node position must not become a replacement range in unrelated text. */
 export function restoreEditorNodeSelection(
   editor: Editor,
-  { anchor, head }: Extract<RichNoteSelection, { kind: 'node' }>
+  { anchor, head }: Extract<RichNoteSelection, { kind: 'node' }>,
+  focus: boolean
 ) {
   const { doc, tr } = editor.state;
   const node =
@@ -32,5 +33,6 @@ export function restoreEditorNodeSelection(
       : Selection.atEnd(doc);
 
   editor.view.dispatch(tr.setSelection(selection));
-  editor.view.focus();
+
+  if (focus) editor.view.focus();
 }

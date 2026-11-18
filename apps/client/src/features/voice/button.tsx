@@ -1,18 +1,21 @@
 import { rpc } from '@study/contracts/react';
-import { CancelIcon, CopyIcon, MicrophoneIcon, StopIcon } from '@study/icons';
+import { CopyIcon, ErrorIcon, MicrophoneIcon, StopIcon } from '@study/icons';
+import type { StaticMessageKey } from '@study/localization';
 import {
   Button,
   Dialog,
   DialogPopup,
   DialogHeading,
   DialogFooter,
-  IconButton,
-  Textarea,
-  Notebook,
+  DialogTrigger,
   ErrorState,
-  RetryButton
+  IconButton,
+  RetryButton,
+  Spinner,
+  Textarea
 } from '@study/ui';
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import type { ReactElement } from 'react';
 
 import { captureMicrophone, microphoneAvailable } from '#client/lib/host.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -32,6 +35,7 @@ const session = new DictationSession(captureMicrophone, (samples, signal) =>
 );
 
 type DictationProps = {
+  /** Receives each recognized segment in order, including the final segment after Stop. */
   onTranscript: (text: string) => void;
   onCaptureStart?: () => void;
   targetKey?: string | number | bigint;
@@ -49,7 +53,6 @@ function useDictation({
   const model = rpc.voice.status.useQuery({});
   const preferences = rpc.settings.voiceSettings.useQuery({});
   const [setup, setSetup] = useState(false);
-  const capturedTarget = useRef(targetKey);
   const callbacks = useRef({ onTranscript, onCaptureStart });
 
   useLayoutEffect(() => {
@@ -58,24 +61,18 @@ function useDictation({
   const owned = state.owner === owner;
   const insert = () => session.insert(owner, (text) => callbacks.current.onTranscript(text));
 
-  useEffect(() => () => session.cancel(owner), [owner, targetKey]);
-  useEffect(() => {
-    if (disabled) session.cancel(owner);
-  }, [disabled, owner]);
-  useEffect(() => {
-    const sameTarget = capturedTarget.current === targetKey;
-
-    if (!disabled && owned && sameTarget && state.phase === 'result' && !state.error)
-      session.insert(owner, (text) => callbacks.current.onTranscript(text));
-  }, [disabled, owned, owner, state, targetKey]);
+  useLayoutEffect(() => () => session.cancel(owner), [disabled, owner, targetKey]);
   useEscapeCancellation(owned, owner);
 
   const begin = () => {
     if (disabled) return;
 
-    capturedTarget.current = targetKey;
     callbacks.current.onCaptureStart?.();
-    void session.start(owner, preferences.data?.chunkSeconds);
+    void session.start(
+      owner,
+      (text) => callbacks.current.onTranscript(text),
+      preferences.data?.chunkSeconds
+    );
   };
   const start = () => {
     if (disabled) return;
@@ -112,6 +109,8 @@ function useEscapeCancellation(owned: boolean, owner: symbol) {
     const key = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
 
+      if (event.target instanceof Element && event.target.closest('[data-dictation-retry]')) return;
+
       event.preventDefault();
       event.stopPropagation();
       session.cancel(owner);
@@ -130,58 +129,97 @@ export function DictationButton(props: DictationProps) {
   return (
     <>
       <DictationTrigger model={model} />
-      <DictationFeedback model={model} />
+      {model.owned && model.state.phase === 'result' && <RecoveredTranscript model={model} />}
       <DictationSetup model={model} />
     </>
   );
 }
 
-const phaseLabels = {
-  idle: 'VoiceStart',
-  starting: 'VoiceStarting',
-  recording: 'VoiceStop',
-  transcribing: 'VoiceTranscribing',
-  result: 'VoiceStart',
-  error: 'VoiceStart'
-} as const;
-
-function dictationLabel(phase: keyof typeof phaseLabels, backlog?: boolean) {
-  return phase === 'transcribing' && backlog ? 'VoiceFinishingBacklog' : phaseLabels[phase];
-}
-
 function DictationTrigger({ model }: { model: Model }) {
   const { t } = useI18n();
-  const { state, owned, owner } = model;
-  const available = microphoneAvailable();
-  const recording = owned && state.phase === 'recording';
-  const active = owned && ['starting', 'recording', 'transcribing'].includes(state.phase);
-  const phase = owned ? state.phase : 'idle';
-  const label = available ? dictationLabel(phase, state.backlog) : 'VoiceUnavailable';
-  const canStart = state.phase === 'idle' || terminalCaptureError(model);
+  const { recording, progress, error, retry, label, disabled } = triggerState(model);
+  const button = (
+    <IconButton
+      type="button"
+      label={t(label)}
+      tooltip={error ? t(errorLabels[error]) : undefined}
+      aria-pressed={recording}
+      variant={recording || error ? 'warning-outline' : 'ghost'}
+      disabled={disabled}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={retry ? undefined : () => activateTrigger(model, recording, !!progress)}
+    >
+      {progress ? (
+        <Spinner label={t(progress)} />
+      ) : (
+        <TriggerIcon recording={recording} error={!!error} />
+      )}
+    </IconButton>
+  );
 
   return (
-    <Notebook.Actions>
-      <IconButton
-        type="button"
-        label={t(label)}
-        aria-pressed={recording}
-        disabled={triggerDisabled(available, model.disabled, canStart, recording)}
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={() => {
-          if (recording) void session.stop(owner);
-          else model.start();
-        }}
-      >
-        {recording ? <StopIcon aria-hidden="true" /> : <MicrophoneIcon aria-hidden="true" />}
-      </IconButton>
-      {active && <Notebook.Muted role="status">{t(label)}</Notebook.Muted>}
-      {owned && (
-        <IconButton type="button" label={t('VoiceCancel')} onClick={() => session.cancel(owner)}>
-          <CancelIcon aria-hidden="true" />
-        </IconButton>
-      )}
-    </Notebook.Actions>
+    <>
+      {retry ? <DictationRetry model={model} trigger={button} /> : button}
+      {error && <ErrorState layout="announcement" title={t(errorLabels[error])} />}
+    </>
   );
+}
+
+function triggerState({ state, owned, disabled }: Model) {
+  const available = microphoneAvailable();
+  const recording = owned && state.phase === 'recording';
+  const progress = owned ? progressLabel(state) : undefined;
+  const error = owned && state.phase === 'error' ? state.error : undefined;
+  const retry = error === 'transcribe';
+  const enabled = state.phase === 'idle' || recording || progress || error;
+
+  return {
+    recording,
+    progress,
+    error,
+    retry,
+    label: triggerLabel(available, recording, !!progress, retry),
+    disabled: !available || disabled || !enabled
+  };
+}
+
+function activateTrigger(model: Model, recording: boolean, busy: boolean) {
+  if (recording) void session.stop(model.owner);
+  else if (busy) session.cancel(model.owner);
+  else model.start();
+}
+
+function progressLabel({ phase, backlog }: Model['state']): StaticMessageKey | undefined {
+  if (phase === 'starting') return 'VoiceStarting';
+
+  if (phase === 'transcribing') return backlog ? 'VoiceFinishingBacklog' : 'VoiceTranscribing';
+
+  return undefined;
+}
+
+function triggerLabel(
+  available: boolean,
+  recording: boolean,
+  busy: boolean,
+  retry: boolean
+): StaticMessageKey {
+  if (!available) return 'VoiceUnavailable';
+
+  if (recording) return 'VoiceStop';
+
+  if (busy) return 'VoiceCancel';
+
+  if (retry) return 'VoiceRecoveryOptions';
+
+  return 'VoiceStart';
+}
+
+function TriggerIcon({ recording, error }: { recording: boolean; error: boolean }) {
+  if (recording) return <StopIcon aria-hidden="true" />;
+
+  if (error) return <ErrorIcon aria-hidden="true" />;
+
+  return <MicrophoneIcon aria-hidden="true" />;
 }
 
 const errorLabels = {
@@ -192,40 +230,62 @@ const errorLabels = {
   interrupted: 'VoiceInterruptedHelp'
 } as const;
 
-function DictationFeedback({ model }: { model: Model }) {
+function DictationRetry({ model, trigger }: { model: Model; trigger: ReactElement }) {
   const { t } = useI18n();
-
-  if (!model.owned) return null;
-
-  const { state } = model;
-
-  if (state.phase === 'result') return <RecoveredTranscript model={model} />;
-
-  if (['recording', 'transcribing'].includes(state.phase) && state.transcript)
-    return <Notebook.Muted aria-live="polite">{state.transcript}</Notebook.Muted>;
-
-  if (state.phase !== 'error') return null;
+  const { owner, state } = model;
 
   return (
-    <ErrorState
-      layout="compact"
-      title={t(errorLabels[state.error!])}
-      action={
-        state.error === 'transcribe' ? (
+    <Dialog>
+      <DialogTrigger render={trigger} />
+      <DialogPopup closeLabel={t('Close')} data-dictation-retry>
+        <DialogHeading
+          title={t('VoiceTranscriptionFailedTitle')}
+          description={t('VoiceTranscriptionFailed')}
+        />
+        {state.transcript && (
+          <Textarea aria-label={t('VoiceTranscript')} value={state.transcript} readOnly rows={5} />
+        )}
+        <DialogFooter>
+          {state.transcript && <CopyTranscript value={state.transcript} />}
+          <Button variant="outline" onClick={() => session.cancel(owner)}>
+            {t('VoiceCancel')}
+          </Button>
           <RetryButton
-            disabled={model.disabled}
             label={t('Retry')}
-            onClick={() => void session.retry(model.owner)}
+            size="default"
+            variant="default"
+            disabled={model.disabled}
+            onClick={() => void session.retry(owner)}
           />
-        ) : undefined
-      }
-    />
+        </DialogFooter>
+      </DialogPopup>
+    </Dialog>
+  );
+}
+
+function CopyTranscript({ value }: { value: string }) {
+  const { t } = useI18n();
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      onClick={() => {
+        void navigator.clipboard
+          .writeText(value)
+          .then(() => setCopied(true))
+          .catch(() => setCopied(false));
+      }}
+    >
+      <CopyIcon aria-hidden="true" />
+      {t(copied ? 'VoiceCopied' : 'Copy')}
+    </Button>
   );
 }
 
 function RecoveredTranscript({ model }: { model: Model }) {
   const { t } = useI18n();
-  const [copied, setCopied] = useState(false);
 
   if (model.state.error !== 'insert' && model.state.error !== 'interrupted') return null;
 
@@ -248,19 +308,7 @@ function RecoveredTranscript({ model }: { model: Model }) {
           rows={5}
         />
         <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              void navigator.clipboard
-                .writeText(model.state.transcript)
-                .then(() => setCopied(true))
-                .catch(() => setCopied(false));
-            }}
-          >
-            <CopyIcon aria-hidden="true" />
-            {t(copied ? 'VoiceCopied' : 'Copy')}
-          </Button>
+          <CopyTranscript value={model.state.transcript} />
           <Button type="button" disabled={model.disabled} onClick={model.insert}>
             {t(model.state.error === 'interrupted' ? 'VoiceInsertRecovered' : 'VoiceInsert')}
           </Button>
@@ -298,12 +346,4 @@ function DictationSetup({ model }: { model: Model }) {
       </DialogPopup>
     </Dialog>
   );
-}
-
-function triggerDisabled(available: boolean, disabled: boolean, idle: boolean, recording: boolean) {
-  return !available || disabled || !(idle || recording);
-}
-
-function terminalCaptureError(model: Model) {
-  return model.owned && model.state.phase === 'error' && model.state.error !== 'transcribe';
 }
