@@ -1,7 +1,9 @@
 import { test } from '@study/testing';
+import { createRef } from 'react';
 
 import { GenerationPreview } from './generation-preview';
-import { RichNoteContent } from './rich-note';
+import { RichNoteContent, RichNoteEditor } from './rich-note';
+import type { RichNoteEditorHandle, RichNoteLabels } from './rich-note';
 
 test.unit.stable(
   'typesets TeX before Markdown can consume delimiters or subscripts',
@@ -71,5 +73,99 @@ test.unit.stable(
     expect(view.container.querySelector('math')).toBeNull();
     expect(view.container).toHaveTextContent('Prices $5 and $10');
     expect(view.container.querySelectorAll('code')).toHaveLength(2);
+  }
+);
+
+const editorLabels = new Proxy({} as RichNoteLabels, { get: (_, key) => String(key) });
+
+for (const literal of [
+  '1. January is the deadline',
+  '# Title',
+  '---',
+  '- Monday',
+  '+ Tuesday',
+  '* Wednesday',
+  '1) January',
+  'Deadline\n===',
+  'First\n# Title\n---'
+]) {
+  test.unit.stable(
+    `preserves literal dictated paragraph ${JSON.stringify(literal)} after saving and reopening`,
+    ({ render, screen, act, expect }) => {
+      let saved = '';
+      const ref = createRef<RichNoteEditorHandle>();
+      const props = {
+        label: 'Note',
+        placeholder: '',
+        labels: editorLabels,
+        onChange: (next: string) => {
+          saved = next;
+        }
+      };
+      const first = render(<RichNoteEditor {...props} ref={ref} value="" />);
+
+      act(() => ref.current!.insertPlainText(literal));
+      expect(screen.getByRole('textbox', { name: 'Note' })).toHaveTextContent(
+        literal.replaceAll('\n', '')
+      );
+      first.unmount();
+      const reopened = render(<RichNoteEditor {...props} value={saved} />);
+
+      expect(reopened.container.querySelectorAll('.tiptap > p')).toHaveLength(1);
+      expect(screen.getByRole('textbox', { name: 'Note' })).toHaveTextContent(
+        literal.replaceAll('\n', '')
+      );
+      expect(reopened.container.querySelector('.tiptap')).not.toHaveTextContent('\\');
+      expect(
+        reopened.container.querySelector(
+          '.tiptap ol, .tiptap ul, .tiptap h1, .tiptap h2, .tiptap hr'
+        )
+      ).toBeNull();
+    }
+  );
+}
+
+test.unit.stable(
+  'preserves authored formatting and code when saving rich notes',
+  ({ render, screen, act, expect }) => {
+    const ref = createRef<RichNoteEditorHandle>();
+    let saved = '';
+    const value =
+      '# Heading\n\n**Bold** and *italic*, [link](https://example.invalid/), and `# Title\n---`.\n\n---\n\n> Quoted text\n\n1. First\n2. Second\n\n```txt\n# Literal code\n1. January\n---\n```\n\nEnd';
+    const props = {
+      label: 'Note',
+      placeholder: '',
+      labels: editorLabels,
+      onChange: (next: string) => {
+        saved = next;
+      }
+    };
+    const first = render(<RichNoteEditor {...props} ref={ref} value={value} />);
+
+    act(() => {
+      ref.current!.restoreSelection({
+        anchor: Number.MAX_SAFE_INTEGER,
+        head: Number.MAX_SAFE_INTEGER
+      });
+      ref.current!.insertPlainText('added');
+    });
+    first.unmount();
+    const reopened = render(<RichNoteEditor {...props} value={saved} />);
+
+    expect(reopened.container.querySelector('.tiptap h1')).toHaveTextContent('Heading');
+    expect(reopened.container.querySelector('.tiptap strong')).toHaveTextContent('Bold');
+    expect(reopened.container.querySelector('.tiptap em')).toHaveTextContent('italic');
+    expect(reopened.container.querySelector('.tiptap a')).toHaveAttribute(
+      'href',
+      'https://example.invalid/'
+    );
+    expect(reopened.container.querySelector('.tiptap p code')?.textContent).toBe('# Title ---');
+    expect(reopened.container.querySelectorAll('.tiptap ol > li')).toHaveLength(2);
+    expect(reopened.container.querySelector('.tiptap hr')).not.toBeNull();
+    expect(reopened.container.querySelector('.tiptap blockquote')).toHaveTextContent('Quoted text');
+    expect(reopened.container.querySelector('.tiptap pre code')?.textContent).toBe(
+      '# Literal code\n1. January\n---'
+    );
+    expect(screen.getByRole('textbox', { name: 'Note' })).toHaveTextContent('End added');
   }
 );

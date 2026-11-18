@@ -38,7 +38,28 @@ import { insertEditorText } from './editor-text';
 import { Menu, MenuTrigger, MenuPopup, MenuItem } from './menu';
 import { blockNoteMath, inlineNoteMath, NoteMath } from './note-math';
 
-const extensions = [StarterKit.configure({ link: { openOnClick: false } })];
+/** Paragraph markers escape only in saved Markdown; actual formatting and code keep their own serializers. */
+const noteStarterKit = StarterKit.extend({
+  addExtensions() {
+    return (this.parent?.() ?? []).map((extension) => {
+      if (extension.name !== 'paragraph') return extension;
+
+      return extension.extend({
+        renderMarkdown(node, helpers, context) {
+          const value = this.parent?.(node, helpers, context) ?? '';
+
+          return value.replace(
+            /^([ \t]{0,3})(?:(\d{1,9})([.)])(?=\s|$)|([#+=-]))/gm,
+            (_match, indent, number, punctuation, marker) =>
+              `${indent}${number ?? ''}\\${punctuation ?? marker}`
+          );
+        }
+      });
+    });
+  }
+});
+
+const extensions = [noteStarterKit.configure({ link: { openOnClick: false } })];
 
 const readingExtensions = [...extensions, inlineNoteMath, blockNoteMath];
 

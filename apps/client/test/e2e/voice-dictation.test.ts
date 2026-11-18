@@ -118,6 +118,63 @@ test.browser.stable(
     await expect(
       page.getByRole('region', { name: copy.NoteNotebook }).locator('.chat-message-text')
     ).toHaveText(changed);
+
+    const richNote = await rpc.runPromise(rpc.client['notes.createUntitledNote']({}));
+
+    await rpc.runPromise(
+      rpc.client['notes.postMessage']({
+        noteId: richNote.id,
+        format: 'document',
+        requestReply: false,
+        text: 'Keep the complete survey evidence',
+        sourceIds: []
+      })
+    );
+    await page.goto('/notes/' + String(richNote.id));
+    await page
+      .locator('.workspace-desk-page')
+      .filter({ hasText: 'Keep the complete survey evidence' })
+      .click();
+    await page.getByRole('button', { name: copy.VersionHistory, exact: true }).click();
+    const history = page.getByRole('dialog', { name: copy.VersionHistory });
+
+    await history.locator('[data-role="user"]').hover();
+    await page.getByRole('button', { name: copy.NoteEditNote, exact: true }).click();
+    const edit = page.getByRole('dialog', { name: copy.NoteEditNote });
+    const richEditor = edit.getByRole('textbox', { name: copy.NoteEditNote });
+    const literal = '1. January is the deadline\n# Title\n---';
+    const recognized = voice.next({ text: literal }, { hold: true });
+    const richAudio = microphone.nextAudio();
+
+    await richEditor.fill('');
+    await edit.getByRole('button', { name: copy.VoiceStart, exact: true }).click();
+    await expect(edit.getByRole('button', { name: copy.VoiceStop, exact: true })).toBeVisible();
+    await richAudio;
+    await edit.getByRole('button', { name: copy.VoiceStop, exact: true }).click();
+    await recognized.called;
+    recognized.release();
+    await expect(richEditor).toHaveText(literal.replaceAll('\n', ''));
+    await expect(richEditor.locator('ol, ul, h1, h2, hr')).toHaveCount(0);
+    await edit.getByRole('button', { name: copy.NoteSaveNote, exact: true }).click();
+    await expect(edit).toBeHidden();
+    await page.reload();
+    await page
+      .locator('.workspace-desk-page')
+      .filter({ hasText: '1. January is the deadline' })
+      .click();
+    const reopenedPage = page.getByRole('textbox', { name: copy.NotePageEditor, exact: true });
+
+    await expect(reopenedPage).toHaveText(literal.replaceAll('\n', ''));
+    await expect(reopenedPage.locator('ol, ul, h1, h2, hr')).toHaveCount(0);
+    await page.getByRole('button', { name: copy.VersionHistory, exact: true }).click();
+    const savedRich = history.locator('[data-role="user"] .rich-note-content');
+
+    await expect(savedRich).toHaveText(literal.replaceAll('\n', ''));
+    await expect(savedRich.locator('ol, ul, h1, h2, hr')).toHaveCount(0);
+    await history.locator('[data-role="user"]').hover();
+    await page.getByRole('button', { name: copy.NoteEditNote, exact: true }).click();
+    await expect(richEditor).toHaveText(literal.replaceAll('\n', ''));
+    await expect(richEditor.locator('ol, ul, h1, h2, hr')).toHaveCount(0);
   }
 );
 
