@@ -76,7 +76,13 @@ export function VoiceModelControls() {
         </Settings.Feedback>
       )}
       <DownloadProgress status={status.data} />
-      <ModelActions state={state} busy={busy} install={install} cancel={cancel} remove={remove} />
+      <ModelActions
+        status={status.data}
+        busy={busy}
+        install={install}
+        cancel={cancel}
+        remove={remove}
+      />
     </>
   );
 }
@@ -116,19 +122,21 @@ function DownloadProgress({ status }: { status: VoiceStatus }) {
 }
 
 function ModelActions({
-  state,
+  status,
   busy,
   install,
   cancel,
   remove
 }: {
-  state: NonNullable<VoiceStatus>['state'] | undefined;
+  status: VoiceStatus;
   busy: boolean;
   install: ReturnType<typeof rpc.voice.install.useMutation>;
   cancel: ReturnType<typeof rpc.voice.cancelInstall.useMutation>;
   remove: ReturnType<typeof rpc.voice.remove.useMutation>;
 }) {
   const { t } = useI18n();
+  const state = status?.state;
+  const installationId = status?.installationId;
 
   return (
     <Settings.Actions>
@@ -148,9 +156,9 @@ function ModelActions({
         <Button
           type="button"
           variant="outline"
-          disabled={busy}
+          disabled={busy || !installationId}
           onClick={() => {
-            void cancel.mutateAsync({}).catch(() => {});
+            if (installationId) void cancel.mutateAsync({ installationId }).catch(() => {});
           }}
         >
           {t('VoiceCancelDownload')}

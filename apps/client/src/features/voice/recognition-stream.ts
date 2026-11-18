@@ -1,9 +1,24 @@
 import { Effect, Stream } from 'effect';
 
+import { deferredPromise } from '#client/lib/deferred-promise.ts';
+
+function forwardAbort(source: AbortSignal, request: AbortController) {
+  const abort = () => request.abort(source.reason);
+
+  if (source.aborted) abort();
+  else source.addEventListener('abort', abort, { once: true });
+
+  return () => source.removeEventListener('abort', abort);
+}
+
+function requireActive(signal: AbortSignal) {
+  if (signal.aborted) throw signal.reason ?? new DOMException('Cancelled', 'AbortError');
+}
+
 /** Unacknowledged audio stays available for retries, including the request currently in flight. */
 export class DictationAudio {
   private pending: number[][] = [];
-  private changed = Promise.withResolvers<void>();
+  private changed = deferredPromise<void>();
   private closed = false;
 
   push(samples: number[]) {
@@ -21,7 +36,7 @@ export class DictationAudio {
 
   private notify() {
     this.changed.resolve();
-    this.changed = Promise.withResolvers<void>();
+    this.changed = deferredPromise<void>();
   }
 
   private async *chunks() {
@@ -44,13 +59,22 @@ export class DictationAudio {
     return audio.pipe(
       Stream.mapEffect((samples) =>
         Effect.tryPromise(async (interrupted) => {
-          signal.throwIfAborted();
-          const result = await recognize(samples, AbortSignal.any([signal, interrupted]));
+          const request = new AbortController();
+          const cancel = forwardAbort(signal, request);
+          const interrupt = forwardAbort(interrupted, request);
 
-          signal.throwIfAborted();
-          this.pending.shift();
+          try {
+            requireActive(request.signal);
+            const result = await recognize(samples, request.signal);
 
-          return result.text.trim();
+            requireActive(request.signal);
+            this.pending.shift();
+
+            return result.text.trim();
+          } finally {
+            cancel();
+            interrupt();
+          }
         })
       )
     );

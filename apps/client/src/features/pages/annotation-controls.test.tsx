@@ -5,6 +5,8 @@ import { Schema } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
 import type { ReactNode } from 'react';
 
+import { readyVoiceStatus } from '#client/test/page-values.ts';
+
 let AnnotationControls: typeof __MockType0.AnnotationControls;
 
 let annotationDrafts: typeof __MockType1.annotationDrafts;
@@ -35,20 +37,8 @@ const target = annotation.target;
 
 function createRpc({ vi }: Pick<test.unit.Context, 'vi'>) {
   return {
-    'voice.status': vi.fn().mockResolvedValue({
-      state: 'ready',
-      downloadedBytes: 740749632,
-      totalBytes: 740749632,
-      modelId: 'test-recognizer',
-      models: [
-        {
-          id: 'test-recognizer',
-          name: 'Test recognizer',
-          languages: ['en', 'it'],
-          languageDetection: 'automatic'
-        }
-      ]
-    }),
+    'voice.status': vi.fn().mockResolvedValue(readyVoiceStatus),
+    'voice.transcribe': vi.fn(),
     'pages.annotation': vi.fn(),
     'pages.reviseAnnotation': vi.fn(),
     'pages.annotationHistory': vi.fn(),
@@ -65,7 +55,7 @@ test.unit.beforeEach(async ({ mock, vi }) => {
   captureCancelled = vi.fn();
   mock('#client/lib/host.ts', () => ({
     microphoneAvailable: () => true,
-    captureMicrophone: async () => ({ stop: async () => [], cancel: captureCancelled })
+    captureMicrophone: async () => ({ stop: async () => [0.4], cancel: captureCancelled })
   }));
   mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
   const __mockModule0 = await import('./annotation-controls');
@@ -350,16 +340,65 @@ test.unit.stable(
 for (const review of [false, true]) {
   test.unit.stable(
     `cancels dictation when ${review ? 'a reviewed revision' : 'the current annotation'} is deleted`,
-    async ({ rpcHandlersTransport, render, screen, userEvent, act, expect }) => {
+    async ({ rpcHandlersTransport, render, screen, userEvent, act, expect, within }) => {
+      const status = Promise.withResolvers<typeof readyVoiceStatus>();
+
+      rpc['voice.status'].mockReturnValue(status.promise);
       const view = mount({ rpcHandlersTransport, render });
 
       expect(screen.getByLabelText('PageAnnotationNote')).toBeEnabled();
       await userEvent.click(screen.getByRole('button', { name: 'VoiceStart' }));
+      const setup = within(await screen.findByRole('dialog', { name: 'VoiceSetupTitle' }));
+
+      await act(async () => status.resolve(readyVoiceStatus));
+      await userEvent.click(await setup.findByRole('button', { name: 'VoiceStart' }));
       await screen.findByRole('button', { name: 'VoiceStop' });
       act(() => view.setDeleted(review));
       expect(screen.getByLabelText('PageAnnotationNote')).toBeDisabled();
-      expect(screen.getByRole('button', { name: 'VoiceStart' })).toBeDisabled();
+      expect(within(view.container).getByRole('button', { name: 'VoiceStart' })).toBeDisabled();
       expect(captureCancelled).toHaveBeenCalledOnce();
     }
   );
 }
+
+test.unit.stable(
+  'saves a revised annotation only after its final dictation segment is inserted',
+  async ({ rpcHandlersTransport, render, screen, userEvent, waitFor, act, expect, within }) => {
+    const status = Promise.withResolvers<typeof readyVoiceStatus>();
+    const recognition = Promise.withResolvers<{ text: string }>();
+
+    rpc['voice.status'].mockReturnValue(status.promise);
+    rpc['voice.transcribe'].mockReturnValue(recognition.promise);
+    rpc['pages.reviseAnnotation'].mockResolvedValue({
+      outcome: 'saved',
+      annotation: { ...annotation, revision: 2n, operation: 'update', note: 'Original spoken' }
+    });
+    mount({ rpcHandlersTransport, render });
+    const save = screen.getByRole('button', { name: 'PageSaveAnnotation' });
+
+    const note = screen.getByLabelText('PageAnnotationNote');
+
+    expect(save).toBeEnabled();
+    await userEvent.click(note);
+    await userEvent.keyboard('{End}');
+    await userEvent.click(screen.getByRole('button', { name: 'VoiceStart' }));
+    const setup = within(await screen.findByRole('dialog', { name: 'VoiceSetupTitle' }));
+
+    await act(async () => status.resolve(readyVoiceStatus));
+    await userEvent.click(await setup.findByRole('button', { name: 'VoiceStart' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'VoiceStop' }));
+    await waitFor(() => expect(rpc['voice.transcribe']).toHaveBeenCalledOnce());
+    expect(save).toBeDisabled();
+    await userEvent.click(save);
+    expect(rpc['pages.reviseAnnotation']).not.toHaveBeenCalled();
+    await act(async () => recognition.resolve({ text: 'spoken' }));
+    await waitFor(() => expect(save).toBeEnabled());
+    expect(note).toHaveValue('Original spoken');
+    await userEvent.click(save);
+    await waitFor(() =>
+      expect(rpc['pages.reviseAnnotation']).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ note: 'Original spoken' })
+      )
+    );
+  }
+);

@@ -11,6 +11,15 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
+function nextCaptureFailure(session: DictationSession) {
+  const failed = deferred<void>();
+  const unsubscribe = session.subscribe(() => {
+    if (session.snapshot().error === 'capture') failed.resolve();
+  });
+
+  return failed.promise.finally(unsubscribe);
+}
+
 const ignoreTranscript = () => {};
 
 test.unit.stable(
@@ -36,10 +45,15 @@ test.unit.stable(
   'serializes recording and ignores transcription completed after cancellation',
   async ({ expect, vi }) => {
     const result = deferred<{ text: string }>();
+    const requested = deferred<void>();
     const capture = { stop: async () => [0.5], cancel: vi.fn() };
     const session = new DictationSession(
       async () => capture,
-      () => result.promise
+      () => {
+        requested.resolve();
+
+        return result.promise;
+      }
     );
     const owner = Symbol();
     const insert = vi.fn();
@@ -49,6 +63,7 @@ test.unit.stable(
     const stopped = session.stop(owner);
 
     expect(session.snapshot().phase).toBe('transcribing');
+    await requested.promise;
     session.cancel(owner);
     result.resolve({ text: 'Ciao, come stai?' });
     await stopped;
@@ -111,7 +126,7 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'starts a new recording directly after capture failure or silence',
+  'another editor can start a recording after capture failure or silence',
   async ({ expect }) => {
     let attempts = 0;
     const session = new DictationSession(
@@ -123,12 +138,13 @@ test.unit.stable(
       async () => ({ text: '' })
     );
     const owner = Symbol();
+    const nextOwner = Symbol();
 
     await session.start(owner, ignoreTranscript);
     expect(session.snapshot().error).toBe('capture');
-    await session.start(owner, ignoreTranscript);
-    expect(session.snapshot().phase).toBe('recording');
-    await session.stop(owner);
+    await session.start(nextOwner, ignoreTranscript);
+    expect(session.snapshot()).toMatchObject({ phase: 'recording', owner: nextOwner });
+    await session.stop(nextOwner);
     expect(session.snapshot().error).toBe('empty');
     await session.start(owner, ignoreTranscript);
     expect(session.snapshot().phase).toBe('recording');
@@ -137,7 +153,7 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'reports recorder failure immediately and ignores callbacks from an abandoned capture',
+  'reports recorder failure and ignores callbacks from an abandoned capture',
   async ({ expect, vi }) => {
     const callbacks: { onError: () => void; onChunk: (samples: number[]) => void }[] = [];
     const captures: { stop: ReturnType<typeof vi.fn>; cancel: ReturnType<typeof vi.fn> }[] = [];
@@ -152,7 +168,10 @@ test.unit.stable(
     const owner = Symbol();
 
     await session.start(owner, ignoreTranscript);
+    const failed = nextCaptureFailure(session);
+
     callbacks[0]!.onError?.();
+    await failed;
     expect(session.snapshot()).toMatchObject({ phase: 'error', owner, error: 'capture' });
     expect(captures[0]!.cancel).toHaveBeenCalledOnce();
     await session.start(owner, ignoreTranscript);
@@ -262,6 +281,44 @@ test.unit.stable(
 );
 
 test.unit.stable(
+  'drains complete audio segments even if the final flush fails',
+  async ({ expect, vi }) => {
+    const requested = deferred<void>();
+    const recognized = deferred<{ text: string }>();
+    let emit!: (samples: number[]) => void;
+    const session = new DictationSession(
+      async ({ onChunk }) => {
+        emit = onChunk;
+
+        return {
+          stop: async () => {
+            throw new Error('Final audio unavailable');
+          },
+          cancel: () => {}
+        };
+      },
+      () => {
+        requested.resolve();
+
+        return recognized.promise;
+      }
+    );
+    const owner = Symbol();
+    const insert = vi.fn();
+
+    await session.start(owner, insert);
+    emit([0.5]);
+    await requested.promise;
+    const stopped = session.stop(owner);
+
+    recognized.resolve({ text: 'Complete segment' });
+    await stopped;
+    expect(insert).toHaveBeenCalledExactlyOnceWith('Complete segment');
+    expect(session.snapshot()).toMatchObject({ phase: 'error', error: 'capture' });
+  }
+);
+
+test.unit.stable(
   'keeps delivered speech in its consumer and reports subsequent microphone failure',
   async ({ expect, vi }) => {
     let capture!: { onChunk: (samples: number[]) => void; onError: () => void };
@@ -283,7 +340,10 @@ test.unit.stable(
     await session.start(owner, insert);
     capture.onChunk([1]);
     await partial.promise;
+    const failed = nextCaptureFailure(session);
+
     capture.onError();
+    await failed;
     expect(session.snapshot()).toMatchObject({
       phase: 'error',
       error: 'capture',

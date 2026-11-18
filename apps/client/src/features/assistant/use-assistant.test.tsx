@@ -16,10 +16,63 @@ test.unit.beforeEach(({ assistant, mock }) => {
   readiness.state = 'ready';
   mock('#client/lib/ai-readiness-notice.tsx', () => ({ AiReadinessNotice: () => null }));
   mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => readiness.state }));
+  mock('#client/lib/host.ts', async (original) => ({
+    ...(await original<typeof Host>()),
+    microphoneAvailable: () => true,
+    captureMicrophone: async () => ({ stop: async () => [0.5], cancel: () => {} })
+  }));
   api = assistant.api;
   message = assistant.message;
   mountAssistant = assistant.mountAssistant;
 });
+
+test.unit.stable(
+  'blocks Assistant Send and Enter while a transcription is in flight',
+  async ({ screen, expect, fireEvent, waitFor, userEvent }) => {
+    const result = Promise.withResolvers<{ text: string }>();
+
+    api.transcribe.mockReturnValue(result.promise);
+    await mountAssistant();
+    const input = await screen.findByRole('textbox', { name: 'Message' });
+    const send = screen.getByRole('button', { name: 'Send message' });
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(input).toBeEnabled());
+    await user.type(input, 'Explain the');
+    await user.click(await screen.findByRole('button', { name: 'Start dictation' }));
+    await user.click(await screen.findByRole('button', { name: 'Stop and transcribe' }));
+    await waitFor(() => expect(api.transcribe).toHaveBeenCalledOnce());
+    expect(send).toBeDisabled();
+    await user.click(send);
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(api.ask).not.toHaveBeenCalled();
+    result.resolve({ text: 'water cycle.' });
+    await waitFor(() => expect(send).toBeEnabled());
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() =>
+      expect(api.ask).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'Explain the water cycle.' })
+      )
+    );
+  }
+);
+
+test.unit.stable(
+  'keeps local Assistant dictation available while signed out',
+  async ({ screen, expect, waitFor, userEvent }) => {
+    readiness.state = 'signed-out';
+    api.transcribe.mockResolvedValue({ text: 'Saved locally.' });
+    await mountAssistant();
+    const input = await screen.findByRole('textbox', { name: 'Message' });
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(input).toBeEnabled());
+    await user.click(await screen.findByRole('button', { name: 'Start dictation' }));
+    await user.click(await screen.findByRole('button', { name: 'Stop and transcribe' }));
+    await waitFor(() => expect(input).toHaveValue('Saved locally.'));
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+  }
+);
 
 test.unit.stable(
   'reuses the same intent after an uncertain send failure and preserves the draft',
@@ -243,3 +296,4 @@ test.unit.stable(
     expect(input).toHaveValue('Keep this question');
   }
 );
+import type * as Host from '#client/lib/host.ts';

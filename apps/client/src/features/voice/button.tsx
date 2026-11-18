@@ -17,13 +17,14 @@ import {
   Textarea
 } from '@study/ui';
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
-import type { ReactElement } from 'react';
+import type { ReactElement, Ref } from 'react';
 
 import { captureMicrophone, microphoneAvailable } from '#client/lib/host.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { VoiceModelControls } from './model-controls';
 import { DictationSession } from './session';
+import { useDictationSubmissionOwner } from './submission';
 
 const session = new DictationSession(captureMicrophone, (samples, signal) =>
   rpc.voice.transcribe.call(
@@ -51,24 +52,39 @@ function useDictation({
   disabled = false
 }: DictationProps) {
   const [owner] = useState(() => Symbol('dictation'));
+
+  useDictationSubmissionOwner(owner, session);
+
   const state = useSyncExternalStore(session.subscribe, session.snapshot);
   const model = rpc.voice.status.useQuery({});
   const preferences = rpc.settings.voiceSettings.useQuery({});
   const [setup, setSetup] = useState(false);
-  const callbacks = useRef({ onTranscript, onCaptureStart });
+  const [capturedTarget, setCapturedTarget] = useState<typeof targetKey>();
+  const callbacks = useRef({ onTranscript, onCaptureStart, targetKey, disabled });
+  const originalTarget = capturedTarget === targetKey;
 
   useLayoutEffect(() => {
-    callbacks.current = { onTranscript, onCaptureStart };
-  }, [onTranscript, onCaptureStart]);
+    callbacks.current = { onTranscript, onCaptureStart, targetKey, disabled };
+  }, [onTranscript, onCaptureStart, targetKey, disabled]);
   const owned = state.owner === owner;
-  const insert = () => session.insert(owner, (text) => callbacks.current.onTranscript(text));
+  const insert = () => {
+    const current = callbacks.current;
 
-  useLayoutEffect(() => () => session.cancel(owner), [disabled, owner, targetKey]);
-  useEscapeCancellation(owned, owner);
+    if (!current.disabled && capturedTarget === current.targetKey)
+      session.insert(owner, current.onTranscript);
+  };
+
+  useLayoutEffect(() => {
+    if ((!originalTarget || disabled) && session.snapshot().phase !== 'result')
+      session.cancel(owner);
+  }, [disabled, originalTarget, owner]);
+  useLayoutEffect(() => () => session.cancel(owner), [owner]);
+  useEscapeCancellation(owned && state.error !== 'transcribe', owner);
 
   const begin = () => {
     if (disabled) return;
 
+    setCapturedTarget(targetKey);
     callbacks.current.onCaptureStart?.();
     void session.start(
       owner,
@@ -93,6 +109,7 @@ function useDictation({
     owned,
     owner,
     disabled,
+    canInsert: originalTarget && !disabled,
     setup,
     setSetup,
     start,
@@ -110,8 +127,6 @@ function useEscapeCancellation(owned: boolean, owner: symbol) {
 
     const key = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-
-      if (event.target instanceof Element && event.target.closest('[data-dictation-retry]')) return;
 
       event.preventDefault();
       event.stopPropagation();
@@ -140,37 +155,24 @@ export function DictationButton(props: DictationProps) {
 function DictationTrigger({ model }: { model: Model }) {
   const { t } = useI18n();
   const primary = useRef<HTMLButtonElement>(null);
-  const { error, retry, label, disabled, active, progress } = triggerState(model);
-  const cancel = () => session.cancel(model.owner);
+  const control = triggerState(model);
+  const { error, active, progress } = control;
   const finish = (transferFocus: boolean) => {
     if (transferFocus) primary.current?.focus();
 
     void session.stop(model.owner);
   };
-  const button = (
-    <IconButton
-      ref={primary}
-      type="button"
-      label={t(label)}
-      tooltip={error ? t(errorLabels[error]) : undefined}
-      variant={error ? 'warning-outline' : 'ghost'}
-      disabled={disabled}
-      onMouseDown={(event) => event.preventDefault()}
-      onClick={retry ? undefined : active ? cancel : model.start}
-    >
-      <TriggerIcon active={active} error={!!error} />
-    </IconButton>
-  );
 
   return (
     <Notebook.Actions>
       <RecordingControls label={active ? t('VoiceTitle') : undefined}>
-        {retry ? <DictationRetry model={model} trigger={button} /> : button}
+        <DictationAction model={model} control={control} ref={primary} />
         {active && (
           <RecordingFeedback
             progress={progress ? t(progress) : undefined}
             finishLabel={t('VoiceStop')}
-            disabled={disabled}
+            recordingLabel={t('VoiceRecording')}
+            disabled={control.disabled}
             onFinish={finish}
             subscribeLevel={session.subscribeLevel}
           />
@@ -181,13 +183,43 @@ function DictationTrigger({ model }: { model: Model }) {
   );
 }
 
+function DictationAction({
+  model,
+  control: { active, error, label, retry, disabled },
+  ref
+}: {
+  model: Model;
+  control: ReturnType<typeof triggerState>;
+  ref: Ref<HTMLButtonElement>;
+}) {
+  const { t } = useI18n();
+  const cancel = () => session.cancel(model.owner);
+  const button = (
+    <IconButton
+      ref={ref}
+      type="button"
+      label={t(label)}
+      tooltip={error ? t(errorLabels[error]) : undefined}
+      size={active ? 'icon-sm' : 'icon-xs'}
+      variant={error ? 'warning-outline' : 'ghost'}
+      disabled={disabled}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={retry ? undefined : active ? cancel : model.start}
+    >
+      <TriggerIcon active={active} error={!!error} />
+    </IconButton>
+  );
+
+  return retry ? <DictationRetry model={model} trigger={button} /> : button;
+}
+
 function triggerState({ state, owned, disabled }: Model) {
   const available = microphoneAvailable();
   const progress = owned ? progressLabel(state) : undefined;
   const active = owned && (state.phase === 'recording' || !!progress);
   const error = owned && state.phase === 'error' ? state.error : undefined;
   const retry = error === 'transcribe';
-  const enabled = state.phase === 'idle' || active || error;
+  const enabled = canUseTrigger(state, active || retry);
 
   return {
     error,
@@ -197,6 +229,14 @@ function triggerState({ state, owned, disabled }: Model) {
     label: triggerLabel(available, active, retry),
     disabled: !available || disabled || !enabled
   };
+}
+
+function canUseTrigger(state: Model['state'], active: boolean) {
+  if (state.phase === 'idle') return true;
+
+  if (state.phase === 'error' && state.error !== 'transcribe') return true;
+
+  return active;
 }
 
 function progressLabel({ phase, backlog }: Model['state']): StaticMessageKey | undefined {
@@ -240,7 +280,7 @@ function DictationRetry({ model, trigger }: { model: Model; trigger: ReactElemen
   return (
     <Dialog>
       <DialogTrigger render={trigger} />
-      <DialogPopup closeLabel={t('Close')} data-dictation-retry>
+      <DialogPopup closeLabel={t('Close')}>
         <DialogHeading
           title={t('VoiceTranscriptionFailedTitle')}
           description={t('VoiceTranscriptionFailed')}
@@ -302,7 +342,7 @@ function RecoveredTranscript({ model }: { model: Model }) {
       <DialogPopup closeLabel={t('Close')}>
         <DialogHeading
           title={t('VoiceRecoveredTitle')}
-          description={t(errorLabels[model.state.error])}
+          description={t(model.canInsert ? errorLabels[model.state.error] : 'VoiceRecoveryMoved')}
         />
         <Textarea
           aria-label={t('VoiceTranscript')}
@@ -312,7 +352,7 @@ function RecoveredTranscript({ model }: { model: Model }) {
         />
         <DialogFooter>
           <CopyTranscript value={model.state.transcript} />
-          <Button type="button" disabled={model.disabled} onClick={model.insert}>
+          <Button type="button" disabled={!model.canInsert} onClick={model.insert}>
             {t(model.state.error === 'interrupted' ? 'VoiceInsertRecovered' : 'VoiceInsert')}
           </Button>
         </DialogFooter>

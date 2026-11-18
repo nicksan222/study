@@ -3,6 +3,7 @@ import { StudyError } from '@study/contracts';
 import { CryptoHasher } from 'bun';
 import type { FileSystem } from 'effect';
 
+import { normalizeError } from '#server/platform/errors/classify-error';
 import { runFileSystemPromise } from '#server/platform/filesystem/index';
 
 export interface SpeechAsset {
@@ -18,6 +19,20 @@ async function digest(file: Bun.BunFile) {
   for await (const chunk of file.stream()) hash.update(chunk);
 
   return hash.digest('hex');
+}
+
+function installationCleanupError(failure: unknown, cleanup: unknown) {
+  const original = normalizeError(failure);
+  const cause = new AggregateError([original, cleanup]);
+
+  if (original.kind === 'cancelled')
+    return new StudyError('internal', 'Could not remove partial speech model files', { cause });
+
+  return new StudyError(original.kind, original.message, {
+    cause,
+    retryAfterMs: original.retryAfterMs,
+    resource: original.resource
+  });
 }
 
 export class VoiceModels {
@@ -114,13 +129,35 @@ export class VoiceModels {
       await runFileSystemPromise(
         this.fs.remove(`${this.root}/ready`, { recursive: true, force: true })
       );
+      signal.throwIfAborted();
       await runFileSystemPromise(this.fs.rename(staging, `${this.root}/ready`));
       this.ready = true;
+    } catch (cause) {
+      await this.rejectInstall(staging, signal, cause);
     } finally {
       this.downloading = false;
       this.downloaded = 0;
-      await runFileSystemPromise(this.fs.remove(staging, { recursive: true, force: true }));
     }
+  }
+
+  private async rejectInstall(
+    staging: string,
+    signal: AbortSignal,
+    cause: unknown
+  ): Promise<never> {
+    const failure = signal.aborted
+      ? new StudyError('cancelled', 'Speech model installation was cancelled', { cause })
+      : cause;
+
+    try {
+      await runFileSystemPromise(this.fs.remove(staging, { recursive: true, force: true }));
+    } catch (cleanup) {
+      this.initialized = undefined;
+
+      throw installationCleanupError(failure, cleanup);
+    }
+
+    throw failure;
   }
 
   private async downloadAsset(item: SpeechAsset, staging: string, signal: AbortSignal) {

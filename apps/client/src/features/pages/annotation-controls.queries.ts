@@ -3,6 +3,7 @@ import { rpc } from '@study/contracts/react';
 import { toastManager } from '@study/ui';
 import { useContext, useEffect, useState } from 'react';
 
+import { useDictationSubmission } from '#client/features/voice/index.ts';
 import { useCursorRecovery, useCursorWindow } from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
 import { toStudyError } from '#client/lib/study-client/errors.ts';
@@ -19,6 +20,7 @@ import type { Annotation, AnnotationDraft } from './annotation-state';
 /** Each draft keeps submitted generations distinct from later edits and live remote revisions. */
 export function useAnnotationControls({ annotation }: { annotation: Annotation }) {
   const { t } = useI18n();
+  const submission = useDictationSubmission();
   const registry = useContext(RegistryContext);
   const atom = annotationDrafts(annotation.id);
   const initial: AnnotationDraft = {
@@ -73,6 +75,8 @@ export function useAnnotationControls({ annotation }: { annotation: Annotation }
   }
 
   async function mutate(operation: 'update' | 'reanchor' | 'delete') {
+    if (operation === 'update' && submission.isBlocked()) return;
+
     const submitted = registry.get(atom) ?? initial;
 
     const input = annotationRevisionInput(annotation.id, submitted, operation);
@@ -143,6 +147,7 @@ export function useAnnotationControls({ annotation }: { annotation: Annotation }
     history,
     edit,
     mutate,
+    submission,
     blocked: annotationBlocked(draft),
     updateDraft,
     reviewLatest,

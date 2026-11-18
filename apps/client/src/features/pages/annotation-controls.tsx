@@ -9,7 +9,7 @@ import {
   StatusMessage
 } from '@study/ui';
 
-import { DictationTextarea } from '#client/features/voice/index.ts';
+import { DictationSubmissionScope, DictationTextarea } from '#client/features/voice/index.ts';
 
 import { useAnnotationControls } from './annotation-controls.queries';
 import type { Annotation, AnnotationDraft } from './annotation-state';
@@ -17,12 +17,18 @@ import { EvidenceTarget, TargetPicker } from './annotation-target';
 
 type AnnotationView = ReturnType<typeof useAnnotationControls>;
 
-export function AnnotationControls({ annotation }: { annotation: Annotation }) {
+export function AnnotationControls({
+  annotation,
+  visible = true
+}: {
+  annotation: Annotation;
+  visible?: boolean;
+}) {
   const view = useAnnotationControls({ annotation });
 
   return (
     <div>
-      <AnnotationForm view={view} />
+      <AnnotationForm view={view} visible={visible} />
       <AnnotationReceipt view={view} />
       <AnnotationReconciliation view={view} />
       <AnnotationHistory view={view} />
@@ -37,8 +43,19 @@ function targetKey(target: NonNullable<AnnotationDraft['target']>) {
 }
 
 /** Edits an annotation while respecting blocked targets and in-flight mutations. */
-function AnnotationForm({ view }: { view: AnnotationView }) {
-  const { t, annotation, draft, setDeleting, reanchor, setReanchor, edit, mutate, blocked } = view;
+function AnnotationForm({ view, visible }: { view: AnnotationView; visible: boolean }) {
+  const {
+    t,
+    annotation,
+    draft,
+    setDeleting,
+    reanchor,
+    setReanchor,
+    edit,
+    mutate,
+    blocked,
+    submission
+  } = view;
 
   const deleted = draft.current.deleted || draft.review?.deleted;
 
@@ -46,14 +63,16 @@ function AnnotationForm({ view }: { view: AnnotationView }) {
     <>
       {deleted ? <StatusMessage>{t('AnnotationDeleted')}</StatusMessage> : null}
       <EvidenceTarget reference={{ kind: 'range', target: draft.current.target }} />
-      <DictationTextarea
-        label={t('PageAnnotationNote')}
-        targetKey={annotation.id}
-        disabled={deleted}
-        maxLength={100000}
-        value={draft.note}
-        onValueChange={(note) => edit({ note })}
-      />
+      <DictationSubmissionScope value={submission.scope}>
+        <DictationTextarea
+          label={t('PageAnnotationNote')}
+          targetKey={annotation.id}
+          disabled={deleted || !visible}
+          maxLength={100000}
+          value={draft.note}
+          onValueChange={(note) => edit({ note })}
+        />
+      </DictationSubmissionScope>
       <SelectControl
         label={t('AnnotationKind')}
         value={draft.kind}
@@ -63,7 +82,7 @@ function AnnotationForm({ view }: { view: AnnotationView }) {
         ]}
         onValueChange={(value) => edit({ kind: value === 'note' ? 'note' : 'highlight' })}
       />
-      <Button disabled={blocked} onClick={() => void mutate('update')}>
+      <Button disabled={blocked || submission.blocked} onClick={() => void mutate('update')}>
         {t('PageSaveAnnotation')}
       </Button>
       <Disclosure

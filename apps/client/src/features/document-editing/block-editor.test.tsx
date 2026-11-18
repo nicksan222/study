@@ -90,7 +90,7 @@ test.unit.stable(
 
 test.unit.stable(
   'offers dictation for editable prose while keeping code and formulas as manual fields',
-  async ({ react, rpc, screen, expect }) => {
+  async ({ react, rpc, screen, expect, within }) => {
     rpc.givenWorkspace();
     const document = {
       ...blankDocument(),
@@ -102,9 +102,14 @@ test.unit.stable(
     };
 
     react.render(<BlockEditor document={document} change={() => {}} />);
-    expect(screen.getAllByRole('button', { name: /Dictation requires microphone/ })).toHaveLength(
-      1
-    );
+    const microphone = { name: /Dictation requires microphone/ };
+    const paragraph = within(screen.getByRole('group', { name: 'Block 1' }));
+    const code = within(screen.getByRole('group', { name: 'Block 2' }));
+    const math = within(screen.getByRole('group', { name: 'Block 3' }));
+
+    expect(paragraph.getByRole('button', microphone)).toBeInTheDocument();
+    expect(code.queryByRole('button', microphone)).not.toBeInTheDocument();
+    expect(math.queryByRole('button', microphone)).not.toBeInTheDocument();
     expect(screen.getAllByRole('textbox')).toHaveLength(3);
   }
 );

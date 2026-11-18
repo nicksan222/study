@@ -60,6 +60,8 @@ test.unit.stable(
       {
         'apps/client/src/features/notes/namespace.ts': `import * as host from '#client/lib/host.ts'; host.captureMicrophone({});`,
         'apps/client/src/features/notes/native.ts': `import {captureMicrophone} from '#client/lib/effect/native.ts'; captureMicrophone({});`,
+        'apps/client/src/features/notes/direct.ts': `import {captureMicrophone} from '#client/lib/effect/microphone.ts'; captureMicrophone({});`,
+        'apps/client/src/features/notes/direct-namespace.ts': `import * as native from '#client/lib/effect/microphone.ts'; native.captureMicrophone({});`,
         'apps/client/src/features/notes/destructured-rpc.ts': `import * as contracts from '@study/contracts/react'; const {rpc: api} = contracts; api.voice.transcribe.call({});`,
         'apps/client/src/features/notes/deep-rpc.ts': `import * as contracts from '@study/contracts/react'; const {rpc: {voice: {transcribe: recognize}}} = contracts; recognize.call({});`,
         'apps/client/src/features/notes/rpc.ts': `import * as contracts from '@study/contracts/react'; contracts.rpc.voice.transcribe.call({});`
@@ -67,7 +69,15 @@ test.unit.stable(
       true
     );
 
-    expect(diagnostics).toHaveLength(5);
+    expect(diagnostics.map(({ filename }) => filename.split('/').at(-1)).sort()).toEqual([
+      'deep-rpc.ts',
+      'destructured-rpc.ts',
+      'direct-namespace.ts',
+      'direct.ts',
+      'namespace.ts',
+      'native.ts',
+      'rpc.ts'
+    ]);
   }
 );
 
@@ -92,7 +102,10 @@ test.unit.stable(
         { assert },
         'dictation-boundary',
         {
-          'apps/client/src/features/notes/local-global.ts': `const window = {navigator: {mediaDevices: {getUserMedia(){}}}}; const {navigator: {mediaDevices}} = window; mediaDevices.getUserMedia();`
+          'apps/client/src/features/notes/local-global.ts': `const window = {navigator: {mediaDevices: {getUserMedia(){}}}}; const {navigator: {mediaDevices}} = window; mediaDevices.getUserMedia();`,
+          'apps/client/src/features/notes/dotted-destructure.ts': `const {'mediaDevices.getUserMedia': read} = navigator; read?.();`,
+          'apps/client/src/features/notes/dotted-member.ts': `navigator['mediaDevices.getUserMedia']?.();`,
+          'apps/client/src/features/notes/dotted-rpc.ts': `import {rpc} from '@study/contracts/react'; const {'voice.transcribe': transmit} = rpc; transmit.call({});`
         },
         true
       )

@@ -4,13 +4,13 @@ import { RetryButton, Loading, Settings } from '@study/ui';
 
 import { VoiceLanguageRow, VoiceModelControls } from '#client/features/voice/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
-import { useSettingsAutosave } from '#client/lib/settings-autosave.ts';
+import { useSettingsPatchAutosave } from '#client/lib/settings-autosave.ts';
 
 export function VoiceSettings() {
   const { t } = useI18n();
   const preferences = rpc.settings.voiceSettings.useQuery({});
   const write = rpc.settings.saveVoiceSettings.useMutation();
-  const save = useSettingsAutosave(() => rpc.settings.voiceSettings.read({}), write.mutateAsync);
+  const save = useSettingsPatchAutosave<Preferences>(write.mutateAsync);
   const disabled = save.pending || !preferences.data;
 
   return (
@@ -41,26 +41,39 @@ export function VoiceSettings() {
           />
         )}
       </Settings.Group>
-      {(save.error || preferences.isError) && (
-        <Settings.Status
-          action={
-            <RetryButton
-              label={t('Retry')}
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                save.retry();
-                preferences.refetch();
-              }}
-            />
-          }
-        >
-          {t('SettingsSaveFailed')}
-        </Settings.Status>
-      )}
+      <VoiceSettingsError
+        loadFailed={preferences.isError}
+        saveFailed={save.error}
+        onRetry={() => {
+          save.retry();
+          preferences.refetch();
+        }}
+      />
       <Settings.Feedback>{t('VoicePrivacy')}</Settings.Feedback>
       <Settings.Feedback>{t('VoiceRecordingHelp')}</Settings.Feedback>
     </Settings.Section>
+  );
+}
+
+function VoiceSettingsError({
+  loadFailed,
+  saveFailed,
+  onRetry
+}: {
+  loadFailed: boolean;
+  saveFailed: boolean;
+  onRetry: () => void;
+}) {
+  const { t } = useI18n();
+
+  if (!loadFailed && !saveFailed) return null;
+
+  return (
+    <Settings.Status
+      action={<RetryButton label={t('Retry')} variant="outline" size="sm" onClick={onRetry} />}
+    >
+      {t(saveFailed ? 'SettingsSaveFailed' : 'VoiceSettingsLoadFailed')}
+    </Settings.Status>
   );
 }
 

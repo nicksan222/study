@@ -25,6 +25,8 @@ import {
 import { webFile, webTarget } from '../web-files.ts';
 import { nativeGlobal } from './native-global.ts';
 
+const microphoneSources = ['lib/host', 'lib/effect/native', 'lib/effect/microphone'];
+
 export default defineRule({
   meta: { type: 'problem' },
   create(context) {
@@ -37,7 +39,7 @@ export default defineRule({
     const protectedSource = (source: unknown) =>
       !ownsHost &&
       typeof source === 'string' &&
-      ['lib/host', 'lib/effect/native'].includes(webTarget(context.filename, source) ?? '');
+      microphoneSources.includes(webTarget(context.filename, source) ?? '');
     const bindings = effectBindings(context);
     const rpc = lexicalResolver(
       (node, seen) => {
@@ -57,7 +59,7 @@ export default defineRule({
         const base = rpc(definition.init, seen);
         const names = destructuredPath(definition.id, node.name, []);
 
-        return base && names
+        return base && names && names.every((name) => !name.includes('.'))
           ? [base, ...names].join('.').replace(/^contracts\.rpc(?=\.|$)/, 'rpc')
           : null;
       },
@@ -65,6 +67,8 @@ export default defineRule({
         const base = rpc(node.object, seen);
         const name =
           !node.computed || node.property.type === 'Literal' ? propertyName(node.property) : null;
+
+        if (name?.includes('.')) return null;
 
         if (base === 'contracts' && name === 'rpc') return 'rpc';
 
@@ -152,5 +156,5 @@ function namespaceCapability(context: any, definition: any) {
 
   const target = webTarget(context.filename, source);
 
-  return ['lib/host', 'lib/effect/native'].includes(target ?? '') ? 'host' : null;
+  return microphoneSources.includes(target ?? '') ? 'host' : null;
 }

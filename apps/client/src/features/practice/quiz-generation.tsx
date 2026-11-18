@@ -32,7 +32,11 @@ import {
 import type { SetStateAction } from 'react';
 import { useState, useCallback } from 'react';
 
-import { DictationTextarea } from '#client/features/voice/index.ts';
+import {
+  DictationSubmissionScope,
+  DictationTextarea,
+  useDictationSubmission
+} from '#client/features/voice/index.ts';
 import { AiActionButton as AiButton } from '#client/lib/ai-action-button.tsx';
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';
@@ -130,6 +134,7 @@ function GenerationDialog({
 function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) => void) {
   const { t } = useI18n();
   const readiness = useAiReadiness('medium');
+  const submission = useDictationSubmission();
   const [kind, setKind] = useState<
     'quiz' | 'flashcards' | 'fill_blank' | 'matching' | 'true_false' | 'ordering'
   >('quiz');
@@ -163,6 +168,8 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
   const questionKind = kind !== 'quiz' && kind !== 'flashcards' ? kind : configuredQuestionKind;
   /** Starts generation after sources and preferences are ready; specialized practice remains a quiz material. */
   const create = () => {
+    if (submission.isBlocked()) return;
+
     if (readiness === 'ready' && projectId !== undefined && hasSources && preferences.isSuccess)
       start.mutate({
         projectId,
@@ -196,6 +203,7 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
     start,
     busy,
     hasSources,
+    submission,
     create
   };
 }
@@ -212,6 +220,7 @@ function GenerationPanel({
 }) {
   const { t } = useI18n();
   const model = useGeneration(projectId, accepted);
+  const [customizeOpen, setCustomizeOpen] = useState(false);
 
   return (
     <>
@@ -281,7 +290,7 @@ function GenerationPanel({
               <Settings.Intro>{t('PracticeTrueFalseHelp')}</Settings.Intro>
             )}
           </Settings.Section>
-          <Practice.Customize>
+          <Practice.Customize onToggle={(event) => setCustomizeOpen(event.currentTarget.open)}>
             <Practice.CustomizeSummary>
               <OptionsIcon aria-hidden="true" />
               <span>{t('PracticeCustomize')}</span>
@@ -289,15 +298,17 @@ function GenerationPanel({
             </Practice.CustomizeSummary>
             <Practice.CustomizeBody>
               <Settings.Section title={t('PracticeGeneratePrompt')}>
-                <DictationTextarea
-                  targetKey={`${projectId}:${model.kind}`}
-                  aria-label={t('PracticeGeneratePrompt')}
-                  placeholder={t('PracticeGeneratePromptHint')}
-                  value={model.instruction}
-                  maxLength={100000}
-                  disabled={model.busy}
-                  onValueChange={model.setInstruction}
-                />
+                <DictationSubmissionScope value={model.submission.scope}>
+                  <DictationTextarea
+                    targetKey={`${projectId}:${model.kind}`}
+                    aria-label={t('PracticeGeneratePrompt')}
+                    placeholder={t('PracticeGeneratePromptHint')}
+                    value={model.instruction}
+                    maxLength={100000}
+                    disabled={model.busy || !customizeOpen}
+                    onValueChange={model.setInstruction}
+                  />
+                </DictationSubmissionScope>
               </Settings.Section>
               <Settings.Intro>{t('PracticeGenerateAutomaticTitle')}</Settings.Intro>
             </Practice.CustomizeBody>
@@ -370,6 +381,7 @@ function GenerationAction({ model }: { model: GenerationModel }) {
         model.readiness !== 'ready' ||
         !model.hasSources ||
         model.busy ||
+        model.submission.blocked ||
         !model.preferences.isSuccess
       }
       onClick={model.create}

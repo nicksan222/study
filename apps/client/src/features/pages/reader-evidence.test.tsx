@@ -1,8 +1,11 @@
-import { assessmentViewSchema, exactInputSchema } from '@study/contracts';
+import { annotationSchema, assessmentViewSchema, exactInputSchema } from '@study/contracts';
 import type { StudyClient } from '@study/contracts/react/testing';
 import { catalogs } from '@study/localization';
 import { test } from '@study/testing';
 import { Effect, Schema } from 'effect';
+
+import type * as Host from '#client/lib/host.ts';
+import { readyVoiceStatus } from '#client/test/page-values.ts';
 
 import type * as __MockType0 from '../document-editing/test-support';
 import type * as __MockType1 from './reader-evidence';
@@ -11,7 +14,15 @@ let authoredPage: typeof __MockType0.authoredPage;
 
 let EvidenceDetails: typeof __MockType1.EvidenceDetails;
 
+let cancelCapture: () => void;
+
 test.unit.beforeEach(async ({ mock }) => {
+  cancelCapture = mock.fn();
+  mock('#client/lib/host.ts', async (load) => ({
+    ...(await load<typeof Host>()),
+    microphoneAvailable: () => true,
+    captureMicrophone: async () => ({ stop: async () => [0.4], cancel: cancelCapture })
+  }));
   mock('#client/features/source-library/input-link', () => ({
     CapturedInputLink: ({ name }: { name: string }) => <span>{name}</span>
   }));
@@ -22,6 +33,134 @@ test.unit.beforeEach(async ({ mock }) => {
 
   EvidenceDetails = __mockModule1.EvidenceDetails;
 });
+
+test.unit.stable(
+  'closing Page Evidence cancels existing annotation dictation and retains edits',
+  async ({ rpcHandlersTransport, render, userEvent, screen, expect, waitFor, within }) => {
+    const version = authoredPage(41n, 'Page excerpt', 101n).version!;
+    const saved = Schema.decodeUnknownSync(annotationSchema)({
+      id: 1n,
+      revision: 1n,
+      target: {
+        pageId: version.pageId,
+        range: {
+          versionId: version.id,
+          snapshotId: version.snapshotId,
+          blockId: version.document.blocks[0]!.id,
+          start: 0,
+          end: 4
+        }
+      },
+      kind: 'note',
+      note: 'Original annotation',
+      deleted: false,
+      operation: 'create'
+    });
+    const harness = rpcHandlersTransport({
+      'voice.status': () => Effect.succeed(readyVoiceStatus),
+      'settings.voiceSettings': () => Effect.succeed({ filterSilence: true }),
+      'pages.version': () => Effect.succeed(version),
+      'pages.annotations': () => Effect.succeed({ items: [saved], nextCursor: null }),
+      'pages.annotation': () => Effect.succeed(saved),
+      'pages.annotationHistory': () => Effect.succeed({ items: [saved], nextCursor: null }),
+      'pages.assessments': () => Effect.succeed({ items: [], nextCursor: null })
+    });
+    const user = userEvent.setup();
+    const en = catalogs.english;
+
+    render(
+      <harness.wrapper>
+        <EvidenceDetails version={version} />
+      </harness.wrapper>
+    );
+    const disclosure = await screen.findByText(en.PageEvidence);
+
+    await user.click(disclosure);
+    const note = await screen.findByDisplayValue(saved.note);
+    const row = within(note.closest('li')!);
+
+    await user.type(note, ' with edits');
+    await user.click(await row.findByRole('button', { name: en.VoiceStart }));
+    await row.findByRole('button', { name: en.VoiceStop });
+    await user.click(disclosure);
+    await waitFor(() => expect(cancelCapture).toHaveBeenCalledOnce());
+    await user.click(disclosure);
+    expect(await screen.findByDisplayValue('Original annotation with edits')).toBeVisible();
+    expect(screen.queryByRole('button', { name: en.VoiceStop })).not.toBeInTheDocument();
+  }
+);
+
+test.unit.stable.for([false, true])(
+  'saves a selected passage with the appropriate note while dictation enabled is %s',
+  async (
+    dictate,
+    { rpcHandlersTransport, render, userEvent, screen, expect, vi, fireEvent, waitFor, act }
+  ) => {
+    const version = authoredPage(41n, 'Page excerpt', 101n).version!;
+    const recognition = Promise.withResolvers<{ text: string }>();
+    const transcribe = vi.fn(() => Effect.promise(() => recognition.promise));
+    const save = vi.fn<StudyClient['pages.createAnnotation']>().mockImplementation((input) =>
+      Effect.succeed({
+        outcome: 'saved',
+        annotation: Schema.decodeUnknownSync(annotationSchema)({
+          ...input,
+          id: 1n,
+          revision: 1n,
+          deleted: false,
+          operation: 'create'
+        })
+      })
+    );
+    const harness = rpcHandlersTransport({
+      'voice.status': () => Effect.succeed(readyVoiceStatus),
+      'voice.transcribe': transcribe,
+      'settings.voiceSettings': () => Effect.succeed({ filterSilence: true }),
+      'pages.version': () => Effect.succeed(version),
+      'pages.versions': () => Effect.succeed({ items: [], nextCursor: null }),
+      'pages.annotations': () => Effect.succeed({ items: [], nextCursor: null }),
+      'pages.assessments': () => Effect.succeed({ items: [], nextCursor: null }),
+      'pages.createAnnotation': save
+    });
+    const user = userEvent.setup();
+    const en = catalogs.english;
+
+    render(
+      <harness.wrapper>
+        <EvidenceDetails version={version} />
+      </harness.wrapper>
+    );
+    await user.click(screen.getByText(en.PageEvidence));
+    await user.click(await screen.findByLabelText(en.PageBlock));
+    await user.click(await screen.findByRole('option', { name: '1 · Page excerpt' }));
+    const passage = screen.getByLabelText<HTMLTextAreaElement>(en.PageSelectPassage);
+    const button = screen.getByRole('button', { name: en.PageSaveAnnotation });
+
+    passage.setSelectionRange(0, 4);
+    fireEvent.select(passage);
+    expect(button).toBeEnabled();
+
+    if (dictate) {
+      await user.click(await screen.findByRole('button', { name: en.VoiceStart }));
+      await user.click(await screen.findByRole('button', { name: en.VoiceStop }));
+      await waitFor(() => expect(transcribe).toHaveBeenCalledOnce());
+      expect(button).toBeDisabled();
+      await user.click(button);
+      expect(save).not.toHaveBeenCalled();
+      await act(async () => recognition.resolve({ text: 'Dictated note' }));
+      await waitFor(() => expect(button).toBeEnabled());
+    }
+
+    await user.click(button);
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          kind: dictate ? 'note' : 'highlight',
+          note: dictate ? 'Dictated note' : ''
+        })
+      )
+    );
+  }
+);
 
 test.unit.stable.for([false, true])(
   'shows unavailable message evidence with citations: %s',

@@ -39,6 +39,20 @@ const workerResult = Schema.Union([
   Schema.Struct({ kind: errorKindSchema })
 ]);
 
+function decodeWorkerOutput(output: string) {
+  try {
+    return Schema.decodeUnknownSync(workerResult)(JSON.parse(output));
+  } catch (cause) {
+    throw new StudyError(
+      'model_unavailable',
+      'Speech recognition process returned an invalid result',
+      {
+        cause
+      }
+    );
+  }
+}
+
 export async function transcribeInProcess(
   input: SpeechInput,
   cancellation: AbortSignal
@@ -74,7 +88,7 @@ export async function transcribeInProcess(
         'Speech recognition process exited without a result'
       );
 
-    const result = Schema.decodeUnknownSync(workerResult)(JSON.parse(output));
+    const result = decodeWorkerOutput(output);
 
     if ('kind' in result) throw new StudyError(result.kind, 'Speech recognition failed');
 

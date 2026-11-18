@@ -21,10 +21,17 @@ const voiceModelSchema = Schema.Struct({
 
 export type VoiceModel = typeof voiceModelSchema.Type;
 
+export const voiceInstallationIdSchema = Schema.String.check(Schema.isUUID(4)).pipe(
+  Schema.brand('VoiceInstallationId')
+);
+
+export type VoiceInstallationId = typeof voiceInstallationIdSchema.Type;
+
 export const voiceStatusSchema = Schema.Struct({
   modelId: Schema.String,
   models: Schema.Array(voiceModelSchema),
   state: Schema.Literals(['missing', 'downloading', 'ready']),
+  installationId: Schema.optionalKey(voiceInstallationIdSchema),
   downloadedBytes: Schema.Number,
   totalBytes: Schema.Number
 });
@@ -46,7 +53,11 @@ export const voiceEndpoints = {
   ),
   cancelInstall: mutation(
     'voice.cancelInstall',
-    { payload: {}, success: saved, error: failureSchema },
+    {
+      payload: { installationId: voiceInstallationIdSchema },
+      success: saved,
+      error: failureSchema
+    },
     external
   ),
   remove: mutation('voice.remove', { payload: {}, success: saved, error: failureSchema }, external),

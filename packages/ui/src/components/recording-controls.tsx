@@ -1,5 +1,5 @@
 import { AcceptIcon } from '@study/icons';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { IconButton } from './icon-button';
@@ -25,12 +25,14 @@ export function RecordingControls({ label, children }: { label?: string; childre
 export function RecordingFeedback({
   progress,
   finishLabel,
+  recordingLabel,
   disabled,
   onFinish,
   subscribeLevel
 }: {
   progress?: string;
   finishLabel: string;
+  recordingLabel: string;
   disabled: boolean;
   onFinish: (transferFocus: boolean) => void;
   subscribeLevel: SubscribeLevel;
@@ -39,10 +41,13 @@ export function RecordingFeedback({
 
   return (
     <>
+      <RecordingTime label={recordingLabel} />
       <VoiceWaveform subscribe={subscribeLevel} />
       <IconButton
         label={finishLabel}
-        variant="secondary"
+        className="voice-capture-finish"
+        size="icon"
+        variant="default"
         disabled={disabled}
         onMouseDown={(event) => event.preventDefault()}
         onClick={(event) =>
@@ -55,7 +60,31 @@ export function RecordingFeedback({
   );
 }
 
-const bars = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+function RecordingTime({ label }: { label: string }) {
+  const [started] = useState(Date.now);
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setElapsed(Math.max(0, Math.floor((Date.now() - started) / 1000)));
+    }, 250);
+
+    return () => clearInterval(timer);
+  }, [started]);
+
+  const minutes = Math.floor(elapsed / 60);
+  const seconds = String(elapsed % 60).padStart(2, '0');
+
+  return (
+    <span className="voice-capture-time">
+      <span className="voice-capture-indicator" aria-hidden="true" />
+      <span className="sr-only">{label} </span>
+      <time dateTime={`PT${elapsed}S`}>{`${minutes}:${seconds}`}</time>
+    </span>
+  );
+}
+
+const bars = Array.from({ length: 17 }, (_, index) => index);
 
 function VoiceWaveform({ subscribe }: { subscribe: SubscribeLevel }) {
   const waveform = useRef<HTMLSpanElement>(null);

@@ -3,12 +3,6 @@ import type { RichNoteEditorHandle, RichNoteSelection } from '@study/ui';
 import { useRef } from 'react';
 import type { RefObject } from 'react';
 
-const documentEnd: RichNoteSelection = {
-  kind: 'text',
-  anchor: Number.MAX_SAFE_INTEGER,
-  head: Number.MAX_SAFE_INTEGER
-};
-
 /** Applies the first segment to the captured selection, then follows the live editor. */
 export function useEditorDictation<Value>(
   editor: RefObject<RichNoteEditorHandle | null>,
@@ -34,17 +28,12 @@ export function useEditorDictation<Value>(
 
       const continuation = continued.current;
       const focus = !continuation && document.activeElement === initialFocus.current;
+      const original = captured.current;
+      const restore = !continuation && original && equals(original.value, value);
 
-      if (!continuation) {
-        const original = captured.current;
+      if (restore) target.restoreSelection(original.selection, { focus });
 
-        target.restoreSelection(
-          original && equals(original.value, value) ? original.selection : documentEnd,
-          { focus }
-        );
-      }
-
-      target.insertPlainText(text, { continuation, focus });
+      target.insertPlainText(text, { append: !continuation && !restore, continuation, focus });
       continued.current = true;
     }
   };

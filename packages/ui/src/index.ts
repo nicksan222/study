@@ -257,3 +257,4 @@ export { MatchingReviewView } from './components/matching-review-view.tsx';
 export { OrderingResultView } from './components/ordering-result-view.tsx';
 
 export { NotebookEditor } from './components/notebook-editor.tsx';
+export { dictationSpacing } from './components/editor-text-spacing.ts';

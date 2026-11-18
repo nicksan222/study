@@ -67,20 +67,30 @@ test.unit.stable(
 test.unit.stable(
   'updates Latest after resizing while preserving readers and following the end',
   async ({ render, vi, fireEvent, screen, act, expect }) => {
-    let resize = () => {};
+    let resize = (_target: Element) => {};
 
     vi.stubGlobal(
       'ResizeObserver',
       class implements ResizeObserver {
+        private readonly targets = new Set<Element>();
+
         constructor(callback: ResizeObserverCallback) {
-          resize = () => callback([], this);
+          resize = (target) => {
+            if (this.targets.has(target)) callback([], this);
+          };
         }
 
-        observe() {}
+        observe(target: Element) {
+          this.targets.add(target);
+        }
 
-        unobserve() {}
+        unobserve(target: Element) {
+          this.targets.delete(target);
+        }
 
-        disconnect() {}
+        disconnect() {
+          this.targets.clear();
+        }
       }
     );
 
@@ -92,15 +102,15 @@ test.unit.stable(
     fireEvent.scroll(host);
     expect(screen.getByRole('button', { name: 'Latest' })).toBeVisible();
     dimensions(host, 900);
-    await act(async () => resize());
+    await act(async () => resize(host));
     expect(host.scrollTop).toBe(100);
     expect(screen.getByRole('button', { name: 'Latest' })).toBeVisible();
     dimensions(host, 300);
-    await act(async () => resize());
+    await act(async () => resize(host));
     expect(host.scrollTop).toBe(100);
     expect(screen.queryByRole('button', { name: 'Latest' })).not.toBeInTheDocument();
     dimensions(host, 1000);
-    await act(async () => resize());
+    await act(async () => resize(host));
     expect(host.scrollTop).toBe(1000);
     expect(screen.queryByRole('button', { name: 'Latest' })).not.toBeInTheDocument();
   }

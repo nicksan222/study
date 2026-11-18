@@ -25,7 +25,9 @@ function LiveNote({ kind = 'text' }: { kind?: RichNoteSelection['kind'] }) {
       <button
         onClick={() => {
           editor.current!.restoreSelection(
-            kind === 'text' ? { kind, anchor: 8, head: 16 } : { kind, anchor: 0, head: 1 }
+            kind === 'text'
+              ? { kind, anchor: 8, head: 16 }
+              : { kind, anchor: 0, head: 1, nodeType: 'horizontalRule' }
           );
           dictation.onCaptureStart();
         }}

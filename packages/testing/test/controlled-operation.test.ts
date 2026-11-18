@@ -3,6 +3,45 @@ import { test } from '@study/testing';
 import { createControlledOperation } from '../src/controlled-operation.ts';
 
 test.unit.stable(
+  'does not perform if cancellation arrives after the gate check',
+  async ({ expect, vi }) => {
+    const controller = new AbortController();
+    const reason = new Error('cancelled just before execution');
+    const perform = vi.fn();
+    const operation = createControlledOperation(perform);
+
+    vi.spyOn(controller.signal, 'throwIfAborted').mockImplementationOnce(() => {
+      queueMicrotask(() => controller.abort(reason));
+    });
+
+    await expect(operation.run(undefined, controller.signal)).rejects.toBe(reason);
+    await operation.aborted;
+    expect(perform).not.toHaveBeenCalled();
+  }
+);
+
+test.unit.stable('reports the abort even if the settled callback throws', async ({ expect }) => {
+  const controller = new AbortController();
+  const cleanupError = new Error('cleanup failed');
+  const operation = createControlledOperation(() => {}, {
+    hold: true,
+    onSettled: () => {
+      throw cleanupError;
+    }
+  });
+  let observedAbort = false;
+
+  void operation.aborted.then(() => {
+    observedAbort = true;
+  });
+  const outcome = operation.run(undefined, controller.signal);
+
+  controller.abort();
+  await expect(outcome).rejects.toBe(cleanupError);
+  expect(observedAbort).toBe(true);
+});
+
+test.unit.stable(
   'controlled operations expose invocation before releasing the real asynchronous boundary',
   async ({ expect }) => {
     const performed: string[] = [];

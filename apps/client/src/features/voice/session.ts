@@ -23,6 +23,7 @@ type Recording = {
   delivered: boolean;
   undelivered: string;
   capture?: MicrophoneCapture;
+  captureFailed?: boolean;
   backlog?: boolean;
   finishing?: Promise<void>;
   recognition?: Promise<void>;
@@ -80,7 +81,7 @@ export class DictationSession {
     onTranscript: (text: string) => void,
     chunkSeconds: VoiceSettings['chunkSeconds'] = defaultChunkSeconds
   ) {
-    if (this.state.owner === owner && this.canRestart()) this.cancel(owner);
+    if (this.state.owner && this.canRestart()) this.cancel(this.state.owner);
 
     if (this.state.phase !== 'idle') return;
 
@@ -123,7 +124,7 @@ export class DictationSession {
   }
 
   private acceptChunk(recording: Recording, owner: symbol, samples: number[]) {
-    if (this.recording !== recording) return;
+    if (this.recording !== recording || recording.captureFailed) return;
 
     // Two outstanding segments leave room for the final segment flushed by stop.
     if (recording.audio.push(samples) >= 2 && this.state.phase === 'recording') {
@@ -133,14 +134,22 @@ export class DictationSession {
   }
 
   private failCapture(recording: Recording, owner: symbol) {
-    if (this.recording !== recording) return;
+    if (this.recording !== recording || recording.captureFailed) return;
 
-    this.release();
-    this.publish(
-      recording.undelivered
-        ? { phase: 'result', owner, transcript: recording.undelivered, error: 'interrupted' }
-        : { phase: 'error', owner, transcript: '', error: 'capture' }
-    );
+    const capture = recording.capture;
+
+    if (!capture) {
+      this.release();
+      this.publish({ phase: 'error', owner, transcript: '', error: 'capture' });
+
+      return;
+    }
+
+    recording.captureFailed = true;
+    recording.capture = undefined;
+    capture.cancel();
+    recording.audio.close();
+    this.publish({ ...this.state, phase: 'transcribing' });
   }
 
   async stop(owner: symbol) {
@@ -153,14 +162,18 @@ export class DictationSession {
   }
 
   private finishCapture(recording: Recording, owner: symbol) {
+    const capture = recording.capture;
+
     if (recording.finishing) return recording.finishing;
+
+    if (!capture) return Promise.resolve();
 
     this.publish({ ...this.state, phase: 'transcribing', backlog: recording.backlog });
 
     recording.finishing = Promise.resolve()
-      .then(() => recording.capture!.stop())
+      .then(() => capture.stop())
       .then((samples) => {
-        if (this.recording === recording) recording.audio.push(samples);
+        if (this.recording === recording && !recording.captureFailed) recording.audio.push(samples);
       })
       .catch(() => this.failCapture(recording, owner))
       .finally(() => recording.audio.close());
@@ -220,8 +233,10 @@ export class DictationSession {
         phase: 'result',
         owner,
         transcript: recording.undelivered,
-        error: 'insert'
+        error: recording.captureFailed ? 'interrupted' : 'insert'
       });
+    } else if (recording.captureFailed) {
+      this.publish({ phase: 'error', owner, transcript: '', error: 'capture' });
     } else if (recording.delivered) this.publish({ phase: 'idle', transcript: '' });
     else this.publish({ phase: 'error', owner, transcript: '', error: 'empty' });
   }

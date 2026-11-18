@@ -147,6 +147,7 @@ test.browser.stable(
           dialog.getByRole('button', { name: copy.VoiceStart, exact: true })
         ).toBeFocused();
         await page.keyboard.press('Shift+Tab');
+        await expect(editor).toBeFocused();
         // Navigate from the document end so the first caret line owns the scroll position.
         await editor.press('ControlOrMeta+End');
         await editor.press('ControlOrMeta+Home');

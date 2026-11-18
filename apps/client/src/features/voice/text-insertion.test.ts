@@ -2,6 +2,15 @@ import { test } from '@study/testing';
 
 import { insertTranscript } from './text-insertion';
 
+test.unit.stable('keeps parentheses adjacent to the dictated replacement', ({ expect }) => {
+  const value = 'Keep (old) here';
+
+  expect(insertTranscript(value, 'new', { value, start: 6, end: 9 })).toEqual({
+    value: 'Keep (new) here',
+    caret: 9
+  });
+});
+
 test.unit.stable(
   'replaces only the captured selection and separates dictated words',
   ({ expect }) => {

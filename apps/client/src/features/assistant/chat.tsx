@@ -17,8 +17,11 @@ import {
   WorkspaceDeskSurface as Desk
 } from '@study/ui';
 
-import { DictationButton } from '#client/features/voice/index.ts';
-import { useTextDictation } from '#client/features/voice/index.ts';
+import {
+  DictationButton,
+  DictationSubmissionScope,
+  useTextDictation
+} from '#client/features/voice/index.ts';
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -119,11 +122,13 @@ export function AssistantComposer({ model }: { model: ComposerModel }) {
             onKeyDown={model.onKeyDown}
           />
           <ComposerSurface.Footer variant="notebook">
-            <DictationButton
-              targetKey={model.note.data?.id}
-              {...dictation}
-              disabled={!model.history.isSuccess || model.blocked}
-            />
+            <DictationSubmissionScope value={model.submission.scope}>
+              <DictationButton
+                targetKey={model.note.data?.id}
+                {...dictation}
+                disabled={!model.history.isSuccess || model.mutation.isPending}
+              />
+            </DictationSubmissionScope>
             {model.context.data && (
               <ContextUsage
                 value={model.context.data.estimatedTokens + Math.ceil(model.draft.length / 4)}
@@ -137,7 +142,7 @@ export function AssistantComposer({ model }: { model: ComposerModel }) {
 
             <WorkspaceSurface.ComposerSubmit
               aria-label={t('SendMessage')}
-              disabled={model.blocked || !model.draft.trim()}
+              disabled={model.blocked || model.submission.blocked || !model.draft.trim()}
               onClick={model.send}
             >
               <SendIcon size={18} aria-hidden="true" />

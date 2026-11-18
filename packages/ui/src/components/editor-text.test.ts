@@ -4,6 +4,19 @@ import StarterKit from '@tiptap/starter-kit';
 
 import { insertEditorText } from './editor-text';
 
+test.unit.stable('keeps adjacent parentheses and separates subsequent words', ({ expect }) => {
+  const editor = new Editor({ extensions: [StarterKit], content: '<p>Keep (old) here</p>' });
+
+  try {
+    editor.commands.setTextSelection({ from: 7, to: 10 });
+    insertEditorText(editor, 'new');
+    insertEditorText(editor, 'words', { continuation: true });
+    expect(editor.getText()).toBe('Keep (new words) here');
+  } finally {
+    editor.destroy();
+  }
+});
+
 test.unit.stable(
   'keeps selected non-text blocks and undoes dictation in one step',
   ({ expect }) => {

@@ -4,18 +4,21 @@ export const english = Object.freeze({
   VoiceStart: 'Start dictation',
   VoiceStop: 'Stop and transcribe',
   VoiceStarting: 'Opening microphone…',
+  VoiceRecording: 'Recording',
   VoiceTranscribing: 'Transcribing…',
   VoiceFinishingBacklog: 'Recording stopped. Finishing the remaining audio…',
   VoiceCancel: 'Cancel dictation',
   VoiceUnavailable: 'Dictation requires microphone access on localhost or HTTPS',
-  VoiceCaptureFailed: 'Could not record. Allow microphone access, then try again.',
+  VoiceCaptureFailed: 'Recording stopped or could not start. Check the microphone and try again.',
   VoiceNoSpeech: 'No speech detected. Try recording again.',
   VoiceRecoveryOptions: 'Dictation recovery options',
   VoiceTranscriptionFailedTitle: 'Transcription failed',
   VoiceTranscriptionFailed: 'Transcription failed. Retry or cancel to discard the recording.',
   VoiceRecoveredTitle: 'Your dictation is safe',
   VoiceRecoveredHelp:
-    'The text could not be inserted. Copy it, or make room in the original field and retry. Closing discards this transcript.',
+    'The text could not be inserted. Copy it or retry insertion. Closing discards this transcript.',
+  VoiceRecoveryMoved:
+    'The original field is no longer available. Copy the transcript before closing.',
   VoiceInterruptedHelp:
     'The microphone stopped. You can copy or insert the part already transcribed.',
   VoiceInsertRecovered: 'Insert transcript',
@@ -48,7 +51,7 @@ export const english = Object.freeze({
   VoicePrivacy:
     'Recordings are processed on the Study server connected to this browser or desktop app. Audio is not sent to an AI provider or saved as a source.',
   VoiceRecordingHelp:
-    'Click the microphone to start and Stop to insert the completed transcript. Escape cancels.',
+    'Click the microphone to start. Text appears as you speak. Use the checkmark to finish or Escape to cancel.',
 
   AnalyticsTitle: 'Analytics',
   AnalyticsLogsTitle: 'Diagnostic logs',
@@ -407,6 +410,7 @@ export const english = Object.freeze({
 
   WorkspaceSettingsFailed: 'Could not save or load these preferences. Try again.',
   SettingsSaveFailed: 'Could not save your changes. Try again.',
+  VoiceSettingsLoadFailed: 'Could not load voice settings. Try again.',
   Saved: 'Saved',
   WorkspaceNumberValidation: 'Enter a whole number within the allowed range.',
   WorkspaceWritingTitle: 'Writing',

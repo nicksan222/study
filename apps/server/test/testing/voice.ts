@@ -8,6 +8,7 @@ type Input = Parameters<NonNullable<VoiceRuntimeAdapters['transcribe']>>[0];
 
 /** Controls only the native inference boundary; installation, services, RPC and capture stay real. */
 export function createVoiceMock() {
+  const lifetime = new AbortController();
   const bodies = ['browser-asr-fixture', 'browser-vad-fixture'].map((text) =>
     new TextEncoder().encode(text)
   );
@@ -45,7 +46,11 @@ export function createVoiceMock() {
         const held = download;
 
         download = undefined;
-        await held.run(undefined, options?.signal ?? undefined);
+        const signal = options?.signal
+          ? AbortSignal.any([lifetime.signal, options.signal])
+          : lifetime.signal;
+
+        await held.run(undefined, signal);
       }
 
       return new Response(bodies[index]);
@@ -57,7 +62,7 @@ export function createVoiceMock() {
 
       plan.consumed = true;
 
-      return plan.execute(input, signal);
+      return plan.execute(input, AbortSignal.any([lifetime.signal, signal]));
     }
   };
 
@@ -88,6 +93,8 @@ export function createVoiceMock() {
       return { called: operation.called, aborted: operation.aborted, release: operation.release };
     },
     [Symbol.dispose]() {
+      lifetime.abort();
+
       if (failures.length) throw new AggregateError(failures, 'Unexpected voice fixture calls');
 
       if (download) throw new Error('Unused held voice download');

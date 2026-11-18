@@ -8,8 +8,14 @@ let VoiceLanguageRow: typeof Controls.VoiceLanguageRow;
 
 let failure: unknown;
 
+let download: { installationId?: string } | undefined;
+
+let cancellation: unknown;
+
 test.unit.beforeEach(async ({ mock }) => {
   failure = undefined;
+  download = undefined;
+  cancellation = undefined;
   const mutation = () => ({ isPending: false, isError: false, reset() {} });
 
   mock('@study/contracts/react', () => ({
@@ -18,7 +24,10 @@ test.unit.beforeEach(async ({ mock }) => {
         status: {
           useQuery: () => ({
             data: {
-              state: 'missing',
+              state: download ? 'downloading' : 'missing',
+              downloadedBytes: 0,
+              totalBytes: 1,
+              ...download,
               modelId: 'active',
               models: [
                 {
@@ -40,7 +49,14 @@ test.unit.beforeEach(async ({ mock }) => {
           })
         },
         install: { useMutation: () => ({ ...mutation(), isError: true, error: failure }) },
-        cancelInstall: { useMutation: mutation },
+        cancelInstall: {
+          useMutation: () => ({
+            ...mutation(),
+            mutateAsync: async (input: unknown) => {
+              cancellation = input;
+            }
+          })
+        },
         remove: { useMutation: mutation }
       }
     }
@@ -83,3 +99,21 @@ test.unit.stable('still presents an actual download failure', ({ render, screen,
     screen.getByText('Could not update the voice model. Check your connection and retry.')
   ).toBeInTheDocument();
 });
+
+test.unit.stable(
+  'only cancels the installation identified by the displayed download',
+  ({ render, screen, fireEvent, expect }) => {
+    download = {};
+    const { rerender } = render(<VoiceModelControls />);
+
+    expect(screen.getByRole('button', { name: 'Cancel download' })).toBeDisabled();
+
+    const installationId = crypto.randomUUID();
+
+    download = { installationId };
+    rerender(<VoiceModelControls />);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel download' }));
+
+    expect(cancellation).toEqual({ installationId });
+  }
+);

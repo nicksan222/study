@@ -17,8 +17,11 @@ let failTranscription: (error: Error) => void;
 
 let transcription: Promise<{ text: string }>;
 
+let transcriptionRequested: ReturnType<typeof Promise.withResolvers<void>>;
+
 test.unit.beforeEach(async ({ mock }) => {
   recording = false;
+  transcriptionRequested = Promise.withResolvers();
   transcription = new Promise((resolve, reject) => {
     finishTranscription = resolve;
     failTranscription = reject;
@@ -53,13 +56,42 @@ test.unit.beforeEach(async ({ mock }) => {
       settings: { voiceSettings: { useQuery: () => ({ data: { chunkSeconds: 30 } }) } },
       voice: {
         status: { useQuery: () => ({ data: { state: 'ready' } }) },
-        transcribe: { call: () => transcription }
+        transcribe: {
+          call: () => {
+            transcriptionRequested.resolve();
+
+            return transcription;
+          }
+        }
       }
     }
   }));
   mock('#client/features/voice/model-controls.tsx', () => ({ VoiceModelControls: () => null }));
   DictationButton = (await import('./button')).DictationButton;
 });
+
+test.unit.stable(
+  'keeps recovery copyable when the same mounted control moves to a different draft',
+  async ({ render, screen, userEvent, expect, vi }) => {
+    const rejectInsertion = vi.fn(() => {
+      throw new Error('No room in the original draft');
+    });
+    const otherDraft = vi.fn();
+    const view = render(<DictationButton targetKey="first" onTranscript={rejectInsertion} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Start dictation' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Stop and transcribe' }));
+    finishTranscription({ text: 'Taken notes' });
+    expect(await screen.findByRole('textbox', { name: 'Transcript' })).toHaveValue('Taken notes');
+
+    view.rerender(<DictationButton targetKey="second" onTranscript={otherDraft} />);
+
+    expect(screen.getByRole('textbox', { name: 'Transcript' })).toHaveValue('Taken notes');
+    expect(screen.getByRole('button', { name: /^Copy$/ })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Retry insertion' })).toBeDisabled();
+    expect(otherDraft).not.toHaveBeenCalled();
+  }
+);
 
 test.unit.stable(
   'retains keyboard focus through opening and finishing a recording',
@@ -156,6 +188,7 @@ test.unit.stable(
 
     await userEvent.click(screen.getByRole('button', { name: 'Start dictation' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Stop and transcribe' }));
+    await transcriptionRequested.promise;
     view.rerender(<DictationButton disabled onTranscript={insert} />);
     await act(async () => {
       finishTranscription({ text: 'Late speech' });
@@ -181,6 +214,7 @@ test.unit.stable(
 
     await userEvent.click(screen.getByRole('button', { name: 'Start dictation' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Stop and transcribe' }));
+    await transcriptionRequested.promise;
     view.rerender(
       <DictationButton
         targetKey="second"

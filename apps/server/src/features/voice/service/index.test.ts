@@ -1,3 +1,4 @@
+import { StudyError } from '@study/contracts';
 import { VoiceModels } from '@study/server';
 import { test } from '@study/testing';
 import { CryptoHasher } from 'bun';
@@ -81,6 +82,61 @@ test.server.stable(
     expect(await transcription).toEqual({ text: 'Dettato italiano.' });
     await run(Voice.use((voice) => voice.remove()));
     expect((await run(Voice.use((voice) => voice.status()))).state).toBe('missing');
+  }
+);
+
+test.server.stable(
+  'cancel reports staging cleanup failure and preserves the original install error',
+  async ({ resources, expect, vi }) => {
+    const entered = Promise.withResolvers<void>();
+    const failure = new StudyError('internal', 'Could not remove partial speech model files');
+    const download = VoiceModels.prototype.install;
+    const install = vi.spyOn(VoiceModels.prototype, 'install').mockImplementation(async function (
+      this: VoiceModels,
+      signal
+    ) {
+      try {
+        await download.call(this, signal);
+      } catch (cause) {
+        if (signal.aborted) throw failure;
+
+        throw cause;
+      }
+    });
+
+    try {
+      const app = await resources.openApp({
+        voice: {
+          assets,
+          fetch: async (_url, options) =>
+            new Promise<Response>((_, reject) => {
+              const signal = options?.signal;
+
+              signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+              entered.resolve();
+            })
+        }
+      });
+
+      await app.nativeRuntime.runPromise(
+        Effect.gen(function* () {
+          const voice = yield* Voice;
+          const installing = yield* Effect.forkChild(Effect.flip(voice.install()));
+
+          yield* Effect.promise(() => entered.promise);
+          const status = yield* voice.status();
+
+          if (!('installationId' in status)) throw new Error('Expected a download identity');
+
+          const cancellation = yield* Effect.flip(voice.cancelInstall(status.installationId));
+
+          expect(cancellation).toBe(failure);
+          expect(yield* Fiber.join(installing)).toBe(failure);
+        })
+      );
+    } finally {
+      install.mockRestore();
+    }
   }
 );
 

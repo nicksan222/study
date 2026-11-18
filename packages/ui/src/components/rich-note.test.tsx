@@ -79,6 +79,66 @@ test.unit.stable(
 const editorLabels = new Proxy({} as RichNoteLabels, { get: (_, key) => String(key) });
 
 test.unit.stable(
+  'preserves a display formula while dictation changes other Markdown prose',
+  ({ render, act, expect }) => {
+    const handle = createRef<RichNoteEditorHandle>();
+    let saved = '';
+    const view = render(
+      <RichNoteEditor
+        ref={handle}
+        value={'$$\n-x+y\n$$\n\nEnd'}
+        onChange={(value) => {
+          saved = value;
+        }}
+        label="Note"
+        placeholder=""
+        labels={editorLabels}
+      />
+    );
+
+    act(() => {
+      handle.current!.restoreSelection({
+        kind: 'text',
+        anchor: Number.MAX_SAFE_INTEGER,
+        head: Number.MAX_SAFE_INTEGER
+      });
+      handle.current!.insertPlainText('spoken');
+    });
+    expect(saved).toContain('\n-x+y');
+    view.rerender(<RichNoteContent value={saved} />);
+    expect(view.container.querySelector('.katex-error')).toBeNull();
+    expect(view.container.querySelector('math')).not.toBeNull();
+    expect(view.container).toHaveTextContent('End spoken');
+  }
+);
+
+test.unit.stable(
+  'keeps dictated URLs plain after saving and reopening',
+  ({ render, act, expect }) => {
+    const handle = createRef<RichNoteEditorHandle>();
+    const text = 'Visit https://example.invalid for details.';
+    let saved = '';
+    const props = {
+      label: 'Note',
+      placeholder: '',
+      labels: editorLabels,
+      onChange: (value: string) => {
+        saved = value;
+      }
+    };
+    const first = render(<RichNoteEditor {...props} ref={handle} value="" />);
+
+    act(() => handle.current!.insertPlainText(text));
+    expect(first.container.querySelector('.tiptap a')).toBeNull();
+    first.unmount();
+    const reopened = render(<RichNoteEditor {...props} value={saved} />);
+
+    expect(reopened.container.querySelector('.tiptap a')).toBeNull();
+    expect(reopened.container.querySelector('.tiptap')).toHaveTextContent(text);
+  }
+);
+
+test.unit.stable(
   'keeps non-text blocks when restored dictation has no text cursor',
   ({ render, screen, act, expect }) => {
     const ref = createRef<RichNoteEditorHandle>();

@@ -3,9 +3,11 @@
 use tauri::webview::{PermissionKind, PermissionResponse};
 
 fn trusted_origin(url: &url::Url, development: bool) -> bool {
-    let bundled = url.scheme() == "tauri" && url.host_str() == Some("localhost");
-    let windows =
-        matches!(url.scheme(), "http" | "https") && url.host_str() == Some("tauri.localhost");
+    let bundled =
+        url.scheme() == "tauri" && url.host_str() == Some("localhost") && url.port().is_none();
+    let windows = matches!(url.scheme(), "http" | "https")
+        && url.host_str() == Some("tauri.localhost")
+        && url.port().is_none();
     let local_dev = development
         && url.scheme() == "http"
         && url.host_str() == Some("localhost")
@@ -43,6 +45,8 @@ mod tests {
             "tauri://localhost/notes",
             "http://tauri.localhost/",
             "https://tauri.localhost/",
+            "http://tauri.localhost:80/",
+            "https://tauri.localhost:443/",
         ] {
             let url = url::Url::parse(origin).unwrap();
             assert!(trusted_origin(&url, false));
@@ -53,12 +57,14 @@ mod tests {
         for origin in [
             "https://example.com/",
             "http://localhost:9999/",
-            "http://localhost:5173.evil.example/",
+            "http://localhost.evil.example:5173/",
             "tauri://remote/",
+            "tauri://localhost:5173/",
+            "http://tauri.localhost:5173/",
+            "https://tauri.localhost:8443/",
         ] {
-            if let Ok(url) = url::Url::parse(origin) {
-                assert!(!trusted_origin(&url, true));
-            }
+            let url = url::Url::parse(origin).unwrap();
+            assert!(!trusted_origin(&url, true), "{origin}");
         }
     }
 }

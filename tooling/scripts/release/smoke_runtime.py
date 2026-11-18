@@ -38,8 +38,20 @@ with tempfile.TemporaryDirectory() as temporary:
         [str(bun), str(runtime / "server/apps/server/src/platform/speech/worker.ts"), "--probe"],
         text=True, capture_output=True, timeout=60, cwd=temporary,
     )
-    if speech.returncode != 0 or json.loads(speech.stdout) != {"initialized": True}:
-        raise RuntimeError(f"Bundled speech runtime initialization failed: {speech.stderr}")
+    try:
+        initialization = json.loads(speech.stdout)
+    except json.JSONDecodeError:
+        initialization = None
+    if (
+        speech.returncode != 0
+        or not isinstance(initialization, dict)
+        or initialization.keys() != {"initialized"}
+        or initialization["initialized"] is not True
+    ):
+        raise RuntimeError(
+            f"Bundled speech runtime initialization failed (exit {speech.returncode}). "
+            f"stdout={speech.stdout.strip()!r} stderr={speech.stderr.strip()!r}"
+        )
     database = Path(temporary) / "study.sqlite"
     result = subprocess.run(
         [str(bun), str(runtime / "server/main.js")],

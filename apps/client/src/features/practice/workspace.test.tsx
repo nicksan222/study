@@ -60,27 +60,44 @@ test.unit.stable(
         disconnect() {}
       }
     );
-    const view = render(
-      <div>
-        <PracticeWorkspace title="Recall" actions={<button>Source action</button>}>
-          <h2>Core question</h2>
-        </PracticeWorkspace>
-      </div>
-    );
-    const toggle = screen.getByRole('button', { name: catalogs.english.PracticeActions });
+    let unmount: (() => void) | undefined;
 
     try {
+      const view = render(
+        <div>
+          <PracticeWorkspace title="Recall" actions={<button>Source action</button>}>
+            <button>Core question</button>
+          </PracticeWorkspace>
+        </div>
+      );
+
+      unmount = view.unmount;
+      const toggle = screen.getByRole('button', { name: catalogs.english.PracticeActions });
+      const question = screen.getByRole('button', { name: 'Core question' });
+
       expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      screen.getByRole('button', { name: 'Source action' }).focus();
       act(() => {
         width = 736;
         resize?.();
       });
       expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(toggle).toHaveFocus();
       act(() => {
         width = 992;
         resize?.();
       });
       expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      question.focus();
+      act(() => {
+        width = 736;
+        resize?.();
+      });
+      expect(question).toHaveFocus();
+      act(() => {
+        width = 992;
+        resize?.();
+      });
       await userEvent.click(toggle);
       expect(toggle).toHaveAttribute('aria-expanded', 'false');
       act(() => {
@@ -97,8 +114,11 @@ test.unit.stable(
       });
       expect(toggle).toHaveAttribute('aria-expanded', 'true');
     } finally {
-      view.unmount();
-      vi.unstubAllGlobals();
+      try {
+        unmount?.();
+      } finally {
+        vi.unstubAllGlobals();
+      }
     }
   }
 );

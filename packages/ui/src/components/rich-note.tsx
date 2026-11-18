@@ -46,6 +46,16 @@ import { blockNoteMath, inlineNoteMath, NoteMath } from './note-math';
 const noteStarterKit = StarterKit.extend({
   addExtensions() {
     return (this.parent?.() ?? []).map((extension) => {
+      if (extension.name === 'link')
+        return extension.extend({
+          parseMarkdown(token, helpers) {
+            // Marked also emits link tokens for bare URLs and addresses.
+            return token.raw?.startsWith('[') || token.raw?.startsWith('<')
+              ? (this.parent?.(token, helpers) ?? [])
+              : helpers.createTextNode(token.raw ?? token.text ?? '');
+          }
+        });
+
       if (extension.name !== 'paragraph') return extension;
 
       return extension.extend({
@@ -63,11 +73,11 @@ const noteStarterKit = StarterKit.extend({
   }
 });
 
-const extensions = [noteStarterKit.configure({ link: { openOnClick: false } })];
-
-const readingExtensions = [...extensions, inlineNoteMath, blockNoteMath];
+const extensions = [noteStarterKit.configure({ link: { openOnClick: false } }), blockNoteMath];
 
 const markdown = new MarkdownManager({ extensions, markedOptions: { breaks: true } });
+
+const readingExtensions = [...extensions, inlineNoteMath];
 
 const readingMarkdown = new MarkdownManager({
   extensions: readingExtensions,

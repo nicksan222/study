@@ -1,6 +1,6 @@
 import { MAX_DICTATION_SAMPLES, StudyRpc, dictationInputSchema } from '@study/contracts';
 import { test } from '@study/testing';
-import { Effect, Schema } from 'effect';
+import { Effect, Fiber, Schema } from 'effect';
 
 import { makeStudyClient } from '#server/client/index';
 
@@ -39,6 +39,55 @@ test.server.stable(
     const received = await expected.called;
 
     expect(received.samples).toEqual(samples);
+  }
+);
+
+test.server.stable(
+  'a delayed cancellation cannot abort a replacement model download',
+  async ({ resources, expect, voice }) => {
+    const first = voice.holdDownload();
+    const { server } = await resources.openRpc({ voice: voice.runtime });
+
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
+          const original = yield* Effect.forkScoped(Effect.flip(client['voice.install']({})));
+
+          yield* Effect.promise(() => first.called);
+          const originalStatus = yield* client['voice.status']({});
+          const originalId = originalStatus.installationId;
+
+          expect(originalStatus.state).toBe('downloading');
+
+          if (!originalId) throw new Error('Expected a download identity');
+
+          yield* client['voice.cancelInstall']({ installationId: originalId });
+          expect(yield* Fiber.join(original)).toMatchObject({ kind: 'cancelled' });
+
+          const second = voice.holdDownload();
+          const replacement = yield* Effect.forkScoped(Effect.flip(client['voice.install']({})));
+
+          yield* Effect.promise(() => second.called);
+          const replacementId = (yield* client['voice.status']({})).installationId;
+
+          if (!replacementId) throw new Error('Expected a replacement download identity');
+
+          expect(replacementId).not.toBe(originalId);
+          yield* client['voice.cancelInstall']({ installationId: originalId });
+          expect(yield* client['voice.status']({})).toMatchObject({
+            state: 'downloading',
+            installationId: replacementId
+          });
+          yield* client['voice.cancelInstall']({ installationId: replacementId });
+          expect(yield* Fiber.join(replacement)).toMatchObject({ kind: 'cancelled' });
+          const status = yield* client['voice.status']({});
+
+          expect(status.state).toBe('missing');
+          expect(status).not.toHaveProperty('installationId');
+        })
+      )
+    );
   }
 );
 

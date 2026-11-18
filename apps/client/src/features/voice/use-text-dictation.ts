@@ -10,6 +10,23 @@ type Destination = {
   initialFocus?: Element;
 };
 
+function textareaValue(value: string) {
+  return value.replace(/\r\n?/g, '\n');
+}
+
+/** Textarea offsets count a CRLF pair as one character. */
+function rawOffset(value: string, offset: number) {
+  if (!value.includes('\r\n')) return offset;
+
+  let position = 0;
+
+  for (let index = 0; index < offset && position < value.length; index++, position++) {
+    if (value[position] === '\r' && value[position + 1] === '\n') position++;
+  }
+
+  return position;
+}
+
 /** Captures the destination before the microphone button takes keyboard focus. */
 export function useTextDictation({
   value,
@@ -33,8 +50,8 @@ export function useTextDictation({
       destination.current = {
         selection: {
           value,
-          start: input.current?.selectionStart ?? value.length,
-          end: input.current?.selectionEnd ?? value.length
+          start: input.current ? rawOffset(value, input.current.selectionStart) : value.length,
+          end: input.current ? rawOffset(value, input.current.selectionEnd) : value.length
         },
         initialFocus: input.current?.ownerDocument.activeElement ?? undefined
       };
@@ -63,10 +80,16 @@ export function useTextDictation({
 
         landed.initialFocus = undefined;
 
-        if (field.value !== next.value || field.ownerDocument.activeElement !== active) return;
+        if (
+          field.value !== textareaValue(next.value) ||
+          field.ownerDocument.activeElement !== active
+        )
+          return;
+
+        const caret = textareaValue(next.value.slice(0, next.caret)).length;
 
         field.focus();
-        field.setSelectionRange(next.caret, next.caret);
+        field.setSelectionRange(caret, caret);
       });
     }
   };

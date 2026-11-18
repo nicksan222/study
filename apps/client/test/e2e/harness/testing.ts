@@ -184,23 +184,34 @@ async function createMicrophone(page: Page, voice: VoiceMock) {
           expectSegment(voice, outcome)
         ])
       ) as { [Name in keyof Plan]: ReturnType<typeof expectSegment> };
-      const { VoiceStart, VoiceStop, VoiceCancel } = catalogs.english;
+      const { VoiceStart, VoiceStarting, VoiceStop, VoiceCancel } = catalogs.english;
       const finish = scope.getByRole('button', { name: VoiceStop, exact: true });
       const allow = async () => {
         permission.release();
+        // The app exposes Finish only after the worklet delivers its first audio frame.
         await finish.waitFor();
-        await permission.started;
       };
 
-      await scope.getByRole('button', { name: VoiceStart, exact: true }).click();
-      await permission.requested;
+      try {
+        await scope.getByRole('button', { name: VoiceStart, exact: true }).click();
+        await Promise.all([
+          permission.requested,
+          scope.getByRole('status', { name: VoiceStarting, exact: true }).waitFor()
+        ]);
 
-      if (!holdPermission) await allow();
+        if (!holdPermission) await allow();
+      } catch (error) {
+        permission.dispose();
+
+        throw error;
+      }
 
       return {
         allow,
         segments: replies,
         expectSegment: (outcome: Transcript) => expectSegment(voice, outcome),
+        setElapsed: (seconds: number) =>
+          page.clock.setFixedTime(Date.parse(captureProfile.wallTime) + seconds * 1000),
         stop: () => finish.click(),
         async cancel() {
           await scope.getByRole('button', { name: VoiceCancel, exact: true }).click();

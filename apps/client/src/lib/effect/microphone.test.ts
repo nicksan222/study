@@ -80,6 +80,7 @@ function prepare(vi: test.unit.Context['vi']) {
   WorkletNode.startImmediately = true;
   WorkletNode.connected = Promise.withResolvers<void>();
   const track = Object.assign(new EventTarget(), {
+    readyState: 'live' as MediaStreamTrackState,
     stop: () => {
       active = false;
     }
@@ -145,6 +146,24 @@ test.unit.stable(
 );
 
 test.unit.stable(
+  'rejects a track that ends before the worklet binds listeners',
+  async ({ vi, expect }) => {
+    const fixture = prepare(vi);
+
+    fixture.track.readyState = 'ended';
+    await expect(
+      captureMicrophone({
+        signal: new AbortController().signal,
+        chunkSeconds: 10,
+        onChunk: () => {},
+        onError: () => {}
+      })
+    ).rejects.toThrow('Microphone recording ended unexpectedly');
+    expect(fixture.active()).toBe(false);
+  }
+);
+
+test.unit.stable(
   'reports an unexpected track-ending stop and rejects partial audio',
   async ({ vi, expect }) => {
     const fixture = prepare(vi);
@@ -188,9 +207,12 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'delivers chunks while the microphone is active and flushes the final tail exactly once',
+  'delivers chunks and flushes the tail with the promise APIs available on older WebKit',
   async ({ vi, expect }) => {
     const fixture = prepare(vi);
+    const withResolvers = vi.spyOn(Promise, 'withResolvers').mockImplementation(() => {
+      throw new Error('Promise.withResolvers is unavailable');
+    });
     const onChunk = vi.fn();
     const onError = vi.fn();
     const capture = await captureMicrophone({
@@ -198,7 +220,7 @@ test.unit.stable(
       chunkSeconds: 20,
       onChunk,
       onError
-    });
+    }).finally(() => withResolvers.mockRestore());
     const worklet = WorkletNode.current;
 
     expect(worklet.options.processorOptions).toEqual({ framesPerChunk: 320_000 });

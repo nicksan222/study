@@ -17,6 +17,54 @@ type Props = { ref: RefObject<RichNoteEditorHandle | null>; replacement?: string
 
 const paragraph = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] });
 
+function SelectionTarget({ handle, replacement }: { handle: Props['ref']; replacement?: boolean }) {
+  const content = replacement
+    ? [paragraph('KEEP ME')]
+    : [
+        {
+          type: 'table',
+          attrs: { blockId: 'original' },
+          content: [
+            { type: 'tableRow', content: [{ type: 'tableCell', content: [paragraph('x')] }] }
+          ]
+        }
+      ];
+
+  return (
+    <StructuredEditor
+      ref={handle}
+      value={{ type: 'doc', content }}
+      onChange={() => {}}
+      label="Document"
+      placeholder=""
+      labels={labels}
+    />
+  );
+}
+
+test.unit.stable(
+  'rejects the selected table position when a paragraph of the same size replaces it',
+  ({ render, screen, act, expect }) => {
+    const handle = createRef<RichNoteEditorHandle>();
+    const view = render(<SelectionTarget handle={handle} />);
+    const editor = (
+      screen.getByRole('textbox', { name: 'Document' }) as HTMLElement & { editor: Editor }
+    ).editor;
+
+    act(() => editor.commands.setNodeSelection(0));
+    const captured = handle.current!.selection();
+
+    expect(captured).toMatchObject({ kind: 'node', anchor: 0, head: 9 });
+    view.rerender(<SelectionTarget handle={handle} replacement />);
+    expect(editor.state.doc.firstChild?.nodeSize).toBe(9);
+    act(() => {
+      handle.current!.restoreSelection(captured);
+      handle.current!.insertPlainText('Spoken after');
+    });
+    expect(editor.state.doc.textContent).toBe('KEEP ME Spoken after');
+  }
+);
+
 const variants = [
   {
     name: 'Markdown rule',

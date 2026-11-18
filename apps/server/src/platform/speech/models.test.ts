@@ -112,6 +112,119 @@ test.server.stable(
 );
 
 test.server.stable(
+  'cancellation during old directory removal never publishes the staged assets',
+  async ({ databases, expect }) => {
+    const location = await databases();
+    const root = location.path + '.voice';
+    const controller = new AbortController();
+    const removing = Promise.withResolvers<void>();
+    const resume = Promise.withResolvers<void>();
+    const filesystem: FileSystem.FileSystem = {
+      ...fs,
+      remove: (path, options) => {
+        if (path !== `${root}/ready`) return fs.remove(path, options);
+
+        return Effect.gen(function* () {
+          removing.resolve();
+          yield* Effect.promise(() => resume.promise);
+          yield* fs.remove(path, options);
+        });
+      }
+    };
+    const models = new VoiceModels(root, filesystem, [asset], async () => new Response(payload));
+    const installation = models.install(controller.signal);
+
+    try {
+      await Promise.race([
+        removing.promise,
+        installation.then(() => {
+          throw new Error('Model published before reaching the removal checkpoint');
+        })
+      ]);
+      controller.abort();
+    } finally {
+      resume.resolve();
+    }
+
+    await expect(installation).rejects.toMatchObject({ kind: 'cancelled' });
+    expect(await Effect.runPromise(fs.exists(`${root}/installing`))).toBe(false);
+    expect(await Bun.file(models.path(0)).exists()).toBe(false);
+    expect((await models.status()).state).toBe('missing');
+  }
+);
+
+test.server.stable(
+  'successful model publication never attempts redundant staging cleanup',
+  async ({ databases, expect }) => {
+    const location = await databases();
+    const root = location.path + '.voice';
+    const denied = PlatformError.systemError({
+      _tag: 'PermissionDenied',
+      module: 'FileSystem',
+      method: 'remove'
+    });
+    let published = false;
+    const filesystem: FileSystem.FileSystem = {
+      ...fs,
+      rename: (from, to) =>
+        fs.rename(from, to).pipe(
+          Effect.tap(() =>
+            Effect.sync(() => {
+              published = true;
+            })
+          )
+        ),
+      remove: (path, options) =>
+        path === `${root}/installing` && published ? Effect.fail(denied) : fs.remove(path, options)
+    };
+    const models = new VoiceModels(root, filesystem, [asset], async () => new Response(payload));
+
+    await models.install(new AbortController().signal);
+    expect((await models.status()).state).toBe('ready');
+    expect(await Bun.file(models.path(0)).bytes()).toEqual(payload);
+  }
+);
+
+test.server.stable(
+  'a staging cleanup failure preserves the integrity error and can be repaired on retry',
+  async ({ databases, expect }) => {
+    const location = await databases();
+    const root = location.path + '.voice';
+    const denied = PlatformError.systemError({
+      _tag: 'PermissionDenied',
+      module: 'FileSystem',
+      method: 'remove'
+    });
+    let failing = false;
+    const filesystem: FileSystem.FileSystem = {
+      ...fs,
+      remove: (path, options) =>
+        path === `${root}/installing` && failing ? Effect.fail(denied) : fs.remove(path, options)
+    };
+    const models = new VoiceModels(
+      root,
+      filesystem,
+      [asset],
+      async () => new Response(failing ? new Uint8Array(payload.length) : payload)
+    );
+
+    expect((await models.status()).state).toBe('missing');
+    failing = true;
+    await expect(models.install(new AbortController().signal)).rejects.toMatchObject({
+      kind: 'invalid_input',
+      cause: expect.objectContaining({
+        errors: [expect.objectContaining({ kind: 'invalid_input' }), denied]
+      })
+    });
+    expect(await Bun.file(`${root}/installing/${asset.filename}`).exists()).toBe(true);
+    failing = false;
+    await models.install(new AbortController().signal);
+    expect((await models.status()).state).toBe('ready');
+    expect(await Bun.file(models.path(0)).bytes()).toEqual(payload);
+  }
+);
+
+test.server.stable(
   'voice initialization retries after stale directory cleanup fails',
   async ({ databases, expect }) => {
     const location = await databases();

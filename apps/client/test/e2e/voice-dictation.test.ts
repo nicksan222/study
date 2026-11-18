@@ -52,6 +52,7 @@ test.browser.stable(
     });
     await recording.stop();
     const input = await failure.requested;
+    const save = page.getByRole('button', { name: copy.NoteSaveNote, exact: true });
 
     expect(input.samples.length).toBeGreaterThan(0);
     expect(input.samples.every(Number.isFinite)).toBe(true);
@@ -59,6 +60,10 @@ test.browser.stable(
     await expect(
       page.getByRole('status', { name: copy.VoiceTranscribing, exact: true })
     ).toBeVisible();
+    await expect(save).toBeDisabled();
+    await composer.press('ControlOrMeta+Enter');
+    await expect(page).toHaveURL(/\/notes$/);
+    await expect(composer).toHaveValue(original);
     await expectScreenshot('transcribing', {
       target: 'viewport',
       ready: () => expect(composer).toHaveValue(original)
@@ -114,7 +119,8 @@ test.browser.stable(
     await late.deliver();
     await expect(page.getByRole('button', { name: copy.VoiceStart, exact: true })).toBeEnabled();
     await expect(composer).toHaveValue(changed);
-    await page.getByRole('button', { name: copy.NoteSaveNote }).click();
+    await expect(save).toBeEnabled();
+    await save.click();
     await expect(page).toHaveURL(/\/notes\/.+/);
     await page.reload();
     await expect(
@@ -146,14 +152,22 @@ test.browser.stable(
     const richEditor = edit.getByRole('textbox', { name: copy.NoteEditNote });
     const literal = '1. January is the deadline\n# Title\n---';
 
-    await richEditor.fill('');
+    await richEditor.press('ControlOrMeta+a');
     const rich = await microphone.start(edit, { segments: { literal } });
 
     await rich.stop();
+    await rich.segments.literal.requested;
+    const saveEdit = edit.getByRole('button', { name: copy.NoteSaveNote, exact: true });
+
+    await expect(saveEdit).toBeDisabled();
+    await richEditor.press('ControlOrMeta+Enter');
+    await expect(edit).toBeVisible();
+    await expect(richEditor).toHaveText('Keep the complete survey evidence');
     await rich.segments.literal.deliver();
     await expect(richEditor).toHaveText(literal.replaceAll('\n', ''));
+    await expect(richEditor.locator('br:not(.ProseMirror-trailingBreak)')).toHaveCount(2);
     await expect(richEditor.locator('ol, ul, h1, h2, hr')).toHaveCount(0);
-    await edit.getByRole('button', { name: copy.NoteSaveNote, exact: true }).click();
+    await saveEdit.click();
     await expect(edit).toBeHidden();
     await page.reload();
     await page
@@ -163,6 +177,7 @@ test.browser.stable(
     const reopenedPage = page.getByRole('textbox', { name: copy.NotePageEditor, exact: true });
 
     await expect(reopenedPage).toHaveText(literal.replaceAll('\n', ''));
+    await expect(reopenedPage.locator('br:not(.ProseMirror-trailingBreak)')).toHaveCount(2);
     await expect(reopenedPage.locator('ol, ul, h1, h2, hr')).toHaveCount(0);
     await page.getByRole('button', { name: copy.VersionHistory, exact: true }).click();
     const savedRich = history.locator('[data-role="user"] .rich-note-content');
@@ -315,6 +330,7 @@ test.browser.stable(
     const starting = page.getByRole('button', { name: copy.VoiceStart, exact: true });
     const controls = page.getByRole('group', { name: copy.VoiceTitle, exact: true });
     const stop = controls.getByRole('button', { name: copy.VoiceStop, exact: true });
+    const elapsed = controls.locator('time');
 
     await composer.fill(draft);
     await composer.press('End');
@@ -329,6 +345,7 @@ test.browser.stable(
       .first();
 
     await expect(movingBar).toBeVisible();
+    await expect(elapsed).toHaveText('0:00');
     const firstChunk = await first.requested;
 
     expect(firstChunk.samples.length).toBeGreaterThan(0);
@@ -345,10 +362,12 @@ test.browser.stable(
       }
     });
     await first.deliver();
+    await recording.setElapsed(6);
     await expectScreenshot('first-segment-in-draft', {
       target: 'viewport',
       ready: async () => {
         await expect(stop).toBeEnabled();
+        await expect(elapsed).toHaveText('0:06');
         await expect(composer).toHaveValue(firstDraft);
       }
     });
@@ -363,6 +382,7 @@ test.browser.stable(
     });
     await recording.stop();
     await final.requested;
+    await recording.setElapsed(0);
     await expectScreenshot('waiting-for-final-segment', {
       target: 'viewport',
       ready: async () => {
@@ -434,6 +454,11 @@ test.browser.stable(
     await expect(stop).toBeEnabled();
     await recording.stop();
     await pending.requested;
+    const save = page.getByRole('button', { name: copy.NoteSaveNote, exact: true });
+
+    await expect(save).toBeDisabled();
+    await composer.press('ControlOrMeta+Enter');
+    await expect(composer).toHaveValue(delivered);
     await expectScreenshot('partial-transcript-before-cancel', {
       target: 'viewport',
       ready: async () => {
@@ -453,6 +478,7 @@ test.browser.stable(
     });
     await addCapture.click();
     await expect(page.getByRole('button', { name: copy.VoiceStart, exact: true })).toBeEnabled();
+    await expect(save).toBeEnabled();
     await expectScreenshot('capture-reopened-after-cancelled-transcription', {
       target: 'viewport',
       ready: () => expect(composer).toHaveValue(delivered)

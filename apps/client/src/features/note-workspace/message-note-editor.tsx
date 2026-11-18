@@ -3,8 +3,12 @@ import type { RichNoteEditorHandle } from '@study/ui';
 import { useRef } from 'react';
 import type { ReactNode } from 'react';
 
-import { DictationButton } from '#client/features/voice/index.ts';
-import { useTextDictation } from '#client/features/voice/index.ts';
+import {
+  DictationButton,
+  DictationSubmissionScope,
+  useDictationSubmission,
+  useTextDictation
+} from '#client/features/voice/index.ts';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
 import { initialEditPosition } from './edit-position';
@@ -19,6 +23,10 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
   const preferences = useWorkspacePreferences();
   const body = useRef<HTMLDivElement>(null);
   const textInput = useRef<HTMLTextAreaElement>(null);
+  const submission = useDictationSubmission();
+  const submit = () => {
+    if (!submission.isBlocked()) model.submit();
+  };
   const dictation = useTextDictation({
     value: draft.text,
     onChange: (text) => patch({ text }),
@@ -93,17 +101,18 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
 
           return false;
         }}
-        onKeyDown={(event) => {
+        onKeyDownCapture={(event) => {
           if (
-            !event.nativeEvent.isComposing &&
-            (event.metaKey || event.ctrlKey) &&
-            event.key === 'Enter' &&
-            draft.text.trim() &&
-            !model.blocked
-          ) {
-            event.preventDefault();
-            model.submit();
-          }
+            event.nativeEvent.isComposing ||
+            (!event.metaKey && !event.ctrlKey) ||
+            event.key !== 'Enter'
+          )
+            return;
+
+          event.preventDefault();
+          event.stopPropagation();
+
+          if (draft.text.trim() && !model.blocked) submit();
         }}
       >
         <NotebookEditor.Header>
@@ -138,14 +147,16 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
           }}
         >
           {model.message.format === 'document' ? (
-            <NoteEditor
-              targetKey={`${model.message.id}:${draft.targetVersionId}:${draft.mode}`}
-              ref={richEditor}
-              label={t('NoteEditNote')}
-              value={draft.text}
-              disabled={!!draft.attempt}
-              onChange={(text) => patch({ text })}
-            />
+            <DictationSubmissionScope value={submission.scope}>
+              <NoteEditor
+                targetKey={`${model.message.id}:${draft.targetVersionId}:${draft.mode}`}
+                ref={richEditor}
+                label={t('NoteEditNote')}
+                value={draft.text}
+                disabled={!!draft.attempt}
+                onChange={(text) => patch({ text })}
+              />
+            </DictationSubmissionScope>
           ) : (
             <NotebookEditor.Text
               ref={textInput}
@@ -169,11 +180,13 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
           </NotebookEditor.Status>
           <Notebook.Actions>
             {model.message.format !== 'document' && (
-              <DictationButton
-                targetKey={`${model.message.id}:${draft.targetVersionId}:${draft.mode}`}
-                {...dictation}
-                disabled={!!draft.attempt}
-              />
+              <DictationSubmissionScope value={submission.scope}>
+                <DictationButton
+                  targetKey={`${model.message.id}:${draft.targetVersionId}:${draft.mode}`}
+                  {...dictation}
+                  disabled={!!draft.attempt}
+                />
+              </DictationSubmissionScope>
             )}
             <Button
               size="sm"
@@ -193,8 +206,8 @@ export function MessageNoteEditor({ model, recovery }: { model: Model; recovery:
             <Button
               size="sm"
               aria-label={t('NoteSaveNote')}
-              disabled={model.blocked || !draft.text.trim()}
-              onClick={model.submit}
+              disabled={model.blocked || submission.blocked || !draft.text.trim()}
+              onClick={submit}
             >
               <NotebookEditor.Label full={t('NoteSaveNote')} compact={t('Save')} />
             </Button>

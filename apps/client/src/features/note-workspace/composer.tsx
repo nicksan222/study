@@ -10,7 +10,12 @@ import {
 } from '@study/ui';
 import { useEffect, useRef, useState } from 'react';
 
-import { DictationButton, useTextDictation } from '#client/features/voice/index.ts';
+import {
+  DictationButton,
+  DictationSubmissionScope,
+  useDictationSubmission,
+  useTextDictation
+} from '#client/features/voice/index.ts';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
 import { AttachmentPicker, AttachmentTray } from './attachments';
@@ -28,6 +33,10 @@ export function Composer({ id, onPage }: { id: NoteId; onPage?: () => void }) {
   const { t, draft, files, blocked, setDraft, submitNote } = model;
   const capture = useCaptureState(model);
   const input = useRef<HTMLTextAreaElement>(null);
+  const submission = useDictationSubmission();
+  const submit = () => {
+    if (!submission.isBlocked()) submitNote();
+  };
   const dictation = useTextDictation({
     value: draft.text,
     onChange: (text) => setDraft((previous) => ({ ...previous, text })),
@@ -46,8 +55,13 @@ export function Composer({ id, onPage }: { id: NoteId; onPage?: () => void }) {
         value={draft.text}
         spellcheck={preferences.spellcheck}
         onChange={(text) => setDraft((previous) => ({ ...previous, text }))}
-        onSubmit={submitNote}
-        disabled={blocked || model.filesBlocked || (!draft.text.trim() && !model.sourceIds.length)}
+        onSubmit={submit}
+        disabled={
+          blocked ||
+          submission.blocked ||
+          model.filesBlocked ||
+          (!draft.text.trim() && !model.sourceIds.length)
+        }
         onDragOver={(event) => {
           if (!blocked) event.preventDefault();
         }}
@@ -67,14 +81,16 @@ export function Composer({ id, onPage }: { id: NoteId; onPage?: () => void }) {
         onKeyDown={(event) => {
           if (isNoteSubmit(event, preferences.submitOnEnter)) {
             event.preventDefault();
-            submitNote();
+            submit();
           }
         }}
         attachments={<AttachmentTray id={id} blocked={blocked} />}
         tools={
           <>
             <AttachmentPicker id={id} blocked={blocked} />
-            <DictationButton targetKey={id} {...dictation} disabled={blocked || !capture.open} />
+            <DictationSubmissionScope value={submission.scope}>
+              <DictationButton targetKey={id} {...dictation} disabled={blocked || !capture.open} />
+            </DictationSubmissionScope>
             {onPage && (
               <Button variant="ghost-muted" size="sm" onClick={onPage} disabled={blocked}>
                 <ComposeIcon size={16} aria-hidden="true" />

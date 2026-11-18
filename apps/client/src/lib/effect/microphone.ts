@@ -2,6 +2,7 @@
 import { StudyError } from '@study/contracts';
 import { Effect } from 'effect';
 
+import { deferredPromise } from '../deferred-promise';
 import processorUrl from './microphone-processor.ts?worker&url';
 import { microphoneSampleRate } from './microphone-segments';
 import type { MicrophoneCommand, MicrophoneMessage } from './microphone-segments';
@@ -46,6 +47,10 @@ function cancelled() {
   return new DOMException('Cancelled', 'AbortError');
 }
 
+function endedUnexpectedly() {
+  return new StudyError('internal', 'Microphone recording ended unexpectedly');
+}
+
 export async function captureMicrophone(options: CaptureOptions): Promise<MicrophoneCapture> {
   if (!microphoneAvailable())
     throw new StudyError('unsupported', 'Microphone capture requires a secure audio worklet');
@@ -74,7 +79,7 @@ export async function captureMicrophone(options: CaptureOptions): Promise<Microp
 
 function startupDeadline(signal: AbortSignal) {
   const deadline = new AbortController();
-  const failure = Promise.withResolvers<never>();
+  const failure = deferredPromise<never>();
   const abort = () => failure.reject(cancelled());
 
   signal.addEventListener('abort', abort, { once: true });
@@ -113,13 +118,15 @@ async function connectMicrophone(
 
     await startup.wait(context.audioWorklet.addModule(processorUrl));
 
+    if (stream.getTracks().some((track) => track.readyState === 'ended')) throw endedUnexpectedly();
+
     const node = new AudioWorkletNode(context, 'study-microphone', {
       channelCount: 1,
       channelCountMode: 'explicit',
       processorOptions: { framesPerChunk: options.chunkSeconds * microphoneSampleRate }
     });
     const source = context.createMediaStreamSource(stream);
-    const firstFrame = Promise.withResolvers<void>();
+    const firstFrame = deferredPromise<void>();
     const capture = bindCapture({ stream, node, source, release, firstFrame }, options);
 
     cleanup = capture.cancel;
@@ -142,7 +149,7 @@ type CaptureGraph = {
   node: AudioWorkletNode;
   source: MediaStreamAudioSourceNode;
   release: () => void;
-  firstFrame: ReturnType<typeof Promise.withResolvers<void>>;
+  firstFrame: ReturnType<typeof deferredPromise<void>>;
 };
 
 function bindCapture(
@@ -150,7 +157,7 @@ function bindCapture(
   options: CaptureOptions
 ) {
   const { signal, onChunk, onError, onLevel } = options;
-  const finished = Promise.withResolvers<number[]>();
+  const finished = deferredPromise<number[]>();
   const deadline = new AbortController();
   const tracks = stream.getTracks();
   let closed = false;
@@ -192,7 +199,7 @@ function bindCapture(
   }
 
   function ended() {
-    fail(new StudyError('internal', 'Microphone recording ended unexpectedly'));
+    fail(endedUnexpectedly());
   }
 
   function send(command: MicrophoneCommand) {

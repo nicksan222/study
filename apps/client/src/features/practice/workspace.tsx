@@ -20,6 +20,8 @@ export function PracticeWorkspace({
 }) {
   const { t } = useI18n();
   const workspace = useRef<HTMLDivElement>(null);
+  const contextPanel = useRef<HTMLElement>(null);
+  const contextToggle = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const manuallyToggled = useRef(false);
 
@@ -29,7 +31,14 @@ export function PracticeWorkspace({
     if (!container) return;
 
     const measure = () => {
-      if (!manuallyToggled.current) setOpen(container.clientWidth >= 960);
+      if (manuallyToggled.current) return;
+
+      const nextOpen = container.clientWidth >= 960;
+
+      if (!nextOpen && contextPanel.current?.contains(document.activeElement))
+        contextToggle.current?.focus();
+
+      setOpen(nextOpen);
     };
 
     measure();
@@ -46,6 +55,7 @@ export function PracticeWorkspace({
   return (
     <WorkspaceCard.Provider
       open={open}
+      triggerRef={contextToggle}
       onOpenChange={(nextOpen) => {
         manuallyToggled.current = true;
         setOpen(nextOpen);
@@ -56,7 +66,9 @@ export function PracticeWorkspace({
           <WorkspaceCard.Toggle label={t('PracticeActions')} />
         </Sidebar.Topbar>
         <WorkspaceSurface.Body>{children}</WorkspaceSurface.Body>
-        <WorkspaceCard.Root aria-label={t('PracticeActions')}>{actions}</WorkspaceCard.Root>
+        <WorkspaceCard.Root ref={contextPanel} aria-label={t('PracticeActions')}>
+          {actions}
+        </WorkspaceCard.Root>
       </WorkspaceSurface.Root>
     </WorkspaceCard.Provider>
   );

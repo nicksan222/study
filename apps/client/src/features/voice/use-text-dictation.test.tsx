@@ -3,8 +3,8 @@ import { useRef, useState } from 'react';
 
 import { useTextDictation } from './use-text-dictation';
 
-function Draft() {
-  const [value, setValue] = useState('First idea');
+function Draft({ initial = 'First idea' }: { initial?: string }) {
+  const [value, setValue] = useState(initial);
   const input = useRef<HTMLTextAreaElement>(null);
   const dictation = useTextDictation({ value, onChange: setValue, input });
 
@@ -29,6 +29,19 @@ function Draft() {
     </>
   );
 }
+
+test.unit.stable(
+  'replaces only the selected text after a CRLF in the controlled draft',
+  ({ render, screen, fireEvent, expect }) => {
+    render(<Draft initial={'first\r\nsecond'} />);
+    const input = screen.getByRole('textbox', { name: 'Draft' }) as HTMLTextAreaElement;
+
+    input.setSelectionRange(6, 12);
+    fireEvent.click(screen.getByRole('button', { name: 'Capture' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+    expect(input.value).toBe('first\nanother thought');
+  }
+);
 
 test.unit.stable(
   'captures the intended selection before transcription finishes',

@@ -20,7 +20,14 @@ test.server.stable(
 
             if (save) {
               expect(yield* settings.voiceSettings()).toEqual({ filterSilence: true });
-              yield* settings.saveVoiceSettings({ filterSilence: false });
+              yield* Effect.all(
+                [
+                  settings.saveVoiceSettings({ filterSilence: false }),
+                  settings.saveVoiceSettings({ chunkSeconds: 10 }),
+                  settings.saveVoiceSettings({ denoise: true })
+                ],
+                { concurrency: 'unbounded' }
+              );
             }
 
             return yield* settings.voiceSettings();
@@ -35,7 +42,9 @@ test.server.stable(
       }
     }
 
-    expect(await run(true)).toEqual({ filterSilence: false });
-    expect(await run(false)).toEqual({ filterSilence: false });
+    const configured = { filterSilence: false, chunkSeconds: 10, denoise: true };
+
+    expect(await run(true)).toEqual(configured);
+    expect(await run(false)).toEqual(configured);
   }
 );

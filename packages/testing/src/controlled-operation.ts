@@ -55,11 +55,18 @@ export function createControlledOperation<Input, Output>(
           interrupted = true;
         });
 
+        if (signal?.aborted) {
+          interrupted = true;
+          signal.throwIfAborted();
+        }
+
         return await perform(input);
       } finally {
-        options.onSettled?.();
-
-        if (interrupted) aborted.resolve();
+        try {
+          options.onSettled?.();
+        } finally {
+          if (interrupted) aborted.resolve();
+        }
       }
     }
   };

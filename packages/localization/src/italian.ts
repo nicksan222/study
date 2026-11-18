@@ -5,11 +5,12 @@ export const italian = Object.freeze({
   VoiceStart: 'Avvia dettatura',
   VoiceStop: 'Ferma e trascrivi',
   VoiceStarting: 'Apertura microfono…',
+  VoiceRecording: 'Registrazione',
   VoiceTranscribing: 'Trascrizione…',
   VoiceFinishingBacklog: 'Registrazione interrotta. Trascrizione dell’audio rimanente…',
   VoiceCancel: 'Annulla dettatura',
   VoiceUnavailable: 'La dettatura richiede accesso al microfono su localhost o HTTPS',
-  VoiceCaptureFailed: 'Impossibile registrare. Consenti l’accesso al microfono e riprova.',
+  VoiceCaptureFailed: 'Registrazione interrotta o non avviata. Controlla il microfono e riprova.',
   VoiceNoSpeech: 'Nessuna voce rilevata. Prova a registrare di nuovo.',
   VoiceRecoveryOptions: 'Opzioni di recupero del dettato',
   VoiceTranscriptionFailedTitle: 'Trascrizione non riuscita',
@@ -17,7 +18,9 @@ export const italian = Object.freeze({
     'Trascrizione non riuscita. Riprova oppure annulla per scartare la registrazione.',
   VoiceRecoveredTitle: 'Il dettato è al sicuro',
   VoiceRecoveredHelp:
-    'Non è stato possibile inserire il testo. Copialo o libera spazio nel campo originale e riprova. Chiudendo scarti questa trascrizione.',
+    'Non è stato possibile inserire il testo. Copialo o riprova a inserirlo. Chiudendo scarti questa trascrizione.',
+  VoiceRecoveryMoved:
+    'Il campo originale non è più disponibile. Copia la trascrizione prima di chiudere.',
   VoiceInterruptedHelp:
     'Il microfono si è fermato. Puoi copiare o inserire la parte già trascritta.',
   VoiceInsertRecovered: 'Inserisci trascrizione',
@@ -416,6 +419,7 @@ export const italian = Object.freeze({
 
   WorkspaceSettingsFailed: 'Impossibile salvare o caricare queste preferenze. Riprova.',
   SettingsSaveFailed: 'Impossibile salvare le modifiche. Riprova.',
+  VoiceSettingsLoadFailed: 'Impossibile caricare le impostazioni della voce. Riprova.',
   Saved: 'Salvato',
   WorkspaceNumberValidation: 'Inserisci un numero intero entro i limiti indicati.',
   WorkspaceWritingTitle: 'Scrittura',

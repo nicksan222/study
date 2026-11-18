@@ -1,4 +1,5 @@
 import { StudyError } from '@study/contracts';
+import { dictationSpacing } from '@study/ui';
 
 export type TextSelection = { value: string; start: number; end: number };
 
@@ -18,18 +19,11 @@ export function insertTranscript(
 
   if (!text) return { value: current, caret: start };
 
-  const { prefix, suffix } = transcriptSpacing(before, after, text);
+  const { prefix, suffix } = dictationSpacing(before, text, after);
   const value = before + prefix + text + suffix + after;
 
   if (maxLength !== undefined && value.length > maxLength)
     throw new StudyError('invalid_input', 'Dictation exceeds the field length limit');
 
   return { value, caret: before.length + prefix.length + text.length };
-}
-
-function transcriptSpacing(before: string, after: string, text: string) {
-  return {
-    prefix: before && !/\s$/.test(before) && !/^[,.;:!?]/.test(text) ? ' ' : '',
-    suffix: after && !/^[\s,.;:!?]/.test(after) ? ' ' : ''
-  };
 }

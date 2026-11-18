@@ -34,6 +34,8 @@ export const blockNoteMath = Node.create({
   addAttributes: () => ({ latex: { default: '' } }),
   renderHTML: ({ node }) => ['div', { 'data-note-math': true }, node.attrs.latex],
   parseMarkdown: (token) => ({ type: 'blockNoteMath', attrs: { latex: token.text } }),
+  renderMarkdown: (node) => `$$\n${node.attrs?.latex ?? ''}\n$$`,
+  renderText: ({ node }) => node.attrs.latex,
   markdownTokenizer: {
     name: 'blockNoteMath',
     level: 'block',

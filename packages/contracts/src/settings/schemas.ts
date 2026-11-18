@@ -1,4 +1,4 @@
-import { Effect, Schema } from 'effect';
+import { Effect, Schema, Struct } from 'effect';
 
 import { exportFormatSchema } from '../materials/export.ts';
 import { conversionStrategyIdSchema } from '../sources/conversion.ts';
@@ -165,3 +165,7 @@ export const voiceSettingsSchema = Schema.Struct({
   denoise: Schema.optional(Schema.Boolean),
   chunkSeconds: Schema.optional(Schema.Literals([10, 20, 30]))
 });
+
+export const voiceSettingsPatchSchema = voiceSettingsSchema.mapFields(
+  Struct.map(Schema.optionalKey)
+);

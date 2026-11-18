@@ -48,9 +48,7 @@ function memberGlobal(
     const base = nativeGlobal(bindings, node.object, seen);
     const name = propertyName(node.property);
 
-    if (!base || !name) return null;
-
-    return ['globalThis', 'global'].includes(base) ? name : `${base}.${name}`;
+    return name ? nativePath(base, [name]) : null;
   }
 
   return null;
@@ -86,20 +84,22 @@ function aliasedGlobal(
   def: any,
   seen: Set<any>
 ): string | null {
-  if (def.type === 'VariableDeclarator' && def.parent?.kind === 'const') {
-    if (def.id.type === 'Identifier') return nativeGlobal(bindings, def.init, seen);
+  if (def.type !== 'VariableDeclarator' || def.parent?.kind !== 'const') return null;
 
-    if (def.id.type === 'ObjectPattern') {
-      const base = nativeGlobal(bindings, def.init, seen);
-      const name = destructuredPath(def.id, node.name, [])?.join('.');
+  if (def.id.type === 'Identifier') return nativeGlobal(bindings, def.init, seen);
 
-      return base && name
-        ? ['globalThis', 'global'].includes(base)
-          ? name
-          : `${base}.${name}`
-        : null;
-    }
-  }
+  if (def.id.type !== 'ObjectPattern') return null;
 
-  return null;
+  const base = nativeGlobal(bindings, def.init, seen);
+  const names = destructuredPath(def.id, node.name, []);
+
+  return nativePath(base, names);
+}
+
+function nativePath(base: string | null, names: readonly string[] | null | undefined) {
+  if (!base || !names?.length || names.some((part) => part.includes('.'))) return null;
+
+  const name = names.join('.');
+
+  return ['globalThis', 'global'].includes(base) ? name : `${base}.${name}`;
 }

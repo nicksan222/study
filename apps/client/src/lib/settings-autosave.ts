@@ -3,15 +3,21 @@ import { useRef, useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
-/** Serializes preference patches and retains failed changes for an explicit retry. */
 export function useSettingsAutosave<T extends object>(
   read: () => Promise<T>,
   write: (value: T) => Promise<unknown>
 ) {
-  const { t } = useI18n();
-  const callbacks = useRef({ read, write, t });
+  return useSettingsPatchAutosave<T>(async (patch) => write({ ...(await read()), ...patch }));
+}
 
-  callbacks.current = { read, write, t };
+/** Serializes preference patches and retains failed changes for an explicit retry. */
+export function useSettingsPatchAutosave<T extends object>(
+  write: (patch: Partial<T>) => Promise<unknown>
+) {
+  const { t } = useI18n();
+  const callbacks = useRef({ write, t });
+
+  callbacks.current = { write, t };
   const queue = useRef<Partial<T>>({});
   const running = useRef(false);
   const [pending, setPending] = useState(false);
@@ -31,9 +37,7 @@ export function useSettingsAutosave<T extends object>(
         queue.current = {};
 
         try {
-          const current = await callbacks.current.read();
-
-          await callbacks.current.write({ ...current, ...patch });
+          await callbacks.current.write(patch);
         } catch {
           queue.current = { ...patch, ...queue.current };
           setError(true);

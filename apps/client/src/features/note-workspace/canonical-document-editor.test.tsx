@@ -18,11 +18,14 @@ let urls: Record<string, string>;
 
 let destinations: RichNoteSelection[];
 
+let appends: boolean[];
+
 const labels = new Proxy({} as StructuredEditorLabels, { get: (_, key) => String(key) });
 
 test.unit.beforeEach(async ({ mock }) => {
   urls = {};
   destinations = [];
+  appends = [];
   mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
     useWorkspacePreferences: () => ({})
   }));
@@ -59,7 +62,9 @@ test.unit.beforeEach(async ({ mock }) => {
         restoreSelection: (selection) => {
           destinations.push(selection);
         },
-        insertPlainText() {}
+        insertPlainText(_text, options) {
+          appends.push(options?.append ?? false);
+        }
       }));
 
       return toolbarEnd;
@@ -105,11 +110,8 @@ for (const contentChanged of [false, true]) {
       );
       fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
       fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
-      expect(destinations).toEqual([
-        contentChanged
-          ? { kind: 'text', anchor: Number.MAX_SAFE_INTEGER, head: Number.MAX_SAFE_INTEGER }
-          : { kind: 'text', anchor: 3, head: 7 }
-      ]);
+      expect(destinations).toEqual(contentChanged ? [] : [{ kind: 'text', anchor: 3, head: 7 }]);
+      expect(appends).toEqual([contentChanged, false]);
     }
   );
 }

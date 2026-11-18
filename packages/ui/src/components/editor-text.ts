@@ -1,47 +1,69 @@
 import type { Editor } from '@tiptap/core';
 import { NodeSelection, TextSelection } from '@tiptap/pm/state';
 
-export type EditorTextOptions = { continuation?: boolean; focus?: boolean };
+import { dictationSpacing } from './editor-text-spacing';
+
+export type EditorTextOptions = { append?: boolean; continuation?: boolean; focus?: boolean };
 
 /** Dictation enters the document as text nodes, never interpreted HTML or Markdown. */
 export function insertEditorText(
   editor: Editor,
   text: string,
-  { continuation = false, focus = !continuation }: EditorTextOptions = {}
+  { append = false, continuation = false, focus = !continuation }: EditorTextOptions = {}
 ) {
   if (!text) return;
 
-  const { selection } = editor.state;
+  const { doc, selection } = editor.state;
 
-  if (selection instanceof NodeSelection && !selection.node.isTextblock) {
-    const content = literalContent(text.replace(/\r\n?/g, '\n'), false);
+  if (append) {
+    if (doc.lastChild?.type.name === 'paragraph') {
+      const end = doc.content.size - 1;
 
-    if (content.length) {
-      const chain = editor.chain();
-
-      if (focus) chain.focus();
-
-      chain.insertContentAt(selection.to, { type: 'paragraph', content }).run();
+      insertInlineText(editor, text, end, end, false, focus);
+    } else {
+      insertParagraph(editor, text, doc.content.size, focus);
     }
 
     return;
   }
 
-  insertInlineText(editor, text, { continuation, focus });
+  if (selection instanceof NodeSelection && !selection.node.isTextblock) {
+    insertParagraph(editor, text, selection.to, focus);
+
+    return;
+  }
+
+  const { from, to } = selection;
+
+  insertInlineText(editor, text, continuation ? to : from, to, textOnlySelection(editor), focus);
+}
+
+function insertParagraph(editor: Editor, text: string, position: number, focus: boolean) {
+  const content = literalContent(text.replace(/\r\n?/g, '\n'), false);
+
+  if (!content.length) return;
+
+  const chain = editor.chain();
+
+  if (focus) chain.focus();
+
+  chain.insertContentAt(position, { type: 'paragraph', content }).run();
 }
 
 function insertInlineText(
   editor: Editor,
   text: string,
-  { continuation, focus }: Required<EditorTextOptions>
+  from: number,
+  to: number,
+  textOnly: boolean,
+  focus: boolean
 ) {
-  const { from: selectionStart, to } = editor.state.selection;
-  const from = continuation ? to : selectionStart;
-  const before = editor.state.doc.textBetween(Math.max(0, from - 1), from);
-  const after = editor.state.doc.textBetween(to, Math.min(to + 1, editor.state.doc.content.size));
-  const { prefix, suffix } = surroundingSpaces(before, after, text);
+  const { doc } = editor.state;
+  const before = doc.textBetween(Math.max(0, from - 1), from);
+  const after = doc.textBetween(to, Math.min(to + 1, doc.content.size));
+  const { prefix, suffix } = dictationSpacing(before, text, after);
   const value = (prefix + text + suffix).replace(/\r\n?/g, '\n');
-  const content = literalContent(value, textOnlySelection(editor));
+  const content = literalContent(value, textOnly);
 
   if (content.length) {
     const chain = editor.chain();
@@ -60,13 +82,6 @@ function insertInlineText(
 
     chain.run();
   }
-}
-
-function surroundingSpaces(before: string, after: string, text: string) {
-  return {
-    prefix: before && !/\s$/.test(before) && !/^[\s,.;:!?]/.test(text) ? ' ' : '',
-    suffix: after && !/^[\s,.;:!?]/.test(after) && !/\s$/.test(text) ? ' ' : ''
-  };
 }
 
 function textOnlySelection(editor: Editor) {

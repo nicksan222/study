@@ -10,8 +10,9 @@ test.unit.stable(
       <DictationTextarea label="Annotation text" value="Draft" onValueChange={() => {}} />
     );
     const input = screen.getByRole('textbox', { name: 'Annotation text' });
+    const trigger = screen.getByRole('button');
 
-    expect(input.closest('label')?.querySelector('button')).toBeNull();
+    expect(input.closest('label')).not.toContainElement(trigger);
     await userEvent.click(screen.getByText('Annotation text', { exact: true }));
     expect(input).toHaveFocus();
   }

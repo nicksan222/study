@@ -26,7 +26,9 @@ function voiceSamplePath(id: (typeof voiceSamples)[number]['id']) {
   return Bun.fileURLToPath(new URL(`./${id}.wav`, import.meta.url));
 }
 
-function pcm16Mono16k(view: DataView, start: number) {
+function pcm16Mono16k(view: DataView, start: number, size: number) {
+  if (size < 16) throw new Error('Unsupported WAV fixture format');
+
   return (
     view.getUint16(start, true) === 1 &&
     view.getUint16(start + 2, true) === 1 &&
@@ -57,7 +59,7 @@ export async function voiceFilePcm(path: string) {
 
     if (start + size > bytes.byteLength) throw new Error('Truncated WAV fixture');
 
-    if (text(offset, 4) === 'fmt ') validFormat = pcm16Mono16k(view, start);
+    if (text(offset, 4) === 'fmt ') validFormat = pcm16Mono16k(view, start, size);
 
     if (text(offset, 4) === 'data') {
       if (!validFormat || size % 2) throw new Error('Unsupported WAV fixture format');

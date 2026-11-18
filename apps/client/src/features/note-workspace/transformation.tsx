@@ -18,9 +18,13 @@ import {
 } from '@study/ui';
 import { Link } from '@tanstack/react-router';
 import { Effect } from 'effect';
-import { useContext, useEffect, useRef } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 
-import { DictationTextarea } from '#client/features/voice/index.ts';
+import {
+  DictationSubmissionScope,
+  DictationTextarea,
+  useDictationSubmission
+} from '#client/features/voice/index.ts';
 import { AiActionButton as AiButton } from '#client/lib/ai-action-button.tsx';
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';
@@ -60,6 +64,7 @@ function useTransformation(
 ) {
   const { t, locale } = useI18n();
   const readiness = useAiReadiness('medium');
+  const submission = useDictationSubmission();
   const suggestionReadiness = useAiReadiness('tiny');
   const cache = useContext(RegistryContext);
   const additionalNoteIds = [
@@ -138,7 +143,8 @@ function useTransformation(
   function start(attempt: Attempt) {
     const current = cache.get(key);
 
-    if (readiness !== 'ready' || current?.pending || current?.unavailable) return;
+    if (readiness !== 'ready' || current?.pending || current?.unavailable || submission.isBlocked())
+      return;
 
     setDraft({ attempt, pending: true, unavailable: false });
     void submit.mutate(attempt).catch(() => {});
@@ -163,6 +169,7 @@ function useTransformation(
     draft,
     setDraft,
     selection,
+    submission,
     submit,
     pending,
     start
@@ -188,9 +195,7 @@ export function Transformation({
     <>
       <WorkspaceSurface.Section>
         {model.draft.requestId ? (
-          <Disclosure summary={model.t('NoteGenerationRequest')}>
-            <TransformBrief model={model} notes={notes} />
-          </Disclosure>
+          <TransformRequest model={model} notes={notes} />
         ) : (
           <TransformBrief model={model} notes={notes} />
         )}
@@ -203,12 +208,33 @@ export function Transformation({
   );
 }
 
-function TransformBrief({
+function TransformRequest({
   model,
   notes
 }: {
   model: TransformationModel;
   notes?: readonly SelectedNote[];
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Disclosure
+      summary={model.t('NoteGenerationRequest')}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <TransformBrief model={model} notes={notes} visible={open} />
+    </Disclosure>
+  );
+}
+
+function TransformBrief({
+  model,
+  notes,
+  visible = true
+}: {
+  model: TransformationModel;
+  notes?: readonly SelectedNote[];
+  visible?: boolean;
 }) {
   return (
     <>
@@ -227,12 +253,12 @@ function TransformBrief({
           )}
         </Notebook.PageSourceList>
       </Notebook.PageNotes>
-      <TransformFields model={model} />
+      <TransformFields model={model} visible={visible} />
     </>
   );
 }
 
-function TransformFields({ model }: { model: TransformationModel }) {
+function TransformFields({ model, visible }: { model: TransformationModel; visible: boolean }) {
   const { id, t, draft, setDraft } = model;
 
   return (
@@ -255,15 +281,17 @@ function TransformFields({ model }: { model: TransformationModel }) {
         field="instruction"
       />
       <Notebook.Muted>{t('NoteInstructionsHelp')}</Notebook.Muted>
-      <DictationTextarea
-        targetKey={`${id}:${model.additionalNoteIds.join(',')}:${model.active}`}
-        id={`transform-instruction-${id}`}
-        disabled={model.pending}
-        maxLength={100000}
-        value={draft.instruction}
-        placeholder={t('NoteInstructionHint')}
-        onValueChange={(instruction) => setDraft({ instruction })}
-      />
+      <DictationSubmissionScope value={model.submission.scope}>
+        <DictationTextarea
+          targetKey={`${id}:${model.additionalNoteIds.join(',')}:${model.active}`}
+          id={`transform-instruction-${id}`}
+          disabled={model.pending || !model.active || !visible}
+          maxLength={100000}
+          value={draft.instruction}
+          placeholder={t('NoteInstructionHint')}
+          onValueChange={(instruction) => setDraft({ instruction })}
+        />
+      </DictationSubmissionScope>
       <Notebook.Preferences>
         <summary>{t('PageAdvancedOptions')}</summary>
         <Notebook.Muted>{t('NoteAdvancedOptionsHelp')}</Notebook.Muted>
@@ -315,8 +343,19 @@ function TransformOperations({ model }: { model: TransformationModel }) {
 }
 
 function CreateTransform({ model }: { model: TransformationModel }) {
-  const { t, pending, draft, additionalNoteIds, selection, cache, key, locale, setDraft, start } =
-    model;
+  const {
+    t,
+    pending,
+    draft,
+    additionalNoteIds,
+    selection,
+    cache,
+    key,
+    locale,
+    setDraft,
+    start,
+    submission
+  } = model;
 
   return (
     <>
@@ -328,30 +367,34 @@ function CreateTransform({ model }: { model: TransformationModel }) {
         disabled={
           model.readiness !== 'ready' ||
           pending ||
+          submission.blocked ||
           !!draft.attempt ||
           !draft.title.trim() ||
           draft.operations.length === 0 ||
           !selection.data
         }
         onClick={() => {
+          const current = cache.get(key) ?? draft;
+
           if (
             model.readiness !== 'ready' ||
             !selection.data ||
-            cache.get(key)?.attempt ||
-            cache.get(key)?.pending
+            current.attempt ||
+            current.pending ||
+            submission.isBlocked()
           )
             return;
 
           const attempt: Attempt = {
             key: crypto.randomUUID(),
             revision: selection.data.revision,
-            title: draft.title.trim(),
-            instruction: draft.instruction,
+            title: current.title.trim(),
+            instruction: current.instruction,
             additionalNoteIds: [...additionalNoteIds],
             operations: [
               ...new Set([
                 ...(additionalNoteIds.length ? ['combine' as const] : []),
-                ...draft.operations
+                ...current.operations
               ])
             ],
             language: locale
@@ -376,7 +419,7 @@ function TransformFailure({ model }: { model: TransformationModel }) {
         <NoteError
           error={submit.error}
           retry={
-            model.readiness === 'ready' && draft.attempt && !pending
+            model.readiness === 'ready' && draft.attempt && !pending && !model.submission.blocked
               ? () => start(draft.attempt!)
               : undefined
           }
@@ -409,7 +452,7 @@ function TransformRecovery({ model }: { model: TransformationModel }) {
       {retryable && !submit.error && (
         <RetryButton
           variant="outline"
-          disabled={model.readiness !== 'ready'}
+          disabled={model.readiness !== 'ready' || model.submission.blocked}
           onClick={() => start(draft.attempt!)}
           label={t('Retry')}
         />

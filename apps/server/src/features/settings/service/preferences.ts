@@ -3,6 +3,7 @@
 import type { AppSettings, JsonValue } from '@study/contracts';
 import {
   voiceSettingsSchema,
+  voiceSettingsPatchSchema,
   defaultVoiceSettings,
   Appearance,
   Language,
@@ -54,7 +55,7 @@ export function* settingsPreferenceOperations() {
         })
       ),
     saveVoiceSettings: validatedMutation({
-      input: voiceSettingsSchema,
+      input: voiceSettingsPatchSchema,
       message: 'Invalid voice settings',
       write: (tx, input) => {
         tx.store(SettingsStore).saveVoiceSettings(input);

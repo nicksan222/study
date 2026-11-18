@@ -4,6 +4,7 @@ import { failureSchema } from '../errors.ts';
 import { allDependencies, dependency, endpointGroup, liveQuery, mutation } from '../protocol.ts';
 import {
   voiceSettingsSchema,
+  voiceSettingsPatchSchema,
   agentRulesSchema,
   quizSettingsSchema,
   workspacePreferencesSchema,
@@ -27,7 +28,7 @@ export const settingsEndpoints = {
   ),
   saveVoiceSettings: mutation(
     'settings.saveVoiceSettings',
-    { payload: voiceSettingsSchema, success: saved, error: failureSchema },
+    { payload: voiceSettingsPatchSchema, success: saved, error: failureSchema },
     { changes: [dependency.settings] }
   ),
   usage: liveQuery(
