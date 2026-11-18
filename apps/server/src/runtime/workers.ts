@@ -116,7 +116,7 @@ export class Workers {
           'workflow.tick',
           Effect.gen(function* () {
             yield* dispatchPending(store, workflowTriggers, store.clock.currentTimeMillisUnsafe());
-            yield* refreshExecutionSnapshots(store, workflowTriggers);
+            yield* refreshExecutionSnapshots(store, workflowDefinitions);
             const revision = yield* configuration.revision;
 
             yield* notifyConfigurationChanged(store, engine, revision);
@@ -147,7 +147,8 @@ export class Workers {
   }
 
   async runWorkflow<A>(
-    effect: Effect.Effect<A, StudyError, WorkflowEngine.WorkflowEngine>
+    effect: Effect.Effect<A, StudyError, WorkflowEngine.WorkflowEngine>,
+    signal?: AbortSignal
   ): Promise<A> {
     await this.start();
     const runtime = await this.transition(
@@ -159,7 +160,9 @@ export class Workers {
       })
     );
 
-    return runtime.runPromise(effect);
+    if (signal?.aborted) throw new StudyError('cancelled', 'Workflow request ended');
+
+    return runtime.runPromise(effect, { signal });
   }
 
   async cancelExecution(input: typeof cancelExecutionInputSchema.Type): Promise<void> {

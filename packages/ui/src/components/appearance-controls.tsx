@@ -59,6 +59,7 @@ export function InterfaceControls({
   values,
   defaults,
   disabled,
+  showZoom = true,
   onCommit
 }: {
   title: string;
@@ -66,22 +67,25 @@ export function InterfaceControls({
   values: InterfaceControlValues;
   defaults: InterfaceControlValues;
   disabled: boolean;
+  showZoom?: boolean;
   onCommit: (key: InterfaceControlKey, value: number) => void;
 }) {
   return (
     <Settings.Section variant="interface" title={title}>
       <Settings.Group>
-        {interfaceRanges.map(({ key, ...range }) => (
-          <Settings.RangeRow
-            key={key}
-            {...range}
-            {...labels[key]}
-            value={values[key]}
-            defaultValue={defaults[key]}
-            disabled={disabled}
-            onCommit={(value) => onCommit(key, value)}
-          />
-        ))}
+        {interfaceRanges
+          .filter(({ key }) => showZoom || key !== 'zoom')
+          .map(({ key, ...range }) => (
+            <Settings.RangeRow
+              key={key}
+              {...range}
+              {...labels[key]}
+              value={values[key]}
+              defaultValue={defaults[key]}
+              disabled={disabled}
+              onCommit={(value) => onCommit(key, value)}
+            />
+          ))}
       </Settings.Group>
     </Settings.Section>
   );

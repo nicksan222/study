@@ -8,7 +8,7 @@ export {
   makeAdmission,
   withAdmissionSettings
 } from './ai/admission.ts';
-export { Agents, generateAgent, layer as agentsLayer } from './ai/agents.ts';
+export { AgentOutputError, Agents, generateAgent, layer as agentsLayer } from './ai/agents.ts';
 export type { AgentsConfig } from './ai/agents.ts';
 export {
   AuthManager,

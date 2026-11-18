@@ -12,10 +12,13 @@ import { screenshotAssertions, updateAllowed } from './screenshots.ts';
 import type { ExpectScreenshot } from './screenshots.ts';
 import { openWebStack } from './stack.ts';
 
+type VisualBounds = Partial<Pick<VisualViewport, 'height' | 'width' | 'offsetLeft' | 'offsetTop'>>;
+
 export type Journey = {
   page: Page;
   expectScreenshot: ExpectScreenshot;
   loseCreationResponse: Awaited<ReturnType<typeof openWebStack>>['loseCreationResponse'];
+  setVisualViewport: (bounds: VisualBounds | null, event?: 'resize' | 'scroll') => Promise<void>;
 };
 
 type Fixtures = {
@@ -27,6 +30,7 @@ type Fixtures = {
   resources: ReturnType<typeof createTestResources>;
   webStack: Awaited<ReturnType<typeof openWebStack>>;
   journey: Journey;
+  desktopPage: Page;
   captureWorkflow: string;
 };
 
@@ -58,6 +62,12 @@ const testHarness = testBrowser.extend<Fixtures>({
     await context.clock.setFixedTime(new Date(captureProfile.wallTime));
     await provide(context);
   },
+  desktopPage: async ({ browser, baseURL }, provide) => {
+    await using context = await browser.newContext({ baseURL, isMobile: false, hasTouch: false });
+
+    await context.clock.setFixedTime(new Date(captureProfile.wallTime));
+    await provide(await context.newPage());
+  },
   journey: async ({ page, webStack, captureWorkflow, browser }, provide, info) => {
     const workflow = captureWorkflow || workflowName(info.title);
 
@@ -78,6 +88,23 @@ const testHarness = testBrowser.extend<Fixtures>({
     await provide({
       page,
       loseCreationResponse: webStack.loseCreationResponse,
+      setVisualViewport: (bounds, event = 'resize') =>
+        page.evaluate(
+          ({ bounds, event }) => {
+            // Simulate the visible rectangle produced by a keyboard or pinch on a phone.
+            const viewport = window.visualViewport!;
+
+            for (const key of ['height', 'width', 'offsetLeft', 'offsetTop'] as const) {
+              const value = bounds?.[key];
+
+              if (value === undefined) Reflect.deleteProperty(viewport, key);
+              else Object.defineProperty(viewport, key, { configurable: true, value });
+            }
+
+            viewport.dispatchEvent(new Event(event));
+          },
+          { bounds, event }
+        ),
       expectScreenshot: (name, options) =>
         screenshots.expectScreenshot(name, {
           ...options,

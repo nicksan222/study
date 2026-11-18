@@ -17,6 +17,7 @@
 
 import type {
   AgentRule,
+  LlmProvider,
   ModelTier,
   StudyError,
   sourceEvidenceSchema,
@@ -35,6 +36,7 @@ export interface AiInvocation {
   readonly definition: {
     readonly id?: string;
     readonly mode?: 'text' | 'object';
+    readonly requiredProvider?: LlmProvider;
     readonly input: Schema.ConstraintDecoder<unknown>;
     readonly output: Schema.ConstraintDecoder<unknown>;
   };
@@ -111,6 +113,7 @@ export interface AgentDefinition<
   input: Input;
   output: Output;
   model: ModelTier;
+  requiredProvider?: LlmProvider;
   /** Every agent explicitly selects at least one user preference category. */
   customRules: readonly [AgentRule, ...AgentRule[]];
   instructions: string | ((language: string) => string);

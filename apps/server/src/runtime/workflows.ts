@@ -26,7 +26,8 @@ import {
 import {
   materialDeletionRegistration,
   materialGenerationRegistration,
-  materialHistoryRegistration
+  materialHistoryRegistration,
+  writtenExamRegistration
 } from '#server/features/materials/workflows/index';
 import {
   noteAttachmentWakeRegistration,
@@ -63,6 +64,7 @@ const entries = [
   sourceIngestionRegistration,
   sourceCorrectionRegistration,
   quizGradingRegistration,
+  writtenExamRegistration,
   practiceSlotRegistration,
   practicePublicationRegistration
 ] as const;

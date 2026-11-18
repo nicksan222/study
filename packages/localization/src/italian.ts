@@ -2025,6 +2025,39 @@ export const italian = Object.freeze({
   PracticeGenerate: 'Genera esercizi',
   PracticeGenerateHelp:
     'Crea esercizi e flashcard dalle tue pagine. Sono tutte selezionate; deseleziona quelle che vuoi escludere.',
+  WrittenExam: 'Interrogazione scritta',
+  WrittenExamHelp:
+    'Discuti un concetto con un professore che ti fa domande di approfondimento. Se ti blocchi, chiedi un indizio.',
+  WrittenExamChatGptSetup:
+    'Accedi a ChatGPT e attiva «Consenti l’uso del mio piano» nelle Impostazioni per usare l’interrogazione scritta.',
+  WrittenExamTopic: 'Argomento (facoltativo)',
+  WrittenExamTopicHint: 'Lascia vuoto per partire dalle pagine',
+  WrittenExamStart: 'Inizia interrogazione',
+  WrittenExamStarting: 'Preparazione della prima domanda…',
+  WrittenExamUnsupported:
+    'Le pagine selezionate non trattano questo argomento. Scegli un altro argomento o altre pagine.',
+  WrittenExamStartError:
+    'Impossibile avviare l’interrogazione. Controlla le pagine selezionate e riprova.',
+  WrittenExamHint: 'Chiedi un indizio',
+  WrittenExamActions: 'Azioni dell’interrogazione',
+  WrittenExamHintRequest: 'Posso avere un indizio?',
+  WrittenExamComposer: 'Spiegalo con parole tue…',
+  WrittenExamExaminer: 'Professore',
+  WrittenExamConversation: 'Conversazione dell’interrogazione',
+  WrittenExamThinking: 'Il professore sta pensando…',
+  WrittenExamTurnError: 'Il professore non è riuscito a rispondere. Riprova.',
+  WrittenExamSourceUnavailable:
+    'Una pagina selezionata non è disponibile. Ripristinala e riprova, oppure avvia una nuova interrogazione con altre pagine.',
+  WrittenExamHistory: 'Rileggi la conversazione',
+  WrittenExamUnderstood: 'Ce l’hai fatta!',
+  WrittenExamNeedsReview: 'Cosa ripassare',
+  WrittenExamFinish: 'Concludi',
+  WrittenExamSubmitAndFinish: 'Invia e concludi',
+  WrittenExamBack: 'Torna agli esercizi',
+  WrittenExamExit: 'Esci dall’interrogazione',
+  WrittenExamExitTitle: 'Vuoi uscire dall’interrogazione?',
+  WrittenExamExitHelp: 'Le risposte di questa sessione andranno perse.',
+  WrittenExamContinue: 'Continua l’interrogazione',
   PracticeGenerateKind: 'Cosa vuoi creare?',
   PracticeGeneratePrompt: 'Su cosa concentrarsi? (facoltativo)',
   PracticeGeneratePromptHint:

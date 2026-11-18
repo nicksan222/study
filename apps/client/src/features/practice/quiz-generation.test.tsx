@@ -391,6 +391,42 @@ test.unit.stable(
   }
 );
 
+test.unit.stable(
+  'late quiz acceptance leaves a newly opened exam setup intact',
+  async ({ userEvent, screen, within, waitFor, expect, vi, render, rpcHandlersTransport }) => {
+    const rpc = rpcFixture({ vi });
+    const accepted = Promise.withResolvers<void>();
+    const request = rpc['materials.requestMaterialGeneration'].getMockImplementation()!;
+
+    rpc['materials.requestMaterialGeneration'].mockImplementation((input) =>
+      Effect.promise(() => accepted.promise).pipe(Effect.andThen(request(input)))
+    );
+    rpc['materials.materialGeneration'].mockReturnValue(Effect.never);
+    const user = userEvent.setup();
+
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?project=1', rpc);
+    await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
+    const dialog = await screen.findByRole('dialog', { name: en.PracticeGenerate });
+    const start = within(dialog).getByRole('button', { name: en.PracticeGenerateStart });
+
+    await waitFor(() => expect(start).toBeEnabled());
+    await user.click(start);
+    await waitFor(() => expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledOnce());
+    await user.click(within(dialog).getByText(en.Close, { exact: true }));
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: en.PracticeGenerate })).not.toBeInTheDocument()
+    );
+    await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
+    const fresh = await screen.findByRole('dialog', { name: en.PracticeGenerate });
+
+    await user.click(within(fresh).getByRole('radio', { name: en.WrittenExam }));
+    accepted.resolve();
+    await waitFor(() => expect(rpc['materials.materialGeneration']).toHaveBeenCalled());
+    expect(fresh).toBeVisible();
+    expect(within(fresh).getByRole('radio', { name: en.WrittenExam })).toBeChecked();
+  }
+);
+
 for (const [kind, label] of [
   ['fill_blank', en.PracticeFillBlank],
   ['matching', en.PracticeMatching],

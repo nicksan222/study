@@ -13,9 +13,10 @@ import { eq } from '@study/db';
 import { workflow_executions, workflow_retired_executions } from '@study/db';
 import { test } from '@study/testing';
 import { Effect, Layer, ManagedRuntime, Option, Schema, Schedule } from 'effect';
-import { DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';
+import { DurableDeferred, WorkflowEngine } from 'effect/workflow';
 
 import { ServerContext } from '#server/platform/database/context';
+import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { scrubRetiredExecution } from '#server/platform/workflows/store';
 import { refreshExecutionSnapshots } from '#server/platform/workflows/triggers';
@@ -96,8 +97,12 @@ test.server.stable(
     const location = await databases();
     const db = await location.open();
     const context = new ServerContext(db);
-    const workflow = Workflow.make('idle/v1', {
-      payload: { id: Schema.String },
+    const workflow = defineWorkflow({
+      name: 'idle',
+      version: 1,
+      payload: Schema.Struct({ id: Schema.String }),
+      error: Schema.Never,
+      success: Schema.Void,
       idempotencyKey: ({ id }) => id
     });
     const runtime = ManagedRuntime.make(
@@ -107,16 +112,6 @@ test.server.stable(
     );
     let hints = 0;
     const unsubscribe = context.subscribe(() => hints++);
-    const triggers = [
-      {
-        subscription: 'idle',
-        event: 'SourceIndexed' as const,
-        workflowVersion: 1,
-        workflow,
-        emits: [],
-        enabled: () => true
-      }
-    ];
 
     try {
       db.orm
@@ -146,13 +141,14 @@ test.server.stable(
               schedule: Schedule.spaced('10 millis')
             })
           );
-          yield* refreshExecutionSnapshots(context, triggers);
+          yield* refreshExecutionSnapshots(context, [workflow]);
         })
       );
       expect(hints).toBe(1);
+      expect(db.orm.select().from(workflow_executions).get()?.status).toBe('suspended');
       hints = 0;
-      await runtime.runPromise(refreshExecutionSnapshots(context, triggers));
-      await runtime.runPromise(refreshExecutionSnapshots(context, triggers));
+      await runtime.runPromise(refreshExecutionSnapshots(context, [workflow]));
+      await runtime.runPromise(refreshExecutionSnapshots(context, [workflow]));
       expect(hints).toBe(0);
     } finally {
       unsubscribe();
@@ -169,9 +165,12 @@ test.server.stable(
     const location = await databases();
     const db = await location.open();
     const context = new ServerContext(db);
-    const workflow = Workflow.make('completed-retirement/v1', {
-      payload: { id: Schema.String },
+    const workflow = defineWorkflow({
+      name: 'completed-retirement',
+      version: 1,
+      payload: Schema.Struct({ id: Schema.String }),
       success: Schema.String,
+      error: Schema.Never,
       idempotencyKey: ({ id }) => id
     });
     let calls = 0;
@@ -185,16 +184,6 @@ test.server.stable(
       )
       .pipe(Layer.provideMerge(workflowEngineLayer(context)));
     let runtime = ManagedRuntime.make(layer);
-    const triggers = [
-      {
-        subscription: 'completed-retirement',
-        event: 'SourceIndexed' as const,
-        workflowVersion: 1,
-        workflow,
-        emits: [],
-        enabled: () => true
-      }
-    ];
 
     try {
       admitTestExecution(context, workflow, 'completed', { id: 'completed' });
@@ -222,7 +211,7 @@ test.server.stable(
       });
       await runtime.dispose();
       runtime = ManagedRuntime.make(layer);
-      await runtime.runPromise(refreshExecutionSnapshots(context, triggers));
+      await runtime.runPromise(refreshExecutionSnapshots(context, [workflow]));
       const reply = await runtime.runPromise(
         Effect.gen(function* () {
           const engine = yield* WorkflowEngine.WorkflowEngine;
@@ -247,9 +236,12 @@ test.server.stable(
   async ({ databases, expect }) => {
     const location = await databases();
     const context = new ServerContext(await location.open());
-    const workflow = Workflow.make('poll-retirement/v1', {
-      payload: { id: Schema.String },
+    const workflow = defineWorkflow({
+      name: 'poll-retirement',
+      version: 1,
+      payload: Schema.Struct({ id: Schema.String }),
       success: Schema.String,
+      error: Schema.Never,
       idempotencyKey: ({ id }) => id
     });
     const runtime = ManagedRuntime.make(
@@ -277,19 +269,21 @@ test.server.stable(
           const polling = {
             ...engine,
             poll: (...args: Parameters<typeof engine.poll>) =>
-              engine.poll(...args).pipe(Effect.tap(() => retireAfterPoll))
+              engine.poll(...args).pipe(
+                Effect.tap((reply) => {
+                  expect(reply).toMatchObject({
+                    _tag: 'Some',
+                    value: { _tag: 'Complete', exit: { _tag: 'Success', value: 'private reply' } }
+                  });
+
+                  return retireAfterPoll;
+                })
+              )
           };
 
-          yield* refreshExecutionSnapshots(context, [
-            {
-              subscription: id,
-              event: 'SourceIndexed',
-              workflowVersion: 1,
-              workflow,
-              emits: [],
-              enabled: () => true
-            }
-          ]).pipe(Effect.provideService(WorkflowEngine.WorkflowEngine, polling));
+          yield* refreshExecutionSnapshots(context, [workflow]).pipe(
+            Effect.provideService(WorkflowEngine.WorkflowEngine, polling)
+          );
         })
       );
       const row = context.db.orm.select().from(workflow_executions).get();

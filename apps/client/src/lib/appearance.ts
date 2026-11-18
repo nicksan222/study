@@ -7,12 +7,13 @@ import {
 } from '@study/ui';
 
 import { loadAppearance } from './study-client/appearance';
+import { phoneViewportQuery } from './viewport';
 
 let store = createThemeStore({ appearance: 'dark' });
 
 let revision = 0;
 
-let activePage: Document | undefined;
+let activePage: { document: Document; setZoom: (percent: number) => void } | undefined;
 
 const preferenceProperties = [
   '--appearance-contrast-base',
@@ -38,7 +39,7 @@ export function applyAppearance({
         ? 'light'
         : 'dark'
   );
-  const element = activePage?.documentElement;
+  const element = activePage?.document.documentElement;
 
   if (element) {
     element.style.setProperty(
@@ -56,7 +57,7 @@ export function applyAppearance({
     element.style.setProperty('--glass-opacity', `${preferences.glassOpacity}%`);
     element.style.setProperty('--ui-animation-duration', `${preferences.animationDurationMs}ms`);
 
-    applyZoom(element, settings.zoomPercent ?? 100);
+    activePage?.setZoom(settings.zoomPercent ?? 100);
   }
 }
 
@@ -79,7 +80,19 @@ function applyZoom(element: HTMLElement, percent: number): void {
 }
 
 export function initializeAppearance(document: Document): () => void {
-  activePage = document;
+  let savedZoom = 100;
+  const mobile = document.defaultView?.matchMedia(phoneViewportQuery);
+  const refreshZoom = () => applyZoom(document.documentElement, mobile?.matches ? 100 : savedZoom);
+  const page = {
+    document,
+    setZoom: (percent: number) => {
+      savedZoom = percent;
+      refreshZoom();
+    }
+  };
+
+  activePage = page;
+  mobile?.addEventListener('change', refreshZoom);
   const originalPreferences = new Map(
     preferenceProperties.map((key) => [key, document.documentElement.style.getPropertyValue(key)])
   );
@@ -102,6 +115,7 @@ export function initializeAppearance(document: Document): () => void {
   return () => {
     controller.abort();
     stopObserving();
+    mobile?.removeEventListener('change', refreshZoom);
     restore();
 
     for (const [key, value] of originalPreferences) {
@@ -109,6 +123,6 @@ export function initializeAppearance(document: Document): () => void {
       else document.documentElement.style.removeProperty(key);
     }
 
-    if (activePage === document) activePage = undefined;
+    if (activePage === page) activePage = undefined;
   };
 }
