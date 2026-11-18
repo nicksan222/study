@@ -16,16 +16,16 @@ let CanonicalDocumentEditor: typeof Module.CanonicalDocumentEditor;
 
 let urls: Record<string, string>;
 
-let destinations: RichNoteSelection[];
-
-let appends: boolean[];
+let calls: (
+  | { action: 'restore'; selection: RichNoteSelection }
+  | { action: 'insert'; append: boolean }
+)[];
 
 const labels = new Proxy({} as StructuredEditorLabels, { get: (_, key) => String(key) });
 
 test.unit.beforeEach(async ({ mock }) => {
   urls = {};
-  destinations = [];
-  appends = [];
+  calls = [];
   mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
     useWorkspacePreferences: () => ({})
   }));
@@ -60,10 +60,10 @@ test.unit.beforeEach(async ({ mock }) => {
       useImperativeHandle(ref, () => ({
         selection: () => ({ kind: 'text', anchor: 3, head: 7 }),
         restoreSelection: (selection) => {
-          destinations.push(selection);
+          calls.push({ action: 'restore', selection });
         },
         insertPlainText(_text, options) {
-          appends.push(options?.append ?? false);
+          calls.push({ action: 'insert', append: options?.append ?? false });
         }
       }));
 
@@ -110,8 +110,13 @@ for (const contentChanged of [false, true]) {
       );
       fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
       fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
-      expect(destinations).toEqual(contentChanged ? [] : [{ kind: 'text', anchor: 3, head: 7 }]);
-      expect(appends).toEqual([contentChanged, false]);
+      expect(calls).toEqual([
+        ...(contentChanged
+          ? []
+          : [{ action: 'restore', selection: { kind: 'text', anchor: 3, head: 7 } }]),
+        { action: 'insert', append: contentChanged },
+        { action: 'insert', append: false }
+      ]);
     }
   );
 }
