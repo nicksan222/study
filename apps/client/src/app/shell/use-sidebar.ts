@@ -23,11 +23,12 @@ const noNotes: Notes = [];
 export type SidebarProps = {
   metadata: PageMetadata;
   collapsed: boolean;
+  hidden?: boolean;
   onToggle: () => void;
 };
 
 /** Composes route context, scoped lists, search, and navigation without feature-specific branches. */
-export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
+export function useSidebar({ metadata, collapsed, hidden = false, onToggle }: SidebarProps) {
   const replay = useContext(ReplayContext);
   const context = useSidebarContext(metadata);
   const { requestedProject, ready } = context;
@@ -59,7 +60,7 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
     ? sidebarNotes(noteList.query.data?.items ?? noNotes, invalidSubject, requestedProject, project)
     : noNotes;
 
-  const { searchRef, openSearch } = useSidebarSearchInput(collapsed, onToggle);
+  const { searchRef, openSearch } = useSidebarSearchInput(collapsed, onToggle, !hidden);
 
   const clearSearch = () => {
     setQuery('');

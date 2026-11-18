@@ -142,6 +142,19 @@ function useGenerationDialog() {
   } as const;
 }
 
+/** A sidebar launcher can be hidden by a viewport change while its dialog is open. */
+function focusAfterGeneration(trigger: HTMLButtonElement | null) {
+  const drawer = trigger?.closest('[hidden]')?.querySelector<HTMLElement>('nav[id]');
+
+  if (!drawer) return trigger ?? true;
+
+  return (
+    drawer.ownerDocument.querySelector<HTMLElement>(
+      `main button[aria-controls="${CSS.escape(drawer.id)}"]`
+    ) ?? true
+  );
+}
+
 function GenerationDialog({
   projectId,
   inline = false,
@@ -188,7 +201,7 @@ function GenerationDialog({
       />
       <DialogPopup
         keepMounted
-        finalFocus={dialog.trigger}
+        finalFocus={() => focusAfterGeneration(dialog.trigger.current)}
         closeLabel={t(dialog.examActive ? 'WrittenExamExit' : 'Close')}
         showCloseButton={dialog.showCloseButton}
         variant={dialog.variant}

@@ -2,6 +2,7 @@
 import { StudyError, contentInputKey, writtenExamTurnLimit } from '@study/contracts';
 import type { WrittenExamInput, WrittenExamResult } from '@study/contracts';
 import {
+  AgentOutputError,
   Agents,
   Database,
   createEvidenceCatalog,
@@ -23,7 +24,7 @@ type Step = WrittenExamInput['step'];
 type Evidence = Parameters<typeof writtenExamAgent.prompt>[0]['evidence'];
 
 function unexpectedTurn() {
-  return Effect.fail(new StudyError('transient', 'Unexpected written exam response'));
+  return Effect.fail(new AgentOutputError('Unexpected written exam response'));
 }
 
 function examSummary(
@@ -53,8 +54,7 @@ function examResult(
       ? Effect.succeed(next)
       : unexpectedTurn();
 
-  if (step.kind === 'hint')
-    return next.kind === 'hint' && !step.current.hint ? Effect.succeed(next) : unexpectedTurn();
+  if (step.kind === 'hint') return next.kind === 'hint' ? Effect.succeed(next) : unexpectedTurn();
 
   return answerResult(step, next);
 }
@@ -83,8 +83,20 @@ function resolveExamTurn(
       step.kind === 'answer' && step.history.length === writtenExamTurnLimit
         ? { ...step, kind: 'finish' as const }
         : step;
-    const next = yield* run(request, evidence);
     const validate = (response: WrittenExamResult) => examResult(request, response);
+
+    if (request.kind === 'finish') {
+      const recap = run(request, evidence).pipe(Effect.flatMap(validate));
+
+      return yield* recap.pipe(
+        Effect.catchIf(
+          (error) => error instanceof AgentOutputError,
+          () => recap
+        )
+      );
+    }
+
+    const next = yield* run(request, evidence);
 
     if (next.kind === 'unavailable' && step.kind === 'start' && step.topic) {
       const matches = findTopic(step.topic);
@@ -93,11 +105,7 @@ function resolveExamTurn(
         return yield* run(request, [...evidence, ...matches]).pipe(Effect.flatMap(validate));
     }
 
-    const result = validate(next);
-
-    return yield* request.kind === 'finish'
-      ? result.pipe(Effect.catch(() => run(request, evidence).pipe(Effect.flatMap(validate))))
-      : result;
+    return yield* validate(next);
   });
 }
 

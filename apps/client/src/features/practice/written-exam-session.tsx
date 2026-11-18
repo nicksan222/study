@@ -105,7 +105,9 @@ function useExamConversation(
     if (!step || step.kind === 'start') return;
 
     setPending(kind);
-    composer.current?.focus();
+
+    if (kind === 'answer') composer.current?.focus({ preventScroll: true });
+    else composer.current?.blur();
 
     try {
       const next = await turn.run({ projectId: opening.projectId, inputs: opening.inputs, step });
@@ -229,6 +231,7 @@ export function ExamExitConfirmation({
 function ExamThread({ model, leave }: { model: Conversation; leave: () => void }) {
   const { t } = useI18n();
   const viewport = useRef<HTMLDivElement>(null);
+  const following = useRef(true);
   const [canJump, setCanJump] = useState(false);
   const current = {
     ...model.current,
@@ -238,6 +241,7 @@ function ExamThread({ model, leave }: { model: Conversation; leave: () => void }
   useLayoutEffect(() => {
     const scroller = viewport.current;
 
+    following.current = true;
     scroller?.scrollTo({ top: scroller.scrollHeight, behavior: 'instant' });
   }, [model.current, model.pending, model.failed]);
 
@@ -247,7 +251,7 @@ function ExamThread({ model, leave }: { model: Conversation; leave: () => void }
     if (!scroller) return;
 
     const resize = new ResizeObserver(() => {
-      scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'instant' });
+      if (following.current) scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'instant' });
     });
 
     resize.observe(scroller);
@@ -263,12 +267,13 @@ function ExamThread({ model, leave }: { model: Conversation; leave: () => void }
             ref={viewport}
             aria-label={t('WrittenExamConversation')}
             preserveScrollOnPrepend={false}
-            onScroll={({ currentTarget }) =>
-              setCanJump(
-                currentTarget.scrollHeight - currentTarget.scrollTop - currentTarget.clientHeight >
-                  1
-              )
-            }
+            onScroll={({ currentTarget }) => {
+              const distance =
+                currentTarget.scrollHeight - currentTarget.scrollTop - currentTarget.clientHeight;
+
+              following.current = distance <= 1;
+              setCanJump(!following.current);
+            }}
           >
             <MessageScrollerContent aria-label={t('WrittenExamConversation')}>
               {model.history.map((entry) => (
@@ -398,7 +403,7 @@ function ExamComposer({ model, openSettings }: { model: Conversation; openSettin
           disabled={model.blocked || !(model.history.length || model.draft)}
           onClick={() => void model.advance('finish')}
         >
-          {t('WrittenExamFinish')}
+          {t(model.draft ? 'WrittenExamSubmitAndFinish' : 'WrittenExamFinish')}
         </Button>
         <IconButton
           type="submit"

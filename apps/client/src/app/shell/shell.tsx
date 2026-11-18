@@ -72,37 +72,37 @@ function useSearchShortcut(notes: boolean, open: boolean, show: () => void) {
 }
 
 /** Narrow workspaces use a drawer. The library routes use it as their primary content. */
-function usePhoneNavigation(path: string, library: boolean) {
-  const [state, setState] = useState({ path, open: library });
-  const open = state.path === path ? state.open : library;
+function usePhoneNavigation(route: string, library: boolean) {
+  const [state, setState] = useState({ route, open: false });
+  const open = library || (state.route === route && state.open);
 
-  if (state.path !== path) setState({ path, open: library });
+  if (state.route !== route) setState({ route, open: false });
 
   return {
     visible: open,
     collapsed: false,
     open,
-    toggle: () => setState({ path, open: !open })
+    toggle: () => setState({ route, open: !open })
   };
 }
 
-function useDrawerFocus(narrow: boolean, open: boolean) {
+function useDrawerFocus(narrow: boolean, visible: boolean) {
   const drawerToggle = useRef<HTMLButtonElement>(null);
   const revealToggle = useRef<HTMLButtonElement>(null);
-  const previousOpen = useRef(open);
+  const previous = useRef({ narrow, visible });
 
   useLayoutEffect(() => {
-    const changed = previousOpen.current !== open;
+    const before = previous.current;
 
-    previousOpen.current = open;
+    previous.current = { narrow, visible };
 
-    if (!narrow || !changed) return;
+    if (!(narrow || before.narrow) || before.visible === visible) return;
 
     const active = document.activeElement;
 
-    if (active === document.body || active?.closest('[inert]'))
-      (open ? drawerToggle : revealToggle).current?.focus({ preventScroll: true });
-  }, [narrow, open]);
+    if (active === document.body || active?.closest('[hidden], [inert]'))
+      (visible ? drawerToggle : revealToggle).current?.focus({ preventScroll: true });
+  }, [narrow, visible]);
 
   return { drawerToggle, revealToggle };
 }
@@ -128,6 +128,7 @@ function ShellHeader({
   const toggle = visible ? null : (
     <SidebarUI.Toggle
       ref={toggleRef}
+      aria-controls="study-sidebar-navigation"
       placement={header === 'workspace' || notes ? 'reveal' : 'default'}
       label={t('ToggleSidebar')}
       expanded={false}
@@ -167,7 +168,7 @@ function useNavigation(pathname: string, notebook: boolean, practice: boolean) {
   const library =
     ['/practice', '/flashcards'].includes(path) || (path === '/projects' && !search.project);
   const desktop = useShellNavigation(notebook && !phone, practice && !phone);
-  const drawer = usePhoneNavigation(`${path}:${library}`, library);
+  const drawer = usePhoneNavigation(`${path}:${search.project ?? ''}`, library);
 
   const navigation = phone ? drawer : desktop;
 
@@ -193,7 +194,7 @@ export function Shell() {
   const notebook = ['Notes', 'Assistant'].includes(title);
   const layout = usePageLayout(notes, section === 'pages', header === 'workspace');
   const navigation = useNavigation(match?.pathname ?? '', notebook, section === 'practice');
-  const { drawerToggle, revealToggle } = useDrawerFocus(navigation.phone, navigation.open);
+  const { drawerToggle, revealToggle } = useDrawerFocus(navigation.phone, navigation.visible);
   const context = useSidebarContext(metadata);
   const { project, shortcutsDisabled } = useContextMenuScope(scope, context);
 
@@ -214,14 +215,14 @@ export function Shell() {
           resizeLabel={t('ResizeSidebar')}
           resizeHint={t('ResizeSidebarHint')}
         >
-          {navigation.visible && (
-            <Sidebar
-              metadata={metadata}
-              collapsed={navigation.collapsed}
-              onToggle={navigation.toggle}
-              toggleRef={drawerToggle}
-            />
-          )}
+          <Sidebar
+            metadata={metadata}
+            collapsed={navigation.collapsed}
+            hidden={!navigation.visible}
+            primary={navigation.phone && navigation.library}
+            onToggle={navigation.toggle}
+            toggleRef={drawerToggle}
+          />
           <SidebarUI.Main inert={navigation.phone && navigation.open}>
             <ShellHeader
               header={header}

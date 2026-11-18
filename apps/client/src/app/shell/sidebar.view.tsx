@@ -47,6 +47,8 @@ import type { SidebarModel } from './use-sidebar';
 
 type SidebarViewModel = SidebarModel & {
   collection: ReactNode;
+  hidden?: boolean;
+  primary?: boolean;
   toggleRef?: Ref<HTMLButtonElement>;
   selectedNote?: string | null;
   counts?: ReturnType<typeof useSidebarCounts>;
@@ -56,7 +58,7 @@ export function SidebarView(model: SidebarViewModel) {
   const { t } = useI18n();
 
   return (
-    <SidebarUI.Root aria-label={t('SidebarNavigation')}>
+    <SidebarUI.Root aria-label={t('SidebarNavigation')} hidden={model.hidden}>
       <SidebarHeader {...model} />
       <SidebarToolbar {...model} />
       <SidebarContent {...model} />
@@ -194,22 +196,25 @@ function SidebarHeader(model: SidebarViewModel) {
     project,
     settingsProject,
     setSettingsProject,
+    primary,
     toggleRef
   } = model;
   const { t } = useI18n();
 
   return (
     <SidebarUI.Header>
-      <SidebarUI.Toggle
-        ref={toggleRef}
-        label={t('ToggleSidebar')}
-        expanded={!collapsed}
-        aria-controls="study-sidebar-navigation"
-        onClick={() => {
-          clearSearch();
-          onToggle();
-        }}
-      />
+      {!primary && (
+        <SidebarUI.Toggle
+          ref={toggleRef}
+          label={t('ToggleSidebar')}
+          expanded={!collapsed}
+          aria-controls="study-sidebar-navigation"
+          onClick={() => {
+            clearSearch();
+            onToggle();
+          }}
+        />
+      )}
       <SidebarSubjectPicker {...model} />
       {settingsProject && (
         <SettingsPage

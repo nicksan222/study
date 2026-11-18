@@ -269,7 +269,16 @@ test.server.stable(
           const polling = {
             ...engine,
             poll: (...args: Parameters<typeof engine.poll>) =>
-              engine.poll(...args).pipe(Effect.tap(() => retireAfterPoll))
+              engine.poll(...args).pipe(
+                Effect.tap((reply) => {
+                  expect(reply).toMatchObject({
+                    _tag: 'Some',
+                    value: { _tag: 'Complete', exit: { _tag: 'Success', value: 'private reply' } }
+                  });
+
+                  return retireAfterPoll;
+                })
+              )
           };
 
           yield* refreshExecutionSnapshots(context, [workflow]).pipe(

@@ -6,12 +6,15 @@ const copy = catalogs.english;
 
 const phone = { width: 390, height: 844 };
 
+const drawerToggle = { name: copy.ToggleSidebar, exact: true };
+
 test.browser.use({ viewport: phone, isMobile: true, hasTouch: true, aiEnabled: true });
 
 type BrowserContext = Pick<test.browser.Context, 'page' | 'expect' | 'expectScreenshot'>;
 
 async function visit({ page, expect }: BrowserContext, path: string) {
   await page.goto(path);
+  await expect(page.locator('html[style*="--glass-opacity:"]')).toBeAttached();
   await expect(page.locator('html')).toHaveCSS('zoom', '1');
   await expect(page.locator('html')).toHaveJSProperty('scrollWidth', phone.width);
 
@@ -36,14 +39,44 @@ async function capture(context: BrowserContext, name: string, path: string, cont
   });
 }
 
+async function verifyResizeFocus({
+  desktopPage: page,
+  expect
+}: Pick<test.browser.Context, 'desktopPage' | 'expect'>) {
+  const sidebar = page.getByRole('complementary', { name: copy.SidebarNavigation });
+  const reveal = page.getByRole('main').getByRole('button', drawerToggle);
+  const dismiss = sidebar.getByRole('button', drawerToggle);
+
+  await page.setViewportSize({ width: 620, height: 844 });
+  await page.goto('/');
+  await expect(page.locator('html')).toHaveCSS('zoom', '1.25');
+  await reveal.press('Enter');
+  await expect(dismiss).toBeFocused();
+  await page.setViewportSize({ width: 660, height: 844 });
+  await expect(reveal).toBeFocused();
+  await expect(sidebar).toBeHidden();
+
+  await page.setViewportSize({ width: 620, height: 844 });
+  await expect(dismiss).toBeFocused();
+  const search = sidebar.getByRole('searchbox', { name: copy.Search, exact: true });
+
+  await search.focus();
+  await page.setViewportSize({ width: 900, height: 844 });
+  await expect(page.locator('main')).toHaveJSProperty('inert', false);
+  await expect(search).toBeFocused();
+}
+
 test.browser.stable(
   'Mobile study pages use the available screen without desktop zoom',
-  async ({ page, study, rpc, expect, expectScreenshot }) => {
+  async ({ desktopPage, page, study, rpc, expect, expectScreenshot }) => {
     const { project, note, page: savedPage } = await study.seed();
     const settings = await rpc.runPromise(rpc.client['settings.appSettings']({}));
     const captureContext = { page, expect, expectScreenshot };
+    const drawer = page.getByRole('complementary', { name: copy.SidebarNavigation });
+    const closeDrawer = drawer.getByRole('button', drawerToggle);
     const mainElement = page.locator('main');
     const main = page.getByRole('main');
+    const reveal = main.getByRole('button', drawerToggle);
     const subject = `?project=${project.id}`;
 
     const quiz = await rpc.runPromise(
@@ -127,6 +160,7 @@ test.browser.stable(
       `/practice${subject}`,
       page.getByRole('button', { name: copy.PracticeGenerate, exact: true })
     );
+    await expect(closeDrawer).toHaveCount(0);
     await capture(
       captureContext,
       'quiz',
@@ -139,6 +173,7 @@ test.browser.stable(
       `/flashcards${subject}`,
       page.getByRole('button', { name: copy.PracticeGenerate, exact: true })
     );
+    await expect(closeDrawer).toHaveCount(0);
     await capture(
       captureContext,
       'flashcard-review',
@@ -157,11 +192,6 @@ test.browser.stable(
       `/sources/${source.id}`,
       main.getByText(sourceText, { exact: true })
     );
-
-    const drawer = page.getByRole('complementary', { name: copy.SidebarNavigation });
-
-    const reveal = main.getByRole('button', { name: copy.ToggleSidebar });
-    const closeDrawer = drawer.getByRole('button', { name: copy.ToggleSidebar });
 
     await reveal.tap();
     await expect(closeDrawer).toBeFocused();
@@ -214,5 +244,33 @@ test.browser.stable(
     await expect(html).toHaveCSS('zoom', '1');
     await expect(textSize).toHaveCount(0);
     expect((await rpc.runPromise(rpc.client['settings.appSettings']({}))).zoomPercent).toBe(125);
+
+    await page.setViewportSize(phone);
+    await page.goto(`/practice${subject}`);
+    await drawer.getByRole('link', { name: quiz.title }).tap();
+    await expect(drawer).toBeHidden();
+    await expect(main.getByRole('button', { name: copy.PracticeStartQuiz })).toBeInViewport();
+
+    const otherSubject = await rpc.runPromise(
+      rpc.client['projects.createProject']({ name: 'Chemistry' })
+    );
+    const picker = drawer.getByRole('combobox', { name: copy.ChooseProject });
+
+    await page.goto('/projects');
+    await expect(picker).toBeInViewport();
+    await expect(closeDrawer).toHaveCount(0);
+    await picker.tap();
+    await page.getByRole('option', { name: project.name, exact: true }).tap();
+    await expect(drawer).toBeHidden();
+    await expect(main.getByRole('heading', { name: project.name, exact: true })).toBeInViewport();
+    await reveal.tap();
+    await drawer.getByRole('combobox', { name: project.name, exact: true }).tap();
+    await page.getByRole('option', { name: otherSubject.name, exact: true }).tap();
+    await expect(drawer).toBeHidden();
+    await expect(
+      main.getByRole('heading', { name: otherSubject.name, exact: true })
+    ).toBeInViewport();
+
+    await verifyResizeFocus({ desktopPage, expect });
   }
 );

@@ -1980,7 +1980,7 @@ export const english = Object.freeze({
   WrittenExamHelp:
     'Talk through one concept with a professor who asks follow-up questions. Ask for a hint if you get stuck.',
   WrittenExamChatGptSetup:
-    'Sign in to ChatGPT and enable sharing in Settings to use written exams.',
+    'Sign in to ChatGPT and turn on “Allow use of my plan” in Settings to use written exams.',
   WrittenExamTopic: 'Topic (optional)',
   WrittenExamTopicHint: 'Leave blank to choose from the pages',
   WrittenExamStart: 'Start exam',
@@ -2001,6 +2001,7 @@ export const english = Object.freeze({
   WrittenExamUnderstood: 'You got it!',
   WrittenExamNeedsReview: 'What to review',
   WrittenExamFinish: 'Wrap up',
+  WrittenExamSubmitAndFinish: 'Send and wrap up',
   WrittenExamExit: 'Leave exam',
   WrittenExamExitTitle: 'Leave this exam?',
   WrittenExamExitHelp: 'Your answers from this session will be lost.',

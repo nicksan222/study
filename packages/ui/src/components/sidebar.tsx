@@ -195,12 +195,12 @@ function Frame({
   );
 }
 
-function Root({ className, ref, ...props }: ComponentProps<'aside'>) {
-  const root = useSidebarShortcuts();
+function Root({ className, hidden, ref, ...props }: ComponentProps<'aside'>) {
+  const root = useSidebarShortcuts(!hidden);
 
   useImperativeHandle(ref, () => root.current!);
 
-  return <aside {...props} ref={root} className={cn('study-sidebar', className)} />;
+  return <aside {...props} hidden={hidden} ref={root} className={cn('study-sidebar', className)} />;
 }
 
 function Header({ className, ...props }: ComponentProps<'div'>) {

@@ -21,6 +21,9 @@
   --sidebar-supporting: var(--contrast-sidebar-muted-foreground);
   border-right: 1px solid var(--ui-divider-border);
 }
+.study-sidebar[hidden] {
+  display: none;
+}
 .study-sidebar-header {
   display: flex;
   height: 3rem;

@@ -1435,6 +1435,10 @@
   padding-block: 1.25rem 1rem;
 }
 
+.study-exam-dialog [data-slot='dialog-description'] {
+  overflow-wrap: anywhere;
+}
+
 .study-exam-answer {
   display: grid;
   gap: 0.5rem;
@@ -1579,6 +1583,23 @@
   }
 }
 
+@container practice-viewport (max-width: 640px) {
+  .study-generation-layout {
+    grid-template-columns: minmax(0, 1fr);
+    overflow: auto;
+  }
+
+  .study-generation-brief,
+  .study-generation-pages {
+    overflow: visible;
+  }
+
+  .study-generation-pages {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+}
+
 @container practice-viewport (max-height: 14rem) {
   :is(.study-generation-dialog, .study-exam-dialog)[data-slot='dialog-popup'] {
     overflow-y: auto;
@@ -1630,10 +1651,6 @@
 }
 
 @container practice-viewport (max-width: 350px) {
-  .study-generation-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .study-generation-brief [role='radiogroup'] > .settings-grid {
     grid-template-columns: minmax(0, 1fr);
   }

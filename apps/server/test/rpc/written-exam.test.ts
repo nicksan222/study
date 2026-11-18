@@ -1,11 +1,13 @@
 import { StudyRpc, plainBlock, writtenExamTurnLimit } from '@study/contracts';
 import type { WrittenExamInput } from '@study/contracts';
-import { workflow_executions } from '@study/db';
+import { eq, workflow_executions } from '@study/db';
 import { test } from '@study/testing';
-import { Effect } from 'effect';
+import { Effect, Layer, Stream } from 'effect';
+import { AiError, LanguageModel, Model } from 'effect/ai';
 
 import { makeStudyClient } from '#server/client/index';
 import { writtenExamAgent } from '#server/features/materials/agents/written-exam';
+import { writtenExamWorkflow } from '#server/features/materials/service/written-exam';
 import { deletionDocument } from '#testing/material-deletion';
 
 test.server.stable(
@@ -63,6 +65,14 @@ test.server.stable(
             output: { next: hint }
           });
           expect(yield* exam({ ...request, step: hintStep })).toEqual(hint);
+          expect(
+            yield* Effect.flip(
+              exam({
+                ...request,
+                step: { ...hintStep, current: { question: first, hint: hint.message } }
+              })
+            )
+          ).toMatchObject({ kind: 'invalid_input' });
 
           const history = [
             { question: first, hint: hint.message, answer: 'The cell divides in two.' }
@@ -138,12 +148,116 @@ test.server.stable(
     const privateRows = app.store.db.orm
       .select({ payload: workflow_executions.payload, result: workflow_executions.result })
       .from(workflow_executions)
+      .where(eq(workflow_executions.workflow_tag, writtenExamWorkflow._tag))
       .all();
 
     expect(privateRows.length).toBeGreaterThan(0);
     expect(JSON.stringify(privateRows)).not.toContain(concept);
     expect(JSON.stringify(privateRows)).not.toContain(first);
     expect(JSON.stringify(privateRows)).not.toContain('The cell divides in two.');
+  }
+);
+
+function rawExamModel() {
+  const replies: (string | AiError.AiError)[] = [];
+  const calls: LanguageModel.ProviderOptions[] = [];
+  const model = Model.make(
+    'test' as string,
+    'written-exam',
+    Layer.effect(
+      LanguageModel.LanguageModel,
+      LanguageModel.make({
+        generateText: () => Effect.die('Streaming is required'),
+        streamText: (options) => {
+          calls.push(options);
+          const reply = replies.shift();
+
+          if (reply === undefined) return Stream.die('Unexpected model call');
+
+          if (typeof reply !== 'string') return Stream.fail(reply);
+
+          return Stream.make(
+            { type: 'text-start', id: 'reply' },
+            { type: 'text-delta', id: 'reply', delta: reply },
+            { type: 'text-end', id: 'reply' },
+            {
+              type: 'finish',
+              reason: 'stop',
+              usage: { inputTokens: { total: 1 }, outputTokens: { total: 1 } }
+            }
+          );
+        }
+      })
+    )
+  );
+
+  return { replies, calls, ai: { model: () => Effect.succeed(model) } };
+}
+
+test.server.stable(
+  'the written exam repairs only invalid finish output and spends at most one repair',
+  async ({ resources, expect }) => {
+    const provider = rawExamModel();
+    const { server } = await resources.openRpc({ ai: provider.ai });
+    const finish = {
+      kind: 'finish' as const,
+      concept: 'Mitosis',
+      history: [{ question: 'What separates during anaphase?', answer: 'Chromosomes.' }] as const
+    };
+    const summary = { kind: 'summary', understood: false, feedback: 'Review anaphase.' };
+    const valid = JSON.stringify({ next: summary });
+    const blank = JSON.stringify({ next: { ...summary, feedback: ' ' } });
+    const providerFailure = AiError.make({
+      module: 'test',
+      method: 'streamText',
+      reason: new AiError.UnknownError({ description: 'Provider connection failed' })
+    });
+
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const exam = yield* examFixture(server.url);
+
+          provider.replies.push(blank, valid);
+          expect(yield* exam(finish)).toEqual(summary);
+          expect(provider.calls).toHaveLength(2);
+
+          provider.replies.push(valid);
+          expect(yield* exam(finish)).toEqual(summary);
+          expect(provider.calls).toHaveLength(3);
+
+          provider.replies.push(providerFailure);
+          expect(yield* Effect.flip(exam(finish))).toMatchObject({ kind: 'transient' });
+          expect(provider.calls).toHaveLength(4);
+
+          provider.replies.push(blank, blank);
+          expect(yield* Effect.flip(exam(finish))).toMatchObject({ kind: 'transient' });
+          expect(provider.calls).toHaveLength(6);
+        })
+      )
+    );
+  }
+);
+
+test.server.stable(
+  'the exam provider can search selected passages without being instructed to cite markers',
+  async ({ resources, expect }) => {
+    const provider = rawExamModel();
+    const { server } = await resources.openRpc({ ai: provider.ai });
+    const opening = { kind: 'opening', concept: 'Cell division', question: 'Why do cells divide?' };
+
+    provider.replies.push(JSON.stringify({ next: opening }));
+
+    const result = await Effect.runPromise(
+      Effect.scoped(examFixture(server.url).pipe(Effect.flatMap((exam) => exam({ kind: 'start' }))))
+    );
+
+    expect(result).toEqual(opening);
+    expect(
+      provider.calls[0]?.tools.map(({ name, description }) => ({ name, description }))
+    ).toEqual([
+      { name: 'sources', description: expect.stringMatching(/without.*citation markers/i) }
+    ]);
   }
 );
 

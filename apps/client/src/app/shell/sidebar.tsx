@@ -32,8 +32,9 @@ const panels: Record<SidebarContent, ComponentType<PanelProps> | null> = {
 
 export function Sidebar({
   toggleRef,
+  primary,
   ...props
-}: SidebarProps & { toggleRef?: Ref<HTMLButtonElement> }) {
+}: SidebarProps & { toggleRef?: Ref<HTMLButtonElement>; primary?: boolean }) {
   const model = useSidebar(props);
   const { noteId } = useParams({ strict: false });
   const Panel = panels[sidebarContent(model.metadata)];
@@ -54,6 +55,8 @@ export function Sidebar({
     <SidebarView
       counts={counts}
       {...model}
+      hidden={props.hidden}
+      primary={primary}
       toggleRef={toggleRef}
       selectedNote={noteId ? String(noteId) : null}
       collection={Panel ? <Panel model={model} ready={ready} /> : null}

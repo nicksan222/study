@@ -34,6 +34,11 @@ export function writtenExamOperations() {
           : Effect.fail(new StudyError('cancelled', 'Written exam request ended'));
       }),
     writtenExam: Effect.fnUntraced(function* (input: WrittenExamInput) {
+      if (input.step.kind === 'hint' && input.step.current.hint !== undefined)
+        return yield* Effect.fail(
+          new StudyError('invalid_input', 'Written exam already gave a hint')
+        );
+
       const control = yield* Effect.serviceOption(WorkflowControl);
 
       if (Option.isNone(control) || !control.value.run)

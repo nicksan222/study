@@ -41,7 +41,7 @@ const cases = {
 type Locale = keyof typeof cases;
 
 async function checkSetupKeyboard(
-  { expect, expectScreenshot, setVisualViewport }: BrowserContext,
+  { page, expect, expectScreenshot, setVisualViewport }: BrowserContext,
   setup: Awaited<ReturnType<BrowserContext['page']['getByRole']>>
 ) {
   const copy = catalogs.italian;
@@ -69,7 +69,20 @@ async function checkSetupKeyboard(
     zoomPercent: 100,
     ready: () => expect(begin).toBeInViewport({ ratio: 1 })
   });
+  await page.setViewportSize({ width: 800, height: 800 });
+  await setVisualViewport({ width: 400 });
+  const format = setup.getByRole('radio', { name: copy.SidebarQuiz, exact: true });
+  const sources = setup.getByRole('switch').first();
+
+  await expect(setup).toHaveCSS('width', '368px');
+  expect((await format.boundingBox())!.y).toBeLessThan((await sources.boundingBox())!.y);
+  await expectScreenshot('setup-tablet-pinched', {
+    target: setup,
+    zoomPercent: 100,
+    ready: () => expect(format).toBeInViewport()
+  });
   await setVisualViewport(null);
+  await page.setViewportSize(cases.italian.viewport);
 }
 
 async function startExam(
@@ -224,6 +237,7 @@ async function checkLandscapeKeyboard(
 
   await expect(sheetViewport).toHaveCSS('height', '180px');
   await expect(log.getByText(cases.italian.question)).toBeInViewport({ ratio: 1 });
+  await expect(answer).toBeInViewport({ ratio: 1 });
   await expect(send).toBeInViewport({ ratio: 1 });
   const sendBounds = (await send.boundingBox())!;
 
@@ -233,8 +247,12 @@ async function checkLandscapeKeyboard(
     zoomPercent: 100,
     ready: () => expect(answer).toBeFocused()
   });
+  await setVisualViewport({ height: 180, offsetTop: 30 }, 'scroll');
+  await expect(sheetViewport).toHaveCSS('top', '30px');
   await setVisualViewport({ height: 120 });
   await expect(sheetViewport).toHaveCSS('height', '120px');
+  await answer.scrollIntoViewIfNeeded();
+  await expect(answer).toBeInViewport({ ratio: 1 });
   await send.scrollIntoViewIfNeeded();
   await expect(send).toBeInViewport();
   const question = log.getByText(cases.italian.question);
@@ -277,6 +295,9 @@ async function continueExam(
 
   await hintButton.click();
   await hintReply.called;
+
+  if (language === 'italian') await expect(answer).not.toBeFocused();
+
   await expectScreenshot('hint-pending', {
     target: exam,
     zoomPercent,
@@ -336,6 +357,10 @@ async function continueExam(
     await viewport.press('Home');
     await expect(viewport).toHaveJSProperty('scrollTop', 0);
     await expect(exam.getByRole('button', { name: copy.JumpToLatest })).toBeVisible();
+    await page.setViewportSize({ ...cases.english.viewport, height: 700 });
+    await expect(viewport).toHaveJSProperty('scrollTop', 0);
+    await expect(log.getByText(question, { exact: true })).toBeInViewport();
+    await page.setViewportSize(cases.english.viewport);
     await answer.focus();
   }
 
@@ -419,8 +444,12 @@ async function finishExam(context: BrowserContext, language: Locale) {
     hold: true
   });
 
-  await answer.fill(final);
-  await (early ? exam.getByRole('button', { name: copy.WrittenExamFinish }) : send).click();
+  if (early) await answer.fill(final);
+  else await expect(answer).toHaveValue(final);
+
+  await (
+    early ? exam.getByRole('button', { name: copy.WrittenExamSubmitAndFinish }) : send
+  ).click();
   await ending.called;
   await expectScreenshot('preparing-summary', {
     target: exam,
@@ -505,7 +534,12 @@ async function checkSettingsExit(
   await expect(answer).toHaveValue(draft);
   await settings.click();
   await confirm.getByRole('button', { name: copy.WrittenExamExit }).click();
-  await expect(page.getByRole('dialog', { name: copy.Settings })).toBeVisible();
+  const settingsDialog = page.getByRole('dialog', { name: copy.Settings });
+
+  await expect(settingsDialog).toBeVisible();
+  await settingsDialog.press('Escape');
+  await expect(settingsDialog).toBeHidden();
+  await expect(exam).toBeHidden();
 }
 
 async function reopenEnglishExam(
@@ -592,6 +626,86 @@ test.browser.stable(
     await exam.getByRole('button', { name: copy.Close, exact: true }).click();
     await reopenEnglishExam(context, session);
     await checkSettingsExit(context, { exam, answer });
+  }
+);
+
+test.browser.stable(
+  'Written exam preserves a pending reply and draft across resize',
+  async ({ page, study, rpc, ai, expect, expectScreenshot }) => {
+    const seed = await study.seed();
+    const copy = catalogs.english;
+    const concept = 'ChromosomeSegregation'.repeat(6);
+    const question = cases.english.question;
+    const draft = cases.english.incomplete;
+    const evidence = [{ name: seed.page.title, preview: study.lecture }];
+    const material = await rpc.runPromise(
+      rpc.client['materials.create']({
+        projectId: seed.project.id,
+        title: 'Cell division quiz',
+        content: {
+          kind: 'quiz',
+          questions: [
+            { kind: 'open', prompt: question, referenceAnswer: draft, explanation: draft }
+          ]
+        }
+      })
+    );
+
+    await page.setViewportSize({ width: 900, height: 850 });
+    await page.goto(`/practice/${material.id}?project=${seed.project.id}`);
+    const sidebar = page.getByRole('complementary', { name: copy.SidebarNavigation });
+    const generate = sidebar.getByRole('button', { name: copy.PracticeGenerate, exact: true });
+
+    await generate.click();
+    const setup = page.getByRole('dialog', { name: copy.PracticeGenerate });
+
+    await setup.getByRole('radio', { name: copy.WrittenExam, exact: true }).click();
+    ai.next(study.agents.writtenExam, {
+      input: { step: { kind: 'start' }, evidence },
+      output: { next: { kind: 'opening', concept, question } }
+    });
+    await setup.getByRole('button', { name: copy.WrittenExamStart }).click();
+    const exam = page.getByRole('dialog', { name: copy.WrittenExam });
+    const answer = exam.getByRole('textbox', { name: copy.StudyChatMessage });
+
+    await answer.fill(draft);
+    const hint = ai.next(study.agents.writtenExam, {
+      input: {
+        step: { kind: 'hint', concept, history: [], current: { question }, draft },
+        evidence
+      },
+      output: { next: { kind: 'hint', message: cases.english.hint } },
+      hold: true
+    });
+
+    await exam.getByRole('button', { name: copy.WrittenExamHint }).click();
+    await hint.called;
+    await page.setViewportSize({ width: 620, height: 850 });
+    await expect(page.locator('#study-sidebar-navigation')).toBeHidden();
+    await expect(exam.getByText(concept)).toHaveCSS('overflow-wrap', 'anywhere');
+    await expectScreenshot('resize-pending', {
+      target: exam,
+      ready: () =>
+        expect(exam.getByRole('status', { name: copy.WrittenExamThinking })).toBeVisible()
+    });
+    await expect(answer).toHaveValue(draft);
+    await page.setViewportSize({ width: 900, height: 850 });
+    hint.release();
+    await expectScreenshot('resize-reply', {
+      target: exam,
+      ready: () => expect(exam.getByText(cases.english.hint, { exact: true })).toBeInViewport()
+    });
+    await expect(answer).toHaveValue(draft);
+    await page.setViewportSize({ width: 620, height: 850 });
+    await exam.getByRole('button', { name: copy.WrittenExamExit, exact: true }).click();
+    await page
+      .getByRole('dialog', { name: copy.WrittenExamExitTitle })
+      .getByRole('button', { name: copy.WrittenExamExit, exact: true })
+      .click();
+    await expect(exam).toBeHidden();
+    await expect(
+      page.getByRole('main').getByRole('button', { name: copy.ToggleSidebar })
+    ).toBeFocused();
   }
 );
 

@@ -140,12 +140,15 @@ test.unit.stable(
     vi.spyOn(window, 'matchMedia').mockImplementation((query) => {
       const media = original(query);
 
-      if (query.includes('pointer: coarse'))
-        Object.defineProperty(media, 'matches', {
-          value: query.includes('(max-width: 640px),')
-        });
+      const matches = query.split(',').some((branch) => {
+        const maxWidth = /\(max-width: (\d+)px\)/.exec(branch)?.[1];
 
-      return media;
+        return (
+          maxWidth !== undefined && 620 <= Number(maxWidth) && !branch.includes('pointer: coarse')
+        );
+      });
+
+      return { ...media, matches };
     });
     api.settings.mockResolvedValue({ appearance: 2, zoomPercent: 150 });
     api.selected.mockResolvedValue(null);

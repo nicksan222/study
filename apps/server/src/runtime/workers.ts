@@ -160,6 +160,8 @@ export class Workers {
       })
     );
 
+    if (signal?.aborted) throw new StudyError('cancelled', 'Workflow request ended');
+
     return runtime.runPromise(effect, { signal });
   }
 

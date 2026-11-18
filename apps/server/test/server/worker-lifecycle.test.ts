@@ -38,6 +38,25 @@ test.server.stable(
 );
 
 test.server.stable(
+  'a workflow aborted while acquiring the worker does not start its effect',
+  async ({ server: { app }, expect }) => {
+    await app.workers.runWorkflow(Effect.void);
+    const controller = new AbortController();
+    let started = false;
+    const running = app.workers.runWorkflow(
+      Effect.sync(() => {
+        started = true;
+      }),
+      controller.signal
+    );
+
+    controller.abort();
+    await expect(running).rejects.toMatchObject({ kind: 'cancelled' });
+    expect(started).toBe(false);
+  }
+);
+
+test.server.stable(
   'close rejects a queued start and leaves the worker stopped',
   async ({ server: serverFixture, expect, assert: assertions }) => {
     const assert: test.Assert = assertions;

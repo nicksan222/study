@@ -2029,7 +2029,7 @@ export const italian = Object.freeze({
   WrittenExamHelp:
     'Discuti un concetto con un professore che ti fa domande di approfondimento. Se ti blocchi, chiedi un indizio.',
   WrittenExamChatGptSetup:
-    'Accedi a ChatGPT e attiva la condivisione nelle Impostazioni per usare l’interrogazione scritta.',
+    'Accedi a ChatGPT e attiva «Consenti l’uso del mio piano» nelle Impostazioni per usare l’interrogazione scritta.',
   WrittenExamTopic: 'Argomento (facoltativo)',
   WrittenExamTopicHint: 'Lascia vuoto per partire dalle pagine',
   WrittenExamStart: 'Inizia interrogazione',
@@ -2051,6 +2051,7 @@ export const italian = Object.freeze({
   WrittenExamUnderstood: 'Ce l’hai fatta!',
   WrittenExamNeedsReview: 'Cosa ripassare',
   WrittenExamFinish: 'Concludi',
+  WrittenExamSubmitAndFinish: 'Invia e concludi',
   WrittenExamExit: 'Esci dall’interrogazione',
   WrittenExamExitTitle: 'Vuoi uscire dall’interrogazione?',
   WrittenExamExitHelp: 'Le risposte di questa sessione andranno perse.',
