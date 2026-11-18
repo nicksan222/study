@@ -48,3 +48,48 @@ test.unit.stable(
     expect(save.mock.calls).toEqual([[{ denoise: true }], [{ denoise: true }]]);
   }
 );
+
+test.unit.stable(
+  'waits for the voice preferences snapshot before enabling a saved switch',
+  async ({ act, screen, expect, fireEvent, rpcTestTransport, render }) => {
+    const initial = { filterSilence: false, chunkSeconds: 20, denoise: false } as const;
+    const acknowledged = { filterSilence: false, chunkSeconds: 20, denoise: true };
+    const saved = Promise.withResolvers<object>();
+    const snapshot = Promise.withResolvers<typeof acknowledged>();
+    let liveSnapshot = snapshot.promise;
+    let savedEdit = false;
+    const fixture = rpcTestTransport(async (tag) => {
+      if (tag === 'voice.status') return readyVoiceStatus;
+
+      if (tag === 'settings.voiceSettings') return savedEdit ? liveSnapshot : initial;
+
+      if (tag === 'settings.saveVoiceSettings') {
+        savedEdit = true;
+
+        return saved.promise;
+      }
+
+      throw new Error(`Unexpected endpoint ${tag}`);
+    });
+
+    render(<VoiceSettings />, { wrapper: fixture.wrapper });
+    const filter = await screen.findByRole('switch', {
+      name: 'Filter silence before transcription'
+    });
+    const denoise = screen.getByRole('switch', { name: 'Reduce background noise' });
+
+    expect(filter).not.toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(denoise);
+    expect(denoise).toHaveAttribute('aria-disabled', 'true');
+    await act(async () => saved.resolve({}));
+    expect(denoise).toHaveAttribute('aria-disabled', 'true');
+
+    await act(async () => snapshot.resolve(acknowledged));
+    expect(denoise).toBeChecked();
+    expect(denoise).not.toHaveAttribute('aria-disabled', 'true');
+
+    liveSnapshot = Promise.resolve({ ...acknowledged, filterSilence: true });
+    await act(async () => fixture.notify());
+    expect(filter).toBeChecked();
+  }
+);

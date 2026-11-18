@@ -10,12 +10,16 @@ export function VoiceSettings() {
   const { t } = useI18n();
   const preferences = rpc.settings.voiceSettings.useQuery({});
   const write = rpc.settings.saveVoiceSettings.useMutation();
-  const save = useSettingsPatchAutosave<Preferences>(write.mutateAsync);
-  const disabled = save.pending || !preferences.data;
+  const save = useSettingsPatchAutosave<Preferences>(async (patch) => {
+    await write.mutateAsync(patch);
+    preferences.refetch();
+  });
+  const busy = save.pending || preferences.isFetching;
+  const disabled = busy || preferences.stale || !preferences.data;
 
   return (
     <>
-      <Settings.Section title={t('VoiceTitle')} busy={save.pending}>
+      <Settings.Section title={t('VoiceTitle')} busy={busy}>
         <Settings.Intro>{t('VoicePrivacy')}</Settings.Intro>
         <Settings.Group>
           <VoiceLanguageRow />
@@ -37,7 +41,7 @@ export function VoiceSettings() {
               title={t('VoiceFilterSilence')}
               description={t('VoiceFilterSilenceHelp')}
               checked={preferences.data.filterSilence}
-              disabled={save.pending}
+              disabled={disabled}
               onCheckedChange={(filterSilence) => save.update({ filterSilence })}
             />
           )}
