@@ -1,5 +1,5 @@
 import { Field, Notebook, Textarea } from '@study/ui';
-import { useRef } from 'react';
+import { useId, useRef } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 
 import { DictationButton } from './button.tsx';
@@ -12,6 +12,7 @@ export function DictationTextarea({
   targetKey,
   label,
   toolbarLabel,
+  id: explicitId,
   ...props
 }: Omit<ComponentProps<typeof Textarea>, 'value' | 'onChange' | 'ref' | 'header'> & {
   targetKey?: string | number | bigint;
@@ -20,6 +21,8 @@ export function DictationTextarea({
   value: string;
   onValueChange: (value: string) => void;
 }) {
+  const generatedId = useId();
+  const id = explicitId ?? (toolbarLabel ? generatedId : undefined);
   const input = useRef<HTMLTextAreaElement>(null);
   const dictation = useTextDictation({
     value,
@@ -35,17 +38,29 @@ export function DictationTextarea({
       disabled={props.disabled || props.readOnly}
     />
   );
+  const header = toolbarLabel
+    ? { label: label ? toolbarLabel : <label htmlFor={id}>{toolbarLabel}</label>, action }
+    : undefined;
   const control = (
     <Textarea
       {...props}
       ref={input}
-      header={toolbarLabel ? { label: toolbarLabel, action } : undefined}
+      id={id}
+      header={header}
       value={value}
       onChange={(event) => onValueChange(event.target.value)}
     />
   );
 
-  if (toolbarLabel) return control;
+  if (header) {
+    return label ? (
+      <Field label={label} htmlFor={id}>
+        {control}
+      </Field>
+    ) : (
+      control
+    );
+  }
 
   return (
     <>
