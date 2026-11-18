@@ -24,13 +24,21 @@ function insertInlineText(editor: Editor, text: string) {
   const prefix = before && !/\s$/.test(before) && text && !/^[\s,.;:!?]/.test(text) ? ' ' : '';
   const suffix = after && !/^[\s,.;:!?]/.test(after) && text && !/\s$/.test(text) ? ' ' : '';
   const value = (prefix + text + suffix).replace(/\r\n?/g, '\n');
-  const content = literalContent(value, editor.isActive('codeBlock'));
+  const content = literalContent(value, textOnlySelection(editor));
 
   if (content.length) editor.chain().focus().insertContent(content).run();
 }
 
-function literalContent(value: string, codeBlock: boolean) {
-  if (codeBlock) return value ? [{ type: 'text', text: value }] : [];
+function textOnlySelection(editor: Editor) {
+  const { selection, schema } = editor.state;
+  const node = selection instanceof NodeSelection ? selection.node : selection.$from.parent;
+  const hardBreak = schema.nodes.hardBreak;
+
+  return !hardBreak || !node.type.contentMatch.matchType(hardBreak);
+}
+
+function literalContent(value: string, textOnly: boolean) {
+  if (textOnly) return value ? [{ type: 'text', text: value }] : [];
 
   return value
     .split('\n')

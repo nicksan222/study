@@ -8,6 +8,48 @@ import type { StructuredEditorLabels } from './structured-editor-types';
 
 const labels = new Proxy({} as StructuredEditorLabels, { get: (_, key) => String(key) });
 
+for (const inline of [false, true]) {
+  test.unit.stable(
+    `preserves dictated newlines inside ${inline ? 'inline' : 'block'} math`,
+    ({ render, act, expect }) => {
+      const handle = createRef<RichNoteEditorHandle>();
+      let changed: StructuredEditorValue | undefined;
+      const math = {
+        type: inline ? 'documentInlineMath' : 'documentMath',
+        content: [{ type: 'text', text: 'Before selected after' }]
+      };
+
+      render(
+        <StructuredEditor
+          ref={handle}
+          value={{
+            type: 'doc',
+            content: inline ? [{ type: 'paragraph', content: [math] }] : [math]
+          }}
+          onChange={(value) => {
+            changed = value;
+          }}
+          label="Document"
+          placeholder=""
+          labels={labels}
+        />
+      );
+      act(() => {
+        const offset = inline ? 1 : 0;
+
+        handle.current!.restoreSelection({ anchor: 8 + offset, head: 16 + offset });
+        handle.current!.insertPlainText('first\r\nsecond\rthird\n\nlast');
+      });
+      const result = inline ? changed?.content?.[0]?.content?.[0] : changed?.content?.[0];
+
+      expect(result).toMatchObject({
+        type: math.type,
+        content: [{ type: 'text', text: 'Before first\nsecond\nthird\n\nlast after' }]
+      });
+    }
+  );
+}
+
 test.unit.stable(
   'appends dictation after a trailing image when the captured document changed',
   ({ render, screen, act, expect }) => {
