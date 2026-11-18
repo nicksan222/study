@@ -16,11 +16,26 @@ const assets = ['speech.gguf', 'vad.gguf'].map((filename) => ({
   sha256: new CryptoHasher('sha256').update(bytes).digest('hex')
 }));
 
+function unexpectedRecognition(): Promise<never> {
+  return Promise.reject(new Error('Unexpected speech recognition'));
+}
+
 test.server.stable(
   'rejects an explicitly configured unregistered speech model',
   async ({ resources, expect }) => {
     await expect(
       resources.openApp({ voice: { modelId: 'unregistered-decoder' } })
+    ).rejects.toMatchObject({ kind: 'invalid_input' });
+  }
+);
+
+test.server.stable(
+  'rejects asset overrides for native recognition before reporting model readiness',
+  async ({ resources, expect }) => {
+    await expect(
+      resources.openApp({
+        voice: { assets: assets.slice(0, 1), fetch: async () => new Response(bytes) }
+      })
     ).rejects.toMatchObject({ kind: 'invalid_input' });
   }
 );
@@ -108,6 +123,7 @@ test.server.stable(
       const app = await resources.openApp({
         voice: {
           assets,
+          transcribe: unexpectedRecognition,
           fetch: async (_url, options) =>
             new Promise<Response>((_, reject) => {
               const signal = options?.signal;
@@ -203,7 +219,7 @@ test.server.stable(
       return remove.call(this);
     });
     const app = await resources.openApp({
-      voice: { assets, fetch: async () => new Response(bytes) }
+      voice: { assets, fetch: async () => new Response(bytes), transcribe: unexpectedRecognition }
     });
 
     await app.nativeRuntime.runPromise(

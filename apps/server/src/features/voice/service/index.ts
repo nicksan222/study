@@ -21,6 +21,12 @@ export const Voice = defineService('study/Voice', function* () {
     try: () => selectSpeechRecognitionStrategy(runtime.modelId),
     catch: normalizeError
   });
+
+  if (runtime.assets && !runtime.transcribe)
+    return yield* Effect.fail(
+      new StudyError('invalid_input', 'Speech asset overrides require a recognition adapter')
+    );
+
   const models = new VoiceModels(
     speechModelDirectory(runtime.directory ?? '', strategy),
     fs,
