@@ -16,6 +16,7 @@ export type Journey = {
   page: Page;
   expectScreenshot: ExpectScreenshot;
   loseCreationResponse: Awaited<ReturnType<typeof openWebStack>>['loseCreationResponse'];
+  setVisualViewportHeight: (height: number | null) => Promise<void>;
 };
 
 type Fixtures = {
@@ -78,6 +79,16 @@ const testHarness = testBrowser.extend<Fixtures>({
     await provide({
       page,
       loseCreationResponse: webStack.loseCreationResponse,
+      setVisualViewportHeight: (height) =>
+        page.evaluate((value) => {
+          // Headless Chromium has no on-screen keyboard to resize the visual viewport.
+          const viewport = window.visualViewport!;
+
+          if (value === null) Reflect.deleteProperty(viewport, 'height');
+          else Object.defineProperty(viewport, 'height', { configurable: true, value });
+
+          viewport.dispatchEvent(new Event('resize'));
+        }, height),
       expectScreenshot: (name, options) =>
         screenshots.expectScreenshot(name, {
           ...options,

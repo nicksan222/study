@@ -6,7 +6,7 @@ test.browser.use({ aiEnabled: true, video: 'on' });
 
 type BrowserContext = Pick<
   test.browser.Context,
-  'page' | 'study' | 'ai' | 'rpc' | 'expect' | 'expectScreenshot'
+  'page' | 'study' | 'ai' | 'rpc' | 'expect' | 'expectScreenshot' | 'setVisualViewportHeight'
 >;
 
 const cases = {
@@ -164,17 +164,12 @@ async function startExam(
 }
 
 async function checkLandscapeKeyboard(
-  { page, expect, expectScreenshot }: BrowserContext,
+  { page, expect, expectScreenshot, setVisualViewportHeight }: BrowserContext,
   { exam, answer, send, log }: Awaited<ReturnType<typeof startExam>>
 ) {
   await page.setViewportSize({ width: 844, height: 390 });
   await answer.focus();
-  await page.evaluate(() => {
-    const viewport = window.visualViewport!;
-
-    Object.defineProperty(viewport, 'height', { configurable: true, value: 180 });
-    viewport.dispatchEvent(new Event('resize'));
-  });
+  await setVisualViewportHeight(180);
   const sheetViewport = page.locator('[data-slot="dialog-viewport"]').filter({ has: exam });
 
   await expect(sheetViewport).toHaveCSS('height', '180px');
@@ -188,12 +183,7 @@ async function checkLandscapeKeyboard(
     zoomPercent: 100,
     ready: () => expect(answer).toBeFocused()
   });
-  await page.evaluate(() => {
-    const viewport = window.visualViewport!;
-
-    Reflect.deleteProperty(viewport, 'height');
-    viewport.dispatchEvent(new Event('resize'));
-  });
+  await setVisualViewportHeight(null);
   await page.setViewportSize(cases.italian.viewport);
 }
 
@@ -212,6 +202,7 @@ async function continueExam(
   const thinking = exam.getByRole('status', { name: copy.WrittenExamThinking });
 
   if (language === 'italian') await checkLandscapeKeyboard(context, session);
+
   await answer.fill(incomplete);
   const hintReply = ai.next(agent, {
     input: {
@@ -338,9 +329,9 @@ async function finishExam(context: BrowserContext, language: Locale) {
 
 test.browser.stable(
   'Written exam follows up and preserves the draft on retry in English',
-  async ({ page, study, ai, rpc, expect, expectScreenshot }) => {
+  async ({ page, study, ai, rpc, expect, expectScreenshot, setVisualViewportHeight }) => {
     const { exam, summary, generate, setup, evidence } = await finishExam(
-      { page, study, ai, rpc, expect, expectScreenshot },
+      { page, study, ai, rpc, expect, expectScreenshot, setVisualViewportHeight },
       'english'
     );
     const copy = catalogs.english;
@@ -426,9 +417,9 @@ test.browser.describe('mobile browser', () => {
 
   test.browser.stable(
     'Written exam keeps the question and answer reachable in Italian on mobile',
-    async ({ page, study, ai, rpc, expect, expectScreenshot }) => {
+    async ({ page, study, ai, rpc, expect, expectScreenshot, setVisualViewportHeight }) => {
       const { exam, feedback, generate, setup } = await finishExam(
-        { page, study, ai, rpc, expect, expectScreenshot },
+        { page, study, ai, rpc, expect, expectScreenshot, setVisualViewportHeight },
         'italian'
       );
 

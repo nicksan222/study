@@ -8,9 +8,11 @@ import type { Journey } from './testing.ts';
 const testE2e = harness.browser.stable.extend<{
   expectScreenshot: ExpectScreenshot;
   loseCreationResponse: Journey['loseCreationResponse'];
+  setVisualViewportHeight: Journey['setVisualViewportHeight'];
 }>({
   expectScreenshot: async ({ journey }, provide) => provide(journey.expectScreenshot),
-  loseCreationResponse: async ({ journey }, provide) => provide(journey.loseCreationResponse)
+  loseCreationResponse: async ({ journey }, provide) => provide(journey.loseCreationResponse),
+  setVisualViewportHeight: async ({ journey }, provide) => provide(journey.setVisualViewportHeight)
 });
 
 /** Application journeys acquire the full real stack through their classified registration. */
