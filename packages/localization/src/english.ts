@@ -78,7 +78,7 @@ export const english = Object.freeze({
   MobileMatchDescription: 'Compare the code on both screens, then approve the phone here.',
   MobileAvailabilityTitle: 'Keep Study available',
   MobileAvailabilityDescription:
-    'Your phone connects directly to this computer. Keep the computer awake and Study running when you’re away.',
+    'Your phone connects directly to this computer. Keep it awake and Study running while you’re away. On Mac, Study requires macOS 14 or later.',
   MobilePhoneIntro:
     'Open Study on your computer, go to Settings → Study on your phone, and scan the QR code or paste the invitation here.',
   MobileInstallHint:
@@ -97,6 +97,8 @@ export const english = Object.freeze({
   MobileConnectionError:
     'Study could not complete the operation. Check the connection and try again.',
   MobileRevoke: 'Revoke phone access',
+  MobileRevocationError:
+    'The connection closed, but Study could not remove the saved pairing. Try revoking access again.',
   MobileUnlink: 'Unlink this phone',
   MobileInviteExpired: 'The invitation expired. Create a new one on your computer.',
   MobileInvite: 'Invitation link',

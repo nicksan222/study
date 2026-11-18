@@ -16,6 +16,7 @@ type State = {
   connected?: boolean;
   busy?: boolean;
   error?: boolean;
+  revocationPending?: boolean;
   backgroundError?: boolean;
 };
 
@@ -32,6 +33,14 @@ let decline: (() => void) | undefined;
 const subscribers = new Set<() => void>();
 
 const currentRoom = () => active;
+
+async function desktopIdentity(connection: MobileRoom) {
+  const { userId, identityPersistence } = await connection.room.getSelf();
+
+  if (identityPersistence !== 'local') throw new Error('Desktop identity storage unavailable');
+
+  return userId;
+}
 
 function set(next: State) {
   state = next;
@@ -81,7 +90,7 @@ function attach(connection: MobileRoom) {
 }
 
 export async function resumeDesktop(restart = false) {
-  if (state.busy || (active && !restart)) return;
+  if (state.busy || state.revocationPending || (active && !restart)) return;
 
   const link = fromStorage(storageKey, desktopLinkSchema);
 
@@ -105,9 +114,8 @@ export async function resumeDesktop(restart = false) {
     connection.requestPairing.onRequest(
       (input, { userId }) => input === null && active === connection && userId === link.phone
     );
-    const identity = await connection.room.getSelf();
 
-    if (identity.userId !== link.desktop || identity.identityPersistence !== 'local')
+    if ((await desktopIdentity(connection)) !== link.desktop)
       throw new Error('Desktop identity changed');
 
     set({ ...state, busy: false });
@@ -122,7 +130,7 @@ export async function resumeDesktop(restart = false) {
 }
 
 export async function startInvitation() {
-  if (active || state.busy || state.link) return;
+  if (active || state.busy || state.link || state.revocationPending) return;
 
   set({ busy: true });
 
@@ -133,9 +141,7 @@ export async function startInvitation() {
     const connection = mobileRoom({ room, secret });
 
     attach(connection);
-    const { userId: desktop, identityPersistence } = await connection.room.getSelf();
-
-    if (identityPersistence !== 'local') throw new Error('Desktop identity storage unavailable');
+    const desktop = await desktopIdentity(connection);
 
     const base =
       import.meta.env.VITE_STUDY_MOBILE_URL || 'https://nicksan222.github.io/study/mobile/';
@@ -197,7 +203,7 @@ export async function startInvitation() {
     set({ invite: url });
   } catch {
     await disconnectDesktop();
-    set({ error: true });
+    set({ ...state, error: true });
   }
 }
 
@@ -209,13 +215,23 @@ export async function disconnectDesktop() {
 
   active = undefined;
   closeRpc?.();
-  localStorage.removeItem(storageKey);
-  set({ busy: !!connection });
+  closeRpc = undefined;
+  set({ busy: true });
+  let revocationPending = false;
+  let leaveFailed = false;
+
+  try {
+    localStorage.removeItem(storageKey);
+  } catch {
+    revocationPending = true;
+  }
 
   try {
     await connection?.room.leave();
-    set({});
   } catch {
-    set({ error: true });
+    leaveFailed = true;
   }
+
+  if (revocationPending) set({ error: true, revocationPending: true });
+  else set(leaveFailed ? { error: true } : {});
 }

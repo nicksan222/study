@@ -1,5 +1,6 @@
 import { Schema } from 'effect';
 
+import { forwardAbort } from '#client/lib/abort.ts';
 import { openStudyRpcSocket } from '#client/lib/host.ts';
 
 import { sendFrames } from './frames';
@@ -7,47 +8,64 @@ import { frameSize, socketIdSchema } from './protocol';
 import type { MobileRoom } from './room';
 
 type Session = {
-  id: string;
   write: (bytes: Uint8Array) => void;
   close: () => void;
+};
+
+type OpenAttempt = {
+  id: string;
+  cancel: AbortController;
+  session?: Session;
 };
 
 const isSocketId = Schema.is(socketIdSchema);
 
 export function servePairedRpc(connection: MobileRoom, authorized: (userId: string) => boolean) {
-  const sessions = new Map<string, Session>();
+  const sessions = new Map<string, OpenAttempt>();
   const close = (peerId: string) => {
-    const session = sessions.get(peerId);
+    const attempt = sessions.get(peerId);
 
     sessions.delete(peerId);
-    session?.close();
+    attempt?.cancel.abort();
+    attempt?.session?.close();
   };
 
-  connection.open.onReceive(({ userId, byteLength }) => authorized(userId) && byteLength <= 64);
+  let disposed = false;
+
+  connection.open.onReceive(
+    ({ userId, byteLength }) => !disposed && authorized(userId) && byteLength <= 64
+  );
   connection.open.onRequest(async (id, { peerId, userId, signal }) => {
-    if (!authorized(userId) || !isSocketId(id)) return false;
+    if (disposed || !authorized(userId) || !isSocketId(id) || signal.aborted) return false;
 
     close(peerId);
-    const socket = await openStudyRpcSocket();
-    const session = relaySocket(socket, connection, peerId, id);
+    const attempt: OpenAttempt = { id, cancel: new AbortController() };
+    const cancellation = attempt.cancel.signal;
+    const stopListening = forwardAbort(signal, attempt.cancel);
 
-    sessions.set(peerId, session);
+    sessions.set(peerId, attempt);
 
     try {
-      await waitForOpen(socket, signal);
+      const socket = await openStudyRpcSocket();
 
-      if (sessions.get(peerId) !== session || !authorized(userId)) {
-        session.close();
+      if (cancellation.aborted || !authorized(userId)) {
+        socket.close();
+      } else {
+        attempt.session = relaySocket(socket, connection, peerId, id);
+        await waitForOpen(socket, cancellation);
+        cancellation.throwIfAborted();
 
-        return false;
+        if (authorized(userId)) return true;
       }
-
-      return true;
     } catch {
-      session.close();
-
-      return false;
+      // The peer gets a negative acknowledgement when the private socket cannot open.
+    } finally {
+      stopListening();
     }
+
+    if (sessions.get(peerId) === attempt) close(peerId);
+
+    return false;
   });
 
   connection.up.onReceive(
@@ -61,7 +79,7 @@ export function servePairedRpc(connection: MobileRoom, authorized: (userId: stri
     const session = sessions.get(peerId);
 
     if (session && authorized(userId) && session.id === metadata && bytes instanceof Uint8Array)
-      session.write(bytes);
+      session.session?.write(bytes);
   });
 
   connection.close.onReceive(({ userId, byteLength }) => authorized(userId) && byteLength <= 64);
@@ -71,6 +89,8 @@ export function servePairedRpc(connection: MobileRoom, authorized: (userId: stri
   connection.room.onPeerLeave(({ peerId }) => close(peerId));
 
   return () => {
+    disposed = true;
+
     for (const peerId of sessions.keys()) close(peerId);
   };
 }
@@ -147,7 +167,6 @@ function relaySocket(
   );
 
   return {
-    id,
     close: finish,
     write(bytes) {
       if (socket.readyState === WebSocket.OPEN) socket.send(new Uint8Array(bytes));

@@ -18,6 +18,7 @@ const pairingSteps = [
 export function DesktopMobileSettings() {
   const { t } = useI18n();
   const state = useSyncExternalStore(subscribeDesktop, desktopState);
+  const hasPairing = !!state.link || state.revocationPending;
 
   return (
     <Settings.Section title={t('MobileStudy')}>
@@ -26,25 +27,29 @@ export function DesktopMobileSettings() {
         {state.invite && (
           <InvitationDetails key={state.invite} invite={state.invite} approval={state.approval} />
         )}
-        {state.error && (
-          <ErrorState
-            title={t('MobileConnectionError')}
-            action={
-              state.link && (
-                <RetryButton label={t('Retry')} onClick={() => void resumeDesktop(true)} />
-              )
-            }
-          />
+        {state.revocationPending ? (
+          <ErrorState title={t('MobileRevocationError')} />
+        ) : (
+          state.error && (
+            <ErrorState
+              title={t('MobileConnectionError')}
+              action={
+                state.link && (
+                  <RetryButton label={t('Retry')} onClick={() => void resumeDesktop(true)} />
+                )
+              }
+            />
+          )
         )}
         {state.backgroundError && <ErrorState title={t('MobileBackgroundError')} />}
         <MobileStudy.Row>
-          {state.invite || state.link ? (
+          {state.invite || hasPairing ? (
             <Button
               variant="outline"
               disabled={state.busy}
               onClick={() => void disconnectDesktop()}
             >
-              {t(state.link ? 'MobileRevoke' : 'Cancel')}
+              {t(hasPairing ? 'MobileRevoke' : 'Cancel')}
             </Button>
           ) : (
             <Button disabled={state.busy} onClick={() => void startInvitation()}>
@@ -59,6 +64,8 @@ export function DesktopMobileSettings() {
 
 function PairingIntroduction({ state }: { state: ReturnType<typeof desktopState> }) {
   const { t } = useI18n();
+
+  if (state.revocationPending) return null;
 
   if (state.link) {
     return (

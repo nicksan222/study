@@ -55,13 +55,15 @@ pub fn handle_close(window: &tauri::Window, event: &tauri::WindowEvent) {
 
 pub fn handle_menu(app: &tauri::AppHandle, event: tauri::menu::MenuEvent) {
     match event.id().as_ref() {
-        OPEN => {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
-        }
+        OPEN => show_main(app),
         QUIT => app.exit(0),
         _ => {}
+    }
+}
+
+pub fn show_main(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
     }
 }

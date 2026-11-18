@@ -80,7 +80,7 @@ function peerProtocol(connect: (signal: AbortSignal) => Promise<Socket.InputTran
       })
   });
 
-  return RpcClient.layerProtocolSocket({ retryTransientErrors: true }).pipe(
+  return RpcClient.layerProtocolSocket().pipe(
     Layer.provide(RpcSerialization.layerNdjson),
     Layer.provide(Layer.effect(Socket.Socket, Socket.fromTransformStream(acquire)))
   );

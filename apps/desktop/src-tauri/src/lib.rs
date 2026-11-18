@@ -41,10 +41,7 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
+            mobile::show_main(app);
         }))
         .setup(|app| {
             let data = app.path().app_data_dir()?;
@@ -91,10 +88,14 @@ pub fn run() {
         ])
         .build(tauri::generate_context!());
     match result {
-        Ok(application) => application.run(|app, event| {
-            if let tauri::RunEvent::Exit = event {
-                tauri::async_runtime::block_on(shutdown_server(app));
-            }
+        Ok(application) => application.run(|app, event| match event {
+            tauri::RunEvent::Exit => tauri::async_runtime::block_on(shutdown_server(app)),
+            #[cfg(target_os = "macos")]
+            tauri::RunEvent::Reopen {
+                has_visible_windows: false,
+                ..
+            } => mobile::show_main(app),
+            _ => {}
         }),
         Err(error) => {
             tracing::error!(%error, "desktop failed");

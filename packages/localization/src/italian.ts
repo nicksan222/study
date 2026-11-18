@@ -84,7 +84,7 @@ export const italian = Object.freeze({
     'Controlla che il codice sia uguale sui due schermi e autorizza il telefono qui.',
   MobileAvailabilityTitle: 'Tieni Study disponibile',
   MobileAvailabilityDescription:
-    'Il telefono si collega direttamente a questo computer. Quando sei fuori, lascia Study in esecuzione e il computer attivo.',
+    'Il telefono si collega direttamente a questo computer. Quando sei fuori, lascia il computer attivo e Study in esecuzione. Su Mac, Study richiede macOS 14 o successivo.',
   MobilePhoneIntro:
     'Apri Study sul computer, vai in Impostazioni → Study sul telefono e inquadra il QR o incolla qui l’invito.',
   MobileInstallHint:
@@ -103,6 +103,8 @@ export const italian = Object.freeze({
   MobileConnectionError:
     'Study non ha completato l’operazione. Controlla la connessione e riprova.',
   MobileRevoke: 'Revoca l’accesso del telefono',
+  MobileRevocationError:
+    'La connessione è stata chiusa, ma Study non ha potuto rimuovere l’abbinamento salvato. Riprova a revocare l’accesso.',
   MobileUnlink: 'Scollega questo telefono',
   MobileInviteExpired: 'L’invito è scaduto. Creane uno nuovo sul computer.',
   MobileInvite: 'Link di invito',

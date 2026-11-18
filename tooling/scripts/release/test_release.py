@@ -248,7 +248,7 @@ process.exit(Number(Bun.env.TEST_STATUS ?? 0));
         self.cli("configure", version, output, STUDY_UPDATE_ENDPOINT="https://github.com/example/study/releases/latest/download/latest.json")
         config = json.loads(output.read_text())
         self.assertEqual(config["plugins"]["updater"]["pubkey"], self.env["STUDY_UPDATE_PUBLIC_KEY"])
-        self.assertEqual(config["bundle"]["macOS"]["minimumSystemVersion"], "12.0")
+        self.assertEqual(config["bundle"]["macOS"]["minimumSystemVersion"], "14.0")
         self.cli("configure", version, output, STUDY_UPDATE_PUBLIC_KEY="untrusted comment: invalid", ok=False)
         self.cli("configure", version, output, STUDY_UPDATE_ENDPOINT="http://example.com", ok=False)
         self.cli("configure", version, output, "--unsigned")
