@@ -16,8 +16,8 @@ Thank you for helping with Study.
   checks and CI: Rust formatting/Clippy/dependencies/tests/doctests/docs, repository-wide
   Vite+ format/lint, Fallow, TypeScript checks, package tests, web build and browser E2E,
   generated database drift, real integrations, the packaged-runtime smoke test, and landing
-  checks/build. Docker is required for real integrations. CI starts eight unconditional
-  lanes in parallel: 🧹 Code hygiene, 🧩 Types & unit tests, ⚙️ Server & contracts,
+  checks/build. Docker is required for real integrations. CI starts nine unconditional
+  lanes in parallel: 🧹 Code hygiene, 🧩 Types & unit tests, ⚙️ Server tests, 📦 Shared package tests,
   🗄️ Database, 🌐 Browser journeys, 🦀 Desktop & runtime, 🔌 Provider integrations and
   🌍 Landing page. Each lane selects tasks from the same Turbo graph. Static checks and
   landing builds no longer wait for native toolchain setup; browser journeys have their
@@ -26,8 +26,8 @@ Thank you for helping with Study.
   required `Test and build` check fails if any lane fails, is cancelled, is skipped or is missing. Independent tasks continue after
   failures; dependent tasks run only when their prerequisites pass. The client build
   reuses its prerequisite typecheck and can overlap independent unit and tooling tests.
-- **CI runs the complete server suite once without sharding**, retaining two Vitest workers.
-  Server fixtures use `/dev/shm` for RAM-backed
+- **CI splits the server suite across three Vitest shards**, with one worker per shard.
+  The shared package suites each run once. Server fixtures use `/dev/shm` for RAM-backed
   temporary files on Linux CI, retaining WAL, locks, backup and restart behavior. Local
   tests use the normal temporary directory; each test still owns its database.
 - **Every visible word comes from `@study/localization`, in English and Italian.** If you
@@ -448,17 +448,20 @@ packages participate in the graph without redundant builds or separate typecheck
 The existing server, client and tooling TypeScript projects remain the checking boundaries.
 
 CI group membership is defined in `turbo.json`: `check:hygiene`, `check:javascript`,
-`check:server`, `check:database` and `check:native` are aggregate tasks without shell
+`check:shared`, `check:database` and `check:native` are aggregate tasks without shell
 commands. Their `ci:*` scripts allow two independent tasks at once. The JavaScript lane
-owns typechecks, the client build and client/tooling unit tests; server and database
-suites have separate jobs and reports. Browser, integration and landing jobs select
+owns typechecks, the client build and client/tooling unit tests. Server, shared
+package and database suites have separate jobs and reports. Browser, integration and
+landing jobs select
 `web:e2e:compare`, `integrations:e2e` and `landing-check`, respectively. Browser CI
 uses native Playwright `--shard=1/3`, `--shard=2/3` and `--shard=3/3` with case-level
-parallelism; the sequential harness cleanup checks stay in one worker. All shards run
-even after a sibling fails and upload separately named diagnostics. The required gate
-waits for the entire matrix and rejects a failed or cancelled shard. Other lanes run
-without sharding. No lane uses a path filter or change detector. Turbo decides which
-deterministic task results can be reused; server, database, integration and browser tests still execute every run.
+parallelism; the sequential harness cleanup checks stay in one worker. Server CI
+forwards those same shard indices to Vitest through `bun run ci:server --shard=1/3`,
+splitting the suite by test file. In both matrices, shards run even after a sibling
+fails and upload separately named reports. The required gate waits for both matrices
+and rejects a failed or cancelled shard. Other lanes run without sharding. No lane
+uses a path filter or change detector. Turbo decides which deterministic task
+results can be reused; server, database, integration and browser tests still execute every run.
 `web:e2e:compare` forwards runner options such as `--workers` and keeps the build
 prerequisite. The full check also stages the private server before its packaged-runtime
 smoke test. Regression tests compare runnable tasks across local and CI plans, exercise

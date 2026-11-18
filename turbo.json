@@ -248,9 +248,8 @@
       ],
       "cache": false
     },
-    "//#check:server": {
+    "//#check:shared": {
       "dependsOn": [
-        "@study/server#test",
         "@study/contracts#test",
         "@study/localization#test",
         "@study/theme#test",
