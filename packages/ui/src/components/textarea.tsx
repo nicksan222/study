@@ -24,6 +24,7 @@ export function Textarea({
     <Surface
       className={cn(
         CONTROL_SURFACE_CLASS,
+        'has-[>textarea:disabled]:opacity-64',
         header && 'flex-col',
         font === 'mono' && 'font-mono tabular-nums'
       )}
