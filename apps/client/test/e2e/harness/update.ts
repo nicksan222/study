@@ -35,4 +35,4 @@ const captures = [
 ];
 
 if (!captures.length)
-  throw new Error(`No screenshot updated for ${scope}; check the workflow/screenshot name`);
+  throw new Error(`No screenshot matched ${scope}; check the workflow/screenshot name`);

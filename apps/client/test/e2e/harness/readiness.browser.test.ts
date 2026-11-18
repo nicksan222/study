@@ -127,6 +127,83 @@ test.browser.stable(
 );
 
 test.browser.stable(
+  'scoped regeneration preserves equivalent PNGs and writes real visual changes',
+  async ({ page, resources, expect }, info) => {
+    const workflow = `regeneration-${crypto.randomUUID()}`;
+    const name = 'layout';
+    const reference = Bun.file(baselinePath('contract', workflow, name));
+    const previousScope = process.env.E2E_UPDATE;
+    const previousCi = process.env.CI;
+    const screenshots = () =>
+      screenshotAssertions(page, workflow, info.outputPath('contract'), 'contract', info);
+
+    resources.defer(() => reference.delete());
+    await page.setContent(`
+      <div id="frame" style="width:120px;height:100px;background:white;position:relative;overflow:hidden">
+        <div id="content" style="position:absolute;inset:0">
+          <div style="width:30px;height:30px;background:black;position:absolute;left:20px;top:20px"></div>
+          <div style="width:20px;height:20px;background:red;position:absolute;left:65px;top:60px"></div>
+        </div>
+        <div id="pixel" style="width:1px;height:1px;position:absolute;top:5px;left:5px"></div>
+      </div>
+    `);
+    const frame = page.locator('#frame');
+    const content = page.locator('#content');
+    const pixel = page.locator('#pixel');
+    const capture = () =>
+      screenshots().expectScreenshot(name, {
+        target: frame,
+        ready: () => expect(frame).toBeVisible()
+      });
+
+    try {
+      delete process.env.CI;
+      process.env.E2E_UPDATE = `${workflow}/${name}`;
+      await capture();
+      const original = await reference.bytes();
+
+      await pixel.evaluate((element) => {
+        element.style.background = 'black';
+      });
+      await capture();
+      expect(await reference.bytes()).toEqual(original);
+      await pixel.evaluate((element) => {
+        element.style.background = '';
+      });
+
+      for (const offset of [3, -2]) {
+        await content.evaluate((element, x) => {
+          element.style.transform = `translateX(${x}px)`;
+        }, offset);
+        process.env.E2E_UPDATE = `${workflow}/${name}`;
+        await capture();
+        expect(await reference.bytes()).toEqual(original);
+
+        delete process.env.E2E_UPDATE;
+        await capture();
+      }
+
+      // A new visible edge is still a change when the rest of the frame aligns.
+      await pixel.evaluate((element) => {
+        element.style.cssText =
+          'width:2px;height:30px;position:absolute;right:0;top:30px;background:blue';
+      });
+      await expect(capture()).rejects.toThrow(/pixels .*different/);
+      process.env.E2E_UPDATE = `${workflow}/${name}`;
+      await capture();
+      expect(await reference.bytes()).toEqual(new Uint8Array(await frame.screenshot()));
+      expect(await reference.bytes()).not.toEqual(original);
+    } finally {
+      if (previousScope === undefined) delete process.env.E2E_UPDATE;
+      else process.env.E2E_UPDATE = previousScope;
+
+      if (previousCi === undefined) delete process.env.CI;
+      else process.env.CI = previousCi;
+    }
+  }
+);
+
+test.browser.stable(
   'capture anchors a zoomed scroller at its end from every starting position',
   async ({ page, resources, expect }, info) => {
     const workflow = `scroll-end-${crypto.randomUUID()}`;
