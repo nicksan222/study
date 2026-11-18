@@ -6,10 +6,12 @@ import { useI18n } from '#client/lib/i18n.tsx';
 
 export function AiReadinessNotice({
   state,
-  setupLabel
+  setupLabel,
+  onOpenSettings
 }: {
   state: AiReadiness;
   setupLabel?: string;
+  onOpenSettings?: () => void;
 }) {
   const { t } = useI18n();
 
@@ -27,11 +29,16 @@ export function AiReadinessNotice({
                 : 'AiReadinessSetup'
           )}
       </p>
-      {state === 'setup' && (
-        <Button size="sm" variant="ghost-muted" render={<Link to="/settings" />}>
-          {t('Settings')}
-        </Button>
-      )}
+      {state === 'setup' &&
+        (onOpenSettings ? (
+          <Button size="sm" variant="ghost-muted" onClick={onOpenSettings}>
+            {t('Settings')}
+          </Button>
+        ) : (
+          <Button size="sm" variant="ghost-muted" render={<Link to="/settings" />}>
+            {t('Settings')}
+          </Button>
+        ))}
     </div>
   );
 }

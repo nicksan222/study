@@ -133,6 +133,33 @@ test.unit.stable(
 );
 
 test.unit.stable(
+  'preserves saved zoom on a narrow screen with a fine pointer',
+  async ({ vi, expect, waitFor }) => {
+    const original = window.matchMedia.bind(window);
+
+    vi.spyOn(window, 'matchMedia').mockImplementation((query) => {
+      const media = original(query);
+
+      if (query.includes('pointer: coarse'))
+        Object.defineProperty(media, 'matches', {
+          value: query.includes('(max-width: 640px),')
+        });
+
+      return media;
+    });
+    api.settings.mockResolvedValue({ appearance: 2, zoomPercent: 150 });
+    api.selected.mockResolvedValue(null);
+    api.themes.mockResolvedValue({ items: [], next: null });
+    restore = initializeAppearance(document);
+
+    await waitFor(() =>
+      expect(document.documentElement.style.getPropertyValue('--glass-opacity')).not.toBe('')
+    );
+    expect(document.documentElement.style.zoom).toBe('150%');
+  }
+);
+
+test.unit.stable(
   'keeps mobile at default scale and restores the saved desktop zoom after resizing',
   async ({ vi, expect, waitFor }) => {
     let phone = true;

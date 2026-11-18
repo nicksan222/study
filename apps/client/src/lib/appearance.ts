@@ -7,7 +7,7 @@ import {
 } from '@study/ui';
 
 import { loadAppearance } from './study-client/appearance';
-import { mobileViewportQuery } from './viewport';
+import { phoneViewportQuery } from './viewport';
 
 let store = createThemeStore({ appearance: 'dark' });
 
@@ -81,7 +81,7 @@ function applyZoom(element: HTMLElement, percent: number): void {
 
 export function initializeAppearance(document: Document): () => void {
   let savedZoom = 100;
-  const mobile = document.defaultView?.matchMedia(mobileViewportQuery);
+  const mobile = document.defaultView?.matchMedia(phoneViewportQuery);
   const refreshZoom = () => applyZoom(document.documentElement, mobile?.matches ? 100 : savedZoom);
   const page = {
     document,

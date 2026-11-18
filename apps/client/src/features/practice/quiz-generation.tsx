@@ -39,6 +39,7 @@ import {
   Settings,
   Textarea
 } from '@study/ui';
+import { useNavigate } from '@tanstack/react-router';
 import type { SetStateAction } from 'react';
 import { useState, useCallback, useId, useRef } from 'react';
 
@@ -80,7 +81,7 @@ function useGenerationDialog() {
   const [open, setOpen] = useState(false);
   const [exam, setExam] = useState<ExamOpening>();
   const [examComplete, setExamComplete] = useState(false);
-  const [confirmExit, setConfirmExit] = useState(false);
+  const [exitIntent, setExitIntent] = useState<'leave' | 'settings'>();
   const session = useRef(0);
   const request = useRef<AbortController | undefined>(undefined);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -93,7 +94,7 @@ function useGenerationDialog() {
     setOpen(false);
     setExam(undefined);
     setExamComplete(false);
-    setConfirmExit(false);
+    setExitIntent(undefined);
   };
   const openExam = (value: ExamOpening) => {
     if (session.current === instance) setExam(value);
@@ -102,7 +103,7 @@ function useGenerationDialog() {
     if (session.current !== instance) return;
 
     setExamComplete(true);
-    setConfirmExit(false);
+    setExitIntent(undefined);
   };
 
   const trackRequest = (controller: AbortController | undefined) => {
@@ -112,7 +113,7 @@ function useGenerationDialog() {
     if (next) setOpen(true);
     else if (examActive) {
       event.cancel();
-      setConfirmExit(true);
+      setExitIntent('leave');
     } else close();
   };
 
@@ -136,8 +137,8 @@ function useGenerationDialog() {
     closeAccepted,
     openExam,
     completeExam,
-    confirmExit,
-    setConfirmExit
+    exitIntent,
+    setExitIntent
   } as const;
 }
 
@@ -152,6 +153,7 @@ function GenerationDialog({
   disabled?: boolean;
 }) {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const action = inline ? 'PracticeGenerateFromPages' : 'PracticeGenerate';
   const dialog = useGenerationDialog();
   const [requests, setRequests] = useState<string[]>([]);
@@ -197,6 +199,8 @@ function GenerationDialog({
             opening={dialog.exam}
             completed={dialog.completeExam}
             trackRequest={dialog.trackRequest}
+            openSettings={() => dialog.setExitIntent('settings')}
+            leave={() => dialog.setExitIntent('leave')}
           />
         ) : (
           <>
@@ -217,9 +221,15 @@ function GenerationDialog({
         )}
       </DialogPopup>
       <ExamExitConfirmation
-        open={dialog.confirmExit}
-        onOpenChange={dialog.setConfirmExit}
-        exit={dialog.close}
+        open={dialog.exitIntent !== undefined}
+        onOpenChange={(open) => {
+          if (!open) dialog.setExitIntent(undefined);
+        }}
+        exit={() => {
+          dialog.close();
+
+          if (dialog.exitIntent === 'settings') void navigate({ to: '/settings' });
+        }}
       />
       {requests.map((id) => (
         <GenerationWatcher key={id} id={id} settled={settled} />
@@ -441,8 +451,7 @@ function GenerationPanel({
             pages={model.pages}
             inputs={model.inputs}
             onChange={(update) => {
-              if (model.isExam) model.exam.reset();
-
+              model.exam.reset();
               model.setInputs(update);
             }}
             disabled={model.busy}

@@ -20,6 +20,8 @@ import { writtenExamWorkflow } from '#server/features/materials/service/written-
 
 type Step = WrittenExamInput['step'];
 
+type Evidence = Parameters<typeof writtenExamAgent.prompt>[0]['evidence'];
+
 function unexpectedTurn() {
   return Effect.fail(new StudyError('transient', 'Unexpected written exam response'));
 }
@@ -28,13 +30,19 @@ function examSummary(
   step: Extract<Step, { kind: 'answer' | 'finish' }>,
   summary: Extract<WrittenExamResult, { kind: 'summary' }>
 ) {
-  const enoughAnswers = step.history.length >= 2;
-  const finished = step.kind === 'finish' || step.history.length === writtenExamTurnLimit;
+  if (summary.understood) {
+    return step.history.length >= 2 ? Effect.succeed(summary) : unexpectedTurn();
+  }
 
-  if (!finished && !(summary.understood && enoughAnswers)) return unexpectedTurn();
-
-  return Effect.succeed({ ...summary, understood: summary.understood && enoughAnswers });
+  return step.kind === 'finish' ? Effect.succeed(summary) : unexpectedTurn();
 }
+
+const comparableQuestion = (question: string) =>
+  question
+    .trim()
+    .replace(/[.!?…！？。]+$/u, '')
+    .trimEnd()
+    .toLowerCase();
 
 function examResult(
   step: Step,
@@ -54,18 +62,43 @@ function examResult(
 function answerResult(step: Extract<Step, { kind: 'answer' | 'finish' }>, next: WrittenExamResult) {
   if (next.kind === 'summary') return examSummary(step, next);
 
-  if (
-    step.kind !== 'answer' ||
-    next.kind !== 'question' ||
-    step.history.length >= writtenExamTurnLimit
-  )
-    return unexpectedTurn();
+  if (step.kind !== 'answer' || next.kind !== 'question') return unexpectedTurn();
 
+  const nextQuestion = comparableQuestion(next.question);
   const repeated = step.history.some(
-    ({ question }) => question.trim().toLowerCase() === next.question.trim().toLowerCase()
+    ({ question }) => comparableQuestion(question) === nextQuestion
   );
 
   return repeated ? unexpectedTurn() : Effect.succeed(next);
+}
+
+function resolveExamTurn(
+  step: Step,
+  evidence: Evidence,
+  run: (step: Step, evidence: Evidence) => Effect.Effect<WrittenExamResult, StudyError, Agents>,
+  findTopic: (topic: string) => Evidence
+) {
+  return Effect.gen(function* () {
+    const request =
+      step.kind === 'answer' && step.history.length === writtenExamTurnLimit
+        ? { ...step, kind: 'finish' as const }
+        : step;
+    const next = yield* run(request, evidence);
+    const validate = (response: WrittenExamResult) => examResult(request, response);
+
+    if (next.kind === 'unavailable' && step.kind === 'start' && step.topic) {
+      const matches = findTopic(step.topic);
+
+      if (matches.length > 0)
+        return yield* run(request, [...evidence, ...matches]).pipe(Effect.flatMap(validate));
+    }
+
+    const result = validate(next);
+
+    return yield* request.kind === 'finish'
+      ? result.pipe(Effect.catch(() => run(request, evidence).pipe(Effect.flatMap(validate))))
+      : result;
+  });
 }
 
 export const writtenExamRegistration = defineWorkflowHandler(writtenExamWorkflow, {
@@ -109,22 +142,31 @@ export const writtenExamRegistration = defineWorkflowHandler(writtenExamWorkflow
         const cancelled = Deferred.await(closed).pipe(
           Effect.andThen(Effect.fail(new StudyError('cancelled', 'Written exam request ended')))
         );
-        const { next } = yield* generateAgent(
-          writtenExamAgent,
-          { step, evidence },
-          { preflight, maxRetries: 0 }
-        ).pipe(
+        const searched = new Set<string>();
+        const run = (step: Step, evidence: Evidence) =>
+          generateAgent(writtenExamAgent, { step, evidence }, { preflight, maxRetries: 0 }).pipe(
+            Effect.tap(preflight),
+            Effect.map(({ next }) => next)
+          );
+        const findTopic = (topic: string) =>
+          searched.has(topic.trim().toLowerCase())
+            ? []
+            : catalog.search(topic).map(({ name, text }) => ({ name, preview: text }));
+        const result = yield* resolveExamTurn(step, evidence, run, findTopic).pipe(
           Effect.raceFirst(cancelled),
           Effect.provideService(Agents, {
             ...agents,
             observe: undefined,
-            searchSources: (query) => preflight.pipe(Effect.map(() => catalog.search(query)))
+            searchSources: (query) =>
+              preflight.pipe(
+                Effect.map(() => {
+                  searched.add(query.trim().toLowerCase());
+
+                  return catalog.search(query);
+                })
+              )
           })
         );
-
-        yield* preflight;
-
-        const result = yield* examResult(step, next);
 
         yield* Deferred.succeed(reply, result);
       }

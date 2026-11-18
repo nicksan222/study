@@ -104,6 +104,8 @@ function fitVisibleViewport(element: HTMLDivElement | null): (() => void) | unde
 
     element.style.setProperty('--practice-viewport-height', `${viewport.height / zoom}px`);
     element.style.setProperty('--practice-viewport-top', `${viewport.offsetTop / zoom}px`);
+    element.style.setProperty('--practice-viewport-width', `${viewport.width / zoom}px`);
+    element.style.setProperty('--practice-viewport-left', `${viewport.offsetLeft / zoom}px`);
   };
 
   measure();

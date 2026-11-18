@@ -3,14 +3,14 @@ import { interfaceControlLabels } from '@study/localization';
 import { InterfaceControls } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
-import { useMobileViewport } from '#client/lib/viewport.ts';
+import { usePhoneViewport } from '#client/lib/viewport.ts';
 
 import type { AppearanceModel } from './use-page';
 
 /** Edits appearance, language and zoom through persisted preference actions. */
 export function InterfaceSettings({ model }: { model: AppearanceModel }) {
   const { t } = useI18n();
-  const showZoom = !useMobileViewport();
+  const showZoom = !usePhoneViewport();
   const preferences = model.data!.preferences ?? defaultAppearancePreferences;
 
   return (

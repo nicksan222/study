@@ -27,7 +27,7 @@ import {
   Spinner
 } from '@study/ui';
 import { Link } from '@tanstack/react-router';
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 
 import { NewBlankPage } from '#client/features/pages/index.ts';
 import {
@@ -47,6 +47,7 @@ import type { SidebarModel } from './use-sidebar';
 
 type SidebarViewModel = SidebarModel & {
   collection: ReactNode;
+  toggleRef?: Ref<HTMLButtonElement>;
   selectedNote?: string | null;
   counts?: ReturnType<typeof useSidebarCounts>;
 };
@@ -185,13 +186,22 @@ function SidebarNotes({
 
 /** Keeps the subject settings target stable even if that subject is removed from the sidebar. */
 
-function SidebarHeader(model: SidebarModel) {
-  const { collapsed, onToggle, clearSearch, project, settingsProject, setSettingsProject } = model;
+function SidebarHeader(model: SidebarViewModel) {
+  const {
+    collapsed,
+    onToggle,
+    clearSearch,
+    project,
+    settingsProject,
+    setSettingsProject,
+    toggleRef
+  } = model;
   const { t } = useI18n();
 
   return (
     <SidebarUI.Header>
       <SidebarUI.Toggle
+        ref={toggleRef}
         label={t('ToggleSidebar')}
         expanded={!collapsed}
         aria-controls="study-sidebar-navigation"

@@ -1,20 +1,30 @@
-import { useSyncExternalStore } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 
 /** Phone layouts keep the platform's scale even when a desktop zoom was saved. */
-export const mobileViewportQuery = '(max-width: 640px), (pointer: coarse) and (max-width: 1024px)';
+export const phoneViewportQuery = '(pointer: coarse) and (max-width: 1024px)';
 
-function subscribe(listener: () => void) {
-  const media = window.matchMedia(mobileViewportQuery);
+const narrowLayoutQuery = `(max-width: 640px), ${phoneViewportQuery}`;
 
-  media.addEventListener('change', listener);
+function useViewport(query: string) {
+  const subscribe = useCallback(
+    (listener: () => void) => {
+      const media = window.matchMedia(query);
 
-  return () => media.removeEventListener('change', listener);
+      media.addEventListener('change', listener);
+
+      return () => media.removeEventListener('change', listener);
+    },
+    [query]
+  );
+  const matches = useCallback(() => window.matchMedia(query).matches, [query]);
+
+  return useSyncExternalStore(subscribe, matches, () => false);
 }
 
-function isMobileViewport() {
-  return window.matchMedia(mobileViewportQuery).matches;
+export function useNarrowLayout() {
+  return useViewport(narrowLayoutQuery);
 }
 
-export function useMobileViewport() {
-  return useSyncExternalStore(subscribe, isMobileViewport, () => false);
+export function usePhoneViewport() {
+  return useViewport(phoneViewportQuery);
 }

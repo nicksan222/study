@@ -31,6 +31,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
+import { toStudyError } from '#client/lib/study-client/errors.ts';
 
 import { useWrittenExamRequest } from './written-exam-request';
 import type { TrackExamRequest } from './written-exam-request';
@@ -43,6 +44,8 @@ type Step = WrittenExamInput['step'];
 type ExamTurn = Extract<Step, { kind: 'answer' }>['history'][number];
 
 type Prompt = Omit<ExamTurn, 'answer'>;
+
+type ExchangeEntry = Prompt & { answer?: string };
 
 type Summary = Extract<WrittenExamResult, { kind: 'summary' }>;
 
@@ -87,6 +90,8 @@ function useExamConversation(
   const composer = useRef<HTMLTextAreaElement>(null);
   const draft = answer.trim();
   const blocked = pending !== undefined || readiness !== 'ready';
+  const error = turn.isError ? toStudyError(turn.error).kind : undefined;
+  const sourceUnavailable = error === 'invalid_input' || error === 'not_found';
 
   useEffect(() => {
     if (!window.matchMedia('(pointer: coarse)').matches) composer.current?.focus();
@@ -136,7 +141,8 @@ function useExamConversation(
     readiness,
     blocked,
     pending,
-    failed: turn.isError,
+    failed: error !== undefined,
+    sourceUnavailable,
     advance
   };
 }
@@ -146,24 +152,32 @@ type Conversation = ReturnType<typeof useExamConversation>;
 export function WrittenExamSession({
   opening,
   completed,
-  trackRequest
+  trackRequest,
+  openSettings,
+  leave
 }: {
   opening: ExamOpening;
   completed: () => void;
   trackRequest: TrackExamRequest;
+  openSettings: () => void;
+  leave: () => void;
 }) {
   const { t } = useI18n();
   const model = useExamConversation(opening, completed, trackRequest);
+  const transcript =
+    model.history.at(-1)?.question === model.current.question
+      ? model.history
+      : [...model.history, model.current];
 
   return (
     <>
       <DialogHeading title={t('WrittenExam')} description={opening.concept} density="compact" />
       {model.summary ? (
-        <ExamResult summary={model.summary} history={model.history} />
+        <ExamResult summary={model.summary} transcript={transcript} />
       ) : (
         <>
-          <ExamThread model={model} />
-          <ExamComposer model={model} />
+          <ExamThread model={model} leave={leave} />
+          <ExamComposer model={model} openSettings={openSettings} />
         </>
       )}
     </>
@@ -212,7 +226,7 @@ export function ExamExitConfirmation({
   );
 }
 
-function ExamThread({ model }: { model: Conversation }) {
+function ExamThread({ model, leave }: { model: Conversation; leave: () => void }) {
   const { t } = useI18n();
   const current = {
     ...model.current,
@@ -240,7 +254,21 @@ function ExamThread({ model }: { model: Conversation }) {
               )}
               {model.failed && !model.pending && (
                 <MessageScrollerItem>
-                  <ErrorState layout="inline" title={t('WrittenExamTurnError')} />
+                  <ErrorState
+                    layout="inline"
+                    title={t(
+                      model.sourceUnavailable
+                        ? 'WrittenExamSourceUnavailable'
+                        : 'WrittenExamTurnError'
+                    )}
+                    action={
+                      model.sourceUnavailable && (
+                        <Button size="sm" variant="outline" onClick={leave}>
+                          {t('WrittenExamExit')}
+                        </Button>
+                      )
+                    }
+                  />
                 </MessageScrollerItem>
               )}
             </MessageScrollerContent>
@@ -252,13 +280,7 @@ function ExamThread({ model }: { model: Conversation }) {
   );
 }
 
-function Exchange({
-  entry,
-  askingHint
-}: {
-  entry: Prompt & { answer?: string };
-  askingHint?: boolean;
-}) {
+function Exchange({ entry, askingHint }: { entry: ExchangeEntry; askingHint?: boolean }) {
   const { t } = useI18n();
 
   return (
@@ -301,7 +323,7 @@ function ExamMessage({ text, fromLearner = false }: { text: string; fromLearner?
   );
 }
 
-function ExamComposer({ model }: { model: Conversation }) {
+function ExamComposer({ model, openSettings }: { model: Conversation; openSettings: () => void }) {
   const { t } = useI18n();
 
   return (
@@ -356,12 +378,22 @@ function ExamComposer({ model }: { model: Conversation }) {
           <SendIcon aria-hidden="true" />
         </IconButton>
       </Practice.ExamActions>
-      <AiReadinessNotice state={model.readiness} setupLabel={t('WrittenExamChatGptSetup')} />
+      <AiReadinessNotice
+        state={model.readiness}
+        setupLabel={t('WrittenExamChatGptSetup')}
+        onOpenSettings={openSettings}
+      />
     </Practice.ExamAnswer>
   );
 }
 
-function ExamResult({ summary, history }: { summary: Summary; history: readonly ExamTurn[] }) {
+function ExamResult({
+  summary,
+  transcript
+}: {
+  summary: Summary;
+  transcript: readonly ExchangeEntry[];
+}) {
   const { t } = useI18n();
   const prompt = useRef<HTMLHeadingElement>(null);
 
@@ -379,7 +411,7 @@ function ExamResult({ summary, history }: { summary: Summary; history: readonly 
         <Disclosure summary={t('WrittenExamHistory')}>
           <MessageScrollerProvider defaultScrollPosition="start">
             <Practice.ExamTranscript>
-              {history.map((entry) => (
+              {transcript.map((entry) => (
                 <Exchange key={entry.question} entry={entry} />
               ))}
             </Practice.ExamTranscript>

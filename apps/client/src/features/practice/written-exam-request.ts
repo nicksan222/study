@@ -23,6 +23,7 @@ export function useWrittenExamRequest(track: TrackExamRequest) {
 
     active.current = controller;
     track(controller);
+    action.reset();
 
     try {
       const result = await action.mutateAsync({ input, signal: controller.signal });

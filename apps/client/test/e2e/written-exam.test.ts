@@ -6,7 +6,7 @@ test.browser.use({ aiEnabled: true, video: 'on' });
 
 type BrowserContext = Pick<
   test.browser.Context,
-  'page' | 'study' | 'ai' | 'rpc' | 'expect' | 'expectScreenshot' | 'setVisualViewportHeight'
+  'page' | 'study' | 'ai' | 'rpc' | 'expect' | 'expectScreenshot' | 'setVisualViewport'
 >;
 
 const cases = {
@@ -40,8 +40,40 @@ const cases = {
 
 type Locale = keyof typeof cases;
 
+async function checkSetupKeyboard(
+  { expect, expectScreenshot, setVisualViewport }: BrowserContext,
+  setup: Awaited<ReturnType<BrowserContext['page']['getByRole']>>
+) {
+  const copy = catalogs.italian;
+  const topic = setup.getByRole('textbox', { name: copy.WrittenExamTopic });
+  const retry = setup.getByRole('button', { name: copy.Retry });
+  const begin = setup.getByRole('button', { name: copy.WrittenExamStart });
+
+  await topic.focus();
+  await setVisualViewport({ height: 180 });
+  await expect(setup).toHaveCSS('height', '180px');
+  await begin.scrollIntoViewIfNeeded();
+  await expect(begin).toBeInViewport();
+  await retry.scrollIntoViewIfNeeded();
+  await expectScreenshot('setup-keyboard', {
+    target: setup,
+    zoomPercent: 100,
+    ready: () => expect(retry).toBeInViewport()
+  });
+  await setVisualViewport({ height: 220, width: 210, offsetLeft: 70 });
+  await expect(setup).toHaveCSS('width', '210px');
+  expect(await setup.boundingBox()).toMatchObject({ x: 70, width: 210 });
+  await begin.scrollIntoViewIfNeeded();
+  await expectScreenshot('setup-pinched', {
+    target: setup,
+    zoomPercent: 100,
+    ready: () => expect(begin).toBeInViewport({ ratio: 1 })
+  });
+  await setVisualViewport(null);
+}
+
 async function startExam(
-  { page, study, ai, rpc, expect, expectScreenshot }: BrowserContext,
+  { page, study, ai, rpc, expect, expectScreenshot, setVisualViewport }: BrowserContext,
   language: Locale
 ) {
   const copy = catalogs[language];
@@ -108,10 +140,19 @@ async function startExam(
     zoomPercent,
     ready: () => expect(setup.getByText(copy.WrittenExamUnsupported)).toBeVisible()
   });
+  const quiz = setup.getByRole('radio', { name: copy.SidebarQuiz, exact: true });
+
+  await quiz.click();
+  await exclude.click();
+  await choice.click();
+  await expect(setup.getByText(copy.WrittenExamUnsupported)).toHaveCount(0);
+  await exclude.click();
   await topic.fill(concept);
+  await topic.scrollIntoViewIfNeeded();
   await expectScreenshot('setup', {
     target: setup,
     zoomPercent,
+    center: language === 'english' ? topic : undefined,
     ready: () => expect(begin).toBeEnabled()
   });
 
@@ -123,8 +164,15 @@ async function startExam(
   await expectScreenshot('start-error', {
     target: setup,
     zoomPercent,
+    center: language === 'english' ? topic : undefined,
     ready: () => expect(setup.getByText(copy.WrittenExamStartError)).toBeVisible()
   });
+
+  if (language === 'italian')
+    await checkSetupKeyboard(
+      { page, study, ai, rpc, expect, expectScreenshot, setVisualViewport },
+      setup
+    );
 
   const opening = ai.next(agent, {
     input: { step: start, evidence },
@@ -134,9 +182,11 @@ async function startExam(
 
   await setup.getByRole('button', { name: copy.Retry }).click();
   await opening.called;
+  await expect(setup.getByText(copy.WrittenExamStartError)).toHaveCount(0);
   await expectScreenshot('starting', {
     target: setup,
     zoomPercent,
+    center: language === 'english' ? topic : undefined,
     ready: () => expect(setup.getByText(copy.WrittenExamStarting).first()).toBeVisible()
   });
   opening.release();
@@ -160,16 +210,16 @@ async function startExam(
     ready: () => expect(log.getByText(question)).toBeInViewport()
   });
 
-  return { evidence, exam, answer, send, log, generate, setup };
+  return { evidence, exam, answer, send, log, generate, setup, pageId: fixture.page.id };
 }
 
 async function checkLandscapeKeyboard(
-  { page, expect, expectScreenshot, setVisualViewportHeight }: BrowserContext,
+  { page, expect, expectScreenshot, setVisualViewport }: BrowserContext,
   { exam, answer, send, log }: Awaited<ReturnType<typeof startExam>>
 ) {
   await page.setViewportSize({ width: 844, height: 390 });
   await answer.focus();
-  await setVisualViewportHeight(180);
+  await setVisualViewport({ height: 180 });
   const sheetViewport = page.locator('[data-slot="dialog-viewport"]').filter({ has: exam });
 
   await expect(sheetViewport).toHaveCSS('height', '180px');
@@ -183,7 +233,19 @@ async function checkLandscapeKeyboard(
     zoomPercent: 100,
     ready: () => expect(answer).toBeFocused()
   });
-  await setVisualViewportHeight(null);
+  await setVisualViewport({ height: 120 });
+  await expect(sheetViewport).toHaveCSS('height', '120px');
+  await send.scrollIntoViewIfNeeded();
+  await expect(send).toBeInViewport();
+  const question = log.getByText(cases.italian.question);
+
+  await question.scrollIntoViewIfNeeded();
+  await expectScreenshot('landscape-compact', {
+    target: exam,
+    zoomPercent: 100,
+    ready: () => expect(question).toBeInViewport()
+  });
+  await setVisualViewport(null);
   await page.setViewportSize(cases.italian.viewport);
 }
 
@@ -280,6 +342,39 @@ async function continueExam(
   return { history };
 }
 
+async function assertTranscriptReachable(
+  { expect }: BrowserContext,
+  exam: Awaited<ReturnType<typeof startExam>>['exam'],
+  answers: readonly string[]
+) {
+  for (const answer of answers) {
+    const message = exam.getByText(answer, { exact: true });
+
+    await message.scrollIntoViewIfNeeded();
+    await expect(message).toBeInViewport();
+  }
+}
+
+async function checkArchivedPageRecovery(
+  { rpc, expect, expectScreenshot }: BrowserContext,
+  { exam, answer, send, pageId }: Awaited<ReturnType<typeof startExam>>
+) {
+  const copy = catalogs.english;
+  const draft = cases.english.final;
+  const archive = (archived: boolean) =>
+    rpc.runPromise(rpc.client['pages.archive']({ id: pageId, archived }));
+
+  await archive(true);
+  await answer.fill(draft);
+  await send.click();
+  await expectScreenshot('source-unavailable', {
+    target: exam,
+    ready: () => expect(exam.getByText(copy.WrittenExamSourceUnavailable)).toBeInViewport()
+  });
+  await expect(answer).toHaveValue(draft);
+  await archive(false);
+}
+
 async function finishExam(context: BrowserContext, language: Locale) {
   const { study, ai, expect, expectScreenshot } = context;
   const copy = catalogs[language];
@@ -289,6 +384,9 @@ async function finishExam(context: BrowserContext, language: Locale) {
   const { history } = await continueExam(context, language, session);
   const { exam, answer, send, evidence } = session;
   const early = language === 'italian';
+
+  if (!early) await checkArchivedPageRecovery(context, session);
+
   const summary = exam.getByRole('heading', {
     name: early ? copy.WrittenExamNeedsReview : copy.WrittenExamUnderstood
   });
@@ -327,60 +425,124 @@ async function finishExam(context: BrowserContext, language: Locale) {
   return { ...session, summary, feedback };
 }
 
+async function checkUnansweredTranscript(
+  { study, ai, expect, expectScreenshot }: BrowserContext,
+  {
+    exam,
+    answer,
+    send,
+    evidence
+  }: Pick<Awaited<ReturnType<typeof startExam>>, 'exam' | 'answer' | 'send' | 'evidence'>
+) {
+  const { concept, question, incomplete, followup, reply, hint, feedback } = cases.english;
+  const copy = catalogs.english;
+  const history = [{ question, answer: incomplete }] as const;
+  const current = { question: followup, reply };
+  const agent = study.agents.writtenExam;
+
+  ai.next(agent, {
+    input: { evidence, step: { kind: 'answer', concept, history } },
+    output: { next: { kind: 'question', ...current } }
+  });
+  await answer.fill(incomplete);
+  await send.click();
+  await expect(answer).toBeEmpty();
+  ai.next(agent, {
+    input: { evidence, step: { kind: 'hint', concept, history, current } },
+    output: { next: { kind: 'hint', message: hint } }
+  });
+  await exam.getByRole('button', { name: copy.WrittenExamHint }).click();
+  await expect(exam.getByText(hint)).toBeVisible();
+  ai.next(agent, {
+    input: { evidence, step: { kind: 'finish', concept, history } },
+    output: { next: { kind: 'summary', understood: false, feedback } }
+  });
+  await exam.getByRole('button', { name: copy.WrittenExamFinish }).click();
+  await exam.getByText(copy.WrittenExamHistory, { exact: true }).click();
+  await expect(exam.getByText(followup, { exact: false })).toHaveCount(1);
+  const savedHint = exam.getByText(hint, { exact: true });
+
+  await savedHint.scrollIntoViewIfNeeded();
+  await expectScreenshot('unanswered-transcript', {
+    target: exam,
+    ready: () => expect(savedHint).toBeInViewport()
+  });
+}
+
+async function checkSettingsExit(
+  { page, rpc, expect, expectScreenshot }: BrowserContext,
+  { exam, answer }: Pick<Awaited<ReturnType<typeof startExam>>, 'exam' | 'answer'>
+) {
+  const copy = catalogs.english;
+  const draft = cases.english.incomplete;
+  const confirm = page.getByRole('dialog', { name: copy.WrittenExamExitTitle });
+  const settings = exam.getByRole('button', { name: copy.Settings, exact: true });
+
+  await answer.fill(draft);
+  await rpc.runPromise(rpc.client['auth.signOut']({}));
+  await settings.click();
+  await expectScreenshot('settings-exit', {
+    target: confirm,
+    ready: () => expect(confirm).toBeVisible()
+  });
+  await confirm.getByRole('button', { name: copy.WrittenExamContinue }).click();
+  await expect(answer).toHaveValue(draft);
+  await settings.click();
+  await confirm.getByRole('button', { name: copy.WrittenExamExit }).click();
+  await expect(page.getByRole('dialog', { name: copy.Settings })).toBeVisible();
+}
+
+async function reopenEnglishExam(
+  { study, ai, expect }: BrowserContext,
+  { generate, setup, evidence }: Awaited<ReturnType<typeof finishExam>>,
+  question: string = cases.english.question,
+  hold = false
+) {
+  const copy = catalogs.english;
+
+  await generate.click();
+  await setup.getByRole('radio', { name: copy.WrittenExam, exact: true }).click();
+  await expect(setup.getByRole('textbox', { name: copy.WrittenExamTopic })).toBeEmpty();
+  await setup.getByRole('switch', { name: cases.english.extraPage }).click();
+  const opening = ai.next(study.agents.writtenExam, {
+    input: { step: { kind: 'start' }, evidence },
+    output: { next: { kind: 'opening', concept: cases.english.concept, question } },
+    hold
+  });
+
+  await setup.getByRole('button', { name: copy.WrittenExamStart }).click();
+
+  return opening;
+}
+
 test.browser.stable(
   'Written exam follows up and preserves the draft on retry in English',
-  async ({ page, study, ai, rpc, expect, expectScreenshot, setVisualViewportHeight }) => {
-    const { exam, summary, generate, setup, evidence } = await finishExam(
-      { page, study, ai, rpc, expect, expectScreenshot, setVisualViewportHeight },
-      'english'
-    );
+  async ({ page, study, ai, rpc, expect, expectScreenshot, setVisualViewport }) => {
+    const context = { page, study, ai, rpc, expect, expectScreenshot, setVisualViewport };
+    const session = await finishExam(context, 'english');
+    const { exam, summary, generate, setup, evidence, answer, send } = session;
     const copy = catalogs.english;
 
     await expectScreenshot('transcript', {
       target: exam,
       ready: () => expect(exam.getByText(cases.english.final, { exact: true })).toBeVisible()
     });
+    await assertTranscriptReachable(context, exam, [cases.english.incomplete, cases.english.final]);
     await summary.press('Escape');
     await expect(exam).toBeHidden();
     await expect(generate).toBeFocused();
-    await generate.click();
-    await setup.getByRole('radio', { name: copy.WrittenExam, exact: true }).click();
-    await expect(setup.getByRole('textbox', { name: copy.WrittenExamTopic })).toBeEmpty();
-    await setup.getByRole('switch', { name: cases.english.extraPage }).click();
-    const opening = ai.next(study.agents.writtenExam, {
-      input: { step: { kind: 'start' }, evidence },
-      output: {
-        next: { kind: 'opening', concept: cases.english.concept, question: cases.english.question }
-      },
-      hold: true
-    });
+    const opening = await reopenEnglishExam(context, session, cases.english.question, true);
 
-    await setup.getByRole('button', { name: copy.WrittenExamStart }).click();
     await opening.called;
     await setup.getByRole('button', { name: copy.Close, exact: true, disabled: false }).click();
     await expect(setup).toBeHidden();
     await opening.aborted;
-    await generate.click();
-    await setup.getByRole('radio', { name: copy.WrittenExam, exact: true }).click();
-    await setup.getByRole('switch', { name: cases.english.extraPage }).click();
     const reopenedQuestion = 'What happens to the copied chromosomes during cell division?';
 
-    ai.next(study.agents.writtenExam, {
-      input: { step: { kind: 'start' }, evidence },
-      output: {
-        next: {
-          kind: 'opening',
-          concept: cases.english.concept,
-          question: reopenedQuestion
-        }
-      }
-    });
-    await setup.getByRole('button', { name: copy.WrittenExamStart }).click();
-    const draft = exam.getByRole('textbox', { name: copy.StudyChatMessage });
-
-    await expect(draft).toBeFocused();
-    await expect(draft).toBeEmpty();
-    await draft.fill('A new draft');
+    await reopenEnglishExam(context, session, reopenedQuestion);
+    await expect(answer).toBeFocused();
+    await expect(answer).toBeEmpty();
+    await answer.fill('A new draft');
     const hint = ai.next(study.agents.writtenExam, {
       input: {
         evidence,
@@ -409,6 +571,11 @@ test.browser.stable(
     await expect(exam).toBeHidden();
     await expect(generate).toBeFocused();
     await hint.aborted;
+    await reopenEnglishExam(context, session);
+    await checkUnansweredTranscript(context, { exam, answer, send, evidence });
+    await exam.getByRole('button', { name: copy.Close, exact: true }).click();
+    await reopenEnglishExam(context, session);
+    await checkSettingsExit(context, { exam, answer });
   }
 );
 
@@ -417,9 +584,9 @@ test.browser.describe('mobile browser', () => {
 
   test.browser.stable(
     'Written exam keeps the question and answer reachable in Italian on mobile',
-    async ({ page, study, ai, rpc, expect, expectScreenshot, setVisualViewportHeight }) => {
+    async ({ page, study, ai, rpc, expect, expectScreenshot, setVisualViewport }) => {
       const { exam, feedback, generate, setup } = await finishExam(
-        { page, study, ai, rpc, expect, expectScreenshot, setVisualViewportHeight },
+        { page, study, ai, rpc, expect, expectScreenshot, setVisualViewport },
         'italian'
       );
 
@@ -428,6 +595,11 @@ test.browser.describe('mobile browser', () => {
         zoomPercent: 100,
         ready: () => expect(exam.getByText(feedback, { exact: true })).toBeVisible()
       });
+      await assertTranscriptReachable(
+        { page, study, ai, rpc, expect, expectScreenshot, setVisualViewport },
+        exam,
+        [cases.italian.incomplete, cases.italian.final]
+      );
       await exam.getByRole('button', { name: catalogs.italian.Close, exact: true }).tap();
       await expect(exam).toBeHidden();
       expect((await rpc.runPromise(rpc.client['settings.appSettings']({}))).zoomPercent).toBe(125);

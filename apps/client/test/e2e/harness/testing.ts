@@ -12,11 +12,13 @@ import { screenshotAssertions, updateAllowed } from './screenshots.ts';
 import type { ExpectScreenshot } from './screenshots.ts';
 import { openWebStack } from './stack.ts';
 
+type VisualBounds = Partial<Pick<VisualViewport, 'height' | 'width' | 'offsetLeft'>>;
+
 export type Journey = {
   page: Page;
   expectScreenshot: ExpectScreenshot;
   loseCreationResponse: Awaited<ReturnType<typeof openWebStack>>['loseCreationResponse'];
-  setVisualViewportHeight: (height: number | null) => Promise<void>;
+  setVisualViewport: (bounds: VisualBounds | null) => Promise<void>;
 };
 
 type Fixtures = {
@@ -79,16 +81,20 @@ const testHarness = testBrowser.extend<Fixtures>({
     await provide({
       page,
       loseCreationResponse: webStack.loseCreationResponse,
-      setVisualViewportHeight: (height) =>
-        page.evaluate((value) => {
-          // Headless Chromium has no on-screen keyboard to resize the visual viewport.
+      setVisualViewport: (bounds) =>
+        page.evaluate((visible) => {
+          // Simulate the visible rectangle produced by a keyboard or pinch on a phone.
           const viewport = window.visualViewport!;
 
-          if (value === null) Reflect.deleteProperty(viewport, 'height');
-          else Object.defineProperty(viewport, 'height', { configurable: true, value });
+          for (const key of ['height', 'width', 'offsetLeft'] as const) {
+            const value = visible?.[key];
+
+            if (value === undefined) Reflect.deleteProperty(viewport, key);
+            else Object.defineProperty(viewport, key, { configurable: true, value });
+          }
 
           viewport.dispatchEvent(new Event('resize'));
-        }, height),
+        }, bounds),
       expectScreenshot: (name, options) =>
         screenshots.expectScreenshot(name, {
           ...options,

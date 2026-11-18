@@ -1,10 +1,11 @@
 import { rpc } from '@study/contracts/react';
 import { Shell as PageShell, Sidebar as SidebarUI } from '@study/ui';
 import { Outlet, useMatches, useSearch, useParams } from '@tanstack/react-router';
-import { useEffect, useRef, useState } from 'react';
+import type { Ref } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
-import { useMobileViewport } from '#client/lib/viewport.ts';
+import { useNarrowLayout } from '#client/lib/viewport.ts';
 
 import { DefaultContextMenu } from './default-context-menu';
 import { DesktopUpdates } from './desktop-updates';
@@ -85,12 +86,34 @@ function usePhoneNavigation(path: string, library: boolean) {
   };
 }
 
+function useDrawerFocus(narrow: boolean, open: boolean) {
+  const drawerToggle = useRef<HTMLButtonElement>(null);
+  const revealToggle = useRef<HTMLButtonElement>(null);
+  const previousOpen = useRef(open);
+
+  useLayoutEffect(() => {
+    const changed = previousOpen.current !== open;
+
+    previousOpen.current = open;
+
+    if (!narrow || !changed) return;
+
+    const active = document.activeElement;
+
+    if (active === document.body || active?.closest('[inert]'))
+      (open ? drawerToggle : revealToggle).current?.focus({ preventScroll: true });
+  }, [narrow, open]);
+
+  return { drawerToggle, revealToggle };
+}
+
 /** Keeps a page heading accessible when the note layout hides its visual top bar. */
 function ShellHeader({
   notes,
   visible,
   title,
   onToggle,
+  toggleRef,
   header
 }: {
   header?: 'workspace';
@@ -98,11 +121,13 @@ function ShellHeader({
   visible: boolean;
   title: string;
   onToggle: () => void;
+  toggleRef: Ref<HTMLButtonElement>;
 }) {
   const { t } = useI18n();
 
   const toggle = visible ? null : (
     <SidebarUI.Toggle
+      ref={toggleRef}
       placement={header === 'workspace' || notes ? 'reveal' : 'default'}
       label={t('ToggleSidebar')}
       expanded={false}
@@ -136,7 +161,7 @@ function usePageLayout(notes: boolean, pages: boolean, workspace: boolean) {
 }
 
 function useNavigation(pathname: string, notebook: boolean, practice: boolean) {
-  const phone = useMobileViewport();
+  const phone = useNarrowLayout();
   const search = useSearch({ from: '__root__' });
   const path = pathname.replace(/\/$/, '');
   const library =
@@ -168,6 +193,7 @@ export function Shell() {
   const notebook = ['Notes', 'Assistant'].includes(title);
   const layout = usePageLayout(notes, section === 'pages', header === 'workspace');
   const navigation = useNavigation(match?.pathname ?? '', notebook, section === 'practice');
+  const { drawerToggle, revealToggle } = useDrawerFocus(navigation.phone, navigation.open);
   const context = useSidebarContext(metadata);
   const { project, shortcutsDisabled } = useContextMenuScope(scope, context);
 
@@ -193,15 +219,17 @@ export function Shell() {
               metadata={metadata}
               collapsed={navigation.collapsed}
               onToggle={navigation.toggle}
+              toggleRef={drawerToggle}
             />
           )}
-          <SidebarUI.Main>
+          <SidebarUI.Main inert={navigation.phone && navigation.open}>
             <ShellHeader
               header={header}
               notes={notebook}
               visible={navigation.visible}
               title={t(title)}
               onToggle={navigation.toggle}
+              toggleRef={revealToggle}
             />
             <PageShell.PageBody layout={layout}>
               <Outlet />

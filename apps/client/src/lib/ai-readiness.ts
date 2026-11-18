@@ -25,8 +25,21 @@ export function aiReadiness(
 
 export type AiReadiness = 'checking' | 'unavailable' | 'setup' | 'ready';
 
+function accountReadiness({ status }: ReturnType<typeof useAiConfiguration>): AiReadiness {
+  if (status.isPending) return 'checking';
+
+  if (status.isError || status.stale || !status.data) return 'unavailable';
+
+  return status.data.signedIn && status.data.sharing ? 'ready' : 'setup';
+}
+
 export function useAiReadiness(tier: ModelTier, provider?: AiReadinessProvider): AiReadiness {
-  const query = useAiConfiguration();
+  const query = useAiConfiguration(provider !== 'chatgpt');
+  const account = accountReadiness(query);
+
+  if (provider === 'chatgpt') return account;
+
+  if (provider === 'configured-or-chatgpt' && account === 'ready') return 'ready';
 
   if (query.isPending) return 'checking' as const;
 

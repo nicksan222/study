@@ -145,6 +145,7 @@ test.server.stable(
         })
       );
       expect(hints).toBe(1);
+      expect(db.orm.select().from(workflow_executions).get()?.status).toBe('suspended');
       hints = 0;
       await runtime.runPromise(refreshExecutionSnapshots(context, [workflow]));
       await runtime.runPromise(refreshExecutionSnapshots(context, [workflow]));

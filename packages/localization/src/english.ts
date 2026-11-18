@@ -1995,6 +1995,8 @@ export const english = Object.freeze({
   WrittenExamConversation: 'Exam conversation',
   WrittenExamThinking: 'Thinking…',
   WrittenExamTurnError: 'The professor couldn’t reply. Try again.',
+  WrittenExamSourceUnavailable:
+    'A selected page is unavailable. Restore it and try again, or start a new exam with different pages.',
   WrittenExamHistory: 'Review the conversation',
   WrittenExamUnderstood: 'You got it!',
   WrittenExamNeedsReview: 'What to review',

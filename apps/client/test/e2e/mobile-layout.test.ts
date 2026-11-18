@@ -15,7 +15,7 @@ async function visit({ page, expect }: BrowserContext, path: string) {
   await expect(page.locator('html')).toHaveCSS('zoom', '1');
   await expect(page.locator('html')).toHaveJSProperty('scrollWidth', phone.width);
 
-  const main = page.getByRole('main');
+  const main = page.locator('main');
 
   await expect(main).toBeVisible();
   const frame = await main.boundingBox();
@@ -23,8 +23,6 @@ async function visit({ page, expect }: BrowserContext, path: string) {
   expect(frame?.width, `Writing and reading space on ${path}`).toBeGreaterThanOrEqual(
     phone.width * 0.8
   );
-
-  return main;
 }
 
 async function capture(context: BrowserContext, name: string, path: string, control: Locator) {
@@ -44,6 +42,7 @@ test.browser.stable(
     const { project, note, page: savedPage } = await study.seed();
     const settings = await rpc.runPromise(rpc.client['settings.appSettings']({}));
     const captureContext = { page, expect, expectScreenshot };
+    const mainElement = page.locator('main');
     const main = page.getByRole('main');
     const subject = `?project=${project.id}`;
 
@@ -74,10 +73,11 @@ test.browser.stable(
         }
       })
     );
+    const sourceText = 'Chromosomes carry genetic information.';
     const source = await rpc.runPromise(
       rpc.client['sources.createSource']({
         name: 'Study reference.txt',
-        bytes: new TextEncoder().encode('Chromosomes carry genetic information.'),
+        bytes: new TextEncoder().encode(sourceText),
         projectId: project.id
       })
     );
@@ -155,12 +155,17 @@ test.browser.stable(
       captureContext,
       'source-reader',
       `/sources/${source.id}`,
-      main.getByRole('heading', { name: 'Study reference.txt' })
+      main.getByText(sourceText, { exact: true })
     );
 
     const drawer = page.getByRole('complementary', { name: copy.SidebarNavigation });
 
-    await main.getByRole('button', { name: copy.ToggleSidebar }).tap();
+    const reveal = main.getByRole('button', { name: copy.ToggleSidebar });
+    const closeDrawer = drawer.getByRole('button', { name: copy.ToggleSidebar });
+
+    await reveal.tap();
+    await expect(closeDrawer).toBeFocused();
+    await expect(mainElement).toHaveJSProperty('inert', true);
     await expectScreenshot('navigation-drawer', {
       target: 'viewport',
       zoomPercent: 100,
@@ -172,8 +177,10 @@ test.browser.stable(
     await expect(main.getByRole('heading', { name: copy.PagesOverviewTitle })).toBeInViewport();
     await page.keyboard.press('ControlOrMeta+k');
     await expect(drawer.getByRole('searchbox', { name: copy.Search, exact: true })).toBeFocused();
-    await drawer.getByRole('button', { name: copy.ToggleSidebar }).tap();
+    await closeDrawer.tap();
     await expect(drawer).toBeHidden();
+    await expect(mainElement).toHaveJSProperty('inert', false);
+    await expect(reveal).toBeFocused();
     await page.setViewportSize({ width: 320, height: 640 });
     await expect(main.getByRole('heading', { name: copy.PagesOverviewTitle })).toBeInViewport();
     await expect(page.locator('html')).toHaveJSProperty('scrollWidth', 320);
@@ -188,24 +195,24 @@ test.browser.stable(
     await page.goto('/settings');
     const settingsDialog = page.getByRole('dialog', { name: copy.Settings });
 
+    const contrast = settingsDialog.getByRole('slider', { name: copy.AppearanceContrast });
+    const textSize = settingsDialog.getByRole('slider', { name: copy.TextSize });
+    const html = page.locator('html');
+
     await settingsDialog.getByRole('button', { name: copy.Appearance, exact: true }).tap();
-    await expect(settingsDialog.getByRole('slider', { name: copy.TextSize })).toHaveCount(0);
-    await settingsDialog
-      .getByRole('slider', { name: copy.AppearanceContrast })
-      .scrollIntoViewIfNeeded();
+    await contrast.scrollIntoViewIfNeeded();
+    await expect(textSize).toHaveCount(0);
     await expectScreenshot('settings', {
       target: 'viewport',
       zoomPercent: 100,
-      ready: () =>
-        expect(
-          settingsDialog.getByRole('slider', { name: copy.AppearanceContrast })
-        ).toBeInViewport()
+      ready: () => expect(contrast).toBeInViewport()
     });
-    await page.setViewportSize({ width: 844, height: 390 });
-    await expect(page.locator('html')).toHaveCSS('zoom', '1');
     await page.setViewportSize({ width: 1280, height: 900 });
-    await expect(page.locator('html')).toHaveCSS('zoom', '1.25');
-    await expect(settingsDialog.getByRole('slider', { name: copy.TextSize })).toBeVisible();
+    await expect(html).toHaveCSS('zoom', '1.25');
+    await expect(textSize).toBeVisible();
+    await page.setViewportSize({ width: 844, height: 390 });
+    await expect(html).toHaveCSS('zoom', '1');
+    await expect(textSize).toHaveCount(0);
     expect((await rpc.runPromise(rpc.client['settings.appSettings']({}))).zoomPercent).toBe(125);
   }
 );

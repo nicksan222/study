@@ -35,6 +35,13 @@ test.unit.describe('AI readiness', () => {
     const signedIn = { ...data, status: { ...data.status, signedIn: true, sharing: true } };
 
     expect(aiReadiness(data, 'medium', 'chatgpt')).toBe(false);
+    expect(
+      aiReadiness(
+        { ...signedIn, status: { ...signedIn.status, sharing: false } },
+        'medium',
+        'chatgpt'
+      )
+    ).toBe(false);
     expect(aiReadiness(signedIn, 'medium', 'chatgpt')).toBe(true);
     expect(aiReadiness({ ...signedIn, providers: [] }, 'medium', 'configured-or-chatgpt')).toBe(
       true
@@ -56,6 +63,32 @@ test.unit.describe('AI readiness', () => {
     ).toBe(false);
   });
 });
+
+test.unit.stable(
+  'ChatGPT remains ready when API-key providers are unavailable',
+  async ({ rpcTestTransport, renderHook, expect, waitFor }) => {
+    const { wrapper } = rpcTestTransport(async (tag) => {
+      if (tag === 'auth.status') return { ...data.status, signedIn: true, sharing: true };
+
+      if (tag === 'settings.llmSettings') return data.settings;
+
+      throw new Error('Providers unavailable');
+    });
+    const hook = renderHook(
+      () => ({
+        exam: useAiReadiness('medium', 'chatgpt'),
+        chooser: useAiReadiness('medium', 'configured-or-chatgpt'),
+        quiz: useAiReadiness('medium')
+      }),
+      { wrapper }
+    );
+
+    await waitFor(() =>
+      expect(hook.result.current).toEqual({ exam: 'ready', chooser: 'ready', quiz: 'unavailable' })
+    );
+    hook.unmount();
+  }
+);
 
 test.unit.stable(
   'readiness distinguishes loading and failure and refreshes after configuration changes',

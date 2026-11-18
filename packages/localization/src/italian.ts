@@ -2045,6 +2045,8 @@ export const italian = Object.freeze({
   WrittenExamConversation: 'Conversazione dell’interrogazione',
   WrittenExamThinking: 'Il professore sta pensando…',
   WrittenExamTurnError: 'Il professore non è riuscito a rispondere. Riprova.',
+  WrittenExamSourceUnavailable:
+    'Una pagina selezionata non è disponibile. Ripristinala e riprova, oppure avvia una nuova interrogazione con altre pagine.',
   WrittenExamHistory: 'Rileggi la conversazione',
   WrittenExamUnderstood: 'Ce l’hai fatta!',
   WrittenExamNeedsReview: 'Cosa ripassare',
