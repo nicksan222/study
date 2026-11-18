@@ -66,17 +66,22 @@ jobs:
       - name: 📥 Check out repository
         uses: actions/checkout@v7
       - name: 🥟 Prepare Bun, dependencies and task cache
+        id: setup
         uses: ./.github/actions/setup-javascript
       - name: 🧪 Test feature services, RPC, workflows and shared contracts
         run: bun run ci:server
       - name: ♻️ Restore pinned recognition fixtures
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         uses: actions/cache@v4
         with:
           path: ${{ env.STUDY_VOICE_MODELS_DIR }}
           key: study-voice-models-v1-${{ hashFiles('apps/server/src/features/voice/service/strategy.ts', 'apps/server/src/features/voice/service/strategies/**/*.ts') }}
       - name: 📦 Prepare and verify recognition fixtures
+        id: voice_fixtures
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: bun run voice:fixtures
       - name: 🎙️ Test every registered recognizer with human recordings
+        if: ${{ !cancelled() && steps.voice_fixtures.outcome == 'success' }}
         env:
           TMPDIR: ${{ runner.temp }}
         run: bun run voice:test

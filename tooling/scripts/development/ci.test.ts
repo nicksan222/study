@@ -9,7 +9,13 @@ type Workflow = {
       if?: string;
       strategy?: { 'fail-fast': boolean; 'max-parallel': number; matrix: { shard: number[] } };
       uses?: string;
-      steps?: { run?: string; if?: string; uses?: string; with?: Record<string, string> }[];
+      steps?: {
+        id?: string;
+        run?: string;
+        if?: string;
+        uses?: string;
+        with?: Record<string, string>;
+      }[];
     }
   >;
 };
@@ -34,14 +40,21 @@ const lanes = [
 test.unit.stable(
   'the required server lane prepares pinned speech assets and runs the real model matrix',
   ({ expect }) => {
-    const preparationAndTests = workflow.jobs
-      .server_tests!.steps!.map((step) => step.run)
-      .filter((command) => command?.startsWith('bun run voice:'));
+    const steps = workflow.jobs.server_tests!.steps!;
+    const voiceSteps = steps.filter((step) => step.run?.startsWith('bun run voice:'));
+    const setupReady = "${{ !cancelled() && steps.setup.outcome == 'success' }}";
 
-    expect(preparationAndTests).toEqual(['bun run voice:fixtures', 'bun run voice:test']);
-    expect(
-      workflow.jobs.server_tests!.steps!.find((step) => step.run === 'bun run voice:test')?.if
-    ).toBeUndefined();
+    expect(steps.find((step) => step.id === 'setup')?.uses).toBe(
+      './.github/actions/setup-javascript'
+    );
+    expect(steps.find((step) => step.uses === 'actions/cache@v4')?.if).toBe(setupReady);
+    expect(voiceSteps).toMatchObject([
+      { id: 'voice_fixtures', run: 'bun run voice:fixtures', if: setupReady },
+      {
+        run: 'bun run voice:test',
+        if: "${{ !cancelled() && steps.voice_fixtures.outcome == 'success' }}"
+      }
+    ]);
   }
 );
 
