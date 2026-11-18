@@ -9,8 +9,6 @@ import { localModelPaths } from './local-model-file.ts';
 
 const path = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
-const modelsDirectory = requiredModelDirectory();
-
 function requiredModelDirectory() {
   const directory = process.env.STUDY_VOICE_MODELS_DIR;
 
@@ -25,6 +23,7 @@ function requiredModelDirectory() {
 type Strategy = (typeof speechRecognitionStrategies)[number];
 
 async function openVoiceClient(resources: test.server.Context['resources'], strategy: Strategy) {
+  const modelsDirectory = requiredModelDirectory();
   const { model, assets } = strategy;
   const { server } = await resources.openRpc({
     voice: {
@@ -92,6 +91,7 @@ export function normalize(text: string) {
   return (
     text
       .toLocaleLowerCase('en')
+      .normalize('NFC')
       .replace(/[^\p{L}\p{N}'\s]/gu, '')
       .match(/\S+/g) ?? []
   );
