@@ -109,7 +109,10 @@ async function fixture({
     const file = Bun.file(`${path}/package.json`);
     const pkg = await file.json();
 
-    pkg.scripts[name] = manifest.scripts[name];
+    const command: string = manifest.scripts[name];
+
+    // Turbo's dry-run option belongs before any separator for forwarded runner flags.
+    pkg.scripts[name] = args.includes('--dry=json') ? command.replace(/ --$/, '') : command;
     await Bun.write(file, JSON.stringify(pkg));
 
     for (const source of ['turbo.ts', 'task-cache.ts'])
@@ -192,18 +195,27 @@ test.unit.stable(
     assert.include(full, '//#desktop:runtime');
     assert.deepEqual(selected, full);
     const javascript = commands(await repo.plan('check:javascript'));
-    const server = commands(await repo.plan('check:server'));
+    const server = commands(await repo.plan('@study/server#test'));
+    const shared = commands(await repo.plan('check:shared'));
     const database = commands(await repo.plan('check:database'));
     const native = commands(await repo.plan('check:native'));
 
     assert.include(javascript, '@study/server#typecheck');
     assert.include(javascript, '@study/client#build');
     assert.deepEqual(database, ['@study/db#test']);
-    assert.notInclude(server, '@study/db#test');
+    assert.deepEqual(server, ['@study/server#test']);
+    assert.sameMembers(
+      shared.filter((task) => task.endsWith('#test')),
+      [
+        '@study/contracts#test',
+        '@study/localization#test',
+        '@study/theme#test',
+        '@study/integrations#test'
+      ]
+    );
     assert.notInclude(native, '//#lint:repo');
     assert.notInclude(native, '//#check:landing');
-    assert.notInclude(server, '@study/server#typecheck');
-    assert.isEmpty(javascript.filter((task) => task.endsWith('#test') && server.includes(task)));
+    assert.isEmpty(javascript.filter((task) => task.endsWith('#test') && shared.includes(task)));
   }
 );
 

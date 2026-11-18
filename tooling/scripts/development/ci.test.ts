@@ -30,6 +30,8 @@ const lanes = [
   'hygiene',
   'javascript',
   'server_tests',
+  'recognition',
+  'shared_tests',
   'database',
   'browser',
   'native',
@@ -38,9 +40,9 @@ const lanes = [
 ];
 
 test.unit.stable(
-  'the required server lane prepares pinned speech assets and runs the real model matrix',
+  'the required recognition lane prepares pinned speech assets and runs the real model matrix',
   ({ expect }) => {
-    const steps = workflow.jobs.server_tests!.steps!;
+    const steps = workflow.jobs.recognition!.steps!;
     const voiceSteps = steps.filter((step) => step.run?.startsWith('bun run voice:'));
     const setupReady = "${{ !cancelled() && steps.setup.outcome == 'success' }}";
 
@@ -73,31 +75,40 @@ test.unit.stable(
       assert.isUndefined(job.needs);
       assert.isUndefined(job.if);
 
-      if (name !== 'browser') assert.isUndefined(job.strategy);
+      if (name !== 'browser' && name !== 'server_tests') assert.isUndefined(job.strategy);
     }
   }
 );
 
-test.unit.stable(
-  'browser shards run the full catalog without cancelling sibling diagnostics',
-  ({ assert: assertions }) => {
+test.unit.stable.for([
+  {
+    lane: 'browser',
+    command: 'bun run web:e2e:compare --shard=${{ matrix.shard }}/3',
+    artifact: 'web-e2e-diagnostics-${{ matrix.shard }}'
+  },
+  {
+    lane: 'server_tests',
+    command: 'bun run ci:server --shard=${{ matrix.shard }}/3',
+    artifact: 'vitest-server-reports-${{ matrix.shard }}'
+  }
+])(
+  '$lane shards run without cancelling sibling diagnostics',
+  ({ lane, command, artifact }, { assert: assertions }) => {
     const assert: test.Assert = assertions;
 
-    const browser = workflow.jobs.browser!;
+    const job = workflow.jobs[lane]!;
 
-    assert.deepEqual(browser.strategy, {
+    assert.deepEqual(job.strategy, {
       'fail-fast': false,
       'max-parallel': 3,
       matrix: { shard: [1, 2, 3] }
     });
-    const runner = browser.steps!.find((step) => step.with?.runCmd);
-    const artifacts = browser.steps!.find((step) =>
-      step.uses?.startsWith('actions/upload-artifact@')
-    );
+    const runner = job.steps!.find((step) => step.with?.runCmd ?? step.run);
+    const artifacts = job.steps!.find((step) => step.uses?.startsWith('actions/upload-artifact@'));
 
-    assert.equal(runner?.with?.runCmd, 'bun run web:e2e:compare --shard=${{ matrix.shard }}/3');
+    assert.equal(runner?.with?.runCmd ?? runner?.run, command);
+    assert.equal(artifacts?.with?.name, artifact);
     assert.equal(artifacts?.if, '${{ always() }}');
-    assert.equal(artifacts?.with?.name, 'web-e2e-diagnostics-${{ matrix.shard }}');
   }
 );
 

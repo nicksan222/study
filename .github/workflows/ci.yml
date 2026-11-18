@@ -55,12 +55,37 @@ jobs:
           if-no-files-found: ignore
 
   server_tests:
-    name: ⚙️ Server & contracts
+    name: ⚙️ Server tests (${{ matrix.shard }}/3)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        shard: [1, 2, 3]
     env:
       # Real files retain WAL, locking, backup and restart semantics.
       TMPDIR: /dev/shm
+    steps:
+      - name: 📥 Check out repository
+        uses: actions/checkout@v7
+      - name: 🥟 Prepare Bun, dependencies and task cache
+        uses: ./.github/actions/setup-javascript
+      - name: 🧪 Test feature services, RPC and workflows
+        run: bun run ci:server --shard=${{ matrix.shard }}/3
+      - name: 📎 Retain test reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: vitest-server-reports-${{ matrix.shard }}
+          path: apps/server/test-results/vitest/*.xml
+          if-no-files-found: ignore
+
+  recognition:
+    name: 🎙️ Speech recognition
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
       STUDY_VOICE_MODELS_DIR: target/voice-models
     steps:
       - name: 📥 Check out repository
@@ -68,8 +93,6 @@ jobs:
       - name: 🥟 Prepare Bun, dependencies and task cache
         id: setup
         uses: ./.github/actions/setup-javascript
-      - name: 🧪 Test feature services, RPC, workflows and shared contracts
-        run: bun run ci:server
       - name: ♻️ Restore pinned recognition fixtures
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         uses: actions/cache@v4
@@ -85,11 +108,25 @@ jobs:
         env:
           TMPDIR: ${{ runner.temp }}
         run: bun run voice:test
+
+  shared_tests:
+    name: 📦 Shared package tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      TMPDIR: /dev/shm
+    steps:
+      - name: 📥 Check out repository
+        uses: actions/checkout@v7
+      - name: 🥟 Prepare Bun, dependencies and task cache
+        uses: ./.github/actions/setup-javascript
+      - name: 🧪 Test contracts, localization, theme and integration helpers
+        run: bun run ci:shared
       - name: 📎 Retain test reports
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: vitest-server_tests-reports
+          name: vitest-shared-reports
           path: '**/test-results/vitest/*.xml'
           if-no-files-found: ignore
 
@@ -198,7 +235,19 @@ jobs:
   check:
     # Required by the main branch ruleset; keep this exact name.
     name: Test and build
-    needs: [hygiene, javascript, server_tests, database, browser, native, integrations, landing]
+    needs:
+      [
+        hygiene,
+        javascript,
+        server_tests,
+        recognition,
+        shared_tests,
+        database,
+        browser,
+        native,
+        integrations,
+        landing
+      ]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -217,7 +266,9 @@ jobs:
           labels = {
               'hygiene': '🧹 Code hygiene',
               'javascript': '🧩 Types & unit tests',
-              'server_tests': '⚙️ Server & contracts',
+              'server_tests': '⚙️ Server tests',
+              'recognition': '🎙️ Speech recognition',
+              'shared_tests': '📦 Shared package tests',
               'database': '🗄️ Database',
               'browser': '🌐 Browser journeys',
               'native': '🦀 Desktop & runtime',
