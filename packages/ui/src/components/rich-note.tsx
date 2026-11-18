@@ -52,11 +52,13 @@ const noteStarterKit = StarterKit.extend({
         renderMarkdown(node, helpers, context) {
           const value = this.parent?.(node, helpers, context) ?? '';
 
-          const escaped = value.replace(
-            /^([ \t]{0,3})(?:(\d{1,9})([.)])(?=\s|$)|([#+=-]))/gm,
-            (_match, indent, number, punctuation, marker) =>
-              `${indent}${number ?? ''}\\${punctuation ?? marker}`
-          );
+          const escaped = value
+            .replace(
+              /^([ \t]{0,3})(?:(\d{1,9})([.)])(?=\s|$)|([#+=-]))/gm,
+              (_match, indent, number, punctuation, marker) =>
+                `${indent}${number ?? ''}\\${punctuation ?? marker}`
+            )
+            .replace(/^([ \t]*)\$\$/gm, '$1\\$\\$');
 
           return escapeImplicitLinks(escaped);
         }

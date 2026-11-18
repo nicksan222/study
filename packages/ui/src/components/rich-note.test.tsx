@@ -200,7 +200,9 @@ for (const literal of [
   '* Wednesday',
   '1) January',
   'Deadline\n===',
-  'First\n# Title\n---'
+  'First\n# Title\n---',
+  '$$x+y$$',
+  '$$\nx+y\n$$'
 ]) {
   test.unit.stable(
     `preserves literal dictated paragraph ${JSON.stringify(literal)} after saving and reopening`,
@@ -231,7 +233,7 @@ for (const literal of [
       expect(reopened.container.querySelector('.tiptap')).not.toHaveTextContent('\\');
       expect(
         reopened.container.querySelector(
-          '.tiptap ol, .tiptap ul, .tiptap h1, .tiptap h2, .tiptap hr'
+          '.tiptap ol, .tiptap ul, .tiptap h1, .tiptap h2, .tiptap hr, .tiptap [data-note-math]'
         )
       ).toBeNull();
     }
