@@ -1,5 +1,7 @@
 function needsSpace(left: string, right: string) {
-  return !!left && !!right && !/[\s([{]$/.test(left) && !/^[\s,.;:!?)}\]]/.test(right);
+  return (
+    !!left && !!right && !/[\s([{\p{Pi}]$/u.test(left) && !/^[\s,.;:!?)}\]\p{Pf}]/u.test(right)
+  );
 }
 
 export function dictationSpacing(before: string, text: string, after: string) {
