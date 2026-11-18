@@ -222,9 +222,12 @@ async function createMicrophone(page: Page, voice: VoiceMock) {
           page.clock.setFixedTime(Date.parse(captureProfile.wallTime) + seconds * 1000),
         stop: () => finish.click(),
         async cancel() {
-          await scope.getByRole('button', { name: VoiceCancel, exact: true }).click();
-          permission.dispose();
-          withdraw();
+          try {
+            await scope.getByRole('button', { name: VoiceCancel, exact: true }).click();
+          } finally {
+            permission.dispose();
+            withdraw();
+          }
         }
       };
     }
