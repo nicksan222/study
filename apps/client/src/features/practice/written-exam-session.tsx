@@ -53,11 +53,7 @@ type ExchangeEntry = Prompt & { answer?: string };
 
 type Summary = Extract<WrittenExamResult, { kind: 'summary' }>;
 
-type Action = 'answer' | 'hint' | 'finish';
-
-function withAnswer(history: readonly ExamTurn[], prompt: Prompt, draft: string) {
-  return draft ? [...history, { ...prompt, answer: draft }] : history;
-}
+type Action = 'answer' | 'hint' | 'finish' | 'submit-and-finish';
 
 function requestStep(
   kind: Action,
@@ -72,11 +68,15 @@ function requestStep(
     return undefined;
   }
 
-  if (kind === 'answer' && !draft) return undefined;
+  if (kind === 'finish') return { kind, concept, history };
 
-  const [first, ...rest] = withAnswer(history, current, draft);
+  if (!draft) return undefined;
 
-  if (first) return { kind, concept, history: [first, ...rest] };
+  const entry = { ...current, answer: draft };
+  const [first, ...rest] = history;
+  const submitted = first ? ([first, ...rest, entry] as const) : ([entry] as const);
+
+  return { kind: kind === 'answer' ? 'answer' : 'finish', concept, history: submitted };
 }
 
 function useExamConversation(opening: ExamOpening) {
@@ -419,12 +419,17 @@ function ExamActions({ model }: { model: Conversation }) {
           >
             {t('WrittenExamHint')}
           </MenuItem>
-          <MenuItem
-            disabled={model.blocked || !(model.history.length || model.draft)}
-            onClick={() => void model.advance('finish')}
-          >
-            {t(model.draft ? 'WrittenExamSubmitAndFinish' : 'WrittenExamFinish')}
+          <MenuItem disabled={model.blocked} onClick={() => void model.advance('finish')}>
+            {t('WrittenExamFinish')}
           </MenuItem>
+          {model.draft && (
+            <MenuItem
+              disabled={model.blocked}
+              onClick={() => void model.advance('submit-and-finish')}
+            >
+              {t('WrittenExamSubmitAndFinish')}
+            </MenuItem>
+          )}
         </MenuPopup>
       </Menu>
     </Practice.ExamActions>

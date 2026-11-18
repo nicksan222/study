@@ -29,15 +29,18 @@ const answer = writtenText(writtenExamAnswerLimit);
 
 const exchange = Schema.Struct({ ...promptFields, answer });
 
-const transcript = {
-  concept,
-  history: Schema.NonEmptyArray(exchange).check(Schema.isMaxLength(writtenExamTurnLimit))
-};
-
 const writtenExamStepSchema = Schema.Union([
   Schema.Struct({ kind: Schema.Literal('start'), topic: Schema.optional(concept) }),
-  Schema.Struct({ kind: Schema.Literal('answer'), ...transcript }),
-  Schema.Struct({ kind: Schema.Literal('finish'), ...transcript }),
+  Schema.Struct({
+    kind: Schema.Literal('answer'),
+    concept,
+    history: Schema.NonEmptyArray(exchange).check(Schema.isMaxLength(writtenExamTurnLimit))
+  }),
+  Schema.Struct({
+    kind: Schema.Literal('finish'),
+    concept,
+    history: Schema.Array(exchange).check(Schema.isMaxLength(writtenExamTurnLimit))
+  }),
   Schema.Struct({
     kind: Schema.Literal('hint'),
     concept,

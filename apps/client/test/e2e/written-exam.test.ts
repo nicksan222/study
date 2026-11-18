@@ -570,6 +570,38 @@ async function checkUnansweredTranscript(
   });
 }
 
+async function checkFinishWithoutAnswer(
+  { page, study, ai, expect, expectScreenshot }: BrowserContext,
+  { exam, answer, evidence }: Awaited<ReturnType<typeof startExam>>
+) {
+  const { concept, question } = cases.english;
+  const copy = catalogs.english;
+  const actions = await examActions(page, exam, copy);
+  const finish = actions.getByRole('menuitem', { name: copy.WrittenExamFinish, exact: true });
+
+  await expect(finish).toBeEnabled();
+  await actions.press('Escape');
+  await expect(actions).toBeHidden();
+  const unsent = 'This draft stays out of the recap.';
+
+  await answer.fill(unsent);
+  ai.next(study.agents.writtenExam, {
+    input: { evidence, step: { kind: 'finish', concept, history: [] } },
+    output: { next: { kind: 'summary', understood: false, feedback: 'Review anaphase.' } }
+  });
+  await examActions(page, exam, copy);
+  await expect(
+    actions.getByRole('menuitem', { name: copy.WrittenExamSubmitAndFinish })
+  ).toBeEnabled();
+  await finish.click();
+  await exam.getByText(copy.WrittenExamHistory, { exact: true }).click();
+  await expect(exam.getByText(unsent)).toHaveCount(0);
+  await expectScreenshot('summary-before-first-answer', {
+    target: exam,
+    ready: () => expect(exam.getByText(question, { exact: true })).toBeInViewport()
+  });
+}
+
 async function checkSettingsExit(
   { page, rpc, expect, expectScreenshot }: BrowserContext,
   { exam, answer }: Pick<Awaited<ReturnType<typeof startExam>>, 'exam' | 'answer'>
@@ -683,6 +715,9 @@ test.browser.stable(
     await hint.aborted;
     await reopenEnglishExam(context, session);
     await checkUnansweredTranscript(context, { exam, answer, send, evidence });
+    await exam.getByRole('button', { name: copy.WrittenExamBack }).click();
+    await reopenEnglishExam(context, session);
+    await checkFinishWithoutAnswer(context, session);
     await exam.getByRole('button', { name: copy.WrittenExamBack }).click();
     await reopenEnglishExam(context, session);
     await checkSettingsExit(context, { exam, answer });

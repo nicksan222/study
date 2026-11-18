@@ -117,6 +117,23 @@ test.server.stable(
             feedback: 'Review anaphase.'
           });
 
+          const finishWithoutAnswer = { kind: 'finish' as const, concept, history: [] };
+          const review = {
+            kind: 'summary' as const,
+            understood: false,
+            feedback: 'Review anaphase.'
+          };
+
+          model.next(writtenExamAgent, {
+            input: { step: finishWithoutAnswer, evidence },
+            output: { next: premature }
+          });
+          model.next(writtenExamAgent, {
+            input: { step: finishWithoutAnswer, evidence },
+            output: { next: review }
+          });
+          expect(yield* exam({ ...request, step: finishWithoutAnswer })).toEqual(review);
+
           const complete = {
             ...answer,
             history: [
