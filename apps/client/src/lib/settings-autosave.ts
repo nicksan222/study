@@ -1,5 +1,5 @@
 import { toastManager } from '@study/ui';
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -7,7 +7,17 @@ export function useSettingsAutosave<T extends object>(
   read: () => Promise<T>,
   write: (value: T) => Promise<unknown>
 ) {
-  return useSettingsPatchAutosave<T>(async (patch) => write({ ...(await read()), ...patch }));
+  const writer = useRef(write);
+
+  useLayoutEffect(() => {
+    writer.current = write;
+  }, [write]);
+
+  return useSettingsPatchAutosave<T>(async (patch) => {
+    const latest = await read();
+
+    await writer.current({ ...latest, ...patch });
+  });
 }
 
 /** Serializes preference patches and retains failed changes for an explicit retry. */
