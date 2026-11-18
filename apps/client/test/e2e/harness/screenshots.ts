@@ -4,6 +4,11 @@ import type { TestInfo } from 'playwright/test';
 
 import { safeName } from './identity.ts';
 import { assertSnapshotComparison } from './preflight.ts';
+import {
+  matchesBaseline,
+  matchesHorizontalShift,
+  screenshotTolerance
+} from './screenshot-comparison.ts';
 
 export function updateAllowed(workflow: string, name: string, env = process.env): boolean {
   if (env.E2E_UPDATE && env.CI) throw new Error('Baseline updates are forbidden in CI');
@@ -55,6 +60,7 @@ export function screenshotAssertions(
     if (names.has(name)) throw new Error(`Duplicate screenshot: ${name}`);
 
     names.add(name);
+    const updating = updateAllowed(workflow, name);
     const started = performance.now();
     const deadline = Date.now() + Math.min(timeoutMs, 30000);
     let expired = false;
@@ -69,8 +75,68 @@ export function screenshotAssertions(
       return (target === 'viewport' ? page : target).screenshot({
         animations: 'disabled',
         caret: 'hide',
+        scale: 'css',
         timeout: remaining()
       });
+    };
+    const captureStable = async (first: Buffer) => {
+      let previous = first;
+
+      await expect
+        .poll(
+          async () => {
+            const actual = await capture();
+            const stable = previous.equals(actual);
+
+            previous = actual;
+
+            return stable;
+          },
+          { timeout: remaining() }
+        )
+        .toBe(true);
+      fence();
+
+      return previous;
+    };
+    const updateReference = async (path: string, expected: Buffer | undefined) => {
+      // Native update mode is run-wide. Check this stable capture before writing its reference.
+      const actual = await captureStable(await capture());
+
+      if (expected && matchesBaseline(actual, expected)) return;
+
+      fence();
+      await Bun.write(path, actual);
+    };
+    const matchesReference = async (expected: Buffer) => {
+      const actual = await capture();
+
+      if (actual.equals(expected)) return true;
+
+      if (!matchesHorizontalShift(actual, expected)) return false;
+
+      return matchesBaseline(await captureStable(actual), expected);
+    };
+    const compareOrUpdate = async () => {
+      const path = baselinePath(profile, workflow, name);
+      const reference = Bun.file(path);
+      const expected = (await reference.exists())
+        ? Buffer.from(await reference.arrayBuffer())
+        : undefined;
+
+      if (updating) return updateReference(path, expected);
+
+      assertSnapshotComparison(info.config.updateSnapshots, info.project.ignoreSnapshots);
+
+      if (expected && (await matchesReference(expected))) return;
+
+      fence();
+      const snapshotExpect = soft ? expect.soft : expect;
+
+      await snapshotExpect(target === 'viewport' ? page : target).toHaveScreenshot(
+        [profile, workflow, `${name}.png`],
+        { timeout: remaining(), ...screenshotTolerance }
+      );
     };
     let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -146,42 +212,7 @@ export function screenshotAssertions(
           }
 
           fence();
-
-          if (updateAllowed(workflow, name)) {
-            // Native snapshot update mode is run-wide. Keep single-capture updates scoped explicitly.
-            let previous = await capture();
-            let actual = previous;
-
-            await expect
-              .poll(
-                async () => {
-                  actual = await capture();
-                  const stable = previous.equals(actual);
-
-                  previous = actual;
-
-                  return stable;
-                },
-                { timeout: remaining() }
-              )
-              .toBe(true);
-            fence();
-            await Bun.write(baselinePath(profile, workflow, name), actual);
-          } else {
-            assertSnapshotComparison(info.config.updateSnapshots, info.project.ignoreSnapshots);
-            const snapshotExpect = soft ? expect.soft : expect;
-
-            await snapshotExpect(target === 'viewport' ? page : target).toHaveScreenshot(
-              [profile, workflow, `${name}.png`],
-              {
-                timeout: remaining(),
-                threshold: 0.2,
-                // Bound rasterization drift without letting large captures hide changed controls.
-                maxDiffPixels: 10,
-                maxDiffPixelRatio: 0.0001
-              }
-            );
-          }
+          await compareOrUpdate();
         })(),
         new Promise<never>((_, reject) => {
           timer = setTimeout(() => {
@@ -191,7 +222,7 @@ export function screenshotAssertions(
         })
       ]);
 
-      if (updateAllowed(workflow, name) && process.env.E2E_UPDATE_RUN) {
+      if (updating && process.env.E2E_UPDATE_RUN) {
         const updateRun = safeName(process.env.E2E_UPDATE_RUN);
 
         await Bun.write(

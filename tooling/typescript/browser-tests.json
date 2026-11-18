@@ -7,6 +7,7 @@
     "../../apps/server/src/platform/speech/rnnoise-wasm.d.ts",
     "../../apps/client/test/e2e/*.test.ts",
     "../../apps/client/test/e2e/harness/*.browser.test.ts",
+    "../../apps/client/test/e2e/harness/*.d.ts",
     "../../apps/client/test/e2e/harness/*.types.ts",
     "../../apps/client/test/e2e/environment.d.ts"
   ]
