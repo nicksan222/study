@@ -87,6 +87,31 @@ test.unit.stable(
   }
 );
 
+test.unit.stable(
+  'continues multiline dictation in the code block at the end of a text selection',
+  ({ expect }) => {
+    const editor = new Editor({
+      extensions: [StarterKit],
+      content: '<p>Before</p><pre><code>Code end</code></pre><p>After</p>'
+    });
+
+    try {
+      const { doc } = editor.state;
+      const end = doc.child(0).nodeSize + doc.child(1).nodeSize - 1;
+
+      editor.commands.setTextSelection({ from: 2, to: end });
+      insertEditorText(editor, 'first\r\nsecond', { continuation: true });
+      expect(editor.getJSON().content).toMatchObject([
+        { type: 'paragraph', content: [{ type: 'text', text: 'Before' }] },
+        { type: 'codeBlock', content: [{ type: 'text', text: 'Code end first\nsecond' }] },
+        { type: 'paragraph', content: [{ type: 'text', text: 'After' }] }
+      ]);
+    } finally {
+      editor.destroy();
+    }
+  }
+);
+
 for (const newline of ['\n', '\r\n', '\r']) {
   test.unit.stable(
     `preserves literal multiline dictation in code blocks with ${JSON.stringify(newline)} separators`,

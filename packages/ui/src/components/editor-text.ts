@@ -44,8 +44,9 @@ export function insertEditorText(
   }
 
   const { from, to } = selection;
+  const start = continuation ? to : from;
 
-  insertInlineText(editor, text, continuation ? to : from, to, textOnlySelection(editor), focus);
+  insertInlineText(editor, text, start, to, textOnlyAtPosition(editor, start), focus);
 }
 
 function insertParagraph(editor: Editor, text: string, position: number, focus: boolean) {
@@ -94,9 +95,9 @@ function insertInlineText(
   }
 }
 
-function textOnlySelection(editor: Editor) {
-  const { selection, schema } = editor.state;
-  const node = selection instanceof NodeSelection ? selection.node : selection.$from.parent;
+function textOnlyAtPosition(editor: Editor, position: number) {
+  const { doc, selection, schema } = editor.state;
+  const node = selection instanceof NodeSelection ? selection.node : doc.resolve(position).parent;
   const hardBreak = schema.nodes.hardBreak;
 
   return !hardBreak || !node.type.contentMatch.matchType(hardBreak);
