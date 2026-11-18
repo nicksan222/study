@@ -8,7 +8,6 @@ import {
   DialogBody,
   DialogHeading,
   DialogFooter,
-  DialogTrigger,
   ErrorState,
   IconButton,
   Notebook,
@@ -18,7 +17,7 @@ import {
   Textarea
 } from '@study/ui';
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
-import type { ReactElement, Ref } from 'react';
+import type { RefObject } from 'react';
 
 import { captureMicrophone, microphoneAvailable } from '#client/lib/host.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -197,27 +196,42 @@ function DictationAction({
 }: {
   model: Model;
   control: ReturnType<typeof triggerState>;
-  ref: Ref<HTMLButtonElement>;
+  ref: RefObject<HTMLButtonElement | null>;
 }) {
   const { t } = useI18n();
-  const cancel = () => session.cancel(model.owner);
-  const button = (
-    <IconButton
-      ref={ref}
-      type="button"
-      label={t(label)}
-      tooltip={error ? t(errorLabels[error]) : undefined}
-      size={active ? 'icon-sm' : 'icon-xs'}
-      variant={error ? 'warning-outline' : 'ghost'}
-      disabled={disabled}
-      onMouseDown={(event) => event.preventDefault()}
-      onClick={retry ? undefined : active ? cancel : model.start}
-    >
-      <TriggerIcon active={active} error={!!error} />
-    </IconButton>
-  );
+  const [recovery, setRecovery] = useState<Model['state']>();
+  const open = retry && recovery === model.state;
+  const activate = () => {
+    if (retry) setRecovery(model.state);
+    else if (active) session.cancel(model.owner);
+    else model.start();
+  };
 
-  return retry ? <DictationRetry model={model} trigger={button} /> : button;
+  return (
+    <>
+      <IconButton
+        ref={ref}
+        type="button"
+        label={t(label)}
+        tooltip={error ? t(errorLabels[error]) : undefined}
+        aria-haspopup={retry ? 'dialog' : undefined}
+        aria-expanded={retry ? open : undefined}
+        size={active ? 'icon-sm' : 'icon-xs'}
+        variant={error ? 'warning-outline' : 'ghost'}
+        disabled={disabled}
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={activate}
+      >
+        <TriggerIcon active={active} error={!!error} />
+      </IconButton>
+      <DictationRetry
+        model={model}
+        open={open}
+        close={() => setRecovery(undefined)}
+        trigger={ref}
+      />
+    </>
+  );
 }
 
 function triggerState({ state, owned, disabled }: Model) {
@@ -280,14 +294,23 @@ const errorLabels = {
   interrupted: 'VoiceInterruptedHelp'
 } as const;
 
-function DictationRetry({ model, trigger }: { model: Model; trigger: ReactElement }) {
+function DictationRetry({
+  model,
+  open,
+  close,
+  trigger
+}: {
+  model: Model;
+  open: boolean;
+  close: () => void;
+  trigger: RefObject<HTMLButtonElement | null>;
+}) {
   const { t } = useI18n();
   const { owner, state } = model;
 
   return (
-    <Dialog>
-      <DialogTrigger render={trigger} />
-      <DialogPopup closeLabel={t('Close')}>
+    <Dialog open={open} onOpenChange={(next) => !next && close()}>
+      <DialogPopup closeLabel={t('Close')} finalFocus={trigger}>
         <DialogHeading
           title={t('VoiceTranscriptionFailedTitle')}
           description={t('VoiceTranscriptionFailed')}

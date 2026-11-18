@@ -129,6 +129,7 @@ test.unit.stable(
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     await userEvent.click(screen.getByRole('button', { name: 'Dictation recovery options' }));
     await userEvent.click(screen.getByRole('button', { name: 'Cancel dictation' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(screen.getAllByRole('button')).toEqual([
       screen.getByRole('button', { name: 'Start dictation' })
     ]);
@@ -305,5 +306,52 @@ test.unit.stable(
     await userEvent.keyboard('{Escape}');
     expect(onEscape).toHaveBeenCalledOnce();
     expect(announcement).toBeInTheDocument();
+  }
+);
+
+test.unit.stable(
+  'keeps the focused microphone action available when transcription fails',
+  async ({ render, screen, userEvent, expect }) => {
+    render(<DictationButton onTranscript={() => {}} />);
+    const trigger = screen.getByRole('button', { name: 'Start dictation' });
+
+    trigger.focus();
+    await userEvent.keyboard('{Enter}');
+    const stop = await screen.findByRole('button', { name: 'Stop and transcribe' });
+
+    stop.focus();
+    await userEvent.keyboard('{Enter}');
+    await transcriptionRequested.promise;
+    expect(trigger).toHaveFocus();
+    failTranscription(new Error('Unavailable'));
+
+    const recovery = await screen.findByRole('button', { name: 'Dictation recovery options' });
+
+    expect(recovery).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
+    expect(await screen.findByRole('dialog')).toBeVisible();
+    await userEvent.keyboard('{Escape}');
+    expect(recovery).toHaveFocus();
+  }
+);
+
+test.unit.stable(
+  'does not focus dictation recovery when the draft has focus',
+  async ({ render, screen, userEvent, expect }) => {
+    render(
+      <>
+        <textarea aria-label="Draft" />
+        <DictationButton onTranscript={() => {}} />
+      </>
+    );
+    const draft = screen.getByRole('textbox', { name: 'Draft' });
+
+    draft.focus();
+    await userEvent.click(screen.getByRole('button', { name: 'Start dictation' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Stop and transcribe' }));
+    failTranscription(new Error('Unavailable'));
+
+    await screen.findByRole('button', { name: 'Dictation recovery options' });
+    expect(draft).toHaveFocus();
   }
 );
