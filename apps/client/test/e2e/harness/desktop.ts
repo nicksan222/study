@@ -82,11 +82,28 @@ try {
         await browser.$(`h1=${name}`).waitForDisplayed();
       }
     });
-    console.log('Home navigation reaches Projects');
   } finally {
-    await browser.deleteSession();
+    // WebdriverIO throws when Close Window removes the last handle. Tauri can also
+    // exit before sending the reply, so use the protocol and confirm the process exit.
+    await Effect.runPromise(
+      Effect.tryPromise(async (signal) => {
+        const result = await fetch(`http://127.0.0.1:${port}/session/${browser.sessionId}/window`, {
+          method: 'DELETE',
+          signal
+        }).catch(() => undefined);
+
+        if (result && !result.ok) throw new Error(`Close Window returned HTTP ${result.status}`);
+
+        const code = await app.exited;
+
+        if (code !== 0) throw new Error(`Study exited with code ${code} after closing its window`);
+      }).pipe(Effect.timeout('25 seconds'))
+    );
   }
+
+  console.log('Home navigation reaches Projects');
 } finally {
-  app.kill();
+  if (app.exitCode === null) app.kill();
+
   await app.exited;
 }
