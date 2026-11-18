@@ -240,7 +240,7 @@ test.browser.stable(
     const settings = page.getByRole('dialog', { name: copy.Settings });
 
     await settings.getByRole('button', { name: copy.VoiceTitle, exact: true }).click();
-    await expect(settings.getByText(modelLabel, { exact: true })).toBeVisible();
+    await expect(settings.getByRole('heading', { name: model.name, exact: true })).toBeVisible();
     await expect(settings.getByText(copy.VoiceAutomatic, { exact: true })).toBeVisible();
     await expect(
       settings.getByText(countText('english', 'supportedLanguage', model.languages.length))
@@ -284,11 +284,7 @@ test.browser.stable(
     });
 
     await expect(localizedFilter).not.toBeChecked();
-    await expect(
-      localized.getByText(text('italian', 'VoiceActiveModel', { model: model.name }), {
-        exact: true
-      })
-    ).toBeVisible();
+    await expect(localized.getByRole('heading', { name: model.name, exact: true })).toBeVisible();
     await expect(
       localized.getByText(countText('italian', 'supportedLanguage', model.languages.length))
     ).toBeVisible();
@@ -297,8 +293,15 @@ test.browser.stable(
       target: 'viewport',
       ready: () => expect(localizedFilter).toBeInViewport({ ratio: 1 })
     });
-    await localized.getByRole('button', { name: italian.VoiceRemove }).click();
-    await expect(localized.getByText(italian.VoiceModelMissing, { exact: true })).toBeVisible();
+    const removeDownload = localized.getByRole('button', { name: italian.VoiceRemove });
+
+    await removeDownload.scrollIntoViewIfNeeded();
+    await expectScreenshot('voice-settings-italian-download', {
+      target: 'viewport',
+      ready: () => expect(removeDownload).toBeInViewport({ ratio: 1 })
+    });
+    await removeDownload.press('Enter');
+    await expect(localized.getByText(italian.VoiceModelMissing)).toBeVisible();
     const status = await rpc.runPromise(rpc.client['voice.status']({}));
 
     expect(status.state).toBe('missing');

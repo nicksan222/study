@@ -30,6 +30,7 @@ export const italian = Object.freeze({
   VoiceSetupTitle: 'Scaricare la dettatura?',
   VoiceSetupHelp:
     'La dettatura funziona in locale. Scarica il modello vocale una volta, poi avvia la registrazione.',
+  VoiceModelTitle: 'Modello vocale',
   VoiceModelDescription: 'Il riconoscimento vocale avviene in locale sul server Study collegato.',
   VoiceActiveModel: 'Modello di riconoscimento: {model}',
   VoiceModelFailed: 'Impossibile aggiornare il modello vocale. Controlla la connessione e riprova.',
@@ -39,7 +40,7 @@ export const italian = Object.freeze({
   VoiceDownload: 'Scarica modello',
   VoiceDownloadSize: 'Dimensione del download: {size}',
   VoiceCancelDownload: 'Annulla download',
-  VoiceRemove: 'Rimuovi modello scaricato',
+  VoiceRemove: 'Rimuovi download',
   VoiceLanguage: 'Lingua di trascrizione',
   VoiceAutomatic: 'Rilevamento automatico',
   VoiceLanguages: 'Il motore di riconoscimento rileva automaticamente la lingua.',

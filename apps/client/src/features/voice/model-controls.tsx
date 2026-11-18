@@ -31,11 +31,34 @@ const stateLabels = {
   missing: 'VoiceModelMissing'
 } as const;
 
-/** Shared explicit model lifecycle for first-use setup and Voice settings. */
-export function VoiceModelControls() {
-  const { t, number } = useI18n();
-  const { status, install, cancel, remove, state, busy, error } = useModelControls();
-  const model = activeModel(status.data);
+type ModelControls = ReturnType<typeof useModelControls>;
+
+export function VoiceModelControls({ layout = 'setup' }: { layout?: 'setup' | 'settings' }) {
+  const controls = useModelControls();
+  const { t } = useI18n();
+  const model = activeModel(controls.status.data);
+  const downloadSize = useDownloadSize(controls);
+  const stateLabel = controls.state && t(stateLabels[controls.state]);
+  const actions = controls.state && (
+    <Settings.Actions>
+      <ModelAction controls={controls} />
+    </Settings.Actions>
+  );
+  const feedback = <ModelFeedback controls={controls} />;
+
+  if (layout === 'settings') {
+    return (
+      <>
+        <ModelSettingsRow
+          title={model?.name ?? t('VoiceModelTitle')}
+          description={downloadSize ? [stateLabel, downloadSize].join(' ') : stateLabel}
+          status={controls.status.data}
+        />
+        {feedback}
+        {actions}
+      </>
+    );
+  }
 
   return (
     <>
@@ -43,47 +66,73 @@ export function VoiceModelControls() {
       {model && (
         <Settings.Feedback>{t('VoiceActiveModel', { model: model.name })}</Settings.Feedback>
       )}
-      {status.isPending && <Loading label={t('LoadingSettings')} />}
-      {error && (
-        <Settings.Status
-          action={
-            <RetryButton
-              label={t('Retry')}
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                install.reset();
-                cancel.reset();
-                remove.reset();
-                status.refetch();
-              }}
-            />
-          }
-        >
-          {t('VoiceModelFailed')}
-        </Settings.Status>
-      )}
-      {state && <Settings.Feedback>{t(stateLabels[state])}</Settings.Feedback>}
-      {state === 'missing' && status.data?.totalBytes !== undefined && (
-        <Settings.Feedback>
-          {t('VoiceDownloadSize', {
-            size: number(status.data.totalBytes / 1_000_000, {
-              style: 'unit',
-              unit: 'megabyte',
-              maximumFractionDigits: 0
-            })
-          })}
-        </Settings.Feedback>
-      )}
-      <DownloadProgress status={status.data} />
-      <ModelActions
-        status={status.data}
-        busy={busy}
-        install={install}
-        cancel={cancel}
-        remove={remove}
-      />
+      {feedback}
+      {stateLabel && <Settings.Feedback>{stateLabel}</Settings.Feedback>}
+      {downloadSize && <Settings.Feedback>{downloadSize}</Settings.Feedback>}
+      <DownloadProgress status={controls.status.data} />
+      {actions}
     </>
+  );
+}
+
+function ModelSettingsRow({
+  title,
+  description,
+  status
+}: {
+  title: string;
+  description: string | undefined;
+  status: VoiceStatus;
+}) {
+  return (
+    <Settings.Group>
+      <Settings.Row title={title} description={description}>
+        {status?.state === 'downloading' && <DownloadProgress status={status} />}
+      </Settings.Row>
+    </Settings.Group>
+  );
+}
+
+function useDownloadSize({ state, status }: ModelControls) {
+  const { t, number } = useI18n();
+
+  if (state !== 'missing' || status.data?.totalBytes === undefined) return undefined;
+
+  const size = number(status.data.totalBytes / 1_000_000, {
+    style: 'unit',
+    unit: 'megabyte',
+    maximumFractionDigits: 0
+  });
+
+  return t('VoiceDownloadSize', { size });
+}
+
+function ModelFeedback({ controls }: { controls: ModelControls }) {
+  const { t } = useI18n();
+  const { status, install, cancel, remove, error } = controls;
+
+  if (status.isPending) return <Loading label={t('LoadingSettings')} />;
+
+  if (!error) return null;
+
+  return (
+    <Settings.Status
+      action={
+        <RetryButton
+          label={t('Retry')}
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            install.reset();
+            cancel.reset();
+            remove.reset();
+            status.refetch();
+          }}
+        />
+      }
+    >
+      {t('VoiceModelFailed')}
+    </Settings.Status>
   );
 }
 
@@ -121,26 +170,14 @@ function DownloadProgress({ status }: { status: VoiceStatus }) {
   );
 }
 
-function ModelActions({
-  status,
-  busy,
-  install,
-  cancel,
-  remove
-}: {
-  status: VoiceStatus;
-  busy: boolean;
-  install: ReturnType<typeof rpc.voice.install.useMutation>;
-  cancel: ReturnType<typeof rpc.voice.cancelInstall.useMutation>;
-  remove: ReturnType<typeof rpc.voice.remove.useMutation>;
-}) {
+function ModelAction({ controls }: { controls: ModelControls }) {
   const { t } = useI18n();
-  const state = status?.state;
-  const installationId = status?.installationId;
+  const { status, state, busy, install, cancel, remove } = controls;
+  const installationId = status.data?.installationId;
 
-  return (
-    <Settings.Actions>
-      {state === 'missing' && (
+  switch (state) {
+    case 'missing':
+      return (
         <Button
           type="button"
           disabled={busy || install.isPending}
@@ -151,8 +188,9 @@ function ModelActions({
         >
           {t('VoiceDownload')}
         </Button>
-      )}
-      {state === 'downloading' && (
+      );
+    case 'downloading':
+      return (
         <Button
           type="button"
           variant="outline"
@@ -163,11 +201,12 @@ function ModelActions({
         >
           {t('VoiceCancelDownload')}
         </Button>
-      )}
-      {state === 'ready' && (
+      );
+    case 'ready':
+      return (
         <Button
           type="button"
-          variant="outline"
+          variant="destructive-outline"
           disabled={busy}
           onClick={() => {
             void remove.mutateAsync({}).catch(() => {});
@@ -175,7 +214,8 @@ function ModelActions({
         >
           {t('VoiceRemove')}
         </Button>
-      )}
-    </Settings.Actions>
-  );
+      );
+    default:
+      return null;
+  }
 }

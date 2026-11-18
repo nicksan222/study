@@ -14,44 +14,47 @@ export function VoiceSettings() {
   const disabled = save.pending || !preferences.data;
 
   return (
-    <Settings.Section title={t('VoiceTitle')} busy={save.pending}>
-      <VoiceModelControls />
-      <Settings.Group>
-        <VoiceLanguageRow />
-        <ChunkDuration
-          current={preferences.data?.chunkSeconds ?? 30}
-          disabled={disabled}
-          onChange={(chunkSeconds) => save.update({ chunkSeconds })}
-        />
-        <Settings.ToggleRow
-          title={t('VoiceDenoise')}
-          description={t('VoiceDenoiseHelp')}
-          checked={preferences.data?.denoise ?? false}
-          disabled={disabled}
-          onCheckedChange={(denoise) => save.update({ denoise })}
-        />
-        {preferences.isPending && <Loading label={t('LoadingSettings')} />}
-        {preferences.data && (
-          <Settings.ToggleRow
-            title={t('VoiceFilterSilence')}
-            description={t('VoiceFilterSilenceHelp')}
-            checked={preferences.data.filterSilence}
-            disabled={save.pending}
-            onCheckedChange={(filterSilence) => save.update({ filterSilence })}
+    <>
+      <Settings.Section title={t('VoiceTitle')} busy={save.pending}>
+        <Settings.Intro>{t('VoicePrivacy')}</Settings.Intro>
+        <Settings.Group>
+          <VoiceLanguageRow />
+          <ChunkDuration
+            current={preferences.data?.chunkSeconds ?? 30}
+            disabled={disabled}
+            onChange={(chunkSeconds) => save.update({ chunkSeconds })}
           />
-        )}
-      </Settings.Group>
-      <VoiceSettingsError
-        loadFailed={preferences.isError}
-        saveFailed={save.error}
-        onRetry={() => {
-          save.retry();
-          preferences.refetch();
-        }}
-      />
-      <Settings.Feedback>{t('VoicePrivacy')}</Settings.Feedback>
-      <Settings.Feedback>{t('VoiceRecordingHelp')}</Settings.Feedback>
-    </Settings.Section>
+          <Settings.ToggleRow
+            title={t('VoiceDenoise')}
+            description={t('VoiceDenoiseHelp')}
+            checked={preferences.data?.denoise ?? false}
+            disabled={disabled}
+            onCheckedChange={(denoise) => save.update({ denoise })}
+          />
+          {preferences.isPending && <Loading label={t('LoadingSettings')} />}
+          {preferences.data && (
+            <Settings.ToggleRow
+              title={t('VoiceFilterSilence')}
+              description={t('VoiceFilterSilenceHelp')}
+              checked={preferences.data.filterSilence}
+              disabled={save.pending}
+              onCheckedChange={(filterSilence) => save.update({ filterSilence })}
+            />
+          )}
+        </Settings.Group>
+        <VoiceSettingsError
+          loadFailed={preferences.isError}
+          saveFailed={save.error}
+          onRetry={() => {
+            save.retry();
+            preferences.refetch();
+          }}
+        />
+      </Settings.Section>
+      <Settings.Section>
+        <VoiceModelControls layout="settings" />
+      </Settings.Section>
+    </>
   );
 }
 
