@@ -36,7 +36,7 @@ test.unit.beforeEach(async ({ mock }) => {
 
 test.unit.stable(
   'closing Page Evidence cancels existing annotation dictation and retains edits',
-  async ({ rpcHandlersTransport, render, userEvent, screen, expect, waitFor, within }) => {
+  async ({ rpcHandlersTransport, render, userEvent, screen, expect, waitFor, within, act }) => {
     const version = authoredPage(41n, 'Page excerpt', 101n).version!;
     const saved = Schema.decodeUnknownSync(annotationSchema)({
       id: 1n,
@@ -56,8 +56,9 @@ test.unit.stable(
       deleted: false,
       operation: 'create'
     });
+    const status = Promise.withResolvers<typeof readyVoiceStatus>();
     const harness = rpcHandlersTransport({
-      'voice.status': () => Effect.succeed(readyVoiceStatus),
+      'voice.status': () => Effect.promise(() => status.promise),
       'settings.voiceSettings': () => Effect.succeed({ filterSilence: true }),
       'pages.version': () => Effect.succeed(version),
       'pages.annotations': () => Effect.succeed({ items: [saved], nextCursor: null }),
@@ -81,6 +82,10 @@ test.unit.stable(
 
     await user.type(note, ' with edits');
     await user.click(await row.findByRole('button', { name: en.VoiceStart }));
+    const setup = within(await screen.findByRole('dialog', { name: en.VoiceSetupTitle }));
+
+    await act(async () => status.resolve(readyVoiceStatus));
+    await user.click(await setup.findByRole('button', { name: en.VoiceStart }));
     await row.findByRole('button', { name: en.VoiceStop });
     await user.click(disclosure);
     await waitFor(() => expect(cancelCapture).toHaveBeenCalledOnce());
@@ -94,7 +99,7 @@ test.unit.stable.for([false, true])(
   'saves a selected passage with the appropriate note while dictation enabled is %s',
   async (
     dictate,
-    { rpcHandlersTransport, render, userEvent, screen, expect, vi, fireEvent, waitFor, act }
+    { rpcHandlersTransport, render, userEvent, screen, expect, vi, fireEvent, waitFor, act, within }
   ) => {
     const version = authoredPage(41n, 'Page excerpt', 101n).version!;
     const recognition = Promise.withResolvers<{ text: string }>();
@@ -111,8 +116,10 @@ test.unit.stable.for([false, true])(
         })
       })
     );
+    const status = Promise.withResolvers<typeof readyVoiceStatus>();
     const harness = rpcHandlersTransport({
-      'voice.status': () => Effect.succeed(readyVoiceStatus),
+      'voice.status': () =>
+        dictate ? Effect.promise(() => status.promise) : Effect.succeed(readyVoiceStatus),
       'voice.transcribe': transcribe,
       'settings.voiceSettings': () => Effect.succeed({ filterSilence: true }),
       'pages.version': () => Effect.succeed(version),
@@ -141,6 +148,10 @@ test.unit.stable.for([false, true])(
 
     if (dictate) {
       await user.click(await screen.findByRole('button', { name: en.VoiceStart }));
+      const setup = within(await screen.findByRole('dialog', { name: en.VoiceSetupTitle }));
+
+      await act(async () => status.resolve(readyVoiceStatus));
+      await user.click(await setup.findByRole('button', { name: en.VoiceStart }));
       await user.click(await screen.findByRole('button', { name: en.VoiceStop }));
       await waitFor(() => expect(transcribe).toHaveBeenCalledOnce());
       expect(button).toBeDisabled();
