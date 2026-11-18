@@ -1,4 +1,4 @@
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 
 import { cn } from '../utils.ts';
 import { CONTROL_SURFACE_CLASS } from './control-styles';
@@ -7,13 +7,31 @@ export function Textarea({
   className,
   font = 'default',
   size = 'default',
+  header,
   ...props
-}: ComponentProps<'textarea'> & { font?: 'default' | 'mono'; size?: 'default' | 'compact' }) {
+}: ComponentProps<'textarea'> & {
+  font?: 'default' | 'mono';
+  size?: 'default' | 'compact';
+  header?: { label: ReactNode; action: ReactNode };
+}) {
+  const Surface = header ? 'div' : 'span';
+
   return (
-    <span
-      className={cn(CONTROL_SURFACE_CLASS, font === 'mono' && 'font-mono tabular-nums')}
+    <Surface
+      className={cn(
+        CONTROL_SURFACE_CLASS,
+        'has-[>textarea:disabled]:opacity-64',
+        header && 'flex-col',
+        font === 'mono' && 'font-mono tabular-nums'
+      )}
       data-slot="textarea-control"
     >
+      {header && (
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border px-3 py-2">
+          <span className="text-sm font-medium">{header.label}</span>
+          <div className="ml-auto">{header.action}</div>
+        </div>
+      )}
       <textarea
         className={cn(
           'block w-full resize-y rounded-[inherit] bg-transparent p-3 leading-5 outline-none placeholder:text-placeholder disabled:cursor-not-allowed',
@@ -24,6 +42,6 @@ export function Textarea({
         data-slot="textarea"
         {...props}
       />
-    </span>
+    </Surface>
   );
 }

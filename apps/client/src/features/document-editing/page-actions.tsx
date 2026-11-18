@@ -3,6 +3,7 @@ import { rpc } from '@study/contracts/react';
 import { Button, Disclosure, DocumentEditing, ErrorState, StatusMessage } from '@study/ui';
 import { Link } from '@tanstack/react-router';
 
+import { DictationSubmissionScope, useDictationSubmission } from '#client/features/voice/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { DocumentReader } from '../document-presentation';
@@ -88,6 +89,7 @@ function PageDraft({ view }: { view: PageEditor }) {
     run,
     discard
   } = view;
+  const submission = useDictationSubmission();
 
   if (!document) return null;
 
@@ -95,14 +97,19 @@ function PageDraft({ view }: { view: PageEditor }) {
     <>
       {draft && (
         <>
-          <BlockEditor
-            document={draft}
-            change={change}
-            disabled={busy || !!outcome || !!pendingSave}
-          />
+          <DictationSubmissionScope value={submission.scope}>
+            <BlockEditor
+              targetKey={`${version.pageId}:${version.id}`}
+              document={draft}
+              change={change}
+              disabled={busy || !!outcome || !!pendingSave}
+            />
+          </DictationSubmissionScope>
           <Button
-            disabled={busy || !!outcome}
-            onClick={() =>
+            disabled={busy || !!outcome || submission.blocked}
+            onClick={() => {
+              if (submission.isBlocked()) return;
+
               void run(async () => {
                 const input = pendingSave ?? {
                   pageId: version.pageId,
@@ -115,8 +122,8 @@ function PageDraft({ view }: { view: PageEditor }) {
                 const result = await rpc.pages.save.call(input);
 
                 setOutcome(result);
-              })
-            }
+              });
+            }}
           >
             {t('PageSave')}
           </Button>

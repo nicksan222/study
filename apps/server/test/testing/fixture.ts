@@ -101,3 +101,6 @@ export async function createStudyMaterials(...args: Parameters<typeof makeStudyM
 
   return createStudyMaterials(...args);
 }
+
+export { createVoiceMock } from './voice.ts';
+export { speechRecognitionStrategies } from '#server/features/voice/service/strategy';

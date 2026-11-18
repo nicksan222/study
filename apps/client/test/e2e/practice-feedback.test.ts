@@ -127,8 +127,12 @@ async function checkFeedbackTiming(
       })
     ).toBeDisabled();
     await expect(page.getByText('Four has three divisors.', { exact: true })).toBeVisible();
+    const actions = page.getByRole('button', { name: copy.PracticeActions, exact: true });
+
+    await expect(actions).toHaveAttribute('aria-expanded', 'true');
+    await actions.click();
+    await expect(actions).toHaveAttribute('aria-expanded', 'false');
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.getByRole('button', { name: copy.PracticeActions, exact: true }).click();
     await expectScreenshot('immediate-incorrect', {
       target: 'viewport',
       ready: () =>
@@ -136,7 +140,9 @@ async function checkFeedbackTiming(
     });
     await expectAccessibility('incorrect-feedback');
     await page.setViewportSize({ width: 2560, height: 1440 });
-    await page.getByRole('button', { name: copy.PracticeActions, exact: true }).click();
+    await expect(actions).toHaveAttribute('aria-expanded', 'false');
+    await actions.click();
+    await expect(actions).toHaveAttribute('aria-expanded', 'true');
     await page.getByRole('button', { name: copy.PracticeNextQuestion, exact: true }).click();
   } else {
     await expect(page.getByText(copy.VerdictIncorrect, { exact: true })).toHaveCount(0);

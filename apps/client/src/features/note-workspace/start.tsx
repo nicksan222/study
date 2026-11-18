@@ -17,8 +17,14 @@ import {
 } from '@study/ui';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Effect, Schema } from 'effect';
-import { useContext, useEffect, useId, useState } from 'react';
+import { useContext, useEffect, useId, useRef, useState } from 'react';
 
+import {
+  DictationButton,
+  DictationSubmissionScope,
+  useDictationSubmission,
+  useTextDictation
+} from '#client/features/voice/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 import { toStudyError } from '#client/lib/study-client/errors.ts';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
@@ -243,6 +249,16 @@ function StarterComposer({ view }: { view: StartView }) {
   const noteId = useId();
   const preferences = useWorkspacePreferences();
   const { cache, filesKey, files, draftKey, draft, blocked, beginNote } = view;
+  const input = useRef<HTMLTextAreaElement>(null);
+  const submission = useDictationSubmission();
+  const submit = () => {
+    if (!blocked && !submission.isBlocked()) beginNote();
+  };
+  const dictation = useTextDictation({
+    value: draft.data,
+    onChange: (text) => cache.set(startDraft(draftKey), text),
+    input
+  });
 
   return (
     <ComposerSurface.Root
@@ -288,6 +304,7 @@ function StarterComposer({ view }: { view: StartView }) {
       <Notebook.Label htmlFor={noteId}>{t('NoteCompose')}</Notebook.Label>
       <ComposerSurface.Input
         id={noteId}
+        ref={input}
         rows={1}
         spellCheck={preferences.spellcheck}
         aria-label={t('NoteCompose')}
@@ -299,12 +316,15 @@ function StarterComposer({ view }: { view: StartView }) {
           if (isNoteSubmit(event, preferences.submitOnEnter)) {
             event.preventDefault();
 
-            if (!blocked) beginNote();
+            submit();
           }
         }}
       />
       <ComposerSurface.Footer variant="notebook">
         <Notebook.CaptureTools>
+          <DictationSubmissionScope value={submission.scope}>
+            <DictationButton targetKey={draftKey} {...dictation} disabled={blocked} />
+          </DictationSubmissionScope>
           <Notebook.FileButton title={t('NoteAttachFiles')}>
             <AttachmentIcon size={16} aria-hidden="true" />
             <span>{t('NoteAttach')}</span>
@@ -326,9 +346,11 @@ function StarterComposer({ view }: { view: StartView }) {
         <Notebook.Actions>
           <Button
             size="sm"
-            disabled={blocked || (!draft.data.trim() && files.data.length === 0)}
+            disabled={
+              blocked || submission.blocked || (!draft.data.trim() && files.data.length === 0)
+            }
             aria-busy={view.flow.data.pending}
-            onClick={beginNote}
+            onClick={submit}
           >
             {t('NoteSaveNote')}
           </Button>

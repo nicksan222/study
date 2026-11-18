@@ -2,7 +2,10 @@ import { AgentRule, maxAgentRuleLength } from '@study/contracts';
 import type { AgentRuleKey } from '@study/contracts';
 import type { StaticMessageKey } from '@study/localization';
 import { RetryButton, Button, Loading, Settings } from '@study/ui';
+import { useRef } from 'react';
 
+import { DictationButton } from '#client/features/voice/index.ts';
+import { useTextDictation } from '#client/features/voice/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { useAgentRules } from './use-agent-rules';
@@ -30,6 +33,13 @@ export function AgentRulesSettings() {
   const model = useAgentRules();
   const { query, mutation, rules, selected } = model;
   const task = tasks[selected.key];
+  const input = useRef<HTMLTextAreaElement>(null);
+  const dictation = useTextDictation({
+    value: rules?.[selected.key] ?? '',
+    onChange: model.update,
+    input,
+    maxLength: maxAgentRuleLength
+  });
   const options = Object.values(AgentRule).map((value) => ({
     value: value.key,
     label: t(tasks[value.key].title)
@@ -68,6 +78,8 @@ export function AgentRulesSettings() {
               onValueChange={model.select}
             />
             <Settings.TextareaRow
+              ref={input}
+              action={<DictationButton targetKey={selected.key} {...dictation} />}
               title={t(task.title)}
               description={t(task.help)}
               placeholder={t('AgentRulesPlaceholder')}

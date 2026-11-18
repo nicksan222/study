@@ -15,10 +15,10 @@ import { captureTimestampClock } from './profile.ts';
 export async function openWebStack(
   options: Pick<
     NonNullable<Parameters<Awaited<ReturnType<typeof createServerFixture>>['openApp']>[0]>,
-    'ai'
+    'ai' | 'voice'
   > & { chatGptReleases?: Parameters<typeof createChatGptReleasePeer>[0] } = {}
 ) {
-  const { ai, chatGptReleases } = options;
+  const { ai, voice, chatGptReleases } = options;
   const chatGpt = chatGptReleases?.length ? createChatGptReleasePeer(chatGptReleases) : undefined;
 
   await using resources = createTestResources();
@@ -26,6 +26,7 @@ export async function openWebStack(
   const { app, server } = await fixture.openRpc({
     timestampClock: captureTimestampClock(),
     ai,
+    voice,
     fetch:
       chatGpt?.fetch ??
       ((...args) => {

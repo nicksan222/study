@@ -8,14 +8,13 @@ import {
   LoadMoreButton,
   Button,
   ErrorState,
-  Field,
   Loading,
   MaterialLibrary,
-  StatusMessage,
-  Textarea
+  StatusMessage
 } from '@study/ui';
 import { Schema } from 'effect';
 
+import { DictationSubmissionScope, DictationTextarea } from '#client/features/voice/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { CapturedInputLink } from '../source-library';
@@ -154,7 +153,7 @@ function AnnotationResults({ c }: { c: EvidenceController }) {
         {c.allAnnotations.map((annotation) => (
           <li key={String(annotation.id)}>
             <p>{annotation.note}</p>
-            <AnnotationControls annotation={annotation} />
+            <AnnotationControls annotation={annotation} visible={c.open} />
             <EvidenceTarget reference={{ kind: 'range', target: annotation.target }} />
           </li>
         ))}
@@ -207,7 +206,7 @@ function EvidenceFailure({ c }: { c: EvidenceController }) {
 
 function AnnotationCreation({ c, version }: { c: EvidenceController; version: PageVersion }) {
   const { t } = useI18n();
-  const { open, range, change, note, busy, unresolved } = c;
+  const { open, range, change, note, busy, unresolved, submission } = c;
 
   return (
     <>
@@ -231,15 +230,20 @@ function AnnotationCreation({ c, version }: { c: EvidenceController; version: Pa
               />
             </>
           )}
-          <Field label={<> {t('PageAnnotationNote')} </>}>
-            <Textarea
+          <DictationSubmissionScope value={submission.scope}>
+            <DictationTextarea
+              label={t('PageAnnotationNote')}
+              targetKey={`${version.pageId}:${version.id}`}
               value={note}
               disabled={busy}
               maxLength={100000}
-              onChange={(event) => change({ note: event.target.value })}
+              onValueChange={(note) => change({ note })}
             />
-          </Field>
-          <Button disabled={busy || Boolean(unresolved) || !range} onClick={c.saveAnnotation}>
+          </DictationSubmissionScope>
+          <Button
+            disabled={busy || Boolean(unresolved) || !range || submission.blocked}
+            onClick={c.saveAnnotation}
+          >
             {t('PageSaveAnnotation')}
           </Button>
         </>

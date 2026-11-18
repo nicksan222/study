@@ -1,6 +1,23 @@
 import type { ComponentProps } from 'react';
 
-/** Announces durable operation state without moving focus or treating it as an error. */
-export function StatusMessage(props: Omit<ComponentProps<'p'>, 'role' | 'className'>) {
-  return <p aria-live="polite" aria-atomic="true" {...props} role="status" />;
+const variants = {
+  default: undefined,
+  hint: 'text-sm text-muted-foreground',
+  announcement: 'sr-only'
+} as const;
+
+/** Announces operation state without moving focus or treating it as an error. */
+export function StatusMessage({
+  variant = 'default',
+  ...props
+}: Omit<ComponentProps<'p'>, 'role' | 'className'> & { variant?: keyof typeof variants }) {
+  return (
+    <p
+      aria-live="polite"
+      aria-atomic="true"
+      {...props}
+      role="status"
+      className={variants[variant]}
+    />
+  );
 }

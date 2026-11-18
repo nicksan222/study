@@ -4,6 +4,8 @@ import { failureSchema } from '../errors.ts';
 import { allDependencies, dependency, endpointGroup, liveQuery, mutation } from '../protocol.ts';
 import { modelCatalogViewSchema, modelUpdateSchema } from './model-updates.ts';
 import {
+  voiceSettingsSchema,
+  voiceSettingsPatchSchema,
   agentRulesSchema,
   quizSettingsSchema,
   workspacePreferencesSchema,
@@ -21,6 +23,16 @@ import { usageQuerySchema, usageReportSchema } from './usage.ts';
 const saved = Schema.Struct({});
 
 export const settingsEndpoints = {
+  voiceSettings: liveQuery(
+    'settings.voiceSettings',
+    { payload: {}, success: voiceSettingsSchema, error: failureSchema },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  saveVoiceSettings: mutation(
+    'settings.saveVoiceSettings',
+    { payload: voiceSettingsPatchSchema, success: saved, error: failureSchema },
+    { changes: [dependency.settings] }
+  ),
   saveModelTier: mutation(
     'settings.saveModelTier',
     { payload: saveModelTierSchema, success: saved, error: failureSchema },

@@ -5,6 +5,8 @@ import { Schema } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
 import type { ReactNode } from 'react';
 
+import { readyVoiceStatus } from '#client/test/page-values.ts';
+
 let AnnotationControls: typeof __MockType0.AnnotationControls;
 
 let annotationDrafts: typeof __MockType1.annotationDrafts;
@@ -35,6 +37,8 @@ const target = annotation.target;
 
 function createRpc({ vi }: Pick<test.unit.Context, 'vi'>) {
   return {
+    'voice.status': vi.fn().mockResolvedValue(readyVoiceStatus),
+    'voice.transcribe': vi.fn(),
     'pages.annotation': vi.fn(),
     'pages.reviseAnnotation': vi.fn(),
     'pages.annotationHistory': vi.fn(),
@@ -45,7 +49,14 @@ function createRpc({ vi }: Pick<test.unit.Context, 'vi'>) {
 
 let rpc: ReturnType<typeof createRpc>;
 
-test.unit.beforeEach(async ({ mock }) => {
+let captureCancelled: () => void;
+
+test.unit.beforeEach(async ({ mock, vi }) => {
+  captureCancelled = vi.fn();
+  mock('#client/lib/host.ts', () => ({
+    microphoneAvailable: () => true,
+    captureMicrophone: async () => ({ stop: async () => [0.4], cancel: captureCancelled })
+  }));
   mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
   const __mockModule0 = await import('./annotation-controls');
 
@@ -89,6 +100,21 @@ function mount({
   return {
     ...render(<AnnotationControls annotation={annotation} />, { wrapper }),
     wrapper,
+    setDeleted(review: boolean) {
+      if (!registry) throw new Error('Draft registry not mounted');
+
+      const atom = annotationDrafts(annotation.id);
+      const current = registry.get(atom);
+
+      if (!current) throw new Error('Annotation draft not initialized');
+
+      const deleted = { ...current.current, deleted: true };
+
+      registry.set(
+        atom,
+        review ? { ...current, review: deleted } : { ...current, current: deleted }
+      );
+    },
     setTarget(target: AnnotationDraft['target']) {
       if (!registry) throw new Error('Draft registry not mounted');
 
@@ -307,6 +333,77 @@ test.unit.stable(
 
     expect(savedDraft(draft, 4, { ...annotation, revision: 2n, note: 'Submitted' }).target).toEqual(
       next
+    );
+  }
+);
+
+for (const review of [false, true]) {
+  test.unit.stable(
+    `cancels dictation when ${review ? 'a reviewed revision' : 'the current annotation'} is deleted`,
+    async ({ rpcHandlersTransport, render, screen, userEvent, act, expect, within }) => {
+      const status = Promise.withResolvers<typeof readyVoiceStatus>();
+
+      rpc['voice.status'].mockReturnValue(status.promise);
+      const view = mount({ rpcHandlersTransport, render });
+
+      expect(screen.getByLabelText('PageAnnotationNote')).toBeEnabled();
+      await userEvent.click(screen.getByRole('button', { name: 'VoiceStart' }));
+      const setup = within(await screen.findByRole('dialog', { name: 'VoiceSetupTitle' }));
+
+      await act(async () => status.resolve(readyVoiceStatus));
+      await userEvent.click(await setup.findByRole('button', { name: 'VoiceStart' }));
+      await screen.findByRole('button', { name: 'VoiceStop' });
+      act(() => view.setDeleted(review));
+      expect(screen.getByLabelText('PageAnnotationNote')).toBeDisabled();
+      expect(within(view.container).getByRole('button', { name: 'VoiceStart' })).toBeDisabled();
+      expect(captureCancelled).toHaveBeenCalledOnce();
+    }
+  );
+}
+
+test.unit.stable(
+  'saves a revised annotation only after its final dictation segment is inserted',
+  async ({ rpcHandlersTransport, render, screen, userEvent, waitFor, act, expect, within }) => {
+    const status = Promise.withResolvers<typeof readyVoiceStatus>();
+    const recognition = Promise.withResolvers<{ text: string }>();
+
+    rpc['voice.status'].mockReturnValue(status.promise);
+    rpc['voice.transcribe'].mockReturnValue(recognition.promise);
+    rpc['pages.reviseAnnotation'].mockResolvedValue({
+      outcome: 'saved',
+      annotation: { ...annotation, revision: 2n, operation: 'update', note: 'Original spoken' }
+    });
+    mount({ rpcHandlersTransport, render });
+    const save = screen.getByRole('button', { name: 'PageSaveAnnotation' });
+
+    const note = screen.getByLabelText('PageAnnotationNote');
+    const deleteAction = screen.getByRole('button', { name: 'AnnotationDelete' });
+
+    expect(save).toBeEnabled();
+    await userEvent.click(note);
+    await userEvent.keyboard('{End}');
+    await userEvent.click(screen.getByRole('button', { name: 'VoiceStart' }));
+    const setup = within(await screen.findByRole('dialog', { name: 'VoiceSetupTitle' }));
+
+    await act(async () => status.resolve(readyVoiceStatus));
+    await userEvent.click(await setup.findByRole('button', { name: 'VoiceStart' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'VoiceStop' }));
+    await waitFor(() => expect(rpc['voice.transcribe']).toHaveBeenCalledOnce());
+    expect(save).toBeDisabled();
+    expect(deleteAction).toBeDisabled();
+    await userEvent.click(deleteAction);
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    await userEvent.click(save);
+    expect(rpc['pages.reviseAnnotation']).not.toHaveBeenCalled();
+    await act(async () => recognition.resolve({ text: 'spoken' }));
+    await waitFor(() => expect(save).toBeEnabled());
+    expect(deleteAction).toBeEnabled();
+    expect(note).toHaveValue('Original spoken');
+    await userEvent.click(save);
+    await waitFor(() =>
+      expect(rpc['pages.reviseAnnotation']).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ note: 'Original spoken' })
+      )
     );
   }
 );

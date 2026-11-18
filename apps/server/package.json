@@ -21,6 +21,7 @@
     "integrations": "bun ../../tooling/testing/integrations/run.ts"
   },
   "dependencies": {
+    "@echogarden/rnnoise-wasm": "0.2.0",
     "@effect/ai-anthropic": "4.0.7",
     "@effect/ai-openai": "4.0.7",
     "@effect/ai-openai-compat": "4.0.7",
@@ -42,5 +43,12 @@
     "@study/testing": "*",
     "@types/yauzl": "3.4.0",
     "fast-check": "4.10.2"
+  },
+  "optionalDependencies": {
+    "@transcribe-cpp/darwin-arm64-metal": "0.4.2",
+    "@transcribe-cpp/darwin-x64-cpu": "0.4.2",
+    "@transcribe-cpp/linux-arm64-cpu-vulkan": "0.4.2",
+    "@transcribe-cpp/linux-x64-cpu-vulkan": "0.4.2",
+    "@transcribe-cpp/win32-x64-cpu-vulkan": "0.4.2"
   }
 }

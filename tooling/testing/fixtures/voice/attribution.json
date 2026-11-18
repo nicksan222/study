@@ -1,0 +1,35 @@
+{
+  "dataset": "FLEURS (Few-shot Learning Evaluation of Universal Representations of Speech)",
+  "authors": "Conneau et al., Google Research, 2022",
+  "license": "CC-BY-4.0",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "original_dataset": "https://huggingface.co/datasets/google/fleurs",
+  "mirror": "https://huggingface.co/datasets/FluidInference/fleurs",
+  "modifications": "None. WAV files are unmodified natural human speech recordings.",
+  "samples": [
+    {
+      "id": "it_it_0228",
+      "language": "it_it",
+      "source": "https://huggingface.co/datasets/FluidInference/fleurs/resolve/main/it_it/it_it_0228.wav",
+      "reference": "non serve per forza uno yacht per gli arcipelaghi e i laghi",
+      "duration": 5.28,
+      "sha256": "ee178280c4b7e8c9a1cfac452ee469d7fee3090cb3899f72737c8271d7de7560"
+    },
+    {
+      "id": "en_us_0165",
+      "language": "en_us",
+      "source": "https://huggingface.co/datasets/FluidInference/fleurs/resolve/main/en_us/en_us_0165.wav",
+      "reference": "television reports show white smoke coming from the plant",
+      "duration": 3.84,
+      "sha256": "2f6f64143605bf50f7d37a33aed91ca883e5684bbe0776f19cbaf9de3c3bf315"
+    },
+    {
+      "id": "fr_fr_0226",
+      "language": "fr_fr",
+      "source": "https://huggingface.co/datasets/FluidInference/fleurs/resolve/main/fr_fr/fr_fr_0226.wav",
+      "reference": "de grandes zones plus au nord sont assez peu peuplées et certaines sont presque inhabitées à l'état sauvage",
+      "duration": 3.96,
+      "sha256": "5555a9f168794b12fe97b7442befc9a8f91cc8b1696798ed01a4c338222832c6"
+    }
+  ]
+}

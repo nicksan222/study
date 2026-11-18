@@ -11,9 +11,16 @@ export function ErrorState({
   title: string;
   description?: ReactNode;
   action?: ReactNode;
-  layout?: 'screen' | 'page' | 'inline' | 'sidebar' | 'compact';
+  layout?: 'screen' | 'page' | 'inline' | 'sidebar' | 'compact' | 'announcement';
 }) {
   const id = useId();
+
+  if (layout === 'announcement')
+    return (
+      <span role="alert" className="sr-only">
+        {title}
+      </span>
+    );
 
   return (
     <section role="alert" aria-labelledby={id} className="ui-error-state" data-layout={layout}>

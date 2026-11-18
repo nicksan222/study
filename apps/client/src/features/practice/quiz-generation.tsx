@@ -36,13 +36,17 @@ import {
   Label,
   ErrorState,
   Practice,
-  Settings,
-  Textarea
+  Settings
 } from '@study/ui';
 import { useLocation, useNavigate, useRouter } from '@tanstack/react-router';
 import type { SetStateAction } from 'react';
 import { useState, useCallback, useEffect, useId, useRef } from 'react';
 
+import {
+  DictationSubmissionScope,
+  DictationTextarea,
+  useDictationSubmission
+} from '#client/features/voice/index.ts';
 import { AiActionButton as AiButton } from '#client/lib/ai-action-button.tsx';
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';
@@ -326,6 +330,7 @@ function useGeneration(
 ) {
   const { t } = useI18n();
   const [kind, setKind] = useState<GenerationKind>('quiz');
+  const submission = useDictationSubmission();
   const [instruction, setInstruction] = useState('');
   const { pages, inputs, setInputs } = useGenerationPages(projectId);
   const isExam = kind === 'exam';
@@ -350,7 +355,7 @@ function useGeneration(
     (isExam || preferences.isSuccess);
 
   const create = () => {
-    if (!canStart || projectId === undefined) return;
+    if (!canStart || projectId === undefined || submission.isBlocked()) return;
 
     const selected = inputs.filter((input) => input.kind === 'page');
 
@@ -389,6 +394,7 @@ function useGeneration(
     isExam,
     busy,
     canStart,
+    submission,
     create
   };
 }
@@ -444,26 +450,7 @@ function GenerationPanel({
               />
             </Settings.Section>
           ) : (
-            <Practice.Customize>
-              <Practice.CustomizeSummary>
-                <OptionsIcon aria-hidden="true" />
-                <span>{t('PracticeCustomize')}</span>
-                <ExpandIcon aria-hidden="true" />
-              </Practice.CustomizeSummary>
-              <Practice.CustomizeBody>
-                <Settings.Section title={t('PracticeGeneratePrompt')}>
-                  <Textarea
-                    aria-label={t('PracticeGeneratePrompt')}
-                    placeholder={t('PracticeGeneratePromptHint')}
-                    value={model.instruction}
-                    maxLength={100000}
-                    disabled={model.busy}
-                    onChange={(event) => model.setInstruction(event.target.value)}
-                  />
-                </Settings.Section>
-                <Settings.Intro>{t('PracticeGenerateAutomaticTitle')}</Settings.Intro>
-              </Practice.CustomizeBody>
-            </Practice.Customize>
+            <GenerationInstructions model={model} projectId={projectId} />
           )}
         </Practice.GenerationBrief>
         <Practice.GenerationPages>
@@ -493,6 +480,41 @@ function GenerationPanel({
   );
 }
 
+function GenerationInstructions({
+  model,
+  projectId
+}: {
+  model: GenerationModel;
+  projectId?: ProjectId;
+}) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Practice.Customize onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <Practice.CustomizeSummary>
+        <OptionsIcon aria-hidden="true" />
+        <span>{t('PracticeCustomize')}</span>
+        <ExpandIcon aria-hidden="true" />
+      </Practice.CustomizeSummary>
+      <Practice.CustomizeBody>
+        <DictationSubmissionScope value={model.submission.scope}>
+          <DictationTextarea
+            targetKey={`${projectId}:${model.kind}`}
+            toolbarLabel={t('PracticeGeneratePrompt')}
+            placeholder={t('PracticeGeneratePromptHint')}
+            value={model.instruction}
+            maxLength={100000}
+            disabled={model.busy || !open}
+            onValueChange={model.setInstruction}
+          />
+        </DictationSubmissionScope>
+        <Settings.Intro>{t('PracticeGenerateAutomaticTitle')}</Settings.Intro>
+      </Practice.CustomizeBody>
+    </Practice.Customize>
+  );
+}
+
 function GenerationStatus({ model }: { model: GenerationModel }) {
   const { t } = useI18n();
 
@@ -512,6 +534,7 @@ function GenerationStatus({ model }: { model: GenerationModel }) {
             <RetryButton
               variant="outline"
               size="sm"
+              disabled={model.submission.blocked && (model.isExam || !model.preferences.isError)}
               onClick={() => {
                 if (!model.isExam && model.preferences.isError) void model.preferences.refetch();
                 else model.create();
@@ -540,7 +563,7 @@ function GenerationAction({ model }: { model: GenerationModel }) {
       label={label}
       workingLabel={t(model.isExam ? 'WrittenExamStarting' : 'QuizGenerating')}
       pending={model.busy}
-      disabled={!model.canStart}
+      disabled={!model.canStart || model.submission.blocked}
       onClick={model.create}
     >
       {model.isExam && model.busy ? t('WrittenExamStarting') : label}

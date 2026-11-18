@@ -9,7 +9,13 @@ type Workflow = {
       if?: string;
       strategy?: { 'fail-fast': boolean; 'max-parallel': number; matrix: { shard: number[] } };
       uses?: string;
-      steps?: { run?: string; if?: string; uses?: string; with?: Record<string, string> }[];
+      steps?: {
+        id?: string;
+        run?: string;
+        if?: string;
+        uses?: string;
+        with?: Record<string, string>;
+      }[];
     }
   >;
 };
@@ -26,6 +32,7 @@ const lanes = [
   'client_unit',
   'tooling_unit',
   'server_tests',
+  'recognition',
   'shared_tests',
   'database',
   'browser',
@@ -38,6 +45,27 @@ const prerequisites: Record<string, string[]> = {
   server_tests: ['hygiene', 'types'],
   browser: ['hygiene', 'types']
 };
+
+test.unit.stable(
+  'the required recognition lane prepares pinned speech assets and runs the real model matrix',
+  ({ expect }) => {
+    const steps = workflow.jobs.recognition!.steps!;
+    const voiceSteps = steps.filter((step) => step.run?.startsWith('bun run voice:'));
+    const setupReady = "${{ !cancelled() && steps.setup.outcome == 'success' }}";
+
+    expect(steps.find((step) => step.id === 'setup')?.uses).toBe(
+      './.github/actions/setup-javascript'
+    );
+    expect(steps.find((step) => step.uses === 'actions/cache@v4')?.if).toBe(setupReady);
+    expect(voiceSteps).toMatchObject([
+      { id: 'voice_fixtures', run: 'bun run voice:fixtures', if: setupReady },
+      {
+        run: 'bun run voice:test',
+        if: "${{ !cancelled() && steps.voice_fixtures.outcome == 'success' }}"
+      }
+    ]);
+  }
+);
 
 test.unit.stable(
   'the required merge gate covers every lane and gates heavy suites on static checks',

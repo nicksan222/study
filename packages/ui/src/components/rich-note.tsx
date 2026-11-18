@@ -28,20 +28,87 @@ import {
   useContext,
   useImperativeHandle,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef
 } from 'react';
 import type { ReactElement, ReactNode, Ref } from 'react';
 
 import { Button } from './button';
+import { captureEditorSelection, restoreEditorNodeSelection } from './editor-selection';
+import type { RichNoteSelection } from './editor-selection';
+import { insertEditorText } from './editor-text';
+import type { EditorTextOptions } from './editor-text';
 import { Menu, MenuTrigger, MenuPopup, MenuItem } from './menu';
 import { blockNoteMath, inlineNoteMath, NoteMath } from './note-math';
 
-const extensions = [StarterKit.configure({ link: { openOnClick: false } })];
+/** Paragraph markers escape only in saved Markdown; actual formatting and code keep their own serializers. */
+const noteStarterKit = StarterKit.extend({
+  addExtensions() {
+    return (this.parent?.() ?? []).map((extension) => {
+      if (extension.name !== 'paragraph') return extension;
 
-const readingExtensions = [...extensions, inlineNoteMath, blockNoteMath];
+      return extension.extend({
+        renderMarkdown(node, helpers, context) {
+          const value = this.parent?.(node, helpers, context) ?? '';
+
+          const escaped = value
+            .replace(
+              /^([ \t]{0,3})(?:(\d{1,9})([.)])(?=\s|$)|([#+=-]))/gm,
+              (_match, indent, number, punctuation, marker) =>
+                `${indent}${number ?? ''}\\${punctuation ?? marker}`
+            )
+            .replace(/^([ \t]*)\$\$/gm, '$1\\$\\$');
+
+          return escapeImplicitLinks(escaped);
+        }
+      });
+    });
+  }
+});
+
+const extensions = [noteStarterKit.configure({ link: { openOnClick: false } }), blockNoteMath];
 
 const markdown = new MarkdownManager({ extensions, markedOptions: { breaks: true } });
+
+type InlineTokens = ReturnType<typeof markdown.instance.Lexer.lexInline>;
+
+/** Unmarked URL text stays literal after saving; existing Markdown links use the default parser. */
+function escapeImplicitLinks(value: string) {
+  if (!/https?:\/\/|ftp:\/\/|www\.|@/i.test(value)) return value;
+
+  return escapeInlineLinks(value, markdown.instance.Lexer.lexInline(value));
+}
+
+function escapeInlineLinks(source: string, tokens: InlineTokens) {
+  let result = '';
+  let cursor = 0;
+
+  for (const token of tokens) {
+    const start = source.indexOf(token.raw, cursor);
+
+    if (start < 0) return source;
+
+    result += source.slice(cursor, start) + escapeInlineLink(token);
+    cursor = start + token.raw.length;
+  }
+
+  return result + source.slice(cursor);
+}
+
+function escapeInlineLink(token: InlineTokens[number]): string {
+  if (token.type === 'link') {
+    if (token.raw.startsWith('[') || token.raw.startsWith('<')) return token.raw;
+
+    return token.raw.replace(/^(www)\.|([:@])/i, (_, www, punctuation) =>
+      www ? `${www}\\.` : `\\${punctuation}`
+    );
+  }
+
+  return 'tokens' in token && token.tokens ? escapeInlineLinks(token.raw, token.tokens) : token.raw;
+}
+
+const readingExtensions = [...extensions, inlineNoteMath];
 
 const readingMarkdown = new MarkdownManager({
   extensions: readingExtensions,
@@ -83,11 +150,12 @@ export type RichNoteLabels = Record<
   string
 >;
 
-export type RichNoteSelection = { anchor: number; head: number };
+export type { RichNoteSelection } from './editor-selection';
 
 export type RichNoteEditorHandle = {
+  insertPlainText: (text: string, options?: EditorTextOptions) => void;
   selection: () => RichNoteSelection;
-  restoreSelection: (selection: RichNoteSelection) => void;
+  restoreSelection: (selection: RichNoteSelection, options?: { focus: boolean }) => void;
 };
 
 /** Edits Markdown through Tiptap while keeping the caller's versioned text as the only persisted value. */
@@ -140,7 +208,12 @@ export function RichNoteEditor({
   useImperativeHandle(
     ref,
     () => ({
+      insertPlainText: (text, options) => insertEditorText(editor, text, options),
       selection: () => {
+        const captured = captureEditorSelection(editor);
+
+        if (captured.kind === 'node') return captured;
+
         const selection = window.getSelection();
         const root = editor.view.dom;
 
@@ -151,26 +224,33 @@ export function RichNoteEditor({
           root.contains(selection.focusNode)
         )
           return {
+            kind: 'text',
             anchor: editor.view.posAtDOM(selection.anchorNode, selection.anchorOffset),
             head: editor.view.posAtDOM(selection.focusNode, selection.focusOffset)
           };
 
-        return { anchor: editor.state.selection.anchor, head: editor.state.selection.head };
+        return captured;
       },
-      restoreSelection: ({ anchor, head }) => {
+      restoreSelection: (selection, { focus } = { focus: true }) => {
+        if (selection.kind === 'node') return restoreEditorNodeSelection(editor, selection, focus);
+
+        const { anchor, head } = selection;
         const { doc, tr } = editor.state;
         const limit = (position: number) => Math.max(0, Math.min(position, doc.content.size));
 
         editor.view.dispatch(
-          tr.setSelection(TextSelection.create(doc, limit(anchor), limit(head)))
+          tr.setSelection(
+            TextSelection.between(doc.resolve(limit(anchor)), doc.resolve(limit(head)))
+          )
         );
-        editor.view.focus();
+
+        if (focus) editor.view.focus();
       }
     }),
     [editor]
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (latest.current === value) return;
 
     latest.current = value;

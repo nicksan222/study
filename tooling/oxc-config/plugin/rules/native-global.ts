@@ -1,6 +1,11 @@
 import type { effectBindings } from '../effect-bindings.ts';
 import { propertyName } from '../effect-bindings.ts';
-import { staticMember, enterNode } from '../lexical-bindings.ts';
+import {
+  destructuredPath,
+  staticMember,
+  enterNode,
+  transparentExpression
+} from '../lexical-bindings.ts';
 
 export function nativeGlobal(
   bindings: ReturnType<typeof effectBindings>,
@@ -8,6 +13,10 @@ export function nativeGlobal(
   seen = new Set<any>()
 ): string | null {
   if (!enterNode(node, seen)) return null;
+
+  const expression = transparentExpression(node);
+
+  if (expression) return nativeGlobal(bindings, expression, seen);
 
   if (node.type === 'Identifier') {
     const def = bindings.definition(node);
@@ -39,9 +48,7 @@ function memberGlobal(
     const base = nativeGlobal(bindings, node.object, seen);
     const name = propertyName(node.property);
 
-    if (!base || !name) return null;
-
-    return ['globalThis', 'global'].includes(base) ? name : `${base}.${name}`;
+    return name ? nativePath(base, [name]) : null;
   }
 
   return null;
@@ -77,27 +84,22 @@ function aliasedGlobal(
   def: any,
   seen: Set<any>
 ): string | null {
-  if (def.type === 'VariableDeclarator' && def.parent?.kind === 'const') {
-    if (def.id.type === 'Identifier') return nativeGlobal(bindings, def.init, seen);
+  if (def.type !== 'VariableDeclarator' || def.parent?.kind !== 'const') return null;
 
-    if (def.id.type === 'ObjectPattern') {
-      const base = nativeGlobal(bindings, def.init, seen);
-      const item = def.id.properties.find(
-        (p: any) =>
-          p.type === 'Property' &&
-          p.value.type === 'Identifier' &&
-          p.value.name === node.name &&
-          (!p.computed || p.key.type === 'Literal')
-      );
-      const name = propertyName(item?.key);
+  if (def.id.type === 'Identifier') return nativeGlobal(bindings, def.init, seen);
 
-      return base && name
-        ? ['globalThis', 'global'].includes(base)
-          ? name
-          : `${base}.${name}`
-        : null;
-    }
-  }
+  if (def.id.type !== 'ObjectPattern') return null;
 
-  return null;
+  const base = nativeGlobal(bindings, def.init, seen);
+  const names = destructuredPath(def.id, node.name, []);
+
+  return nativePath(base, names);
+}
+
+function nativePath(base: string | null, names: readonly string[] | null | undefined) {
+  if (!base || !names?.length || names.some((part) => part.includes('.'))) return null;
+
+  const name = names.join('.');
+
+  return ['globalThis', 'global'].includes(base) ? name : `${base}.${name}`;
 }

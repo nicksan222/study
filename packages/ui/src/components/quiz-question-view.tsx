@@ -26,6 +26,15 @@ type QuizOrderingItemId = bigint;
 
 type Question = PracticeQuestionModel;
 
+type OpenAnswerRenderer = (props: {
+  text: string;
+  setText: (text: string) => void;
+  send: () => void;
+  disabled: boolean;
+  label: string;
+  placeholder: string;
+}) => ReactNode;
+
 type Answer = PracticeAnswer;
 
 /** Present an attempt question, restore its saved answer and submit only a complete response. */
@@ -39,6 +48,7 @@ export function QuizQuestionView({
   error,
   blocked = false,
   notice,
+  renderOpenAnswer,
   autoFocus = true,
   response
 }: {
@@ -51,6 +61,7 @@ export function QuizQuestionView({
   error?: ReactNode;
   blocked?: boolean;
   notice?: ReactNode;
+  renderOpenAnswer?: OpenAnswerRenderer;
   autoFocus?: boolean;
   response?: { result?: PracticeResultQuestionModel; next: () => void };
 }) {
@@ -117,6 +128,7 @@ export function QuizQuestionView({
             order={order}
             setOrder={setOrder}
             send={send}
+            renderOpenAnswer={renderOpenAnswer}
           />
         </Practice.Answers>
         {!submitted && notice}
@@ -399,16 +411,30 @@ function TextAnswer({
   kind,
   text,
   setText,
-  send
+  send,
+  disabled,
+  renderOpenAnswer
 }: {
   kind: 'open' | 'fill_blank';
   text: string;
   setText: (text: string) => void;
   send: () => void;
+  disabled?: boolean;
+  renderOpenAnswer?: OpenAnswerRenderer;
 }) {
   const { t } = usePracticePresentation();
 
   const answerId = useId();
+
+  if (kind === 'open' && renderOpenAnswer)
+    return renderOpenAnswer({
+      text,
+      setText,
+      send,
+      disabled: disabled ?? false,
+      label: t('YourAnswer'),
+      placeholder: t('PracticeAnswerPlaceholder')
+    });
 
   return kind === 'fill_blank' ? (
     <Practice.ShortAnswer>
@@ -532,7 +558,8 @@ function AnswerEditor({
   clear,
   order,
   setOrder,
-  send
+  send,
+  renderOpenAnswer
 }: {
   question: Question;
   pending: boolean;
@@ -547,6 +574,7 @@ function AnswerEditor({
   order: QuizOrderingItemId[];
   setOrder: (update: (previous: QuizOrderingItemId[]) => QuizOrderingItemId[]) => void;
   send: () => void;
+  renderOpenAnswer?: OpenAnswerRenderer;
 }) {
   const { t } = usePracticePresentation();
 
@@ -593,7 +621,14 @@ function AnswerEditor({
 
   return (
     <div data-tone={textTone(result)}>
-      <TextAnswer kind={question.kind} text={text} setText={setText} send={send} />
+      <TextAnswer
+        kind={question.kind}
+        text={text}
+        setText={setText}
+        send={send}
+        disabled={pending}
+        renderOpenAnswer={renderOpenAnswer}
+      />
     </div>
   );
 }

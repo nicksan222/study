@@ -10,6 +10,8 @@ import type { test } from '@study/testing';
 import { render } from '@testing-library/react';
 import { Schema } from 'effect';
 
+import { readyVoiceStatus } from './page-values';
+
 function message(
   role: 'user' | 'assistant',
   text: string,
@@ -57,6 +59,7 @@ export function createAssistantHarness(mock: test.Mock) {
     provenance: mock.fn(),
     progress: mock.fn(),
     executions: mock.fn(),
+    transcribe: mock.fn(),
     reanswer: mock.fn(),
     cancel: mock.fn()
   };
@@ -128,6 +131,9 @@ export function createAssistantHarness(mock: test.Mock) {
       'workflows.executions': api.executions,
       'workflows.cancelExecution': api.cancel,
       'auth.status': async () => ({ signedIn: false, email: null, sharing: false }),
+      'voice.status': async () => readyVoiceStatus,
+      'settings.voiceSettings': async () => ({ filterSilence: true }),
+      'voice.transcribe': api.transcribe,
       'projects.projects': async () => ({ items: [], next: null }),
       'notes.notes': async () => ({ items: [], next: null })
     };

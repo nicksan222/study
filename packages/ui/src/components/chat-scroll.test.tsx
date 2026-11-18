@@ -21,9 +21,9 @@ function Note({ count = 2, first = 'first' }: { count?: number; first?: string }
   );
 }
 
-function dimensions(host: HTMLElement, height: number) {
+function dimensions(host: HTMLElement, height: number, viewport = 200) {
   Object.defineProperty(host, 'scrollHeight', { configurable: true, value: height });
-  Object.defineProperty(host, 'clientHeight', { configurable: true, value: 200 });
+  Object.defineProperty(host, 'clientHeight', { configurable: true, value: viewport });
 }
 
 test.unit.stable(
@@ -65,31 +65,63 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'removes Latest when resizing makes the whole notebook visible without a scroll event',
-  async ({ render, vi, fireEvent, screen, waitFor, expect }) => {
-    let resize = () => {};
+  'updates Latest after resizing while preserving readers and following the end',
+  async ({ render, vi, fireEvent, screen, act, expect }) => {
+    let resize = (_target: Element) => {};
 
     vi.stubGlobal(
       'ResizeObserver',
-      class {
-        constructor(private callback: () => void) {}
+      class implements ResizeObserver {
+        private readonly targets = new Set<Element>();
 
-        observe(target: Element) {
-          if (target.hasAttribute('data-notebook-scroll-host')) resize = this.callback;
+        constructor(callback: ResizeObserverCallback) {
+          resize = (target) => {
+            if (this.targets.has(target)) callback([], this);
+          };
         }
 
-        disconnect() {}
+        observe(target: Element) {
+          this.targets.add(target);
+        }
+
+        unobserve(target: Element) {
+          this.targets.delete(target);
+        }
+
+        disconnect() {
+          this.targets.clear();
+        }
       }
     );
+
     const view = render(<Note />);
     const host = view.container.querySelector<HTMLElement>('[data-notebook-scroll-host]')!;
 
+    const content = view.container.querySelector('.chat-content')!;
+    let top = 0;
+
+    Object.defineProperty(host, 'scrollTop', {
+      get: () => top,
+      set: (value: number) => {
+        top = Math.max(0, Math.min(value, host.scrollHeight - host.clientHeight));
+      }
+    });
+
     dimensions(host, 1000);
-    host.scrollTop = 0;
+    host.scrollTop = 100;
     fireEvent.scroll(host);
-    await screen.findByRole('button', { name: 'Latest' });
-    dimensions(host, 200);
-    resize();
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Latest' })).toBeNull());
+    expect(screen.getByRole('button', { name: 'Latest' })).toBeVisible();
+    dimensions(host, 1000, 250);
+    await act(async () => resize(host));
+    expect(host.scrollTop).toBe(100);
+    expect(screen.getByRole('button', { name: 'Latest' })).toBeVisible();
+    dimensions(host, 350, 250);
+    await act(async () => resize(content));
+    expect(host.scrollTop).toBe(100);
+    expect(screen.queryByRole('button', { name: 'Latest' })).not.toBeInTheDocument();
+    dimensions(host, 1050, 250);
+    await act(async () => resize(content));
+    expect(host.scrollTop).toBe(800);
+    expect(screen.queryByRole('button', { name: 'Latest' })).not.toBeInTheDocument();
   }
 );

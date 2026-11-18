@@ -1,11 +1,14 @@
 import { RichNoteEditor, RichNoteContent, RichNoteSummary } from '@study/ui';
 import type { RichNoteEditorHandle } from '@study/ui';
+import { useRef } from 'react';
 import type { Ref, ReactNode } from 'react';
 
+import { DictationButton } from '#client/features/voice/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
 import { useNoteLabels } from '../document-presentation';
+import { useEditorDictation } from './use-editor-dictation';
 
 /** Adapts the shared text editor to the note's bilingual controls. */
 export function NoteEditor({
@@ -14,7 +17,8 @@ export function NoteEditor({
   onChange,
   disabled,
   label,
-  toolbarEnd
+  toolbarEnd,
+  targetKey
 }: {
   ref?: Ref<RichNoteEditorHandle>;
   value: string;
@@ -22,15 +26,29 @@ export function NoteEditor({
   disabled?: boolean;
   label?: string;
   toolbarEnd?: ReactNode;
+  targetKey: string | number | bigint;
 }) {
   const { t } = useI18n();
   const labels = useNoteLabels();
   const preferences = useWorkspacePreferences();
 
+  const editor = useRef<RichNoteEditorHandle>(null);
+  const dictation = useEditorDictation(editor, value);
+
   return (
     <RichNoteEditor
-      ref={ref}
-      toolbarEnd={toolbarEnd}
+      ref={(handle) => {
+        editor.current = handle;
+
+        if (typeof ref === 'function') ref(handle);
+        else if (ref) ref.current = handle;
+      }}
+      toolbarEnd={
+        <>
+          {toolbarEnd}
+          <DictationButton targetKey={targetKey} disabled={disabled} {...dictation} />
+        </>
+      }
       value={value}
       onChange={onChange}
       disabled={disabled}

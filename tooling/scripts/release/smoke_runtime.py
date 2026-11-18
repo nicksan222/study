@@ -9,6 +9,9 @@ import tempfile
 from urllib.parse import urlparse
 
 source = Path(sys.argv[1]).resolve()
+for notice in ("NOTICE", "LICENSE-MIT", "LICENSE-APACHE", "LICENSE-T3CODE"):
+    if not (source / "licenses" / notice).read_text().strip():
+        raise RuntimeError(f"Missing bundled license notice: {notice}")
 for manifest in (source / "server/node_modules").rglob("package.json"):
     name = json.loads(manifest.read_text()).get("name", "")
     if name in ("mermaid", "@huggingface/transformers", "sqlite-vec") or name.startswith(("@mermaid-js/", "onnxruntime-")):
@@ -30,6 +33,25 @@ with tempfile.TemporaryDirectory() as temporary:
     if sys.platform == "darwin":
         shutil.copy2(source / "libsqlite3.dylib", runtime / "libsqlite3.dylib")
     shutil.copytree(source / "server", runtime / "server", symlinks=True)
+    # Probe the production library, pinned ABI and backend setup without installing a model.
+    speech = subprocess.run(
+        [str(bun), str(runtime / "server/apps/server/src/platform/speech/worker.ts"), "--probe"],
+        text=True, capture_output=True, timeout=60, cwd=temporary,
+    )
+    try:
+        initialization = json.loads(speech.stdout)
+    except json.JSONDecodeError:
+        initialization = None
+    if (
+        speech.returncode != 0
+        or not isinstance(initialization, dict)
+        or initialization.keys() != {"initialized"}
+        or initialization["initialized"] is not True
+    ):
+        raise RuntimeError(
+            f"Bundled speech runtime initialization failed (exit {speech.returncode}). "
+            f"stdout={speech.stdout.strip()!r} stderr={speech.stderr.strip()!r}"
+        )
     database = Path(temporary) / "study.sqlite"
     result = subprocess.run(
         [str(bun), str(runtime / "server/main.js")],

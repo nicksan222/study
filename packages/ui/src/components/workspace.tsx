@@ -28,12 +28,14 @@ function Provider({
   children,
   defaultOpen = true,
   open: controlledOpen,
-  onOpenChange
+  onOpenChange,
+  triggerRef
 }: {
   children: ReactNode;
   defaultOpen?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  triggerRef?: RefObject<HTMLButtonElement | null>;
 }) {
   const id = useId();
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
@@ -46,7 +48,9 @@ function Provider({
   const trigger = useRef<HTMLButtonElement>(null);
 
   return (
-    <CardContext.Provider value={{ id, open, setOpen, trigger }}>{children}</CardContext.Provider>
+    <CardContext.Provider value={{ id, open, setOpen, trigger: triggerRef ?? trigger }}>
+      {children}
+    </CardContext.Provider>
   );
 }
 

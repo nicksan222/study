@@ -998,7 +998,7 @@ test.unit.stable(
   async ({ screen, expect, within, fireEvent, render, rpcHandlersTransport, waitFor }) => {
     rpc.notes.mockRejectedValue(new StudyError('transient', 'Offline'));
     mount({ render, rpcHandlersTransport }, <NoteWorkspace />);
-    const alert = await screen.findByRole('alert');
+    const alert = await screen.findByRole('alert', { name: 'NoteReadErrorTitle' });
 
     expect(within(alert).getByRole('heading', { name: 'NoteReadErrorTitle' })).toBeVisible();
     expect(screen.queryByRole('textbox', { name: 'NoteCompose' })).not.toBeInTheDocument();

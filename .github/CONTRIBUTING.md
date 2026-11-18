@@ -27,7 +27,9 @@ Thank you for helping with Study.
   workers each in the canonical devcontainer.
   The shared package suites each run once. Server fixtures use `/dev/shm` for RAM-backed
   temporary files on Linux CI, retaining WAL, locks, backup and restart behavior. Local
-  tests use the normal temporary directory; each test still owns its database.
+  tests use the normal temporary directory; each test still owns its database. A dedicated
+  required lane prepares and verifies a cached set of pinned speech assets before running the
+  real recognition matrix. That matrix uses disk-backed temporary files on CI.
 - **Every visible word comes from `@study/localization`, in English and Italian.** If you
   can't write the Italian, say so in the pull request.
 - **Report a vulnerability privately**, as [SECURITY.md](SECURITY.md) says, never in an
@@ -137,6 +139,35 @@ exception for an independent feature-owned SQL join; changing its content or cop
 requires review again. These checks
 supplement the existing architecture lint and TypeScript checks.
 
+Voice browser journeys use `microphoneEnabled: true` and the scoped `microphone` fixture
+with Chromium's fake audio input. Start capture with
+`microphone.start(scope, { segments: { final: text } })`. The returned
+`recording.segments.final` exposes `requested`, `deliver()` and `aborted` for deterministic
+processing, recovery and cancellation screenshots. This replaces native inference while retaining the real app, SQLite, model
+installation checks and RPC. Human audio fixtures and their CC-BY-4.0 attribution live in
+`tooling/testing/fixtures/voice`.
+
+The native speech integration runs the same shared cases for every registered recognizer
+through the real worker, service and HTTP RPC. Registering a model automatically adds it to
+the matrix. A model must support at least one language in the shared recording corpus.
+
+```bash
+export STUDY_VOICE_MODELS_DIR=/absolute/path/to/prepared/voice/models
+bun run voice:fixtures
+bun run voice:test
+```
+
+The preparation command downloads and verifies the assets pinned by the registry. The suite
+uses those local files and makes no remote requests. For an existing Study installation,
+point `STUDY_VOICE_MODELS_DIR` at the directory containing its installed model files.
+
+To include the upstream Parakeet frame-boundary regression, download the two WAV
+attachments from [transcribe.cpp issue 252](https://github.com/handy-computer/transcribe.cpp/issues/252)
+to a directory outside the repository and set `STUDY_VOICE_REGRESSION_DIRECTORY` to that
+directory for the same command. These checks compare complete transcripts at the
+reported 5.04 s and 10.56 s lengths and with the last sample removed. The attachments
+are not redistributed because their report grants no explicit redistribution license.
+
 Run `bun gen` from the workspace root to generate database migrations and desktop routes.
 Run `bun gen:check` to check generated database outputs
 without changing the database schema. The equivalent package scripts are `bun run gen` and
@@ -146,19 +177,20 @@ Desktop inspection recipes call `swaymsg` and `jq` directly. The scripts in
 startup, reuse and shutdown, plus bounded process waiting. Desktop commands need no
 JavaScript package or Cargo build.
 
-| Command                         | What it does                                               |
-| ------------------------------- | ---------------------------------------------------------- |
-| `bun run desktop-status`        | Inspect the native window and log path without restarting. |
-| `bun run desktop-wait`          | Wait for the native window.                                |
-| `bun run check`                 | Everything CI runs.                                        |
-| `bun run check-crate <package>` | `bun run check` for one package.                           |
-| `bun run`                       | Every other command.                                       |
+| Command                         | What it does                                                                                                            |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `bun run desktop-status`        | Inspect the native window and log path without restarting.                                                              |
+| `bun run desktop-wait`          | Wait for the native window.                                                                                             |
+| `bun run check`                 | Local verification graph. Run `bun run voice:fixtures` and `bun run voice:test` separately for the native voice matrix. |
+| `bun run check-crate <package>` | `bun run check` for one package.                                                                                        |
+| `bun run`                       | Every other command.                                                                                                    |
 
 ## Where data lives
 
 - `~/.local/share/study/`: the database (`study.sqlite3`) and `diagnostics.log`.
-- Existing local-model caches may remain from earlier releases; the retired server no
-  longer installs or uses them.
+- Explicitly installed dictation assets live beside the selected database in `<database>.voice/ready`.
+  Removing Voice deletes those downloadable assets; drafts and settings remain in SQLite.
+- Existing caches from retired local-model implementations are not imported or used.
 
 Existing data is retained. Native development selects `target/dev-data`; no reset or seed
 command is provided during the server transition.

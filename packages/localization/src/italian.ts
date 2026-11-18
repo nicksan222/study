@@ -1,6 +1,66 @@
 import type { english } from './english.ts';
 
 export const italian = Object.freeze({
+  VoiceTitle: 'Voce',
+  VoiceStart: 'Avvia dettatura',
+  VoiceStop: 'Ferma e trascrivi',
+  VoiceStarting: 'Apertura microfono…',
+  VoiceRecording: 'Registrazione',
+  VoiceTranscribing: 'Trascrizione…',
+  VoiceFinishingBacklog: 'Registrazione interrotta. Trascrizione dell’audio rimanente…',
+  VoiceCancel: 'Annulla dettatura',
+  VoiceUnavailable: 'La dettatura richiede accesso al microfono su localhost o HTTPS',
+  VoiceCaptureFailed: 'Registrazione interrotta o non avviata. Controlla il microfono e riprova.',
+  VoiceNoSpeech: 'Nessuna voce rilevata. Prova a registrare di nuovo.',
+  VoiceRecoveryOptions: 'Opzioni di recupero del dettato',
+  VoiceTranscriptionFailedTitle: 'Trascrizione non riuscita',
+  VoiceTranscriptionFailed:
+    'Trascrizione non riuscita. Riprova oppure annulla per scartare la registrazione.',
+  VoiceTranscriptionModelMissing:
+    'Il modello vocale non era disponibile. Installalo per riprovare a trascrivere questa registrazione.',
+  VoiceRecoveredTitle: 'Il dettato è al sicuro',
+  VoiceRecoveredHelp:
+    'Non è stato possibile inserire il testo. Copialo o riprova a inserirlo. Chiudendo scarti questa trascrizione.',
+  VoiceRecoveryMoved:
+    'Il campo originale non è più disponibile. Copia la trascrizione prima di chiudere.',
+  VoiceInterruptedHelp:
+    'Il microfono si è fermato. Puoi copiare o inserire la parte già trascritta.',
+  VoiceInsertRecovered: 'Inserisci trascrizione',
+  VoiceTranscript: 'Trascrizione',
+  VoiceCopied: 'Copiato',
+  VoiceCopyManual: 'Seleziona e copia la trascrizione manualmente.',
+  VoiceInsert: 'Riprova inserimento',
+  VoiceSetupTitle: 'Scaricare la dettatura?',
+  VoiceSetupHelp:
+    'La dettatura funziona in locale. Scarica il modello vocale una volta, poi avvia la registrazione.',
+  VoiceModelTitle: 'Modello vocale',
+  VoiceModelDescription: 'Il riconoscimento vocale avviene in locale sul server Study collegato.',
+  VoiceActiveModel: 'Modello di riconoscimento: {model}',
+  VoiceModelFailed: 'Impossibile aggiornare il modello vocale. Controlla la connessione e riprova.',
+  VoiceModelReady: 'Modello installato. La dettatura è pronta.',
+  VoiceModelDownloading: 'Download e verifica…',
+  VoiceModelMissing: 'Il modello vocale non è installato.',
+  VoiceDownload: 'Scarica modello',
+  VoiceDownloadSize: 'Dimensione del download: {size}',
+  VoiceCancelDownload: 'Annulla download',
+  VoiceRemove: 'Rimuovi download',
+  VoiceLanguage: 'Lingua di trascrizione',
+  VoiceAutomatic: 'Rilevamento automatico',
+  VoiceLanguages: 'Il motore di riconoscimento rileva automaticamente la lingua.',
+  VoiceChunkDuration: 'Durata dei blocchi audio',
+  VoiceChunkDurationHelp:
+    'Scegli la durata massima di audio inviata in ogni richiesta di trascrizione.',
+  VoiceChunkSeconds: '{seconds} secondi',
+  VoiceDenoise: 'Riduci il rumore di fondo',
+  VoiceDenoiseHelp: 'Un modello audio locale riduce il rumore di fondo prima della trascrizione.',
+  VoiceFilterSilence: 'Filtra i silenzi prima della trascrizione',
+  VoiceFilterSilenceHelp:
+    'Il filtro esclude l’audio senza parlato. Quando disponibili, vengono richieste cancellazione dell’eco e riduzione del rumore del microfono.',
+  VoicePrivacy:
+    'Le registrazioni vengono elaborate sul server Study collegato a questo browser o all’app desktop. L’audio non viene inviato a un fornitore IA né salvato come fonte.',
+  VoiceRecordingHelp:
+    'Fai clic sul microfono per iniziare e premi Stop per inserire il testo completo. Esc annulla.',
+
   AnalyticsTitle: 'Analisi',
   AnalyticsLogsTitle: 'Log diagnostici',
   AnalyticsDescription: 'Consulta gli eventi recenti dell’app desktop di Study.',
@@ -363,6 +423,7 @@ export const italian = Object.freeze({
 
   WorkspaceSettingsFailed: 'Impossibile salvare o caricare queste preferenze. Riprova.',
   SettingsSaveFailed: 'Impossibile salvare le modifiche. Riprova.',
+  VoiceSettingsLoadFailed: 'Impossibile caricare le impostazioni della voce. Riprova.',
   Saved: 'Salvato',
   WorkspaceNumberValidation: 'Inserisci un numero intero entro i limiti indicati.',
   WorkspaceWritingTitle: 'Scrittura',
@@ -2445,7 +2506,7 @@ export const italian = Object.freeze({
   SysBandwidth: 'Banda di memoria',
   SysMeasuredIn: 'La misurazione è durata',
   SysSpare: 'Libera per i modelli',
-  SysTranscription: 'Trascrizione (Parakeet)',
+  SysTranscription: 'Trascrizione',
   SysNone: 'nessuno',
   PlacementNotEnoughMemory: 'Memoria insufficiente qui',
   PlacementTooSlow: 'Troppo lento su questo computer',

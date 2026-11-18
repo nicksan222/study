@@ -8,9 +8,30 @@ import { Option } from 'effect';
 
 import type { Locale } from '../lib/i18n';
 
+export const readyVoiceStatus = {
+  state: 'ready',
+  downloadedBytes: 740749632,
+  totalBytes: 740749632,
+  modelId: 'test-recognizer',
+  models: [
+    {
+      id: 'test-recognizer',
+      name: 'Test recognizer',
+      languages: ['en', 'it'],
+      languageDetection: 'automatic'
+    }
+  ]
+} as const satisfies RpcFixtureValues['voice.status'];
+
 /** Empty, bounded product snapshots for route presentation tests. Individual journeys supply their own fixtures. */
 export function pageTestValues(locale: Locale = 'english'): RpcFixtureValues {
   const snapshots: RpcFixtureValues = {
+    'voice.status': {
+      ...readyVoiceStatus,
+      state: 'missing',
+      downloadedBytes: 0
+    },
+    'settings.voiceSettings': { filterSilence: true },
     'system.health': { protocolVersion: 1, workersRunning: true, testMode: false },
 
     'settings.modelUpdates': [],

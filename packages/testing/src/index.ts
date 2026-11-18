@@ -3,6 +3,7 @@ import type { MockScope, TestAssert, TestContextOf } from './vitest.ts';
 export { classificationLabel } from './classification.ts';
 export { testPolicy } from './config.ts';
 export { createAiMock } from './ai-mock.ts';
+export { createControlledOperation } from './controlled-operation.ts';
 
 import { createTestFacade } from './facade.ts';
 

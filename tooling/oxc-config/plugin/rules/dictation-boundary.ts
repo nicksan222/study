@@ -1,0 +1,267 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Reserves microphone capture and voice RPC for the shared dictation wrappers.       │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Editors bypassing capture ownership, cancellation, insertion recovery or test adapters.  │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │ import { DictationTextarea } from '#client/features/voice/index.ts';                     │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │ // apps/client/src/features/notes/editor.tsx                                             │
+ * │ rpc.voice.transcribe.call({ samples });                                                  │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+import { defineRule } from 'vite-plus/lint/plugins';
+
+import { effectBindings, propertyName } from '../effect-bindings.ts';
+import {
+  constantDeclarator,
+  destructuredPath,
+  imported,
+  lexicalResolver,
+  namedProperty,
+  staticMember
+} from '../lexical-bindings.ts';
+import { webFile, webTarget } from '../web-files.ts';
+import { nativeGlobal } from './native-global.ts';
+
+const rpcSource = '@study/contracts/react';
+
+const microphoneSources = ['lib/host', 'lib/effect/native', 'lib/effect/microphone'];
+
+export default defineRule({
+  meta: { type: 'problem' },
+  create(context) {
+    const current = webFile(context.filename);
+
+    if (!current || current.startsWith('features/voice/')) return {};
+
+    const capture = current === 'lib/effect/microphone.ts';
+    const ownsHost = current === 'lib/host.ts' || current.startsWith('lib/effect/');
+    const protectedSource = (source: unknown) =>
+      !ownsHost &&
+      typeof source === 'string' &&
+      microphoneSources.includes(webTarget(context.filename, source) ?? '');
+    const bindings = effectBindings(context);
+    const rpc = lexicalResolver(
+      (node, seen) => {
+        if (imported(context, node, /^@study\/contracts\/react$/, 'rpc')) return 'rpc';
+
+        const definition = bindings.definition(node);
+        const namespace = namespaceCapability(context, definition);
+
+        if (namespace) return namespace;
+
+        if (!constantDeclarator(definition)) return null;
+
+        if (definition.id.type === 'Identifier') return rpc(definition.init, seen);
+
+        if (definition.id.type !== 'ObjectPattern') return null;
+
+        const base = rpc(definition.init, seen);
+        const names = destructuredPath(definition.id, node.name, []);
+
+        return base && names && names.every((name) => !name.includes('.'))
+          ? [base, ...names].join('.').replace(/^contracts\.rpc(?=\.|$)/, 'rpc')
+          : null;
+      },
+      (node, seen) => {
+        const base = rpc(node.object, seen);
+        const name =
+          !node.computed || node.property.type === 'Literal' ? propertyName(node.property) : null;
+
+        if (name?.includes('.')) return null;
+
+        if (base === 'contracts' && name === 'rpc') return 'rpc';
+
+        return base && name ? `${base}.${name}` : null;
+      }
+    );
+    const report = (node: any) =>
+      context.report({
+        node,
+        message:
+          'Use DictationButton or DictationTextarea from the voice feature; capture and voice RPC belong to their shared wrapper.'
+      });
+
+    return {
+      MemberExpression(node) {
+        const path = rpc(node);
+
+        if (
+          path === 'host.captureMicrophone' ||
+          path === 'rpc.voice' ||
+          (path?.startsWith('rpc.voice.') && node.object.type === 'Identifier')
+        )
+          report(node);
+      },
+      ImportDeclaration(node) {
+        if (node.importKind === 'type' || !protectedSource(node.source.value)) return;
+
+        const raw = node.specifiers.some(
+          (item: any) =>
+            item.importKind !== 'type' && propertyName(item.imported) === 'captureMicrophone'
+        );
+
+        if (raw) report(node);
+      },
+      ImportExpression(node) {
+        const source = staticImportSource(node.source);
+
+        if (source === rpcSource || (protectedSource(source) && !availabilityOnly(node)))
+          report(node);
+      },
+      ExportNamedDeclaration(node) {
+        if (node.exportKind === 'type') return;
+
+        if (exportsCapability(node.declaration, rpc)) {
+          report(node);
+
+          return;
+        }
+
+        const source = node.source?.value;
+
+        for (const item of node.specifiers) {
+          if (item.exportKind === 'type') continue;
+
+          if (
+            reexportsCapability(propertyName(item.local), source, protectedSource, rpc(item.local))
+          ) {
+            report(node);
+
+            return;
+          }
+        }
+      },
+      ExportAllDeclaration(node) {
+        const source = node.source.value;
+
+        if (node.exportKind !== 'type' && (protectedSource(source) || source === rpcSource))
+          report(node);
+      },
+      CallExpression(node) {
+        if (capture) return;
+
+        if (node.callee.type === 'Identifier') {
+          const path = rpc(node.callee);
+
+          if (path === 'host.captureMicrophone' || path?.startsWith('rpc.voice.')) report(node);
+        }
+
+        const name = nativeGlobal(bindings, node.callee)?.replace(
+          /^(?:(?:window|globalThis|self)\.)+/,
+          ''
+        );
+
+        if (name === 'navigator.mediaDevices.getUserMedia') report(node);
+      },
+      NewExpression(node) {
+        if (capture) return;
+
+        const name = nativeGlobal(bindings, node.callee)?.replace(
+          /^(?:(?:window|globalThis|self)\.)+/,
+          ''
+        );
+
+        if (name === 'MediaRecorder') report(node);
+      }
+    };
+  }
+});
+
+function namespaceCapability(context: any, definition: any) {
+  if (definition?.type !== 'ImportNamespaceSpecifier') return null;
+
+  const source = definition.parent.source.value;
+
+  if (source === rpcSource) return 'contracts';
+
+  const target = webTarget(context.filename, source);
+
+  return microphoneSources.includes(target ?? '') ? 'host' : null;
+}
+
+function reexportsCapability(
+  name: string | null,
+  source: string | undefined,
+  protectedSource: (source: unknown) => boolean,
+  path: string | null
+) {
+  if (source === rpcSource) return name === 'rpc';
+
+  if (source) return name === 'captureMicrophone' && protectedSource(source);
+
+  return carriesCapability(path);
+}
+
+function carriesCapability(path: string | null) {
+  return (
+    path === 'contracts' ||
+    path === 'host' ||
+    path === 'host.captureMicrophone' ||
+    path === 'rpc' ||
+    path === 'rpc.voice' ||
+    path?.startsWith('rpc.voice.')
+  );
+}
+
+function exportsCapability(declaration: any, resolve: (identifier: any) => string | null) {
+  if (declaration?.type !== 'VariableDeclaration') return false;
+
+  return declaration.declarations.some((declarator: any) =>
+    [...bindingIdentifiers(declarator.id)].some((identifier) =>
+      carriesCapability(resolve(identifier))
+    )
+  );
+}
+
+function* bindingIdentifiers(pattern: any): Generator<any> {
+  switch (pattern.type) {
+    case 'Identifier':
+      yield pattern;
+      break;
+    case 'ObjectPattern':
+      for (const member of pattern.properties) yield* bindingIdentifiers(member);
+
+      break;
+    case 'Property':
+      yield* bindingIdentifiers(pattern.value);
+      break;
+    case 'AssignmentPattern':
+      yield* bindingIdentifiers(pattern.left);
+      break;
+  }
+}
+
+function staticImportSource(node: any) {
+  if (node.type === 'Literal') return node.value;
+
+  if (node.type === 'TemplateLiteral' && node.expressions.length === 0)
+    return node.quasis[0]?.value.cooked;
+
+  return undefined;
+}
+
+/** Allow known availability reads without letting the imported host namespace escape. */
+function availabilityOnly(node: any) {
+  const awaited = node.parent;
+
+  if (awaited?.type !== 'AwaitExpression') return false;
+
+  const consumer = awaited.parent;
+
+  if (consumer?.type === 'MemberExpression')
+    return staticMember(consumer) && propertyName(consumer.property) === 'microphoneAvailable';
+
+  if (consumer?.type !== 'VariableDeclarator' || consumer.id.type !== 'ObjectPattern') return false;
+
+  return (
+    consumer.id.properties.length > 0 &&
+    consumer.id.properties.every(
+      (member: any) => namedProperty(member) && propertyName(member.key) === 'microphoneAvailable'
+    )
+  );
+}

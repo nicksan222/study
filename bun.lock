@@ -63,6 +63,7 @@
     "apps/server": {
       "name": "@study/server",
       "dependencies": {
+        "@echogarden/rnnoise-wasm": "0.2.0",
         "@effect/ai-anthropic": "4.0.7",
         "@effect/ai-openai": "4.0.7",
         "@effect/ai-openai-compat": "4.0.7",
@@ -84,6 +85,13 @@
         "@study/testing": "*",
         "@types/yauzl": "3.4.0",
         "fast-check": "4.10.2",
+      },
+      "optionalDependencies": {
+        "@transcribe-cpp/darwin-arm64-metal": "0.4.2",
+        "@transcribe-cpp/darwin-x64-cpu": "0.4.2",
+        "@transcribe-cpp/linux-arm64-cpu-vulkan": "0.4.2",
+        "@transcribe-cpp/linux-x64-cpu-vulkan": "0.4.2",
+        "@transcribe-cpp/win32-x64-cpu-vulkan": "0.4.2",
       },
     },
     "packages/contracts": {
@@ -293,6 +301,8 @@
     "@csstools/css-syntax-patches-for-csstree": ["@csstools/css-syntax-patches-for-csstree@1.1.15", "", { "peerDependencies": { "css-tree": "^3.2.1" }, "optionalPeers": ["css-tree"] }, "sha512-J0u7HkVl2nzSlhsiTOp4AmwcUQ3D+mGEEKfBy/7To5/y7F2OHwyLrXfrhR0SMgr4p5Lo+eaMVSeai24zUcBIxA=="],
 
     "@csstools/css-tokenizer": ["@csstools/css-tokenizer@4.0.2", "", {}, "sha512-OoKoR0f76dCY666JlcbhmVTs2drYj1GUXZTYTcbUgJjh9Nv41aFfZ21bPQTERm5+L5cBDo466NltB2lplS5GBw=="],
+
+    "@echogarden/rnnoise-wasm": ["@echogarden/rnnoise-wasm@0.2.0", "", {}, "sha512-dND0FKFaLxyqa+rdgcMWc7A3Zh9pu7zzetYd60+2nbwnKL/8HtUXFGf7GAJ4krwTOgtSLETH9REF39gOa4T5UQ=="],
 
     "@effect/ai-anthropic": ["@effect/ai-anthropic@4.0.7", "", { "peerDependencies": { "effect": "^4.0.7" } }, "sha512-LgLeLM1UJKMgCE6dUbIfLYZNUTPyjacmTHlSzcdSRk2yBwdzEguhF9Lh4IorLAUC2ViFY9b+QaAAHVlYueG/wQ=="],
 
@@ -663,6 +673,16 @@
     "@tiptap/starter-kit": ["@tiptap/starter-kit@3.32.2", "", { "dependencies": { "@tiptap/core": "3.32.2", "@tiptap/extension-blockquote": "3.32.2", "@tiptap/extension-bold": "3.32.2", "@tiptap/extension-bullet-list": "3.32.2", "@tiptap/extension-code": "3.32.2", "@tiptap/extension-code-block": "3.32.2", "@tiptap/extension-document": "3.32.2", "@tiptap/extension-dropcursor": "3.32.2", "@tiptap/extension-gapcursor": "3.32.2", "@tiptap/extension-hard-break": "3.32.2", "@tiptap/extension-heading": "3.32.2", "@tiptap/extension-horizontal-rule": "3.32.2", "@tiptap/extension-italic": "3.32.2", "@tiptap/extension-link": "3.32.2", "@tiptap/extension-list": "3.32.2", "@tiptap/extension-list-item": "3.32.2", "@tiptap/extension-list-keymap": "3.32.2", "@tiptap/extension-ordered-list": "3.32.2", "@tiptap/extension-paragraph": "3.32.2", "@tiptap/extension-strike": "3.32.2", "@tiptap/extension-text": "3.32.2", "@tiptap/extension-underline": "3.32.2", "@tiptap/extensions": "3.32.2", "@tiptap/pm": "3.32.2" } }, "sha512-6K+oOMF4orhnOxivgUTKiSpNAEftHyWOcfFIvIEMUP044b34obBUogzMTfM3RjtewZtQXVafO9zmGU30IllC1g=="],
 
     "@tiptap/static-renderer": ["@tiptap/static-renderer@3.32.2", "", { "peerDependencies": { "@tiptap/core": "3.32.2", "@tiptap/pm": "3.32.2", "react": "^17.0.0 || ^18.0.0 || ^19.0.0", "react-dom": "^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-2q+Ox47fWQQdHupAP1QAFoCTbFN69j0bM+Lemxw9KMLCUT0+ALjUJkkVEeme18uelJkaJ4hufH4buKaJpADh9A=="],
+
+    "@transcribe-cpp/darwin-arm64-metal": ["@transcribe-cpp/darwin-arm64-metal@0.4.2", "", { "os": "darwin", "cpu": "arm64" }, "sha512-ZaIIbvts0VxDYQ+NoV2X5qtZUXzd6Dshh2I+1BGcGuHD9aq0woQzP4wWcfmsCstI+wbfOj9TXiSrELAolneYAQ=="],
+
+    "@transcribe-cpp/darwin-x64-cpu": ["@transcribe-cpp/darwin-x64-cpu@0.4.2", "", { "os": "darwin", "cpu": "x64" }, "sha512-8/4eBgtzTMtYjoqtcSbtLUzQQJSjW0w3/N4ZrYPIGACqnfuoRsflClwfnCkCDJkbiegbXNMmwIBtK0VcAx6HTw=="],
+
+    "@transcribe-cpp/linux-arm64-cpu-vulkan": ["@transcribe-cpp/linux-arm64-cpu-vulkan@0.4.2", "", { "os": "linux", "cpu": "arm64", "libc": "glibc" }, "sha512-Vi+6Qc5CvXV62GyTjJ17xzJxSabU74fiA/za/9QarNWRvVgZf08I5udZCfYbxyjF3UPAaxOtCCQCv+hByd19aA=="],
+
+    "@transcribe-cpp/linux-x64-cpu-vulkan": ["@transcribe-cpp/linux-x64-cpu-vulkan@0.4.2", "", { "os": "linux", "cpu": "x64", "libc": "glibc" }, "sha512-0MXdwu/MwqS5RJWpauVU/VVbhZGVWvmKPP/1l4Xk2nYX8KPrAsGzIcOmc0kLgvYwAN44PweELZMDfX9cwN2GdA=="],
+
+    "@transcribe-cpp/win32-x64-cpu-vulkan": ["@transcribe-cpp/win32-x64-cpu-vulkan@0.4.2", "", { "os": "win32", "cpu": "x64" }, "sha512-Eae57TNF7omKxi6raUBf0Cg9wVkc9jG7LKvLqwBhqj1Bdm39NDwezb3GzOpgHJhsw9Pxenqy0zCEeNFpV9q7ig=="],
 
     "@turbo/darwin-64": ["@turbo/darwin-64@2.11.11", "", { "os": "darwin", "cpu": "x64" }, "sha512-HMMeUIEAsmyIbSYn1ySvF/4gGMa0joiTMq4dQDuloIAnOpbtFT3JEiVsYnASdTWDXvplbRbZlqjU1EBeSR9G1A=="],
 

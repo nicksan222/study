@@ -164,6 +164,10 @@ test.browser.stable(
       if (before.startsWith('2.')) await editor.press('Control+Home');
 
       await editor.press('Tab');
+      await expect(
+        dialog.getByRole('button', { name: copy.VoiceStart, exact: true })
+      ).toBeFocused();
+      await page.keyboard.press('Tab');
       await expect(dialog.getByRole('button', { name: copy.NoteDiscardEdits })).toBeFocused();
       await page.keyboard.press('Tab');
       await expect(save).toBeFocused();

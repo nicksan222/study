@@ -12,6 +12,8 @@ import { test } from '@study/testing';
 import { Effect, Option, Schema } from 'effect';
 
 import type * as __MockType0 from '#client/features/material-library/test/support.tsx';
+import type * as Host from '#client/lib/host.ts';
+import { readyVoiceStatus } from '#client/test/page-values.ts';
 
 let learningVersion: typeof __MockType0.learningVersion;
 
@@ -20,6 +22,8 @@ let materialRpc: typeof __MockType0.materialRpc;
 let mountLibraryRoute: typeof __MockType0.mountLibraryRoute;
 
 let readiness: ReturnType<typeof createMockState>['readiness'];
+
+let cancelCapture: () => void;
 
 const en = catalogs.english;
 
@@ -149,8 +153,14 @@ test.unit.beforeEach(async ({ mock }) => {
   const __mockState = createMockState();
 
   readiness = __mockState.readiness;
+  cancelCapture = mock.fn();
 
   mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => readiness.state }));
+  mock('#client/lib/host.ts', async (load) => ({
+    ...(await load<typeof Host>()),
+    microphoneAvailable: () => true,
+    captureMicrophone: async () => ({ stop: async () => [0.4], cancel: cancelCapture })
+  }));
   mock('#client/features/agent-progress', () => ({
     AgentProgress: () => <div>Leaked generation activity</div>
   }));
@@ -160,6 +170,81 @@ test.unit.beforeEach(async ({ mock }) => {
   materialRpc = __mockModule0.materialRpc;
   mountLibraryRoute = __mockModule0.mountLibraryRoute;
 });
+
+test.unit.stable(
+  'closing Customize cancels dictation and retains the practice prompt',
+  async ({ userEvent, waitFor, expect, screen, within, vi, render, rpcHandlersTransport }) => {
+    const user = userEvent.setup();
+    const rpc = {
+      ...rpcFixture({ vi }),
+      'voice.status': () => Effect.succeed(readyVoiceStatus),
+      'settings.voiceSettings': () => Effect.succeed({ filterSilence: true })
+    };
+
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?project=1', rpc);
+    await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
+    const dialog = within(await screen.findByRole('dialog', { name: en.PracticeGenerate }));
+    const customize = dialog.getByText(en.PracticeCustomize);
+
+    await user.click(customize);
+    await user.type(dialog.getByRole('textbox', { name: en.PracticeGeneratePrompt }), 'My prompt');
+    await user.click(await dialog.findByRole('button', { name: en.VoiceStart }));
+    await dialog.findByRole('button', { name: en.VoiceStop });
+    await user.click(customize);
+    await waitFor(() => expect(cancelCapture).toHaveBeenCalledOnce());
+    await user.click(customize);
+    expect(dialog.getByRole('textbox', { name: en.PracticeGeneratePrompt })).toHaveValue(
+      'My prompt'
+    );
+    expect(dialog.queryByRole('button', { name: en.VoiceStop })).not.toBeInTheDocument();
+  }
+);
+
+test.unit.stable(
+  'retries generation only after the final dictation segment reaches its prompt',
+  async ({ userEvent, waitFor, act, expect, screen, within, vi, render, rpcHandlersTransport }) => {
+    const user = userEvent.setup();
+    const recognition = Promise.withResolvers<{ text: string }>();
+    const transcribe = vi.fn(() => Effect.promise(() => recognition.promise));
+    const rpc = {
+      ...rpcFixture({ vi }),
+      'voice.status': () => Effect.succeed(readyVoiceStatus),
+      'voice.transcribe': transcribe,
+      'settings.voiceSettings': () => Effect.succeed({ filterSilence: true })
+    };
+
+    const request = rpc['materials.requestMaterialGeneration'];
+
+    request.mockImplementationOnce(() => Effect.fail(new StudyError('transient', 'Try again')));
+    mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?project=1', rpc);
+    await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
+    const dialog = within(await screen.findByRole('dialog', { name: en.PracticeGenerate }));
+    const generate = dialog.getByRole('button', { name: en.PracticeGenerateStart });
+
+    await waitFor(() => expect(generate).toBeEnabled());
+    await user.click(generate);
+    const retry = await dialog.findByRole('button', { name: en.Retry });
+
+    expect(retry).toBeEnabled();
+    await user.click(dialog.getByText(en.PracticeCustomize));
+    await user.click(await dialog.findByRole('button', { name: en.VoiceStart }));
+    await user.click(await dialog.findByRole('button', { name: en.VoiceStop }));
+    await waitFor(() => expect(transcribe).toHaveBeenCalledOnce());
+    expect(generate).toBeDisabled();
+    expect(retry).toBeDisabled();
+    await user.click(retry);
+    expect(request).toHaveBeenCalledTimes(1);
+    await act(async () => recognition.resolve({ text: 'Spoken instructions' }));
+    await waitFor(() => expect(retry).toBeEnabled());
+    await user.click(retry);
+    await waitFor(() =>
+      expect(request).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ instruction: 'Spoken instructions' })
+      )
+    );
+  }
+);
 
 test.unit.stable(
   'blocks generation while provider setup is needed',

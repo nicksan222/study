@@ -3,10 +3,10 @@ import { Effect, Path } from 'effect';
 
 import {
   binding,
+  destructuredPath,
   constantDeclarator,
   runtimeImport,
   staticMember,
-  namedProperty,
   enterNode
 } from './lexical-bindings.ts';
 import { requireBindings } from './require-bindings.ts';
@@ -238,22 +238,6 @@ function aliasedImport(
     const names = destructuredPath(def.id, node.name, []);
 
     return names ? exportedValue(base, [base.name, ...names].filter(Boolean).join('.')) : null;
-  }
-
-  return null;
-}
-
-function destructuredPath(pattern: any, target: string, names: string[]): string[] | null {
-  if (pattern.type === 'Identifier') return pattern.name === target ? names : null;
-
-  if (pattern.type !== 'ObjectPattern') return null;
-
-  for (const part of pattern.properties) {
-    if (!namedProperty(part)) continue;
-
-    const found = destructuredPath(part.value, target, [...names, part.key.name ?? part.key.value]);
-
-    if (found) return found;
   }
 
   return null;

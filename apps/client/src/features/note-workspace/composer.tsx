@@ -10,6 +10,12 @@ import {
 } from '@study/ui';
 import { useEffect, useRef, useState } from 'react';
 
+import {
+  DictationButton,
+  DictationSubmissionScope,
+  useDictationSubmission,
+  useTextDictation
+} from '#client/features/voice/index.ts';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
 import { AttachmentPicker, AttachmentTray } from './attachments';
@@ -25,26 +31,22 @@ export function Composer({ id, onPage }: { id: NoteId; onPage?: () => void }) {
   const model = useComposer(id);
   const preferences = useWorkspacePreferences();
   const { t, draft, files, blocked, setDraft, submitNote } = model;
-  const [expanded, setExpanded] = useState(() => !!draft.text || files.items.length > 0);
-  const wasPending = useRef(model.pending);
-  const recovery = blocked || !!model.noteMutation.error || !!model.askMutation.error;
-  const required = recovery || files.items.length > 0;
-
-  useEffect(() => {
-    if (wasPending.current && !model.pending && !recovery && !draft.text && !files.items.length)
-      setExpanded(false);
-
-    wasPending.current = model.pending;
-  }, [model.pending, recovery, draft.text, files.items.length]);
+  const capture = useCaptureState(model);
+  const input = useRef<HTMLTextAreaElement>(null);
+  const submission = useDictationSubmission();
+  const submit = () => {
+    if (!submission.isBlocked()) submitNote();
+  };
+  const dictation = useTextDictation({
+    value: draft.text,
+    onChange: (text) => setDraft((previous) => ({ ...previous, text })),
+    input
+  });
 
   return (
-    <Desk.Capture
-      open={expanded || required}
-      onOpenChange={required ? undefined : setExpanded}
-      label={t('NoteAddCapture')}
-      closeLabel={t('NoteHideCapture')}
-    >
+    <Desk.Capture {...capture} label={t('NoteAddCapture')} closeLabel={t('NoteHideCapture')}>
       <NotebookComposer
+        inputRef={input}
         inputId={`note-note-${id}`}
         label={t('NoteCompose')}
         hint={t('NoteNotebookHint')}
@@ -53,8 +55,13 @@ export function Composer({ id, onPage }: { id: NoteId; onPage?: () => void }) {
         value={draft.text}
         spellcheck={preferences.spellcheck}
         onChange={(text) => setDraft((previous) => ({ ...previous, text }))}
-        onSubmit={submitNote}
-        disabled={blocked || model.filesBlocked || (!draft.text.trim() && !model.sourceIds.length)}
+        onSubmit={submit}
+        disabled={
+          blocked ||
+          submission.blocked ||
+          model.filesBlocked ||
+          (!draft.text.trim() && !model.sourceIds.length)
+        }
         onDragOver={(event) => {
           if (!blocked) event.preventDefault();
         }}
@@ -74,15 +81,25 @@ export function Composer({ id, onPage }: { id: NoteId; onPage?: () => void }) {
         onKeyDown={(event) => {
           if (isNoteSubmit(event, preferences.submitOnEnter)) {
             event.preventDefault();
-            submitNote();
+            submit();
           }
         }}
         attachments={<AttachmentTray id={id} blocked={blocked} />}
         tools={
           <>
             <AttachmentPicker id={id} blocked={blocked} />
+            <DictationSubmissionScope value={submission.scope}>
+              <DictationButton targetKey={id} {...dictation} disabled={blocked || !capture.open} />
+            </DictationSubmissionScope>
             {onPage && (
-              <Button variant="ghost-muted" size="sm" onClick={onPage} disabled={blocked}>
+              <Button
+                variant="ghost-muted"
+                size="sm"
+                disabled={blocked || submission.blocked}
+                onClick={() => {
+                  if (!submission.isBlocked()) onPage();
+                }}
+              >
                 <ComposeIcon size={16} aria-hidden="true" />
                 {t('NoteWritePage')}
               </Button>
@@ -93,6 +110,24 @@ export function Composer({ id, onPage }: { id: NoteId; onPage?: () => void }) {
       />
     </Desk.Capture>
   );
+}
+
+function useCaptureState(model: ComposerModel) {
+  const { draft, files, blocked } = model;
+  const [expanded, setExpanded] = useState(() => !!draft.text || files.items.length > 0);
+  const wasPending = useRef(model.pending);
+  const recovery = blocked || !!model.noteMutation.error || !!model.askMutation.error;
+  const required = recovery || files.items.length > 0;
+  const open = expanded || required;
+
+  useEffect(() => {
+    if (wasPending.current && !model.pending && !recovery && !draft.text && !files.items.length)
+      setExpanded(false);
+
+    wasPending.current = model.pending;
+  }, [model.pending, recovery, draft.text, files.items.length]);
+
+  return { open, onOpenChange: required ? undefined : setExpanded };
 }
 
 function AskRecovery({ model }: { model: ComposerModel }) {

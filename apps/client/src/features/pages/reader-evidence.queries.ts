@@ -9,6 +9,7 @@ import type {
 import { rpc } from '@study/contracts/react';
 import { useContext, useEffect, useState } from 'react';
 
+import { useDictationSubmission } from '#client/features/voice/index.ts';
 import { useCursorRecovery, useCursorWindow } from '#client/lib/cursor-window.tsx';
 
 import { annotationCreations, annotationCandidates } from './annotation-drafts';
@@ -41,6 +42,7 @@ function sameRange(left: typeof rangeSchema.Type, right: typeof rangeSchema.Type
 export function useReaderEvidence(version: PageVersion) {
   const registry = useContext(RegistryContext);
   const [open, setOpen] = useState(false);
+  const submission = useDictationSubmission();
   const creationAtom = annotationCreations(version.id);
   const [creation, setCreation] = useAtom(creationAtom);
   const [retained, setRetained] = useAtom(annotationCandidates(version.pageId));
@@ -85,7 +87,8 @@ export function useReaderEvidence(version: PageVersion) {
   async function saveAnnotation() {
     const submitted = registry.get(creationAtom);
 
-    if (!submitted.range || submitted.busy || submitted.unresolved) return;
+    if (!submitted.range || submitted.busy || submitted.unresolved || submission.isBlocked())
+      return;
 
     const input = {
       target: { pageId: version.pageId, range: submitted.range },
@@ -157,6 +160,7 @@ export function useReaderEvidence(version: PageVersion) {
     annotations,
     possibleMatches,
     allAnnotations,
+    submission,
     saveAnnotation,
     refreshCreation,
     acknowledgeCreation,

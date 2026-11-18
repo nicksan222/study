@@ -47,6 +47,7 @@ export const chatGptModelIds = {
 } as const;
 
 import type {
+  voiceSettingsSchema,
   agentRulesSchema,
   quizSettingsSchema,
   workspacePreferencesSchema,
@@ -145,3 +146,7 @@ export function practiceGenerationSettings(settings: QuizSettings, kind: Special
     }
   );
 }
+
+export type VoiceSettings = typeof voiceSettingsSchema.Type;
+
+export const defaultVoiceSettings: VoiceSettings = { filterSilence: true };

@@ -5,6 +5,7 @@ const copy = catalogs.english;
 
 test.browser.use({
   aiEnabled: true,
+  video: 'on',
   viewport: { width: 390, height: 844 },
   isMobile: true,
   hasTouch: true

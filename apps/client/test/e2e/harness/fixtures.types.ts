@@ -5,6 +5,9 @@ function fixtureContract(browser: test.browser.Context) {
   void browser.page;
   void browser.expectScreenshot;
   void browser.expectAccessibility;
+  void browser.microphone.start;
+  // @ts-expect-error speech controls are exposed through the microphone fixture
+  void browser.voice;
   void browser.rpc.client['projects.createProject']({ name: 'Seeded project' });
   // @ts-expect-error RPC inputs are schema typed
   void browser.rpc.client['projects.createProject']({ name: 123 });

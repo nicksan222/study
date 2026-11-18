@@ -4,8 +4,21 @@ import { test } from '@study/testing';
 import { Schema } from 'effect';
 import { useState } from 'react';
 
-import { PageActions } from './page-actions';
+import { readyVoiceStatus } from '#client/test/page-values.ts';
+
+import type { PageActions as PageActionsView } from './page-actions';
 import { authoredPage } from './test-support';
+
+let PageActions: typeof PageActionsView;
+
+test.unit.beforeEach(async ({ mock }) => {
+  mock('#client/lib/host.ts', async (original) => ({
+    ...(await original<typeof Host>()),
+    microphoneAvailable: () => true,
+    captureMicrophone: async () => ({ stop: async () => [0.5], cancel: () => {} })
+  }));
+  ({ PageActions } = await import('./page-actions'));
+});
 
 const copy = catalogs.english;
 
@@ -30,6 +43,54 @@ async function edit(
   await user.clear(textbox);
   await user.type(textbox, 'My unsaved correction');
 }
+
+test.unit.stable(
+  'Page Save waits for the final segment and submits the resulting document',
+  async ({ rpcTestTransport, render, userEvent, screen, expect, waitFor, vi }) => {
+    const recognition = Promise.withResolvers<{ text: string }>();
+    const transcribe = vi.fn(() => recognition.promise);
+    const save = vi.fn((_input: unknown) => receipt());
+    const fixture = rpcTestTransport(async (tag, input) => {
+      if (tag === 'voice.status') return readyVoiceStatus;
+
+      if (tag === 'settings.voiceSettings') return { filterSilence: true };
+
+      if (tag === 'voice.transcribe') return transcribe();
+
+      if (tag === 'pages.save') return save(input);
+
+      throw new Error(`Unexpected ${tag}`);
+    });
+    const version = page().version!;
+
+    render(<PageActions version={version} current={version.id} />, {
+      wrapper: fixture.wrapper
+    });
+    const user = userEvent.setup();
+
+    await edit({ screen }, user);
+    await user.click(await screen.findByRole('button', { name: copy.VoiceStart }));
+    await user.click(await screen.findByRole('button', { name: copy.VoiceStop }));
+    await waitFor(() => expect(transcribe).toHaveBeenCalledOnce());
+    const submit = screen.getByRole('button', { name: copy.PageSave });
+
+    expect(submit).toBeDisabled();
+    await user.click(submit);
+    expect(save).not.toHaveBeenCalled();
+    recognition.resolve({ text: 'from speech' });
+    await waitFor(() => expect(submit).toBeEnabled());
+    await user.click(submit);
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          document: expect.objectContaining({
+            blocks: [expect.objectContaining({ text: 'My unsaved correction from speech' })]
+          })
+        })
+      )
+    );
+  }
+);
 
 test.unit.stable(
   'authored draft survives route absence and is removed only by explicit discard',
@@ -137,3 +198,4 @@ test.unit.stable(
     await screen.findByText(copy.PageSaved);
   }
 );
+import type * as Host from '#client/lib/host.ts';

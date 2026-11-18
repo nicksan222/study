@@ -19,7 +19,6 @@ import {
   DialogHeading,
   Loading,
   Notebook,
-  Textarea,
   Tooltip,
   TooltipTrigger,
   TooltipPopup,
@@ -27,6 +26,11 @@ import {
 } from '@study/ui';
 import type { ReactNode } from 'react';
 
+import {
+  DictationSubmissionScope,
+  DictationTextarea,
+  useDictationSubmission
+} from '#client/features/voice/index.ts';
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
 import { toStudyError } from '#client/lib/study-client/errors.ts';
 
@@ -391,6 +395,7 @@ function MessageEditDialog({ model }: { model: MessageActionsModel }) {
 
 function MessageEditor({ model }: { model: MessageActionsModel }) {
   const { t, draft, editor, patch, submit } = model;
+  const submission = useDictationSubmission();
 
   return (
     <>
@@ -399,16 +404,25 @@ function MessageEditor({ model }: { model: MessageActionsModel }) {
           <Notebook.TargetPreview>{draft.targetText}</Notebook.TargetPreview>
         )}
         {(draft.mode === 'instruction' || draft.mode === 'ask') && (
-          <Textarea
-            aria-label={t('NoteInstructions')}
-            maxLength={draft.mode === 'instruction' ? 4000 : 100000}
-            value={draft.instruction}
-            disabled={!!draft.attempt}
-            onChange={(event) => patch({ instruction: event.target.value })}
-          />
+          <DictationSubmissionScope value={submission.scope}>
+            <DictationTextarea
+              targetKey={`${model.message.id}:${draft.targetVersionId}:${draft.mode}`}
+              aria-label={t('NoteInstructions')}
+              maxLength={draft.mode === 'instruction' ? 4000 : 100000}
+              value={draft.instruction}
+              disabled={!!draft.attempt}
+              onValueChange={(instruction) => patch({ instruction })}
+            />
+          </DictationSubmissionScope>
         )}
         <Notebook.Actions>
-          <Button size="sm" disabled={messageActionDisabled(model)} onClick={submit}>
+          <Button
+            size="sm"
+            disabled={submission.blocked || messageActionDisabled(model)}
+            onClick={() => {
+              if (!submission.isBlocked()) submit();
+            }}
+          >
             {t(messageActionLabel(draft.mode))}
           </Button>
           <Button

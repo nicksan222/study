@@ -1,6 +1,7 @@
 /** @file Owns preferences within this feature. */
 
 import {
+  voiceSettingsPatchSchema,
   agentRulesSchema,
   appSettingsSchema,
   appearancePreferencesSchema,
@@ -64,6 +65,24 @@ export function makeSettingsStore({ db, clock, timestampClock }: StoreResources)
       })
     },
     mutations: {
+      saveVoiceSettings: storeMutation({
+        changes: ['settings'],
+        input: voiceSettingsPatchSchema,
+        output: Schema.Void,
+        run: (patch) => {
+          for (const [key, setting] of Object.entries(patch)) {
+            if (setting === undefined) continue;
+
+            const value = JSON.stringify(setting);
+
+            db.orm
+              .insert(preferences)
+              .values({ scope: 'voice', key, value })
+              .onConflictDoUpdate({ target: [preferences.scope, preferences.key], set: { value } })
+              .run();
+          }
+        }
+      }),
       saveAgentRules: storeMutation({
         changes: ['settings'],
         input: agentRulesSchema,

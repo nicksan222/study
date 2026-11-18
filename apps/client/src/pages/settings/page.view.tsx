@@ -21,7 +21,8 @@ import {
   MatchingIcon,
   TrueFalseIcon,
   IntegrationsIcon,
-  DownloadIcon
+  DownloadIcon,
+  MicrophoneIcon
 } from '@study/icons';
 import type { IconComponent } from '@study/icons';
 import type { StaticMessageKey } from '@study/localization';
@@ -48,6 +49,7 @@ import { ColorScheme, ThemeLibrary } from './theme-library';
 import { UpdatesSettings } from './updates';
 import { UsageSettings } from './usage';
 import type { AppearanceModel } from './use-page';
+import { VoiceSettings } from './voice';
 import {
   AiWritingSettings,
   ReadingSettings,
@@ -57,6 +59,18 @@ import {
 
 /** Each section owns one settings task; search points to that task's actual destination. */
 const sections = [
+  {
+    id: 'voice',
+    label: 'VoiceTitle',
+    Icon: MicrophoneIcon,
+    keywords: [
+      'VoiceStart',
+      'VoiceLanguage',
+      'VoiceDownload',
+      'VoiceFilterSilence',
+      'VoiceRecordingHelp'
+    ]
+  },
   {
     id: 'general',
     label: 'GeneralSettingsTitle',
@@ -249,7 +263,7 @@ export type SettingsSectionId = (typeof sections)[number]['id'];
 const navigationGroups = [
   {
     label: 'SettingsGroupWorkspace',
-    ids: ['general', 'appearance', 'sidebar', 'writing', 'reading', 'analytics', 'updates']
+    ids: ['general', 'appearance', 'sidebar', 'writing', 'voice', 'reading', 'analytics', 'updates']
   },
   {
     label: 'SettingsAi',
@@ -421,6 +435,7 @@ function SectionContent({
       </>
     ),
     writing: <WritingSettings />,
+    voice: <VoiceSettings />,
     reading: <ReadingSettings />,
     account: <AiAccountSettings />,
     models: <AiModelSettings />,

@@ -28,6 +28,8 @@ export const SettingsRpcLive = defineRpc(
     'settings.saveModelTier': settings.saveModelTier,
     'settings.dismissModelUpdate': (notice) => settings.updateModel(notice, false),
     'settings.applyModelUpdate': (notice) => settings.updateModel(notice, true),
+    'settings.voiceSettings': () => settings.voiceSettings(),
+    'settings.saveVoiceSettings': settings.saveVoiceSettings,
     'settings.usage': settings.usage,
     'settings.agentRules': () => settings.agentRules(),
     'settings.saveAgentRules': settings.saveAgentRules,

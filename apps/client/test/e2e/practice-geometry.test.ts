@@ -308,16 +308,18 @@ async function settleGrading(
     await measure();
     grading.release();
 
-    if (timing === 'immediate')
-      await expect(form.getByRole('status')).toHaveText(
+    if (timing === 'immediate') {
+      const verdict =
         copy[
           outcome === 'correct'
             ? 'VerdictCorrect'
             : outcome === 'partly'
               ? 'VerdictPartly'
               : 'VerdictIncorrect'
-        ]
-      );
+        ];
+
+      await expect(form.getByRole('status').filter({ hasText: verdict })).toHaveText(verdict);
+    }
   }
 }
 

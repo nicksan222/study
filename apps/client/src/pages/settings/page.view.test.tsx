@@ -183,6 +183,7 @@ test.unit.stable(
       'Appearance',
       'Sidebar',
       'Writing',
+      'Voice',
       'Reading & exports',
       'Analytics',
       'Updates',
@@ -240,6 +241,7 @@ test.unit.stable(
 
 test.unit.stable.for([
   ['Concurrent', 'Performance', 'performance'],
+  ['microphone', 'Voice', 'voice'],
   ['Search logs', 'Analytics', 'analytics'],
   ['Sidebar spacing', 'Sidebar', 'sidebar'],
   ['export', 'Reading & exports', 'reading'],

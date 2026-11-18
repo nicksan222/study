@@ -123,6 +123,34 @@ jobs:
           path: apps/server/test-results/vitest/*.xml
           if-no-files-found: ignore
 
+  recognition:
+    name: 🎙️ Speech recognition
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      STUDY_VOICE_MODELS_DIR: target/voice-models
+    steps:
+      - name: 📥 Check out repository
+        uses: actions/checkout@v7
+      - name: 🥟 Prepare Bun, dependencies and task cache
+        id: setup
+        uses: ./.github/actions/setup-javascript
+      - name: ♻️ Restore pinned recognition fixtures
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STUDY_VOICE_MODELS_DIR }}
+          key: study-voice-models-v1-${{ hashFiles('apps/server/src/features/voice/service/strategy.ts', 'apps/server/src/features/voice/service/strategies/**/*.ts') }}
+      - name: 📦 Prepare and verify recognition fixtures
+        id: voice_fixtures
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: bun run voice:fixtures
+      - name: 🎙️ Test every registered recognizer with human recordings
+        if: ${{ !cancelled() && steps.voice_fixtures.outcome == 'success' }}
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: bun run voice:test
+
   shared_tests:
     name: 📦 Shared package tests
     runs-on: ubuntu-24.04
@@ -257,6 +285,7 @@ jobs:
         client_unit,
         tooling_unit,
         server_tests,
+        recognition,
         shared_tests,
         database,
         browser,
@@ -285,6 +314,7 @@ jobs:
               'client_unit': '🧪 Client unit tests',
               'tooling_unit': '🧪 Tooling unit tests',
               'server_tests': '⚙️ Server tests',
+              'recognition': '🎙️ Speech recognition',
               'shared_tests': '📦 Shared package tests',
               'database': '🗄️ Database',
               'browser': '🌐 Browser journeys',

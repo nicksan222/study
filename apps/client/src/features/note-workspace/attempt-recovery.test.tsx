@@ -370,7 +370,7 @@ test.unit.stable(
       title: 'Later title',
       operations: ['clarity', 'grammar']
     });
-    await screen.findByRole('alert');
+    await screen.findByRole('alert', { name: 'NoteActionErrorTitle' });
   }
 );
 

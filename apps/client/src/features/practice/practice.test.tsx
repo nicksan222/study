@@ -827,12 +827,16 @@ test.unit.stable(
     await user.click(screen.getByRole('button', { name: en.SubmitAnswer }));
 
     try {
-      expect(await screen.findByRole('status')).toHaveTextContent(en.PracticeUngraded);
+      expect(
+        await screen.findByText(en.PracticeUngraded, { selector: '[role=status]', exact: true })
+      ).toBeInTheDocument();
     } finally {
       release(graded);
     }
 
     expect(await screen.findByText('Live grading corrected the answer.')).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent(en.VerdictIncorrect);
+    expect(
+      screen.getByText(en.VerdictIncorrect, { selector: '[role=status]', exact: true })
+    ).toBeInTheDocument();
   }
 );

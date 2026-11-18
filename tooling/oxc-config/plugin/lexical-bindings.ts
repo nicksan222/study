@@ -88,13 +88,32 @@ export function enterNode(node: any, seen: Set<any>): boolean {
   return true;
 }
 
+/** Type assertions and grouping retain the underlying runtime capability. */
+export function transparentExpression(node: any): any {
+  return [
+    'TSAsExpression',
+    'TSSatisfiesExpression',
+    'TSNonNullExpression',
+    'TSTypeAssertion',
+    'TSInstantiationExpression',
+    'ParenthesizedExpression',
+    'ChainExpression'
+  ].includes(node.type)
+    ? node.expression
+    : undefined;
+}
+
 /** Resolve lexical identifiers and member paths with one shared alias cycle guard. */
 export function lexicalResolver(
   identifier: (node: any, seen: Set<any>) => string | null,
   member: (node: any, seen: Set<any>) => string | null
 ) {
-  return (node: any, seen = new Set<any>()): string | null => {
+  return function resolve(node: any, seen = new Set<any>()): string | null {
     if (!enterNode(node, seen)) return null;
+
+    const expression = transparentExpression(node);
+
+    if (expression) return resolve(expression, seen);
 
     if (node.type === 'Identifier') return identifier(node, seen);
 
@@ -144,4 +163,27 @@ export function boundSpecifier(context: any, node: any, specifier: any): boolean
     specifier &&
     binding(context, node)?.defs.some((definition: any) => definition.node === specifier)
   );
+}
+
+/** Resolve the member path assigned to a local name by an object binding pattern. */
+export function destructuredPath(pattern: any, target: string, names: string[]): string[] | null {
+  if (pattern.type === 'AssignmentPattern') return destructuredPath(pattern.left, target, names);
+
+  if (pattern.type === 'Identifier') return pattern.name === target ? names : null;
+
+  if (pattern.type !== 'ObjectPattern') return null;
+
+  for (const part of pattern.properties) {
+    if (!namedProperty(part)) continue;
+
+    const name = part.key.name ?? part.key.value;
+
+    if (name === undefined) continue;
+
+    const found = destructuredPath(part.value, target, [...names, String(name)]);
+
+    if (found) return found;
+  }
+
+  return null;
 }

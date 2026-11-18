@@ -17,6 +17,13 @@ if (!process.versions.bun) throw new Error('Run through bun run desktop:runtime'
 await Effect.runPromise(fs.remove(output, { recursive: true, force: true }));
 await Effect.runPromise(fs.makeDirectory(server, { recursive: true }));
 
+const licenses = join(output, 'licenses');
+
+await Effect.runPromise(fs.makeDirectory(licenses, { recursive: true }));
+
+for (const file of ['NOTICE', 'LICENSE-MIT', 'LICENSE-APACHE', 'LICENSE-T3CODE'])
+  await Effect.runPromise(fs.copyFile(join(root, '.github', file), join(licenses, file)));
+
 for (const file of ['package.json', 'bun.lock'])
   await Effect.runPromise(fs.copyFile(join(root, file), join(server, file)));
 

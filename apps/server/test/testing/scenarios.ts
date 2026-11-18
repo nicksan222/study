@@ -9,8 +9,16 @@ import { makeStudyClient } from '#server/client/index';
 
 import { createRpcFixture, createServerFixture } from './fixture.ts';
 import { inTestPhase } from './progress.ts';
+import { createVoiceMock } from './voice.ts';
 
 const runner = baseTest.unit.stable
+  .extend('voice', ({ task: _task }, { onCleanup }) => {
+    const voice = createVoiceMock();
+
+    onCleanup(() => voice[Symbol.dispose]());
+
+    return voice;
+  })
   .extend('resources', async ({ task: _task }, { onCleanup }) => {
     const resources = await createServerFixture();
 

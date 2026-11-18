@@ -149,6 +149,16 @@ async function fixture({
   };
 }
 
+function ciTurboScript(command: string | undefined) {
+  const script = /^bun run (\S+)(?: .*)?$/.exec(command ?? '')?.[1];
+
+  // The required server lane's explicit model fixture steps are checked in ci.test.ts.
+  if (script === 'voice:fixtures' || script === 'voice:test') return undefined;
+
+  // Comparison forwards CLI flags to Playwright and uses the identical build graph.
+  return script === 'web:e2e:compare' ? 'web:e2e' : script;
+}
+
 test.unit.stable(
   'CI gate groups cover the full check, including the packaged runtime',
   async ({ assert: assertions, temporaryDirectory, spawnTestProcess }) => {
@@ -168,7 +178,7 @@ test.unit.stable(
 
     for (const job of Object.values(workflow.jobs)) {
       for (const step of job.steps ?? []) {
-        const script = /^bun run (\S+)(?: .*)?$/.exec(step.run ?? step.with?.runCmd ?? '')?.[1];
+        const script = ciTurboScript(step.run ?? step.with?.runCmd);
 
         if (!script) continue;
 

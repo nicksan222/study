@@ -40,3 +40,97 @@ for (const [width, initiallyOpen] of [
     }
   );
 }
+
+test.unit.stable(
+  'settles the default context panel with container layout while preserving explicit toggles',
+  async ({ vi, render, screen, userEvent, act, expect }) => {
+    let width = 992;
+    let resize = (_target: Element) => {};
+
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (
+      this: HTMLElement
+    ) {
+      return this.hasAttribute('data-practice-container') ? width : 540;
+    });
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        private target?: Element;
+
+        constructor(callback: () => void) {
+          resize = (target) => {
+            if (this.target === target) callback();
+          };
+        }
+
+        observe(target: Element) {
+          this.target = target;
+        }
+
+        disconnect() {}
+      }
+    );
+    let unmount: (() => void) | undefined;
+
+    try {
+      const view = render(
+        <div data-practice-container>
+          <PracticeWorkspace title="Recall" actions={<button>Source action</button>}>
+            <button>Core question</button>
+          </PracticeWorkspace>
+        </div>
+      );
+
+      unmount = view.unmount;
+      const container = view.container.querySelector('[data-practice-container]')!;
+      const toggle = screen.getByRole('button', { name: catalogs.english.PracticeActions });
+      const question = screen.getByRole('button', { name: 'Core question' });
+
+      expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      screen.getByRole('button', { name: 'Source action' }).focus();
+      act(() => {
+        width = 736;
+        resize(container);
+      });
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(toggle).toHaveFocus();
+      act(() => {
+        width = 992;
+        resize(container);
+      });
+      expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      question.focus();
+      act(() => {
+        width = 736;
+        resize(container);
+      });
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(question).toHaveFocus();
+      act(() => {
+        width = 992;
+        resize(container);
+      });
+      await userEvent.click(toggle);
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      act(() => {
+        width = 736;
+        resize(container);
+        width = 992;
+        resize(container);
+      });
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      await userEvent.click(toggle);
+      act(() => {
+        width = 736;
+        resize(container);
+      });
+      expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    } finally {
+      try {
+        unmount?.();
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    }
+  }
+);

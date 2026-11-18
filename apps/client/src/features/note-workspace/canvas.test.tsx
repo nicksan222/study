@@ -991,7 +991,7 @@ test.unit.stable(
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(
       first.client.get(messageActionDraft(id, message.id))?.pausedEdit?.position?.rich
-    ).toEqual({ anchor: 4, head: 8 });
+    ).toEqual({ kind: 'text', anchor: 4, head: 8 });
     first.unmount();
     mount(
       { render, rpcHandlersTransport },
