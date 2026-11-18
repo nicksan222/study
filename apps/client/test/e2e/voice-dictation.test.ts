@@ -1,3 +1,4 @@
+import { gradeInputSchema, gradeOutputSchema } from '@study/contracts';
 import { catalogs, countText, text } from '@study/localization';
 import { test } from '@study/testing';
 
@@ -521,10 +522,13 @@ test.browser.describe('Practice dictation', () => {
 
   test.browser.stable(
     'Open practice answers finish dictation before submission',
-    async ({ page, rpc, study, microphone, expect, expectScreenshot }) => {
+    async ({ page, rpc, study, ai, microphone, expect, expectScreenshot }) => {
       const fixture = await study.seed();
 
       await rpc.runPromise(rpc.client['voice.install']({}));
+      const prompt = 'What does a eukaryotic cell contain?';
+      const reference = 'A nucleus.';
+      const finalAnswer = 'A eukaryotic cell contains a nucleus.';
       const material = await rpc.runPromise(
         rpc.client['materials.create']({
           title: 'Cell structure',
@@ -533,8 +537,8 @@ test.browser.describe('Practice dictation', () => {
             questions: [
               {
                 kind: 'open',
-                prompt: 'What does a eukaryotic cell contain?',
-                referenceAnswer: 'A nucleus.',
+                prompt,
+                referenceAnswer: reference,
                 explanation: 'The nucleus contains the cell’s genetic material.'
               }
             ]
@@ -582,12 +586,27 @@ test.browser.describe('Practice dictation', () => {
           expect(page.getByRole('status', { name: copy.VoiceTranscribing })).toBeVisible()
       });
       await recording.segments.final.deliver();
-      await expect(answer).toHaveValue('A eukaryotic cell contains a nucleus.');
+      await expect(answer).toHaveValue(finalAnswer);
       await expectScreenshot('practice-answer-ready', {
         target: 'viewport',
         ready: () => expect(submit).toBeEnabled()
       });
 
+      const grading = ai.next(
+        {
+          id: 'learning-grade',
+          input: gradeInputSchema,
+          output: gradeOutputSchema,
+          mode: 'object'
+        },
+        {
+          input: { prompt: JSON.stringify({ question: prompt, reference, answer: finalAnswer }) },
+          output: { verdict: 'correct', feedback: 'Correct.' }
+        }
+      );
+
+      await submit.click();
+      await grading.called;
       await page.goto(`/practice?project=${fixture.project.id}`);
       await page.getByRole('button', { name: copy.PracticeGenerate, exact: true }).click();
       const generation = page.getByRole('dialog', { name: copy.PracticeGenerate });
