@@ -108,3 +108,27 @@ test.unit.stable(
     await expect(failed.run(undefined)).rejects.toBe(failure);
   }
 );
+
+test.unit.stable(
+  'settles only after asynchronous work completes',
+  async ({ expect, vi, withinTestDeadline }) => {
+    const started = Promise.withResolvers<void>();
+    const completion = Promise.withResolvers<number>();
+    const onSettled = vi.fn();
+    const operation = createControlledOperation(
+      () => {
+        started.resolve();
+
+        return completion.promise;
+      },
+      { onSettled }
+    );
+    const result = operation.run(undefined);
+
+    await withinTestDeadline(started.promise);
+    expect(onSettled).not.toHaveBeenCalled();
+    completion.resolve(17);
+    await expect(result).resolves.toBe(17);
+    expect(onSettled).toHaveBeenCalledOnce();
+  }
+);
