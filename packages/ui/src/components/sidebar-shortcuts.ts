@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react';
 
 /** Resolves numbered navigation from the current rendered list, independent of page data. */
-export function useSidebarShortcuts() {
+export function useSidebarShortcuts(enabled: boolean) {
   const root = useRef<HTMLElement>(null);
 
   useEffect(() => {
+    if (!enabled) return;
+
     let showing = false;
     let hinted: HTMLAnchorElement[] = [];
     const observer = new MutationObserver(updateHints);
@@ -100,7 +102,7 @@ export function useSidebarShortcuts() {
       document.removeEventListener('visibilitychange', visibilityChanged);
       hideHints();
     };
-  }, []);
+  }, [enabled]);
 
   return root;
 }

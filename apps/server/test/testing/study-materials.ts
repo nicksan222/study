@@ -26,6 +26,7 @@ import { generationPlanAgent } from '#server/features/materials/agents/generatio
 import { quizTitledAgent } from '#server/features/materials/agents/quiz-titled';
 import { materialStudyContext } from '#server/features/materials/agents/study-context';
 import { studyNotesAgent } from '#server/features/materials/agents/study-notes';
+import { writtenExamAgent } from '#server/features/materials/agents/written-exam';
 import { materialGenerationPrompt } from '#server/features/materials/decoders/generation-novelty';
 import { Materials } from '#server/features/materials/index';
 import { questionAgent } from '#server/features/notes/agents/question';
@@ -133,7 +134,12 @@ function publishedMaterial(app: App, requestId: string) {
 export function createStudyMaterials(app: App, ai: ReturnType<typeof createAiMock>) {
   return {
     notes: createNoteWorkspace(app, ai),
-    agents: { flashcards: flashcardsAgent, studyNotes: studyNotesAgent, quiz: quizTitledAgent },
+    agents: {
+      flashcards: flashcardsAgent,
+      studyNotes: studyNotesAgent,
+      quiz: quizTitledAgent,
+      writtenExam: writtenExamAgent
+    },
     generate: <A extends typeof flashcardsAgent | typeof quizTitledAgent>(
       target: A,
       options: Parameters<typeof expectMaterialGeneration<A>>[2],

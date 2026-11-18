@@ -1,13 +1,14 @@
 import { rpc } from '@study/contracts/react';
 
 /** Shares the same canonical live endpoints with account settings and model readiness. */
-export function useAiConfiguration() {
+export function useAiConfiguration(configured = true) {
   const status = rpc.auth.status.useQuery({});
-  const providers = rpc.auth.providers.useQuery({});
-  const settings = rpc.settings.llmSettings.useQuery({});
+  const providers = rpc.auth.providers.useQuery({}, { enabled: configured });
+  const settings = rpc.settings.llmSettings.useQuery({}, { enabled: configured });
   const queries = [status, providers, settings];
 
   return {
+    status,
     data:
       status.data && providers.data && settings.data
         ? { status: status.data, providers: providers.data, settings: settings.data }

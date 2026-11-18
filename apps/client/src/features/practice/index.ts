@@ -4,3 +4,5 @@ export { ArchivedPracticeAction } from './archive-dialog';
 
 export { PracticeSidebarGenerations } from './sidebar-generations';
 export { PracticeSidebarContextMenu } from './sidebar-context-menu';
+export { WrittenExamProvider } from './written-exam-state';
+export { WrittenExamPage } from './written-exam-session';

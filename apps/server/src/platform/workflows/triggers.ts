@@ -273,10 +273,23 @@ export function dispatchPending(
 
 const snapshotCursors = new WeakMap<ServerContext, string>();
 
+type SnapshotWorkflow = Workflow.Any & {
+  readonly version: number;
+  readonly poll: (
+    id: string
+  ) => Effect.Effect<
+    Option.Option<Workflow.Result<unknown, unknown>>,
+    never,
+    WorkflowEngine.WorkflowEngine
+  >;
+};
+
 /** Refresh domain snapshots from official replies; never schedule or recover execution here. */
-export function refreshExecutionSnapshots(context: ServerContext, triggers: readonly Trigger[]) {
+export function refreshExecutionSnapshots(
+  context: ServerContext,
+  definitions: readonly SnapshotWorkflow[]
+) {
   return Effect.gen(function* () {
-    const engine = yield* WorkflowEngine.WorkflowEngine;
     const rows = context.db.orm
       .select()
       .from(workflow_executions)
@@ -290,11 +303,12 @@ export function refreshExecutionSnapshots(context: ServerContext, triggers: read
     snapshotCursors.set(context, rows.length === 100 ? rows[rows.length - 1]!.execution_id : '');
 
     for (const row of rows) {
-      const trigger = triggers.find(
-        (t) => t.workflow._tag === row.workflow_tag && t.workflowVersion === Number(row.version)
+      const workflow = definitions.find(
+        (definition) =>
+          definition._tag === row.workflow_tag && definition.version === Number(row.version)
       );
 
-      if (!trigger) {
+      if (!workflow) {
         if (row.status === 'blocked') continue;
 
         yield* Effect.sync(() =>
@@ -322,7 +336,7 @@ export function refreshExecutionSnapshots(context: ServerContext, triggers: read
       if (row.cancellation_mode || retired) {
         yield* reconcileCancellation(
           context,
-          trigger.workflow,
+          workflow,
           row.execution_id,
           retired ? 'unsafe' : row.cancellation_mode!,
           false
@@ -330,15 +344,7 @@ export function refreshExecutionSnapshots(context: ServerContext, triggers: read
         continue;
       }
 
-      const reply = yield* engine.poll(
-        trigger.workflow as Workflow.Workflow<
-          string,
-          typeof workflowPayloadSchema,
-          typeof Schema.Unknown,
-          typeof Schema.Unknown
-        >,
-        row.execution_id
-      );
+      const reply = yield* workflow.poll(row.execution_id);
 
       yield* Effect.sync(() =>
         context.transaction(['workflows'], (tx) => {
@@ -366,8 +372,8 @@ export function refreshExecutionSnapshots(context: ServerContext, triggers: read
             Schema.encodeSync(
               Schema.toCodecJson(
                 Workflow.Result({
-                  success: trigger.workflow.successSchema as Schema.Codec<unknown, unknown>,
-                  error: trigger.workflow.errorSchema as Schema.Codec<unknown, unknown>
+                  success: workflow.successSchema as Schema.Codec<unknown, unknown>,
+                  error: workflow.errorSchema as Schema.Codec<unknown, unknown>
                 })
               )
             )(reply.value)

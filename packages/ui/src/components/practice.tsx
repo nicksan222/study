@@ -12,6 +12,32 @@ import type { ReactNode, ComponentProps } from 'react';
 
 import { Button } from './button';
 import { semanticPart } from './semantic-part';
+import { observeVisualViewport } from './visual-viewport';
+
+const ExamPageSurface = semanticPart('section', 'study-exam-page');
+
+function fitExamPage(element: HTMLElement | null) {
+  const parent = element?.parentElement;
+
+  if (!element || !parent) return;
+
+  return observeVisualViewport(parent, (viewport, zoom) => {
+    const { top, left } = parent.getBoundingClientRect();
+    const x = Math.max(0, viewport.offsetLeft - left);
+    const y = Math.max(0, viewport.offsetTop - top);
+    const width = Math.max(0, viewport.offsetLeft + viewport.width - left - x);
+    const height = Math.max(0, viewport.offsetTop + viewport.height - top - y);
+
+    element.style.setProperty('--exam-viewport-width', `${width / zoom}px`);
+    element.style.setProperty('--exam-viewport-height', `${height / zoom}px`);
+    element.style.setProperty('--exam-viewport-left', `${x / zoom}px`);
+    element.style.setProperty('--exam-viewport-top', `${y / zoom}px`);
+  });
+}
+
+function ExamPage(props: ComponentProps<'section'>) {
+  return <ExamPageSurface {...props} ref={fitExamPage} />;
+}
 
 export const Practice = {
   Ordering,
@@ -35,6 +61,15 @@ export const Practice = {
   GenerationBrief: semanticPart('div', 'study-generation-brief'),
   GenerationPages: semanticPart('div', 'study-generation-pages'),
   GenerationStatus: semanticPart('div', 'study-generation-status'),
+  ExamPage,
+  ExamHeader: semanticPart('header', 'study-exam-header'),
+  ExamBody: semanticPart('div', 'study-exam-body'),
+  ExamPrompt: semanticPart('h2', 'study-exam-prompt'),
+  ExamFeedback: semanticPart('p', 'study-exam-feedback'),
+  ExamAnswer: semanticPart('form', 'study-exam-answer'),
+  ExamActions: semanticPart('div', 'study-exam-actions'),
+  ExamResult: semanticPart('div', 'study-exam-result'),
+  ExamTranscript: semanticPart('div', 'study-exam-transcript'),
   SourceInputs: semanticPart('div', 'study-practice-source-inputs'),
   Stage: semanticPart('div', 'study-practice-stage'),
   StageBody: semanticPart('div', 'study-practice-stage-body'),

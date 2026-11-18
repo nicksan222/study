@@ -405,6 +405,10 @@ test.server.stable(
             provider: 'anthropic',
             modelId: 'claude-sonnet-5-5'
           });
+          expect(yield* settings.model('medium', LlmProvider.CHAT_GPT)).toStrictEqual({
+            provider: LlmProvider.CHAT_GPT,
+            modelId: 'gpt-6.1-sol'
+          });
           const invalid = yield* Effect.flip(
             settings.saveLlmSettings({ ...selection, tiny: { provider: 'unknown' } })
           );

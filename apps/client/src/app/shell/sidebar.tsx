@@ -1,5 +1,5 @@
 import { useParams } from '@tanstack/react-router';
-import type { ComponentType } from 'react';
+import type { ComponentType, Ref } from 'react';
 
 import { LibraryList } from '#client/features/library/index.ts';
 import { PagesSidebar } from '#client/features/pages/index.ts';
@@ -30,7 +30,11 @@ const panels: Record<SidebarContent, ComponentType<PanelProps> | null> = {
   practice: ({ model, ready }) => <PracticePanel model={model} ready={ready} />
 };
 
-export function Sidebar(props: SidebarProps) {
+export function Sidebar({
+  toggleRef,
+  primary,
+  ...props
+}: SidebarProps & { toggleRef?: Ref<HTMLButtonElement>; primary?: boolean }) {
   const model = useSidebar(props);
   const { noteId } = useParams({ strict: false });
   const Panel = panels[sidebarContent(model.metadata)];
@@ -51,6 +55,9 @@ export function Sidebar(props: SidebarProps) {
     <SidebarView
       counts={counts}
       {...model}
+      hidden={props.hidden}
+      primary={primary}
+      toggleRef={toggleRef}
       selectedNote={noteId ? String(noteId) : null}
       collection={Panel ? <Panel model={model} ready={ready} /> : null}
     />

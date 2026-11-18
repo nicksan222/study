@@ -13,6 +13,7 @@ const workflowLabels: Readonly<Partial<Record<string, StaticMessageKey>>> = {
   'conversation-attachment-wake': 'workspace.task.conversation-attachment-wake',
   'recording-post': 'workspace.task.recording-post',
   'quiz-grading': 'workspace.task.quiz-grading',
+  'written-exam': 'WrittenExam',
   'practice-slot': 'workspace.task.practice-slot',
   'practice-failure': 'workspace.task.practice-failure',
   'practice-publication': 'workspace.task.practice-publication',

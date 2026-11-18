@@ -109,6 +109,13 @@ function agentLimits(options: AgentOptions) {
 
 export type AgentProgress<A> = typeof agentUpdateSchema.Type | { type: 'complete'; output: A };
 
+/** The provider finished successfully, but its output cannot complete the requested task. */
+export class AgentOutputError extends StudyError {
+  constructor(message: string) {
+    super('transient', message);
+  }
+}
+
 function failure(error: unknown): StudyError {
   if (error instanceof StudyError) return error;
 
@@ -387,8 +394,10 @@ export function streamAgent<
         text: string,
         finish: Response.FinishReason | undefined
       ) {
-        if (finish !== 'stop' || !text.trim())
-          return yield* Effect.fail(new StudyError('transient', 'Agent output was empty'));
+        if (finish !== 'stop')
+          return yield* Effect.fail(new StudyError('transient', 'Agent response did not complete'));
+
+        if (!text.trim()) return yield* Effect.fail(new AgentOutputError('Agent output was empty'));
 
         const output = yield* Effect.try({
           try: () => {
@@ -399,7 +408,7 @@ export function streamAgent<
 
             return Schema.decodeUnknownSync(Schema.toType(definition.output))(value);
           },
-          catch: failure
+          catch: () => new AgentOutputError('Agent output did not match its schema')
         });
 
         yield* observe({ type: 'complete', output: traceDetail(output) });

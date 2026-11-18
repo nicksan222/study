@@ -44,7 +44,7 @@ export function useSidebarSearch({
   return { result, hits };
 }
 
-export function useSidebarSearchInput(collapsed: boolean, onToggle: () => void) {
+export function useSidebarSearchInput(collapsed: boolean, onToggle: () => void, visible: boolean) {
   const searchRef = useRef<HTMLInputElement>(null);
   const openSearch = () => {
     if (collapsed) onToggle();
@@ -53,6 +53,8 @@ export function useSidebarSearchInput(collapsed: boolean, onToggle: () => void) 
   };
 
   useEffect(() => {
+    if (!visible) return;
+
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
@@ -66,7 +68,7 @@ export function useSidebarSearchInput(collapsed: boolean, onToggle: () => void) 
     window.addEventListener('keydown', onKeyDown);
 
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [collapsed, onToggle]);
+  }, [collapsed, onToggle, visible]);
 
   return { searchRef, openSearch };
 }

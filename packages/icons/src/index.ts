@@ -98,6 +98,7 @@ export {
   Link2 as MatchingIcon,
   Maximize2 as MaximizeIcon,
   SquareMenu as MenuIcon,
+  Ellipsis as MoreActionsIcon,
   Merge as MergeIcon,
   User as MessageAuthorIcon,
   Microscope as MicroscopeIcon,
