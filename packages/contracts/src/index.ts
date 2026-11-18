@@ -587,6 +587,7 @@ export type { AgentRuleKey, ModelTier } from './settings/schemas.ts';
 export {
   AgentRule,
   agentRulesSchema,
+  modelIdSchema,
   aiProviderSchema,
   apiKeyInputSchema,
   appearancePreferencesSchema,

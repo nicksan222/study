@@ -1,6 +1,7 @@
+import type { ProtocolTransport } from '@study/contracts/react';
 import { rpc } from '@study/contracts/react';
 import { toastManager } from '@study/ui';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -11,12 +12,23 @@ const tierLabels = {
 } as const;
 
 /** Deliver the next durable notice using the shared toast viewport. */
-export function ModelUpdateNotifications() {
+export function ModelUpdateNotifications({ transport }: { transport: ProtocolTransport }) {
   const { data } = rpc.settings.modelUpdates.useQuery({});
   const { mutate } = rpc.settings.dismissModelUpdate.useMutation();
   const { mutate: apply } = rpc.settings.applyModelUpdate.useMutation();
   const { t } = useI18n();
   const announced = useRef<{ key: string; translate: typeof t }>(undefined);
+  const [retry, setRetry] = useState(0);
+
+  useEffect(
+    () => () => {
+      if (!announced.current) return;
+
+      announced.current = undefined;
+      toastManager.close('model-update');
+    },
+    [transport]
+  );
 
   useEffect(() => {
     const update = data?.[0];
@@ -53,23 +65,31 @@ export function ModelUpdateNotifications() {
     if (announced.current?.key === key) {
       if (announced.current.translate !== t) toastManager.update('model-update', copy);
 
-      announced.current = { key, translate: t };
+      announced.current.translate = t;
 
       return;
     }
 
-    announced.current = { key, translate: t };
+    const owner = { key, translate: t };
+
+    announced.current = owner;
     toastManager.add({
       id: 'model-update',
       ...copy,
       type: 'info',
       timeout: 0,
       onClose: () => {
-        // A failed acknowledgement leaves the notice available on the next launch.
-        void mutate(update).catch(() => undefined);
+        if (announced.current !== owner) return;
+
+        void mutate(update).catch(() => {
+          if (announced.current !== owner) return;
+
+          announced.current = undefined;
+          setRetry((value) => value + 1);
+        });
       }
     });
-  }, [data, mutate, apply, t]);
+  }, [data, mutate, apply, t, transport, retry]);
 
   return null;
 }

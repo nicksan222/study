@@ -12,8 +12,12 @@ import { settingsPreferenceOperations } from './preferences.ts';
 const make = function* () {
   const usage = yield* useStore(UsageStore);
   const models = yield* settingsModelOperations();
-  const updates = yield* modelUpdateOperations();
-  const refresh = makeModelCatalogRefresh(models.llmSettings, updates.refreshModelCatalog);
+  const { catalogIdentities, ...updates } = yield* modelUpdateOperations();
+  const refresh = makeModelCatalogRefresh(
+    models.llmSettings,
+    catalogIdentities,
+    updates.refreshModelCatalog
+  );
   const catalogLock = yield* Semaphore.make(1);
 
   return {

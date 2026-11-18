@@ -3,7 +3,6 @@ import { test } from '@study/testing';
 import { Effect } from 'effect';
 
 import { fetchApiKeyCatalog } from './catalog.ts';
-import { apiKeyProviders } from './registry.ts';
 
 function model(id: string, family: string, price: number, date: string) {
   return {
@@ -35,18 +34,38 @@ test.unit.stable(
       requests++;
       expect(String(input)).toBe('https://models.dev/api.json');
 
-      return Response.json(
-        Object.fromEntries(
-          apiKeyProviders.map(({ catalogId }) => [
-            catalogId,
-            { models: Object.fromEntries(models.map((entry) => [entry.id, entry])) }
-          ])
-        )
-      );
+      const rows = { models: Object.fromEntries(models.map((entry) => [entry.id, entry])) };
+      const branded = (id: string) => ({ models: { [id]: model(id, id, 1, '2026-11-02') } });
+
+      return Response.json({
+        anthropic: rows,
+        google: rows,
+        openrouter: rows,
+        deepseek: rows,
+        mistral: rows,
+        groq: rows,
+        xai: rows,
+        cerebras: rows,
+        togetherai: branded('together-model'),
+        'fireworks-ai': branded('fireworks-model')
+      });
     };
     const catalog = new Map(await Effect.runPromise(fetchApiKeyCatalog(fetch)));
 
-    for (const { id } of apiKeyProviders) {
+    expect(catalog.size).toBe(10);
+    expect(catalog.get('together')?.models).toEqual(['together-model']);
+    expect(catalog.get('fireworks')?.models).toEqual(['fireworks-model']);
+
+    for (const id of [
+      'anthropic',
+      'google',
+      'openrouter',
+      'deepseek',
+      'mistral',
+      'groq',
+      'xai',
+      'cerebras'
+    ]) {
       const entry = catalog.get(id);
 
       expect(entry?.models).toEqual(['newest-large', 'medium', 'small', 'older-large']);
@@ -64,11 +83,11 @@ test.unit.stable(
 test.unit.stable('suggests a newer release from the same family and size', async ({ expect }) => {
   const models = [
     model('oss-20b', 'gpt-oss', 1, '2026-10-01'),
-    model('oss-120b', 'gpt-oss', 4, '2026-10-01'),
-    model('new-small', 'gpt-oss', 1, '2026-11-15'),
-    model('new-large', 'gpt-oss', 4, '2026-11-17'),
-    model('haiku', 'claude-haiku', 1, '2026-10-01'),
-    model('haiku-next', 'claude-haiku', 1, '2026-11-15'),
+    model('oss-120b', 'gpt-oss', 1, '2026-10-01'),
+    model('oss-next-20b', 'gpt-oss', 1, '2026-11-15'),
+    model('oss-next-120b', 'gpt-oss', 1, '2026-11-17'),
+    model('claude-haiku-5-9', 'claude-haiku', 1, '2026-11'),
+    { ...model('claude-haiku-5-10', 'claude-haiku', 1, '2026-11-15'), canonical_model_id: ' ' },
     model('opus-next', 'claude-opus', 4, '2026-11-17')
   ];
   const catalog = await Effect.runPromise(
@@ -80,8 +99,40 @@ test.unit.stable('suggests a newer release from the same family and size', async
   );
   const available = new Map(catalog).get('groq');
 
-  expect(available?.recommend('oss-20b', 'tiny')).toBe('new-small');
-  expect(available?.recommend('oss-120b', 'smart')).toBe('new-large');
-  expect(available?.recommend('new-small', 'tiny')).toBeUndefined();
-  expect(available?.recommend('haiku', 'tiny')).toBe('haiku-next');
+  expect(available?.recommend('oss-20b', 'tiny')).toBe('oss-next-20b');
+  expect(available?.recommend('oss-120b', 'smart')).toBe('oss-next-120b');
+  expect(available?.recommend('oss-next-20b', 'tiny')).toBeUndefined();
+  expect(available?.recommend('claude-haiku-5-9', 'tiny')).toBe('claude-haiku-5-10');
 });
+
+test.unit.stable(
+  'keeps an unclassified size and follows a delisted model using saved identity',
+  async ({ expect }) => {
+    const original = [
+      model('qwen-flash-old', 'qwen', 1, '2026-10-01'),
+      model('opaque-a', 'opaque', 2, '2026-10-01')
+    ];
+    const next = [
+      model('qwen-flash-next', 'qwen', 1, '2026-11-01'),
+      model('unrelated-latest', 'unrelated', 1, '2026-11-02'),
+      original[1]!,
+      model('opaque-b', 'opaque', 2, '2026-11-15')
+    ];
+    const inspect = async (models: typeof original) =>
+      new Map(
+        await Effect.runPromise(
+          fetchApiKeyCatalog(async () =>
+            Response.json({
+              togetherai: { models: Object.fromEntries(models.map((entry) => [entry.id, entry])) }
+            })
+          )
+        )
+      ).get('together');
+
+    const saved = await inspect(original);
+    const fresh = await inspect(next);
+
+    expect(fresh?.recommend('qwen-flash-old', 'tiny', saved?.identities)).toBe('qwen-flash-next');
+    expect(fresh?.recommend('opaque-a', 'medium')).toBeUndefined();
+  }
+);

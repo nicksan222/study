@@ -41,18 +41,32 @@ const compare = (
   b: NonNullable<ReturnType<typeof parseRelease>>
 ) => a.generation - b.generation || a.revision - b.revision;
 
-function requestCatalog(auth: ChatGptCredentials, request: FetchOptions['fetch'], baseUrl: string) {
+function requestCatalog(
+  auth: ChatGptCredentials & { readonly signal: AbortSignal },
+  request: FetchOptions['fetch'],
+  baseUrl: string
+) {
   return Effect.tryPromise({
-    try: async (signal) => {
+    try: async (interrupted) => {
+      const signal = AbortSignal.any([interrupted, auth.signal]);
+
       for (let attempt = 0; ; attempt++) {
         const token = await auth.token();
+
+        signal.throwIfAborted();
         const response = await streamingFetch(
           `${baseUrl}/models`,
           { headers: { authorization: `Bearer ${token}`, accept: 'application/json' }, signal },
           { fetch: request, clock: auth.clock, timeoutMs: 10_000, maxBytes: 2 * 1024 * 1024 }
         );
 
-        if (response.ok) return response.json() as Promise<unknown>;
+        if (response.ok) {
+          const data: unknown = await response.json();
+
+          signal.throwIfAborted();
+
+          return data;
+        }
 
         await response.body?.cancel();
 
@@ -61,8 +75,12 @@ function requestCatalog(auth: ChatGptCredentials, request: FetchOptions['fetch']
           continue;
         }
 
-        if (response.status === 401 || response.status === 403)
-          throw new StudyError('auth', 'ChatGPT model catalog access denied');
+        signal.throwIfAborted();
+
+        if (response.status === 401) throw new StudyError('auth', 'ChatGPT session rejected');
+
+        if (response.status === 403)
+          throw new StudyError('unsupported', 'ChatGPT model catalog access denied');
 
         if (response.status === 429)
           throw new StudyError('rate_limited', 'ChatGPT model catalog rate limited');
@@ -71,9 +89,11 @@ function requestCatalog(auth: ChatGptCredentials, request: FetchOptions['fetch']
       }
     },
     catch: (cause) =>
-      cause instanceof StudyError
-        ? cause
-        : new StudyError('transient', 'ChatGPT model catalog request failed')
+      auth.signal.aborted
+        ? new StudyError('auth', 'ChatGPT session invalidated')
+        : cause instanceof StudyError
+          ? cause
+          : new StudyError('transient', 'ChatGPT model catalog request failed')
   }).pipe(
     Effect.flatMap(Schema.decodeUnknownEffect(catalogSchema)),
     Effect.mapError((cause) =>
@@ -81,6 +101,7 @@ function requestCatalog(auth: ChatGptCredentials, request: FetchOptions['fetch']
         ? cause
         : new StudyError('transient', 'Invalid ChatGPT model catalog')
     ),
+    Effect.retry({ times: 1, while: (error) => error.kind === 'transient' }),
     Effect.map(({ models }) =>
       models
         .filter(
@@ -115,9 +136,18 @@ export const makeChatGptCatalog = (
     );
 
     return currentSession.pipe(
-      Effect.flatMap((auth) => Cache.get(cache, auth.id)),
-      Effect.map((models) => ({
+      Effect.flatMap((auth) =>
+        Cache.get(cache, auth.id).pipe(
+          Effect.filterOrFail(
+            () => !auth.signal.aborted,
+            () => new StudyError('auth', 'ChatGPT session invalidated')
+          ),
+          Effect.map((models) => ({ models, signal: auth.signal }))
+        )
+      ),
+      Effect.map(({ models, signal }) => ({
         models,
+        signal,
         recommend: (id: string | undefined) => {
           const current = id === undefined ? undefined : parseRelease(id);
           const newer = models.flatMap((model) => {

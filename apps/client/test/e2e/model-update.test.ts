@@ -1,6 +1,8 @@
 import { Language, LlmProvider } from '@study/contracts';
 import { catalogs, createLocalization } from '@study/localization';
 import { test } from '@study/testing';
+import { Schema } from 'effect';
+import type { Page } from 'playwright';
 
 const earlier = { model: 'gpt-6.1-sol', title: 'Cell Study' };
 
@@ -11,6 +13,47 @@ const latest = { model: 'gpt-6.3-sol', title: 'Chromosome Division' };
 const english = catalogs.english;
 
 const italian = catalogs.italian;
+
+const frame = Schema.decodeUnknownOption(
+  Schema.fromJsonString(
+    Schema.Struct({
+      _tag: Schema.String,
+      id: Schema.optional(Schema.Union([Schema.String, Schema.Number])),
+      tag: Schema.optional(Schema.String),
+      requestId: Schema.optional(Schema.Union([Schema.String, Schema.Number]))
+    })
+  )
+);
+
+function waitForNoticeSnapshot(page: Page) {
+  const ready = Promise.withResolvers<void>();
+
+  page.once('websocket', (socket) => {
+    let requestId: string | number | undefined;
+
+    socket.on('framesent', ({ payload }) => {
+      const request = frame(String(payload).trim());
+
+      if (request._tag === 'Some' && request.value.tag === 'settings.modelUpdates.live')
+        requestId = request.value.id;
+    });
+    socket.on('framereceived', ({ payload }) => {
+      for (const line of String(payload).trim().split('\n')) {
+        const message = frame(line);
+
+        if (
+          requestId !== undefined &&
+          message._tag === 'Some' &&
+          message.value._tag === 'Chunk' &&
+          message.value.requestId === requestId
+        )
+          ready.resolve();
+      }
+    });
+  });
+
+  return ready.promise;
+}
 
 test.browser.use({
   chatGpt: {
@@ -65,6 +108,7 @@ test.browser.stable(
 
     await selectChatGptRelease(earlier.model);
     await generateTitle();
+    expect(await rpc.runPromise(rpc.client['settings.modelUpdates']({}))).toEqual([]);
     await expect(announcement).toHaveCount(0);
     await expectScreenshot('before-update', {
       target: 'viewport',
@@ -114,8 +158,12 @@ test.browser.stable(
     await viewport.getByRole('button', { name: italian.Close, exact: true }).press('Enter');
     await expect.poll(() => rpc.runPromise(rpc.client['settings.modelUpdates']({}))).toEqual([]);
     await generateTitle();
+    expect(await rpc.runPromise(rpc.client['settings.modelUpdates']({}))).toEqual([]);
     await page.setViewportSize({ width: 1120, height: 760 });
+    const loadedNotice = waitForNoticeSnapshot(page);
+
     await page.reload();
+    await loadedNotice;
     await expect(page.locator('html')).toHaveAttribute('lang', 'it');
     await expectScreenshot('dismissed-after-reload', {
       target: 'viewport',

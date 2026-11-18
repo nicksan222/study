@@ -69,7 +69,7 @@ test.unit.beforeEach(() => {
 
 const settings = {
   tiny: { provider: 1, model: 1 },
-  medium: { provider: 1, model: 2 },
+  medium: { provider: 1, model: 1 },
   smart: { provider: 1, model: 3 }
 } as const;
 

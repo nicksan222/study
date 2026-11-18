@@ -1,12 +1,14 @@
 import { Schema } from 'effect';
 
+import { apiKeyProviderIdSchema, modelIdSchema } from './schemas.ts';
+
 export const modelTiers = ['tiny', 'medium', 'smart'] as const;
 
-const identifier = Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(200));
+const identifier = modelIdSchema;
 
 export const modelUpdateSchema = Schema.Struct({
   tier: Schema.Literals(modelTiers),
-  provider: Schema.Union([Schema.Literal(1), identifier]),
+  provider: Schema.Union([Schema.Literal(1), apiKeyProviderIdSchema]),
   model: identifier,
   previousModel: Schema.optionalKey(identifier)
 });

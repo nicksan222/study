@@ -11,9 +11,11 @@ export const appSettingsSchema = Schema.Struct({
 });
 
 /** Provider modules register IDs; the service checks membership before saving or requesting. */
-const apiKeyProviderIdSchema = Schema.String.check(Schema.isPattern(/^[a-z][a-z0-9-]{0,63}$/));
+export const apiKeyProviderIdSchema = Schema.String.check(
+  Schema.isPattern(/^[a-z][a-z0-9-]{0,63}$/)
+);
 
-const modelIdSchema = Schema.String.check(
+export const modelIdSchema = Schema.String.check(
   Schema.isMinLength(1),
   Schema.isMaxLength(200),
   Schema.isPattern(/^\S+$/)

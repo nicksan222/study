@@ -1,4 +1,5 @@
 /** @file Updates API-key provider model tiers from public model metadata. */
+import { modelIdSchema } from '@study/contracts';
 import type { ModelTier } from '@study/contracts';
 import { Effect, Option, Schema } from 'effect';
 
@@ -14,7 +15,7 @@ const providersSchema = Schema.Record(
 );
 
 const modelSchema = Schema.Struct({
-  id: Schema.String.check(Schema.isPattern(/^\S+$/), Schema.isMaxLength(200)),
+  id: modelIdSchema,
   name: Schema.String,
   family: Schema.optional(Schema.String),
   canonical_model_id: Schema.optional(Schema.String),
@@ -58,31 +59,113 @@ function inPriceBand(models: readonly CatalogModel[], tier: ModelTier) {
   return models.filter(({ cost }) => bandPrices.has(cost.output));
 }
 
-function preferredFamily(
-  models: readonly CatalogModel[],
-  anchor: CatalogModel | undefined,
-  familyModels: readonly CatalogModel[]
-) {
-  if (!anchor?.family) return [];
+const catalogIdentitySchema = Schema.Struct({
+  id: modelIdSchema,
+  canonical: modelIdSchema,
+  family: Schema.optionalKey(Schema.String),
+  releaseDate: Schema.String
+});
 
-  const family = anchor.family;
-  const competingSizes = familyModels.filter(
-    (other) =>
-      other.family === family &&
-      other.release_date <= anchor.release_date &&
-      other.cost.output !== anchor.cost.output
+export const catalogIdentitiesSchema = Schema.Record(
+  Schema.String,
+  Schema.Array(catalogIdentitySchema)
+);
+
+export type CatalogIdentities = typeof catalogIdentitiesSchema.Type;
+
+type ModelIdentity = typeof catalogIdentitySchema.Type;
+
+const modelId = Schema.is(modelIdSchema);
+
+function identity(model: CatalogModel): ModelIdentity {
+  return {
+    id: model.id,
+    canonical: modelId(model.canonical_model_id) ? model.canonical_model_id : model.id,
+    ...(model.family ? { family: model.family } : {}),
+    releaseDate: model.release_date
+  };
+}
+
+function variant(value: ModelIdentity) {
+  return (
+    value.canonical
+      .toLowerCase()
+      .match(
+        /(?:^|[-_/.])(?:\d+(?:\.\d+)?b|haiku|sonnet|opus|flash|lite|pro|mini|nano|small|medium|large|ultra|turbo|preview|instruct|thinking)(?=$|[-_/.])/g
+      ) ?? []
+  )
+    .map((part) => part.replace(/^[-_/.]/, ''))
+    .sort()
+    .join('/');
+}
+
+function version(value: ModelIdentity) {
+  const parts = /^(.*?)(\d{1,3}(?:[.-]\d{1,3})+)(?![0-9a-z])(.*)$/i.exec(value.canonical);
+
+  return parts
+    ? { stem: JSON.stringify([parts[1], parts[3]]), numbers: parts[2]!.split(/[.-]/).map(Number) }
+    : undefined;
+}
+
+function versionOrder(a: ModelIdentity, b: ModelIdentity) {
+  const left = version(a);
+  const right = version(b);
+
+  if (!left || !right || left.stem !== right.stem) return 0;
+
+  for (const [index, number] of left.numbers.entries()) {
+    const difference = number - (right.numbers[index] ?? 0);
+
+    if (difference) return difference;
+  }
+
+  return -Number(right.numbers.slice(left.numbers.length).some(Boolean));
+}
+
+function releaseOrder(a: ModelIdentity, b: ModelIdentity) {
+  const length = Math.min(a.releaseDate.length, b.releaseDate.length);
+
+  return (
+    a.releaseDate.slice(0, length).localeCompare(b.releaseDate.slice(0, length)) ||
+    versionOrder(a, b)
   );
+}
 
-  // A family can contain multiple sizes, such as GPT-OSS 20B and 120B.
-  return models.filter((model) => {
-    const distance = (other: CatalogModel) =>
-      Math.abs(Math.log1p(model.cost.output) - Math.log1p(other.cost.output));
+function sameVariant(a: ModelIdentity, b: ModelIdentity) {
+  if (!a.family || a.family !== b.family || a.canonical === b.canonical) return false;
 
-    return (
-      model.family === family &&
-      competingSizes.every((other) => distance(anchor) <= distance(other))
+  const size = variant(b);
+
+  return size ? variant(a) === size : versionOrder(a, b) !== 0;
+}
+
+function latestUnambiguous(models: readonly ModelIdentity[]) {
+  const [latest, ...others] = models.toSorted((a, b) => releaseOrder(b, a));
+
+  return latest &&
+    others.every((other) => other.canonical === latest.canonical || releaseOrder(latest, other) > 0)
+    ? latest.id
+    : undefined;
+}
+
+function recommended(
+  available: readonly CatalogModel[],
+  current: ModelIdentity | undefined,
+  tier: ModelTier
+) {
+  if (current) {
+    const newer = latestUnambiguous(
+      available
+        .map(identity)
+        .filter((model) => sameVariant(model, current) && releaseOrder(model, current) > 0)
     );
-  });
+
+    if (newer) return newer;
+
+    if (available.some((model) => model.id === current.id)) return undefined;
+  }
+
+  return latestUnambiguous(inPriceBand(available, tier).map(identity));
 }
 
 function indexCatalog(catalog: typeof providersSchema.Type) {
@@ -138,21 +221,18 @@ export const fetchApiKeyCatalog = (request?: FetchOptions['fetch']) =>
             provider.id,
             {
               models: available.map(({ id }) => id),
-              recommend: (id: string | undefined, tier: ModelTier) => {
+              identities: models.map(identity),
+              recommend: (
+                id: string | undefined,
+                tier: ModelTier,
+                previous: readonly ModelIdentity[] = []
+              ) => {
                 const current = models.find((model) => model.id === id);
+                const anchor = current
+                  ? identity(current)
+                  : previous.find((model) => model.id === id);
 
-                if (!current) return inPriceBand(available, tier)[0]?.id;
-
-                const newer = preferredFamily(available, current, models).find(
-                  (model) =>
-                    model.release_date > current.release_date &&
-                    (model.canonical_model_id ?? model.id) !== (current.canonical_model_id ?? id)
-                );
-
-                return (
-                  newer?.id ??
-                  (available.includes(current) ? undefined : inPriceBand(available, tier)[0]?.id)
-                );
+                return recommended(available, anchor, tier);
               }
             }
           ] as const

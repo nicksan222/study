@@ -1,6 +1,7 @@
 /** @file Offers catalog updates without changing the saved selection until accepted. */
 import { modelTiers, StudyError } from '@study/contracts';
 import type { LlmSettings, ModelSuggestions, ModelUpdate } from '@study/contracts';
+import type { CatalogIdentities } from '@study/server';
 import { transaction, useStore } from '@study/server';
 import { Effect } from 'effect';
 
@@ -40,11 +41,35 @@ function newlySuggested(
   });
 }
 
+function retainSelectedIdentities(
+  settings: LlmSettings,
+  previous: CatalogIdentities,
+  incoming: CatalogIdentities
+) {
+  const merged = { ...previous, ...incoming };
+
+  for (const tier of modelTiers) {
+    const { provider, modelId } = selectedModel(settings, tier);
+    const key = String(provider);
+    const current = merged[key];
+
+    if (!modelId || !current || current.some(({ id }) => id === modelId)) continue;
+
+    const saved = previous[key]?.find(({ id }) => id === modelId);
+
+    if (saved) merged[key] = [...current, saved];
+  }
+
+  return merged;
+}
+
 export function* modelUpdateOperations() {
   const models = yield* useStore(ModelUpdatesStore);
   const preferences = yield* useStore(SettingsStore);
 
   return {
+    catalogIdentities: () =>
+      models.snapshot(undefined).pipe(Effect.map((state) => state.identities ?? {})),
     modelCatalog: () =>
       models.snapshot(undefined).pipe(
         Effect.map(({ catalog, recommendations, suggestions }) => ({
@@ -65,7 +90,8 @@ export function* modelUpdateOperations() {
     refreshModelCatalog: (
       catalog: Readonly<Record<string, readonly string[]>>,
       recommendations: readonly ModelUpdate[],
-      suggestions?: ModelSuggestions
+      suggestions?: ModelSuggestions,
+      identities?: CatalogIdentities
     ) =>
       transaction((tx) => {
         const records = tx.store(ModelUpdatesStore);
@@ -94,6 +120,17 @@ export function* modelUpdateOperations() {
             ...candidates
           ],
           dismissed: previous.dismissed,
+          ...(identities
+            ? {
+                identities: retainSelectedIdentities(
+                  settings,
+                  previous.identities ?? {},
+                  identities
+                )
+              }
+            : previous.identities
+              ? { identities: previous.identities }
+              : {}),
           ...(suggestions || previous.suggestions
             ? { suggestions: { ...previous.suggestions, ...suggestions } }
             : {})

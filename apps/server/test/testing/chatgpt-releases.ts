@@ -50,8 +50,11 @@ export function createChatGptReleasePeer(releases: readonly Release[]) {
         { headers: { 'content-type': 'text/event-stream' } }
       );
     },
-    select: (app: App, model: string) =>
-      app.nativeRuntime.runPromise(
+    select: async (app: App, model: string) => {
+      if (!releases.some((release) => release.model === model))
+        throw new Error(`Unknown scripted ChatGPT model ${model}`);
+
+      await app.nativeRuntime.runPromise(
         Effect.gen(function* () {
           const session = yield* ChatGptSession;
           const { manager } = session;
@@ -67,7 +70,8 @@ export function createChatGptReleasePeer(releases: readonly Release[]) {
 
           yield* settings.refreshModelRecommendations(session);
         })
-      )
+      );
+    }
   };
 
   return peer;

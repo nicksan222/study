@@ -37,12 +37,14 @@ test.unit.beforeEach(async ({ mock }) => {
 
 test.unit.stable(
   'announces each release once and dismisses the exact durable notice',
-  async ({ render, act, expect, vi }) => {
+  async ({ render, act, expect, vi, rpcTestTransport }) => {
+    const { transport } = rpcTestTransport(async () => []);
+
     data = [first];
     apply = vi.fn(async () => ({}));
     dismiss = vi.fn(async () => ({}));
     const toast = vi.spyOn(toastManager, 'add').mockReturnValue('model-update');
-    const view = render(<ModelUpdateNotifications />);
+    const view = render(<ModelUpdateNotifications transport={transport} />);
 
     expect(toast).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({
@@ -52,16 +54,72 @@ test.unit.stable(
     );
     expect(apply).not.toHaveBeenCalled();
     data = [{ ...first }];
-    view.rerender(<ModelUpdateNotifications />);
+    view.rerender(<ModelUpdateNotifications transport={transport} />);
     expect(toast).toHaveBeenCalledTimes(1);
     await act(async () => toast.mock.calls[0]?.[0].onClose?.());
     expect(dismiss).toHaveBeenCalledExactlyOnceWith(first);
 
     data = [next];
-    view.rerender(<ModelUpdateNotifications />);
+    view.rerender(<ModelUpdateNotifications transport={transport} />);
     expect(toast).toHaveBeenCalledTimes(2);
     expect(toast.mock.calls[1]?.[0].description).toContain(next.model);
     await act(async () => toast.mock.calls[1]?.[0].actionProps?.onClick?.({} as never));
     expect(apply).toHaveBeenCalledExactlyOnceWith(next);
+  }
+);
+
+test.unit.stable(
+  'retiring a toast after transport replacement leaves both notices untouched',
+  async ({ render, act, expect, vi, rpcTestTransport }) => {
+    const firstTransport = rpcTestTransport(async () => []).transport;
+    const secondTransport = rpcTestTransport(async () => []).transport;
+    const earlier = vi.fn(async () => ({}));
+    const current = vi.fn(async () => ({}));
+
+    data = [first];
+    dismiss = earlier;
+    apply = vi.fn(async () => ({}));
+    const toast = vi.spyOn(toastManager, 'add').mockReturnValue('model-update');
+    const close = vi
+      .spyOn(toastManager, 'close')
+      .mockImplementation(() => toast.mock.calls[0]?.[0].onClose?.());
+    const view = render(<ModelUpdateNotifications transport={firstTransport} />);
+
+    dismiss = current;
+    view.rerender(<ModelUpdateNotifications transport={secondTransport} />);
+    expect(close).toHaveBeenCalledWith('model-update');
+    expect(earlier).not.toHaveBeenCalled();
+    expect(current).not.toHaveBeenCalled();
+
+    await act(async () => toast.mock.calls[1]?.[0].onClose?.());
+    expect(current).toHaveBeenCalledExactlyOnceWith(first);
+    close.mockRestore();
+  }
+);
+
+test.unit.stable(
+  'reopens a failed dismissal only while its notice is current',
+  async ({ render, act, expect, vi, rpcTestTransport }) => {
+    const { transport } = rpcTestTransport(async () => []);
+    const result = Promise.withResolvers<unknown>();
+
+    data = [first];
+    apply = vi.fn(async () => ({}));
+    dismiss = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockReturnValueOnce(result.promise);
+    const toast = vi.spyOn(toastManager, 'add').mockReturnValue('model-update');
+    const view = render(<ModelUpdateNotifications transport={transport} />);
+
+    await act(async () => toast.mock.calls[0]?.[0].onClose?.());
+    expect(toast).toHaveBeenCalledTimes(2);
+    toast.mock.calls[1]?.[0].onClose?.();
+
+    data = [next];
+    view.rerender(<ModelUpdateNotifications transport={transport} />);
+    await act(async () => result.reject(new Error('offline')));
+    expect(toast).toHaveBeenCalledTimes(3);
+    expect(toast.mock.calls[2]?.[0].description).toContain(next.model);
   }
 );

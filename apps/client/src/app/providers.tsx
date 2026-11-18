@@ -36,7 +36,7 @@ export function Providers({
           {renderApp(
             <>
               <SavedLanguage />
-              <Notifications>
+              <Notifications transport={transport}>
                 <AssistantProvider>
                   <OnboardingProvider>{children}</OnboardingProvider>
                 </AssistantProvider>
@@ -60,13 +60,19 @@ function SavedLanguage() {
   return null;
 }
 
-function Notifications({ children }: { children: ReactNode }) {
+function Notifications({
+  children,
+  transport
+}: {
+  children: ReactNode;
+  transport: ProtocolTransport;
+}) {
   const { t } = useI18n();
 
   return (
     <ToastProvider closeLabel={t('Close')} viewportLabel={t('NotificationsLabel')}>
       <BackupNotifications />
-      <ModelUpdateNotifications />
+      <ModelUpdateNotifications transport={transport} />
       {children}
     </ToastProvider>
   );

@@ -131,6 +131,11 @@ test.server.stable(
             provider: 1,
             modelId: 'gpt-6.1-sol'
           });
+          context.db.orm.run(
+            sql`UPDATE preferences SET value = ${JSON.stringify(LlmModel.ASTRA)} WHERE scope = 'llm' AND key = 'tiny'`
+          );
+          expect((yield* settings.llmSettings()).tiny.model).toBe(LlmModel.SOL);
+          expect((yield* settings.model('tiny')).modelId).toBe('gpt-6.1-sol');
           yield* settings.saveMaterialSettings({ sift: false });
           yield* settings.saveReviewSettings({ newCardsPerDay: 42 });
           expect(yield* settings.materialSettings()).toStrictEqual({ sift: false });

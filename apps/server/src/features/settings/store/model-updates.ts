@@ -1,11 +1,12 @@
 /** @file Stores the last successful catalog and per-tier dismissed recommendations. */
 import { modelCatalogSchema, modelSuggestionsSchema, modelUpdateSchema } from '@study/contracts';
 import { preferences, sql } from '@study/db';
-import { defineStore, storeMutation, storeQuery } from '@study/server';
+import { catalogIdentitiesSchema, defineStore, storeMutation, storeQuery } from '@study/server';
 import { Schema } from 'effect';
 
 const snapshot = Schema.Struct({
   catalog: modelCatalogSchema,
+  identities: Schema.optionalKey(catalogIdentitiesSchema),
   suggestions: Schema.optionalKey(modelSuggestionsSchema),
   recommendations: Schema.Array(modelUpdateSchema),
   dismissed: Schema.Array(modelUpdateSchema)

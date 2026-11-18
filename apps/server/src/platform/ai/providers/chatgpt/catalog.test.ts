@@ -14,7 +14,7 @@ test.unit.stable(
       ...slugs: string[]
     ): { slug: string; visibility: string; display_name?: string }[] =>
       slugs.map((slug) => ({ slug, visibility: 'list' }));
-    let unavailable = false;
+    let failures = 0;
     let releases = visible(
       'gpt-6.2-sol',
       'gpt-6.10-sol',
@@ -31,7 +31,11 @@ test.unit.stable(
 
         requests.push(authorization);
 
-        if (unavailable) return new Response(null, { status: 503 });
+        if (failures) {
+          failures--;
+
+          return new Response(null, { status: 503 });
+        }
 
         return Response.json({
           models: [{ slug: 'gpt-9-sol', visibility: 'hide' }, ...releases]
@@ -69,9 +73,9 @@ test.unit.stable(
             releases = visible('gpt-7-sol');
             expect(yield* catalog('gpt-6.1-sol')).toBe('gpt-6.10-sol');
             yield* TestClock.adjust('5 minutes');
-            unavailable = true;
+            failures = 2;
             expect((yield* Effect.flip(catalog('gpt-6.1-sol'))).kind).toBe('transient');
-            unavailable = false;
+            failures = 1;
             expect(yield* catalog('gpt-6.1-sol')).toBe('gpt-7-sol');
             expect(yield* catalog('gpt-6.1-sol')).toBe('gpt-7-sol');
 
@@ -79,6 +83,8 @@ test.unit.stable(
             yield* signIn('second');
             expect(yield* catalog('gpt-6.1-sol')).toBe('new-model');
             expect(requests).toEqual([
+              'Bearer first',
+              'Bearer first',
               'Bearer first',
               'Bearer first',
               'Bearer first',
@@ -106,6 +112,44 @@ test.unit.stable(
       );
     } finally {
       peer.stop(true);
+    }
+  }
+);
+
+test.unit.stable(
+  'sign-out cancels an in-flight catalog and rejects a stopped token asynchronously',
+  async ({ expect }) => {
+    const auth = new AuthManager({
+      issuer: 'https://login.example.test',
+      saveRefresh: async () => {}
+    });
+    const started = Promise.withResolvers<AbortSignal>();
+    const response = Promise.withResolvers<Response>();
+
+    try {
+      await auth.replace(
+        { subject: 'old', clientId: 'study', refreshToken: null, sharing: true },
+        { accessToken: 'old', expiresIn: 3600 }
+      );
+      const credentials = auth.credentials();
+      const inspect = await Effect.runPromise(
+        makeChatGptCatalog(auth, async (_input, options) => {
+          started.resolve(options!.signal!);
+
+          return response.promise;
+        })
+      );
+      const failure = Effect.runPromise(Effect.flip(inspect));
+      const signal = await started.promise;
+
+      await auth.signOut();
+      expect(signal.aborted).toBe(true);
+      response.resolve(Response.json({ models: [{ slug: 'gpt-6.2-sol', visibility: 'list' }] }));
+      expect((await failure).kind).toBe('auth');
+      await expect(credentials.token()).rejects.toMatchObject({ kind: 'auth' });
+    } finally {
+      response.resolve(Response.json({ models: [] }));
+      await auth.dispose();
     }
   }
 );
