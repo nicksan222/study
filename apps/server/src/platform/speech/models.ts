@@ -1,6 +1,7 @@
 /** @file Explicit, bounded and integrity-checked acquisition of a speech model's assets. */
 import { StudyError } from '@study/contracts';
 import { CryptoHasher } from 'bun';
+import { Effect } from 'effect';
 import type { FileSystem } from 'effect';
 
 import { normalizeError } from '#server/platform/errors/classify-error';
@@ -80,9 +81,21 @@ export class VoiceModels {
 
   private async verifyAssets() {
     for (const [index, item] of this.assets.entries()) {
-      const file = Bun.file(this.path(index));
+      const path = this.path(index);
+      const stat = await runFileSystemPromise(
+        this.fs.stat(path).pipe(
+          Effect.catchIf(
+            (error) => error.reason._tag === 'NotFound',
+            () => Effect.undefined
+          )
+        )
+      );
 
-      if (!(await file.exists()) || file.size !== item.size || (await digest(file)) !== item.sha256)
+      if (
+        stat?.type !== 'File' ||
+        stat.size !== BigInt(item.size) ||
+        (await digest(Bun.file(path))) !== item.sha256
+      )
         return false;
     }
 
@@ -205,7 +218,12 @@ export class VoiceModels {
         this.fs.remove(`${this.root}/ready`, { recursive: true, force: true })
       );
     } catch (cause) {
-      this.ready = wasReady && (await this.verifyAssets().catch(() => false));
+      if (wasReady)
+        this.ready = await this.verifyAssets().catch(() => {
+          this.initialized = undefined;
+
+          return false;
+        });
 
       throw cause;
     }

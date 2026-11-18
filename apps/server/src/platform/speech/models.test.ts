@@ -333,3 +333,30 @@ test.server.stable('failed removal keeps intact assets ready', async ({ database
   await expect(models.remove()).rejects.toMatchObject({ _tag: 'PlatformError' });
   expect((await models.status()).state).toBe('ready');
 });
+
+test.server.stable(
+  'status verifies intact assets after storage recovers from a failed removal',
+  async ({ databases, expect }) => {
+    const root = (await databases()).path + '.voice';
+    const unavailable = (method: string) =>
+      Effect.fail(
+        PlatformError.systemError({ _tag: 'PermissionDenied', module: 'FileSystem', method })
+      );
+    let storageUnavailable = false;
+    const filesystem: FileSystem.FileSystem = {
+      ...fs,
+      remove: (path, options) =>
+        storageUnavailable && path === `${root}/ready`
+          ? unavailable('remove')
+          : fs.remove(path, options),
+      stat: (path) => (storageUnavailable ? unavailable('stat') : fs.stat(path))
+    };
+    const models = new VoiceModels(root, filesystem, [asset], async () => new Response(payload));
+
+    await models.install(new AbortController().signal);
+    storageUnavailable = true;
+    await expect(models.remove()).rejects.toMatchObject({ _tag: 'PlatformError' });
+    storageUnavailable = false;
+    expect((await models.status()).state).toBe('ready');
+  }
+);
