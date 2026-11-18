@@ -5,7 +5,7 @@ import { DictationAudio } from './recognition-stream';
 
 test.unit.stable(
   'transcribes and forwards cancellation when WebKit lacks newer promise and abort APIs',
-  async ({ expect, vi }) => {
+  async ({ expect, vi, withinTestDeadline }) => {
     const replyStarted = Promise.withResolvers<AbortSignal>();
     const withResolvers = vi.spyOn(Promise, 'withResolvers').mockImplementation(() => {
       throw new Error('Promise.withResolvers is unavailable');
@@ -40,7 +40,7 @@ test.unit.stable(
 
       await expect(results.next()).resolves.toEqual({ value: 'First words', done: false });
       const failed = expect(results.next()).rejects.toBeDefined();
-      const requestSignal = await replyStarted.promise;
+      const requestSignal = await withinTestDeadline(replyStarted.promise);
 
       controller.abort(new Error('Cancelled recognition'));
       await failed;
