@@ -200,6 +200,12 @@ test.unit.stable(
           "import * as host from '#client/lib/host.ts'; const {captureMicrophone: raw} = host; export {raw};",
         'apps/client/src/features/notes/exports-available.ts':
           "import * as host from '#client/lib/host.ts'; const {microphoneAvailable} = host; export {microphoneAvailable};",
+        'apps/client/src/features/notes/dynamic-available.ts':
+          "const {microphoneAvailable: available} = await import('#client/lib/host.ts'); available();",
+        'apps/client/src/features/notes/dynamic-available-property.ts':
+          "const available = (await import('#client/lib/host.ts')).microphoneAvailable;",
+        'apps/client/src/features/notes/dynamic-host-escape.ts':
+          "const {microphoneAvailable, ...raw} = await import('#client/lib/host.ts'); use(raw);",
         'apps/client/src/features/notes/exports-voice.ts':
           "import {rpc} from '@study/contracts/react'; const {voice} = rpc; export {voice};",
         'apps/client/src/features/notes/frame.ts':
@@ -210,6 +216,7 @@ test.unit.stable(
 
     expect(diagnostics.map(({ filename }) => filename.split('/').at(-1)).sort()).toEqual([
       'dynamic-capture.ts',
+      'dynamic-host-escape.ts',
       'dynamic-rpc.ts',
       'dynamic-template.ts',
       'exports-capture.ts',

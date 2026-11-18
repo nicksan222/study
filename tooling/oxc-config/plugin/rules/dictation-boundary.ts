@@ -20,7 +20,9 @@ import {
   constantDeclarator,
   destructuredPath,
   imported,
-  lexicalResolver
+  lexicalResolver,
+  namedProperty,
+  staticMember
 } from '../lexical-bindings.ts';
 import { webFile, webTarget } from '../web-files.ts';
 import { nativeGlobal } from './native-global.ts';
@@ -108,7 +110,8 @@ export default defineRule({
       ImportExpression(node) {
         const source = staticImportSource(node.source);
 
-        if (protectedSource(source) || source === rpcSource) report(node);
+        if (source === rpcSource || (protectedSource(source) && !availabilityOnly(node)))
+          report(node);
       },
       ExportNamedDeclaration(node) {
         if (node.exportKind === 'type') return;
@@ -202,4 +205,25 @@ function staticImportSource(node: any) {
     return node.quasis[0]?.value.cooked;
 
   return undefined;
+}
+
+/** Allow known availability reads without letting the imported host namespace escape. */
+function availabilityOnly(node: any) {
+  const awaited = node.parent;
+
+  if (awaited?.type !== 'AwaitExpression') return false;
+
+  const consumer = awaited.parent;
+
+  if (consumer?.type === 'MemberExpression')
+    return staticMember(consumer) && propertyName(consumer.property) === 'microphoneAvailable';
+
+  if (consumer?.type !== 'VariableDeclarator' || consumer.id.type !== 'ObjectPattern') return false;
+
+  return (
+    consumer.id.properties.length > 0 &&
+    consumer.id.properties.every(
+      (member: any) => namedProperty(member) && propertyName(member.key) === 'microphoneAvailable'
+    )
+  );
 }
