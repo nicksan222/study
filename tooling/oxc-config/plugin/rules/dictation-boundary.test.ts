@@ -37,6 +37,8 @@ test.unit.stable(
           'apps/client/src/lib/effect/microphone.ts': `navigator.mediaDevices.getUserMedia({audio:true}); new MediaRecorder(stream);`,
           'apps/client/src/lib/host.ts': `export {captureMicrophone} from './effect/native.ts';`,
           'apps/client/src/features/notes/wrapped.tsx': `import {DictationButton} from '#client/features/voice/index.ts';`,
+          'apps/client/src/features/notes/capture-type.ts': `import type {captureMicrophone} from '#client/lib/host.ts';`,
+          'apps/client/src/features/notes/capture-specifier-type.ts': `import {type captureMicrophone} from '#client/lib/effect/native.ts';`,
           'apps/client/src/features/notes/local.ts': `const rpc = {voice: {transcribe: {call(){}}}}; const {voice: {transcribe}} = rpc; transcribe.call({});`,
           'apps/client/src/features/notes/other.ts': `const rpc = {voice: {transcribe(){}}}; rpc.voice.transcribe();`,
           'apps/client/src/features/notes/raw.test.ts': `navigator.mediaDevices.getUserMedia({audio:true});`

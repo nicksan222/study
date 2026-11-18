@@ -28,6 +28,7 @@ import {
   useContext,
   useImperativeHandle,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef
 } from 'react';
@@ -196,7 +197,7 @@ export function RichNoteEditor({
     [editor]
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (latest.current === value) return;
 
     latest.current = value;

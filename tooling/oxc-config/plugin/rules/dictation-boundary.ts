@@ -90,10 +90,11 @@ export default defineRule({
           report(node);
       },
       ImportDeclaration(node) {
-        if (!protectedSource(node.source.value)) return;
+        if (node.importKind === 'type' || !protectedSource(node.source.value)) return;
 
         const raw = node.specifiers.some(
-          (item: any) => propertyName(item.imported) === 'captureMicrophone'
+          (item: any) =>
+            item.importKind !== 'type' && propertyName(item.imported) === 'captureMicrophone'
         );
 
         if (raw) report(node);

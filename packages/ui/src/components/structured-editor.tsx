@@ -8,7 +8,7 @@ import { TableKit, TableCell, TableHeader } from '@tiptap/extension-table';
 import { TextSelection } from '@tiptap/pm/state';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import type { ReactNode, Ref, RefObject } from 'react';
 
 import { insertEditorText } from './editor-text';
@@ -416,7 +416,7 @@ function useStructuredEditor(
 }
 
 function useEditorValue(editor: Editor, value: StructuredEditorValue) {
-  useEffect(() => {
+  useLayoutEffect(() => {
     const normalized = editor.schema.nodeFromJSON(value).toJSON();
 
     if (JSON.stringify(editor.getJSON()) === JSON.stringify(normalized)) return;
