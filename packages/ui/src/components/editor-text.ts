@@ -1,6 +1,8 @@
 import type { Editor } from '@tiptap/core';
 import { NodeSelection, TextSelection } from '@tiptap/pm/state';
+import { CellSelection } from '@tiptap/pm/tables';
 
+import { tableSelectionCaret } from './editor-selection';
 import { dictationSpacing } from './editor-text-spacing';
 
 export type EditorTextOptions = { append?: boolean; continuation?: boolean; focus?: boolean };
@@ -29,6 +31,14 @@ export function insertEditorText(
 
   if (selection instanceof NodeSelection && !selection.node.isTextblock) {
     insertParagraph(editor, text, selection.to, focus);
+
+    return;
+  }
+
+  if (selection instanceof CellSelection) {
+    const caret = tableSelectionCaret(selection);
+
+    insertInlineText(editor, text, caret, caret, false, focus);
 
     return;
   }

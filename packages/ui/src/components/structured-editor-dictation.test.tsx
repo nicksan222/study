@@ -1,4 +1,5 @@
 import { test } from '@study/testing';
+import type { TiptapEditorHTMLElement } from '@tiptap/core';
 import { createRef } from 'react';
 
 import type { RichNoteEditorHandle } from './rich-note';
@@ -14,6 +15,79 @@ const table = {
   type: 'table',
   content: [{ type: 'tableRow', content: [{ type: 'tableCell', content: [paragraph('Cell')] }] }]
 };
+
+function tableRow(...cells: string[]) {
+  return {
+    type: 'tableRow',
+    content: cells.map((text) => ({ type: 'tableCell', content: [paragraph(text)] }))
+  };
+}
+
+for (const mode of ['forward', 'backward', 'live'] as const) {
+  test.unit.stable(
+    `preserves the table when dictating into a ${mode} column selection`,
+    ({ render, screen, act, expect }) => {
+      const handle = createRef<RichNoteEditorHandle>();
+      let changed: StructuredEditorValue | undefined;
+      const backwards = mode === 'backward';
+
+      render(
+        <StructuredEditor
+          ref={handle}
+          value={{
+            type: 'doc',
+            content: [
+              { type: 'table', content: [tableRow('A', 'B'), tableRow('C', 'D')] },
+              paragraph('After the table')
+            ]
+          }}
+          onChange={(value) => {
+            changed = value;
+          }}
+          label="Document"
+          placeholder=""
+          labels={labels}
+        />
+      );
+      const root = screen.getByRole('textbox', { name: 'Document' }) as TiptapEditorHTMLElement;
+      const editor = root.editor!;
+      const cells = root.querySelectorAll('td');
+      const cellB = editor.view.posAtDOM(cells[1]!, 0) - 1;
+      const cellD = editor.view.posAtDOM(cells[3]!, 0) - 1;
+
+      act(() => {
+        editor.commands.setCellSelection({
+          anchorCell: backwards ? cellD : cellB,
+          headCell: backwards ? cellB : cellD
+        });
+        expect(
+          [...root.querySelectorAll('td.selectedCell')].map((cell) => cell.textContent)
+        ).toEqual(['B', 'D']);
+
+        if (mode !== 'live') {
+          const captured = handle.current!.selection();
+
+          editor.commands.setTextSelection(4);
+          handle.current!.restoreSelection(captured, { focus: false });
+        }
+
+        handle.current!.insertPlainText('Spoken', { focus: false });
+        handle.current!.insertPlainText('words', { continuation: true });
+      });
+
+      expect(changed?.content).toMatchObject([
+        {
+          type: 'table',
+          content: [
+            tableRow('A', backwards ? 'B Spoken words' : 'B'),
+            tableRow('C', backwards ? 'D' : 'D Spoken words')
+          ]
+        },
+        paragraph('After the table')
+      ]);
+    }
+  );
+}
 
 for (const block of [table, { type: 'documentMath', content: [{ type: 'text', text: 'x+y' }] }]) {
   test.unit.stable(

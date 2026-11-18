@@ -1,5 +1,6 @@
 import type { Editor } from '@tiptap/core';
 import { NodeSelection, Selection } from '@tiptap/pm/state';
+import { CellSelection } from '@tiptap/pm/tables';
 
 /** Captured text ranges and selected whole nodes retain distinct restoration semantics. */
 export type RichNoteSelection =
@@ -9,6 +10,12 @@ export type RichNoteSelection =
 export function captureEditorSelection(editor: Editor): RichNoteSelection {
   const selection = editor.state.selection;
 
+  if (selection instanceof CellSelection) {
+    const caret = tableSelectionCaret(selection);
+
+    return { kind: 'text', anchor: caret, head: caret };
+  }
+
   const { anchor, head } = selection;
 
   if (!(selection instanceof NodeSelection)) return { kind: 'text', anchor, head };
@@ -16,6 +23,11 @@ export function captureEditorSelection(editor: Editor): RichNoteSelection {
   const { type, attrs } = selection.node;
 
   return { kind: 'node', anchor, head, nodeType: type.name, blockId: blockIdentity(attrs) };
+}
+
+/** The primary range of a cell selection covers the head cell's paragraphs. */
+export function tableSelectionCaret(selection: CellSelection) {
+  return Selection.near(selection.$to, -1).head;
 }
 
 /** A stale node position must not become a replacement range in unrelated text. */
