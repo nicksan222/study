@@ -201,7 +201,7 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'generates practice only after the final dictation segment reaches its prompt',
+  'retries generation only after the final dictation segment reaches its prompt',
   async ({ userEvent, waitFor, act, expect, screen, within, vi, render, rpcHandlersTransport }) => {
     const user = userEvent.setup();
     const recognition = Promise.withResolvers<{ text: string }>();
@@ -213,24 +213,33 @@ test.unit.stable(
       'settings.voiceSettings': () => Effect.succeed({ filterSilence: true })
     };
 
+    const request = rpc['materials.requestMaterialGeneration'];
+
+    request.mockImplementationOnce(() => Effect.fail(new StudyError('transient', 'Try again')));
     mountLibraryRoute({ render, rpcHandlersTransport, vi }, '/practice/41?project=1', rpc);
     await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
     const dialog = within(await screen.findByRole('dialog', { name: en.PracticeGenerate }));
     const generate = dialog.getByRole('button', { name: en.PracticeGenerateStart });
 
     await waitFor(() => expect(generate).toBeEnabled());
+    await user.click(generate);
+    const retry = await dialog.findByRole('button', { name: en.Retry });
+
+    expect(retry).toBeEnabled();
     await user.click(dialog.getByText(en.PracticeCustomize));
     await user.click(await dialog.findByRole('button', { name: en.VoiceStart }));
     await user.click(await dialog.findByRole('button', { name: en.VoiceStop }));
     await waitFor(() => expect(transcribe).toHaveBeenCalledOnce());
     expect(generate).toBeDisabled();
-    await user.click(generate);
-    expect(rpc['materials.requestMaterialGeneration']).not.toHaveBeenCalled();
+    expect(retry).toBeDisabled();
+    await user.click(retry);
+    expect(request).toHaveBeenCalledTimes(1);
     await act(async () => recognition.resolve({ text: 'Spoken instructions' }));
-    await waitFor(() => expect(generate).toBeEnabled());
-    await user.click(generate);
+    await waitFor(() => expect(retry).toBeEnabled());
+    await user.click(retry);
     await waitFor(() =>
-      expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledExactlyOnceWith(
+      expect(request).toHaveBeenNthCalledWith(
+        2,
         expect.objectContaining({ instruction: 'Spoken instructions' })
       )
     );

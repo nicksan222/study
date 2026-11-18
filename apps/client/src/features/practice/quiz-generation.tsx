@@ -349,6 +349,7 @@ function GenerationStatus({ model }: { model: GenerationModel }) {
             <RetryButton
               variant="outline"
               size="sm"
+              disabled={!model.preferences.isError && model.submission.blocked}
               onClick={() => {
                 if (model.preferences.isError) void model.preferences.refetch();
                 else model.create();
