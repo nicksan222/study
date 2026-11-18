@@ -28,7 +28,12 @@ function Provider({ children }: { children: React.ReactNode }) {
 
 function createMockState(mock: test.Mock) {
   return {
-    api: (() => ({ suggest: mock.fn(), transcribe: mock.fn(), readiness: 'ready' as string }))()
+    api: (() => ({
+      suggest: mock.fn(),
+      transcribe: mock.fn(),
+      capture: mock.fn(),
+      readiness: 'ready' as string
+    }))()
   };
 }
 
@@ -64,6 +69,8 @@ test.unit.beforeEach(({ vi, rpcTestTransport }) => {
   registry = AtomRegistry.make();
   fixture = rpcTestTransport(async (tag, input) => {
     if (tag === 'notes.suggestTransformField') return api.suggest(input);
+
+    if (tag === 'notes.captureNoteContext') return api.capture(input);
 
     if (tag === 'notes.noteSelection') return { revision, targets: [] };
 
@@ -133,11 +140,12 @@ test.unit.stable(
 
 test.unit.stable(
   'waits for pending dictation before creating a transformed page',
-  async ({ render, screen, userEvent, expect, waitFor }) => {
+  async ({ render, screen, userEvent, expect, waitFor, act }) => {
     const recognition = Promise.withResolvers<{ text: string }>();
     const user = userEvent.setup();
 
     api.transcribe.mockReturnValue(recognition.promise);
+    api.capture.mockRejectedValue(new StudyError('transient', 'Capture unavailable'));
     mount({ render });
     await user.type(screen.getByLabelText('NoteOutputTitle'), 'My title');
     const create = screen.getByRole('button', { name: 'NoteCreatePage' });
@@ -147,9 +155,15 @@ test.unit.stable(
     await user.click(await screen.findByRole('button', { name: 'VoiceStop' }));
     await waitFor(() => expect(api.transcribe).toHaveBeenCalledOnce());
     expect(create).toBeDisabled();
-    await user.click(await screen.findByRole('button', { name: 'VoiceCancel' }));
+    expect(api.capture).not.toHaveBeenCalled();
+    await act(async () => recognition.resolve({ text: 'Explain the water cycle' }));
     await waitFor(() => expect(create).toBeEnabled());
-    recognition.resolve({ text: 'Discarded text' });
+    await user.click(create);
+    await waitFor(() =>
+      expect(api.capture).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ instruction: 'Explain the water cycle' })
+      )
+    );
   }
 );
 
