@@ -22,8 +22,14 @@ export async function controlMicrophone(page: Page) {
   await page.addInitScript(() => {
     const bindings = window as unknown as {
       __studyVoicePermissionGate: () => Promise<void>;
+      __studyVoiceElapsedMs: number;
     };
     const capture = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+
+    bindings.__studyVoiceElapsedMs = 0;
+    Object.defineProperty(performance, 'now', {
+      value: () => bindings.__studyVoiceElapsedMs
+    });
 
     navigator.mediaDevices.getUserMedia = async (constraints) => {
       await bindings.__studyVoicePermissionGate();
@@ -33,6 +39,10 @@ export async function controlMicrophone(page: Page) {
   });
 
   return {
+    setElapsed: (seconds: number) =>
+      page.evaluate((ms) => {
+        (window as unknown as { __studyVoiceElapsedMs: number }).__studyVoiceElapsedMs = ms;
+      }, seconds * 1000),
     arm() {
       if (armed) throw new Error('A recording is already waiting to request microphone permission');
 

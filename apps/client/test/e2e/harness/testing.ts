@@ -218,8 +218,7 @@ async function createMicrophone(page: Page, voice: VoiceMock) {
         allow,
         segments: replies,
         expectSegment: planReply,
-        setElapsed: (seconds: number) =>
-          page.clock.setFixedTime(Date.parse(captureProfile.wallTime) + seconds * 1000),
+        setElapsed: capture.setElapsed,
         stop: () => finish.click(),
         async cancel() {
           try {
