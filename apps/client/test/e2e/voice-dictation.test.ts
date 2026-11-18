@@ -339,9 +339,9 @@ test.browser.stable(
     await composer.fill(draft);
     await composer.press('End');
     const recording = await microphone.start(page, {
-      segments: { first: firstText, second: secondText, final: finalText }
+      segments: { first: firstText, second: secondText }
     });
-    const { first, second, final } = recording.segments;
+    const { first, second } = recording.segments;
     const movingBar = controls
       .locator(
         '.voice-capture-waveform > span[style*="--voice-amplitude"]:not([style*="--voice-amplitude: 0;"])'
@@ -384,8 +384,13 @@ test.browser.stable(
         await expect(composer).toHaveValue(secondDraft);
       }
     });
+    const final = recording.expectSegment(finalText);
+
     await recording.stop();
-    await final.requested;
+    const tail = await final.requested;
+
+    expect(tail.samples.length).toBeGreaterThan(0);
+    expect(tail.samples.length).toBeLessThan(firstChunk.samples.length);
     await recording.setElapsed(0);
     await expectScreenshot('waiting-for-final-segment', {
       target: 'viewport',
