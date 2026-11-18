@@ -109,7 +109,10 @@ async function fixture({
     const file = Bun.file(`${path}/package.json`);
     const pkg = await file.json();
 
-    pkg.scripts[name] = manifest.scripts[name];
+    const command: string = manifest.scripts[name];
+
+    // Turbo's dry-run option belongs before any separator for forwarded runner flags.
+    pkg.scripts[name] = args.includes('--dry=json') ? command.replace(/ --$/, '') : command;
     await Bun.write(file, JSON.stringify(pkg));
 
     for (const source of ['turbo.ts', 'task-cache.ts'])
@@ -169,11 +172,7 @@ test.unit.stable(
 
         if (!script) continue;
 
-        // Comparison forwards CLI flags to Playwright; inspect its identical build graph.
-        const result = await repo.script(
-          script === 'web:e2e:compare' ? 'web:e2e' : script,
-          '--dry=json'
-        );
+        const result = await repo.script(script, '--dry=json');
 
         assert.equal(result.code, 0, result.stderr);
         groups.push(JSON.parse(result.stdout));
@@ -185,19 +184,35 @@ test.unit.stable(
     assert.include(full, '//#runtime:smoke');
     assert.include(full, '//#desktop:runtime');
     assert.deepEqual(selected, full);
-    const javascript = commands(await repo.plan('check:javascript'));
-    const server = commands(await repo.plan('check:server'));
+    const types = commands(await repo.plan('check:types'));
+    const server = commands(await repo.plan('@study/server#test'));
+    const shared = commands(await repo.plan('check:shared'));
     const database = commands(await repo.plan('check:database'));
     const native = commands(await repo.plan('check:native'));
 
-    assert.include(javascript, '@study/server#typecheck');
-    assert.include(javascript, '@study/client#build');
+    assert.includeMembers(types, [
+      '@study/client#typecheck',
+      '@study/server#typecheck',
+      '@study/tooling#typecheck'
+    ]);
+    assert.isTrue(types.every((task) => task.endsWith('#typecheck')));
+    assert.include(selected, '@study/client#build');
     assert.deepEqual(database, ['@study/db#test']);
-    assert.notInclude(server, '@study/db#test');
+    assert.deepEqual(server, ['@study/server#test']);
+    assert.sameMembers(
+      shared.filter((task) => !task.endsWith('#typecheck')),
+      [
+        '@study/contracts#test',
+        '@study/localization#test',
+        '@study/theme#test',
+        '@study/integrations#test',
+        '@study/ui#test',
+        '@study/testing#test',
+        '@study/tooling#test:python'
+      ]
+    );
     assert.notInclude(native, '//#lint:repo');
     assert.notInclude(native, '//#check:landing');
-    assert.notInclude(server, '@study/server#typecheck');
-    assert.isEmpty(javascript.filter((task) => task.endsWith('#test') && server.includes(task)));
   }
 );
 
@@ -263,38 +278,28 @@ test.unit.stable(
   }
 );
 
-test.unit.stable(
-  'CI overlaps the client build with independent tooling tests',
-  async ({ assert: assertions, temporaryDirectory, spawnTestProcess }) => {
+test.unit.stable.for([
+  { script: 'ci:client-unit', directory: 'apps/client', task: 'test' },
+  { script: 'ci:tooling-unit', directory: 'tooling', task: 'test:vitest' }
+])(
+  '$script forwards shard options only to its Vitest suite',
+  async (
+    { script, directory, task },
+    { assert: assertions, temporaryDirectory, spawnTestProcess }
+  ) => {
     const assert: test.Assert = assertions;
 
     await using repo = await fixture({ temporaryDirectory, spawnTestProcess, assert });
+    const file = Bun.file(`${repo.path}/${directory}/package.json`);
+    const pkg = await file.json();
 
-    for (const [directory, task, own, other] of [
-      ['apps/client', 'build', 'build-started', 'tests-started'],
-      ['tooling', 'test', 'tests-started', 'build-started']
-    ]) {
-      const file = Bun.file(`${repo.path}/${directory}/package.json`);
-      const pkg = await file.json();
+    pkg.scripts[task] = 'bun -e "console.log(JSON.stringify(Bun.argv))" --';
+    await Bun.write(file, JSON.stringify(pkg));
+    const result = await repo.script(script, '--shard=2/3');
 
-      pkg.scripts[task!] = 'bun overlap.ts';
-      await Bun.write(file, JSON.stringify(pkg));
-      await Bun.write(
-        `${repo.path}/${directory}/overlap.ts`,
-        `await Bun.write('${repo.path}/${own}', 'started');
-       const deadline = Date.now() + 5000;
-       while (!(await Bun.file('${repo.path}/${other}').exists())) {
-         if (Date.now() > deadline) process.exit(23);
-         await Bun.sleep(10);
-       }`
-      );
-    }
-
-    const result = await repo.script('ci:javascript');
-
-    assert.equal(result.code, 0, result.stdout + result.stderr);
-    assert.isTrue(await Bun.file(`${repo.path}/build-started`).exists());
-    assert.isTrue(await Bun.file(`${repo.path}/tests-started`).exists());
+    assert.equal(result.code, 0, result.stderr);
+    assert.include(result.stdout, '"--shard=2/3"');
+    assert.notInclude(result.stdout, '@study/tooling:test:python:');
   }
 );
 

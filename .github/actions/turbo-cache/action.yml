@@ -1,12 +1,16 @@
 name: Turbo cache
 description: Restore task results; Turbo validates source, configuration and environment hashes.
+inputs:
+  key-suffix:
+    description: Append a shard-specific suffix to the job portion of the key.
+    default: ''
 runs:
   using: composite
   steps:
     - uses: actions/cache@v4
       with:
         path: .turbo/cache
-        key: turbo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}-${{ github.job }}-${{ github.sha }}-${{ github.run_attempt }}
+        key: turbo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}-${{ github.job }}${{ inputs.key-suffix }}-${{ github.sha }}-${{ github.run_attempt }}
         restore-keys: |
-          turbo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}-${{ github.job }}-
+          turbo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}-${{ github.job }}${{ inputs.key-suffix }}-
           turbo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock') }}-

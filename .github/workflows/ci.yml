@@ -17,7 +17,7 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_TARGET_DIR: target/devcontainer
 
-# Every lane runs on every revision. Turbo owns prerequisite ordering and task reuse.
+# Start static checks first. Browser and server jobs require both static checks to pass.
 jobs:
   hygiene:
     name: 🧹 Code hygiene
@@ -33,8 +33,98 @@ jobs:
       - name: ✨ Check formatting, architecture, code health and generated files
         run: bun run ci:hygiene
 
-  javascript:
-    name: 🧩 Types & unit tests
+  types:
+    name: 🧩 Typecheck
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: 📥 Check out repository
+        uses: actions/checkout@v7
+      - name: 🥟 Prepare Bun, dependencies and task cache
+        uses: ./.github/actions/setup-javascript
+      - name: 🔎 Typecheck JavaScript workspaces
+        run: bun run ci:types
+
+  client_unit:
+    name: 🧪 Client unit tests (${{ matrix.shard }}/3)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - name: 📥 Check out repository
+        uses: actions/checkout@v7
+      - name: 🥟 Prepare Bun, dependencies and task cache
+        uses: ./.github/actions/setup-javascript
+        with:
+          task-cache-suffix: -${{ matrix.shard }}
+      - name: 🧪 Run Vitest shard
+        run: bun run ci:client-unit --shard=${{ matrix.shard }}/3
+      - name: 📎 Retain test reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: vitest-client-reports-${{ matrix.shard }}
+          path: apps/client/test-results/vitest/*.xml
+          if-no-files-found: ignore
+
+  tooling_unit:
+    name: 🧪 Tooling unit tests (${{ matrix.shard }}/3)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - name: 📥 Check out repository
+        uses: actions/checkout@v7
+      - name: 🥟 Prepare Bun, dependencies and task cache
+        uses: ./.github/actions/setup-javascript
+      - name: 🧪 Run Vitest shard
+        run: bun run ci:tooling-unit --shard=${{ matrix.shard }}/3
+      - name: 📎 Retain test reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: vitest-tooling-reports-${{ matrix.shard }}
+          path: tooling/test-results/vitest/*.xml
+          if-no-files-found: ignore
+
+  server_tests:
+    name: ⚙️ Server tests (${{ matrix.shard }}/3)
+    needs: [hygiene, types]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        shard: [1, 2, 3]
+    env:
+      # Real files retain WAL, locking, backup and restart semantics.
+      TMPDIR: /dev/shm
+    steps:
+      - name: 📥 Check out repository
+        uses: actions/checkout@v7
+      - name: 🥟 Prepare Bun, dependencies and task cache
+        uses: ./.github/actions/setup-javascript
+      - name: 🧪 Test feature services, RPC and workflows
+        run: bun run ci:server --shard=${{ matrix.shard }}/3
+      - name: 📎 Retain test reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: vitest-server-reports-${{ matrix.shard }}
+          path: apps/server/test-results/vitest/*.xml
+          if-no-files-found: ignore
+
+  shared_tests:
+    name: 📦 Shared package tests
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -44,35 +134,13 @@ jobs:
         uses: ./.github/actions/setup-javascript
       - name: 🔏 Install release test dependency
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends minisign
-      - name: 🏗️ Typecheck, build the client and run unit tests
-        run: bun run ci:javascript
+      - name: 🧪 Run shared package and Python tests
+        run: bun run ci:shared
       - name: 📎 Retain test reports
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: vitest-javascript-reports
-          path: '**/test-results/vitest/*.xml'
-          if-no-files-found: ignore
-
-  server_tests:
-    name: ⚙️ Server & contracts
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    env:
-      # Real files retain WAL, locking, backup and restart semantics.
-      TMPDIR: /dev/shm
-    steps:
-      - name: 📥 Check out repository
-        uses: actions/checkout@v7
-      - name: 🥟 Prepare Bun, dependencies and task cache
-        uses: ./.github/actions/setup-javascript
-      - name: 🧪 Test feature services, RPC, workflows and shared contracts
-        run: bun run ci:server
-      - name: 📎 Retain test reports
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: vitest-server_tests-reports
+          name: vitest-shared-reports
           path: '**/test-results/vitest/*.xml'
           if-no-files-found: ignore
 
@@ -99,6 +167,7 @@ jobs:
 
   browser:
     name: 🌐 Browser journeys (${{ matrix.shard }}/3)
+    needs: [hygiene, types]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:
@@ -181,7 +250,20 @@ jobs:
   check:
     # Required by the main branch ruleset; keep this exact name.
     name: Test and build
-    needs: [hygiene, javascript, server_tests, database, browser, native, integrations, landing]
+    needs:
+      [
+        hygiene,
+        types,
+        client_unit,
+        tooling_unit,
+        server_tests,
+        shared_tests,
+        database,
+        browser,
+        native,
+        integrations,
+        landing
+      ]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -199,8 +281,11 @@ jobs:
           icons = {'success': '✅', 'failure': '❌', 'cancelled': '🚫', 'skipped': '⏭️'}
           labels = {
               'hygiene': '🧹 Code hygiene',
-              'javascript': '🧩 Types & unit tests',
-              'server_tests': '⚙️ Server & contracts',
+              'types': '🧩 Typecheck',
+              'client_unit': '🧪 Client unit tests',
+              'tooling_unit': '🧪 Tooling unit tests',
+              'server_tests': '⚙️ Server tests',
+              'shared_tests': '📦 Shared package tests',
               'database': '🗄️ Database',
               'browser': '🌐 Browser journeys',
               'native': '🦀 Desktop & runtime',

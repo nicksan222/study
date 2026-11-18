@@ -46,6 +46,16 @@
     "typecheck": {
       "dependsOn": ["^typecheck"]
     },
+    "@study/tooling#check": {
+      "dependsOn": [
+        "test:vitest",
+        "test:python",
+        "typecheck",
+        "//#check:global",
+        "//#check:landing"
+      ],
+      "cache": false
+    },
     "@study/client#check": {
       "dependsOn": ["test", "typecheck", "e2e", "//#check:global", "//#check:landing"],
       "cache": false
@@ -197,6 +207,21 @@
         "$TURBO_ROOT$/apps/desktop/src-tauri/tests/**"
       ]
     },
+    "@study/tooling#test:vitest": {
+      "cache": false,
+      "envMode": "loose",
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/desktop/src-tauri/src/**",
+        "$TURBO_ROOT$/apps/desktop/src-tauri/permissions/**",
+        "$TURBO_ROOT$/apps/desktop/src-tauri/capabilities/**",
+        "$TURBO_ROOT$/apps/desktop/src-tauri/tests/**"
+      ]
+    },
+    "@study/tooling#test:python": {
+      "cache": false,
+      "envMode": "loose"
+    },
     "fmt:check": {
       "cache": false,
       "envMode": "loose"
@@ -236,25 +261,19 @@
       ],
       "cache": false
     },
-    "//#check:javascript": {
-      "dependsOn": [
-        "@study/client#typecheck",
-        "@study/tooling#typecheck",
-        "@study/client#test",
-        "@study/ui#test",
-        "@study/tooling#test",
-        "@study/testing#test",
-        "@study/client#build"
-      ],
+    "//#check:types": {
+      "dependsOn": ["@study/client#typecheck", "@study/tooling#typecheck"],
       "cache": false
     },
-    "//#check:server": {
+    "//#check:shared": {
       "dependsOn": [
-        "@study/server#test",
         "@study/contracts#test",
         "@study/localization#test",
         "@study/theme#test",
-        "@study/integrations#test"
+        "@study/integrations#test",
+        "@study/ui#test",
+        "@study/testing#test",
+        "@study/tooling#test:python"
       ],
       "cache": false
     },
