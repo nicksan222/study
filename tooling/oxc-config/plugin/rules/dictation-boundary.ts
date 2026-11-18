@@ -188,6 +188,7 @@ function reexportsCapability(
   return (
     path === 'contracts' ||
     path === 'host' ||
+    path === 'host.captureMicrophone' ||
     path === 'rpc' ||
     path === 'rpc.voice' ||
     path?.startsWith('rpc.voice.')

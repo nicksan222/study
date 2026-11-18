@@ -196,6 +196,10 @@ test.unit.stable(
           'const host = await import(`#client/lib/host.ts`); void host.captureMicrophone({});',
         'apps/client/src/features/notes/exports-namespace.ts':
           "import * as contracts from '@study/contracts/react'; export {contracts};",
+        'apps/client/src/features/notes/exports-capture.ts':
+          "import * as host from '#client/lib/host.ts'; const {captureMicrophone: raw} = host; export {raw};",
+        'apps/client/src/features/notes/exports-available.ts':
+          "import * as host from '#client/lib/host.ts'; const {microphoneAvailable} = host; export {microphoneAvailable};",
         'apps/client/src/features/notes/exports-voice.ts':
           "import {rpc} from '@study/contracts/react'; const {voice} = rpc; export {voice};",
         'apps/client/src/features/notes/frame.ts':
@@ -208,6 +212,7 @@ test.unit.stable(
       'dynamic-capture.ts',
       'dynamic-rpc.ts',
       'dynamic-template.ts',
+      'exports-capture.ts',
       'exports-namespace.ts',
       'exports-rpc.ts',
       'exports-voice.ts'
