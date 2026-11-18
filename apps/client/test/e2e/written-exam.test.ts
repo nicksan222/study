@@ -67,7 +67,6 @@ async function checkSetupKeyboard(
   await retry.scrollIntoViewIfNeeded();
   await expectScreenshot('setup-keyboard', {
     target: setup,
-    zoomPercent: 100,
     ready: () => expect(retry).toBeInViewport()
   });
   await setVisualViewport({ height: 220, width: 210, offsetLeft: 70 });
@@ -76,7 +75,6 @@ async function checkSetupKeyboard(
   await begin.scrollIntoViewIfNeeded();
   await expectScreenshot('setup-pinched', {
     target: setup,
-    zoomPercent: 100,
     ready: () => expect(begin).toBeInViewport({ ratio: 1 })
   });
   await page.setViewportSize({ width: 800, height: 800 });
@@ -88,7 +86,6 @@ async function checkSetupKeyboard(
   expect((await format.boundingBox())!.y).toBeLessThan((await sources.boundingBox())!.y);
   await expectScreenshot('setup-tablet-pinched', {
     target: setup,
-    zoomPercent: 100,
     ready: () => expect(format).toBeInViewport()
   });
   await setVisualViewport(null);
@@ -100,7 +97,6 @@ async function startExam(
   language: Locale
 ) {
   const copy = catalogs[language];
-  const zoomPercent = language === 'italian' ? 100 : 125;
   const { concept, question, unsupported, extraPage, viewport } = cases[language];
   const fixture = await study.seed();
   const evidence = [{ name: fixture.page.title, preview: study.lecture }];
@@ -148,7 +144,6 @@ async function startExam(
   await include.click();
   await expectScreenshot('no-selected-pages', {
     target: setup,
-    zoomPercent,
     ready: () => expect(begin).toBeDisabled()
   });
   await include.click();
@@ -160,7 +155,6 @@ async function startExam(
   await begin.click();
   await expectScreenshot('unsupported-topic', {
     target: setup,
-    zoomPercent,
     ready: () => expect(setup.getByText(copy.WrittenExamUnsupported)).toBeVisible()
   });
   const quiz = setup.getByRole('radio', { name: copy.SidebarQuiz, exact: true });
@@ -174,7 +168,6 @@ async function startExam(
   await topic.scrollIntoViewIfNeeded();
   await expectScreenshot('setup', {
     target: setup,
-    zoomPercent,
     center: language === 'english' ? topic : undefined,
     ready: () => expect(begin).toBeEnabled()
   });
@@ -186,7 +179,6 @@ async function startExam(
   await begin.click();
   await expectScreenshot('start-error', {
     target: setup,
-    zoomPercent,
     center: language === 'english' ? topic : undefined,
     ready: () => expect(setup.getByText(copy.WrittenExamStartError)).toBeVisible()
   });
@@ -208,7 +200,6 @@ async function startExam(
   await expect(setup.getByText(copy.WrittenExamStartError)).toHaveCount(0);
   await expectScreenshot('starting', {
     target: setup,
-    zoomPercent,
     center: language === 'english' ? topic : undefined,
     ready: () => expect(setup.getByText(copy.WrittenExamStarting).first()).toBeVisible()
   });
@@ -238,7 +229,6 @@ async function startExam(
   await expect(send).toBeDisabled();
   await expectScreenshot('question', {
     target: 'viewport',
-    zoomPercent,
     ready: () => expect(log.getByText(question)).toBeInViewport()
   });
 
@@ -262,7 +252,6 @@ async function checkLandscapeKeyboard(
   expect(sendBounds.y + sendBounds.height).toBeLessThanOrEqual(180);
   await expectScreenshot('landscape-keyboard', {
     target: exam,
-    zoomPercent: 100,
     ready: () => expect(answer).toBeFocused()
   });
   await setVisualViewport({ height: 180, offsetTop: 30 }, 'scroll');
@@ -278,7 +267,6 @@ async function checkLandscapeKeyboard(
   await question.scrollIntoViewIfNeeded();
   await expectScreenshot('landscape-compact', {
     target: exam,
-    zoomPercent: 100,
     ready: () => expect(question).toBeInViewport()
   });
   await setVisualViewport({ height: 260, width: 270, offsetLeft: 42 });
@@ -289,7 +277,6 @@ async function checkLandscapeKeyboard(
   expect(pinnedSend.x + pinnedSend.width).toBeLessThanOrEqual(312);
   await expectScreenshot('exam-pinched', {
     target: exam,
-    zoomPercent: 100,
     ready: () => expect(send).toBeInViewport({ ratio: 1 })
   });
   await setVisualViewport(null);
@@ -304,7 +291,6 @@ async function continueExam(
   const { page, study, ai, expect, expectScreenshot } = context;
   const { exam, answer, send, log, evidence } = session;
   const copy = catalogs[language];
-  const zoomPercent = language === 'italian' ? 100 : 125;
   const { concept, question, incomplete, followup, reply, hint } = cases[language];
   const agent = study.agents.writtenExam;
   const thinking = exam.getByRole('status', { name: copy.WrittenExamThinking });
@@ -330,7 +316,6 @@ async function continueExam(
 
   await expectScreenshot('exam-actions', {
     target: 'viewport',
-    zoomPercent,
     ready: () => expect(hintItem).toBeInViewport({ ratio: 1 })
   });
   await hintItem.click();
@@ -340,13 +325,11 @@ async function continueExam(
 
   await expectScreenshot('hint-pending', {
     target: exam,
-    zoomPercent,
     ready: () => expect(thinking).toBeVisible()
   });
   hintReply.release();
   await expectScreenshot('hint', {
     target: exam,
-    zoomPercent,
     ready: () => expect(log.getByText(hint)).toBeInViewport()
   });
   await expect(log.getByText(copy.WrittenExamHintRequest)).toBeVisible();
@@ -360,7 +343,6 @@ async function continueExam(
 
   await expectScreenshot('confirm-exit', {
     target: confirm,
-    zoomPercent,
     ready: () => expect(confirm).toBeVisible()
   });
   await confirm.getByRole('button', { name: copy.WrittenExamContinue }).click();
@@ -377,7 +359,6 @@ async function continueExam(
   await answer.press('Enter');
   await expectScreenshot('retry', {
     target: exam,
-    zoomPercent,
     ready: async () => {
       await expect(answer).toBeFocused();
       await expect(exam.getByText(copy.WrittenExamTurnError)).toBeInViewport();
@@ -394,7 +375,6 @@ async function continueExam(
   await next.called;
   await expectScreenshot('reviewing-answer', {
     target: exam,
-    zoomPercent,
     ready: () => expect(thinking).toBeInViewport({ ratio: 1 })
   });
   await expect(log.getByText(incomplete, { exact: true })).toBeVisible();
@@ -419,7 +399,6 @@ async function continueExam(
 
   await expectScreenshot('follow-up', {
     target: exam,
-    zoomPercent,
     ready: async () => {
       await expect(nextQuestion).toBeInViewport({ ratio: 1 });
       await expect(exam.getByRole('button', { name: copy.JumpToLatest })).toHaveCount(0);
@@ -469,7 +448,6 @@ async function checkArchivedPageRecovery(
 async function finishExam(context: BrowserContext, language: Locale) {
   const { page, study, ai, expect, expectScreenshot } = context;
   const copy = catalogs[language];
-  const zoomPercent = language === 'italian' ? 100 : 125;
   const { concept, incomplete, final, followup, reply, feedback } = cases[language];
   const session = await startExam(context, language);
   const { history } = await continueExam(context, language, session);
@@ -506,13 +484,11 @@ async function finishExam(context: BrowserContext, language: Locale) {
   await ending.called;
   await expectScreenshot('preparing-summary', {
     target: exam,
-    zoomPercent,
     ready: () => expect(exam.getByRole('status', { name: copy.WrittenExamThinking })).toBeVisible()
   });
   ending.release();
   await expectScreenshot('summary', {
     target: exam,
-    zoomPercent,
     ready: () => expect(summary).toBeFocused()
   });
   await expect(exam.getByText(feedback)).toBeVisible();
@@ -838,7 +814,6 @@ test.browser.describe('mobile browser', () => {
 
       await expectScreenshot('transcript', {
         target: exam,
-        zoomPercent: 100,
         ready: () => expect(exam.getByText(feedback, { exact: true })).toBeVisible()
       });
       await assertTranscriptReachable(
@@ -848,12 +823,15 @@ test.browser.describe('mobile browser', () => {
       );
       await exam.getByRole('button', { name: catalogs.italian.WrittenExamBack }).tap();
       await expect(exam).toBeHidden();
-      expect((await rpc.runPromise(rpc.client['settings.appSettings']({}))).zoomPercent).toBe(125);
+      const settings = await rpc.runPromise(rpc.client['settings.appSettings']({}));
+
+      await rpc.runPromise(
+        rpc.client['settings.saveAppSettings']({ ...settings, zoomPercent: 125 })
+      );
       await expect(page.locator('html')).toHaveCSS('zoom', '1');
       await generate.tap();
       await expectScreenshot('mobile-zoom-100', {
         target: setup,
-        zoomPercent: 100,
         ready: () => expect(setup).toBeInViewport()
       });
       expect(await setup.boundingBox()).toMatchObject({ x: 0, y: 0, ...cases.italian.viewport });

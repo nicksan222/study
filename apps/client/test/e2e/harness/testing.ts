@@ -111,7 +111,7 @@ const testHarness = testBrowser.extend<Fixtures>({
           ready: async () => {
             await expect(page.locator('html')).toHaveCSS(
               'zoom',
-              String((options.zoomPercent ?? 125) / 100),
+              String(captureProfile.zoomPercent / 100),
               { timeout: testPolicy.processStartupTimeout }
             );
             await options.ready();

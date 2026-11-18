@@ -9,7 +9,7 @@ import { Effect, Exit, Scope } from 'effect';
 import { preview } from 'vite-plus';
 
 import { creationResponse } from './creation-response.ts';
-import { captureTimestampClock } from './profile.ts';
+import { captureProfile, captureTimestampClock } from './profile.ts';
 
 /** Each test owns a real application, database and preview; disposal follows acquisition order in reverse. */
 export async function openWebStack(
@@ -46,7 +46,7 @@ export async function openWebStack(
         ...settings,
         language: Language.ENGLISH,
         appearance: Appearance.DARK,
-        zoomPercent: 125,
+        zoomPercent: captureProfile.zoomPercent,
         onboarded: true
       });
     })

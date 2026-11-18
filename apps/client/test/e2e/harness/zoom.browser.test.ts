@@ -3,11 +3,12 @@ import { test } from '@study/testing';
 
 const copy = catalogs.english;
 
-test.browser.use({ captureWorkflow: 'closing-settings-preserves-the-underlying-route' });
-
 test.browser.stable(
   'persisted zoom keeps notebook scrolling inside the shell',
-  async ({ journey: { page, expectScreenshot }, expect }) => {
+  async ({ page, rpc, expect }) => {
+    const settings = await rpc.runPromise(rpc.client['settings.appSettings']({}));
+
+    await rpc.runPromise(rpc.client['settings.saveAppSettings']({ ...settings, zoomPercent: 125 }));
     await page.goto('/notes');
 
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
@@ -122,7 +123,7 @@ test.browser.stable(
       await expect(page.locator('html')).toHaveCSS('zoom', String(zoom / 100));
     }
 
-    // Reuse the existing Settings reference at the canonical profile after exercising persisted changes.
+    // Verify the appearance control still drives zoom after the notebook navigation.
     await page.setViewportSize({ width: 2560, height: 1440 });
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
 
@@ -141,9 +142,11 @@ test.browser.stable(
 
     await dialog.getByRole('button', { name: copy.GeneralSettingsTitle, exact: true }).click();
     await dialog.getByRole('button', { name: copy.Appearance, exact: true }).click();
-    await expectScreenshot('settings', {
-      target: dialog,
-      ready: () => expect(dialog).toBeVisible()
-    });
+    await dialog
+      .getByRole('button', { name: `${copy.ResetSetting}: ${copy.TextSize}`, exact: true })
+      .click();
+    await expect(slider).toHaveValue('100');
+    await expect(slider).toBeEnabled();
+    await expect(page.locator('html')).toHaveCSS('zoom', '1');
   }
 );

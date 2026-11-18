@@ -48,13 +48,11 @@ test.browser.stable(
     await heading.scrollIntoViewIfNeeded();
     await expectScreenshot('section-reading', {
       target: 'viewport',
-      zoomPercent: 100,
       ready: () => expect(more).toHaveAttribute('aria-expanded', 'false')
     });
     await more.tap();
     await expectScreenshot('section-actions', {
       target: 'viewport',
-      zoomPercent: 100,
       ready: () => expect(first.getByRole('button', { name: copy.NoteDeleteItem })).toBeVisible()
     });
     await more.tap();
@@ -64,7 +62,6 @@ test.browser.stable(
     await expect(first.locator('.chat-message-actions-toggle:hover')).toHaveCount(0);
     await expectScreenshot('narrow-section-reading', {
       target: 'viewport',
-      zoomPercent: 100,
       scrollToEnd: page.locator('[data-notebook-scroll-host]'),
       ready: async () => {
         await expect(heading).toBeInViewport();

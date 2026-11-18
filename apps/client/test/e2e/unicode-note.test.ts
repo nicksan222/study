@@ -269,7 +269,6 @@ test.browser.stable(
     await expectAccessibility('edit-note-italian-narrow');
     await expectScreenshot('editing-italian-narrow', {
       target: 'viewport',
-      zoomPercent: 100,
       ready: () => expect(localizedEditor.getByRole('textbox')).toHaveValue(content)
     });
     await page.setViewportSize({ width: 390, height: 520 });
@@ -283,7 +282,6 @@ test.browser.stable(
     await expect(mobileSave).toBeInViewport({ ratio: 1 });
     await expectScreenshot('editing-italian-short-viewport', {
       target: 'viewport',
-      zoomPercent: 100,
       ready: () => expect(mobileText).toHaveValue(content + '\n\nCorrezione dal telefono.')
     });
     await mobileSave.click();

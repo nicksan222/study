@@ -887,7 +887,6 @@ test.browser.stable(
     await page.setViewportSize({ width: 390, height: 844 });
     await expectScreenshot('failed-inspector-narrow', {
       target,
-      zoomPercent: 100,
       ready: () => expect(root).toBeVisible()
     });
     await page.setViewportSize({ width: 2560, height: 1440 });
@@ -903,7 +902,6 @@ test.browser.stable(
     await page.setViewportSize({ width: 390, height: 844 });
     await expectScreenshot('failed-inspector-italian-light', {
       target: italian,
-      zoomPercent: 100,
       ready: () =>
         expect(
           italian.getByRole('button', {

@@ -3,6 +3,7 @@ import { Clock, Context, Effect } from 'effect';
 /** Canonical wall time is shared by browser presentation and committed store timestamps. */
 export const captureProfile = {
   wallTime: '2026-11-13T11:00:00.000Z',
+  zoomPercent: 100,
   focus: 'blur-passive-notebook-entry'
 } as const;
 

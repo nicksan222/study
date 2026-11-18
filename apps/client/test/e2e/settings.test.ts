@@ -2273,22 +2273,13 @@ test.browser.stable(
       await zoom.press(key);
       await expect(zoom).toHaveValue(String(value));
       await expect(zoom).toBeEnabled();
-      await expectScreenshot(`zoom-boundary-${value}`, {
-        // Keep the real viewport while checking that enlarged settings remain contained.
-        target: 'viewport',
-        zoomPercent: value,
-        center: zoom,
-        scrollToEnd: value === 200 ? dialog.locator('.settings-scroll') : undefined,
-        ready: async () => {
-          await expect(zoom).toHaveValue(String(value));
-          const bounds = await dialog.boundingBox();
-          const viewport = page.viewportSize()!;
+      await expect(page.locator('html')).toHaveCSS('zoom', String(value / 100));
+      const bounds = await dialog.boundingBox();
+      const viewport = page.viewportSize()!;
 
-          expect(bounds).not.toBeNull();
-          expect(bounds!.y).toBeGreaterThanOrEqual(0);
-          expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport.height);
-        }
-      });
+      expect(bounds).not.toBeNull();
+      expect(bounds!.y).toBeGreaterThanOrEqual(0);
+      expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport.height);
     }
 
     await dialog
@@ -2298,7 +2289,6 @@ test.browser.stable(
     await expect(zoom).toBeEnabled();
     await expectScreenshot('zoom-reset', {
       target: dialog,
-      zoomPercent: 100,
       center: zoom,
       ready: () => expect(zoom).toHaveValue('100')
     });
@@ -2311,17 +2301,20 @@ test.browser.stable(
 
     await expect(zoom).toHaveValue('130');
     await expect(zoom).toBeEnabled();
-    await expectScreenshot('zoom-changed', {
-      target: dialog,
-      zoomPercent: 130,
-      center: zoom,
-      ready: () => expect(zoom).toHaveValue('130')
-    });
+    await expect(page.locator('html')).toHaveCSS('zoom', '1.3');
     await zoom.press('ArrowLeft');
     await expect(zoom).toHaveValue('125');
     await expect(zoom).toBeEnabled();
     await navigation.getByRole('button', { name: copy.GeneralSettingsTitle, exact: true }).click();
     await navigation.getByRole('button', { name: copy.Appearance, exact: true }).click();
+
+    await expect(zoom).toHaveValue('125');
+    await expect(page.locator('html')).toHaveCSS('zoom', '1.25');
+    await dialog
+      .getByRole('button', { name: `${copy.ResetSetting}: ${copy.TextSize}`, exact: true })
+      .click();
+    await expect(zoom).toHaveValue('100');
+    await expect(zoom).toBeEnabled();
 
     const themes = dialog.locator('.settings-theme-select');
 
@@ -2337,6 +2330,7 @@ test.browser.stable(
       await expect(theme).toBeEnabled();
       await expectScreenshot(`theme-${index}`, {
         target: dialog,
+        center: themes.first(),
         ready: () => expect(theme).toHaveAttribute('aria-pressed', 'true')
       });
     }

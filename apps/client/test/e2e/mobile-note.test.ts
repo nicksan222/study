@@ -70,7 +70,6 @@ test.browser.stable(
     await expect(resume).toBeInViewport({ ratio: 1 });
     await expectScreenshot('paused-draft', {
       target: 'viewport',
-      zoomPercent: 100,
       scrollToEnd: page.locator('[data-notebook-scroll-host]'),
       ready: () => expect(resume).toBeVisible()
     });
@@ -84,7 +83,6 @@ test.browser.stable(
     await expectAccessibility('touch-note-editor');
     await expectScreenshot('short-viewport-editor', {
       target: 'viewport',
-      zoomPercent: 100,
       ready: () => expect(editor).toHaveValue(changed)
     });
     await save.tap();
@@ -104,7 +102,6 @@ test.browser.stable(
     await expect(add).toBeInViewport({ ratio: 1 });
     await expectScreenshot('saved-capture-collapsed', {
       target: 'viewport',
-      zoomPercent: 100,
       ready: () => expect(add).toHaveAttribute('aria-expanded', 'false')
     });
     await add.tap();
@@ -116,7 +113,6 @@ test.browser.stable(
     );
     await expectScreenshot('mobile-capture-draft', {
       target: 'viewport',
-      zoomPercent: 100,
       ready: () =>
         expect(capture).toHaveValue('Next mobile observation: compare the northern bank.')
     });
@@ -124,7 +120,6 @@ test.browser.stable(
     await expect(capture).toBeHidden();
     await expectScreenshot('mobile-capture-closed', {
       target: 'viewport',
-      zoomPercent: 100,
       ready: () => expect(add).toHaveAttribute('aria-expanded', 'false')
     });
     await add.tap();
@@ -145,7 +140,6 @@ test.browser.stable(
 
     await expectScreenshot('mobile-capture-saved', {
       target: 'viewport',
-      zoomPercent: 100,
       ready: () => expect(add).toHaveAttribute('aria-expanded', 'false')
     });
   }
@@ -173,7 +167,6 @@ test.browser.stable(
     await expect(actions).toHaveAttribute('aria-expanded', 'false');
     await expectScreenshot('reading', {
       target: 'viewport',
-      zoomPercent: 100,
       ready: () => expect(actions).toHaveAttribute('aria-expanded', 'false')
     });
     await actions.tap();
@@ -182,7 +175,6 @@ test.browser.stable(
     ).toBeVisible();
     await expectScreenshot('entry-actions', {
       target: 'viewport',
-      zoomPercent: 100,
       ready: () => expect(actions).toHaveAttribute('aria-expanded', 'true')
     });
     await page.getByRole('button', { name: copy.NoteAiAvailability }).tap();
@@ -191,7 +183,6 @@ test.browser.stable(
     await expect(availability.getByRole('link', { name: copy.Settings })).toBeEnabled();
     await expectScreenshot('ai-availability', {
       target: 'viewport',
-      zoomPercent: 100,
       ready: () => expect(availability).toContainText(copy.AiReadinessSetup)
     });
     await availability.getByRole('button', { name: copy.Close }).tap();
@@ -200,7 +191,6 @@ test.browser.stable(
     await expect(page.getByRole('navigation', { name: copy.NoteOutline })).toBeVisible();
     await expectScreenshot('outline-and-actions', {
       target: 'viewport',
-      zoomPercent: 100,
       ready: () => expect(page.getByRole('navigation', { name: copy.NoteOutline })).toBeVisible()
     });
     await context.tap();
@@ -211,7 +201,6 @@ test.browser.stable(
 
     await expectScreenshot('assistant-panel', {
       target: 'viewport',
-      zoomPercent: 100,
       ready: () => expect(back).toBeVisible()
     });
     await back.tap();
@@ -225,7 +214,6 @@ test.browser.stable(
     );
     await expectScreenshot('narrow-capture', {
       target: 'viewport',
-      zoomPercent: 100,
       ready: () => expect(capture).toHaveValue('A quick thought to revisit beside the river.')
     });
     await page.getByRole('button', { name: copy.NoteHideCapture, exact: true }).tap();
@@ -240,7 +228,6 @@ test.browser.stable(
     await expectAccessibility('default-phone-editor');
     await expectScreenshot('narrow-short-editor', {
       target: 'viewport',
-      zoomPercent: 100,
       ready: () => expect(dialog.getByRole('textbox')).toHaveValue(text)
     });
   }
@@ -267,7 +254,6 @@ async function phoneStarter({
   await expect(save).toBeDisabled();
   await expectScreenshot('empty-starter', {
     target: 'viewport',
-    zoomPercent,
     ready: () => expect(capture).toHaveValue('')
   });
   await capture.fill(
@@ -276,7 +262,6 @@ async function phoneStarter({
   await expect(capture).toHaveCSS('font-size', '16px');
   await expectScreenshot('starter-draft', {
     target: 'viewport',
-    zoomPercent,
     ready: () => expect(save).toBeEnabled()
   });
   await page.getByLabel(copy.NoteAttachFiles, { exact: true }).setInputFiles({
@@ -293,7 +278,6 @@ async function phoneStarter({
   await expect(save).toBeInViewport({ ratio: 1 });
   await expectScreenshot('narrow-staged-file', {
     target: 'viewport',
-    zoomPercent,
     ready: () => expect(save).toBeEnabled()
   });
   await save.tap();
@@ -306,14 +290,12 @@ async function phoneStarter({
   await expect(source).toBeEnabled();
   await expectScreenshot('saved-file', {
     target: 'viewport',
-    zoomPercent,
     ready: () => expect(source).toBeEnabled()
   });
   await source.tap();
   await expect(page.getByRole('heading', { name: 'River survey', exact: true })).toBeVisible();
   await expectScreenshot('source-preview', {
     target: 'viewport',
-    zoomPercent,
     ready: () =>
       expect(page.getByRole('heading', { name: 'River survey', exact: true })).toBeVisible()
   });
@@ -334,7 +316,6 @@ async function phoneStarter({
   await expect(entries.last()).toHaveText(lecture);
   await expectScreenshot('long-lecture-bottom', {
     target: 'viewport',
-    zoomPercent,
     ready: () => expect(entries.last()).toHaveText(lecture)
   });
   const readingPosition = await entries.last().boundingBox();
@@ -352,7 +333,6 @@ async function phoneStarter({
   });
   await expectScreenshot('context-from-long-lecture', {
     target: 'viewport',
-    zoomPercent,
     ready: () => expect(context).toHaveAttribute('aria-expanded', 'true')
   });
   await context.tap();
@@ -366,7 +346,6 @@ async function phoneStarter({
   await expect(context).toHaveAttribute('aria-expanded', 'false');
   await expectScreenshot('long-lecture-start', {
     target: 'viewport',
-    zoomPercent,
     ready: () => expect(entries.last()).toHaveVisibleText('Observation 1:')
   });
   await context.tap();
@@ -381,7 +360,6 @@ async function phoneStarter({
   await expect(instruction).toHaveCSS('font-size', '16px');
   await expectScreenshot('transform-setup', {
     target: 'viewport',
-    zoomPercent,
     ready: () => expect(title).toHaveValue('River survey study guide')
   });
   const generate = dialog.getByRole('button', { name: copy.NoteCreatePage, exact: true });
@@ -413,7 +391,6 @@ test.browser.stable(
 
     await expectScreenshot('transform-lower-form', {
       target: 'viewport',
-      zoomPercent: 100,
       ready: () => expect(generate).toBeDisabled()
     });
   }

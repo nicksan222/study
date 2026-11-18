@@ -34,7 +34,6 @@ async function capture(context: BrowserContext, name: string, path: string, cont
   await visit(context, path);
   await expectScreenshot(name, {
     target: 'viewport',
-    zoomPercent: 100,
     ready: () => expect(control).toBeInViewport()
   });
 }
@@ -70,7 +69,6 @@ test.browser.stable(
   'Mobile study pages use the available screen without desktop zoom',
   async ({ desktopPage, page, study, rpc, expect, expectScreenshot }) => {
     const { project, note, page: savedPage } = await study.seed();
-    const settings = await rpc.runPromise(rpc.client['settings.appSettings']({}));
     const captureContext = { page, expect, expectScreenshot };
     const drawer = page.getByRole('complementary', { name: copy.SidebarNavigation });
     const closeDrawer = drawer.getByRole('button', drawerToggle);
@@ -115,7 +113,9 @@ test.browser.stable(
       })
     );
 
-    expect(settings.zoomPercent).toBe(125);
+    const settings = await rpc.runPromise(rpc.client['settings.appSettings']({}));
+
+    await rpc.runPromise(rpc.client['settings.saveAppSettings']({ ...settings, zoomPercent: 125 }));
     await capture(
       captureContext,
       'notes',
@@ -198,7 +198,6 @@ test.browser.stable(
     await expect(mainElement).toHaveJSProperty('inert', true);
     await expectScreenshot('navigation-drawer', {
       target: 'viewport',
-      zoomPercent: 100,
       ready: () => expect(drawer).toBeInViewport()
     });
     await drawer.getByRole('link', { name: copy.SourcePage, exact: false }).tap();
@@ -216,7 +215,6 @@ test.browser.stable(
     await expect(page.locator('html')).toHaveJSProperty('scrollWidth', 320);
     await expectScreenshot('pages-small-phone', {
       target: 'viewport',
-      zoomPercent: 100,
       ready: () =>
         expect(main.getByRole('heading', { name: copy.PagesOverviewTitle })).toBeInViewport()
     });
@@ -234,7 +232,6 @@ test.browser.stable(
     await expect(textSize).toHaveCount(0);
     await expectScreenshot('settings', {
       target: 'viewport',
-      zoomPercent: 100,
       ready: () => expect(contrast).toBeInViewport()
     });
     await page.setViewportSize({ width: 1280, height: 900 });
