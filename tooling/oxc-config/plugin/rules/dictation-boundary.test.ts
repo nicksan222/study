@@ -206,6 +206,10 @@ test.unit.stable(
           "const available = (await import('#client/lib/host.ts')).microphoneAvailable;",
         'apps/client/src/features/notes/dynamic-host-escape.ts':
           "const {microphoneAvailable, ...raw} = await import('#client/lib/host.ts'); use(raw);",
+        'apps/client/src/features/notes/exports-voice-declaration.ts':
+          "import {rpc} from '@study/contracts/react'; export const {voice: raw} = rpc;",
+        'apps/client/src/features/notes/exports-settings-declaration.ts':
+          "import {rpc} from '@study/contracts/react'; export const {settings} = rpc;",
         'apps/client/src/features/notes/exports-voice.ts':
           "import {rpc} from '@study/contracts/react'; const {voice} = rpc; export {voice};",
         'apps/client/src/features/notes/frame.ts':
@@ -222,6 +226,7 @@ test.unit.stable(
       'exports-capture.ts',
       'exports-namespace.ts',
       'exports-rpc.ts',
+      'exports-voice-declaration.ts',
       'exports-voice.ts'
     ]);
   }

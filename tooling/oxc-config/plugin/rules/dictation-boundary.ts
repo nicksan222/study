@@ -116,6 +116,12 @@ export default defineRule({
       ExportNamedDeclaration(node) {
         if (node.exportKind === 'type') return;
 
+        if (exportsCapability(node.declaration, rpc)) {
+          report(node);
+
+          return;
+        }
+
         const source = node.source?.value;
 
         for (const item of node.specifiers) {
@@ -188,6 +194,10 @@ function reexportsCapability(
 
   if (source) return name === 'captureMicrophone' && protectedSource(source);
 
+  return carriesCapability(path);
+}
+
+function carriesCapability(path: string | null) {
   return (
     path === 'contracts' ||
     path === 'host' ||
@@ -196,6 +206,34 @@ function reexportsCapability(
     path === 'rpc.voice' ||
     path?.startsWith('rpc.voice.')
   );
+}
+
+function exportsCapability(declaration: any, resolve: (identifier: any) => string | null) {
+  if (declaration?.type !== 'VariableDeclaration') return false;
+
+  return declaration.declarations.some((declarator: any) =>
+    [...bindingIdentifiers(declarator.id)].some((identifier) =>
+      carriesCapability(resolve(identifier))
+    )
+  );
+}
+
+function* bindingIdentifiers(pattern: any): Generator<any> {
+  switch (pattern.type) {
+    case 'Identifier':
+      yield pattern;
+      break;
+    case 'ObjectPattern':
+      for (const member of pattern.properties) yield* bindingIdentifiers(member);
+
+      break;
+    case 'Property':
+      yield* bindingIdentifiers(pattern.value);
+      break;
+    case 'AssignmentPattern':
+      yield* bindingIdentifiers(pattern.left);
+      break;
+  }
 }
 
 function staticImportSource(node: any) {
