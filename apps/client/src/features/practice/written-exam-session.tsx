@@ -26,7 +26,7 @@ import {
   MessageScrollerViewport,
   Practice
 } from '@study/ui';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';
@@ -228,16 +228,48 @@ export function ExamExitConfirmation({
 
 function ExamThread({ model, leave }: { model: Conversation; leave: () => void }) {
   const { t } = useI18n();
+  const viewport = useRef<HTMLDivElement>(null);
+  const [canJump, setCanJump] = useState(false);
   const current = {
     ...model.current,
     answer: model.pending === 'answer' ? model.draft : undefined
   };
 
+  useLayoutEffect(() => {
+    const scroller = viewport.current;
+
+    scroller?.scrollTo({ top: scroller.scrollHeight, behavior: 'instant' });
+  }, [model.current, model.pending, model.failed]);
+
+  useEffect(() => {
+    const scroller = viewport.current;
+
+    if (!scroller) return;
+
+    const resize = new ResizeObserver(() => {
+      scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'instant' });
+    });
+
+    resize.observe(scroller);
+
+    return () => resize.disconnect();
+  }, []);
+
   return (
     <Practice.ExamBody>
-      <MessageScrollerProvider autoScroll>
+      <MessageScrollerProvider defaultScrollPosition="start">
         <MessageScroller>
-          <MessageScrollerViewport aria-label={t('WrittenExamConversation')}>
+          <MessageScrollerViewport
+            ref={viewport}
+            aria-label={t('WrittenExamConversation')}
+            preserveScrollOnPrepend={false}
+            onScroll={({ currentTarget }) =>
+              setCanJump(
+                currentTarget.scrollHeight - currentTarget.scrollTop - currentTarget.clientHeight >
+                  1
+              )
+            }
+          >
             <MessageScrollerContent aria-label={t('WrittenExamConversation')}>
               {model.history.map((entry) => (
                 <Exchange key={entry.question} entry={entry} />
@@ -273,7 +305,7 @@ function ExamThread({ model, leave }: { model: Conversation; leave: () => void }
               )}
             </MessageScrollerContent>
           </MessageScrollerViewport>
-          <MessageScrollerButton aria-label={t('JumpToLatest')} />
+          {canJump && <MessageScrollerButton aria-label={t('JumpToLatest')} />}
         </MessageScroller>
       </MessageScrollerProvider>
     </Practice.ExamBody>

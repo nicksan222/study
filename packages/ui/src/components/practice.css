@@ -1414,6 +1414,14 @@
   overflow-wrap: anywhere;
 }
 
+.study-exam-body [data-slot='message-scroller-item'] {
+  content-visibility: visible;
+}
+
+.study-exam-body [data-slot='message-scroller-viewport'] {
+  overflow-anchor: none;
+}
+
 .study-exam-dialog [data-slot='bubble-content'],
 .study-exam-feedback {
   white-space: pre-wrap;

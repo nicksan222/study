@@ -326,15 +326,31 @@ async function continueExam(
   await expectScreenshot('reviewing-answer', {
     target: exam,
     zoomPercent,
-    ready: () => expect(thinking).toBeVisible()
+    ready: () => expect(thinking).toBeInViewport({ ratio: 1 })
   });
   await expect(log.getByText(incomplete, { exact: true })).toBeVisible();
+
+  if (language === 'english') {
+    const viewport = exam.getByRole('region', { name: copy.WrittenExamConversation });
+
+    await viewport.press('Home');
+    await expect(viewport).toHaveJSProperty('scrollTop', 0);
+    await expect(exam.getByRole('button', { name: copy.JumpToLatest })).toBeVisible();
+    await answer.focus();
+  }
+
   next.release();
+  const nextQuestion = log.getByText(followup, { exact: false });
+
   await expectScreenshot('follow-up', {
     target: exam,
     zoomPercent,
-    ready: () => expect(log.getByText(followup, { exact: false })).toBeInViewport()
+    ready: async () => {
+      await expect(nextQuestion).toBeInViewport({ ratio: 1 });
+      await expect(exam.getByRole('button', { name: copy.JumpToLatest })).toHaveCount(0);
+    }
   });
+  await expect(nextQuestion).toBeInViewport({ ratio: 1 });
   await expect(log.getByText(reply, { exact: false })).toBeVisible();
   await expect(log.getByText(incomplete, { exact: true })).toBeVisible();
   await expect(answer).toHaveValue('');
