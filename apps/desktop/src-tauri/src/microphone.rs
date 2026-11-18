@@ -5,7 +5,8 @@ use tauri::webview::{PermissionKind, PermissionResponse};
 fn trusted_origin(url: &url::Url, development: bool) -> bool {
     let bundled =
         url.scheme() == "tauri" && url.host_str() == Some("localhost") && url.port().is_none();
-    let windows = matches!(url.scheme(), "http" | "https")
+    let windows = cfg!(target_os = "windows")
+        && matches!(url.scheme(), "http" | "https")
         && url.host_str() == Some("tauri.localhost")
         && url.port().is_none();
     let local_dev = development
@@ -41,15 +42,20 @@ mod tests {
 
     #[test]
     fn microphone_is_scoped_to_bundled_study_and_the_exact_development_origin() {
+        let bundled = url::Url::parse("tauri://localhost/notes").unwrap();
+        assert!(trusted_origin(&bundled, false));
         for origin in [
-            "tauri://localhost/notes",
             "http://tauri.localhost/",
             "https://tauri.localhost/",
             "http://tauri.localhost:80/",
             "https://tauri.localhost:443/",
         ] {
             let url = url::Url::parse(origin).unwrap();
-            assert!(trusted_origin(&url, false));
+            assert_eq!(
+                trusted_origin(&url, false),
+                cfg!(target_os = "windows"),
+                "{origin}"
+            );
         }
         let development = url::Url::parse("http://localhost:5173/").unwrap();
         assert!(trusted_origin(&development, true));
