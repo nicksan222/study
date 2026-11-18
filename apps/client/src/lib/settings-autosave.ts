@@ -27,18 +27,27 @@ export function useSettingsPatchAutosave<T extends object>(
   const { t } = useI18n();
   const callbacks = useRef({ write, t });
 
-  callbacks.current = { write, t };
+  useLayoutEffect(() => {
+    callbacks.current = { write, t };
+  }, [write, t]);
+
+  const failed = useRef<Partial<T>>({});
   const queue = useRef<Partial<T>>({});
   const running = useRef(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(false);
+
+  function forgetSupersededErrors(patch: Partial<T>) {
+    for (const key in patch) delete failed.current[key];
+
+    setError(!!Object.keys(failed.current).length);
+  }
 
   async function flush() {
     if (running.current || !Object.keys(queue.current).length) return;
 
     running.current = true;
     setPending(true);
-    setError(false);
 
     try {
       while (Object.keys(queue.current).length) {
@@ -49,13 +58,13 @@ export function useSettingsPatchAutosave<T extends object>(
         try {
           await callbacks.current.write(patch);
         } catch {
-          queue.current = { ...patch, ...queue.current };
-          setError(true);
+          failed.current = { ...failed.current, ...patch };
+
+          forgetSupersededErrors(queue.current);
           toastManager.add({
             title: callbacks.current.t('SettingsSaveFailed'),
             type: 'error'
           });
-          break;
         }
       }
     } finally {
@@ -68,10 +77,16 @@ export function useSettingsPatchAutosave<T extends object>(
     pending,
     error,
     update: (patch: Partial<T>) => {
+      forgetSupersededErrors(patch);
       queue.current = { ...queue.current, ...patch };
       void flush();
     },
-    retry: () => void flush()
+    retry: () => {
+      queue.current = { ...failed.current, ...queue.current };
+      failed.current = {};
+      setError(false);
+      void flush();
+    }
   };
 }
 
