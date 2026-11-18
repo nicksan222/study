@@ -178,9 +178,9 @@ export function destructuredPath(pattern: any, target: string, names: string[]):
 
     const name = part.key.name ?? part.key.value;
 
-    if (typeof name !== 'string') continue;
+    if (name === undefined) continue;
 
-    const found = destructuredPath(part.value, target, [...names, name]);
+    const found = destructuredPath(part.value, target, [...names, String(name)]);
 
     if (found) return found;
   }
