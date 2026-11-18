@@ -339,9 +339,9 @@ test.unit.stable(
       expect(screen.queryByRole('tab', { name: 'NoteAssistant' })).not.toBeInTheDocument()
     );
     fireEvent.click(screen.getByRole('button', { name: 'NoteAssistantOpen' }));
-    expect(await screen.findByRole('textbox', { name: 'StudyChatMessage' })).toHaveValue(
-      'Explain this note'
-    );
+    const reopened = await screen.findByRole('textbox', { name: 'StudyChatMessage' });
+
+    await waitFor(() => expect(reopened).toHaveValue('Explain this note'));
     fireEvent.click(screen.getByRole('button', { name: 'NoteAssistantOpen' }));
     expect(screen.getAllByRole('tab', { name: 'NoteAssistant' })).toHaveLength(1);
     expect(rpc.ask).not.toHaveBeenCalled();
