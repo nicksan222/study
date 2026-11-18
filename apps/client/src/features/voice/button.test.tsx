@@ -1,5 +1,7 @@
 import { test } from '@study/testing';
-import { Suspense, startTransition, useState } from 'react';
+import { Suspense, startTransition, useState, useSyncExternalStore } from 'react';
+
+import { readyVoiceStatus } from '#client/test/page-values.ts';
 
 import type * as ButtonModule from './button';
 
@@ -7,13 +9,29 @@ let DictationButton: typeof ButtonModule.DictationButton;
 
 let recording: boolean;
 
+let modelState: 'ready' | 'missing';
+
+const modelListeners = new Set<() => void>();
+
+function setModelState(state: typeof modelState) {
+  modelState = state;
+
+  for (const listener of modelListeners) listener();
+}
+
+function subscribeModel(listener: () => void) {
+  modelListeners.add(listener);
+
+  return () => modelListeners.delete(listener);
+}
+
 let emitAudio: (samples: number[]) => void;
 
 let emitLevel: (level: number) => void;
 
 let finishTranscription: (value: { text: string }) => void;
 
-let failTranscription: (error: Error) => void;
+let failTranscription: (error: unknown) => void;
 
 let transcription: Promise<{ text: string }>;
 
@@ -21,6 +39,7 @@ let transcriptionRequested: ReturnType<typeof Promise.withResolvers<void>>;
 
 test.unit.beforeEach(async ({ mock }) => {
   recording = false;
+  modelState = 'ready';
   transcriptionRequested = Promise.withResolvers();
   transcription = new Promise((resolve, reject) => {
     finishTranscription = resolve;
@@ -51,11 +70,27 @@ test.unit.beforeEach(async ({ mock }) => {
       };
     }
   }));
+  const mutation = () => ({
+    isPending: false,
+    isError: false,
+    reset: () => {},
+    mutateAsync: async () => setModelState('ready')
+  });
+
   mock('@study/contracts/react', () => ({
     rpc: {
       settings: { voiceSettings: { useQuery: () => ({ data: { chunkSeconds: 30 } }) } },
       voice: {
-        status: { useQuery: () => ({ data: { state: 'ready' } }) },
+        status: {
+          useQuery: () => {
+            const state = useSyncExternalStore(subscribeModel, () => modelState);
+
+            return { data: { ...readyVoiceStatus, state } };
+          }
+        },
+        install: { useMutation: mutation },
+        cancelInstall: { useMutation: mutation },
+        remove: { useMutation: mutation },
         transcribe: {
           call: () => {
             transcriptionRequested.resolve();
@@ -66,7 +101,6 @@ test.unit.beforeEach(async ({ mock }) => {
       }
     }
   }));
-  mock('#client/features/voice/model-controls.tsx', () => ({ VoiceModelControls: () => null }));
   DictationButton = (await import('./button')).DictationButton;
 });
 
@@ -390,5 +424,36 @@ test.unit.stable.for(['denied', 'unavailable'] as const)(
       if (original) Object.defineProperty(navigator, 'clipboard', original);
       else Reflect.deleteProperty(navigator, 'clipboard');
     }
+  }
+);
+
+test.unit.stable(
+  'installs a missing model and retries the retained recording in the same draft',
+  async ({ act, render, screen, userEvent, waitFor, expect, vi }) => {
+    const insert = vi.fn();
+
+    render(<DictationButton onTranscript={insert} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Start dictation' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Stop and transcribe' }));
+    await transcriptionRequested.promise;
+    await act(async () => {
+      setModelState('missing');
+      failTranscription({
+        kind: 'model_unavailable',
+        message: 'Model missing',
+        retryAfterMs: null
+      });
+    });
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Dictation recovery options' })
+    );
+    const retry = screen.getByRole('button', { name: 'Retry' });
+
+    expect(retry).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Download model' }));
+    expect(retry).toBeEnabled();
+    transcription = Promise.resolve({ text: 'Retained audio' });
+    await userEvent.click(retry);
+    await waitFor(() => expect(insert).toHaveBeenCalledExactlyOnceWith('Retained audio'));
   }
 );

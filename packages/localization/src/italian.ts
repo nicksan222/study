@@ -16,6 +16,8 @@ export const italian = Object.freeze({
   VoiceTranscriptionFailedTitle: 'Trascrizione non riuscita',
   VoiceTranscriptionFailed:
     'Trascrizione non riuscita. Riprova oppure annulla per scartare la registrazione.',
+  VoiceTranscriptionModelMissing:
+    'Il modello vocale non era disponibile. Installalo per riprovare a trascrivere questa registrazione.',
   VoiceRecoveredTitle: 'Il dettato è al sicuro',
   VoiceRecoveredHelp:
     'Non è stato possibile inserire il testo. Copialo o riprova a inserirlo. Chiudendo scarti questa trascrizione.',

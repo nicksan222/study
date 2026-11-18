@@ -58,23 +58,26 @@ export class DictationAudio {
 
     return audio.pipe(
       Stream.mapEffect((samples) =>
-        Effect.tryPromise(async (interrupted) => {
-          const request = new AbortController();
-          const cancel = forwardAbort(signal, request);
-          const interrupt = forwardAbort(interrupted, request);
+        Effect.tryPromise({
+          try: async (interrupted) => {
+            const request = new AbortController();
+            const cancel = forwardAbort(signal, request);
+            const interrupt = forwardAbort(interrupted, request);
 
-          try {
-            requireActive(request.signal);
-            const result = await recognize(samples, request.signal);
+            try {
+              requireActive(request.signal);
+              const result = await recognize(samples, request.signal);
 
-            requireActive(request.signal);
-            this.pending.shift();
+              requireActive(request.signal);
+              this.pending.shift();
 
-            return result.text.trim();
-          } finally {
-            cancel();
-            interrupt();
-          }
+              return result.text.trim();
+            } finally {
+              cancel();
+              interrupt();
+            }
+          },
+          catch: (error) => error
         })
       )
     );

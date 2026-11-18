@@ -308,14 +308,22 @@ function DictationRetry({
 }) {
   const { t } = useI18n();
   const { owner, state } = model;
+  const requiresModel = state.transcriptionFailure === 'model_unavailable';
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && close()}>
       <DialogPopup closeLabel={t('Close')} finalFocus={trigger}>
         <DialogHeading
           title={t('VoiceTranscriptionFailedTitle')}
-          description={t('VoiceTranscriptionFailed')}
+          description={t(
+            requiresModel ? 'VoiceTranscriptionModelMissing' : 'VoiceTranscriptionFailed'
+          )}
         />
+        {requiresModel && (
+          <DialogBody>
+            <VoiceModelControls layout="recovery" />
+          </DialogBody>
+        )}
         <TranscriptActions value={state.transcript}>
           <Button variant="outline" onClick={() => session.cancel(owner)}>
             {t('VoiceCancel')}
@@ -324,7 +332,7 @@ function DictationRetry({
             label={t('Retry')}
             size="default"
             variant="default"
-            disabled={model.disabled}
+            disabled={model.disabled || (requiresModel && !model.ready)}
             onClick={() => void session.retry(owner)}
           />
         </TranscriptActions>

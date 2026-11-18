@@ -1,6 +1,7 @@
 /** One microphone owner across all mounted dictation controls; cancellation fences late results. */
-import type { VoiceSettings } from '@study/contracts';
-import { Stream } from 'effect';
+import { failureSchema } from '@study/contracts';
+import type { ErrorKind, VoiceSettings } from '@study/contracts';
+import { Schema, Stream } from 'effect';
 
 import type { MicrophoneCapture } from '#client/lib/host.ts';
 
@@ -14,6 +15,7 @@ type Snapshot = {
   transcript: string;
   backlog?: boolean;
   error?: 'capture' | 'transcribe' | 'empty' | 'insert' | 'interrupted';
+  transcriptionFailure?: ErrorKind;
 };
 
 type Recording = {
@@ -194,7 +196,7 @@ export class DictationSession {
       if (this.recording !== recording) return;
 
       this.complete(recording, owner);
-    } catch {
+    } catch (failure) {
       if (this.recording !== recording) return;
 
       await this.finishCapture(recording, owner);
@@ -204,6 +206,7 @@ export class DictationSession {
           ...this.state,
           phase: 'error',
           error: 'transcribe',
+          transcriptionFailure: Schema.is(failureSchema)(failure) ? failure.kind : undefined,
           transcript: recording.undelivered
         });
     }
@@ -246,7 +249,13 @@ export class DictationSession {
 
     if (!recording || this.state.owner !== owner || this.state.error !== 'transcribe') return;
 
-    this.publish({ ...this.state, phase: 'transcribing', error: undefined, transcript: '' });
+    this.publish({
+      ...this.state,
+      phase: 'transcribing',
+      error: undefined,
+      transcriptionFailure: undefined,
+      transcript: ''
+    });
     recording.recognition = this.consume(recording, owner);
     await recording.recognition;
   }

@@ -14,6 +14,8 @@ export const english = Object.freeze({
   VoiceRecoveryOptions: 'Dictation recovery options',
   VoiceTranscriptionFailedTitle: 'Transcription failed',
   VoiceTranscriptionFailed: 'Transcription failed. Retry or cancel to discard the recording.',
+  VoiceTranscriptionModelMissing:
+    'The speech model was unavailable. Install it to retry this recording.',
   VoiceRecoveredTitle: 'Your dictation is safe',
   VoiceRecoveredHelp:
     'The text could not be inserted. Copy it or retry insertion. Closing discards this transcript.',

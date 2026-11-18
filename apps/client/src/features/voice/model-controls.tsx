@@ -33,17 +33,17 @@ const stateLabels = {
 
 type ModelControls = ReturnType<typeof useModelControls>;
 
-export function VoiceModelControls({ layout = 'setup' }: { layout?: 'setup' | 'settings' }) {
+export function VoiceModelControls({
+  layout = 'setup'
+}: {
+  layout?: 'setup' | 'settings' | 'recovery';
+}) {
   const controls = useModelControls();
   const { t } = useI18n();
   const model = activeModel(controls.status.data);
   const downloadSize = useDownloadSize(controls);
   const stateLabel = controls.state && t(stateLabels[controls.state]);
-  const actions = controls.state && (
-    <Settings.Actions>
-      <ModelAction controls={controls} />
-    </Settings.Actions>
-  );
+  const actions = <ModelActions controls={controls} allowRemoval={layout !== 'recovery'} />;
   const feedback = <ModelFeedback controls={controls} />;
 
   if (layout === 'settings') {
@@ -201,6 +201,22 @@ function DownloadProgress({ status }: { status: VoiceStatus }) {
       />
       <span>{Math.floor((status.downloadedBytes / status.totalBytes) * 100)}%</span>
     </div>
+  );
+}
+
+function ModelActions({
+  controls,
+  allowRemoval
+}: {
+  controls: ModelControls;
+  allowRemoval: boolean;
+}) {
+  if (!controls.state || (!allowRemoval && controls.state === 'ready')) return null;
+
+  return (
+    <Settings.Actions>
+      <ModelAction controls={controls} />
+    </Settings.Actions>
   );
 }
 
