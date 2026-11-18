@@ -293,10 +293,13 @@ test.unit.stable(
         <button onKeyDown={onEscape}>Other control</button>
       </>
     );
+    const announcement = screen.getByRole('alert');
+
+    expect(announcement).toBeEmptyDOMElement();
     await userEvent.click(screen.getByRole('button', { name: 'Start dictation' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Stop and transcribe' }));
     finishTranscription({ text: '' });
-    const announcement = await screen.findByText('No speech detected. Try recording again.');
+    expect(await screen.findByText('No speech detected. Try recording again.')).toBe(announcement);
 
     screen.getByRole('button', { name: 'Other control' }).focus();
     await userEvent.keyboard('{Escape}');

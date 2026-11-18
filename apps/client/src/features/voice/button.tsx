@@ -184,7 +184,7 @@ function DictationTrigger({ model }: { model: Model }) {
             subscribeLevel={session.subscribeLevel}
           />
         )}
-        {error && <ErrorState layout="announcement" title={t(errorLabels[error])} />}
+        <ErrorState layout="announcement" title={error ? t(errorLabels[error]) : ''} />
       </RecordingControls>
     </Notebook.Actions>
   );
