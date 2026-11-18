@@ -1,9 +1,9 @@
 import { BunPath } from '@effect/platform-bun';
 import { StudyError, StudyRpc } from '@study/contracts';
 import { makeStudyClient } from '@study/server/client';
-import { speechRecognitionStrategies } from '@study/server/testing';
+import type { speechRecognitionStrategies } from '@study/server/testing';
 import type { test } from '@study/testing';
-import { Effect, Path } from 'effect';
+import { Effect, Exit, Path, Scope } from 'effect';
 
 import { localModelPaths } from './local-model-file.ts';
 
@@ -51,37 +51,31 @@ async function openVoiceClient(resources: test.server.Context['resources'], stra
   return makeStudyClient(StudyRpc, { baseUrl: server.url });
 }
 
-type VoiceClient = Effect.Success<Awaited<ReturnType<typeof openVoiceClient>>>;
-
 /** Replaces only asset delivery. Native inference, settings, installation and HTTP RPC stay real. */
-export async function withVoiceModel(
-  { resources, expect }: Pick<test.server.Context, 'resources' | 'expect'>,
-  strategy: Strategy,
-  exercise: (client: VoiceClient) => Effect.Effect<void, unknown>
+export async function openVoiceModel(
+  resources: test.server.Context['resources'],
+  strategy: Strategy
 ) {
   const connection = await openVoiceClient(resources, strategy);
+  const scope = Scope.makeUnsafe();
 
-  await Effect.runPromise(
-    Effect.scoped(
-      Effect.gen(function* () {
-        const client = yield* connection;
+  resources.dispose(() => Effect.runPromise(Scope.close(scope, Exit.void)));
 
-        const status = yield* client['voice.status']({});
+  const client = await Effect.runPromise(Scope.provide(connection, scope));
+  const initial = await Effect.runPromise(client['voice.status']({}));
 
-        expect(status).toMatchObject({
-          modelId: strategy.model.id,
-          state: 'missing'
-        });
-        expect(status.models).toEqual(speechRecognitionStrategies.map(({ model }) => model));
-        yield* client['voice.install']({});
-        expect((yield* client['voice.status']({})).state).toBe('ready');
-        yield* exercise(client);
-        yield* client['voice.remove']({});
-        expect((yield* client['voice.status']({})).state).toBe('missing');
-      })
-    )
-  );
+  await Effect.runPromise(client['voice.install']({}));
+  resources.dispose(async () => {
+    await Effect.runPromise(client['voice.remove']({}));
+
+    if ((await Effect.runPromise(client['voice.status']({}))).state !== 'missing')
+      throw new Error(`Speech model ${strategy.model.id} remained installed after removal`);
+  });
+
+  return { client, initial, installed: await Effect.runPromise(client['voice.status']({})) };
 }
+
+export type VoiceModelFixture = Awaited<ReturnType<typeof openVoiceModel>>;
 
 export function pcm16(pcm: Float32Array) {
   return Array.from(pcm, (sample) => Math.max(-32768, Math.min(32767, Math.round(sample * 32768))));
@@ -92,6 +86,7 @@ export function normalize(text: string) {
     text
       .toLocaleLowerCase('en')
       .normalize('NFC')
+      .replaceAll('’', "'")
       .replace(/[^\p{L}\p{N}'\s]/gu, '')
       .match(/\S+/g) ?? []
   );

@@ -104,3 +104,4 @@ export async function createStudyMaterials(...args: Parameters<typeof makeStudyM
 
 export { createVoiceMock } from './voice.ts';
 export { speechRecognitionStrategies } from '#server/features/voice/service/strategy';
+export { denoisePcm } from '#server/platform/speech/denoise';

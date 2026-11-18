@@ -30,6 +30,62 @@
       "reference": "de grandes zones plus au nord sont assez peu peuplées et certaines sont presque inhabitées à l'état sauvage",
       "duration": 3.96,
       "sha256": "5555a9f168794b12fe97b7442befc9a8f91cc8b1696798ed01a4c338222832c6"
+    },
+    {
+      "id": "en_us_0004",
+      "language": "en_us",
+      "source": "https://huggingface.co/datasets/FluidInference/fleurs/resolve/main/en_us/en_us_0004.wav",
+      "reference": "many people don't think about them as dinosaurs because they have feathers and can fly",
+      "duration": 4.32,
+      "sha256": "5a03997a964d1246207b2345564783cadc33d3e62810546bb4b1238c0e8b82f0"
+    },
+    {
+      "id": "en_us_0014",
+      "language": "en_us",
+      "source": "https://huggingface.co/datasets/FluidInference/fleurs/resolve/main/en_us/en_us_0014.wav",
+      "reference": "the internet combines elements of both mass and interpersonal communication",
+      "duration": 5.72,
+      "sha256": "a816d3464c7784425610a6aab3fccd0117cad1c45a2f2bd9165c8ea1c9f5b8ad"
+    },
+    {
+      "id": "en_us_0056",
+      "language": "en_us",
+      "source": "https://huggingface.co/datasets/FluidInference/fleurs/resolve/main/en_us/en_us_0056.wav",
+      "reference": "most modern research telescopes are enormous facilities in remote areas with favorable atmospheric conditions",
+      "duration": 6.84,
+      "sha256": "0c57b7decb7e438f71e34300b38ec5d924e51bd40b31a05f2f34e525a0ab2f66"
+    },
+    {
+      "id": "it_it_0139",
+      "language": "it_it",
+      "source": "https://huggingface.co/datasets/FluidInference/fleurs/resolve/main/it_it/it_it_0139.wav",
+      "reference": "sei ostaggi tra cui bambini e anziani sono stati liberati subito insieme ai fotografi filippini",
+      "duration": 7.2,
+      "sha256": "7ded8e1f4bd43ab5e20d14d624ea75ae96b19b38faae67b617faff48be61c3b0"
+    },
+    {
+      "id": "it_it_0221",
+      "language": "it_it",
+      "source": "https://huggingface.co/datasets/FluidInference/fleurs/resolve/main/it_it/it_it_0221.wav",
+      "reference": "pensa alla pista da sci come a un percorso simile a quello escursionistico",
+      "duration": 6.48,
+      "sha256": "57dce78617d5d41f8ac3c769a934e02631441aaf116fbc38b55b0417a17328ef"
+    },
+    {
+      "id": "fr_fr_0021",
+      "language": "fr_fr",
+      "source": "https://huggingface.co/datasets/FluidInference/fleurs/resolve/main/fr_fr/fr_fr_0021.wav",
+      "reference": "le chocolat chaud est conforme aux normes belges les jus de fruits sont chers mais excellents",
+      "duration": 5.04,
+      "sha256": "a97daeb5d2a28a513719f9266743822f50f24d8a01185dbe3397a00298d0a8d5"
+    },
+    {
+      "id": "fr_fr_0114",
+      "language": "fr_fr",
+      "source": "https://huggingface.co/datasets/FluidInference/fleurs/resolve/main/fr_fr/fr_fr_0114.wav",
+      "reference": "c'est une bonne occasion d'admirer les aurores boréales car le ciel sera sombre pratiquement toute la journée",
+      "duration": 6.78,
+      "sha256": "b8d43b2f451c6b79c02f9f33f2da9a825e609fce8c90849fe8c2640eddb3f8bc"
     }
   ]
 }

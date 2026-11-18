@@ -150,6 +150,13 @@ jobs:
         env:
           TMPDIR: ${{ runner.temp }}
         run: bun run voice:test
+      - name: 📎 Retain per-model recognition results
+        if: ${{ !cancelled() && steps.voice_fixtures.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: vitest-voice-recognition
+          path: tooling/test-results/vitest/voice.xml
+          if-no-files-found: ignore
 
   shared_tests:
     name: 📦 Shared package tests
