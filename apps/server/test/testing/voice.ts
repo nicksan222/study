@@ -88,9 +88,22 @@ export function createVoiceMock() {
         return outcome;
       }, options);
 
-      plans.push({ consumed: false, execute: operation.run });
+      const plan = { consumed: false, execute: operation.run };
 
-      return { called: operation.called, aborted: operation.aborted, release: operation.release };
+      plans.push(plan);
+
+      return {
+        called: operation.called,
+        aborted: operation.aborted,
+        release: operation.release,
+        withdraw() {
+          if (plan.consumed) return;
+
+          const index = plans.indexOf(plan);
+
+          if (index >= 0) plans.splice(index, 1);
+        }
+      };
     },
     [Symbol.dispose]() {
       lifetime.abort();

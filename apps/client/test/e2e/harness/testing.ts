@@ -148,6 +148,7 @@ function expectSegment(voice: VoiceMock, outcome: Transcript) {
   return {
     requested: response.called,
     aborted: response.aborted,
+    withdraw: response.withdraw,
     async deliver() {
       const input = await response.called;
 
@@ -178,11 +179,17 @@ async function createMicrophone(page: Page, voice: VoiceMock) {
       { segments, holdPermission = false }: { segments?: Plan; holdPermission?: boolean } = {}
     ) {
       const permission = capture.arm();
+      const planned: ReturnType<typeof expectSegment>[] = [];
+      const planReply = (outcome: Transcript) => {
+        const reply = expectSegment(voice, outcome);
+
+        planned.push(reply);
+
+        return reply;
+      };
+      const withdraw = () => planned.forEach((reply) => reply.withdraw());
       const replies = Object.fromEntries(
-        Object.entries(segments ?? {}).map(([name, outcome]) => [
-          name,
-          expectSegment(voice, outcome)
-        ])
+        Object.entries(segments ?? {}).map(([name, outcome]) => [name, planReply(outcome)])
       ) as { [Name in keyof Plan]: ReturnType<typeof expectSegment> };
       const { VoiceStart, VoiceStarting, VoiceStop, VoiceCancel } = catalogs.english;
       const finish = scope.getByRole('button', { name: VoiceStop, exact: true });
@@ -202,6 +209,7 @@ async function createMicrophone(page: Page, voice: VoiceMock) {
         if (!holdPermission) await allow();
       } catch (error) {
         permission.dispose();
+        withdraw();
 
         throw error;
       }
@@ -209,13 +217,14 @@ async function createMicrophone(page: Page, voice: VoiceMock) {
       return {
         allow,
         segments: replies,
-        expectSegment: (outcome: Transcript) => expectSegment(voice, outcome),
+        expectSegment: planReply,
         setElapsed: (seconds: number) =>
           page.clock.setFixedTime(Date.parse(captureProfile.wallTime) + seconds * 1000),
         stop: () => finish.click(),
         async cancel() {
           await scope.getByRole('button', { name: VoiceCancel, exact: true }).click();
           permission.dispose();
+          withdraw();
         }
       };
     }
