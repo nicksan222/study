@@ -578,8 +578,7 @@ export { endpoints, StudyRpc } from './rpc.ts';
 export {
   modelUpdateSchema,
   modelCatalogSchema,
-  modelSuggestionsSchema,
-  modelTiers
+  modelSuggestionsSchema
 } from './settings/model-updates.ts';
 export type { ModelUpdate, ModelSuggestions } from './settings/model-updates.ts';
 export { settingsEndpoints, SettingsRpc } from './settings/rpc.ts';
@@ -594,6 +593,8 @@ export {
   appSettingsSchema,
   concurrencySettingsSchema,
   llmSettingsSchema,
+  modelTiers,
+  saveModelTierSchema,
   materialSettingsSchema,
   maxAgentRuleLength,
   quizSettingsSchema,
@@ -625,6 +626,7 @@ export {
   defaultSidebarSettings,
   defaultWorkspacePreferences,
   Language,
+  chatGptModelIds,
   LlmModel,
   LlmProvider,
   practiceGenerationSettings,

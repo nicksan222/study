@@ -131,6 +131,11 @@ test.server.stable(
             provider: 1,
             modelId: 'gpt-6.1-sol'
           });
+          const pin = context.db.orm.get<{ value: string }>(
+            sql`SELECT value FROM preferences WHERE scope = 'llm' AND key = 'tiny'`
+          );
+
+          expect(JSON.parse(pin!.value)).toEqual({ provider: 1, model: LlmModel.SOL });
           context.db.orm.run(
             sql`UPDATE preferences SET value = ${JSON.stringify(LlmModel.ASTRA)} WHERE scope = 'llm' AND key = 'tiny'`
           );
@@ -428,6 +433,13 @@ test.server.stable(
           );
 
           expect(invalidModel.kind).toBe('invalid_input');
+          yield* settings.refreshModelCatalog({ anthropic: [] }, []);
+          yield* settings.saveLlmSettings(selection);
+          const transfer = yield* Effect.flip(
+            settings.saveModelTier({ tier: 'smart', setup: selection.medium })
+          );
+
+          expect(transfer.kind).toBe('invalid_input');
           expect(yield* settings.llmSettings()).toStrictEqual(selection);
         }).pipe(Effect.provide(layer))
       );

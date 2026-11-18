@@ -1518,6 +1518,7 @@ export const italian = Object.freeze({
   AiSettingsKeyMissing: 'Nessuna chiave salvata.',
   AiSettingsModel: 'Modello',
   AiSettingsModels: 'Modelli per attività',
+  AiSettingsCatalogFailed: 'Impossibile aggiornare il catalogo dei modelli.',
   AiSettingsChooseModel: 'Scegli un modello',
   AiSettingsDefaultModel: 'Usa predefinito',
   AiSettingsTiny: 'Attività rapide',

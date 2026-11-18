@@ -40,6 +40,12 @@ export const LlmModel = {
 
 export type LlmModel = (typeof LlmModel)[keyof typeof LlmModel];
 
+export const chatGptModelIds = {
+  [LlmModel.LUNA]: 'gpt-6-luna',
+  [LlmModel.SOL]: 'gpt-6.1-sol',
+  [LlmModel.ASTRA]: 'gpt-6.1-sol'
+} as const;
+
 import type {
   agentRulesSchema,
   quizSettingsSchema,

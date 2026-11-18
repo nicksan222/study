@@ -136,3 +136,46 @@ test.unit.stable(
     expect(fresh?.recommend('opaque-a', 'medium')).toBeUndefined();
   }
 );
+
+test.unit.stable(
+  'keeps regular Qwen Flash separate from Omni across family metadata changes',
+  async ({ expect }) => {
+    const rows = [
+      model('qwen/qwen3.6-flash', 'qwen3.6', 1, '2026-04-27'),
+      model('qwen/qwen3.8-flash', 'qwen', 1, '2026-08-01'),
+      model('qwen/qwen3.8-omni-flash', 'qwen', 1, '2026-09-17')
+    ];
+    const available = new Map(
+      await Effect.runPromise(
+        fetchApiKeyCatalog(async () =>
+          Response.json({
+            openrouter: { models: Object.fromEntries(rows.map((entry) => [entry.id, entry])) }
+          })
+        )
+      )
+    ).get('openrouter');
+
+    expect(available?.recommend(rows[0]!.id, 'tiny')).toBe(rows[1]!.id);
+  }
+);
+
+test.unit.stable(
+  'distinguishes a partially undecodable catalog from a verified empty result',
+  async ({ expect }) => {
+    const deprecated = { ...model('old', 'family', 1, '2026-01-01'), status: 'deprecated' };
+    const broken = model('broken', 'family', 1, 'not-a-date');
+    const catalog = new Map(
+      await Effect.runPromise(
+        fetchApiKeyCatalog(async () =>
+          Response.json({
+            'fireworks-ai': { models: { old: deprecated, broken } },
+            togetherai: { models: { old: deprecated } }
+          })
+        )
+      )
+    );
+
+    expect(catalog.has('fireworks')).toBe(false);
+    expect(catalog.get('together')?.models).toEqual([]);
+  }
+);

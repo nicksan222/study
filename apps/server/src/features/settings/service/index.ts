@@ -1,8 +1,8 @@
 /** @file Composes settings application operations behind the feature boundary. */
 
 import type { UsageQuery } from '@study/contracts';
-import { defineService, useStore, UsageStore } from '@study/server';
-import { Semaphore } from 'effect';
+import { ChatGptSession, defineService, useStore, UsageStore } from '@study/server';
+import { Effect, Option, Semaphore } from 'effect';
 
 import { makeModelCatalogRefresh } from './model-catalog.ts';
 import { modelUpdateOperations } from './model-updates.ts';
@@ -11,8 +11,10 @@ import { settingsPreferenceOperations } from './preferences.ts';
 
 const make = function* () {
   const usage = yield* useStore(UsageStore);
-  const models = yield* settingsModelOperations();
-  const { catalogIdentities, ...updates } = yield* modelUpdateOperations();
+  const session = Option.getOrUndefined(yield* Effect.serviceOption(ChatGptSession));
+  const account = () => session?.manager.catalogAccount();
+  const models = yield* settingsModelOperations(account);
+  const { catalogIdentities, ...updates } = yield* modelUpdateOperations(account);
   const refresh = makeModelCatalogRefresh(
     models.llmSettings,
     catalogIdentities,

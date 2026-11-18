@@ -91,7 +91,7 @@ function variant(value: ModelIdentity) {
     value.canonical
       .toLowerCase()
       .match(
-        /(?:^|[-_/.])(?:\d+(?:\.\d+)?b|haiku|sonnet|opus|flash|lite|pro|mini|nano|small|medium|large|ultra|turbo|preview|instruct|thinking)(?=$|[-_/.])/g
+        /(?:^|[-_/.])(?:\d+(?:\.\d+)?b|haiku|sonnet|opus|flash|lite|pro|mini|nano|small|medium|large|ultra|turbo|omni|preview|instruct|thinking)(?=$|[-_/.])/g
       ) ?? []
   )
     .map((part) => part.replace(/^[-_/.]/, ''))
@@ -131,8 +131,14 @@ function releaseOrder(a: ModelIdentity, b: ModelIdentity) {
   );
 }
 
+function family(value: ModelIdentity) {
+  if (value.family && /^qwen(?:\d+(?:\.\d+)?)?$/i.test(value.family)) return 'qwen';
+
+  return value.family;
+}
+
 function sameVariant(a: ModelIdentity, b: ModelIdentity) {
-  if (!a.family || a.family !== b.family || a.canonical === b.canonical) return false;
+  if (!a.family || family(a) !== family(b) || a.canonical === b.canonical) return false;
 
   const size = variant(b);
 
@@ -168,26 +174,6 @@ function recommended(
   return latestUnambiguous(inPriceBand(available, tier).map(identity));
 }
 
-function indexCatalog(catalog: typeof providersSchema.Type) {
-  const providers = new Map<string, readonly CatalogModel[]>();
-
-  return (id: string) => {
-    const entries = catalog[id]?.models;
-
-    if (!entries) return undefined;
-
-    const cached = providers.get(id);
-
-    if (cached) return cached;
-
-    const models = Object.values(entries).flatMap((entry) => Option.toArray(decodeModel(entry)));
-
-    providers.set(id, models);
-
-    return models;
-  };
-}
-
 function fetchCatalog(request?: FetchOptions['fetch']) {
   return Effect.tryPromise(async (signal) => {
     const response = await streamingFetch(
@@ -203,18 +189,21 @@ function fetchCatalog(request?: FetchOptions['fetch']) {
     }
 
     return response.json() as Promise<unknown>;
-  }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(providersSchema)), Effect.map(indexCatalog));
+  }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(providersSchema)));
 }
 
 export const fetchApiKeyCatalog = (request?: FetchOptions['fetch']) =>
   fetchCatalog(request).pipe(
     Effect.map((catalog) =>
       apiKeyProviders.flatMap((provider) => {
-        const models = catalog(provider.catalogId);
+        const entries = Object.values(catalog[provider.catalogId]?.models ?? {});
+        const models = entries.flatMap((entry) => Option.toArray(decodeModel(entry)));
 
-        if (!models?.length) return [];
+        if (!models.length) return [];
 
         const available = byRelease(models.filter(eligible));
+
+        if (!available.length && models.length !== entries.length) return [];
 
         return [
           [

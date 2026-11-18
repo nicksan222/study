@@ -1,3 +1,4 @@
+import type { ModelUpdate } from '@study/contracts';
 import type { ProtocolTransport } from '@study/contracts/react';
 import { rpc } from '@study/contracts/react';
 import { toastManager } from '@study/ui';
@@ -11,13 +12,29 @@ const tierLabels = {
   smart: 'AiSettingsSmart'
 } as const;
 
+function noticeCopy(t: ReturnType<typeof useI18n>['t'], update: ModelUpdate) {
+  const tier = t(tierLabels[update.tier]);
+
+  return {
+    title: t('ModelUpdateAvailable'),
+    description: update.previousModel
+      ? t('ModelUpdateOffer', { tier, previous: update.previousModel, model: update.model })
+      : t('ModelSuggestionOffer', { tier, model: update.model })
+  };
+}
+
 /** Deliver the next durable notice using the shared toast viewport. */
 export function ModelUpdateNotifications({ transport }: { transport: ProtocolTransport }) {
   const { data } = rpc.settings.modelUpdates.useQuery({});
   const { mutate } = rpc.settings.dismissModelUpdate.useMutation();
   const { mutate: apply } = rpc.settings.applyModelUpdate.useMutation();
   const { t } = useI18n();
-  const announced = useRef<{ key: string; translate: typeof t }>(undefined);
+  const announced = useRef<{
+    key: string;
+    translate: typeof t;
+    applying: boolean;
+    closed: boolean;
+  }>(undefined);
   const [retry, setRetry] = useState(0);
 
   useEffect(
@@ -43,21 +60,29 @@ export function ModelUpdateNotifications({ transport }: { transport: ProtocolTra
     }
 
     const key = JSON.stringify([update.tier, update.provider, update.previousModel, update.model]);
+    const current = announced.current;
+    const owner =
+      current?.key === key ? current : { key, translate: t, applying: false, closed: false };
+    const reopen = () => {
+      announced.current = undefined;
+      setRetry((value) => value + 1);
+    };
     const copy = {
-      title: t('ModelUpdateAvailable'),
-      description: update.previousModel
-        ? t('ModelUpdateOffer', {
-            tier: t(tierLabels[update.tier]),
-            previous: update.previousModel,
-            model: update.model
-          })
-        : t('ModelSuggestionOffer', { tier: t(tierLabels[update.tier]), model: update.model }),
+      ...noticeCopy(t, update),
       actionProps: {
         children: t('ModelUpdateAction'),
         onClick: () => {
-          void apply(update).catch(() =>
-            toastManager.add({ type: 'error', title: t('ModelUpdateFailed') })
-          );
+          if (announced.current !== owner || owner.applying) return;
+
+          owner.applying = true;
+          void apply(update).catch(() => {
+            if (announced.current !== owner) return;
+
+            owner.applying = false;
+            toastManager.add({ type: 'error', title: t('ModelUpdateFailed') });
+
+            if (owner.closed) reopen();
+          });
         }
       }
     };
@@ -70,8 +95,6 @@ export function ModelUpdateNotifications({ transport }: { transport: ProtocolTra
       return;
     }
 
-    const owner = { key, translate: t };
-
     announced.current = owner;
     toastManager.add({
       id: 'model-update',
@@ -81,11 +104,12 @@ export function ModelUpdateNotifications({ transport }: { transport: ProtocolTra
       onClose: () => {
         if (announced.current !== owner) return;
 
-        void mutate(update).catch(() => {
-          if (announced.current !== owner) return;
+        owner.closed = true;
 
-          announced.current = undefined;
-          setRetry((value) => value + 1);
+        if (owner.applying) return;
+
+        void mutate(update).catch(() => {
+          if (announced.current === owner) reopen();
         });
       }
     });

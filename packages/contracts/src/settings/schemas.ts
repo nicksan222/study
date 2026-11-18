@@ -48,6 +48,13 @@ export const llmSettingsSchema = Schema.Struct({
   smart: tierSetupSchema
 });
 
+export const modelTiers = ['tiny', 'medium', 'smart'] as const;
+
+export const saveModelTierSchema = Schema.Struct({
+  tier: Schema.Literals(modelTiers),
+  setup: tierSetupSchema
+});
+
 export type ModelTier = keyof typeof llmSettingsSchema.fields;
 
 export const materialSettingsSchema = Schema.Struct({

@@ -12,6 +12,7 @@ import {
   concurrencySettingsSchema,
   appearancePreferencesSchema,
   llmSettingsSchema,
+  saveModelTierSchema,
   materialSettingsSchema,
   reviewSettingsSchema
 } from './schemas.ts';
@@ -20,19 +21,28 @@ import { usageQuerySchema, usageReportSchema } from './usage.ts';
 const saved = Schema.Struct({});
 
 export const settingsEndpoints = {
+  saveModelTier: mutation(
+    'settings.saveModelTier',
+    { payload: saveModelTierSchema, success: saved, error: failureSchema },
+    { changes: [dependency.settings] }
+  ),
   modelUpdates: liveQuery(
     'settings.modelUpdates',
     { payload: {}, success: Schema.Array(modelUpdateSchema), error: failureSchema },
-    { dependencies: [dependency.settings], refresh: 'database' }
+    { dependencies: [dependency.settings, dependency.auth], refresh: 'database' }
   ),
   modelCatalog: liveQuery(
     'settings.modelCatalog',
     { payload: {}, success: modelCatalogViewSchema, error: failureSchema },
-    { dependencies: [dependency.settings], refresh: 'database' }
+    { dependencies: [dependency.settings, dependency.auth], refresh: 'database' }
   ),
   refreshModelCatalog: mutation(
     'settings.refreshModelCatalog',
-    { payload: {}, success: saved, error: failureSchema },
+    {
+      payload: {},
+      success: Schema.Struct({ apiAvailable: Schema.Boolean, chatAvailable: Schema.Boolean }),
+      error: failureSchema
+    },
     { changes: [dependency.settings] }
   ),
   applyModelUpdate: mutation(

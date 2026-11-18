@@ -94,6 +94,8 @@ export function nativeLayers(
 
   const lifecycleLayer = Layer.succeed(WorkerLifecycle, lifecycle);
 
+  const session = Layer.succeed(ChatGptSession, { manager, issuer, hostId, request });
+
   const services = Layer.mergeAll(
     Sources.layer,
     Workflows.layer,
@@ -110,11 +112,15 @@ export function nativeLayers(
     System.layer
   ).pipe(
     Layer.provideMerge(
-      Layer.mergeAll(database, backups, lifecycleLayer, Layer.succeed(WorkflowControl, control))
+      Layer.mergeAll(
+        database,
+        backups,
+        session,
+        lifecycleLayer,
+        Layer.succeed(WorkflowControl, control)
+      )
     )
   );
-
-  const session = Layer.succeed(ChatGptSession, { manager, issuer, hostId, request });
 
   const auth = Auth.layer.pipe(Layer.provide(Layer.mergeAll(database, session)));
 

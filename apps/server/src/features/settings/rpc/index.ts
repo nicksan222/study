@@ -24,8 +24,8 @@ export const SettingsRpcLive = defineRpc(
   ({ settings, admission, session }) => ({
     'settings.modelUpdates': () => settings.modelUpdates(),
     'settings.modelCatalog': () => settings.modelCatalog(),
-    'settings.refreshModelCatalog': () =>
-      settings.refreshModelRecommendations(session).pipe(Effect.as({})),
+    'settings.refreshModelCatalog': () => settings.refreshModelRecommendations(session),
+    'settings.saveModelTier': settings.saveModelTier,
     'settings.dismissModelUpdate': (notice) => settings.updateModel(notice, false),
     'settings.applyModelUpdate': (notice) => settings.updateModel(notice, true),
     'settings.usage': settings.usage,

@@ -20,10 +20,24 @@ const frame = Schema.decodeUnknownOption(
       _tag: Schema.String,
       id: Schema.optional(Schema.Union([Schema.String, Schema.Number])),
       tag: Schema.optional(Schema.String),
-      requestId: Schema.optional(Schema.Union([Schema.String, Schema.Number]))
+      requestId: Schema.optional(Schema.Union([Schema.String, Schema.Number])),
+      values: Schema.optional(
+        Schema.Array(
+          Schema.Struct({
+            _tag: Schema.String,
+            result: Schema.optional(Schema.Struct({ _tag: Schema.String }))
+          })
+        )
+      )
     })
   )
 );
+
+function afterFrame() {
+  return new Promise<boolean>((resolve) => {
+    requestAnimationFrame(() => resolve(true));
+  });
+}
 
 function waitForNoticeSnapshot(page: Page) {
   const ready = Promise.withResolvers<void>();
@@ -45,7 +59,10 @@ function waitForNoticeSnapshot(page: Page) {
           requestId !== undefined &&
           message._tag === 'Some' &&
           message.value._tag === 'Chunk' &&
-          message.value.requestId === requestId
+          message.value.requestId === requestId &&
+          message.value.values?.some(
+            (value) => value._tag === 'Snapshot' && value.result?._tag === 'Success'
+          )
         )
           ready.resolve();
       }
@@ -164,6 +181,8 @@ test.browser.stable(
 
     await page.reload();
     await loadedNotice;
+    await page.waitForFunction(afterFrame);
+    await page.waitForFunction(afterFrame);
     await expect(page.locator('html')).toHaveAttribute('lang', 'it');
     await expectScreenshot('dismissed-after-reload', {
       target: 'viewport',

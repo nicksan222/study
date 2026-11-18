@@ -2,17 +2,20 @@
 
 import type { LlmSettings, ModelTier, TierSetup } from '@study/contracts';
 import {
+  chatGptModelIds,
   LlmModel,
   LlmProvider,
   StudyError,
   llmSettingsSchema,
+  modelTiers,
+  saveModelTierSchema,
   tierSetupSchema
 } from '@study/contracts';
 import { allowsAiModel, getApiKeyProvider, useStore, validatedMutation } from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { SettingsStore } from '#server/features/settings/store/index';
-import { ModelUpdatesStore } from '#server/features/settings/store/model-updates';
+import { accountCatalog, ModelUpdatesStore } from '#server/features/settings/store/model-updates';
 
 import type { Preferences } from './preferences.ts';
 
@@ -50,12 +53,6 @@ export const llmSettings = (v: Preferences): LlmSettings => {
   return { tiny: setup('tiny'), medium: setup('medium'), smart: setup('smart') };
 };
 
-const chatGptIds = {
-  [LlmModel.LUNA]: 'gpt-6-luna',
-  [LlmModel.SOL]: 'gpt-6.1-sol',
-  [LlmModel.ASTRA]: 'gpt-6.1-sol'
-} as const;
-
 export function selectedModel(
   settings: LlmSettings,
   tier: ModelTier,
@@ -72,11 +69,30 @@ export function selectedModel(
 
   return {
     provider: LlmProvider.CHAT_GPT,
-    modelId: typeof model === 'string' ? model : chatGptIds[model]
+    modelId: typeof model === 'string' ? model : chatGptModelIds[model]
   };
 }
 
-export function* settingsModelOperations() {
+function validateChoice(
+  setup: TierSetup,
+  saved: TierSetup,
+  catalog: Readonly<Record<string, readonly string[]>>
+) {
+  if (typeof setup.provider === 'string') getApiKeyProvider(setup.provider);
+
+  if (setup.model === undefined) return;
+
+  const id = typeof setup.model === 'number' ? chatGptModelIds[setup.model] : setup.model;
+  const available =
+    catalog[String(setup.provider)] ??
+    (setup.provider === LlmProvider.CHAT_GPT ? Object.values(chatGptModelIds) : []);
+  const unchanged = saved.provider === setup.provider && saved.model === setup.model;
+
+  if (!allowsAiModel(id) || (!unchanged && !available.includes(id)))
+    throw new StudyError('invalid_input', 'Unknown provider model');
+}
+
+export function* settingsModelOperations(account: () => string | null | undefined) {
   const store = yield* useStore(SettingsStore);
 
   return {
@@ -85,36 +101,36 @@ export function* settingsModelOperations() {
       input: llmSettingsSchema,
       message: 'Invalid settings',
       write: (tx, input) => {
-        const catalog = tx.store(ModelUpdatesStore).snapshot(undefined).catalog;
+        const catalog = accountCatalog(
+          tx.store(ModelUpdatesStore).snapshot(undefined),
+          account()
+        ).catalog;
+        const saved = llmSettings(tx.store(SettingsStore).preference('llm'));
 
-        for (const setup of Object.values(input)) {
-          if (typeof setup.provider === 'string') getApiKeyProvider(setup.provider);
-
-          if (typeof setup.model !== 'string') continue;
-
-          const choices: readonly string[] =
-            typeof setup.provider === 'number' ? Object.values(chatGptIds) : [];
-
-          if (
-            !allowsAiModel(setup.model) ||
-            (!choices.includes(setup.model) &&
-              !catalog[String(setup.provider)]?.includes(setup.model))
-          ) {
-            const saved = Object.values(llmSettings(tx.store(SettingsStore).preference('llm')));
-
-            if (
-              !allowsAiModel(setup.model) ||
-              !saved.some((item) => item.provider === setup.provider && item.model === setup.model)
-            )
-              throw new StudyError('invalid_input', 'Unknown provider model');
-          }
-        }
+        for (const tier of modelTiers) validateChoice(input[tier], saved[tier], catalog);
 
         tx.store(SettingsStore).saveLlmSettings({
           tiny: withoutAstra(input.tiny),
           medium: withoutAstra(input.medium),
           smart: withoutAstra(input.smart)
         });
+
+        return {};
+      }
+    }),
+    saveModelTier: validatedMutation({
+      input: saveModelTierSchema,
+      message: 'Invalid model selection',
+      write: (tx, { tier, setup }) => {
+        const store = tx.store(SettingsStore);
+        const saved = llmSettings(store.preference('llm'));
+        const catalog = accountCatalog(
+          tx.store(ModelUpdatesStore).snapshot(undefined),
+          account()
+        ).catalog;
+
+        validateChoice(setup, saved[tier], catalog);
+        store.saveLlmSettings({ ...saved, [tier]: withoutAstra(setup) });
 
         return {};
       }
@@ -126,14 +142,16 @@ export function* settingsModelOperations() {
             try: () => {
               const selection = selectedModel(llmSettings(value), tier, requiredProvider);
 
+              if (typeof selection.provider === 'string') getApiKeyProvider(selection.provider);
+
               if (!selection.modelId) throw new StudyError('config', 'Select a model in settings');
 
               return { ...selection, modelId: selection.modelId };
             },
             catch: (error) =>
-              error instanceof StudyError
+              error instanceof StudyError && error.kind !== 'invalid_input'
                 ? error
-                : new StudyError('config', 'Invalid configured model')
+                : new StudyError('config', 'Invalid configured model', { cause: error })
           })
         )
       )

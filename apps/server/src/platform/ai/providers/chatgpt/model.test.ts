@@ -22,7 +22,7 @@ import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model'
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 
 test.unit.stable(
-  'Responses adapter sends the latest Sol release and retries 401 with a rotated token',
+  'Responses adapter preserves the configured Sol model across a 401 retry',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
 
@@ -34,18 +34,6 @@ test.unit.stable(
       fetch: async (req) => {
         let events = '';
         const requestBody = await req.text();
-
-        if (new URL(req.url).pathname === '/models') {
-          expect(req.method).toBe('GET');
-          expect(req.headers.get('authorization')).toBe('Bearer original');
-
-          return Response.json({
-            models: [
-              { slug: 'gpt-6.1-sol', visibility: 'list' },
-              { slug: 'gpt-6.2-sol', visibility: 'list' }
-            ]
-          });
-        }
 
         if (new URL(req.url).pathname === '/api/accounts/oauth/token') {
           return new Response(

@@ -61,8 +61,14 @@ test.server.stable(
             'invalid_input'
           );
           expect(yield* settings.modelUpdates()).toEqual([latest]);
-          yield* settings.updateModel(latest, true);
-          expect(yield* settings.model('medium')).toMatchObject({ modelId: latest.model });
+          yield* settings.updateModel(latest, false);
+          yield* refresh(notice.model);
+          expect(yield* settings.modelUpdates()).toEqual([]);
+          const accepted = { ...latest, model: 'gpt-6.4-sol' };
+
+          yield* refresh(accepted.model);
+          yield* settings.updateModel(accepted, true);
+          expect(yield* settings.model('medium')).toMatchObject({ modelId: accepted.model });
           expect(yield* settings.modelUpdates()).toEqual([]);
         })
       );

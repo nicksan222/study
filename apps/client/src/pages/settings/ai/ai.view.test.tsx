@@ -22,6 +22,8 @@ test.unit.beforeEach(async ({ mock }) => {
 function settingsModel({ vi }: Pick<test.unit.Context, 'vi'>): AiSettingsModel {
   return {
     catalog: undefined,
+    catalogError: false,
+    retryCatalog: vi.fn(),
     suggestions: undefined,
     recommendations: undefined,
     data: {
@@ -188,7 +190,7 @@ test.unit.stable(
     await userEvent.click(screen.getByRole('combobox', { name: 'Attività rapide' }));
     expect(
       await screen.findByRole('option', { name: 'Anthropic — claude-haiku-5-5' })
-    ).toBeEnabled();
+    ).not.toHaveAttribute('aria-disabled', 'true');
 
     for (const option of screen.getAllByRole('option', { name: /ChatGPT/ }))
       expect(option).toHaveAttribute('aria-disabled', 'true');
@@ -263,9 +265,51 @@ test.unit.stable(
     );
     await userEvent.click(screen.getByRole('combobox', { name: 'Attività rapide' }));
 
+    for (const name of model.catalog!.anthropic!)
+      expect(
+        await screen.findByRole('option', { name: `Anthropic — ${name}` })
+      ).toBeInTheDocument();
+
     for (const option of await screen.findAllByRole('option'))
       expect(option).toHaveAttribute('aria-disabled', 'true');
 
     expect(model.setSetup).not.toHaveBeenCalled();
+  }
+);
+
+test.unit.stable(
+  'keeps an open picker option tied to the same model when discovery inserts a row',
+  async ({ render, screen, expect, userEvent, vi }) => {
+    const model = withAnthropic({ vi });
+    const view = render(<AiModelSettingsView model={model} />);
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Attività rapide' }));
+    const existing = await screen.findByRole('option', { name: 'Anthropic — claude-sonnet-5-5' });
+
+    model.catalog = { anthropic: ['new-first', ...model.catalog!.anthropic!] };
+    view.rerender(<AiModelSettingsView model={model} />);
+    expect(screen.getByRole('option', { name: 'Anthropic — new-first' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Anthropic — claude-sonnet-5-5' })).toBe(existing);
+    await userEvent.click(existing);
+    expect(model.setSetup).toHaveBeenCalledExactlyOnceWith('tiny', {
+      provider: 'anthropic',
+      model: 'claude-sonnet-5-5'
+    });
+  }
+);
+
+test.unit.stable(
+  'a failed catalog query keeps cached options available for retry',
+  async ({ render, screen, expect, userEvent, vi }) => {
+    const model = withAnthropic({ vi });
+
+    model.catalogError = true;
+    render(<AiModelSettingsView model={model} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Riprova' }));
+    expect(model.retryCatalog).toHaveBeenCalledOnce();
+    await userEvent.click(screen.getByRole('combobox', { name: 'Attività rapide' }));
+    expect(
+      await screen.findByRole('option', { name: 'Anthropic — claude-sonnet-5-5' })
+    ).toBeInTheDocument();
   }
 );

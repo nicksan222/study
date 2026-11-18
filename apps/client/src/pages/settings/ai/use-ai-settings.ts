@@ -14,7 +14,8 @@ export function useAiSettings() {
   const status = rpc.auth.status.useQuery({});
   const providers = rpc.auth.providers.useQuery({});
   const settings = rpc.settings.llmSettings.useQuery({});
-  const { data: catalog } = rpc.settings.modelCatalog.useQuery({});
+  const catalogQuery = rpc.settings.modelCatalog.useQuery({});
+  const catalog = catalogQuery.data;
   const data = configurationData(status.data, providers.data, settings.data);
   const [attempt, setAttempt] = useState<SignInAttempt>();
   const [popupBlocked, setPopupBlocked] = useState(false);
@@ -55,6 +56,8 @@ export function useAiSettings() {
   return {
     data,
     catalog: catalog?.models,
+    catalogError: catalogQuery.isError,
+    retryCatalog: catalogQuery.retry,
     suggestions: catalog?.suggestions,
     recommendations: catalog?.recommendations,
     signInUnsupported: unsupported(start.error) || unsupported(startError),

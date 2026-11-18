@@ -1,8 +1,6 @@
 import { Schema } from 'effect';
 
-import { apiKeyProviderIdSchema, modelIdSchema } from './schemas.ts';
-
-export const modelTiers = ['tiny', 'medium', 'smart'] as const;
+import { apiKeyProviderIdSchema, modelIdSchema, modelTiers } from './schemas.ts';
 
 const identifier = modelIdSchema;
 

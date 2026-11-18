@@ -1,4 +1,4 @@
-import { llmSettingsSchema, apiKeyInputSchema } from '@study/contracts';
+import { saveModelTierSchema, apiKeyInputSchema } from '@study/contracts';
 import { test } from '@study/testing';
 import { Schema } from 'effect';
 
@@ -38,8 +38,8 @@ function mount({
   renderHook
 }: Pick<test.unit.Context, 'rpcTestTransport' | 'renderHook'>) {
   const fixture = rpcTestTransport(async (tag, input) => {
-    if (tag === 'settings.saveLlmSettings')
-      return operations.saveAiSettings(Schema.decodeUnknownSync(llmSettingsSchema)(input));
+    if (tag === 'settings.saveModelTier')
+      return operations.saveAiSettings(Schema.decodeUnknownSync(saveModelTierSchema)(input));
 
     if (tag === 'auth.saveApiKey')
       return operations.saveProviderApiKey(Schema.decodeUnknownSync(apiKeyInputSchema)(input));
@@ -58,16 +58,16 @@ test.unit.stable(
     act(() => result.current.setSetup('tiny', { provider: 'anthropic', model: 'new-model' }));
     await waitFor(() =>
       expect(operations.saveAiSettings).toHaveBeenCalledWith({
-        ...data.settings,
-        tiny: { provider: 'anthropic', model: 'new-model' }
+        tier: 'tiny',
+        setup: { provider: 'anthropic', model: 'new-model' }
       })
     );
     expect(operations.saveAiSettings).toHaveBeenCalledTimes(1);
     act(() => result.current.setSetup('medium', { provider: 1 }));
     await waitFor(() =>
       expect(operations.saveAiSettings).toHaveBeenCalledWith({
-        ...data.settings,
-        medium: { provider: 1 }
+        tier: 'medium',
+        setup: { provider: 1 }
       })
     );
   }

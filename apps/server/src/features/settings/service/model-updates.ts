@@ -6,7 +6,7 @@ import { transaction, useStore } from '@study/server';
 import { Effect } from 'effect';
 
 import { SettingsStore } from '#server/features/settings/store/index';
-import { ModelUpdatesStore } from '#server/features/settings/store/model-updates';
+import { accountCatalog, ModelUpdatesStore } from '#server/features/settings/store/model-updates';
 
 import { llmSettings, selectedModel } from './models.ts';
 
@@ -63,23 +63,31 @@ function retainSelectedIdentities(
   return merged;
 }
 
-export function* modelUpdateOperations() {
+export function* modelUpdateOperations(account: () => string | null | undefined) {
   const models = yield* useStore(ModelUpdatesStore);
   const preferences = yield* useStore(SettingsStore);
 
   return {
     catalogIdentities: () =>
       models.snapshot(undefined).pipe(Effect.map((state) => state.identities ?? {})),
-    modelCatalog: () =>
-      models.snapshot(undefined).pipe(
-        Effect.map(({ catalog, recommendations, suggestions }) => ({
-          models: catalog,
-          recommendations,
-          suggestions: suggestions ?? {}
-        }))
-      ),
+    modelCatalog: Effect.fnUntraced(function* () {
+      const { catalog, recommendations, suggestions } = accountCatalog(
+        yield* models.snapshot(undefined),
+        account()
+      );
+      const settings = llmSettings(yield* preferences.preference('llm'));
+
+      return {
+        models: catalog,
+        suggestions: suggestions ?? {},
+        recommendations: recommendations.filter((notice) => stillSelected(settings, notice))
+      };
+    }),
     modelUpdates: Effect.fnUntraced(function* () {
-      const { recommendations, dismissed } = yield* models.snapshot(undefined);
+      const { recommendations, dismissed } = accountCatalog(
+        yield* models.snapshot(undefined),
+        account()
+      );
       const settings = llmSettings(yield* preferences.preference('llm'));
 
       return recommendations.filter(
@@ -91,11 +99,13 @@ export function* modelUpdateOperations() {
       catalog: Readonly<Record<string, readonly string[]>>,
       recommendations: readonly ModelUpdate[],
       suggestions?: ModelSuggestions,
-      identities?: CatalogIdentities
+      identities?: CatalogIdentities,
+      chatAccount = account()
     ) =>
       transaction((tx) => {
         const records = tx.store(ModelUpdatesStore);
-        const previous = records.snapshot(undefined);
+        const stored = records.snapshot(undefined);
+        const previous = accountCatalog(stored, chatAccount);
         const settings = llmSettings(tx.store(SettingsStore).preference('llm'));
         const candidates = [
           ...recommendations,
@@ -110,6 +120,7 @@ export function* modelUpdateOperations() {
         );
         const next = {
           catalog: { ...previous.catalog, ...discovered },
+          ...(chatAccount === undefined ? {} : { chatAccount }),
           recommendations: [
             ...previous.recommendations.filter(
               (entry) =>
@@ -136,12 +147,13 @@ export function* modelUpdateOperations() {
             : {})
         };
 
-        if (JSON.stringify(previous) !== JSON.stringify(next)) records.save(next);
+        if (JSON.stringify(stored) !== JSON.stringify(next)) records.save(next);
       }),
     updateModel: (notice: ModelUpdate, apply: boolean) =>
       transaction((tx) => {
         const models = tx.store(ModelUpdatesStore);
-        const snapshot = models.snapshot(undefined);
+        const stored = models.snapshot(undefined);
+        const snapshot = accountCatalog(stored, account());
         const preferences = tx.store(SettingsStore);
         const settings = llmSettings(preferences.preference('llm'));
         const current = selectedModel(settings, notice.tier);
@@ -167,8 +179,8 @@ export function* modelUpdateOperations() {
           });
         } else {
           models.save({
-            ...snapshot,
-            dismissed: [...snapshot.dismissed.filter((entry) => entry.tier !== notice.tier), notice]
+            ...stored,
+            dismissed: [...stored.dismissed, notice]
           });
         }
 

@@ -123,3 +123,44 @@ test.unit.stable(
     expect(toast.mock.calls[2]?.[0].description).toContain(next.model);
   }
 );
+
+test.unit.stable(
+  'closing during acceptance skips dismissal and reopens a failed current offer',
+  async ({ render, act, expect, vi, rpcTestTransport }) => {
+    const { transport } = rpcTestTransport(async () => []);
+    const result = Promise.withResolvers<unknown>();
+
+    data = [first];
+    apply = vi.fn(() => result.promise);
+    dismiss = vi.fn(async () => ({}));
+    const toast = vi.spyOn(toastManager, 'add').mockReturnValue('model-update');
+
+    render(<ModelUpdateNotifications transport={transport} />);
+    toast.mock.calls[0]?.[0].actionProps?.onClick?.({} as never);
+    toast.mock.calls[0]?.[0].onClose?.();
+    expect(dismiss).not.toHaveBeenCalled();
+    await act(async () => result.reject(new Error('offline')));
+    expect(toast.mock.calls.filter(([entry]) => entry.id === 'model-update')).toHaveLength(2);
+    expect(toast.mock.calls.some(([entry]) => entry.type === 'error')).toBe(true);
+  }
+);
+
+test.unit.stable(
+  'an acceptance failure from a retired transport stays out of the new viewport',
+  async ({ render, act, expect, vi, rpcTestTransport }) => {
+    const earlier = rpcTestTransport(async () => []).transport;
+    const current = rpcTestTransport(async () => []).transport;
+    const result = Promise.withResolvers<unknown>();
+
+    data = [first];
+    apply = vi.fn(() => result.promise);
+    dismiss = vi.fn(async () => ({}));
+    const toast = vi.spyOn(toastManager, 'add').mockReturnValue('model-update');
+    const view = render(<ModelUpdateNotifications transport={earlier} />);
+
+    toast.mock.calls[0]?.[0].actionProps?.onClick?.({} as never);
+    view.rerender(<ModelUpdateNotifications transport={current} />);
+    await act(async () => result.reject(new Error('retired')));
+    expect(toast.mock.calls.some(([entry]) => entry.type === 'error')).toBe(false);
+  }
+);

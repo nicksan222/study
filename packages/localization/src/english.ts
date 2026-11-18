@@ -1482,6 +1482,7 @@ export const english = Object.freeze({
   AiSettingsKeyMissing: 'No key saved.',
   AiSettingsModel: 'Model',
   AiSettingsModels: 'Models by task',
+  AiSettingsCatalogFailed: 'Could not refresh the model catalog.',
   AiSettingsChooseModel: 'Choose a model',
   AiSettingsDefaultModel: 'Use default',
   AiSettingsTiny: 'Quick tasks',

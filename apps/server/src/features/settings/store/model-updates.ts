@@ -6,11 +6,27 @@ import { Schema } from 'effect';
 
 const snapshot = Schema.Struct({
   catalog: modelCatalogSchema,
+  chatAccount: Schema.optionalKey(Schema.NullOr(Schema.String)),
   identities: Schema.optionalKey(catalogIdentitiesSchema),
   suggestions: Schema.optionalKey(modelSuggestionsSchema),
   recommendations: Schema.Array(modelUpdateSchema),
   dismissed: Schema.Array(modelUpdateSchema)
 });
+
+type Snapshot = typeof snapshot.Type;
+
+export function accountCatalog(state: Snapshot, account: string | null | undefined): Snapshot {
+  if (state.chatAccount === account) return state;
+
+  const { '1': _chat, ...catalog } = state.catalog;
+
+  return {
+    ...state,
+    catalog,
+    recommendations: state.recommendations.filter((notice) => notice.provider !== 1),
+    dismissed: state.dismissed.filter((notice) => notice.provider !== 1)
+  };
+}
 
 const encode = Schema.encodeSync(Schema.fromJsonString(snapshot));
 

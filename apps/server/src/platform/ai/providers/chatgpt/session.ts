@@ -74,6 +74,7 @@ export interface ChatGptCredentials {
 
 class Session implements ChatGptCredentials {
   readonly id = Symbol();
+  readonly catalogAccount: string;
   private account: Account;
   private access?: Access;
   private dirty = false;
@@ -87,6 +88,9 @@ class Session implements ChatGptCredentials {
 
   constructor(account: Account, options: AuthOptions, seed?: AccessSeed) {
     this.account = { ...account };
+    this.catalogAccount = new Bun.CryptoHasher('sha256')
+      .update(JSON.stringify([account.subject, account.clientId]))
+      .digest('hex');
     this.persistedRefreshToken = account.refreshToken;
 
     if (account.refreshToken) this.knownTokens.add(account.refreshToken);
@@ -274,6 +278,10 @@ export class AuthManager {
       .catch(() => {});
 
     return operation;
+  }
+
+  catalogAccount(): string | null {
+    return this.accepting ? (this.session?.catalogAccount ?? null) : null;
   }
 
   /** Bind catalog lookup and inference to the same sign-in across account changes. */
