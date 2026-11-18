@@ -16,17 +16,15 @@ Thank you for helping with Study.
   checks and CI: Rust formatting/Clippy/dependencies/tests/doctests/docs, repository-wide
   Vite+ format/lint, Fallow, TypeScript checks, package tests, web build and browser E2E,
   generated database drift, real integrations, the packaged-runtime smoke test, and landing
-  checks/build. Docker is required for real integrations. CI starts nine unconditional
-  lanes in parallel: 🧹 Code hygiene, 🧩 Types & unit tests, ⚙️ Server tests, 📦 Shared package tests,
-  🗄️ Database, 🌐 Browser journeys, 🦀 Desktop & runtime, 🔌 Provider integrations and
-  🌍 Landing page. Each lane selects tasks from the same Turbo graph. Static checks and
-  landing builds no longer wait for native toolchain setup; browser journeys have their
-  own three-shard matrix and canonical devcontainer. Each shard uses two workers;
-  independent cases, including settings pages in one file, can run in parallel. The
-  required `Test and build` check fails if any lane fails, is cancelled, is skipped or is missing. Independent tasks continue after
-  failures; dependent tasks run only when their prerequisites pass. The client build
-  reuses its prerequisite typecheck and can overlap independent unit and tooling tests.
-- **CI splits the server suite across three Vitest shards**, with one worker per shard.
+  checks/build. Docker is required for real integrations. Code hygiene and typechecking
+  start independently. The server and browser matrices start once both checks pass.
+  Client and tooling Vitest suites run in independent matrices. Shared package tests,
+  Python tooling tests, the database, native shell, integrations and landing jobs also
+  start independently. The required `Test and build` check fails if any job fails,
+  is cancelled, is skipped or is missing.
+- **CI splits each of the server, client and tooling Vitest suites across three shards**,
+  with one worker per shard. Browser journeys use three Playwright shards with two
+  workers each in the canonical devcontainer.
   The shared package suites each run once. Server fixtures use `/dev/shm` for RAM-backed
   temporary files on Linux CI, retaining WAL, locks, backup and restart behavior. Local
   tests use the normal temporary directory; each test still owns its database. A dedicated
@@ -479,28 +477,29 @@ Turbo handles selection, dependency ordering, and local caching. Shared source-o
 packages participate in the graph without redundant builds or separate typecheck projects.
 The existing server, client and tooling TypeScript projects remain the checking boundaries.
 
-CI group membership is defined in `turbo.json`: `check:hygiene`, `check:javascript`,
-`check:shared`, `check:database` and `check:native` are aggregate tasks without shell
-commands. Their `ci:*` scripts allow two independent tasks at once. The JavaScript lane
-owns typechecks, the client build and client/tooling unit tests. Server, shared
-package and database suites have separate jobs and reports. Browser, integration and
-landing jobs select
-`web:e2e:compare`, `integrations:e2e` and `landing-check`, respectively. Browser CI
-uses native Playwright `--shard=1/3`, `--shard=2/3` and `--shard=3/3` with case-level
-parallelism; the sequential harness cleanup checks stay in one worker. Server CI
-forwards those same shard indices to Vitest through `bun run ci:server --shard=1/3`,
-splitting the suite by test file. In both matrices, shards run even after a sibling
-fails and upload separately named reports. The required gate waits for both matrices
-and rejects a failed or cancelled shard. Other lanes run without sharding. No lane
-uses a path filter or change detector. Turbo decides which deterministic task
-results can be reused; server, database, integration and browser tests still execute every run.
-`web:e2e:compare` forwards runner options such as `--workers` and keeps the build
-prerequisite. The full check also stages the private server before its packaged-runtime
-smoke test. Regression tests compare runnable tasks across local and CI plans, exercise
-the required gate with failures/cancellations/skips, and verify that builds can overlap
-independent tests.
+CI group membership is defined in `turbo.json`. Code hygiene uses `check:hygiene`
+and TypeScript uses `check:types`. Both must pass before the server or browser matrix
+starts. The browser job builds the client through its normal Turbo prerequisite.
+The `check:shared` job runs contracts, localization, theme, integration helpers, UI,
+test infrastructure and Python tooling tests once. The shared job uses a standard temporary
+directory so Python can execute its temporary fixtures. Database and native checks have
+their own groups. Provider integrations and landing use `integrations:e2e` and
+`landing-check`, respectively.
 
-The shared JavaScript setup caches Bun dependency downloads and Turbo results. Native
+Browser CI uses native Playwright sharding with case-level parallelism. The sequential
+harness cleanup checks stay in one worker. CI forwards the shard index to Vitest for
+the server, client and tooling suites, which split by file. All four matrices finish
+their sibling shards on failure and upload separately named reports. The required
+check evaluates the results of every job, including jobs skipped when a prerequisite
+fails. Turbo handles caching for deterministic tasks. Server, database, integration
+and browser tests run on every eligible revision.
+
+The full local check runs each suite without sharding and stages the private server
+for its packaged-runtime smoke test. Regression tests compare local and CI task
+coverage and exercise the required gate when jobs fail, are cancelled or are skipped.
+
+The shared JavaScript setup caches Bun dependency downloads and Turbo results. Client
+unit shards have distinct Turbo cache keys so each shard can reuse its own reports. Native
 checks retain the Cargo cache. Browser CI restores the workspace Turbo cache before
 entering the devcontainer, where client builds can reuse it. Artifact uploads retain
 per-lane test reports and browser diagnostics even on failure.
