@@ -111,7 +111,13 @@ function AnnotationForm({ view, visible }: { view: AnnotationView; visible: bool
           </>
         )}
       </Disclosure>
-      <Button variant="ghost-destructive" disabled={blocked} onClick={() => setDeleting(true)}>
+      <Button
+        variant="ghost-destructive"
+        disabled={blocked || submission.blocked}
+        onClick={() => {
+          if (!submission.isBlocked()) setDeleting(true);
+        }}
+      >
         {t('AnnotationDelete')}
       </Button>
       <AnnotationDeletion view={view} />

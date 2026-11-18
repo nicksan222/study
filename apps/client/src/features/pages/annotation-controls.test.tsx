@@ -377,6 +377,7 @@ test.unit.stable(
     const save = screen.getByRole('button', { name: 'PageSaveAnnotation' });
 
     const note = screen.getByLabelText('PageAnnotationNote');
+    const deleteAction = screen.getByRole('button', { name: 'AnnotationDelete' });
 
     expect(save).toBeEnabled();
     await userEvent.click(note);
@@ -389,10 +390,14 @@ test.unit.stable(
     await userEvent.click(await screen.findByRole('button', { name: 'VoiceStop' }));
     await waitFor(() => expect(rpc['voice.transcribe']).toHaveBeenCalledOnce());
     expect(save).toBeDisabled();
+    expect(deleteAction).toBeDisabled();
+    await userEvent.click(deleteAction);
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     await userEvent.click(save);
     expect(rpc['pages.reviseAnnotation']).not.toHaveBeenCalled();
     await act(async () => recognition.resolve({ text: 'spoken' }));
     await waitFor(() => expect(save).toBeEnabled());
+    expect(deleteAction).toBeEnabled();
     expect(note).toHaveValue('Original spoken');
     await userEvent.click(save);
     await waitFor(() =>
