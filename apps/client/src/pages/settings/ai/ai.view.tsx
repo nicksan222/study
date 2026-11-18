@@ -110,9 +110,8 @@ export function AiModelSettingsView({ model }: { model: AiSettingsModel }) {
       disabled: !model.data?.status.signedIn
     },
     ...[
-      { model: LlmModel.GPT6_LUNA, label: t('AiSettingsLuna') },
-      { model: LlmModel.GPT61_SOL, label: t('AiSettingsSol') },
-      { model: LlmModel.GPT6_ASTRA, label: t('AiSettingsAstra') }
+      { model: LlmModel.LUNA, label: t('AiSettingsLuna') },
+      { model: LlmModel.SOL, label: t('AiSettingsSol') }
     ].map(({ model: modelId, label }) => ({
       setup: { provider: 1 as const, model: modelId },
       provider: t('AiSettingsChatGpt'),

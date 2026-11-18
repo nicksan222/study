@@ -93,15 +93,15 @@ test.server.stable(
           assert.strictEqual(yield* settings.language(), 'english');
           expect(yield* settings.model('tiny')).toStrictEqual({
             provider: 1,
-            modelId: 'gpt-6-luna'
+            family: LlmModel.LUNA
           });
           expect(yield* settings.model('medium')).toStrictEqual({
             provider: 1,
-            modelId: 'gpt-6.1-sol'
+            family: LlmModel.SOL
           });
           expect(yield* settings.model('smart')).toStrictEqual({
             provider: 1,
-            modelId: 'gpt-6-astra'
+            family: LlmModel.SOL
           });
           const app = {
             language: Language.ITALIAN,
@@ -117,16 +117,19 @@ test.server.stable(
           assert.strictEqual((yield* settings.appSettings()).appearance, Appearance.SYSTEM);
           yield* settings.saveAppSettings(app);
           const llm = {
-            tiny: { provider: LlmProvider.CHAT_GPT, model: LlmModel.GPT6_ASTRA },
+            tiny: { provider: LlmProvider.CHAT_GPT, model: LlmModel.ASTRA },
             medium: { provider: LlmProvider.CHAT_GPT },
             smart: { provider: LlmProvider.CHAT_GPT }
           };
 
           yield* settings.saveLlmSettings(llm);
-          expect(yield* settings.llmSettings()).toStrictEqual(llm);
+          expect(yield* settings.llmSettings()).toStrictEqual({
+            ...llm,
+            tiny: { provider: LlmProvider.CHAT_GPT, model: LlmModel.SOL }
+          });
           expect(yield* settings.model('tiny')).toStrictEqual({
             provider: 1,
-            modelId: 'gpt-6-astra'
+            family: LlmModel.SOL
           });
           yield* settings.saveMaterialSettings({ sift: false });
           yield* settings.saveReviewSettings({ newCardsPerDay: 42 });
@@ -407,7 +410,7 @@ test.server.stable(
           });
           expect(yield* settings.model('medium', LlmProvider.CHAT_GPT)).toStrictEqual({
             provider: LlmProvider.CHAT_GPT,
-            modelId: 'gpt-6.1-sol'
+            family: LlmModel.SOL
           });
           const invalid = yield* Effect.flip(
             settings.saveLlmSettings({ ...selection, tiny: { provider: 'unknown' } })

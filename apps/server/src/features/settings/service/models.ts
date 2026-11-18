@@ -1,6 +1,6 @@
 /** @file Owns models within this feature. */
 
-import type { LlmSettings, ModelTier } from '@study/contracts';
+import type { LlmSettings, ModelTier, TierSetup } from '@study/contracts';
 import {
   LlmModel,
   LlmProvider,
@@ -8,26 +8,39 @@ import {
   llmSettingsSchema,
   tierSetupSchema
 } from '@study/contracts';
-import { getApiKeyProvider, useStore, validatedMutation } from '@study/server';
+import { allowsAiModel, getApiKeyProvider, useStore, validatedMutation } from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { SettingsStore } from '#server/features/settings/store/index';
 
 import type { Preferences } from './preferences.ts';
 
+const defaults = {
+  tiny: LlmModel.LUNA,
+  medium: LlmModel.SOL,
+  smart: LlmModel.SOL
+} as const;
+
+function withoutAstra(setup: TierSetup): TierSetup {
+  if (typeof setup.provider === 'string')
+    return allowsAiModel(setup.model) ? setup : { provider: setup.provider };
+
+  return setup.model === LlmModel.ASTRA ? { ...setup, model: LlmModel.SOL } : setup;
+}
+
 const llmSettings = (v: Preferences): LlmSettings => {
   const setup = (key: string): LlmSettings['tiny'] => {
     const saved = v[key];
 
-    if (Schema.is(tierSetupSchema)(saved)) return saved;
+    if (Schema.is(tierSetupSchema)(saved)) return withoutAstra(saved);
 
-    return {
+    return withoutAstra({
       provider: LlmProvider.CHAT_GPT,
       model:
         typeof saved === 'number' && Object.values(LlmModel).some((model) => model === saved)
           ? (saved as LlmModel)
           : undefined
-    };
+    });
   };
 
   return { tiny: setup('tiny'), medium: setup('medium'), smart: setup('smart') };
@@ -51,7 +64,11 @@ export function* settingsModelOperations() {
           }
         }
 
-        tx.store(SettingsStore).saveLlmSettings(input);
+        tx.store(SettingsStore).saveLlmSettings({
+          tiny: withoutAstra(input.tiny),
+          medium: withoutAstra(input.medium),
+          smart: withoutAstra(input.smart)
+        });
 
         return {};
       }
@@ -75,19 +92,13 @@ export function* settingsModelOperations() {
                 };
               }
 
-              const defaults = {
-                tiny: LlmModel.GPT6_LUNA,
-                medium: LlmModel.GPT61_SOL,
-                smart: LlmModel.GPT6_ASTRA
+              return {
+                provider: LlmProvider.CHAT_GPT,
+                family:
+                  typeof setup.provider === 'string'
+                    ? defaults[tier]
+                    : (setup.model ?? defaults[tier])
               };
-              const selected = typeof setup.model === 'number' ? setup.model : defaults[tier];
-              const modelId = {
-                [LlmModel.GPT6_LUNA]: 'gpt-6-luna',
-                [LlmModel.GPT61_SOL]: 'gpt-6.1-sol',
-                [LlmModel.GPT6_ASTRA]: 'gpt-6-astra'
-              }[selected];
-
-              return { provider: LlmProvider.CHAT_GPT, modelId };
             },
             catch: (error) =>
               error instanceof StudyError

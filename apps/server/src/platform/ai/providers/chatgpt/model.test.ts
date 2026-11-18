@@ -1,4 +1,4 @@
-import { pageTransformOutputSchema } from '@study/contracts';
+import { LlmModel, pageTransformOutputSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises the ChatGPT Responses model adapter against a local HTTP peer. It checks │
@@ -21,8 +21,10 @@ import { LanguageModel } from 'effect/ai';
 import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 
+import { makeChatGptCatalog } from './catalog.ts';
+
 test.unit.stable(
-  'Responses adapter retries 401 with rotated OAuth token and consumes SSE',
+  'Responses adapter sends the latest Sol release and retries 401 with a rotated token',
   async ({ assert: assertions, expect }) => {
     const assert: test.Assert = assertions;
 
@@ -34,6 +36,18 @@ test.unit.stable(
       fetch: async (req) => {
         let events = '';
         const requestBody = await req.text();
+
+        if (new URL(req.url).pathname === '/models') {
+          expect(req.method).toBe('GET');
+          expect(req.headers.get('authorization')).toBe('Bearer original');
+
+          return Response.json({
+            models: [
+              { slug: 'gpt-6.1-sol', visibility: 'list' },
+              { slug: 'gpt-6.2-sol', visibility: 'list' }
+            ]
+          });
+        }
 
         if (new URL(req.url).pathname === '/api/accounts/oauth/token') {
           return new Response(
@@ -56,7 +70,7 @@ test.unit.stable(
         for (const event of [
           {
             type: 'response.created',
-            response: { id: 'resp', created_at: 1, model: 'gpt-test' }
+            response: { id: 'resp', created_at: 1, model: 'gpt-6.2-sol' }
           },
           {
             type: 'response.output_item.added',
@@ -81,7 +95,7 @@ test.unit.stable(
             response: {
               id: 'resp',
               created_at: 1,
-              model: 'gpt-test',
+              model: 'gpt-6.2-sol',
               output: [
                 {
                   type: 'message',
@@ -114,11 +128,9 @@ test.unit.stable(
         { subject: 'u', clientId: 'c', sharing: true, refreshToken: 'first' },
         { accessToken: 'original', expiresIn: 3600 }
       );
-      const model = createChatGptModel({
-        auth,
-        modelId: 'gpt-test',
-        baseUrl: base
-      });
+      const catalog = await Effect.runPromise(makeChatGptCatalog(auth, undefined, base));
+      const selection = await Effect.runPromise(catalog(LlmModel.SOL));
+      const model = createChatGptModel({ ...selection, baseUrl: base });
       const result = await Effect.runPromise(
         LanguageModel.generateText({
           prompt: [
@@ -130,6 +142,7 @@ test.unit.stable(
 
       assert.ok(result.text === 'Biology');
       expect(headers).toStrictEqual(['Bearer original', 'Bearer renewed']);
+      expect(bodies.map((body) => body.model)).toEqual(['gpt-6.2-sol', 'gpt-6.2-sol']);
       assert.ok(bodies[1].stream === true);
       assert.ok(bodies[1].store === false);
       expect(String(bodies[1].instructions)).toMatch(/study note/i);

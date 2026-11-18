@@ -3,6 +3,7 @@
 import type { UsageQuery } from '@study/contracts';
 import { defineService, useStore, UsageStore } from '@study/server';
 
+import { modelUpdateOperations } from './model-updates.ts';
 import { settingsModelOperations } from './models.ts';
 import { settingsPreferenceOperations } from './preferences.ts';
 
@@ -12,6 +13,7 @@ const make = function* () {
   return {
     usage: (query: UsageQuery) => usage.usageReport(query),
     ...(yield* settingsModelOperations()),
+    ...(yield* modelUpdateOperations()),
     ...(yield* settingsPreferenceOperations())
   };
 };

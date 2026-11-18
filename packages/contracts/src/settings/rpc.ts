@@ -2,6 +2,7 @@ import { Schema } from 'effect';
 
 import { failureSchema } from '../errors.ts';
 import { allDependencies, dependency, endpointGroup, liveQuery, mutation } from '../protocol.ts';
+import { modelUpdateSchema } from './model-updates.ts';
 import {
   agentRulesSchema,
   quizSettingsSchema,
@@ -19,6 +20,16 @@ import { usageQuerySchema, usageReportSchema } from './usage.ts';
 const saved = Schema.Struct({});
 
 export const settingsEndpoints = {
+  modelUpdates: liveQuery(
+    'settings.modelUpdates',
+    { payload: {}, success: Schema.Array(modelUpdateSchema), error: failureSchema },
+    { dependencies: [dependency.settings], refresh: 'database' }
+  ),
+  dismissModelUpdate: mutation(
+    'settings.dismissModelUpdate',
+    { payload: modelUpdateSchema, success: saved, error: failureSchema },
+    { changes: [dependency.settings] }
+  ),
   usage: liveQuery(
     'settings.usage',
     {

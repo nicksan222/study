@@ -113,9 +113,8 @@ test.unit.stable(
       (await screen.findAllByRole('option')).map((option) => option.textContent)
     ).toStrictEqual([
       'ChatGPT — Usa predefinito',
-      'ChatGPT — GPT-6 Luna',
-      'ChatGPT — GPT-6.1 Sol',
-      'ChatGPT — GPT-6 Astra',
+      'ChatGPT — Preferisci Luna',
+      'ChatGPT — Preferisci Sol',
       'Anthropic — Usa predefinito',
       'Anthropic — claude-haiku-5-5',
       'Anthropic — claude-sonnet-5-5',
@@ -187,7 +186,9 @@ test.unit.stable(
     expect(
       await screen.findByRole('option', { name: 'ChatGPT — Usa predefinito' })
     ).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.queryByRole('option', { name: 'ChatGPT — GPT-6 Luna' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('option', { name: 'ChatGPT — Preferisci Luna' })
+    ).not.toBeInTheDocument();
     expect(model.setSetup).not.toHaveBeenCalled();
   }
 );

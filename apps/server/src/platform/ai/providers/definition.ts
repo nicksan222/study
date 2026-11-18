@@ -27,6 +27,7 @@ export interface ApiKeyModelOptions {
 export interface ApiKeyProvider {
   readonly id: string;
   readonly name: string;
+  readonly catalogId: string;
   readonly models: readonly string[];
   readonly defaults: Readonly<Record<ModelTier, string>>;
   readonly createModel: (options: ApiKeyModelOptions) => AiModel;
@@ -36,8 +37,9 @@ export interface ApiKeyProvider {
 export type ProviderDefinition<
   Id extends string,
   Models extends readonly [string, ...string[]]
-> = Omit<ApiKeyProvider, 'id' | 'models' | 'defaults'> & {
+> = Omit<ApiKeyProvider, 'id' | 'catalogId' | 'models' | 'defaults'> & {
   readonly id: Id;
+  readonly catalogId?: string;
   readonly models: Models;
   readonly defaults: Readonly<Record<ModelTier, NoInfer<Models[number]>>>;
 };
@@ -45,6 +47,6 @@ export type ProviderDefinition<
 export function defineApiKeyProvider<
   const Id extends string,
   const Models extends readonly [string, ...string[]]
->(definition: ProviderDefinition<Id, Models>): ProviderDefinition<Id, Models> {
-  return definition;
+>(definition: ProviderDefinition<Id, Models>) {
+  return { ...definition, catalogId: definition.catalogId ?? definition.id };
 }

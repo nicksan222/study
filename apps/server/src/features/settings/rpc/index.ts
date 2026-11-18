@@ -22,6 +22,8 @@ export const SettingsRpcLive = defineRpc(
   SettingsRpc,
   { settings: Settings, admission: AiAdmission },
   ({ settings, admission }) => ({
+    'settings.modelUpdates': () => settings.modelUpdates(),
+    'settings.dismissModelUpdate': settings.dismissModelUpdate,
     'settings.usage': settings.usage,
     'settings.agentRules': () => settings.agentRules(),
     'settings.saveAgentRules': settings.saveAgentRules,

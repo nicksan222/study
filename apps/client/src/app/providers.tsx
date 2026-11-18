@@ -15,6 +15,7 @@ const defaultTransport = createRpcTransport();
 
 configureRpcTransport(defaultTransport);
 import { BackupNotifications } from '../pages/settings/data/notifications';
+import { ModelUpdateNotifications } from './model-update-notifications';
 import { OnboardingProvider } from './onboarding';
 
 export function Providers({
@@ -65,6 +66,7 @@ function Notifications({ children }: { children: ReactNode }) {
   return (
     <ToastProvider closeLabel={t('Close')} viewportLabel={t('NotificationsLabel')}>
       <BackupNotifications />
+      <ModelUpdateNotifications />
       {children}
     </ToastProvider>
   );

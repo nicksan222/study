@@ -16,6 +16,7 @@ import { compatibleProvider } from './compatible.ts';
 
 export const together = compatibleProvider({
   id: 'together',
+  catalogId: 'togetherai',
   name: 'Together AI',
   baseURL: 'https://api.together.xyz/v1',
   models: ['Qwen/Qwen3.8-Flash', 'deepseek-ai/DeepSeek-V4.1-Flash', 'openai/gpt-oss-120b'],

@@ -1,4 +1,5 @@
-import { Agents } from '@study/server';
+import { AgentRule } from '@study/contracts';
+import { Agents, defineAgent, generateAgent } from '@study/server';
 import { encodeAccount } from '@study/server';
 import { Database } from '@study/server';
 import { transaction } from '@study/server';
@@ -21,7 +22,8 @@ import { test } from '@study/testing';
  * │ cleanup closes owned resources.                                                          │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-import { Effect } from 'effect';
+import { Effect, Schema } from 'effect';
+import { Model } from 'effect/ai';
 
 import { Auth } from '#server/features/auth/index';
 import { AuthStore } from '#server/features/auth/store/index';
@@ -104,6 +106,129 @@ test.server.stable(
     } finally {
       await app.close();
       await location.close();
+    }
+  }
+);
+
+const versionCheckAgent = defineAgent({
+  id: 'model-version-check',
+  input: Schema.String,
+  output: Schema.String,
+  model: 'medium',
+  customRules: [AgentRule.Replies],
+  instructions: 'Reply to the supplied message.',
+  prompt: (message) => message
+});
+
+function textCompletion(model: string) {
+  const base = { id: 'test', object: 'chat.completion.chunk', created: 1, model };
+  const events = [
+    {
+      ...base,
+      choices: [{ index: 0, delta: { role: 'assistant', content: 'Hello' }, finish_reason: null }]
+    },
+    {
+      ...base,
+      choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+      usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 }
+    }
+  ];
+
+  return new Response(
+    events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join('') + 'data: [DONE]\n\n',
+    {
+      headers: { 'content-type': 'text/event-stream' }
+    }
+  );
+}
+
+test.server.stable(
+  'configured API-key tiers announce an updated model after the new release completes an agent run',
+  async ({ resources, expect }) => {
+    let id = 'deepseek-new-name';
+    let date = '2026-11-17';
+    const open = () =>
+      resources.openApp({
+        path: resources.path,
+        fetch: async (input, init) => {
+          const request = new Request(input, init);
+
+          if (request.url.endsWith('/chat/completions')) {
+            expect(await request.json()).toMatchObject({ model: id });
+
+            return textCompletion(id);
+          }
+
+          expect(request.url).toBe('https://models.dev/api.json');
+          expect(request.headers.has('authorization')).toBe(false);
+
+          return Response.json({
+            deepseek: {
+              models: {
+                [id]: {
+                  id,
+                  name: id,
+                  family: 'deepseek',
+                  release_date: date,
+                  tool_call: true,
+                  modalities: { output: ['text'] },
+                  cost: { output: 1 }
+                }
+              }
+            }
+          });
+        }
+      });
+    let app = await open();
+
+    try {
+      await app.nativeRuntime.runPromise(
+        Effect.gen(function* () {
+          const auth = yield* Auth;
+          const settings = yield* Settings;
+          const agents = yield* Agents;
+
+          yield* auth.saveApiKey({ provider: 'deepseek', apiKey: 'test-secret' });
+          yield* settings.saveLlmSettings({
+            tiny: { provider: 'deepseek' },
+            medium: { provider: 'deepseek' },
+            smart: { provider: 'deepseek' }
+          });
+          const selected = yield* agents.model('medium', {
+            definition: { input: Schema.String, output: Schema.String },
+            input: 'Hello'
+          });
+
+          expect(selected.provider).toBe('deepseek');
+          expect(yield* Effect.provide(Model.ModelName, selected)).toBe(id);
+          expect(yield* generateAgent(versionCheckAgent, 'Hello')).toBe('Hello');
+          expect(yield* settings.modelUpdates()).toEqual([]);
+        })
+      );
+      await app.close();
+      id = 'deepseek-newer-name';
+      date = '2026-11-18';
+      app = await open();
+
+      await app.nativeRuntime.runPromise(
+        Effect.gen(function* () {
+          const settings = yield* Settings;
+
+          expect(yield* settings.modelUpdates()).toEqual([]);
+          expect(yield* generateAgent(versionCheckAgent, 'Hello')).toBe('Hello');
+          expect(yield* settings.modelUpdates()).toEqual([
+            {
+              provider: 'deepseek',
+              family: 'deepseek',
+              previousModel: 'deepseek-new-name',
+              model: id
+            }
+          ]);
+        })
+      );
+    } finally {
+      await app.close();
+      await resources.close();
     }
   }
 );

@@ -24,6 +24,8 @@ import {
   ChatGptSession,
   createApiKeyModel,
   createChatGptModel,
+  makeChatGptCatalog,
+  makeApiKeyCatalog,
   getApiKeyProvider,
   BackupStorage,
   ManagedBackups,
@@ -33,6 +35,7 @@ import {
   normalizeError,
   recordAiTokens,
   recordUsageFailure,
+  recordModelUpdateFailure,
   UsageStore,
   observeAgentProgress,
   WorkflowConfiguration,
@@ -150,10 +153,17 @@ export function nativeLayers(
       const auth = yield* Auth;
 
       const aiAdmission = yield* AiAdmission;
+      const chatGptModel = yield* makeChatGptCatalog(manager, request);
+      const apiKeyModel = yield* makeApiKeyCatalog(request);
 
       return {
         observe: observeAgentProgress(store),
         now: () => store.timestampClock.currentTimeMillisUnsafe(),
+        observeModelRelease: (release) =>
+          settings.observeModelRelease(release).pipe(
+            Effect.provideService(Database, { store }),
+            Effect.catch(() => recordModelUpdateFailure())
+          ),
         recordUsage: (record) =>
           transaction((tx) => tx.store(UsageStore).record(record)).pipe(
             Effect.provideService(Database, { store }),
@@ -168,19 +178,30 @@ export function nativeLayers(
           ai?.model
             ? ai.model(tier, call).pipe(Effect.mapError(normalizeError))
             : settings.model(tier, call.definition.requiredProvider).pipe(
-                Effect.flatMap(({ provider, modelId }): ReturnType<Agents['Service']['model']> =>
-                  typeof provider === 'string'
-                    ? Effect.try({
-                        try: () =>
-                          createApiKeyModel(
-                            getApiKeyProvider(provider),
-                            modelId,
-                            auth.apiKey(provider),
-                            request
-                          ),
-                        catch: () => new StudyError('config', 'Could not initialize AI provider')
+                Effect.flatMap((selection): ReturnType<Agents['Service']['model']> =>
+                  typeof selection.provider === 'string'
+                    ? Effect.gen(function* () {
+                        const provider = getApiKeyProvider(selection.provider);
+                        const key = auth.apiKey(provider.id);
+
+                        yield* key;
+                        const { modelId, release } = yield* apiKeyModel(
+                          provider,
+                          tier,
+                          selection.modelId
+                        );
+
+                        return Object.assign(createApiKeyModel(provider, modelId, key, request), {
+                          release
+                        });
                       })
-                    : Effect.succeed(createChatGptModel({ auth: manager, modelId, fetch: request }))
+                    : chatGptModel(selection.family).pipe(
+                        Effect.map(({ auth, modelId, release }) =>
+                          Object.assign(createChatGptModel({ auth, modelId, fetch: request }), {
+                            release
+                          })
+                        )
+                      )
                 )
               ),
         searchSources: () =>

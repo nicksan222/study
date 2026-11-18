@@ -4,7 +4,10 @@ import { Context, Effect } from 'effect';
 import type { Schema } from 'effect';
 import type { LanguageModel, Model, Tool } from 'effect/ai';
 
+import type { ModelRelease } from '#server/platform/ai/providers/release';
+
 export type AiModel = Model.Model<string, LanguageModel.LanguageModel, never> & {
+  readonly release?: ModelRelease;
   readonly withOutputSchema?: (schema: Schema.Top & Schema.ConstraintDecoder<unknown>) => {
     model: AiModel;
     codec: Schema.ConstraintDecoder<unknown>;

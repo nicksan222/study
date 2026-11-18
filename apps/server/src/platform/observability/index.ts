@@ -242,6 +242,12 @@ export const recordUsageFailure = () =>
     Effect.provideService(References.CurrentLogAnnotations, {})
   );
 
+/** Report notification persistence failures without retaining request metadata. */
+export const recordModelUpdateFailure = () =>
+  Effect.logWarning('model.update.record.failure').pipe(
+    Effect.provideService(References.CurrentLogAnnotations, {})
+  );
+
 /** A failed reconciliation tick remains retryable without logging database or request data. */
 export const recordReactiveReconciliationFailure = () =>
   Effect.logWarning('rpc.reconciliation.failure').pipe(

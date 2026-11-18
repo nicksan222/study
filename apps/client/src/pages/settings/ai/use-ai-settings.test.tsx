@@ -131,11 +131,11 @@ test.unit.stable(
     await user.click(
       await screen.findByRole('combobox', { name: catalogs.english.AiSettingsMedium })
     );
-    await user.click(await screen.findByRole('option', { name: 'ChatGPT — GPT-6 Astra' }));
+    await user.click(await screen.findByRole('option', { name: 'ChatGPT — Prefer Sol' }));
     await waitFor(() =>
       expect(operations.saveAiSettings).toHaveBeenCalledWith({
         ...settings,
-        medium: { provider: 1, model: 3 }
+        medium: { provider: 1, model: 2 }
       })
     );
     expect(operations.startChatGptSignIn).not.toHaveBeenCalled();

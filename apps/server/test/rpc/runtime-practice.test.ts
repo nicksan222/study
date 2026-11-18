@@ -82,6 +82,20 @@ for (const mode of [
       const peer = Bun.serve({
         hostname: '127.0.0.1',
         port: 0,
+        routes: {
+          '/v1/models': {
+            GET: (request) => {
+              expect(request.headers.get('authorization')).toBe('Bearer token');
+
+              return Response.json({
+                models: ['gpt-6-luna', 'gpt-6.2-sol', 'gpt-6.2-astra'].map((slug) => ({
+                  slug,
+                  visibility: 'list'
+                }))
+              });
+            }
+          }
+        },
         fetch: async (request) => {
           const body = await request.text();
 
