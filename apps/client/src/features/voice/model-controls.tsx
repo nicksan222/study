@@ -109,7 +109,7 @@ function useDownloadSize({ state, status }: ModelControls) {
 
 function ModelFeedback({ controls }: { controls: ModelControls }) {
   const { t } = useI18n();
-  const { status, install, cancel, remove, error } = controls;
+  const { status, install, busy, error } = controls;
 
   if (status.isPending) return <Loading label={t('LoadingSettings')} />;
 
@@ -122,18 +122,52 @@ function ModelFeedback({ controls }: { controls: ModelControls }) {
           label={t('Retry')}
           variant="outline"
           size="sm"
-          onClick={() => {
-            install.reset();
-            cancel.reset();
-            remove.reset();
-            status.refetch();
-          }}
+          disabled={busy || install.isPending || status.isFetching}
+          onClick={() => retryModelOperation(controls)}
         />
       }
     >
       {t('VoiceModelFailed')}
     </Settings.Status>
   );
+}
+
+function retryModelOperation({ status, state, install, cancel, remove }: ModelControls) {
+  if (!status.isError) {
+    if (install.isError && state === 'missing') {
+      startDownload(install);
+
+      return;
+    }
+
+    const installation = cancel.variables;
+
+    if (
+      cancel.isError &&
+      installation &&
+      installation.installationId === status.data?.installationId
+    ) {
+      void cancel.mutateAsync(installation).catch(() => {});
+
+      return;
+    }
+
+    if (remove.isError && state === 'ready') {
+      void remove.mutateAsync({}).catch(() => {});
+
+      return;
+    }
+  }
+
+  install.reset();
+  cancel.reset();
+  remove.reset();
+  status.refetch();
+}
+
+function startDownload(install: ModelControls['install']) {
+  install.reset();
+  void install.mutateAsync({}).catch(() => {});
 }
 
 export function VoiceLanguageRow() {
@@ -181,10 +215,7 @@ function ModelAction({ controls }: { controls: ModelControls }) {
         <Button
           type="button"
           disabled={busy || install.isPending}
-          onClick={() => {
-            install.reset();
-            void install.mutateAsync({}).catch(() => {});
-          }}
+          onClick={() => startDownload(install)}
         >
           {t('VoiceDownload')}
         </Button>

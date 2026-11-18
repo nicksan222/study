@@ -12,10 +12,16 @@ let download: { installationId?: string } | undefined;
 
 let cancellation: unknown;
 
+let installations: number;
+
+let refreshes: number;
+
 test.unit.beforeEach(async ({ mock }) => {
   failure = undefined;
   download = undefined;
   cancellation = undefined;
+  installations = 0;
+  refreshes = 0;
   const mutation = () => ({ isPending: false, isError: false, reset() {} });
 
   mock('@study/contracts/react', () => ({
@@ -45,10 +51,22 @@ test.unit.beforeEach(async ({ mock }) => {
               ]
             },
             isPending: false,
-            isError: false
+            isError: false,
+            refetch: () => {
+              refreshes++;
+            }
           })
         },
-        install: { useMutation: () => ({ ...mutation(), isError: true, error: failure }) },
+        install: {
+          useMutation: () => ({
+            ...mutation(),
+            isError: true,
+            error: failure,
+            mutateAsync: async () => {
+              installations++;
+            }
+          })
+        },
         cancelInstall: {
           useMutation: () => ({
             ...mutation(),
@@ -92,12 +110,15 @@ test.unit.stable(
   }
 );
 
-test.unit.stable('still presents an actual download failure', ({ render, screen, expect }) => {
+test.unit.stable('retries an actual download failure', ({ render, screen, expect, fireEvent }) => {
   failure = { kind: 'transient', message: 'Unavailable', retryAfterMs: null };
   render(<VoiceModelControls />);
   expect(
     screen.getByText('Could not update the voice model. Check your connection and retry.')
   ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+  expect(installations).toBe(1);
+  expect(refreshes).toBe(0);
 });
 
 test.unit.stable(
