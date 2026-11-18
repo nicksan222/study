@@ -4,6 +4,9 @@ inputs:
   ignore-scripts:
     description: Skip dependency lifecycle scripts for the isolated integration lane.
     default: 'false'
+  task-cache-suffix:
+    description: Distinguish Turbo caches for shards of the same job.
+    default: ''
 runs:
   using: composite
   steps:
@@ -29,3 +32,5 @@ runs:
         bun install "${args[@]}"
     - name: ♻️ Restore Turbo task cache
       uses: ./.github/actions/turbo-cache
+      with:
+        key-suffix: ${{ inputs.task-cache-suffix }}
