@@ -496,6 +496,7 @@ test.browser.describe('Practice dictation', () => {
     'Open practice answers finish dictation before submission',
     async ({ page, rpc, study, microphone, expect, expectScreenshot }) => {
       const fixture = await study.seed();
+
       await rpc.runPromise(rpc.client['voice.install']({}));
       const material = await rpc.runPromise(
         rpc.client['materials.create']({
