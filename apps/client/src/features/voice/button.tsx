@@ -41,7 +41,7 @@ const session = new DictationSession(captureMicrophone, (samples, signal) =>
 type DictationProps = {
   /** Receives each recognized segment in order, including the final segment after Stop. */
   onTranscript: (text: string) => void;
-  onCaptureStart?: () => void;
+  onCaptureStart?: (trigger: HTMLButtonElement) => void;
   targetKey?: string | number | bigint;
   disabled?: boolean;
 };
@@ -82,18 +82,18 @@ function useDictation({
   useLayoutEffect(() => () => session.cancel(owner), [owner]);
   useEscapeCancellation(owned && canCancelCapture(state.phase), owner);
 
-  const begin = () => {
+  const begin = (trigger: HTMLButtonElement) => {
     if (disabled) return;
 
     setCapturedTarget(targetKey);
-    callbacks.current.onCaptureStart?.();
+    callbacks.current.onCaptureStart?.(trigger);
     void session.start(
       owner,
       (text) => callbacks.current.onTranscript(text),
       preferences.data?.chunkSeconds
     );
   };
-  const start = () => {
+  const start = (trigger: HTMLButtonElement) => {
     if (disabled) return;
 
     if (model.data?.state !== 'ready') {
@@ -102,7 +102,7 @@ function useDictation({
       return;
     }
 
-    begin();
+    begin(trigger);
   };
 
   return {
@@ -205,10 +205,10 @@ function DictationAction({
   const { t } = useI18n();
   const [recovery, setRecovery] = useState<Model['state']>();
   const open = retry && recovery === model.state;
-  const activate = () => {
+  const activate = (trigger: HTMLButtonElement) => {
     if (retry) setRecovery(model.state);
     else if (active) session.cancel(model.owner);
-    else model.start();
+    else model.start(trigger);
   };
 
   return (
@@ -224,7 +224,7 @@ function DictationAction({
         variant={error ? 'warning-outline' : 'ghost'}
         disabled={disabled}
         onMouseDown={(event) => event.preventDefault()}
-        onClick={activate}
+        onClick={(event) => activate(event.currentTarget)}
       >
         <TriggerIcon active={active} error={!!error} />
       </IconButton>
@@ -432,9 +432,9 @@ function DictationSetup({ model }: { model: Model }) {
             <Button
               type="button"
               disabled={model.disabled}
-              onClick={() => {
+              onClick={(event) => {
                 model.setSetup(false);
-                model.begin();
+                model.begin(event.currentTarget);
               }}
             >
               {t('VoiceStart')}

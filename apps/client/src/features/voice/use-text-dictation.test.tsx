@@ -16,7 +16,7 @@ function Draft({ initial = 'First idea' }: { initial?: string }) {
         value={value}
         onChange={(event) => setValue(event.target.value)}
       />
-      <button onClick={dictation.onCaptureStart}>Capture</button>
+      <button onClick={(event) => dictation.onCaptureStart(event.currentTarget)}>Capture</button>
       <button onClick={() => dictation.onTranscript('another thought')}>Finish</button>
       <button
         onClick={() => {
@@ -114,5 +114,47 @@ test.unit.stable(
     fireEvent.change(input, { target: { value: 'First idea' } });
     fireEvent.click(finish);
     expect(input.value).toBe('First idea another thought');
+  }
+);
+
+test.unit.stable(
+  'inserts into the original draft without taking focus from another field',
+  async ({ render, screen, fireEvent, expect }) => {
+    render(
+      <>
+        <Draft />
+        <textarea aria-label="Other draft" />
+      </>
+    );
+    const other = screen.getByRole('textbox', { name: 'Other draft' });
+    const input = screen.getByRole('textbox', { name: 'Draft' }) as HTMLTextAreaElement;
+
+    input.setSelectionRange(input.value.length, input.value.length);
+    other.focus();
+    fireEvent.click(screen.getByRole('button', { name: 'Capture' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+    expect(input).toHaveValue('First idea another thought');
+    expect(other).toHaveFocus();
+  }
+);
+
+test.unit.stable(
+  'places the cursor in the draft when the dictation trigger still has keyboard focus',
+  async ({ render, screen, fireEvent, expect }) => {
+    render(<Draft />);
+    const input = screen.getByRole('textbox', { name: 'Draft' }) as HTMLTextAreaElement;
+    const trigger = screen.getByRole('button', { name: 'Capture' });
+
+    input.setSelectionRange(0, 5);
+    trigger.focus();
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+    expect(input).toHaveFocus();
+    expect(input).toHaveValue('another thought idea');
+    expect(input.selectionStart).toBe('another thought'.length);
   }
 );

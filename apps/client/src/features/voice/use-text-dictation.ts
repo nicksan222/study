@@ -7,7 +7,7 @@ import type { TextSelection } from './text-insertion';
 type Destination = {
   pendingAgainst?: string;
   selection: TextSelection;
-  initialFocus?: Element;
+  initialFocus?: HTMLButtonElement;
 };
 
 /** Textarea offsets count a CRLF pair as one character. */
@@ -42,14 +42,16 @@ export function useTextDictation({
   }, [value]);
 
   return {
-    onCaptureStart: () => {
+    onCaptureStart: (trigger: HTMLButtonElement) => {
+      const field = input.current;
+
       destination.current = {
         selection: {
           value,
-          start: input.current ? rawOffset(value, input.current.selectionStart) : value.length,
-          end: input.current ? rawOffset(value, input.current.selectionEnd) : value.length
+          start: field ? rawOffset(value, field.selectionStart) : value.length,
+          end: field ? rawOffset(value, field.selectionEnd) : value.length
         },
-        initialFocus: input.current?.ownerDocument.activeElement ?? undefined
+        initialFocus: field?.ownerDocument.activeElement === trigger ? trigger : undefined
       };
     },
     onTranscript: (transcript: string) => {

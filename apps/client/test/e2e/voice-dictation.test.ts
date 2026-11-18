@@ -95,7 +95,7 @@ test.browser.stable(
     await expect(composer).toHaveValue(
       'Before spoken field observation. After the dictated words.'
     );
-    await expect(composer).toBeFocused();
+    await expect(page.getByRole('button', { name: copy.VoiceStart, exact: true })).toBeFocused();
     await expectScreenshot('transcript-inserted', {
       target: 'viewport',
       ready: () =>
