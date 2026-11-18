@@ -29,7 +29,9 @@ Thank you for helping with Study.
 - **CI runs the complete server suite once without sharding**, retaining two Vitest workers.
   Server fixtures use `/dev/shm` for RAM-backed
   temporary files on Linux CI, retaining WAL, locks, backup and restart behavior. Local
-  tests use the normal temporary directory; each test still owns its database.
+  tests use the normal temporary directory; each test still owns its database. The server
+  lane also prepares and verifies a cached set of pinned speech assets before running the
+  real recognition matrix. That matrix uses disk-backed temporary files on CI.
 - **Every visible word comes from `@study/localization`, in English and Italian.** If you
   can't write the Italian, say so in the pull request.
 - **Report a vulnerability privately**, as [SECURITY.md](SECURITY.md) says, never in an
@@ -146,15 +148,19 @@ screenshots. This replaces native inference while retaining the real app, SQLite
 installation checks and RPC. Human audio fixtures and their CC-BY-4.0 attribution live in
 `tooling/testing/fixtures/voice`.
 
-The separate native speech integration runs the pinned engine, model, service and HTTP RPC
-against those recordings. Install Voice explicitly in Study first, then point the test at
-its two GGUF files; the test never downloads models:
+The native speech integration runs the same shared cases for every registered recognizer
+through the real worker, service and HTTP RPC. Registering a model automatically adds it to
+the matrix. A model must support at least one language in the shared recording corpus.
 
 ```bash
-STUDY_VOICE_MODEL=/absolute/path/parakeet-tdt-0.6b-v3-Q8_0.gguf \
-STUDY_VOICE_VAD=/absolute/path/silero-vad-v6.2-F32.gguf \
-bun --bun vp test run --config tooling/testing/voice/vite.config.ts
+export STUDY_VOICE_MODELS_DIR=/absolute/path/to/prepared/voice/models
+bun run voice:fixtures
+bun run voice:test
 ```
+
+The preparation command downloads and verifies the assets pinned by the registry. The suite
+uses those local files and makes no remote requests. For an existing Study installation,
+point `STUDY_VOICE_MODELS_DIR` at the directory containing its installed model files.
 
 To include the upstream Parakeet frame-boundary regression, download the two WAV
 attachments from [transcribe.cpp issue 252](https://github.com/handy-computer/transcribe.cpp/issues/252)

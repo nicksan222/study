@@ -4,8 +4,6 @@ import { CryptoHasher } from 'bun';
 
 import type { VoiceRuntimeAdapters } from '#server/platform/speech/runtime';
 
-export { transcribeNative } from '#server/platform/speech/native';
-
 type Input = Parameters<NonNullable<VoiceRuntimeAdapters['transcribe']>>[0];
 
 /** Controls only the native inference boundary; installation, services, RPC and capture stay real. */

@@ -5,6 +5,12 @@ import { Schema } from 'effect';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
+type VoiceStatus = ReturnType<typeof rpc.voice.status.useQuery>['data'];
+
+function activeModel(status: VoiceStatus) {
+  return status?.models.find((model) => model.id === status.modelId);
+}
+
 function useModelControls() {
   const status = rpc.voice.status.useQuery({});
   const install = rpc.voice.install.useMutation();
@@ -29,10 +35,14 @@ const stateLabels = {
 export function VoiceModelControls() {
   const { t, number } = useI18n();
   const { status, install, cancel, remove, state, busy, error } = useModelControls();
+  const model = activeModel(status.data);
 
   return (
     <>
       <Settings.Intro>{t('VoiceModelDescription')}</Settings.Intro>
+      {model && (
+        <Settings.Feedback>{t('VoiceActiveModel', { model: model.name })}</Settings.Feedback>
+      )}
       {status.isPending && <Loading label={t('LoadingSettings')} />}
       {error && (
         <Settings.Status
@@ -72,12 +82,14 @@ export function VoiceModelControls() {
 }
 
 export function VoiceLanguageRow() {
-  const { t } = useI18n();
+  const { t, count } = useI18n();
   const status = rpc.voice.status.useQuery({});
-  const languages = status.data?.languages.length;
-  const description = languages
-    ? t('VoiceLanguages') + ' ' + t('VoiceSupportedLanguages', { count: languages })
-    : t('VoiceLanguages');
+  const model = activeModel(status.data);
+
+  if (model?.languageDetection !== 'automatic') return null;
+
+  const description =
+    t('VoiceLanguages') + ' ' + count('supportedLanguage', model.languages.length);
 
   return (
     <Settings.Row title={t('VoiceLanguage')} description={description}>
@@ -86,11 +98,7 @@ export function VoiceLanguageRow() {
   );
 }
 
-function DownloadProgress({
-  status
-}: {
-  status: ReturnType<typeof rpc.voice.status.useQuery>['data'];
-}) {
+function DownloadProgress({ status }: { status: VoiceStatus }) {
   const { t } = useI18n();
 
   if (status?.state !== 'downloading') return null;
@@ -114,7 +122,7 @@ function ModelActions({
   cancel,
   remove
 }: {
-  state: NonNullable<ReturnType<typeof rpc.voice.status.useQuery>['data']>['state'] | undefined;
+  state: NonNullable<VoiceStatus>['state'] | undefined;
   busy: boolean;
   install: ReturnType<typeof rpc.voice.install.useMutation>;
   cancel: ReturnType<typeof rpc.voice.cancelInstall.useMutation>;

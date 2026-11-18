@@ -2,22 +2,32 @@ import { BunPath } from '@effect/platform-bun';
 import { test } from '@study/testing';
 import { Effect, Path } from 'effect';
 
-import { localModelFile } from './local-model-file.ts';
+import { localModelPaths } from './local-model-file.ts';
 
-test.unit.stable('local voice model requests match Windows and POSIX filenames', ({ expect }) => {
-  for (const [layer, directory] of [
-    [BunPath.layerWin32, 'C:\\Study models\\'],
-    [BunPath.layerPosix, '/tmp/Study models/']
+const model = {
+  id: 'speech-model',
+  assets: [
+    { filename: 'speech.gguf', url: 'https://voice.invalid/pinned/revision/speech.gguf' },
+    { filename: 'vad.gguf', url: 'https://voice.invalid/another/revision/vad.gguf' }
+  ]
+};
+
+test.unit.stable('native voice fixtures use registered assets and portable paths', ({ expect }) => {
+  for (const [layer, directory, separator] of [
+    [BunPath.layerWin32, 'C:\\Study models', '\\'],
+    [BunPath.layerPosix, '/tmp/Study models', '/']
   ] as const) {
     const path = Effect.runSync(Effect.provide(Path.Path, layer));
-    const files = [{ name: `${directory}parakeet.gguf` }, { name: `${directory}silero.gguf` }];
+    const prefix = [directory, model.id, 'ready'].join(separator);
 
-    expect(localModelFile(files, 'https://voice.invalid/models/parakeet.gguf', path)).toBe(
-      files[0]
-    );
-    expect(localModelFile(files, 'https://voice.invalid/models/silero.gguf', path)).toBe(files[1]);
+    for (const asset of model.assets)
+      expect(localModelPaths(model, asset.url, directory, path)).toEqual([
+        [prefix, asset.filename].join(separator),
+        [directory, asset.filename].join(separator)
+      ]);
+
     expect(
-      localModelFile(files, 'https://voice.invalid/models/other-parakeet.gguf', path)
+      localModelPaths(model, 'https://voice.invalid/unpinned/speech.gguf', directory, path)
     ).toBeUndefined();
   }
 });

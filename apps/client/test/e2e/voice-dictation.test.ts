@@ -1,4 +1,4 @@
-import { catalogs } from '@study/localization';
+import { catalogs, countText, text } from '@study/localization';
 import { test } from '@study/testing';
 
 const copy = catalogs.english;
@@ -179,6 +179,13 @@ test.browser.stable(
 test.browser.stable(
   'Voice setup requires installation consent and persists bilingual settings',
   async ({ page, rpc, microphone, expect, expectScreenshot }) => {
+    const catalog = await rpc.runPromise(rpc.client['voice.status']({}));
+    const model = catalog.models.find(({ id }) => id === catalog.modelId);
+
+    if (!model) throw new Error('Voice status must include the active model in its catalog');
+
+    const modelLabel = text('english', 'VoiceActiveModel', { model: model.name });
+
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/notes');
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
@@ -188,6 +195,7 @@ test.browser.stable(
     const setup = page.getByRole('dialog', { name: copy.VoiceSetupTitle });
 
     await expect(setup).toBeVisible();
+    await expect(setup.getByText(modelLabel, { exact: true })).toBeVisible();
     expect(microphone.model.downloads).toBe(0);
     await expectScreenshot('download-consent', {
       target: setup,
@@ -217,8 +225,11 @@ test.browser.stable(
     const settings = page.getByRole('dialog', { name: copy.Settings });
 
     await settings.getByRole('button', { name: copy.VoiceTitle, exact: true }).click();
+    await expect(settings.getByText(modelLabel, { exact: true })).toBeVisible();
     await expect(settings.getByText(copy.VoiceAutomatic, { exact: true })).toBeVisible();
-    await expect(settings.getByText(copy.VoiceLanguages)).toBeVisible();
+    await expect(
+      settings.getByText(countText('english', 'supportedLanguage', model.languages.length))
+    ).toBeVisible();
     const length = settings.getByRole('combobox', { name: copy.VoiceChunkDuration });
     const denoise = settings.getByRole('switch', { name: copy.VoiceDenoise, exact: true });
 
@@ -258,6 +269,14 @@ test.browser.stable(
     });
 
     await expect(localizedFilter).not.toBeChecked();
+    await expect(
+      localized.getByText(text('italian', 'VoiceActiveModel', { model: model.name }), {
+        exact: true
+      })
+    ).toBeVisible();
+    await expect(
+      localized.getByText(countText('italian', 'supportedLanguage', model.languages.length))
+    ).toBeVisible();
     await expect(localized.getByText(italian.VoiceAutomatic, { exact: true })).toBeVisible();
     await expectScreenshot('voice-settings-italian-compact', {
       target: 'viewport',

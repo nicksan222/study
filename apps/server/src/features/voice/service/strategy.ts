@@ -1,72 +1,44 @@
-/** @file Fixes today's multilingual Parakeet strategy behind the speech recognition seam. */
-import type { SpeechAsset, VoiceRuntimeAdapters } from '@study/server';
-import { transcribeInProcess } from '@study/server';
+/** @file Registers the decoder strategies and resolves the model selected at composition. */
+import { StudyError } from '@study/contracts';
+import type { VoiceModel } from '@study/contracts';
+import type { SpeechAsset, VoiceRecognitionInput } from '@study/server';
 
-import { speechAssets } from './assets.ts';
+import { parakeetStrategy } from './strategies/parakeet.ts';
 
-interface RecognitionInput {
-  readonly samples: readonly number[];
-  readonly directory: string;
-  readonly filterSilence: boolean;
-  readonly denoise: boolean;
-}
-
-interface SpeechRecognitionStrategy {
-  readonly id: string;
+export interface SpeechRecognitionStrategy {
+  readonly model: VoiceModel;
   readonly assets: readonly SpeechAsset[];
-  readonly language: { readonly detection: 'automatic'; readonly supported: readonly string[] };
-  readonly recognize: (input: RecognitionInput, signal: AbortSignal) => Promise<{ text: string }>;
+  readonly recognize: (
+    input: VoiceRecognitionInput,
+    signal: AbortSignal
+  ) => Promise<{ text: string }>;
 }
 
-/** Adding an engine changes this composition seam, never a dictation consumer. */
-export function createSpeechRecognitionStrategy(
-  runtime: VoiceRuntimeAdapters
-): SpeechRecognitionStrategy {
-  const assets = runtime.assets ?? speechAssets;
+export const speechRecognitionStrategies: readonly SpeechRecognitionStrategy[] = [parakeetStrategy];
 
-  return {
-    id: 'parakeet-tdt-v3',
-    assets,
-    language: {
-      detection: 'automatic',
-      supported: [
-        'bg',
-        'hr',
-        'cs',
-        'da',
-        'nl',
-        'en',
-        'et',
-        'fi',
-        'fr',
-        'de',
-        'el',
-        'hu',
-        'it',
-        'lv',
-        'lt',
-        'mt',
-        'pl',
-        'pt',
-        'ro',
-        'ru',
-        'sk',
-        'sl',
-        'es',
-        'sv',
-        'uk'
-      ]
-    },
-    recognize: (input, signal) =>
-      (runtime.transcribe ?? transcribeInProcess)(
-        {
-          samples: input.samples,
-          modelPath: `${input.directory}/ready/${assets[0]!.filename}`,
-          vadPath: `${input.directory}/ready/${assets[1]!.filename}`,
-          filterSilence: input.filterSilence,
-          denoise: input.denoise
-        },
-        signal
-      )
-  };
+const strategiesById = new Map<string, SpeechRecognitionStrategy>();
+
+for (const strategy of speechRecognitionStrategies) {
+  const { id } = strategy.model;
+
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(id))
+    throw new StudyError('invalid_input', 'Speech model identifiers must be lowercase slugs');
+
+  if (strategiesById.has(id))
+    throw new StudyError('invalid_input', 'Speech model identifiers must be unique');
+
+  strategiesById.set(id, strategy);
+}
+
+export function selectSpeechRecognitionStrategy(modelId = parakeetStrategy.model.id) {
+  const strategy = strategiesById.get(modelId);
+
+  if (!strategy) throw new StudyError('invalid_input', 'Speech model is not registered');
+
+  return strategy;
+}
+
+export function speechModelDirectory(root: string, strategy: SpeechRecognitionStrategy) {
+  // Parakeet was installed before per-model directories existed.
+  return strategy === parakeetStrategy ? root : `${root}/models/model-${strategy.model.id}`;
 }

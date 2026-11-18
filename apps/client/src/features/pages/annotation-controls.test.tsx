@@ -39,9 +39,15 @@ function createRpc({ vi }: Pick<test.unit.Context, 'vi'>) {
       state: 'ready',
       downloadedBytes: 740749632,
       totalBytes: 740749632,
-      modelId: 'parakeet-tdt-v3',
-      languages: ['en', 'it'],
-      languageDetection: 'automatic'
+      modelId: 'test-recognizer',
+      models: [
+        {
+          id: 'test-recognizer',
+          name: 'Test recognizer',
+          languages: ['en', 'it'],
+          languageDetection: 'automatic'
+        }
+      ]
     }),
     'pages.annotation': vi.fn(),
     'pages.reviseAnnotation': vi.fn(),

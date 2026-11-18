@@ -61,6 +61,7 @@ jobs:
     env:
       # Real files retain WAL, locking, backup and restart semantics.
       TMPDIR: /dev/shm
+      STUDY_VOICE_MODELS_DIR: target/voice-models
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@v7
@@ -68,6 +69,17 @@ jobs:
         uses: ./.github/actions/setup-javascript
       - name: 🧪 Test feature services, RPC, workflows and shared contracts
         run: bun run ci:server
+      - name: ♻️ Restore pinned recognition fixtures
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STUDY_VOICE_MODELS_DIR }}
+          key: study-voice-models-v1-${{ hashFiles('apps/server/src/features/voice/service/strategy.ts', 'apps/server/src/features/voice/service/strategies/**/*.ts') }}
+      - name: 📦 Prepare and verify recognition fixtures
+        run: bun run voice:fixtures
+      - name: 🎙️ Test every registered recognizer with human recordings
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: bun run voice:test
       - name: 📎 Retain test reports
         if: ${{ always() }}
         uses: actions/upload-artifact@v7

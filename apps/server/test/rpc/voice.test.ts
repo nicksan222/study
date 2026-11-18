@@ -19,6 +19,17 @@ test.server.stable(
           const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
 
           yield* client['voice.install']({});
+          expect(yield* client['voice.status']({})).toMatchObject({
+            modelId: 'parakeet-tdt-v3',
+            models: expect.arrayContaining([
+              {
+                id: 'parakeet-tdt-v3',
+                name: 'Parakeet TDT 0.6B v3',
+                languages: expect.arrayContaining(['it', 'en', 'fr']),
+                languageDetection: 'automatic'
+              }
+            ])
+          });
           expect(yield* client['voice.transcribe']({ samples })).toEqual({
             text: 'Complete dictation'
           });

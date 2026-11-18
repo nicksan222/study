@@ -6,14 +6,26 @@ import { Effect, FileSystem, Schema } from 'effect';
 
 import { Settings } from '#server/features/settings/index';
 
-import { createSpeechRecognitionStrategy } from './strategy.ts';
+import {
+  selectSpeechRecognitionStrategy,
+  speechModelDirectory,
+  speechRecognitionStrategies
+} from './strategy.ts';
 
 export const Voice = defineService('study/Voice', function* () {
   const settings = yield* Settings;
   const runtime = yield* VoiceRuntime;
   const fs = yield* FileSystem.FileSystem.pipe(Effect.provide(BunFileSystem.layer));
-  const strategy = createSpeechRecognitionStrategy(runtime);
-  const models = new VoiceModels(runtime.directory ?? '', fs, strategy.assets, runtime.fetch);
+  const strategy = yield* Effect.try({
+    try: () => selectSpeechRecognitionStrategy(runtime.modelId),
+    catch: normalizeError
+  });
+  const models = new VoiceModels(
+    speechModelDirectory(runtime.directory ?? '', strategy),
+    fs,
+    runtime.assets ?? strategy.assets,
+    runtime.fetch
+  );
   const shutdown = new AbortController();
   let active: 'installing' | 'removing' | 'transcribing' | undefined;
   let installation: { controller: AbortController; finished: Promise<void> } | undefined;
@@ -114,9 +126,8 @@ export const Voice = defineService('study/Voice', function* () {
         Effect.andThen(Effect.tryPromise({ try: () => models.status(), catch: normalizeError })),
         Effect.map((status) => ({
           ...status,
-          modelId: strategy.id,
-          languages: strategy.language.supported,
-          languageDetection: strategy.language.detection
+          modelId: strategy.model.id,
+          models: speechRecognitionStrategies.map(({ model }) => model)
         }))
       ),
     install: () => exclusive('installing', install),
@@ -163,10 +174,10 @@ export const Voice = defineService('study/Voice', function* () {
 
           return yield* Effect.tryPromise({
             try: (signal) => {
-              inference = strategy.recognize(
+              inference = (runtime.transcribe ?? strategy.recognize)(
                 {
                   ...decoded,
-                  directory: models.root,
+                  assetPath: (index) => models.path(index),
                   filterSilence: preferences.filterSilence,
                   denoise: preferences.denoise ?? false
                 },

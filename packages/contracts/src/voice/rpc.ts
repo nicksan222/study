@@ -12,10 +12,18 @@ export const dictationInputSchema = Schema.Struct({
   ).check(Schema.isMinLength(1), Schema.isMaxLength(MAX_DICTATION_SAMPLES))
 });
 
+const voiceModelSchema = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  languages: Schema.Array(Schema.String),
+  languageDetection: Schema.Literal('automatic')
+});
+
+export type VoiceModel = typeof voiceModelSchema.Type;
+
 export const voiceStatusSchema = Schema.Struct({
   modelId: Schema.String,
-  languages: Schema.Array(Schema.String),
-  languageDetection: Schema.Literal('automatic'),
+  models: Schema.Array(voiceModelSchema),
   state: Schema.Literals(['missing', 'downloading', 'ready']),
   downloadedBytes: Schema.Number,
   totalBytes: Schema.Number

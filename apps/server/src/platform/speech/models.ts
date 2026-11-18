@@ -1,4 +1,4 @@
-/** @file Explicit, bounded and integrity-checked acquisition of the two fixed speech assets. */
+/** @file Explicit, bounded and integrity-checked acquisition of a speech model's assets. */
 import { StudyError } from '@study/contracts';
 import { CryptoHasher } from 'bun';
 import type { FileSystem } from 'effect';

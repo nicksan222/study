@@ -1,15 +1,21 @@
 import type { Path } from 'effect';
 
-/** Matches a pinned download request to an already-installed local test model. */
-export function localModelFile<File extends { readonly name?: string }>(
-  files: readonly File[],
+/** Resolves the exact registered download URL against prepared or already installed files. */
+export function localModelPaths(
+  model: {
+    readonly id: string;
+    readonly assets: readonly { readonly url: string; readonly filename: string }[];
+  },
   url: string,
-  path: Pick<Path.Path, 'basename'>
-): File | undefined {
-  const pathname = new URL(url).pathname;
+  directory: string,
+  path: Pick<Path.Path, 'join'>
+) {
+  const asset = model.assets.find((candidate) => candidate.url === url);
 
-  return files.find(
-    (candidate) =>
-      candidate.name !== undefined && pathname.endsWith('/' + path.basename(candidate.name))
-  );
+  if (!asset) return undefined;
+
+  return [
+    path.join(directory, model.id, 'ready', asset.filename),
+    path.join(directory, asset.filename)
+  ];
 }

@@ -4,6 +4,8 @@ import type * as Controls from './model-controls';
 
 let VoiceModelControls: typeof Controls.VoiceModelControls;
 
+let VoiceLanguageRow: typeof Controls.VoiceLanguageRow;
+
 let failure: unknown;
 
 test.unit.beforeEach(async ({ mock }) => {
@@ -14,7 +16,28 @@ test.unit.beforeEach(async ({ mock }) => {
     rpc: {
       voice: {
         status: {
-          useQuery: () => ({ data: { state: 'missing' }, isPending: false, isError: false })
+          useQuery: () => ({
+            data: {
+              state: 'missing',
+              modelId: 'active',
+              models: [
+                {
+                  id: 'other',
+                  name: 'Other recognizer',
+                  languages: ['de', 'en', 'fr'],
+                  languageDetection: 'automatic'
+                },
+                {
+                  id: 'active',
+                  name: 'Active recognizer',
+                  languages: ['it'],
+                  languageDetection: 'automatic'
+                }
+              ]
+            },
+            isPending: false,
+            isError: false
+          })
         },
         install: { useMutation: () => ({ ...mutation(), isError: true, error: failure }) },
         cancelInstall: { useMutation: mutation },
@@ -22,8 +45,24 @@ test.unit.beforeEach(async ({ mock }) => {
       }
     }
   }));
-  VoiceModelControls = (await import('./model-controls')).VoiceModelControls;
+  ({ VoiceModelControls, VoiceLanguageRow } = await import('./model-controls'));
 });
+
+test.unit.stable(
+  'uses the active server model rather than the first catalog entry',
+  ({ render, screen, expect }) => {
+    render(
+      <>
+        <VoiceModelControls />
+        <VoiceLanguageRow />
+      </>
+    );
+    expect(screen.getByText('Recognition model: Active recognizer')).toBeInTheDocument();
+    expect(screen.queryByText('Recognition model: Other recognizer')).not.toBeInTheDocument();
+    expect(screen.getByText(/1 supported language\./)).toBeInTheDocument();
+    expect(screen.getByText('Automatic detection')).toBeInTheDocument();
+  }
+);
 
 test.unit.stable(
   'does not present an intentionally cancelled transport download as a failure',

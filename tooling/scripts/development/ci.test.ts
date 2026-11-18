@@ -32,6 +32,20 @@ const lanes = [
 ];
 
 test.unit.stable(
+  'the required server lane prepares pinned speech assets and runs the real model matrix',
+  ({ expect }) => {
+    const preparationAndTests = workflow.jobs
+      .server_tests!.steps!.map((step) => step.run)
+      .filter((command) => command?.startsWith('bun run voice:'));
+
+    expect(preparationAndTests).toEqual(['bun run voice:fixtures', 'bun run voice:test']);
+    expect(
+      workflow.jobs.server_tests!.steps!.find((step) => step.run === 'bun run voice:test')?.if
+    ).toBeUndefined();
+  }
+);
+
+test.unit.stable(
   'all CI lanes start independently and feed the required merge gate',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;

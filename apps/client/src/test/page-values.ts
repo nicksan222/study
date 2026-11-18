@@ -15,9 +15,15 @@ export function pageTestValues(locale: Locale = 'english'): RpcFixtureValues {
       state: 'missing',
       downloadedBytes: 0,
       totalBytes: 740749632,
-      modelId: 'parakeet-tdt-v3',
-      languages: ['en', 'it'],
-      languageDetection: 'automatic'
+      modelId: 'test-recognizer',
+      models: [
+        {
+          id: 'test-recognizer',
+          name: 'Test recognizer',
+          languages: ['en', 'it'],
+          languageDetection: 'automatic'
+        }
+      ]
     },
     'settings.voiceSettings': { filterSilence: true },
     'system.health': { protocolVersion: 1, workersRunning: true, testMode: false },

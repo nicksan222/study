@@ -16,6 +16,15 @@ const assets = ['speech.gguf', 'vad.gguf'].map((filename) => ({
 }));
 
 test.server.stable(
+  'rejects an explicitly configured unregistered speech model',
+  async ({ resources, expect }) => {
+    await expect(
+      resources.openApp({ voice: { modelId: 'unregistered-decoder' } })
+    ).rejects.toMatchObject({ kind: 'invalid_input' });
+  }
+);
+
+test.server.stable(
   'dictation requires explicit installation, serializes inference and uses persisted voice preferences',
   async ({ resources, expect }) => {
     const entered = Promise.withResolvers<void>();
@@ -25,6 +34,7 @@ test.server.stable(
         assets,
         fetch: async () => new Response(bytes),
         transcribe: async (input) => {
+          expect(input.assetPath(0)).toBe(`${app.store.db.path}.voice/ready/speech.gguf`);
           expect(input.filterSilence).toBe(false);
           expect(input.denoise).toBe(true);
           entered.resolve();

@@ -12,10 +12,21 @@ export interface SpeechInput {
   readonly denoise?: boolean;
 }
 
+export interface VoiceRecognitionInput {
+  readonly samples: readonly number[];
+  readonly assetPath: (index: number) => string;
+  readonly filterSilence: boolean;
+  readonly denoise: boolean;
+}
+
 export interface VoiceRuntimeAdapters {
+  readonly modelId?: string;
   readonly assets?: readonly SpeechAsset[];
   readonly fetch?: (url: string, options?: RequestInit) => Promise<Response>;
-  readonly transcribe?: (input: SpeechInput, signal: AbortSignal) => Promise<{ text: string }>;
+  readonly transcribe?: (
+    input: VoiceRecognitionInput,
+    signal: AbortSignal
+  ) => Promise<{ text: string }>;
 }
 
 export class VoiceRuntime extends Context.Service<

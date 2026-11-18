@@ -114,4 +114,4 @@ export {
 export { VoiceModels } from './speech/models.ts';
 export type { SpeechAsset } from './speech/models.ts';
 export { VoiceRuntime, transcribeInProcess } from './speech/runtime.ts';
-export type { VoiceRuntimeAdapters } from './speech/runtime.ts';
+export type { VoiceRuntimeAdapters, VoiceRecognitionInput } from './speech/runtime.ts';

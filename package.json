@@ -31,6 +31,8 @@
     "fallow:check": "TURBO_TELEMETRY_DISABLED=1 bun tooling/scripts/development/turbo.ts run fallow:repo",
     "seed": "bun tooling/scripts/seed/index.ts",
     "integrations:e2e": "TURBO_TELEMETRY_DISABLED=1 bun tooling/scripts/development/turbo.ts run integrations --filter=@study/server --concurrency=1",
+    "voice:fixtures": "bun tooling/testing/voice/prepare.ts",
+    "voice:test": "bun --bun vp test run --config tooling/testing/voice/vite.config.ts",
     "web:e2e:compare": "TURBO_TELEMETRY_DISABLED=1 bun tooling/scripts/development/turbo.ts run e2e --filter=@study/client --concurrency=1 --",
     "web:e2e:update": "bun apps/client/test/e2e/harness/update.ts",
     "web:e2e:capacity": "bun apps/client/test/e2e/harness/capacity.ts",
