@@ -93,6 +93,7 @@ test.unit.stable(
         width = 736;
         resize?.();
       });
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
       expect(question).toHaveFocus();
       act(() => {
         width = 992;
