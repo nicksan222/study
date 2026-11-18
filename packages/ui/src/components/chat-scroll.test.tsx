@@ -21,9 +21,9 @@ function Note({ count = 2, first = 'first' }: { count?: number; first?: string }
   );
 }
 
-function dimensions(host: HTMLElement, height: number) {
+function dimensions(host: HTMLElement, height: number, viewport = 200) {
   Object.defineProperty(host, 'scrollHeight', { configurable: true, value: height });
-  Object.defineProperty(host, 'clientHeight', { configurable: true, value: 200 });
+  Object.defineProperty(host, 'clientHeight', { configurable: true, value: viewport });
 }
 
 test.unit.stable(
@@ -97,6 +97,7 @@ test.unit.stable(
     const view = render(<Note />);
     const host = view.container.querySelector<HTMLElement>('[data-notebook-scroll-host]')!;
 
+    const content = view.container.querySelector('.chat-content')!;
     let top = 0;
 
     Object.defineProperty(host, 'scrollTop', {
@@ -110,16 +111,16 @@ test.unit.stable(
     host.scrollTop = 100;
     fireEvent.scroll(host);
     expect(screen.getByRole('button', { name: 'Latest' })).toBeVisible();
-    dimensions(host, 900);
+    dimensions(host, 1000, 250);
     await act(async () => resize(host));
     expect(host.scrollTop).toBe(100);
     expect(screen.getByRole('button', { name: 'Latest' })).toBeVisible();
-    dimensions(host, 300);
-    await act(async () => resize(host));
+    dimensions(host, 350, 250);
+    await act(async () => resize(content));
     expect(host.scrollTop).toBe(100);
     expect(screen.queryByRole('button', { name: 'Latest' })).not.toBeInTheDocument();
-    dimensions(host, 1000);
-    await act(async () => resize(host));
+    dimensions(host, 1050, 250);
+    await act(async () => resize(content));
     expect(host.scrollTop).toBe(800);
     expect(screen.queryByRole('button', { name: 'Latest' })).not.toBeInTheDocument();
   }
