@@ -353,9 +353,13 @@ test.unit.stable(
   }
 );
 
-test.unit.stable.for([false, true])(
-  'recovers only undelivered segments after insertion fails (retry needed: %s)',
-  async (retryNeeded, { expect, vi }) => {
+test.unit.stable.for([
+  { retryNeeded: false, initial: '2', final: '3', expected: '2 3' },
+  { retryNeeded: true, initial: '2', final: '3', expected: '2 3' },
+  { retryNeeded: false, initial: 'See (', final: 'Appendix A)', expected: 'See (Appendix A)' }
+])(
+  'recovers only undelivered segments and preserves spacing in $expected (retry: $retryNeeded)',
+  async ({ retryNeeded, initial, final, expected }, { expect, vi }) => {
     let emit!: (samples: number[]) => void;
     let failLast = retryNeeded;
     const first = deferred<void>();
@@ -373,12 +377,12 @@ test.unit.stable.for([false, true])(
           throw new Error('Recognition unavailable');
         }
 
-        return { text: String(sample) };
+        return { text: sample === 1 ? '1' : sample === 2 ? initial : final };
       }
     );
     const owner = Symbol();
     const insert = vi.fn((text: string) => {
-      if (text === '2') throw new Error('Editor unavailable');
+      if (text === initial) throw new Error('Editor unavailable');
 
       first.resolve();
     });
@@ -397,16 +401,16 @@ test.unit.stable.for([false, true])(
       expect(session.snapshot()).toMatchObject({
         phase: 'error',
         error: 'transcribe',
-        transcript: '2'
+        transcript: initial
       });
       await session.retry(owner);
     }
 
-    expect(insert.mock.calls).toEqual([['1'], ['2']]);
+    expect(insert.mock.calls).toEqual([['1'], [initial]]);
     expect(session.snapshot()).toMatchObject({
       phase: 'result',
       error: 'insert',
-      transcript: '2 3'
+      transcript: expected
     });
   }
 );

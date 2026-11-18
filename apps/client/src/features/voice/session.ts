@@ -6,6 +6,7 @@ import { Schema, Stream } from 'effect';
 import type { MicrophoneCapture } from '#client/lib/host.ts';
 
 import { DictationAudio } from './recognition-stream';
+import { insertTranscript } from './text-insertion';
 
 const defaultChunkSeconds = 30;
 
@@ -214,7 +215,7 @@ export class DictationSession {
 
   private deliver(recording: Recording, owner: symbol, text: string) {
     if (recording.undelivered) {
-      recording.undelivered += ' ' + text;
+      recording.undelivered = insertTranscript(recording.undelivered, text).value;
 
       return;
     }
