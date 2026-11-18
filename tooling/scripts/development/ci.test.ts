@@ -22,7 +22,9 @@ const workflow = Bun.YAML.parse(
 
 const lanes = [
   'hygiene',
-  'javascript',
+  'types',
+  'client_unit',
+  'tooling_unit',
   'server_tests',
   'shared_tests',
   'database',
@@ -32,8 +34,13 @@ const lanes = [
   'landing'
 ];
 
+const prerequisites: Record<string, string[]> = {
+  server_tests: ['hygiene', 'types'],
+  browser: ['hygiene', 'types']
+};
+
 test.unit.stable(
-  'all CI lanes start independently and feed the required merge gate',
+  'the required merge gate covers every lane and gates heavy suites on static checks',
   ({ assert: assertions }) => {
     const assert: test.Assert = assertions;
 
@@ -44,15 +51,26 @@ test.unit.stable(
       const job = workflow.jobs[name]!;
 
       assert.isDefined(job);
-      assert.isUndefined(job.needs);
+      assert.deepEqual(job.needs, prerequisites[name]);
       assert.isUndefined(job.if);
 
-      if (name !== 'browser' && name !== 'server_tests') assert.isUndefined(job.strategy);
+      if (!['browser', 'server_tests', 'client_unit', 'tooling_unit'].includes(name))
+        assert.isUndefined(job.strategy);
     }
   }
 );
 
 test.unit.stable.for([
+  {
+    lane: 'client_unit',
+    command: 'bun run ci:client-unit --shard=${{ matrix.shard }}/3',
+    artifact: 'vitest-client-reports-${{ matrix.shard }}'
+  },
+  {
+    lane: 'tooling_unit',
+    command: 'bun run ci:tooling-unit --shard=${{ matrix.shard }}/3',
+    artifact: 'vitest-tooling-reports-${{ matrix.shard }}'
+  },
   {
     lane: 'browser',
     command: 'bun run web:e2e:compare --shard=${{ matrix.shard }}/3',
