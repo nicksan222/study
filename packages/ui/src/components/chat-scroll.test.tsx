@@ -97,6 +97,15 @@ test.unit.stable(
     const view = render(<Note />);
     const host = view.container.querySelector<HTMLElement>('[data-notebook-scroll-host]')!;
 
+    let top = 0;
+
+    Object.defineProperty(host, 'scrollTop', {
+      get: () => top,
+      set: (value: number) => {
+        top = Math.max(0, Math.min(value, host.scrollHeight - host.clientHeight));
+      }
+    });
+
     dimensions(host, 1000);
     host.scrollTop = 100;
     fireEvent.scroll(host);
@@ -111,7 +120,7 @@ test.unit.stable(
     expect(screen.queryByRole('button', { name: 'Latest' })).not.toBeInTheDocument();
     dimensions(host, 1000);
     await act(async () => resize(host));
-    expect(host.scrollTop).toBe(1000);
+    expect(host.scrollTop).toBe(800);
     expect(screen.queryByRole('button', { name: 'Latest' })).not.toBeInTheDocument();
   }
 );
