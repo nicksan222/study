@@ -54,6 +54,7 @@ const testHarness = testBrowser.extend<Fixtures>({
 
     await provide(resources);
   },
+  captureWorkflow: ['', { option: true }],
   webStack: async ({ ai, aiEnabled, chatGpt }, provide) => {
     assertCapturePlatform();
     await using stack = await openWebStack({
@@ -68,7 +69,6 @@ const testHarness = testBrowser.extend<Fixtures>({
     await context.clock.setFixedTime(new Date(captureProfile.wallTime));
     await provide(context);
   },
-  captureWorkflow: ['', { option: true }],
   desktopPage: async ({ browser, baseURL }, provide) => {
     await using context = await browser.newContext({ baseURL, isMobile: false, hasTouch: false });
 

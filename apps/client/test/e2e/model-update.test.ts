@@ -100,6 +100,7 @@ test.browser.stable(
     await viewport.getByRole('button', { name: italian.Close, exact: true }).press('Enter');
     await expect.poll(() => rpc.runPromise(rpc.client['settings.modelUpdates']({}))).toEqual([]);
     await generateTitle();
+    await page.setViewportSize({ width: 1120, height: 760 });
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('lang', 'it');
     await expectScreenshot('dismissed-after-reload', {
