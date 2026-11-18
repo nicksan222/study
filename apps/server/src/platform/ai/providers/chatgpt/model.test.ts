@@ -1,4 +1,4 @@
-import { LlmModel, pageTransformOutputSchema } from '@study/contracts';
+import { pageTransformOutputSchema } from '@study/contracts';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Exercises the ChatGPT Responses model adapter against a local HTTP peer. It checks │
@@ -20,8 +20,6 @@ import { LanguageModel } from 'effect/ai';
 
 import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
-
-import { makeChatGptCatalog } from './catalog.ts';
 
 test.unit.stable(
   'Responses adapter sends the latest Sol release and retries 401 with a rotated token',
@@ -128,9 +126,11 @@ test.unit.stable(
         { subject: 'u', clientId: 'c', sharing: true, refreshToken: 'first' },
         { accessToken: 'original', expiresIn: 3600 }
       );
-      const catalog = await Effect.runPromise(makeChatGptCatalog(auth, undefined, base));
-      const selection = await Effect.runPromise(catalog(LlmModel.SOL));
-      const model = createChatGptModel({ ...selection, baseUrl: base });
+      const model = createChatGptModel({
+        auth: auth.credentials(),
+        modelId: 'gpt-6.2-sol',
+        baseUrl: base
+      });
       const result = await Effect.runPromise(
         LanguageModel.generateText({
           prompt: [

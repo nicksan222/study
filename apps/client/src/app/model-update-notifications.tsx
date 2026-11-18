@@ -4,10 +4,17 @@ import { useEffect, useRef } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
+const tierLabels = {
+  tiny: 'AiSettingsTiny',
+  medium: 'AiSettingsMedium',
+  smart: 'AiSettingsSmart'
+} as const;
+
 /** Deliver the next durable notice using the shared toast viewport. */
 export function ModelUpdateNotifications() {
   const { data } = rpc.settings.modelUpdates.useQuery({});
   const { mutate } = rpc.settings.dismissModelUpdate.useMutation();
+  const { mutate: apply } = rpc.settings.applyModelUpdate.useMutation();
   const { t } = useI18n();
   const announced = useRef<{ key: string; translate: typeof t }>(undefined);
 
@@ -23,10 +30,22 @@ export function ModelUpdateNotifications() {
       return;
     }
 
-    const key = JSON.stringify([update.provider, update.family, update.model]);
+    const key = JSON.stringify([update.tier, update.provider, update.previousModel, update.model]);
     const copy = {
       title: t('ModelUpdateAvailable'),
-      description: t('ModelUpdateApplied', { previous: update.previousModel, model: update.model })
+      description: t('ModelUpdateOffer', {
+        tier: t(tierLabels[update.tier]),
+        previous: update.previousModel,
+        model: update.model
+      }),
+      actionProps: {
+        children: t('ModelUpdateAction'),
+        onClick: () => {
+          void apply(update).catch(() =>
+            toastManager.add({ type: 'error', title: t('ModelUpdateFailed') })
+          );
+        }
+      }
     };
 
     if (announced.current?.key === key) {
@@ -48,7 +67,7 @@ export function ModelUpdateNotifications() {
         void mutate(update).catch(() => undefined);
       }
     });
-  }, [data, mutate, t]);
+  }, [data, mutate, apply, t]);
 
   return null;
 }

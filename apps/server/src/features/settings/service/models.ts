@@ -12,6 +12,7 @@ import { allowsAiModel, getApiKeyProvider, useStore, validatedMutation } from '@
 import { Effect, Schema } from 'effect';
 
 import { SettingsStore } from '#server/features/settings/store/index';
+import { ModelUpdatesStore } from '#server/features/settings/store/model-updates';
 
 import type { Preferences } from './preferences.ts';
 
@@ -25,10 +26,13 @@ function withoutAstra(setup: TierSetup): TierSetup {
   if (typeof setup.provider === 'string')
     return allowsAiModel(setup.model) ? setup : { provider: setup.provider };
 
-  return setup.model === LlmModel.ASTRA ? { ...setup, model: LlmModel.SOL } : setup;
+  return setup.model === LlmModel.ASTRA ||
+    !allowsAiModel(typeof setup.model === 'string' ? setup.model : undefined)
+    ? { ...setup, model: LlmModel.SOL }
+    : setup;
 }
 
-const llmSettings = (v: Preferences): LlmSettings => {
+export const llmSettings = (v: Preferences): LlmSettings => {
   const setup = (key: string): LlmSettings['tiny'] => {
     const saved = v[key];
 
@@ -46,6 +50,34 @@ const llmSettings = (v: Preferences): LlmSettings => {
   return { tiny: setup('tiny'), medium: setup('medium'), smart: setup('smart') };
 };
 
+const chatGptIds = {
+  [LlmModel.LUNA]: 'gpt-6-luna',
+  [LlmModel.SOL]: 'gpt-6.1-sol',
+  [LlmModel.ASTRA]: 'gpt-6.1-sol'
+} as const;
+
+export function selectedModel(
+  settings: LlmSettings,
+  tier: ModelTier,
+  requiredProvider?: LlmProvider
+) {
+  const setup = settings[tier];
+
+  if (typeof setup.provider === 'string' && requiredProvider !== LlmProvider.CHAT_GPT) {
+    const provider = getApiKeyProvider(setup.provider);
+
+    return { provider: setup.provider, modelId: setup.model ?? provider.defaults[tier] };
+  }
+
+  const model =
+    typeof setup.provider === 'string' ? defaults[tier] : (setup.model ?? defaults[tier]);
+
+  return {
+    provider: LlmProvider.CHAT_GPT,
+    modelId: typeof model === 'string' ? model : chatGptIds[model]
+  };
+}
+
 export function* settingsModelOperations() {
   const store = yield* useStore(SettingsStore);
 
@@ -55,11 +87,27 @@ export function* settingsModelOperations() {
       input: llmSettingsSchema,
       message: 'Invalid settings',
       write: (tx, input) => {
-        for (const setup of Object.values(input)) {
-          if (typeof setup.provider === 'string') {
-            const provider = getApiKeyProvider(setup.provider);
+        const catalog = tx.store(ModelUpdatesStore).snapshot(undefined).catalog;
 
-            if (setup.model !== undefined && !provider.models.includes(setup.model))
+        for (const setup of Object.values(input)) {
+          const choices =
+            typeof setup.provider === 'string'
+              ? getApiKeyProvider(setup.provider).models
+              : Object.values(chatGptIds);
+
+          if (typeof setup.model !== 'string') continue;
+
+          if (
+            !allowsAiModel(setup.model) ||
+            (!choices.includes(setup.model) &&
+              !catalog[String(setup.provider)]?.includes(setup.model))
+          ) {
+            const saved = Object.values(llmSettings(tx.store(SettingsStore).preference('llm')));
+
+            if (
+              !allowsAiModel(setup.model) ||
+              !saved.some((item) => item.provider === setup.provider && item.model === setup.model)
+            )
               throw new StudyError('invalid_input', 'Unknown provider model');
           }
         }
@@ -75,31 +123,9 @@ export function* settingsModelOperations() {
     }),
     model: (tier: ModelTier, requiredProvider?: LlmProvider) =>
       store.preference('llm').pipe(
-        Effect.flatMap((v) =>
+        Effect.flatMap((value) =>
           Effect.try({
-            try: () => {
-              const setup = llmSettings(v)[tier];
-
-              if (typeof setup.provider === 'string' && requiredProvider !== LlmProvider.CHAT_GPT) {
-                const provider = getApiKeyProvider(setup.provider);
-
-                if (setup.model !== undefined && !provider.models.includes(setup.model))
-                  throw new StudyError('config', 'Unknown configured provider model');
-
-                return {
-                  provider: setup.provider,
-                  modelId: setup.model ?? provider.defaults[tier]
-                };
-              }
-
-              return {
-                provider: LlmProvider.CHAT_GPT,
-                family:
-                  typeof setup.provider === 'string'
-                    ? defaults[tier]
-                    : (setup.model ?? defaults[tier])
-              };
-            },
+            try: () => selectedModel(llmSettings(value), tier, requiredProvider),
             catch: (error) =>
               error instanceof StudyError
                 ? error

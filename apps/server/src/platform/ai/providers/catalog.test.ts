@@ -1,4 +1,4 @@
-/** @file Exercises automatic tier selection for registered API-key providers. */
+/** @file Exercises consent-based tier recommendations for registered API-key providers. */
 import { test } from '@study/testing';
 import { Effect } from 'effect';
 
@@ -18,7 +18,7 @@ function model(id: string, family: string, price: number, date: string) {
 }
 
 test.unit.stable(
-  'selects updated models per provider and excludes Astra aliases',
+  'suggests updated models per provider and excludes Astra aliases',
   async ({ expect }) => {
     const providers = Object.fromEntries(
       apiKeyProviders.map((provider) => {
@@ -49,14 +49,20 @@ test.unit.stable(
       })
     );
 
-    for (const provider of apiKeyProviders)
-      expect((await Effect.runPromise(catalog(provider, 'smart'))).modelId).toBe('newest-bigger');
+    for (const provider of apiKeyProviders) {
+      const available = await Effect.runPromise(catalog(provider));
+
+      expect(available?.models).not.toContain('opaque-alias');
+      expect(available?.recommend(provider.defaults.smart, 'smart')).toBe('newest-bigger');
+    }
 
     expect(requests).toBe(1);
     const openrouter = getApiKeyProvider('openrouter');
 
-    expect((await Effect.runPromise(catalog(openrouter, 'tiny'))).modelId).toBe('new-small');
-    expect((await Effect.runPromise(catalog(openrouter, 'medium'))).modelId).toBe('new-medium');
+    const open = await Effect.runPromise(catalog(openrouter));
+
+    expect(open?.recommend(openrouter.defaults.tiny, 'tiny')).toBe('new-small');
+    expect(open?.recommend(openrouter.defaults.medium, 'medium')).toBe('new-medium');
   }
 );
 
@@ -78,8 +84,11 @@ test.unit.stable(
       )
     );
 
-    expect((await Effect.runPromise(catalog(provider, 'tiny'))).modelId).toBe('new-small');
-    expect((await Effect.runPromise(catalog(provider, 'smart'))).modelId).toBe('new-large');
+    const available = await Effect.runPromise(catalog(provider));
+
+    expect(available?.recommend(provider.defaults.tiny, 'tiny')).toBe('new-small');
+    expect(available?.recommend(provider.defaults.smart, 'smart')).toBe('new-large');
+    expect(available?.recommend('new-small', 'tiny')).toBeUndefined();
   }
 );
 
@@ -90,7 +99,8 @@ test.unit.stable('refuses a provider catalog with only restricted models', async
     makeApiKeyCatalog(async () => Response.json({ openrouter: { models: { [astra.id]: astra } } }))
   );
 
-  expect((await Effect.runPromise(Effect.flip(catalog(provider, 'smart')))).kind).toBe(
-    'unsupported'
-  );
+  const available = await Effect.runPromise(catalog(provider));
+
+  expect(available?.models).toEqual([]);
+  expect(available?.recommend(provider.defaults.smart, 'smart')).toBeUndefined();
 });

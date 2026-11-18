@@ -1,5 +1,4 @@
 /** @file Updates API-key provider model tiers from public model metadata. */
-import { StudyError } from '@study/contracts';
 import type { ModelTier } from '@study/contracts';
 import { Cache, Effect, Exit, Option, Schema } from 'effect';
 
@@ -8,7 +7,6 @@ import { streamingFetch } from '#server/platform/http/index';
 
 import type { ApiKeyProvider } from './definition.ts';
 import { allowsAiModel } from './model-policy.ts';
-import type { ModelSelection } from './release.ts';
 
 const providersSchema = Schema.Record(
   Schema.String,
@@ -16,7 +14,7 @@ const providersSchema = Schema.Record(
 );
 
 const modelSchema = Schema.Struct({
-  id: Schema.String.check(Schema.isPattern(/^\S+$/)),
+  id: Schema.String.check(Schema.isPattern(/^\S+$/), Schema.isMaxLength(200)),
   name: Schema.String,
   family: Schema.optional(Schema.String),
   canonical_model_id: Schema.optional(Schema.String),
@@ -84,50 +82,6 @@ function preferredFamily(
   });
 }
 
-function resolveModel(
-  models: readonly CatalogModel[],
-  provider: ApiKeyProvider,
-  tier: ModelTier,
-  preferred: string
-) {
-  const eligibleModels = models.filter(eligible);
-  const anchor = models.find((model) => model.id === preferred);
-  const defaults = new Set(Object.values(provider.defaults));
-  const tierAnchors = models.filter((model) => defaults.has(model.id));
-
-  const selected =
-    newest(preferredFamily(eligibleModels, anchor, tierAnchors)) ??
-    newest(inPriceBand(eligibleModels, tier));
-
-  if (!selected) return undefined;
-
-  return {
-    modelId: selected.id,
-    release: catalogRelease(provider.id, selected, tierAnchors, preferred)
-  };
-}
-
-function catalogRelease(
-  provider: string,
-  model: CatalogModel,
-  tierAnchors: readonly CatalogModel[],
-  preferred: string
-) {
-  if (!model.family) return undefined;
-
-  const prices = new Set(
-    tierAnchors.filter((anchor) => anchor.family === model.family).map(({ cost }) => cost.output)
-  );
-
-  return {
-    provider,
-    family: prices.size > 1 ? JSON.stringify([model.family, preferred]) : model.family,
-    model: model.canonical_model_id ?? model.id,
-    generation: Number(model.release_date.replaceAll('-', '').padEnd(8, '0')),
-    revision: 0
-  };
-}
-
 function indexCatalog(catalog: typeof providersSchema.Type) {
   const providers = new Map<string, readonly CatalogModel[]>();
 
@@ -173,26 +127,33 @@ export const makeApiKeyCatalog = (request?: FetchOptions['fetch']) =>
       timeToLive: (result) => (Exit.isSuccess(result) ? '15 minutes' : '1 minute')
     });
 
-    return (provider: ApiKeyProvider, tier: ModelTier, preferred = provider.defaults[tier]) => {
-      const fallback: ModelSelection = {
-        modelId: allowsAiModel(preferred) ? preferred : provider.defaults[tier]
-      };
+    return (provider: ApiKeyProvider) =>
+      Cache.get(cache, null).pipe(
+        Effect.map((catalog) => {
+          const models = catalog(provider.catalogId);
 
-      return Cache.get(cache, null).pipe(
-        Effect.matchEffect({
-          onFailure: () => Effect.succeed(fallback),
-          onSuccess: (catalog) => {
-            const models = catalog(provider.catalogId);
+          if (!models) return undefined;
 
-            if (!models) return Effect.succeed(fallback);
+          const available = models.filter(eligible);
+          const defaults = new Set(Object.values(provider.defaults));
+          const anchors = models.filter((model) => defaults.has(model.id));
 
-            const model = resolveModel(models, provider, tier, fallback.modelId);
+          return {
+            models: available.map(({ id }) => id).sort(),
+            recommend: (id: string, tier: ModelTier) => {
+              const current = models.find((model) => model.id === id);
 
-            return model
-              ? Effect.succeed(model)
-              : Effect.fail(new StudyError('unsupported', 'No compatible model is available'));
-          }
+              if (!current) return newest(inPriceBand(available, tier))?.id;
+
+              const newer = preferredFamily(available, current, [...anchors, current]).filter(
+                (model) =>
+                  model.release_date > current.release_date &&
+                  (model.canonical_model_id ?? model.id) !== (current.canonical_model_id ?? id)
+              );
+
+              return newest(newer)?.id;
+            }
+          };
         })
       );
-    };
   });

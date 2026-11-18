@@ -45,7 +45,7 @@ import {
 } from '@study/server';
 import type { AuthManager, ServerContext, AiRuntimeAdapters } from '@study/server';
 import { CryptoHasher } from 'bun';
-import { Effect, Layer, Logger } from 'effect';
+import { Effect, Layer, Logger, Schedule } from 'effect';
 
 import { AuthRpcLive } from '#server/features/auth/rpc/index';
 import { Auth } from '#server/features/auth/service/index';
@@ -156,14 +156,18 @@ export function nativeLayers(
       const chatGptModel = yield* makeChatGptCatalog(manager, request);
       const apiKeyModel = yield* makeApiKeyCatalog(request);
 
+      const refresh = settings
+        .refreshModelRecommendations(auth.providers, chatGptModel, apiKeyModel)
+        .pipe(
+          Effect.provideService(Database, { store }),
+          Effect.catch(() => recordModelUpdateFailure())
+        );
+
+      if (!ai) yield* Effect.forkScoped(refresh.pipe(Effect.repeat(Schedule.spaced('1 day'))));
+
       return {
         observe: observeAgentProgress(store),
         now: () => store.timestampClock.currentTimeMillisUnsafe(),
-        observeModelRelease: (release) =>
-          settings.observeModelRelease(release).pipe(
-            Effect.provideService(Database, { store }),
-            Effect.catch(() => recordModelUpdateFailure())
-          ),
         recordUsage: (record) =>
           transaction((tx) => tx.store(UsageStore).record(record)).pipe(
             Effect.provideService(Database, { store }),
@@ -180,28 +184,23 @@ export function nativeLayers(
             : settings.model(tier, call.definition.requiredProvider).pipe(
                 Effect.flatMap((selection): ReturnType<Agents['Service']['model']> =>
                   typeof selection.provider === 'string'
-                    ? Effect.gen(function* () {
-                        const provider = getApiKeyProvider(selection.provider);
-                        const key = auth.apiKey(provider.id);
-
-                        yield* key;
-                        const { modelId, release } = yield* apiKeyModel(
-                          provider,
-                          tier,
-                          selection.modelId
-                        );
-
-                        return Object.assign(createApiKeyModel(provider, modelId, key, request), {
-                          release
-                        });
-                      })
-                    : chatGptModel(selection.family).pipe(
-                        Effect.map(({ auth, modelId, release }) =>
-                          Object.assign(createChatGptModel({ auth, modelId, fetch: request }), {
-                            release
-                          })
+                    ? Effect.sync(() =>
+                        createApiKeyModel(
+                          getApiKeyProvider(selection.provider),
+                          selection.modelId,
+                          auth.apiKey(selection.provider),
+                          request
                         )
                       )
+                    : Effect.try({
+                        try: () =>
+                          createChatGptModel({
+                            auth: manager.credentials(),
+                            modelId: selection.modelId,
+                            fetch: request
+                          }),
+                        catch: normalizeError
+                      })
                 )
               ),
         searchSources: () =>

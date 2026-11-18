@@ -1,5 +1,4 @@
-/** @file Exercises automatic ChatGPT model selection with the signed-in account catalog. */
-import { LlmModel } from '@study/contracts';
+/** @file Exercises ChatGPT model recommendations with the signed-in account catalog. */
 import { test } from '@study/testing';
 import { Clock, Effect } from 'effect';
 import { TestClock } from 'effect/testing';
@@ -8,7 +7,7 @@ import { makeChatGptCatalog } from './catalog.ts';
 import { AuthManager } from './session.ts';
 
 test.unit.stable(
-  'selects current account models even when the preferred families disappear',
+  'suggests current account models even when the preferred families disappear',
   async ({ expect }) => {
     const requests: string[] = [];
     const visible = (
@@ -57,31 +56,28 @@ test.unit.stable(
             );
 
           try {
-            const resolve = yield* makeChatGptCatalog(auth, undefined, peer.url.origin);
-            const catalog = (family: LlmModel) =>
-              resolve(family).pipe(Effect.map((selection) => selection.modelId));
+            const inspect = yield* makeChatGptCatalog(auth, undefined, peer.url.origin);
+            const catalog = (id: string) =>
+              inspect.pipe(Effect.map((value) => value.recommend(id)));
 
             yield* signIn('first');
-            expect(
-              yield* Effect.all(
-                [catalog(LlmModel.SOL), catalog(LlmModel.LUNA), catalog(LlmModel.ASTRA)],
-                { concurrency: 'unbounded' }
-              )
-            ).toEqual(['gpt-6.10-sol', 'gpt-6-luna', 'gpt-6.10-sol']);
+            expect(yield* catalog('gpt-6.1-sol')).toBe('gpt-6.10-sol');
+            expect(yield* catalog('gpt-6-luna')).toBeUndefined();
+            expect((yield* inspect).models).not.toContain('gpt-6.2-astra');
             expect(requests).toEqual(['Bearer first']);
 
             releases = visible('gpt-7-sol');
-            expect(yield* catalog(LlmModel.SOL)).toBe('gpt-6.10-sol');
+            expect(yield* catalog('gpt-6.1-sol')).toBe('gpt-6.10-sol');
             yield* TestClock.adjust('5 minutes');
             unavailable = true;
-            expect((yield* Effect.flip(catalog(LlmModel.SOL))).kind).toBe('transient');
+            expect((yield* Effect.flip(catalog('gpt-6.1-sol'))).kind).toBe('transient');
             unavailable = false;
-            expect(yield* catalog(LlmModel.SOL)).toBe('gpt-7-sol');
-            expect(yield* catalog(LlmModel.ASTRA)).toBe('gpt-7-sol');
+            expect(yield* catalog('gpt-6.1-sol')).toBe('gpt-7-sol');
+            expect(yield* catalog('gpt-6.1-sol')).toBe('gpt-7-sol');
 
             releases = visible('new-model', 'another-model');
             yield* signIn('second');
-            expect(yield* catalog(LlmModel.SOL)).toBe('new-model');
+            expect(yield* catalog('gpt-6.1-sol')).toBe('new-model');
             expect(requests).toEqual([
               'Bearer first',
               'Bearer first',
@@ -95,15 +91,14 @@ test.unit.stable(
             ];
             yield* TestClock.adjust('5 minutes');
 
-            for (const family of Object.values(LlmModel))
-              expect(yield* catalog(family)).toBe('only-model');
+            expect(yield* catalog('gpt-6.1-sol')).toBe('only-model');
 
             releases = [];
             yield* TestClock.adjust('5 minutes');
-            expect((yield* Effect.flip(catalog(LlmModel.SOL))).kind).toBe('unsupported');
+            expect(yield* catalog('gpt-6.1-sol')).toBeUndefined();
 
             yield* Effect.promise(() => auth.signOut());
-            expect((yield* Effect.flip(catalog(LlmModel.SOL))).kind).toBe('auth');
+            expect((yield* Effect.flip(catalog('gpt-6.1-sol'))).kind).toBe('auth');
           } finally {
             yield* Effect.promise(() => auth.dispose());
           }

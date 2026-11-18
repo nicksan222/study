@@ -1,9 +1,8 @@
 /** @file Resolves stable model families against the catalog of the signed-in ChatGPT account. */
-import { LlmModel, StudyError } from '@study/contracts';
+import { StudyError } from '@study/contracts';
 import { Cache, Effect, Exit, Schema } from 'effect';
 
 import { allowsAiModel } from '#server/platform/ai/providers/model-policy';
-import { compareModelReleases } from '#server/platform/ai/providers/release';
 import { normalizeError } from '#server/platform/errors/classify-error';
 import type { FetchOptions } from '#server/platform/http/index';
 import { streamingFetch } from '#server/platform/http/index';
@@ -14,18 +13,12 @@ import type { AuthManager, ChatGptCredentials } from './session.ts';
 const catalogSchema = Schema.Struct({
   models: Schema.Array(
     Schema.Struct({
-      slug: Schema.String.check(Schema.isPattern(/^\S+$/)),
+      slug: Schema.String.check(Schema.isPattern(/^\S+$/), Schema.isMaxLength(200)),
       visibility: Schema.String,
       display_name: Schema.optional(Schema.String)
     })
   )
 });
-
-const families = {
-  [LlmModel.LUNA]: 'luna',
-  [LlmModel.SOL]: 'sol',
-  [LlmModel.ASTRA]: 'sol'
-} as const;
 
 // Base releases only. Preview, specialized and dated variants can have different capabilities.
 const releaseSlug = /^gpt-(\d+)(?:\.(\d+))?-([a-z]+)$/;
@@ -36,7 +29,6 @@ function parseRelease(model: string) {
   if (!match?.[3]) return undefined;
 
   return {
-    provider: 'chatgpt',
     family: match[3],
     model,
     generation: Number(match[1]),
@@ -44,15 +36,10 @@ function parseRelease(model: string) {
   };
 }
 
-function latestRelease(slugs: readonly string[], family: LlmModel) {
-  const releases = slugs.flatMap((slug) => {
-    const release = parseRelease(slug);
-
-    return release?.family === families[family] ? [release] : [];
-  });
-
-  return releases.sort((a, b) => compareModelReleases(b, a))[0];
-}
+const compare = (
+  a: NonNullable<ReturnType<typeof parseRelease>>,
+  b: NonNullable<ReturnType<typeof parseRelease>>
+) => a.generation - b.generation || a.revision - b.revision;
 
 function requestCatalog(auth: ChatGptCredentials, request: FetchOptions['fetch'], baseUrl: string) {
   return Effect.tryPromise({
@@ -127,19 +114,28 @@ export const makeChatGptCatalog = (
       { capacity: 1, timeToLive: (exit) => (Exit.isSuccess(exit) ? '5 minutes' : 0) }
     );
 
-    return (family: LlmModel) =>
-      Effect.gen(function* () {
-        const auth = yield* currentSession;
-        const models = yield* Cache.get(cache, auth.id);
-        // Keep the provider's ordering when the preferred family is no longer offered.
-        const release = latestRelease(models, family);
-        const modelId = release?.model ?? models[0];
+    return currentSession.pipe(
+      Effect.flatMap((auth) => Cache.get(cache, auth.id)),
+      Effect.map((models) => ({
+        models,
+        recommend: (id: string) => {
+          const current = parseRelease(id);
+          const newer = models.flatMap((model) => {
+            const candidate = parseRelease(model);
 
-        if (!modelId)
-          return yield* Effect.fail(
-            new StudyError('unsupported', 'No ChatGPT model is available for this account')
+            return current &&
+              candidate &&
+              candidate.family === current.family &&
+              compare(candidate, current) > 0
+              ? [candidate]
+              : [];
+          });
+
+          return (
+            newer.toSorted((a, b) => compare(b, a))[0]?.model ??
+            (models.includes(id) ? undefined : models[0])
           );
-
-        return { auth, modelId, release: release ?? parseRelease(modelId) };
-      });
+        }
+      }))
+    );
   });

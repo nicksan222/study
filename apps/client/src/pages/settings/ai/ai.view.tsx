@@ -118,6 +118,12 @@ export function AiModelSettingsView({ model }: { model: AiSettingsModel }) {
       model: label,
       disabled: !model.data?.status.signedIn
     })),
+    ...(model.catalog?.['1'] ?? []).map((id) => ({
+      setup: { provider: 1 as const, model: id },
+      provider: t('AiSettingsChatGpt'),
+      model: id,
+      disabled: !model.data?.status.signedIn
+    })),
     ...(model.data?.providers ?? []).flatMap((provider) => [
       {
         setup: { provider: provider.id },
@@ -125,7 +131,7 @@ export function AiModelSettingsView({ model }: { model: AiSettingsModel }) {
         model: t('AiSettingsDefaultModel'),
         disabled: !provider.configured
       },
-      ...provider.models.map((id) => ({
+      ...[...new Set([...provider.models, ...(model.catalog?.[provider.id] ?? [])])].map((id) => ({
         setup: { provider: provider.id, model: id },
         provider: t('AiSettingsProviderBrand', { provider: provider.name }),
         model: id,
@@ -142,28 +148,31 @@ export function AiModelSettingsView({ model }: { model: AiSettingsModel }) {
           <Settings.Group>
             {tiers.map(({ tier, title, description }) => {
               const setup = model.data!.settings[tier];
-              const options = choices.filter(
-                (option) =>
-                  !option.disabled ||
-                  (option.setup.provider === setup.provider && option.setup.model === setup.model)
-              );
+              const options = [...choices];
+              const recommended = model.recommendations?.find((entry) => entry.tier === tier);
               let selected = options.findIndex(
                 (option) =>
                   option.setup.provider === setup.provider && option.setup.model === setup.model
               );
 
               // Keep saved custom models selectable even when absent from the provider catalog.
-              if (selected === -1 && typeof setup.provider === 'string') {
+              if (selected === -1) {
                 const provider = model.data!.providers.find((entry) => entry.id === setup.provider);
 
                 selected = options.length;
                 options.push({
                   setup,
-                  provider: t('AiSettingsProviderBrand', {
-                    provider: provider?.name ?? setup.provider
-                  }),
+                  provider:
+                    typeof setup.provider === 'number'
+                      ? t('AiSettingsChatGpt')
+                      : t('AiSettingsProviderBrand', {
+                          provider: provider?.name ?? setup.provider
+                        }),
                   model: String(setup.model ?? t('AiSettingsDefaultModel')),
-                  disabled: !provider?.configured
+                  disabled:
+                    typeof setup.provider === 'number'
+                      ? !model.data?.status.signedIn
+                      : !provider?.configured
                 });
               }
 
@@ -178,7 +187,17 @@ export function AiModelSettingsView({ model }: { model: AiSettingsModel }) {
                     disabled: option.disabled,
                     label: t('AiSettingsModelOption', {
                       provider: option.provider,
-                      model: option.model
+                      model:
+                        (recommended &&
+                          recommended.provider === option.setup.provider &&
+                          recommended.model === option.setup.model) ||
+                        (model.data?.providers.find((entry) => entry.id === option.setup.provider)
+                          ?.defaults[tier] === option.setup.model &&
+                          option.setup.model !== undefined) ||
+                        (option.setup.provider === 1 &&
+                          option.setup.model === (tier === 'tiny' ? LlmModel.LUNA : LlmModel.SOL))
+                          ? t('AiSettingsRecommendedModel', { model: option.model })
+                          : option.model
                     })
                   }))}
                   disabled={model.pending || options.every((option) => option.disabled)}

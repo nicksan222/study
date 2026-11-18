@@ -81,12 +81,14 @@ function mount(
     providers: [],
     status: { signedIn: Section === AiModelSettings, email: null, sharing: false }
   });
+  const reads = {
+    'auth.status': async () => (await operations.loadAiSettings()).status,
+    'auth.providers': async () => (await operations.loadAiSettings()).providers,
+    'settings.modelCatalog': () => ({ models: {}, recommendations: [] }),
+    'settings.llmSettings': async () => (await operations.loadAiSettings()).settings
+  };
   const fixture = rpcTestTransport(async (tag, input) => {
-    if (tag === 'auth.status') return (await operations.loadAiSettings()).status;
-
-    if (tag === 'auth.providers') return (await operations.loadAiSettings()).providers;
-
-    if (tag === 'settings.llmSettings') return (await operations.loadAiSettings()).settings;
+    if (Object.hasOwn(reads, tag)) return reads[tag as keyof typeof reads]();
 
     if (tag === 'auth.startSignIn') return operations.startChatGptSignIn();
 
@@ -131,7 +133,7 @@ test.unit.stable(
     await user.click(
       await screen.findByRole('combobox', { name: catalogs.english.AiSettingsMedium })
     );
-    await user.click(await screen.findByRole('option', { name: 'ChatGPT — Prefer Sol' }));
+    await user.click(await screen.findByRole('option', { name: /ChatGPT — Prefer Sol/ }));
     await waitFor(() =>
       expect(operations.saveAiSettings).toHaveBeenCalledWith({
         ...settings,

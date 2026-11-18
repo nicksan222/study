@@ -1,10 +1,12 @@
-import { Language, LlmModel, LlmProvider } from '@study/contracts';
+import { Language, LlmProvider } from '@study/contracts';
 import { catalogs, createLocalization } from '@study/localization';
 import { test } from '@study/testing';
 
 const earlier = { model: 'gpt-6.1-sol', title: 'Cell Study' };
 
 const newer = { model: 'gpt-6.2-sol', title: 'Cell Division' };
+
+const latest = { model: 'gpt-6.3-sol', title: 'Chromosome Division' };
 
 const english = catalogs.english;
 
@@ -14,7 +16,8 @@ test.browser.use({
   chatGpt: {
     chatGptReleases: [
       { model: earlier.model, text: earlier.title },
-      { model: newer.model, text: newer.title }
+      { model: newer.model, text: newer.title },
+      { model: latest.model, text: latest.title }
     ]
   }
 });
@@ -32,7 +35,9 @@ test.browser.stable(
     await rpc.runPromise(
       rpc.client['settings.saveLlmSettings']({
         ...configured,
-        tiny: { provider: LlmProvider.CHAT_GPT, model: LlmModel.SOL }
+        tiny: { provider: LlmProvider.CHAT_GPT, model: earlier.model },
+        medium: { provider: 'deepseek' },
+        smart: { provider: 'deepseek' }
       })
     );
     const generateTitle = async () => {
@@ -69,9 +74,15 @@ test.browser.stable(
 
     await selectChatGptRelease(newer.model);
     await generateTitle();
-    await expect(title(newer.title)).toBeVisible();
+    await expect(title(earlier.title)).toBeVisible();
+    expect((await rpc.runPromise(rpc.client['settings.llmSettings']({}))).tiny.model).toBe(
+      earlier.model
+    );
     const versions = { previous: earlier.model, model: newer.model };
-    const description = createLocalization('english').t('ModelUpdateApplied', versions);
+    const description = createLocalization('english').t('ModelUpdateOffer', {
+      ...versions,
+      tier: english.AiSettingsTiny
+    });
 
     await expectScreenshot('updated-on-desktop', {
       target: 'viewport',
@@ -87,7 +98,10 @@ test.browser.stable(
       })
     );
     await page.setViewportSize({ width: 390, height: 844 });
-    const mobileDescription = createLocalization('italian').t('ModelUpdateApplied', versions);
+    const mobileDescription = createLocalization('italian').t('ModelUpdateOffer', {
+      ...versions,
+      tier: italian.AiSettingsTiny
+    });
 
     await expectScreenshot('updated-on-mobile', {
       target: 'viewport',
@@ -107,11 +121,18 @@ test.browser.stable(
       target: 'viewport',
       zoomPercent: 100,
       ready: async () => {
-        await expect(title(newer.title)).toBeVisible();
+        await expect(title(earlier.title)).toBeVisible();
         await expect(viewport.getByText(italian.ModelUpdateAvailable, { exact: true })).toHaveCount(
           0
         );
       }
     });
+    await selectChatGptRelease(latest.model);
+    await viewport.getByRole('button', { name: italian.ModelUpdateAction }).click();
+    await expect
+      .poll(async () => (await rpc.runPromise(rpc.client['settings.llmSettings']({}))).tiny.model)
+      .toBe(latest.model);
+    await generateTitle();
+    await expect(title(latest.title)).toBeVisible();
   }
 );

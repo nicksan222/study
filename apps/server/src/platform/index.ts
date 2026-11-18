@@ -25,8 +25,6 @@ export { defineContextPreparation } from './ai/context-preparation/index.ts';
 export type { ContextPreparation } from './ai/context-preparation/index.ts';
 export { planSourcePassages } from './ai/context-preparation/planner.ts';
 export { createEvidenceCatalog } from './ai/evidence.ts';
-export { compareModelReleases, modelReleaseSchema } from './ai/providers/release.ts';
-export type { ModelRelease } from './ai/providers/release.ts';
 export { makeApiKeyCatalog } from './ai/providers/catalog.ts';
 export { allowsAiModel } from './ai/providers/model-policy.ts';
 export { createApiKeyModel } from './ai/providers/api-key-model.ts';

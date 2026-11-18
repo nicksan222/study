@@ -21,6 +21,8 @@ test.unit.beforeEach(async ({ mock }) => {
 
 function settingsModel({ vi }: Pick<test.unit.Context, 'vi'>): AiSettingsModel {
   return {
+    catalog: undefined,
+    recommendations: undefined,
     data: {
       status: { signedIn: true, email: 'learner@example.com', sharing: false },
       providers: [],
@@ -106,6 +108,15 @@ test.unit.stable(
   async ({ render, expect, screen, userEvent, vi }) => {
     const model = withAnthropic({ vi });
 
+    model.catalog = { anthropic: ['claude-haiku-next'] };
+    model.recommendations = [
+      {
+        tier: 'tiny',
+        provider: 'anthropic',
+        previousModel: 'claude-haiku-5-5',
+        model: 'claude-haiku-next'
+      }
+    ];
     render(<AiModelSettingsView model={model} />);
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('combobox', { name: 'Attività rapide' }));
@@ -113,12 +124,13 @@ test.unit.stable(
       (await screen.findAllByRole('option')).map((option) => option.textContent)
     ).toStrictEqual([
       'ChatGPT — Usa predefinito',
-      'ChatGPT — Preferisci Luna',
+      'ChatGPT — Preferisci Luna · Consigliato',
       'ChatGPT — Preferisci Sol',
       'Anthropic — Usa predefinito',
-      'Anthropic — claude-haiku-5-5',
+      'Anthropic — claude-haiku-5-5 · Consigliato',
       'Anthropic — claude-sonnet-5-5',
-      'Anthropic — claude-opus-5-5'
+      'Anthropic — claude-opus-5-5',
+      'Anthropic — claude-haiku-next · Consigliato'
     ]);
     await userEvent.click(
       await screen.findByRole('option', { name: 'Anthropic — claude-opus-5-5' })
@@ -170,7 +182,7 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'signed-out ChatGPT is absent unless it is the saved choice, which stays disabled',
+  'signed-out ChatGPT models remain visible with disabled choices',
   async ({ render, userEvent, screen, expect, vi }) => {
     const model = withAnthropic({ vi });
 
@@ -180,21 +192,25 @@ test.unit.stable(
     expect(
       await screen.findByRole('option', { name: 'Anthropic — Usa predefinito' })
     ).toBeEnabled();
-    expect(screen.queryByRole('option', { name: /ChatGPT/ })).not.toBeInTheDocument();
+
+    for (const option of screen.getAllByRole('option', { name: /ChatGPT/ }))
+      expect(option).toHaveAttribute('aria-disabled', 'true');
+
     await userEvent.keyboard('{Escape}');
     await userEvent.click(screen.getByRole('combobox', { name: 'Attività quotidiane' }));
     expect(
       await screen.findByRole('option', { name: 'ChatGPT — Usa predefinito' })
     ).toHaveAttribute('aria-disabled', 'true');
-    expect(
-      screen.queryByRole('option', { name: 'ChatGPT — Preferisci Luna' })
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'ChatGPT — Preferisci Luna' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
     expect(model.setSetup).not.toHaveBeenCalled();
   }
 );
 
 test.unit.stable(
-  'an API provider without a key retains only its disabled saved model',
+  'an API provider without a key lists its models as disabled',
   async ({ render, expect, screen, userEvent, vi }) => {
     const model = withAnthropic({ vi });
     const provider = model.data!.providers[0]!;
@@ -215,12 +231,14 @@ test.unit.stable(
     const saved = await screen.findByRole('option', { name: 'Anthropic — claude-opus-5-5' });
 
     expect(saved).toHaveAttribute('aria-disabled', 'true');
-    expect(
-      screen.queryByRole('option', { name: 'Anthropic — Usa predefinito' })
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('option', { name: 'Anthropic — claude-sonnet-5-5' })
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Anthropic — Usa predefinito' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+    expect(screen.getByRole('option', { name: 'Anthropic — claude-sonnet-5-5' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
     await userEvent.click(saved);
     expect(model.setSetup).not.toHaveBeenCalled();
     await userEvent.click(await screen.findByRole('option', { name: 'ChatGPT — Usa predefinito' }));

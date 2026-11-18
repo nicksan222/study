@@ -22,7 +22,7 @@ const modelIdSchema = Schema.String.check(
 export const tierSetupSchema = Schema.Union([
   Schema.Struct({
     provider: Schema.Literal(1),
-    model: Schema.optional(Schema.Literals([1, 2, 3]))
+    model: Schema.optional(Schema.Union([Schema.Literals([1, 2, 3]), modelIdSchema]))
   }),
   Schema.Struct({ provider: apiKeyProviderIdSchema, model: Schema.optional(modelIdSchema) })
 ]);

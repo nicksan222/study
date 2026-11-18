@@ -1,7 +1,8 @@
 /** @file Serves scripted ChatGPT catalog snapshots and complete Responses API results. */
-import { ChatGptSession } from '@study/server';
+import { ChatGptSession, makeApiKeyCatalog, makeChatGptCatalog } from '@study/server';
 import { Effect, Schema } from 'effect';
 
+import { Settings } from '#server/features/settings/service/index';
 import type { App } from '#server/runtime/service';
 
 import { textResponseEvents } from './responses.ts';
@@ -14,7 +15,7 @@ interface Release {
 const readModel = Schema.decodeUnknownSync(Schema.Struct({ model: Schema.String }));
 
 export function createChatGptReleasePeer(releases: readonly Release[]) {
-  return {
+  const peer = {
     fetch: async (...args: Parameters<typeof fetch>) => {
       const request = new Request(...args);
       const authorization = request.headers.get('authorization');
@@ -35,11 +36,12 @@ export function createChatGptReleasePeer(releases: readonly Release[]) {
 
       const { model } = readModel(await request.json());
 
-      if (model !== selected.model)
-        throw new Error(`Expected ${selected.model}, received ${model}`);
+      const response = releases.find((release) => release.model === model);
+
+      if (!response) throw new Error(`Unexpected model ${model}`);
 
       return new Response(
-        textResponseEvents(selected.text)
+        textResponseEvents(response.text)
           .map((event) => `data: ${JSON.stringify(event)}\n\n`)
           .join(''),
         { headers: { 'content-type': 'text/event-stream' } }
@@ -47,15 +49,24 @@ export function createChatGptReleasePeer(releases: readonly Release[]) {
     },
     select: (app: App, model: string) =>
       app.nativeRuntime.runPromise(
-        Effect.flatMap(ChatGptSession, ({ manager }) =>
+        Effect.gen(function* () {
+          const { manager } = yield* ChatGptSession;
+
           // Reconnecting the same fixture account invalidates its account-scoped catalog.
-          Effect.promise(() =>
+          yield* Effect.promise(() =>
             manager.replace(
               { subject: 'fixture', clientId: 'fixture', refreshToken: null, sharing: true },
               { accessToken: model, expiresIn: 3600 }
             )
-          )
-        )
+          );
+          const settings = yield* Settings;
+          const chat = yield* makeChatGptCatalog(manager, peer.fetch);
+          const api = yield* makeApiKeyCatalog(peer.fetch);
+
+          yield* settings.refreshModelRecommendations(() => Effect.succeed([]), chat, api);
+        })
       )
   };
+
+  return peer;
 }

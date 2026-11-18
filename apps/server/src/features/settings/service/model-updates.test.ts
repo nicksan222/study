@@ -5,16 +5,15 @@ import { Effect, Layer } from 'effect';
 
 import { Settings } from './index.ts';
 
-const sol = (minor: number) => ({
-  provider: 'chatgpt',
-  family: 'sol',
-  model: `gpt-6.${minor}-sol`,
-  generation: 6,
-  revision: minor
-});
+const notice = {
+  tier: 'medium',
+  provider: 1,
+  previousModel: 'gpt-6.1-sol',
+  model: 'gpt-6.2-sol'
+} as const;
 
 test.server.stable(
-  'announces only newer releases and retains pending notices across reopen',
+  'catalog refresh leaves selections pinned and applies only the accepted current recommendation',
   async ({ databases, expect }) => {
     const location = await databases();
     let context = new ServerContext(await location.open());
@@ -26,51 +25,44 @@ test.server.stable(
           )
         )
       );
+    const refresh = (model: string) =>
+      Effect.gen(function* () {
+        const settings = yield* Settings;
+
+        yield* settings.refreshModelCatalog({ '1': [notice.previousModel, model] }, [
+          { ...notice, model }
+        ]);
+      });
 
     try {
+      await run(refresh(notice.model));
       await run(
         Effect.gen(function* () {
           const settings = yield* Settings;
 
-          yield* settings.observeModelRelease(sol(1));
-          expect(yield* settings.modelUpdates()).toEqual([]);
-          const baseline = context.revisions().scopes.settings ?? 0n;
-
-          yield* Effect.all(
-            [settings.observeModelRelease(sol(2)), settings.observeModelRelease(sol(2))],
-            {
-              concurrency: 'unbounded'
-            }
-          );
-          yield* settings.observeModelRelease(sol(1));
-          expect(context.revisions().scopes.settings).toBe(baseline + 1n);
-          expect(yield* settings.modelUpdates()).toEqual([
-            {
-              provider: 'chatgpt',
-              family: 'sol',
-              previousModel: 'gpt-6.1-sol',
-              model: 'gpt-6.2-sol'
-            }
-          ]);
+          expect(yield* settings.model('medium')).toMatchObject({ modelId: notice.previousModel });
+          expect(yield* settings.modelUpdates()).toEqual([notice]);
+          yield* settings.updateModel(notice, false);
         })
       );
       context.close();
       context = new ServerContext(await location.open());
 
+      await run(refresh(notice.model));
       await run(
         Effect.gen(function* () {
           const settings = yield* Settings;
-          const [first] = yield* settings.modelUpdates();
 
-          expect(first?.model).toBe('gpt-6.2-sol');
-          yield* settings.observeModelRelease(sol(3));
-          yield* settings.dismissModelUpdate(first!);
-          const [latest] = yield* settings.modelUpdates();
+          expect(yield* settings.modelUpdates()).toEqual([]);
+          const latest = { ...notice, model: 'gpt-6.3-sol' };
 
-          expect(latest?.previousModel).toBe('gpt-6.1-sol');
-          expect(latest?.model).toBe('gpt-6.3-sol');
-          yield* settings.dismissModelUpdate(latest!);
-          yield* settings.observeModelRelease(sol(3));
+          yield* refresh(latest.model);
+          expect((yield* Effect.flip(settings.updateModel(notice, true))).kind).toBe(
+            'invalid_input'
+          );
+          expect(yield* settings.modelUpdates()).toEqual([latest]);
+          yield* settings.updateModel(latest, true);
+          expect(yield* settings.model('medium')).toMatchObject({ modelId: latest.model });
           expect(yield* settings.modelUpdates()).toEqual([]);
         })
       );

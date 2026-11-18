@@ -55,7 +55,6 @@ import { AiRequestCheck } from '#server/platform/ai/model';
 import type { AiModel } from '#server/platform/ai/model';
 import { AiPhase } from '#server/platform/ai/phase';
 import { batchAgentProgress } from '#server/platform/ai/progress';
-import type { ModelRelease } from '#server/platform/ai/providers/release';
 import { adaptProviderTool } from '#server/platform/ai/providers/tools';
 import { makeAgentToolkit } from '#server/platform/ai/tool-adapter';
 import {
@@ -76,7 +75,6 @@ export interface AgentsConfig extends AgentEnvironment {
   rules: Effect.Effect<AgentRules, StudyError>;
   model: (tier: ModelTier, call: AiInvocation) => Effect.Effect<AiModel, StudyError>;
   recordUsage?: (usage: UsageRecord) => Effect.Effect<void>;
-  observeModelRelease?: (release: ModelRelease) => Effect.Effect<void>;
   now?: () => number;
   observe?: (observation: typeof agentObservationSchema.Type) => Effect.Effect<void, StudyError>;
 }
@@ -412,9 +410,6 @@ export function streamAgent<
           },
           catch: () => new AgentOutputError('Agent output did not match its schema')
         });
-
-        if (model.release && service.observeModelRelease)
-          yield* service.observeModelRelease(model.release);
 
         yield* observe({ type: 'complete', output: traceDetail(output) });
         yield* Queue.offer(queue, { type: 'complete', output });

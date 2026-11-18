@@ -93,15 +93,15 @@ test.server.stable(
           assert.strictEqual(yield* settings.language(), 'english');
           expect(yield* settings.model('tiny')).toStrictEqual({
             provider: 1,
-            family: LlmModel.LUNA
+            modelId: 'gpt-6-luna'
           });
           expect(yield* settings.model('medium')).toStrictEqual({
             provider: 1,
-            family: LlmModel.SOL
+            modelId: 'gpt-6.1-sol'
           });
           expect(yield* settings.model('smart')).toStrictEqual({
             provider: 1,
-            family: LlmModel.SOL
+            modelId: 'gpt-6.1-sol'
           });
           const app = {
             language: Language.ITALIAN,
@@ -129,7 +129,7 @@ test.server.stable(
           });
           expect(yield* settings.model('tiny')).toStrictEqual({
             provider: 1,
-            family: LlmModel.SOL
+            modelId: 'gpt-6.1-sol'
           });
           yield* settings.saveMaterialSettings({ sift: false });
           yield* settings.saveReviewSettings({ newCardsPerDay: 42 });
@@ -410,7 +410,7 @@ test.server.stable(
           });
           expect(yield* settings.model('medium', LlmProvider.CHAT_GPT)).toStrictEqual({
             provider: LlmProvider.CHAT_GPT,
-            family: LlmModel.SOL
+            modelId: 'gpt-6.1-sol'
           });
           const invalid = yield* Effect.flip(
             settings.saveLlmSettings({ ...selection, tiny: { provider: 'unknown' } })

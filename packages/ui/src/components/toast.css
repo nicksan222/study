@@ -67,6 +67,23 @@
 .ui-toast-description {
   color: var(--contrast-muted-foreground);
 }
+.ui-toast-content:has(.ui-toast-action) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  row-gap: 0.5rem;
+}
+.ui-toast-content:has(.ui-toast-action) > :last-child {
+  grid-column: 3;
+  grid-row: 1;
+}
+.ui-toast-content:has(.ui-toast-action) .ui-toast-icon {
+  margin-top: 0.125rem;
+}
+.ui-toast-action {
+  grid-column: 2;
+  justify-self: start;
+}
 @media (max-width: 479px) {
   .ui-toast-viewport {
     right: max(1rem, env(safe-area-inset-right));

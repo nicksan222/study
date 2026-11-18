@@ -712,7 +712,10 @@ export const italian = Object.freeze({
     'Il ripristino non è stato completato. Verifica lo stato prima di riprovare.',
   NotificationsLabel: 'Notifiche',
   ModelUpdateAvailable: 'Nuova versione del modello',
-  ModelUpdateApplied: 'Study è passato da {previous} a {model}.',
+  ModelUpdateOffer: 'Per {tier} è disponibile {model}. Vuoi sostituire {previous}?',
+  ModelUpdateAction: 'Aggiorna modello',
+  ModelUpdateFailed: 'Impossibile aggiornare il modello',
+  AiSettingsRecommendedModel: '{model} · Consigliato',
   DataRestoreConfirmationWord: 'ripristina',
   DataRestoreConfirmationInstruction:
     'Digita {word} per sostituire tutto il materiale con questo backup.',

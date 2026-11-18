@@ -1,5 +1,12 @@
 import { AgentRule } from '@study/contracts';
-import { Agents, defineAgent, generateAgent } from '@study/server';
+import {
+  Agents,
+  ChatGptSession,
+  defineAgent,
+  generateAgent,
+  makeApiKeyCatalog,
+  makeChatGptCatalog
+} from '@study/server';
 import { encodeAccount } from '@study/server';
 import { Database } from '@study/server';
 import { transaction } from '@study/server';
@@ -23,7 +30,6 @@ import { test } from '@study/testing';
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 import { Effect, Schema } from 'effect';
-import { Model } from 'effect/ai';
 
 import { Auth } from '#server/features/auth/index';
 import { AuthStore } from '#server/features/auth/store/index';
@@ -143,87 +149,73 @@ function textCompletion(model: string) {
 }
 
 test.server.stable(
-  'configured API-key tiers announce an updated model after the new release completes an agent run',
+  'an API-key provider uses its saved model until the user accepts its recommendation',
   async ({ resources, expect }) => {
-    let id = 'deepseek-new-name';
-    let date = '2026-11-17';
-    const open = () =>
-      resources.openApp({
-        path: resources.path,
-        fetch: async (input, init) => {
-          const request = new Request(input, init);
+    const before = 'deepseek-flash';
+    const after = 'deepseek-newer-name';
+    let expected = before;
+    const fetchCatalog = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
 
-          if (request.url.endsWith('/chat/completions')) {
-            expect(await request.json()).toMatchObject({ model: id });
+      if (request.url.endsWith('/chat/completions')) {
+        expect(await request.json()).toMatchObject({ model: expected });
 
-            return textCompletion(id);
-          }
+        return textCompletion(expected);
+      }
 
-          expect(request.url).toBe('https://models.dev/api.json');
-          expect(request.headers.has('authorization')).toBe(false);
+      expect(request.url).toBe('https://models.dev/api.json');
+      expect(request.headers.has('authorization')).toBe(false);
 
-          return Response.json({
-            deepseek: {
-              models: {
-                [id]: {
-                  id,
-                  name: id,
-                  family: 'deepseek',
-                  release_date: date,
-                  tool_call: true,
-                  modalities: { output: ['text'] },
-                  cost: { output: 1 }
-                }
+      return Response.json({
+        deepseek: {
+          models: Object.fromEntries(
+            [before, after].map((id, index) => [
+              id,
+              {
+                id,
+                name: id,
+                family: 'deepseek',
+                release_date: index ? '2026-11-18' : '2026-11-17',
+                tool_call: true,
+                modalities: { output: ['text'] },
+                cost: { output: 1 }
               }
-            }
-          });
+            ])
+          )
         }
       });
-    let app = await open();
+    };
+    const app = await resources.openApp({ path: resources.path, fetch: fetchCatalog });
 
     try {
       await app.nativeRuntime.runPromise(
         Effect.gen(function* () {
           const auth = yield* Auth;
           const settings = yield* Settings;
-          const agents = yield* Agents;
+          const { manager } = yield* ChatGptSession;
+          const chat = yield* makeChatGptCatalog(manager, fetchCatalog);
+          const api = yield* makeApiKeyCatalog(fetchCatalog);
 
           yield* auth.saveApiKey({ provider: 'deepseek', apiKey: 'test-secret' });
           yield* settings.saveLlmSettings({
-            tiny: { provider: 'deepseek' },
-            medium: { provider: 'deepseek' },
-            smart: { provider: 'deepseek' }
+            tiny: { provider: 1 },
+            medium: { provider: 'deepseek', model: before },
+            smart: { provider: 1 }
           });
-          const selected = yield* agents.model('medium', {
-            definition: { input: Schema.String, output: Schema.String },
-            input: 'Hello'
-          });
+          yield* settings.refreshModelRecommendations(auth.providers, chat, api);
+          const [notice] = yield* settings.modelUpdates();
 
-          expect(selected.provider).toBe('deepseek');
-          expect(yield* Effect.provide(Model.ModelName, selected)).toBe(id);
+          expect(notice).toEqual({
+            tier: 'medium',
+            provider: 'deepseek',
+            previousModel: before,
+            model: after
+          });
+          expect(yield* generateAgent(versionCheckAgent, 'Hello')).toBe('Hello');
+          yield* settings.updateModel(notice!, true);
+          expected = after;
           expect(yield* generateAgent(versionCheckAgent, 'Hello')).toBe('Hello');
           expect(yield* settings.modelUpdates()).toEqual([]);
-        })
-      );
-      await app.close();
-      id = 'deepseek-newer-name';
-      date = '2026-11-18';
-      app = await open();
-
-      await app.nativeRuntime.runPromise(
-        Effect.gen(function* () {
-          const settings = yield* Settings;
-
-          expect(yield* settings.modelUpdates()).toEqual([]);
-          expect(yield* generateAgent(versionCheckAgent, 'Hello')).toBe('Hello');
-          expect(yield* settings.modelUpdates()).toEqual([
-            {
-              provider: 'deepseek',
-              family: 'deepseek',
-              previousModel: 'deepseek-new-name',
-              model: id
-            }
-          ]);
         })
       );
     } finally {
