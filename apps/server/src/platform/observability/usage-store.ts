@@ -23,7 +23,7 @@ import { defineStore, storeMutation, storeQuery } from '#server/platform/definit
 export const UsageStore = defineStore({
   name: 'study/UsageStore',
   entity: { singular: 'usageReport', plural: 'usageReports' },
-  make: ({ db, clock }) => ({
+  make: ({ db, timestampClock }) => ({
     mutations: {
       record: storeMutation({
         changes: ['settings'],
@@ -40,7 +40,7 @@ export const UsageStore = defineStore({
         input: usageQuerySchema,
         output: usageReportSchema,
         run: ({ days, provider }) => {
-          const now = clock.currentTimeMillisUnsafe();
+          const now = timestampClock.currentTimeMillisUnsafe();
           const start = now - days * 86400000;
           const where = sql`${aiUsage.timestamp} >= ${start} AND ${aiUsage.timestamp} <= ${now} ${provider === undefined ? sql`` : sql`AND ${aiUsage.provider} = ${provider}`}`;
           const totals = {
