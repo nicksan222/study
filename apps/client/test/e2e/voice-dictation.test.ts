@@ -488,3 +488,91 @@ test.browser.stable(
     });
   }
 );
+
+test.browser.describe('Practice dictation', () => {
+  test.browser.use({ aiEnabled: true });
+
+  test.browser.stable(
+    'Open practice answers finish dictation before submission',
+    async ({ page, rpc, study, microphone, expect, expectScreenshot }) => {
+      const fixture = await study.seed();
+      await rpc.runPromise(rpc.client['voice.install']({}));
+      const material = await rpc.runPromise(
+        rpc.client['materials.create']({
+          title: 'Cell structure',
+          content: {
+            kind: 'quiz',
+            questions: [
+              {
+                kind: 'open',
+                prompt: 'What does a eukaryotic cell contain?',
+                referenceAnswer: 'A nucleus.',
+                explanation: 'The nucleus contains the cell’s genetic material.'
+              }
+            ]
+          }
+        })
+      );
+
+      await page.setViewportSize({ width: 1100, height: 850 });
+      await page.goto(`/practice/${material.id}`);
+      await page.getByRole('button', { name: copy.PracticeStartQuiz }).click();
+      const answer = page.getByRole('textbox', { name: copy.YourAnswer });
+      const submit = page.getByRole('button', { name: copy.SubmitAnswer });
+
+      await answer.fill('A eukaryotic cell');
+      await expect(submit).toBeEnabled();
+      await expectScreenshot('practice-answer-editor', {
+        target: 'viewport',
+        ready: () => expect(page.getByRole('button', { name: copy.VoiceStart })).toBeVisible()
+      });
+
+      const recording = await microphone.start(page, {
+        segments: { final: 'contains a nucleus.' }
+      });
+
+      await expect(submit).toBeDisabled();
+      await recording.setElapsed(6);
+      await expectScreenshot('practice-answer-recording', {
+        target: 'viewport',
+        ready: async () => {
+          await expect(page.getByRole('button', { name: copy.VoiceStop })).toBeEnabled();
+          await expect(
+            page.getByRole('group', { name: copy.VoiceTitle }).locator('time')
+          ).toHaveText('0:06');
+        }
+      });
+      await recording.stop();
+      await recording.setElapsed(0);
+      await recording.segments.final.requested;
+      await answer.press('ControlOrMeta+Enter');
+      await expect(answer).toHaveValue('A eukaryotic cell');
+      await expect(submit).toBeDisabled();
+      await expectScreenshot('practice-answer-transcribing', {
+        target: 'viewport',
+        ready: () =>
+          expect(page.getByRole('status', { name: copy.VoiceTranscribing })).toBeVisible()
+      });
+      await recording.segments.final.deliver();
+      await expect(answer).toHaveValue('A eukaryotic cell contains a nucleus.');
+      await expectScreenshot('practice-answer-ready', {
+        target: 'viewport',
+        ready: () => expect(submit).toBeEnabled()
+      });
+
+      await page.goto(`/practice?project=${fixture.project.id}`);
+      await page.getByRole('button', { name: copy.PracticeGenerate, exact: true }).click();
+      const generation = page.getByRole('dialog', { name: copy.PracticeGenerate });
+
+      await generation.getByRole('radio', { name: copy.Flashcards, exact: true }).click();
+      await generation.getByText(copy.PracticeCustomize, { exact: true }).click();
+      await generation
+        .getByRole('textbox', { name: copy.PracticeGeneratePrompt })
+        .scrollIntoViewIfNeeded();
+      await expectScreenshot('flashcard-instructions', {
+        target: generation,
+        ready: () => expect(generation.getByRole('button', { name: copy.VoiceStart })).toBeEnabled()
+      });
+    }
+  );
+});

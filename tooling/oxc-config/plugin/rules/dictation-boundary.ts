@@ -25,6 +25,8 @@ import {
 import { webFile, webTarget } from '../web-files.ts';
 import { nativeGlobal } from './native-global.ts';
 
+const rpcSource = '@study/contracts/react';
+
 const microphoneSources = ['lib/host', 'lib/effect/native', 'lib/effect/microphone'];
 
 export default defineRule({
@@ -103,19 +105,33 @@ export default defineRule({
 
         if (raw) report(node);
       },
-      ExportNamedDeclaration(node) {
-        if (node.exportKind === 'type' || !protectedSource(node.source?.value)) return;
+      ImportExpression(node) {
+        const source = staticImportSource(node.source);
 
-        if (
-          node.specifiers.some(
-            (item: any) =>
-              item.exportKind !== 'type' && propertyName(item.local) === 'captureMicrophone'
-          )
-        )
-          report(node);
+        if (protectedSource(source) || source === rpcSource) report(node);
+      },
+      ExportNamedDeclaration(node) {
+        if (node.exportKind === 'type') return;
+
+        const source = node.source?.value;
+
+        for (const item of node.specifiers) {
+          if (item.exportKind === 'type') continue;
+
+          if (
+            reexportsCapability(propertyName(item.local), source, protectedSource, rpc(item.local))
+          ) {
+            report(node);
+
+            return;
+          }
+        }
       },
       ExportAllDeclaration(node) {
-        if (node.exportKind !== 'type' && protectedSource(node.source.value)) report(node);
+        const source = node.source.value;
+
+        if (node.exportKind !== 'type' && (protectedSource(source) || source === rpcSource))
+          report(node);
       },
       CallExpression(node) {
         if (capture) return;
@@ -152,9 +168,37 @@ function namespaceCapability(context: any, definition: any) {
 
   const source = definition.parent.source.value;
 
-  if (source === '@study/contracts/react') return 'contracts';
+  if (source === rpcSource) return 'contracts';
 
   const target = webTarget(context.filename, source);
 
   return microphoneSources.includes(target ?? '') ? 'host' : null;
+}
+
+function reexportsCapability(
+  name: string | null,
+  source: string | undefined,
+  protectedSource: (source: unknown) => boolean,
+  path: string | null
+) {
+  if (source === rpcSource) return name === 'rpc';
+
+  if (source) return name === 'captureMicrophone' && protectedSource(source);
+
+  return (
+    path === 'contracts' ||
+    path === 'host' ||
+    path === 'rpc' ||
+    path === 'rpc.voice' ||
+    path?.startsWith('rpc.voice.')
+  );
+}
+
+function staticImportSource(node: any) {
+  if (node.type === 'Literal') return node.value;
+
+  if (node.type === 'TemplateLiteral' && node.expressions.length === 0)
+    return node.quasis[0]?.value.cooked;
+
+  return undefined;
 }

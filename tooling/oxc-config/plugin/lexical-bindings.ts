@@ -176,7 +176,11 @@ export function destructuredPath(pattern: any, target: string, names: string[]):
   for (const part of pattern.properties) {
     if (!namedProperty(part)) continue;
 
-    const found = destructuredPath(part.value, target, [...names, part.key.name ?? part.key.value]);
+    const name = part.key.name ?? part.key.value;
+
+    if (typeof name !== 'string') continue;
+
+    const found = destructuredPath(part.value, target, [...names, name]);
 
     if (found) return found;
   }

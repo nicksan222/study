@@ -312,3 +312,24 @@ test.server.stable(
     expect(await Bun.file(models.path(1)).bytes()).toEqual(payload);
   }
 );
+
+test.server.stable('failed removal keeps intact assets ready', async ({ databases, expect }) => {
+  const root = (await databases()).path + '.voice';
+  const failure = PlatformError.systemError({
+    _tag: 'PermissionDenied',
+    module: 'FileSystem',
+    method: 'remove'
+  });
+  let failRemoval = false;
+  const filesystem: FileSystem.FileSystem = {
+    ...fs,
+    remove: (path, options) =>
+      failRemoval && path === `${root}/ready` ? Effect.fail(failure) : fs.remove(path, options)
+  };
+  const models = new VoiceModels(root, filesystem, [asset], async () => new Response(payload));
+
+  await models.install(new AbortController().signal);
+  failRemoval = true;
+  await expect(models.remove()).rejects.toMatchObject({ _tag: 'PlatformError' });
+  expect((await models.status()).state).toBe('ready');
+});

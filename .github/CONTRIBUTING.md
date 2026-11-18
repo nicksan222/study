@@ -141,10 +141,11 @@ exception for an independent feature-owned SQL join; changing its content or cop
 requires review again. These checks
 supplement the existing architecture lint and TypeScript checks.
 
-Voice browser journeys use `voiceEnabled: true` and the scoped `voice` fixture, alongside
-Chromium's fake audio input. `voice.next({ text }, { hold: true })` exposes `called`,
-`release()` and `aborted` signals for deterministic processing, recovery and cancellation
-screenshots. This replaces native inference while retaining the real app, SQLite, model
+Voice browser journeys use `microphoneEnabled: true` and the scoped `microphone` fixture
+with Chromium's fake audio input. Start capture with
+`microphone.start(scope, { segments: { final: text } })`. The returned
+`recording.segments.final` exposes `requested`, `deliver()` and `aborted` for deterministic
+processing, recovery and cancellation screenshots. This replaces native inference while retaining the real app, SQLite, model
 installation checks and RPC. Human audio fixtures and their CC-BY-4.0 attribution live in
 `tooling/testing/fixtures/voice`.
 

@@ -11,10 +11,12 @@ export function DictationTextarea({
   onValueChange,
   targetKey,
   label,
+  toolbarLabel,
   ...props
-}: Omit<ComponentProps<typeof Textarea>, 'value' | 'onChange' | 'ref'> & {
+}: Omit<ComponentProps<typeof Textarea>, 'value' | 'onChange' | 'ref' | 'header'> & {
   targetKey?: string | number | bigint;
   label?: ReactNode;
+  toolbarLabel?: string;
   value: string;
   onValueChange: (value: string) => void;
 }) {
@@ -26,25 +28,29 @@ export function DictationTextarea({
     maxLength: props.maxLength
   });
 
+  const action = (
+    <DictationButton
+      targetKey={targetKey}
+      {...dictation}
+      disabled={props.disabled || props.readOnly}
+    />
+  );
   const control = (
     <Textarea
       {...props}
       ref={input}
+      header={toolbarLabel ? { label: toolbarLabel, action } : undefined}
       value={value}
       onChange={(event) => onValueChange(event.target.value)}
     />
   );
 
+  if (toolbarLabel) return control;
+
   return (
     <>
       {label ? <Field label={label}>{control}</Field> : control}
-      <Notebook.Actions>
-        <DictationButton
-          targetKey={targetKey}
-          {...dictation}
-          disabled={props.disabled || props.readOnly}
-        />
-      </Notebook.Actions>
+      <Notebook.Actions>{action}</Notebook.Actions>
     </>
   );
 }

@@ -1,3 +1,4 @@
+import { MAX_DICTATION_SAMPLES } from '@study/contracts';
 import { speechRecognitionStrategies } from '@study/server/testing';
 import { test } from '@study/testing';
 import { Effect } from 'effect';
@@ -99,6 +100,18 @@ for (const strategy of speechRecognitionStrategies)
             }
           }
 
+          const recording = recordings[0]!;
+          const padding = Array<number>(MAX_DICTATION_SAMPLES - recording.clean.length).fill(0);
+
+          yield* client['settings.saveVoiceSettings']({ filterSilence: false, denoise: false });
+          const boundary = yield* client['voice.transcribe']({
+            samples: recording.clean.concat(padding)
+          });
+
+          expect(
+            wordErrors(recording.expected, normalize(boundary.text)),
+            `${strategy.model.id}, maximum segment: ${boundary.text}`
+          ).toBeLessThanOrEqual(recording.maximumWordErrors);
           yield* client['settings.saveVoiceSettings']({ filterSilence: true, denoise: false });
           expect(yield* client['voice.transcribe']({ samples: Array(32_000).fill(0) })).toEqual({
             text: ''

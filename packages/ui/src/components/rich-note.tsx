@@ -46,27 +46,19 @@ import { blockNoteMath, inlineNoteMath, NoteMath } from './note-math';
 const noteStarterKit = StarterKit.extend({
   addExtensions() {
     return (this.parent?.() ?? []).map((extension) => {
-      if (extension.name === 'link')
-        return extension.extend({
-          parseMarkdown(token, helpers) {
-            // Marked also emits link tokens for bare URLs and addresses.
-            return token.raw?.startsWith('[') || token.raw?.startsWith('<')
-              ? (this.parent?.(token, helpers) ?? [])
-              : helpers.createTextNode(token.raw ?? token.text ?? '');
-          }
-        });
-
       if (extension.name !== 'paragraph') return extension;
 
       return extension.extend({
         renderMarkdown(node, helpers, context) {
           const value = this.parent?.(node, helpers, context) ?? '';
 
-          return value.replace(
+          const escaped = value.replace(
             /^([ \t]{0,3})(?:(\d{1,9})([.)])(?=\s|$)|([#+=-]))/gm,
             (_match, indent, number, punctuation, marker) =>
               `${indent}${number ?? ''}\\${punctuation ?? marker}`
           );
+
+          return escapeImplicitLinks(escaped);
         }
       });
     });
@@ -76,6 +68,43 @@ const noteStarterKit = StarterKit.extend({
 const extensions = [noteStarterKit.configure({ link: { openOnClick: false } }), blockNoteMath];
 
 const markdown = new MarkdownManager({ extensions, markedOptions: { breaks: true } });
+
+type InlineTokens = ReturnType<typeof markdown.instance.Lexer.lexInline>;
+
+/** Unmarked URL text stays literal after saving; existing Markdown links use the default parser. */
+function escapeImplicitLinks(value: string) {
+  if (!/https?:\/\/|ftp:\/\/|www\.|@/i.test(value)) return value;
+
+  return escapeInlineLinks(value, markdown.instance.Lexer.lexInline(value));
+}
+
+function escapeInlineLinks(source: string, tokens: InlineTokens) {
+  let result = '';
+  let cursor = 0;
+
+  for (const token of tokens) {
+    const start = source.indexOf(token.raw, cursor);
+
+    if (start < 0) return source;
+
+    result += source.slice(cursor, start) + escapeInlineLink(token);
+    cursor = start + token.raw.length;
+  }
+
+  return result + source.slice(cursor);
+}
+
+function escapeInlineLink(token: InlineTokens[number]): string {
+  if (token.type === 'link') {
+    if (token.raw.startsWith('[') || token.raw.startsWith('<')) return token.raw;
+
+    return token.raw.replace(/^(www)\.|([:@])/i, (_, www, punctuation) =>
+      www ? `${www}\\.` : `\\${punctuation}`
+    );
+  }
+
+  return token.tokens ? escapeInlineLinks(token.raw, token.tokens) : token.raw;
+}
 
 const readingExtensions = [...extensions, inlineNoteMath];
 

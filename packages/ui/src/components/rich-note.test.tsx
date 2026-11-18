@@ -113,10 +113,29 @@ test.unit.stable(
 );
 
 test.unit.stable(
+  'keeps existing Markdown URLs and email addresses clickable',
+  ({ render, expect, screen }) => {
+    render(
+      <RichNoteContent value="See https://example.invalid or email learner@example.invalid." />
+    );
+
+    expect(screen.getByRole('link', { name: 'https://example.invalid' })).toHaveAttribute(
+      'href',
+      'https://example.invalid'
+    );
+    expect(screen.getByRole('link', { name: 'learner@example.invalid' })).toHaveAttribute(
+      'href',
+      'mailto:learner@example.invalid'
+    );
+  }
+);
+
+test.unit.stable(
   'keeps dictated URLs plain after saving and reopening',
   ({ render, act, expect }) => {
     const handle = createRef<RichNoteEditorHandle>();
-    const text = 'Visit https://example.invalid for details.';
+    const text =
+      'Visit https://example.invalid or www.example.invalid, or email me@example.invalid.';
     let saved = '';
     const props = {
       label: 'Note',

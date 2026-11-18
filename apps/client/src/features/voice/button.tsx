@@ -5,6 +5,7 @@ import {
   Button,
   Dialog,
   DialogPopup,
+  DialogBody,
   DialogHeading,
   DialogFooter,
   DialogTrigger,
@@ -368,7 +369,9 @@ function DictationSetup({ model }: { model: Model }) {
     <Dialog open={model.setup} onOpenChange={model.setSetup}>
       <DialogPopup closeLabel={t('Close')}>
         <DialogHeading title={t('VoiceSetupTitle')} description={t('VoiceSetupHelp')} />
-        <VoiceModelControls />
+        <DialogBody>
+          <VoiceModelControls />
+        </DialogBody>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => model.setSetup(false)}>
             {t('Close')}

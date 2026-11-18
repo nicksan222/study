@@ -178,3 +178,39 @@ test.unit.stable(
     ).toEqual([]);
   }
 );
+
+test.unit.stable(
+  'voice capabilities cannot escape through a dynamic import or a re-export',
+  async ({ expect, assert }) => {
+    const diagnostics = await lintRule(
+      { assert },
+      'dictation-boundary',
+      {
+        'apps/client/src/features/notes/dynamic-capture.ts':
+          "const {captureMicrophone} = await import('#client/lib/host.ts'); void captureMicrophone({});",
+        'apps/client/src/features/notes/dynamic-rpc.ts':
+          "const {rpc} = await import('@study/contracts/react'); rpc.voice.transcribe.call({});",
+        'apps/client/src/features/notes/exports-rpc.ts':
+          "export {rpc as voiceClient} from '@study/contracts/react';",
+        'apps/client/src/features/notes/dynamic-template.ts':
+          'const host = await import(`#client/lib/host.ts`); void host.captureMicrophone({});',
+        'apps/client/src/features/notes/exports-namespace.ts':
+          "import * as contracts from '@study/contracts/react'; export {contracts};",
+        'apps/client/src/features/notes/exports-voice.ts':
+          "import {rpc} from '@study/contracts/react'; const {voice} = rpc; export {voice};",
+        'apps/client/src/features/notes/frame.ts':
+          'const { 0: firstFrame } = window.frames; firstFrame.focus();'
+      },
+      true
+    );
+
+    expect(diagnostics.map(({ filename }) => filename.split('/').at(-1)).sort()).toEqual([
+      'dynamic-capture.ts',
+      'dynamic-rpc.ts',
+      'dynamic-template.ts',
+      'exports-namespace.ts',
+      'exports-rpc.ts',
+      'exports-voice.ts'
+    ]);
+  }
+);

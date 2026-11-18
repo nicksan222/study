@@ -297,19 +297,17 @@ function GenerationPanel({
               <ExpandIcon aria-hidden="true" />
             </Practice.CustomizeSummary>
             <Practice.CustomizeBody>
-              <Settings.Section title={t('PracticeGeneratePrompt')}>
-                <DictationSubmissionScope value={model.submission.scope}>
-                  <DictationTextarea
-                    targetKey={`${projectId}:${model.kind}`}
-                    aria-label={t('PracticeGeneratePrompt')}
-                    placeholder={t('PracticeGeneratePromptHint')}
-                    value={model.instruction}
-                    maxLength={100000}
-                    disabled={model.busy || !customizeOpen}
-                    onValueChange={model.setInstruction}
-                  />
-                </DictationSubmissionScope>
-              </Settings.Section>
+              <DictationSubmissionScope value={model.submission.scope}>
+                <DictationTextarea
+                  targetKey={`${projectId}:${model.kind}`}
+                  toolbarLabel={t('PracticeGeneratePrompt')}
+                  placeholder={t('PracticeGeneratePromptHint')}
+                  value={model.instruction}
+                  maxLength={100000}
+                  disabled={model.busy || !customizeOpen}
+                  onValueChange={model.setInstruction}
+                />
+              </DictationSubmissionScope>
               <Settings.Intro>{t('PracticeGenerateAutomaticTitle')}</Settings.Intro>
             </Practice.CustomizeBody>
           </Practice.Customize>

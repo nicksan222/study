@@ -69,26 +69,24 @@ export class VoiceModels {
       await runFileSystemPromise(
         this.fs.remove(`${this.root}/installing`, { recursive: true, force: true })
       );
-      this.ready = true;
-
-      for (const [index, item] of this.assets.entries()) {
-        const file = Bun.file(this.path(index));
-
-        if (
-          !(await file.exists()) ||
-          file.size !== item.size ||
-          (await digest(file)) !== item.sha256
-        ) {
-          this.ready = false;
-          break;
-        }
-      }
+      this.ready = await this.verifyAssets();
     })().catch((cause: unknown) => {
       this.initialized = undefined;
       this.ready = false;
 
       throw cause;
     }));
+  }
+
+  private async verifyAssets() {
+    for (const [index, item] of this.assets.entries()) {
+      const file = Bun.file(this.path(index));
+
+      if (!(await file.exists()) || file.size !== item.size || (await digest(file)) !== item.sha256)
+        return false;
+    }
+
+    return true;
   }
 
   async status() {
@@ -197,10 +195,19 @@ export class VoiceModels {
     if (this.downloading)
       throw new StudyError('invalid_input', 'Cancel speech model installation before removing it');
 
+    const wasReady = this.ready;
+
     this.ready = false;
     this.downloaded = 0;
-    await runFileSystemPromise(
-      this.fs.remove(`${this.root}/ready`, { recursive: true, force: true })
-    );
+
+    try {
+      await runFileSystemPromise(
+        this.fs.remove(`${this.root}/ready`, { recursive: true, force: true })
+      );
+    } catch (cause) {
+      this.ready = wasReady && (await this.verifyAssets().catch(() => false));
+
+      throw cause;
+    }
   }
 }
