@@ -41,7 +41,12 @@ test.unit.stable(
       const meter = new MicrophoneProcessor({ processorOptions: { framesPerChunk: 160_000 } });
 
       messages.length = 0;
-      expect(meter.process([[new Float32Array(1280).fill(0.25)]])).toBe(true);
+      const renderBlock = new Float32Array(128).fill(0.25);
+
+      for (let index = 0; index < 9; index++) expect(meter.process([[renderBlock]])).toBe(true);
+
+      expect(messages.filter((message) => message.type === 'level')).toEqual([]);
+      expect(meter.process([[renderBlock]])).toBe(true);
       expect(meter.process([[new Float32Array(1280).fill(0.5)]])).toBe(true);
       meter.port.onmessage?.(
         new MessageEvent<MicrophoneCommand>('message', { data: 'acknowledge-level' })
