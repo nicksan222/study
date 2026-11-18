@@ -4,7 +4,7 @@ import { createVoiceMock } from './voice.ts';
 
 test.server.stable(
   'disposing the voice fixture cancels a held recognition without a caller signal',
-  async ({ expect }) => {
+  async ({ expect, withinTestDeadline }) => {
     using voice = createVoiceMock();
     const held = voice.next({ text: 'Late speech' }, { hold: true });
     const outcome = voice.runtime.transcribe!(
@@ -13,11 +13,12 @@ test.server.stable(
     );
     const cancelled = expect(outcome).rejects.toHaveProperty('name', 'AbortError');
 
-    await held.called;
-    voice[Symbol.dispose]();
-    // Release as well so a broken cancellation path fails the assertion without a timeout.
-    held.release();
-    await cancelled;
-    await held.aborted;
+    try {
+      await withinTestDeadline(held.called);
+      voice[Symbol.dispose]();
+      await withinTestDeadline(Promise.all([cancelled, held.aborted]));
+    } finally {
+      held.release();
+    }
   }
 );
