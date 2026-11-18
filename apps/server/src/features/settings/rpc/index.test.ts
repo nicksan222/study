@@ -36,7 +36,7 @@ import { testLiveQueries } from '#testing/live-queries';
 
 import { SettingsRpcLive } from './index.ts';
 
-const sessionLayer = (request?: typeof fetch) =>
+const sessionLayer = (request?: ChatGptSession['Service']['request']) =>
   Layer.effect(
     ChatGptSession,
     Effect.acquireRelease(
