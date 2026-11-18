@@ -78,39 +78,43 @@ test.unit.stable(
 
 const editorLabels = new Proxy({} as RichNoteLabels, { get: (_, key) => String(key) });
 
-test.unit.stable(
-  'preserves a display formula while dictation changes other Markdown prose',
-  ({ render, act, expect }) => {
-    const handle = createRef<RichNoteEditorHandle>();
-    let saved = '';
-    const view = render(
-      <RichNoteEditor
-        ref={handle}
-        value={'$$\n-x+y\n$$\n\nEnd'}
-        onChange={(value) => {
-          saved = value;
-        }}
-        label="Note"
-        placeholder=""
-        labels={editorLabels}
-      />
-    );
+for (const [latex, open, closing, savedFence] of [
+  ['-x+y', '$$', '\n$$', '$$'],
+  ['x % $$\n+y', '\\[', '\n\\]', '\\['],
+  ['x % $$ in a comment\n+y', '\\[', '\n\\]', '$$'],
+  ['x % $$\n+y % \\]', '\\[', '\\]', '\\['],
+  ['x % \\]\n+y % $$', '$$', '$$', '$$']
+]) {
+  test.unit.stable(
+    `preserves display formula ${JSON.stringify(latex)} when saving changed prose`,
+    ({ render, act, expect }) => {
+      const handle = createRef<RichNoteEditorHandle>();
+      let saved = '';
+      const view = render(
+        <RichNoteEditor
+          ref={handle}
+          value={`${open}\n${latex}${closing}\n\nEnd`}
+          onChange={(value) => {
+            saved = value;
+          }}
+          label="Note"
+          placeholder=""
+          labels={editorLabels}
+        />
+      );
 
-    act(() => {
-      handle.current!.restoreSelection({
-        kind: 'text',
-        anchor: Number.MAX_SAFE_INTEGER,
-        head: Number.MAX_SAFE_INTEGER
+      expect(view.container.querySelector('[data-note-math]')?.textContent).toBe(latex);
+      act(() => {
+        handle.current!.insertPlainText('spoken', { append: true });
       });
-      handle.current!.insertPlainText('spoken');
-    });
-    expect(saved).toContain('\n-x+y');
-    view.rerender(<RichNoteContent value={saved} />);
-    expect(view.container.querySelector('.katex-error')).toBeNull();
-    expect(view.container.querySelector('math')).not.toBeNull();
-    expect(view.container).toHaveTextContent('End spoken');
-  }
-);
+      view.rerender(<RichNoteContent value={saved} />);
+      expect(view.container.querySelector('.katex-error')).toBeNull();
+      expect(view.container.querySelector('math annotation')?.textContent).toBe(latex);
+      expect(view.container).toHaveTextContent('End spoken');
+      expect(saved.startsWith(`${savedFence}\n`)).toBe(true);
+    }
+  );
+}
 
 test.unit.stable(
   'keeps existing Markdown URLs and email addresses clickable',

@@ -34,7 +34,7 @@ export const blockNoteMath = Node.create({
   addAttributes: () => ({ latex: { default: '' } }),
   renderHTML: ({ node }) => ['div', { 'data-note-math': true }, node.attrs.latex],
   parseMarkdown: (token) => ({ type: 'blockNoteMath', attrs: { latex: token.text } }),
-  renderMarkdown: (node) => `$$\n${node.attrs?.latex ?? ''}\n$$`,
+  renderMarkdown: (node) => serializeBlockMath(node.attrs?.latex ?? ''),
   renderText: ({ node }) => node.attrs.latex,
   markdownTokenizer: {
     name: 'blockNoteMath',
@@ -49,6 +49,16 @@ export const blockNoteMath = Node.create({
     }
   }
 });
+
+function serializeBlockMath(latex: string) {
+  const useBrackets =
+    /\$\$[ \t]*\n/.test(latex) || (latex.endsWith('$$') && !/\\\][ \t]*\n/.test(latex));
+  const [open, close] = useBrackets ? ['\\[', '\\]'] : ['$$', '$$'];
+  // Keep adjacent delimiters on one line so the tokenizer reaches the actual closing fence.
+  const separator = latex.endsWith(close) ? '' : '\n';
+
+  return `${open}\n${latex}${separator}${close}`;
+}
 
 export const NoteMath = memo(function NoteMath({
   latex,
