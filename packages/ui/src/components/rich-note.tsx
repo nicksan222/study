@@ -103,7 +103,7 @@ function escapeInlineLink(token: InlineTokens[number]): string {
     );
   }
 
-  return token.tokens ? escapeInlineLinks(token.raw, token.tokens) : token.raw;
+  return 'tokens' in token && token.tokens ? escapeInlineLinks(token.raw, token.tokens) : token.raw;
 }
 
 const readingExtensions = [...extensions, inlineNoteMath];
