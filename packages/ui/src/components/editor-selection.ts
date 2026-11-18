@@ -50,7 +50,10 @@ export function restoreEditorNodeSelection(
       ? NodeSelection.create(doc, anchor)
       : Selection.atEnd(doc);
 
-  editor.view.dispatch(tr.setSelection(selection));
+  // Tiptap may append an empty editing paragraph during this selection transaction.
+  editor.view.dispatch(
+    tr.setSelection(selection).setMeta('preventUpdate', true).setMeta('addToHistory', false)
+  );
 
   if (focus) editor.view.focus();
 }

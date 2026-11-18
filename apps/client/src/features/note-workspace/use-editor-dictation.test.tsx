@@ -78,7 +78,13 @@ for (const kind of ['text', 'node'] as const) {
       expect(other).toHaveFocus();
       expect(note).toHaveTextContent(kind === 'text' ? 'Before first after' : 'first');
 
-      if (kind === 'node') expect(note.querySelectorAll('hr')).toHaveLength(2);
+      if (kind === 'node') {
+        const blocks = [...note.children].filter(
+          (block) => block.matches('hr') || block.textContent
+        );
+
+        expect(blocks.map((block) => block.tagName)).toEqual(['HR', 'P', 'HR']);
+      }
     }
   );
 }
