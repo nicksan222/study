@@ -68,7 +68,7 @@
     gap: 0.375rem;
   }
 
-  .voice-capture-waveform > span:nth-child(n + 11) {
+  .voice-capture-waveform > span:nth-child(-n + 7) {
     display: none;
   }
 }
