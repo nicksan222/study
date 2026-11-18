@@ -3,6 +3,10 @@ import { dictationSpacing } from '@study/ui';
 
 export type TextSelection = { value: string; start: number; end: number };
 
+export function textareaValue(value: string) {
+  return value.replace(/\r\n?/g, '\n');
+}
+
 /** A changed draft keeps every edit; an unchanged draft accepts the captured selection. */
 export function insertTranscript(
   current: string,
@@ -22,7 +26,7 @@ export function insertTranscript(
   const { prefix, suffix } = dictationSpacing(before, text, after);
   const value = before + prefix + text + suffix + after;
 
-  if (maxLength !== undefined && value.length > maxLength)
+  if (maxLength !== undefined && textareaValue(value).length > maxLength)
     throw new StudyError('invalid_input', 'Dictation exceeds the field length limit');
 
   return { value, caret: before.length + prefix.length + text.length };

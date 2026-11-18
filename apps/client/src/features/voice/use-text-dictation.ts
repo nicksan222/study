@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 
-import { insertTranscript } from './text-insertion';
+import { insertTranscript, textareaValue } from './text-insertion';
 import type { TextSelection } from './text-insertion';
 
 type Destination = {
@@ -9,10 +9,6 @@ type Destination = {
   selection: TextSelection;
   initialFocus?: Element;
 };
-
-function textareaValue(value: string) {
-  return value.replace(/\r\n?/g, '\n');
-}
 
 /** Textarea offsets count a CRLF pair as one character. */
 function rawOffset(value: string, offset: number) {

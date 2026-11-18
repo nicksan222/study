@@ -43,3 +43,20 @@ test.unit.stable('keeps the draft when recognition contains only whitespace', ({
     caret: 0
   });
 });
+
+test.unit.stable(
+  'counts newlines as the textarea does while preserving splice offsets',
+  ({ expect }) => {
+    const initial = 'a\r\n';
+    const first = insertTranscript(initial, 'b', undefined, 5);
+
+    expect(first).toEqual({ value: 'a\r\nb', caret: 4 });
+    const selection = { value: first.value, start: first.caret, end: first.caret };
+
+    expect(insertTranscript(first.value, 'c', selection, 5)).toEqual({
+      value: 'a\r\nb c',
+      caret: 6
+    });
+    expect(() => insertTranscript(first.value, 'cd', selection, 5)).toThrow();
+  }
+);
