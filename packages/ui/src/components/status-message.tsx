@@ -2,7 +2,8 @@ import type { ComponentProps } from 'react';
 
 const variants = {
   default: undefined,
-  hint: 'text-sm text-muted-foreground'
+  hint: 'text-sm text-muted-foreground',
+  announcement: 'sr-only'
 } as const;
 
 /** Announces operation state without moving focus or treating it as an error. */

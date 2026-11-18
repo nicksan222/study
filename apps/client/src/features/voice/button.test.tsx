@@ -177,8 +177,15 @@ test.unit.stable(
     const onTranscript = vi.fn();
 
     render(<DictationButton onTranscript={onTranscript} />);
+    const announcement = screen.getByRole('status');
+
+    expect(announcement).toBeEmptyDOMElement();
     await userEvent.click(screen.getByRole('button', { name: 'Start dictation' }));
     const stop = await screen.findByRole('button', { name: 'Stop and transcribe' });
+
+    expect(screen.getByRole('status')).toBe(announcement);
+    expect(announcement).toHaveTextContent(/^Recording$/);
+    expect(announcement).not.toContainElement(screen.getByText('0:00'));
 
     await act(async () => {
       emitAudio([0.5]);

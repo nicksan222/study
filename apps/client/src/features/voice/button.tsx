@@ -186,6 +186,9 @@ function DictationTrigger({ model }: { model: Model }) {
         )}
         <ErrorState layout="announcement" title={error ? t(errorLabels[error]) : ''} />
       </RecordingControls>
+      <StatusMessage variant="announcement">
+        {active && !progress ? t('VoiceRecording') : ''}
+      </StatusMessage>
     </Notebook.Actions>
   );
 }
