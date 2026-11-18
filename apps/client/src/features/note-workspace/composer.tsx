@@ -92,7 +92,14 @@ export function Composer({ id, onPage }: { id: NoteId; onPage?: () => void }) {
               <DictationButton targetKey={id} {...dictation} disabled={blocked || !capture.open} />
             </DictationSubmissionScope>
             {onPage && (
-              <Button variant="ghost-muted" size="sm" onClick={onPage} disabled={blocked}>
+              <Button
+                variant="ghost-muted"
+                size="sm"
+                disabled={blocked || submission.blocked}
+                onClick={() => {
+                  if (!submission.isBlocked()) onPage();
+                }}
+              >
                 <ComposeIcon size={16} aria-hidden="true" />
                 {t('NoteWritePage')}
               </Button>
