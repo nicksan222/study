@@ -1,10 +1,11 @@
 /** PCM format shared by the capture graph and its audio rendering thread. */
 export const microphoneSampleRate = 16_000;
 
-export type MicrophoneCommand = 'acknowledge' | 'stop';
+export type MicrophoneCommand = 'acknowledge' | 'acknowledge-level' | 'stop';
 
 export type MicrophoneMessage =
   | { type: 'started' }
+  | { type: 'level'; level: number }
   | { type: 'chunk'; samples: Float32Array }
   | { type: 'stopped'; samples: Float32Array }
   | { type: 'overrun' };

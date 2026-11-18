@@ -1,9 +1,10 @@
+import { catalogs } from '@study/localization';
 import { createStudyMaterials, createVoiceMock } from '@study/server/testing';
 import { testPolicy, createAiMock } from '@study/testing';
 import { createBrowserTestApi, testBrowser } from '@study/testing/playwright';
 import { expect } from '@study/testing/playwright';
 import { createTestResources } from '@study/testing/resources';
-import type { Page } from 'playwright';
+import type { Locator, Page } from 'playwright';
 
 import { assertCapturePlatform } from './environment.ts';
 import { workflowName } from './identity.ts';
@@ -22,14 +23,15 @@ export type Journey = {
 type Fixtures = {
   study: Awaited<ReturnType<typeof createStudyMaterials>>;
   aiEnabled: boolean;
-  voiceEnabled: boolean;
-  voice: ReturnType<typeof createVoiceMock>;
-  microphone: Awaited<ReturnType<typeof controlMicrophone>>;
+  microphoneEnabled: boolean;
+  microphone: Awaited<ReturnType<typeof createMicrophone>>;
   ai: ReturnType<typeof createAiMock>;
   app: Awaited<ReturnType<typeof openWebStack>>['app'];
   rpc: Awaited<ReturnType<typeof openWebStack>>['rpc'];
   resources: ReturnType<typeof createTestResources>;
-  webStack: Awaited<ReturnType<typeof openWebStack>>;
+  webStack: Awaited<ReturnType<typeof openWebStack>> & {
+    bindMicrophone: (page: Page) => ReturnType<typeof createMicrophone>;
+  };
   journey: Journey;
   captureWorkflow: string;
 };
@@ -38,12 +40,9 @@ type Fixtures = {
 const testHarness = testBrowser.extend<Fixtures>({
   study: async ({ app, ai }, provide) => provide(await createStudyMaterials(app, ai)),
   aiEnabled: [false, { option: true }],
-  voiceEnabled: [false, { option: true }],
-  microphone: async ({ page }, provide) => provide(await controlMicrophone(page)),
-  voice: async ({ browserName: _browserName }, provide) => {
-    using mock = createVoiceMock();
-
-    await provide(mock);
+  microphoneEnabled: [false, { option: true }],
+  microphone: async ({ page, webStack }, provide) => {
+    await provide(await webStack.bindMicrophone(page));
   },
   ai: async ({ browserName: _browserName }, provide) => {
     using mock = createAiMock();
@@ -58,14 +57,23 @@ const testHarness = testBrowser.extend<Fixtures>({
     await provide(resources);
   },
   captureWorkflow: ['', { option: true }],
-  webStack: async ({ ai, aiEnabled, voice, voiceEnabled }, provide) => {
+  webStack: async ({ ai, aiEnabled, microphoneEnabled }, provide) => {
     assertCapturePlatform();
+    using voice = microphoneEnabled ? createVoiceMock() : undefined;
+
     await using stack = await openWebStack({
       ai: aiEnabled ? ai.runtime : undefined,
-      voice: voiceEnabled ? voice.runtime : undefined
+      voice: voice?.runtime
     });
 
-    await provide(stack);
+    await provide({
+      ...stack,
+      bindMicrophone: (page) => {
+        if (!voice) throw new Error('Enable the microphone fixture with test.browser.use');
+
+        return createMicrophone(page, voice);
+      }
+    });
   },
   baseURL: async ({ webStack }, provide) => provide(webStack.url),
   context: async ({ context }, provide) => {
@@ -127,3 +135,78 @@ const withTools = testHarness.extend<{
 
 /** Focused browser harness cases use the same environment and classification APIs. */
 export const test = { browser: createBrowserTestApi(withTools) };
+
+type VoiceMock = ReturnType<typeof createVoiceMock>;
+
+type Transcript = string | Exclude<Parameters<VoiceMock['next']>[0], { text: string }>;
+
+function expectSegment(voice: VoiceMock, outcome: Transcript) {
+  const response = voice.next(typeof outcome === 'string' ? { text: outcome } : outcome, {
+    hold: true
+  });
+
+  return {
+    requested: response.called,
+    aborted: response.aborted,
+    async deliver() {
+      const input = await response.called;
+
+      response.release();
+
+      return input;
+    }
+  };
+}
+
+/** Exposes browser recording and its planned recognizer replies as one fixture. */
+async function createMicrophone(page: Page, voice: VoiceMock) {
+  const capture = await controlMicrophone(page);
+
+  return {
+    model: {
+      get downloads() {
+        return voice.downloads;
+      },
+      holdDownload() {
+        const download = voice.holdDownload();
+
+        return { requested: download.called, aborted: download.aborted };
+      }
+    },
+    async start<const Plan extends Record<string, Transcript> = Record<never, never>>(
+      scope: Page | Locator,
+      { segments, holdPermission = false }: { segments?: Plan; holdPermission?: boolean } = {}
+    ) {
+      const permission = capture.arm();
+      const replies = Object.fromEntries(
+        Object.entries(segments ?? {}).map(([name, outcome]) => [
+          name,
+          expectSegment(voice, outcome)
+        ])
+      ) as { [Name in keyof Plan]: ReturnType<typeof expectSegment> };
+      const { VoiceStart, VoiceStop, VoiceCancel } = catalogs.english;
+      const finish = scope.getByRole('button', { name: VoiceStop, exact: true });
+      const allow = async () => {
+        permission.release();
+        await finish.waitFor();
+        await permission.started;
+      };
+
+      await scope.getByRole('button', { name: VoiceStart, exact: true }).click();
+      await permission.requested;
+
+      if (!holdPermission) await allow();
+
+      return {
+        allow,
+        segments: replies,
+        expectSegment: (outcome: Transcript) => expectSegment(voice, outcome),
+        stop: () => finish.click(),
+        async cancel() {
+          await scope.getByRole('button', { name: VoiceCancel, exact: true }).click();
+          permission.dispose();
+        }
+      };
+    }
+  };
+}

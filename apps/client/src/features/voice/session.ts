@@ -31,6 +31,7 @@ type Recording = {
 export class DictationSession {
   private state: Snapshot = { phase: 'idle', transcript: '' };
   private listeners = new Set<() => void>();
+  private levelListeners = new Set<(level: number) => void>();
   private recording?: Recording;
 
   constructor(
@@ -38,6 +39,7 @@ export class DictationSession {
       signal: AbortSignal;
       chunkSeconds: NonNullable<VoiceSettings['chunkSeconds']>;
       onChunk: (samples: number[]) => void;
+      onLevel: (level: number) => void;
       onError: () => void;
     }) => Promise<MicrophoneCapture>,
     private readonly transcribe: (
@@ -52,6 +54,14 @@ export class DictationSession {
 
     return () => {
       this.listeners.delete(listener);
+    };
+  };
+
+  subscribeLevel = (listener: (level: number) => void) => {
+    this.levelListeners.add(listener);
+
+    return () => {
+      this.levelListeners.delete(listener);
     };
   };
 
@@ -90,6 +100,11 @@ export class DictationSession {
         signal: recording.controller.signal,
         chunkSeconds,
         onChunk: (samples) => this.acceptChunk(recording, owner, samples),
+        onLevel: (level) => {
+          if (this.recording !== recording || this.state.phase !== 'recording') return;
+
+          for (const listener of this.levelListeners) listener(level);
+        },
         onError: () => this.failCapture(recording, owner)
       });
 

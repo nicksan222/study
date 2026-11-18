@@ -1,0 +1,46 @@
+.voice-capture-controls {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+.voice-capture-controls[data-active] {
+  gap: 0.25rem;
+  padding: 0.125rem 0.25rem;
+  border: 1px solid var(--ui-divider-border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--foreground);
+}
+
+.voice-capture-controls > svg {
+  margin-inline: 0.25rem;
+}
+
+.voice-capture-waveform {
+  display: inline-flex;
+  height: 0.875rem;
+  align-items: center;
+  gap: 0.125rem;
+  color: var(--primary);
+}
+
+.voice-capture-waveform > span {
+  width: 0.125rem;
+  height: 100%;
+  border-radius: 999px;
+  background: currentColor;
+  transform: scaleY(calc(0.16 + 0.84 * var(--voice-amplitude, 0)));
+  transition: transform 75ms linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-capture-waveform > span {
+    transform: scaleY(0.38);
+    transition: none;
+  }
+
+  .voice-capture-waveform > span:nth-child(3n + 2) {
+    transform: scaleY(0.68);
+  }
+}

@@ -37,6 +37,20 @@ test.unit.stable(
         'overrun'
       ]);
       expect(processor.process([[audio]])).toBe(false);
+
+      const meter = new MicrophoneProcessor({ processorOptions: { framesPerChunk: 160_000 } });
+
+      messages.length = 0;
+      expect(meter.process([[new Float32Array(1280).fill(0.25)]])).toBe(true);
+      expect(meter.process([[new Float32Array(1280).fill(0.5)]])).toBe(true);
+      meter.port.onmessage?.(
+        new MessageEvent<MicrophoneCommand>('message', { data: 'acknowledge-level' })
+      );
+      expect(meter.process([[new Float32Array(1280)]])).toBe(true);
+      expect(messages.filter((message) => message.type === 'level')).toEqual([
+        { type: 'level', level: 0.25 },
+        { type: 'level', level: 0 }
+      ]);
     } finally {
       vi.unstubAllGlobals();
     }

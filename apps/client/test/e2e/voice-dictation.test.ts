@@ -4,7 +4,7 @@ import { test } from '@study/testing';
 const copy = catalogs.english;
 
 test.browser.use({
-  voiceEnabled: true,
+  microphoneEnabled: true,
   video: 'on',
   permissions: ['microphone'],
   launchOptions: {
@@ -18,7 +18,7 @@ test.browser.use({
 
 test.browser.stable(
   'Dictation preserves a note through recording failure retry and cancellation',
-  async ({ page, rpc, voice, microphone, expect, expectScreenshot }) => {
+  async ({ page, rpc, microphone, expect, expectScreenshot }) => {
     await rpc.runPromise(rpc.client['voice.install']({}));
     await page.goto('/notes');
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
@@ -31,28 +31,27 @@ test.browser.stable(
 
     for (let index = 0; index < 18; index++) await composer.press('Shift+ArrowRight');
 
-    const failure = voice.next({ error: 'transient' }, { hold: true });
-    const firstAudio = microphone.nextAudio();
+    const recording = await microphone.start(page, {
+      holdPermission: true,
+      segments: { failure: { error: 'transient' } }
+    });
+    const { failure } = recording.segments;
 
-    await page.getByRole('button', { name: copy.VoiceStart, exact: true }).click();
-    await microphone.requested;
     await expect(page.getByRole('status', { name: copy.VoiceStarting, exact: true })).toBeVisible();
     await expectScreenshot('opening-microphone', {
       target: 'viewport',
       ready: () => expect(composer).toHaveValue(original)
     });
-    microphone.release();
-    await expect(page.getByRole('button', { name: copy.VoiceStop, exact: true })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    );
+    await recording.allow();
+    const controls = page.getByRole('group', { name: copy.VoiceTitle, exact: true });
+
+    await expect(controls.getByRole('button', { name: copy.VoiceStop, exact: true })).toBeEnabled();
     await expectScreenshot('recording', {
       target: 'viewport',
       ready: () => expect(composer).toHaveValue(original)
     });
-    await firstAudio;
-    await page.getByRole('button', { name: copy.VoiceStop, exact: true }).click();
-    const input = await failure.called;
+    await recording.stop();
+    const input = await failure.requested;
 
     expect(input.samples.length).toBeGreaterThan(0);
     expect(input.samples.every(Number.isFinite)).toBe(true);
@@ -64,7 +63,7 @@ test.browser.stable(
       target: 'viewport',
       ready: () => expect(composer).toHaveValue(original)
     });
-    failure.release();
+    await failure.deliver();
     await expect(page.getByRole('alert')).toContainText(copy.VoiceTranscriptionFailed);
     await expect(composer).toHaveValue(original);
     const recovery = page.getByRole('button', { name: copy.VoiceRecoveryOptions, exact: true });
@@ -81,13 +80,13 @@ test.browser.stable(
       target: options,
       ready: () => expect(retry).toBeEnabled()
     });
-    const recovered = voice.next({ text: 'spoken field observation' }, { hold: true });
+    const recovered = recording.expectSegment('spoken field observation');
 
     await retry.click();
-    const retried = await recovered.called;
+    const retried = await recovered.requested;
 
     expect(retried.samples).toEqual(input.samples);
-    recovered.release();
+    await recovered.deliver();
     await expect(composer).toHaveValue(
       'Before spoken field observation. After the dictated words.'
     );
@@ -99,25 +98,20 @@ test.browser.stable(
     });
     const changed = await composer.inputValue();
 
-    await page.getByRole('button', { name: copy.VoiceStart, exact: true }).click();
-    await expect(page.getByRole('button', { name: copy.VoiceStop, exact: true })).toBeVisible();
+    await microphone.start(page);
     await page.keyboard.press('Escape');
     await expect(page.getByRole('button', { name: copy.VoiceStart, exact: true })).toBeEnabled();
     await expect(composer).toHaveValue(changed);
-    const audioReady = microphone.nextAudio();
-    const cancelledInference = voice.next(
-      { text: 'This late result must never enter the draft.' },
-      { hold: true }
-    );
+    const cancelled = await microphone.start(page, {
+      segments: { late: 'This late result must never enter the draft.' }
+    });
+    const { late } = cancelled.segments;
 
-    await page.getByRole('button', { name: copy.VoiceStart, exact: true }).click();
-    await expect(page.getByRole('button', { name: copy.VoiceStop, exact: true })).toBeVisible();
-    await audioReady;
-    await page.getByRole('button', { name: copy.VoiceStop, exact: true }).click();
-    await cancelledInference.called;
-    await page.getByRole('button', { name: copy.VoiceCancel, exact: true }).click();
-    await cancelledInference.aborted;
-    cancelledInference.release();
+    await cancelled.stop();
+    await late.requested;
+    await cancelled.cancel();
+    await late.aborted;
+    await late.deliver();
     await expect(page.getByRole('button', { name: copy.VoiceStart, exact: true })).toBeEnabled();
     await expect(composer).toHaveValue(changed);
     await page.getByRole('button', { name: copy.NoteSaveNote }).click();
@@ -151,16 +145,12 @@ test.browser.stable(
     const edit = page.getByRole('dialog', { name: copy.NoteEditNote });
     const richEditor = edit.getByRole('textbox', { name: copy.NoteEditNote });
     const literal = '1. January is the deadline\n# Title\n---';
-    const recognized = voice.next({ text: literal }, { hold: true });
-    const richAudio = microphone.nextAudio();
 
     await richEditor.fill('');
-    await edit.getByRole('button', { name: copy.VoiceStart, exact: true }).click();
-    await expect(edit.getByRole('button', { name: copy.VoiceStop, exact: true })).toBeVisible();
-    await richAudio;
-    await edit.getByRole('button', { name: copy.VoiceStop, exact: true }).click();
-    await recognized.called;
-    recognized.release();
+    const rich = await microphone.start(edit, { segments: { literal } });
+
+    await rich.stop();
+    await rich.segments.literal.deliver();
     await expect(richEditor).toHaveText(literal.replaceAll('\n', ''));
     await expect(richEditor.locator('ol, ul, h1, h2, hr')).toHaveCount(0);
     await edit.getByRole('button', { name: copy.NoteSaveNote, exact: true }).click();
@@ -188,7 +178,7 @@ test.browser.stable(
 
 test.browser.stable(
   'Voice setup requires installation consent and persists bilingual settings',
-  async ({ page, rpc, voice, expect, expectScreenshot }) => {
+  async ({ page, rpc, microphone, expect, expectScreenshot }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/notes');
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
@@ -198,20 +188,20 @@ test.browser.stable(
     const setup = page.getByRole('dialog', { name: copy.VoiceSetupTitle });
 
     await expect(setup).toBeVisible();
-    expect(voice.downloads).toBe(0);
+    expect(microphone.model.downloads).toBe(0);
     await expectScreenshot('download-consent', {
       target: setup,
       ready: () => expect(setup.getByRole('button', { name: copy.VoiceDownload })).toBeEnabled()
     });
     await setup.getByRole('button', { name: copy.Close, exact: true }).last().click();
     await expect(setup).toBeHidden();
-    expect(voice.downloads).toBe(0);
+    expect(microphone.model.downloads).toBe(0);
     await expect(composer).toHaveValue('A private draft stays intact while voice is configured.');
     await page.getByRole('button', { name: copy.VoiceStart, exact: true }).click();
-    const held = voice.holdDownload();
+    const held = microphone.model.holdDownload();
 
     await setup.getByRole('button', { name: copy.VoiceDownload }).click();
-    await held.called;
+    await held.requested;
     await expect(setup.getByRole('button', { name: copy.VoiceCancelDownload })).toBeEnabled();
     await expectScreenshot('downloading', {
       target: setup,
@@ -283,7 +273,7 @@ test.browser.stable(
 
 test.browser.stable(
   'Live dictation inserts each segment into the note while recording',
-  async ({ page, rpc, voice, microphone, expect, expectScreenshot }) => {
+  async ({ page, rpc, microphone, expect, expectScreenshot }) => {
     await rpc.runPromise(rpc.client['voice.install']({}));
     await rpc.runPromise(
       rpc.client['settings.saveVoiceSettings']({
@@ -304,18 +294,23 @@ test.browser.stable(
     const secondDraft = `${firstDraft} ${secondText}`;
     const complete = `${secondDraft} ${finalText}`;
     const starting = page.getByRole('button', { name: copy.VoiceStart, exact: true });
-    const stop = page.getByRole('button', { name: copy.VoiceStop, exact: true });
-    const first = voice.next({ text: firstText }, { hold: true });
-    const second = voice.next({ text: secondText }, { hold: true });
-    const final = voice.next({ text: finalText }, { hold: true });
+    const controls = page.getByRole('group', { name: copy.VoiceTitle, exact: true });
+    const stop = controls.getByRole('button', { name: copy.VoiceStop, exact: true });
 
     await composer.fill(draft);
     await composer.press('End');
-    await starting.click();
-    await microphone.requested;
-    microphone.release();
+    const recording = await microphone.start(page, {
+      segments: { first: firstText, second: secondText, final: finalText }
+    });
+    const { first, second, final } = recording.segments;
+    const movingBar = controls
+      .locator(
+        '.voice-capture-waveform > span[style*="--voice-amplitude"]:not([style*="--voice-amplitude: 0;"])'
+      )
+      .first();
 
-    const firstChunk = await first.called;
+    await expect(movingBar).toBeVisible();
+    const firstChunk = await first.requested;
 
     expect(firstChunk.samples.length).toBeGreaterThan(0);
     expect(firstChunk.samples.length).toBeLessThanOrEqual(160_000);
@@ -323,33 +318,32 @@ test.browser.stable(
     await expectScreenshot('waiting-for-first-segment', {
       target: 'viewport',
       ready: async () => {
-        await expect(stop).toHaveAttribute('aria-pressed', 'true');
-        await expect(page.getByRole('button', { name: copy.VoiceCancel, exact: true })).toHaveCount(
-          0
-        );
+        await expect(stop).toBeEnabled();
+        await expect(
+          controls.getByRole('button', { name: copy.VoiceCancel, exact: true })
+        ).toBeEnabled();
         await expect(composer).toHaveValue(draft);
       }
     });
-    first.release();
+    await first.deliver();
     await expectScreenshot('first-segment-in-draft', {
       target: 'viewport',
       ready: async () => {
-        await expect(stop).toHaveAttribute('aria-pressed', 'true');
+        await expect(stop).toBeEnabled();
         await expect(composer).toHaveValue(firstDraft);
       }
     });
 
-    await second.called;
-    second.release();
+    await second.deliver();
     await expectScreenshot('second-segment-in-draft', {
       target: 'viewport',
       ready: async () => {
-        await expect(stop).toHaveAttribute('aria-pressed', 'true');
+        await expect(stop).toBeEnabled();
         await expect(composer).toHaveValue(secondDraft);
       }
     });
-    await stop.click();
-    await final.called;
+    await recording.stop();
+    await final.requested;
     await expectScreenshot('waiting-for-final-segment', {
       target: 'viewport',
       ready: async () => {
@@ -359,7 +353,7 @@ test.browser.stable(
         await expect(composer).toHaveValue(secondDraft);
       }
     });
-    final.release();
+    await final.deliver();
     await expectScreenshot('complete-transcript-in-draft', {
       target: 'viewport',
       ready: async () => {
@@ -385,7 +379,7 @@ test.browser.stable(
 
 test.browser.stable(
   'Closing saved notebook capture cancels transcription and preserves its draft',
-  async ({ page, rpc, voice, microphone, expect, expectScreenshot }) => {
+  async ({ page, rpc, microphone, expect, expectScreenshot }) => {
     await rpc.runPromise(rpc.client['voice.install']({}));
     await rpc.runPromise(
       rpc.client['settings.saveVoiceSettings']({ filterSilence: true, chunkSeconds: 10 })
@@ -402,31 +396,25 @@ test.browser.stable(
     await composer.fill(original);
     const partialText = 'A live transcript arrives before stopping.';
     const delivered = `${original} ${partialText}`;
-    const first = voice.next({ text: partialText }, { hold: true });
-    const pending = voice.next(
-      { text: 'A cancelled result must never enter this draft.' },
-      {
-        hold: true
+    const recording = await microphone.start(page, {
+      segments: {
+        first: partialText,
+        pending: 'A cancelled result must never enter this draft.'
       }
-    );
-    const audioReady = microphone.nextAudio();
-
-    await page.getByRole('button', { name: copy.VoiceStart, exact: true }).click();
-    await microphone.requested;
-    microphone.release();
-    await expect(page.getByRole('button', { name: copy.VoiceStop, exact: true })).toBeVisible();
-    await audioReady;
-    const firstChunk = await first.called;
+    });
+    const { first, pending } = recording.segments;
+    const firstChunk = await first.requested;
 
     expect(firstChunk.samples.length).toBeGreaterThan(0);
     expect(firstChunk.samples.length).toBeLessThanOrEqual(160_000);
-    first.release();
+    await first.deliver();
     await expect(composer).toHaveValue(delivered);
-    const stop = page.getByRole('button', { name: copy.VoiceStop, exact: true });
+    const controls = page.getByRole('group', { name: copy.VoiceTitle, exact: true });
+    const stop = controls.getByRole('button', { name: copy.VoiceStop, exact: true });
 
-    await expect(stop).toHaveAttribute('aria-pressed', 'true');
-    await stop.click();
-    await pending.called;
+    await expect(stop).toBeEnabled();
+    await recording.stop();
+    await pending.requested;
     await expectScreenshot('partial-transcript-before-cancel', {
       target: 'viewport',
       ready: async () => {
@@ -438,7 +426,7 @@ test.browser.stable(
     });
     await page.getByRole('button', { name: copy.NoteHideCapture, exact: true }).click();
     await pending.aborted;
-    pending.release();
+    await pending.deliver();
     await expect(addCapture).toHaveAttribute('aria-expanded', 'false');
     await expectScreenshot('capture-closed-after-cancel', {
       target: 'viewport',

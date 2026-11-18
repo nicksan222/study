@@ -147,6 +147,7 @@ export { Shell } from './components/shell.tsx';
 export { Sidebar } from './components/sidebar.tsx';
 export { SignInActions } from './components/sign-in-actions.tsx';
 export { Spinner } from './components/spinner.tsx';
+export { RecordingControls, RecordingFeedback } from './components/recording-controls.tsx';
 export { StatusMessage } from './components/status-message.tsx';
 export { StructuredEditorContextMenu } from './components/structured-editor-context-menu.tsx';
 export { StructuredEditorControls } from './components/structured-editor-controls.tsx';

@@ -9,6 +9,8 @@ let recording: boolean;
 
 let emitAudio: (samples: number[]) => void;
 
+let emitLevel: (level: number) => void;
+
 let finishTranscription: (value: { text: string }) => void;
 
 let failTranscription: (error: Error) => void;
@@ -23,8 +25,15 @@ test.unit.beforeEach(async ({ mock }) => {
   });
   mock('#client/lib/host.ts', () => ({
     microphoneAvailable: () => true,
-    captureMicrophone: async ({ onChunk }: { onChunk: (samples: number[]) => void }) => {
+    captureMicrophone: async ({
+      onChunk,
+      onLevel
+    }: {
+      onChunk: (samples: number[]) => void;
+      onLevel: (level: number) => void;
+    }) => {
       emitAudio = onChunk;
+      emitLevel = onLevel;
       recording = true;
 
       return {
@@ -53,6 +62,26 @@ test.unit.beforeEach(async ({ mock }) => {
 });
 
 test.unit.stable(
+  'retains keyboard focus through opening and finishing a recording',
+  async ({ render, screen, userEvent, expect }) => {
+    render(<DictationButton onTranscript={() => {}} />);
+    const start = screen.getByRole('button', { name: 'Start dictation' });
+
+    start.focus();
+    await userEvent.keyboard('{Enter}');
+    const cancel = screen.getByRole('button', { name: 'Cancel dictation' });
+    const finish = await screen.findByRole('button', { name: 'Stop and transcribe' });
+
+    expect(cancel).toHaveFocus();
+    finish.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(cancel).toHaveFocus();
+    await userEvent.keyboard('{Enter}');
+    expect(start).toHaveFocus();
+  }
+);
+
+test.unit.stable(
   'allows pointer cancellation of a failed recording through the same control',
   async ({ render, screen, userEvent, expect, vi, waitFor }) => {
     const onTranscript = vi.fn();
@@ -76,8 +105,8 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'delivers speech to its consumer during recording through a single control',
-  async ({ render, screen, userEvent, act, expect, vi }) => {
+  'delivers speech during recording with cancel and finish in one capsule',
+  async ({ render, screen, within, userEvent, act, expect, vi }) => {
     const onTranscript = vi.fn();
 
     render(<DictationButton onTranscript={onTranscript} />);
@@ -90,8 +119,14 @@ test.unit.stable(
       await transcription;
     });
     expect(onTranscript).toHaveBeenCalledExactlyOnceWith('First segment');
-    expect(stop).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getAllByRole('button')).toEqual([stop]);
+    expect(stop).toBeEnabled();
+    const cancel = screen.getByRole('button', { name: 'Cancel dictation' });
+    const controls = screen.getByRole('group', { name: 'Voice' });
+    const recentBar = controls.querySelector('.voice-capture-waveform > span:last-child');
+
+    expect(within(controls).getAllByRole('button')).toEqual([cancel, stop]);
+    emitLevel(0.1);
+    expect(recentBar).toHaveAttribute('style', '--voice-amplitude: 0.5;');
     expect(screen.queryByText('First segment')).not.toBeInTheDocument();
   }
 );

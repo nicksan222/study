@@ -16,6 +16,7 @@ type CaptureOptions = {
   signal: AbortSignal;
   chunkSeconds: 10 | 20 | 30;
   onChunk: (samples: number[]) => void;
+  onLevel?: (level: number) => void;
   onError: () => void;
 };
 
@@ -148,7 +149,7 @@ function bindCapture(
   { stream, node, source, release: releaseGraph, firstFrame }: CaptureGraph,
   options: CaptureOptions
 ) {
-  const { signal, onChunk, onError } = options;
+  const { signal, onChunk, onError, onLevel } = options;
   const finished = Promise.withResolvers<number[]>();
   const deadline = new AbortController();
   const tracks = stream.getTracks();
@@ -204,6 +205,12 @@ function bindCapture(
       switch (data.type) {
         case 'started':
           firstFrame.resolve();
+          break;
+        case 'level':
+          onLevel?.(data.level);
+
+          if (!closed) send('acknowledge-level');
+
           break;
         case 'chunk':
           onChunk(Array.from(data.samples));

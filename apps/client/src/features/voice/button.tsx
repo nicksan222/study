@@ -1,5 +1,5 @@
 import { rpc } from '@study/contracts/react';
-import { CopyIcon, ErrorIcon, MicrophoneIcon, StopIcon } from '@study/icons';
+import { CancelIcon, CopyIcon, ErrorIcon, MicrophoneIcon } from '@study/icons';
 import type { StaticMessageKey } from '@study/localization';
 import {
   Button,
@@ -10,8 +10,10 @@ import {
   DialogTrigger,
   ErrorState,
   IconButton,
+  Notebook,
+  RecordingControls,
+  RecordingFeedback,
   RetryButton,
-  Spinner,
   Textarea
 } from '@study/ui';
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
@@ -137,56 +139,64 @@ export function DictationButton(props: DictationProps) {
 
 function DictationTrigger({ model }: { model: Model }) {
   const { t } = useI18n();
-  const { recording, progress, error, retry, label, disabled } = triggerState(model);
+  const primary = useRef<HTMLButtonElement>(null);
+  const { error, retry, label, disabled, active, progress } = triggerState(model);
+  const cancel = () => session.cancel(model.owner);
+  const finish = (transferFocus: boolean) => {
+    if (transferFocus) primary.current?.focus();
+
+    void session.stop(model.owner);
+  };
   const button = (
     <IconButton
+      ref={primary}
       type="button"
       label={t(label)}
       tooltip={error ? t(errorLabels[error]) : undefined}
-      aria-pressed={recording}
-      variant={recording || error ? 'warning-outline' : 'ghost'}
+      variant={error ? 'warning-outline' : 'ghost'}
       disabled={disabled}
       onMouseDown={(event) => event.preventDefault()}
-      onClick={retry ? undefined : () => activateTrigger(model, recording, !!progress)}
+      onClick={retry ? undefined : active ? cancel : model.start}
     >
-      {progress ? (
-        <Spinner label={t(progress)} />
-      ) : (
-        <TriggerIcon recording={recording} error={!!error} />
-      )}
+      <TriggerIcon active={active} error={!!error} />
     </IconButton>
   );
 
   return (
-    <>
-      {retry ? <DictationRetry model={model} trigger={button} /> : button}
-      {error && <ErrorState layout="announcement" title={t(errorLabels[error])} />}
-    </>
+    <Notebook.Actions>
+      <RecordingControls label={active ? t('VoiceTitle') : undefined}>
+        {retry ? <DictationRetry model={model} trigger={button} /> : button}
+        {active && (
+          <RecordingFeedback
+            progress={progress ? t(progress) : undefined}
+            finishLabel={t('VoiceStop')}
+            disabled={disabled}
+            onFinish={finish}
+            subscribeLevel={session.subscribeLevel}
+          />
+        )}
+        {error && <ErrorState layout="announcement" title={t(errorLabels[error])} />}
+      </RecordingControls>
+    </Notebook.Actions>
   );
 }
 
 function triggerState({ state, owned, disabled }: Model) {
   const available = microphoneAvailable();
-  const recording = owned && state.phase === 'recording';
   const progress = owned ? progressLabel(state) : undefined;
+  const active = owned && (state.phase === 'recording' || !!progress);
   const error = owned && state.phase === 'error' ? state.error : undefined;
   const retry = error === 'transcribe';
-  const enabled = state.phase === 'idle' || recording || progress || error;
+  const enabled = state.phase === 'idle' || active || error;
 
   return {
-    recording,
-    progress,
     error,
     retry,
-    label: triggerLabel(available, recording, !!progress, retry),
+    active,
+    progress,
+    label: triggerLabel(available, active, retry),
     disabled: !available || disabled || !enabled
   };
-}
-
-function activateTrigger(model: Model, recording: boolean, busy: boolean) {
-  if (recording) void session.stop(model.owner);
-  else if (busy) session.cancel(model.owner);
-  else model.start();
 }
 
 function progressLabel({ phase, backlog }: Model['state']): StaticMessageKey | undefined {
@@ -197,25 +207,18 @@ function progressLabel({ phase, backlog }: Model['state']): StaticMessageKey | u
   return undefined;
 }
 
-function triggerLabel(
-  available: boolean,
-  recording: boolean,
-  busy: boolean,
-  retry: boolean
-): StaticMessageKey {
+function triggerLabel(available: boolean, active: boolean, retry: boolean): StaticMessageKey {
   if (!available) return 'VoiceUnavailable';
 
-  if (recording) return 'VoiceStop';
-
-  if (busy) return 'VoiceCancel';
+  if (active) return 'VoiceCancel';
 
   if (retry) return 'VoiceRecoveryOptions';
 
   return 'VoiceStart';
 }
 
-function TriggerIcon({ recording, error }: { recording: boolean; error: boolean }) {
-  if (recording) return <StopIcon aria-hidden="true" />;
+function TriggerIcon({ active, error }: { active: boolean; error: boolean }) {
+  if (active) return <CancelIcon aria-hidden="true" />;
 
   if (error) return <ErrorIcon aria-hidden="true" />;
 

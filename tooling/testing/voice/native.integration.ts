@@ -76,7 +76,7 @@ if (!model || !vad)
 
 for (const sample of voiceSamples)
   test.server.stable(
-    `Native dictation recognizes human ${sample.language} speech with and without silence filtering`,
+    `Native Parakeet TDT v3 recognizes human ${sample.language} speech with and without silence filtering`,
     async ({ expect }) => {
       const pcm = await voiceSamplePcm(sample.id);
 
@@ -84,15 +84,16 @@ for (const sample of voiceSamples)
         const transcript = transcribeNative(model, vad, pcm, filterSilence);
 
         expect(transcript.trim()).not.toBe('');
-        expect(wordErrors(normalize(sample.reference), normalize(transcript))).toBeLessThanOrEqual(
-          sample.maximumWordErrors
-        );
+        expect(
+          wordErrors(normalize(sample.reference), normalize(transcript)),
+          `${sample.id}, silence filter ${filterSilence}: ${transcript}`
+        ).toBeLessThanOrEqual(sample.maximumWordErrors);
       }
     }
   );
 
 test.server.stable(
-  'Native silence filtering returns no invented speech for silence',
+  'Native Parakeet TDT v3 returns no invented speech when Silero filters silence',
   async ({ expect }) => {
     expect(transcribeNative(model, vad, new Float32Array(32_000), true)).toBe('');
   }
@@ -100,7 +101,7 @@ test.server.stable(
 
 /** Local fixture delivery replaces the download transport only; RPC, service and child inference are production. */
 test.server.stable(
-  'Real voice RPC installs verified models and recognizes multilingual human recordings',
+  'Real voice RPC installs Parakeet TDT v3 and recognizes multilingual human recordings',
   async ({ resources, expect }) => {
     const files = [Bun.file(model), Bun.file(vad)];
     const { server } = await resources.openRpc({
@@ -122,7 +123,12 @@ test.server.stable(
 
           expect((yield* client['voice.status']({})).state).toBe('missing');
           yield* client['voice.install']({});
-          expect((yield* client['voice.status']({})).state).toBe('ready');
+          expect(yield* client['voice.status']({})).toMatchObject({
+            state: 'ready',
+            modelId: 'parakeet-tdt-v3',
+            languageDetection: 'automatic',
+            languages: expect.arrayContaining(voiceSamples.map((sample) => sample.language))
+          });
 
           for (const { filterSilence, denoise, noisy } of recognitionScenarios) {
             yield* client['settings.saveVoiceSettings']({ filterSilence, denoise });
@@ -146,7 +152,8 @@ test.server.stable(
               );
 
               expect(
-                wordErrors(normalize(sample.reference), normalize(result.text))
+                wordErrors(normalize(sample.reference), normalize(result.text)),
+                `${sample.id}, silence filter ${filterSilence}, denoise ${denoise}, noise ${noisy}: ${result.text}`
               ).toBeLessThanOrEqual(sample.maximumWordErrors);
             }
           }

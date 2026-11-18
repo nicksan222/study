@@ -1,4 +1,4 @@
-import { MicrophoneSegments } from './microphone-segments';
+import { MicrophoneSegments, microphoneSampleRate } from './microphone-segments';
 import type { MicrophoneCommand, MicrophoneMessage } from './microphone-segments';
 
 declare abstract class AudioWorkletProcessor {
@@ -17,6 +17,9 @@ declare function registerProcessor(
 export default class MicrophoneProcessor extends AudioWorkletProcessor {
   private readonly segments: MicrophoneSegments;
   private awaitingAcknowledgement = false;
+  private awaitingMeter = false;
+  private meterFrames = 0;
+  private meterPower = 0;
   private running = true;
   private started = false;
 
@@ -25,6 +28,8 @@ export default class MicrophoneProcessor extends AudioWorkletProcessor {
     this.segments = new MicrophoneSegments(options.processorOptions.framesPerChunk);
     this.port.onmessage = ({ data }: MessageEvent<MicrophoneCommand>) => {
       if (data === 'acknowledge') this.awaitingAcknowledgement = false;
+
+      if (data === 'acknowledge-level') this.awaitingMeter = false;
 
       if (data === 'stop' && this.running) {
         this.running = false;
@@ -50,6 +55,22 @@ export default class MicrophoneProcessor extends AudioWorkletProcessor {
     return true;
   }
 
+  private measure(input: Float32Array) {
+    for (const sample of input) this.meterPower += sample * sample;
+
+    this.meterFrames += input.length;
+
+    if (this.meterFrames < microphoneSampleRate * 0.08) return;
+
+    if (!this.awaitingMeter) {
+      this.awaitingMeter = true;
+      this.send({ type: 'level', level: Math.sqrt(this.meterPower / this.meterFrames) });
+    }
+
+    this.meterFrames = 0;
+    this.meterPower = 0;
+  }
+
   // fallow-ignore-next-line unused-class-member -- The Web Audio rendering engine calls process for each input quantum.
   override process(inputs: Float32Array[][]) {
     if (!this.running) return false;
@@ -64,6 +85,8 @@ export default class MicrophoneProcessor extends AudioWorkletProcessor {
       this.started = true;
       this.send({ type: 'started' });
     }
+
+    if (this.running) this.measure(input);
 
     return this.running;
   }
