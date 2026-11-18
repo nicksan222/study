@@ -78,6 +78,39 @@ test.unit.stable(
 
 const editorLabels = new Proxy({} as RichNoteLabels, { get: (_, key) => String(key) });
 
+test.unit.stable(
+  'keeps non-text blocks when restored dictation has no text cursor',
+  ({ render, screen, act, expect }) => {
+    const ref = createRef<RichNoteEditorHandle>();
+    let saved = '';
+    const props = {
+      label: 'Note',
+      placeholder: '',
+      labels: editorLabels,
+      onChange: (value: string) => {
+        saved = value;
+      }
+    };
+    const first = render(<RichNoteEditor {...props} ref={ref} value={'---\n\n---'} />);
+
+    expect(first.container.querySelectorAll('.tiptap hr')).toHaveLength(2);
+    act(() => {
+      ref.current!.restoreSelection({
+        anchor: Number.MAX_SAFE_INTEGER,
+        head: Number.MAX_SAFE_INTEGER
+      });
+      ref.current!.insertPlainText('Spoken paragraph');
+    });
+    expect(first.container.querySelectorAll('.tiptap hr')).toHaveLength(2);
+    expect(screen.getByRole('textbox', { name: 'Note' })).toHaveTextContent('Spoken paragraph');
+    first.unmount();
+    const reopened = render(<RichNoteEditor {...props} value={saved} />);
+
+    expect(reopened.container.querySelectorAll('.tiptap hr')).toHaveLength(2);
+    expect(reopened.container.querySelector('.tiptap > p')).toHaveTextContent('Spoken paragraph');
+  }
+);
+
 for (const literal of [
   '1. January is the deadline',
   '# Title',

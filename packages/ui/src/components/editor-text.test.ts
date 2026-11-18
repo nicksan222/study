@@ -5,6 +5,31 @@ import StarterKit from '@tiptap/starter-kit';
 import { insertEditorText } from './editor-text';
 
 test.unit.stable(
+  'keeps selected non-text blocks and undoes dictation in one step',
+  ({ expect }) => {
+    const editor = new Editor({ extensions: [StarterKit], content: '<hr><hr>' });
+
+    try {
+      editor.commands.setNodeSelection(1);
+      const before = editor.getJSON();
+
+      insertEditorText(editor, 'Spoken\r\nparagraph');
+      expect(editor.getJSON().content?.map((node) => node.type)).toEqual([
+        'horizontalRule',
+        'horizontalRule',
+        'paragraph',
+        'paragraph'
+      ]);
+      expect(editor.getText()).toContain('Spoken\nparagraph');
+      editor.commands.undo();
+      expect(editor.getJSON()).toEqual(before);
+    } finally {
+      editor.destroy();
+    }
+  }
+);
+
+test.unit.stable(
   'inserts dictated text literally at selection with line breaks and undo',
   ({ expect }) => {
     const editor = new Editor({ extensions: [StarterKit], content: '<p>Hello world</p>' });

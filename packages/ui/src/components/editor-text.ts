@@ -1,7 +1,23 @@
 import type { Editor } from '@tiptap/core';
+import { NodeSelection } from '@tiptap/pm/state';
 
 /** Dictation enters the document as text nodes, never interpreted HTML or Markdown. */
 export function insertEditorText(editor: Editor, text: string) {
+  const { selection } = editor.state;
+
+  if (selection instanceof NodeSelection && !selection.node.isTextblock) {
+    const content = literalContent(text.replace(/\r\n?/g, '\n'), false);
+
+    if (content.length)
+      editor.chain().focus().insertContentAt(selection.to, { type: 'paragraph', content }).run();
+
+    return;
+  }
+
+  insertInlineText(editor, text);
+}
+
+function insertInlineText(editor: Editor, text: string) {
   const { from, to } = editor.state.selection;
   const before = editor.state.doc.textBetween(Math.max(0, from - 1), from);
   const after = editor.state.doc.textBetween(to, Math.min(to + 1, editor.state.doc.content.size));

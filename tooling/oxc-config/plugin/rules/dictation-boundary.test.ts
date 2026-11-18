@@ -16,12 +16,13 @@ test.unit.stable(
         'apps/client/src/features/notes/nested.ts': `import {rpc} from '@study/contracts/react'; const {voice: {transcribe}} = rpc; transcribe.call({});`,
         'apps/client/src/features/notes/nested-alias.ts': `import {rpc as api} from '@study/contracts/react'; const {voice: {transcribe: recognize}} = api; recognize.call({});`,
         'apps/client/src/features/notes/nested-default.ts': `import {rpc} from '@study/contracts/react'; const {voice: {transcribe = fallback}} = rpc; transcribe.call({});`,
+        'apps/client/src/features/notes/extracted-call.ts': `import {rpc} from '@study/contracts/react'; const {voice: {transcribe: {call: recognize}}} = rpc; recognize({});`,
         'apps/client/src/features/notes/host.ts': `import {captureMicrophone as capture} from '#client/lib/host.ts'; capture({});`
       },
       true
     );
 
-    expect(diagnostics).toHaveLength(8);
+    expect(diagnostics).toHaveLength(9);
   }
 );
 
@@ -40,6 +41,7 @@ test.unit.stable(
           'apps/client/src/features/notes/capture-type.ts': `import type {captureMicrophone} from '#client/lib/host.ts';`,
           'apps/client/src/features/notes/capture-specifier-type.ts': `import {type captureMicrophone} from '#client/lib/effect/native.ts';`,
           'apps/client/src/features/notes/local.ts': `const rpc = {voice: {transcribe: {call(){}}}}; const {voice: {transcribe}} = rpc; transcribe.call({});`,
+          'apps/client/src/features/notes/local-call.ts': `const rpc = {voice: {transcribe: {call(){}}}}; const {voice: {transcribe: {call: recognize}}} = rpc; recognize({});`,
           'apps/client/src/features/notes/other.ts': `const rpc = {voice: {transcribe(){}}}; rpc.voice.transcribe();`,
           'apps/client/src/features/notes/raw.test.ts': `navigator.mediaDevices.getUserMedia({audio:true});`
         },

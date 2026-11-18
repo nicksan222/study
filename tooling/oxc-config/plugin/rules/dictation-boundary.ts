@@ -116,8 +116,11 @@ export default defineRule({
       CallExpression(node) {
         if (capture) return;
 
-        if (node.callee.type === 'Identifier' && rpc(node.callee) === 'host.captureMicrophone')
-          report(node);
+        if (node.callee.type === 'Identifier') {
+          const path = rpc(node.callee);
+
+          if (path === 'host.captureMicrophone' || path?.startsWith('rpc.voice.')) report(node);
+        }
 
         const name = nativeGlobal(bindings, node.callee)?.replace(
           /^(?:(?:window|globalThis|self)\.)+/,
