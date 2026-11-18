@@ -57,8 +57,6 @@ try {
   });
 
   try {
-    const base = await browser.getUrl();
-
     const skip = browser.$(`aria/${catalogs.english.OnboardingSkip}`);
     const byRole = async (role: string, name: string) => {
       const element = browser.$(`aria/${name}`);
@@ -73,7 +71,7 @@ try {
     await skip.click();
     await skip.waitForDisplayed({ reverse: true });
     await homeNavigation({
-      goto: (path) => browser.url(new URL(path, base).href),
+      goto: async (path) => browser.url(new URL(path, await browser.getUrl()).href),
       expectPath: async (path) => {
         await browser.waitUntil(async () => new URL(await browser.getUrl()).pathname === path);
       },
