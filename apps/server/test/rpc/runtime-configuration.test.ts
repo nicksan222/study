@@ -1,12 +1,5 @@
 import { AgentRule } from '@study/contracts';
-import {
-  Agents,
-  ChatGptSession,
-  defineAgent,
-  generateAgent,
-  makeApiKeyCatalog,
-  makeChatGptCatalog
-} from '@study/server';
+import { Agents, ChatGptSession, defineAgent, generateAgent } from '@study/server';
 import { encodeAccount } from '@study/server';
 import { Database } from '@study/server';
 import { transaction } from '@study/server';
@@ -149,11 +142,13 @@ function textCompletion(model: string) {
 }
 
 test.server.stable(
-  'an API-key provider uses its saved model until the user accepts its recommendation',
+  'refreshes an API-key catalog on demand, preserves it offline and changes models on consent',
   async ({ resources, expect }) => {
     const before = 'deepseek-flash';
     const after = 'deepseek-newer-name';
     let expected = before;
+    let catalogRequests = 0;
+    let unavailable = false;
     const fetchCatalog = async (input: RequestInfo | URL, init?: RequestInit) => {
       const request = new Request(input, init);
 
@@ -165,6 +160,9 @@ test.server.stable(
 
       expect(request.url).toBe('https://models.dev/api.json');
       expect(request.headers.has('authorization')).toBe(false);
+      catalogRequests++;
+
+      if (unavailable) return new Response(null, { status: 503 });
 
       return Response.json({
         deepseek: {
@@ -192,17 +190,21 @@ test.server.stable(
         Effect.gen(function* () {
           const auth = yield* Auth;
           const settings = yield* Settings;
-          const { manager } = yield* ChatGptSession;
-          const chat = yield* makeChatGptCatalog(manager, fetchCatalog);
-          const api = yield* makeApiKeyCatalog(fetchCatalog);
+          const session = yield* ChatGptSession;
 
           yield* auth.saveApiKey({ provider: 'deepseek', apiKey: 'test-secret' });
+          yield* settings.refreshModelRecommendations(session);
           yield* settings.saveLlmSettings({
             tiny: { provider: 1 },
             medium: { provider: 'deepseek', model: before },
             smart: { provider: 1 }
           });
-          yield* settings.refreshModelRecommendations(auth.providers, chat, api);
+          yield* settings.refreshModelRecommendations(session);
+          expect(catalogRequests).toBe(2);
+          unavailable = true;
+          yield* settings.refreshModelRecommendations(session);
+          expect(catalogRequests).toBe(3);
+          expect((yield* settings.modelCatalog()).models.deepseek).toEqual([after, before]);
           const [notice] = yield* settings.modelUpdates();
 
           expect(notice).toEqual({

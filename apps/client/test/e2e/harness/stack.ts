@@ -26,7 +26,15 @@ export async function openWebStack(
   const { app, server } = await fixture.openRpc({
     timestampClock: captureTimestampClock(),
     ai,
-    fetch: chatGpt?.fetch
+    fetch:
+      chatGpt?.fetch ??
+      ((...args) => {
+        const request = new Request(...args);
+
+        return request.url === 'https://models.dev/api.json'
+          ? Promise.resolve(Response.json({}))
+          : fetch(request);
+      })
   });
 
   await app.workers.start();

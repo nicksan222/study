@@ -1,12 +1,12 @@
 /** @file Updates API-key provider model tiers from public model metadata. */
 import type { ModelTier } from '@study/contracts';
-import { Cache, Effect, Exit, Option, Schema } from 'effect';
+import { Effect, Option, Schema } from 'effect';
 
 import type { FetchOptions } from '#server/platform/http/index';
 import { streamingFetch } from '#server/platform/http/index';
 
-import type { ApiKeyProvider } from './definition.ts';
 import { allowsAiModel } from './model-policy.ts';
+import { apiKeyProviders } from './registry.ts';
 
 const providersSchema = Schema.Record(
   Schema.String,
@@ -42,10 +42,10 @@ function eligible(model: CatalogModel) {
   );
 }
 
-function newest(models: readonly CatalogModel[]) {
+function byRelease(models: readonly CatalogModel[]) {
   return models.toSorted(
     (a, b) => b.release_date.localeCompare(a.release_date) || a.id.localeCompare(b.id)
-  )[0];
+  );
 }
 
 function inPriceBand(models: readonly CatalogModel[], tier: ModelTier) {
@@ -61,13 +61,16 @@ function inPriceBand(models: readonly CatalogModel[], tier: ModelTier) {
 function preferredFamily(
   models: readonly CatalogModel[],
   anchor: CatalogModel | undefined,
-  tierAnchors: readonly CatalogModel[]
+  familyModels: readonly CatalogModel[]
 ) {
   if (!anchor?.family) return [];
 
   const family = anchor.family;
-  const competingSizes = tierAnchors.filter(
-    (other) => other.family === family && other.cost.output !== anchor.cost.output
+  const competingSizes = familyModels.filter(
+    (other) =>
+      other.family === family &&
+      other.release_date <= anchor.release_date &&
+      other.cost.output !== anchor.cost.output
   );
 
   // A family can contain multiple sizes, such as GPT-OSS 20B and 120B.
@@ -120,40 +123,40 @@ function fetchCatalog(request?: FetchOptions['fetch']) {
   }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(providersSchema)), Effect.map(indexCatalog));
 }
 
-export const makeApiKeyCatalog = (request?: FetchOptions['fetch']) =>
-  Effect.gen(function* () {
-    const cache = yield* Cache.makeWith(() => fetchCatalog(request), {
-      capacity: 1,
-      timeToLive: (result) => (Exit.isSuccess(result) ? '15 minutes' : '1 minute')
-    });
+export const fetchApiKeyCatalog = (request?: FetchOptions['fetch']) =>
+  fetchCatalog(request).pipe(
+    Effect.map((catalog) =>
+      apiKeyProviders.flatMap((provider) => {
+        const models = catalog(provider.catalogId);
 
-    return (provider: ApiKeyProvider) =>
-      Cache.get(cache, null).pipe(
-        Effect.map((catalog) => {
-          const models = catalog(provider.catalogId);
+        if (!models?.length) return [];
 
-          if (!models) return undefined;
+        const available = byRelease(models.filter(eligible));
 
-          const available = models.filter(eligible);
-          const defaults = new Set(Object.values(provider.defaults));
-          const anchors = models.filter((model) => defaults.has(model.id));
+        return [
+          [
+            provider.id,
+            {
+              models: available.map(({ id }) => id),
+              recommend: (id: string | undefined, tier: ModelTier) => {
+                const current = models.find((model) => model.id === id);
 
-          return {
-            models: available.map(({ id }) => id).sort(),
-            recommend: (id: string, tier: ModelTier) => {
-              const current = models.find((model) => model.id === id);
+                if (!current) return inPriceBand(available, tier)[0]?.id;
 
-              if (!current) return newest(inPriceBand(available, tier))?.id;
+                const newer = preferredFamily(available, current, models).find(
+                  (model) =>
+                    model.release_date > current.release_date &&
+                    (model.canonical_model_id ?? model.id) !== (current.canonical_model_id ?? id)
+                );
 
-              const newer = preferredFamily(available, current, [...anchors, current]).filter(
-                (model) =>
-                  model.release_date > current.release_date &&
-                  (model.canonical_model_id ?? model.id) !== (current.canonical_model_id ?? id)
-              );
-
-              return newest(newer)?.id;
+                return (
+                  newer?.id ??
+                  (available.includes(current) ? undefined : inPriceBand(available, tier)[0]?.id)
+                );
+              }
             }
-          };
-        })
-      );
-  });
+          ] as const
+        ];
+      })
+    )
+  );

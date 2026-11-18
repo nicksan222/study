@@ -19,7 +19,14 @@ import {
   defaultQuizSettings
 } from '@study/contracts';
 import { sql } from '@study/db';
-import { admissionLayer, makeAdmission, ServerContext, Database } from '@study/server';
+import {
+  admissionLayer,
+  AuthManager,
+  ChatGptSession,
+  makeAdmission,
+  ServerContext,
+  Database
+} from '@study/server';
 import { test } from '@study/testing';
 import { Deferred, Effect, Exit, Fiber, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
@@ -28,6 +35,20 @@ import { Settings } from '#server/features/settings/index';
 import { testLiveQueries } from '#testing/live-queries';
 
 import { SettingsRpcLive } from './index.ts';
+
+const testSession = Layer.effect(
+  ChatGptSession,
+  Effect.acquireRelease(
+    Effect.sync(() => ({
+      issuer: 'https://login.example.test',
+      manager: new AuthManager({
+        issuer: 'https://login.example.test',
+        saveRefresh: async () => {}
+      })
+    })),
+    ({ manager }) => Effect.promise(() => manager.dispose())
+  )
+);
 
 test.server.stable(
   'settings RPC exposes typed settings and maps service failures',
@@ -38,6 +59,7 @@ test.server.stable(
     const context = new ServerContext(await location.open());
     const handlers = SettingsRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
       Layer.provide(Settings.layer),
+      Layer.provide(testSession),
       Layer.provide(admissionLayer(makeAdmission())),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -131,6 +153,7 @@ test.server.stable(
     const owner = makeAdmission({ concurrency: 2, maxWaiting: 2 });
     const handlers = SettingsRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
       Layer.provide(Settings.layer),
+      Layer.provide(testSession),
       Layer.provide(admissionLayer(owner)),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );

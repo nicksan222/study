@@ -1,6 +1,6 @@
 /** @file Offers catalog updates without changing the saved selection until accepted. */
-import { StudyError } from '@study/contracts';
-import type { LlmSettings, ModelUpdate } from '@study/contracts';
+import { modelTiers, StudyError } from '@study/contracts';
+import type { LlmSettings, ModelSuggestions, ModelUpdate } from '@study/contracts';
 import { transaction, useStore } from '@study/server';
 import { Effect } from 'effect';
 
@@ -24,15 +24,35 @@ function stillSelected(settings: LlmSettings, notice: ModelUpdate) {
   return current.provider === notice.provider && current.modelId === notice.previousModel;
 }
 
+function newlySuggested(
+  settings: LlmSettings,
+  previous: Readonly<Record<string, readonly string[]>>,
+  suggestions: ModelSuggestions
+) {
+  return modelTiers.flatMap((tier) => {
+    const { provider, modelId } = selectedModel(settings, tier);
+    const known = previous[String(provider)];
+    const model = suggestions[String(provider)]?.[tier];
+
+    return known?.length && model && modelId && !known.includes(model) && model !== modelId
+      ? [{ tier, provider, model, previousModel: modelId }]
+      : [];
+  });
+}
+
 export function* modelUpdateOperations() {
   const models = yield* useStore(ModelUpdatesStore);
   const preferences = yield* useStore(SettingsStore);
 
   return {
     modelCatalog: () =>
-      models
-        .snapshot(undefined)
-        .pipe(Effect.map(({ catalog, recommendations }) => ({ models: catalog, recommendations }))),
+      models.snapshot(undefined).pipe(
+        Effect.map(({ catalog, recommendations, suggestions }) => ({
+          models: catalog,
+          recommendations,
+          suggestions: suggestions ?? {}
+        }))
+      ),
     modelUpdates: Effect.fnUntraced(function* () {
       const { recommendations, dismissed } = yield* models.snapshot(undefined);
       const settings = llmSettings(yield* preferences.preference('llm'));
@@ -44,11 +64,19 @@ export function* modelUpdateOperations() {
     }),
     refreshModelCatalog: (
       catalog: Readonly<Record<string, readonly string[]>>,
-      recommendations: readonly ModelUpdate[]
+      recommendations: readonly ModelUpdate[],
+      suggestions?: ModelSuggestions
     ) =>
       transaction((tx) => {
         const records = tx.store(ModelUpdatesStore);
         const previous = records.snapshot(undefined);
+        const settings = llmSettings(tx.store(SettingsStore).preference('llm'));
+        const candidates = [
+          ...recommendations,
+          ...newlySuggested(settings, previous.catalog, suggestions ?? {}).filter(
+            (entry) => !recommendations.some(({ tier }) => tier === entry.tier)
+          )
+        ];
         const discovered = Object.fromEntries(
           Object.entries(catalog).filter(
             ([provider, ids]) => ids.length || provider in previous.catalog
@@ -57,10 +85,18 @@ export function* modelUpdateOperations() {
         const next = {
           catalog: { ...previous.catalog, ...discovered },
           recommendations: [
-            ...previous.recommendations.filter((entry) => !(String(entry.provider) in catalog)),
-            ...recommendations
+            ...previous.recommendations.filter(
+              (entry) =>
+                stillSelected(settings, entry) &&
+                !candidates.some(({ tier }) => tier === entry.tier) &&
+                (catalog[String(entry.provider)]?.includes(entry.model) ?? true)
+            ),
+            ...candidates
           ],
-          dismissed: previous.dismissed
+          dismissed: previous.dismissed,
+          ...(suggestions || previous.suggestions
+            ? { suggestions: { ...previous.suggestions, ...suggestions } }
+            : {})
         };
 
         if (JSON.stringify(previous) !== JSON.stringify(next)) records.save(next);

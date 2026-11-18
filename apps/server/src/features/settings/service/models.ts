@@ -64,9 +64,7 @@ export function selectedModel(
   const setup = settings[tier];
 
   if (typeof setup.provider === 'string' && requiredProvider !== LlmProvider.CHAT_GPT) {
-    const provider = getApiKeyProvider(setup.provider);
-
-    return { provider: setup.provider, modelId: setup.model ?? provider.defaults[tier] };
+    return { provider: setup.provider, modelId: setup.model };
   }
 
   const model =
@@ -90,12 +88,12 @@ export function* settingsModelOperations() {
         const catalog = tx.store(ModelUpdatesStore).snapshot(undefined).catalog;
 
         for (const setup of Object.values(input)) {
-          const choices =
-            typeof setup.provider === 'string'
-              ? getApiKeyProvider(setup.provider).models
-              : Object.values(chatGptIds);
+          if (typeof setup.provider === 'string') getApiKeyProvider(setup.provider);
 
           if (typeof setup.model !== 'string') continue;
+
+          const choices: readonly string[] =
+            typeof setup.provider === 'number' ? Object.values(chatGptIds) : [];
 
           if (
             !allowsAiModel(setup.model) ||
@@ -125,7 +123,13 @@ export function* settingsModelOperations() {
       store.preference('llm').pipe(
         Effect.flatMap((value) =>
           Effect.try({
-            try: () => selectedModel(llmSettings(value), tier, requiredProvider),
+            try: () => {
+              const selection = selectedModel(llmSettings(value), tier, requiredProvider);
+
+              if (!selection.modelId) throw new StudyError('config', 'Select a model in settings');
+
+              return { ...selection, modelId: selection.modelId };
+            },
             catch: (error) =>
               error instanceof StudyError
                 ? error

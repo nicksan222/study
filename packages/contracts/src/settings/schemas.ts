@@ -37,8 +37,6 @@ export const apiKeyInputSchema = Schema.Struct({
 export const aiProviderSchema = Schema.Struct({
   id: apiKeyProviderIdSchema,
   name: Schema.String,
-  models: Schema.Array(modelIdSchema),
-  defaults: Schema.Struct({ tiny: modelIdSchema, medium: modelIdSchema, smart: modelIdSchema }),
   configured: Schema.Boolean
 });
 

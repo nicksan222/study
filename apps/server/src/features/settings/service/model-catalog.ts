@@ -1,67 +1,79 @@
-/** @file Compares saved model choices against provider catalogs. */
+/** @file Compares saved model choices against a fresh provider catalog. */
 import { LlmProvider, modelTiers } from '@study/contracts';
-import type { ModelTier, ModelUpdate, StudyError } from '@study/contracts';
-import { getApiKeyProvider, recordModelUpdateFailure } from '@study/server';
-import type { Database, makeApiKeyCatalog, makeChatGptCatalog } from '@study/server';
+import type {
+  LlmSettings,
+  ModelTier,
+  ModelSuggestions,
+  ModelUpdate,
+  StudyError
+} from '@study/contracts';
+import { fetchApiKeyCatalog, makeChatGptCatalog, recordModelUpdateFailure } from '@study/server';
+import type { ChatGptSession, Database } from '@study/server';
 import { Effect } from 'effect';
 
+import { selectedModel } from './models.ts';
+
 export const makeModelCatalogRefresh = (
-  model: (tier: ModelTier) => Effect.Effect<{ provider: string | 1; modelId: string }, StudyError>,
+  settings: () => Effect.Effect<LlmSettings, StudyError>,
   save: (
     catalog: Readonly<Record<string, readonly string[]>>,
-    notices: readonly ModelUpdate[]
+    notices: readonly ModelUpdate[],
+    suggestions: ModelSuggestions
   ) => Effect.Effect<void, StudyError, Database>
 ) =>
-  Effect.fnUntraced(function* (
-    providersSource: () => Effect.Effect<
-      readonly { id: string; configured: boolean }[],
-      StudyError
-    >,
-    chatGptModel: Effect.Success<ReturnType<typeof makeChatGptCatalog>>,
-    apiKeyModel: Effect.Success<ReturnType<typeof makeApiKeyCatalog>>
-  ) {
-    const configured = yield* providersSource();
-    const providers = yield* Effect.forEach(
-      configured.filter((provider) => provider.configured),
-      ({ id }) =>
-        apiKeyModel(getApiKeyProvider(id)).pipe(
-          Effect.map((catalog) => [id, catalog] as const),
-          Effect.catch(() => recordModelUpdateFailure().pipe(Effect.as([id, undefined] as const)))
+  Effect.fnUntraced(function* ({ manager, request }: ChatGptSession['Service']) {
+    const inspectChat = yield* makeChatGptCatalog(manager, request);
+    const [providers, chat] = yield* Effect.all(
+      [
+        fetchApiKeyCatalog(request).pipe(
+          Effect.catch(() => recordModelUpdateFailure().pipe(Effect.as([])))
+        ),
+        inspectChat.pipe(
+          Effect.catch((error) =>
+            error.kind === 'auth'
+              ? Effect.succeed({ models: [], recommend: () => undefined })
+              : recordModelUpdateFailure()
+          )
         )
-    );
-    const chat = yield* chatGptModel.pipe(
-      Effect.catch((error) =>
-        error.kind === 'auth'
-          ? Effect.succeed({ models: [], recommend: () => undefined })
-          : recordModelUpdateFailure()
-      )
+      ],
+      { concurrency: 'unbounded' }
     );
     const catalogs = new Map<
       1 | string,
       {
         readonly models: readonly string[];
-        recommend: (id: string, tier: ModelTier) => string | undefined;
+        recommend: (id: string | undefined, tier: ModelTier) => string | undefined;
       }
-    >();
+    >(providers);
 
     if (chat) catalogs.set(LlmProvider.CHAT_GPT, chat);
 
-    for (const [id, catalog] of providers) if (catalog) catalogs.set(id, catalog);
+    const saved = yield* settings();
+    const recommendations = modelTiers.flatMap((tier) => {
+      const { provider, modelId } = selectedModel(saved, tier);
+      const model = catalogs.get(provider)?.recommend(modelId, tier);
 
-    const recommendations = yield* Effect.forEach(modelTiers, (tier) =>
-      model(tier).pipe(
-        Effect.map(({ provider, modelId }) => {
-          const model = catalogs.get(provider)?.recommend(modelId, tier);
+      return model && model !== modelId
+        ? [{ tier, provider, model, ...(modelId === undefined ? {} : { previousModel: modelId }) }]
+        : [];
+    });
 
-          return model && model !== modelId
-            ? [{ tier, provider, model, previousModel: modelId }]
-            : [];
-        })
-      )
+    const suggestions = Object.fromEntries(
+      [...providers].map(([provider, catalog]) => [
+        provider,
+        Object.fromEntries(
+          modelTiers.flatMap((tier) => {
+            const id = catalog.recommend(undefined, tier);
+
+            return id ? [[tier, id]] : [];
+          })
+        )
+      ])
     );
 
     yield* save(
       Object.fromEntries([...catalogs].map(([id, catalog]) => [String(id), catalog.models])),
-      recommendations.flat()
+      recommendations,
+      suggestions
     );
   });

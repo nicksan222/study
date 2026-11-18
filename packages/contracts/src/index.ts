@@ -575,8 +575,13 @@ export {
 } from './recordings/rpc.ts';
 export { recordingPostSchema, recordingSchema, recordingViewSchema } from './recordings/schemas.ts';
 export { endpoints, StudyRpc } from './rpc.ts';
-export { modelUpdateSchema, modelCatalogSchema, modelTiers } from './settings/model-updates.ts';
-export type { ModelUpdate } from './settings/model-updates.ts';
+export {
+  modelUpdateSchema,
+  modelCatalogSchema,
+  modelSuggestionsSchema,
+  modelTiers
+} from './settings/model-updates.ts';
+export type { ModelUpdate, ModelSuggestions } from './settings/model-updates.ts';
 export { settingsEndpoints, SettingsRpc } from './settings/rpc.ts';
 export type { AgentRuleKey, ModelTier } from './settings/schemas.ts';
 export {

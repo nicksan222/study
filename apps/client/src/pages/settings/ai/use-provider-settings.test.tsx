@@ -27,9 +27,7 @@ const data = {
     {
       id: 'anthropic',
       name: 'Anthropic',
-      configured: false,
-      models: ['new-model'],
-      defaults: { tiny: 'new-model', medium: 'new-model', smart: 'new-model' }
+      configured: false
     }
   ],
   status: { signedIn: false, email: null, sharing: false }

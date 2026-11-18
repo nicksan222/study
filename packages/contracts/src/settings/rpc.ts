@@ -30,6 +30,11 @@ export const settingsEndpoints = {
     { payload: {}, success: modelCatalogViewSchema, error: failureSchema },
     { dependencies: [dependency.settings], refresh: 'database' }
   ),
+  refreshModelCatalog: mutation(
+    'settings.refreshModelCatalog',
+    { payload: {}, success: saved, error: failureSchema },
+    { changes: [dependency.settings] }
+  ),
   applyModelUpdate: mutation(
     'settings.applyModelUpdate',
     { payload: modelUpdateSchema, success: saved, error: failureSchema },

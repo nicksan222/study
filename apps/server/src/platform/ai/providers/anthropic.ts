@@ -26,8 +26,6 @@ import { providerHttpLayer } from './transport.ts';
 export const anthropic = defineApiKeyProvider({
   id: 'anthropic',
   name: 'Anthropic',
-  models: ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5'],
-  defaults: { tiny: 'claude-haiku-5-5', medium: 'claude-sonnet-5-5', smart: 'claude-opus-5-5' },
   createModel: createAnthropicModel
 });
 

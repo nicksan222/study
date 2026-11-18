@@ -22,6 +22,7 @@ test.unit.beforeEach(async ({ mock }) => {
 function settingsModel({ vi }: Pick<test.unit.Context, 'vi'>): AiSettingsModel {
   return {
     catalog: undefined,
+    suggestions: undefined,
     recommendations: undefined,
     data: {
       status: { signedIn: true, email: 'learner@example.com', sharing: false },
@@ -77,16 +78,12 @@ function withAnthropic({ vi }: Pick<test.unit.Context, 'vi'>) {
       {
         id: 'anthropic',
         name: 'Anthropic',
-        configured: true,
-        models: ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5'],
-        defaults: {
-          tiny: 'claude-haiku-5-5',
-          medium: 'claude-sonnet-5-5',
-          smart: 'claude-opus-5-5'
-        }
+        configured: true
       }
     ]
   };
+
+  model.catalog = { anthropic: ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5'] };
 
   return model;
 }
@@ -104,11 +101,11 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'model dropdowns offer registered provider models and commit the selected ID',
+  'model dropdowns offer discovered provider models and commit the selected ID',
   async ({ render, expect, screen, userEvent, vi }) => {
     const model = withAnthropic({ vi });
 
-    model.catalog = { anthropic: ['claude-haiku-next'] };
+    model.catalog = { anthropic: ['claude-haiku-next', ...model.catalog!.anthropic!] };
     model.recommendations = [
       {
         tier: 'tiny',
@@ -126,11 +123,11 @@ test.unit.stable(
       'ChatGPT — Usa predefinito',
       'ChatGPT — Preferisci Luna · Consigliato',
       'ChatGPT — Preferisci Sol',
-      'Anthropic — Usa predefinito',
-      'Anthropic — claude-haiku-5-5 · Consigliato',
+      'Anthropic — claude-haiku-next · Consigliato',
+      'Anthropic — claude-haiku-5-5',
       'Anthropic — claude-sonnet-5-5',
       'Anthropic — claude-opus-5-5',
-      'Anthropic — claude-haiku-next · Consigliato'
+      'Anthropic — Scegli un modello'
     ]);
     await userEvent.click(
       await screen.findByRole('option', { name: 'Anthropic — claude-opus-5-5' })
@@ -190,7 +187,7 @@ test.unit.stable(
     render(<AiModelSettingsView model={model} />);
     await userEvent.click(screen.getByRole('combobox', { name: 'Attività rapide' }));
     expect(
-      await screen.findByRole('option', { name: 'Anthropic — Usa predefinito' })
+      await screen.findByRole('option', { name: 'Anthropic — claude-haiku-5-5' })
     ).toBeEnabled();
 
     for (const option of screen.getAllByRole('option', { name: /ChatGPT/ }))
@@ -231,7 +228,7 @@ test.unit.stable(
     const saved = await screen.findByRole('option', { name: 'Anthropic — claude-opus-5-5' });
 
     expect(saved).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByRole('option', { name: 'Anthropic — Usa predefinito' })).toHaveAttribute(
+    expect(screen.getByRole('option', { name: 'Anthropic — claude-haiku-5-5' })).toHaveAttribute(
       'aria-disabled',
       'true'
     );
@@ -247,8 +244,8 @@ test.unit.stable(
 );
 
 test.unit.stable(
-  'without credentials all saved choices remain visible and controls are disabled',
-  ({ render, screen, expect, vi }) => {
+  'without credentials the catalog can be browsed and model choices stay disabled',
+  async ({ render, screen, expect, userEvent, vi }) => {
     const model = withAnthropic({ vi });
 
     model.data = {
@@ -258,14 +255,17 @@ test.unit.stable(
     };
     render(<AiModelSettingsView model={model} />);
 
-    for (const picker of screen.getAllByRole('combobox')) expect(picker).toBeDisabled();
-
     expect(screen.getByRole('combobox', { name: 'Attività rapide' })).toHaveTextContent(
-      'Anthropic — Usa predefinito'
+      'Anthropic — Scegli un modello'
     );
     expect(screen.getByRole('combobox', { name: 'Attività quotidiane' })).toHaveTextContent(
       'ChatGPT — Usa predefinito'
     );
+    await userEvent.click(screen.getByRole('combobox', { name: 'Attività rapide' }));
+
+    for (const option of await screen.findAllByRole('option'))
+      expect(option).toHaveAttribute('aria-disabled', 'true');
+
     expect(model.setSetup).not.toHaveBeenCalled();
   }
 );

@@ -33,11 +33,13 @@ export function ModelUpdateNotifications() {
     const key = JSON.stringify([update.tier, update.provider, update.previousModel, update.model]);
     const copy = {
       title: t('ModelUpdateAvailable'),
-      description: t('ModelUpdateOffer', {
-        tier: t(tierLabels[update.tier]),
-        previous: update.previousModel,
-        model: update.model
-      }),
+      description: update.previousModel
+        ? t('ModelUpdateOffer', {
+            tier: t(tierLabels[update.tier]),
+            previous: update.previousModel,
+            model: update.model
+          })
+        : t('ModelSuggestionOffer', { tier: t(tierLabels[update.tier]), model: update.model }),
       actionProps: {
         children: t('ModelUpdateAction'),
         onClick: () => {

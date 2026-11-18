@@ -102,6 +102,7 @@ function AccountActions({ model }: { model: AiSettingsModel }) {
 
 export function AiModelSettingsView({ model }: { model: AiSettingsModel }) {
   const { t } = useI18n();
+  const hasCatalogModels = Object.values(model.catalog ?? {}).some((models) => models.length > 0);
   const choices: { setup: TierSetup; provider: string; model: string; disabled: boolean }[] = [
     {
       setup: { provider: 1 },
@@ -124,21 +125,16 @@ export function AiModelSettingsView({ model }: { model: AiSettingsModel }) {
       model: id,
       disabled: !model.data?.status.signedIn
     })),
-    ...(model.data?.providers ?? []).flatMap((provider) => [
-      {
-        setup: { provider: provider.id },
-        provider: t('AiSettingsProviderBrand', { provider: provider.name }),
-        model: t('AiSettingsDefaultModel'),
-        disabled: !provider.configured
-      },
-      ...[...new Set([...provider.models, ...(model.catalog?.[provider.id] ?? [])])].map((id) => ({
+    ...(model.data?.providers ?? []).flatMap((provider) =>
+      (model.catalog?.[provider.id] ?? []).map((id) => ({
         setup: { provider: provider.id, model: id },
         provider: t('AiSettingsProviderBrand', { provider: provider.name }),
         model: id,
         disabled: !provider.configured
       }))
-    ])
+    )
   ];
+  const canBrowse = hasCatalogModels || choices.some((option) => !option.disabled);
 
   return (
     <>
@@ -168,11 +164,11 @@ export function AiModelSettingsView({ model }: { model: AiSettingsModel }) {
                       : t('AiSettingsProviderBrand', {
                           provider: provider?.name ?? setup.provider
                         }),
-                  model: String(setup.model ?? t('AiSettingsDefaultModel')),
+                  model: String(setup.model ?? t('AiSettingsChooseModel')),
                   disabled:
                     typeof setup.provider === 'number'
                       ? !model.data?.status.signedIn
-                      : !provider?.configured
+                      : !setup.model || !provider?.configured
                 });
               }
 
@@ -182,25 +178,26 @@ export function AiModelSettingsView({ model }: { model: AiSettingsModel }) {
                   title={t(title)}
                   description={t(description)}
                   value={String(selected)}
-                  options={options.map((option, index) => ({
-                    value: String(index),
-                    disabled: option.disabled,
-                    label: t('AiSettingsModelOption', {
-                      provider: option.provider,
-                      model:
-                        (recommended &&
-                          recommended.provider === option.setup.provider &&
-                          recommended.model === option.setup.model) ||
-                        (model.data?.providers.find((entry) => entry.id === option.setup.provider)
-                          ?.defaults[tier] === option.setup.model &&
-                          option.setup.model !== undefined) ||
-                        (option.setup.provider === 1 &&
-                          option.setup.model === (tier === 'tiny' ? LlmModel.LUNA : LlmModel.SOL))
-                          ? t('AiSettingsRecommendedModel', { model: option.model })
-                          : option.model
-                    })
-                  }))}
-                  disabled={model.pending || options.every((option) => option.disabled)}
+                  options={options.map((option, index) => {
+                    const { provider, model: id } = option.setup;
+                    const fallback =
+                      provider === 1 && (tier === 'tiny' ? LlmModel.LUNA : LlmModel.SOL);
+                    const suggestion =
+                      provider === recommended?.provider
+                        ? recommended.model
+                        : (model.suggestions?.[String(provider)]?.[tier] ?? fallback);
+                    const label =
+                      id === suggestion
+                        ? t('AiSettingsRecommendedModel', { model: option.model })
+                        : option.model;
+
+                    return {
+                      value: String(index),
+                      disabled: option.disabled,
+                      label: t('AiSettingsModelOption', { provider: option.provider, model: label })
+                    };
+                  })}
+                  disabled={model.pending || !canBrowse}
                   onValueChange={(value) => {
                     const option = options.find((_entry, index) => String(index) === value);
 

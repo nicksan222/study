@@ -72,3 +72,45 @@ test.server.stable(
     }
   }
 );
+
+test.server.stable(
+  'a newly discovered tier recommendation survives subsequent visits without changing the selection',
+  async ({ resources, expect }) => {
+    const app = await resources.openApp({ path: resources.path });
+    const previousModel = 'haiku-current';
+    const model = 'new-claude-model';
+    const suggestion = { anthropic: { tiny: model } };
+
+    try {
+      await app.nativeRuntime.runPromise(
+        Effect.gen(function* () {
+          const settings = yield* Settings;
+          const saved = yield* settings.llmSettings();
+
+          yield* settings.refreshModelCatalog({ anthropic: [previousModel] }, []);
+          yield* settings.saveLlmSettings({
+            ...saved,
+            tiny: { provider: 'anthropic', model: previousModel }
+          });
+          yield* settings.refreshModelCatalog(
+            { anthropic: [model, previousModel] },
+            [],
+            suggestion
+          );
+          yield* settings.refreshModelCatalog(
+            { anthropic: [model, previousModel] },
+            [],
+            suggestion
+          );
+          expect(yield* settings.modelUpdates()).toEqual([
+            { provider: 'anthropic', tier: 'tiny', model, previousModel }
+          ]);
+          expect((yield* settings.llmSettings()).tiny.model).toBe(previousModel);
+        })
+      );
+    } finally {
+      await app.close();
+      await resources.close();
+    }
+  }
+);

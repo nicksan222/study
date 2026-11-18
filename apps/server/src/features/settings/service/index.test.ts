@@ -380,7 +380,7 @@ test.server.stable(
 );
 
 test.server.stable(
-  'registered provider models round-trip and reject undeclared model IDs',
+  'discovered models round-trip and unpinned providers require an explicit choice',
   async ({ databases, expect }) => {
     const location = await databases();
     const context = new ServerContext(await location.open());
@@ -398,12 +398,10 @@ test.server.stable(
             smart: { provider: 1 as const }
           };
 
+          yield* settings.refreshModelCatalog({ anthropic: ['claude-sonnet-5-5'] }, []);
           yield* settings.saveLlmSettings(selection);
           expect(yield* settings.llmSettings()).toStrictEqual(selection);
-          expect(yield* settings.model('tiny')).toStrictEqual({
-            provider: 'deepseek',
-            modelId: 'deepseek-flash'
-          });
+          expect((yield* Effect.flip(settings.model('tiny'))).kind).toBe('config');
           expect(yield* settings.model('medium')).toStrictEqual({
             provider: 'anthropic',
             modelId: 'claude-sonnet-5-5'

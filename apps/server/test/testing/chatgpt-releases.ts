@@ -1,5 +1,5 @@
 /** @file Serves scripted ChatGPT catalog snapshots and complete Responses API results. */
-import { ChatGptSession, makeApiKeyCatalog, makeChatGptCatalog } from '@study/server';
+import { ChatGptSession } from '@study/server';
 import { Effect, Schema } from 'effect';
 
 import { Settings } from '#server/features/settings/service/index';
@@ -18,6 +18,9 @@ export function createChatGptReleasePeer(releases: readonly Release[]) {
   const peer = {
     fetch: async (...args: Parameters<typeof fetch>) => {
       const request = new Request(...args);
+
+      if (request.url === 'https://models.dev/api.json') return Response.json({});
+
       const authorization = request.headers.get('authorization');
       const index = releases.findIndex(({ model }) => authorization === `Bearer ${model}`);
       const selected = releases[index];
@@ -50,7 +53,8 @@ export function createChatGptReleasePeer(releases: readonly Release[]) {
     select: (app: App, model: string) =>
       app.nativeRuntime.runPromise(
         Effect.gen(function* () {
-          const { manager } = yield* ChatGptSession;
+          const session = yield* ChatGptSession;
+          const { manager } = session;
 
           // Reconnecting the same fixture account invalidates its account-scoped catalog.
           yield* Effect.promise(() =>
@@ -60,10 +64,8 @@ export function createChatGptReleasePeer(releases: readonly Release[]) {
             )
           );
           const settings = yield* Settings;
-          const chat = yield* makeChatGptCatalog(manager, peer.fetch);
-          const api = yield* makeApiKeyCatalog(peer.fetch);
 
-          yield* settings.refreshModelRecommendations(() => Effect.succeed([]), chat, api);
+          yield* settings.refreshModelRecommendations(session);
         })
       )
   };

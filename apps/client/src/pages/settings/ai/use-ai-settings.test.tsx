@@ -16,6 +16,7 @@ let runtime: ReturnType<typeof createRuntime>;
 function createOperations(mock: test.Mock) {
   return {
     loadAiSettings: mock.fn(),
+    refreshModelCatalog: mock.fn(),
     startChatGptSignIn: mock.fn(),
     finishChatGptSignIn: mock.fn(),
     cancelChatGptSignIn: mock.fn(),
@@ -85,6 +86,11 @@ function mount(
     'auth.status': async () => (await operations.loadAiSettings()).status,
     'auth.providers': async () => (await operations.loadAiSettings()).providers,
     'settings.modelCatalog': () => ({ models: {}, recommendations: [] }),
+    'settings.refreshModelCatalog': () => {
+      operations.refreshModelCatalog();
+
+      return {};
+    },
     'settings.llmSettings': async () => (await operations.loadAiSettings()).settings
   };
   const fixture = rpcTestTransport(async (tag, input) => {
@@ -122,6 +128,19 @@ function mount(
 
   return render(<Section />, { wrapper: fixture.wrapper });
 }
+
+test.unit.stable(
+  'refreshes the catalog every time Models is opened',
+  async ({ vi, rpcTestTransport, render, expect, waitFor }) => {
+    const context = { vi, rpcTestTransport, render };
+    const view = mount(context, AiModelSettings);
+
+    await waitFor(() => expect(operations.refreshModelCatalog).toHaveBeenCalledTimes(1));
+    view.unmount();
+    mount(context, AiModelSettings);
+    await waitFor(() => expect(operations.refreshModelCatalog).toHaveBeenCalledTimes(2));
+  }
+);
 
 test.unit.stable(
   'saves a canonical model change while preserving the other tiers',

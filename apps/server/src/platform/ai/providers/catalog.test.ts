@@ -1,9 +1,9 @@
-/** @file Exercises consent-based tier recommendations for registered API-key providers. */
+/** @file Exercises discovery, ordering and recommendation for registered API-key providers. */
 import { test } from '@study/testing';
 import { Effect } from 'effect';
 
-import { makeApiKeyCatalog } from './catalog.ts';
-import { apiKeyProviders, getApiKeyProvider } from './registry.ts';
+import { fetchApiKeyCatalog } from './catalog.ts';
+import { apiKeyProviders } from './registry.ts';
 
 function model(id: string, family: string, price: number, date: string) {
   return {
@@ -18,89 +18,70 @@ function model(id: string, family: string, price: number, date: string) {
 }
 
 test.unit.stable(
-  'suggests updated models per provider and excludes Astra aliases',
+  'discovers every registered provider in a single fetch, orders releases and excludes Astra',
   async ({ expect }) => {
-    const providers = Object.fromEntries(
-      apiKeyProviders.map((provider) => {
-        const models = [
-          model('new-small', 'new-small', 1, '2026-11-01'),
-          model('new-medium', 'new-medium', 2, '2026-11-01'),
-          model('older-bigger', 'new-large', 3, '2026-10-01'),
-          model('newest-bigger', 'new-large', 3, '2026-11-02'),
-          {
-            ...model('opaque-alias', 'new-large', 3, '2026-11-03'),
-            canonical_model_id: 'openai/gpt-6.2-astra'
-          }
-        ];
-
-        return [
-          provider.catalogId,
-          { models: Object.fromEntries(models.map((entry) => [entry.id, entry])) }
-        ];
-      })
-    );
+    const models = [
+      model('small', 'small', 1, '2026-11-01'),
+      model('medium', 'medium', 2, '2026-11-01'),
+      model('older-large', 'large', 3, '2026-10-01'),
+      model('newest-large', 'large', 3, '2026-11-02'),
+      {
+        ...model('opaque-alias', 'large', 3, '2026-11-03'),
+        canonical_model_id: 'openai/gpt-6.2-astra'
+      }
+    ];
     let requests = 0;
-    const catalog = await Effect.runPromise(
-      makeApiKeyCatalog(async (input) => {
-        requests++;
-        expect(String(input)).toBe('https://models.dev/api.json');
+    const fetch = async (input: RequestInfo | URL) => {
+      requests++;
+      expect(String(input)).toBe('https://models.dev/api.json');
 
-        return Response.json(providers);
-      })
-    );
+      return Response.json(
+        Object.fromEntries(
+          apiKeyProviders.map(({ catalogId }) => [
+            catalogId,
+            { models: Object.fromEntries(models.map((entry) => [entry.id, entry])) }
+          ])
+        )
+      );
+    };
+    const catalog = new Map(await Effect.runPromise(fetchApiKeyCatalog(fetch)));
 
-    for (const provider of apiKeyProviders) {
-      const available = await Effect.runPromise(catalog(provider));
+    for (const { id } of apiKeyProviders) {
+      const entry = catalog.get(id);
 
-      expect(available?.models).not.toContain('opaque-alias');
-      expect(available?.recommend(provider.defaults.smart, 'smart')).toBe('newest-bigger');
+      expect(entry?.models).toEqual(['newest-large', 'medium', 'small', 'older-large']);
+      expect(entry?.recommend(undefined, 'tiny')).toBe('small');
+      expect(entry?.recommend(undefined, 'medium')).toBe('medium');
+      expect(entry?.recommend(undefined, 'smart')).toBe('newest-large');
     }
 
     expect(requests).toBe(1);
-    const openrouter = getApiKeyProvider('openrouter');
-
-    const open = await Effect.runPromise(catalog(openrouter));
-
-    expect(open?.recommend(openrouter.defaults.tiny, 'tiny')).toBe('new-small');
-    expect(open?.recommend(openrouter.defaults.medium, 'medium')).toBe('new-medium');
+    await Effect.runPromise(fetchApiKeyCatalog(fetch));
+    expect(requests).toBe(2);
   }
 );
 
-test.unit.stable(
-  'follows a preferred family without switching to another size',
-  async ({ expect }) => {
-    const provider = getApiKeyProvider('groq');
-    const models = [
-      model(provider.defaults.tiny, 'gpt-oss', 1, '2026-10-01'),
-      model(provider.defaults.smart, 'gpt-oss', 4, '2026-10-01'),
-      model('new-small', 'gpt-oss', 1, '2026-11-15'),
-      model('new-large', 'gpt-oss', 4, '2026-11-17')
-    ];
-    const catalog = await Effect.runPromise(
-      makeApiKeyCatalog(async () =>
-        Response.json({
-          groq: { models: Object.fromEntries(models.map((entry) => [entry.id, entry])) }
-        })
-      )
-    );
-
-    const available = await Effect.runPromise(catalog(provider));
-
-    expect(available?.recommend(provider.defaults.tiny, 'tiny')).toBe('new-small');
-    expect(available?.recommend(provider.defaults.smart, 'smart')).toBe('new-large');
-    expect(available?.recommend('new-small', 'tiny')).toBeUndefined();
-  }
-);
-
-test.unit.stable('refuses a provider catalog with only restricted models', async ({ expect }) => {
-  const provider = getApiKeyProvider('openrouter');
-  const astra = model('openai/gpt-6.2-astra', 'gpt-astra', 4, '2026-11-18');
+test.unit.stable('suggests a newer release from the same family and size', async ({ expect }) => {
+  const models = [
+    model('oss-20b', 'gpt-oss', 1, '2026-10-01'),
+    model('oss-120b', 'gpt-oss', 4, '2026-10-01'),
+    model('new-small', 'gpt-oss', 1, '2026-11-15'),
+    model('new-large', 'gpt-oss', 4, '2026-11-17'),
+    model('haiku', 'claude-haiku', 1, '2026-10-01'),
+    model('haiku-next', 'claude-haiku', 1, '2026-11-15'),
+    model('opus-next', 'claude-opus', 4, '2026-11-17')
+  ];
   const catalog = await Effect.runPromise(
-    makeApiKeyCatalog(async () => Response.json({ openrouter: { models: { [astra.id]: astra } } }))
+    fetchApiKeyCatalog(async () =>
+      Response.json({
+        groq: { models: Object.fromEntries(models.map((entry) => [entry.id, entry])) }
+      })
+    )
   );
+  const available = new Map(catalog).get('groq');
 
-  const available = await Effect.runPromise(catalog(provider));
-
-  expect(available?.models).toEqual([]);
-  expect(available?.recommend(provider.defaults.smart, 'smart')).toBeUndefined();
+  expect(available?.recommend('oss-20b', 'tiny')).toBe('new-small');
+  expect(available?.recommend('oss-120b', 'smart')).toBe('new-large');
+  expect(available?.recommend('new-small', 'tiny')).toBeUndefined();
+  expect(available?.recommend('haiku', 'tiny')).toBe('haiku-next');
 });

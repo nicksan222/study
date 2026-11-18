@@ -24,8 +24,6 @@ import {
   ChatGptSession,
   createApiKeyModel,
   createChatGptModel,
-  makeChatGptCatalog,
-  makeApiKeyCatalog,
   getApiKeyProvider,
   BackupStorage,
   ManagedBackups,
@@ -35,7 +33,6 @@ import {
   normalizeError,
   recordAiTokens,
   recordUsageFailure,
-  recordModelUpdateFailure,
   UsageStore,
   observeAgentProgress,
   WorkflowConfiguration,
@@ -45,7 +42,7 @@ import {
 } from '@study/server';
 import type { AuthManager, ServerContext, AiRuntimeAdapters } from '@study/server';
 import { CryptoHasher } from 'bun';
-import { Effect, Layer, Logger, Schedule } from 'effect';
+import { Effect, Layer, Logger } from 'effect';
 
 import { AuthRpcLive } from '#server/features/auth/rpc/index';
 import { Auth } from '#server/features/auth/service/index';
@@ -153,17 +150,6 @@ export function nativeLayers(
       const auth = yield* Auth;
 
       const aiAdmission = yield* AiAdmission;
-      const chatGptModel = yield* makeChatGptCatalog(manager, request);
-      const apiKeyModel = yield* makeApiKeyCatalog(request);
-
-      const refresh = settings
-        .refreshModelRecommendations(auth.providers, chatGptModel, apiKeyModel)
-        .pipe(
-          Effect.provideService(Database, { store }),
-          Effect.catch(() => recordModelUpdateFailure())
-        );
-
-      if (!ai) yield* Effect.forkScoped(refresh.pipe(Effect.repeat(Schedule.spaced('1 day'))));
 
       return {
         observe: observeAgentProgress(store),

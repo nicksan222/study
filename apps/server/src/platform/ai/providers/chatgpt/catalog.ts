@@ -118,8 +118,8 @@ export const makeChatGptCatalog = (
       Effect.flatMap((auth) => Cache.get(cache, auth.id)),
       Effect.map((models) => ({
         models,
-        recommend: (id: string) => {
-          const current = parseRelease(id);
+        recommend: (id: string | undefined) => {
+          const current = id === undefined ? undefined : parseRelease(id);
           const newer = models.flatMap((model) => {
             const candidate = parseRelease(model);
 
@@ -133,7 +133,7 @@ export const makeChatGptCatalog = (
 
           return (
             newer.toSorted((a, b) => compare(b, a))[0]?.model ??
-            (models.includes(id) ? undefined : models[0])
+            (id !== undefined && models.includes(id) ? undefined : models[0])
           );
         }
       }))

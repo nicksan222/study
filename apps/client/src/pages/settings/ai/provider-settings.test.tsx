@@ -5,9 +5,7 @@ import { ProviderKeyRow } from './provider-settings';
 const provider = {
   id: 'anthropic',
   name: 'Anthropic',
-  configured: true,
-  models: ['claude-sonnet-4-6'],
-  defaults: { tiny: 'claude-sonnet-4-6', medium: 'claude-sonnet-4-6', smart: 'claude-sonnet-4-6' }
+  configured: true
 };
 
 test.unit.stable(

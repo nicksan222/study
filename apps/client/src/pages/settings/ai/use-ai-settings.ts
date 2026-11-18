@@ -55,6 +55,7 @@ export function useAiSettings() {
   return {
     data,
     catalog: catalog?.models,
+    suggestions: catalog?.suggestions,
     recommendations: catalog?.recommendations,
     signInUnsupported: unsupported(start.error) || unsupported(startError),
     loading: queries.some((query) => query.isPending),
