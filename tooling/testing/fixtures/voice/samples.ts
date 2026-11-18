@@ -1,28 +1,21 @@
-/** Human FLEURS recordings; source, license and unmodified file hashes are in attribution.json. */
-export const voiceSamples = [
-  {
-    id: 'it_it_0228',
-    language: 'it',
-    reference: 'non serve per forza uno yacht per gli arcipelaghi e i laghi',
-    // The French sample has one known recognition substitution; Italian and English are exact.
-    maximumWordErrors: 0
-  },
-  {
-    id: 'en_us_0165',
-    language: 'en',
-    reference: 'television reports show white smoke coming from the plant',
-    maximumWordErrors: 0
-  },
-  {
-    id: 'fr_fr_0226',
-    language: 'fr',
-    reference:
-      "de grandes zones plus au nord sont assez peu peuplées et certaines sont presque inhabitées à l'état sauvage",
-    maximumWordErrors: 1
-  }
-] as const;
+import attribution from './attribution.json';
 
-function voiceSamplePath(id: (typeof voiceSamples)[number]['id']) {
+const wordErrorBudgets = new Map([
+  ['it_it_0228', 0],
+  ['en_us_0165', 0],
+  // Parakeet inserts an article and drops a conjunction in the unfiltered recording.
+  ['it_it_0139', 2]
+]);
+
+/** FLEURS human recordings with the original transcripts and a per-clip error budget. */
+export const voiceSamples = attribution.samples.map(({ id, language, reference }) => ({
+  id,
+  language: language.split('_')[0]!,
+  reference,
+  maximumWordErrors: wordErrorBudgets.get(id) ?? 1
+}));
+
+function voiceSamplePath(id: string) {
   return Bun.fileURLToPath(new URL(`./${id}.wav`, import.meta.url));
 }
 
@@ -38,7 +31,7 @@ function pcm16Mono16k(view: DataView, start: number, size: number) {
 }
 
 /** Read the corpus' uncompressed mono 16 kHz PCM WAV without an external decoder. */
-export async function voiceSamplePcm(id: (typeof voiceSamples)[number]['id']) {
+export async function voiceSamplePcm(id: string) {
   return voiceFilePcm(voiceSamplePath(id));
 }
 

@@ -1,6 +1,6 @@
 import { test } from '@study/testing';
 
-import { voiceFilePcm } from './samples';
+import { voiceFilePcm, voiceSamples } from './samples';
 
 test.unit.stable(
   'rejects a truncated WAV format chunk before reading its declared fields',
@@ -14,3 +14,7 @@ test.unit.stable(
     await expect(voiceFilePcm(path)).rejects.toThrow('Unsupported WAV fixture format');
   }
 );
+
+test.unit.stable('the recognition corpus contains ten distinct human recordings', ({ expect }) => {
+  expect(new Set(voiceSamples.map(({ id }) => id)).size).toBe(10);
+});
