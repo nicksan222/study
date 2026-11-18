@@ -80,7 +80,7 @@ function useDictation({
       session.cancel(owner);
   }, [disabled, originalTarget, owner]);
   useLayoutEffect(() => () => session.cancel(owner), [owner]);
-  useEscapeCancellation(owned && state.error !== 'transcribe', owner);
+  useEscapeCancellation(owned && canCancelCapture(state.phase), owner);
 
   const begin = () => {
     if (disabled) return;
@@ -122,12 +122,18 @@ function useDictation({
 
 type Model = ReturnType<typeof useDictation>;
 
-function useEscapeCancellation(owned: boolean, owner: symbol) {
+function canCancelCapture(phase: Model['state']['phase']) {
+  return phase === 'starting' || phase === 'recording' || phase === 'transcribing';
+}
+
+function useEscapeCancellation(active: boolean, owner: symbol) {
   useEffect(() => {
-    if (!owned) return;
+    if (!active) return;
 
     const key = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
+      const state = session.snapshot();
+
+      if (event.key !== 'Escape' || state.owner !== owner || !canCancelCapture(state.phase)) return;
 
       event.preventDefault();
       event.stopPropagation();
@@ -137,7 +143,7 @@ function useEscapeCancellation(owned: boolean, owner: symbol) {
     document.addEventListener('keydown', key, true);
 
     return () => document.removeEventListener('keydown', key, true);
-  }, [owned, owner]);
+  }, [active, owner]);
 }
 
 /** A shared, opt-in dictation control: records into its original draft and never submits it. */

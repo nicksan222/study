@@ -281,3 +281,26 @@ test.unit.stable(
     expect(suspendedCapture).not.toHaveBeenCalled();
   }
 );
+
+test.unit.stable(
+  'lets another control receive Escape after a recording ends with no speech',
+  async ({ render, screen, userEvent, expect, vi }) => {
+    const onEscape = vi.fn();
+
+    render(
+      <>
+        <DictationButton onTranscript={() => {}} />
+        <button onKeyDown={onEscape}>Other control</button>
+      </>
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Start dictation' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Stop and transcribe' }));
+    finishTranscription({ text: '' });
+    const announcement = await screen.findByText('No speech detected. Try recording again.');
+
+    screen.getByRole('button', { name: 'Other control' }).focus();
+    await userEvent.keyboard('{Escape}');
+    expect(onEscape).toHaveBeenCalledOnce();
+    expect(announcement).toBeInTheDocument();
+  }
+);
