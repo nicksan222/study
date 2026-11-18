@@ -198,7 +198,7 @@ export class App {
           {
             run: (effect) =>
               Effect.tryPromise({
-                try: () => workers.runWorkflow(effect),
+                try: (signal) => workers.runWorkflow(effect, signal),
                 catch: (cause) =>
                   cause instanceof StudyError
                     ? cause

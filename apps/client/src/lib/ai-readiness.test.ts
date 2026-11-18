@@ -31,6 +31,16 @@ const data = {
 };
 
 test.unit.describe('AI readiness', () => {
+  test.unit.stable('requires ChatGPT account sharing for written exams', ({ expect }) => {
+    const signedIn = { ...data, status: { ...data.status, signedIn: true, sharing: true } };
+
+    expect(aiReadiness(data, 'medium', 'chatgpt')).toBe(false);
+    expect(aiReadiness(signedIn, 'medium', 'chatgpt')).toBe(true);
+    expect(aiReadiness({ ...signedIn, providers: [] }, 'medium', 'configured-or-chatgpt')).toBe(
+      true
+    );
+  });
+
   test.unit.stable('checks the configured provider for each tier', ({ expect }) => {
     expect(aiReadiness(data, 'tiny')).toBe(false);
     expect(aiReadiness(data, 'medium')).toBe(true);

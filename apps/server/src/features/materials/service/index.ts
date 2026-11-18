@@ -15,6 +15,7 @@ import { materialGenerationOperations } from './generation-requests.ts';
 import { assertGenerationActive } from './generation.ts';
 import { materialHistoryOperations } from './history.ts';
 import { materialLibraryOperations } from './library.ts';
+import { writtenExamOperations } from './written-exam.ts';
 
 function* makeMaterials() {
   return {
@@ -22,6 +23,7 @@ function* makeMaterials() {
     ...materialHistoryOperations(),
     contentInput: (input: ContentInput) => transaction((tx) => readContentInput(tx, input)),
     ...materialGenerationOperations(),
+    ...writtenExamOperations(),
     ...materialExportOperations(),
     ...(yield* materialLibraryOperations())
   };

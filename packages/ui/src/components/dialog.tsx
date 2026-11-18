@@ -67,7 +67,10 @@ function DialogBackdrop({
   );
 }
 
-function DialogViewport({ className, ...props }: DialogPrimitive.Viewport.Props) {
+function DialogViewport({
+  className,
+  ...props
+}: DialogPrimitive.Viewport.Props & { ref?: React.Ref<HTMLDivElement> }) {
   return (
     <DialogPrimitive.Viewport
       className={cn(
@@ -86,8 +89,53 @@ const popupClasses = {
   identity: 'ui-identity-dialog',
   'notebook-editor': 'notebook-editor-dialog',
   'workspace-context': 'note-context-dialog',
-  'practice-generation': 'study-generation-dialog'
+  'practice-generation': 'study-generation-dialog',
+  'practice-exam': 'study-exam-dialog'
 } as const;
+
+/** Keep the mobile composer inside the visible viewport when the keyboard opens. */
+function fitVisibleViewport(element: HTMLDivElement | null): (() => void) | undefined {
+  const viewport = typeof window === 'undefined' ? undefined : window.visualViewport;
+
+  if (!element || !viewport) return undefined;
+
+  const measure = () => {
+    const zoom = Number.parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+
+    element.style.setProperty('--practice-viewport-height', `${viewport.height / zoom}px`);
+    element.style.setProperty('--practice-viewport-top', `${viewport.offsetTop / zoom}px`);
+  };
+
+  measure();
+  const observer = new ResizeObserver(measure);
+
+  observer.observe(document.documentElement);
+  viewport.addEventListener('resize', measure);
+  viewport.addEventListener('scroll', measure);
+
+  return () => {
+    observer.disconnect();
+    viewport.removeEventListener('resize', measure);
+    viewport.removeEventListener('scroll', measure);
+  };
+}
+
+const practiceViewport = {
+  className: 'study-practice-dialog-viewport',
+  ref: fitVisibleViewport
+};
+
+const defaultViewport = { className: undefined, ref: undefined };
+
+const viewports = {
+  default: defaultViewport,
+  media: defaultViewport,
+  identity: defaultViewport,
+  'notebook-editor': defaultViewport,
+  'workspace-context': defaultViewport,
+  'practice-generation': practiceViewport,
+  'practice-exam': practiceViewport
+} satisfies Record<keyof typeof popupClasses, unknown>;
 
 /** Composes the portal surface with the chosen size, backdrop and dismissal control. */
 function DialogPopup({
@@ -112,6 +160,7 @@ function DialogPopup({
     | 'identity'
     | 'workspace-context'
     | 'practice-generation'
+    | 'practice-exam'
     | 'notebook-editor';
 }) {
   return (
@@ -128,10 +177,12 @@ function DialogPopup({
         variant={variant === 'media' ? 'media' : 'default'}
       />
       <DialogViewport
+        ref={viewports[variant].ref}
         className={cn(
           bottomStickOnMobile && 'max-sm:grid-rows-[1fr_auto] max-sm:p-0 max-sm:pt-12',
           variant === 'media' &&
             'z-[60] grid-rows-1 place-items-center px-4 pb-6 pt-[calc(var(--native-titlebar-height,0px)+1.5rem)] [-webkit-app-region:no-drag]',
+          viewports[variant].className,
           viewportClassName
         )}
       >

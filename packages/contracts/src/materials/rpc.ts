@@ -30,6 +30,7 @@ import {
   materialVersionSummarySchema,
   materialCitationSchema
 } from './schemas.ts';
+import { writtenExamInputSchema, writtenExamResultSchema } from './written-exam.ts';
 
 const limit = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })).pipe(
   Schema.withDecodingDefault(Effect.succeed(30))
@@ -283,6 +284,11 @@ export const materialsEndpoints = {
       error: failureSchema
     },
     { changes: [dependency.materials] }
+  ),
+  writtenExam: mutation(
+    'materials.writtenExam',
+    { payload: writtenExamInputSchema, success: writtenExamResultSchema, error: failureSchema },
+    { changes: 'external' }
   ),
   requestMaterialGeneration: mutation(
     'materials.requestMaterialGeneration',

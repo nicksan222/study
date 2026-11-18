@@ -4,7 +4,13 @@ import { Link } from '@tanstack/react-router';
 import type { AiReadiness } from '#client/lib/ai-readiness.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 
-export function AiReadinessNotice({ state }: { state: AiReadiness }) {
+export function AiReadinessNotice({
+  state,
+  setupLabel
+}: {
+  state: AiReadiness;
+  setupLabel?: string;
+}) {
   const { t } = useI18n();
 
   if (state === 'ready') return null;
@@ -12,13 +18,14 @@ export function AiReadinessNotice({ state }: { state: AiReadiness }) {
   return (
     <div role="status">
       <p>
-        {t(
-          state === 'checking'
-            ? 'AiReadinessChecking'
-            : state === 'unavailable'
-              ? 'AiReadinessUnavailable'
-              : 'AiReadinessSetup'
-        )}
+        {(state === 'setup' && setupLabel) ||
+          t(
+            state === 'checking'
+              ? 'AiReadinessChecking'
+              : state === 'unavailable'
+                ? 'AiReadinessUnavailable'
+                : 'AiReadinessSetup'
+          )}
       </p>
       {state === 'setup' && (
         <Button size="sm" variant="ghost-muted" render={<Link to="/settings" />}>

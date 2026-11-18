@@ -4,6 +4,7 @@ import { Outlet, useMatches, useSearch, useParams } from '@tanstack/react-router
 import { useEffect, useRef, useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
+import { useMobileViewport } from '#client/lib/viewport.ts';
 
 import { DefaultContextMenu } from './default-context-menu';
 import { DesktopUpdates } from './desktop-updates';
@@ -18,7 +19,6 @@ function useShellNavigation(notes: boolean, practice: boolean) {
     open: !responsive || window.innerWidth >= 700
   }));
   const { open } = navigation;
-  const focusSearch = useRef(false);
 
   if (navigation.responsive !== responsive) {
     setNavigation({ responsive, open: !responsive || window.innerWidth >= 700 });
@@ -36,6 +36,17 @@ function useShellNavigation(notes: boolean, practice: boolean) {
     return () => media.removeEventListener('change', resize);
   }, [responsive]);
 
+  return {
+    visible: !notes || open,
+    collapsed: !open,
+    open,
+    toggle: () => setNavigation((current) => ({ ...current, open: !current.open }))
+  };
+}
+
+function useSearchShortcut(notes: boolean, open: boolean, show: () => void) {
+  const focusSearch = useRef(false);
+
   useEffect(() => {
     if (!notes || open) return;
 
@@ -44,25 +55,33 @@ function useShellNavigation(notes: boolean, practice: boolean) {
 
       event.preventDefault();
       focusSearch.current = true;
-      setNavigation((current) => ({ ...current, open: true }));
+      show();
     };
 
     window.addEventListener('keydown', revealSearch);
 
     return () => window.removeEventListener('keydown', revealSearch);
-  }, [notes, open]);
+  }, [notes, open, show]);
   useEffect(() => {
     if (!open || !focusSearch.current) return;
 
     focusSearch.current = false;
     document.querySelector<HTMLInputElement>('.study-sidebar-search input')?.focus();
   }, [open]);
+}
+
+/** Narrow workspaces use a drawer. The library routes use it as their primary content. */
+function usePhoneNavigation(path: string, library: boolean) {
+  const [state, setState] = useState({ path, open: library });
+  const open = state.path === path ? state.open : library;
+
+  if (state.path !== path) setState({ path, open: library });
 
   return {
-    visible: !notes || open,
-    collapsed: !open,
+    visible: open,
+    collapsed: false,
     open,
-    toggle: () => setNavigation((current) => ({ ...current, open: !current.open }))
+    toggle: () => setState({ path, open: !open })
   };
 }
 
@@ -82,29 +101,28 @@ function ShellHeader({
 }) {
   const { t } = useI18n();
 
-  if (header === 'workspace')
-    return visible ? null : (
-      <SidebarUI.Toggle
-        placement="reveal"
-        label={t('ToggleSidebar')}
-        expanded={false}
-        onClick={onToggle}
-      />
-    );
+  const toggle = visible ? null : (
+    <SidebarUI.Toggle
+      placement={header === 'workspace' || notes ? 'reveal' : 'default'}
+      label={t('ToggleSidebar')}
+      expanded={false}
+      onClick={onToggle}
+    />
+  );
 
-  if (!notes) return <SidebarUI.Topbar parent={t('AppName')} title={title} />;
+  if (header === 'workspace') return toggle;
+
+  if (!notes)
+    return (
+      <SidebarUI.Topbar parent={t('AppName')} title={title}>
+        {toggle}
+      </SidebarUI.Topbar>
+    );
 
   return (
     <>
       <SidebarUI.ScreenReaderHeading>{title}</SidebarUI.ScreenReaderHeading>
-      {!visible && (
-        <SidebarUI.Toggle
-          placement="reveal"
-          label={t('ToggleSidebar')}
-          expanded={false}
-          onClick={onToggle}
-        />
-      )}
+      {toggle}
     </>
   );
 }
@@ -117,27 +135,41 @@ function usePageLayout(notes: boolean, pages: boolean, workspace: boolean) {
   return notes || editingPage || workspace ? 'bleed' : 'padded';
 }
 
+function useNavigation(pathname: string, notebook: boolean, practice: boolean) {
+  const phone = useMobileViewport();
+  const search = useSearch({ from: '__root__' });
+  const path = pathname.replace(/\/$/, '');
+  const library =
+    ['/practice', '/flashcards'].includes(path) || (path === '/projects' && !search.project);
+  const desktop = useShellNavigation(notebook && !phone, practice && !phone);
+  const drawer = usePhoneNavigation(`${path}:${library}`, library);
+
+  const navigation = phone ? drawer : desktop;
+
+  useSearchShortcut(phone || notebook, navigation.open, navigation.toggle);
+
+  return { ...navigation, phone, library };
+}
+
 /** Selects the note layout from route metadata and composes the shared application shell. */
 export function Shell() {
   const { t } = useI18n();
   const matches = useMatches();
-  const metadata = matches.at(-1)?.staticData ?? {};
-  const title = metadata.title ?? 'Home';
+  const match = matches.at(-1);
+  const {
+    title = 'Home',
+    section = 'notes',
+    scope = 'project',
+    sidebar,
+    header
+  } = match?.staticData ?? {};
+  const metadata = { title, section, scope, sidebar };
   const notes = title === 'Notes';
   const notebook = ['Notes', 'Assistant'].includes(title);
-  const layout = usePageLayout(
-    notes,
-    metadata.section === 'pages',
-    metadata.header === 'workspace'
-  );
-  const navigation = useShellNavigation(notebook, metadata.section === 'practice');
-  const context = useSidebarContext({
-    title,
-    section: metadata.section ?? 'notes',
-    scope: metadata.scope ?? 'project',
-    sidebar: metadata.sidebar
-  });
-  const { project, shortcutsDisabled } = useContextMenuScope(metadata.scope, context);
+  const layout = usePageLayout(notes, section === 'pages', header === 'workspace');
+  const navigation = useNavigation(match?.pathname ?? '', notebook, section === 'practice');
+  const context = useSidebarContext(metadata);
+  const { project, shortcutsDisabled } = useContextMenuScope(scope, context);
 
   return (
     <>
@@ -146,6 +178,8 @@ export function Shell() {
         <SidebarUI.Frame
           variant={notebook ? 'note-entry' : 'default'}
           data-entry-navigation={navigation.open}
+          data-phone-navigation={navigation.phone}
+          data-phone-library={navigation.phone && navigation.library}
           collapsed={navigation.collapsed}
           defaultWidth={288}
           minWidth={224}
@@ -156,19 +190,14 @@ export function Shell() {
         >
           {navigation.visible && (
             <Sidebar
-              metadata={{
-                title,
-                section: metadata.section ?? 'notes',
-                scope: metadata.scope ?? 'project',
-                sidebar: metadata.sidebar
-              }}
+              metadata={metadata}
               collapsed={navigation.collapsed}
               onToggle={navigation.toggle}
             />
           )}
           <SidebarUI.Main>
             <ShellHeader
-              header={metadata.header}
+              header={header}
               notes={notebook}
               visible={navigation.visible}
               title={t(title)}

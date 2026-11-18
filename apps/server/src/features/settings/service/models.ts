@@ -1,6 +1,6 @@
 /** @file Owns models within this feature. */
 
-import type { LlmSettings } from '@study/contracts';
+import type { LlmSettings, ModelTier } from '@study/contracts';
 import {
   LlmModel,
   LlmProvider,
@@ -56,14 +56,14 @@ export function* settingsModelOperations() {
         return {};
       }
     }),
-    model: (tier: 'tiny' | 'medium' | 'smart') =>
+    model: (tier: ModelTier, requiredProvider?: LlmProvider) =>
       store.preference('llm').pipe(
         Effect.flatMap((v) =>
           Effect.try({
             try: () => {
               const setup = llmSettings(v)[tier];
 
-              if (typeof setup.provider === 'string') {
+              if (typeof setup.provider === 'string' && requiredProvider !== LlmProvider.CHAT_GPT) {
                 const provider = getApiKeyProvider(setup.provider);
 
                 if (setup.model !== undefined && !provider.models.includes(setup.model))
@@ -75,20 +75,19 @@ export function* settingsModelOperations() {
                 };
               }
 
-              const selected =
-                setup.model ??
-                {
-                  tiny: LlmModel.GPT6_LUNA,
-                  medium: LlmModel.GPT61_SOL,
-                  smart: LlmModel.GPT6_ASTRA
-                }[tier];
+              const defaults = {
+                tiny: LlmModel.GPT6_LUNA,
+                medium: LlmModel.GPT61_SOL,
+                smart: LlmModel.GPT6_ASTRA
+              };
+              const selected = typeof setup.model === 'number' ? setup.model : defaults[tier];
               const modelId = {
                 [LlmModel.GPT6_LUNA]: 'gpt-6-luna',
                 [LlmModel.GPT61_SOL]: 'gpt-6.1-sol',
                 [LlmModel.GPT6_ASTRA]: 'gpt-6-astra'
               }[selected];
 
-              return { provider: setup.provider, modelId };
+              return { provider: LlmProvider.CHAT_GPT, modelId };
             },
             catch: (error) =>
               error instanceof StudyError

@@ -36,6 +36,7 @@ export const MaterialsRpcLive = defineRpc(
       materials.materialGeneration({ ...value, verifyOnly: true }),
     'materials.cancelMaterialGeneration': materials.cancelMaterialGeneration,
     'materials.retryMaterialGeneration': materials.retryMaterialGenerationOnce,
+    'materials.writtenExam': materials.writtenExam,
     'materials.requestMaterialGeneration': materials.requestMaterialGeneration,
     'materials.exportMaterialVersion': materials.exportMaterialVersion,
     'materials.material': materials.material,

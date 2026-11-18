@@ -167,7 +167,7 @@ export function nativeLayers(
         model: (tier, call) =>
           ai?.model
             ? ai.model(tier, call).pipe(Effect.mapError(normalizeError))
-            : settings.model(tier).pipe(
+            : settings.model(tier, call.definition.requiredProvider).pipe(
                 Effect.flatMap(({ provider, modelId }): ReturnType<Agents['Service']['model']> =>
                   typeof provider === 'string'
                     ? Effect.try({

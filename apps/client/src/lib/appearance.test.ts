@@ -131,3 +131,42 @@ test.unit.stable(
     }
   }
 );
+
+test.unit.stable(
+  'keeps mobile at default scale and restores the saved desktop zoom after resizing',
+  async ({ vi, expect, waitFor }) => {
+    let phone = true;
+    let viewportChanged: (() => void) | undefined;
+    const original = window.matchMedia.bind(window);
+
+    vi.spyOn(window, 'matchMedia').mockImplementation((query) => {
+      const media = original(query);
+
+      if (query.includes('pointer: coarse'))
+        return {
+          ...media,
+          get matches() {
+            return phone;
+          },
+          addEventListener: (_event: string, listener: unknown) => {
+            viewportChanged = listener as () => void;
+          },
+          removeEventListener: vi.fn()
+        };
+
+      return media;
+    });
+    api.settings.mockResolvedValue({ appearance: 2, zoomPercent: 150 });
+    api.selected.mockResolvedValue(null);
+    api.themes.mockResolvedValue({ items: [], next: null });
+    restore = initializeAppearance(document);
+
+    await waitFor(() => expect(document.documentElement.style.zoom).toBe('100%'));
+    phone = false;
+    viewportChanged?.();
+    expect(document.documentElement.style.zoom).toBe('150%');
+    phone = true;
+    viewportChanged?.();
+    expect(document.documentElement.style.zoom).toBe('100%');
+  }
+);

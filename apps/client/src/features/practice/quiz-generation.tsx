@@ -1,10 +1,16 @@
-import { defaultQuizSettings, practiceGenerationSettings } from '@study/contracts';
+import {
+  defaultQuizSettings,
+  practiceGenerationSettings,
+  writtenExamTopicLimit
+} from '@study/contracts';
 import type {
   PageId,
   ProjectId,
   ContentInput,
   materialGenerationInputSchema,
-  MaterialVersionDetailDto
+  MaterialVersionDetailDto,
+  WrittenExamInput,
+  QuizSettings
 } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import {
@@ -15,7 +21,8 @@ import {
   ExpandIcon,
   OrderingIcon,
   FillBlankIcon,
-  TrueFalseIcon
+  TrueFalseIcon,
+  AssistantIcon
 } from '@study/icons';
 import {
   RetryButton,
@@ -25,13 +32,15 @@ import {
   DialogFooter,
   DialogDismissButton,
   DialogHeading,
+  Input,
+  Label,
   ErrorState,
   Practice,
   Settings,
   Textarea
 } from '@study/ui';
 import type { SetStateAction } from 'react';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useId, useRef } from 'react';
 
 import { AiActionButton as AiButton } from '#client/lib/ai-action-button.tsx';
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
@@ -42,6 +51,10 @@ import { useI18n } from '#client/lib/i18n.tsx';
 
 import { GenerationWatcher } from './generation-watcher';
 import { QuizInputPicker } from './quiz-input-picker';
+import { useWrittenExamRequest } from './written-exam-request';
+import type { TrackExamRequest } from './written-exam-request';
+import { ExamExitConfirmation, WrittenExamSession } from './written-exam-session';
+import type { ExamOpening } from './written-exam-session';
 
 export function QuizGenerationAction({
   projectId
@@ -63,6 +76,71 @@ export function PracticeGenerationAction({
   return <GenerationDialog key={String(projectId)} projectId={projectId} disabled={disabled} />;
 }
 
+function useGenerationDialog() {
+  const [open, setOpen] = useState(false);
+  const [exam, setExam] = useState<ExamOpening>();
+  const [examComplete, setExamComplete] = useState(false);
+  const [confirmExit, setConfirmExit] = useState(false);
+  const session = useRef(0);
+  const request = useRef<AbortController | undefined>(undefined);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const instance = session.current;
+  const examActive = exam !== undefined && !examComplete;
+  const close = () => {
+    session.current++;
+    request.current?.abort();
+    request.current = undefined;
+    setOpen(false);
+    setExam(undefined);
+    setExamComplete(false);
+    setConfirmExit(false);
+  };
+  const openExam = (value: ExamOpening) => {
+    if (session.current === instance) setExam(value);
+  };
+  const completeExam = () => {
+    if (session.current !== instance) return;
+
+    setExamComplete(true);
+    setConfirmExit(false);
+  };
+
+  const trackRequest = (controller: AbortController | undefined) => {
+    if (session.current === instance) request.current = controller;
+  };
+  const changeOpen = (next: boolean, event: { cancel: () => void }) => {
+    if (next) setOpen(true);
+    else if (examActive) {
+      event.cancel();
+      setConfirmExit(true);
+    } else close();
+  };
+
+  const closeAccepted = () => {
+    if (session.current === instance) close();
+  };
+  const showCloseButton = examActive || !exam;
+  const variant = exam ? 'practice-exam' : 'practice-generation';
+
+  return {
+    open,
+    instance,
+    changeOpen,
+    trackRequest,
+    trigger,
+    showCloseButton,
+    variant,
+    exam,
+    examActive,
+    close,
+    closeAccepted,
+    openExam,
+    completeExam,
+    confirmExit,
+    setConfirmExit
+  } as const;
+}
+
 function GenerationDialog({
   projectId,
   inline = false,
@@ -74,7 +152,8 @@ function GenerationDialog({
   disabled?: boolean;
 }) {
   const { t } = useI18n();
-  const [open, setOpen] = useState(false);
+  const action = inline ? 'PracticeGenerateFromPages' : 'PracticeGenerate';
+  const dialog = useGenerationDialog();
   const [requests, setRequests] = useState<string[]>([]);
   const settled = useCallback(
     (id: string) => setRequests((current) => current.filter((request) => request !== id)),
@@ -82,43 +161,66 @@ function GenerationDialog({
   );
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={dialog.open}
+      disablePointerDismissal={dialog.examActive}
+      onOpenChange={dialog.changeOpen}
+    >
       <DialogTrigger
         render={
           <AiButton
+            ref={dialog.trigger}
             tier="medium"
+            provider="configured-or-chatgpt"
             size={inline ? 'default' : 'icon'}
             variant={inline ? 'outline' : 'ghost-muted'}
-            label={t(inline ? 'PracticeGenerateFromPages' : 'PracticeGenerate')}
+            label={t(action)}
             disabled={disabled || projectId === undefined}
             disabledReason={projectId === undefined ? t('PracticeChooseSubject') : undefined}
             pending={requests.length > 0}
             workingLabel={t('QuizGenerating')}
           >
-            {inline && t('PracticeGenerateFromPages')}
+            {inline && t(action)}
           </AiButton>
         }
       />
       <DialogPopup
         keepMounted
-        closeLabel={t('Close')}
-        variant="practice-generation"
+        finalFocus={dialog.trigger}
+        closeLabel={t(dialog.examActive ? 'WrittenExamExit' : 'Close')}
+        showCloseButton={dialog.showCloseButton}
+        variant={dialog.variant}
         bottomStickOnMobile={false}
       >
-        <DialogHeading
-          title={<> {t('PracticeGenerate')} </>}
-          description={<> {t('PracticeGenerateHelp')} </>}
-        />
-        {open && (
-          <GenerationPanel
-            projectId={projectId}
-            accepted={(id) => {
-              setRequests((current) => [...current, id]);
-              setOpen(false);
-            }}
+        {dialog.exam ? (
+          <WrittenExamSession
+            opening={dialog.exam}
+            completed={dialog.completeExam}
+            trackRequest={dialog.trackRequest}
           />
+        ) : (
+          <>
+            <DialogHeading title={t('PracticeGenerate')} description={t('PracticeGenerateHelp')} />
+            {dialog.open && (
+              <GenerationPanel
+                key={dialog.instance}
+                projectId={projectId}
+                accepted={(id) => {
+                  setRequests((current) => [...current, id]);
+                  dialog.closeAccepted();
+                }}
+                examOpened={dialog.openExam}
+                trackRequest={dialog.trackRequest}
+              />
+            )}
+          </>
         )}
       </DialogPopup>
+      <ExamExitConfirmation
+        open={dialog.confirmExit}
+        onOpenChange={dialog.setConfirmExit}
+        exit={dialog.close}
+      />
       {requests.map((id) => (
         <GenerationWatcher key={id} id={id} settled={settled} />
       ))}
@@ -126,21 +228,80 @@ function GenerationDialog({
   );
 }
 
-/** Build document-grounded generation requests using the selected kind and saved preferences. */
-function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) => void) {
+const generationKinds = [
+  { kind: 'quiz', label: 'SidebarQuiz', icon: QuizIcon, help: undefined },
+  { kind: 'flashcards', label: 'Flashcards', icon: FlashcardsIcon, help: undefined },
+  {
+    kind: 'fill_blank',
+    label: 'PracticeFillBlank',
+    icon: FillBlankIcon,
+    help: 'PracticeFillBlankHelp'
+  },
+  { kind: 'ordering', label: 'PracticeOrdering', icon: OrderingIcon, help: 'PracticeOrderingHelp' },
+  { kind: 'matching', label: 'PracticeMatching', icon: MatchingIcon, help: 'PracticeMatchingHelp' },
+  {
+    kind: 'true_false',
+    label: 'PracticeTrueFalse',
+    icon: TrueFalseIcon,
+    help: 'PracticeTrueFalseHelp'
+  },
+  { kind: 'exam', label: 'WrittenExam', icon: AssistantIcon, help: 'WrittenExamHelp' }
+] as const;
+
+type GenerationKind = (typeof generationKinds)[number]['kind'];
+
+function quizConfiguration(kind: Exclude<GenerationKind, 'exam'>, settings: QuizSettings) {
+  if (kind === 'flashcards') return undefined;
+
+  const configuration = kind === 'quiz' ? settings : practiceGenerationSettings(settings, kind);
+
+  return {
+    questionCount: configuration.questionCount,
+    choiceCount: settings.choiceCount,
+    questionKind:
+      kind === 'quiz' ? (settings.questionKind === 'all' ? 'mixed' : settings.questionKind) : kind,
+    difficulty: configuration.difficulty
+  } as const;
+}
+
+function useExamOpening(opened: (opening: ExamOpening) => void, track: TrackExamRequest) {
+  const [topic, setTopic] = useState('');
+  const exam = useWrittenExamRequest(track);
+  const startExam = async (request: Pick<WrittenExamInput, 'projectId' | 'inputs'>) => {
+    const focus = topic.trim();
+    const step = { kind: 'start' as const, ...(focus ? { topic: focus } : {}) };
+    const result = await exam.run({ ...request, step });
+
+    if (result?.kind === 'opening')
+      opened({ ...request, concept: result.concept, question: result.question });
+  };
+
+  return {
+    ...exam,
+    topic,
+    startExam,
+    changeTopic: (value: string) => {
+      exam.reset();
+      setTopic(value);
+    }
+  };
+}
+
+/** Build document-grounded requests using the selected practice format. */
+function useGeneration(
+  projectId: ProjectId | undefined,
+  accepted: (id: string) => void,
+  examOpened: (opening: ExamOpening) => void,
+  trackRequest: TrackExamRequest
+) {
   const { t } = useI18n();
-  const readiness = useAiReadiness('medium');
-  const [kind, setKind] = useState<
-    'quiz' | 'flashcards' | 'fill_blank' | 'matching' | 'true_false' | 'ordering'
-  >('quiz');
+  const [kind, setKind] = useState<GenerationKind>('quiz');
   const [instruction, setInstruction] = useState('');
   const { pages, inputs, setInputs } = useGenerationPages(projectId);
-  const preferences = rpc.settings.quizSettings.useQuery({});
-  const saved = preferences.data ?? defaultQuizSettings;
-  const configuration =
-    kind === 'quiz' || kind === 'flashcards'
-      ? saved
-      : { ...saved, ...practiceGenerationSettings(saved, kind) };
+  const isExam = kind === 'exam';
+  const readiness = useAiReadiness('medium', isExam ? 'chatgpt' : undefined);
+  const preferences = rpc.settings.quizSettings.useQuery({}, { enabled: !isExam });
+  const exam = useExamOpening(examOpened, trackRequest);
   const start = useNativeAction(async (input: typeof materialGenerationInputSchema.Type) => {
     const result = await rpc.materials.requestMaterialGeneration.call(input);
 
@@ -148,45 +309,45 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
 
     return result;
   });
-  const busy = start.isPending;
-  const hasSources = pages.isSuccess && inputs.length > 0 && inputs.length <= 20;
-  const titleKey = {
-    quiz: 'SidebarQuiz',
-    flashcards: 'Flashcards',
-    ordering: 'PracticeOrdering',
-    fill_blank: 'PracticeFillBlank',
-    matching: 'PracticeMatching',
-    true_false: 'PracticeTrueFalse'
-  } as const;
-  const configuredQuestionKind =
-    configuration.questionKind === 'all' ? 'mixed' : configuration.questionKind;
-  const questionKind = kind !== 'quiz' && kind !== 'flashcards' ? kind : configuredQuestionKind;
-  /** Starts generation after sources and preferences are ready; specialized practice remains a quiz material. */
+  const busy = start.isPending || exam.isPending;
+  const option = generationKinds.find((entry) => entry.kind === kind)!;
+  const canStart =
+    readiness === 'ready' &&
+    !busy &&
+    pages.isSuccess &&
+    inputs.length > 0 &&
+    inputs.length <= 20 &&
+    (isExam || preferences.isSuccess);
+
   const create = () => {
-    if (readiness === 'ready' && projectId !== undefined && hasSources && preferences.isSuccess)
-      start.mutate({
-        projectId,
-        title: t(titleKey[kind]),
-        autoTitle: true,
-        kind: kind === 'flashcards' ? 'flashcards' : 'quiz',
-        instruction: instruction.trim() || undefined,
-        inputs: inputs.filter((input) => input.kind === 'page'),
-        quizConfig:
-          kind !== 'flashcards'
-            ? {
-                questionCount: configuration.questionCount,
-                choiceCount: configuration.choiceCount,
-                questionKind,
-                difficulty: configuration.difficulty
-              }
-            : undefined
-      });
+    if (!canStart || projectId === undefined) return;
+
+    const selected = inputs.filter((input) => input.kind === 'page');
+
+    if (kind === 'exam') {
+      const [first, ...rest] = selected;
+
+      if (first) void exam.startExam({ projectId, inputs: [first, ...rest] });
+
+      return;
+    }
+
+    start.mutate({
+      projectId,
+      title: t(option.label),
+      autoTitle: true,
+      kind: kind === 'flashcards' ? 'flashcards' : 'quiz',
+      instruction: instruction.trim() || undefined,
+      inputs: selected,
+      quizConfig: quizConfiguration(kind, preferences.data ?? defaultQuizSettings)
+    });
   };
 
   return {
     readiness,
     kind,
     setKind,
+    option,
     instruction,
     setInstruction,
     pages,
@@ -194,8 +355,10 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
     setInputs,
     preferences,
     start,
+    exam,
+    isExam,
     busy,
-    hasSources,
+    canStart,
     create
   };
 }
@@ -205,13 +368,18 @@ type GenerationModel = ReturnType<typeof useGeneration>;
 /** Offer localized practice modes alongside the selected source pages. */
 function GenerationPanel({
   projectId,
-  accepted
+  accepted,
+  examOpened,
+  trackRequest
 }: {
   projectId?: ProjectId;
   accepted: (id: string) => void;
+  examOpened: (opening: ExamOpening) => void;
+  trackRequest: TrackExamRequest;
 }) {
   const { t } = useI18n();
-  const model = useGeneration(projectId, accepted);
+  const model = useGeneration(projectId, accepted, examOpened, trackRequest);
+  const topicId = useId();
 
   return (
     <>
@@ -219,104 +387,77 @@ function GenerationPanel({
         <Practice.GenerationBrief>
           <Settings.Section title={t('PracticeGenerateKind')}>
             <Settings.ChoiceGroup label={t('PracticeGenerateKind')}>
-              <Settings.Choice
-                label={t('SidebarQuiz')}
-                selected={model.kind === 'quiz'}
-                disabled={model.busy}
-                onSelect={() => model.setKind('quiz')}
-              >
-                <QuizIcon aria-hidden="true" />
-              </Settings.Choice>
-              <Settings.Choice
-                label={t('Flashcards')}
-                selected={model.kind === 'flashcards'}
-                disabled={model.busy}
-                onSelect={() => model.setKind('flashcards')}
-              >
-                <FlashcardsIcon aria-hidden="true" />
-              </Settings.Choice>
-              <Settings.Choice
-                label={t('PracticeFillBlank')}
-                selected={model.kind === 'fill_blank'}
-                disabled={model.busy}
-                onSelect={() => model.setKind('fill_blank')}
-              >
-                <FillBlankIcon aria-hidden="true" />
-              </Settings.Choice>
-              <Settings.Choice
-                label={t('PracticeOrdering')}
-                selected={model.kind === 'ordering'}
-                disabled={model.busy}
-                onSelect={() => model.setKind('ordering')}
-              >
-                <OrderingIcon aria-hidden="true" />
-              </Settings.Choice>
-              <Settings.Choice
-                label={t('PracticeMatching')}
-                selected={model.kind === 'matching'}
-                disabled={model.busy}
-                onSelect={() => model.setKind('matching')}
-              >
-                <MatchingIcon aria-hidden="true" />
-              </Settings.Choice>
-              <Settings.Choice
-                label={t('PracticeTrueFalse')}
-                selected={model.kind === 'true_false'}
-                disabled={model.busy}
-                onSelect={() => model.setKind('true_false')}
-              >
-                <TrueFalseIcon aria-hidden="true" />
-              </Settings.Choice>
-            </Settings.ChoiceGroup>
-            {model.kind === 'matching' && (
-              <Settings.Intro>{t('PracticeMatchingHelp')}</Settings.Intro>
-            )}
-            {model.kind === 'ordering' && (
-              <Settings.Intro>{t('PracticeOrderingHelp')}</Settings.Intro>
-            )}
-            {model.kind === 'fill_blank' && (
-              <Settings.Intro>{t('PracticeFillBlankHelp')}</Settings.Intro>
-            )}
-            {model.kind === 'true_false' && (
-              <Settings.Intro>{t('PracticeTrueFalseHelp')}</Settings.Intro>
-            )}
-          </Settings.Section>
-          <Practice.Customize>
-            <Practice.CustomizeSummary>
-              <OptionsIcon aria-hidden="true" />
-              <span>{t('PracticeCustomize')}</span>
-              <ExpandIcon aria-hidden="true" />
-            </Practice.CustomizeSummary>
-            <Practice.CustomizeBody>
-              <Settings.Section title={t('PracticeGeneratePrompt')}>
-                <Textarea
-                  aria-label={t('PracticeGeneratePrompt')}
-                  placeholder={t('PracticeGeneratePromptHint')}
-                  value={model.instruction}
-                  maxLength={100000}
+              {generationKinds.map(({ kind, label, icon: Icon }) => (
+                <Settings.Choice
+                  key={kind}
+                  label={t(label)}
+                  selected={model.kind === kind}
                   disabled={model.busy}
-                  onChange={(event) => model.setInstruction(event.target.value)}
-                />
-              </Settings.Section>
-              <Settings.Intro>{t('PracticeGenerateAutomaticTitle')}</Settings.Intro>
-            </Practice.CustomizeBody>
-          </Practice.Customize>
+                  onSelect={() => model.setKind(kind)}
+                >
+                  <Icon aria-hidden="true" />
+                </Settings.Choice>
+              ))}
+            </Settings.ChoiceGroup>
+            {model.option.help && <Settings.Intro>{t(model.option.help)}</Settings.Intro>}
+          </Settings.Section>
+          {model.isExam ? (
+            <Settings.Section>
+              <Label htmlFor={topicId}>{t('WrittenExamTopic')}</Label>
+              <Input
+                id={topicId}
+                value={model.exam.topic}
+                maxLength={writtenExamTopicLimit}
+                placeholder={t('WrittenExamTopicHint')}
+                disabled={model.busy}
+                onChange={(event) => model.exam.changeTopic(event.target.value)}
+              />
+            </Settings.Section>
+          ) : (
+            <Practice.Customize>
+              <Practice.CustomizeSummary>
+                <OptionsIcon aria-hidden="true" />
+                <span>{t('PracticeCustomize')}</span>
+                <ExpandIcon aria-hidden="true" />
+              </Practice.CustomizeSummary>
+              <Practice.CustomizeBody>
+                <Settings.Section title={t('PracticeGeneratePrompt')}>
+                  <Textarea
+                    aria-label={t('PracticeGeneratePrompt')}
+                    placeholder={t('PracticeGeneratePromptHint')}
+                    value={model.instruction}
+                    maxLength={100000}
+                    disabled={model.busy}
+                    onChange={(event) => model.setInstruction(event.target.value)}
+                  />
+                </Settings.Section>
+                <Settings.Intro>{t('PracticeGenerateAutomaticTitle')}</Settings.Intro>
+              </Practice.CustomizeBody>
+            </Practice.Customize>
+          )}
         </Practice.GenerationBrief>
         <Practice.GenerationPages>
           <QuizInputPicker
             pages={model.pages}
             inputs={model.inputs}
-            onChange={model.setInputs}
+            onChange={(update) => {
+              if (model.isExam) model.exam.reset();
+
+              model.setInputs(update);
+            }}
             disabled={model.busy}
           />
         </Practice.GenerationPages>
       </Practice.GenerationLayout>
       <Practice.GenerationStatus>
-        <AiReadinessNotice state={model.readiness} />
+        <AiReadinessNotice
+          state={model.readiness}
+          setupLabel={model.isExam ? t('WrittenExamChatGptSetup') : undefined}
+        />
         <GenerationStatus model={model} />
       </Practice.GenerationStatus>
       <DialogFooter>
-        <DialogDismissButton label={t('Close')} />
+        <DialogDismissButton label={t('Close')} disabled={model.exam.isPending} />
         <GenerationAction model={model} />
       </DialogFooter>
     </>
@@ -331,16 +472,19 @@ function GenerationStatus({ model }: { model: GenerationModel }) {
       {model.inputs.length > 20 && (
         <Settings.Feedback role="status">{t('PracticeGenerateLimit')}</Settings.Feedback>
       )}
+      {model.isExam && model.exam.data?.kind === 'unavailable' && (
+        <Settings.Feedback role="status">{t('WrittenExamUnsupported')}</Settings.Feedback>
+      )}
       {hasGenerationError(model) && (
         <ErrorState
           layout="inline"
-          title={t('QuizGenerateError')}
+          title={t(model.isExam ? 'WrittenExamStartError' : 'QuizGenerateError')}
           action={
             <RetryButton
               variant="outline"
               size="sm"
               onClick={() => {
-                if (model.preferences.isError) void model.preferences.refetch();
+                if (!model.isExam && model.preferences.isError) void model.preferences.refetch();
                 else model.create();
               }}
               label={t('Retry')}
@@ -353,27 +497,24 @@ function GenerationStatus({ model }: { model: GenerationModel }) {
 }
 
 function hasGenerationError(model: GenerationModel) {
-  return model.preferences.isError || model.start.isError;
+  return model.isExam ? model.exam.isError : model.preferences.isError || model.start.isError;
 }
 
 function GenerationAction({ model }: { model: GenerationModel }) {
   const { t } = useI18n();
+  const label = t(model.isExam ? 'WrittenExamStart' : 'PracticeGenerateStart');
 
   return (
     <AiButton
       tier="medium"
-      label={t('PracticeGenerateStart')}
-      workingLabel={t('QuizGenerating')}
+      provider={model.isExam ? 'chatgpt' : undefined}
+      label={label}
+      workingLabel={t(model.isExam ? 'WrittenExamStarting' : 'QuizGenerating')}
       pending={model.busy}
-      disabled={
-        model.readiness !== 'ready' ||
-        !model.hasSources ||
-        model.busy ||
-        !model.preferences.isSuccess
-      }
+      disabled={!model.canStart}
       onClick={model.create}
     >
-      {t('PracticeGenerateStart')}
+      {model.isExam && model.busy ? t('WrittenExamStarting') : label}
     </AiButton>
   );
 }

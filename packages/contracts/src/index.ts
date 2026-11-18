@@ -248,6 +248,16 @@ export {
   unarchiveInputSchema,
   updateDescriptionInputSchema
 } from './materials/rpc.ts';
+export {
+  writtenExamAnswerLimit,
+  writtenExamTopicLimit,
+  writtenExamTurnLimit,
+  writtenExamAgentInputSchema,
+  writtenExamAgentOutputSchema,
+  writtenExamInputSchema,
+  writtenExamResultSchema
+} from './materials/written-exam.ts';
+export type { WrittenExamInput, WrittenExamResult } from './materials/written-exam.ts';
 export type {
   MaterialCitation,
   MaterialContentInput,

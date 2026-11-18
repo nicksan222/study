@@ -1976,6 +1976,33 @@ export const english = Object.freeze({
   PracticeGenerate: 'Generate practice',
   PracticeGenerateHelp:
     'Create practice exercises and flashcards from your pages. All pages are selected; deselect any you want to leave out.',
+  WrittenExam: 'Written exam',
+  WrittenExamHelp:
+    'Talk through one concept with a professor who asks follow-up questions. Ask for a hint if you get stuck.',
+  WrittenExamChatGptSetup:
+    'Sign in to ChatGPT and enable sharing in Settings to use written exams.',
+  WrittenExamTopic: 'Topic (optional)',
+  WrittenExamTopicHint: 'Leave blank to choose from the pages',
+  WrittenExamStart: 'Start exam',
+  WrittenExamStarting: 'Preparing the first question…',
+  WrittenExamUnsupported:
+    'The selected pages don’t cover that topic. Try another topic or select different pages.',
+  WrittenExamStartError: 'Couldn’t start the exam. Check the selected pages and try again.',
+  WrittenExamHint: 'Ask for a hint',
+  WrittenExamHintRequest: 'Can I have a hint?',
+  WrittenExamComposer: 'Explain in your own words…',
+  WrittenExamExaminer: 'Professor',
+  WrittenExamConversation: 'Exam conversation',
+  WrittenExamThinking: 'Thinking…',
+  WrittenExamTurnError: 'The professor couldn’t reply. Try again.',
+  WrittenExamHistory: 'Review the conversation',
+  WrittenExamUnderstood: 'You got it!',
+  WrittenExamNeedsReview: 'What to review',
+  WrittenExamFinish: 'Wrap up',
+  WrittenExamExit: 'Leave exam',
+  WrittenExamExitTitle: 'Leave this exam?',
+  WrittenExamExitHelp: 'Your answers from this session will be lost.',
+  WrittenExamContinue: 'Keep going',
   PracticeGenerateKind: 'What would you like to create?',
   PracticeGeneratePrompt: 'What should it focus on? (optional)',
   PracticeGeneratePromptHint:
