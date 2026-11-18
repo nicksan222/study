@@ -26,6 +26,7 @@ export const italian = Object.freeze({
   VoiceInsertRecovered: 'Inserisci trascrizione',
   VoiceTranscript: 'Trascrizione',
   VoiceCopied: 'Copiato',
+  VoiceCopyManual: 'Seleziona e copia la trascrizione manualmente.',
   VoiceInsert: 'Riprova inserimento',
   VoiceSetupTitle: 'Scaricare la dettatura?',
   VoiceSetupHelp:

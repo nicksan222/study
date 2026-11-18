@@ -14,10 +14,11 @@ import {
   RecordingControls,
   RecordingFeedback,
   RetryButton,
+  StatusMessage,
   Textarea
 } from '@study/ui';
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
-import type { RefObject } from 'react';
+import type { ReactNode, RefObject } from 'react';
 
 import { captureMicrophone, microphoneAvailable } from '#client/lib/host.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -315,11 +316,7 @@ function DictationRetry({
           title={t('VoiceTranscriptionFailedTitle')}
           description={t('VoiceTranscriptionFailed')}
         />
-        {state.transcript && (
-          <Textarea aria-label={t('VoiceTranscript')} value={state.transcript} readOnly rows={5} />
-        )}
-        <DialogFooter>
-          {state.transcript && <CopyTranscript value={state.transcript} />}
+        <TranscriptActions value={state.transcript}>
           <Button variant="outline" onClick={() => session.cancel(owner)}>
             {t('VoiceCancel')}
           </Button>
@@ -330,30 +327,52 @@ function DictationRetry({
             disabled={model.disabled}
             onClick={() => void session.retry(owner)}
           />
-        </DialogFooter>
+        </TranscriptActions>
       </DialogPopup>
     </Dialog>
   );
 }
 
-function CopyTranscript({ value }: { value: string }) {
+function TranscriptActions({ value, children }: { value: string; children: ReactNode }) {
   const { t } = useI18n();
-  const [copied, setCopied] = useState(false);
+  const [status, setStatus] = useState<'copied' | 'failed'>();
+  const copy = async () => {
+    try {
+      const clipboard = navigator.clipboard;
+
+      if (!clipboard?.writeText) {
+        setStatus('failed');
+
+        return;
+      }
+
+      await clipboard.writeText(value);
+      setStatus('copied');
+    } catch {
+      setStatus('failed');
+    }
+  };
 
   return (
-    <Button
-      type="button"
-      variant="outline"
-      onClick={() => {
-        void navigator.clipboard
-          .writeText(value)
-          .then(() => setCopied(true))
-          .catch(() => setCopied(false));
-      }}
-    >
-      <CopyIcon aria-hidden="true" />
-      {t(copied ? 'VoiceCopied' : 'Copy')}
-    </Button>
+    <>
+      {value && (
+        <DialogBody>
+          <Textarea aria-label={t('VoiceTranscript')} value={value} readOnly rows={5} />
+          <StatusMessage variant="hint">
+            {status === 'failed' ? t('VoiceCopyManual') : ''}
+          </StatusMessage>
+        </DialogBody>
+      )}
+      <DialogFooter>
+        {value && (
+          <Button type="button" variant="outline" onClick={() => void copy()}>
+            <CopyIcon aria-hidden="true" />
+            {t(status === 'copied' ? 'VoiceCopied' : 'Copy')}
+          </Button>
+        )}
+        {children}
+      </DialogFooter>
+    </>
   );
 }
 
@@ -374,18 +393,11 @@ function RecoveredTranscript({ model }: { model: Model }) {
           title={t('VoiceRecoveredTitle')}
           description={t(model.canInsert ? errorLabels[model.state.error] : 'VoiceRecoveryMoved')}
         />
-        <Textarea
-          aria-label={t('VoiceTranscript')}
-          value={model.state.transcript}
-          readOnly
-          rows={5}
-        />
-        <DialogFooter>
-          <CopyTranscript value={model.state.transcript} />
+        <TranscriptActions value={model.state.transcript}>
           <Button type="button" disabled={!model.canInsert} onClick={model.insert}>
             {t(model.state.error === 'interrupted' ? 'VoiceInsertRecovered' : 'VoiceInsert')}
           </Button>
-        </DialogFooter>
+        </TranscriptActions>
       </DialogPopup>
     </Dialog>
   );

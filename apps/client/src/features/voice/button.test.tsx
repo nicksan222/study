@@ -355,3 +355,40 @@ test.unit.stable(
     expect(draft).toHaveFocus();
   }
 );
+
+test.unit.stable.for(['denied', 'unavailable'] as const)(
+  'keeps transcript available for manual copy when clipboard access is %s',
+  async (clipboard, { render, screen, userEvent, expect, vi }) => {
+    render(
+      <DictationButton
+        onTranscript={() => {
+          throw new Error('No room in the draft');
+        }}
+      />
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Start dictation' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Stop and transcribe' }));
+    finishTranscription({ text: 'Taken notes' });
+    const transcript = await screen.findByRole('textbox', { name: 'Transcript' });
+
+    const original = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value:
+        clipboard === 'denied'
+          ? { writeText: vi.fn().mockRejectedValueOnce(new Error('Denied')) }
+          : undefined
+    });
+
+    try {
+      await userEvent.click(screen.getByRole('button', { name: /^Copy$/ }));
+      expect(await screen.findByText('Select and copy the transcript manually.')).toBeVisible();
+      expect(transcript).toHaveValue('Taken notes');
+      expect(transcript).toHaveAttribute('readonly');
+    } finally {
+      if (original) Object.defineProperty(navigator, 'clipboard', original);
+      else Reflect.deleteProperty(navigator, 'clipboard');
+    }
+  }
+);

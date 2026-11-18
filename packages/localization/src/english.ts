@@ -24,6 +24,7 @@ export const english = Object.freeze({
   VoiceInsertRecovered: 'Insert transcript',
   VoiceTranscript: 'Transcript',
   VoiceCopied: 'Copied',
+  VoiceCopyManual: 'Select and copy the transcript manually.',
   VoiceInsert: 'Retry insertion',
   VoiceSetupTitle: 'Download dictation?',
   VoiceSetupHelp: 'Dictation runs locally. Download the speech model once, then start recording.',
