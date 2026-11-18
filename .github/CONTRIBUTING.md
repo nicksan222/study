@@ -179,13 +179,13 @@ Desktop inspection recipes call `swaymsg` and `jq` directly. The scripts in
 startup, reuse and shutdown, plus bounded process waiting. Desktop commands need no
 JavaScript package or Cargo build.
 
-| Command                         | What it does                                               |
-| ------------------------------- | ---------------------------------------------------------- |
-| `bun run desktop-status`        | Inspect the native window and log path without restarting. |
-| `bun run desktop-wait`          | Wait for the native window.                                |
-| `bun run check`                 | Everything CI runs.                                        |
-| `bun run check-crate <package>` | `bun run check` for one package.                           |
-| `bun run`                       | Every other command.                                       |
+| Command                         | What it does                                                                                                            |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `bun run desktop-status`        | Inspect the native window and log path without restarting.                                                              |
+| `bun run desktop-wait`          | Wait for the native window.                                                                                             |
+| `bun run check`                 | Local verification graph. Run `bun run voice:fixtures` and `bun run voice:test` separately for the native voice matrix. |
+| `bun run check-crate <package>` | `bun run check` for one package.                                                                                        |
+| `bun run`                       | Every other command.                                                                                                    |
 
 ## Where data lives
 
