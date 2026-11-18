@@ -164,6 +164,7 @@ test.server.stable(
       method: 'remove'
     });
     let published = false;
+    const postPublicationRemovals: string[] = [];
     const filesystem: FileSystem.FileSystem = {
       ...fs,
       rename: (from, to) =>
@@ -174,14 +175,20 @@ test.server.stable(
             })
           )
         ),
-      remove: (path, options) =>
-        path === `${root}/installing` && published ? Effect.fail(denied) : fs.remove(path, options)
+      remove: (path, options) => {
+        if (path !== `${root}/installing` || !published) return fs.remove(path, options);
+
+        postPublicationRemovals.push(path);
+
+        return Effect.fail(denied);
+      }
     };
     const models = new VoiceModels(root, filesystem, [asset], async () => new Response(payload));
 
     await models.install(new AbortController().signal);
     expect((await models.status()).state).toBe('ready');
     expect(await Bun.file(models.path(0)).bytes()).toEqual(payload);
+    expect(postPublicationRemovals).toEqual([]);
   }
 );
 
