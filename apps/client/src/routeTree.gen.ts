@@ -24,6 +24,7 @@ import { Route as PagesIndexRouteImport } from './routes/pages.index'
 import { Route as PagesPageIdRouteImport } from './routes/pages.$pageId'
 import { Route as PracticeIndexRouteImport } from './routes/practice.index'
 import { Route as PracticeMaterialIdRouteImport } from './routes/practice.$materialId'
+import { Route as PracticeWrittenExamRouteImport } from './routes/practice.written-exam'
 import { Route as SourcesSourceIdRouteImport } from './routes/sources.$sourceId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -101,6 +102,11 @@ const PracticeMaterialIdRoute = PracticeMaterialIdRouteImport.update({
   path: '/practice/$materialId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PracticeWrittenExamRoute = PracticeWrittenExamRouteImport.update({
+  id: '/practice/written-exam',
+  path: '/practice/written-exam',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SourcesSourceIdRoute = SourcesSourceIdRouteImport.update({
   id: '/sources/$sourceId',
   path: '/sources/$sourceId',
@@ -119,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/notes/$noteId': typeof NotesNoteIdRoute
   '/pages/$pageId': typeof PagesPageIdRoute
   '/practice/$materialId': typeof PracticeMaterialIdRoute
+  '/practice/written-exam': typeof PracticeWrittenExamRoute
   '/sources/$sourceId': typeof SourcesSourceIdRoute
   '/flashcards/': typeof FlashcardsIndexRoute
   '/notes/': typeof NotesIndexRoute
@@ -136,6 +143,7 @@ export interface FileRoutesByTo {
   '/notes/$noteId': typeof NotesNoteIdRoute
   '/pages/$pageId': typeof PagesPageIdRoute
   '/practice/$materialId': typeof PracticeMaterialIdRoute
+  '/practice/written-exam': typeof PracticeWrittenExamRoute
   '/sources/$sourceId': typeof SourcesSourceIdRoute
   '/flashcards': typeof FlashcardsIndexRoute
   '/notes': typeof NotesIndexRoute
@@ -155,6 +163,7 @@ export interface FileRoutesById {
   '/notes/$noteId': typeof NotesNoteIdRoute
   '/pages/$pageId': typeof PagesPageIdRoute
   '/practice/$materialId': typeof PracticeMaterialIdRoute
+  '/practice/written-exam': typeof PracticeWrittenExamRoute
   '/sources/$sourceId': typeof SourcesSourceIdRoute
   '/flashcards/': typeof FlashcardsIndexRoute
   '/notes/': typeof NotesIndexRoute
@@ -175,6 +184,7 @@ export interface FileRouteTypes {
     | '/notes/$noteId'
     | '/pages/$pageId'
     | '/practice/$materialId'
+    | '/practice/written-exam'
     | '/sources/$sourceId'
     | '/flashcards/'
     | '/notes/'
@@ -192,6 +202,7 @@ export interface FileRouteTypes {
     | '/notes/$noteId'
     | '/pages/$pageId'
     | '/practice/$materialId'
+    | '/practice/written-exam'
     | '/sources/$sourceId'
     | '/flashcards'
     | '/notes'
@@ -210,6 +221,7 @@ export interface FileRouteTypes {
     | '/notes/$noteId'
     | '/pages/$pageId'
     | '/practice/$materialId'
+    | '/practice/written-exam'
     | '/sources/$sourceId'
     | '/flashcards/'
     | '/notes/'
@@ -228,6 +240,7 @@ export interface RootRouteChildren {
   MaterialsMaterialIdRoute: typeof MaterialsMaterialIdRoute
   PagesPageIdRoute: typeof PagesPageIdRoute
   PracticeMaterialIdRoute: typeof PracticeMaterialIdRoute
+  PracticeWrittenExamRoute: typeof PracticeWrittenExamRoute
   SourcesSourceIdRoute: typeof SourcesSourceIdRoute
   FlashcardsIndexRoute: typeof FlashcardsIndexRoute
   PagesIndexRoute: typeof PagesIndexRoute
@@ -341,6 +354,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PracticeMaterialIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/practice/written-exam': {
+      id: '/practice/written-exam'
+      path: '/practice/written-exam'
+      fullPath: '/practice/written-exam'
+      preLoaderRoute: typeof PracticeWrittenExamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sources/$sourceId': {
       id: '/sources/$sourceId'
       path: '/sources/$sourceId'
@@ -374,6 +394,7 @@ const rootRouteChildren: RootRouteChildren = {
   MaterialsMaterialIdRoute: MaterialsMaterialIdRoute,
   PagesPageIdRoute: PagesPageIdRoute,
   PracticeMaterialIdRoute: PracticeMaterialIdRoute,
+  PracticeWrittenExamRoute: PracticeWrittenExamRoute,
   SourcesSourceIdRoute: SourcesSourceIdRoute,
   FlashcardsIndexRoute: FlashcardsIndexRoute,
   PagesIndexRoute: PagesIndexRoute,

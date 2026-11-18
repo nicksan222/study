@@ -1,6 +1,6 @@
 import { writtenExamAnswerLimit } from '@study/contracts';
 import type { WrittenExamInput, WrittenExamResult } from '@study/contracts';
-import { SendIcon } from '@study/icons';
+import { BackIcon, MoreActionsIcon, SendIcon } from '@study/icons';
 import {
   AiActivity,
   Bubble,
@@ -15,6 +15,10 @@ import {
   Disclosure,
   ErrorState,
   IconButton,
+  Menu,
+  MenuItem,
+  MenuPopup,
+  MenuTrigger,
   Message,
   MessageContent,
   MessageHeader,
@@ -24,8 +28,10 @@ import {
   MessageScrollerItem,
   MessageScrollerProvider,
   MessageScrollerViewport,
-  Practice
+  Practice,
+  WorkspaceSurface
 } from '@study/ui';
+import { Navigate, useBlocker, useNavigate, useRouter, useSearch } from '@tanstack/react-router';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
@@ -34,10 +40,8 @@ import { useI18n } from '#client/lib/i18n.tsx';
 import { toStudyError } from '#client/lib/study-client/errors.ts';
 
 import { useWrittenExamRequest } from './written-exam-request';
-import type { TrackExamRequest } from './written-exam-request';
-
-export type ExamOpening = Pick<WrittenExamInput, 'projectId' | 'inputs'> &
-  Omit<Extract<WrittenExamResult, { kind: 'opening' }>, 'kind'>;
+import { useWrittenExamOpening } from './written-exam-state';
+import type { ExamOpening } from './written-exam-state';
 
 type Step = WrittenExamInput['step'];
 
@@ -75,13 +79,9 @@ function requestStep(
   if (first) return { kind, concept, history: [first, ...rest] };
 }
 
-function useExamConversation(
-  opening: ExamOpening,
-  completed: () => void,
-  trackRequest: TrackExamRequest
-) {
+function useExamConversation(opening: ExamOpening) {
   const readiness = useAiReadiness('medium', 'chatgpt');
-  const turn = useWrittenExamRequest(trackRequest);
+  const turn = useWrittenExamRequest();
   const [history, setHistory] = useState<readonly ExamTurn[]>([]);
   const [current, setCurrent] = useState<Prompt>({ question: opening.question });
   const [summary, setSummary] = useState<Summary>();
@@ -92,10 +92,6 @@ function useExamConversation(
   const blocked = pending !== undefined || readiness !== 'ready';
   const error = turn.isError ? toStudyError(turn.error).kind : undefined;
   const sourceUnavailable = error === 'invalid_input' || error === 'not_found';
-
-  useEffect(() => {
-    if (!window.matchMedia('(pointer: coarse)').matches) composer.current?.focus();
-  }, []);
 
   const advance = async (kind: Action) => {
     if (blocked || turn.busy()) return;
@@ -125,7 +121,6 @@ function useExamConversation(
       if (next.kind === 'summary') {
         setHistory(step.history);
         setSummary(next);
-        completed();
       }
     } finally {
       setPending(undefined);
@@ -151,42 +146,79 @@ function useExamConversation(
 
 type Conversation = ReturnType<typeof useExamConversation>;
 
-export function WrittenExamSession({
-  opening,
-  completed,
-  trackRequest,
-  openSettings,
-  leave
-}: {
-  opening: ExamOpening;
-  completed: () => void;
-  trackRequest: TrackExamRequest;
-  openSettings: () => void;
-  leave: () => void;
-}) {
+export function WrittenExamPage() {
+  const { project } = useSearch({ from: '/practice/written-exam' });
+  const { session: opening } = useWrittenExamOpening();
+  const [session] = useState(opening);
+
+  if (!session || project !== String(session.opening.projectId))
+    return <Navigate to="/practice" search={{ project }} replace />;
+
+  return <WrittenExamSession opening={session.opening} />;
+}
+
+function WrittenExamSession({ opening }: { opening: ExamOpening }) {
   const { t } = useI18n();
-  const model = useExamConversation(opening, completed, trackRequest);
+  const model = useExamConversation(opening);
+  const router = useRouter();
+  const navigate = useNavigate();
+  const heading = useRef<HTMLHeadingElement>(null);
+  const active = !model.summary;
+  const blocker = useBlocker({
+    shouldBlockFn: ({ current, next }) =>
+      active &&
+      (current.pathname !== next.pathname || current.search.project !== next.search.project),
+    enableBeforeUnload: active,
+    withResolver: true
+  });
+  const leave = () => router.history.back();
+  const { composer } = model;
+
+  useEffect(() => {
+    const target = window.matchMedia('(pointer: coarse)').matches ? heading : composer;
+
+    target.current?.focus({ preventScroll: true });
+  }, [composer]);
+
   const transcript =
     model.history.at(-1)?.question === model.current.question
       ? model.history
       : [...model.history, model.current];
 
   return (
-    <>
-      <DialogHeading title={t('WrittenExam')} description={opening.concept} density="compact" />
+    <Practice.ExamPage aria-label={t('WrittenExam')}>
+      <Practice.ExamHeader>
+        <IconButton variant="ghost" size="icon" label={t('WrittenExamBack')} onClick={leave}>
+          <BackIcon aria-hidden="true" />
+        </IconButton>
+        <div>
+          <h1 ref={heading} tabIndex={-1}>
+            {t('WrittenExam')}
+          </h1>
+          <p>{opening.concept}</p>
+        </div>
+        {active && <ExamActions model={model} />}
+      </Practice.ExamHeader>
       {model.summary ? (
         <ExamResult summary={model.summary} transcript={transcript} />
       ) : (
         <>
           <ExamThread model={model} leave={leave} />
-          <ExamComposer model={model} openSettings={openSettings} />
+          <ExamComposer model={model} openSettings={() => void navigate({ to: '/settings' })} />
         </>
       )}
-    </>
+      <ExamExitConfirmation
+        open={blocker.status === 'blocked'}
+        onOpenChange={(open) => {
+          if (!open) blocker.reset?.();
+        }}
+        exit={() => blocker.proceed?.()}
+      />
+    </Practice.ExamPage>
   );
 }
 
-export function ExamExitConfirmation({
+function ExamExitConfirmation({
   open,
   onOpenChange,
   exit
@@ -228,6 +260,10 @@ export function ExamExitConfirmation({
   );
 }
 
+function isAtEnd(scroller: HTMLDivElement) {
+  return scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight <= 1;
+}
+
 function ExamThread({ model, leave }: { model: Conversation; leave: () => void }) {
   const { t } = useI18n();
   const viewport = useRef<HTMLDivElement>(null);
@@ -252,9 +288,16 @@ function ExamThread({ model, leave }: { model: Conversation; leave: () => void }
 
     const resize = new ResizeObserver(() => {
       if (following.current) scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'instant' });
+
+      following.current = isAtEnd(scroller);
+      setCanJump(!following.current);
     });
 
     resize.observe(scroller);
+
+    const content = scroller.firstElementChild;
+
+    if (content) resize.observe(content);
 
     return () => resize.disconnect();
   }, []);
@@ -268,10 +311,7 @@ function ExamThread({ model, leave }: { model: Conversation; leave: () => void }
             aria-label={t('WrittenExamConversation')}
             preserveScrollOnPrepend={false}
             onScroll={({ currentTarget }) => {
-              const distance =
-                currentTarget.scrollHeight - currentTarget.scrollTop - currentTarget.clientHeight;
-
-              following.current = distance <= 1;
+              following.current = isAtEnd(currentTarget);
               setCanJump(!following.current);
             }}
           >
@@ -360,6 +400,37 @@ function ExamMessage({ text, fromLearner = false }: { text: string; fromLearner?
   );
 }
 
+function ExamActions({ model }: { model: Conversation }) {
+  const { t } = useI18n();
+  const container = useRef<HTMLDivElement>(null);
+
+  return (
+    <Practice.ExamActions ref={container}>
+      <Menu modal={false}>
+        <MenuTrigger
+          render={<IconButton label={t('WrittenExamActions')} variant="ghost" size="icon" />}
+        >
+          <MoreActionsIcon aria-hidden="true" />
+        </MenuTrigger>
+        <MenuPopup align="end" aria-label={t('WrittenExamActions')} portalProps={{ container }}>
+          <MenuItem
+            disabled={model.blocked || !!model.current.hint}
+            onClick={() => void model.advance('hint')}
+          >
+            {t('WrittenExamHint')}
+          </MenuItem>
+          <MenuItem
+            disabled={model.blocked || !(model.history.length || model.draft)}
+            onClick={() => void model.advance('finish')}
+          >
+            {t(model.draft ? 'WrittenExamSubmitAndFinish' : 'WrittenExamFinish')}
+          </MenuItem>
+        </MenuPopup>
+      </Menu>
+    </Practice.ExamActions>
+  );
+}
+
 function ExamComposer({ model, openSettings }: { model: Conversation; openSettings: () => void }) {
   const { t } = useI18n();
 
@@ -370,51 +441,31 @@ function ExamComposer({ model, openSettings }: { model: Conversation; openSettin
         void model.advance('answer');
       }}
     >
-      <ComposerSurface.Input
-        ref={model.composer}
-        aria-label={t('StudyChatMessage')}
-        placeholder={t('WrittenExamComposer')}
-        value={model.answer}
-        rows={2}
-        maxLength={writtenExamAnswerLimit}
-        readOnly={model.pending !== undefined}
-        onChange={(event) => model.setAnswer(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
+      <ComposerSurface.Root variant="notebook">
+        <ComposerSurface.Input
+          ref={model.composer}
+          aria-label={t('StudyChatMessage')}
+          placeholder={t('WrittenExamComposer')}
+          value={model.answer}
+          rows={1}
+          maxLength={writtenExamAnswerLimit}
+          readOnly={model.pending !== undefined}
+          onChange={(event) => model.setAnswer(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
 
-          event.preventDefault();
-          void model.advance('answer');
-        }}
-      />
-      <Practice.ExamActions>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={model.blocked || !!model.current.hint}
-          onClick={() => void model.advance('hint')}
-        >
-          {t('WrittenExamHint')}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={model.blocked || !(model.history.length || model.draft)}
-          onClick={() => void model.advance('finish')}
-        >
-          {t(model.draft ? 'WrittenExamSubmitAndFinish' : 'WrittenExamFinish')}
-        </Button>
-        <IconButton
+            event.preventDefault();
+            void model.advance('answer');
+          }}
+        />
+        <WorkspaceSurface.ComposerSubmit
           type="submit"
-          size="icon"
-          variant="default"
           disabled={model.blocked || !model.draft}
-          label={t('SendMessage')}
+          aria-label={t('SendMessage')}
         >
           <SendIcon aria-hidden="true" />
-        </IconButton>
-      </Practice.ExamActions>
+        </WorkspaceSurface.ComposerSubmit>
+      </ComposerSurface.Root>
       <AiReadinessNotice
         state={model.readiness}
         setupLabel={t('WrittenExamChatGptSetup')}
@@ -455,9 +506,6 @@ function ExamResult({
           </MessageScrollerProvider>
         </Disclosure>
       </Practice.ExamResult>
-      <DialogFooter>
-        <DialogDismissButton label={t('Close')} />
-      </DialogFooter>
     </>
   );
 }

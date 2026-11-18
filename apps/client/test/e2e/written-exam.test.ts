@@ -40,6 +40,16 @@ const cases = {
 
 type Locale = keyof typeof cases;
 
+async function examActions(
+  page: BrowserContext['page'],
+  exam: ReturnType<BrowserContext['page']['getByRole']>,
+  copy: (typeof catalogs)[Locale]
+) {
+  await exam.getByRole('button', { name: copy.WrittenExamActions }).click();
+
+  return page.getByRole('menu', { name: copy.WrittenExamActions });
+}
+
 async function checkSetupKeyboard(
   { page, expect, expectScreenshot, setVisualViewport }: BrowserContext,
   setup: Awaited<ReturnType<BrowserContext['page']['getByRole']>>
@@ -204,21 +214,30 @@ async function startExam(
   });
   opening.release();
 
-  const exam = page.getByRole('dialog', { name: copy.WrittenExam });
+  const exam = page.getByRole('region', { name: copy.WrittenExam });
   const answer = exam.getByRole('textbox', { name: copy.StudyChatMessage });
   const send = exam.getByRole('button', { name: copy.SendMessage });
   const log = exam.getByRole('log', { name: copy.WrittenExamConversation });
 
+  await expect(page).toHaveURL(/\/practice\/written-exam$/);
+  await expect(setup).toBeHidden();
+  await expect(page.getByRole('dialog', { name: copy.WrittenExam, exact: true })).toHaveCount(0);
+  await expect(
+    exam.locator('[data-variant="notebook"]').getByRole('textbox', { name: copy.StudyChatMessage })
+  ).toBeVisible();
+  await expect(exam.getByRole('button', { name: copy.WrittenExamHint })).toHaveCount(0);
+  await expect(exam.getByRole('button', { name: copy.WrittenExamFinish })).toHaveCount(0);
+
   if (language === 'english') await expect(answer).toBeFocused();
   else {
     await expect(exam).toBeVisible();
-    expect(await exam.boundingBox()).toMatchObject({ x: 0, y: 0, ...viewport });
+    expect(await exam.boundingBox()).toMatchObject({ x: 0, width: viewport.width });
     await expect(send).toBeInViewport();
   }
 
   await expect(send).toBeDisabled();
   await expectScreenshot('question', {
-    target: exam,
+    target: 'viewport',
     zoomPercent,
     ready: () => expect(log.getByText(question)).toBeInViewport()
   });
@@ -233,9 +252,8 @@ async function checkLandscapeKeyboard(
   await page.setViewportSize({ width: 844, height: 390 });
   await answer.focus();
   await setVisualViewport({ height: 180 });
-  const sheetViewport = page.locator('[data-slot="dialog-viewport"]').filter({ has: exam });
 
-  await expect(sheetViewport).toHaveCSS('height', '180px');
+  await expect(exam).toHaveCSS('height', '180px');
   await expect(log.getByText(cases.italian.question)).toBeInViewport({ ratio: 1 });
   await expect(answer).toBeInViewport({ ratio: 1 });
   await expect(send).toBeInViewport({ ratio: 1 });
@@ -248,9 +266,9 @@ async function checkLandscapeKeyboard(
     ready: () => expect(answer).toBeFocused()
   });
   await setVisualViewport({ height: 180, offsetTop: 30 }, 'scroll');
-  await expect(sheetViewport).toHaveCSS('top', '30px');
+  await expect(exam).toHaveCSS('top', '30px');
   await setVisualViewport({ height: 120 });
-  await expect(sheetViewport).toHaveCSS('height', '120px');
+  await expect(exam).toHaveCSS('height', '120px');
   await answer.scrollIntoViewIfNeeded();
   await expect(answer).toBeInViewport({ ratio: 1 });
   await send.scrollIntoViewIfNeeded();
@@ -262,6 +280,17 @@ async function checkLandscapeKeyboard(
     target: exam,
     zoomPercent: 100,
     ready: () => expect(question).toBeInViewport()
+  });
+  await setVisualViewport({ height: 260, width: 270, offsetLeft: 42 });
+  await expect(exam).toHaveCSS('width', '270px');
+  await expect(exam).toHaveCSS('left', '42px');
+  const pinnedSend = (await send.boundingBox())!;
+
+  expect(pinnedSend.x + pinnedSend.width).toBeLessThanOrEqual(312);
+  await expectScreenshot('exam-pinched', {
+    target: exam,
+    zoomPercent: 100,
+    ready: () => expect(send).toBeInViewport({ ratio: 1 })
   });
   await setVisualViewport(null);
   await page.setViewportSize(cases.italian.viewport);
@@ -278,11 +307,14 @@ async function continueExam(
   const zoomPercent = language === 'italian' ? 100 : 125;
   const { concept, question, incomplete, followup, reply, hint } = cases[language];
   const agent = study.agents.writtenExam;
-  const hintButton = exam.getByRole('button', { name: copy.WrittenExamHint });
   const thinking = exam.getByRole('status', { name: copy.WrittenExamThinking });
 
   if (language === 'italian') await checkLandscapeKeyboard(context, session);
 
+  await answer.fill(incomplete);
+  await answer.press('End');
+  await answer.press('Shift+Enter');
+  await expect(answer).toHaveValue(`${incomplete}\n`);
   await answer.fill(incomplete);
   const hintReply = ai.next(agent, {
     input: {
@@ -293,7 +325,15 @@ async function continueExam(
     hold: true
   });
 
-  await hintButton.click();
+  const actions = await examActions(page, exam, copy);
+  const hintItem = actions.getByRole('menuitem', { name: copy.WrittenExamHint });
+
+  await expectScreenshot('exam-actions', {
+    target: 'viewport',
+    zoomPercent,
+    ready: () => expect(hintItem).toBeInViewport({ ratio: 1 })
+  });
+  await hintItem.click();
   await hintReply.called;
 
   if (language === 'italian') await expect(answer).not.toBeFocused();
@@ -310,9 +350,12 @@ async function continueExam(
     ready: () => expect(log.getByText(hint)).toBeInViewport()
   });
   await expect(log.getByText(copy.WrittenExamHintRequest)).toBeVisible();
-  await expect(hintButton).toBeDisabled();
+  await examActions(page, exam, copy);
+  await expect(hintItem).toBeDisabled();
+  await actions.press('Escape');
+  await expect(actions).toBeHidden();
   await expect(answer).toHaveValue(incomplete);
-  await answer.press('Escape');
+  await exam.getByRole('button', { name: copy.WrittenExamBack }).click();
   const confirm = page.getByRole('dialog', { name: copy.WrittenExamExitTitle });
 
   await expectScreenshot('confirm-exit', {
@@ -321,6 +364,7 @@ async function continueExam(
     ready: () => expect(confirm).toBeVisible()
   });
   await confirm.getByRole('button', { name: copy.WrittenExamContinue }).click();
+  await expect(confirm).toBeHidden();
   await expect(answer).toHaveValue(incomplete);
   const history = [{ question, hint, answer: incomplete }] as const;
   const step = { kind: 'answer' as const, concept, history };
@@ -329,11 +373,15 @@ async function continueExam(
     input: { step, evidence },
     error: new StudyError('transient', 'Reply unavailable')
   });
+  await answer.click();
   await answer.press('Enter');
   await expectScreenshot('retry', {
     target: exam,
     zoomPercent,
-    ready: () => expect(exam.getByText(copy.WrittenExamTurnError)).toBeInViewport()
+    ready: async () => {
+      await expect(answer).toBeFocused();
+      await expect(exam.getByText(copy.WrittenExamTurnError)).toBeInViewport();
+    }
   });
   await expect(answer).toHaveValue(incomplete);
   const next = ai.next(agent, {
@@ -354,10 +402,12 @@ async function continueExam(
   if (language === 'english') {
     const viewport = exam.getByRole('region', { name: copy.WrittenExamConversation });
 
+    await page.setViewportSize({ ...cases.english.viewport, height: 380 });
+    await expect(viewport).not.toHaveJSProperty('scrollTop', 0);
     await viewport.press('Home');
     await expect(viewport).toHaveJSProperty('scrollTop', 0);
     await expect(exam.getByRole('button', { name: copy.JumpToLatest })).toBeVisible();
-    await page.setViewportSize({ ...cases.english.viewport, height: 700 });
+    await page.setViewportSize({ ...cases.english.viewport, height: 420 });
     await expect(viewport).toHaveJSProperty('scrollTop', 0);
     await expect(log.getByText(question, { exact: true })).toBeInViewport();
     await page.setViewportSize(cases.english.viewport);
@@ -417,7 +467,7 @@ async function checkArchivedPageRecovery(
 }
 
 async function finishExam(context: BrowserContext, language: Locale) {
-  const { study, ai, expect, expectScreenshot } = context;
+  const { page, study, ai, expect, expectScreenshot } = context;
   const copy = catalogs[language];
   const zoomPercent = language === 'italian' ? 100 : 125;
   const { concept, incomplete, final, followup, reply, feedback } = cases[language];
@@ -447,9 +497,12 @@ async function finishExam(context: BrowserContext, language: Locale) {
   if (early) await answer.fill(final);
   else await expect(answer).toHaveValue(final);
 
-  await (
-    early ? exam.getByRole('button', { name: copy.WrittenExamSubmitAndFinish }) : send
-  ).click();
+  if (early) {
+    const actions = await examActions(page, exam, copy);
+
+    await actions.getByRole('menuitem', { name: copy.WrittenExamSubmitAndFinish }).click();
+  } else await send.click();
+
   await ending.called;
   await expectScreenshot('preparing-summary', {
     target: exam,
@@ -471,7 +524,7 @@ async function finishExam(context: BrowserContext, language: Locale) {
 }
 
 async function checkUnansweredTranscript(
-  { study, ai, expect, expectScreenshot }: BrowserContext,
+  { page, study, ai, expect, expectScreenshot }: BrowserContext,
   {
     exam,
     answer,
@@ -496,13 +549,16 @@ async function checkUnansweredTranscript(
     input: { evidence, step: { kind: 'hint', concept, history, current } },
     output: { next: { kind: 'hint', message: hint } }
   });
-  await exam.getByRole('button', { name: copy.WrittenExamHint }).click();
+  const actions = await examActions(page, exam, copy);
+
+  await actions.getByRole('menuitem', { name: copy.WrittenExamHint }).click();
   await expect(exam.getByText(hint)).toBeVisible();
   ai.next(agent, {
     input: { evidence, step: { kind: 'finish', concept, history } },
     output: { next: { kind: 'summary', understood: false, feedback } }
   });
-  await exam.getByRole('button', { name: copy.WrittenExamFinish }).click();
+  await examActions(page, exam, copy);
+  await actions.getByRole('menuitem', { name: copy.WrittenExamFinish }).click();
   await exam.getByText(copy.WrittenExamHistory, { exact: true }).click();
   await expect(exam.getByText(followup, { exact: false })).toHaveCount(1);
   const savedHint = exam.getByText(hint, { exact: true });
@@ -570,7 +626,7 @@ test.browser.stable(
   async ({ page, study, ai, rpc, expect, expectScreenshot, setVisualViewport }) => {
     const context = { page, study, ai, rpc, expect, expectScreenshot, setVisualViewport };
     const session = await finishExam(context, 'english');
-    const { exam, summary, generate, setup, evidence, answer, send } = session;
+    const { exam, generate, setup, evidence, answer, send } = session;
     const copy = catalogs.english;
 
     await expectScreenshot('transcript', {
@@ -578,8 +634,9 @@ test.browser.stable(
       ready: () => expect(exam.getByText(cases.english.final, { exact: true })).toBeVisible()
     });
     await assertTranscriptReachable(context, exam, [cases.english.incomplete, cases.english.final]);
-    await summary.press('Escape');
+    await exam.getByRole('button', { name: copy.WrittenExamBack }).click();
     await expect(exam).toBeHidden();
+    await expect(page).toHaveURL(/\/practice\/?$/);
     await expect(generate).toBeFocused();
     const opening = await reopenEnglishExam(context, session, cases.english.question, true);
 
@@ -608,9 +665,11 @@ test.browser.stable(
       hold: true
     });
 
-    await exam.getByRole('button', { name: copy.WrittenExamHint }).click();
+    const actions = await examActions(page, exam, copy);
+
+    await actions.getByRole('menuitem', { name: copy.WrittenExamHint }).click();
     await hint.called;
-    await exam.getByRole('button', { name: copy.WrittenExamExit }).click();
+    await exam.getByRole('button', { name: copy.WrittenExamBack }).click();
     const abandon = page.getByRole('dialog', { name: copy.WrittenExamExitTitle });
 
     await expectScreenshot('abandon-while-thinking', {
@@ -619,11 +678,12 @@ test.browser.stable(
     });
     await abandon.getByRole('button', { name: copy.WrittenExamExit }).click();
     await expect(exam).toBeHidden();
+    await expect(page).toHaveURL(/\/practice\/?$/);
     await expect(generate).toBeFocused();
     await hint.aborted;
     await reopenEnglishExam(context, session);
     await checkUnansweredTranscript(context, { exam, answer, send, evidence });
-    await exam.getByRole('button', { name: copy.Close, exact: true }).click();
+    await exam.getByRole('button', { name: copy.WrittenExamBack }).click();
     await reopenEnglishExam(context, session);
     await checkSettingsExit(context, { exam, answer });
   }
@@ -652,20 +712,38 @@ test.browser.stable(
     );
 
     await page.setViewportSize({ width: 900, height: 850 });
-    await page.goto(`/practice/${material.id}?project=${seed.project.id}`);
+    const practiceUrl = `/projects/${seed.project.id}/practice`;
+
+    await page.goto(practiceUrl);
     const sidebar = page.getByRole('complementary', { name: copy.SidebarNavigation });
+    const quiz = sidebar.getByRole('link', { name: /Cell division quiz/ });
     const generate = sidebar.getByRole('button', { name: copy.PracticeGenerate, exact: true });
-
-    await generate.click();
     const setup = page.getByRole('dialog', { name: copy.PracticeGenerate });
+    const opening = ai.next(study.agents.writtenExam, {
+      input: { step: { kind: 'start' }, evidence },
+      output: { next: { kind: 'opening', concept, question } },
+      hold: true
+    });
 
+    await quiz.click();
+    await generate.click();
+    await setup.getByRole('radio', { name: copy.WrittenExam, exact: true }).click();
+    await setup.getByRole('button', { name: copy.WrittenExamStart }).click();
+    await opening.called;
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`${practiceUrl}$`));
+    await expect(setup).toBeHidden();
+    await opening.aborted;
+
+    await quiz.click();
+    await generate.click();
     await setup.getByRole('radio', { name: copy.WrittenExam, exact: true }).click();
     ai.next(study.agents.writtenExam, {
       input: { step: { kind: 'start' }, evidence },
       output: { next: { kind: 'opening', concept, question } }
     });
     await setup.getByRole('button', { name: copy.WrittenExamStart }).click();
-    const exam = page.getByRole('dialog', { name: copy.WrittenExam });
+    const exam = page.getByRole('region', { name: copy.WrittenExam });
     const answer = exam.getByRole('textbox', { name: copy.StudyChatMessage });
 
     await answer.fill(draft);
@@ -678,7 +756,9 @@ test.browser.stable(
       hold: true
     });
 
-    await exam.getByRole('button', { name: copy.WrittenExamHint }).click();
+    const actions = await examActions(page, exam, copy);
+
+    await actions.getByRole('menuitem', { name: copy.WrittenExamHint }).click();
     await hint.called;
     await page.setViewportSize({ width: 620, height: 850 });
     await expect(page.locator('#study-sidebar-navigation')).toBeHidden();
@@ -697,12 +777,13 @@ test.browser.stable(
     });
     await expect(answer).toHaveValue(draft);
     await page.setViewportSize({ width: 620, height: 850 });
-    await exam.getByRole('button', { name: copy.WrittenExamExit, exact: true }).click();
+    await exam.getByRole('button', { name: copy.WrittenExamBack, exact: true }).click();
     await page
       .getByRole('dialog', { name: copy.WrittenExamExitTitle })
       .getByRole('button', { name: copy.WrittenExamExit, exact: true })
       .click();
     await expect(exam).toBeHidden();
+    await expect(page).toHaveURL(new RegExp(`/practice/${material.id}$`));
     await expect(
       page.getByRole('main').getByRole('button', { name: copy.ToggleSidebar })
     ).toBeFocused();
@@ -730,7 +811,7 @@ test.browser.describe('mobile browser', () => {
         exam,
         [cases.italian.incomplete, cases.italian.final]
       );
-      await exam.getByRole('button', { name: catalogs.italian.Close, exact: true }).tap();
+      await exam.getByRole('button', { name: catalogs.italian.WrittenExamBack }).tap();
       await expect(exam).toBeHidden();
       expect((await rpc.runPromise(rpc.client['settings.appSettings']({}))).zoomPercent).toBe(125);
       await expect(page.locator('html')).toHaveCSS('zoom', '1');

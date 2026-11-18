@@ -12,6 +12,7 @@ import {
   DIALOG_MOBILE_SHEET_CLASS,
   DIALOG_POPUP_CLASS
 } from './dialog-styles.ts';
+import { observeVisualViewport } from './visual-viewport';
 
 const ControlledOpenContext = createContext<boolean | undefined>(undefined);
 
@@ -89,37 +90,19 @@ const popupClasses = {
   identity: 'ui-identity-dialog',
   'notebook-editor': 'notebook-editor-dialog',
   'workspace-context': 'note-context-dialog',
-  'practice-generation': 'study-generation-dialog',
-  'practice-exam': 'study-exam-dialog'
+  'practice-generation': 'study-generation-dialog'
 } as const;
 
 /** Keep the mobile composer inside the visible viewport when the keyboard opens. */
 function fitVisibleViewport(element: HTMLDivElement | null): (() => void) | undefined {
-  const viewport = typeof window === 'undefined' ? undefined : window.visualViewport;
+  if (!element) return;
 
-  if (!element || !viewport) return undefined;
-
-  const measure = () => {
-    const zoom = Number.parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
-
+  return observeVisualViewport(element.ownerDocument.documentElement, (viewport, zoom) => {
     element.style.setProperty('--practice-viewport-height', `${viewport.height / zoom}px`);
     element.style.setProperty('--practice-viewport-top', `${viewport.offsetTop / zoom}px`);
     element.style.setProperty('--practice-viewport-width', `${viewport.width / zoom}px`);
     element.style.setProperty('--practice-viewport-left', `${viewport.offsetLeft / zoom}px`);
-  };
-
-  measure();
-  const observer = new ResizeObserver(measure);
-
-  observer.observe(document.documentElement);
-  viewport.addEventListener('resize', measure);
-  viewport.addEventListener('scroll', measure);
-
-  return () => {
-    observer.disconnect();
-    viewport.removeEventListener('resize', measure);
-    viewport.removeEventListener('scroll', measure);
-  };
+  });
 }
 
 const practiceViewport = {
@@ -135,8 +118,7 @@ const viewports = {
   identity: defaultViewport,
   'notebook-editor': defaultViewport,
   'workspace-context': defaultViewport,
-  'practice-generation': practiceViewport,
-  'practice-exam': practiceViewport
+  'practice-generation': practiceViewport
 } satisfies Record<keyof typeof popupClasses, unknown>;
 
 /** Composes the portal surface with the chosen size, backdrop and dismissal control. */
@@ -162,7 +144,6 @@ function DialogPopup({
     | 'identity'
     | 'workspace-context'
     | 'practice-generation'
-    | 'practice-exam'
     | 'notebook-editor';
 }) {
   return (

@@ -39,9 +39,9 @@ import {
   Settings,
   Textarea
 } from '@study/ui';
-import { useNavigate } from '@tanstack/react-router';
+import { useLocation, useNavigate, useRouter } from '@tanstack/react-router';
 import type { SetStateAction } from 'react';
-import { useState, useCallback, useId, useRef } from 'react';
+import { useState, useCallback, useEffect, useId, useRef } from 'react';
 
 import { AiActionButton as AiButton } from '#client/lib/ai-action-button.tsx';
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
@@ -54,8 +54,8 @@ import { GenerationWatcher } from './generation-watcher';
 import { QuizInputPicker } from './quiz-input-picker';
 import { useWrittenExamRequest } from './written-exam-request';
 import type { TrackExamRequest } from './written-exam-request';
-import { ExamExitConfirmation, WrittenExamSession } from './written-exam-session';
-import type { ExamOpening } from './written-exam-session';
+import { useWrittenExamOpening } from './written-exam-state';
+import type { ExamOpening } from './written-exam-state';
 
 export function QuizGenerationAction({
   projectId
@@ -74,71 +74,58 @@ export function PracticeGenerationAction({
   projectId?: ProjectId;
   disabled?: boolean;
 }) {
+  const inExam = useLocation({ select: ({ pathname }) => pathname === '/practice/written-exam' });
+
+  if (inExam) return null;
+
   return <GenerationDialog key={String(projectId)} projectId={projectId} disabled={disabled} />;
 }
 
 function useGenerationDialog() {
   const [open, setOpen] = useState(false);
-  const [exam, setExam] = useState<ExamOpening>();
-  const [examComplete, setExamComplete] = useState(false);
-  const [exitIntent, setExitIntent] = useState<'leave' | 'settings'>();
   const session = useRef(0);
   const request = useRef<AbortController | undefined>(undefined);
   const trigger = useRef<HTMLButtonElement>(null);
+  const launchHref = useRef<string | undefined>(undefined);
+  const router = useRouter();
   const instance = session.current;
-  const examActive = exam !== undefined && !examComplete;
-  const close = () => {
+  const close = useCallback(() => {
     session.current++;
     request.current?.abort();
     request.current = undefined;
+    launchHref.current = undefined;
     setOpen(false);
-    setExam(undefined);
-    setExamComplete(false);
-    setExitIntent(undefined);
-  };
-  const openExam = (value: ExamOpening) => {
-    if (session.current === instance) setExam(value);
-  };
-  const completeExam = () => {
-    if (session.current !== instance) return;
+  }, []);
 
-    setExamComplete(true);
-    setExitIntent(undefined);
-  };
-
-  const trackRequest = (controller: AbortController | undefined) => {
-    if (session.current === instance) request.current = controller;
-  };
-  const changeOpen = (next: boolean, event: { cancel: () => void }) => {
-    if (next) setOpen(true);
-    else if (examActive) {
-      event.cancel();
-      setExitIntent('leave');
-    } else close();
-  };
-
-  const closeAccepted = () => {
-    if (session.current === instance) close();
-  };
-  const showCloseButton = examActive || !exam;
-  const variant = exam ? 'practice-exam' : 'practice-generation';
+  useEffect(
+    () =>
+      router.subscribe('onBeforeNavigate', ({ hrefChanged }) => {
+        if (hrefChanged && launchHref.current !== undefined) close();
+      }),
+    [close, router]
+  );
 
   return {
     open,
     instance,
-    changeOpen,
-    trackRequest,
     trigger,
-    showCloseButton,
-    variant,
-    exam,
-    examActive,
-    close,
-    closeAccepted,
-    openExam,
-    completeExam,
-    exitIntent,
-    setExitIntent
+    changeOpen: (next: boolean) => {
+      if (next) {
+        launchHref.current = router.history.location.href;
+        setOpen(true);
+      } else close();
+    },
+    trackRequest: (controller: AbortController | undefined) => {
+      if (session.current === instance) request.current = controller;
+    },
+    closeAccepted: () => {
+      if (session.current !== instance || launchHref.current !== router.history.location.href)
+        return false;
+
+      close();
+
+      return true;
+    }
   } as const;
 }
 
@@ -155,19 +142,44 @@ function focusAfterGeneration(trigger: HTMLButtonElement | null) {
   );
 }
 
+function restoreLauncherFocus(launcher: 'inline' | 'sidebar') {
+  const trigger = document.querySelector<HTMLButtonElement>(
+    `button[data-written-exam-launcher="${launcher}"]`
+  );
+  const target = focusAfterGeneration(trigger);
+
+  if (target !== true) target.focus({ preventScroll: true });
+}
+
 function GenerationDialog({
   projectId,
   inline = false,
   disabled
 }: {
   projectId?: ProjectId;
-  title?: string;
   inline?: boolean;
   disabled?: boolean;
 }) {
   const { t } = useI18n();
   const navigate = useNavigate();
-  const action = inline ? 'PracticeGenerateFromPages' : 'PracticeGenerate';
+  const { setSession } = useWrittenExamOpening();
+  const origin = useLocation({ select: ({ href }) => href });
+  const enteringExam = useRef(false);
+  const appearance = inline
+    ? ({
+        launcher: 'inline',
+        size: 'default',
+        variant: 'outline',
+        action: 'PracticeGenerateFromPages'
+      } as const)
+    : ({
+        launcher: 'sidebar',
+        size: 'icon',
+        variant: 'ghost-muted',
+        action: 'PracticeGenerate'
+      } as const);
+  const label = t(appearance.action);
+  const triggerText = inline ? label : undefined;
   const dialog = useGenerationDialog();
   const [requests, setRequests] = useState<string[]>([]);
   const settled = useCallback(
@@ -175,75 +187,70 @@ function GenerationDialog({
     []
   );
 
+  const openExam = (opening: ExamOpening) => {
+    if (!dialog.closeAccepted()) return;
+
+    enteringExam.current = true;
+    setSession({
+      opening,
+      origin,
+      restoreFocus: () => restoreLauncherFocus(appearance.launcher)
+    });
+    void navigate({
+      to: '/practice/written-exam',
+      search: { project: String(opening.projectId) }
+    });
+  };
+
   return (
     <Dialog
       open={dialog.open}
-      disablePointerDismissal={dialog.examActive}
-      onOpenChange={dialog.changeOpen}
+      onOpenChange={(open) => {
+        if (open) enteringExam.current = false;
+
+        dialog.changeOpen(open);
+      }}
     >
       <DialogTrigger
         render={
           <AiButton
             ref={dialog.trigger}
+            data-written-exam-launcher={appearance.launcher}
             tier="medium"
             provider="configured-or-chatgpt"
-            size={inline ? 'default' : 'icon'}
-            variant={inline ? 'outline' : 'ghost-muted'}
-            label={t(action)}
+            size={appearance.size}
+            variant={appearance.variant}
+            label={label}
             disabled={disabled || projectId === undefined}
             disabledReason={projectId === undefined ? t('PracticeChooseSubject') : undefined}
             pending={requests.length > 0}
             workingLabel={t('QuizGenerating')}
           >
-            {inline && t(action)}
+            {triggerText}
           </AiButton>
         }
       />
       <DialogPopup
         keepMounted
-        finalFocus={() => focusAfterGeneration(dialog.trigger.current)}
-        closeLabel={t(dialog.examActive ? 'WrittenExamExit' : 'Close')}
-        showCloseButton={dialog.showCloseButton}
-        variant={dialog.variant}
+        finalFocus={() => !enteringExam.current && focusAfterGeneration(dialog.trigger.current)}
+        closeLabel={t('Close')}
+        variant="practice-generation"
         bottomStickOnMobile={false}
       >
-        {dialog.exam ? (
-          <WrittenExamSession
-            opening={dialog.exam}
-            completed={dialog.completeExam}
+        <DialogHeading title={t('PracticeGenerate')} description={t('PracticeGenerateHelp')} />
+        {dialog.open && (
+          <GenerationPanel
+            key={dialog.instance}
+            projectId={projectId}
+            accepted={(id) => {
+              setRequests((current) => [...current, id]);
+              dialog.closeAccepted();
+            }}
+            examOpened={openExam}
             trackRequest={dialog.trackRequest}
-            openSettings={() => dialog.setExitIntent('settings')}
-            leave={() => dialog.setExitIntent('leave')}
           />
-        ) : (
-          <>
-            <DialogHeading title={t('PracticeGenerate')} description={t('PracticeGenerateHelp')} />
-            {dialog.open && (
-              <GenerationPanel
-                key={dialog.instance}
-                projectId={projectId}
-                accepted={(id) => {
-                  setRequests((current) => [...current, id]);
-                  dialog.closeAccepted();
-                }}
-                examOpened={dialog.openExam}
-                trackRequest={dialog.trackRequest}
-              />
-            )}
-          </>
         )}
       </DialogPopup>
-      <ExamExitConfirmation
-        open={dialog.exitIntent !== undefined}
-        onOpenChange={(open) => {
-          if (!open) dialog.setExitIntent(undefined);
-        }}
-        exit={() => {
-          dialog.close();
-
-          if (dialog.exitIntent === 'settings') void navigate({ to: '/settings' });
-        }}
-      />
       {requests.map((id) => (
         <GenerationWatcher key={id} id={id} settled={settled} />
       ))}

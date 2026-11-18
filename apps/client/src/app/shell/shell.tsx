@@ -4,6 +4,7 @@ import { Outlet, useMatches, useSearch, useParams } from '@tanstack/react-router
 import type { Ref } from 'react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
+import { WrittenExamProvider } from '#client/features/practice/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 import { useNarrowLayout } from '#client/lib/viewport.ts';
 
@@ -179,6 +180,14 @@ function useNavigation(pathname: string, notebook: boolean, practice: boolean) {
 
 /** Selects the note layout from route metadata and composes the shared application shell. */
 export function Shell() {
+  return (
+    <WrittenExamProvider>
+      <ShellContent />
+    </WrittenExamProvider>
+  );
+}
+
+function ShellContent() {
   const { t } = useI18n();
   const matches = useMatches();
   const match = matches.at(-1);

@@ -6,8 +6,8 @@ import { useNativeAction } from '#client/lib/effect/native.ts';
 
 export type TrackExamRequest = (controller: AbortController | undefined) => void;
 
-/** Opening and follow-up requests share the dialog's cancellation lifecycle. */
-export function useWrittenExamRequest(track: TrackExamRequest) {
+/** Abort an exam request when its owning screen goes away. */
+export function useWrittenExamRequest(track?: TrackExamRequest) {
   const active = useRef<AbortController | undefined>(undefined);
   const action = useNativeAction(
     ({ input, signal }: { input: WrittenExamInput; signal: AbortSignal }) =>
@@ -22,7 +22,7 @@ export function useWrittenExamRequest(track: TrackExamRequest) {
     const controller = new AbortController();
 
     active.current = controller;
-    track(controller);
+    track?.(controller);
     action.reset();
 
     try {
@@ -33,7 +33,7 @@ export function useWrittenExamRequest(track: TrackExamRequest) {
       return undefined;
     } finally {
       active.current = undefined;
-      track(undefined);
+      track?.(undefined);
     }
   };
 

@@ -2039,6 +2039,7 @@ export const italian = Object.freeze({
   WrittenExamStartError:
     'Impossibile avviare l’interrogazione. Controlla le pagine selezionate e riprova.',
   WrittenExamHint: 'Chiedi un indizio',
+  WrittenExamActions: 'Azioni dell’interrogazione',
   WrittenExamHintRequest: 'Posso avere un indizio?',
   WrittenExamComposer: 'Spiegalo con parole tue…',
   WrittenExamExaminer: 'Professore',
@@ -2052,6 +2053,7 @@ export const italian = Object.freeze({
   WrittenExamNeedsReview: 'Cosa ripassare',
   WrittenExamFinish: 'Concludi',
   WrittenExamSubmitAndFinish: 'Invia e concludi',
+  WrittenExamBack: 'Torna agli esercizi',
   WrittenExamExit: 'Esci dall’interrogazione',
   WrittenExamExitTitle: 'Vuoi uscire dall’interrogazione?',
   WrittenExamExitHelp: 'Le risposte di questa sessione andranno perse.',
