@@ -489,6 +489,33 @@ test.browser.stable(
   }
 );
 
+test.browser.stable(
+  'A recognition result completed after cancellation cannot change the note',
+  async ({ page, rpc, microphone, expect }) => {
+    await rpc.runPromise(rpc.client['voice.install']({}));
+    await page.goto('/notes');
+    const composer = page.getByRole('textbox', { name: copy.NoteCompose });
+
+    await composer.fill('Keep this draft.');
+    const recording = await microphone.start(page, {
+      segments: { late: { text: 'Never add this text.', completeAfterAbort: true } }
+    });
+    const { late } = recording.segments;
+
+    await recording.stop();
+    await late.requested;
+    await recording.cancel();
+    await late.aborted;
+    await late.deliver();
+    await late.settled;
+    const replacement = await microphone.start(page, { segments: { final: 'Fresh speech.' } });
+
+    await replacement.stop();
+    await replacement.segments.final.deliver();
+    await expect(composer).toHaveValue('Keep this draft. Fresh speech.');
+  }
+);
+
 test.browser.describe('Practice dictation', () => {
   test.browser.use({ aiEnabled: true });
 

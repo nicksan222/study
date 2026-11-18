@@ -80,21 +80,36 @@ export function createVoiceMock() {
 
       return { called: held.called, aborted: held.aborted, release: held.release };
     },
-    next(outcome: { text: string } | { error: 'transient' }, options: { hold?: boolean } = {}) {
-      const operation = createControlledOperation((_: Input) => {
-        if ('error' in outcome)
-          throw new StudyError(outcome.error, 'Voice fixture inference failed');
+    next(
+      outcome: { text: string } | { error: 'transient' },
+      { hold, completeAfterAbort = false }: { hold?: boolean; completeAfterAbort?: boolean } = {}
+    ) {
+      const aborted = Promise.withResolvers<void>();
+      const settled = Promise.withResolvers<void>();
 
-        return outcome;
-      }, options);
+      const operation = createControlledOperation(
+        (_: Input) => {
+          if ('error' in outcome)
+            throw new StudyError(outcome.error, 'Voice fixture inference failed');
 
-      const plan = { consumed: false, execute: operation.run };
+          return outcome;
+        },
+        { hold, onSettled: () => settled.resolve() }
+      );
+      const plan = {
+        consumed: false,
+        execute: (input: Input, signal: AbortSignal) =>
+          completeAfterAbort
+            ? finishAfterAbort(signal, aborted.resolve, () => operation.run(input, lifetime.signal))
+            : operation.run(input, signal)
+      };
 
       plans.push(plan);
 
       return {
         called: operation.called,
-        aborted: operation.aborted,
+        aborted: completeAfterAbort ? aborted.promise : operation.aborted,
+        settled: settled.promise,
         release: operation.release,
         withdraw() {
           if (plan.consumed) return;
@@ -116,4 +131,20 @@ export function createVoiceMock() {
         throw new Error('Unused native voice inference expectation');
     }
   };
+}
+
+async function finishAfterAbort<T>(
+  signal: AbortSignal,
+  observeAbort: () => void,
+  perform: () => Promise<T>
+) {
+  signal.addEventListener('abort', observeAbort, { once: true });
+
+  try {
+    if (signal.aborted) observeAbort();
+
+    return await perform();
+  } finally {
+    signal.removeEventListener('abort', observeAbort);
+  }
 }

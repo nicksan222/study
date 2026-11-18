@@ -138,16 +138,18 @@ export const test = { browser: createBrowserTestApi(withTools) };
 
 type VoiceMock = ReturnType<typeof createVoiceMock>;
 
-type Transcript = string | Exclude<Parameters<VoiceMock['next']>[0], { text: string }>;
+type Transcript = string | { error: 'transient' } | { text: string; completeAfterAbort: true };
 
 function expectSegment(voice: VoiceMock, outcome: Transcript) {
   const response = voice.next(typeof outcome === 'string' ? { text: outcome } : outcome, {
-    hold: true
+    hold: true,
+    completeAfterAbort: typeof outcome === 'object' && 'completeAfterAbort' in outcome
   });
 
   return {
     requested: response.called,
     aborted: response.aborted,
+    settled: response.settled,
     withdraw: response.withdraw,
     async deliver() {
       const input = await response.called;
