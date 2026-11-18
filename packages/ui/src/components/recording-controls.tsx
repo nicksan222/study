@@ -61,12 +61,12 @@ export function RecordingFeedback({
 }
 
 function RecordingTime({ label }: { label: string }) {
-  const [started] = useState(Date.now);
+  const [started] = useState(() => performance.now());
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setElapsed(Math.max(0, Math.floor((Date.now() - started) / 1000)));
+      setElapsed(Math.max(0, Math.floor((performance.now() - started) / 1000)));
     }, 250);
 
     return () => clearInterval(timer);
